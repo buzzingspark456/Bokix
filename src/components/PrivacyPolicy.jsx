@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
-import { ShieldCheck } from './icons';
 import { PolicyLayout, PolicySection, PolicyTable, policyP, policyLi, policyUl } from './marketing/PolicyLayout';
-import { ACCENT } from './marketing/marketingTokens';
+import { INK } from './marketing/marketingTokens';
 
 // JURIDISKT UTKAST, INTE GRANSKAT — en jurist måste läsa igenom och
 // godkänna innehållet innan sidan går live.
@@ -14,19 +13,16 @@ import { ACCENT } from './marketing/marketingTokens';
 // Avsnitt 10 länkar till det fullständiga PUB-avtalet på /pub
 // (PersonuppgiftsBitradesAvtal.jsx) — samma "utkast, ej granskat"-status.
 
-const link = { color: ACCENT.green.fg, fontWeight: 600 };
+const link = { color: INK, fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: '3px' };
 
 export default function PrivacyPolicy() {
   return (
     <PolicyLayout
-      icon={ShieldCheck}
       title="Integritetspolicy"
-      accent={ACCENT.blue}
       path="/privacy"
-      updated="2026-09-20"
+      updated="2026-09-29"
       metaTitle="Integritetspolicy | Bokix"
       metaDescription="Vilken personuppgiftsinformation Bokix samlar in, varför, hur länge den sparas och vilka rättigheter du har enligt GDPR."
-      intro="Vilken personuppgiftsinformation vi samlar in när du använder tjänsten, varför, hur länge den sparas, och vilka rättigheter du har enligt EU:s dataskyddsförordning (GDPR)."
     >
       <PolicySection n={1} title="Personuppgiftsansvarig" first>
         <p style={policyP}>
@@ -43,10 +39,12 @@ export default function PrivacyPolicy() {
           head={['Kategori', 'Exempel', 'Varifrån']}
           rows={[
             ['Kontouppgifter', 'Namn, e-postadress, lösenord (lagras hashat, aldrig i klartext)', 'Du, vid registrering'],
-            ['Företagsuppgifter', 'Företagsnamn, organisationsnummer, adress, momsregistreringsnummer', 'Du, vid företagsuppsättning'],
-            ['Bokföringsdata', 'Verifikationer, fakturor, kvitton, leverantörsuppgifter, kontoplan', 'Du, löpande i tjänsten'],
+            ['Företagsuppgifter', 'Företagsnamn, organisationsnummer, adress, momsregistreringsnummer, räkenskapsår', 'Du, samt offentliga register (Bolagsverket via FöretagsAPI och EU:s momsregister VIES) när du söker upp ett företag'],
+            ['Bokföringsdata', 'Verifikationer, fakturor, kvitton, kund- och leverantörsuppgifter, kontoplan', 'Du, löpande i tjänsten'],
             ['Personaluppgifter (lönemodulen)', 'Anställdas namn, personnummer, lön, skattetabell, bankkontonummer', 'Du, vid registrering av anställda'],
-            ['Betalningsuppgifter', 'Kortuppgifter hanteras aldrig av oss direkt — de går genom Stripe (se avsnitt 4)', 'Stripe'],
+            ['Kassaförsäljning', 'Försäljningar från din Zettle-kassa: belopp, moms, datum och betalsätt', 'Zettle, bara om du själv kopplat det'],
+            ['Kontaktformuläret', 'Namn, e-postadress och ditt meddelande', 'Du, när du skriver till oss'],
+            ['Betalningsuppgifter', 'Kortuppgifter hanteras aldrig av oss direkt, de går genom Stripe (se avsnitt 4)', 'Stripe'],
             ['Teknisk data', 'IP-adress, webbläsartyp, tidsstämplar för inloggning (säkerhet och felsökning)', 'Automatiskt'],
           ]}
         />
@@ -57,7 +55,7 @@ export default function PrivacyPolicy() {
           <li style={policyLi}><strong>Fullgörande av avtal</strong> — för att kunna leverera bokförings-, fakturerings- och löneverktyget du registrerat dig för (kontouppgifter, företagsuppgifter, bokföringsdata).</li>
           <li style={policyLi}><strong>Rättslig förpliktelse</strong> — bokföringsdata du själv skapar i tjänsten omfattas av bokföringslagens krav på arkivering; vi raderar aldrig bokföringsdata i förtid enbart för att du säger upp kontot.</li>
           <li style={policyLi}><strong>Berättigat intresse</strong> — teknisk data (IP, tidsstämplar) för att upptäcka missbruk, felsöka driftsproblem och hålla tjänsten säker.</li>
-          <li style={policyLi}><strong>Samtycke</strong> — om du väljer att koppla på integrationer (t.ex. Stripe för kortbetalningar) behandlas ytterligare uppgifter först när du aktivt ansluter dem, och du kan koppla från när du vill.</li>
+          <li style={policyLi}><strong>Samtycke</strong> — om du väljer att koppla på integrationer (t.ex. Stripe för kortbetalningar, Zettle för kassan eller din egen e-post som avsändare) behandlas ytterligare uppgifter först när du aktivt ansluter dem, och du kan koppla från när du vill.</li>
         </ul>
       </PolicySection>
 
@@ -66,9 +64,12 @@ export default function PrivacyPolicy() {
         <ul style={policyUl}>
           <li style={policyLi}><strong>Supabase</strong> — databas- och autentiseringsleverantör. All bokförings- och kontodata, inklusive de kvitton och underlag du laddar upp, lagras hos Supabase på våra vägnar i ett datacenter inom EU (Frankfurt, Tyskland).</li>
           <li style={policyLi}><strong>Stripe</strong> — betalningsleverantör, används om du ansluter kortbetalningar för dina egna kundfakturor. Kortuppgifter går direkt till Stripe och passerar aldrig våra servrar. Stripe behandlar även dina egna kontouppgifter (namn, e-post) för Bokix egen prenumerationsfakturering.</li>
-          <li style={policyLi}><strong>Resend</strong> — e-postleverantör. Skickar fakturor och offerter du väljer att mejla till dina kunder (mottagarens adress, ämnesrad, innehåll och eventuell PDF-bilaga går genom Resend).</li>
+          <li style={policyLi}><strong>Resend</strong> — e-postleverantör. Skickar tjänstens egna mejl till dig (till exempel påminnelser och besked om ditt konto) och de fakturor och offerter du väljer att mejla till dina kunder via Bokix (mottagarens adress, ämnesrad, innehåll och eventuell PDF-bilaga går genom Resend).</li>
           <li style={policyLi}><strong>Vercel</strong> — driftar och hostar hela tjänsten (webbappen och de serverfunktioner som hanterar t.ex. betalningar och e-post). All trafik till Bokix passerar genom Vercels infrastruktur.</li>
           <li style={policyLi}><strong>Vercel BotID</strong> — automatiserad bot-/missbruksdetektering på formulär (t.ex. registrering), en del av Vercel-plattformen ovan.</li>
+          <li style={policyLi}><strong>Google reCAPTCHA</strong> — kontrollerar på kontaktformuläret att det är en människa som skickar. Google får då teknisk information om din webbläsare och ditt besök.</li>
+          <li style={policyLi}><strong>FöretagsAPI och VIES</strong> — när du söker upp ett företag (ditt eget, en kund eller en leverantör) skickas organisations- eller momsnumret dit för att hämta namn och adress ur offentliga register. Inget annat skickas.</li>
+          <li style={policyLi}><strong>Zettle</strong> — <em>endast om du själv kopplar din Zettle-kassa</em>. Bokix hämtar då dina försäljningar därifrån för att bokföra dem. Du kan koppla från när du vill under Inställningar.</li>
           <li style={policyLi}><strong>Analysverktyg, bara med ditt samtycke</strong> — Google Analytics (Google), Microsoft Clarity (Microsoft) och PostHog mäter hur besökare använder Bokix och sätts först efter att du klickat "Acceptera alla" i cookiebannern. PostHog körs i EU-molnet (Frankfurt) och används bara för att räkna sidvisningar. Ingen bokföringsdata, inga kunduppgifter och inga klick eller inmatningar skickas dit. Exakt vilka cookies som sätts står i <a href="/cookies" style={link}>cookiepolicyn</a>.</li>
           <li style={policyLi}><strong>Google</strong> — <em>endast om du själv väljer att koppla din Gmail-adress som avsändare</em> (Inställningar → Fakturautskick). Fakturan skickas då genom ditt eget Google-konto i stället för via Bokix. Se avsnitt 5 nedan för exakt vad det innebär.</li>
         </ul>
@@ -106,14 +107,17 @@ export default function PrivacyPolicy() {
           Själva lagringen av din bokföring — databasen och de filer du laddar upp — sker inom EU, i Frankfurt, Tyskland (se avsnitt 4). Kopplar du din egen Gmail-adress (avsnitt 5) hanteras det utskicket av Google, ett amerikanskt bolag, på samma villkor som övriga leverantörer nedan.
         </p>
         <p style={policyP}>
-          Flera av underleverantörerna i avsnitt 4 (bland annat Stripe, Resend, Vercel och analysverktygen) är amerikanska bolag och kan behandla uppgifter i, eller från, USA. När det sker gör vi det bara med ett giltigt överföringsverktyg på plats — till exempel att leverantören är ansluten till EU-U.S. Data Privacy Framework, eller att vi har standardavtalsklausuler (SCC) med dem — i enlighet med respektive leverantörs egna dataskyddsvillkor. Vill du se vilket verktyg som gäller för en specifik leverantör, kontakta oss på <a href="mailto:support@bokix.se" style={link}>support@bokix.se</a>.
+          Flera av underleverantörerna i avsnitt 4 (bland annat Stripe, Resend, Vercel, Google reCAPTCHA och analysverktygen) är amerikanska bolag och kan behandla uppgifter i, eller från, USA. När det sker gör vi det bara med ett giltigt överföringsverktyg på plats — till exempel att leverantören är ansluten till EU-U.S. Data Privacy Framework, eller att vi har standardavtalsklausuler (SCC) med dem — i enlighet med respektive leverantörs egna dataskyddsvillkor. Vill du se vilket verktyg som gäller för en specifik leverantör, kontakta oss på <a href="mailto:support@bokix.se" style={link}>support@bokix.se</a>.
         </p>
       </PolicySection>
 
       <PolicySection n={7} title="Hur länge vi sparar uppgifterna">
         <ul style={policyUl}>
           <li style={policyLi}>Kontouppgifter sparas så länge du har ett aktivt konto, och raderas eller anonymiseras inom rimlig tid efter att kontot avslutats.</li>
-          <li style={policyLi}>Bokföringsdata (verifikationer, fakturor, kvitton) sparas till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades, i enlighet med bokföringslagens arkiveringskrav (7 kap. 2 § BFL) — även om du säger upp kontot.</li>
+          <li style={policyLi}>Bokföringsdata (verifikationer, fakturor, kvitton) sparas till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades, i enlighet med bokföringslagens arkiveringskrav (7 kap. 2 § BFL), även om du säger upp kontot eller raderar ett företag. Det som sparas då är bara det lagen kräver, i ett stängt arkiv som bara våra servrar når. Utkast, oanvända kontakter och annat som inte är räkenskapsinformation sparas inte i arkivet.</li>
+          <li style={policyLi}>Säkerhetskopior: varje natt tas en kopia av kontot, som sparas i 14 dagar. En månadskopia av det bokförda sparas lika länge som arkivet ovan.</li>
+          <li style={policyLi}>Ett UF-konto stängs när UF-året är avslutat. Bokföringen sparas ändå i arkivet i sju år, som för alla andra.</li>
+          <li style={policyLi}>Meddelanden via kontaktformuläret raderas automatiskt ett år efter att de skickades.</li>
           <li style={policyLi}>Teknisk logg-data sparas kortare tid, normalt några veckor, och används enbart för drift och säkerhet.</li>
           <li style={policyLi}>Uppladdade filer (kvitton, underlag, logotyper) som ingen post i tjänsten längre hänvisar till raderas automatiskt efter sju dagar, av ett jobb som körs varje dygn.</li>
           <li style={policyLi}>Ett konto som skapats men aldrig aktiverats — registreringen avbröts före betalsteget — raderas automatiskt efter 30 dagar, inklusive de företags- och kontaktuppgifter som hunnit fyllas i.</li>
@@ -123,7 +127,7 @@ export default function PrivacyPolicy() {
       <PolicySection n={8} title="Dina rättigheter">
         <p style={policyP}>Enligt GDPR har du rätt att:</p>
         <ul style={policyUl}>
-          <li style={policyLi}>Få ett utdrag av vilka uppgifter vi har om dig (du kan även exportera all din data direkt i appen under Inställningar → Data och Inställningar).</li>
+          <li style={policyLi}>Få ett utdrag av vilka uppgifter vi har om dig (du kan även exportera all din data direkt i appen under Inställningar → Avancerat → Exportera).</li>
           <li style={policyLi}>Få felaktiga uppgifter rättade.</li>
           <li style={policyLi}>Begära radering av dina uppgifter, med undantag för sådant vi är skyldiga att bevara enligt bokföringslagen.</li>
           <li style={policyLi}>Invända mot eller begära begränsning av viss behandling.</li>
@@ -135,6 +139,9 @@ export default function PrivacyPolicy() {
       <PolicySection n={9} title="Säkerhet">
         <p style={policyP}>
           Lösenord lagras aldrig i klartext. Data överförs krypterat (HTTPS/TLS). Åtkomst till din bokföringsdata skyddas av behörighetskontroller på databasnivå (Row Level Security) så att endast du kan läsa och skriva din egen data.
+        </p>
+        <p style={policyP}>
+          Du kan slå på tvåstegsverifiering för ditt konto under Inställningar → Säkerhet. Lösenord och nycklar till din egen e-post (avsnitt 5) lagras krypterade och kan bara läsas av våra servrar. Texten på kvitton du fotograferar läses av direkt i din webbläsare, så bilden skickas inte till någon extern tjänst för avläsning.
         </p>
       </PolicySection>
 

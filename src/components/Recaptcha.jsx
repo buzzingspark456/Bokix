@@ -24,7 +24,8 @@ import React, { forwardRef, useEffect, useId, useImperativeHandle, useRef } from
 // VITE_-prefixad är okej) OCH RECAPTCHA_SECRET_KEY (HEMLIG, ALDRIG
 // VITE_-prefixad — se api/_recaptcha.js som faktiskt verifierar token:en
 // server-side mot Google).
-const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+// I Vercel heter nyckeln VITE_RECAPTCHA_SITE (utan _KEY), så båda läses.
+const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || import.meta.env.VITE_RECAPTCHA_SITE;
 
 let scriptLoadPromise = null;
 function loadRecaptchaScript() {

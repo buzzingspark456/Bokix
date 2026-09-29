@@ -1,14 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import MarketingLayout, { Reveal, FOOTER_LEGAL } from './MarketingLayout';
-import { SERIF, INK, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from './marketingTokens';
-import { AuroraLayer } from './aurora';
+import { SERIF, INK, INK_SOFT, MUTED, CARD_BORDER } from './marketingTokens';
 import { PageMeta } from '../../utils/seo';
 
-// Shared shell for the four legal pages (Privacy/Terms/Cookies/PUB) —
-// same header/footer/dark-mode as the rest of the marketing site instead
-// of a standalone white page, and one signature accent color per page
-// instead of the flat gray they had before.
+// Delat skal för de fyra juridiksidorna (Privacy/Terms/Cookies/PUB), med
+// samma sidhuvud, sidfot och mörka läge som resten av marknadssajten.
+// Helt vitt och utan färger eller ikoner (kundönskemål 2026-09-29).
 
 // Länkarna till de andra policysidorna kommer från sidfotens egen lista
 // (MarketingLayout.jsx) — se kommentaren där.
@@ -25,30 +23,25 @@ function formatUpdated(iso) {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-export function PolicyLayout({ icon: Icon, title, intro, accent, path, metaTitle, metaDescription, updated, children }) {
+export function PolicyLayout({ title, path, metaTitle, metaDescription, updated, children }) {
   return (
     <MarketingLayout>
       <PageMeta title={metaTitle} description={metaDescription} path={path} />
 
-      <section style={{ padding: '150px 24px 56px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer
-          stops={[[`color-mix(in srgb, ${accent.fg} 18%, transparent)`, '6% -8%'], ['rgba(14,165,233,0.10)', '96% 106%']]}
-        />
-        <Reveal style={{ maxWidth: '680px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <div style={{ width: 56, height: 56, borderRadius: '16px', background: accent.soft, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-            <Icon size={26} color={accent.fg} />
-          </div>
+      {/* Vit, lugn topp (kundönskemål 2026-09-29): ingen färgyta, ingen
+          ikon och ingen ingress. Rubriken och datumet räcker. */}
+      <section style={{ padding: '140px 24px 64px', background: 'var(--mkt-page-bg)', borderBottom: '1px solid var(--mkt-border-soft)' }}>
+        <Reveal style={{ maxWidth: '680px', margin: '0 auto', textAlign: 'center' }}>
           <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 5vw, 48px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '10px' }}>{title}</h1>
-          <p style={{ fontSize: '13.5px', color: MUTED, marginBottom: intro ? '20px' : 0 }}>
+          <p style={{ fontSize: '13.5px', color: INK_SOFT, margin: 0 }}>
             Senast uppdaterad: <time dateTime={updated}>{formatUpdated(updated)}</time>
           </p>
-          {intro && <p style={{ fontSize: '16.5px', color: 'var(--mkt-ink-soft)', lineHeight: 1.7 }}>{intro}</p>}
         </Reveal>
       </section>
 
-      <section style={{ padding: '0 24px 100px', background: 'var(--mkt-page-bg)' }}>
-        <Reveal scale style={{ maxWidth: 'min(88vw, 820px)', margin: '0 auto' }}>
-          <div style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '24px', padding: 'clamp(26px, 5vw, 56px)', boxShadow: CARD_SHADOW }}>
+      <section style={{ padding: '48px 24px 100px', background: 'var(--mkt-page-bg)' }}>
+        <div style={{ maxWidth: '760px', margin: '0 auto' }}>
+          <div>
             {children}
           </div>
 
@@ -60,7 +53,7 @@ export function PolicyLayout({ icon: Icon, title, intro, accent, path, metaTitle
               ))}
             </div>
           </div>
-        </Reveal>
+        </div>
       </section>
     </MarketingLayout>
   );
@@ -69,11 +62,8 @@ export function PolicyLayout({ icon: Icon, title, intro, accent, path, metaTitle
 export function PolicySection({ n, title, first, children }) {
   return (
     <div style={{ marginTop: first ? 0 : '40px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-        <span style={{ width: 30, height: 30, borderRadius: '9px', background: 'var(--mkt-ivory)', color: INK, fontSize: '13px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{n}</span>
-        <h2 style={{ fontSize: '19px', fontWeight: 700, color: INK, margin: 0 }}>{title}</h2>
-      </div>
-      <div style={{ paddingLeft: '42px' }}>{children}</div>
+      <h2 style={{ fontSize: '19px', fontWeight: 700, color: INK, margin: '0 0 14px' }}>{n}. {title}</h2>
+      <div>{children}</div>
     </div>
   );
 }
@@ -87,7 +77,7 @@ export function PolicyTable({ head, rows }) {
     <div style={{ overflowX: 'auto', margin: '14px 0 20px' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px', minWidth: '480px' }}>
         <thead>
-          <tr>{head.map((h) => <th key={h} style={{ textAlign: 'left', padding: '9px 12px', background: 'var(--mkt-ivory)', color: INK, fontWeight: 700, borderBottom: `2px solid ${CARD_BORDER}` }}>{h}</th>)}</tr>
+          <tr>{head.map((h) => <th key={h} style={{ textAlign: 'left', padding: '9px 12px', color: INK, fontWeight: 700, borderBottom: `2px solid ${CARD_BORDER}` }}>{h}</th>)}</tr>
         </thead>
         <tbody>
           {rows.map((row, i) => (
@@ -103,11 +93,11 @@ export function PolicyCode({ children }) {
   return <code style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '12.5px', background: 'var(--mkt-ivory)', padding: '2px 6px', borderRadius: '4px', color: INK }}>{children}</code>;
 }
 
-export function PolicyCallout({ tone = 'good', children }) {
-  const color = tone === 'good' ? ACCENT.green : ACCENT.red;
+// Neutral ruta utan färg (kundönskemål 2026-09-29).
+export function PolicyCallout({ children }) {
   return (
-    <div style={{ margin: '16px 0', padding: '16px 20px', background: color.soft, border: `1px solid color-mix(in srgb, ${color.fg} 30%, transparent)`, borderRadius: '14px' }}>
-      <p style={{ margin: 0, lineHeight: 1.75, color: color.fg, fontSize: '14.5px', fontWeight: 600 }}>{children}</p>
+    <div style={{ margin: '16px 0', padding: '2px 0 2px 18px', borderLeft: `3px solid ${INK}` }}>
+      <p style={{ margin: 0, lineHeight: 1.75, color: INK, fontSize: '15px', fontWeight: 600 }}>{children}</p>
     </div>
   );
 }

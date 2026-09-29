@@ -39,11 +39,11 @@ test.describe('Kontaktformulär (/kontakt)', () => {
 
     await page.fill('#contact-name', 'Test Testsson');
     await page.fill('#contact-email', 'test@example.com');
-    await page.getByRole('button', { name: 'Säkerhet & integritet' }).click();
+    await page.selectOption('#contact-topic', 'Säkerhet & integritet');
     await page.fill('#contact-message', 'Det här är ett automatiserat Playwright-test.');
-    await page.getByRole('button', { name: 'Skicka meddelande' }).click();
+    await page.getByRole('button', { name: 'Skicka', exact: true }).click();
 
-    await expect(page.getByText('Meddelandet är skickat')).toBeVisible();
+    await expect(page.getByText('Tack, vi har fått ditt meddelande')).toBeVisible();
 
     expect(capturedRequest).toMatchObject({
       name: 'Test Testsson',
@@ -66,7 +66,7 @@ test.describe('Kontaktformulär (/kontakt)', () => {
     await page.fill('#contact-name', 'Test Testsson');
     await page.fill('#contact-email', 'test@example.com');
     await page.fill('#contact-message', 'Test.');
-    await page.getByRole('button', { name: 'Skicka meddelande' }).click();
+    await page.getByRole('button', { name: 'Skicka', exact: true }).click();
 
     await expect(page.getByText('För många försök. Vänta en stund och försök igen.')).toBeVisible();
   });

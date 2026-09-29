@@ -1,41 +1,40 @@
-﻿import React, { useRef, useState } from 'react';
-import { Mail, LifeBuoy, CreditCard, ShieldCheck, CheckCircle2, AlertCircle, Loader2 } from '../icons';
+import React, { useRef, useState } from 'react';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
-import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT_CYCLE } from './marketingTokens';
-import { GRAD, grad, AuroraLayer } from './aurora';
+import { SERIF, INK, INK_SOFT, CARD_BORDER } from './marketingTokens';
 import { PageMeta } from '../../utils/seo';
 import Recaptcha from '../Recaptcha';
 
-// Ämnesval i formuläret — samma tre ärendetyper som tidigare bara var
-// mailto-genvägar, nu förifyllda dropdown-värden istället. "Övrigt" täcker
-// allt som inte passar in i de tre.
+// Ämnen i formuläret. `value` måste finnas i ALLOWED_TOPICS i api/contact.js,
+// annars sparas meddelandet som "Övrigt". `label` är det besökaren ser.
 const TOPICS = [
-  { icon: LifeBuoy, value: 'Support', desc: 'Tekniska frågor, buggar, eller hjälp att komma igång.' },
-  { icon: CreditCard, value: 'Fakturering & pris', desc: 'Frågor om din prenumeration, betalning eller uppsägning.' },
-  { icon: ShieldCheck, value: 'Säkerhet & integritet', desc: 'Frågor om GDPR, dina rättigheter eller hur din data hanteras.' },
-  { icon: Mail, value: 'Övrigt', desc: 'Något annat vi kan hjälpa till med.' },
+  { value: 'Support', label: 'Hjälp med Bokix' },
+  { value: 'Felrapport', label: 'Något fungerar inte' },
+  { value: 'Fakturering & pris', label: 'Prenumeration och betalning' },
+  { value: 'Säkerhet & integritet', label: 'Personuppgifter och säkerhet' },
+  { value: 'Övrigt', label: 'Något annat' },
 ];
 
 const inputStyle = {
   display: 'block',
   width: '100%',
+  boxSizing: 'border-box',
   padding: '12px 14px',
-  fontSize: '14.5px',
+  fontSize: '15px',
   fontFamily: 'inherit',
   color: INK,
-  background: 'var(--mkt-card-bg)',
+  background: 'var(--mkt-page-bg)',
   border: `1.5px solid ${CARD_BORDER}`,
   borderRadius: '10px',
   outline: 'none',
-  transition: 'border-color 0.15s, box-shadow 0.15s',
+  transition: 'border-color 0.15s',
 };
 
 const labelStyle = {
   display: 'block',
-  fontSize: '13px',
-  fontWeight: 700,
-  color: INK_SOFT,
+  fontSize: '13.5px',
+  fontWeight: 600,
+  color: INK,
   marginBottom: '7px',
 };
 
@@ -56,26 +55,20 @@ export default function ContactPage() {
     const name = form.name.trim();
     const email = form.email.trim();
     const message = form.message.trim();
-    // Inget eget "fyll i"-kontrollmeddelande här längre — fälten är redan
-    // markerade required och formuläret har inte noValidate, så webbläsarens
-    // egen inbyggda valideringsbubbla stoppar submit innan den ens når hit.
+    // Fälten är required och formuläret har inte noValidate, så webbläsarens
+    // egen valideringsbubbla stoppar submit innan den ens når hit.
 
     setStatus('sending');
     setErrorMsg('');
     try {
-      // Kör reCAPTCHA-utmaningen precis innan utskicket, inte tidigare —
-      // "invisible" v2 har ingen synlig knapp att lösa i förväg, den körs
-      // programmatiskt här och löser (oftast) direkt utan att besökaren
-      // märker något. Returnerar `null` om reCAPTCHA inte är konfigurerat
-      // (se Recaptcha.jsx) — servern hoppar då över verifieringen på samma
-      // sätt, ingen `if` behövs här för det fallet.
+      // Kör reCAPTCHA-utmaningen precis innan utskicket. "Invisible" v2 har
+      // ingen synlig knapp och löser (oftast) direkt. Returnerar `null` om
+      // reCAPTCHA inte är konfigurerat (se Recaptcha.jsx).
       const recaptchaToken = await recaptchaRef.current?.execute();
 
-      // Egen rutt (api/contact.js), INTE /api/email/send-invoice — den
-      // kräver inloggad session + company_id (se requireAuthedUser i
-      // _auth.js), vilket en anonym besökare här aldrig har. Skickar bara
-      // de rena formulärfälten — mottagare och e-postens HTML byggs på
-      // servern, inte klienten (se motsvarande kommentar i api/contact.js).
+      // Egen rutt (api/contact.js), INTE /api/email/send-invoice: den kräver
+      // inloggad session, vilket en anonym besökare aldrig har. Mottagare och
+      // e-postens HTML byggs på servern.
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -90,9 +83,8 @@ export default function ContactPage() {
       setStatus('error');
       setErrorMsg(err.message || 'Något gick fel. Försök igen om en stund.');
     } finally {
-      // En reCAPTCHA-token är engångsbruk — utan reset() skulle ett andra
-      // försök (t.ex. efter ett fel) skicka samma redan förbrukade token
-      // igen och alltid misslyckas verifieringen.
+      // En reCAPTCHA-token är engångsbruk; utan reset() skulle ett andra
+      // försök skicka samma förbrukade token och alltid misslyckas.
       recaptchaRef.current?.reset();
     }
   }
@@ -105,71 +97,37 @@ export default function ContactPage() {
         path="/kontakt"
       />
       <style>{`
-        .contact-input:focus { border-color: ${BRAND.green} !important; box-shadow: 0 0 0 3px ${BRAND.greenLight} !important; }
-        .contact-topic-btn { transition: all 0.15s; cursor: pointer; }
-        .contact-topic-btn:hover { border-color: ${BRAND.green} !important; }
-        .contact-submit-btn:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 8px 25px -5px rgba(11,99,41,0.4); }
-        .contact-submit-btn:disabled { opacity: 0.65; cursor: not-allowed; }
-        @keyframes contactSpin { to { transform: rotate(360deg); } }
-        .contact-spin { animation: contactSpin 0.8s linear infinite; }
-        @media (max-width: 860px) {
-          .contact-layout-grid { grid-template-columns: 1fr !important; }
-        }
+        .ct-wrap { max-width: 620px; margin: 0 auto; }
+        .ct-a { color: ${INK}; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+        .contact-input:focus { border-color: ${INK} !important; }
+        .contact-submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
       `}</style>
 
-      <section style={{ padding: '150px 24px 44px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer
-          stops={[['rgba(14,165,233,0.18)', '96% -8%'], ['rgba(47,138,58,0.14)', '2% 108%']]}
-          blob={{ gradient: grad(GRAD.blueTeal), top: '-160px', right: '-110px', left: 'auto', size: '440px', opacity: 0.2 }}
-        />
-        <Reveal style={{ maxWidth: '720px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(36px, 5.5vw, 56px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '18px', lineHeight: 1.14 }}>
+      {/* Samma vita, lugna stil som policysidorna (kundönskemål 2026-09-29):
+          inga ikoner, inga toningar, inga färgade ämnesknappar. */}
+      <section style={{ padding: '140px 24px 56px', background: 'var(--mkt-page-bg)', borderBottom: '1px solid var(--mkt-border-soft)' }}>
+        <Reveal style={{ maxWidth: '640px', margin: '0 auto', textAlign: 'center' }}>
+          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(34px, 5vw, 50px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, margin: 0, lineHeight: 1.12 }}>
             Kontakta oss
           </h1>
         </Reveal>
       </section>
 
-      <section style={{ padding: '20px 24px 120px', background: 'var(--mkt-page-bg)', position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer
-          stops={[['rgba(20,184,166,0.12)', '4% 100%'], ['rgba(132,204,22,0.12)', '96% 0%']]}
-        />
-        <div style={{ maxWidth: 'min(92vw, 1100px)', margin: '0 auto', display: 'grid', gridTemplateColumns: 'minmax(260px, 380px) 1fr', gap: '40px', alignItems: 'start', position: 'relative' }} className="contact-layout-grid">
-
-          <Reveal style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            {TOPICS.map((t) => {
-              return (
-                <div key={t.value} style={{ paddingLeft: '14px', borderLeft: '2px solid var(--mkt-border-soft)' }}>
-                  <div>
-                    <div style={{ fontSize: '15px', fontWeight: 700, color: INK, marginBottom: '3px' }}>{t.value}</div>
-                    <div style={{ fontSize: '13.5px', color: MUTED, lineHeight: 1.55 }}>{t.desc}</div>
-                  </div>
-                </div>
-              );
-            })}
-            <div style={{ marginTop: '10px', paddingTop: '20px', borderTop: `1px solid ${CARD_BORDER}` }}>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>Eller mejla direkt</div>
-              <a href="mailto:support@bokix.se" style={{ fontSize: '15.5px', fontWeight: 700, color: BRAND.green, textDecoration: 'none' }}>support@bokix.se</a>
-            </div>
-          </Reveal>
-
-          <Reveal scale delay={80} style={{ position: 'relative' }}>
-          <div style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', padding: 'clamp(24px, 5vw, 40px)', boxShadow: CARD_SHADOW }}>
+      <section style={{ padding: '48px 24px 110px', background: 'var(--mkt-page-bg)' }}>
+        <div className="ct-wrap">
+          <div>
             {status === 'sent' ? (
-              <div style={{ textAlign: 'center', padding: '30px 10px' }}>
-                <div style={{ width: 56, height: 56, borderRadius: '50%', background: BRAND.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
-                  <CheckCircle2 size={28} color={BRAND.greenDark} />
-                </div>
-                <h2 style={{ fontFamily: SERIF, fontSize: '20px', fontWeight: 700, color: INK, marginBottom: '8px' }}>Meddelandet är skickat</h2>
-                <p style={{ fontSize: '14.5px', color: MUTED, lineHeight: 1.6, marginBottom: '22px' }}>
-                  Tack! Vi hör av oss till dig på din e-postadress så snart vi kan.
+              <div>
+                <h2 style={{ fontFamily: SERIF, fontSize: '24px', fontWeight: 700, color: INK, margin: '0 0 10px' }}>Tack, vi har fått ditt meddelande</h2>
+                <p style={{ fontSize: '15px', color: INK_SOFT, lineHeight: 1.65, margin: '0 0 22px' }}>
+                  Vi svarar till e-postadressen du angav så snart vi kan.
                 </p>
                 <button
                   type="button"
                   onClick={() => setStatus('idle')}
-                  className="lp-btn-secondary"
-                  style={{ padding: '10px 20px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '10px', fontWeight: 700, fontSize: '13.5px', color: INK_SOFT, cursor: 'pointer' }}
+                  style={{ padding: '11px 20px', background: 'transparent', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '10px', fontWeight: 600, fontSize: '14px', color: INK, cursor: 'pointer', fontFamily: 'inherit' }}
                 >
-                  Skicka ett till meddelande
+                  Skriv ett nytt meddelande
                 </button>
               </div>
             ) : (
@@ -179,93 +137,64 @@ export default function ContactPage() {
                     <label style={labelStyle} htmlFor="contact-name">Namn</label>
                     <input
                       id="contact-name" name="name" type="text" autoComplete="name" className="contact-input" style={inputStyle}
-                      placeholder="Ditt namn" value={form.name} onChange={(e) => update('name', e.target.value)} required
+                      value={form.name} onChange={(e) => update('name', e.target.value)} required
                     />
                   </div>
                   <div>
                     <label style={labelStyle} htmlFor="contact-email">E-post</label>
                     <input
                       id="contact-email" name="email" type="email" autoComplete="email" className="contact-input" style={inputStyle}
-                      placeholder="din@epost.se" value={form.email} onChange={(e) => update('email', e.target.value)} required
+                      value={form.email} onChange={(e) => update('email', e.target.value)} required
                     />
                   </div>
                 </div>
 
                 <div style={{ marginBottom: '18px' }}>
-                  <label style={labelStyle}>Ämne</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px' }}>
-                    {TOPICS.map((t, i) => {
-                      const active = form.topic === t.value;
-                      const accent = ACCENT_CYCLE[i % 3];
-                      return (
-                        <button
-                          key={t.value} type="button" onClick={() => update('topic', t.value)}
-                          className="contact-topic-btn"
-                          title={t.desc}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px',
-                            border: `1.5px solid ${active ? accent.fg : CARD_BORDER}`,
-                            background: active ? accent.soft : 'var(--mkt-card-bg)',
-                            borderRadius: '10px', fontSize: '13px', fontWeight: 600,
-                            color: active ? accent.fg : INK_SOFT, textAlign: 'left',
-                          }}
-                        >
-                          <t.icon size={15} style={{ flexShrink: 0 }} />
-                          <span>{t.value}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <label style={labelStyle} htmlFor="contact-topic">Vad gäller det?</label>
+                  <select
+                    id="contact-topic" name="topic" className="contact-input" style={{ ...inputStyle, cursor: 'pointer' }}
+                    value={form.topic} onChange={(e) => update('topic', e.target.value)}
+                  >
+                    {TOPICS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
                 </div>
 
                 <div style={{ marginBottom: '22px' }}>
                   <label style={labelStyle} htmlFor="contact-message">Meddelande</label>
                   <textarea
-                    id="contact-message" name="message" rows={5} className="contact-input"
-                    style={{ ...inputStyle, resize: 'vertical', minHeight: '110px', fontFamily: 'inherit' }}
-                    placeholder="Skriv din fråga eller ditt meddelande här..."
+                    id="contact-message" name="message" rows={7} className="contact-input"
+                    style={{ ...inputStyle, resize: 'vertical', minHeight: '150px' }}
                     value={form.message} onChange={(e) => update('message', e.target.value)} required
                   />
                 </div>
 
                 {status === 'error' && (
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px 14px', background: BRAND.redBg, borderRadius: '10px', marginBottom: '18px' }}>
-                    <AlertCircle size={17} color={BRAND.redText} style={{ flexShrink: 0, marginTop: '1px' }} />
-                    <p style={{ fontSize: '13.5px', color: BRAND.redText, margin: 0, lineHeight: 1.5 }}>
-                      {errorMsg}
-                    </p>
-                  </div>
+                  <p role="alert" style={{ fontSize: '14px', color: BRAND.redText, margin: '0 0 18px', lineHeight: 1.55 }}>
+                    {errorMsg} Du kan också mejla <a className="ct-a" href="mailto:support@bokix.se">support@bokix.se</a>.
+                  </p>
                 )}
 
-                {/* Osynlig — renderar inget UI om den faktiskt löser
-                    utmaningen automatiskt, körs av handleSubmit ovan precis
-                    innan utskicket. Se Recaptcha.jsx. */}
+                {/* Osynlig: körs av handleSubmit precis innan utskicket. */}
                 <Recaptcha ref={recaptchaRef} />
 
                 <button
                   type="submit"
                   disabled={status === 'sending'}
-                  className="lp-btn-primary contact-submit-btn"
+                  className="contact-submit-btn"
                   style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px',
-                    width: '100%', padding: '14px 20px', background: BRAND.green, color: 'white',
-                    border: 'none', borderRadius: '12px', fontWeight: 700, fontSize: '15px',
+                    padding: '13px 28px', background: BRAND.green, color: '#fff',
+                    border: 'none', borderRadius: '10px', fontWeight: 600, fontSize: '15px',
+                    cursor: 'pointer', fontFamily: 'inherit',
                   }}
                 >
-                  {status === 'sending' ? (
-                    <>
-                      <Loader2 size={17} className="contact-spin" /> Skickar...
-                    </>
-                  ) : (
-                    <>
-                      <Mail size={17} /> Skicka meddelande
-                    </>
-                  )}
+                  {status === 'sending' ? 'Skickar…' : 'Skicka'}
                 </button>
               </form>
             )}
+            <p style={{ fontSize: '14.5px', color: INK_SOFT, margin: '32px 0 0', paddingTop: '22px', borderTop: '1px solid var(--mkt-border-soft)' }}>
+              Du kan också mejla <a className="ct-a" href="mailto:support@bokix.se">support@bokix.se</a>.
+            </p>
           </div>
-          </Reveal>
         </div>
       </section>
     </MarketingLayout>

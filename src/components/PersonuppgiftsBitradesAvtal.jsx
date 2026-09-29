@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
-import { Handshake } from './icons';
 import { PolicyLayout, PolicySection, PolicyTable, PolicyCallout, policyP, policyLi, policyUl } from './marketing/PolicyLayout';
-import { ACCENT } from './marketing/marketingTokens';
+import { INK } from './marketing/marketingTokens';
+
+const link = { color: INK, fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: '3px' };
 
 // JURIDISKT UTKAST, INTE GRANSKAT. Precis som PrivacyPolicy.jsx/
 // TermsPolicy.jsx/CookiesPolicy.jsx: ett första utkast byggt på standard-
@@ -17,7 +18,7 @@ import { ACCENT } from './marketing/marketingTokens';
 // (t.ex. vid registrering) är det en produktändring utöver den här sidan.
 //
 // Underbiträdes-listan i avsnitt 5 MÅSTE hållas i synk med PrivacyPolicy.jsx
-// avsnitt 4 (Supabase/Stripe/Resend/Vercel/Vercel BotID) — samma
+// avsnitt 4 (Supabase/Stripe/Resend/Vercel/BotID/FöretagsAPI/VIES/Google/Zettle) — samma
 // leverantörer, två ställen, lätt att glömma bort det ena vid en ändring.
 //
 // Kundönskemål ("gör policysidorna organiserade") — samma ombyggnad som
@@ -29,21 +30,18 @@ import { ACCENT } from './marketing/marketingTokens';
 export default function PersonuppgiftsBitradesAvtal() {
   return (
     <PolicyLayout
-      icon={Handshake}
       title="Personuppgiftsbiträdesavtal"
-      accent={ACCENT.blue}
       path="/pub"
-      updated="2026-09-20"
+      updated="2026-09-29"
       metaTitle="Personuppgiftsbiträdesavtal (PUB) | Bokix"
       metaDescription="Villkoren för Bokix behandling av personuppgifter för din räkning, enligt artikel 28 i GDPR — gäller automatiskt för alla företagskunder."
-      intro="Reglerar Bokix behandling av personuppgifter för din räkning, i enlighet med artikel 28 i EU:s dataskyddsförordning (GDPR)."
     >
       <PolicySection n={1} title="Parter" first>
-        <PolicyCallout tone="good">
+        <PolicyCallout>
           Det här avtalet gäller automatiskt mellan dig/ditt företag ("Personuppgiftsansvarig") och Bokix ("Personuppgiftsbiträde") så fort du använder tjänsten för att behandla dina kunders, leverantörers eller anställdas personuppgifter — du behöver inte skriva under något separat för att det ska gälla. Vill du ha ett undertecknat exemplar för egen dokumentation, kontakta support@bokix.se.
         </PolicyCallout>
         <p style={policyP}>
-          Det här avtalet ("PUB") kompletterar <Link to="/terms" style={{ color: ACCENT.green.fg, fontWeight: 600 }}>Användarvillkoren</Link> och <Link to="/privacy" style={{ color: ACCENT.blue.fg, fontWeight: 600 }}>Integritetspolicyn</Link> — vid en eventuell motsägelse gäller det här avtalet för just den personuppgiftsbehandling det beskriver.
+          Det här avtalet ("PUB") kompletterar <Link to="/terms" style={link}>Användarvillkoren</Link> och <Link to="/privacy" style={link}>Integritetspolicyn</Link> — vid en eventuell motsägelse gäller det här avtalet för just den personuppgiftsbehandling det beskriver.
         </p>
         <p style={policyP}>
           <strong>Personuppgiftsansvarig:</strong> du/ditt företag, det Bokix-konto som ingår avtalet genom att använda tjänsten.
@@ -84,20 +82,22 @@ export default function PersonuppgiftsBitradesAvtal() {
 
       <PolicySection n={5} title="Underbiträden">
         <p style={policyP}>
-          Du godkänner härmed generellt att Bokix anlitar följande underbiträden för att leverera tjänsten. Samma lista som <Link to="/privacy" style={{ color: ACCENT.blue.fg, fontWeight: 600 }}>Integritetspolicyns</Link> avsnitt 4, förutom analysverktygen (se nedan) — håll koll där om listan uppdateras.
+          Du godkänner härmed generellt att Bokix anlitar följande underbiträden för att leverera tjänsten. Samma lista som <Link to="/privacy" style={link}>Integritetspolicyns</Link> avsnitt 4, förutom analysverktygen (se nedan) — håll koll där om listan uppdateras.
         </p>
         <PolicyTable
           head={['Underbiträde', 'Roll']}
           rows={[
             ['Supabase', 'Databas och autentisering — all bokförings- och kontodata. Lagring inom EU (Frankfurt, Tyskland).'],
             ['Stripe', 'Betalningar (dina kortbetalningar från kunder, samt Bokix egen fakturering)'],
-            ['Resend', 'Utskick av fakturor/offerter du väljer att mejla'],
+            ['Resend', 'Utskick av fakturor/offerter du väljer att mejla via Bokix'],
             ['Vercel (inkl. BotID)', 'Drift/hosting av tjänsten samt bot-/missbruksskydd'],
-            ['Google', 'Endast om du själv kopplat din Gmail-adress som avsändare — utskicket går då genom ditt eget konto. Bokix har enbart behörighet att skicka, aldrig att läsa.'],
+            ['FöretagsAPI och VIES', 'Uppslag av namn och adress ur offentliga register när du söker upp en kund eller leverantör. Bara organisations- eller momsnumret skickas.'],
+            ['Google eller annan e-postleverantör', 'Endast om du själv kopplat din egen e-postadress som avsändare. Utskicket går då genom ditt eget konto. Mot Gmail har Bokix enbart behörighet att skicka, aldrig att läsa.'],
+            ['Zettle', 'Endast om du själv kopplat din Zettle-kassa. Bokix hämtar då dina försäljningar för att bokföra dem.'],
           ]}
         />
         <p style={policyP}>
-          Analysverktygen på webbplatsen (Google Analytics, Microsoft Clarity och PostHog) mäter besök på bokix.se och behandlar inte din bokföringsdata eller dina kunders uppgifter, och är därför inte underbiträden enligt det här avtalet. De redovisas i <Link to="/privacy" style={{ color: ACCENT.blue.fg, fontWeight: 600 }}>Integritetspolicyn</Link> och <Link to="/cookies" style={{ color: ACCENT.blue.fg, fontWeight: 600 }}>Cookiepolicyn</Link>.
+          Analysverktygen på webbplatsen (Google Analytics, Microsoft Clarity och PostHog) mäter besök på bokix.se och behandlar inte din bokföringsdata eller dina kunders uppgifter, och är därför inte underbiträden enligt det här avtalet. De redovisas i <Link to="/privacy" style={link}>Integritetspolicyn</Link> och <Link to="/cookies" style={link}>Cookiepolicyn</Link>.
         </p>
         <p style={policyP}>
           Bokix meddelar dig om nya underbiträden läggs till eller byts ut (via ändring av den här sidan och Integritetspolicyn), så du har möjlighet att invända. Bokix ansvarar för att varje underbiträde är bundet av samma dataskyddsåtaganden som gäller enligt det här avtalet.
@@ -122,7 +122,7 @@ export default function PersonuppgiftsBitradesAvtal() {
 
       <PolicySection n={8} title="Radering och återlämning vid avtalets slut">
         <p style={policyP}>
-          När du avslutar ditt konto slutar Bokix ta betalt och stänger av åtkomsten till det aktiva gränssnittet. Du kan exportera all din data när som helst innan dess (Inställningar → Data och Inställningar). Bokföringsdata bevaras därefter i den utsträckning bokföringslagen kräver (till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades) innan den raderas eller anonymiseras — det här avtalet begränsar inte den lagstadgade skyldigheten. Uppgifter som inte omfattas av ett sådant lagkrav raderas inom rimlig tid efter kontots avslut.
+          När du avslutar ditt konto slutar Bokix ta betalt och stänger av åtkomsten till det aktiva gränssnittet. Du kan exportera all din data när som helst innan dess (Inställningar → Avancerat → Exportera). Bokföringsdata bevaras därefter i den utsträckning bokföringslagen kräver (till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades) innan den raderas eller anonymiseras — det här avtalet begränsar inte den lagstadgade skyldigheten. Under den tiden ligger bara räkenskapsinformationen och dess underlag kvar, i ett stängt arkiv som bara Bokix servrar når, och den kan begäras ut via support@bokix.se. Uppgifter som inte omfattas av ett sådant lagkrav raderas inom rimlig tid efter kontots avslut.
         </p>
       </PolicySection>
 
@@ -134,7 +134,7 @@ export default function PersonuppgiftsBitradesAvtal() {
 
       <PolicySection n={10} title="Ansvar">
         <p style={policyP}>
-          Respektive parts ansvar för skada till följd av behandling i strid med GDPR eller det här avtalet regleras av GDPR artikel 82 och, i övrigt, av ansvarsbegränsningen i <Link to="/terms" style={{ color: ACCENT.green.fg, fontWeight: 600 }}>Användarvillkoren</Link>.
+          Respektive parts ansvar för skada till följd av behandling i strid med GDPR eller det här avtalet regleras av GDPR artikel 82 och, i övrigt, av ansvarsbegränsningen i <Link to="/terms" style={link}>Användarvillkoren</Link>.
         </p>
       </PolicySection>
 

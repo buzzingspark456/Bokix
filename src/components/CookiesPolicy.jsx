@@ -1,6 +1,4 @@
-import { Cookie } from './icons';
 import { PolicyLayout, PolicySection, PolicyTable, PolicyCode, PolicyCallout, policyP } from './marketing/PolicyLayout';
-import { ACCENT } from './marketing/marketingTokens';
 
 // JURIDISKT UTKAST, INTE GRANSKAT. Texten på den här sidan (liksom
 // PrivacyPolicy.jsx och TermsPolicy.jsx) är ett första utkast, inte ett
@@ -23,17 +21,14 @@ import { ACCENT } from './marketing/marketingTokens';
 export default function CookiesPolicy() {
   return (
     <PolicyLayout
-      icon={Cookie}
       title="Cookiepolicy"
-      accent={ACCENT.teal}
       path="/cookies"
-      updated="2026-09-20"
+      updated="2026-09-29"
       metaTitle="Cookiepolicy | Bokix"
       metaDescription="Exakt vilka cookies och liknande lagringstekniker Bokix sätter i din webbläsare, och hur du hanterar ditt samtycke."
-      intro="Den här sidan listar exakt vilka cookies och liknande tekniker Bokix faktiskt sätter i din webbläsare — inte en generisk mall."
     >
       <PolicySection n={1} title="Sammanfattning" first>
-        <PolicyCallout tone="good">
+        <PolicyCallout>
           Bokix använder inga marknadsförings- eller reklamcookies. Vi använder Google Analytics, Microsoft Clarity och PostHog för grundläggande besöksstatistik, men bara om du aktivt godkänt det i cookiebannern — ingen av dem sätts innan du sagt ja.
         </PolicyCallout>
         <p style={policyP}>
@@ -51,28 +46,33 @@ export default function CookiesPolicy() {
             [<>
               <PolicyCode>bokix_onboarding_completed</PolicyCode> / <PolicyCode>_skipped</PolicyCode>
             </>, 'localStorage', 'Kommer ihåg om du gått igenom (eller hoppat över) startguiden, så den inte visas igen i onödan.', 'Tills du rensar webbläsardata'],
+            [<>
+              <PolicyCode>bokix_theme*</PolicyCode>, <PolicyCode>bokix_language</PolicyCode>, <PolicyCode>bokix_nav_collapsed</PolicyCode> m.fl.
+            </>, 'localStorage', 'Kommer ihåg dina val för utseende och språk: ljust eller mörkt läge, färg, täthet, språk och vilka menygrupper som är ihopfällda.', 'Tills du ändrar valet eller rensar webbläsardata'],
+            [<PolicyCode>bokix_ocr_*</PolicyCode>, 'localStorage', 'Sparar texten som lästs av från dina senaste kvitton, så att samma kvitto inte behöver läsas av igen. Högst 40 kvitton.', 'Tills den byts ut av nyare kvitton eller du rensar webbläsardata'],
           ]}
         />
       </PolicySection>
 
-      <PolicySection n={3} title="Strikt nödvändiga — säkerhet vid anslutning till Stripe">
+      <PolicySection n={3} title="Strikt nödvändiga — säkerhet vid anslutning till Stripe och Zettle">
         <PolicyTable
           head={['Namn', 'Typ', 'Ändamål', 'Livslängd']}
           rows={[
             [<PolicyCode>bokix_stripe_oauth_state</PolicyCode>, 'Cookie (httpOnly)', 'Skyddar mot förfalskade anslutningsförsök (CSRF) under de sekunder det tar att ansluta Stripe för kortbetalningar. Sätts bara om du aktivt startar den anslutningen under Inställningar.', 'Max 10 minuter, raderas direkt efter anslutningen'],
+            [<PolicyCode>bokix_zettle_oauth_state</PolicyCode>, 'Cookie (httpOnly)', 'Samma skydd när du kopplar din Zettle-kassa. Sätts bara om du aktivt startar den anslutningen under Inställningar.', 'Max 10 minuter, raderas direkt efter anslutningen'],
           ]}
         />
       </PolicySection>
 
       <PolicySection n={4} title="Strikt nödvändiga — bot-/missbruksskydd">
         <p style={policyP}>
-          Vid registrering och inloggning kan Cloudflare Turnstile (en osynlig captcha-tjänst, aktiveras bara om vi satt på den) och Vercel BotID sätta egna cookies/lagring för att skilja riktiga användare från automatiserade missbruksförsök. Ingen av dem används för spårning eller marknadsföring.
+          Vid registrering och inloggning använder vi Vercel BotID för att skilja riktiga användare från automatiserade missbruksförsök. På kontaktformuläret gör Google reCAPTCHA samma sak, och kan då sätta egna cookies (till exempel <PolicyCode>_GRECAPTCHA</PolicyCode>). Ingen av dem används för spårning eller marknadsföring.
         </p>
       </PolicySection>
 
       <PolicySection n={5} title="Analys — kräver ditt samtycke">
         <p style={policyP}>
-          Vi använder Google Analytics, Microsoft Clarity och PostHog för att förstå hur besökare hittar och använder Bokix — Clarity visar oss dessutom var på sidan besökare klickar och scrollar (skärminspelningar och klickkartor), men Microsoft maskerar all text och alla inmatningsfält som kan innehålla personlig eller känslig information innan något sparas. Båda körs via samma princip: mätscripten laddas alltid, men sätts uttryckligen till "nekad" (denied) tills du valt "Acceptera alla" i cookiebannern. Väljer du "Endast nödvändiga" stannar analys-cookies nekade, permanent, tills du själv ändrar dig via "Cookieinställningar" i sidfoten. Vi har inte kopplat något annonskonto till Clarity, så de av Clarity/Microsofts cookies som annars används för annonsering (t.ex. <PolicyCode>MUID</PolicyCode>) sätts aldrig av Bokix.
+          Vi använder Google Analytics, Microsoft Clarity och PostHog för att förstå hur besökare hittar och använder Bokix — Clarity visar oss dessutom var på sidan besökare klickar och scrollar (skärminspelningar och klickkartor), men Microsoft maskerar all text och alla inmatningsfält som kan innehålla personlig eller känslig information innan något sparas. Google Analytics och Clarity körs via samma princip: mätscripten laddas alltid, men sätts uttryckligen till "nekad" (denied) tills du valt "Acceptera alla" i cookiebannern. Väljer du "Endast nödvändiga" stannar analys-cookies nekade, permanent, tills du själv ändrar dig via "Cookieinställningar" i sidfoten. Vi har inte kopplat något annonskonto till Clarity, så de av Clarity/Microsofts cookies som annars används för annonsering (t.ex. <PolicyCode>MUID</PolicyCode>) sätts aldrig av Bokix.
         </p>
         <p style={policyP}>
           PostHog (EU-molnet, Frankfurt) använder vi bara för att räkna sidvisningar, så att vi ser vilka sidor som besöks. Allt annat PostHog kan göra har vi medvetet stängt av: ingen sessionsinspelning, inga klickkartor, ingen automatisk loggning av vad du klickar på eller skriver, och ingen mätning av felmeddelanden eller sidprestanda. Till skillnad från Google Analytics och Clarity sätter PostHog ingenting alls i din webbläsare förrän du klickat "Acceptera alla" — det enda som sparas dessförinnan är en liten notering om att du sagt nej, så att valet respekteras.

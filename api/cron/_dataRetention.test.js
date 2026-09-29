@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hasBookkeepingData, cleanAbandonedSignups, ABANDONED_SIGNUP_DAYS } from './_dataRetention.js'
+import { hasBookkeepingData, cleanAbandonedSignups, ABANDONED_SIGNUP_DAYS, cleanOldContactMessages, CONTACT_MESSAGE_DAYS } from './_dataRetention.js'
 
 const DAY = 86400000
 const now = new Date('2026-09-06T03:00:00Z')
@@ -95,5 +95,32 @@ describe('cleanAbandonedSignups', () => {
   it('inga kandidater ger ett tomt resultat utan anrop', async () => {
     const admin = makeAdmin({ rows: [] })
     expect(await cleanAbandonedSignups(admin, { now })).toEqual({ candidates: 0, removed: 0 })
+  })
+})
+
+describe('cleanOldContactMessages', () => {
+  function contactAdmin(result) {
+    const calls = []
+    const chain = {
+      delete() { calls.push('delete'); return chain },
+      lt(col, value) { calls.push(['lt', col, value]); return chain },
+      select() { return Promise.resolve(result) },
+    }
+    return { calls, from: (table) => { calls.push(['from', table]); return chain } }
+  }
+
+  it('raderar meddelanden äldre än ett år', async () => {
+    const now = new Date('2026-09-29T00:00:00Z')
+    const admin = contactAdmin({ data: [{ id: 1 }, { id: 2 }], error: null })
+    const res = await cleanOldContactMessages(admin, { now })
+    expect(res).toEqual({ removed: 2 })
+    expect(admin.calls).toContainEqual(['from', 'contact_messages'])
+    const cutoff = new Date(now.getTime() - CONTACT_MESSAGE_DAYS * 86400000).toISOString()
+    expect(admin.calls).toContainEqual(['lt', 'created_at', cutoff])
+  })
+
+  it('tål att tabellen saknas', async () => {
+    const admin = contactAdmin({ data: null, error: { message: 'relation "contact_messages" does not exist' } })
+    expect(await cleanOldContactMessages(admin)).toEqual({ removed: 0, missingTable: true })
   })
 })

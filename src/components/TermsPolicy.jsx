@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
-import { FileText } from './icons';
 import { PolicyLayout, PolicySection, PolicyCallout, policyP, policyLi, policyUl } from './marketing/PolicyLayout';
-import { ACCENT } from './marketing/marketingTokens';
+import { INK } from './marketing/marketingTokens';
 
 // JURIDISKT UTKAST, INTE GRANSKAT — en jurist måste läsa igenom och
 // godkänna innehållet innan sidan går live.
@@ -19,19 +18,16 @@ import { ACCENT } from './marketing/marketingTokens';
 // gjorde — enda policy-sidan som INTE gjorde det innan. Allt sakinnehåll
 // är oförändrat, bara presentationen.
 
-const link = { color: ACCENT.green.fg, fontWeight: 600 };
+const link = { color: INK, fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: '3px' };
 
 export default function TermsPolicy() {
   return (
     <PolicyLayout
-      icon={FileText}
       title="Användarvillkor"
-      accent={ACCENT.green}
       path="/terms"
-      updated="2026-09-07"
+      updated="2026-09-29"
       metaTitle="Användarvillkor | Bokix"
       metaDescription="Villkoren för att använda Bokix — konto och prenumeration, ditt ansvar som användare, ansvarsbegränsning och uppsägning."
-      intro="Dessa villkor styr din och ditt företags användning av tjänsten Bokix — läs igenom dem innan du skapar ett konto."
     >
       <PolicySection n={1} title="Vad tjänsten är" first>
         <p style={policyP}>
@@ -48,8 +44,7 @@ export default function TermsPolicy() {
           <li style={policyLi}>Du ansvarar för att uppgifterna du lämnar vid registrering är korrekta, och för att hålla ditt lösenord hemligt.</li>
           <li style={policyLi}>Tjänsten erbjuds mot en månadsavgift enligt gällande prissättning (se <Link to="/priser" style={link}>bokix.se/priser</Link>), med en kostnadsfri provperiod om 30 dagar. Avgiften debiteras månadsvis via Stripe, oavsett vilken plan du valt — även årsplanen, som är ett lägre månadspris och inte en förskottsbetalning för hela året.</li>
           <li style={policyLi}>Priserna anges i svenska kronor. Bokix är inte momsregistrerat, och ingen mervärdesskatt tillkommer därför på abonnemangsavgiften.</li>
-          <li style={policyLi}>På månadsplanen kan du säga upp din prenumeration när som helst — det finns varken bindningstid eller uppsägningstid. Årsplanen ger ett lägre månadspris mot en minsta avtalstid om tre månader, räknat från den första debiteringen; därefter kan även den sägas upp när som helst. Uppsägning sker under Inställningar i tjänsten.</li>
-          <li style={policyLi}>Redan betalda avgifter återbetalas inte för påbörjade perioder, om inte annat följer av tvingande konsumenträtt.</li>
+          <li style={policyLi}>På månadsplanen kan du säga upp din prenumeration när som helst — det finns varken bindningstid eller uppsägningstid. Årsplanen ger ett lägre månadspris mot en minsta avtalstid om tre månader, räknat från den första debiteringen; därefter kan även den sägas upp när som helst. Uppsägning sker under Inställningar → Prenumeration i tjänsten.</li>          <li style={policyLi}>Redan betalda avgifter återbetalas inte för påbörjade perioder, om inte annat följer av tvingande konsumenträtt.</li>
         </ul>
       </PolicySection>
 
@@ -70,7 +65,7 @@ export default function TermsPolicy() {
       </PolicySection>
 
       <PolicySection n={5} title="Friskrivning från följdfel och ekonomiskt ansvar">
-        <PolicyCallout tone="red">
+        <PolicyCallout>
           Bokix frånsäger sig uttryckligen allt ekonomiskt ansvar för felaktiga skatteinbetalningar, missade deklarationer, förseningsavgifter, skattetillägg eller andra direkta eller indirekta ekonomiska skador som kunden drabbas av, oavsett om dessa beror på handhavandefel, mjukvarubuggar, avbrott i tjänsten eller förlorad data. Genom att använda Bokix accepterar du att du ensam ansvarar för att granska och godkänna all redovisningsdata innan den används för skattedeklarationer eller årsredovisningar.
         </PolicyCallout>
         <p style={policyP}>
@@ -80,7 +75,7 @@ export default function TermsPolicy() {
 
       <PolicySection n={6} title="Drift och tillgänglighet">
         <p style={policyP}>
-          Vi strävar efter hög tillgänglighet men garanterar inte att tjänsten är felfri eller tillgänglig utan avbrott. Planerat underhåll meddelas när det är praktiskt möjligt. Vi rekommenderar att du regelbundet exporterar din data (Inställningar → Data och Inställningar) som en egen säkerhetskopia.
+          Vi strävar efter hög tillgänglighet men garanterar inte att tjänsten är felfri eller tillgänglig utan avbrott. Planerat underhåll meddelas när det är praktiskt möjligt. Vi rekommenderar att du regelbundet exporterar din data (Inställningar → Avancerat → Exportera) som en egen säkerhetskopia.
         </p>
         <p style={policyP}>
           Bokix är byggt på och beroende av tredjepartsleverantörer (bland annat Supabase, Stripe, Resend och Vercel — se <Link to="/privacy" style={link}>Integritetspolicyn</Link>, avsnitt 4). Driftstörningar hos en sådan leverantör kan påverka tjänstens tillgänglighet, och vi ansvarar inte för avbrott som orsakas utanför vår egen kontroll.

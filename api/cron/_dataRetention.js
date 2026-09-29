@@ -185,7 +185,32 @@ export async function cleanAbandonedSignups(admin, { now = new Date(), dryRun = 
   return { candidates: rows.length, removed };
 }
 
-/** Båda jobben, som cronen anropar dem. Fel loggas men får aldrig fälla
+/** Hur länge ett meddelande från kontaktformuläret sparas. Står i
+ * Integritetspolicyn avsnitt 7, ändra båda samtidigt. */
+export const CONTACT_MESSAGE_DAYS = 365;
+
+/**
+ * Jobb 3: radera meddelanden från kontaktformuläret (contact_messages) som
+ * är äldre än ett år. Ett år räcker för att besvara och följa upp ett
+ * ärende; därefter är namn, e-post och meddelande uppgifter utan ändamål.
+ * Saknas tabellen (admin-SQL:en inte körd) finns inget att städa.
+ */
+export async function cleanOldContactMessages(admin, { now = new Date(), dryRun = false } = {}) {
+  const cutoff = new Date(now.getTime() - CONTACT_MESSAGE_DAYS * DAY_MS).toISOString();
+  if (dryRun) {
+    const { count, error } = await admin.from('contact_messages').select('id', { count: 'exact', head: true }).lt('created_at', cutoff);
+    if (error) throw error;
+    return { removed: count || 0, dryRun: true };
+  }
+  const { data, error } = await admin.from('contact_messages').delete().lt('created_at', cutoff).select('id');
+  if (error) {
+    if (/does not exist|schema cache/i.test(error.message)) return { removed: 0, missingTable: true };
+    throw error;
+  }
+  return { removed: data?.length || 0 };
+}
+
+/** Alla jobben, som cronen anropar dem. Fel loggas men får aldrig fälla
  * hela cron-körningen: påminnelseutskicken är viktigare än städningen. */
 export async function runDataRetention(admin, options = {}) {
   const result = { snapshots: null, orphanFiles: null, abandonedSignups: null, errors: [] };
@@ -219,6 +244,11 @@ export async function runDataRetention(admin, options = {}) {
     result.abandonedSignups = await cleanAbandonedSignups(admin, options);
   } catch (err) {
     result.errors.push(`abandonedSignups: ${err.message}`);
+  }
+  try {
+    result.contactMessages = await cleanOldContactMessages(admin, options);
+  } catch (err) {
+    result.errors.push(`contactMessages: ${err.message}`);
   }
   return result;
 }

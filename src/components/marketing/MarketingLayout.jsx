@@ -154,7 +154,6 @@ export const NAV_MENUS = [
         items: [
           { title: 'Byt till Bokix', desc: 'Flytta bokföringen med en SIE4-fil', to: '/byt-bokforingsprogram' },
           { title: 'Säkerhet', desc: 'Så skyddas din bokföring', to: '/sakerhet' },
-          { title: 'Bokix för UF', desc: 'Bokföring för UF-företag', to: '/uf' },
         ],
       },
     ],
