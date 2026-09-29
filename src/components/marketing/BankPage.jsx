@@ -5,7 +5,7 @@ import {
 } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
-import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT_CYCLE } from './marketingTokens';
+import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 import BankFlow from './BankFlow';
 import DemoPlayer, { DemoStyles } from './DemoPlayer';

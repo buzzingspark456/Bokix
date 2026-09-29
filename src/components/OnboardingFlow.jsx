@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { ArrowRight, Building2, Workflow, Check } from './icons';
 import { BRAND } from '../utils/brandColors';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';

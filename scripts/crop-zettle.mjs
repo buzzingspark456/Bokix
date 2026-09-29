@@ -36,7 +36,6 @@ async function crop() {
     }
 
     // Now create a cropped canvas
-    const padding = 0;
     const cropW = (maxX - minX + 1);
     const cropH = (maxY - minY + 1);
 

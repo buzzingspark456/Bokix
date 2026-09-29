@@ -44,7 +44,7 @@ import {
 // har ingen linjetjocklek, så `strokeWidth` ignoreras. En ikon ändras här på
 // ett ställe, på alla sidor.
 function make(Icon, name) {
-  const Component = ({ size = 24, strokeWidth, absoluteStrokeWidth, color, className, style, ...rest }) => (
+  const Component = ({ size = 24, strokeWidth: _strokeWidth, absoluteStrokeWidth: _absoluteStrokeWidth, color, className, style, ...rest }) => (
     <Icon size={size} className={className} style={style} {...(color ? { color } : {})} {...rest} />
   );
   Component.displayName = name;

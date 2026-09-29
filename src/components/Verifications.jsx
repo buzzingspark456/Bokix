@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Plus, Search, ChevronRight, ChevronDown,
   AlertCircle, RotateCcw, RefreshCw,

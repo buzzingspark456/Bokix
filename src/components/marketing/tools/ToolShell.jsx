@@ -365,7 +365,6 @@ export default function ToolShell({ tool, metaTitle, metaDescription, intro, cal
           </h2>
           <div className="bx-tool-related">
             {related.map(t => {
-              const a = ACCENT[t.accentKey] || ACCENT.green;
               return (
                 <Link key={t.slug} to={t.path} className="lp-card-hover" style={{
                   display: 'flex', gap: '13px', alignItems: 'center', textDecoration: 'none',

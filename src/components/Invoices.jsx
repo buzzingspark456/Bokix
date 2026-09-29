@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { isVatExempt } from '../utils/vatRegistration';
 import { foreignSaleRegion, rowsForCustomer } from '../utils/foreignSales';

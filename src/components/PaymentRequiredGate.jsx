@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CreditCard, LogOut, AlertCircle, Lock, Download } from './icons';
 import { downloadSie4 } from '../utils/sieExport';
 import { BRAND } from '../utils/brandColors';

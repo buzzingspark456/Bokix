@@ -1,4 +1,4 @@
-﻿﻿﻿import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
 import CookieBanner from './components/CookieBanner';

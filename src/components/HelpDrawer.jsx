@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Search, Book, Sparkles, FileText, MessageSquare, AlertCircle, ArrowLeft } from './icons';
 import Drawer from './Drawer';
 import { t } from '../i18n';

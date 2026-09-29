@@ -1,14 +1,14 @@
-﻿import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BarChart3, X,
   ArrowRight, ChevronRight,
 } from './icons';
 import { BRAND } from '../utils/brandColors';
-import MarketingLayout, { Reveal, BokixWordmark } from './marketing/MarketingLayout';
+import MarketingLayout, { Reveal } from './marketing/MarketingLayout';
 import ToolMotif, { ToolMotifStyles } from './marketing/toolMotifs';
 import { FeatureDemoStyles, DemoBokforing, DemoFakturering, DemoSkatt, DemoPersonal } from './marketing/featureDemos';
-import { SERIF, INK, INK_SOFT, MUTED, CARD_BORDER, CARD_SHADOW_SM, ACCENT, ACCENT_CYCLE } from './marketing/marketingTokens';
+import { SERIF, INK, INK_SOFT, MUTED, CARD_BORDER, ACCENT, ACCENT_CYCLE } from './marketing/marketingTokens';
 import CloudShaderBackground from './marketing/CloudShaderBackground';
 import { GRAD, grad } from './marketing/aurora';
 import { StripeLogo, ZettleLogo, BolagsverketLogo, SkatteverketLogo } from './shared/BrandLogos';

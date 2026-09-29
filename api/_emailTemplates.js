@@ -1,4 +1,4 @@
-﻿// Server-sidans HTML-mallar för AUTOMATISKA utskick (api/cron/reminders.js)
+// Server-sidans HTML-mallar för AUTOMATISKA utskick (api/cron/reminders.js)
 // — till skillnad från fakturautskicket (Invoices.jsx) byggs HTML:en här på
 // SERVERN, inte klienten, eftersom en cron-körning inte har någon inloggad
 // klient som kan bygga den. Samma ton/formatering som fakturamejlet i

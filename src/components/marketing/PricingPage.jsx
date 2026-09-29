@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Check } from '../icons';
 import { BRAND } from '../../utils/brandColors';

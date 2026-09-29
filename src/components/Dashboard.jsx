@@ -14,9 +14,9 @@ import { nextVatDeadline } from '../utils/declarationDeadlines';
 import { getGreeting } from '../utils/greeting';
 import SieImportModal from './SieImportModal';
 import { BRAND, VIVID } from '../utils/brandColors';
-import { resolveChartPalette, makeAmountFormatters, CHART_COLOR_FAMILIES } from '../utils/chartPalette';
+import { resolveChartPalette, CHART_COLOR_FAMILIES } from '../utils/chartPalette';
 import { RevenueExpenseChart, ReportDisplayProvider, useReportDisplay } from './reports/ReportUI';
-import { t as tr, useTranslation } from '../i18n';
+import { useTranslation } from '../i18n';
 // Kundönskemål: samma fem period-flikar (Denna månad/3 mån/6 mån/
 // Räkenskapsåret/Sedan start) som Rapport och analys → Företagsöversikt,
 // på "Intäkter vs Utgifter"-grafen här också — delad komponent/lista och
@@ -25,22 +25,6 @@ import { t as tr, useTranslation } from '../i18n';
 import { PeriodPicker, PeriodHeading, OVERVIEW_PERIODS } from './reports/ReportUI';
 import { overviewPeriodBounds, buildResultSeries, companyFiscalYearSetting } from '../utils/reportCalculations';
 
-/* ── Färger (Sida 30): grönt för positivt/rött för negativt, konsekvent i
-   hela appen. Två nyanser per färg: en ljusare "grafisk" ton för linjer/
-   stapelfyllnad (kräver bara 3:1-kontrast enligt WCAG AA för grafiska
-   element) och en mörkare ton från BRAND för text på ljus bakgrund (kräver
-   4.5:1). Verifierat: #E24B4A mot vitt ≈ 3.9:1 — gott och väl godkänt för
-   grafiska element, men medvetet ALDRIG använt som brödtextfärg — se
-   REVENUE/EXPENSE nedan kontra BRAND.greenDark/BRAND.redText.
-   OBS: REVENUE/EXPENSE används numera bara för Resultat-läget (en enda
-   stapelserie som pekar upp/ner — position mot nollinjen bär identiteten,
-   färgen är bara sekundär bekräftelse). De dög INTE för Intäkter/Utgifter-
-   läget där två serier ligger sida vid sida och måste kunna särskiljas på
-   färgen ensam: validate_palette.js gav ΔE 2.1 för deuteranopi — långt under
-   golvet på 6. Den kategoriska jämförelsen använder CHART_REVENUE/
-   CHART_EXPENSE istället (ΔE 12.4, godkänt både ljust och mörkt). ── */
-const REVENUE = '#639922';
-const EXPENSE = '#E24B4A';
 const LIME_L  = BRAND.greenLight;
 const RED_L   = BRAND.redBg;
 
@@ -68,20 +52,6 @@ const RED_L   = BRAND.redBg;
 // välja andra i rapporternas Utseende-meny, och då ska startsidan följa
 // med. Annars visar de två sidorna samma två tal i olika färger, vilket
 // var precis det problemet valen skulle lösa.
-
-// Föregående års jämförelselinjer (Intäkter vs Utgifter-läget): SAMMA
-// validerade nyanser som ovan, bara halvtransparenta — inte en tredje/fjärde
-// egen kulör att CVD-validera på nytt (validate_palette.js, se dataviz-
-// skillen). Urskiljs från innevarande års staplar via FORM (streckad linje
-// ovanpå/vid sidan av stapeln), inte via en ny färg — samma "sekundär,
-// icke-färgbaserad kodning"-princip som redan etablerats för Rapport och
-// analys (ReportUI.jsx: dashed grå linje = "Föregående period").
-const hexToRgba = (hex, alpha) => {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
-};
-// (Jämförelseårets halvtransparenta varianter räknas fram i komponenten,
-// eftersom grundfärgen numera kan komma från företagets eget val.)
 
 // "Kom igång"-checklistan (Sida 31) — en egen accentfärg per steg istället
 // för enhetligt grått, så listan blir lättare att skanna. Klar-status
@@ -267,7 +237,7 @@ const SEV_RANK = { danger: 0, warning: 1, success: 2 };
    den mest sammanfattande siffran) får en märkbart större typsnittsstorlek
    än de andra korten, så ögat har en tydlig startpunkt istället för
    identiskt vägda rutor. ── */
-function KpiCard({ label, value, sub, icon: Icon, color, bg, positive, onClick, hero, gradient }) {
+function KpiCard({ label, value, sub, icon: Icon, color, bg, onClick, hero, gradient }) {
   const bold = !!gradient;
   return (
     // className:er (dash-kpi-*) finns bara så det trånga telefonläget
@@ -365,13 +335,10 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // får lönegenvägen samma dag, utan att först behöva byta abonnemang.
   const hasStaff = employees.length > 0 || payrollRuns.length > 0;
   const quickActions = quickActionDefs(t).filter(a => !a.staffOnly || hasStaff);
-  // Företagets egna färg- och beloppsval (samma post som rapportsidan
-  // sparar, company.reportDisplay). `useMemo` för att paletten annars
-  // skulle byggas om vid varje omritning av startsidan.
-  const { chart, amount } = useMemo(() => ({
-    chart: resolveChartPalette(company?.reportDisplay?.colors),
-    amount: makeAmountFormatters(company?.reportDisplay?.unit),
-  }), [company?.reportDisplay?.colors, company?.reportDisplay?.unit]);
+  // Företagets egna färgval (samma post som rapportsidan sparar,
+  // company.reportDisplay). `useMemo` för att paletten annars skulle
+  // byggas om vid varje omritning av startsidan.
+  const chart = useMemo(() => resolveChartPalette(company?.reportDisplay?.colors), [company?.reportDisplay?.colors]);
   const chartRevenue = chart.income;
   const chartExpense = chart.cost;
   // Kundfeedback ("intäkter ska vara blått som i analytics, samma med rött
@@ -459,17 +426,6 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     const rounded = Math.round(val || 0);
     return new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(rounded === 0 ? 0 : rounded);
   };
-  const fmtShort = (val) => {
-    const v = val || 0;
-    if (Math.abs(v) >= 1000000) return `${(v / 1000000).toFixed(1)}Mkr`;
-    if (Math.abs(v) >= 1000) return `${Math.round(v / 1000)}k`;
-    return String(Math.round(v));
-  };
-  // Har företaget uttryckligen valt tusental eller kronor gäller det valet
-  // även här. I `auto`-läget behålls widgetens egen korta form ("160k",
-  // "1,2Mkr") — den är byggd för en smal ruta på startsidan, inte för en
-  // rapportsida med gott om axelutrymme.
-  const explicitUnit = company?.reportDisplay?.unit && company.reportDisplay.unit !== 'auto';
 
   // NYCKELTAL-korten (Intäkter/Kostnader/Resultat) hade tidigare en egen,
   // lokal "hela innevarande kalenderår"-uträkning här — borttagen. De läser
@@ -681,15 +637,9 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // `hasComparison` (från overviewPeriodBounds) är falskt för "Sedan start"
   // — det finns ingen meningsfull period FÖRE företagets första bokförda
   // dag att jämföra med, se samma resonemang i ReportDetail.jsx.
-  // `comparisonLabel` ersätter den tidigare inbakade årtalstexten
-  // ("Intäkter 2025") i legender/tabellrubrik — flikarnas fönster kan nu
-  // spänna över ett årsskifte (t.ex. "6 mån" i februari täcker både
-  // föregående och innevarande kalenderår), så ett enda hårdkodat årtal
-  // vore periodvis felaktigt. En generisk "föregående år" stämmer alltid,
-  // eftersom jämförelseperioden (prevStart/prevEnd) alltid är EXAKT ett år
-  // tidigare oavsett flik.
-  const comparisonLabel = tr('ui.foregaende_ar');
-  // Ren visningstext, ALDRIG använd för att bygga nyckeln i
+  // En generisk "föregående år" i stället för ett inbakat årtal: flikarnas
+  // fönster kan spänna över ett årsskifte, men jämförelseperioden är
+  // alltid EXAKT ett år tidigare. Ren visningstext, ALDRIG använd för att bygga nyckeln i
   // comparisonChartData (se useMemo nedan) eller i extraSeries som skickas
   // till den delade RevenueExpenseChart (ReportUI.jsx, Tremor-baserad) —
   // den grafens kategorier/dataKeys är fortfarande hårdkodad svenska
@@ -734,7 +684,6 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // "Sedan start") — annars skulle jämförelselinjerna bara vara en
   // missvisande platt nolla.
   const hasPrevYearData = periodBounds.hasComparison && chartData.some(d => d.PrevIntäkter !== 0 || d.PrevUtgifter !== 0);
-  const prevYearResultatTotal = chartData.reduce((sum, d) => sum + d.PrevResultat, 0);
   // Grafens EGNA totaler för den valda perioden — INTE raOmsattning/
   // raKostnader/raResultat (NYCKELTAL-korten ovan, alltid innevarande
   // KALENDERÅR, ett separat och medvetet oförändrat mått). Grafens legend/

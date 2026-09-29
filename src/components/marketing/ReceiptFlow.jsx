@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check } from '../icons';
 import { BRAND } from '../../utils/brandColors';
-import { INK, INK_SOFT, MUTED } from './marketingTokens';
 
 // ── "Kvittot läser sig självt"-animationen (OCR) ────────────────────────
 // Kundönskemål, uttryckligt: OCR-läsningen av kvitton ska synas på

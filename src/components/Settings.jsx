@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Building2, CreditCard, Shield, Check, Download, Upload,
   Trash2, Mail, Laptop, Lock, KeyRound, Image as ImageIcon,
-  Palette, Landmark, Hash, Calendar, X, ZoomIn, ZoomOut, Maximize2, Bell, ExternalLink, Sun, Moon,
+  Palette, Hash, Calendar, X, ZoomIn, ZoomOut, Maximize2, Bell, ExternalLink, Sun, Moon,
   UserRound, FileText, Plug, Users, Cog, ArrowLeft, ArrowRight,
-  Sparkles, CheckCircle2, HelpCircle, LogOut, Paperclip, Search, ChevronRight, CalendarFilled, MailFilled, BankFilled,
+  Sparkles, CheckCircle2, HelpCircle, LogOut, Search, ChevronRight, CalendarFilled, MailFilled, BankFilled,
 } from './icons';
 import { supabase } from '../supabaseClient';
 import { sendInvoiceEmail } from '../emailApi';
@@ -495,7 +495,7 @@ function Badge({ tone = 'warning', children }) {
 // ENDA marginalen kvar mellan två sektioner — pressad till 4px, ett
 // hårfint mellanrum bara till för att nästa rubrik inte ska sitta klistrad
 // mot kortkanten ovanför, inte längre en riktig "luft"-marginal.
-function SettingsSection({ title, description, children, actions }) {
+function SettingsSection({ title, children, actions }) {
   return (
     <section style={{ marginBottom: '8px' }}>
       {(title || actions) && (
@@ -513,7 +513,7 @@ function SettingsSection({ title, description, children, actions }) {
 // Ett avsnitt är en liten versal rubrik med en hårfin linje under, och
 // innehållet står direkt på sidan. `icon`/`tone` tas fortfarande emot så
 // anropen inte behöver ändras, men ritas inte.
-function SettingCard({ title, badge, description, children, danger, style, flush = false }) {
+function SettingCard({ title, badge, children, danger, style, flush = false }) {
   const { borderRadius: _ignored, ...rest } = style || {};
   return (
     <section className="settings-block" style={{ minWidth: 0, ...rest }}>
@@ -527,24 +527,6 @@ function SettingCard({ title, badge, description, children, danger, style, flush
       )}
       {children != null && <div className={flush ? 'settings-block-body is-flush' : 'settings-block-body'}>{children}</div>}
     </section>
-  );
-}
-
-/** Bara ikonplattan ur SectionHeading — SettingCard ritar sin egen titel. */
-function SectionHeadingIcon({ icon: Icon, tone = 'green' }) {
-  const tones = {
-    green: VIVID.green, blue: VIVID.blue, amber: VIVID.amber,
-    pink: VIVID.pink, red: VIVID.red, purple: VIVID.purple, teal: VIVID.teal,
-    gray: 'var(--text-muted)',
-  };
-  return (
-    <span style={{
-      width: 30, height: 30, borderRadius: '9px', flexShrink: 0,
-      background: tones[tone] || tones.green, color: 'white',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <Icon size={15} />
-    </span>
   );
 }
 
@@ -2837,7 +2819,6 @@ export default function Settings({
   // är källan, men ett tomt urval är värre än en kopia som råkar bli en
   // version gammal — då står användaren med en tom rullgardin.
   const [ownSenderProviders, setOwnSenderProviders] = useState(FALLBACK_MAIL_PROVIDERS);
-  const [ownSenderReady, setOwnSenderReady] = useState(true);
   const [ownSenderGoogle, setOwnSenderGoogle] = useState(false);
   const [ownSenderStatusError, setOwnSenderStatusError] = useState('');
   const [ownSenderLoaded, setOwnSenderLoaded] = useState(false);
@@ -2869,7 +2850,6 @@ export default function Settings({
         if (cancelled) return;
         setOwnSender(payload.sender || null);
         if (payload.providers?.length) setOwnSenderProviders(payload.providers);
-        setOwnSenderReady(payload.configured !== false && !payload.missingTable);
         setOwnSenderGoogle(Boolean(payload.googleAvailable));
       } catch (err) {
         if (!cancelled) setOwnSenderStatusError(err.message || tr('ui.kunde_inte_hamta_status'));
