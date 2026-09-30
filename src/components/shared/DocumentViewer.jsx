@@ -52,7 +52,7 @@ function fileNameFromUrl(url, fallback) {
  * Saknas den gissar vi på filändelsen i URL:en — ett underlag sparat innan
  * typen började lagras ska inte tappa sin förhandsvisning.
  */
-export function DocumentPane({ url, type, name, emptyText, className = '', expandable = false }) {
+export function DocumentPane({ url, type, name, emptyText, className = '', expandable = false, imageTools = null }) {
   const activeUrl = useSignedUrl(url);
   const [zoom, setZoom] = useState(FIT_ZOOM);
   const [imgFailed, setImgFailed] = useState(false);
@@ -108,6 +108,8 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{url ? label : t('ui.inget_underlag')}</span>
         </span>
         <span className="dv-tools">
+          {/* Egna knappar för en bild, t.ex. Justera kanter i kvittovyn. */}
+          {isImage && imageTools}
           {isImage && (
             <>
               <button type="button" className="dv-btn" onClick={() => changeZoom(-1)} disabled={zoom <= ZOOM_MIN} aria-label={t('ui.zooma_ut')} title={t('ui.zooma_ut')}>

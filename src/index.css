@@ -2839,6 +2839,98 @@ textarea.form-control {
    uppgifterna ligger till HÖGER i en fast, läsbar spaltbredd — ett kvitto
    tjänar på varje pixel, ett formulär blir bara svårare att läsa av att bli
    bredare. */
+/* ── Justera kanter (shared/CornerEditor.jsx) ── */
+.corner-editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3100; /* över kvittovyn och demons panel (3000) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.corner-editor-box {
+  display: flex;
+  flex-direction: column;
+  width: min(720px, 100%);
+  max-height: 100%;
+  border-radius: 14px;
+  background: var(--bg-card);
+  overflow: hidden;
+}
+.corner-editor-head { padding: 16px 18px 10px; }
+.corner-editor-head h2 { margin: 0; font-size: 16px; font-weight: 700; color: var(--text-main); letter-spacing: -0.01em; }
+.corner-editor-head p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--text-muted); }
+.corner-editor-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: var(--gray-25);
+}
+.corner-editor-note { margin: 40px 0; font-size: 13px; color: var(--text-muted); text-align: center; }
+.corner-editor-frame {
+  position: relative;
+  max-width: 100%;
+  --ce-max-h: calc(100dvh - 210px);
+  max-height: var(--ce-max-h);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.corner-editor-frame img { display: block; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
+.corner-editor-frame svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.corner-editor-shade { fill: rgba(0, 0, 0, 0.45); }
+.corner-editor-edge { fill: none; stroke: #fff; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.corner-editor-handle {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  touch-action: none;
+}
+.corner-editor-handle::after {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--text-main), 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+.corner-editor-handle.is-active { cursor: grabbing; }
+.corner-editor-handle.is-active::after, .corner-editor-handle:focus-visible::after { inset: 6px; }
+.corner-editor-handle:focus-visible { outline: none; }
+.corner-editor-actions { display: flex; align-items: center; gap: 8px; padding: 12px 18px 16px; flex-wrap: wrap; }
+.corner-editor-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.corner-editor-btn-quiet { border-color: transparent; color: var(--text-muted); padding-left: 6px; padding-right: 6px; }
+.corner-editor-btn-primary { border-color: transparent; background: var(--text-main); color: var(--bg-card); }
+.corner-editor-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+@media (max-width: 560px) {
+  .corner-editor-overlay { padding: 0; }
+  .corner-editor-box { width: 100%; height: 100%; border-radius: 0; }
+  .corner-editor-frame { --ce-max-h: calc(100dvh - 230px); }
+  .corner-editor-btn-primary { flex: 1 1 100%; padding-top: 11px; padding-bottom: 11px; }
+}
+
 .receipt-modal-overlay {
   align-items: stretch;
   justify-content: stretch;

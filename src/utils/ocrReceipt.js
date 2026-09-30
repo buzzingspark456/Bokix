@@ -810,7 +810,7 @@ export function photoAdvice(quality) {
  * Resultatet återanvänds av båda avläsningsförsöken, så bilden aldrig behöver
  * avkodas två gånger.
  */
-async function stageImage(imageSource) {
+async function stageImage(imageSource, { quad: manualQuad = null } = {}) {
   if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return null;
   let bitmap;
   try {
@@ -826,6 +826,9 @@ async function stageImage(imageSource) {
     base.width = Math.max(1, Math.round(bitmap.width * scale));
     base.height = Math.max(1, Math.round(bitmap.height * scale));
     base.getContext('2d').drawImage(bitmap, 0, 0, base.width, base.height);
+    // Hörn som användaren själv dragit ut (Justera kanter) gäller före det
+    // som hittas automatiskt.
+    if (manualQuad) return { base, bounds: null, quad: manualQuad };
     let bounds = null;
     let quad = null;
     try { quad = documentQuad(base); } catch (err) { console.warn('[OCR] Kunde inte hitta kvittots form:', err); }
@@ -1058,9 +1061,9 @@ function needsCarefulPass({ text, confidence }) {
  * av försöken används, och bildens mätvärden följer med tillbaka (`quality`) så
  * att appen kan säga varför det inte gick och vad användaren kan göra åt det.
  */
-async function extractTextFromImage(imageSource, onProgress) {
+async function extractTextFromImage(imageSource, onProgress, { quad = null } = {}) {
   onProgress?.('Startar OCR-motor…');
-  const stage = await stageImage(imageSource);
+  const stage = await stageImage(imageSource, { quad });
   if (!stage) {
     // Ingen canvas att arbeta med (mycket gammal webbläsare): läs originalet.
     const { source: _source, digitWords: _words, ...only } = await recognizeWith(imageSource, onProgress);
@@ -1104,8 +1107,71 @@ export async function __debugPrepareImage(imageSource, target = MAX_OCR_DIMENSIO
  *   `advice`: 'blurry' | 'dark' | 'far' | null). Säkerheten och mätvärdena är
  *   `null` när ingen bild-OCR kördes alls (digital PDF-text — exakt, ingen
  *   osäkerhet att ange).
+ * @param {{quad?: Array<{x:number,y:number}>}} [options] — egna hörn från
+ *   Justera kanter (andelar 0–1, se prepareCornerEditor). Ersätter den
+ *   automatiska utklippningen, och en PDF läses då som bild.
  */
-export async function ocrFile(input, onProgress) {
+export async function ocrFile(input, onProgress, { quad = null } = {}) {
+  const { blob, isPdf } = await loadDocumentBlob(input, onProgress);
+
+  if (isPdf) {
+    // 1. Snabb direkt-extrahering för digitala PDF-fakturor — exakt text,
+    // ingen OCR-osäkerhet att ange.
+    if (!quad) {
+      const text = await extractTextFromPdf(blob, onProgress);
+      if (text && text.length >= 15) {
+        return { text, confidence: null, quality: null };
+      }
+    }
+
+    // 2. Om PDF:en var ett skannat papperskvitto utan textlager, rendera sida 1 och kör OCR
+    if (typeof document !== 'undefined') {
+      try {
+        onProgress?.('Skannad PDF — kör bild-OCR…');
+        const canvas = await renderPdfPageToCanvas(blob);
+        return await extractTextFromImage(canvas, onProgress, { quad });
+      } catch (err) {
+        console.warn('[OCR] Kunde inte rendera PDF till canvas:', err);
+      }
+    }
+  }
+
+  // 3. Bildkvitto (JPG, PNG, WEBP etc.)
+  return await extractTextFromImage(blob, onProgress, { quad });
+}
+
+/**
+ * Bilden och de hörn avläsningen själv skulle ha använt, för Justera kanter.
+ * Hörnen är andelar (0–1) av samma bild som avläsningen arbetar på, så det
+ * användaren drar ut kan skickas rakt tillbaka till ocrFile(…, { quad }).
+ * Hittas ingen form föreslås hela bilden: en skärmdump eller ett foto tätt
+ * inpå kvittot ska inte beskäras bara för att rutan öppnades, och den grova
+ * rektangeln som avläsningen annars klipper efter kan vara långt fel.
+ * Returnerar { imageUrl, width, height, quad }, eller null om bilden inte går
+ * att läsa i den här webbläsaren.
+ */
+export async function prepareCornerEditor(input) {
+  const { blob, isPdf } = await loadDocumentBlob(input);
+  const source = isPdf ? await renderPdfPageToCanvas(blob) : blob;
+  const stage = await stageImage(source);
+  if (!stage) return null;
+  const { base, quad } = stage;
+  // Förhandsbilden behöver inte full upplösning.
+  const scale = Math.min(1, 1400 / Math.max(base.width, base.height));
+  const preview = document.createElement('canvas');
+  preview.width = Math.max(1, Math.round(base.width * scale));
+  preview.height = Math.max(1, Math.round(base.height * scale));
+  preview.getContext('2d').drawImage(base, 0, 0, preview.width, preview.height);
+  return {
+    imageUrl: preview.toDataURL('image/jpeg', 0.85),
+    width: preview.width,
+    height: preview.height,
+    quad: quad || [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }],
+  };
+}
+
+/** Hämtar dokumentet (fil, data-URL eller lagrad URL) och avgör om det är en PDF. */
+async function loadDocumentBlob(input, onProgress) {
   let blob;
   let isPdfHint = false;
 
@@ -1139,29 +1205,7 @@ export async function ocrFile(input, onProgress) {
       // ignorera slice-fel
     }
   }
-
-  if (isPdf) {
-    // 1. Snabb direkt-extrahering för digitala PDF-fakturor — exakt text,
-    // ingen OCR-osäkerhet att ange.
-    const text = await extractTextFromPdf(blob, onProgress);
-    if (text && text.length >= 15) {
-      return { text, confidence: null, quality: null };
-    }
-
-    // 2. Om PDF:en var ett skannat papperskvitto utan textlager, rendera sida 1 och kör OCR
-    if (typeof document !== 'undefined') {
-      try {
-        onProgress?.('Skannad PDF — kör bild-OCR…');
-        const canvas = await renderPdfPageToCanvas(blob);
-        return await extractTextFromImage(canvas, onProgress);
-      } catch (err) {
-        console.warn('[OCR] Kunde inte rendera PDF till canvas:', err);
-      }
-    }
-  }
-
-  // 3. Bildkvitto (JPG, PNG, WEBP etc.)
-  return await extractTextFromImage(blob, onProgress);
+  return { blob, isPdf };
 }
 
 /**

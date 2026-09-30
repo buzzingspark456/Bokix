@@ -55,6 +55,17 @@ describe('ocrCache', () => {
     expect(reader).toHaveBeenCalledTimes(2);
   });
 
+  it('läser alltid om med egna hörn och skickar dem vidare', async () => {
+    const reader = vi.fn(async () => ({ text: 'Texten på kvittot', confidence: 80 }));
+    const file = { name: 'h.jpg', size: 50, lastModified: 3 };
+    await readDocumentText(file, null, { reader });
+    const quad = [{ x: 0.1, y: 0.1 }, { x: 0.9, y: 0.1 }, { x: 0.9, y: 0.9 }, { x: 0.1, y: 0.9 }];
+    const result = await readDocumentText(file, null, { reader, quad });
+    expect(result.cached).toBe(false);
+    expect(reader).toHaveBeenCalledTimes(2);
+    expect(reader).toHaveBeenLastCalledWith(file, null, { quad });
+  });
+
   it('fungerar utan localStorage', async () => {
     delete globalThis.localStorage;
     const reader = vi.fn(async () => ({ text: 'text', confidence: null }));

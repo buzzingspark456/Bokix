@@ -90,14 +90,15 @@ export function clearCachedOcrText(key) {
  * tidigare framgångsrik avläsning behandlas som "ingen osäkerhet att ange" i
  * stället för att gissa en siffra.
  */
-export async function readDocumentText(input, onProgress, { force = false, reader } = {}) {
+export async function readDocumentText(input, onProgress, { force = false, reader, quad = null } = {}) {
   const key = ocrCacheKey(input);
-  if (!force) {
+  // Egna hörn (Justera kanter) betyder alltid en ny avläsning.
+  if (!force && !quad) {
     const hit = getCachedOcrText(key);
     if (hit) return { text: hit, confidence: null, weakTokens: null, quality: null, cached: true };
   }
   const read = reader || (await import('./ocrReceipt')).ocrFile;
-  const { text, confidence, weakTokens, quality } = await read(input, onProgress);
+  const { text, confidence, weakTokens, quality } = await (quad ? read(input, onProgress, { quad }) : read(input, onProgress));
   setCachedOcrText(key, text);
   return { text, confidence, weakTokens: weakTokens || null, quality: quality || null, cached: false };
 }

@@ -36,7 +36,7 @@ import {
   MdOutlineTune, MdOutlineUndo, MdOutlineVerifiedUser,
   MdOutlineVideocam, MdOutlineViewColumn, MdOutlineVisibility,
   MdOutlineVpnKey, MdOutlineWarningAmber, MdOutlineWorkOutline, MdOutlineZoomIn,
-  MdOutlineZoomOut,
+  MdOutlineZoomOut, MdOutlineCrop,
 } from 'react-icons/md';
 
 // Appens ikoner: Googles Material Icons (outlined), via react-icons/md, med
@@ -164,6 +164,7 @@ export const Rocket = make(MdOutlineRocketLaunch, 'Rocket');
 export const RotateCcw = make(MdOutlineReplay, 'RotateCcw');
 export const Save = make(MdOutlineSave, 'Save');
 export const Scale = make(MdOutlineBalance, 'Scale');
+export const Crop = make(MdOutlineCrop, 'Crop');
 export const ScanLine = make(MdOutlineDocumentScanner, 'ScanLine');
 export const Search = make(MdOutlineSearch, 'Search');
 export const Send = make(MdOutlineSend, 'Send');

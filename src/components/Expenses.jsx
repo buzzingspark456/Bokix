@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { isVatExempt } from '../utils/vatRegistration';
 import {
-  UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil,
+  UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop,
 } from './icons';
 import { AccountSearch } from './shared/SearchInputs';
 import AccountInlinePicker from './shared/AccountInlinePicker';
 import { DocumentPane } from './shared/DocumentViewer';
+import CornerEditor from './shared/CornerEditor';
 import { TextSuggestInput } from './shared/SearchInputs';
 import ListPageHeader from './shared/ListPageHeader';
 import AnchoredDropdown, { useDismissOnOutsideClick } from './shared/AnchoredDropdown';
@@ -312,7 +313,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const busy = ocrStatus === 'scanning' || revealing;
   const flashField = flashKey ? flashKey.split(':')[0] : null;
 
-  const runOcr = useCallback(async (input, { force = false } = {}) => {
+  const runOcr = useCallback(async (input, { force = false, quad = null } = {}) => {
     if (!input || readOnly) return;
     const runId = ++ocrRunIdRef.current;
     const isCurrent = () => ocrRunIdRef.current === runId;
@@ -334,7 +335,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     setOcrVat(null);
     setFlashKey(null);
     try {
-      const { text, confidence, weakTokens, quality, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force });
+      const { text, confidence, weakTokens, quality, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force, quad });
       if (!isCurrent()) return;
       const parsed = parseReceiptText(text, { confidence, weakTokens });
       // Rådet om fotot visas bara när avläsningen inte blev bra: blev beloppet
@@ -507,6 +508,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const canScan = hasReceiptFile && !readOnly;
   const hasScanned = Boolean(currentDraft) || Object.keys(revealed).length > 0 || ocrStatus !== 'idle';
 
+  // Justera kanter, öppen ovanpå kvittovyn (shared/CornerEditor.jsx).
+  const [editingCorners, setEditingCorners] = useState(false);
+
   useEffect(() => {
     const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handleEsc);
@@ -652,9 +656,24 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             type={receipt.receiptType}
             expandable
             emptyText={tr('ui.ingen_fil_ar_sparad_for_det_har_kvittot_uppgifte')}
+            imageTools={canScan && (
+              <button type="button" className="dv-btn" disabled={busy} onClick={() => setEditingCorners(true)} title={tr('ui.dra_hornen_till_kvittots_horn')}>
+                <Crop size={14} /> {tr('ui.justera_kanter')}
+              </button>
+            )}
           />
           {ocrStatus === 'scanning' && <ScanOverlay detail={ocrMessage} />}
         </div>
+        {editingCorners && (
+          <CornerEditor
+            input={receipt.receiptUrl}
+            onCancel={() => setEditingCorners(false)}
+            onConfirm={(quad) => {
+              setEditingCorners(false);
+              runOcr(receipt.receiptUrl, { force: true, quad });
+            }}
+          />
+        )}
 
         {/* ── Höger: uppgifterna ── */}
         <div className="rc-form">
