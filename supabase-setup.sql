@@ -106,7 +106,13 @@ REVOKE EXECUTE ON FUNCTION public.has_paid_access(uuid) FROM PUBLIC, anon, authe
 
 -- Får den inloggade användaren skriva i sin egen user_data-rad?
 -- Egen betald åtkomst, eller aktiv medlem i ett företag vars ägare har det.
-CREATE OR REPLACE FUNCTION public.can_write_user_data(target_user_id uuid)
+-- Ligger i schemat private, som PostgREST inte exponerar, så att den inte
+-- går att anropa som /rest/v1/rpc/... (Supabase Advisor, 2026-09-30).
+CREATE SCHEMA IF NOT EXISTS private;
+REVOKE ALL ON SCHEMA private FROM PUBLIC, anon;
+GRANT USAGE ON SCHEMA private TO authenticated;
+
+CREATE OR REPLACE FUNCTION private.can_write_user_data(target_user_id uuid)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -126,26 +132,29 @@ AS $$
     );
 $$;
 
+REVOKE ALL ON FUNCTION private.can_write_user_data(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION private.can_write_user_data(uuid) TO authenticated;
+
 -- Skrivpolicyerna på user_data (samma som i går, pekar på funktionen ovan).
 -- Läsning (SELECT) är orörd: ägaren får alltid läsa sina böcker i sju år.
 DROP POLICY IF EXISTS "Insert own user data" ON public.user_data;
 CREATE POLICY "Insert own user data"
 ON public.user_data
 FOR INSERT
-WITH CHECK (public.can_write_user_data(user_id));
+WITH CHECK (private.can_write_user_data(user_id));
 
 DROP POLICY IF EXISTS "Update own user data" ON public.user_data;
 CREATE POLICY "Update own user data"
 ON public.user_data
 FOR UPDATE
 USING ((select auth.uid()) = user_id)
-WITH CHECK (public.can_write_user_data(user_id));
+WITH CHECK (private.can_write_user_data(user_id));
 
 DROP POLICY IF EXISTS "Delete own user data" ON public.user_data;
 CREATE POLICY "Delete own user data"
 ON public.user_data
 FOR DELETE
-USING (public.can_write_user_data(user_id));
+USING (private.can_write_user_data(user_id));
 
 -- ═══════════════════════════════════════════════════════════
 -- Stripe Connect OAuth: server-side skrivning av stripeAccountId
@@ -806,7 +815,7 @@ ON public.company_members FOR SELECT TO authenticated
 USING (
   (select auth.uid()) = owner_user_id
   OR (select auth.uid()) = member_user_id
-  OR lower(invited_email) = lower((select auth.jwt() ->> 'email'))
+  OR lower(invited_email) = lower((select auth.jwt()) ->> 'email')
 );
 
 -- INSERT: bara ägaren kan skapa en inbjudan, bara till sig själv som
@@ -828,7 +837,7 @@ WITH CHECK (
   owner_user_id = (select auth.uid())
   -- Bara den som själv får skriva (betalar) kan bjuda in. Annars kunde ett
   -- obetalt konto bjuda in sin egen andra adress och fortsätta gratis.
-  AND public.can_write_user_data((select auth.uid()))
+  AND private.can_write_user_data((select auth.uid()))
   AND (
     SELECT count(*) FROM public.company_members cm
     WHERE cm.owner_user_id = (select auth.uid())
@@ -853,7 +862,7 @@ ON public.company_members FOR UPDATE TO authenticated
 USING (
   owner_user_id = (select auth.uid())
   OR (
-    lower(invited_email) = lower((select auth.jwt() ->> 'email'))
+    lower(invited_email) = lower((select auth.jwt()) ->> 'email')
     AND status = 'pending'
     AND expires_at > now()
   )
@@ -861,7 +870,7 @@ USING (
 WITH CHECK (
   owner_user_id = (select auth.uid())
   OR (
-    lower(invited_email) = lower((select auth.jwt() ->> 'email'))
+    lower(invited_email) = lower((select auth.jwt()) ->> 'email')
     AND member_user_id = (select auth.uid())
     AND status = 'active'
     -- role måste vara oförändrad — utan detta kollar WITH CHECK bara de tre
@@ -1084,69 +1093,10 @@ INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 VALUES ('blogimages', 'blogimages', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp'])
 ON CONFLICT (id) DO UPDATE SET file_size_limit = 5242880, allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp'];
 
--- HISTORIK: en tidigare version av de här policyerna jämförde
--- auth.jwt() ->> 'email' rakt mot admin-listan. VERIFIERAT (2026-09-13,
--- live-felsökning): kontot alwakiabdullah1@gmail.com stämde exakt mot
--- auth.users (samma sträng, samma byte-för-byte-jämförelse), ändå
--- avvisade Storage varje uppladdning med "new row violates row-level
--- security policy" — auth.jwt()->>'email' är alltså INTE pålitligt i en
--- storage.objects-policy i det här projektet (troligen beror det på
--- vilka claims GoTrue faktiskt lägger i access-token-payloaden, som kan
--- skilja sig från vad PostgREST-policyer ser). auth.uid() däremot
--- FUNGERAR redan bevisligen i den här filen (profile/companylogo/
--- bokix-uploads-policyerna ovan använder den), så adminkollen görs nu
--- via en SECURITY DEFINER-funktion som slår upp e-posten i auth.users
--- från uid:t istället för att lita på JWT-payloadens innehåll.
-CREATE OR REPLACE FUNCTION public.is_admin_uid(p_uid uuid)
-RETURNS boolean
-LANGUAGE sql
-SECURITY DEFINER
-SET search_path = public
-STABLE
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM auth.users
-    WHERE id = p_uid
-      AND lower(email) = ANY (ARRAY['alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com'])
-  );
-$$;
-
--- authenticated FÅR köra den (annars kan ingen policy nedan använda den
--- alls) — men funktionen avslöjar bara ett booleskt ja/nej för det egna
--- uid:et, aldrig någon annans e-post eller data, så det är ofarligt.
-REVOKE ALL ON FUNCTION public.is_admin_uid(uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.is_admin_uid(uuid) TO authenticated;
-
-DROP POLICY IF EXISTS "Admin-uppladdning i blogimages" ON storage.objects;
-CREATE POLICY "Admin-uppladdning i blogimages"
-ON storage.objects FOR INSERT TO authenticated
-WITH CHECK (bucket_id = 'blogimages' AND public.is_admin_uid((SELECT auth.uid())));
-
--- SAKNADES (den faktiska grundorsaken, verifierad 2026-09-13): koden
--- laddar upp med { upsert: true } (CoverImageField/uploadBlogImage i
--- BlogAdmin.jsx) — ett upsert-anrop till Storage är en INSERT ... ON
--- CONFLICT DO UPDATE på databasnivå, och Postgres kräver då att rollen
--- har EN GILTIG UPDATE-POLICY på tabellen också, inte bara INSERT, annars
--- nekas hela anropet ("new row violates row-level security policy") —
--- oavsett hur rätt INSERT-policyns villkor är. Jämför med profile/
--- companylogo/bokix-uploads-bucketsen ovan: alla tre har redan en egen
--- UPDATE-policy av exakt det här skälet, blogimages var den enda som
--- saknade en.
-DROP POLICY IF EXISTS "Admin-uppdatering i blogimages" ON storage.objects;
-CREATE POLICY "Admin-uppdatering i blogimages"
-ON storage.objects FOR UPDATE TO authenticated
-USING (bucket_id = 'blogimages' AND public.is_admin_uid((SELECT auth.uid())))
-WITH CHECK (bucket_id = 'blogimages' AND public.is_admin_uid((SELECT auth.uid())));
-
-DROP POLICY IF EXISTS "Admin-radering i blogimages" ON storage.objects;
-CREATE POLICY "Admin-radering i blogimages"
-ON storage.objects FOR DELETE TO authenticated
-USING (bucket_id = 'blogimages' AND public.is_admin_uid((SELECT auth.uid())));
-
--- Bilder INUTI ett blogginlägg (inte bara omslagsbilden) — samma bucket,
--- samma två policyer ovan täcker redan det, en bild är en bild oavsett
--- var i inlägget <img>-taggen hamnar. Ingen egen bucket eller policy
--- behövs för det.
+-- Admin-policyerna för uppladdning i blogimages och is_admin_uid() som de
+-- använde togs bort 2026-09-30 (Supabase Advisor: SECURITY DEFINER-funktion
+-- anropbar via RPC). Bloggen i appen är borttagen; bucketen står kvar och
+-- är publikt läsbar, men ingen kan längre ladda upp i den.
 
 -- ══════════════════════════════════════════════════════════════════════
 -- SÄKERHETSLOGG (resource: 'security' i /internal) — api/admin/index.js
@@ -1234,7 +1184,7 @@ CREATE POLICY "Logga egen händelse"
 ON public.audit_log FOR INSERT TO authenticated
 WITH CHECK (
   actor_user_id = (select auth.uid())
-  AND lower(actor_email) = lower((select auth.jwt() ->> 'email'))
+  AND lower(actor_email) = lower((select auth.jwt()) ->> 'email')
   AND (
     owner_user_id = (select auth.uid())
     OR EXISTS (
