@@ -25,8 +25,10 @@ export default async function handler(req, res) {
   try {
     const query = createClient(url, anonKey, { auth: { persistSession: false } })
       .from('blog_posts').select('id', { count: 'exact', head: true });
-    const timeout = new Promise(resolve => setTimeout(() => resolve({ error: new Error('timeout') }), 5000));
-    const { error } = await Promise.race([query, timeout]);
+    // Timern rensas efteråt, annars håller den funktionen vid liv i onödan.
+    let timer;
+    const timeout = new Promise(resolve => { timer = setTimeout(() => resolve({ error: new Error('timeout') }), 5000); });
+    const { error } = await Promise.race([query, timeout]).finally(() => clearTimeout(timer));
     if (error) {
       res.status(503).json({ ok: false, database: 'down' });
       return;

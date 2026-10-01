@@ -409,7 +409,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       setOcrMessage('');
       setRevealing(false);
     }
-  }, [accounts]);
+  }, [accounts, vatExempt]);
 
   // Ett underlag ska faktiskt kunna ses, inte bara visas som ett filnamn —
   // skapa en object-URL för förhandsvisning och städa upp den när den byts ut.

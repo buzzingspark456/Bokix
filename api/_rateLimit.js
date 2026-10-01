@@ -57,8 +57,10 @@ async function hitShared(bucketKey, windowMs, max) {
       p_max: max,
       p_window_seconds: Math.max(1, Math.round(windowMs / 1000)),
     });
-    const timeout = new Promise(resolve => setTimeout(() => resolve({ error: new Error('timeout') }), 1500));
-    const { data, error } = await Promise.race([rpc, timeout]);
+    // Timern rensas efteråt, annars håller den funktionen vid liv i onödan.
+    let timer;
+    const timeout = new Promise(resolve => { timer = setTimeout(() => resolve({ error: new Error('timeout') }), 1500); });
+    const { data, error } = await Promise.race([rpc, timeout]).finally(() => clearTimeout(timer));
     if (error || typeof data !== 'boolean') return null;
     return data;
   } catch {
