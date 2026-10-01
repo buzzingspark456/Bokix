@@ -15,9 +15,9 @@ import { getStoredConsent, storeConsent, updateGtagConsent, updateClarityConsent
 // Bara två riktiga kategorier (Nödvändiga, Statistik) — Bokix har varken
 // Preferences- eller Marketing-cookies. Statistik-reglaget är av som
 // standard; ett förikryssat reglage för icke-nödvändiga cookies är ogiltigt
-// samtycke (Planet49). Reglaget avgör valet (2026-09-27): den gröna knappen
-// sätter på statistik bara om reglaget är på, och heter då Acceptera alla,
-// annars Spara val.
+// samtycke (Planet49). Sedan 2026-10-01 bara två knappar, lika stora:
+// Endast nödvändiga och Acceptera alla. Statistik-reglaget visar nuvarande
+// val men går inte att klicka, eftersom knapparna är själva valet.
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false);
   const [statsPreview, setStatsPreview] = useState(false);
@@ -89,14 +89,13 @@ export default function CookieBanner() {
           </div>
           <div style={{ padding: '16px 24px', textAlign: 'center' }}>
             <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '10px' }}>Statistik</div>
-            <button
-              type="button"
-              onClick={() => setStatsPreview(v => !v)}
-              aria-pressed={statsPreview}
-              style={{ width: 40, height: 22, borderRadius: '999px', background: statsPreview ? BRAND.green : 'var(--border)', margin: '0 auto', position: 'relative', border: 'none', cursor: 'pointer', padding: 0, display: 'block', transition: 'background 0.15s' }}
+            <div
+              role="img"
+              aria-label={statsPreview ? 'Statistik är på' : 'Statistik är av'}
+              style={{ width: 40, height: 22, borderRadius: '999px', background: statsPreview ? BRAND.green : 'var(--border)', margin: '0 auto', position: 'relative', transition: 'background 0.15s' }}
             >
               <div style={{ position: 'absolute', top: 2, left: statsPreview ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: 'var(--bg-card)', transition: 'left 0.15s' }} />
-            </button>
+            </div>
             {/* Samma kontrastfix som "Alltid aktiva" ovan. */}
             <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', marginTop: '6px' }}>Google Analytics, Clarity, PostHog</div>
           </div>
@@ -112,10 +111,10 @@ export default function CookieBanner() {
           </button>
           <button
             type="button"
-            onClick={() => choose(statsPreview)}
+            onClick={() => choose(true)}
             style={{ flex: 1, minWidth: '160px', padding: '11px 16px', background: BRAND.green, border: 'none', borderRadius: '9px', fontWeight: 700, color: 'white', cursor: 'pointer', fontSize: '13.5px' }}
           >
-            {statsPreview ? 'Acceptera alla' : 'Spara val'}
+            Acceptera alla
           </button>
         </div>
       </div>
