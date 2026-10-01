@@ -16,6 +16,10 @@ CREATE TABLE IF NOT EXISTS private.rate_limits (
   reset_at timestamptz NOT NULL
 );
 
+-- RLS utan policyer: ingen klientnyckel kommer åt tabellen. Funktionen
+-- nedan kör som tabellens ägare och påverkas inte.
+ALTER TABLE private.rate_limits ENABLE ROW LEVEL SECURITY;
+
 -- Ökar räknaren för p_key och svarar true om anropet får fortsätta.
 -- Fönstret börjar om när reset_at passerats. Gamla rader städas bort
 -- ibland (ungefär vart hundrade anrop) så tabellen inte växer.
