@@ -63,7 +63,7 @@ async function handlePasswordReset(req, body, res) {
   }
   // 5/dygn, per e-postadress — se filkommentaren ovan för varför just
   // e-postadress (identifier) istället för IP.
-  if (!checkRateLimit(req, res, { key: 'password-reset', windowMs: 24 * 60 * 60 * 1000, max: 5, identifier: email })) return;
+  if (!(await checkRateLimit(req, res, { key: 'password-reset', windowMs: 24 * 60 * 60 * 1000, max: 5, identifier: email }))) return;
 
   // OBS: ingen BotID-koll här längre (samma rättning, av samma anledning,
   // som api/company-access.js redan fick — se den filens kommentar). Den
@@ -128,8 +128,8 @@ async function handleSendSignupCode(req, body, res) {
     res.status(400).json({ error: 'Ogiltig e-postadress.' });
     return;
   }
-  if (!checkRateLimit(req, res, { key: 'signup-code-ip', max: 20 })) return;
-  if (!checkRateLimit(req, res, { key: 'signup-code-email', windowMs: 60 * 60 * 1000, max: 5, identifier: email })) return;
+  if (!(await checkRateLimit(req, res, { key: 'signup-code-ip', max: 20 }))) return;
+  if (!(await checkRateLimit(req, res, { key: 'signup-code-email', windowMs: 60 * 60 * 1000, max: 5, identifier: email }))) return;
 
   // OBS: ingen BotID-koll här — se kommentaren vid samma kollen i
   // handlePasswordReset ovan, den gäller ordagrant här också (samma fil,
@@ -190,8 +190,8 @@ async function handleVerifySignupCode(req, body, res) {
     res.status(400).json({ error: 'E-post, kod och token krävs.' });
     return;
   }
-  if (!checkRateLimit(req, res, { key: 'verify-signup-code-ip', max: 20 })) return;
-  if (!checkRateLimit(req, res, { key: 'verify-signup-code-email', windowMs: 10 * 60 * 1000, max: 10, identifier: email })) return;
+  if (!(await checkRateLimit(req, res, { key: 'verify-signup-code-ip', max: 20 }))) return;
+  if (!(await checkRateLimit(req, res, { key: 'verify-signup-code-email', windowMs: 10 * 60 * 1000, max: 10, identifier: email }))) return;
 
   const payload = verifySignedToken(token, SIGNUP_CODE_MAX_AGE_MS);
   if (!payload || payload.email !== email || payload.code !== code) {
@@ -210,8 +210,8 @@ async function handleVerifySignupCode(req, body, res) {
 async function handleSendReauthCode(req, res) {
   const user = await requireAuthedUser(req, res);
   if (!user) return;
-  if (!checkRateLimit(req, res, { key: 'reauth-code-ip', max: 20 })) return;
-  if (!checkRateLimit(req, res, { key: 'reauth-code-user', windowMs: 60 * 60 * 1000, max: 10, identifier: user.id })) return;
+  if (!(await checkRateLimit(req, res, { key: 'reauth-code-ip', max: 20 }))) return;
+  if (!(await checkRateLimit(req, res, { key: 'reauth-code-user', windowMs: 60 * 60 * 1000, max: 10, identifier: user.id }))) return;
 
   if (!hasResendApiKey()) {
     res.status(503).json({ error: 'E-postutskick är inte konfigurerat just nu.' });
@@ -262,8 +262,8 @@ async function handleVerifyReauthCode(req, body, res) {
   // godkänt svar ger ett reauthToken som öppnar lösenordsbyte/
   // företagsuppgifter/Stripe-frånkoppling. Skyddar precis den
   // "stulen session räcker inte"-garanti reauth-flödet finns för att ge.
-  if (!checkRateLimit(req, res, { key: 'verify-reauth-code-ip', max: 20 })) return;
-  if (!checkRateLimit(req, res, { key: 'verify-reauth-code-user', windowMs: 10 * 60 * 1000, max: 10, identifier: user.id })) return;
+  if (!(await checkRateLimit(req, res, { key: 'verify-reauth-code-ip', max: 20 }))) return;
+  if (!(await checkRateLimit(req, res, { key: 'verify-reauth-code-user', windowMs: 10 * 60 * 1000, max: 10, identifier: user.id }))) return;
 
   const code = typeof body?.code === 'string' ? body.code.trim() : '';
   const token = typeof body?.token === 'string' ? body.token : '';
@@ -291,7 +291,7 @@ async function handleVerifyReauthCode(req, body, res) {
 async function handleChangePassword(req, body, res) {
   const user = await requireAuthedUser(req, res);
   if (!user) return;
-  if (!checkRateLimit(req, res, { key: 'change-password', windowMs: 60 * 60 * 1000, max: 10, identifier: user.id })) return;
+  if (!(await checkRateLimit(req, res, { key: 'change-password', windowMs: 60 * 60 * 1000, max: 10, identifier: user.id }))) return;
 
   const newPassword = typeof body?.newPassword === 'string' ? body.newPassword : '';
   const reauthToken = typeof body?.reauthToken === 'string' ? body.reauthToken : '';

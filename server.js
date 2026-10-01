@@ -25,6 +25,8 @@ import adminHandler from './api/admin/index.js'
 import createSubscriptionCheckoutHandler from './api/stripe/_subscriptionCheckout.js'
 import createCheckoutSessionHandler from './api/stripe/create-checkout-session.js'
 import contactHandler from './api/contact.js'
+import clientErrorHandler from './api/client-error.js'
+import healthHandler from './api/health.js'
 import sendInvoiceHandler from './api/email/send-invoice.js'
 import { requireAuthedUser, loadOwnedOrMemberCompany } from './api/_auth.js'
 import { isRequestFromBot } from './api/_botid.js'
@@ -328,6 +330,8 @@ app.all('/api/admin', (req, res) => adminHandler(req, res))
 // kopian aldrig hade fått reda på. Löst likadant: importerar och kör
 // produktionens handler direkt.
 app.post('/api/contact', (req, res) => contactHandler(req, res))
+app.all('/api/client-error', (req, res) => clientErrorHandler(req, res))
+app.all('/api/health', (req, res) => healthHandler(req, res))
 
 // ── "Glömt lösenord?" OCH registreringens e-postverifieringskod (Auth.jsx)
 // — TILL SKILLNAD från varje annan rutt i den här filen (utom /api/cron/

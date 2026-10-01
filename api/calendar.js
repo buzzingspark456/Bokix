@@ -10,6 +10,8 @@ import { applySecurityHeaders } from './_security.js';
 import { buildCalendarEvents, calendarChoices, toIcs } from '../src/utils/calendarFeed.js';
 
 const ID_RE = /^[A-Za-z0-9_-]{1,80}$/;
+// user_id är en uuid-kolumn: annat format ger ett Postgres-fel (500) i stället för 404.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KEY_RE = /^[0-9a-f]{32,128}$/;
 
 function adminClient() {
@@ -35,7 +37,7 @@ export default async function handler(req, res) {
   // Samma svar för fel format, okänt företag och fel nyckel: länken ska inte
   // gå att använda för att ta reda på vilka företag som finns.
   const notFound = () => res.status(404).send('Kalendern finns inte.');
-  if (!ID_RE.test(String(u || '')) || !ID_RE.test(String(c || '')) || !KEY_RE.test(String(k || ''))) return notFound();
+  if (!UUID_RE.test(String(u || '')) || !ID_RE.test(String(c || '')) || !KEY_RE.test(String(k || ''))) return notFound();
 
   const admin = adminClient();
   if (!admin) return res.status(503).send('Kalendern är inte tillgänglig just nu.');

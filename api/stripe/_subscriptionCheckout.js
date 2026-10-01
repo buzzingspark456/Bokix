@@ -73,7 +73,7 @@ export default async function handler(req, res) {
     res.status(503).json({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY before trying again.' });
     return;
   }
-  if (!checkRateLimit(req, res, { key: 'create-subscription-checkout', max: 10 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'create-subscription-checkout', max: 10 }))) return;
 
   // Ingen BotID-koll längre (main.jsx: initBotId, se filkommentaren där) —
   // avsluta/återaktivera/billing-portal kräver alla requireAuthedUser

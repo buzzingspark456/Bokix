@@ -1,19 +1,25 @@
-// Bästa möjliga rate limiting UTAN extern delad datastore. `server.js`
-// (bara lokal utveckling) har `express-rate-limit`, men de riktiga
-// produktions-endpointsen under api/** körs som fristående Vercel
-// serverless-funktioner utan delat minne mellan instanser — en RIKTIG
-// distribuerad limiter kräver en extern datastore (Upstash Redis, eller
-// Vercels egen Firewall-produkt), se _security.js för samma resonemang.
-//
-// Det här är ett medvetet sämre-än-perfekt mellanläge: räknar per
-// (endpoint, IP) i ett minne som bara lever så länge just DEN serverless-
-// instansen är varm — inte delat mellan instanser/regioner, och en
-// angripare som sprider anropen över flera IP:n eller träffar flera kalla
-// instanser kommer runt det. Stoppar ändå den vanliga enkla missbruks-
-// vågen (samma klient som spammar samma varma instans) bättre än inget
-// skydd alls. Om missbruk blir ett faktiskt problem: byt ut mot en riktig
-// delad limiter (Upstash), inte den här.
+import { createHash } from 'crypto';
+import { createClient } from '@supabase/supabase-js';
+
+// Rate limiting i två steg:
+//  1. Ett minne per serverinstans (som förut). Billigt och stoppar en
+//     klient som spammar samma varma instans utan något databasanrop.
+//  2. En delad räknare i Supabase (public.hit_rate_limit, se
+//     supabase-2026-10-01-skydd.sql). Alla instanser och regioner räknar
+//     mot samma rad, så gränsen håller även när anropen sprids över kalla
+//     instanser — det minnet ensamt inte klarade.
+// Går databasen inte att nå (eller SQL:en är inte körd) gäller bara steg 1:
+// hellre ett svagare skydd en stund än att stänga ute riktiga användare.
 const buckets = new Map();
+
+let adminClient;
+function getAdmin() {
+  if (adminClient !== undefined) return adminClient;
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  adminClient = url && key ? createClient(url, key, { auth: { persistSession: false } }) : null;
+  return adminClient;
+}
 
 /** Samma anropar-IP-uträkning som checkRateLimit redan gjorde inline —
  * bruten ut hit så andra rutter (t.ex. api/contact.js, som skickar med
@@ -26,36 +32,63 @@ export function getClientIp(req) {
     || 'unknown';
 }
 
-/** Returnerar true om anropet får fortsätta. Skriver själv ett 429-svar
- * och returnerar false annars — anropande kod ska bara göra
- * `if (!checkRateLimit(req, res, { key: '...' })) return;` direkt efter
- * applySecurityHeaders(res).
+function hitMemory(bucketKey, windowMs, max, now) {
+  // Enkel städning så minnet inte växer obegränsat under en lång varm
+  // instans — körs bara ibland, inte på varje anrop.
+  if (buckets.size > 5000) {
+    for (const [k, v] of buckets) if (now > v.resetAt) buckets.delete(k);
+  }
+  const bucket = buckets.get(bucketKey);
+  if (!bucket || now > bucket.resetAt) {
+    buckets.set(bucketKey, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  bucket.count += 1;
+  return bucket.count <= max;
+}
+
+// Svarar null om den delade räknaren inte gick att fråga (då avgör minnet).
+async function hitShared(bucketKey, windowMs, max) {
+  const admin = getAdmin();
+  if (!admin) return null;
+  try {
+    const rpc = admin.rpc('hit_rate_limit', {
+      p_key: bucketKey,
+      p_max: max,
+      p_window_seconds: Math.max(1, Math.round(windowMs / 1000)),
+    });
+    const timeout = new Promise(resolve => setTimeout(() => resolve({ error: new Error('timeout') }), 1500));
+    const { data, error } = await Promise.race([rpc, timeout]);
+    if (error || typeof data !== 'boolean') return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+/** Returnerar (ett promise som blir) true om anropet får fortsätta. Skriver
+ * själv ett 429-svar och blir false annars — anropande kod ska bara göra
+ * `if (!(await checkRateLimit(req, res, { key: '...' }))) return;` direkt
+ * efter applySecurityHeaders(res).
  *
  * `identifier` (valfri): räknar per DEN här strängen istället för
  * anropande IP — t.ex. per e-postadress för
  * api/auth/request-password-reset.js, där hotet är att spamma EN
  * persons inkorg (går runt en IP-baserad gräns genom att bara byta
  * nätverk), inte att en enskild klient översvämmar endpointen. Utelämnad
- * = samma IP-baserade beteende som innan, oförändrat för alla befintliga
- * anropare. */
-export function checkRateLimit(req, res, { key, windowMs = 15 * 60 * 1000, max = 20, identifier }) {
-  const bucketKey = `${key}:${identifier || getClientIp(req)}`;
-  const now = Date.now();
+ * = IP-baserat. Nyckeln hashas innan den sparas, så varken IP-adresser
+ * eller e-postadresser hamnar i klartext i databasen. */
+export async function checkRateLimit(req, res, { key, windowMs = 15 * 60 * 1000, max = 20, identifier }) {
+  const who = createHash('sha256').update(String(identifier || getClientIp(req))).digest('hex').slice(0, 32);
+  const bucketKey = `${key}:${who}`;
 
-  // Enkel städning så minnet inte växer obegränsat under en lång varm
-  // instans — körs bara ibland, inte på varje anrop.
-  if (buckets.size > 5000) {
-    for (const [k, v] of buckets) if (now > v.resetAt) buckets.delete(k);
+  let allowed = hitMemory(bucketKey, windowMs, max, Date.now());
+  if (allowed) {
+    const shared = await hitShared(bucketKey, windowMs, max);
+    if (shared === false) allowed = false;
   }
 
-  const bucket = buckets.get(bucketKey);
-  if (!bucket || now > bucket.resetAt) {
-    buckets.set(bucketKey, { count: 1, resetAt: now + windowMs });
-    return true;
-  }
-
-  bucket.count += 1;
-  if (bucket.count > max) {
+  if (!allowed) {
     res.status(429).json({ error: 'För många försök. Vänta en stund och försök igen.' });
     return false;
   }

@@ -31,7 +31,7 @@ const resendAdminApiKey = process.env.RESEND_ADMIN_API_KEY || null;
 // specifikt company_id behövs här (till skillnad från status nedan)
 // eftersom det här skapar en NY domän, inte läser ut en befintlig.
 async function handleCreate(req, res, parsedBody) {
-  if (!checkRateLimit(req, res, { key: 'email-domain-create', max: 10 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'email-domain-create', max: 10 }))) return;
 
   // OBS: ingen BotID-koll här längre (till skillnad från tidigare — se
   // git-historik och main.jsx:s filkommentar, "Anslut domän"-noten).
@@ -92,7 +92,7 @@ async function handleCreate(req, res, parsedBody) {
 // (läsning) skyddas medvetet INTE av BotID, samma konvention som övriga
 // rena läsrutter i den här kodbasen.
 async function handleStatus(req, res) {
-  if (!checkRateLimit(req, res, { key: 'email-domain-status', max: 60 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'email-domain-status', max: 60 }))) return;
 
   const user = await requireAuthedUser(req, res);
   if (!user) return;
@@ -150,7 +150,7 @@ function providerOptions() {
 }
 
 async function handleSenderStatus(req, res) {
-  if (!checkRateLimit(req, res, { key: 'email-sender-status', max: 60 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'email-sender-status', max: 60 }))) return;
 
   const user = await requireAuthedUser(req, res);
   if (!user) return;
@@ -192,7 +192,7 @@ async function handleSenderStatus(req, res) {
 // tillåter ingen frågesträng i den registrerade adressen, och en egen
 // serverlös funktion hade dessutom spräckt 12-funktionsgränsen.
 async function handleOauthUrl(req, res, body) {
-  if (!checkRateLimit(req, res, { key: 'email-sender-oauth', max: 20 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'email-sender-oauth', max: 20 }))) return;
 
   const user = await requireAuthedUser(req, res);
   if (!user) return;
@@ -223,7 +223,7 @@ async function handleOauthUrl(req, res, body) {
 }
 
 async function handleOauthExchange(req, res, body) {
-  if (!checkRateLimit(req, res, { key: 'email-sender-oauth-exchange', max: 20 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'email-sender-oauth-exchange', max: 20 }))) return;
 
   const user = await requireAuthedUser(req, res);
   if (!user) return;
@@ -299,7 +299,7 @@ function originOf(req) {
 }
 
 async function handleSenderSave(req, res, body) {
-  if (!checkRateLimit(req, res, { key: 'email-sender-save', max: 10 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'email-sender-save', max: 10 }))) return;
 
   const user = await requireAuthedUser(req, res);
   if (!user) return;
@@ -377,7 +377,7 @@ async function handleSenderSave(req, res, body) {
 }
 
 async function handleSenderRemove(req, res, body) {
-  if (!checkRateLimit(req, res, { key: 'email-sender-remove', max: 20 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'email-sender-remove', max: 20 }))) return;
 
   const user = await requireAuthedUser(req, res);
   if (!user) return;

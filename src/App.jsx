@@ -1805,6 +1805,8 @@ function App() {
         }
         return true;
       }
+      // 23514 = CHECK-villkoret user_data_state_size (20 MB, supabase-2026-10-01-skydd.sql).
+      if (error.code === '23514') setToast({ message: tr('ui.sparningen_ar_for_stor'), variant: 'error' });
       console.error('Supabase save error:', error);
       return false;
     }

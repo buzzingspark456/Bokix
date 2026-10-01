@@ -40,7 +40,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  if (!checkRateLimit(req, res, { key: 'send-invoice', max: 30 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'send-invoice', max: 30 }))) return;
 
   // Ingen BotID-koll längre (main.jsx: initBotId, se filkommentaren där) —
   // requireAuthedUser + ägarskap/medlemskap (loadOwnedOrMemberCompany, se

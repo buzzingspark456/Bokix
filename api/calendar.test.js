@@ -32,7 +32,7 @@ describe('api/calendar', () => {
   });
 
   it('svarar med kalendern när nyckeln stämmer', async () => {
-    const res = await run({ u: 'u1', c: 'c1', k: KEY });
+    const res = await run({ u: '11111111-1111-4111-8111-111111111111', c: 'c1', k: KEY });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('text/calendar');
     expect(res.body).toContain('X-WR-CALNAME:Bokix – Test AB');
@@ -40,20 +40,20 @@ describe('api/calendar', () => {
   });
 
   it('ger 404 för fel nyckel, okänt företag och trasig indata', async () => {
-    expect((await run({ u: 'u1', c: 'c1', k: 'b'.repeat(48) })).statusCode).toBe(404);
-    expect((await run({ u: 'u1', c: 'nope', k: KEY })).statusCode).toBe(404);
+    expect((await run({ u: '11111111-1111-4111-8111-111111111111', c: 'c1', k: 'b'.repeat(48) })).statusCode).toBe(404);
+    expect((await run({ u: '11111111-1111-4111-8111-111111111111', c: 'nope', k: KEY })).statusCode).toBe(404);
     expect((await run({ u: 'u1;drop', c: 'c1', k: KEY })).statusCode).toBe(404);
     state.companies.c1.company.calendar = {};
-    expect((await run({ u: 'u1', c: 'c1', k: KEY })).statusCode).toBe(404);
+    expect((await run({ u: '11111111-1111-4111-8111-111111111111', c: 'c1', k: KEY })).statusCode).toBe(404);
   });
 
   it('tar bort fakturor när de är avstängda i inställningarna', async () => {
     state.companies.c1.company.calendar.invoices = false;
-    const res = await run({ u: 'u1', c: 'c1', k: KEY });
+    const res = await run({ u: '11111111-1111-4111-8111-111111111111', c: 'c1', k: KEY });
     expect(res.body).not.toContain('Faktura 7');
   });
 
   it('godtar bara GET och HEAD', async () => {
-    expect((await run({ u: 'u1', c: 'c1', k: KEY }, 'POST')).statusCode).toBe(405);
+    expect((await run({ u: '11111111-1111-4111-8111-111111111111', c: 'c1', k: KEY }, 'POST')).statusCode).toBe(405);
   });
 });

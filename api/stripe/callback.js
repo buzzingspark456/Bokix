@@ -54,7 +54,7 @@ export default async function handler(req, res) {
   // skyddar redan mot att en FRÄMMANDE begäran lyckas, men en gräns här
   // ändå — annars kan IP:t ändå spamma just den här routen (och Stripes
   // API) tomt utan att någonsin komma förbi state-kollen.
-  if (!checkRateLimit(req, res, { key: 'stripe-callback', max: 20 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'stripe-callback', max: 20 }))) return;
   const { code, state, error: stripeError } = req.query || {};
   // Cookien ska bara kunna användas en gång, oavsett utfall.
   res.setHeader('Set-Cookie', clearStripeOauthStateCookie());

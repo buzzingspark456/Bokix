@@ -2883,6 +2883,7 @@
     "tabell": "Table {{nr}}",
     "tabell_2": "Table",
     "tack_felrapporten_ar_skickad_till_oss": "Thank you! Your error report has been sent to us.",
+    "sparningen_ar_for_stor": "Could not save: your bookkeeping has grown too large. Contact us and we will help you.",
     "tackningsbidrag_per_enhet": "Contribution margin per unit",
     "taggar": "Tags:",
     "tar_bort_hela_foretaget_inklusive_dess_prenumera": "Removes the whole company, including its subscription. Cannot be undone.",

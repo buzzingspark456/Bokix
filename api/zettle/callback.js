@@ -122,7 +122,7 @@ async function handleStart(res, user, body) {
 async function handleCallback(req, res) {
   // Säkerhetsgranskningen: samma saknade gräns som api/stripe/callback.js
   // hade — se den filens motsvarande kommentar.
-  if (!checkRateLimit(req, res, { key: 'zettle-callback', max: 20 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'zettle-callback', max: 20 }))) return;
   const { code, state, error: zettleError } = req.query || {};
   // Cookien ska bara kunna användas en gång, oavsett utfall.
   res.setHeader('Set-Cookie', clearZettleOauthStateCookie());
@@ -213,7 +213,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  if (!checkRateLimit(req, res, { key: 'zettle-connect', max: 10 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'zettle-connect', max: 10 }))) return;
 
   // OBS: ingen BotID-koll här längre (till skillnad från en tidigare
   // version av den här filen, och från main.jsx:s filkommentar innan den

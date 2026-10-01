@@ -93,7 +93,7 @@ export default async function handler(req, res) {
   const resendApiKey = getResendApiKey();
   // Striktare gräns än övriga e-postrutter (default max 20) — ett
   // anonymt, oautentiserat formulär är det mest utsatta målet för spam.
-  if (!checkRateLimit(req, res, { key: 'contact', max: 5 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'contact', max: 5 }))) return;
 
   // Ingen BotID-koll längre (main.jsx: initBotId, se filkommentaren där) —
   // reCAPTCHA nedan (när RECAPTCHA_SECRET_KEY är satt) plus den striktare

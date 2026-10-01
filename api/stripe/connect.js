@@ -138,7 +138,7 @@ export default async function handler(req, res) {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
-  if (!checkRateLimit(req, res, { key: 'stripe-connect', max: 10 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'stripe-connect', max: 10 }))) return;
 
   // Ingen BotID-koll längre (main.jsx: initBotId, se filkommentaren där för
   // hela historiken) — requireAuthedUser + loadOwnedOrMemberCompany (start)

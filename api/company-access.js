@@ -213,7 +213,7 @@ export default async function handler(req, res) {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
-  if (!checkRateLimit(req, res, { key: 'company-access', max: 60 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'company-access', max: 60 }))) return;
 
   // OBS: ingen BotID-koll här längre (till skillnad från main.jsx:s
   // filkommentar, som är föråldrad på den punkten — se rättningen i den
@@ -248,7 +248,7 @@ export default async function handler(req, res) {
       // detta är bara ett golv mot en enskild klient som spammar en varm
       // instans, inte ett riktigt globalt kredit-tak (kräver delad
       // datastore, se _rateLimit.js:s egen kommentar om samma begränsning).
-      if (!checkRateLimit(req, res, { key: 'company-lookup', max: 20 })) return;
+      if (!(await checkRateLimit(req, res, { key: 'company-lookup', max: 20 }))) return;
       try {
         await handleCompanyLookup(postBody, res);
       } catch (error) {

@@ -8,6 +8,7 @@ import { buildInvoiceReminderHtml, buildVatDeadlineHtml, buildAgiDeadlineHtml, b
 import { nextVatDeadline, nextAgiDeadline } from '../../src/utils/declarationDeadlines.js';
 import { planFromId } from '../../src/utils/plans.js';
 import { runDataRetention } from './_dataRetention.js';
+import { logSystemEvent } from '../_systemEvents.js';
 import { hasPaidAccess } from '../_auth.js';
 import { refreshZettleToken, fetchZettlePurchases } from '../zettle/_client.js';
 
@@ -694,12 +695,17 @@ export default async function handler(req, res) {
     // tidsbudget-avbruten körning inte städar på halva underlaget.
     if (completedFullPass) {
       summary.dataRetention = await runDataRetention(admin, { dryRun });
-      if (summary.dataRetention.errors?.length) summary.errors.push(...summary.dataRetention.errors);
+      if (summary.dataRetention.errors?.length) {
+        summary.errors.push(...summary.dataRetention.errors);
+        // Här ingår nattkopiorna (sjuårsarkivet): ett fel är värt ett larm.
+        await logSystemEvent('cron_failed', `Nattkopior/städning: ${summary.dataRetention.errors.slice(0, 5).join('; ')}`);
+      }
     }
 
     res.status(200).json(summary);
   } catch (error) {
     console.error('Cron reminders error:', error);
+    await logSystemEvent('cron_failed', `Påminnelser/städning: ${error?.message || error}`);
     res.status(500).json({ error: error?.message || 'Cron-körningen misslyckades.', partialSummary: summary });
   }
 }

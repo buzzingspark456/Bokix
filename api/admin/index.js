@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { applySecurityHeaders } from '../_security.js';
 import { requireAuthedUser } from '../_auth.js';
 import { checkRateLimit } from '../_rateLimit.js';
+import { ADMIN_EMAILS } from '../_systemEvents.js';
 import { parseJsonBody } from '../stripe/_parseBody.js';
 import { createClient } from '@supabase/supabase-js';
 import { planFromId } from '../../src/utils/plans.js';
@@ -40,8 +41,8 @@ import * as featureFlags from '../../src/utils/featureFlags.js';
 // FREE_ACCOUNT_EMAILS i App.jsx) — kunden vill kunna logga in på
 // /internal med endera. Samma Supabase-projekt/auth-system för båda
 // (ingen anledning att bygga ett andra), bara två separata identiteter
-// tillåtna, ingen av dem beroende av den andra.
-const ADMIN_EMAILS = ['alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com'];
+// tillåtna, ingen av dem beroende av den andra. Listan (ADMIN_EMAILS)
+// ligger i _systemEvents.js, som också mejlar larm till samma adresser.
 
 function isAdminEmail(email) {
   return ADMIN_EMAILS.includes(String(email || '').trim().toLowerCase());
@@ -549,7 +550,7 @@ async function logSecurityEvent(admin, type, email, detail) {
 
 export default async function handler(req, res) {
   applySecurityHeaders(res);
-  if (!checkRateLimit(req, res, { key: 'admin', max: 120 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'admin', max: 120 }))) return;
 
   const user = await requireAuthedUser(req, res);
   if (!user) return;

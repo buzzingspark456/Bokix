@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
-  if (!checkRateLimit(req, res, { key: 'archive', max: 20 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'archive', max: 20 }))) return;
 
   const user = await requireAuthedUser(req, res);
   if (!user) return;

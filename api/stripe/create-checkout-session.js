@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     res.status(503).json({ error: 'Stripe is not configured. Set STRIPE_SECRET_KEY before trying again.' });
     return;
   }
-  if (!checkRateLimit(req, res, { key: 'create-checkout-session', max: 20 })) return;
+  if (!(await checkRateLimit(req, res, { key: 'create-checkout-session', max: 20 }))) return;
 
   // Ingen BotID-koll längre (main.jsx: initBotId, se filkommentaren där) —
   // resolveInvoiceLineItems nedan kräver ett REDAN existerande, matchande

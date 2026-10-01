@@ -10,6 +10,11 @@ import './index.css'
 // behövs. Se kommentaren vid App-komponentens topp i App.jsx för fulla
 // resonemanget, och AppRouter.jsx för hur/när den avgör det.
 import AppRouter from './AppRouter.jsx'
+import ErrorBoundary from './components/shared/ErrorBoundary.jsx'
+import { installGlobalErrorHandlers } from './utils/errorReporting.js'
+
+// Krascher och ohanterade fel rapporteras till /api/client-error (larm).
+installGlobalErrorHandlers()
 
 // Scrollbar-inställningen (Inställningar → Data och Inställningar, App.jsx
 // äger den när den ÄR monterad) satt på <html> HÄR också, en gång vid
@@ -97,7 +102,9 @@ initBotId({
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <AppRouter />
+      <ErrorBoundary>
+        <AppRouter />
+      </ErrorBoundary>
     </BrowserRouter>
   </StrictMode>,
 )
