@@ -90,8 +90,10 @@ const GUIDES_UPDATED = '2026-09-28';
 const PAGE_DATES_PATH = path.join(__dirname, 'page-dates.json');
 const pageDates = fs.existsSync(PAGE_DATES_PATH) ? JSON.parse(fs.readFileSync(PAGE_DATES_PATH, 'utf-8')) : {};
 const pageLastmod = {};
+const seenRoutes = new Set();
 let pageDatesChanged = false;
 function recordPageDate(route, html) {
+  seenRoutes.add(route);
   const pick = (re) => (html.match(re) || [])[1] || '';
   const body = html.slice(html.indexOf('<div id="root">'))
     .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -162,7 +164,7 @@ function generateSitemap() {
         lastmod: entry.lastmod || pageLastmod[localizedPath(locale, entry.path)],
         changefreq: entry.changefreq,
         priority: entry.priority,
-        alternates: isMarketingRoute
+        alternates: isMarketingRoute && locales.length > 1
           ? [...locales.map((l) => ({ hreflang: LOCALE_META[l].hreflang, href: `${SITE_URL}${localizedPath(l, entry.path)}` })),
              { hreflang: 'x-default', href: `${SITE_URL}${entry.path}` }]
           : [],
@@ -261,6 +263,10 @@ async function main() {
   }
 
   generateSitemap();
+  // Sidor som inte längre byggs (borttagna språk m.m.) tas bort ur filen.
+  for (const route of Object.keys(pageDates)) {
+    if (!seenRoutes.has(route)) { delete pageDates[route]; pageDatesChanged = true; }
+  }
   if (pageDatesChanged && !process.env.VERCEL) {
     fs.writeFileSync(PAGE_DATES_PATH, JSON.stringify(pageDates, null, 2) + '\n');
     console.log('✓ scripts/page-dates.json uppdaterad (checka in den)');

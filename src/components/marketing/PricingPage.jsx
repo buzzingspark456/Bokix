@@ -72,26 +72,14 @@ function buildSoftwareSchema(description) {
 
 const COMPARE_HEADING = {
   sv: 'Jämför vad som ingår',
-  en: 'Compare what’s included',
-  no: 'Sammenlign hva som er inkludert',
-  dk: 'Sammenlign hvad der er inkluderet',
-  fi: 'Vertaa mitä sisältyy',
 };
 
 // Rubrikerna i jämförelsen och raden över Med personals punkter, per språk.
 const COMPARE_GROUPS = {
   sv: { base: 'Ingår i båda', payroll: 'Lön och personal' },
-  en: { base: 'Included in both', payroll: 'Payroll and staff' },
-  no: { base: 'Inkludert i begge', payroll: 'Lønn og ansatte' },
-  dk: { base: 'Inkluderet i begge', payroll: 'Løn og ansatte' },
-  fi: { base: 'Sisältyy molempiin', payroll: 'Palkat ja henkilöstö' },
 };
 const EVERYTHING_IN = {
   sv: (name) => `Allt i ${name}, plus:`,
-  en: (name) => `Everything in ${name}, plus:`,
-  no: (name) => `Alt i ${name}, pluss:`,
-  dk: (name) => `Alt i ${name}, plus:`,
-  fi: (name) => `Kaikki tasosta ${name}, sekä:`,
 };
 
 export default function PricingPage({ locale = 'sv' }) {

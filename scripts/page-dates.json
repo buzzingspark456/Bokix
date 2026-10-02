@@ -3,22 +3,6 @@
     "hash": "3842118e5928bdf6",
     "date": "2026-09-29"
   },
-  "/en": {
-    "hash": "7c8aa7ba77b7fd8a",
-    "date": "2026-09-29"
-  },
-  "/no": {
-    "hash": "23ef821b951ffb25",
-    "date": "2026-09-29"
-  },
-  "/dk": {
-    "hash": "e04f8b8f34850ed7",
-    "date": "2026-09-29"
-  },
-  "/fi": {
-    "hash": "d15097bd088a8a99",
-    "date": "2026-09-29"
-  },
   "/funktioner": {
     "hash": "d4021d7ca7b0d907",
     "date": "2026-09-29"
@@ -26,22 +10,6 @@
   "/priser": {
     "hash": "ca46dbf6364b7d32",
     "date": "2026-09-29"
-  },
-  "/en/priser": {
-    "hash": "151f5f3fb6da2660",
-    "date": "2026-09-29"
-  },
-  "/no/priser": {
-    "hash": "7f79d1771f3996f2",
-    "date": "2026-09-29"
-  },
-  "/dk/priser": {
-    "hash": "07878adccf8193d4",
-    "date": "2026-09-29"
-  },
-  "/fi/priser": {
-    "hash": "c2610b78224bb5c0",
-    "date": "2026-10-02"
   },
   "/om-oss": {
     "hash": "657eed51582dca42",

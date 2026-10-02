@@ -20,10 +20,6 @@ export const DEFAULT_LOCALE = 'sv';
 // (Wikimedia Commons), inte emoji — se LanguageSwitcher i MarketingLayout.jsx.
 export const LOCALE_META = {
   sv: { hreflang: 'sv-SE', og: 'sv_SE', label: 'Svenska' },
-  en: { hreflang: 'en', og: 'en_US', label: 'English' },
-  no: { hreflang: 'nb-NO', og: 'nb_NO', label: 'Norsk' },
-  dk: { hreflang: 'da-DK', og: 'da_DK', label: 'Dansk' },
-  fi: { hreflang: 'fi-FI', og: 'fi_FI', label: 'Suomi' },
 };
 
 export const LOCALES = Object.keys(LOCALE_META);
@@ -49,10 +45,12 @@ export const MARKETING_ROUTES = [
 // finns skulle bara publicera en dubblett av den svenska sidan bakom ett
 // hreflang="nb-NO"-löfte den inte håller, vilket är sämre för SEO än att
 // inte ha sidan alls.
-export const TRANSLATED_ROUTES = {
-  '/': ['en', 'no', 'dk', 'fi'],
-  '/priser': ['en', 'no', 'dk', 'fi'],
-};
+//
+// 2026-10-02: webbplatsen finns bara på svenska. /en, /no, /dk och /fi
+// (startsidan och priser) togs bort och omdirigeras permanent till de
+// svenska sidorna (vercel.json). Mekanismen finns kvar om ett språk ska
+// tillbaka: språket i LOCALE_META, sidan här och texten i landing.js/pricing.js.
+export const TRANSLATED_ROUTES = {};
 
 /** Sökväg → { locale, basePath } för de sökvägar som faktiskt existerar
  * (bassökvägen på sv, plus prefixade varianter enligt TRANSLATED_ROUTES). */
