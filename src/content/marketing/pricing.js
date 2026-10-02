@@ -140,7 +140,7 @@ export const PRICING_CONTENT = {
   fi: {
     meta: {
       title: 'Hinnat: alkaen 129 kr/kk | Bokix',
-      description: 'Kaksi selkeää hintaa sen mukaan, onko sinulla henkilöstöä: 129 kr/kk ilman työntekijöitä, 179 kr/kk työntekijöiden kanssa. Ei arvonlisäveroa, ei piilokuluja, ei lisäostoksia.',
+      description: 'Kaksi selkeää hintaa sen mukaan, onko sinulla henkilöstöä: 129 kr/kk ilman työntekijöitä, 179 kr/kk työntekijöiden kanssa. Ei arvonlisäveroa eikä piilokuluja.',
     },
     hero: {
       title: 'Yksi hinta tilanteeseesi',

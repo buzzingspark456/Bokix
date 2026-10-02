@@ -1,4 +1,5 @@
 {
+  "trailingSlash": false,
   "crons": [
     {
       "path": "/api/cron/reminders",

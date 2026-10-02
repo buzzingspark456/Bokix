@@ -15,6 +15,7 @@
 // är catch-all-fallbacken i vercel.json (varje route som INTE är en av de
 // sex nedan: den inloggade appen, gamla djuplänkar, /privacy m.fl.).
 // dist/index.html själv blir istället den riktiga, förrenderade startsidan.
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -79,6 +80,38 @@ const latest = (posts) => posts.map(p => p.dateModified || p.datePublished).sort
 // Uppdateras när videoguiderna spelas in på nytt (samma datum som UPLOADED i GuidesPage.jsx).
 const GUIDES_UPDATED = '2026-09-28';
 
+// ── lastmod för sidor utan eget datum (startsidan, priser, verktygen …) ──
+// Bing och Google litar bara på lastmod som stämmer: ett datum som byts vid
+// varje bygge ignoreras. Därför sparas ett fingeravtryck av varje sidas
+// synliga innehåll (text, title, description) i scripts/page-dates.json, och
+// datumet byts bara när fingeravtrycket ändras. Ett lokalt bygge skriver
+// filen (checka in den); Vercels bygge skriver inte, men en sida som ändrats
+// sedan filen checkades in får dagens datum, vilket också stämmer.
+const PAGE_DATES_PATH = path.join(__dirname, 'page-dates.json');
+const pageDates = fs.existsSync(PAGE_DATES_PATH) ? JSON.parse(fs.readFileSync(PAGE_DATES_PATH, 'utf-8')) : {};
+const pageLastmod = {};
+let pageDatesChanged = false;
+function recordPageDate(route, html) {
+  const pick = (re) => (html.match(re) || [])[1] || '';
+  const body = html.slice(html.indexOf('<div id="root">'))
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const content = [pick(/<title>([^<]*)<\/title>/i), pick(/<meta name="description" content="([^"]*)"/i), body].join('\n');
+  const hash = crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
+  const today = new Date().toISOString().slice(0, 10);
+  const stored = pageDates[route];
+  if (stored?.hash === hash) {
+    pageLastmod[route] = stored.date;
+  } else {
+    pageLastmod[route] = today;
+    pageDates[route] = { hash, date: today };
+    pageDatesChanged = true;
+  }
+}
+
 const SITEMAP_MANIFEST = [
   { path: '/', changefreq: 'weekly', priority: '1.0' },
   { path: '/funktioner', changefreq: 'monthly', priority: '0.8' },
@@ -126,7 +159,7 @@ function generateSitemap() {
     for (const locale of locales) {
       urls.push({
         loc: `${SITE_URL}${localizedPath(locale, entry.path)}`,
-        lastmod: entry.lastmod,
+        lastmod: entry.lastmod || pageLastmod[localizedPath(locale, entry.path)],
         changefreq: entry.changefreq,
         priority: entry.priority,
         alternates: isMarketingRoute
@@ -223,10 +256,15 @@ async function main() {
       : path.join(distDir, route.replace(/^\//, ''), 'index.html');
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(outPath, html);
+    recordPageDate(route, html);
     console.log(`✓ Förrenderade ${route} -> ${path.relative(distDir, outPath) || 'index.html'} (${(html.length / 1024).toFixed(1)} kB)`);
   }
 
   generateSitemap();
+  if (pageDatesChanged && !process.env.VERCEL) {
+    fs.writeFileSync(PAGE_DATES_PATH, JSON.stringify(pageDates, null, 2) + '\n');
+    console.log('✓ scripts/page-dates.json uppdaterad (checka in den)');
+  }
   writeLlmsFiles();
 
   // Engångsbygget behövs inte i den slutliga dist/-mappen som deployas.

@@ -1,0 +1,202 @@
+{
+  "/": {
+    "hash": "3842118e5928bdf6",
+    "date": "2026-09-29"
+  },
+  "/en": {
+    "hash": "7c8aa7ba77b7fd8a",
+    "date": "2026-09-29"
+  },
+  "/no": {
+    "hash": "23ef821b951ffb25",
+    "date": "2026-09-29"
+  },
+  "/dk": {
+    "hash": "e04f8b8f34850ed7",
+    "date": "2026-09-29"
+  },
+  "/fi": {
+    "hash": "d15097bd088a8a99",
+    "date": "2026-09-29"
+  },
+  "/funktioner": {
+    "hash": "d4021d7ca7b0d907",
+    "date": "2026-09-29"
+  },
+  "/priser": {
+    "hash": "ca46dbf6364b7d32",
+    "date": "2026-09-29"
+  },
+  "/en/priser": {
+    "hash": "151f5f3fb6da2660",
+    "date": "2026-09-29"
+  },
+  "/no/priser": {
+    "hash": "7f79d1771f3996f2",
+    "date": "2026-09-29"
+  },
+  "/dk/priser": {
+    "hash": "07878adccf8193d4",
+    "date": "2026-09-29"
+  },
+  "/fi/priser": {
+    "hash": "c2610b78224bb5c0",
+    "date": "2026-10-02"
+  },
+  "/om-oss": {
+    "hash": "657eed51582dca42",
+    "date": "2026-09-29"
+  },
+  "/kontakt": {
+    "hash": "7c8b01d24a2d0f6d",
+    "date": "2026-09-29"
+  },
+  "/byt-bokforingsprogram": {
+    "hash": "d6598a26e4b430bb",
+    "date": "2026-09-29"
+  },
+  "/koppla-bank": {
+    "hash": "2467fd256ae8f0fa",
+    "date": "2026-09-29"
+  },
+  "/uf": {
+    "hash": "3e9d16b54c54105b",
+    "date": "2026-09-29"
+  },
+  "/integrationer": {
+    "hash": "7fadbc7ef12ee0bf",
+    "date": "2026-09-29"
+  },
+  "/sakerhet": {
+    "hash": "f1bfc4f4ba2bf2a6",
+    "date": "2026-09-29"
+  },
+  "/lon": {
+    "hash": "9fac178cdaf7fa1e",
+    "date": "2026-09-29"
+  },
+  "/ordlista": {
+    "hash": "646aa096fe6fb4ec",
+    "date": "2026-09-29"
+  },
+  "/guider": {
+    "hash": "9e61346c047cf8a5",
+    "date": "2026-09-29"
+  },
+  "/bokix-i-korthet": {
+    "hash": "fc4c2e6d442d4dd8",
+    "date": "2026-09-29"
+  },
+  "/lagg-till-pa-hemskarmen": {
+    "hash": "06f57ecceede812d",
+    "date": "2026-09-29"
+  },
+  "/vanliga-fragor": {
+    "hash": "56066594b4545abe",
+    "date": "2026-09-29"
+  },
+  "/blogg": {
+    "hash": "37da12ec94da248c",
+    "date": "2026-09-29"
+  },
+  "/nyheter": {
+    "hash": "207ad8b553007a69",
+    "date": "2026-09-29"
+  },
+  "/verktyg": {
+    "hash": "4d287dea53621c85",
+    "date": "2026-09-29"
+  },
+  "/verktyg/skanna-kvitto": {
+    "hash": "4756183ab67c9d98",
+    "date": "2026-09-29"
+  },
+  "/verktyg/momskalkylator": {
+    "hash": "ce2eca3d443fbb66",
+    "date": "2026-09-29"
+  },
+  "/verktyg/lonekalkylator": {
+    "hash": "1f651df813d42f0b",
+    "date": "2026-09-29"
+  },
+  "/verktyg/egenavgifter": {
+    "hash": "f9979d2b5b5991a9",
+    "date": "2026-09-29"
+  },
+  "/verktyg/rot-rut": {
+    "hash": "7f55b3fb60de9eda",
+    "date": "2026-09-29"
+  },
+  "/verktyg/drojsmalsranta": {
+    "hash": "a03aa2a213674448",
+    "date": "2026-09-29"
+  },
+  "/verktyg/utdelning": {
+    "hash": "a8f24cba9a69c77f",
+    "date": "2026-09-29"
+  },
+  "/verktyg/momsdatum": {
+    "hash": "2a08cd9ea52d47a0",
+    "date": "2026-09-29"
+  },
+  "/verktyg/arsredovisning": {
+    "hash": "405b8e8ad693d77f",
+    "date": "2026-09-29"
+  },
+  "/enkel-bokforing": {
+    "hash": "87d1fc7dfe0a1b39",
+    "date": "2026-09-29"
+  },
+  "/blogg/sie4-flytta-bokforing": {
+    "hash": "4360735f9fa7bf6a",
+    "date": "2026-09-29"
+  },
+  "/blogg/bokforing-uf-foretag": {
+    "hash": "938c907075d8365f",
+    "date": "2026-09-29"
+  },
+  "/blogg/moms-deklaration-steg-for-steg": {
+    "hash": "7b5a95791701d568",
+    "date": "2026-09-29"
+  },
+  "/blogg/spara-kvitton-bokforingslagen": {
+    "hash": "a6c337951f6fa1a7",
+    "date": "2026-09-29"
+  },
+  "/blogg/bokslut-checklista": {
+    "hash": "21860c334c9a5849",
+    "date": "2026-09-29"
+  },
+  "/blogg/lon-eller-utdelning-ab": {
+    "hash": "f43cc47248d8dc99",
+    "date": "2026-09-29"
+  },
+  "/blogg/enskild-firma-bokforing-ne": {
+    "hash": "33c8769a9e26e2cb",
+    "date": "2026-09-29"
+  },
+  "/nyheter/agi-fil-och-arbetsgivaravgift-efter-alder": {
+    "hash": "43787689be6ea6f8",
+    "date": "2026-09-29"
+  },
+  "/nyheter/bokforingen-sparas-i-sju-ar": {
+    "hash": "822f2f96c67141d2",
+    "date": "2026-09-29"
+  },
+  "/nyheter/kvittoavlasning-flera-momssatser-och-returer": {
+    "hash": "88c64bf5585847f7",
+    "date": "2026-09-29"
+  },
+  "/nyheter/ta-betalt-med-kort-och-stripe": {
+    "hash": "cdef3cc9ed8d4e1b",
+    "date": "2026-09-29"
+  },
+  "/nyheter/kassaforsaljning-och-dagsavslut-med-zettle": {
+    "hash": "aa866e7f0479542d",
+    "date": "2026-09-29"
+  },
+  "/nyheter/skicka-fakturor-fran-din-egen-gmail": {
+    "hash": "8947b620b8a40a4a",
+    "date": "2026-09-29"
+  }
+}
