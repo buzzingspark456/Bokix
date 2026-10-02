@@ -41,8 +41,41 @@ export const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
  * varandra — se availableLocalesFor()/localizedPath() i
  * content/marketing/routes.js, den enda källan för vilka språk som
  * faktiskt finns per sida. */
+// Brödsmulornas namn per sida (BreadcrumbList, som Bing och Google visar
+// som "Bokix › Verktyg › Momskalkylator" i sökresultatet). En sida som
+// saknas här får inga brödsmulor hellre än ett gissat namn. Blogg- och
+// nyhetsartiklar har egna brödsmulor i BlogPostPage.jsx.
+const CRUMB_NAMES = {
+  '/funktioner': 'Funktioner', '/priser': 'Priser', '/byt-bokforingsprogram': 'Byt bokföringsprogram',
+  '/koppla-bank': 'Koppla bank', '/uf': 'UF-företag', '/lon': 'Lön', '/om-oss': 'Om oss',
+  '/bokix-i-korthet': 'Bokix i korthet', '/lagg-till-pa-hemskarmen': 'Lägg till på hemskärmen',
+  '/kontakt': 'Kontakt', '/ordlista': 'Ordlista', '/guider': 'Videoguider', '/blogg': 'Blogg',
+  '/nyheter': 'Nyheter', '/vanliga-fragor': 'Vanliga frågor', '/integrationer': 'Integrationer',
+  '/sakerhet': 'Säkerhet', '/verktyg': 'Verktyg', '/verktyg/skanna-kvitto': 'Skanna kvitto',
+  '/verktyg/momskalkylator': 'Momskalkylator', '/verktyg/lonekalkylator': 'Lönekalkylator',
+  '/verktyg/egenavgifter': 'Egenavgifter', '/verktyg/rot-rut': 'ROT och RUT',
+  '/verktyg/drojsmalsranta': 'Dröjsmålsränta', '/verktyg/utdelning': 'Utdelning',
+  '/verktyg/momsdatum': 'Momsdatum', '/verktyg/arsredovisning': 'Årsredovisning',
+};
+
+function breadcrumbData(path) {
+  if (path === '/' || /^\/(blogg|nyheter)\/./.test(path) || !CRUMB_NAMES[path]) return null;
+  const parts = path.split('/').filter(Boolean);
+  const trail = [{ name: SITE_NAME, path: '/' }];
+  parts.forEach((_, i) => {
+    const p = '/' + parts.slice(0, i + 1).join('/');
+    if (CRUMB_NAMES[p]) trail.push({ name: CRUMB_NAMES[p], path: p });
+  });
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: trail.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: `${SITE_URL}${c.path}` })),
+  };
+}
+
 export function PageMeta({ title, description, path = '/', basePath, locale = DEFAULT_LOCALE, image = DEFAULT_OG_IMAGE, type = 'website', publishedTime, modifiedTime }) {
   const url = `${SITE_URL}${path}`;
+  const crumbs = breadcrumbData(path);
   const base = basePath || path;
   const siblings = availableLocalesFor(base);
   const ogLocale = LOCALE_META[locale]?.og || LOCALE_META[DEFAULT_LOCALE].og;
@@ -88,6 +121,7 @@ export function PageMeta({ title, description, path = '/', basePath, locale = DE
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={image} />
+      {crumbs && <JsonLd data={crumbs} />}
     </>
   );
 }

@@ -4,7 +4,7 @@ import { BRAND } from '../../utils/brandColors';
 import MarketingLayout from './MarketingLayout';
 import { INK_SOFT, MUTED, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
 import { KitStyles, SubHero, KitSection, CenterSection, KitFaq, KitCta, PrimaryButton, GhostLink } from './subpageKit';
-import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
+import { PageMeta, JsonLd, SITE_URL, DEFAULT_OG_IMAGE } from '../../utils/seo';
 import MigrationFlow from './MigrationFlow';
 import DemoPlayer, { DemoStyles, PlayOnView } from './DemoPlayer';
 import { makeSwitchDemo } from './demoScenesOther';
@@ -147,11 +147,13 @@ export default function SwitchPage() {
   const articleSchema = {
     '@context': 'https://schema.org',
     '@type': 'Article',
-    headline: 'Byt bokföringsprogram till Bokix — ta med dig hela bokföringen',
+    headline: 'Byt bokföringsprogram till Bokix: ta med dig hela bokföringen',
     description: 'Så flyttar du bokföringen från Fortnox, Visma, Spiris, Bokio, Björn Lundén, Wint eller SpeedLedger till Bokix med en SIE4-fil.',
     author: { '@type': 'Organization', name: 'Bokix', url: SITE_URL },
     publisher: { '@type': 'Organization', name: 'Bokix', url: SITE_URL, logo: { '@type': 'ImageObject', url: `${SITE_URL}/icon-512.png` } },
     mainEntityOfPage: `${SITE_URL}/byt-bokforingsprogram`,
+    image: DEFAULT_OG_IMAGE,
+    datePublished: '2026-09-08',
   };
 
   const pickerButton = (on) => ({

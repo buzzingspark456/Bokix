@@ -6,7 +6,7 @@ import {
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
-import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
+import { PageMeta, JsonLd, SITE_URL, DEFAULT_OG_IMAGE } from '../../utils/seo';
 import BankFlow from './BankFlow';
 import DemoPlayer, { DemoStyles } from './DemoPlayer';
 import { makeBankDemo } from './demoScenesOther';
@@ -166,6 +166,8 @@ export default function BankPage() {
     author: { '@type': 'Organization', name: 'Bokix', url: SITE_URL },
     publisher: { '@type': 'Organization', name: 'Bokix', url: SITE_URL, logo: { '@type': 'ImageObject', url: `${SITE_URL}/icon-512.png` } },
     mainEntityOfPage: `${SITE_URL}/koppla-bank`,
+    image: DEFAULT_OG_IMAGE,
+    datePublished: '2026-09-09',
   };
 
   return (

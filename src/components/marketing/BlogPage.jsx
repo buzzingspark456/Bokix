@@ -33,6 +33,8 @@ const SCHEMA = {
     datePublished: p.datePublished,
     dateModified: p.dateModified,
     description: p.excerpt,
+    // Samma författare som på själva artikelsidan (BlogPostPage.jsx).
+    author: { '@type': 'Organization', name: 'Bokix', url: SITE_URL },
   })),
 };
 
