@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { isVatExempt } from '../utils/vatRegistration';
 import {
-  UploadCloud, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop,
+  UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop,
 } from './icons';
 import { AccountSearch } from './shared/SearchInputs';
 import AccountInlinePicker from './shared/AccountInlinePicker';
@@ -1336,6 +1336,19 @@ export default function Expenses({
           ett kvitto. */}
       <ListPageHeader title={pageTitle || tr('ui.kvitton')} subtitle={pageSubtitle}>
         <div style={{ marginTop: '14px' }}>
+          {/* Telefon: i stället för dra-och-släpp-ytan (som inte går att dra
+              något till på en telefon) en stor kameraknapp som öppnar kameran
+              direkt (capture="environment") och en knapp för bilder och PDF:er
+              som redan finns i telefonen. Samma handleFileInput som ytan. */}
+          <div className="rc-phone-capture">
+            <input type="file" id="receipt-camera" style={{ display: 'none' }} accept="image/*" capture="environment" onChange={handleFileInput} />
+            <button type="button" className="rc-phone-camera" onClick={() => document.getElementById('receipt-camera').click()}>
+              <Camera size={22} /> {tr('ui.fota_kvitto')}
+            </button>
+            <button type="button" className="rc-phone-file" onClick={() => document.getElementById('receipt-upload').click()}>
+              <Paperclip size={18} /> {tr('ui.valj_fil')}
+            </button>
+          </div>
           {/* Uppladdningszonen — en enda yta för både enskilda filer och en
               hel mapp (Sida 34), istället för separata konkurrerande ytor. */}
           <div

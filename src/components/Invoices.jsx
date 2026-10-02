@@ -2730,7 +2730,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
 
       {/* Bottom action bar (when rows selected) */}
       {selected.size > 0 && (
-        <div style={{ background: 'var(--accent)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+        <div className="inv-bulk-bar" style={{ background: 'var(--accent)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           <span style={{ color: 'white', fontSize: '13px', fontWeight: 600 }}>({selected.size} {tr('ui.markerade')}</span>
           <button onClick={() => { selected.forEach(id => onMarkPaid(id)); setSelected(new Set()); }} style={{ padding: '6px 16px', background: '#22c55e', border: 'none', borderRadius: '5px', color: 'white', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
             {tr('ui.markera_som_betalda')}

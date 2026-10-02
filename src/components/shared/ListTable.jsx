@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { ChevronDown, ChevronUp } from '../icons';
 import { useTranslation } from '../../i18n';
+import { haptic } from '../../utils/haptics';
 
 // Sida 43 (uppföljning): en enda delad tabell-komponent för listsidornas
 // rader — riktig <table>/<thead>/<tbody>, aldrig fritt staplade <div>:er
@@ -83,6 +84,39 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
   const { t } = useTranslation();
   const resolvedEmptyMessage = emptyMessage ?? t('shared.listTable.emptyMessage');
   const colSpan = columns.length + (selectable ? 1 : 0);
+
+  // Markering på telefon, som i iPhones Mail och Filer: inga kryssrutor
+  // förrän man håller fingret på en rad. Då markeras raden, kryssrutorna
+  // visas och ett tryck markerar i stället för att öppna. När inget längre
+  // är markerat (åtgärdsradens kryss, eller sista raden avmarkerad) är
+  // listan vanlig igen — läget följer markeringen, inget eget state.
+  const mobileSelecting = Boolean(selectable && rows.some(r => selectable.checked(r)));
+  const longPress = useRef({ timer: null, x: 0, y: 0, fired: false });
+  const cancelLongPress = () => { clearTimeout(longPress.current.timer); longPress.current.timer = null; };
+  const longPressHandlers = (row) => ({
+    onTouchStart: (e) => {
+      const t0 = e.touches[0];
+      longPress.current = { timer: null, x: t0.clientX, y: t0.clientY, fired: false };
+      longPress.current.timer = setTimeout(() => {
+        longPress.current.fired = true;
+        haptic();
+        if (!selectable.checked(row)) selectable.onToggle(row);
+      }, 480);
+    },
+    onTouchMove: (e) => {
+      const t0 = e.touches[0];
+      if (Math.abs(t0.clientX - longPress.current.x) > 10 || Math.abs(t0.clientY - longPress.current.y) > 10) cancelLongPress();
+    },
+    onTouchEnd: cancelLongPress,
+    onTouchCancel: cancelLongPress,
+    // Androids egen långtrycksmeny (kopiera m.m.) ska inte dyka upp.
+    onContextMenu: (e) => e.preventDefault(),
+  });
+  const handleMobileRowClick = (row) => {
+    if (longPress.current.fired) { longPress.current.fired = false; return; }
+    if (mobileSelecting) { selectable.onToggle(row); return; }
+    onRowClick?.(row);
+  };
 
   // Gruppering (valfri, se groupBy/renderGroupHeader JSDoc ovan): en
   // engångsgenomgång av (det redan sorterade) `rows` som dels bygger
@@ -255,7 +289,7 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
           desktop-bredd), döljs bara med CSS — .responsive-table.has-mobile-
           list är den som i sin tur döms bort under 900px, se index.css. */}
       {mobileList && (
-        <div className="lt-mobile-list">
+        <div className="lt-mobile-list" data-selecting={mobileSelecting ? 'true' : undefined}>
           {rows.length === 0 ? (
             <div className="lt-mobile-empty">{resolvedEmptyMessage}</div>
           ) : rows.map((row, i) => {
@@ -271,8 +305,10 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
                 )}
                 <div
                   className="lt-mobile-row"
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  style={{ cursor: onRowClick ? 'pointer' : 'default', ...rowStyle?.(row) }}
+                  data-selected={selectable?.checked(row) ? 'true' : undefined}
+                  onClick={() => handleMobileRowClick(row)}
+                  {...(selectable ? longPressHandlers(row) : {})}
+                  style={{ cursor: onRowClick || selectable ? 'pointer' : 'default', ...rowStyle?.(row) }}
                 >
                   {selectable && (
                     <span className="lt-mobile-check" onClick={e => e.stopPropagation()}>

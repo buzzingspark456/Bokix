@@ -3374,7 +3374,9 @@
     "passkey_lagg_till_knapp": "Lägg till Face ID eller fingeravtryck",
     "passkey_las_appen": "Lås appen med Face ID",
     "passkey_las_appen_beskr": "Appen frågar efter Face ID eller fingeravtryck när den öppnas och när du kommer tillbaka efter en stund.",
-    "ingen_anslutning_kunde_inte_uppdatera": "Ingen anslutning, kunde inte uppdatera."
+    "ingen_anslutning_kunde_inte_uppdatera": "Ingen anslutning, kunde inte uppdatera.",
+    "fota_kvitto": "Fota kvitto",
+    "valj_fil": "Välj fil"
   },
   "glossary": {
     "g01": {

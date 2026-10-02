@@ -3374,7 +3374,9 @@
     "passkey_lagg_till_knapp": "Add Face ID or fingerprint",
     "passkey_las_appen": "Lock the app with Face ID",
     "passkey_las_appen_beskr": "The app asks for Face ID or your fingerprint when it opens and when you come back after a while.",
-    "ingen_anslutning_kunde_inte_uppdatera": "No connection, could not refresh."
+    "ingen_anslutning_kunde_inte_uppdatera": "No connection, could not refresh.",
+    "fota_kvitto": "Take photo",
+    "valj_fil": "Choose file"
   },
   "glossary": {
     "g01": {

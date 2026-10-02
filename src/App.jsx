@@ -1291,12 +1291,16 @@ function App() {
 
   // Öppnad från hemskärmen (manifest.webmanifest start_url /?app=1, eller
   // som fristående app): gå direkt till inloggningen, inte startsidan.
+  // Fastställs en gång: i den installerade appen ska inget leda ut till
+  // webbplatsen (se Auth:s logga, onBackToLanding nedan).
+  const [inInstalledApp] = useState(() => typeof window !== 'undefined'
+    && (isStandaloneApp() || /[?&]app=1\b/.test(window.location.search)));
   useEffect(() => {
-    if (isStandaloneApp() || /[?&]app=1\b/.test(window.location.search)) {
+    if (inInstalledApp) {
       setShowLanding(false);
       setAuthMode('login');
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Bugkritiskt: react-router byter INTE scrollposition automatiskt vid
   // navigering — utan detta kunde man t.ex. scrolla långt ner på /priser,
@@ -4803,7 +4807,7 @@ function App() {
             ) : !isLoggedIn ? (
               showLanding
                 ? <LandingPage onEnterApp={(mode, plan) => { setShowLanding(false); setAuthMode(mode === 'signup' ? 'signup' : 'login'); if (plan) setSelectedPlan(plan); }} />
-                : <Auth onLogin={handleLogin} onBackToLanding={() => setShowLanding(true)} initialMode={authMode} plan={selectedPlan} initialUf={signupAsUf} />
+                : <Auth onLogin={handleLogin} onBackToLanding={inInstalledApp ? () => {} : () => setShowLanding(true)} initialMode={authMode} plan={selectedPlan} initialUf={signupAsUf} />
             ) : showOnboarding ? (
               // Bugkritiskt: `showOnboarding`/handleOnboardingComplete/
               // handleSkipOnboarding fanns redan helt färdigkopplade (även

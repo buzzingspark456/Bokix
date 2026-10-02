@@ -7196,3 +7196,73 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   visibility: visible;
   transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s;
 }
+
+/* ══ Appkänsla omgång 2: listor ══════════════════════════════════════════
+   Telefonens listrader är vita som i iPhones egna listor. Status bärs av
+   punkten och pillret ("Betald", "Förfallen"), inte av radens färg: Apple
+   säger att information aldrig får bäras av färg ensam, och de färgade
+   raderna gav grå text på 3,7–4,4:1. Datorns tabell behåller färgerna. */
+@media (max-width: 768px) {
+  .lt-mobile-row {
+    background: var(--bg-card) !important;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    transition: background-color 0.12s ease;
+  }
+  .lt-mobile-row:active { background: var(--bg-muted) !important; }
+  .lt-mobile-row[data-selected] { background: var(--status-blue-bg) !important; }
+
+  /* Kryssrutor syns först när man håller fingret på en rad (ListTable). */
+  .lt-mobile-list:not([data-selecting]) .lt-mobile-check { display: none; }
+
+  /* Åtgärdsraden för markerade fakturor ligger som ett verktygsfält ovanför
+     flikraden, där tummen når den, i stället för längst ned i listan. */
+  .inv-bulk-bar {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--mobile-nav-height) + 20px + env(safe-area-inset-bottom, 0px));
+    z-index: 145;
+    border-radius: 18px;
+    padding: 10px 12px 10px 16px !important;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.22);
+  }
+  .inv-bulk-bar > button:last-child { color: #fff !important; min-width: 44px; min-height: 44px; }
+  .main-wrapper:has(.inv-bulk-bar) .page-fab { display: none !important; }
+}
+
+/* ══ Appkänsla omgång 2: Kvitton ══
+   På telefon en stor "Fota kvitto" (öppnar kameran direkt) och "Välj fil"
+   i stället för dra-och-släpp-ytan. Dold på datorn. */
+.rc-phone-capture { display: none; }
+@media (max-width: 768px) {
+  .rc-phone-capture { display: flex; gap: 10px; }
+  .rc-drop { display: none !important; }
+  .rc-phone-camera, .rc-phone-file {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 54px;
+    border-radius: 14px;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .rc-phone-camera {
+    flex: 1 1 auto;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  .rc-phone-file {
+    flex: 0 0 auto;
+    padding: 0 18px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-main);
+  }
+}
