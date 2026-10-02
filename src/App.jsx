@@ -405,7 +405,7 @@ import OnboardingFlow from './components/OnboardingFlow';
 import { isVatExempt, stripVatRows } from './utils/vatRegistration';
 import { supabase } from './supabaseClient';
 import { isStandaloneApp } from './utils/authStorage';
-import { isInactiveTooLong, markActive, clearActive, appLockEnabledFor, setAppLock, APP_LOCK_AFTER_MS } from './utils/sessionPolicy';
+import { isInactiveTooLong, markActive, clearActive, appLockEnabledFor, setAppLock, APP_LOCK_AFTER_MS, passkeysAvailable, rememberPasskeyOnDevice } from './utils/sessionPolicy';
 import AppLock from './components/AppLock';
 import { detectDevice } from './utils/deviceInfo';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -2165,6 +2165,15 @@ function App() {
       }
       setSharedOwnerUnpaid(false);
       setSubscriptionGate(null);
+
+      // Kommer ihåg om kontot har Face ID, så inloggningen bara visar
+      // "Logga in med Face ID" när det faktiskt är påslaget (se
+      // passkeyLoginOffered). I bakgrunden, väntar inte in svaret.
+      if (passkeysAvailable() && typeof supabase.auth.passkey?.list === 'function') {
+        supabase.auth.passkey.list()
+          .then(({ data, error: pkError }) => { if (!pkError) rememberPasskeyOnDevice(Array.isArray(data) && data.length > 0); })
+          .catch(() => {});
+      }
 
       // Mina EGNA företag som JAG delar med andra (company_members,
       // owner_user_id = jag, status='active') — taggas __hasActiveMembers

@@ -10,7 +10,7 @@ import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import { sendSignupCode, verifySignupCode } from '../utils/signupVerification';
 import { translateSupabaseAuthError } from '../utils/translateAuthError';
-import { passkeysAvailable, isPasskeyCancel, setAppLock } from '../utils/sessionPolicy';
+import { passkeyLoginOffered, rememberPasskeyOnDevice, isPasskeyCancel, setAppLock } from '../utils/sessionPolicy';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
@@ -346,6 +346,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       if (error) throw error;
       // Face ID används på den här enheten: appen spärras med det framöver.
       setAppLock(data?.user?.id || data?.session?.user?.id || null);
+      rememberPasskeyOnDevice(true);
     } catch (err) {
       if (!isPasskeyCancel(err)) setErrorMsg(t('ui.passkey_inloggning_misslyckades'));
     } finally {
@@ -795,9 +796,9 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               </button>
             </form>
             {/* Passkey: Face ID, fingeravtryck eller Windows Hello i stället
-                för lösenordet. Syns bara när passkeys är påslagna och enheten
-                klarar dem (utils/sessionPolicy.js). */}
-            {passkeysAvailable() && (
+                för lösenordet. Syns bara när någon har slagit på det på den
+                här enheten (utils/sessionPolicy.js: passkeyLoginOffered). */}
+            {passkeyLoginOffered() && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '18px 0', color: 'var(--text-muted)', fontSize: '13px' }}>
                   <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />{t('ui.eller')}<span style={{ flex: 1, height: 1, background: 'var(--border)' }} />

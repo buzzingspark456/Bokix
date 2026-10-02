@@ -7,7 +7,7 @@ import {
   Sparkles, CheckCircle2, HelpCircle, LogOut, Search, ChevronRight, Fingerprint, CalendarFilled, MailFilled, BankFilled,
 } from './icons';
 import { supabase } from '../supabaseClient';
-import { passkeysAvailable, isPasskeyCancel, appLockEnabledFor, setAppLock } from '../utils/sessionPolicy';
+import { passkeysAvailable, isPasskeyCancel, appLockEnabledFor, setAppLock, rememberPasskeyOnDevice } from '../utils/sessionPolicy';
 import { sendInvoiceEmail } from '../emailApi';
 import { cancelStripeSubscription, reactivateStripeSubscription, openBillingPortal } from '../stripeApi';
 import { BRAND, ACCENT_COLORS } from '../utils/brandColors';
@@ -1230,7 +1230,11 @@ function PasskeySection() {
     supabase.auth.passkey.list()
       .then(({ data, error: err }) => {
         if (err) { setError(tr('ui.passkey_kunde_inte_hamtas')); setPasskeys([]); }
-        else setPasskeys(Array.isArray(data) ? data : []);
+        else {
+          const list = Array.isArray(data) ? data : [];
+          setPasskeys(list);
+          rememberPasskeyOnDevice(list.length > 0);
+        }
       })
       .catch(() => { setError(tr('ui.passkey_kunde_inte_hamtas')); setPasskeys([]); });
   };

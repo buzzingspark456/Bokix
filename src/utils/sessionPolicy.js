@@ -51,6 +51,27 @@ export function passkeysAvailable() {
   return PASSKEYS_ENABLED && typeof window !== 'undefined' && Boolean(window.PublicKeyCredential);
 }
 
+// Har någon slagit på Face ID på den här enheten? Inloggningens "Logga in
+// med Face ID"-knapp visas bara då. Annars syns den för alla som har en
+// telefon med Face ID, även för den som inte har något konto eller aldrig
+// lagt till en passkey, och trycket leder bara till en tom Face ID-ruta.
+// Sätts när en passkey läggs till, när man loggar in med en och när
+// kontots passkeys hämtas (se App.jsx och Settings.jsx). Ligger kvar
+// efter utloggning, det är ju då knappen behövs.
+const PASSKEY_DEVICE_KEY = 'bokix_passkey_device';
+
+export function rememberPasskeyOnDevice(on) {
+  try {
+    if (on) window.localStorage.setItem(PASSKEY_DEVICE_KEY, '1');
+    else window.localStorage.removeItem(PASSKEY_DEVICE_KEY);
+  } catch { /* privat läge */ }
+}
+
+export function passkeyLoginOffered() {
+  if (!passkeysAvailable()) return false;
+  try { return window.localStorage.getItem(PASSKEY_DEVICE_KEY) === '1'; } catch { return false; }
+}
+
 // ── Appspärr med Face ID ────────────────────────────────────────────────
 // Har man Face ID/fingeravtryck på den här enheten frågar appen efter det
 // när den öppnas och när man kommer tillbaka efter en stund, som en bankapp.
