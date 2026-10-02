@@ -1316,6 +1316,20 @@ function App() {
 
   const [user, setUser] = useState(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+
+  // Startloggan (index.html #bokix-launch, satt av public/theme-init.js)
+  // tonas bort när appen är redo: inloggningen klar, eller inloggnings-
+  // skärmen visas. Tidigast när konturen hunnit ritas klart (~1,1 s från
+  // att sidan började laddas), så animationen aldrig klipps mitt i.
+  useEffect(() => {
+    if (isLoadingAuth) return undefined;
+    const root = document.documentElement;
+    if (!root.hasAttribute('data-launch')) return undefined;
+    const wait = Math.max(0, 1100 - (performance.now?.() ?? 1100));
+    const t1 = setTimeout(() => root.setAttribute('data-launch', 'leaving'), wait);
+    const t2 = setTimeout(() => root.removeAttribute('data-launch'), wait + 400);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [isLoadingAuth]);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(() => localStorage.getItem('bokix_onboarding_completed') === 'true');
   // Bara sättaren används — själva värdet speglas till localStorage men
   // läses aldrig tillbaka från React-state någonstans (showOnboarding
