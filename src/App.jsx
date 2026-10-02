@@ -37,7 +37,7 @@ import {
 } from './components/icons';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { getNextInvoiceNumber } from './utils/invoiceNumbering';
-import { createStripeCheckoutSession, createStripeSubscriptionCheckout, cancelStripeSubscription } from './stripeApi';
+import { createStripeCheckoutSession, createStripeSubscriptionCheckout, cancelStripeSubscription, syncStripeSubscription } from './stripeApi';
 import { createEmailDomain, getEmailDomainStatus, sendInvoiceEmail } from './emailApi';
 import { getDebet, getKredit, withRoundingBalance } from './utils/verificationAmounts';
 import { describeForeign } from './utils/foreignCurrency';
@@ -1264,6 +1264,11 @@ function App() {
   const [initialSubscriptionCheckoutCompanyId] = useState(
     () => new URLSearchParams(window.location.search).get('company_id')
   );
+  // Stripes checkout-session (success_url, se _subscriptionCheckout.js) —
+  // låter syncStripeSubscription hämta just den prenumerationen direkt.
+  const [initialSubscriptionCheckoutSessionId] = useState(
+    () => new URLSearchParams(window.location.search).get('session_id')
+  );
 
   // "Kom igång"/"Logga in" klickat på en av de fristående marknadssidorna
   // (Funktioner/Priser/Om oss/Kontakt, se MarketingLayout) navigerar hit
@@ -2112,6 +2117,25 @@ function App() {
           subRow = subsMap[''] || null;
         }
       }
+      // Fortfarande ingen giltig rad: fråga Stripe direkt innan spärren
+      // visas. Utan det här fick en kund vars betalning gått igenom i
+      // Stripe "du har inte betalat" när webhooken uteblev, och betalade
+      // igen (kundrapport 2026-10-02). Gäller varje inloggning som annars
+      // hade blockerats, inte bara direkt efter Checkout.
+      if (!hasSharedAccess && !isFreeAccountEmail(authUser.email) && stillWaiting()) {
+        try {
+          const synced = await syncStripeSubscription({
+            sessionId: justSubscribed ? initialSubscriptionCheckoutSessionId : null,
+            companyId: waitingForCompanyId,
+          });
+          if (ALLOWED_SUBSCRIPTION_STATUSES.includes(synced)) {
+            subsMap = await fetchSubscriptionsMap();
+            subRow = subsMap[''] || null;
+          }
+        } catch (syncErr) {
+          console.warn('Kunde inte hämta prenumerationen från Stripe:', syncErr);
+        }
+      }
       setSubscriptionsMap(subsMap);
 
       // UF-konton (utils/ufMode.js) har ingen Stripe-prenumeration alls —
@@ -2472,6 +2496,7 @@ function App() {
 
     params.delete('subscription_checkout');
     params.delete('company_id');
+    params.delete('session_id');
     const newSearch = params.toString();
     window.history.replaceState({}, '', window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash);
   }, []);

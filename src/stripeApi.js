@@ -122,3 +122,14 @@ export async function openBillingPortal(companyId = null) {
   const { url } = await requestStripeApi('create-subscription-checkout', { action: 'billing-portal', company_id: companyId || undefined }, session.access_token);
   return url;
 }
+
+// Hämtar prenumerationen direkt ur Stripe och sparar den i
+// public.subscriptions (action 'sync' i _subscriptionCheckout.js). Anropas
+// av betalspärren innan den säger "inte betalt", som reserv om webhooken
+// inte kommit fram. Returnerar Stripes status, eller null om inget hittades.
+export async function syncStripeSubscription({ sessionId = null, companyId = null } = {}) {
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  if (!session?.access_token) return null;
+  const { status } = await requestStripeApi('create-subscription-checkout', { action: 'sync', session_id: sessionId || undefined, company_id: companyId || undefined }, session.access_token);
+  return status || null;
+}

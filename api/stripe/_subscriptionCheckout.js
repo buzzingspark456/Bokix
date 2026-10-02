@@ -5,7 +5,7 @@ import { parseJsonBody } from './_parseBody.js';
 import { normalizeAbsoluteUrl, appendQueryParam } from './_urls.js';
 import { checkRateLimit } from '../_rateLimit.js';
 import { requireAuthedUser } from '../_auth.js';
-import { hasExistingSubscription, getSubscriptionRow, getStripeCustomerId, upsertSubscription } from './_subscriptions.js';
+import { hasExistingSubscription, getSubscriptionRow, getStripeCustomerId, upsertSubscription, subscriptionFieldsFromStripe, PAID_STATUSES } from './_subscriptions.js';
 
 // Läses INTE in som modul-nivå-konstant — samma gotcha som _resend.js/
 // _signedToken.js/company-access.js:s getForetagsApiKey redan har en
@@ -190,6 +190,51 @@ export default async function handler(req, res) {
       return;
     }
 
+    // ── Hämta prenumerationen direkt ur Stripe (betalspärren) — reserv för
+    // när webhooken inte hunnit eller inte kommit fram alls. Kunden kom
+    // tillbaka från en lyckad Checkout men public.subscriptions var tom, så
+    // spärren sa "inte betalt" och de betalade igen. Stripe är facit:
+    // checkout-sessionen från success_url om den finns, annars kontots
+    // Stripe-kunder via e-postadressen. Bara prenumerationer vars metadata
+    // pekar på just den inloggade användaren räknas.
+    if (body.action === 'sync') {
+      const authedUser = await requireAuthedUser(req, res);
+      if (!authedUser) return;
+
+      const wantedCompanyId = body.company_id || null;
+      const belongsToUser = (sub) => sub?.metadata?.user_id === authedUser.id
+        && (sub.metadata?.company_id || null) === wantedCompanyId;
+
+      const candidates = [];
+      if (typeof body.session_id === 'string' && body.session_id.startsWith('cs_')) {
+        try {
+          const checkout = await stripe.checkout.sessions.retrieve(body.session_id, { expand: ['subscription'] });
+          if (checkout.subscription && typeof checkout.subscription === 'object') candidates.push(checkout.subscription);
+        } catch (err) {
+          console.warn('sync: kunde inte hämta checkout-sessionen', body.session_id, err.message);
+        }
+      }
+      if (!candidates.some(belongsToUser) && authedUser.email) {
+        const customers = await stripe.customers.list({ email: authedUser.email, limit: 10 });
+        for (const customer of customers.data) {
+          const subs = await stripe.subscriptions.list({ customer: customer.id, status: 'all', limit: 20 });
+          candidates.push(...subs.data);
+        }
+      }
+
+      const mine = candidates.filter(belongsToUser);
+      // En giltig prenumeration före en avslutad, den nyaste först.
+      mine.sort((a, b) => (PAID_STATUSES.includes(b.status) - PAID_STATUSES.includes(a.status)) || (b.created - a.created));
+      const best = mine[0];
+      if (!best) {
+        res.status(200).json({ status: null });
+        return;
+      }
+      await upsertSubscription(subscriptionFieldsFromStripe(best));
+      res.status(200).json({ status: best.status });
+      return;
+    }
+
     if (!body.user_id) {
       res.status(400).json({ error: 'user_id krävs.' });
       return;
@@ -273,9 +318,14 @@ export default async function handler(req, res) {
       // planen härifrån (planFromId) och nämner rätt belopp. Bara ett
       // visningsvärde — vad som debiteras avgörs av `plan` ovan, aldrig av
       // en parameter i webbläsarens adressfält.
-      success_url: body.company_id
+      // session_id: Stripe byter själv ut {CHECKOUT_SESSION_ID} mot
+      // sessionens id, så betalspärren kan hämta prenumerationen direkt
+      // (action 'sync' ovan) om webhooken inte hunnit. Klistras på som text:
+      // appendQueryParam hade URL-kodat klamrarna och Stripe hade då inte
+      // känt igen platshållaren.
+      success_url: `${body.company_id
         ? appendQueryParam(appendQueryParam(appendQueryParam(baseUrl, 'subscription_checkout', 'success'), 'plan', plan.id), 'company_id', body.company_id)
-        : appendQueryParam(appendQueryParam(baseUrl, 'subscription_checkout', 'success'), 'plan', plan.id),
+        : appendQueryParam(appendQueryParam(baseUrl, 'subscription_checkout', 'success'), 'plan', plan.id)}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: appendQueryParam(cancelBaseUrl, 'subscription_checkout', 'cancelled'),
     });
     res.status(200).json({ session });

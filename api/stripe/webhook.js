@@ -31,6 +31,20 @@ function getWebhookSecrets() {
   ].filter(Boolean);
 }
 
+// Stripe-signaturen räknas på de exakta byten Stripe skickade, så kroppen
+// måste läsas rå. Vercels Node-runtime ger ett vanligt IncomingMessage utan
+// req.text() — det anropet kraschade varje webhook med 500
+// (FUNCTION_INVOCATION_FAILED), så ingen betalning nådde public.subscriptions
+// och nyss betalande kunder fastnade i betalspärren (kundrapport 2026-10-02).
+export async function readRawBody(req) {
+  if (typeof req.text === 'function') return req.text();
+  if (Buffer.isBuffer(req.body)) return req.body.toString('utf8');
+  if (typeof req.body === 'string') return req.body;
+  const chunks = [];
+  for await (const chunk of req) chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  return Buffer.concat(chunks).toString('utf8');
+}
+
 export default async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'POST') {
@@ -39,7 +53,7 @@ export default async function handler(req, res) {
   }
 
   const signature = req.headers['stripe-signature'];
-  const rawBody = await req.text();
+  const rawBody = await readRawBody(req);
 
   if (!signature) {
     res.status(400).json({ error: 'Missing stripe-signature header' });

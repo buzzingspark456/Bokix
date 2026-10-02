@@ -23,6 +23,25 @@ import { createClient } from '@supabase/supabase-js';
 // ett NULL+partiellt-index-upplägg hade inte gjort det).
 const legacyCompanyId = (companyId) => companyId || '';
 
+// Samma lista som App.jsx:s ALLOWED_SUBSCRIPTION_STATUSES: de statusar som
+// släpper in kontot förbi betalspärren.
+export const PAID_STATUSES = ['trialing', 'active', 'past_due'];
+
+// Fälten upsertSubscription vill ha, ur ett Stripe Subscription-objekt.
+export function subscriptionFieldsFromStripe(sub) {
+  return {
+    userId: sub.metadata?.user_id,
+    plan: sub.metadata?.plan || undefined,
+    companyId: sub.metadata?.company_id || null,
+    stripeCustomerId: typeof sub.customer === 'string' ? sub.customer : sub.customer?.id,
+    stripeSubscriptionId: sub.id,
+    status: sub.status,
+    trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
+    currentPeriodEnd: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
+    cancelAtPeriodEnd: !!sub.cancel_at_period_end,
+  };
+}
+
 export async function hasExistingSubscription(userId, companyId = null) {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -98,6 +117,24 @@ export async function upsertSubscription({
     return;
   }
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+  // Raden har plats för EN prenumeration per företag, men Stripe kan ha
+  // flera för samma konto (kunden gick igenom Checkout igen när spärren
+  // felaktigt sa obetalt). En annan prenumeration som avslutas eller
+  // misslyckas får inte skriva över en som fortfarande gäller.
+  if (!PAID_STATUSES.includes(status) && stripeSubscriptionId) {
+    const { data: existing } = await supabaseAdmin
+      .from('subscriptions')
+      .select('stripe_subscription_id, status')
+      .eq('user_id', userId)
+      .eq('company_id', legacyCompanyId(companyId))
+      .maybeSingle();
+    if (existing?.stripe_subscription_id
+      && existing.stripe_subscription_id !== stripeSubscriptionId
+      && PAID_STATUSES.includes(existing.status)) {
+      console.warn('Hoppar över', status, 'för', stripeSubscriptionId, '— kontot har redan en giltig prenumeration:', existing.stripe_subscription_id);
+      return;
+    }
+  }
   // upsert på (user_id, company_id) — EN riktig, fullständig unik
   // constraint (se supabase-setup.sql:s kommentar för varför company_id är
   // '' istället för NULL för legacy-raden, inte ett partiellt index).
