@@ -6531,7 +6531,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
     border-radius: 24px;
     padding: 8px 12px 12px;
     max-height: min(90dvh, 780px);
-    transform: translateY(calc(100% + 32px));
+    transform: translateY(calc(100% + 32px + env(safe-area-inset-bottom, 0px)));
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.22);
   }
   .mobile-sheet.open { transform: translateY(0); }
@@ -7180,4 +7180,19 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
     border-color: rgba(255, 255, 255, 0.10);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   }
+}
+
+/* Stängd Meny-panel: helt osynlig, inte bara nedskjuten. På telefon sitter
+   panelen 8 px + hemindikatorns yta (~34 px på iPhone) ovanför kanten men
+   skjuts bara ned 100% + 32 px, så på en riktig iPhone stack ~10 px av
+   överkanten (rubriken "Meny", krysset och greppet) fram under den
+   svävande flikraden. visibility växlar först när glidningen
+   ut är klar, så animationen syns fortfarande. */
+.mobile-sheet {
+  visibility: hidden;
+  transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0.25s;
+}
+.mobile-sheet.open {
+  visibility: visible;
+  transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s;
 }
