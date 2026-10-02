@@ -806,6 +806,16 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
       </ul>
     </section>
   ) : null;
+  // Tomt läge, bara på telefon: en liten lugn rad så man ser att listan är
+  // kollad och tom, i stället för att kortet bara saknas. På datorn
+  // försvinner kortet helt som förut (tidigare kundönskemål), och raden är
+  // ingen lista att beta av, bara ett besked.
+  const todoEmpty = todoFirst && !isNew && todos.length === 0 ? (
+    <section className="dash-todo-empty" aria-label={t('dashboard.today.title')}>
+      <span className="dash-todo-empty-title">{t('dashboard.today.title')}</span>
+      <span className="dash-todo-empty-text">{t('dashboard.todo.empty')}</span>
+    </section>
+  ) : null;
 
   // Fönstrets höjd på dator: diagrammet får plats på en laptop utan att man måste skrolla förbi det.
   const [viewH, setViewH] = useState(() => (typeof window !== 'undefined' ? window.innerHeight : 900));
@@ -888,7 +898,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           Visas alltid, även på ett helt nytt/tomt konto — de här fyra
           genvägarna ÄR de första stegen man vill ta, så de ska inte gömmas
           undan bakom `isNew` som resten av sidans siffror/grafer. ─── */}
-      {todoFirst && todoCard}
+      {todoFirst && (todoCard || todoEmpty)}
 
       <div className="dash-quick" style={{ marginBottom: '18px' }}>
         <div className="dash-quick-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>

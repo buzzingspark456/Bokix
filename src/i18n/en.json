@@ -190,7 +190,8 @@
       "draftOneDetail": "Not sent yet",
       "draftManyDetail": "Not sent yet",
       "countOne": "1 item",
-      "countMany": "{{count}} items"
+      "countMany": "{{count}} items",
+      "empty": "Nothing is waiting for you right now"
     }
   },
   "settings": {

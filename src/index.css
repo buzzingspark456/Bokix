@@ -7305,3 +7305,18 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .dash-today-detail { font-size: 13.5px; }
   .dash-today-btn { padding: 14px 0 !important; }
 }
+
+/* Att göra idag, tomt läge (bara telefon, se Dashboard.jsx todoEmpty). */
+.dash-todo-empty {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg-card);
+}
+.dash-todo-empty-title { font-size: 15px; font-weight: 700; color: var(--text-main); }
+.dash-todo-empty-text { font-size: 13.5px; color: var(--text-muted); text-align: right; }

@@ -190,7 +190,8 @@
       "draftOneDetail": "Inte skickat än",
       "draftManyDetail": "Inte skickade än",
       "countOne": "1 sak",
-      "countMany": "{{count}} saker"
+      "countMany": "{{count}} saker",
+      "empty": "Inget väntar på dig just nu"
     }
   },
   "settings": {
