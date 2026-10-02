@@ -162,6 +162,33 @@
       "title": "Moms",
       "noUpcoming": "Ingen kommande momsdeklaration att visa.",
       "goToTaxes": "Till Skatt & Moms"
+    },
+    "todo": {
+      "hide": "Dölj",
+      "whenYesterday": "igår",
+      "whenDaysAgo": "för {{days}} dagar sedan",
+      "overdueOneTitle": "Faktura {{number}} till {{customer}}",
+      "overdueOneTitleNoCustomer": "Faktura {{number}}",
+      "overdueManyTitle": "{{count}} förfallna fakturor",
+      "amountTotal": "{{amount}} totalt",
+      "overdueWhen": "förföll {{when}}",
+      "overdueOldestWhen": "äldsta förföll {{when}}",
+      "vatTitle": "Momsdeklaration kvartal {{quarter}}",
+      "vatLate": "Försenad",
+      "vatDue": "Lämnas {{when}}",
+      "payrollOneTitle": "Lönekörning {{period}}",
+      "payrollManyTitle": "{{count}} lönekörningar",
+      "payrollDetail": "Väntar på godkännande",
+      "reviewOneTitle": "1 sak att granska",
+      "reviewManyTitle": "{{count}} saker att granska",
+      "reviewDetailBoth": "{{receipts}} kvitton och {{payments}} betalningar",
+      "reviewDetailReceiptOne": "Ett kvitto saknar konto",
+      "reviewDetailReceipts": "{{count}} kvitton saknar konto",
+      "reviewDetailPayments": "Betalningar från Stripe eller Zettle",
+      "draftOneTitle": "1 fakturautkast",
+      "draftManyTitle": "{{count}} fakturautkast",
+      "draftOneDetail": "Inte skickat än",
+      "draftManyDetail": "Inte skickade än"
     }
   },
   "settings": {

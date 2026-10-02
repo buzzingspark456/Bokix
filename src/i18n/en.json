@@ -162,6 +162,33 @@
       "title": "VAT",
       "noUpcoming": "No upcoming VAT return to show.",
       "goToTaxes": "Go to Tax & VAT"
+    },
+    "todo": {
+      "hide": "Hide",
+      "whenYesterday": "yesterday",
+      "whenDaysAgo": "{{days}} days ago",
+      "overdueOneTitle": "Invoice {{number}} to {{customer}}",
+      "overdueOneTitleNoCustomer": "Invoice {{number}}",
+      "overdueManyTitle": "{{count}} overdue invoices",
+      "amountTotal": "{{amount}} in total",
+      "overdueWhen": "due {{when}}",
+      "overdueOldestWhen": "oldest due {{when}}",
+      "vatTitle": "VAT return Q{{quarter}}",
+      "vatLate": "Overdue",
+      "vatDue": "Due {{when}}",
+      "payrollOneTitle": "Payroll {{period}}",
+      "payrollManyTitle": "{{count}} payroll runs",
+      "payrollDetail": "Waiting for approval",
+      "reviewOneTitle": "1 item to review",
+      "reviewManyTitle": "{{count}} items to review",
+      "reviewDetailBoth": "{{receipts}} receipts and {{payments}} payments",
+      "reviewDetailReceiptOne": "A receipt has no account",
+      "reviewDetailReceipts": "{{count}} receipts have no account",
+      "reviewDetailPayments": "Payments from Stripe or Zettle",
+      "draftOneTitle": "1 draft invoice",
+      "draftManyTitle": "{{count}} draft invoices",
+      "draftOneDetail": "Not sent yet",
+      "draftManyDetail": "Not sent yet"
     }
   },
   "settings": {

@@ -4410,7 +4410,7 @@ function App() {
             invoices={invoices}
             expenses={expenses}
             contacts={contacts}
-            setActiveTab={setActiveTab}
+            setActiveTab={handleNavTabChange}
             company={company}
             user={user}
             profileIncomplete={!hasCompletedOnboarding}
@@ -4418,6 +4418,7 @@ function App() {
             vatPeriods={vatPeriods}
             payrollRuns={payrollRuns}
             employees={employees}
+            reviewTotal={reviewTotal}
             onBulkImportSie={handleBulkImportVerifications}
           />
         );

@@ -3,7 +3,7 @@ import {
   FileText, Receipt, TrendingUp, TrendingDown,
   ChevronRight, ArrowUpRight, ArrowDownRight,
   CheckCircle2, BarChart2,
-  UserPlus, Users, Clock, AlertCircle, X, MessageSquare, Upload,
+  UserPlus, Users, AlertCircle, X, MessageSquare, Upload,
   QuickNewInvoiceIcon, QuickUploadReceiptIcon, QuickNewContactIcon, QuickLogTimeIcon, QuickRunPayrollIcon,
   // Aliasat — 'LineChart' krockar annars med recharts-komponenten med
   // samma namn som redan importeras nedan (två helt olika saker: en ikon
@@ -295,18 +295,68 @@ function KpiCard({ label, value, sub, icon: Icon, color, bg, onClick, hero, grad
   );
 }
 
-/* ── "Idag"-raden — en rad i listan Att göra idag. Ingen färg och inga ikoner: bara texten,
-   en liten ring till vänster som avfärdar raden (som i Påminnelser) och en pil som visar att
-   raden går att klicka på. Ordningen (viktigast först) styrs av todos-listan, inte av färg. ── */
+/* ── "Idag"-raden — en rad i listan Att göra idag. Ingen färg och inga ikoner: en rubrik,
+   en detaljrad där bara det försenade är rött (som i Påminnelser) och en pil. Ordningen
+   (viktigast först) styrs av todos-listan, inte av färg.
+   Att dölja en rad: på telefon sveper man raden åt vänster ("Dölj", som i Mail), på datorn
+   finns ett litet kryss när man håller musen över raden. Ringen som stod här förut såg ut
+   som en kryssruta men bockade inte av något: en förfallen faktura är lika obetald när
+   raden är dold. ── */
+const SWIPE_OPEN = 84;
 function TodayRow({ item, onClick, onDismiss }) {
   const { t } = useTranslation();
+  const [offset, setOffset] = useState(0);
+  const drag = useRef(null);
+  const onTouchStart = (e) => {
+    const p = e.touches[0];
+    drag.current = { x: p.clientX, y: p.clientY, base: offset, horizontal: null };
+  };
+  const onTouchMove = (e) => {
+    const d = drag.current;
+    if (!d) return;
+    const p = e.touches[0];
+    const dx = p.clientX - d.x;
+    if (d.horizontal === null && (Math.abs(dx) > 8 || Math.abs(p.clientY - d.y) > 8)) d.horizontal = Math.abs(dx) > Math.abs(p.clientY - d.y);
+    if (!d.horizontal) return;
+    setOffset(Math.max(-SWIPE_OPEN - 24, Math.min(0, d.base + dx)));
+  };
+  const onTouchEnd = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d?.horizontal) return;
+    setOffset(o => (o < -SWIPE_OPEN / 2 ? -SWIPE_OPEN : 0));
+  };
+  const open = offset !== 0;
   return (
-    <li className="dash-today-row">
-      <button type="button" className="dash-today-check" onClick={onDismiss} aria-label={t('dashboard.today.dismiss')} title={t('dashboard.today.dismiss')} />
-      <button type="button" className="dash-today-btn" onClick={onClick}>
-        <span className="dash-today-text">{item.text}</span>
-        {item.tab && <ChevronRight size={16} className="dash-today-chevron" />}
+    <li className="dash-today-row" data-open={open ? 'true' : undefined}>
+      <button type="button" className="dash-today-swipe-hide" onClick={onDismiss} tabIndex={open ? 0 : -1} aria-hidden={!open}>
+        {t('dashboard.todo.hide')}
       </button>
+      <div
+        className="dash-today-slide"
+        style={{ transform: offset ? `translateX(${offset}px)` : undefined, transition: drag.current ? 'none' : undefined }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+      >
+        <button type="button" className="dash-today-btn" onClick={() => (open ? setOffset(0) : onClick())}>
+          <span className="dash-today-lines">
+            <span className="dash-today-title">{item.title}</span>
+            {(item.detail || item.when) && (
+              <span className="dash-today-detail">
+                {item.detail}
+                {item.detail && item.when && ' · '}
+                {item.when && <span className={item.late ? 'dash-today-late' : undefined}>{item.when}</span>}
+              </span>
+            )}
+          </span>
+          {item.tab && <ChevronRight size={16} className="dash-today-chevron" />}
+        </button>
+        <button type="button" className="dash-today-x" onClick={onDismiss} aria-label={t('dashboard.today.dismiss')} title={t('dashboard.today.dismiss')}>
+          <X size={15} />
+        </button>
+      </div>
     </li>
   );
 }
@@ -325,7 +375,7 @@ function useIsPhone(maxWidth = 640) {
   return phone;
 }
 
-export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], onBulkImportSie }) {
+export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie }) {
   const { t } = useTranslation();
   const FORMAT_MODES = formatModes(t);
   // Har företaget personal? Avgörs på verkliga anställda och lönekörningar,
@@ -468,44 +518,70 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // (ovan) nycklar på kind+text TILLSAMMANS, så en avfärdad rad återkommer
   // automatiskt den dagen den faktiska texten (beloppet/antalet/datumet)
   // ändras, i stället för att vara tyst begravd för gott.
+  // Varje rad har en rubrik (vad det gäller) och en detaljrad (belopp och
+  // när). Bara tidsangivelsen blir röd, och bara när något är försenat, som
+  // förfallna påminnelser i iPhones Påminnelser. `text` (rubrik + detalj)
+  // är fortfarande nyckeln för att dölja en rad, se dismissKey nedan.
+  const daysAgoLabel = (days) => (days <= 1 ? t('dashboard.todo.whenYesterday') : t('dashboard.todo.whenDaysAgo', { days }));
   const rawTodos = [];
   if (overdueInvoices.length > 0) {
+    const one = overdueInvoices.length === 1 ? overdueInvoices[0] : null;
+    const customer = one && contacts.find(c => c.id === one.customerId)?.name;
     rawTodos.push({
-      kind: 'overdue_invoices', sev: 'danger', icon: AlertCircle, tab: 'invoices', daysLeft: -mostOverdueDays,
-      text: overdueInvoices.length === 1
-        ? (mostOverdueDays <= 1
-          ? t('dashboard.todos.overdueInvoiceYesterday', { amount: fmt(overdueAmount) })
-          : t('dashboard.todos.overdueInvoiceDaysAgo', { days: mostOverdueDays, amount: fmt(overdueAmount) }))
-        : t('dashboard.todos.overdueInvoicesPlural', { count: overdueInvoices.length, amount: fmt(overdueAmount) }),
+      kind: 'overdue_invoices', sev: 'danger', tab: 'invoices', daysLeft: -mostOverdueDays, late: true,
+      title: one
+        ? (customer ? t('dashboard.todo.overdueOneTitle', { number: one.invoiceNumber, customer }) : t('dashboard.todo.overdueOneTitleNoCustomer', { number: one.invoiceNumber }))
+        : t('dashboard.todo.overdueManyTitle', { count: overdueInvoices.length }),
+      detail: one ? fmt(overdueAmount) : t('dashboard.todo.amountTotal', { amount: fmt(overdueAmount) }),
+      when: one
+        ? t('dashboard.todo.overdueWhen', { when: daysAgoLabel(mostOverdueDays) })
+        : t('dashboard.todo.overdueOldestWhen', { when: daysAgoLabel(mostOverdueDays) }),
     });
   }
-  if (vatDeadline) {
-    if (vatDeadline.daysLeft < 0) {
-      rawTodos.push({ kind: 'vat_deadline', sev: 'danger', icon: AlertCircle, text: t('dashboard.todos.vatOverdueQuarter', { quarter: vatDeadline.quarter }), tab: 'taxes', daysLeft: vatDeadline.daysLeft });
-    } else if (vatDeadline.daysLeft <= 7) {
-      const when = vatDeadline.daysLeft === 0 ? t('dashboard.todos.whenToday') : vatDeadline.daysLeft === 1 ? t('dashboard.todos.whenTomorrow') : t('dashboard.todos.whenInDays', { days: vatDeadline.daysLeft });
-      rawTodos.push({ kind: 'vat_deadline', sev: 'warning', icon: Clock, text: t('dashboard.todos.vatDueWhen', { when }), tab: 'taxes', daysLeft: vatDeadline.daysLeft });
-    }
+  if (vatDeadline && (vatDeadline.daysLeft < 0 || vatDeadline.daysLeft <= 7)) {
+    const late = vatDeadline.daysLeft < 0;
+    const whenDue = vatDeadline.daysLeft === 0 ? t('dashboard.todos.whenToday') : vatDeadline.daysLeft === 1 ? t('dashboard.todos.whenTomorrow') : t('dashboard.todos.whenInDays', { days: vatDeadline.daysLeft });
+    rawTodos.push({
+      kind: 'vat_deadline', sev: late ? 'danger' : 'warning', tab: 'taxes', daysLeft: vatDeadline.daysLeft, late,
+      title: t('dashboard.todo.vatTitle', { quarter: vatDeadline.quarter }),
+      when: late ? t('dashboard.todo.vatLate') : t('dashboard.todo.vatDue', { when: whenDue }),
+    });
   }
   if (pendingPayrollRuns.length > 0) {
     rawTodos.push({
-      kind: 'payroll_pending', sev: 'warning', icon: Users, tab: 'payroll',
-      text: pendingPayrollRuns.length === 1
-        ? t('dashboard.todos.payrollPendingSingle', { period: pendingPayrollRuns[0].period || '' })
-        : t('dashboard.todos.payrollPendingMultiple', { count: pendingPayrollRuns.length }),
+      kind: 'payroll_pending', sev: 'warning', tab: 'payroll',
+      title: pendingPayrollRuns.length === 1
+        ? t('dashboard.todo.payrollOneTitle', { period: pendingPayrollRuns[0].period || '' })
+        : t('dashboard.todo.payrollManyTitle', { count: pendingPayrollRuns.length }),
+      detail: t('dashboard.todo.payrollDetail'),
     });
   }
-  if (unhandledReceipts.length > 0) {
+  // Det som väntar i Granskning: kvitton utan konto plus betalningar från
+  // Stripe och Zettle (reviewTotal från App.jsx, samma siffra som menyns
+  // märke). Raden leder till Granskning, där man faktiskt går igenom dem,
+  // och inte till Kvitton som förut.
+  const reviewCount = Math.max(reviewTotal ?? 0, unhandledReceipts.length);
+  if (reviewCount > 0) {
+    const receipts = unhandledReceipts.length;
+    const payments = reviewCount - receipts;
     rawTodos.push({
-      kind: 'unhandled_receipts', sev: 'success', icon: Receipt, tab: 'expenses',
-      text: unhandledReceipts.length === 1
-        ? t('dashboard.todos.receiptsWaitingSingle')
-        : t('dashboard.todos.receiptsWaitingPlural', { count: unhandledReceipts.length }),
+      kind: 'review', sev: 'success', tab: 'review',
+      title: reviewCount === 1 ? t('dashboard.todo.reviewOneTitle') : t('dashboard.todo.reviewManyTitle', { count: reviewCount }),
+      detail: receipts && payments
+        ? t('dashboard.todo.reviewDetailBoth', { receipts, payments })
+        : receipts
+          ? (receipts === 1 ? t('dashboard.todo.reviewDetailReceiptOne') : t('dashboard.todo.reviewDetailReceipts', { count: receipts }))
+          : t('dashboard.todo.reviewDetailPayments', { count: payments }),
     });
   }
   if (draftInvoices.length > 0) {
-    rawTodos.push({ kind: 'draft_invoices', sev: 'success', icon: FileText, tab: 'invoices', text: t('dashboard.todos.draftInvoicesWaiting', { count: draftInvoices.length }) });
+    rawTodos.push({
+      kind: 'draft_invoices', sev: 'success', tab: 'invoices',
+      title: draftInvoices.length === 1 ? t('dashboard.todo.draftOneTitle') : t('dashboard.todo.draftManyTitle', { count: draftInvoices.length }),
+      detail: draftInvoices.length === 1 ? t('dashboard.todo.draftOneDetail') : t('dashboard.todo.draftManyDetail'),
+    });
   }
+  rawTodos.forEach(r => { r.text = [r.title, r.detail, r.when].filter(Boolean).join(' · '); });
   // Allvarsgrad först (försenat före kommande), men DÄRINOM det som har
   // minst tid kvar. Utan `daysLeft` som andrahandsnyckel avgjorde
   // insättningsordningen i koden vad som stod överst, vilket inte har
