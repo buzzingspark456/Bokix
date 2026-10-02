@@ -7286,3 +7286,22 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
     color: var(--text-main);
   }
 }
+
+/* Att göra idag på telefon: först på startsidan och lite större, det är
+   sidans viktigaste kort. Räknaren är ett lugnt piller ("3 saker"). */
+.dash-todo-count {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+@media (max-width: 768px) {
+  .dash-todo-card { padding: 18px 18px 4px; border-radius: 20px; }
+  .dash-todo-head { align-items: center; margin-bottom: 4px; }
+  .dash-todo-title { font-size: 19px; letter-spacing: -0.02em; }
+  .dash-today-title { font-size: 16px; }
+  .dash-today-detail { font-size: 13.5px; }
+  .dash-today-btn { padding: 14px 0 !important; }
+}

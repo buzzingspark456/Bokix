@@ -188,7 +188,9 @@
       "draftOneTitle": "1 draft invoice",
       "draftManyTitle": "{{count}} draft invoices",
       "draftOneDetail": "Not sent yet",
-      "draftManyDetail": "Not sent yet"
+      "draftManyDetail": "Not sent yet",
+      "countOne": "1 item",
+      "countMany": "{{count}} items"
     }
   },
   "settings": {

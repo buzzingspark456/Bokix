@@ -787,6 +787,26 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // marginBottom) istället för att bara göra texten osynlig.
   const showGreeting = user?.user_metadata?.show_dashboard_greeting !== false;
   const isPhone = useIsPhone();
+  // Att göra idag: på telefon först på sidan, före Snabbåtgärder (det som väntar
+  // på dig är viktigare än genvägarna, och genvägarna tog annars halva skärmen
+  // innan listan syntes). På bredare skärmar ligger den kvar i högerkolumnen.
+  const todoFirst = useIsPhone(768);
+  const todoCard = !isNew && todos.length > 0 ? (
+    <section className="dash-todo-card" aria-label={t('dashboard.today.title')}>
+      <div className="dash-todo-head">
+        <h2 className="dash-todo-title">{t('dashboard.today.title')}</h2>
+        <span className="dash-todo-count">
+          {todos.length === 1 ? t('dashboard.todo.countOne') : t('dashboard.todo.countMany', { count: todos.length })}
+        </span>
+      </div>
+      <ul className="dash-todo-list">
+        {todos.map(todo => (
+          <TodayRow key={todo.dismissKey} item={todo} onClick={() => todo.tab && setActiveTab(todo.tab)} onDismiss={() => dismissTodo(todo.dismissKey)} />
+        ))}
+      </ul>
+    </section>
+  ) : null;
+
   // Fönstrets höjd på dator: diagrammet får plats på en laptop utan att man måste skrolla förbi det.
   const [viewH, setViewH] = useState(() => (typeof window !== 'undefined' ? window.innerHeight : 900));
   useEffect(() => {
@@ -868,6 +888,8 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           Visas alltid, även på ett helt nytt/tomt konto — de här fyra
           genvägarna ÄR de första stegen man vill ta, så de ska inte gömmas
           undan bakom `isNew` som resten av sidans siffror/grafer. ─── */}
+      {todoFirst && todoCard}
+
       <div className="dash-quick" style={{ marginBottom: '18px' }}>
         <div className="dash-quick-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
           <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>{t('dashboard.quickActions.title')}</span>
@@ -914,19 +936,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           Att göra, Utestående och Moms i en smal kolumn till höger, så att hela
           översikten syns utan att skrolla. Smalare än så staplas allt som förut. */}
       <div className={`dash-body${isNew || (todos.length === 0 && !hasOutstanding) ? ' dash-body--solo' : (todos.length > 0 ? '' : ' dash-body--no-todo')}`}>
-      {!isNew && todos.length > 0 && (
-        <section className="dash-todo-card" aria-label={t('dashboard.today.title')}>
-          <div className="dash-todo-head">
-            <h2 className="dash-todo-title">{t('dashboard.today.title')}</h2>
-            <span className="dash-todo-count">{todos.length}</span>
-          </div>
-          <ul className="dash-todo-list">
-            {todos.map(todo => (
-              <TodayRow key={todo.dismissKey} item={todo} onClick={() => todo.tab && setActiveTab(todo.tab)} onDismiss={() => dismissTodo(todo.dismissKey)} />
-            ))}
-          </ul>
-        </section>
-      )}
+      {!todoFirst && todoCard}
 
       {/* ─── GRAF — full bredd. Var tidigare en svag cremeton (Sida 31/32) för
           att skilja den från de vita KPI-korten ovanför — kundfeedback: lästes

@@ -188,7 +188,9 @@
       "draftOneTitle": "1 fakturautkast",
       "draftManyTitle": "{{count}} fakturautkast",
       "draftOneDetail": "Inte skickat än",
-      "draftManyDetail": "Inte skickade än"
+      "draftManyDetail": "Inte skickade än",
+      "countOne": "1 sak",
+      "countMany": "{{count}} saker"
     }
   },
   "settings": {
