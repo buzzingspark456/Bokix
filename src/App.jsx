@@ -56,7 +56,6 @@ import { computeEmployeePayroll, summarizePayrollRun, FEE_RULES_VERSION } from '
 import BokixWordmark, { BokixMark } from './components/shared/BokixWordmark';
 import MobileTopTitle from './components/shared/MobileTopTitle';
 import PullToRefresh from './components/shared/PullToRefresh';
-import { haptic } from './utils/haptics';
 import { seriesForSource, getNextNumber as getNextVerificationNumber } from './utils/verificationNumbering';
 
 // ── Bokix Logo Component (light sidebar) ──
@@ -5315,7 +5314,8 @@ function App() {
                 key={item.id}
                 className={`mobile-nav-btn ${isActive ? 'active' : ''}`}
                 onClick={() => {
-                  haptic();
+                  // Ingen vibration här: iOS egen flikrad vibrerar inte, och Apple
+                  // avråder från haptik på vanliga tryck (playing-haptics › Best practices).
                   // Som i appar: tryck på fliken man redan står på = tillbaka till toppen.
                   if (isActive && activeTab === resolveTab(item.id)) {
                     document.querySelector('.main-wrapper')?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -5336,7 +5336,7 @@ function App() {
               via en länk inifrån en annan sida, inte bara via sheeten själv. */}
           <button
             className={`mobile-nav-btn ${isMobileSheetItemActive ? 'active' : ''}`}
-            onClick={() => { haptic(); setMobileMoreOpen(true); }}
+            onClick={() => setMobileMoreOpen(true)}
             aria-haspopup="true"
             aria-expanded={mobileMoreOpen}
           >

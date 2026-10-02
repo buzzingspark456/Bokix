@@ -7093,3 +7093,91 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
     background: color-mix(in srgb, var(--bg-card) 86%, transparent);
   }
 }
+
+/* ══ Genomgång mot Apples riktlinjer (HIG), 2026-10-02 ══════════════════
+   Uppmätt i appen på 390 px, se kommentarerna. */
+@media (max-width: 768px) {
+  /* Kontrast: grå hjälptext (#a1a1aa) låg på 2,2–2,6:1 mot vit/ljusgrå
+     bakgrund i ljust läge. Apple (accessibility › Color and effects) och
+     WCAG AA kräver 4,5:1 för text upp till 17 pt. #6a6a73 ger 5,35:1 mot
+     vitt och 4,96:1 mot --bg-page (de färgade fakturaraderna blir vita i
+     omgång 2, rött ligger annars på 3,7:1). Bara :root, så mörkt läge (som har egna,
+     redan godkända värden och högre specificitet) inte påverkas. */
+  :root { --text-muted: #6a6a73; }
+
+  /* Minsta textstorlek på telefon är 11 pt (accessibility › Text size).
+     Statuspillren och några etiketter har 10,5 px som inline-stil. */
+  .main-content-inner [style*="font-size: 10.5px"] { font-size: 11px !important; }
+
+  /* Tryckytor: Apples standard är 44×44 pt (accessibility › Controls).
+     Klockan och ⋯ var 40×40. */
+  .global-top-bar .topbar-icon-btn { width: 44px; height: 44px; }
+  .global-top-bar .topbar-profile-trigger { padding: 5px !important; }
+  /* ⋯ utan ram: "Prefer system-provided symbols without borders"
+     (toolbars › Actions). */
+  .page-header-actions > button.lph-more {
+    width: 44px;
+    height: 44px;
+    border: 0;
+    background: transparent;
+    color: var(--text-main);
+  }
+  /* Kundfakturors flytande knapp fick sökradens 42 px-höjd; samma 54 px som
+     på övriga sidor. */
+  .inv-searchrow > button.page-fab { height: 54px !important; }
+
+  /* Flikraden svävar ovanför innehållet på glas, som iOS egen:
+     "A tab bar floats above content at the bottom of the screen. Its items
+     rest on a Liquid Glass background that allows content beneath to peek
+     through" (tab bars › iOS). Bara den riktiga appen (app-bottom-nav), inte
+     demons kopia på marknadssidorna. */
+  .app-bottom-nav {
+    left: 12px;
+    right: 12px;
+    bottom: max(10px, calc(env(safe-area-inset-bottom, 0px) - 6px));
+    padding-bottom: 0;
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    border-radius: 30px;
+    background: color-mix(in srgb, var(--bg-card) 86%, transparent);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.14), 0 2px 8px rgba(15, 23, 42, 0.06);
+  }
+  /* Den heltäckande ytan under flikraden behövs inte när raden svävar:
+     innehållet ska synas under den. */
+  .app-bottom-nav::after { display: none; }
+  .app-bottom-nav .mobile-bottom-nav-inner { padding: 4px; }
+  /* Den flytande knappen ligger en bit ovanför den svävande raden. */
+  .page-fab { bottom: calc(var(--mobile-nav-height) + 20px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* Minska rörelse (accessibility › Motion): inga studsande paneler,
+   ingen krympning vid tryck, notisen tonar bara in. */
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active, a:active, [role="button"]:active { transform: none; }
+  .profile-dropdown, .app-toast { animation: none !important; }
+  .topbar-compact-title { transition: none; }
+}
+
+/* Minska genomskinlighet: glaset blir en hel yta. */
+@media (max-width: 768px) and (prefers-reduced-transparency: reduce) {
+  .global-top-bar::before { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--bg-page); }
+  .main-wrapper:has(.page-header-top) .global-top-bar::before { background: var(--bg-card); }
+  .app-bottom-nav { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--bg-card); }
+}
+@media (max-width: 768px) {
+  /* Mörkt läge: tätare glas och en ljus kant, annars flyter flikraden ihop
+     med de mörka raderna under den. */
+  :root[data-theme="dark"] .app-bottom-nav {
+    background: color-mix(in srgb, var(--bg-card) 93%, transparent);
+    border-color: rgba(255, 255, 255, 0.10);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  }
+}
+@media (max-width: 768px) and (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .app-bottom-nav {
+    background: color-mix(in srgb, var(--bg-card) 93%, transparent);
+    border-color: rgba(255, 255, 255, 0.10);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  }
+}
