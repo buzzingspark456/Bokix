@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { CheckCircle2, AlertCircle, Info, X } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import { t } from '../../i18n';
+import { haptic } from '../../utils/haptics';
 
 const VARIANTS = {
   success: { bg: BRAND.greenLight, color: BRAND.greenDark, Icon: CheckCircle2 },
@@ -30,9 +31,11 @@ const VARIANTS = {
 export default function Toast({ message, variant = 'success', action, onClose, duration = 6000 }) {
   useEffect(() => {
     if (!message) return undefined;
+    // Ett litet tick i telefonen när något sparats, som i en app.
+    if (variant === 'success') haptic('success');
     const timer = setTimeout(onClose, duration);
     return () => clearTimeout(timer);
-  }, [message, duration, onClose]);
+  }, [message, duration, onClose]); // eslint-disable-line react-hooks/exhaustive-deps // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!message) return null;
   const { bg, color, Icon } = VARIANTS[variant] || VARIANTS.info;
@@ -41,6 +44,7 @@ export default function Toast({ message, variant = 'success', action, onClose, d
     <div
       role="status"
       aria-live="polite"
+      className="app-toast"
       style={{
         position: 'fixed', top: '20px', right: '20px', zIndex: 3000,
         maxWidth: '380px', width: 'calc(100% - 40px)',

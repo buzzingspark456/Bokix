@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, RefreshCw, SlidersHorizontal } from '../icons';
+import { Search, RefreshCw, SlidersHorizontal, Plus, MoreHorizontal } from '../icons';
 import { t } from '../../i18n';
 
 // Sida 43: en enda delad sidhuvud-komponent för alla listsidor (Kunder,
@@ -116,6 +116,12 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
           // skjuta ut över kanten (kundfeedback: "Importera transaktioner"
           // var avklippt på mobilen). Klass, inte inline style, eftersom
           // regeln behöver en mediafråga — se index.css.
+          //
+          // Som i en app på telefon: en "Ny …"-knapp (primär med plusikon)
+          // blir en rund flytande knapp nere till höger (page-fab), och de
+          // sekundära knapparna (exportera, guide m.m.) flyttar in bakom en
+          // "⋯"-knapp (lph-more) i stället för att fylla sidhuvudet. På
+          // datorn syns allt som förut.
           <div className={'page-header-actions' + (actions.filter(a => a.type !== 'note').length > 1 ? ' page-header-actions--many' : '')} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {actions.map((a, i) => a.type === 'note' ? (
               <span key={a.key ?? i} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -125,6 +131,7 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
               <button
                 key={a.key ?? a.label ?? i}
                 type="button"
+                className={a.variant === 'primary' ? (a.icon === Plus ? 'page-fab' : undefined) : 'lph-secondary'}
                 data-tour={a.dataTour}
                 onClick={a.onClick}
                 title={a.title}
@@ -134,6 +141,9 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
                 {a.icon && <a.icon size={14} />} {a.label}
               </button>
             ))}
+            {actions.some(a => a.type !== 'note' && a.variant !== 'primary') && (
+              <MoreActions actions={actions.filter(a => a.type !== 'note' && a.variant !== 'primary')} />
+            )}
           </div>
         )}
       </div>
@@ -160,6 +170,37 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
         </div>
       )}
     </div>
+  );
+}
+
+// "⋯"-knappen på telefon: sidans sekundära knappar i en bottenpanel, samma
+// panelstil som profilmenyn (profile-dropdown, se index.css). Dold på datorn.
+function MoreActions({ actions }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="lph-more topbar-icon-btn" aria-label={t('shared.moreActions')} aria-expanded={open} onClick={() => setOpen(true)}>
+        <MoreHorizontal size={22} />
+      </button>
+      {open && (
+        <>
+          <div className="mobile-dropdown-backdrop" onClick={() => setOpen(false)} />
+          <div className="profile-dropdown lph-more-sheet" role="menu">
+            {actions.map((a, i) => (
+              <button
+                key={a.key ?? a.label ?? i}
+                type="button"
+                role="menuitem"
+                disabled={a.disabled}
+                onClick={() => { setOpen(false); a.onClick?.(); }}
+              >
+                {a.icon && <a.icon size={14} />} {a.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </>
   );
 }
 

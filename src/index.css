@@ -6911,3 +6911,185 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   margin-top: 22px; padding: 10px; border: none; background: none; cursor: pointer;
   font: inherit; font-size: 14.5px; font-weight: 600; color: var(--text-secondary);
 }
+
+/* ══ App-känsla på telefon ══════════════════════════════════════════════
+   Bokix på telefonen, särskilt på hemskärmen, ska kännas som en app och
+   inte som en webbsida i en ram. Samlat här, bara under 768 px: datorn
+   påverkas inte. */
+@media (max-width: 768px) {
+  /* Toppfältet står kvar när man skrollar, som en apps navigationsfält.
+     Glaset ligger i ::before: backdrop-filter direkt på fältet hade gjort
+     det till inneslutande block för profil- och notispanelerna (fixed),
+     som då hade hamnat inne i fältet i stället för längst ned på skärmen. */
+  .global-top-bar {
+    position: sticky;
+    top: 0;
+    z-index: 120;
+    background: transparent;
+    border-bottom: 0;
+    transition: box-shadow 0.2s ease;
+  }
+  .global-top-bar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: color-mix(in srgb, var(--bg-page) 84%, transparent);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    backdrop-filter: saturate(180%) blur(18px);
+  }
+  .global-top-bar[data-scrolled] { box-shadow: 0 1px 0 var(--border); }
+  /* Öppen profil-/notispanel: fältet läggs över bakgrundsdimman (255) så
+     panelen inne i det (260) hamnar överst. */
+  .global-top-bar[data-menu-open] { z-index: 256; }
+
+  /* Sidans namn mitt i fältet, tonar in när sidans stora rubrik är borta. */
+  .topbar-compact-title {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    max-width: calc(100% - 200px);
+    transform: translate(-50%, -50%);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    pointer-events: none;
+  }
+  .topbar-compact-title[data-show="true"] { opacity: 1; }
+
+  /* Tryck känns som i en app: ingen grå blixt från webbläsaren, ingen
+     textmarkering eller kopiera-meny när man håller på en knapp, ingen
+     väntan på dubbeltryck-zoom, och knappen svarar under fingret. */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, [role="button"], .mobile-bottom-nav, .global-top-bar, .mobile-sheet {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+  }
+  button, a, [role="button"] { transition: transform 0.12s ease, opacity 0.12s ease, background-color 0.12s ease; }
+  button:not(:disabled):active, a:active, [role="button"]:active {
+    transform: scale(0.97);
+    opacity: 0.85;
+  }
+  /* Stora ytor (listrader, kort) krymper inte, de mörknar bara lite. */
+  .mobile-bottom-nav button:active { transform: none; opacity: 0.6; }
+  img { -webkit-user-drag: none; -webkit-touch-callout: none; }
+}
+
+/* "⋯"-knappen i sidhuvudet finns bara på telefon (se ListPageHeader). */
+.lph-more { display: none; }
+.inv-ext-label-phone { display: none; }
+
+@media (max-width: 768px) {
+  /* Sidhuvudets sekundära knappar ligger bakom "⋯" på telefon. */
+  .page-header-actions > .lph-secondary { display: none !important; }
+  .page-header-actions > button.lph-more {
+    display: inline-flex;
+    flex: 0 0 auto !important;
+    width: 40px;
+    height: 40px;
+    padding: 0 !important;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-card);
+    color: var(--text-secondary);
+  }
+  /* Med de sekundära knapparna borta får raden inte längre ta hela bredden. */
+  .page-header-actions--many { flex: 0 0 auto !important; width: auto !important; }
+
+  /* "Ny …" blir en rund flytande knapp ovanför bottenmenyn, som i en app.
+     !important eftersom knapparna har sina mått som inline-stil (listHeader-
+     ButtonStyle) för datorns skull. */
+  .page-fab {
+    position: fixed !important;
+    right: 16px;
+    bottom: calc(var(--mobile-nav-height) + 16px + env(safe-area-inset-bottom, 0px));
+    z-index: 140;
+    flex: none !important;
+    height: 54px !important;
+    padding: 0 22px 0 18px !important;
+    border-radius: 999px !important;
+    font-size: 15px !important;
+    gap: 8px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.12);
+  }
+  .page-fab svg { width: 20px; height: 20px; }
+  html[data-keyboard="open"] .page-fab { display: none !important; }
+  /* Plats under sista raden så den flytande knappen aldrig ligger över den. */
+  .main-wrapper:has(.page-fab) .mobile-nav-spacer {
+    height: calc(var(--mobile-nav-height) + 90px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Kundfakturor: "Utökad sökning" heter Filter på telefon som på övriga
+     sidor, och rensa-knappen behövs inte (sökfältet töms för hand). */
+  .inv-clear-btn { display: none !important; }
+  .inv-ext-label-desktop { display: none; }
+  .inv-ext-label-phone { display: inline; }
+
+  /* Toppfältets profilbild i appstorlek. */
+  .global-top-bar .topbar-avatar { width: 34px; height: 34px; font-size: 14px; }
+}
+@media (max-width: 768px) {
+  /* Sökfält och Filter på samma rad, som på Kunder och Bokföring. */
+  .inv-searchrow .inv-search { flex: 1 1 0; min-width: 150px; }
+}
+
+/* Dra ned för att uppdatera (shared/PullToRefresh.jsx). */
+.ptr-indicator {
+  position: fixed;
+  left: 50%;
+  top: calc(var(--topbar-height) + env(safe-area-inset-top, 0px));
+  z-index: 130;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card);
+  color: var(--accent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  pointer-events: none;
+}
+.ptr-spin { animation: ptrSpin 0.8s linear infinite; }
+@keyframes ptrSpin { to { transform: rotate(360deg); } }
+
+/* Notiser på telefon: en banner som glider ned uppifrån, som iPhones egna
+   notiser, i stället för datorns ruta som glider in från höger.
+   !important eftersom Toast har sin placering som inline-stil. */
+@media (max-width: 768px) {
+  .app-toast {
+    top: calc(env(safe-area-inset-top, 0px) + 8px) !important;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-width: none !important;
+    border-radius: 16px !important;
+    animation: appToastDown 0.32s cubic-bezier(0.32, 0.72, 0, 1) both !important;
+  }
+  @keyframes appToastDown { from { transform: translateY(-120%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+}
+@media (max-width: 768px) {
+  /* Fältet ligger över dimman när dess egen panel är öppen (data-menu-open
+     ovan), så det dimmas här på samma sätt som resten av skärmen. */
+  .global-top-bar[data-menu-open]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+  }
+}
+@media (max-width: 768px) {
+  /* Listsidor har ett vitt sidhuvud (ListPageHeader, --bg-card): fältet får
+     samma färg så de blir en yta, som en apps navigationsfält med stor
+     rubrik under. Startsidan behåller sidans grå bakgrund. */
+  .main-wrapper:has(.page-header-top) .global-top-bar::before {
+    background: color-mix(in srgb, var(--bg-card) 86%, transparent);
+  }
+}

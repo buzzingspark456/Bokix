@@ -54,6 +54,9 @@ import { deleteFileFromStorage } from './utils/fileUpload';
 import { collectStorageUrls } from './utils/storageUrls';
 import { computeEmployeePayroll, summarizePayrollRun, FEE_RULES_VERSION } from './utils/payrollCalculation';
 import BokixWordmark, { BokixMark } from './components/shared/BokixWordmark';
+import MobileTopTitle from './components/shared/MobileTopTitle';
+import PullToRefresh from './components/shared/PullToRefresh';
+import { haptic } from './utils/haptics';
 import { seriesForSource, getNextNumber as getNextVerificationNumber } from './utils/verificationNumbering';
 
 // ── Bokix Logo Component (light sidebar) ──
@@ -1371,6 +1374,17 @@ function App() {
   // ikon med två lägen är inte platsen att förklara ett tredje.
   const toggleTheme = () => setThemePreference(theme === 'dark' ? 'light' : 'dark');
 
+  // Statusfältets färg följer appens eget tema, inte bara telefonens (se
+  // theme-color i index.html): den som valt mörkt läge i Bokix på en ljus
+  // telefon ska inte få en ljus rand överst.
+  useEffect(() => {
+    const color = theme === 'dark' ? '#0f1a13' : '#f4f7f5';
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
+      m.setAttribute('content', color);
+      m.removeAttribute('media');
+    });
+  }, [theme]);
+
   // ── Färgtema (Inställningar → Utseende → Färgtema) ── Samma spara-i-
   // localStorage/sätt-attribut-på-<html>-mönster som temat ovan. 'green'
   // (Bokix, förvalet) sätter INGET `data-accent`-attribut alls — index.css
@@ -1849,6 +1863,19 @@ function App() {
       // sparningen försöker igen som vanligt.
       console.warn('Omedelbar synk till Supabase misslyckades:', err?.message || err);
     }
+  };
+
+  // Dra ned för att uppdatera (PullToRefresh, telefon): spara det som väntar
+  // och ladda om sidan, så den visar det som finns på servern (t.ex. något
+  // som lagts till från datorn). Utan nät laddas inget om: då hade det som
+  // inte hunnit sparas kunnat gå förlorat.
+  const handlePullRefresh = async () => {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setToast({ message: tr('ui.ingen_anslutning_kunde_inte_uppdatera'), variant: 'info' });
+      return;
+    }
+    await syncUserDataNow();
+    window.location.reload();
   };
 
   // Inloggningshistorik (Inställningar > Säkerhet > Inloggningshistorik).
@@ -5113,7 +5140,7 @@ function App() {
         )}
 
         {/* Mobile Top Bar */}
-        <div className="global-top-bar">
+        <div className="global-top-bar" data-menu-open={isProfileMenuOpen || isNotifMenuOpen ? 'true' : undefined}>
           <div className="topbar-left">
             {/* Telefonens toppfält har ingen hamburgermeny: all navigering
                 sker i bottenfältet, där "Meny" öppnar resten av sidorna. Två
@@ -5121,11 +5148,12 @@ function App() {
                 och bottenfältet är det som Fortnox, Bokio och andra
                 bokföringsappar har och som användarna känner igen. Loggan
                 går till startsidan. */}
-            <BokixLogo compact onClick={() => handleNavTabChange('dashboard')} />
-            {/* topbar-page-title (sidnamnet, t.ex. "Kunder") togs bort här —
-                kundfeedback: det dubblerade sidans egen <h1>-rubrik direkt
-                under, så mobil-topbaren visade "Kunder" två gånger i rad. */}
+            {/* Loggan bara på Hem, som i en app. På övriga sidor står sidans
+                namn i fältet, men först när sidans egen stora rubrik skrollats
+                ur bild (MobileTopTitle), så namnet aldrig syns två gånger. */}
+            {activeTab === 'dashboard' && <BokixLogo compact onClick={() => handleNavTabChange('dashboard')} />}
           </div>
+          {activeTab !== 'dashboard' && <MobileTopTitle />}
           <div className="global-actions">
             {/* Kundönskemål: hjälp/tema/notiser/profilmenyn fanns bara i
                 .desktop-top-bar — på mobil fanns ingen väg dit alls förutom
@@ -5135,9 +5163,8 @@ function App() {
                 punkter (Profil/Inställningar/Kontoplaner m.fl.) nås via
                 samma avatar-knapp och .profile-dropdown som på desktop —
                 se den mobilanpassade positioneringen i index.css. */}
-            <button className="topbar-icon-btn" title={theme === 'dark' ? tr('ui.ljust_lage') : tr('ui.morkt_lage')} onClick={toggleTheme}>
-              {theme === 'dark' ? <Sun size={23} /> : <Moon size={23} />}
-            </button>
+            {/* Tema-knappen (måne/sol) ligger i profilmenyn på telefon: i en
+                app står bara det man använder hela tiden i toppfältet. */}
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
               <button className="topbar-icon-btn" title={tr('ui.notiser')} onClick={() => setIsNotifMenuOpen(!isNotifMenuOpen)}>
                 <Bell size={23} />
@@ -5189,6 +5216,10 @@ function App() {
                       </div>
                     </div>
                   </div>
+                  <div className="dropdown-divider"></div>
+                  <button onClick={() => { toggleTheme(); setIsProfileMenuOpen(false); }}>
+                    {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} {theme === 'dark' ? tr('ui.ljust_lage') : tr('ui.morkt_lage')}
+                  </button>
                   <div className="dropdown-divider"></div>
                   {/* Kundfeedback: "Profil" och "Inställningar" var redundanta
                       här — Inställningar finns redan som en egen punkt i
@@ -5270,6 +5301,11 @@ function App() {
       </main>
 
       {/* ── Mobile Bottom Navigation (Sida 26) ── */}
+      {/* Dra ned för att uppdatera (bara telefon). Sparar först det som
+          väntar på att skickas (sparningen går annars efter 2 s, se Persist
+          nedan), så ingen ändring försvinner när sidan laddas om. */}
+      <PullToRefresh onRefresh={handlePullRefresh} />
+
       <nav className="mobile-bottom-nav app-bottom-nav" aria-label={tr('ui.mobilnavigation')}>
         <div className="mobile-bottom-nav-inner">
           {visibleMobileNavItems.map(item => {
@@ -5278,7 +5314,15 @@ function App() {
               <button
                 key={item.id}
                 className={`mobile-nav-btn ${isActive ? 'active' : ''}`}
-                onClick={() => handleNavTabChange(item.id)}
+                onClick={() => {
+                  haptic();
+                  // Som i appar: tryck på fliken man redan står på = tillbaka till toppen.
+                  if (isActive && activeTab === resolveTab(item.id)) {
+                    document.querySelector('.main-wrapper')?.scrollTo({ top: 0, behavior: 'smooth' });
+                    return;
+                  }
+                  handleNavTabChange(item.id);
+                }}
               >
                 <span className="mobile-nav-icon"><item.icon size={22} /></span>
                 <span>{item.label}</span>
@@ -5292,7 +5336,7 @@ function App() {
               via en länk inifrån en annan sida, inte bara via sheeten själv. */}
           <button
             className={`mobile-nav-btn ${isMobileSheetItemActive ? 'active' : ''}`}
-            onClick={() => setMobileMoreOpen(true)}
+            onClick={() => { haptic(); setMobileMoreOpen(true); }}
             aria-haspopup="true"
             aria-expanded={mobileMoreOpen}
           >

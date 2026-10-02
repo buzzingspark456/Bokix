@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { isVatExempt } from '../utils/vatRegistration';
 import { foreignSaleRegion, rowsForCustomer } from '../utils/foreignSales';
 import { convertToSek } from '../utils/currencyConversion';
@@ -8,7 +8,7 @@ import {
   Search, ChevronRight, ChevronDown,
   RefreshCw, Printer, Eye, CreditCard, Link2,
   MessageSquare, Tag, Lock, Settings2, Download, AlertTriangle, Trash2,
-  ZoomIn, ZoomOut, Pencil, Copy, CheckCircle2, Undo2, Sparkles
+  ZoomIn, ZoomOut, Pencil, Copy, CheckCircle2, Undo2, Sparkles, SlidersHorizontal
 } from './icons';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import PaperFit from './shared/PaperFit';
@@ -1958,7 +1958,20 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onS
 }
 
 export default function Invoices({ ufQuota = { limited: false }, invoices, contacts, accounts = [], onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, verifications = [], onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [], onSyncBeforeServerCall }) {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  // react-routers setSearchParams navigerar till bara "?…" och tappar
+  // adressens #invoices, som säger vilken sida appen står på. Följden var
+  // att en omladdning på Kundfakturor (eller dra-ned-för-att-uppdatera i
+  // telefonen) alltid hamnade på Hem. Behåller hashen, och navigerar inte
+  // alls när inget ändrats.
+  const setSearchParams = (update, options) => {
+    const current = new URLSearchParams(window.location.search);
+    const next = typeof update === 'function' ? update(new URLSearchParams(current)) : new URLSearchParams(update);
+    if (next.toString() === current.toString()) return;
+    const search = next.toString();
+    navigate({ search: search ? `?${search}` : '', hash: window.location.hash }, options);
+  };
 
   // Två klart avgränsade sektioner, inte en klämd sida-vid-sida-vy — varje
   // sektion tar hela bredden när den är vald, precis som den fristående
@@ -2542,8 +2555,11 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input type="text" placeholder={tr('ui.fakturanr_eller_kundnamn')} value={searchInput} onChange={e => setSearchInput(e.target.value)} style={{ ...listSearchInputStyle, width: '220px' }} />
           </div>
-          <button onClick={() => setShowExtendedSearch(v => !v)} style={{ ...listHeaderButtonStyle('secondary'), ...(showExtendedSearch ? { background: 'var(--status-blue-bg)', borderColor: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : {}) }}>{tr('ui.utokad_sokning')}</button>
-          <button onClick={() => { setSearchInput(''); setDateFrom(''); setDateTo(''); setAmountMin(''); setAmountMax(''); }} title={tr('ui.rensa_sokning')} style={{ ...listHeaderButtonStyle('secondary'), padding: '0 10px' }}><RefreshCw size={14} /></button>
+          <button onClick={() => setShowExtendedSearch(v => !v)} style={{ ...listHeaderButtonStyle('secondary'), ...(showExtendedSearch ? { background: 'var(--status-blue-bg)', borderColor: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : {}) }}>
+            <span className="inv-ext-label-desktop">{tr('ui.utokad_sokning')}</span>
+            <span className="inv-ext-label-phone"><SlidersHorizontal size={16} style={{ verticalAlign: '-3px', marginRight: 6 }} />{tr('shared.filterBar.filter')}</span>
+          </button>
+          <button className="inv-clear-btn" onClick={() => { setSearchInput(''); setDateFrom(''); setDateTo(''); setAmountMin(''); setAmountMax(''); }} title={tr('ui.rensa_sokning')} style={{ ...listHeaderButtonStyle('secondary'), padding: '0 10px' }}><RefreshCw size={14} /></button>
           <div style={{ flex: 1 }} />
           {ufQuota.limited && (
             <span
@@ -2561,7 +2577,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
             </span>
           )}
           <button
-            className="inv-cta" data-tour="page-invoices-cta" data-inv-tour="create-cta"
+            className="inv-cta page-fab" data-tour="page-invoices-cta" data-inv-tour="create-cta"
             onClick={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }}
             disabled={ufQuota.reached}
             title={ufQuota.reached ? tr('ui.dygnstaket_ar_natt_fler_fakturor_gar_att_skapa_i') : undefined}

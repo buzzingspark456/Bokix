@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  MdCalendarMonth, MdEmail, MdAccountBalance,
+  MdCalendarMonth, MdEmail, MdAccountBalance, MdMoreHoriz,
   MdOutlineEditNote, MdOutlineHome, MdOutlineStorefront, MdMoreTime, MdPayments, MdPersonAddAlt1, MdPostAdd, MdUploadFile,
   MdOutlineAccessTime, MdOutlineAccountBalance, MdOutlineAccountBalanceWallet, MdOutlineAccountTree,
   MdOutlineAdd, MdOutlineAlarm, MdOutlineApartment,
@@ -155,6 +155,7 @@ export const PieChart = make(MdOutlinePieChart, 'PieChart');
 export const PiggyBank = make(MdOutlineSavings, 'PiggyBank');
 export const Plug = make(MdOutlineCable, 'Plug');
 export const Plus = make(MdOutlineAdd, 'Plus');
+export const MoreHorizontal = make(MdMoreHoriz, 'MoreHorizontal');
 export const Power = make(MdOutlinePowerSettingsNew, 'Power');
 export const Printer = make(MdOutlinePrint, 'Printer');
 export const Receipt = make(MdOutlineReceipt, 'Receipt');

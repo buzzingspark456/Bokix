@@ -43,6 +43,12 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Bokix" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- Statusfältets färg i appen på hemskärmen (Android) och webbläsarens
+         ram: samma som appens bakgrund (--bg-page), så toppen av skärmen
+         flyter ihop med appen i stället för att vara en mörkgrön rand.
+         App.jsx byter värde när man väljer ljust/mörkt läge själv. -->
+    <meta name="theme-color" content="#f4f7f5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1a13" media="(prefers-color-scheme: dark)" />
     <!-- Kundfeedback ("no zooming ... mobile apps ser perfekta ut, inte
          zoombara"): maximum-scale=1 + user-scalable=no stänger av pinch-/
          dubbeltrycks-zoom PÅ SIDAN, samma känsla som en riktig nativ app.
