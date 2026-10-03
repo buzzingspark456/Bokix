@@ -218,6 +218,16 @@ export function overviewPeriodBounds(periodId, { fiscalYearStart, referenceDate 
       granularity: 'month', label: t('ui.senaste_6_manaderna'), hasComparison: true,
     };
   }
+  // Senaste tolv månaderna, innevarande månad inräknad (startsidans "Senaste 12 mån").
+  if (periodId === 'last12') {
+    const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    const end = now;
+    return {
+      start, end,
+      prevStart: addYears(start, -1), prevEnd: addYears(end, -1),
+      granularity: 'month', label: t('ui.senaste_12_manaderna'), hasComparison: true,
+    };
+  }
   if (periodId === 'all') {
     const start = startOfMonth(earliestBookedDate(verifications) || now);
     return {
@@ -393,6 +403,7 @@ export function buildResultSeries(verifications, accounts, start, end, granulari
     while (cursor <= end) {
       days.push({
         label: String(cursor.getDate()),
+        title: new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(cursor),
         intakt: sumFlowByType(verifications, accounts, 'intakt', cursor, cursor),
         kostnad: sumFlowByType(verifications, accounts, 'kostnad', cursor, cursor),
       });
@@ -407,6 +418,8 @@ export function buildResultSeries(verifications, accounts, start, end, granulari
     const monthEnd = endOfMonth(cursor) > end ? end : endOfMonth(cursor);
     months.push({
       label: new Intl.DateTimeFormat(dateLocale(), { month: 'short' }).format(cursor),
+      // Hela namnet med år, för diagrammens tooltip ("juli 2026").
+      title: new Intl.DateTimeFormat(dateLocale(), { month: 'long', year: 'numeric' }).format(cursor),
       intakt: sumFlowByType(verifications, accounts, 'intakt', monthStart, monthEnd),
       kostnad: sumFlowByType(verifications, accounts, 'kostnad', monthStart, monthEnd),
     });

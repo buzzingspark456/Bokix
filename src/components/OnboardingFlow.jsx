@@ -204,7 +204,7 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: BRAND.greenLight }}>
+    <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: BRAND.greenLight }}>
       <div style={{ width: '100%', maxWidth: '640px', background: 'var(--bg-card)', border: '1px solid rgba(15,23,42,0.08)', borderRadius: '28px', boxShadow: '0 4px 20px rgba(15,23,42,0.10)', overflow: 'hidden' }}>
         <div style={{ padding: '28px 32px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>

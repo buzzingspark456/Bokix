@@ -409,8 +409,8 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
           <div className="sheet-span-3" style={cellBg}>
             <StatTile
               label={t('ui.resultat')} value={amount.value(k.resultat)} icon={k.resultat >= 0 ? TrendingUp : TrendingDown}
-              tone={k.resultat >= 0 ? palette.profit : palette.cost}
-              accent={k.resultat >= 0 ? palette.profit : palette.cost}
+              tone={k.resultat >= 0 ? palette.profit : palette.loss}
+              accent={k.resultat >= 0 ? palette.profit : palette.loss}
               delta={resDelta}
               context={k.vinstmarginal != null ? `marginal ${fmtPct(k.vinstmarginal)}` : resDelta?.context}
             />
@@ -561,7 +561,7 @@ function ResultReport({ verifications, accounts, start, end, prevStart, prevEnd,
         <div className="sheet-span-3" style={cellBg}>
           <StatTile
             label={t('ui.resultat')} value={amount.value(resultat)} icon={resultat >= 0 ? TrendingUp : TrendingDown}
-            tone={resultat >= 0 ? palette.profit : palette.cost} accent={resultat >= 0 ? palette.profit : palette.cost}
+            tone={resultat >= 0 ? palette.profit : palette.loss} accent={resultat >= 0 ? palette.profit : palette.loss}
             delta={formatDelta(resultat, prevResultat)}
           />
         </div>
@@ -664,7 +664,7 @@ function CashflowReport({ verifications, accounts, start, end, prevStart, prevEn
           <StatTile label={t('ui.saldo_vid_periodens_slut')} value={amount.value(currentCash)} icon={Wallet} tone={palette.cash} accent={currentCash >= 0 ? undefined : 'var(--status-red-text)'} />
         </div>
         <div className="sheet-span-6" style={cellBg}>
-          <StatTile label={t('ui.forandring_under_perioden')} value={amount.value(currentCash - startCash)} icon={currentCash >= startCash ? TrendingUp : TrendingDown} tone={currentCash >= startCash ? palette.profit : palette.cost} />
+          <StatTile label={t('ui.forandring_under_perioden')} value={amount.value(currentCash - startCash)} icon={currentCash >= startCash ? TrendingUp : TrendingDown} tone={currentCash >= startCash ? palette.profit : palette.loss} />
         </div>
 
         <div className="sheet-span-12" style={cellBg}>
@@ -1076,7 +1076,7 @@ function AnnualReport({ verifications, accounts, company, isMobile }) {
         <div className="sheet-span-3" style={cellBg}>
           <StatTile
             label={t('ui.resultat')} value={amount.value(k.resultat)} icon={k.resultat >= 0 ? TrendingUp : TrendingDown}
-            tone={k.resultat >= 0 ? palette.profit : palette.cost} accent={k.resultat >= 0 ? palette.profit : palette.cost}
+            tone={k.resultat >= 0 ? palette.profit : palette.loss} accent={k.resultat >= 0 ? palette.profit : palette.loss}
             delta={formatDelta(k.resultat, prevK.resultat)}
           />
         </div>
@@ -1149,7 +1149,7 @@ function QuarterlyReport({ verifications, accounts, payrollRuns, company }) {
         <div className="sheet-span-6" style={cellBg}>
           <StatTile
             label={t('ui.resultat_hittills_i_ar')} value={amount.value(totalResultat)} icon={totalResultat >= 0 ? TrendingUp : TrendingDown}
-            tone={totalResultat >= 0 ? palette.profit : palette.cost} accent={totalResultat >= 0 ? palette.profit : palette.cost}
+            tone={totalResultat >= 0 ? palette.profit : palette.loss} accent={totalResultat >= 0 ? palette.profit : palette.loss}
           />
         </div>
 
@@ -1247,7 +1247,7 @@ function MonthlyReport({ verifications, accounts }) {
         <div className="sheet-span-6" style={cellBg}>
           <StatTile
             label={t('ui.resultat_senaste_manaden')} value={amount.value(latest.resultat)} icon={latest.resultat >= 0 ? TrendingUp : TrendingDown}
-            tone={latest.resultat >= 0 ? palette.profit : palette.cost} accent={latest.resultat >= 0 ? palette.profit : palette.cost}
+            tone={latest.resultat >= 0 ? palette.profit : palette.loss} accent={latest.resultat >= 0 ? palette.profit : palette.loss}
             delta={resDeviation ? { text: t('ui.mot_snittet', { v0: resDeviation.up ? '+' : '', v1: formatPct(resDeviation.pct, 0) }), good: resDeviation.up } : null}
             context={!resDeviation ? `snitt ${formatSEK(avgPriorResultat)}` : undefined}
           />

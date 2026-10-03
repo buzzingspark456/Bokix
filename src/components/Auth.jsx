@@ -549,7 +549,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   };
 
   return (
-    <div id="auth-root" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif", padding: '48px 20px', position: 'relative', overflow: 'hidden' }}>
+    <div id="auth-root" style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter', sans-serif", padding: '48px 20px', position: 'relative', overflow: 'hidden' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,500;0,600;0,700;1,500&display=swap');
         #auth-root, #auth-root *, #auth-root *::before, #auth-root *::after { box-sizing: border-box; }

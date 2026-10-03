@@ -125,7 +125,7 @@ export default function PaymentRequiredGate({ user, company, onSignedOut, ownerU
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BRAND.greenLight, fontFamily: "'Inter', sans-serif", padding: '32px 20px' }}>
+    <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BRAND.greenLight, fontFamily: "'Inter', sans-serif", padding: '32px 20px' }}>
       <div style={{ width: '100%', maxWidth: '440px', background: 'var(--bg-card)', borderRadius: '20px', boxShadow: '0 4px 20px rgba(15,23,42,0.10)', padding: '40px 36px', textAlign: 'center' }}>
         <div style={{ marginBottom: '24px' }}>
           <BokixWordmark height={32} />

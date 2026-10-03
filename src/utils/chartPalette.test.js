@@ -5,6 +5,9 @@ import {
   makeAmountFormatters,
   CHART_COLOR_FAMILIES,
   DEFAULT_CHART_COLORS,
+  kpiInk,
+  LOSS_COLOR,
+  kpiGradient,
 } from './chartPalette'
 
 // Intl använder ett HÅRT mellanslag (U+00A0) som tusentalsavgränsare — en
@@ -14,11 +17,11 @@ const sp = (str) => str.replace(/ /g, ' ')
 
 
 describe('resolveChartPalette', () => {
-  it('förvalet: in grönt, ut blått, kvar guld', () => {
+  it('förvalet: in loggans blå, ut grått, kvar loggans gröna', () => {
     const p = resolveChartPalette()
-    expect(p.income).toBe(CHART_COLOR_FAMILIES.green.base)
-    expect(p.cost).toBe(CHART_COLOR_FAMILIES.blue.base)
-    expect(p.profit).toBe(CHART_COLOR_FAMILIES.gold.base)
+    expect(p.income).toBe(CHART_COLOR_FAMILIES.demoBlue.base)
+    expect(p.cost).toBe(CHART_COLOR_FAMILIES.demoCoral.base)
+    expect(p.profit).toBe(CHART_COLOR_FAMILIES.demoGreen.base)
     expect(p.roles).toEqual(DEFAULT_CHART_COLORS)
   })
 
@@ -27,7 +30,7 @@ describe('resolveChartPalette', () => {
     expect(p.income).toBe(CHART_COLOR_FAMILIES.green.base)
     expect(p.cost).toBe(CHART_COLOR_FAMILIES.blue.base)
     expect(p.costRamp).toEqual(CHART_COLOR_FAMILIES.blue.ramp)
-    expect(p.profit).toBe(CHART_COLOR_FAMILIES.gold.base)
+    expect(p.profit).toBe(CHART_COLOR_FAMILIES.demoGreen.base)
   })
 
   // En sparad inställning från en äldre version (eller en handredigerad
@@ -64,10 +67,12 @@ describe('makeAmountFormatters', () => {
     expect(f.value(203400)).toBe('203 tkr')
   })
 
-  it('tkr: alltid tusental, även för små belopp', () => {
+  it('tkr: tusental, men belopp under 10 000 kr i hela kronor (aldrig "0 tkr")', () => {
     const f = makeAmountFormatters('tkr')
     expect(f.value(203400)).toBe('203 tkr')
-    expect(f.value(295)).toBe('0 tkr')
+    expect(f.value(10000)).toBe('10 tkr')
+    expect(sp(f.value(9999))).toBe('9 999 kr')
+    expect(f.value(295)).toBe('295 kr')
   })
 
   it('kr: alltid hela kronor, aldrig avrundat till tusental', () => {
@@ -98,8 +103,9 @@ describe('makeAmountFormatters', () => {
 // rollfärgerna får aldrig ändras av temat — bara de två toner som är valda
 // för ett ljust ark.
 describe('resolveChartPalette i mörkt läge', () => {
-  const light = resolveChartPalette()
-  const dark = resolveChartPalette(undefined, { dark: true })
+  // Guld som resultatfärg här: grafiten har egna mörka toner, se nästa block.
+  const light = resolveChartPalette({ income: 'green', cost: 'blue', profit: 'gold' })
+  const dark = resolveChartPalette({ income: 'green', cost: 'blue', profit: 'gold' }, { dark: true })
 
   it('rör inte de valda rollfärgerna', () => {
     expect(dark.income).toBe(light.income)
@@ -114,7 +120,7 @@ describe('resolveChartPalette i mörkt läge', () => {
   })
 
   it('lyfter marginaltrappans mörkaste ton så den syns mot mörk botten', () => {
-    // profit är guld som förval (se DEFAULT_CHART_COLORS) — guldets
+    // profit är guld i det här blocket — guldets
     // mörkaste ramp-ton, inte grönt.
     expect(light.marginTones[2]).toBe(CHART_COLOR_FAMILIES.gold.ramp[0])
     expect(dark.marginTones[2]).not.toBe(light.marginTones[2])
@@ -132,5 +138,69 @@ describe('lighten', () => {
 
   it('returnerar indata oförändrad när det inte är en hexfärg', () => {
     expect(lighten('rgba(0,0,0,0.5)')).toBe('rgba(0,0,0,0.5)')
+  })
+})
+
+// Bokix grönt (Resultatets förval) och grafit är för mörka för en linje på mörk botten.
+describe('mörka resultatfärger i mörkt läge', () => {
+  it('resultatlinjen blir ljus i mörkt läge, mörk i ljust', () => {
+    expect(resolveChartPalette().profit).toBe(CHART_COLOR_FAMILIES.demoGreen.base)
+    expect(resolveChartPalette({ profit: 'lime' }, { dark: true }).profit).toBe(CHART_COLOR_FAMILIES.lime.darkLine)
+    expect(resolveChartPalette({ profit: 'ink' }, { dark: true }).profit).toBe(CHART_COLOR_FAMILIES.ink.darkLine)
+    expect(resolveChartPalette({ profit: 'lime' }, { dark: true }).marginTones).toEqual(CHART_COLOR_FAMILIES.lime.darkMargins)
+  })
+
+  it('nyckeltalskortet byter till en ljusare grafit i mörkt läge', () => {
+    expect(kpiGradient('ink')).toEqual([CHART_COLOR_FAMILIES.ink.base, CHART_COLOR_FAMILIES.ink.soft])
+    expect(kpiGradient('ink', true)).toEqual(CHART_COLOR_FAMILIES.ink.darkCard)
+    expect(kpiGradient('green', true)).toEqual([CHART_COLOR_FAMILIES.green.base, CHART_COLOR_FAMILIES.green.soft])
+  })
+})
+
+describe('kpiGradient med egen kortgradient', () => {
+  it('använder `card` när familjen har en, annars base→soft', () => {
+    expect(kpiGradient('sky')).toEqual(CHART_COLOR_FAMILIES.sky.card)
+    expect(kpiGradient('mint', true)).toEqual(CHART_COLOR_FAMILIES.mint.card)
+  })
+})
+
+describe('ljusa kort och förlust', () => {
+  it('mintkortet har mörk text, övriga vit', () => {
+    expect(kpiInk('mint')).toBe('#064e3b')
+    expect(kpiInk('royal')).toBe('#fff')
+  })
+
+  it('förlust har en egen röd färg, aldrig kostnadsfärgen', () => {
+    const p = resolveChartPalette()
+    expect(p.loss).toBe(LOSS_COLOR.base)
+    expect(p.loss).not.toBe(p.cost)
+  })
+})
+
+describe('grått kostnadskort i mörkt läge', () => {
+  it('blir mörkgrått med ljus text i mörkt läge, ljust med mörk text annars', () => {
+    expect(kpiGradient('grey')).toEqual(CHART_COLOR_FAMILIES.grey.card)
+    expect(kpiInk('grey')).toBe('#334155')
+    expect(kpiGradient('grey', true)).toEqual(CHART_COLOR_FAMILIES.grey.darkCard)
+    expect(kpiInk('grey', true)).toBe('#f1f5f9')
+  })
+})
+
+describe('kostnadsstapeln', () => {
+  it('grått har en egen fast stapelton, andra familjer dämpas', () => {
+    expect(resolveChartPalette({ cost: 'grey' }).costBar).toBe(CHART_COLOR_FAMILIES.grey.bar)
+    expect(resolveChartPalette({ cost: 'grey' }).costBarOpacity).toBe(1)
+    expect(resolveChartPalette({ cost: 'grey' }, { dark: true }).costBar).toBe(CHART_COLOR_FAMILIES.grey.darkBar)
+    expect(resolveChartPalette({ cost: 'blue' }).costBarOpacity).toBe(0.28)
+  })
+})
+
+describe('egna toner för mörkt läge (darkBase)', () => {
+  it('förvalets blå, korall och gröna byter till sina ljusare toner i mörkt läge', () => {
+    const d = resolveChartPalette(undefined, { dark: true })
+    expect(d.income).toBe(CHART_COLOR_FAMILIES.demoBlue.darkBase)
+    expect(d.cost).toBe(CHART_COLOR_FAMILIES.demoCoral.darkBase)
+    expect(d.costBar).toBe(CHART_COLOR_FAMILIES.demoCoral.darkBase)
+    expect(d.profit).toBe(CHART_COLOR_FAMILIES.demoGreen.darkBase)
   })
 })

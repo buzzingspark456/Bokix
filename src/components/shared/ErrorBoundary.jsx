@@ -31,7 +31,7 @@ export default class ErrorBoundary extends Component {
     try { lang = getLanguage() === 'en' ? 'en' : 'sv' } catch { /* standard: svenska */ }
     const text = TEXT[lang]
     return (
-      <main role="alert" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'system-ui, -apple-system, sans-serif', background: '#fff', color: '#111' }}>
+      <main role="alert" style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'system-ui, -apple-system, sans-serif', background: '#fff', color: '#111' }}>
         <div style={{ maxWidth: 420, textAlign: 'center' }}>
           <h1 style={{ fontSize: 22, margin: '0 0 8px' }}>{text.title}</h1>
           <p style={{ fontSize: 15, lineHeight: 1.5, color: '#444', margin: '0 0 20px' }}>{text.body}</p>

@@ -248,7 +248,7 @@ export function AccountPickerModal({ accounts = [], initialQuery = '', onPick, o
         aria-label={t('ui.kontoplan_2')}
         onMouseDown={e => e.stopPropagation()}
         style={{
-          width: '100%', maxWidth: '560px', maxHeight: 'min(78vh, 680px)',
+          width: '100%', maxWidth: '560px', maxHeight: 'min(calc(78vh / var(--app-zoom, 1)), 680px)',
           display: 'flex', flexDirection: 'column',
           background: 'var(--bg-card)', border: '1px solid var(--border)',
           borderRadius: '14px', boxShadow: '0 20px 50px rgba(0,0,0,0.25)', overflow: 'hidden',

@@ -8,6 +8,21 @@
    Färgpalett: Lime-grön + Allra-blå + Vitt
    ═══════════════════════════════════════════════════════════ */
 
+/* ══════════════════════════════════════════════
+   APPEN LITE UTZOOMAD PÅ DATOR (2026-10-03)
+   Användaren ville se mer på varje sida utan att något ser trångt ut: hela
+   den inloggade appen ritas i 90 %, som webbläsarens egen zoom. Bara när
+   appskalet finns (.app-container), så webbplatsen och inloggningen är
+   orörda, och bara från 1101 px (telefon och halv skärm har egna regler).
+   --app-zoom används för att räkna om alla vh: en zoomad sida gör annars
+   100vh till 90 % av fönstret och sidomenyn slutar före botten. Flytande
+   listor som placeras från en rektangel går via layoutRect/layoutViewport
+   (utils/dropdownPlacement.js) av samma skäl.
+══════════════════════════════════════════════ */
+@media (min-width: 1101px) {
+  html:has(.app-container) { --app-zoom: 0.9; zoom: var(--app-zoom); }
+}
+
 :root {
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', monospace;
@@ -621,12 +636,12 @@ body {
   font-family: var(--font-sans);
   background: var(--bg-page);
   color: var(--text-main);
-  min-height: 100vh;
+  min-height: calc(100vh / var(--app-zoom, 1));
   /* dvh (dynamic viewport height) räknar med Safaris hopfällbara adressfält
      på iOS — 100vh räknar INTE med det, vilket annars ger ett tomt
      mellanrum eller avklippt innehåll när fältet visas/döljs vid scroll.
      Faller tillbaka till vh ovan i webbläsare som saknar dvh-stöd. */
-  min-height: 100dvh;
+  min-height: calc(100dvh / var(--app-zoom, 1));
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -733,8 +748,8 @@ body {
 
 .app-container {
   display: flex;
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: calc(100vh / var(--app-zoom, 1));
+  min-height: calc(100dvh / var(--app-zoom, 1));
 }
 
 
@@ -755,8 +770,8 @@ body {
 .sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
-  height: 100vh;
-  height: 100dvh;
+  height: calc(100vh / var(--app-zoom, 1));
+  height: calc(100dvh / var(--app-zoom, 1));
   /* Kundfeedback (uppföljning, skärmdump): ett kort försök med en
      grön→turkos-gradient (--bg-sidebar-end) gjorde menyn omärkbart
      olikfärgad upptill/nedtill — kunden ville en RIKTIGT enhetlig färg
@@ -1141,8 +1156,8 @@ body {
 .main-wrapper {
   flex: 1;
   min-width: 0;
-  height: 100vh;
-  height: 100dvh;
+  height: calc(100vh / var(--app-zoom, 1));
+  height: calc(100dvh / var(--app-zoom, 1));
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -2061,8 +2076,8 @@ body {
   transform: translateY(100%);
   transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1);
   padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
-  max-height: 86vh;
-  max-height: 86dvh;
+  max-height: calc(86vh / var(--app-zoom, 1));
+  max-height: calc(86dvh / var(--app-zoom, 1));
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   /* Svepningen stannar i panelen och fortsätter aldrig ned i sidan bakom. */
@@ -2875,7 +2890,7 @@ textarea.form-control {
 .corner-editor-frame {
   position: relative;
   max-width: 100%;
-  --ce-max-h: calc(100dvh - 210px);
+  --ce-max-h: calc(calc(100dvh / var(--app-zoom, 1)) - 210px);
   max-height: var(--ce-max-h);
   touch-action: none;
   user-select: none;
@@ -2927,7 +2942,7 @@ textarea.form-control {
 @media (max-width: 560px) {
   .corner-editor-overlay { padding: 0; }
   .corner-editor-box { width: 100%; height: 100%; border-radius: 0; }
-  .corner-editor-frame { --ce-max-h: calc(100dvh - 230px); }
+  .corner-editor-frame { --ce-max-h: calc(calc(100dvh / var(--app-zoom, 1)) - 230px); }
   .corner-editor-btn-primary { flex: 1 1 100%; padding-top: 11px; padding-bottom: 11px; }
 }
 
@@ -3108,7 +3123,7 @@ textarea.form-control {
    känsla än kvittovyn. Nu är det en panel: fast höjd så att sidan inte
    hoppar när ett underlag laddas upp eller byts ut. */
 .dv-embed {
-  height: clamp(320px, 44vh, 560px);
+  height: clamp(320px, calc(44vh / var(--app-zoom, 1)), 560px);
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -3300,7 +3315,7 @@ textarea.form-control {
 .acp-foot-actions { display: flex; flex-wrap: wrap; gap: 14px; justify-content: flex-end; }
 .acp-invalid .acp-list, .acp-invalid .acp-search input { border-color: #ef4444; }
 @media (max-width: 860px) {
-  .acp-list { max-height: min(320px, 42vh); }
+  .acp-list { max-height: min(320px, calc(42vh / var(--app-zoom, 1))); }
   .acp-row { min-height: 48px; padding: 10px 12px; font-size: 15px; }
   .acp-current { min-height: 52px; font-size: 15px; }
   .acp-code { min-width: 48px; }
@@ -3606,10 +3621,10 @@ textarea.form-control {
   /* Visaren får en egen höjd på en smal skärm — den kan inte dela höjden
      med formuläret när de ligger staplade — men en rejäl sådan, annars är
      underlaget oläsbart just på den skärm där det oftast fotades. */
-  .dv-doc { flex: 0 0 auto; height: 52vh; min-height: 260px; }
-  .rc-doc { flex: 0 0 auto; height: 52vh; min-height: 260px; }
+  .dv-doc { flex: 0 0 auto; height: calc(52vh / var(--app-zoom, 1)); min-height: 260px; }
+  .rc-doc { flex: 0 0 auto; height: calc(52vh / var(--app-zoom, 1)); min-height: 260px; }
   .rc-doc > .dv-doc { flex: 1 1 auto; height: 100%; min-height: 0; }
-  .dv-embed { height: 46vh; min-height: 240px; }
+  .dv-embed { height: calc(46vh / var(--app-zoom, 1)); min-height: 240px; }
   .rc-form { flex: 0 0 auto; min-width: 0; border-left: none; border-top: 1px solid var(--border); }
   .rc-form-body { overflow: visible; }
   .rc-form-foot { position: sticky; bottom: 0; box-shadow: 0 -6px 18px rgba(0,0,0,0.06); }
@@ -4526,7 +4541,7 @@ textarea.form-control {
 .a4-document-preview {
   max-width: 100% !important;
   width: 100%;
-  min-height: 100vh;
+  min-height: calc(100vh / var(--app-zoom, 1));
   background: transparent !important;
   box-shadow: none !important;
   padding: 24px !important;
@@ -5042,7 +5057,7 @@ textarea.form-control {
     /* mobile-nav-height med också — annars kan de sista raderna (t.ex.
        "Logga ut") hamna visuellt bakom den fasta bottennaven på korta
        telefoner, även om de fortfarande går att skrolla fram till. */
-    max-height: 82vh;
+    max-height: calc(82vh / var(--app-zoom, 1));
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
@@ -6173,13 +6188,13 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
    menyn, inklusive Inställningar och Logga ut, syns utan att skrolla. */
 @media (min-width: 1101px) {
   :root {
-    --sb-pad: clamp(5px, calc(1.86vh - 6.7px), 13px);
-    --sb-font: clamp(13.5px, calc(7px + 0.9vh), 15px);
-    --sb-icon: clamp(16px, calc(8px + 1.05vh), 18px);
-    --sb-gap: clamp(3px, 0.85vh, 8px);
-    --sb-logo-h: clamp(34px, 6.5vh, 62px);
-    --sb-logo-pt: clamp(8px, 2.3vh, 22px);
-    --sb-logo-pb: clamp(6px, 1.9vh, 18px);
+    --sb-pad: clamp(5px, calc(calc(1.86vh / var(--app-zoom, 1)) - 6.7px), 13px);
+    --sb-font: clamp(13.5px, calc(7px + calc(0.9vh / var(--app-zoom, 1))), 15px);
+    --sb-icon: clamp(16px, calc(8px + calc(1.05vh / var(--app-zoom, 1))), 18px);
+    --sb-gap: clamp(3px, calc(0.85vh / var(--app-zoom, 1)), 8px);
+    --sb-logo-h: clamp(34px, calc(6.5vh / var(--app-zoom, 1)), 62px);
+    --sb-logo-pt: clamp(8px, calc(2.3vh / var(--app-zoom, 1)), 22px);
+    --sb-logo-pb: clamp(6px, calc(1.9vh / var(--app-zoom, 1)), 18px);
   }
   .sidebar .nav-item svg { width: var(--sb-icon); height: var(--sb-icon); }
   /* Fast radhöjd: annars ger webbläsarnas olika fontmått 1-2 px skillnad per rad. */
@@ -6195,7 +6210,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
    kan vara något tätare. På lägre
    fönster och i halvskärmens ikonfält gäller linjerna. */
 @media (min-width: 1101px) and (min-height: 700px) {
-  :root { --sb-pad: clamp(4.5px, calc(1.86vh - 7.6px), 12px); }
+  :root { --sb-pad: clamp(4.5px, calc(calc(1.86vh / var(--app-zoom, 1)) - 7.6px), 12px); }
   .sidebar .nav-group-title {
     display: flex;
     align-items: center;
@@ -6530,7 +6545,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
     bottom: calc(8px + env(safe-area-inset-bottom, 0px));
     border-radius: 24px;
     padding: 8px 12px 12px;
-    max-height: min(90dvh, 780px);
+    max-height: min(calc(90dvh / var(--app-zoom, 1)), 780px);
     transform: translateY(calc(100% + 32px + env(safe-area-inset-bottom, 0px)));
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.22);
   }
@@ -6552,34 +6567,8 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 ══════════════════════════════════════════════ */
 @media (max-width: 640px) {
   .dash-root { padding: 12px 16px 28px !important; min-height: 0 !important; }
-  .dash-root .dash-greeting { margin-bottom: 14px !important; }
-  .dash-root .dash-quick { margin-bottom: 16px !important; }
-  .dash-root .dash-quick-title { margin-bottom: 10px !important; }
-  .dash-root .dash-quick-actions { grid-template-columns: repeat(6, 1fr) !important; gap: 8px !important; }
-  .dash-root .dash-quick-actions > * { grid-column: span 2; }
-  .dash-root .dash-quick-actions[data-count="4"] { grid-template-columns: repeat(4, 1fr) !important; }
-  .dash-root .dash-quick-actions[data-count="4"] > * { grid-column: span 1; }
-  .dash-root .dash-quick-actions[data-count="5"] > :nth-child(4) { grid-column: 2 / span 2; }
-  .dash-root .dash-quick-actions[data-count="5"] > :nth-child(5) { grid-column: 4 / span 2; }
-  .dash-root .dash-quick-btn {
-    flex-direction: column !important;
-    justify-content: flex-start !important;
-    gap: 8px !important;
-    padding: 12px 4px 10px !important;
-    min-height: 88px;
-    text-align: center !important;
-    border-radius: 16px !important;
-  }
-  .dash-root .dash-quick-btn > span { text-align: center; font-size: 12.5px !important; }
-  .dash-root .dash-quick-ico { width: 40px !important; height: 40px !important; border-radius: 12px !important; }
   .dash-root .dash-chart-card { padding: 18px 16px !important; }
   .dash-root .dash-period-row { margin-bottom: 16px !important; gap: 12px !important; }
-  .dash-root .dash-kpi-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; margin-bottom: 20px !important; }
-  .dash-root .dash-kpi-card { padding: 12px 10px !important; gap: 8px !important; border-radius: 14px !important; }
-  .dash-root .dash-kpi-card-icon { width: 26px !important; height: 26px !important; }
-  .dash-root .dash-kpi-card-icon svg { width: 13px !important; height: 13px !important; }
-  .dash-root .dash-kpi-card-label { font-size: 9.5px !important; margin-bottom: 3px !important; }
-  .dash-root .dash-kpi-card-value { font-size: 14.5px !important; }
 }
 /* "Har du bokfört någon annanstans innan?" på telefon: en rad med text och
    knapp, utan ikon och underrubrik, så frågan inte bryts i tre korta rader
@@ -6603,32 +6592,16 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
    så att översikten syns på en skärm. Telefonen har egna regler ovan.
 ══════════════════════════════════════════════ */
 @media (min-width: 1101px) {
-  .dash-greeting { margin-bottom: 12px !important; }
-  .dash-quick { margin-bottom: 14px !important; }
-  .dash-quick-title { margin-bottom: 8px !important; }
   .dash-chart-card { padding: 18px 20px !important; margin-bottom: 16px !important; }
   .dash-period-row { margin-bottom: 14px !important; }
-  .dash-kpi-grid { gap: 12px !important; margin-bottom: 16px !important; }
-  .dash-kpi-card { flex-direction: row !important; align-items: center !important; gap: 14px !important; padding: 14px 18px !important; }
-  .dash-kpi-card > div { flex: 0 0 auto; }
-  .dash-kpi-card > div:last-child { flex: 1 1 auto; min-width: 0; }
   .dash-lower-grid { margin-bottom: 16px !important; }
   .dash-todo-card { margin-bottom: 16px !important; }
 }
-/* Lägre fönster (laptop): allt tätare, och Snabbåtgärder-rubriken utgår (knapparna
-   säger själva vad de gör), så att hela översikten syns. */
+/* Lägre fönster (laptop): allt tätare, så att hela översikten syns. */
 @media (min-width: 1101px) and (max-height: 860px) {
-  .dash-greeting { margin-bottom: 6px !important; }
-  .dash-quick { margin-bottom: 10px !important; }
-  .dash-quick-title { display: none !important; }
-  .dash-quick-btn { padding: 8px 12px !important; }
+  .dash-top { margin-bottom: 12px; }
   .dash-chart-card { padding: 14px 18px !important; }
   .dash-period-row { margin-bottom: 10px !important; }
-  .dash-kpi-grid { margin-bottom: 12px !important; }
-  .dash-kpi-card { padding: 10px 16px !important; }
-}
-@media (min-width: 1101px) and (max-height: 700px) {
-  .dash-kpi-card > div:first-child { display: none !important; }
 }
 @media (min-width: 1200px) {
   .dash-body {
@@ -6643,7 +6616,11 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .dash-body .dash-lower-grid { display: contents !important; }
   .dash-body .dash-chart-card { grid-column: 1; grid-row: 1 / span 2; align-self: stretch; margin-bottom: 0 !important; }
   .dash-body .dash-todo-card { grid-column: 2; grid-row: 1; margin-bottom: 16px !important; }
-  .dash-body .dash-outstanding { grid-column: 2; grid-row: 2; align-self: start; }
+  /* Utestående sträcks ner till diagramkortets nederkant; listan med obetalda
+     fakturor tar höjden som blir över och skrollar om den inte räcker. */
+  .dash-body .dash-outstanding { grid-column: 2; grid-row: 2; align-self: stretch; min-height: 0; }
+  .dash-body .dash-out-list { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+  .dash-body .dash-out-list li:nth-child(n+5) { display: list-item; }
   .dash-body .dash-outstanding-head { padding: 12px 16px !important; }
   .dash-body .dash-outstanding > div:nth-child(2) > button { padding: 14px 16px !important; }
   .dash-body .dash-outstanding-net { padding: 10px 16px !important; }
@@ -6659,12 +6636,43 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .dash-body .dash-outstanding-head { padding: 9px 14px !important; }
   .dash-body .dash-outstanding > div:nth-child(2) > button { padding: 10px 14px !important; }
   .dash-body .dash-outstanding-net { padding: 8px 14px !important; }
-  .dash-quick-btn { padding: 6px 12px !important; }
-  .dash-kpi-card { padding: 8px 14px !important; }
 }
 
+/* Utestående: obetalda fakturor under summorna (2026-10-03). Prick i
+   intäkternas eller kostnadernas färg, namn, förfallodag, belopp. Utan
+   tvåkolumnslayouten (telefon, halv skärm) visas de fyra närmaste. */
+.dash-out-list { border-top: 1px solid var(--border-light); padding: 10px 8px 6px; }
+.dash-out-list-title { padding: 0 12px 4px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+.dash-out-list ul { list-style: none; margin: 0; padding: 0; }
+.dash-out-list li:nth-child(n+5) { display: none; }
+.dash-out-row {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 8px 12px; border: none; border-radius: 9px; background: none;
+  font-family: inherit; text-align: left; color: var(--text-main); cursor: pointer;
+}
+.dash-out-row:hover { background: var(--bg-muted); }
+.dash-out-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; }
+.dash-out-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.dash-out-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-out-due { font-size: 11.5px; color: var(--text-muted); }
+.dash-out-due.is-late { color: var(--status-red-text); }
+.dash-out-amount { flex: none; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
 /* ══════════════════════════════════════════════
-   STARTSIDAN: Att göra idag (enkel färglös lista), grafen och tabellen
+   STARTSIDAN: sidhuvud med hälsning och genvägar (2026-10-03)
+   Hälsningen centrerad och genvägarna centrerade under den, som i den gamla
+   designen.
+══════════════════════════════════════════════ */
+.dash-top { display: flex; flex-direction: column; align-items: center; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light); min-width: 0; max-width: 100%; text-align: center; }
+/* Utan hälsning (avstängd i Min profil, eller i demon) finns inget att visa, inte ens strecket. */
+.dash-top--bare { display: none; }
+/* Dator: hälsningen lyfts upp i raden med ikonerna uppe till höger (hjälp,
+   tema, notiser, profil), som annars var ett tomt band över sidan. */
+@media (min-width: 1101px) { .dash-top { margin-top: -42px; min-height: 30px; justify-content: center; position: relative; z-index: 1; pointer-events: none; } .dash-top > * { pointer-events: auto; } }
+.dash-hello { margin: 0; font-family: var(--font-voice); font-weight: 700; font-size: clamp(22px, 2vw, 30px); letter-spacing: -0.01em; line-height: 1.15; color: var(--text-main); }
+
+/* ══════════════════════════════════════════════
+   STARTSIDAN: Att göra idag (färgad ikon, märke och knapp per rad), grafen och tabellen
 ══════════════════════════════════════════════ */
 .dash-todo-card {
   background: var(--bg-card);
@@ -6678,6 +6686,9 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 .dash-todo-title { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: var(--text-main); }
 .dash-todo-count { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .dash-todo-list { list-style: none; margin: 0; padding: 0; }
+/* "Visa alla (6)" under de fyra första raderna. */
+.dash-todo-more { display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; margin: 2px 0 10px; padding: 9px 0; border: none; border-top: 1px solid var(--border-light); background: none; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+.dash-todo-more:hover { color: var(--accent); }
 .dash-today-row { display: flex; align-items: center; gap: 14px; border-top: 1px solid var(--border-light); }
 .dash-today-row:first-child { border-top: none; }
 .dash-today-btn {
@@ -6747,7 +6758,112 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 @media (hover: none) { .dash-today-x { display: none; } }
 .dash-today-chevron { flex-shrink: 0; color: var(--text-muted); transition: transform 0.15s, color 0.15s; }
 .dash-today-btn:hover .dash-today-chevron { transform: translateX(2px); color: var(--text-main); }
+/* Att göra som kort, efter Fortnox förlaga (2026-10-03): varje sak är ett
+   eget grått kort med en liten rad överst (vad man gör), fet rubrik,
+   detaljrad och en rund ikon till höger i radens ton. Tonen (--bad/--warn/
+   --brand/--neu) går genom samma status-variabler som resten av appen, så
+   mörkt läge följer med. */
+.dash-todo-head { align-items: center; margin-bottom: 12px; }
+.dash-todo-title { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; letter-spacing: -0.02em; }
+.dash-todo-badge { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.dash-todo-toggle { display: inline-flex; align-items: center; gap: 4px; padding: 4px 2px; border: none; background: none; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+.dash-todo-toggle:hover { color: var(--text-main); }
+.dash-todo-list { display: flex; flex-direction: column; gap: 14px; padding-bottom: 14px; }
+/* Grupperna (Kundfakturor, Bokföring …), med en liten rubrik när det finns fler än en. */
+.dash-todo-group-title { margin: 0 0 7px 2px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
+.dash-todo-group-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.dash-todo-card .dash-today-row { border-top: none; border-radius: 12px; }
+.dash-todo-card .dash-today-slide { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03); transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1), border-color 0.15s, box-shadow 0.15s; }
+.dash-todo-card .dash-today-row:hover .dash-today-slide { border-color: color-mix(in srgb, var(--t-fg, var(--text-main)) 35%, var(--border)); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06); }
+.dash-todo-card .dash-today-swipe-hide { border-radius: 12px; }
+/* Dölj-knappen bakom kortet syns bara när kortet sveps; annars skymtade den grå i de rundade hörnen. */
+.dash-todo-card .dash-today-row:not([data-open]) .dash-today-swipe-hide { visibility: hidden; }
+.dash-today-btn { align-items: center; gap: 14px; padding: 14px 16px !important; }
+.dash-today-btn--bad   { --t-fg: var(--status-red-text);   --t-bg: var(--status-red-bg); }
+.dash-today-btn--warn  { --t-fg: var(--status-amber-text); --t-bg: var(--status-amber-bg); }
+.dash-today-btn--brand { --t-fg: var(--status-green-text); --t-bg: var(--status-green-bg); }
+.dash-today-btn--neu   { --t-fg: var(--text-secondary);    --t-bg: color-mix(in srgb, var(--text-main) 8%, var(--bg-card)); }
+.dash-today-ic { flex: none; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: var(--t-fg); background: var(--t-bg); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--t-fg) 12%, transparent); }
+.dash-today-btn .dash-today-lines { gap: 3px; }
+.dash-today-kicker { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+.dash-today-btn .dash-today-title { font-size: 15.5px; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; }
+.dash-today-btn .dash-today-detail { font-size: 13px; margin-top: 3px; }
+.dash-today-detail.is-late { color: var(--status-red-text); }
+/* Krysset (dölj) uppe i hörnet, bara vid hovring på dator. */
+.dash-todo-card .dash-today-x { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; z-index: 2; background: var(--bg-card); }
+.dash-todo-card .dash-today-x svg { width: 13px; height: 13px; }
 
+/* ══════════════════════════════════════════════
+   STARTSIDAN: Resultat / Intäkter / Kostnader / Likviditet
+   Fyra mjuka grå rutor (inspirerat av en Claude-skiss användaren gillade):
+   Resultatet först och i sin egen färg, de andra neutrala med färgen bara
+   som en prick framför etiketten, samma färg som serien i diagrammet under.
+   Fjolårsförändringen står som ett litet märke, grönt upp och rött ner.
+   Rött belopp bara för en förlust eller ett negativt saldo.
+   Telefon: två och två, Resultatet uppe till vänster.
+══════════════════════════════════════════════ */
+.dash-kpi-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 22px; }
+.dash-kpi-card {
+  display: flex; flex-direction: column; gap: 4px; min-width: 0;
+  padding: 14px 16px 13px; border-radius: 12px; background: var(--bg-muted);
+}
+.dash-kpi-card-label { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-kpi-dot { flex: none; width: 8px; height: 8px; border-radius: 3px; }
+.dash-kpi-card { container-type: inline-size; }
+/* Beloppet krymper med rutan (cqi = rutans bredd) så att hela kronor som
+   "1 234 567 kr" alltid får plats på en rad, utan att klippas. */
+.dash-kpi-card-value { font-size: min(24px, 13.5cqi); font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; color: var(--text-main); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-kpi-card.is-negative .dash-kpi-card-value { color: var(--status-red-text); }
+.dash-kpi-card-sub { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; min-height: 18px; }
+.dash-kpi-delta { flex: none; font-size: 11.5px; font-weight: 700; padding: 1px 6px; border-radius: 6px; background: var(--bg-card); }
+.dash-kpi-delta.is-up { color: var(--status-green-text); }
+.dash-kpi-delta.is-down { color: var(--status-red-text); }
+
+/* Resultatet: en mjuk ton av sin färg (loggans gröna, eller förlustens röda),
+   beloppet i en djupare variant av färgen. color-mix mot textfärgen ger
+   mörkgrönt på ljust och ljust lime på mörkt. */
+/* Resultatrutan har samma grå botten som de andra (användarens önskan
+   2026-10-03); bara beloppet bär färgen. */
+.dash-kpi-card.is-tinted { background: var(--bg-muted); }
+.dash-kpi-card.is-tinted .dash-kpi-card-value,
+.dash-kpi-card.is-tinted.is-negative .dash-kpi-card-value { color: color-mix(in srgb, var(--kpi-tint) 78%, var(--text-main)); }
+.dash-kpi-card.is-tinted .dash-kpi-card-label { color: var(--text-secondary); }
+.dash-kpi-card.is-tinted .dash-kpi-card-sub { color: var(--text-muted); }
+
+/* Smal laptop och halv skärm: fyra smalare rutor. */
+@media (min-width: 641px) and (max-width: 1280px) {
+  .dash-kpi-grid { gap: 8px; }
+  .dash-kpi-card { padding: 12px 13px 11px; }
+  .dash-kpi-card-value { font-size: min(20px, 13.5cqi); }
+}
+/* Lågt laptopfönster: hela översikten ska få plats på en skärm. */
+@media (min-width: 1101px) and (max-height: 860px) {
+  .dash-kpi-grid { margin-bottom: 14px; }
+  .dash-kpi-card { padding: 10px 14px 9px; gap: 2px; }
+}
+@media (min-width: 1101px) and (max-height: 700px) {
+  .dash-kpi-card-sub { display: none; }
+}
+/* Telefon: två och två. */
+@media (max-width: 640px) {
+  /* Resultatet över hela bredden, intäkter och kostnader två i rad under. */
+  .dash-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 18px; }
+  .dash-kpi-card--result { grid-column: 1 / -1; }
+  .dash-kpi-card { padding: 12px 13px 11px; }
+  .dash-kpi-card-value { font-size: min(19px, 13.5cqi); }
+  .dash-kpi-card--result .dash-kpi-card-value { font-size: 24px; }
+  .dash-kpi-card-sub { font-size: 11.5px; }
+}
+
+.dash-period-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dash-period-controls .dash-format-btn { padding-inline: 12px; }
+/* Telefon: enhetsväljaren är liten och står bredvid perioden, inte en rad
+   över hela bredden som diagrammets formatväljare. */
+@media (max-width: 640px) {
+  .dash-root .dash-period-controls { width: 100%; flex-wrap: nowrap; justify-content: space-between; }
+  .dash-root .dash-period-controls .dash-format-seg { display: inline-flex; width: auto; flex: none; order: 2; }
+  .dash-root .dash-period-controls .dash-format-btn { flex: none; padding: 7px 12px; }
+}
 .dash-chart-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
 .dash-chart-title { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: var(--text-main); }
 .dash-format-seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--bg-muted); border-radius: 10px; }
@@ -6772,6 +6888,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 .dash-chart-key > span { display: inline-flex; align-items: center; gap: 6px; }
 .dash-chart-key-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 .dash-chart-key-line { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.dash-chart-key-dash { width: 14px; height: 0; border-top: 2px dashed var(--text-muted); display: inline-block; opacity: 0.8; }
 
 .dash-table-wrap { overflow-x: auto; }
 .dash-table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
@@ -6795,7 +6912,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 .dash-table tfoot td, .dash-table tfoot td.result { padding-top: 13px; font-weight: 800; border-top: 1px solid var(--border); border-bottom: none; }
 
 @media (min-width: 1101px) and (max-height: 860px) {
-  .dash-today-btn { padding: 10px 0; }
+  .dash-today-btn { padding: 11px 14px !important; }
   .dash-todo-card { padding-top: 12px; }
   .dash-table td { padding: 8px 10px; }
 }
@@ -7298,12 +7415,12 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   font-weight: 600;
 }
 @media (max-width: 768px) {
-  .dash-todo-card { padding: 18px 18px 4px; border-radius: 20px; }
-  .dash-todo-head { align-items: center; margin-bottom: 4px; }
-  .dash-todo-title { font-size: 19px; letter-spacing: -0.02em; }
-  .dash-today-title { font-size: 16px; }
-  .dash-today-detail { font-size: 13.5px; }
-  .dash-today-btn { padding: 14px 0 !important; }
+  .dash-todo-card { padding: 16px 16px 4px; border-radius: 18px; }
+  .dash-todo-head { align-items: center; margin-bottom: 2px; }
+  .dash-todo-title { font-size: 18px; letter-spacing: -0.02em; }
+  .dash-today-btn .dash-today-title { font-size: 15px; }
+  .dash-today-btn .dash-today-detail { font-size: 13px; }
+  .dash-today-btn { padding: 14px 14px !important; }
 }
 
 /* Att göra idag, tomt läge (bara telefon, se Dashboard.jsx todoEmpty). */

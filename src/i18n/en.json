@@ -55,11 +55,18 @@
     }
   },
   "dashboard": {
+    "period": {
+      "year": "This year",
+      "last12": "Last 12 mo",
+      "label": "Period"
+    },
     "greetingFallbackName": "there",
     "greetingMorning": "Good morning",
     "greetingAfternoon": "Good afternoon",
     "greetingEvening": "Good evening",
     "quickActions": {
+      "newQuote": "New quote",
+      "create": "Create",
       "title": "Quick actions",
       "newInvoice": "New invoice",
       "uploadReceipt": "Upload receipt",
@@ -68,7 +75,7 @@
       "runPayroll": "Run payroll"
     },
     "today": {
-      "title": "To do today",
+      "title": "To do",
       "countSingular": "item",
       "countPlural": "items",
       "dismiss": "Dismiss"
@@ -128,14 +135,26 @@
       "tableTotal": "Total",
       "tableResult": "Result",
       "tableResultCompared": "Result {{label}}",
-      "tableChange": "Change"
+      "tableChange": "Change",
+      "resultLastYear": "Result last year"
     },
     "kpi": {
       "income": "Revenue",
       "costs": "Costs",
-      "result": "Result"
+      "result": "Result",
+      "vsLastYear": "{{pct}} vs last year",
+      "perMonth": "Avg. {{amount}}/mo",
+      "shareOfIncome": "{{pct}} of revenue",
+      "margin": "Margin {{pct}}",
+      "vsLastYearShort": "vs last year",
+      "cash": "Liquidity",
+      "cashSub": "Bank and cash today"
     },
     "outstanding": {
+      "listTitle": "Unpaid invoices",
+      "rowOverdue": "{{days}} days overdue",
+      "rowDue": "Due {{date}}",
+      "rowDueToday": "Due today",
       "title": "Outstanding",
       "allInvoices": "All invoices",
       "toReceive": "To receive",
@@ -164,6 +183,17 @@
       "goToTaxes": "Go to Tax & VAT"
     },
     "todo": {
+      "group": {
+        "invoices": "Customer invoices",
+        "bookkeeping": "Bookkeeping",
+        "tax": "VAT and tax",
+        "payroll": "Payroll",
+        "other": "Other"
+      },
+      "minimize": "Minimize",
+      "expand": "Show",
+      "showAll": "Show all ({{count}})",
+      "showLess": "Show fewer",
       "hide": "Hide",
       "whenYesterday": "yesterday",
       "whenDaysAgo": "{{days}} days ago",
@@ -191,7 +221,19 @@
       "draftManyDetail": "Not sent yet",
       "countOne": "1 item",
       "countMany": "{{count}} items",
-      "empty": "Nothing is waiting for you right now"
+      "empty": "Nothing is waiting for you right now",
+      "actionInvoice": "View invoice",
+      "actionInvoices": "View invoices",
+      "actionVat": "Go to VAT",
+      "actionPayroll": "Review payroll",
+      "actionReview": "Review",
+      "actionDraft": "Open drafts",
+      "chipOverdue": "Overdue"
+    },
+    "unit": {
+      "label": "Show amounts in",
+      "tkrTitle": "Thousands of kronor",
+      "krTitle": "Whole kronor"
     }
   },
   "settings": {
@@ -2658,6 +2700,7 @@
     "senast_oppnad": "Last opened",
     "senaste_3_manaderna": "Last 3 months",
     "senaste_6_manaderna": "Last 6 months",
+    "senaste_12_manaderna": "Last 12 months",
     "senaste_betalningen_misslyckades_stripe_forsoker": "The latest payment failed. Stripe retries automatically — update the card if it happens again.",
     "senaste_lagerhandelser": "Latest inventory events",
     "senaste_manaden_mot_de_tolv_foregaende_med_avvik": "The latest month against the previous twelve, with deviations marked.",

@@ -55,11 +55,18 @@
     }
   },
   "dashboard": {
+    "period": {
+      "year": "I år",
+      "last12": "Senaste 12 mån",
+      "label": "Period"
+    },
     "greetingFallbackName": "Användare",
     "greetingMorning": "God morgon",
     "greetingAfternoon": "God eftermiddag",
     "greetingEvening": "God kväll",
     "quickActions": {
+      "newQuote": "Ny offert",
+      "create": "Skapa",
       "title": "Snabbåtgärder",
       "newInvoice": "Ny faktura",
       "uploadReceipt": "Ladda upp kvitto",
@@ -68,7 +75,7 @@
       "runPayroll": "Kör lön"
     },
     "today": {
-      "title": "Att göra idag",
+      "title": "Att göra",
       "countSingular": "post",
       "countPlural": "poster",
       "dismiss": "Ignorera"
@@ -128,14 +135,26 @@
       "tableTotal": "Totalt",
       "tableResult": "Resultat",
       "tableResultCompared": "Resultat {{label}}",
-      "tableChange": "Förändring"
+      "tableChange": "Förändring",
+      "resultLastYear": "Resultat i fjol"
     },
     "kpi": {
       "income": "Intäkter",
       "costs": "Kostnader",
-      "result": "Resultat"
+      "result": "Resultat",
+      "vsLastYear": "{{pct}} mot i fjol",
+      "perMonth": "Snitt {{amount}}/mån",
+      "shareOfIncome": "{{pct}} av intäkterna",
+      "margin": "Marginal {{pct}}",
+      "vsLastYearShort": "mot i fjol",
+      "cash": "Likviditet",
+      "cashSub": "Bank och kassa i dag"
     },
     "outstanding": {
+      "listTitle": "Obetalda fakturor",
+      "rowOverdue": "Förföll för {{days}} d sedan",
+      "rowDue": "Förfaller {{date}}",
+      "rowDueToday": "Förfaller i dag",
       "title": "Utestående",
       "allInvoices": "Alla fakturor",
       "toReceive": "Att få in",
@@ -164,6 +183,17 @@
       "goToTaxes": "Till Skatt & Moms"
     },
     "todo": {
+      "group": {
+        "invoices": "Kundfakturor",
+        "bookkeeping": "Bokföring",
+        "tax": "Moms och skatt",
+        "payroll": "Lön",
+        "other": "Övrigt"
+      },
+      "minimize": "Minimera",
+      "expand": "Visa",
+      "showAll": "Visa alla ({{count}})",
+      "showLess": "Visa färre",
       "hide": "Dölj",
       "whenYesterday": "igår",
       "whenDaysAgo": "för {{days}} dagar sedan",
@@ -191,7 +221,19 @@
       "draftManyDetail": "Inte skickade än",
       "countOne": "1 sak",
       "countMany": "{{count}} saker",
-      "empty": "Inget väntar på dig just nu"
+      "empty": "Inget väntar på dig just nu",
+      "actionInvoice": "Visa faktura",
+      "actionInvoices": "Visa fakturor",
+      "actionVat": "Gå till moms",
+      "actionPayroll": "Granska lön",
+      "actionReview": "Granska",
+      "actionDraft": "Öppna utkast",
+      "chipOverdue": "Förfallen"
+    },
+    "unit": {
+      "label": "Visa belopp i",
+      "tkrTitle": "Tusental kronor",
+      "krTitle": "Hela kronor"
     }
   },
   "settings": {
@@ -2658,6 +2700,7 @@
     "senast_oppnad": "Senast öppnad",
     "senaste_3_manaderna": "Senaste 3 månaderna",
     "senaste_6_manaderna": "Senaste 6 månaderna",
+    "senaste_12_manaderna": "Senaste 12 månaderna",
     "senaste_betalningen_misslyckades_stripe_forsoker": "Senaste betalningen misslyckades. Stripe försöker automatiskt igen — uppdatera kortet om det upprepas.",
     "senaste_lagerhandelser": "Senaste lagerhändelser",
     "senaste_manaden_mot_de_tolv_foregaende_med_avvik": "Senaste månaden mot de tolv föregående, med avvikelser markerade.",

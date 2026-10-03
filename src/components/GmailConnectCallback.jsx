@@ -87,7 +87,7 @@ export default function GmailConnectCallback() {
       : <Loader2 size={30} color={BRAND.green} className="gc-spin" />;
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'var(--bg-page)' }}>
+    <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'var(--bg-page)' }}>
       <style>{`
         @keyframes gc-spin { to { transform: rotate(360deg); } }
         .gc-spin { animation: gc-spin 1s linear infinite; }

@@ -49,3 +49,35 @@ export function computeDropdownPlacement(anchor, viewport, opts = {}) {
     ? { left, width, maxHeight: height, dropUp, bottom: viewport.height - anchor.top + DROPDOWN_GAP }
     : { left, width, maxHeight: height, dropUp, top: anchor.bottom + DROPDOWN_GAP };
 }
+
+// ── Sidans zoom ─────────────────────────────────────────────────────────
+// På dator är hela appen utzoomad med `html { zoom }` (index.css,
+// --app-zoom). getBoundingClientRect och window.innerWidth/innerHeight är då
+// i skärmpixlar, men `position: fixed` placeras i sidans egna (ozoomade)
+// pixlar och skalas sedan av zoomen. Utan omräkning hamnade en radmeny
+// 40 px för högt vid 90 %. Allt som placerar en flytande lista från ett
+// ankares rektangel ska därför gå via de två funktionerna nedan.
+
+/** Zoomen på <html>, 1 när ingen är satt. */
+export function pageZoom() {
+  if (typeof document === 'undefined' || typeof getComputedStyle !== 'function') return 1;
+  const z = parseFloat(getComputedStyle(document.documentElement).zoom);
+  return z > 0 ? z : 1;
+}
+
+/** Elementets rektangel i sidans pixlar, redo för `position: fixed`.
+ * Skalan mäts på elementet självt (skärmbredd / layoutbredd) i stället för
+ * att antas, så det blir rätt även i en webbläsare som redan räknar om. */
+export function layoutRect(el) {
+  const r = el.getBoundingClientRect();
+  const s = el.offsetWidth > 0 ? r.width / el.offsetWidth : pageZoom();
+  const k = s > 0 ? s : 1;
+  return { left: r.left / k, right: r.right / k, top: r.top / k, bottom: r.bottom / k, width: r.width / k, height: r.height / k };
+}
+
+/** Fönstrets mått i sidans pixlar. */
+export function layoutViewport() {
+  if (typeof window === 'undefined') return { width: 0, height: 0 };
+  const z = pageZoom();
+  return { width: window.innerWidth / z, height: window.innerHeight / z };
+}

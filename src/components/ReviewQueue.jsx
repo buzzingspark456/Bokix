@@ -858,7 +858,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
 
       {tab === 'pending' && (
         visiblePending.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', padding: '40px', textAlign: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(50vh / var(--app-zoom, 1))', padding: '40px', textAlign: 'center' }}>
             <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'var(--status-green-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
               <CheckCircle2 size={48} color="var(--status-green-text)" strokeWidth={1.5} />
             </div>
@@ -884,7 +884,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
 
       {tab === 'stripe' && (
         !company?.stripeAccountId ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', padding: '40px', textAlign: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(50vh / var(--app-zoom, 1))', padding: '40px', textAlign: 'center' }}>
             <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
               <CreditCard size={40} color="var(--text-muted)" strokeWidth={1.5} />
             </div>
@@ -894,7 +894,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
         ) : stripeLoading ? (
           <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>{t('ui.laser_in')}</div>
         ) : visibleStripeItems.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', padding: '40px', textAlign: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(50vh / var(--app-zoom, 1))', padding: '40px', textAlign: 'center' }}>
             <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'var(--status-green-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
               <CheckCircle2 size={48} color="var(--status-green-text)" strokeWidth={1.5} />
             </div>
@@ -921,7 +921,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
 
       {tab === 'zettle' && (
         !company?.zettleAccessToken ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', padding: '40px', textAlign: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(50vh / var(--app-zoom, 1))', padding: '40px', textAlign: 'center' }}>
             <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
               <CreditCard size={40} color="var(--text-muted)" strokeWidth={1.5} />
             </div>
@@ -931,7 +931,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
         ) : zettleLoading ? (
           <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>{t('ui.laser_in')}</div>
         ) : visibleZettleItems.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', padding: '40px', textAlign: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(50vh / var(--app-zoom, 1))', padding: '40px', textAlign: 'center' }}>
             <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'var(--status-green-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
               <CheckCircle2 size={48} color="var(--status-green-text)" strokeWidth={1.5} />
             </div>

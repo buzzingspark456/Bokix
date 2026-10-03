@@ -1135,7 +1135,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
             ) : (
               <div
                 className="ver-drop" onClick={() => fileInputRef.current?.click()}
-                style={{ border: `1px dashed ${dragOver ? 'var(--text-main)' : 'var(--border)'}`, borderRadius: '12px', background: dragOver ? 'var(--bg-muted)' : 'var(--bg-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', height: 'clamp(320px, 44vh, 560px)', boxSizing: 'border-box' }}
+                style={{ border: `1px dashed ${dragOver ? 'var(--text-main)' : 'var(--border)'}`, borderRadius: '12px', background: dragOver ? 'var(--bg-muted)' : 'var(--bg-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', height: 'clamp(320px, calc(44vh / var(--app-zoom, 1)), 560px)', boxSizing: 'border-box' }}
               >
                 <UploadCloud size={26} color="var(--text-muted)" style={{ marginBottom: '10px' }} />
                 <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('ui.dra_och_slapp_kvittot_har')}</span>

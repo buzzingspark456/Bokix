@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { computeDropdownPlacement } from '../../utils/dropdownPlacement';
+import { computeDropdownPlacement, layoutRect, layoutViewport } from '../../utils/dropdownPlacement';
 
 // ── En förankrad lista som aldrig kan klippas ───────────────────────────
 // Kundrapport: sökrutan i tidrapporteringen ("Sök projekt…") visade bara en
@@ -36,7 +36,7 @@ export function useAnchorRect(open, anchorRef) {
     const measure = () => {
       const el = anchorRef.current;
       if (!el) return;
-      const r = el.getBoundingClientRect();
+      const r = layoutRect(el);
       setRect({ left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width });
     };
     measure();
@@ -87,7 +87,7 @@ export default function AnchoredDropdown({
   // ligger i utils/dropdownPlacement.js och är testad där.
   const { left, width, maxHeight: height, dropUp, top, bottom } = computeDropdownPlacement(
     rect,
-    { width: window.innerWidth, height: window.innerHeight },
+    layoutViewport(),
     { align, minWidth, maxHeight },
   );
 

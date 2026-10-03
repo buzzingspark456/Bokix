@@ -625,55 +625,65 @@ export function EmptyState({ text }) {
  * faktiskt är ute efter när man hovrar över en månad — annars får man
  * subtrahera i huvudet, med två sexsiffriga tal.
  */
-export function ChartTooltip({ active, payload, label, valueFormatter = formatSEK, showDerived = true }) {
+export function ChartTooltip({ active, payload, label, valueFormatter = formatSEK, showDerived = true, prevKey, prevName }) {
+  const { palette } = useReportDisplay();
   if (!active || !payload?.length) return null;
   const rows = payload
-    .map(p => ({ name: p.name ?? p.category, value: p.value, color: p.color }))
+    // `UtgifterNed` är kostnaden ritad nedåt i det speglade diagrammet;
+    // i tooltipen är en kostnad alltid ett positivt belopp.
+    .map(p => ({ name: p.name ?? p.category, value: p.dataKey === 'UtgifterNed' ? -p.value : p.value, color: p.color }))
     .filter(p => p.value != null && p.name !== undefined);
   if (!rows.length) return null;
 
   const income = rows.find(r => r.name === 'Intäkter');
-  const cost = rows.find(r => r.name === 'Utgifter');
+  const cost = rows.find(r => r.name === 'Utgifter' || r.name === 'Kostnader');
   const hasResult = rows.some(r => r.name === 'Resultat');
   const derived = showDerived && income && cost && !hasResult
     ? (income.value || 0) - (cost.value || 0)
     : null;
 
+  // Utseende efter användarens förlaga (2026-10-03): liten rubrik i versaler
+  // med hela månaden och året, fyrkantiga färgrutor, beloppen högerställda,
+  // och resultatraderna under ett eget streck.
+  const isResultRow = (r) => /^Resultat/.test(String(r.name));
+  const mainRows = rows.filter(r => !isResultRow(r));
+  const resultRows = rows.filter(isResultRow);
+  // Resultatet i samma färg som Resultat-rutan på startsidan: resultatfärgen
+  // (förlustens röda vid minus), beloppet blandat med textfärgen som där.
+  if (derived != null) resultRows.unshift({ name: t('ui.resultat'), value: derived, color: derived >= 0 ? palette.profit : (palette.loss || palette.profit), derived: true });
+  // Fjolårets resultat läses ur själva dataraden när det inte ritas som en serie.
+  const prevValue = prevKey ? payload[0]?.payload?.[prevKey] : undefined;
+  if (prevValue != null) resultRows.push({ name: prevName || prevKey, value: prevValue, color: 'var(--text-muted)' });
+  const heading = payload[0]?.payload?.title || label;
+  const Row = ({ r }) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', padding: '3px 0' }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
+        <span aria-hidden style={{ width: 10, height: 10, borderRadius: 3, background: r.color, flexShrink: 0 }} />
+        <span style={{ color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
+      </span>
+      <span style={{ color: r.derived ? `color-mix(in srgb, ${r.color} 78%, var(--text-main))` : 'var(--text-main)', fontWeight: 700, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+        {valueFormatter(r.value)}
+      </span>
+    </div>
+  );
+
   return (
     <div style={{
       background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px',
-      boxShadow: '0 12px 32px rgba(15, 30, 22, 0.16)', overflow: 'hidden',
-      fontSize: '12.5px', minWidth: '196px',
+      boxShadow: '0 12px 32px rgba(15, 30, 22, 0.16)', padding: '12px 14px 10px',
+      fontSize: '13px', minWidth: '220px',
     }}>
-      {label && (
-        <div style={{ padding: '9px 14px', background: 'var(--bg-muted)', borderBottom: '1px solid var(--border-light)', fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)' }}>
-          {label}
+      {heading && (
+        <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '7px' }}>
+          {heading}
         </div>
       )}
-      <div style={{ padding: '11px 14px' }}>
-        {rows.map((r, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '18px', padding: '3px 0' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-              {/* Rund prick, samma legendmarkör som paneler och listor
-                  använder — inte Tremors lilla streck, som såg ut som en
-                  tredje sorts markör i samma vy. */}
-              <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', background: r.color, flexShrink: 0 }} />
-              <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
-            </span>
-            <span style={{ color: 'var(--text-main)', fontWeight: 700, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-              {valueFormatter(r.value)}
-            </span>
-          </div>
-        ))}
-        {derived != null && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '18px', marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed var(--border)' }}>
-            <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{t('ui.resultat')}</span>
-            <span style={{ fontWeight: 800, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: derived >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
-              {valueFormatter(derived)}
-            </span>
-          </div>
-        )}
-      </div>
+      {mainRows.map((r, i) => <Row key={`m${i}`} r={r} />)}
+      {resultRows.length > 0 && (
+        <div style={{ marginTop: mainRows.length ? '7px' : 0, paddingTop: mainRows.length ? '7px' : 0, borderTop: mainRows.length ? '1px solid var(--border-light)' : 'none' }}>
+          {resultRows.map((r, i) => <Row key={`r${i}`} r={r} />)}
+        </div>
+      )}
     </div>
   );
 }
@@ -712,7 +722,7 @@ export function ResultBarChart({ data, isMobile }) {
             ner mot nollinjen), så färgen följer resultatet: vinst i
             resultatfärgen, förlust i kostnadsfärgen. */}
         <Bar dataKey="resultat" radius={[4, 4, 0, 0]} maxBarSize={CHART_BAR_SIZE} name="Resultat">
-          {tickData.map((d, i) => <Cell key={i} fill={d.resultat >= 0 ? palette.profit : palette.cost} />)}
+          {tickData.map((d, i) => <Cell key={i} fill={d.resultat >= 0 ? palette.profit : palette.loss} />)}
         </Bar>
         <Line dataKey="prevResultat" stroke="var(--text-muted)" strokeWidth={2.5} strokeDasharray="4 3" dot={false} name={t('ui.foregaende_period')} />
       </BarChart>
@@ -849,6 +859,7 @@ export function PeriodPicker({ value, onChange, options, icon: Icon = Calendar, 
 export const OVERVIEW_PERIODS = [
   { id: 'month', label: t('ui.denna_manad') },
   { id: 'year', label: t('ui.rakenskapsaret_2') },
+  { id: 'last12', label: t('ui.senaste_12_manaderna') },
   { id: 'all', label: t('ui.sedan_start') },
 ];
 
@@ -933,7 +944,7 @@ export function ChartSummaryList({ items }) {
  *   t.ex. föregående år. De ritas bara i linje- och ytläget; i stapelläget
  *   får anroparen lägga dem som egna element ovanpå.
  */
-export function RevenueExpenseChart({ data, isMobile, granularity = 'month', height = 280, showLegend = false, variant = 'bar', indexKey = 'label', extraSeries = [] }) {
+export function RevenueExpenseChart({ data, isMobile, granularity = 'month', height = 280, showLegend = false, variant = 'bar', indexKey = 'label', extraSeries = [], prevKey, prevName, partialLast = false }) {
   const { palette, amount } = useReportDisplay();
   const tickData = useMemo(() => {
     const labels = thinLabels(data.map(d => d[indexKey]), isMobile);
@@ -974,6 +985,66 @@ export function RevenueExpenseChart({ data, isMobile, granularity = 'month', hei
   // inte gör: skillnaden mellan staplarna, alltså det som faktiskt blev
   // kvar, utan att man behöver mäta höjdskillnaden med ögat. Linjen är
   // grön av samma skäl som Resultat-brickan är det — den mäter samma sak.
+  // Speglat (startsidan, inspirerat av Bokio): intäkterna växer uppåt från
+  // nollinjen och kostnaderna nedåt, i samma kolumn, med resultatet som en
+  // linje genom dem. Då syns direkt hur mycket av varje månads intäkter
+  // kostnaderna äter upp, utan att man jämför två staplar bredvid varandra.
+  // Kostnaden ritas som ett negativt tal (`UtgifterNed`); tooltipen vänder
+  // tillbaka tecknet (se ChartTooltip).
+  if (variant === 'diverging') {
+    // Bara staplar sedan 2026-10-03 (användarens önskan): resultatlinjen och
+    // den streckade fjolårslinjen är borttagna. Resultatet och fjolårets
+    // resultat står i tooltipen i stället (se ChartTooltip, prevKey).
+    const divData = tickData.map(d => ({ ...d, UtgifterNed: -(d.Utgifter || 0) }));
+    const last = divData.length - 1;
+    const showPrev = !!prevKey && divData.some(d => d[prevKey]);
+    // Egna jämna steg från datans faktiska topp och botten. Recharts egen
+    // skala blev symmetrisk kring noll (−210 när kostnaderna bara når −115)
+    // och slösade en tredjedel av höjden på tom yta.
+    const vals = divData.flatMap(d => [d.Intäkter || 0, d.UtgifterNed]);
+    const hi = Math.max(0, ...vals);
+    const lo = Math.min(0, ...vals);
+    const raw = (hi - lo) / 5 || 1;
+    const mag = 10 ** Math.floor(Math.log10(raw));
+    const step = [1, 2, 2.5, 3, 4, 5, 6, 8, 10].find(m => m * mag >= raw) * mag;
+    const yTicks = [];
+    for (let v = Math.floor(lo / step) * step; v <= Math.ceil(hi / step) * step + step / 2; v += step) yTicks.push(Math.round(v));
+    // Innevarande månad ritas i full färg (2026-10-03). Den var tidigare till
+    // hälften genomskinlig för att visa att månaden inte är slut, men för ett
+    // nytt företag med bokföring bara i den här månaden blev hela diagrammet
+    // urblekt. `partialLast` finns kvar i signaturen men används inte här.
+    const fade = () => 1;
+    // Staplarna har en tunn kant i kortets färg: intäkt och kostnad möts då
+    // med en ren liten lucka vid nollinjen i stället för att flyta ihop.
+    // Kostnaden får radius [6, 6, 0, 0] precis som intäkten, eftersom
+    // Recharts vänder hörnen på negativa staplar; den rundas alltså nedtill.
+    const barSize = isMobile ? 20 : 40;
+    // Axeln alltid kort ("240 tkr", "−80 tkr", "0"): den är bara ett stöd för
+    // ögat, och "240 000 kr" tog en sjättedel av bredden. Exakta belopp
+    // finns i rutorna ovanför och i tooltipen.
+    const axisFmt = (v) => (v === 0 ? '0' : Math.abs(v) >= 1e6
+      ? `${new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 1 }).format(v / 1e6)} mkr`
+      : Math.abs(v) >= 1000 ? `${new Intl.NumberFormat('sv-SE').format(Math.round(v / 1000))} tkr` : `${v} kr`);
+    // Bred nog för "−160 tkr" på en rad; smalare bröt Recharts etiketten i två.
+    const axisW = 58;
+    return (
+      <ResponsiveContainer width="100%" height={height}>
+        <ComposedChart data={divData} stackOffset="sign" barCategoryGap="22%" margin={{ top: 22, right: 6, bottom: 0, left: 0 }}>
+          <CartesianGrid vertical={false} stroke="var(--border-light)" strokeOpacity={0.7} />
+          <XAxis dataKey={indexKey} tick={{ fontSize: 11.5, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} tickMargin={8} />
+          <YAxis ticks={yTicks} domain={[yTicks[0], yTicks[yTicks.length - 1]]} interval={0} tickFormatter={axisFmt} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} width={axisW} />
+          <Tooltip content={<ChartTooltip valueFormatter={amount.exact} prevKey={showPrev ? prevKey : undefined} prevName={prevName} />} cursor={{ fill: 'var(--bg-muted)', opacity: 0.6, radius: 8 }} />
+          <ReferenceLine y={0} stroke="var(--text-muted)" strokeOpacity={0.35} strokeWidth={1} />
+          <Bar dataKey="Intäkter" name="Intäkter" stackId="m" fill={palette.income} radius={[6, 6, 0, 0]} stroke="var(--bg-card)" strokeWidth={1.5} maxBarSize={barSize} isAnimationActive={false}>
+            {divData.map((_, i) => <Cell key={i} fillOpacity={fade(i)} />)}
+          </Bar>
+          <Bar dataKey="UtgifterNed" name="Kostnader" stackId="m" fill={palette.costBar} radius={[6, 6, 0, 0]} stroke="var(--bg-card)" strokeWidth={1.5} maxBarSize={barSize} isAnimationActive={false}>
+            {divData.map((_, i) => <Cell key={i} fillOpacity={palette.costBarOpacity * fade(i)} />)}
+          </Bar>
+        </ComposedChart>
+      </ResponsiveContainer>
+    );
+  }
   if (variant === 'combo') {
     const comboData = tickData.map(d => ({ ...d, Resultat: (d.Intäkter || 0) - (d.Utgifter || 0) }));
     return (

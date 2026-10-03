@@ -210,6 +210,13 @@ export const XCircle = make(MdOutlineCancel, 'XCircle');
 // ett kvitto med sicksackkant för kvittot.
 export const NavSalesIcon = make(MdOutlineStorefront, 'NavSalesIcon');
 export const NavQuotesIcon = make(MdOutlineEditNote, 'NavQuotesIcon');
+
+// Att göra på startsidan (2026-10-03): en egen ikon per sorts sak.
+export const TodoOverdueIcon = make(MdOutlineAlarm, 'TodoOverdueIcon');
+export const TodoReviewIcon = make(MdOutlineFactCheck, 'TodoReviewIcon');
+export const TodoDraftIcon = make(MdOutlineEditNote, 'TodoDraftIcon');
+export const TodoVatIcon = make(MdOutlinePercent, 'TodoVatIcon');
+export const TodoPayrollIcon = make(MdOutlinePayments, 'TodoPayrollIcon');
 // Fakturaikonen är samma teckning som den stora illustrationen när det inte finns några
 // fakturor än (Invoices.jsx, InvoiceDocIllustration): ett dokument med vikt hörn och
 // textrader, och en bock i en ring nere till höger. Ritad med linjer i ikonens färg

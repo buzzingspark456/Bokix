@@ -203,7 +203,7 @@ function MfaChallengeScreen({ onVerify, onCancel }) {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BRAND.greenLight, padding: '24px', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BRAND.greenLight, padding: '24px', fontFamily: "'Inter', sans-serif" }}>
       <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '22px', padding: '36px 32px', boxShadow: '0 12px 40px -8px rgba(15,23,42,0.18)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', boxSizing: 'border-box' }}>
         <div style={{
           width: 56, height: 56, borderRadius: '16px', flexShrink: 0,
@@ -305,7 +305,7 @@ function PasswordRecoveryScreen({ onSubmit, onCancel }) {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BRAND.greenLight, padding: '24px', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BRAND.greenLight, padding: '24px', fontFamily: "'Inter', sans-serif" }}>
       <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '22px', padding: '36px 32px', boxShadow: '0 12px 40px -8px rgba(15,23,42,0.18)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', boxSizing: 'border-box' }}>
         <div style={{
           width: 56, height: 56, borderRadius: '16px', flexShrink: 0,
@@ -435,7 +435,7 @@ import { startInvoiceTourWhenReady } from './utils/invoiceTour';
 // fortfarande laddas i det ögonblicket.
 function RouteLoadingFallback() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-page)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh / var(--app-zoom, 1))', background: 'var(--bg-page)' }}>
       <Loader2 size={28} color="var(--text-muted)" style={{ animation: 'spin 0.8s linear infinite' }} />
     </div>
   );
@@ -595,7 +595,7 @@ function AppLoadingSkeleton({ tab }) {
 
   return (
     <div className="app-container" aria-busy="true" aria-label={tr('ui.laddar_bokix')}>
-      <aside className="sidebar" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <aside className="sidebar" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh / var(--app-zoom, 1))' }}>
         <div className="logo-container" style={{ padding: '22px 24px 18px' }}>
           <div className="skeleton-shape--on-sidebar" style={{ width: '104px', height: '26px' }} />
         </div>
@@ -4864,7 +4864,7 @@ function App() {
       )}
 
       {/* ── Sidebar ── */}
-      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`} data-fit={sidebarFit} style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`} data-fit={sidebarFit} style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh / var(--app-zoom, 1))' }}>
         {/* Logo — klickbar till startsidan, med en tunn linje under (samma
             låg-kontrast-ton som skiljer nav-grupperna åt nedanför) så den
             känns avskild från "Startsida" istället för att glida ihop. */}

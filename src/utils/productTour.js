@@ -93,10 +93,10 @@ const STEP_DEFS = [
   },
   {
     tab: 'dashboard',
-    element: '.dash-quick-actions',
+    element: '.dash-kpi-grid',
     popover: {
       title: 'Startsida',
-      description: 'Det du gör oftast — ny faktura, nytt kvitto, ny utgift — är alltid ett klick bort härifrån.',
+      description: 'Här ser du hur det går: resultat, intäkter och kostnader för perioden du väljer, och bredvid det som väntar på dig.',
     },
   },
   {
@@ -302,7 +302,7 @@ export function startProductTour({ uid, navigate } = {}) {
  * Delad av auto-starten (App.jsx, maybeAutoStartTour) och "Starta rundtur
  * igen" i Hjälp och support (HelpDrawer.jsx → App.jsx:s onStartTour). */
 export async function startProductTourWhenReady({ uid, navigate } = {}) {
-  await waitForElement('.dash-quick-actions');
+  await waitForElement('.dash-top');
   return startProductTour({ uid, navigate });
 }
 

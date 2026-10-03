@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreVertical } from '../icons';
 import { t } from '../../i18n';
+import { layoutRect, layoutViewport } from '../../utils/dropdownPlacement';
 
 // Delad "⋮"-radmeny — kebab-knapp som öppnar en dropdown med grupperade
 // åtgärder (t.ex. olika åtgärder beroende på en fakturas/offerts status).
@@ -34,14 +35,15 @@ export default function RowActionMenu({ items, ariaLabel = t('ui.fler_atgarder')
   const computePosition = () => {
     const btn = btnRef.current;
     if (!btn) return;
-    const rect = btn.getBoundingClientRect();
+    const rect = layoutRect(btn);
+    const vp = layoutViewport();
     const estimatedMenuHeight = Math.min(items.filter(i => !i.divider).length * 38 + 16, 400);
-    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceBelow = vp.height - rect.bottom;
     const openUpward = spaceBelow < estimatedMenuHeight && rect.top > spaceBelow;
     setPos({
-      right: Math.max(8, window.innerWidth - rect.right),
+      right: Math.max(8, vp.width - rect.right),
       ...(openUpward
-        ? { bottom: window.innerHeight - rect.top + 4 }
+        ? { bottom: vp.height - rect.top + 4 }
         : { top: rect.bottom + 4 }),
     });
   };
@@ -106,7 +108,7 @@ export default function RowActionMenu({ items, ariaLabel = t('ui.fler_atgarder')
           onClick={e => e.stopPropagation()}
           style={{
             // Över startsidans demo (z-index 3000) när menyn öppnas i den.
-            position: 'fixed', ...pos, zIndex: document.querySelector('.lp-demo-overlay') ? 3100 : 1000, minWidth: '230px', maxHeight: '70vh', overflowY: 'auto',
+            position: 'fixed', ...pos, zIndex: document.querySelector('.lp-demo-overlay') ? 3100 : 1000, minWidth: '230px', maxHeight: 'calc(70vh / var(--app-zoom, 1))', overflowY: 'auto',
             background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px',
             boxShadow: '0 8px 24px rgba(15, 23, 42, 0.14), 0 0 0 1px rgba(15, 23, 42, 0.03)',
             padding: '6px', display: 'flex', flexDirection: 'column',

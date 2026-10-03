@@ -11,6 +11,7 @@ import ListTable from './shared/ListTable';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import { BRAND } from '../utils/brandColors';
 import { t as tr, dateLocale } from '../i18n';
+import { layoutRect, layoutViewport } from '../utils/dropdownPlacement';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 
@@ -300,7 +301,7 @@ function TimeCellPopover({ hours: initialHours, description: initialDescription,
   // förfäder som råkar klippa/scrolla. Clampad mot fönstrets bredd så den
   // aldrig hamnar utanför skärmen för lördag/söndag-kolumnerna.
   const width = 210;
-  const left = anchorRect ? Math.min(Math.max(anchorRect.left + anchorRect.width / 2 - width / 2, 8), window.innerWidth - width - 8) : 0;
+  const left = anchorRect ? Math.min(Math.max(anchorRect.left + anchorRect.width / 2 - width / 2, 8), layoutViewport().width - width - 8) : 0;
   const top = anchorRect ? anchorRect.bottom + 4 : 0;
 
   return (
@@ -355,7 +356,7 @@ function DayCell({ entry, isToday, isOpen, onOpen, children }) {
   const background = isOpen ? BRAND.greenLight : (hover ? (entry ? 'var(--status-green-bg)' : 'var(--gray-100)') : (isToday ? 'var(--gray-50)' : 'transparent'));
   return (
     <td
-      onClick={(e) => onOpen(e.currentTarget.getBoundingClientRect())}
+      onClick={(e) => onOpen(layoutRect(e.currentTarget))}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
