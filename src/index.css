@@ -4496,6 +4496,11 @@ textarea.form-control {
    för .quote-toolbar som sätter nowrap + sidledsscroll under 720px. Den
    är avsiktlig där, men skulle annars slå ut den här. Högre specificitet
    vinner oavsett i vilken ordning stilarna hamnar i dokumentet. */
+/* Dator: åtgärdsraden radbryter i stället för att knappar hamnar utanför
+   (med förhandsvisningsknappen och 90 % zoom blev den för bred på laptop). */
+@media (min-width: 769px) {
+  .quote-toolbar.doc-toolbar { flex-wrap: wrap; overflow-x: visible !important; row-gap: 8px; }
+}
 @media (max-width: 1100px) {
   .quote-toolbar.invoice-toolbar {
     flex-wrap: wrap;
@@ -7488,3 +7493,33 @@ html[data-launch="leaving"] #bokix-launch { opacity: 0; visibility: hidden; poin
   .bl-stroke { display: none; }
   .bl-fill { animation: blFill 0.3s ease forwards; }
 }
+
+/* ══════════════════════════════════════════════
+   FÖRHANDSVISNING BREDVID FORMULÄRET (faktura/offert, 2026-10-03)
+   Valfri kolumn till höger (shared/LivePreviewPane.jsx). Formuläret och
+   dokumentet skrollar var för sig. Grå "skrivbordsyta" bakom en vit A4-sida
+   med skugga, så sidan läses som ett papper. Bara på bred skärm.
+══════════════════════════════════════════════ */
+.doc-live-preview {
+  flex: 0 0 auto; align-self: stretch;
+  display: flex; flex-direction: column; min-height: 0;
+  border-left: 1px solid var(--border); background: var(--bg-muted);
+}
+.doc-live-preview-head {
+  flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 12px 20px; border-bottom: 1px solid var(--border-light); background: var(--bg-card);
+}
+.doc-live-preview-title { font-size: 13px; font-weight: 700; color: var(--text-main); }
+.doc-live-preview-hint { font-size: 12px; color: var(--text-muted); }
+.doc-live-preview-paper { flex: 1; min-height: 0; overflow-y: auto; padding: 20px; }
+.doc-live-preview-paper .a4-paper { box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08); }
+/* Halv skärm: flikarna Redigera | Förhandsvisning i stället för två kolumner. */
+.doc-preview-tabs { flex: none; padding: 10px 24px; background: var(--bg-card); border-bottom: 1px solid var(--border-light); }
+.doc-preview-tabs-seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--bg-muted); border-radius: 10px; }
+.doc-preview-tab { padding: 7px 16px; border: none; border-radius: 8px; background: transparent; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--text-muted); cursor: pointer; }
+.doc-preview-tab.active { background: var(--bg-card); color: var(--text-main); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
+.doc-split--tabs { flex-direction: column; }
+.doc-split--tabs .doc-live-preview { flex: 1 1 auto; max-width: none; min-width: 0; border-left: none; }
+.doc-split--tabs .doc-live-preview-paper { overflow: visible; padding: 20px 24px; }
+.doc-split--view-preview .doc-split-form { display: none !important; }
+.doc-split--view-form .doc-live-preview { display: none; }

@@ -8,10 +8,12 @@ import {
   Search, ChevronRight, ChevronDown,
   RefreshCw, Printer, Eye, CreditCard, Link2,
   MessageSquare, Tag, Lock, Settings2, Download, AlertTriangle, Trash2,
-  ZoomIn, ZoomOut, Pencil, Copy, CheckCircle2, Undo2, Sparkles, SlidersHorizontal
+  ZoomIn, ZoomOut, Pencil, Copy, CheckCircle2, Undo2, Sparkles, SlidersHorizontal,
+  SplitViewIcon,
 } from './icons';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import PaperFit from './shared/PaperFit';
+import LivePreviewPane, { LivePreviewTabs, useLivePreview } from './shared/LivePreviewPane';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
 import { exportInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';
 import { sendInvoiceEmail } from '../emailApi';
@@ -245,6 +247,8 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   }, [currency, invoiceDate, fxRateManual, initial]);
   const [invoiceText, setInvoiceText] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  // Förhandsvisning bredvid formuläret, valfri (se shared/LivePreviewPane.jsx).
+  const livePreview = useLivePreview();
   // Sida 38, punkt 4: explicit +/- zoom som fallback till det äkta
   // tvåfingers-pinchzoom-gest som webbläsaren redan tillåter rakt av (ingen
   // user-scalable=no/maximum-scale i index.html som spärrar den) — en A4-
@@ -755,6 +759,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
         {pdfError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{pdfError}</span>}
         {topBarBtn(pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF', <Download size={13} />, handleDownloadPdf, {}, pdfBusy, undefined, 'tb-pdf')}
         {topBarBtn(tr('ui.forhandsgranska'), <Eye size={13} />, () => setShowPreview(v => !v), showPreview ? activeToolbarPillStyle : {}, false, undefined, 'tb-preview')}
+        {livePreview.available && topBarBtn(livePreview.toggleLabel, <SplitViewIcon size={13} />, livePreview.toggle, livePreview.on ? activeToolbarPillStyle : {}, false, tr('ui.forhandsvisning_bredvid_tips'), 'tb-live-preview')}
       </div>
 
       {/* Betalning och Kommentar renderas som riktiga skärmcentrerade modaler
@@ -889,8 +894,11 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           för sidans övriga vita ytor, bara konsekvent applicerad på
           formulärkolumnen som helhet, inte bara var och en av dess sektioner
           för sig. */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', background: 'var(--bg-card)' }}>
-        <div style={{ flex: 1, minWidth: 0, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Med förhandsvisningen påslagen skrollar formuläret och dokumentet var
+          för sig (doc-split), annars hela ytan som förut. */}
+      <LivePreviewTabs preview={livePreview} />
+      <div className={livePreview.bodyClass} style={{ flex: 1, minHeight: 0, overflowY: livePreview.splitScrolls ? 'hidden' : 'auto', display: 'flex', background: 'var(--bg-card)' }}>
+        <div className="doc-split-form" style={{ flex: 1, minWidth: 0, minHeight: '100%', display: 'flex', flexDirection: 'column', ...(livePreview.splitScrolls ? { height: '100%', overflowY: 'auto' } : {}) }}>
 
           {/* Fakturauppgifter — samma sektionsmönster som QuoteEditor:s
               "Kundinformation" (Quotes.jsx): en enda tydligt rubricerad
@@ -1351,6 +1359,24 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
             </button>
           </div>
         </div>
+        {livePreview.on && (
+          <LivePreviewPane preview={livePreview}>
+            <InvoiceDocument
+              invoice={{ invoiceNumber: nextNum, date: invoiceDate, dueDate, terms }}
+              customer={customer}
+              company={company}
+              rows={rows}
+              totals={totals}
+              currency={currency}
+              invoiceText={invoiceText}
+              template={invoiceTemplateSnapshot.templateId}
+              accentColor={invoiceTemplateSnapshot.accentColor}
+              logoUrl={invoiceTemplateSnapshot.logoUrl}
+              footerText={invoiceTemplateSnapshot.footerText}
+              rotRut={rotRutType !== 'none' ? { type: rotRutType, ...rotRut } : null}
+            />
+          </LivePreviewPane>
+        )}
       </div>
 
       {/* ── Förhandsgranskning — öppnas nu som en fullskärmsmodal med samma

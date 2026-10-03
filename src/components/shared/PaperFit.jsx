@@ -15,7 +15,9 @@ const SCALE_STEP = 0.1;
 // storleken (tidigare hoppade ett tryck direkt till 100 %, långt mer än man
 // ville); när man zoomat in går det att dra i sidled. På bredare skärmar
 // (skalan 1) är det vanligt, oskalat innehåll.
-export default function PaperFit({ children }) {
+// `zoomControls={false}`: inga zoomknappar (förhandsvisningen bredvid
+// formuläret, där den fasta knappraden annars hamnade över formuläret).
+export default function PaperFit({ children, zoomControls = true }) {
   const outerRef = useRef(null);
   const innerRef = useRef(null);
   const [fit, setFit] = useState({ scale: 1, height: null });
@@ -68,7 +70,7 @@ export default function PaperFit({ children }) {
           {children}
         </div>
       </div>
-      {narrow && (
+      {narrow && zoomControls && (
         // Ligger fast i skärmens nederkant, ovanför bottenmenyn, så att man
         // kan zooma ut igen utan att först skrolla förbi hela den förstorade
         // sidan. (Sticky gick inte: förhandsgranskningens egna
@@ -76,7 +78,7 @@ export default function PaperFit({ children }) {
         // sista raden hamnar bakom knapparna.
         <div style={{ height: '64px' }} aria-hidden="true" />
       )}
-      {narrow && (
+      {narrow && zoomControls && (
         <div style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: 'calc(var(--mobile-nav-height, 0px) + env(safe-area-inset-bottom, 0px) + 12px)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '6px 10px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '999px', boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}>
           <button type="button" onClick={() => zoomBy(-1)} disabled={!zoomedIn} aria-label={t('ui.zooma_ut')} title={t('ui.zooma_ut')} style={btn(!zoomedIn)}>
             <ZoomOut size={16} />

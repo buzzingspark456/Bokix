@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { isVatExempt } from '../utils/vatRegistration';
-import { NavQuotesIcon, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Loader2, Search, ChevronDown, ChevronRight } from './icons';
+import { NavQuotesIcon, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Loader2, Search, ChevronDown, ChevronRight, SplitViewIcon } from './icons';
 import PaperFit from './shared/PaperFit';
+import LivePreviewPane, { LivePreviewTabs, useLivePreview } from './shared/LivePreviewPane';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
 import { exportInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';
 import { sendInvoiceEmail } from '../emailApi';
@@ -218,6 +219,8 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
   });
 
   const [showPreview, setShowPreview] = useState(false);
+  // Förhandsvisning bredvid formuläret, valfri (se shared/LivePreviewPane.jsx).
+  const livePreview = useLivePreview();
   const [previewZoom, setPreviewZoom] = useState(1);
   useEffect(() => { if (showPreview) setPreviewZoom(1); }, [showPreview]);
 
@@ -545,6 +548,11 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
         <button type="button" className="tb-preview" onClick={() => setShowPreview(true)} style={toolbarBtnStyle(showPreview)}>
           <Eye size={15} /> {t('ui.forhandsgranska')}
         </button>
+        {livePreview.available && (
+          <button type="button" className="tb-live-preview" onClick={livePreview.toggle} title={t('ui.forhandsvisning_bredvid_tips')} aria-pressed={livePreview.on} style={toolbarBtnStyle(livePreview.on)}>
+            <SplitViewIcon size={15} /> {livePreview.toggleLabel}
+          </button>
+        )}
       </div>
 
       {/* ── Formulär — täcker HELA sidan (bredd och höjd), inte ett smalt
@@ -554,8 +562,9 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
              maxWidth-låda mitt i en full-bredd sida lämnar enorma tomma fält
              på båda sidor, särskilt på breda skärmar. Sektioner separeras nu
              med en tunn linje istället för att vara ihopklämda i ett kort. ── */}
-      <form onSubmit={handleSubmit} style={{ flex: 1, overflowY: 'auto', display: 'flex', background: 'var(--bg-card)' }}>
-        <div style={{ flex: 1, minWidth: 0, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+      <LivePreviewTabs preview={livePreview} />
+      <form onSubmit={handleSubmit} className={livePreview.bodyClass} style={{ flex: 1, minHeight: 0, overflowY: livePreview.splitScrolls ? 'hidden' : 'auto', display: 'flex', background: 'var(--bg-card)' }}>
+        <div className="doc-split-form" style={{ flex: 1, minWidth: 0, minHeight: '100%', display: 'flex', flexDirection: 'column', ...(livePreview.splitScrolls ? { height: '100%', overflowY: 'auto' } : {}) }}>
           {/* .form-row-stack (inte .form-row-2): dess mobilregel har
               !important och vinner faktiskt över den inline satta
               gridTemplateColumns — .form-row-2 saknar det och skulle klämma
@@ -908,6 +917,24 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
           </>
           )}
         </div>
+        {livePreview.on && (
+          <LivePreviewPane preview={livePreview}>
+            <InvoiceDocument
+              invoice={{ invoiceNumber: previewNumber, date, dueDate, workStartDate, workEndDate, workLocation, deliveryDescription, terms: formattedTerms, lateInterest: formattedLateInterest, notIncluded, otherTerms }}
+              customer={customer}
+              company={company}
+              rows={previewRows}
+              totals={totals}
+              currency={currency}
+              docLabel="OFFERT"
+              docType="quote"
+              template={templateSnapshot.templateId}
+              accentColor={templateSnapshot.accentColor}
+              logoUrl={templateSnapshot.logoUrl}
+              footerText={templateSnapshot.footerText}
+            />
+          </LivePreviewPane>
+        )}
       </form>
 
       {/* ── Förhandsgranskning — fullskärmsmodal med riktig A4-bredd (samma

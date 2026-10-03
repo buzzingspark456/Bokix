@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  MdOutlineVerticalSplit,
   MdCalendarMonth, MdEmail, MdAccountBalance, MdMoreHoriz,
   MdOutlineEditNote, MdOutlineHome, MdOutlineStorefront, MdMoreTime, MdPayments, MdPersonAddAlt1, MdPostAdd, MdUploadFile,
   MdOutlineAccessTime, MdOutlineAccountBalance, MdOutlineAccountBalanceWallet, MdOutlineAccountTree,
@@ -217,6 +218,9 @@ export const TodoReviewIcon = make(MdOutlineFactCheck, 'TodoReviewIcon');
 export const TodoDraftIcon = make(MdOutlineEditNote, 'TodoDraftIcon');
 export const TodoVatIcon = make(MdOutlinePercent, 'TodoVatIcon');
 export const TodoPayrollIcon = make(MdOutlinePayments, 'TodoPayrollIcon');
+
+// Förhandsvisning bredvid formuläret (faktura/offert).
+export const SplitViewIcon = make(MdOutlineVerticalSplit, 'SplitViewIcon');
 // Fakturaikonen är samma teckning som den stora illustrationen när det inte finns några
 // fakturor än (Invoices.jsx, InvoiceDocIllustration): ett dokument med vikt hörn och
 // textrader, och en bock i en ring nere till höger. Ritad med linjer i ikonens färg
