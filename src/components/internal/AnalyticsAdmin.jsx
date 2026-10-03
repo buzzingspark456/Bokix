@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Users, GraduationCap, CreditCard, TrendingUp, Info, Eye, Globe2, AlertTriangle, Calendar } from '../icons';
-import { adminGet } from './adminApi';
+import { useAdminData } from './useAdminData';
+import RefreshBar from './RefreshBar';
 
 // GA4:s egna kanalnamn (engelska, tekniska) → svenska etiketter en admin
 // faktiskt begriper utan att slå upp vad "Organic Search" betyder.
@@ -56,24 +57,16 @@ function tickIntervalFor(days) {
 }
 
 export default function AnalyticsAdmin() {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState('');
   const [range, setRange] = useState('30d');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [showCustom, setShowCustom] = useState(false);
 
-  useEffect(() => {
-    const params = { resource: 'analytics' };
-    if (range === 'custom' && customFrom && customTo) {
-      params.from = customFrom;
-      params.to = customTo;
-    } else {
-      params.range = range;
-    }
-    setData(null);
-    adminGet(params).then(setData).catch(err => setError(err.message));
-  }, [range, customFrom, customTo]);
+  // Analys går mot Google Analytics, där räcker var 5:e minut.
+  const params = range === 'custom' && customFrom && customTo
+    ? { resource: 'analytics', from: customFrom, to: customTo }
+    : { resource: 'analytics', range };
+  const { data, error, updatedAt, refreshing, reload } = useAdminData(params, { intervalMs: 5 * 60_000 });
 
   const tickInterval = data ? tickIntervalFor(data.range?.days || 30) : 4;
 
@@ -83,6 +76,7 @@ export default function AnalyticsAdmin() {
         <div>
           <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '6px' }}>Analys</div>
           <div style={{ fontSize: '13.5px', color: 'rgba(232,236,233,0.5)' }}>Konton, prenumerationer och besökstrafik.</div>
+          <RefreshBar updatedAt={updatedAt} refreshing={refreshing} onRefresh={reload} style={{ marginTop: '10px', marginBottom: 0 }} />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>

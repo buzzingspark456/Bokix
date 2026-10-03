@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { encryptSecret, decryptSecret, guessProvider, publicView, friendlySmtpError, PROVIDERS } from './_smtp.js'
+import { encryptSecret, decryptSecret, guessProvider, publicView, friendlySmtpError, isUnreadableSecretError, PROVIDERS } from './_smtp.js'
 
 // Krypteringen är den enda delen av den egna avsändaren där ett tyst fel
 // är dyrt: går en sparad hemlighet inte att läsa tillbaka slutar kundens
@@ -40,6 +40,16 @@ describe('kryptering av app-lösenordet', () => {
 
   it('vägrar okänt format', () => {
     expect(() => decryptSecret('bara-en-strang')).toThrow(/format/i)
+  })
+
+  it('känner igen att nyckeln bytts sedan hemligheten sparades', () => {
+    const payload = encryptSecret('hemligt')
+    process.env.EMAIL_SECRET_KEY = 'en-helt-annan-nyckel'
+    let err
+    try { decryptSecret(payload) } catch (e) { err = e }
+    process.env.EMAIL_SECRET_KEY = 'test-nyckel-som-inte-anvands-skarpt'
+    expect(isUnreadableSecretError(err)).toBe(true)
+    expect(isUnreadableSecretError(new Error('invalid_grant'))).toBe(false)
   })
 })
 

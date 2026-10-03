@@ -106,7 +106,7 @@ export default function InternalAuth({ onAuthenticated, startInMfaMode = false }
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0f0c', padding: '24px' }}>
+    <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0f0c', padding: '24px' }}>
       <div style={{ width: '100%', maxWidth: '380px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center', marginBottom: '32px' }}>
           <div style={{ width: 38, height: 38, borderRadius: '10px', background: 'rgba(11,99,41,0.25)', border: '1px solid rgba(132,204,22,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

@@ -500,7 +500,13 @@ async function handleSystem(admin, res) {
   const since = new Date(Date.now() - 7 * 86400000).toISOString();
   const safe = async (fn, fallback) => { try { return await fn(); } catch { return fallback; } };
 
-  const config = CONFIG_CHECKS.map(([key, label, impact]) => ({ key, label, impact, ok: Boolean(process.env[key]) }));
+  // Webhooken läser sin hemlighet under flera namn (se getWebhookSecrets i
+  // api/stripe/webhook.js); produktionen har den i STRIPE_WEBHOOK_SECRET_SELF.
+  const ALT_KEYS = { STRIPE_WEBHOOK_SECRET: ['STRIPE_WEBHOOK_SECRET_SELF'] };
+  const config = CONFIG_CHECKS.map(([key, label, impact]) => ({
+    key, label, impact,
+    ok: [key, ...(ALT_KEYS[key] || [])].some((k) => Boolean(process.env[k])),
+  }));
 
   const systemEvents = await safe(async () => {
     const { data, error } = await admin.from('system_events').select('kind, detail, created_at').gte('created_at', since).order('created_at', { ascending: false }).limit(50);
@@ -550,6 +556,8 @@ async function logSecurityEvent(admin, type, email, detail) {
 
 export default async function handler(req, res) {
   applySecurityHeaders(res);
+  // Adminsiffrorna ska alltid vara färska, aldrig ett sparat svar.
+  res.setHeader('Cache-Control', 'no-store');
   if (!(await checkRateLimit(req, res, { key: 'admin', max: 120 }))) return;
 
   const user = await requireAuthedUser(req, res);

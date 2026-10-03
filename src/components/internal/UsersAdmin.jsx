@@ -1,6 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { GraduationCap, Users, UserX, ShieldOff, RotateCcw, Search } from '../icons';
-import { adminGet, adminPost } from './adminApi';
+import { adminPost } from './adminApi';
+import { useAdminData } from './useAdminData';
+import RefreshBar from './RefreshBar';
 
 const cardStyle = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '22px' };
 
@@ -38,13 +40,13 @@ const th = { textAlign: 'left', fontSize: '11px', fontWeight: 700, textTransform
 const td = { padding: '13px 14px', fontSize: '13.5px', borderTop: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' };
 
 export default function UsersAdmin() {
-  const [users, setUsers] = useState(null);
-  const [error, setError] = useState('');
+  const { data: users, error: loadError, updatedAt, refreshing, reload } = useAdminData({ resource: 'users' }, { map: d => d.users });
+  const [actionError, setError] = useState('');
+  const error = actionError || loadError;
   const [filter, setFilter] = useState('');
   const [busyId, setBusyId] = useState(null);
 
-  const load = () => adminGet({ resource: 'users' }).then(d => setUsers(d.users)).catch(err => setError(err.message));
-  useEffect(() => { load(); }, []);
+  const load = reload;
 
   const filtered = useMemo(() => (users || []).filter(u => {
     const q = filter.trim().toLowerCase();
@@ -73,6 +75,7 @@ export default function UsersAdmin() {
     <div style={{ padding: '32px 36px', maxWidth: '1160px' }}>
       <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '6px' }}>Användare</div>
       <div style={{ fontSize: '13.5px', color: 'rgba(232,236,233,0.5)', marginBottom: '24px' }}>Alla konton, prenumerationsstatus och kontoåtgärder.</div>
+      <RefreshBar updatedAt={updatedAt} refreshing={refreshing} onRefresh={reload} />
 
       {error && <div style={{ fontSize: '13px', color: '#f87171', marginBottom: '18px' }}>{error}</div>}
       {!users && !error && <div style={{ color: 'rgba(232,236,233,0.5)', fontSize: '13.5px' }}>Laddar…</div>}

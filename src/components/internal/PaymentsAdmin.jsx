@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Wallet, AlertTriangle, TrendingUp, Users, PiggyBank } from '../icons';
-import { adminGet } from './adminApi';
+import { useAdminData } from './useAdminData';
+import RefreshBar from './RefreshBar';
 
 const cardStyle = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '22px' };
 
@@ -40,12 +41,7 @@ const th = { textAlign: 'left', fontSize: '11px', fontWeight: 700, textTransform
 const td = { padding: '13px 14px', fontSize: '13.5px', borderTop: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' };
 
 export default function PaymentsAdmin() {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    adminGet({ resource: 'payments' }).then(setData).catch(err => setError(err.message));
-  }, []);
+  const { data, error, updatedAt, refreshing, reload } = useAdminData({ resource: 'payments' });
 
   const activeCount = data?.subscriptions.filter(s => s.status === 'active').length || 0;
   const arpu = data && activeCount ? Math.round(data.mrr / activeCount) : 0;
@@ -54,6 +50,7 @@ export default function PaymentsAdmin() {
     <div style={{ padding: '32px 36px', maxWidth: '1160px' }}>
       <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '6px' }}>Betalningar</div>
       <div style={{ fontSize: '13.5px', color: 'rgba(232,236,233,0.5)', marginBottom: '24px' }}>Bokix egen abonnemangsintäkt — inte kundernas bokföringsunderlag.</div>
+      <RefreshBar updatedAt={updatedAt} refreshing={refreshing} onRefresh={reload} />
 
       {error && <div style={{ fontSize: '13px', color: '#f87171', marginBottom: '18px' }}>{error}</div>}
       {!data && !error && <div style={{ color: 'rgba(232,236,233,0.5)', fontSize: '13.5px' }}>Laddar…</div>}

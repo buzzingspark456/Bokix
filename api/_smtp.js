@@ -81,6 +81,11 @@ export function decryptSecret(payload) {
   return Buffer.concat([decipher.update(Buffer.from(dataB64, 'base64')), decipher.final()]).toString('utf8');
 }
 
+/** Sant när decryptSecret misslyckats för att nyckeln inte stämmer. */
+export function isUnreadableSecretError(err) {
+  return /unable to authenticate data|Unsupported state/i.test(String(err?.message || err || ''));
+}
+
 // Färdiga inställningar för de leverantörer svenska småföretag faktiskt
 // använder. Poängen är att kunden bara ska behöva sin adress och ett
 // app-lösenord — värdnamn och portnummer är inget en företagare ska
@@ -329,9 +334,15 @@ export async function trySendFromOwnAddress(userId, companyId, payload) {
     // Spara felet så kunden ser i Inställningar VARFÖR deras adress inte
     // användes, i stället för att undra varför avsändaren plötsligt är en
     // annan.
-    const message = row.provider === GOOGLE_PROVIDER
-      ? friendlyGoogleError(err?.message || err)
-      : friendlySmtpError(err);
+    // AES-GCM kastar "Unsupported state or unable to authenticate data" när
+    // hemligheten krypterades med en annan EMAIL_SECRET_KEY än den servern
+    // har nu. Det är inget Google eller SMTP-servern sagt, och enda vägen
+    // ut för kunden är att koppla på nytt.
+    const message = isUnreadableSecretError(err)
+      ? 'Den sparade inloggningen till e-postkontot går inte att läsa längre. Koppla kontot på nytt under Inställningar.'
+      : row.provider === GOOGLE_PROVIDER
+        ? friendlyGoogleError(err?.message || err)
+        : friendlySmtpError(err);
     await updateSenderRow(userId, companyId, { last_error: message });
     await logSystemEvent('email_fallback', `Egen avsändare (${row.provider || 'smtp'}) misslyckades, systemadressen användes: ${message}`);
     return { used: true, ok: false, error: message };

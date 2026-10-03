@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { AlertTriangle, CheckCircle2, XCircle, Database, Mail, CreditCard, SlidersHorizontal } from '../icons';
-import { adminGet } from './adminApi';
+import { useAdminData } from './useAdminData';
+import RefreshBar from './RefreshBar';
 
 const cardStyle = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '22px' };
 const muted = 'rgba(232,236,233,0.5)';
@@ -32,9 +33,7 @@ function Meter({ label, used, limit }) {
 
 /** Systemstatus: det som behöver åtgärdas, samlat (api/admin/index.js handleSystem). */
 export default function SystemAdmin({ onOpenTab }) {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState('');
-  useEffect(() => { adminGet({ resource: 'system' }).then(setData).catch(err => setError(err.message)); }, []);
+  const { data, error, updatedAt, refreshing, reload } = useAdminData({ resource: 'system' });
 
   const missingConfig = data?.config.filter(c => !c.ok) || [];
   const emailProblems = data?.systemEvents || [];
@@ -52,6 +51,7 @@ export default function SystemAdmin({ onOpenTab }) {
     <div style={{ padding: '32px 36px', maxWidth: '1000px' }}>
       <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '6px' }}>Systemstatus</div>
       <div style={{ fontSize: '13.5px', color: muted, marginBottom: '24px' }}>Det som behöver åtgärdas, samlat på ett ställe.</div>
+      <RefreshBar updatedAt={updatedAt} refreshing={refreshing} onRefresh={reload} />
 
       {error && <div style={{ fontSize: '13px', color: '#f87171', marginBottom: '18px' }}>{error}</div>}
       {!data && !error && <div style={{ color: muted, fontSize: '13.5px' }}>Laddar…</div>}

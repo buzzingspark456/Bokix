@@ -16,6 +16,27 @@ import { installGlobalErrorHandlers } from './utils/errorReporting.js'
 // Krascher och ohanterade fel rapporteras till /api/client-error (larm).
 installGlobalErrorHandlers()
 
+// Chromes inbyggda översättning (och vissa tillägg) byter ut textnoder under
+// React. Nästa gång React flyttar eller tar bort en sådan nod kastar
+// webbläsaren "insertBefore/removeChild: not a child of this node" och hela
+// sidan blir vit (sågs live 2026-10-03). Den kända lösningen (facebook/react
+// #11538): gör anropet till en no-op när noden redan flyttats av någon annan,
+// i stället för att krascha.
+if (typeof Node === 'function' && Node.prototype) {
+  const originalRemoveChild = Node.prototype.removeChild;
+  Node.prototype.removeChild = function removeChild(child) {
+    if (child.parentNode !== this) return child;
+    return originalRemoveChild.call(this, child);
+  };
+  const originalInsertBefore = Node.prototype.insertBefore;
+  Node.prototype.insertBefore = function insertBefore(newNode, referenceNode) {
+    if (referenceNode && referenceNode.parentNode !== this) {
+      return originalInsertBefore.call(this, newNode, null);
+    }
+    return originalInsertBefore.call(this, newNode, referenceNode);
+  };
+}
+
 // Scrollbar-inställningen (Inställningar → Data och Inställningar, App.jsx
 // äger den när den ÄR monterad) satt på <html> HÄR också, en gång vid
 // uppstart — precis samma resonemang som temat redan har sin egen kopia i

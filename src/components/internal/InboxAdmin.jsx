@@ -1,6 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Mail, Check, AlertTriangle } from '../icons';
-import { adminGet, adminPost } from './adminApi';
+import { adminPost } from './adminApi';
+import { useAdminData } from './useAdminData';
+import RefreshBar from './RefreshBar';
 
 const cardStyle = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '22px' };
 const muted = 'rgba(232,236,233,0.5)';
@@ -12,13 +14,13 @@ function formatDateTime(iso) {
 
 /** Kontaktformulären från bokix.se och appens Rapportera fel (api/contact.js). */
 export default function InboxAdmin() {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState('');
+  const { data, error: loadError, updatedAt, refreshing, reload } = useAdminData({ resource: 'inbox' });
+  const [actionError, setError] = useState('');
+  const error = actionError || loadError;
   const [show, setShow] = useState('open'); // open | all
   const [busyId, setBusyId] = useState(null);
 
-  const load = () => adminGet({ resource: 'inbox' }).then(setData).catch(err => setError(err.message));
-  useEffect(() => { load(); }, []);
+  const load = reload;
 
   const messages = useMemo(() => (data?.messages || []).filter(m => show === 'all' || !m.handled_at), [data, show]);
   const openCount = (data?.messages || []).filter(m => !m.handled_at).length;
@@ -39,6 +41,7 @@ export default function InboxAdmin() {
     <div style={{ padding: '32px 36px', maxWidth: '1000px' }}>
       <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '6px' }}>Inkorg</div>
       <div style={{ fontSize: '13.5px', color: muted, marginBottom: '24px' }}>Kontaktformuläret och Rapportera fel i appen. Svara via mejl, markera sedan som hanterat.</div>
+      <RefreshBar updatedAt={updatedAt} refreshing={refreshing} onRefresh={reload} />
 
       {error && <div style={{ fontSize: '13px', color: '#f87171', marginBottom: '18px' }}>{error}</div>}
       {!data && !error && <div style={{ color: muted, fontSize: '13.5px' }}>Laddar…</div>}

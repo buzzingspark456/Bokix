@@ -56,7 +56,7 @@ export default function InternalApp() {
   };
 
   if (status === 'checking') {
-    return <div style={{ minHeight: '100vh', background: '#0a0f0c' }} />;
+    return <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', background: '#0a0f0c' }} />;
   }
 
   if (status === 'needs-login') {
@@ -69,7 +69,7 @@ export default function InternalApp() {
 
   if (status === 'unauthorized') {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0f0c', padding: '24px', textAlign: 'center' }}>
+      <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0f0c', padding: '24px', textAlign: 'center' }}>
         <div>
           <ShieldAlert size={32} color="#f87171" style={{ marginBottom: '14px' }} />
           <div style={{ fontSize: '16px', fontWeight: 700, color: '#e8ece9', marginBottom: '8px' }}>Ingen åtkomst</div>
@@ -86,7 +86,7 @@ export default function InternalApp() {
 
   if (status === 'error') {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0f0c', color: '#f87171', fontSize: '14px', padding: '24px', textAlign: 'center' }}>
+      <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0f0c', color: '#f87171', fontSize: '14px', padding: '24px', textAlign: 'center' }}>
         {errorMsg || 'Något gick fel.'}
       </div>
     );
@@ -102,7 +102,7 @@ export default function InternalApp() {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', background: '#0a0f0c', color: '#e8ece9', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', background: '#0a0f0c', color: '#e8ece9', fontFamily: "'Inter', sans-serif" }}>
       <aside style={{ width: 236, flexShrink: 0, borderRight: '1px solid rgba(255,255,255,0.08)', padding: '22px 14px', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 8px', marginBottom: '30px' }}>
           <div style={{ width: 32, height: 32, borderRadius: '9px', background: 'rgba(11,99,41,0.25)', border: '1px solid rgba(132,204,22,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

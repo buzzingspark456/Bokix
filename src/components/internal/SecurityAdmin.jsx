@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { ShieldCheck, ShieldAlert, Clock, MailWarning, Info, Bug, KeyRound, UserX } from '../icons';
-import { adminGet } from './adminApi';
+import { useAdminData } from './useAdminData';
+import RefreshBar from './RefreshBar';
 
 const cardStyle = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '22px' };
 
@@ -40,12 +41,7 @@ function StatTile({ icon: Icon, label, value, color }) {
 }
 
 export default function SecurityAdmin() {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    adminGet({ resource: 'security' }).then(setData).catch(err => setError(err.message));
-  }, []);
+  const { data, error, updatedAt, refreshing, reload } = useAdminData({ resource: 'security' });
 
   const events = data?.events || [];
   const deniedCount = events.filter(e => e.type === 'admin_denied').length;
@@ -57,6 +53,7 @@ export default function SecurityAdmin() {
     <div style={{ padding: '32px 36px', maxWidth: '980px' }}>
       <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '6px' }}>Säkerhet</div>
       <div style={{ fontSize: '13.5px', color: 'rgba(232,236,233,0.5)', marginBottom: '24px' }}>Adminåtkomst, misstänkt aktivitet och inloggningar.</div>
+      <RefreshBar updatedAt={updatedAt} refreshing={refreshing} onRefresh={reload} />
 
       {error && <div style={{ fontSize: '13px', color: '#f87171', marginBottom: '18px' }}>{error}</div>}
       {!data && !error && <div style={{ color: 'rgba(232,236,233,0.5)', fontSize: '13.5px' }}>Laddar…</div>}

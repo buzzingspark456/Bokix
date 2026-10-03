@@ -21,7 +21,8 @@ async function handleResponse(response) {
 export async function adminGet(params) {
   const headers = await authHeader();
   const query = new URLSearchParams(params).toString();
-  const response = await fetch(`/api/admin?${query}`, { headers });
+  // no-store: webbläsaren får aldrig svara med ett gammalt svar.
+  const response = await fetch(`/api/admin?${query}`, { headers, cache: 'no-store' });
   return handleResponse(response);
 }
 
