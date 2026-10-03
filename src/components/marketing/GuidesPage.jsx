@@ -46,11 +46,17 @@ function useSiteTheme() {
   const [theme, setTheme] = useState('light');
   useEffect(() => {
     const root = document.documentElement;
-    const read = () => setTheme(root.dataset.theme === 'dark' ? 'dark' : 'light');
+    // Utan data-theme (temat "System") gäller datorns läge, som i index.css.
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    const read = () => {
+      const attr = root.getAttribute('data-theme');
+      setTheme((attr ? attr === 'dark' : !!mq?.matches) ? 'dark' : 'light');
+    };
     read();
     const obs = new MutationObserver(read);
     obs.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => obs.disconnect();
+    mq?.addEventListener?.('change', read);
+    return () => { obs.disconnect(); mq?.removeEventListener?.('change', read); };
   }, []);
   return theme;
 }

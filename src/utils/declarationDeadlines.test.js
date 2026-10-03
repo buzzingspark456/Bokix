@@ -12,14 +12,35 @@ describe('nextVatDeadline', () => {
   })
 
   it('skips already-booked quarters', () => {
-    const today = new Date()
-    const y = today.getFullYear()
-    const q = Math.floor(today.getMonth() / 3) + 1
-    const withCurrentBooked = nextVatDeadline({ vatPeriod: 'quarterly' }, { [`${y}-Q${q}`]: {} })
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-03T00:00:00'))
     const withNoneBooked = nextVatDeadline({ vatPeriod: 'quarterly' }, {})
-    // Det bokade kvartalet ska aldrig vara det som returneras.
-    expect(`${withCurrentBooked.year}-Q${withCurrentBooked.quarter}`).not.toBe(`${y}-Q${q}`)
-    expect(`${withNoneBooked.year}-Q${withNoneBooked.quarter}`).toBe(`${y}-Q${q}`)
+    const withQ3Booked = nextVatDeadline({ vatPeriod: 'quarterly' }, { '2026-Q3': {} })
+    vi.useRealTimers()
+    expect(`${withNoneBooked.year}-Q${withNoneBooked.quarter}`).toBe('2026-Q3')
+    expect(`${withQ3Booked.year}-Q${withQ3Booked.quarter}`).toBe('2026-Q4')
+  })
+
+  // Regressionstest (2026-10-03): den 3 oktober är nästa deadline Q3:s den
+  // 12 november, inte Q4:s i februari. Funktionen började förut i
+  // innevarande kvartal och missade kvartalet som just tagit slut.
+  describe('kvartalet som just tog slut kommer först', () => {
+    afterEach(() => { vi.useRealTimers() })
+    const cases = [
+      ['3 oktober → Q3, 12 november', '2026-10-03', 2026, 3, 2026, 10, 12],
+      ['15 januari → Q4 året innan, 12 februari', '2026-01-15', 2025, 4, 2026, 1, 12],
+      ['på själva dagen räknas den fortfarande', '2026-11-12', 2026, 3, 2026, 10, 12],
+      ['dagen efter → innevarande kvartal', '2026-11-13', 2026, 4, 2027, 1, 12],
+    ]
+    for (const [label, todayIso, qy, qq, dy, dm, dd] of cases) {
+      it(label, () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(new Date(`${todayIso}T00:00:00`))
+        const r = nextVatDeadline({ vatPeriod: 'quarterly' }, {})
+        expect([r.year, r.quarter]).toEqual([qy, qq])
+        expect([r.dueDate.getFullYear(), r.dueDate.getMonth(), r.dueDate.getDate()]).toEqual([dy, dm, dd])
+      })
+    }
   })
 
   it('rolls the 12th forward off a weekend', () => {
@@ -43,11 +64,13 @@ describe('nextVatDeadline', () => {
     afterEach(() => { vi.useRealTimers() })
 
     const cases = [
-      ['kvartal 1 (jan–mar) → 12 maj', '2026-01-15', 2026, 4, 12],
-      ['kvartal 2 (apr–jun) → 17 augusti (undantaget)', '2026-04-15', 2026, 7, 17],
-      ['kvartal 3 (jul–sep) → 12 november', '2026-07-15', 2026, 10, 12],
+      // Datumen ligger efter förra kvartalets deadline, så det är
+      // innevarande kvartal som räknas fram.
+      ['kvartal 1 (jan–mar) → 12 maj', '2026-02-20', 2026, 4, 12],
+      ['kvartal 2 (apr–jun) → 17 augusti (undantaget)', '2026-05-20', 2026, 7, 17],
+      ['kvartal 3 (jul–sep) → 12 november', '2026-08-20', 2026, 10, 12],
       // Detta är fallet som tidigare landade i mars (bug), inte februari.
-      ['kvartal 4 (okt–dec) → 12 februari ÅRET EFTER, inte mars', '2026-10-15', 2027, 1, 12],
+      ['kvartal 4 (okt–dec) → 12 februari ÅRET EFTER, inte mars', '2026-11-20', 2027, 1, 12],
     ]
 
     for (const [label, todayIso, expectedYear, expectedMonth, expectedDay] of cases) {

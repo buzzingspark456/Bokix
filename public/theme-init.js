@@ -64,22 +64,17 @@
   } catch (e) { /* samma reservläge som ovan */ }
 
   // Appstart: visa den animerade loggan (#bokix-launch i index.html) i
-  // stället för webbplatsen medan appen laddar. Gäller startsidan när Bokix
-  // öppnas från hemskärmen (?app=1 eller fristående läge) eller när någon
-  // redan är inloggad (Supabase-sessionen ligger i lagringen). App.jsx tar
-  // bort attributet när inloggningen eller appen är redo; index.css döljer
-  // loggan av sig själv efter 10 s om något skulle gå fel.
+  // stället för webbplatsen medan appen laddar, men BARA när Bokix öppnas
+  // som app (från hemskärmen: ?app=1 eller fristående läge). Förut även
+  // när en inloggning låg sparad i webbläsaren; då möttes varje besök på
+  // bokix.se av en vit skärm med ordet Bokix (kundrapport 2026-10-03), och
+  // en gammal sparad nyckel som appen inte använde lät loggan ligga kvar
+  // över webbplatsen i tio sekunder. App.jsx tar bort attributet när appen
+  // är redo; index.css döljer loggan av sig själv efter 10 s.
   try {
     var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
     var appParam = /[?&]app=1(&|$)/.test(window.location.search);
-    var hasSession = false;
-    var stores = [window.localStorage, window.sessionStorage];
-    for (var s = 0; s < stores.length && !hasSession; s++) {
-      for (var i = 0; i < stores[s].length; i++) {
-        if (/^sb-.+-auth-token$/.test(stores[s].key(i) || '')) { hasSession = true; break; }
-      }
-    }
-    if (window.location.pathname === '/' && (standalone || appParam || hasSession)) {
+    if (window.location.pathname === '/' && (standalone || appParam)) {
       document.documentElement.setAttribute('data-launch', 'on');
     }
   } catch (e) { /* utan lagring: ingen startlogga, appen laddar som vanligt */ }

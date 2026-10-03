@@ -90,8 +90,18 @@ export function nextVatDeadline(company, vatPeriods) {
   if ((company?.vatPeriod || 'quarterly') !== 'quarterly') return null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  // Börja i kvartalet som senast tog slut: dess deklaration lämnas under
+  // innevarande kvartal (Q3 senast 12 november osv.). Förut började den i
+  // innevarande kvartal, vars dag alltid låg månader bort, så den 3 oktober
+  // fanns ingen påminnelse om Q3-momsen alls (hittat 2026-10-03). Har förra
+  // kvartalets dag redan passerat gäller innevarande kvartal, som förut.
   let y = today.getFullYear();
-  let q = Math.floor(today.getMonth() / 3) + 1;
+  let q = Math.floor(today.getMonth() / 3);
+  if (q === 0) { q = 4; y -= 1; }
+  if (today > vatDueDate(y, q)) {
+    q += 1;
+    if (q > 4) { q = 1; y += 1; }
+  }
   let guard = 0;
   while (vatPeriods?.[`${y}-Q${q}`] && guard < 8) {
     q += 1;

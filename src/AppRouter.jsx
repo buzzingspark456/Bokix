@@ -87,7 +87,7 @@ const App = lazy(() => import('./App'));
 // i det ögonblicket den här ska visas.
 function AppLoadingFallback() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-page, #f4f7f5)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh / var(--app-zoom, 1))', background: 'var(--bg-page, #f4f7f5)' }}>
       <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid rgba(11,99,41,0.25)', borderTopColor: '#0b6329', animation: 'spin 0.8s linear infinite' }} />
     </div>
   );
@@ -188,6 +188,14 @@ function RootRoute({ locale = 'sv' }) {
   useEffect(() => {
     if (location.state?.enterApp) setWantsApp(true);
   }, [location.state]);
+
+  // Startloggan (public/theme-init.js) tänds av VILKEN sparad Supabase-nyckel
+  // som helst, men bara App.jsx släcker den. Visas webbplatsen i stället
+  // (nyckeln var inte den vi letar efter, eller i den andra lagringen) låg
+  // loggan annars kvar över sidan i tio sekunder.
+  useEffect(() => {
+    if (!wantsApp) document.documentElement.removeAttribute('data-launch');
+  }, [wantsApp]);
 
   if (wantsApp) {
     return (

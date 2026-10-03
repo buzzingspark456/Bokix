@@ -232,14 +232,20 @@ describe('nextVatDeadlinePublic', () => {
   it('kvartalsvis: samma svar som declarationDeadlines.nextVatDeadline för ett obokat kvartal', () => {
     // Regressionsfallet som redan är täckt i declarationDeadlines.test.js
     // (kvartal 4 → 12 februari ÅRET EFTER, inte mars pga överspillsbuggen).
-    const r = nextVatDeadlinePublic({ vatPeriod: 'quarterly', referenceDate: new Date('2026-10-15T00:00:00') })
+    const r = nextVatDeadlinePublic({ vatPeriod: 'quarterly', referenceDate: new Date('2026-11-20T00:00:00') })
     expect(r.dueDate.getFullYear()).toBe(2027)
     expect(r.dueDate.getMonth()).toBe(1) // februari
     expect(r.dueDate.getDate()).toBe(12)
   })
 
+  it('kvartalsvis: kvartalet som just tog slut först (15 oktober → 12 november för Q3)', () => {
+    const r = nextVatDeadlinePublic({ vatPeriod: 'quarterly', referenceDate: new Date('2026-10-15T00:00:00') })
+    expect([r.year, r.quarter]).toEqual([2026, 3])
+    expect([r.dueDate.getMonth(), r.dueDate.getDate()]).toEqual([10, 12])
+  })
+
   it('kvartalsvis: augusti-undantaget (17:e i stället för 12:e)', () => {
-    const r = nextVatDeadlinePublic({ vatPeriod: 'quarterly', referenceDate: new Date('2026-04-15T00:00:00') })
+    const r = nextVatDeadlinePublic({ vatPeriod: 'quarterly', referenceDate: new Date('2026-05-20T00:00:00') })
     expect(r.dueDate.getMonth()).toBe(7) // augusti
     expect(r.dueDate.getDate()).toBe(17)
   })

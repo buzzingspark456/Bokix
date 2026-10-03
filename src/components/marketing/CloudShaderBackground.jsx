@@ -251,10 +251,25 @@ const PALETTES = {
 // Se den långa kommentaren i resize() för mätvärdena bakom siffran.
 const RENDER_SCALE = 0.6;
 
+// Utan data-theme (temat "System", som App.jsx löser genom att ta bort
+// attributet) gäller datorns läge, precis som i index.css.
 const SKY_FALLBACK_CSS = `
   .bx-cloudsky { background: linear-gradient(180deg, ${PALETTES.light.skyTop} 0%, ${PALETTES.light.skyBottom} 100%); }
   :root[data-theme="dark"] .bx-cloudsky { background: linear-gradient(180deg, ${PALETTES.dark.skyTop} 0%, ${PALETTES.dark.skyBottom} 100%); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) .bx-cloudsky { background: linear-gradient(180deg, ${PALETTES.dark.skyTop} 0%, ${PALETTES.dark.skyBottom} 100%); }
+  }
 `;
+
+/** Mörkt läge på samma sätt som index.css räknar: data-theme="dark", eller
+ * inget data-theme alls och datorn i mörkt läge. Förut räknades bara det
+ * första, så med temat "System" på en mörk dator ritade shadern ljusa moln
+ * under mörk text (kundrapport 2026-10-03). */
+function pageIsDark() {
+  const attr = document.documentElement.getAttribute('data-theme');
+  if (attr) return attr === 'dark';
+  return !!window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+}
 
 /** Ren port av Aceternitys CloudShader (se filkommentaren högst upp) —
  * samma props-yta som originalet (speed/count/cloudColor/skyTopColor/
@@ -389,7 +404,7 @@ export default function CloudShaderBackground({
       // förval — samma document.documentElement.dataset.theme-flagga som
       // useMarketingTheme() (MarketingLayout.jsx) redan sätter.
       const resolveColors = (p) => {
-        const isDark = document.documentElement.dataset.theme === 'dark';
+        const isDark = pageIsDark();
         const palette = isDark ? PALETTES.dark : PALETTES.light;
         return {
           cloud: parseHex(p.cloudColor || palette.cloud),
@@ -542,6 +557,10 @@ export default function CloudShaderBackground({
         drawFrame();
       });
       themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+      // Och när datorn byter läge medan temat är "System".
+      const schemeQuery = window.matchMedia?.('(prefers-color-scheme: dark)');
+      const onSchemeChange = () => { if (!running) drawFrame(); };
+      schemeQuery?.addEventListener?.('change', onSchemeChange);
 
       return () => {
         running = false;
@@ -550,6 +569,7 @@ export default function CloudShaderBackground({
         visibility.disconnect();
         document.removeEventListener('visibilitychange', onVisibilityChange);
         themeObserver.disconnect();
+        schemeQuery?.removeEventListener?.('change', onSchemeChange);
         gl.deleteBuffer(buffer);
       };
     };

@@ -423,8 +423,12 @@ export function nextVatDeadlinePublic({ vatPeriod = 'quarterly', referenceDate =
       rollForwardPastWeekend(d);
       return d;
     };
+    // Kvartalet som senast tog slut först: dess deklaration lämnas under
+    // innevarande kvartal (den 15 oktober är svaret 12 november för Q3, inte
+    // 12 februari). Har dess dag passerat gäller innevarande kvartal.
     let y = today.getFullYear();
-    let q = Math.floor(today.getMonth() / 3) + 1;
+    let q = Math.floor(today.getMonth() / 3);
+    if (q === 0) { q = 4; y -= 1; }
     let dueDate = deadlineFor(y, q);
     if (today > dueDate) {
       q += 1;
