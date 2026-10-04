@@ -40,28 +40,35 @@ function loadTurnstileScript() {
   return scriptLoadPromise;
 }
 
-// `onDemand`: kollen körs först när formuläret skickas (ref.execute(),
-// som löser till en token), och rutan syns bara om Cloudflare behöver att
-// besökaren klickar. Utan den körs kollen direkt och rutan syns alltid.
-// Varje token gäller ett anrop, så anroparen byter `key` efter varje försök.
+// `onDemand`: ingen synlig ruta i formuläret. Kollen körs osynligt så fort
+// formuläret visas (Cloudflare rekommenderar det: att starta kollen först vid
+// knapptrycket gjorde att den ibland aldrig blev klar och inloggningen
+// stoppades), och rutan syns bara om Cloudflare vill att besökaren kryssar.
+// ref.execute() ger den färdiga token:en, eller väntar på den. Varje token
+// gäller ett anrop, så anroparen byter `key` efter varje försök.
 const Turnstile = forwardRef(function Turnstile({ onVerify, onExpire, onDemand = false }, ref) {
   const containerId = useId().replace(/:/g, '');
   const widgetIdRef = useRef(null);
-  const readyRef = useRef(null);
-  const pendingRef = useRef(null);
+  const tokenRef = useRef(null);
+  const waitersRef = useRef([]);
 
   useImperativeHandle(ref, () => ({
     execute() {
       if (!siteKey) return Promise.resolve(null);
+      if (tokenRef.current) {
+        const t = tokenRef.current;
+        tokenRef.current = null;
+        return Promise.resolve(t);
+      }
+      // Inte klar än: vänta. Turnstile försöker själv igen vid tillfälliga
+      // fel, så ett fel avbryter inte väntan, bara tidsgränsen gör det.
       return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => { pendingRef.current = null; reject(new Error('timeout')); }, 60000);
-        pendingRef.current = {
-          resolve: (t) => { clearTimeout(timer); resolve(t); },
-          reject: (e) => { clearTimeout(timer); reject(e); },
-        };
-        (readyRef.current || Promise.reject(new Error('not_loaded')))
-          .then(() => window.turnstile.execute(`#${containerId}`))
-          .catch((e) => { pendingRef.current?.reject(e); pendingRef.current = null; });
+        const waiter = { resolve: (t) => { clearTimeout(waiter.timer); resolve(t); } };
+        waiter.timer = setTimeout(() => {
+          waitersRef.current = waitersRef.current.filter(w => w !== waiter);
+          reject(new Error('timeout'));
+        }, 45000);
+        waitersRef.current.push(waiter);
       });
     },
   }));
@@ -70,26 +77,33 @@ const Turnstile = forwardRef(function Turnstile({ onVerify, onExpire, onDemand =
     if (!siteKey) return; // inte konfigurerat — se filkommentaren ovan
     let cancelled = false;
 
-    readyRef.current = loadTurnstileScript()
+    loadTurnstileScript()
       .then(() => {
-        if (cancelled || !window.turnstile) throw new Error('not_loaded');
+        if (cancelled || !window.turnstile) return;
         widgetIdRef.current = window.turnstile.render(`#${containerId}`, {
           sitekey: siteKey,
-          ...(onDemand ? { execution: 'execute', appearance: 'interaction-only' } : {}),
+          ...(onDemand ? { appearance: 'interaction-only' } : {}),
           callback: (token) => {
             onVerify?.(token);
-            pendingRef.current?.resolve(token);
-            pendingRef.current = null;
+            const waiter = waitersRef.current.shift();
+            if (waiter) waiter.resolve(token);
+            else tokenRef.current = token;
           },
-          'expired-callback': () => onExpire?.(),
+          'expired-callback': () => { tokenRef.current = null; onExpire?.(); },
+          // Ett tillfälligt fel (nätet, Cloudflare): börja om efter en stund i
+          // stället för att lämna formuläret utan token.
           'error-callback': () => {
+            tokenRef.current = null;
             onExpire?.();
-            pendingRef.current?.reject(new Error('turnstile_error'));
-            pendingRef.current = null;
+            setTimeout(() => {
+              if (cancelled || widgetIdRef.current == null || !window.turnstile) return;
+              try { window.turnstile.reset(widgetIdRef.current); } catch { /* borttagen */ }
+            }, 3000);
+            return true;
           },
         });
-      });
-    readyRef.current.catch((err) => console.error('Turnstile kunde inte laddas:', err));
+      })
+      .catch((err) => console.error('Turnstile kunde inte laddas:', err));
 
     return () => {
       cancelled = true;
