@@ -467,7 +467,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
           eftersom demot är en egen handbyggd klon som inte delar den
           klassen. */}
       {/* Som appen (index.css, .sidebar): mörkare meny i ljust läge. */}
-      <div className="lp-hide-mobile" style={{ width: '212px', flexShrink: 0, maxHeight: 'min(780px, 82vh)', background: 'var(--bg-sidebar)', backgroundImage: theme === 'dark' ? 'none' : 'linear-gradient(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.22))', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)' }}>
+      <div className="lp-hide-mobile lp-demo-sidebar" style={{ width: '212px', flexShrink: 0, maxHeight: 'min(780px, 82vh)', background: 'var(--bg-sidebar)', backgroundImage: theme === 'dark' ? 'none' : 'linear-gradient(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.22))', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)' }}>
         <div style={{ padding: navFit >= 4 ? '3px 14px 2px' : navFit > 0 ? '6px 14px 4px' : '14px 14px 10px', flexShrink: 0 }}>
           <BokixWordmark height={fitStyle.logo} />
         </div>

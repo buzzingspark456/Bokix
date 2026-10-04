@@ -958,20 +958,29 @@ function MarketingStyles() {
          ovanpå. Egna in-animationer (fade på bakgrunden, skala+lyft på
          panelen) — en enda orkestrerad öppning, ingen löpande animation
          efteråt. Se DemoOverlay i LandingPage.jsx. */
-      .lp-demo-overlay { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 28px; }
+      /* Helskärm (2026-10-04): demot ska kännas som att man sitter i appen,
+         inte som en ruta på sidan. Bara en tunn rad överst med krysset. */
+      .lp-demo-overlay { position: fixed; inset: 0; z-index: 3000; display: flex; padding: 0; }
       .lp-demo-overlay-backdrop { position: absolute; inset: 0; background: rgba(9,20,14,0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); animation: lpFadeIn 0.22s ease both; }
-      .lp-demo-overlay-panel { position: relative; width: min(1440px, 100%); height: min(880px, 92vh); display: flex; flex-direction: column; background: var(--mkt-ivory); border: 1px solid var(--mkt-card-border); border-radius: 20px; overflow: hidden; box-shadow: 0 50px 110px -24px rgba(0,0,0,0.55); animation: lpDemoIn 0.32s cubic-bezier(0.16,1,0.3,1) both; }
-      .lp-demo-overlay-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; background: var(--mkt-card-bg); border-bottom: 1px solid var(--mkt-border-soft); flex-shrink: 0; }
+      .lp-demo-overlay-panel { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--bg-page); overflow: hidden; animation: lpDemoIn 0.28s cubic-bezier(0.16,1,0.3,1) both; }
+      .lp-demo-overlay-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 12px 8px 18px; background: var(--mkt-card-bg); border-bottom: 1px solid var(--mkt-border-soft); flex-shrink: 0; }
       .lp-demo-overlay-close { width: 36px; height: 36px; border-radius: 9px; border: 1px solid var(--mkt-border-soft); background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--mkt-nav-text); flex-shrink: 0; transition: background 0.15s ease; }
       .lp-demo-overlay-close:hover { background: var(--mkt-ivory); }
-      .lp-demo-overlay-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px; }
+      .lp-demo-overlay-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0; }
+      /* På dator fyller appen hela ytan: inga rundade hörn, ingen skugga, och
+         sidomenyn och innehållet går ända ner (innehållet skrollar själv). */
+      @media (min-width: 641px) {
+        .lp-demo-overlay-body { overflow: hidden; display: flex; flex-direction: column; }
+        .lp-demo-overlay-body > .lp-demo-card { flex: 1; min-height: 0; border-radius: 0 !important; box-shadow: none !important; }
+        .lp-demo-overlay .lp-demo-content { max-height: none; }
+        .lp-demo-overlay .lp-demo-sidebar { max-height: none !important; }
+      }
       @keyframes lpFadeIn { from { opacity: 0; } to { opacity: 1; } }
-      @keyframes lpDemoIn { from { opacity: 0; transform: scale(0.96) translateY(14px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+      @keyframes lpDemoIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
       @media (prefers-reduced-motion: reduce) { .lp-demo-overlay-backdrop, .lp-demo-overlay-panel { animation: none; } }
       @media (max-width: 640px) {
         .lp-demo-overlay { padding: 0; }
         .lp-demo-overlay-panel { max-height: 100vh; height: 100%; border-radius: 0; border: none; }
-        .lp-demo-overlay-body { padding: 12px; }
       }
 
       /* .lp-demo-card: yttre kortet, alltid en kolumn nu — en riktig
