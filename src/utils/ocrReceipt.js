@@ -2282,6 +2282,54 @@ export function legalNameFromLines(lines) {
   return null;
 }
 
+// ── Leverantören ur e-postadress och webbadress ──
+// En logotyp går inte att läsa som text (Stripes "S" blev "SJ"), men nästan
+// varje faktura har säljarens adress någonstans: support@stripe.com,
+// www.ica.se. Adresser hos e-postleverantörer, betaltjänster och
+// myndigheter säger inget om vem som sålde och räknas inte, och inte heller
+// köparens adressblock ("Faktura till", "Bill to").
+const WEB_GENERIC = new Set([
+  'gmail', 'googlemail', 'hotmail', 'outlook', 'live', 'msn', 'yahoo', 'icloud', 'me', 'mac', 'aol', 'proton', 'protonmail', 'gmx', 'telia', 'bredband', 'comhem', 'bahnhof', 'spray',
+  'klarna', 'paypal', 'swish', 'zettle', 'izettle', 'sumup', 'nets', 'nexi', 'adyen', 'bambora', 'worldline', 'dintero', 'qliro', 'walley', 'svea', 'resurs', 'trustly', 'billecta', 'fortnox', 'visma', 'bjornlunden', 'bokix',
+  'skatteverket', 'bolagsverket', 'verksamt', 'example', 'w3', 'schema', 'facebook', 'instagram', 'linkedin', 'twitter', 'x', 'tiktok', 'youtube',
+]);
+// Namn som skrivs på ett särskilt sätt. Övriga får stor första bokstav.
+const WEB_DISPLAY = {
+  github: 'GitHub', openai: 'OpenAI', digitalocean: 'DigitalOcean', hubspot: 'HubSpot', wordpress: 'WordPress', godaddy: 'GoDaddy',
+  clasohlson: 'Clas Ohlson', netonnet: 'NetOnNet', aws: 'AWS', ikea: 'IKEA', hm: 'H&M',
+};
+const WEB_BUYER_RE = /faktura\s*till|fakturaadress|leveransadress|\bkund\b|customer|bill\s*to|billed\s*to|ship\s*to|sold\s*to|mottagare|k[öo]pare|invoice\s*to/i;
+const WEB_TLD = '(?:se|com|nu|net|org|io|co|eu|dk|no|fi|de|uk|ie|nl|fr|app|dev|ai|shop|store|info|biz)';
+const WEB_EMAIL_RE = new RegExp(`[a-z0-9._%+-]+@(?:[a-z0-9-]+\\.)*([a-z0-9-]+)\\.${WEB_TLD}\\b`, 'g');
+const WEB_URL_RE = new RegExp(`(?:https?:\\/\\/|www\\.)(?:[a-z0-9-]+\\.)*?([a-z0-9-]+)\\.${WEB_TLD}\\b`, 'g');
+
+/**
+ * Säljarens namn ur e-post- och webbadresser i dokumentet, eller null.
+ * En e-postadress väger tyngst (support@stripe.com), sedan www-adresser.
+ * Exporterad för testerna.
+ */
+export function supplierFromWeb(lines) {
+  const list = (lines || []).map(l => String(l));
+  const score = new Map();
+  const add = (label, weight) => {
+    if (label.length < 2 || WEB_GENERIC.has(label) || /^\d+$/.test(label)) return;
+    score.set(label, (score.get(label) || 0) + weight);
+  };
+  list.forEach((line, i) => {
+    // Köparens block: raden med rubriken och de tre raderna efter.
+    if (list.slice(Math.max(0, i - 3), i + 1).some(l => WEB_BUYER_RE.test(l))) return;
+    // OCR lägger ibland mellanslag kring punkterna ("www. ica .se").
+    const lower = line.toLowerCase().replace(/\s*\.\s*/g, '.');
+    for (const m of lower.matchAll(WEB_EMAIL_RE)) add(m[1], 3);
+    for (const m of lower.matchAll(WEB_URL_RE)) add(m[1], 2);
+  });
+  if (score.size === 0) return null;
+  const [label] = [...score.entries()].sort((a, b) => b[1] - a[1])[0];
+  const known = KNOWN_SUPPLIERS.find(sup => foldSupplier(sup.name) === label);
+  if (known) return known.name;
+  return WEB_DISPLAY[label] || label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export function pickSupplierName(lines, headerLines = 8) {
   const candidates = [];
   const joinedIntoPrevious = new Set();
@@ -2841,10 +2889,10 @@ export function mergeReadings(readings) {
   // Leverantören: en känd butik före ett namn med org.-nummer före resten.
   // Känd kedja före juridiskt namn (med bolagsform) före namn med org.-nummer
   // under före resten.
-  const supplierRank = (r) => (!r.supplier ? 0 : r.supplierMatched ? 3 : r.supplierIsLegalName ? 2.5 : r.supplierConfirmed ? 2 : 1) + same('supplier', r.supplier) * 0.1;
+  const supplierRank = (r) => (!r.supplier ? 0 : r.supplierMatched ? 3 : r.supplierIsLegalName ? 2.5 : r.supplierFromWebAddress ? 2.2 : r.supplierConfirmed ? 2 : 1) + same('supplier', r.supplier) * 0.1;
   const sup = [...usable].sort((a, b) => supplierRank(b) - supplierRank(a))[0];
   Object.assign(out, {
-    supplier: sup.supplier, supplierMatched: sup.supplierMatched, supplierIsLegalName: sup.supplierIsLegalName,
+    supplier: sup.supplier, supplierMatched: sup.supplierMatched, supplierIsLegalName: sup.supplierIsLegalName, supplierFromWebAddress: sup.supplierFromWebAddress,
     supplierConfirmed: sup.supplierConfirmed || (Boolean(sup.supplier) && same('supplier', sup.supplier) >= 2),
   });
   // Kontot följer leverantören, utom när beloppets avläsning gav omvänd moms.
@@ -3310,6 +3358,23 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     }
   }
 
+  // Ett kort namn i listan (SJ, ICA) kan vara en felläst logotyp: Stripes
+  // "S" lästes som "SJ" och gav dessutom tågresans 6 % moms. Pekar resten av
+  // dokumentet (e-post/webbadress, juridiskt namn) på någon annan släpps
+  // träffen, och listans moms och konto följer med ut.
+  const webSupplier = supplierFromWeb(lines);
+  const legalSupplier = legalNameFromLines(lines);
+  if (supplier && foldSupplier(supplier).length <= 3) {
+    const other = [webSupplier, legalSupplier].filter(Boolean);
+    if (other.length > 0 && !other.some(n => foldSupplier(n).includes(foldSupplier(supplier)))) {
+      supplier = null;
+      accountCode = null;
+      accountChoices = null;
+      vatRate = null;
+      supplierMatched = false;
+    }
+  }
+
   // Samma lista en gång till, men tålig mot felstavning: ett fotat kvitto ger
   // ofta "C00P KONSUM" eller "HEMKOP", och då ska det ändå bli Coop och
   // Hemköp — med kedjans riktiga namn och konto, inte en halvläst rad.
@@ -3347,11 +3412,27 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   // Säljarens juridiska namn (med bolagsform) någonstans i dokumentet.
   let supplierIsLegalName = false;
   if (!supplier) {
-    supplier = legalNameFromLines(lines);
+    supplier = legalSupplier;
     supplierIsLegalName = Boolean(supplier);
   }
 
-  if (!supplier) supplier = pickSupplierName(lines);
+  // Annars raden i huvudet. Men på en faktura väger säljarens egen adress
+  // tyngre än en gissad rad: där står logotypen ofta överst och går inte att
+  // läsa. Stämmer raden med adressen behålls radens stavning ("Café Harlem"
+  // och www.harlem.se).
+  let supplierFromWebAddress = false;
+  if (!supplier) {
+    const picked = pickSupplierName(lines);
+    const agrees = picked && webSupplier
+      && (foldSupplier(picked).includes(foldSupplier(webSupplier)) || foldSupplier(webSupplier).includes(foldSupplier(picked)));
+    const isInvoice = /\b(?:faktura|invoice|fakturanummer)\b/i.test(text);
+    if (webSupplier && !agrees && (!picked || isInvoice)) {
+      supplier = webSupplier;
+      supplierFromWebAddress = true;
+    } else {
+      supplier = picked;
+    }
+  }
 
   // ── 4. Momssats ──────────────────────────────────────────────────────────
   const isForeignService = /supabase|vercel|stripe|github|\baws\b|amazon web services|google cloud|openai|adobe|digitalocean|heroku|jetbrains|slack|\bzoom\b|figma|notion/i.test(headerText);
@@ -3506,7 +3587,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     creditNote,
     receiptNumber: numberFound?.number ?? null, receiptNumberKind: numberFound?.kind ?? null, receiptNumberLabel: numberFound?.label ?? null,
     receiptNumberGuessed: Boolean(numberFound?.uncertain),
-    supplier, supplierMatched, supplierConfirmed: supplierMatched || supplierHasOrgNumber(lines, supplier), supplierIsLegalName, accountCode, accountGuessed, accountSource, currency,
+    supplier, supplierMatched, supplierConfirmed: supplierMatched || supplierHasOrgNumber(lines, supplier), supplierIsLegalName, supplierFromWebAddress, accountCode, accountGuessed, accountSource, currency,
     accountChoices: accountSource === 'supplier' ? accountChoices : null,
     notReceipt: false, documentKind: doc.isInvoice ? 'invoice' : 'receipt',
     paymentMethod: detectPaymentMethod(text, { isInvoice: doc.isInvoice }).method,

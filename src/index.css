@@ -6837,9 +6837,10 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
    beloppet i en djupare variant av färgen. color-mix mot textfärgen ger
    mörkgrönt på ljust och ljust lime på mörkt. */
 /* Resultatrutan har samma grå botten som de andra (användarens önskan
-   2026-10-03); bara beloppet bär färgen. */
+   2026-10-03). Ett positivt belopp i vanlig textfärg som Intäkter och
+   Kostnader (2026-10-04); bara en förlust får färg (röd). */
 .dash-kpi-card.is-tinted { background: var(--bg-muted); }
-.dash-kpi-card.is-tinted .dash-kpi-card-value,
+.dash-kpi-card.is-tinted .dash-kpi-card-value { color: var(--text-main); }
 .dash-kpi-card.is-tinted.is-negative .dash-kpi-card-value { color: color-mix(in srgb, var(--kpi-tint) 78%, var(--text-main)); }
 .dash-kpi-card.is-tinted .dash-kpi-card-label { color: var(--text-secondary); }
 .dash-kpi-card.is-tinted .dash-kpi-card-sub { color: var(--text-muted); }
