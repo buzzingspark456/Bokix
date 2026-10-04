@@ -423,6 +423,8 @@
     }
   },
   "ui": {
+    "slar_upp_leverantoren": "Looking up the supplier in the VAT register…",
+    "namn_fran_momsregistret": "The name comes from the EU VAT register (VIES), via the VAT number on the receipt.",
     "inkorg_avsandare_rubrik": "Approved senders (optional)",
     "inkorg_avsandare_text": "Empty means anyone can send. With a list, only email from those addresses or domains is received. If you forward automatically, the email comes from your suppliers, so add them or their domain, for example @telia.se.",
     "inkorg_avsandare_tom": "Anyone can send.",

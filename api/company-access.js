@@ -99,15 +99,32 @@ function toCompanySummary(c) {
 // VIES, som har ett öppet REST-API utan nyckel. Bara VALID/INVALID räknas
 // som svar; allt annat (medlemslandets tjänst nere, timeout) blir ett fel
 // så att klienten frågar användaren i stället för att gissa "inte registrerat".
-const VIES_URL = 'https://ec.europa.eu/taxation_customs/vies/rest-api/ms/SE/vat/';
+
+// Momsregistreringsnummer i hela EU (kvittovyn slår upp säljarens namn ur
+// numret på fakturan). Grekland heter EL i VIES.
+const VIES_COUNTRIES = new Set(['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'EL', 'ES', 'FI', 'FR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK', 'XI']);
 
 async function handleVatLookup(body, res) {
-  const digits = String(body?.query || '').replace(/\D/g, '');
-  if (digits.length !== 10) {
-    res.status(400).json({ error: 'Organisationsnumret måste vara 10 siffror.' });
-    return;
+  let country = 'SE';
+  let number;
+  if (typeof body?.vatId === 'string' && body.vatId) {
+    const id = body.vatId.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    country = id.slice(0, 2) === 'GR' ? 'EL' : id.slice(0, 2);
+    number = id.slice(2);
+    if (!VIES_COUNTRIES.has(country) || !/^[0-9A-Z]{8,12}$/.test(number)) {
+      res.status(400).json({ error: 'Ogiltigt momsregistreringsnummer.' });
+      return;
+    }
+  } else {
+    const digits = String(body?.query || '').replace(/\D/g, '');
+    if (digits.length !== 10) {
+      res.status(400).json({ error: 'Organisationsnumret måste vara 10 siffror.' });
+      return;
+    }
+    number = `${digits}01`;
   }
-  const vatNr = `SE${digits}01`;
+  const vatNr = `${country}${number}`;
+  const url = `https://ec.europa.eu/taxation_customs/vies/rest-api/ms/${country}/vat/${number}`;
   // VIES svarar ibland tillfälligt MS_UNAVAILABLE eller
   // MS_MAX_CONCURRENT_REQ; ett andra försök räcker oftast.
   let data;
@@ -115,7 +132,7 @@ async function handleVatLookup(body, res) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
     try {
-      const response = await fetch(`${VIES_URL}${digits}01`, { signal: controller.signal, headers: { Accept: 'application/json' } });
+      const response = await fetch(url, { signal: controller.signal, headers: { Accept: "application/json" } });
       data = await response.json().catch(() => ({}));
     } catch (error) {
       console.error('VIES-anrop misslyckades:', error?.name || error);
@@ -131,7 +148,9 @@ async function handleVatLookup(body, res) {
     res.status(502).json({ error: 'Momsregistret går inte att nå just nu.' });
     return;
   }
-  res.status(200).json({ registered: data.isValid === true, vatNr, name: data.isValid ? (data.name || '') : '' });
+  // Vissa länder (t.ex. Tyskland) lämnar inte ut namnet: VIES svarar "---".
+  const name = data.isValid && data.name && !/^-+$/.test(String(data.name).trim()) ? String(data.name).trim() : '';
+  res.status(200).json({ registered: data.isValid === true, vatNr, name });
 }
 
 /** POST { action: 'lookup' }-grenen. `mode: 'orgnr'` slår upp exakt (1 träff

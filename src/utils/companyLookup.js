@@ -81,6 +81,15 @@ export async function searchCompaniesByName(name, limit = 5) {
   return companies || [];
 }
 
+/** Namnet i EU:s momsregister för ett momsregistreringsnummer i vilket
+ * EU-land som helst ("IE3206488LH", "SE556430014201"). Returnerar
+ * `{ registered, name }`; namnet är tomt när landet inte lämnar ut det.
+ * Kastar om registret inte går att nå. */
+export async function lookupVatName(vatId) {
+  const { registered, name } = await requestCompanyLookup({ mode: 'vat', vatId });
+  return { registered: Boolean(registered), name: name || '' };
+}
+
 /** Är företaget momsregistrerat? Kontrolleras mot EU:s VIES via backend
  * (se api/company-access.js, handleVatLookup). Returnerar
  * `{ registered, vatNr }`, eller null om numret inte är 10 siffror. Kastar

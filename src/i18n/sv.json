@@ -423,6 +423,8 @@
     }
   },
   "ui": {
+    "slar_upp_leverantoren": "Slår upp leverantören i momsregistret…",
+    "namn_fran_momsregistret": "Namnet kommer från EU:s momsregister (VIES), via momsnumret på kvittot.",
     "inkorg_avsandare_rubrik": "Godkända avsändare (valfritt)",
     "inkorg_avsandare_text": "Tomt betyder att alla kan skicka. Med en lista tas bara mejl emot från de adresserna eller domänerna. Vidarebefordrar du automatiskt kommer mejlen från leverantörerna, så lägg till dem eller deras domän, till exempel @telia.se.",
     "inkorg_avsandare_tom": "Alla kan skicka.",

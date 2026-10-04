@@ -17,6 +17,8 @@ import { confirmDialog } from './shared/ConfirmDialog';
 import { parseReceiptText, OCR_DRAFT_VERSION } from '../utils/ocrReceipt';
 import { readDocumentText } from '../utils/ocrCache';
 import { locateFieldBoxes } from '../utils/ocrFieldBoxes';
+import { sellerTaxIds, prettifyCompanyName } from '../utils/supplierRegistry';
+import { lookupVatName } from '../utils/companyLookup';
 import { ScanOverlay, OcrChecklist, photoHintText, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
 import { convertToSek } from '../utils/currencyConversion';
 import { historyForSupplier, historyFromVerifications } from '../utils/receiptHistory';
@@ -219,7 +221,7 @@ function OcrBadge() {
   );
 }
 
-function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allReceipts, verifications = [], status, onSave, onSaveOcrDraft, onDelete, onReverse, onClose, vatExempt = false }) {
+function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allReceipts, verifications = [], status, onSave, onSaveOcrDraft, onDelete, onReverse, onClose, vatExempt = false, ownCompany = null }) {
   // "Rättad" är också ett låst tillstånd — samma skäl som "Bokförd": en
   // rättelseverifikation ändrar inte originalet, så fälten som redan
   // bokfördes ska förbli precis vad de var när det begicks, inte gå att
@@ -306,6 +308,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   // eller en moms som inte gick ihop. Ett tydligt foto som lästes rätt får
   // aldrig en anmärkning om fotot.
   const [photoHint, setPhotoHint] = useState(draft?.photoHint || null);
+  // Leverantörens namn kom ur EU:s momsregister (VIES), inte ur texten.
+  const [supplierFromRegistry, setSupplierFromRegistry] = useState(Boolean(draft?.supplierFromRegistry));
   // Var på fotot värdena lästes (andelar av bilden), från avläsningen. Ligger
   // kvar på utkastet även efter att kvittot sparats: det är samma fil.
   const [fieldBoxes, setFieldBoxes] = useState(currentDraft?.boxes || null);
@@ -355,6 +359,24 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
       // En cachad läsning har inget läge; då gäller rutorna från förra gången.
       const boxes = layout ? locateFieldBoxes(layout, parsed) : (currentDraft?.boxes || null);
       setFieldBoxes(boxes && Object.keys(boxes).length > 0 ? boxes : null);
+      // Leverantören inte säkert känd: slå upp säljarens momsnummer eller
+      // organisationsnummer i EU:s momsregister. Registrets namn är det
+      // juridiska och slår en gissad rad. Går registret inte att nå blir det
+      // som förut.
+      let registryName = '';
+      if (!parsed.notReceipt && !parsed.supplierMatched) {
+        const ids = sellerTaxIds(text, { orgNr: ownCompany?.orgNr, vatNr: ownCompany?.vatNr });
+        for (const id of ids) {
+          try {
+            setOcrMessage(tr('ui.slar_upp_leverantoren'));
+            const hit = await Promise.race([lookupVatName(id), new Promise(r => setTimeout(() => r(null), 7000))]);
+            if (hit?.name) { registryName = prettifyCompanyName(hit.name); break; }
+          } catch { /* registret svarar inte: fortsätt utan */ }
+        }
+        if (!isCurrent()) return;
+      }
+      setSupplierFromRegistry(Boolean(registryName));
+      const supplierName = registryName || parsed.supplier;
       // Rådet om fotot visas bara när avläsningen inte blev bra: blev beloppet
       // avläst och kontrollerat mot momsen spelar det ingen roll att bilden
       // kunde varit skarpare.
@@ -389,14 +411,14 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
       // uttryckligt: en gissning som ser säker ut är värre än ingen gissning.
       // Inget kvitto eller ingen faktura (ett CV, ett brev): inget fylls i.
       const nr = Boolean(parsed.notReceipt);
-      const hist = nr ? null : historyRef.current(parsed.supplier);
+      const hist = nr ? null : historyRef.current(supplierName);
       const reverse = parsed.reverseCharge;
       const vatFromHistory = !reverse && Boolean(hist && parsed.vatRateGuessed && hist.vatRate !== null);
       // Moms i flera satser (mat 12 % och hushåll 25 %): momsbeloppet på
       // kvittot bokförs som det står, i stället för en sats som blir fel.
       const mixedVat = !nr && !reverse && !parsed.currency && Boolean(parsed.vatRates && parsed.vatAmount);
       const plan = [
-        { key: 'supplier', found: !nr && Boolean(parsed.supplier), state: parsed.supplierConfirmed ? 'found' : 'guess', patch: { supplier: parsed.supplier || '' } },
+        { key: 'supplier', found: !nr && Boolean(supplierName), state: (registryName || parsed.supplierConfirmed) ? 'found' : 'guess', patch: { supplier: supplierName || '' } },
         { key: 'date', found: !nr && Boolean(parsed.date), state: parsed.dateGuessed ? 'guess' : 'found', patch: { date: parsed.date } },
         { key: 'receiptNumber', found: !nr && Boolean(parsed.receiptNumber), state: parsed.receiptNumberGuessed ? 'guess' : 'found', patch: { receiptNumber: parsed.receiptNumber || '' } },
         { key: 'amount', found: !nr && Boolean(amountSek), state: parsed.amountGuessed ? 'guess' : 'found', patch: { amount: amountToInput(amountSek), refund: Boolean(parsed.creditNote) } },
@@ -464,6 +486,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         notReceipt: nr,
         unreadable: Boolean(parsed.unreadable),
         photoHint: hint,
+        supplierFromRegistry: Boolean(registryName),
         ocrVat: draftVat,
         boxes: boxes && Object.keys(boxes).length > 0 ? boxes : null,
       });
@@ -915,6 +938,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   emptyHint={tr('ui.stallen_dyker_upp')}
                 />
                 {errors.supplier && <div style={errSt}>{errors.supplier}</div>}
+                {supplierFromRegistry && ocrFields.has('supplier') && (
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px' }}>{tr('ui.namn_fran_momsregistret')}</div>
+                )}
               </div>
               <div className={`rc-span${flashField === 'receiptNumber' ? ' rc-flash' : ''}`} {...boxProps('receiptNumber')}>
                 <label style={labelSt}>{tr('ui.kvitto_faktura_eller_ordernummer_valfritt')} {ocrFields.has('receiptNumber') && <OcrBadge />}</label>
@@ -1769,6 +1795,7 @@ export default function Expenses({
       {detailReceipt && (
         <ReceiptDetailModal
           vatExempt={isVatExempt(company)}
+          ownCompany={company}
           key={detailReceipt.id}
           receipt={detailReceipt}
           accounts={accounts}
