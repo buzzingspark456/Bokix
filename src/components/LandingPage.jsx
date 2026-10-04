@@ -229,7 +229,7 @@ function buildSoftwareSchema(description) {
  * med ett lokalt exempeldataset — lazy() + Suspense här (inte RevealLazy,
  * som styrs av scrollposition) eftersom synlighet nu helt avgörs av att
  * overlayen är öppen, inte av var i dokumentet man skrollat till. */
-const SV_DEMO_LABELS = { ariaLabel: 'Produktdemo', title: 'Så ser det ut: testa på riktigt', sampleData: 'Exempeldata', close: 'Stäng demo' };
+const SV_DEMO_LABELS = { ariaLabel: 'Produktdemo', title: 'Demo', sampleData: 'Exempeldata', close: 'Stäng demo' };
 
 function DemoOverlay({ onClose, initialTab, labels = SV_DEMO_LABELS }) {
   const panelRef = useRef(null);

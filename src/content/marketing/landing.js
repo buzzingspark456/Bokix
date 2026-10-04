@@ -92,7 +92,7 @@ export const LANDING_CONTENT = {
     },
     demoOverlay: {
       ariaLabel: 'Produktdemo',
-      title: 'Så ser det ut: testa på riktigt',
+      title: 'Demo',
       sampleData: 'Exempeldata',
       close: 'Stäng demo',
     },
