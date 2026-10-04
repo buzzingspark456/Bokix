@@ -17,6 +17,7 @@ import { createStripeSubscriptionCheckout } from '../stripeApi';
 import { planFromId } from '../utils/plans';
 import { UF_FREE_MONTHS } from '../utils/ufMode';
 import Turnstile from './Turnstile';
+import Recaptcha from './Recaptcha';
 import { TERMS_VERSION } from '../utils/legalVersion';
 import CompanyLookupResults from './shared/CompanyLookupResults';
 import FiscalYearVatFields, { EMPTY_COMPANY_SETUP, companySetupComplete, companySetupToCompany } from './shared/FiscalYearVatFields';
@@ -138,6 +139,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   // widget-instanser (olika steg/vyer).
   const [loginCaptchaToken, setLoginCaptchaToken] = useState('');
   const [regCaptchaToken, setRegCaptchaToken] = useState('');
+  const signupRecaptchaRef = useRef(null);
 
   // Step 0 – Personal info
   const [regFirstName, setRegFirstName] = useState('');
@@ -197,7 +199,13 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   const sendCode = async () => {
     setOtpStatus('sending');
     try {
-      const token = await sendSignupCode(regEmail);
+      let recaptchaToken = null;
+      try {
+        recaptchaToken = await signupRecaptchaRef.current?.execute();
+      } finally {
+        signupRecaptchaRef.current?.reset();
+      }
+      const token = await sendSignupCode(regEmail, recaptchaToken);
       setOtpToken(token);
       setRegVerifyCode('');
       setResendCooldown(30);
@@ -846,6 +854,10 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
 
             <form onSubmit={handleNextStep} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
+              {/* Osynlig reCAPTCHA för "Skicka kod" (steg 0) och "Skicka igen"
+                  (steg 1): ett skript ska inte kunna begära koder och skapa
+                  konton i mängd. Renderar inget utan nyckel. */}
+              <Recaptcha ref={signupRecaptchaRef} />
               {/* STEP 0 – Personal info */}
               {regStep === 0 && (
                 <div key="step0" className="auth-step-fade" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

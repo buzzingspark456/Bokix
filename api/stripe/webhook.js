@@ -2,6 +2,7 @@ import { applySecurityHeaders } from '../_security.js';
 import Stripe from 'stripe';
 import { recordStripePaymentEvent } from './_paymentEvents.js';
 import { upsertSubscription } from './_subscriptions.js';
+import { enforceCardTrialLimit } from './_trialGuard.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   // apiVersion removed to use Stripe account default
@@ -161,6 +162,10 @@ export default async function handler(req, res) {
           currentPeriodEnd: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
           cancelAtPeriodEnd: !!sub.cancel_at_period_end,
         });
+        // Samma kort på ett nytt konto: provperioden avslutas och kortet dras
+        // (se _trialGuard.js). Stripe skickar då en ny updated-händelse med
+        // den nya statusen, som sparas av raden ovan.
+        if (event.type === 'customer.subscription.created') await enforceCardTrialLimit(stripe, sub);
         break;
       }
       case 'customer.subscription.deleted': {

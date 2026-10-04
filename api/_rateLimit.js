@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+import { isIpBlocked } from './_abuse.js';
 
 // Rate limiting i två steg:
 //  1. Ett minne per serverinstans (som förut). Billigt och stoppar en
@@ -81,6 +82,12 @@ async function hitShared(bucketKey, windowMs, max) {
  * = IP-baserat. Nyckeln hashas innan den sparas, så varken IP-adresser
  * eller e-postadresser hamnar i klartext i databasen. */
 export async function checkRateLimit(req, res, { key, windowMs = 15 * 60 * 1000, max = 20, identifier }) {
+  // Spärrade adresser (BLOCKED_IPS, se _abuse.js) stoppas här, i den kontroll
+  // som alla publika endpoints redan gör.
+  if (isIpBlocked(getClientIp(req))) {
+    res.status(403).json({ error: 'Åtkomst nekad.' });
+    return false;
+  }
   const who = createHash('sha256').update(String(identifier || getClientIp(req))).digest('hex').slice(0, 32);
   const bucketKey = `${key}:${who}`;
 

@@ -25,8 +25,8 @@ async function requestVerification(body) {
 
 /** Skickar en sexsiffrig kod till `email` och returnerar den signerade
  * token:en som måste skickas med (oförändrad) till verifySignupCode. */
-export async function sendSignupCode(email) {
-  const { token } = await requestVerification({ action: 'send-signup-code', email });
+export async function sendSignupCode(email, recaptchaToken = null) {
+  const { token } = await requestVerification({ action: 'send-signup-code', email, ...(recaptchaToken ? { recaptchaToken } : {}) });
   return token;
 }
 

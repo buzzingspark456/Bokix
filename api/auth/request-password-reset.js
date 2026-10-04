@@ -7,6 +7,11 @@ import { createSignedToken, verifySignedToken, verifyReauthGrant } from '../_sig
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { buildSignupVerificationHtml, buildReauthCodeHtml } from '../_emailTemplates.js';
 import { translateSupabaseAuthError } from '../../src/utils/translateAuthError.js';
+import { randomInt } from 'node:crypto';
+import { isDisposableEmail } from '../_abuse.js';
+import { verifyRecaptcha, hasRecaptchaSecretKey } from '../_recaptcha.js';
+import { getClientIp } from '../_rateLimit.js';
+import { logSystemEvent } from '../_systemEvents.js';
 
 // "Glömt lösenord?" (Auth.jsx) gick tidigare direkt mot
 // supabase.auth.resetPasswordForEmail() från klienten, som ALDRIG lämnade
@@ -131,6 +136,30 @@ async function handleSendSignupCode(req, body, res) {
   if (!(await checkRateLimit(req, res, { key: 'signup-code-ip', max: 20 }))) return;
   if (!(await checkRateLimit(req, res, { key: 'signup-code-email', windowMs: 60 * 60 * 1000, max: 5, identifier: email }))) return;
 
+  // Skydd mot massregistrering (2026-10-04): falska konton med nya adresser,
+  // och Bokix som avsändare av mejl till främmande inkorgar.
+  // 1. Engångsadresser tas inte emot.
+  if (isDisposableEmail(email)) {
+    res.status(400).json({ error: 'Använd en vanlig e-postadress. Tillfälliga adresser kan inte användas för ett konto.' });
+    return;
+  }
+  // 2. reCAPTCHA (osynlig) när nyckeln finns: ett skript kan inte begära koder.
+  if (hasRecaptchaSecretKey()) {
+    const check = await verifyRecaptcha(body?.recaptchaToken, getClientIp(req));
+    if (!check.ok) {
+      res.status(400).json({ error: 'Kunde inte bekräfta att du inte är en robot. Ladda om sidan och försök igen.' });
+      return;
+    }
+  }
+  // 3. Ett tak för hela tjänsten per dygn. Nås det är det en attack, inte
+  // vanliga registreringar: larm till /internal och inga fler koder i dag.
+  const capRes = { status: () => ({ json: () => {} }) };
+  if (!(await checkRateLimit(req, capRes, { key: 'signup-code-all', windowMs: 24 * 60 * 60 * 1000, max: 300, identifier: 'all' }))) {
+    await logSystemEvent('signup_flood', 'Taket på 300 registreringskoder per dygn är nått. Kontrollera /internal och spärra adresser vid behov (BLOCKED_IPS).');
+    res.status(429).json({ error: 'Registreringen är tillfälligt pausad. Försök igen senare.' });
+    return;
+  }
+
   // OBS: ingen BotID-koll här — se kommentaren vid samma kollen i
   // handlePasswordReset ovan, den gäller ordagrant här också (samma fil,
   // samma saknade client-registrering). Det HÄR var grenen som faktiskt
@@ -144,7 +173,7 @@ async function handleSendSignupCode(req, body, res) {
     return;
   }
 
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const code = String(randomInt(100000, 1000000));
   let token;
   try {
     token = createSignedToken({ email, code });
@@ -218,7 +247,7 @@ async function handleSendReauthCode(req, res) {
     return;
   }
 
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const code = String(randomInt(100000, 1000000));
   let token;
   try {
     token = createSignedToken({ uid: user.id, code, purpose: 'reauth' });

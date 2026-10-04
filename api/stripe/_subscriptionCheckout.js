@@ -3,7 +3,9 @@ import { resolvePlan, TRIAL_DAYS, resolveCancellation } from '../../src/utils/pl
 import Stripe from 'stripe';
 import { parseJsonBody } from './_parseBody.js';
 import { normalizeAbsoluteUrl, appendQueryParam } from './_urls.js';
-import { checkRateLimit } from '../_rateLimit.js';
+import { checkRateLimit, getClientIp } from '../_rateLimit.js';
+import { createClient } from '@supabase/supabase-js';
+import { trialDecision, trialMetadata } from './_trialGuard.js';
 import { requireAuthedUser } from '../_auth.js';
 import { hasExistingSubscription, getSubscriptionRow, getStripeCustomerId, upsertSubscription, subscriptionFieldsFromStripe, PAID_STATUSES } from './_subscriptions.js';
 
@@ -60,6 +62,30 @@ function getStripe() {
 // user_id:t — dvs. kontot har redan varit igenom det här flödet — krävs en
 // verifierad session SOM MATCHAR user_id, så bara den inloggade ägaren kan
 // skapa en ny checkout mot sitt eget, redan existerande konto.
+
+/** E-post och organisationsnummer för provperiodskontrollen, lästa på
+ *  servern: kontots e-post, org.nr från registreringen eller (Lägg till
+ *  företag) från företagets sparade uppgifter. null vid fel — kontrollen
+ *  faller då tillbaka på e-posten klienten skickade. */
+async function loadAccountForTrial(userId, companyId) {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key || !userId) return null;
+  try {
+    const admin = createClient(url, key);
+    const { data, error } = await admin.auth.admin.getUserById(userId);
+    if (error || !data?.user) return null;
+    let orgNr = data.user.user_metadata?.org_nr || '';
+    if (companyId) {
+      const { data: row } = await admin.from('user_data').select('state').eq('user_id', userId).maybeSingle();
+      orgNr = row?.state?.companies?.[companyId]?.company?.orgNr || '';
+    }
+    return { email: data.user.email, orgNr };
+  } catch (err) {
+    console.warn('[provperiod] kunde inte läsa kontot:', err.message);
+    return null;
+  }
+}
 
 export default async function handler(req, res) {
   applySecurityHeaders(res);
@@ -269,6 +295,18 @@ export default async function handler(req, res) {
     // en gammal klient som inte skickar med `plan` fungerar oförändrat.
     const plan = resolvePlan(...String(body.plan || 'employer_monthly').split('_')) || resolvePlan('employer', 'monthly');
 
+    // Upprepade provperioder (se _trialGuard.js): e-post och organisations-
+    // nummer läses från kontot på servern, aldrig från det klienten skickar.
+    // Ett företag (Lägg till företag) slås upp i kontots sparade data.
+    const account = await loadAccountForTrial(body.user_id, body.company_id || null);
+    const trialSignals = { email: account?.email || body.customer_email, orgNr: account?.orgNr, ip: getClientIp(req) };
+    const decision = await trialDecision(stripe, { ...trialSignals, excludeUserId: body.user_id });
+    if (!decision.allowTrial) console.warn('[provperiod] ingen provperiod:', decision.reasons.join(','), body.user_id);
+    const guardMetadata = {
+      ...trialMetadata(trialSignals),
+      ...(decision.allowTrial ? {} : { bokix_trial_denied: decision.reasons.join(',') }),
+    };
+
     const baseUrl = normalizeAbsoluteUrl(process.env.STRIPE_SUCCESS_URL, 'http://localhost:5173');
     const cancelBaseUrl = normalizeAbsoluteUrl(process.env.STRIPE_CANCEL_URL, 'http://localhost:5173');
 
@@ -291,7 +329,9 @@ export default async function handler(req, res) {
         },
       ],
       subscription_data: {
-        trial_period_days: TRIAL_DAYS,
+        // Ingen provperiod när samma företag, person eller nätverk redan haft
+        // en (_trialGuard.js). Kortet dras då direkt, som efter en provperiod.
+        ...(decision.allowTrial ? { trial_period_days: TRIAL_DAYS } : {}),
         // Sätts på själva Subscription-objektet (inte bara Sessionen) — så
         // metadata följer med automatiskt på VARJE efterföljande
         // customer.subscription.*-händelse (webhook.js), utan att behöva
@@ -301,9 +341,12 @@ export default async function handler(req, res) {
         // user_id, samma mönster som checkout.session.completed:s egen
         // company_id/invoice_id-metadata (kundfakturaflödet, orelaterat men
         // samma princip) redan använder.
-        metadata: body.company_id
-          ? { user_id: body.user_id, company_id: body.company_id, plan: plan.id }
-          : { user_id: body.user_id, plan: plan.id },
+        metadata: {
+          ...guardMetadata,
+          ...(body.company_id
+            ? { user_id: body.user_id, company_id: body.company_id, plan: plan.id }
+            : { user_id: body.user_id, plan: plan.id }),
+        },
       },
       metadata: body.company_id
         ? { user_id: body.user_id, company_id: body.company_id, plan: plan.id }
@@ -328,7 +371,9 @@ export default async function handler(req, res) {
         : appendQueryParam(appendQueryParam(baseUrl, 'subscription_checkout', 'success'), 'plan', plan.id)}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: appendQueryParam(cancelBaseUrl, 'subscription_checkout', 'cancelled'),
     });
-    res.status(200).json({ session });
+    // trial: false säger åt klienten att ingen provperiod ingår (texten före
+    // betalningen ska inte lova 30 gratis dagar).
+    res.status(200).json({ session, trial: decision.allowTrial });
   } catch (error) {
     console.error('Stripe create-subscription-checkout error:', error);
     res.status(500).json({ error: error.message || 'Subscription checkout session creation failed' });
