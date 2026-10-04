@@ -2386,8 +2386,8 @@ export function mergeReadings(readings) {
 }
 
 export function parseReceiptText(text, options = {}) {
-  if (typeof text === 'string' && text.includes(READING_SEPARATOR)) {
-    const parts = text.split(READING_SEPARATOR).filter(p => p.trim());
+  if (typeof text === 'string' && text.includes('\u001e')) {
+    const parts = text.split(/\r?\n\u001e\r?\n/).filter(p => p.trim());
     return mergeReadings(parts.map((part, i) => parseOneReading(part, i === 0 ? options : { ...options, weakTokens: null })));
   }
   return parseOneReading(text, options);

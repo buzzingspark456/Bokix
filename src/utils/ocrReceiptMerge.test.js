@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
-import { parseReceiptText, READING_SEPARATOR, repairDateDigits, detectPaymentMethod, repairNumberLabels, inkBoundsFromGray } from './ocrReceipt.js';
+import { parseReceiptText, repairDateDigits, detectPaymentMethod, repairNumberLabels, inkBoundsFromGray } from './ocrReceipt.js';
 
 // Användarens Coop-kvitto (2026-10-04): ett vitt kvitto inskannat på en vit
 // A4, logotypen bara grafik. Två riktiga avläsningar som var för sig har fel
@@ -22,7 +22,7 @@ describe('Coop-kvittot, två avläsningar vägda samman', () => {
     expect(r.paymentMethod).toBe('card');
   });
   it('var och en av avläsningarna ensam är sämre', () => {
-    const [a, b] = coop.split(READING_SEPARATOR);
+    const [a, b] = coop.split(/\r?\n\u001e\r?\n/);
     const ra = parseReceiptText(a, { today });
     const rb = parseReceiptText(b, { today });
     expect(ra.date === '2022-11-14' && rb.receiptNumber === '96035-001-67161').toBe(false);
