@@ -1,6 +1,7 @@
 import { Component } from 'react'
 import { getLanguage } from '../../i18n/index.js'
 import { reportClientError } from '../../utils/errorReporting.js'
+import { isChunkLoadError, reloadOnceForNewBuild } from '../../utils/staleBuild.js'
 
 // Fångar en krasch någonstans i appen och visar en enkel sida med en
 // Ladda om-knapp i stället för en helt vit sida. Själva felet rapporteras
@@ -22,6 +23,9 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error) {
+    // Gammal flik efter en ny deploy: ladda om en gång i stället för att
+    // visa felet (se utils/staleBuild.js).
+    if (isChunkLoadError(error) && reloadOnceForNewBuild()) return
     if (import.meta.env.PROD) reportClientError(error, 'boundary')
   }
 

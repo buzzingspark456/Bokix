@@ -184,7 +184,7 @@
       "destination": "/verktyg/arsredovisning/index.html"
     },
     {
-      "source": "/((?!api).*)",
+      "source": "/((?!api|assets/).*)",
       "destination": "/app-shell.html"
     }
   ],

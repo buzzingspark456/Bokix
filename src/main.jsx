@@ -12,9 +12,16 @@ import './index.css'
 import AppRouter from './AppRouter.jsx'
 import ErrorBoundary from './components/shared/ErrorBoundary.jsx'
 import { installGlobalErrorHandlers } from './utils/errorReporting.js'
+import { reloadOnceForNewBuild } from './utils/staleBuild.js'
 
 // Krascher och ohanterade fel rapporteras till /api/client-error (larm).
 installGlobalErrorHandlers()
+
+// Gammal flik efter en ny deploy: sidfilen finns inte längre. Ladda om en
+// gång i stället för att visa "Något gick fel" (se utils/staleBuild.js).
+window.addEventListener('vite:preloadError', (event) => {
+  if (reloadOnceForNewBuild()) event.preventDefault()
+})
 
 // Chromes inbyggda översättning (och vissa tillägg) byter ut textnoder under
 // React. Nästa gång React flyttar eller tar bort en sådan nod kastar
