@@ -2439,7 +2439,9 @@ export default function Settings({
   const [inboxBusy, setInboxBusy] = useState(false);
   const [inboxTab, setInboxTab] = useState('gmail');
   const [inboxCopied, setInboxCopied] = useState('');
-  const loadInbox = async (action = 'get') => {
+  const [senderInput, setSenderInput] = useState('');
+  const [senderError, setSenderError] = useState('');
+  const loadInbox = async (action = 'get', extra = {}) => {
     // Demot (readOnly) har ingen databas: visa hur det ser ut med en påhittad adress.
     if (readOnly) { setInboxInfo({ address: 'exempelforetag-k29fq7m@inbox.bokix.se', lastReceivedAt: null, gmailCode: null }); return; }
     if (!activeCompanyId) return;
@@ -2450,7 +2452,7 @@ export default function Settings({
       const res = await fetch('/api/inbox', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
-        body: JSON.stringify({ companyId: activeCompanyId, action }),
+        body: JSON.stringify({ companyId: activeCompanyId, action, ...extra }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || tr('ui.inkorg_fel'));
@@ -2469,6 +2471,25 @@ export default function Settings({
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, openIntegration, activeCompanyId]);
+  // Godkända avsändare: adress ("faktura@telia.se") eller domän ("@telia.se").
+  const normalizeSenderInput = (v) => {
+    const s = String(v || '').trim().toLowerCase();
+    if (/^[^\s@]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(s)) return s;
+    const d = s.replace(/^@/, '');
+    return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d) ? `@${d}` : null;
+  };
+  const saveSenders = (list) => {
+    if (readOnly) { setInboxInfo(i => ({ ...i, allowedSenders: list })); return; }
+    loadInbox('senders', { senders: list });
+  };
+  const addSender = (value) => {
+    const entry = normalizeSenderInput(value);
+    if (!entry) { setSenderError(tr('ui.inkorg_avsandare_ogiltig')); return; }
+    setSenderError('');
+    setSenderInput('');
+    const current = inboxInfo?.allowedSenders || [];
+    if (!current.includes(entry)) saveSenders([...current, entry]);
+  };
   const copyInbox = async (text, key) => {
     try { await navigator.clipboard.writeText(text); setInboxCopied(key); setTimeout(() => setInboxCopied(''), 2000); } catch { /* urklipp blockerat */ }
   };
@@ -2896,6 +2917,38 @@ export default function Settings({
             </div>
           )}
           {inboxNotes[inboxTab] && <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '14px 0 0' }}>{inboxNotes[inboxTab]}</p>}
+        </SettingCard>
+      )}
+      {inboxInfo && (
+        <SettingCard title={tr('ui.inkorg_avsandare_rubrik')}>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 12px', maxWidth: '600px', lineHeight: 1.55 }}>{tr('ui.inkorg_avsandare_text')}</p>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            {(inboxInfo.allowedSenders || []).length === 0 ? (
+              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.inkorg_avsandare_tom')}</span>
+            ) : (inboxInfo.allowedSenders || []).map(entry => (
+              <span key={entry} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 6px 5px 10px', borderRadius: '999px', background: 'var(--bg-muted)', fontSize: '12.5px', color: 'var(--text-main)', fontFamily: 'ui-monospace, monospace' }}>
+                {entry}
+                <button type="button" aria-label={tr('ui.ta_bort')} disabled={inboxBusy} onClick={() => saveSenders((inboxInfo.allowedSenders || []).filter(e => e !== entry))} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: '2px' }}>
+                  <X size={13} />
+                </button>
+              </span>
+            ))}
+          </div>
+          <form onSubmit={e => { e.preventDefault(); addSender(senderInput); }} style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <input value={senderInput} onChange={e => { setSenderInput(e.target.value); setSenderError(''); }} placeholder="faktura@telia.se eller @telia.se" aria-label={tr('ui.inkorg_avsandare_rubrik')} style={{ ...inputBase, flex: '1 1 240px', maxWidth: '360px' }} />
+            <button type="submit" disabled={inboxBusy || !senderInput.trim()} style={btnTile}>{tr('ui.lagg_till')}</button>
+          </form>
+          {senderError && <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', marginTop: '8px' }}>{senderError}</div>}
+          {inboxInfo.lastBlockedFrom && (inboxInfo.allowedSenders || []).length > 0 && (
+            <div style={{ marginTop: '14px', padding: '10px 12px', borderRadius: '10px', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <span style={{ flex: '1 1 240px' }}>{tr('ui.inkorg_stoppat', { v: inboxInfo.lastBlockedFrom, when: relativeTimeSv(inboxInfo.lastBlockedAt) })}</span>
+              {inboxInfo.lastBlockedFrom.includes('@') && (
+                <button type="button" disabled={inboxBusy} onClick={() => addSender('@' + inboxInfo.lastBlockedFrom.split('@').pop().replace(/>$/, ''))} style={btnTile}>
+                  {tr('ui.inkorg_godkann', { v: '@' + inboxInfo.lastBlockedFrom.split('@').pop().replace(/>$/, '') })}
+                </button>
+              )}
+            </div>
+          )}
         </SettingCard>
       )}
       {inboxInfo && (

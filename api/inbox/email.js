@@ -4,7 +4,7 @@ import { checkRateLimit } from '../_rateLimit.js';
 import { logSystemEvent } from '../_systemEvents.js';
 import {
   getInboxDomain, tokenFromAddress, verifySvixSignature, pickAttachments, attachmentType,
-  safeFileName, gmailConfirmationCode, MAX_ATTACHMENT_BYTES,
+  safeFileName, gmailConfirmationCode, senderAllowed, MAX_ATTACHMENT_BYTES,
 } from './_inbox.js';
 
 // Resend anropar den här när ett mejl kommit till en inkorgsadress
@@ -72,8 +72,8 @@ export default async function handler(req, res) {
   if (tokens.length === 0) { res.status(200).json({ ignored: 'no_inbox' }); return; }
 
   const admin = createClient(url, serviceKey);
-  const { data: inboxes } = await admin.from('inbox_addresses').select('id, owner_user_id, company_id, token').in('token', tokens);
-  if (!inboxes?.length) { res.status(200).json({ ignored: 'unknown_address' }); return; }
+  const { data: found } = await admin.from('inbox_addresses').select('*').in('token', tokens);
+  if (!found?.length) { res.status(200).json({ ignored: 'unknown_address' }); return; }
 
   const now = new Date().toISOString();
   const fromEmail = String(mail.from || '').slice(0, 200);
@@ -86,10 +86,21 @@ export default async function handler(req, res) {
     const code = gmailConfirmationCode(fromEmail, mail.subject, text);
     await admin.from('inbox_addresses')
       .update({ last_received_at: now, ...(code ? { gmail_confirmation_code: code, gmail_confirmation_at: now } : {}) })
-      .in('id', inboxes.map(i => i.id));
+      .in('id', found.map(i => i.id));
     res.status(200).json({ gmailConfirmation: Boolean(code) });
     return;
   }
+
+  // Godkända avsändare: en adress med en lista tar bara emot från den.
+  // Stoppade mejl laddas inte ner; det senaste visas i appen.
+  const inboxes = found.filter(i => senderAllowed(fromEmail, i.allowed_senders));
+  const blocked = found.filter(i => !inboxes.includes(i));
+  if (blocked.length) {
+    await admin.from('inbox_addresses')
+      .update({ last_blocked_from: fromEmail, last_blocked_at: now })
+      .in('id', blocked.map(i => i.id));
+  }
+  if (!inboxes.length) { res.status(200).json({ ignored: 'sender_not_allowed' }); return; }
 
   // Samma mejl två gånger (Resend försöker igen efter ett fel): ta bara emot en gång.
   const { data: already } = await admin.from('inbox_items').select('id')

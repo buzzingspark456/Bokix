@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createHmac } from 'node:crypto';
-import { makeInboxToken, tokenFromAddress, verifySvixSignature, pickAttachments, attachmentType, safeFileName, gmailConfirmationCode } from './_inbox.js';
+import { makeInboxToken, tokenFromAddress, verifySvixSignature, pickAttachments, attachmentType, safeFileName, gmailConfirmationCode, senderAllowed, normalizeSender } from './_inbox.js';
 
 describe('inkorgens adress', () => {
   it('bygger en läsbar adress av företagsnamnet', () => {
@@ -51,6 +51,26 @@ describe('bilagor', () => {
   it('gör ett säkert filnamn', () => {
     expect(safeFileName('../../Faktura 8841.pdf', 'application/pdf')).toBe('Faktura 8841.pdf');
     expect(safeFileName('', 'image/png')).toBe('underlag.png');
+  });
+});
+
+describe('godkända avsändare', () => {
+  it('tom lista släpper in alla', () => {
+    expect(senderAllowed('vem@som.helst', [])).toBe(true);
+  });
+  it('adress och domän, även underdomän', () => {
+    const list = ['faktura@telia.se', '@fortum.se'];
+    expect(senderAllowed('Telia <FAKTURA@telia.se>', list)).toBe(true);
+    expect(senderAllowed('kund@fortum.se', list)).toBe(true);
+    expect(senderAllowed('noreply@mail.fortum.se', list)).toBe(true);
+    expect(senderAllowed('annan@telia.se', list)).toBe(false);
+    expect(senderAllowed('x@notfortum.se', list)).toBe(false);
+  });
+  it('normaliserar det man skriver', () => {
+    expect(normalizeSender(' Faktura@Telia.se ')).toBe('faktura@telia.se');
+    expect(normalizeSender('telia.se')).toBe('@telia.se');
+    expect(normalizeSender('@telia.se')).toBe('@telia.se');
+    expect(normalizeSender('inte en adress')).toBe(null);
   });
 });
 

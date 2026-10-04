@@ -69,4 +69,14 @@ describe('inkorgens webhook', () => {
     const body = JSON.stringify({ type: 'email.received', data: { email_id: 'e2', from: 'a@b.se', to: ['nagon@gmail.com'] } });
     expect((await call(body))[1]).toEqual({ ignored: 'no_inbox' });
   });
+  it('stoppar avsändare som inte finns på listan', async () => {
+    db.addresses[0].allowed_senders = ['@fortum.se'];
+    db.updates.length = 0;
+    const uploadsBefore = db.uploads.length;
+    const body = JSON.stringify({ type: 'email.received', data: { email_id: 'e3', from: 'spam@okand.se', to: ['bokixab-abcdefg@inbox.bokix.se'] } });
+    expect((await call(body))[1]).toEqual({ ignored: 'sender_not_allowed' });
+    expect(db.uploads.length).toBe(uploadsBefore);
+    expect(db.updates[0][1]).toMatchObject({ last_blocked_from: 'spam@okand.se' });
+    db.addresses[0].allowed_senders = [];
+  });
 });

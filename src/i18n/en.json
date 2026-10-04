@@ -423,6 +423,12 @@
     }
   },
   "ui": {
+    "inkorg_avsandare_rubrik": "Approved senders (optional)",
+    "inkorg_avsandare_text": "Empty means anyone can send. With a list, only email from those addresses or domains is received. If you forward automatically, the email comes from your suppliers, so add them or their domain, for example @telia.se.",
+    "inkorg_avsandare_tom": "Anyone can send.",
+    "inkorg_avsandare_ogiltig": "Enter an email address or a domain, for example @telia.se.",
+    "inkorg_stoppat": "Last stopped: an email from {{v}}, {{when}}.",
+    "inkorg_godkann": "Approve {{v}}",
     "sie_avrundning_rubrik_1": "1 voucher is off by a few öre",
     "sie_avrundning_vald_1": "Rounding on 3740 is added to 1 voucher.",
     "sie_ver_skiljer_rubrik_1": "1 voucher does not add up",

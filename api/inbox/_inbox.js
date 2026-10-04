@@ -91,6 +91,35 @@ export function safeFileName(name, type) {
   return `${base}.${ext}`;
 }
 
+// ── Godkända avsändare ──
+// En post är en hel adress ("faktura@telia.se") eller en domän ("@telia.se",
+// som också godtar underdomäner som "@kund.telia.se"). Tom lista = alla.
+
+/** Normaliserar en post, eller null om den inte är en adress eller domän. */
+export function normalizeSender(entry) {
+  const s = String(entry || '').trim().toLowerCase().replace(/^mailto:/, '');
+  if (/^[^\s@]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(s)) return s;
+  const domain = s.replace(/^@/, '');
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) return `@${domain}`;
+  return null;
+}
+
+/** Den rena adressen ur "Namn <x@y>" eller "x@y". */
+export function bareAddress(from) {
+  const m = /<([^<>\s]+@[^<>\s]+)>/.exec(String(from || ''));
+  return (m ? m[1] : String(from || '').trim()).toLowerCase();
+}
+
+export function senderAllowed(from, allowed) {
+  const list = (allowed || []).map(normalizeSender).filter(Boolean);
+  if (list.length === 0) return true;
+  const addr = bareAddress(from);
+  const domain = addr.split('@')[1] || '';
+  return list.some(e => (e.startsWith('@')
+    ? domain === e.slice(1) || domain.endsWith(`.${e.slice(1)}`)
+    : addr === e));
+}
+
 /**
  * Gmail skickar en bekräftelse innan vidarebefordran slås på: "Confirmation
  * code: 123456789" (eller på svenska "Bekräftelsekod"). Koden visas i appen
