@@ -241,6 +241,8 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   const [ocrVat, setOcrVat] = useState(null);
   // Kontoförslag från avläsningen (en regel, inte historik): visas med en knapp, fylls inte i.
   const [accountSuggestion, setAccountSuggestion] = useState(null);
+  // Kontot beror på vad köpet gällde (matbutik, elektronik): de vanliga fallen.
+  const [accountChoices, setAccountChoices] = useState(null);
   const timersRef = useRef([]);
   useEffect(() => () => { timersRef.current.forEach(clearTimeout); }, []);
   const verificationsRef = useRef(verifications);
@@ -266,6 +268,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
     setPhotoHint(null);
     setOcrVat(null);
     setAccountSuggestion(null);
+    setAccountChoices(null);
     setPayInfo(null);
     setForeignInfo(null);
     setRevealing(false);
@@ -320,6 +323,9 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       const costAccount = reverse ? parsed.accountCode : (hist?.costAccount || '');
       const suggestion = !nr && !costAccount && parsed.accountCode && !parsed.accountGuessed && accounts.some(a => a.code === parsed.accountCode)
         ? parsed.accountCode : null;
+      const choices = suggestion && parsed.accountChoices
+        ? parsed.accountChoices.filter(c => accounts.some(a => a.code === c.code))
+        : null;
       const gross = grossSek ? Math.round(grossSek * 100) / 100 : 0;
       // Betalkontot är inte en gissning när historiken eller kvittot säger något.
       const pay = decidePayAccount({ history: hist, paymentMethod: parsed.paymentMethod, accounts });
@@ -382,7 +388,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
             if (step.state === 'found' && (step.key === 'date' || step.key === 'supplier')) filled.add(step.key === 'supplier' ? 'desc' : 'date');
           }
           setRevealed(prev => ({ ...prev, [step.key]: step.found ? step.state : (step.suggest ? 'suggest' : 'missing') }));
-          if (step.key === 'costAccount') setAccountSuggestion(suggestion);
+          if (step.key === 'costAccount') { setAccountSuggestion(suggestion); setAccountChoices(choices && choices.length > 1 ? choices : null); }
         }, 250 + i * REVEAL_STEP_MS));
       });
       timersRef.current.push(setTimeout(() => {
@@ -462,8 +468,8 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
 
   // Användaren tar kontoförslaget: det hamnar på kostnadsraden (den första
   // raden utan konto som har ett belopp i debet), eller i enkelt läge som köpet.
-  const applyAccountSuggestion = () => {
-    const code = accountSuggestion;
+  const applyAccountSuggestion = (picked) => {
+    const code = typeof picked === 'string' ? picked : accountSuggestion;
     if (!code) return;
     if (modeRef.current === 'simple') {
       setSimple(prev => ({ ...prev, account: code }));
@@ -475,6 +481,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       });
     }
     setAccountSuggestion(null);
+    setAccountChoices(null);
   };
 
   const changeMode = async (next) => {
@@ -1074,7 +1081,17 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                 {(ocrStatus === 'scanning' || revealing || Object.keys(revealed).length > 0) && (
                   <OcrChecklist scanning={ocrStatus === 'scanning'} revealed={revealed} items={VER_OCR_ITEMS} />
                 )}
-                {!revealing && accountSuggestion && (
+                {!revealing && accountSuggestion && accountChoices && (
+                  <div className="rc-verify rc-verify-suggest" style={{ flexWrap: 'wrap' }}>
+                    <span>{tr('ui.vad_gallde_kopet')}</span>
+                    {accountChoices.map(c => (
+                      <button key={c.code} type="button" className="rc-chip" onClick={() => applyAccountSuggestion(c.code)} title={accounts.find(a => a.code === c.code)?.name || ''}>
+                        {tr(c.why)} · {c.code}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {!revealing && accountSuggestion && !accountChoices && (
                   <div className="rc-verify rc-verify-suggest">
                     <span>{tr('ui.forslag_pa_konto')} <strong>{accountSuggestion} {accounts.find(a => a.code === accountSuggestion)?.name || ''}</strong></span>
                     <button type="button" className="rc-link" onClick={applyAccountSuggestion}>{tr('ui.anvand')}</button>

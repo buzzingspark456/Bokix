@@ -410,7 +410,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
           state: reverse ? 'found' : 'history',
           patch: { costAccount: reverse ? parsed.accountCode : hist?.costAccount },
           suggest: (!nr && !reverse && !hist?.costAccount && parsed.accountCode && !parsed.accountGuessed)
-            ? { code: parsed.accountCode, source: parsed.accountSource } : null,
+            ? { code: parsed.accountCode, source: parsed.accountSource, choices: parsed.accountChoices || null } : null,
         },
       ];
 

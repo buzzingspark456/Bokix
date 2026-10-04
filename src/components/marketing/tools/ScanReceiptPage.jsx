@@ -64,7 +64,7 @@ function buildFields(parsed, unreadable) {
       value: parsed.vatRate != null ? `${parsed.vatRate} %${parsed.vatVerified && parsed.vatAmount ? ` · ${fmtAmount(parsed.vatAmount)} ${currency}` : ''}` : '',
       note: parsed.vatRateGuessed ? 'Antagen, stod inte tydligt' : '',
     },
-    { key: 'costAccount', label: 'Konto', found: has(parsed.accountCode), state: parsed.accountGuessed ? 'guess' : 'found', value: parsed.accountCode ? `${parsed.accountCode} ${ACCOUNT_NAME[parsed.accountCode] || ''}`.trim() : '' },
+    { key: 'costAccount', label: 'Konto', found: has(parsed.accountCode), state: (parsed.accountGuessed || parsed.accountChoices) ? 'guess' : 'found', value: parsed.accountCode ? `${parsed.accountCode} ${ACCOUNT_NAME[parsed.accountCode] || ''}`.trim() : '' },
   ];
 }
 

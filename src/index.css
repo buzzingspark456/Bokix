@@ -3276,6 +3276,15 @@ textarea.form-control {
 .acp-suggest-note { font-size: 12px; color: var(--text-secondary); }
 .acp-suggest-main { display: flex; align-items: center; gap: 10px; font-size: 14.5px; }
 .acp-suggest-use { flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--status-green-text); }
+.acp-choices { cursor: default; }
+.acp-choice {
+  display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 8px 10px; box-sizing: border-box;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card, #fff); color: var(--text-main);
+  font-family: inherit; text-align: left; cursor: pointer;
+}
+.acp-choice:hover, .acp-choice:focus-visible { border-color: var(--primary); }
+.acp-choice-why { font-size: 14px; font-weight: 600; }
+.acp-choice-acc { font-size: 12.5px; color: var(--text-secondary); }
 .acp-search { position: relative; }
 .acp-search input {
   width: 100%; box-sizing: border-box; padding: 9px 34px 9px 34px;

@@ -3455,7 +3455,15 @@
     "passkey_las_appen_beskr": "Appen frågar efter Face ID eller fingeravtryck när den öppnas och när du kommer tillbaka efter en stund.",
     "ingen_anslutning_kunde_inte_uppdatera": "Ingen anslutning, kunde inte uppdatera.",
     "fota_kvitto": "Fota kvitto",
-    "valj_fil": "Välj fil"
+    "valj_fil": "Välj fil",
+    "vad_gallde_kopet": "Vad gällde köpet?",
+    "val_mat_personal": "Fika eller mat till personalen",
+    "val_kund": "Kunder eller affärskontakter bjöds",
+    "val_forbrukning": "Förbrukning i verksamheten",
+    "val_mat_personal_kort": "Mat till personalen",
+    "val_utrustning": "Utrustning, verktyg eller elektronik",
+    "val_material": "Material eller tillbehör som förbrukas",
+    "val_kontorsmaterial": "Kontorsmaterial"
   },
   "glossary": {
     "g01": {

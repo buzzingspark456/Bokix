@@ -122,3 +122,42 @@ describe('datumformat', () => {
     expect(read('Förfallodatum 2024-06-25', ['Fakturadatum 2024-05-26'])).toBe('2024-05-26');
   });
 });
+
+describe('kontoval som beror på syftet', () => {
+  it('Coop ger ett val (personal, kund, förbrukning), inte en gissning på representation', () => {
+    const r = parseReceiptText(coop, { confidence: 65, today });
+    expect(r.accountChoices.map(c => c.code)).toEqual(['7690', '6071', '5460']);
+    expect(r.accountCode).toBe('7690');
+  });
+  it('Elgiganten bokas inte på gruppkontot 5400', () => {
+    const r = parseReceiptText(['ELGIGANTEN', 'Datum 2024-05-26', 'Totalt 1 249,00', 'Moms 25% 249,80'].join('\n'), { today });
+    expect(r.accountCode).toBe('5410');
+    expect(r.accountChoices.map(c => c.code)).toContain('5460');
+  });
+});
+
+describe('momstabellen och kortbetalningen som facit', () => {
+  it('den gamla läsarens text av Coop-kvittot ger 193,75 ur momstabellen, inte 198,78', () => {
+    const old = fs.readFileSync(new URL('./__fixtures__/coop-gamla-lasaren.txt', import.meta.url), 'utf8');
+    const r = parseReceiptText(old, { today });
+    expect(r.amount).toBe(193.75);
+    expect(r.vatRate).toBe(12);
+    expect(r.vatAmount).toBe(20.76);
+    expect(r.currency).toBe(null);
+  });
+  it('totalraden och kortbetalningen säger olika (193,78 mot 193,75): Kontrollera', () => {
+    const t = ['Butik', '2026-09-01', 'ATT BETALA 193,78', 'Belopp SEK 193,75'].join('\n');
+    const r = parseReceiptText(t + '\n\u001e\n' + t, { today });
+    expect(r.amountGuessed).toBe(true);
+  });
+  it('kortterminalens datum blir aldrig ett belopp, och ett £ i brus gör inte kvittot brittiskt', () => {
+    const r = parseReceiptText(['Kvitto 1234', 'Kassör 12', '£3." MASTERCARD 221114 141911', 'Totalt 193,75', 'Moms 12% 20,76'].join('\n'), { today });
+    expect(r.amount).toBe(193.75);
+    expect(r.currency).toBe(null);
+  });
+  it('ett nummer som tappat sista siffran i en läsning tas från den hela', () => {
+    const a = ['Coop', 'Kvitto 96035-001-6716', '2022-11-14', 'Totalt 10,00'].join('\n');
+    const b = ['Coop', 'Kvitto 96035-001-67161', '2022-11-14', 'Totalt 10,00'].join('\n');
+    expect(parseReceiptText(a + '\n\u001e\n' + b, { today }).receiptNumber).toBe('96035-001-67161');
+  });
+});

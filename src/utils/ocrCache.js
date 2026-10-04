@@ -9,8 +9,28 @@
 // och allt är try/catch: privat läge eller full lagring ska aldrig stoppa en
 // avläsning.
 
-const PREFIX = 'bokix_ocr_';
-const INDEX_KEY = 'bokix_ocr_index';
+// Versionen byts när avläsningen blir bättre (2: två läsningar och logotyp,
+// 2026-10-04), så att ett kvitto läses om i stället för att den gamla, sämre
+// texten återanvänds. Den gamla versionens poster rensas bort en gång.
+const PREFIX = 'bokix_ocr2_';
+const INDEX_KEY = 'bokix_ocr2_index';
+const LEGACY = [{ prefix: 'bokix_ocr_', index: 'bokix_ocr_index' }];
+let legacyPurged = false;
+
+function purgeLegacy() {
+  if (legacyPurged) return;
+  legacyPurged = true;
+  try {
+    for (const { prefix, index } of LEGACY) {
+      const raw = localStorage.getItem(index);
+      if (raw === null) continue;
+      let keys = [];
+      try { keys = JSON.parse(raw) || []; } catch { keys = []; }
+      keys.forEach(k => { try { localStorage.removeItem(prefix + k); } catch { /* ignorera */ } });
+      localStorage.removeItem(index);
+    }
+  } catch { /* privat läge */ }
+}
 const MAX_ENTRIES = 40;
 const MAX_TEXT_CHARS = 20000;
 
@@ -55,6 +75,7 @@ export function getCachedOcrText(key) {
 }
 
 export function setCachedOcrText(key, text) {
+  purgeLegacy();
   if (!key || typeof text !== 'string' || !text.trim()) return;
   const value = text.slice(0, MAX_TEXT_CHARS);
   memory.set(key, value);

@@ -3455,7 +3455,15 @@
     "passkey_las_appen_beskr": "The app asks for Face ID or your fingerprint when it opens and when you come back after a while.",
     "ingen_anslutning_kunde_inte_uppdatera": "No connection, could not refresh.",
     "fota_kvitto": "Take photo",
-    "valj_fil": "Choose file"
+    "valj_fil": "Choose file",
+    "vad_gallde_kopet": "What was the purchase for?",
+    "val_mat_personal": "Coffee or food for staff",
+    "val_kund": "Customers or business contacts were treated",
+    "val_forbrukning": "Consumed in the business",
+    "val_mat_personal_kort": "Food for staff",
+    "val_utrustning": "Equipment, tools or electronics",
+    "val_material": "Materials or accessories that get used up",
+    "val_kontorsmaterial": "Office supplies"
   },
   "glossary": {
     "g01": {

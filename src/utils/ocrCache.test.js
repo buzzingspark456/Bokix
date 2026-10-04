@@ -37,8 +37,8 @@ describe('ocrCache', () => {
 
   it('släpper de äldsta posterna när gränsen nås', () => {
     for (let i = 0; i < 45; i++) setCachedOcrText(`n${i}`, `text ${i}`);
-    expect(globalThis.localStorage.getItem('bokix_ocr_n0')).toBeNull();
-    expect(globalThis.localStorage.getItem('bokix_ocr_n44')).toBe('text 44');
+    expect(globalThis.localStorage.getItem('bokix_ocr2_n0')).toBeNull();
+    expect(globalThis.localStorage.getItem('bokix_ocr2_n44')).toBe('text 44');
   });
 
   it('läser bara en gång per dokument, men om force är satt', async () => {

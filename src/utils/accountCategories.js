@@ -16,9 +16,30 @@
 // → "Föreningsavgifter") rättades i samma omgång som den här filen
 // skapades. Rör du en kod här, slå upp den i AccountsData.js FÖRST.
 
+// Butiker där kontot beror på VAD som köptes och varför. Där finns inget
+// enskilt rätt konto att gissa (kundfeedback 2026-10-04: förslagen var
+// "nästan alla fel", Coop blev alltid Representation). I stället får
+// användaren välja bland de vanliga fallen, med en förklaring (i18n-nyckel).
+// Första valet är det vanligaste. Koderna finns i AccountsData.js.
+export const FOOD_CHOICES = [
+  { code: '7690', why: 'ui.val_mat_personal' },
+  { code: '6071', why: 'ui.val_kund' },
+  { code: '5460', why: 'ui.val_forbrukning' },
+];
+export const MEAL_CHOICES = [
+  { code: '6071', why: 'ui.val_kund' },
+  { code: '7690', why: 'ui.val_mat_personal_kort' },
+];
+export const EQUIPMENT_CHOICES = [
+  { code: '5410', why: 'ui.val_utrustning' },
+  { code: '5460', why: 'ui.val_material' },
+  { code: '6110', why: 'ui.val_kontorsmaterial' },
+];
+
 /** Kända leverantörer → namn, konto och (om känt) momssats. Matchas mot
  *  HELA den avlästa/importerade texten (kvittots OCR-text, eller en
- *  bankrads beskrivning), i listad ordning — första träff vinner. */
+ *  bankrads beskrivning), i listad ordning — första träff vinner. `choices`:
+ *  kontot beror på syftet, se FOOD_CHOICES ovan. */
 export const KNOWN_SUPPLIERS = [
   // Molntjänster & SaaS (utländska = 0% svensk moms, omvänd skattskyldighet)
   { re: /supabase/i, name: 'Supabase', account: '6540', vat: 0 },
@@ -36,19 +57,19 @@ export const KNOWN_SUPPLIERS = [
   { re: /notion/i, name: 'Notion', account: '6540', vat: 0 },
   { re: /spotify/i, name: 'Spotify', account: '6990', vat: 25 },
 
-  // Matvaror & representation (12% moms). Konto 6071 "Representation,
-  // avdragsgill".
-  { re: /coop/i, name: 'Coop', account: '6071', vat: 12 },
-  { re: /ica\b/i, name: 'ICA', account: '6071', vat: 12 },
-  { re: /willys/i, name: 'Willys', account: '6071', vat: 12 },
-  { re: /lidl/i, name: 'Lidl', account: '6071', vat: 12 },
-  { re: /hemk[öo]p/i, name: 'Hemköp', account: '6071', vat: 12 },
-  { re: /espresso house/i, name: 'Espresso House', account: '6071', vat: 12 },
-  { re: /pressbyr[åa]n/i, name: 'Pressbyrån', account: '6071', vat: 12 },
-  { re: /7-eleven|seven eleven/i, name: '7-Eleven', account: '6071', vat: 12 },
-  { re: /mcdonald'?s/i, name: "McDonald's", account: '6071', vat: 12 },
-  { re: /burger king/i, name: 'Burger King', account: '6071', vat: 12 },
-  { re: /max burger|max restauranger/i, name: 'MAX', account: '6071', vat: 12 },
+  // Matvaror, fika och restauranger (12% moms). Kontot beror på syftet, så
+  // användaren väljer bland FOOD_CHOICES/MEAL_CHOICES ovan.
+  { re: /coop/i, name: 'Coop', account: '7690', vat: 12, choices: FOOD_CHOICES },
+  { re: /ica\b/i, name: 'ICA', account: '7690', vat: 12, choices: FOOD_CHOICES },
+  { re: /willys/i, name: 'Willys', account: '7690', vat: 12, choices: FOOD_CHOICES },
+  { re: /lidl/i, name: 'Lidl', account: '7690', vat: 12, choices: FOOD_CHOICES },
+  { re: /hemk[öo]p/i, name: 'Hemköp', account: '7690', vat: 12, choices: FOOD_CHOICES },
+  { re: /espresso house/i, name: 'Espresso House', account: '7690', vat: 12, choices: FOOD_CHOICES },
+  { re: /pressbyr[åa]n/i, name: 'Pressbyrån', account: '7690', vat: 12, choices: FOOD_CHOICES },
+  { re: /7-eleven|seven eleven/i, name: '7-Eleven', account: '7690', vat: 12, choices: FOOD_CHOICES },
+  { re: /mcdonald'?s/i, name: "McDonald's", account: '6071', vat: 12, choices: MEAL_CHOICES },
+  { re: /burger king/i, name: 'Burger King', account: '6071', vat: 12, choices: MEAL_CHOICES },
+  { re: /max burger|max restauranger/i, name: 'MAX', account: '6071', vat: 12, choices: MEAL_CHOICES },
 
   // Drivmedel & fordon (25% moms)
   { re: /circle k/i, name: 'Circle K', account: '5611', vat: 25 },
@@ -60,15 +81,17 @@ export const KNOWN_SUPPLIERS = [
   { re: /ingo\b/i, name: 'INGO', account: '5611', vat: 25 },
 
   // Kontor, elektronik & verktyg (25% moms)
-  { re: /biltema/i, name: 'Biltema', account: '6110', vat: 25 },
-  { re: /clas ohlson/i, name: 'Clas Ohlson', account: '6110', vat: 25 },
-  { re: /bauhaus/i, name: 'Bauhaus', account: '5400', vat: 25 },
-  { re: /hornbach/i, name: 'Hornbach', account: '5400', vat: 25 },
-  { re: /jula\b/i, name: 'Jula', account: '5400', vat: 25 },
-  { re: /webhallen/i, name: 'Webhallen', account: '5400', vat: 25 },
-  { re: /dustin/i, name: 'Dustin', account: '5400', vat: 25 },
-  { re: /elgiganten/i, name: 'Elgiganten', account: '5400', vat: 25 },
-  { re: /kjell\s*(?:&|och)\s*company/i, name: 'Kjell & Company', account: '5400', vat: 25 },
+  // 5400 är ett gruppkonto som inte ska bokas på; 5410 Förbrukningsinventarier
+  // är det vanliga, och användaren kan välja material eller kontorsmaterial.
+  { re: /biltema/i, name: 'Biltema', account: '5410', vat: 25, choices: EQUIPMENT_CHOICES },
+  { re: /clas ohlson/i, name: 'Clas Ohlson', account: '5410', vat: 25, choices: EQUIPMENT_CHOICES },
+  { re: /bauhaus/i, name: 'Bauhaus', account: '5410', vat: 25, choices: EQUIPMENT_CHOICES },
+  { re: /hornbach/i, name: 'Hornbach', account: '5410', vat: 25, choices: EQUIPMENT_CHOICES },
+  { re: /jula\b/i, name: 'Jula', account: '5410', vat: 25, choices: EQUIPMENT_CHOICES },
+  { re: /webhallen/i, name: 'Webhallen', account: '5410', vat: 25, choices: EQUIPMENT_CHOICES },
+  { re: /dustin/i, name: 'Dustin', account: '5410', vat: 25, choices: EQUIPMENT_CHOICES },
+  { re: /elgiganten/i, name: 'Elgiganten', account: '5410', vat: 25, choices: EQUIPMENT_CHOICES },
+  { re: /kjell\s*(?:&|och)\s*company/i, name: 'Kjell & Company', account: '5410', vat: 25, choices: EQUIPMENT_CHOICES },
   { re: /ikea/i, name: 'IKEA', account: '5410', vat: 25 },
 
   // Frakt & logistik (25% moms). RÄTTAT: låg tidigare på 6230

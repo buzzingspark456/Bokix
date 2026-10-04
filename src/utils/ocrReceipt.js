@@ -107,7 +107,7 @@ const MONEY_TOKEN_RE = new RegExp(`${MONEY_DECIMAL_SOURCE}|\\b\\d{1,3}(?:[.,]\\d
 
 // Rader där en siffra aldrig är ett belopp: kortnummer och terminalkoder
 // ("XXXX 1234", "AID 123456") och antalsrader ("Antal artiklar 3").
-const NOT_AMOUNT_LINE_RE = /\*{3,}|x{4,}|korttyp|terminal|\banbud\b|\bmid\b|\bptid\b|\baid\b|auth|\bantal\b|artiklar|\bitems\b|kvantitet/i;
+const NOT_AMOUNT_LINE_RE = /\*{3,}|x{4,}|korttyp|terminal|\banbud\b|\bmid\b|\bptid\b|\baid\b|auth|\bantal\b|artiklar|\bitems\b|kvantitet|^(?!.*(?:belopp|summa|total|att betala)).*(?:master\s*car|\bvisa\b|\bdebit\b|refnr|kontrollnr|\btvr\b|\btsi\b|medlemskort|po[äa]ngsaldo)/i;
 
 /**
  * Plockar bort det som ser ut som ett belopp men inte är det, innan siffrorna
@@ -121,6 +121,8 @@ function stripNonAmounts(line) {
     // Org.-nummer (738200-2850) och telefonnummer (010-741 67 80): Coop-kvittot
     // 2026-10-04 fick org.-numret som belopp.
     .replace(/\b\d{6}-\d{4}\b/g, ' ')
+    // Kortterminalens datum och klockslag ("221114 141911").
+    .replace(/\b\d{6}\s+\d{6}\b/g, ' ')
     .replace(/\b0\d{1,3}-\d[\d ]{4,9}\d\b/g, ' ')
     .replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, ' ')
     .replace(/\b(?:20|19)\d{2}[-/.]\d{1,2}[-/.]\d{1,2}\b|\b\d{1,2}[-/.]\d{1,2}[-/.](?:20|19)\d{2}\b/g, ' ')
@@ -1402,7 +1404,7 @@ async function loadDocumentBlob(input, onProgress) {
  * den finns i cachen, annars läses det om) så att förbättringar i tolkningen,
  * till exempel av ordernumret, når kvitton som skannades innan de fanns.
  */
-export const OCR_DRAFT_VERSION = 3;
+export const OCR_DRAFT_VERSION = 4;
 
 const round2 = (v) => Math.round(v * 100) / 100;
 const VAT_RATES = [25, 12, 6];
@@ -2325,6 +2327,85 @@ const LOW_OCR_CONFIDENCE = 60;
  * eller en cachad avläsning där siffran inte sparades) och then avgör
  * innehållet ensamt, som förut.
  */
+/** Två belopp som skiljer sig i EN siffra som OCR ofta förväxlar (193,78/193,75). */
+function confusableAmounts(a, b) {
+  const x = a.toFixed(2); const y = b.toFixed(2);
+  if (x.length !== y.length) return false;
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) {
+    if (x[i] === y[i]) continue;
+    if (!(CONFUSABLE_DIGITS[x[i]] || '').includes(y[i]) && !(CONFUSABLE_DIGITS[y[i]] || '').includes(x[i])) return false;
+    diff++;
+  }
+  return diff === 1;
+}
+
+/**
+ * Momstabellen som facit, som en människa skulle läsa kvittot: står det på en
+ * rad ett nettobelopp och ett momsbelopp som går ihop med en svensk sats
+ * (172,99 och 20,76 är 12 %), är netto + moms totalen — även när totalraden
+ * lästs fel på en siffra (193,78) eller ett helt annat tal tagits som belopp.
+ * Två tal som stämmer mot en momssats är ett mycket starkare bevis än ett
+ * enskilt tal på en totalrad. Exporterad för testerna.
+ */
+export function vatTableTriples(lines) {
+  const out = [];
+  for (const line of lines) {
+    if (!/\d[.,]\d{2}/.test(line)) continue;
+    const values = amountsOnLine(line).filter(v => v >= 0.5 && v < 1e7);
+    for (let i = 0; i < values.length; i++) {
+      for (let j = 0; j < values.length; j++) {
+        if (i === j) continue;
+        const vat = values[i]; const net = values[j];
+        if (vat >= net) continue;
+        for (const rate of [25, 12, 6]) {
+          if (Math.abs(vat - Math.round(net * rate) / 100) <= Math.max(0.02, net * rate / 100 * 0.002)) {
+            out.push({ rate, vat, net, gross: Math.round((net + vat) * 100) / 100, line });
+          }
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Säger totalraden och kortbetalningen olika belopp, en siffra ifrån varandra
+ * (193,78 mot 193,75), går det inte att veta vilken som är rätt utan momsen
+ * att räkna mot. Då märks beloppet Kontrollera i stället för att se säkert ut.
+ */
+function flagConflictingTotals(lines, result) {
+  if (!result.amount || result.amountVerified) return result;
+  const totalish = lines.filter(l => /att betala|totalt?|summa|kortk[öo]p|k.rtk[öo]p|belopp\s*se[kx]|amount|debit/i.test(l));
+  const conflict = totalish.flatMap(l => amountsOnLine(l)).some(v => Math.abs(v - result.amount) >= 0.005 && confusableAmounts(v, result.amount));
+  return conflict ? { ...result, amountGuessed: true, amountConflict: true } : result;
+}
+
+function reconcileWithVatTable(lines, result) {
+  if (result.currency || result.reverseCharge || result.creditNote) return result;
+  const triples = vatTableTriples(lines);
+  if (!triples.length) return flagConflictingTotals(lines, result);
+  // Flera satser på olika rader (mat 12 % och övrigt 25 %) hanteras redan av
+  // momskontrollen; här gäller en tabell med en sats.
+  const rates = new Set(triples.map(t => t.rate));
+  if (rates.size !== 1) return flagConflictingTotals(lines, result);
+  const t = triples[0];
+  const amount = result.amount;
+  if (amount && Math.abs(amount - t.gross) < 0.005) {
+    if (result.amountVerified && result.vatVerified) return result;
+    return { ...result, amountVerified: true, amountGuessed: false, vatRate: t.rate, vatRateGuessed: false, vatAmount: t.vat, vatVerified: true, vatMismatch: false, vatRates: null };
+  }
+  // Totalen går mot tabellen bara när den saknas, är en siffra fel eller inte
+  // går ihop med momsen ändå.
+  const replace = !amount || confusableAmounts(amount, t.gross) || !result.amountVerified;
+  if (!replace) return flagConflictingTotals(lines, result);
+  // Står bruttot (eller ett belopp en siffra ifrån) någonstans i texten?
+  const all = lines.flatMap(l => amountsOnLine(l));
+  const seen = all.some(v => Math.abs(v - t.gross) < 0.005 || confusableAmounts(v, t.gross));
+  if (!seen && amount) return flagConflictingTotals(lines, result);
+  return { ...result, amount: t.gross, amountVerified: true, amountGuessed: false, vatRate: t.rate, vatRateGuessed: false, vatAmount: t.vat, vatVerified: true, vatMismatch: false, vatRates: null };
+}
+
 // Skiljer flera oberoende avläsningar av samma dokument i en och samma text
 // (se extractTextFromImage). Texten cachas som den är, så sammanvägningen görs
 // om varje gång tolkningen körs.
@@ -2347,7 +2428,9 @@ export function mergeReadings(readings) {
   const amountRank = (r) => (!r.amount ? 0 : r.amountVerified ? 4 : r.vatVerified ? 3 : r.amountGuessed ? 1 : 2);
   const base = [...usable].sort((a, b) => (amountRank(b) - amountRank(a)) || (same('amount', b.amount) - same('amount', a.amount)))[0];
   const out = { ...base };
-  if (!out.amountVerified && out.amount && same('amount', out.amount) >= 2) out.amountGuessed = false;
+  // Två läsningar av samma bild som säger samma sak bekräftar beloppet, men
+  // inte om kvittot självt säger emot (totalraden mot kortbetalningen).
+  if (!out.amountVerified && out.amount && same('amount', out.amount) >= 2 && !usable.some(r => r.amountConflict)) out.amountGuessed = false;
 
   // Leverantören: en känd butik före ett namn med org.-nummer före resten.
   const supplierRank = (r) => (!r.supplier ? 0 : r.supplierMatched ? 3 : r.supplierConfirmed ? 2 : 1) + same('supplier', r.supplier) * 0.1;
@@ -2358,7 +2441,7 @@ export function mergeReadings(readings) {
   });
   // Kontot följer leverantören, utom när beloppets avläsning gav omvänd moms.
   if (!out.reverseCharge && sup.accountCode && (!out.accountCode || out.accountGuessed || !sup.accountGuessed)) {
-    Object.assign(out, { accountCode: sup.accountCode, accountGuessed: sup.accountGuessed, accountSource: sup.accountSource });
+    Object.assign(out, { accountCode: sup.accountCode, accountGuessed: sup.accountGuessed, accountSource: sup.accountSource, accountChoices: sup.accountChoices || null });
   }
 
   // Datumet: säkra avläsningar först; två som säger samma datum bekräftar det.
@@ -2375,7 +2458,11 @@ export function mergeReadings(readings) {
   const numbered = usable.filter(r => r.receiptNumber);
   if (numbered.length) {
     const agreed = numbered.find(r => same('receiptNumber', r.receiptNumber) >= 2);
-    const pick = agreed || numbered.find(r => !r.receiptNumberGuessed) || numbered[0];
+    let pick = agreed || numbered.find(r => !r.receiptNumberGuessed) || numbered[0];
+    // Ett nummer som tappat sista siffran i den ena läsningen ("6716" mot
+    // "67161"): den längre läsningen är den hela.
+    const longer = numbered.find(r => r.receiptNumber.length > pick.receiptNumber.length && r.receiptNumber.startsWith(pick.receiptNumber));
+    if (longer) pick = longer;
     Object.assign(out, {
       receiptNumber: pick.receiptNumber, receiptNumberKind: pick.receiptNumberKind, receiptNumberLabel: pick.receiptNumberLabel,
       receiptNumberGuessed: agreed ? false : pick.receiptNumberGuessed,
@@ -2656,7 +2743,10 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   // tolkades hela kvittot som dollar, beloppet lämnades tomt och appen bad om
   // en valutakurs. Ett ENSAMT dollartecken får därför inte väga tyngre än
   // kvittots svenska kännetecken; står det USD eller US$ gäller det förstås.
-  const swedishReceipt = lines.some(l => looksLikeMoms(l) || /org\.?\s*nr|organisationsnummer|kvitto|kontant|kassa|bankgiro|plusgiro|swish|kronor|\bkr\b/i.test(l));
+  // OCR stavar fel ("Kvitta", "Kassor", "SEX" för SEK), så också vanliga
+  // svenska kvittoord, ett org.-nummer och å/ä/ö räknas.
+  const swedishReceipt = lines.some(l => looksLikeMoms(l) || /org\.?\s*nr|organisationsnummer|kvitt|kontant|kass[aoö]|bankgiro|plusgiro|swish|kronor|\bkr\b|\bse[kx]\b|att betala|totalt|summa|belopp|kortk[öo]p|tack|\b\d{6}-\d{4}\b/i.test(l))
+    || (text.match(/[åäöÅÄÖ]/g) || []).length >= 3;
   let currency = null;
   if (amountLine) {
     const explicitSek = /\bsek\b|\bkr\b|:-/i.test(amountLine);
@@ -2712,11 +2802,14 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   // se rätt ut. Kundönskemål, uttryckligt: en gissning som visas som om
   // den vore säker är värre än att lämna fältet tomt.
   let supplierMatched = false;
+  // Butiker där kontot beror på syftet: användaren väljer bland dessa.
+  let accountChoices = null;
 
   for (const s of KNOWN_SUPPLIERS) {
     if (matchesAtWordStart(s.re, headerText)) {
       supplier = s.name;
       accountCode = s.account;
+      accountChoices = s.choices || null;
       if (s.vat !== undefined) vatRate = s.vat;
       supplierMatched = true;
       break;
@@ -2731,6 +2824,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     if (fuzzy) {
       supplier = fuzzy.name;
       accountCode = fuzzy.account;
+      accountChoices = fuzzy.choices || null;
       if (fuzzy.vat !== undefined) vatRate = fuzzy.vat;
       supplierMatched = true;
     }
@@ -2884,7 +2978,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   }
   const numberFound = findReceiptNumberDetailed(lines);
 
-  return {
+  return reconcileWithVatTable(lines, {
     date, dateGuessed, dateText, amount, amountGuessed: amountVerified ? false : amountGuessed, amountVerified, vatRate,
     vatRateGuessed: vatCheck.verified ? false : (vatRateGuessed || vatCheck.mismatch),
     vatAmount: vatCheck.vatAmount, vatVerified: vatCheck.verified, vatMismatch: vatCheck.mismatch,
@@ -2895,8 +2989,9 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     receiptNumber: numberFound?.number ?? null, receiptNumberKind: numberFound?.kind ?? null, receiptNumberLabel: numberFound?.label ?? null,
     receiptNumberGuessed: Boolean(numberFound?.uncertain),
     supplier, supplierMatched, supplierConfirmed: supplierMatched || supplierHasOrgNumber(lines, supplier), accountCode, accountGuessed, accountSource, currency,
+    accountChoices: accountSource === 'supplier' ? accountChoices : null,
     notReceipt: false, documentKind: doc.isInvoice ? 'invoice' : 'receipt',
     paymentMethod: detectPaymentMethod(text, { isInvoice: doc.isInvoice }).method,
     reverseCharge, reverseChargeUnclear,
-  };
+  });
 }

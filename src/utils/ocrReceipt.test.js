@@ -38,7 +38,7 @@ describe('parseReceiptText', () => {
     expect(result.amount).toBe(105.4);
     expect(result.vatRate).toBe(12);
     expect(result.supplier).toBe('ICA');
-    expect(result.accountCode).toBe('6071');
+    expect(result.accountCode).toBe('7690');
   });
 
   it('extraherar bensin kvitto från Circle K med 25% moms och konto 5611', () => {
@@ -522,7 +522,7 @@ describe('leverantör och konto', () => {
     const r = parseReceiptText('Elgiganten\nOrg.nr 556000-1234\nDatum: 2024-05-12\nTotalt 1 999,00\nMoms 25% 399,80')
     expect(r.supplier).toBe('Elgiganten')
     expect(r.supplierMatched).toBe(true)
-    expect(r.accountCode).toBe('5400')
+    expect(r.accountCode).toBe('5410')
   })
 
   it('generiska ord som "mat" i ett annat ord ger inte ett restaurangkonto', () => {
@@ -643,7 +643,7 @@ Totalt: SEK 899,00`
     expect(r.receiptNumber).toBe('2302039269')
     expect(r.receiptNumberLabel).toBe('Ordernummer')
     expect(r.supplier).toBe('Elgiganten')
-    expect(r.accountCode).toBe('5400')
+    expect(r.accountCode).toBe('5410')
     expect(r.vatRate).toBe(25)
   })
   it('rubriker och belopp på nästa rad blir inget nummer', () => {
@@ -692,7 +692,7 @@ SEK 899,00`
     expect(r.supplier).toBe('Elgiganten')
     expect(r.amount).toBe(899)
     expect(r.vatRate).toBe(25)
-    expect(r.accountCode).toBe('5400')
+    expect(r.accountCode).toBe('5410')
     expect(r.date).toBe('2026-05-26')
   })
   it('en kortterminals referens (hex-hash) är inget kvittonummer', () => {

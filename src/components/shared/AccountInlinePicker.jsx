@@ -137,9 +137,28 @@ export default function AccountInlinePicker({ value, onChange, accounts: allAcco
   const suggested = suggestion ? accounts.find(a => a.code === suggestion.code) : null;
   const suggestionNote = suggestion?.source === 'supplier' ? t('ui.utifran_leverantoren') : suggestion?.source === 'keyword' ? t('ui.utifran_texten_pa_kvittot') : t('ui.utifran_kvittot');
 
+  // Kontot beror på vad köpet gällde (matbutik, elektronik): användaren väljer
+  // bland de vanliga fallen i stället för att få en gissning.
+  const choices = (suggestion?.choices || [])
+    .map(c => ({ ...c, account: accounts.find(a => a.code === c.code) }))
+    .filter(c => c.account);
+
   return (
     <div ref={rootRef} className={`acp acp-open${invalid ? ' acp-invalid' : ''}`}>
-      {suggested && (
+      {choices.length > 1 ? (
+        <div className="acp-suggest acp-choices">
+          <span className="acp-suggest-top">
+            <span className="acp-suggest-tag">{t('ui.forslag')}</span>
+            <span className="acp-suggest-note">{t('ui.vad_gallde_kopet')}</span>
+          </span>
+          {choices.map(c => (
+            <button key={c.code} type="button" className="acp-choice" onClick={() => pick(c.account)}>
+              <span className="acp-choice-why">{t(c.why)}</span>
+              <span className="acp-choice-acc"><span className="acp-code">{c.code}</span> {c.account.name}</span>
+            </button>
+          ))}
+        </div>
+      ) : suggested && (
         <button type="button" className="acp-suggest" onClick={() => pick(suggested)}>
           <span className="acp-suggest-top">
             <span className="acp-suggest-tag">{t('ui.forslag')}</span>
