@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 .env
+# Alla varianter (.env.production, .env.vercel …) — bara mallen får in.
+.env.*
+!.env.example
 
 # Editor directories and files
 .vscode/*
