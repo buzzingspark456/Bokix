@@ -329,7 +329,7 @@ app.all('/api/admin', (req, res) => adminHandler(req, res))
 // formulär lade till ämnet 'Felrapport' i produktionsfilen, som den här
 // kopian aldrig hade fått reda på. Löst likadant: importerar och kör
 // produktionens handler direkt.
-app.post('/api/contact', (req, res) => contactHandler(req, res))
+app.all('/api/contact', (req, res) => contactHandler(req, res))
 app.all('/api/client-error', (req, res) => clientErrorHandler(req, res))
 app.all('/api/health', (req, res) => healthHandler(req, res))
 
