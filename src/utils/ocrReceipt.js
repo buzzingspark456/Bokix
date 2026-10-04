@@ -141,7 +141,9 @@ function stripNonAmounts(line) {
  */
 function amountsOnLine(line) {
   // "ATT BETALA ( 10 ARTIKLAR ) 193,75": antalet tas bort, beloppet är kvar.
-  line = String(line).replace(/\(?\s*\d{1,4}\s*(?:artiklar|artikel|items?|varor)\s*\S?\)?/gi, ' ');
+  // En ensam ")" läses ofta som "2" ("ARTIKLAR 2 193,78") och tas också bort,
+  // men aldrig en siffra som hör till beloppet ("15 varor 261.38").
+  line = String(line).replace(/\(?\s*\d{1,4}\s*(?:artiklar|artikel|items?|varor)\b(?:\s*[)\]}2](?=\s))?\)?/gi, ' ');
   if (NOT_AMOUNT_LINE_RE.test(line)) return [];
   const cleaned = stripNonAmounts(line);
   const strong = cleaned.match(MONEY_TOKEN_RE);
@@ -476,6 +478,80 @@ function documentBounds(canvas) {
   }
   if (inside === 0 || dark / inside < 0.02) return null;
   return { x0: x0 / w, y0: y0 / h, x1: x1 / w, y1: y1 / h, ratio };
+}
+
+/**
+ * Var i bilden ser det ut som text? Små mörka streck på ljust papper, tätt
+ * packade. Används när papperets kant inte gick att hitta, till exempel ett
+ * kvitto som hålls i handen över en matkasse (ICA-kvittot 2026-10-04): då
+ * tog utklippningen en ljus vägg i stället. Bilden delas i rutor, rutor med
+ * textliknande svärta slås ihop, och den största sammanhängande textytan
+ * vinner. Returnerar gränserna som andelar (0-1), eller null. Exporterad för
+ * testerna.
+ */
+export function textRegionFromGray(gray, w, h) {
+  // Lokalt medelvärde via integralbild.
+  const ii = new Float64Array((w + 1) * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let row = 0;
+    for (let x = 0; x < w; x++) { row += gray[y * w + x]; ii[(y + 1) * (w + 1) + x + 1] = ii[y * (w + 1) + x + 1] + row; }
+  }
+  const r = Math.max(3, Math.round(Math.min(w, h) / 80));
+  const mean = (x, y) => {
+    const x0 = Math.max(0, x - r), y0 = Math.max(0, y - r), x1 = Math.min(w, x + r + 1), y1 = Math.min(h, y + r + 1);
+    const sum = ii[y1 * (w + 1) + x1] - ii[y0 * (w + 1) + x1] - ii[y1 * (w + 1) + x0] + ii[y0 * (w + 1) + x0];
+    return sum / ((x1 - x0) * (y1 - y0));
+  };
+  const cell = Math.max(6, Math.round(Math.min(w, h) / 40));
+  const cw = Math.ceil(w / cell), ch = Math.ceil(h / cell);
+  const dens = new Float32Array(cw * ch);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const m = mean(x, y);
+      if (m > 140 && gray[y * w + x] < m - 28) dens[((y / cell) | 0) * cw + ((x / cell) | 0)]++;
+    }
+  }
+  const area = cell * cell;
+  const on = new Uint8Array(cw * ch);
+  for (let i = 0; i < on.length; i++) { const d = dens[i] / area; on[i] = d > 0.03 && d < 0.45 ? 1 : 0; }
+  // Rutor med text slås ihop med sina grannar (en rad i taget har luckor).
+  const grown = new Uint8Array(on.length);
+  for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+    if (!on[y * cw + x]) continue;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && ny >= 0 && nx < cw && ny < ch) grown[ny * cw + nx] = 1;
+    }
+  }
+  const seen = new Uint8Array(on.length);
+  let best = null;
+  for (let start = 0; start < on.length; start++) {
+    if (!grown[start] || seen[start]) continue;
+    const stack = [start]; seen[start] = 1;
+    let mass = 0, x0 = cw, y0 = ch, x1 = 0, y1 = 0;
+    while (stack.length) {
+      const i = stack.pop(); const x = i % cw, y = (i / cw) | 0;
+      if (on[i]) mass += dens[i];
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy; const j = ny * cw + nx;
+        if (nx >= 0 && ny >= 0 && nx < cw && ny < ch && grown[j] && !seen[j]) { seen[j] = 1; stack.push(j); }
+      }
+    }
+    if (!best || mass > best.mass) best = { mass, x0, y0, x1: x1 + 1, y1: y1 + 1 };
+  }
+  if (!best) return null;
+  const x0 = Math.max(0, best.x0 - 1) * cell / w, y0 = Math.max(0, best.y0 - 1) * cell / h;
+  const x1 = Math.min(cw, best.x1 + 1) * cell / w, y1 = Math.min(ch, best.y1 + 1) * cell / h;
+  const ratio = (Math.min(1, x1) - x0) * (Math.min(1, y1) - y0);
+  if (ratio > 0.85 || ratio < 0.01) return null;
+  return { x0, y0, x1: Math.min(1, x1), y1: Math.min(1, y1), ratio, ink: true };
+}
+
+function textRegionBounds(canvas) {
+  const { gray, w, h } = smallGray(canvas, 480);
+  if (w < 60 || h < 60) return null;
+  return textRegionFromGray(gray, w, h);
 }
 
 /**
@@ -937,6 +1013,78 @@ function tightenToInk(canvas, target) {
   return out;
 }
 
+/**
+ * Textens lutning i grader. Mörka punkter projiceras på rader för varje
+ * vinkel; vid rätt vinkel hamnar varje textrad i några få rader och summan av
+ * kvadraterna blir störst. Exporterad för testerna.
+ */
+export function estimateSkewFromGray(gray, w, h) {
+  // Bara textliknande streck räknas: mörkare än sin närmaste omgivning på ljust
+  // underlag. Kanter, skuggor och mönster i bakgrunden (en marmorskiva gav
+  // annars -30°) får inte styra.
+  const ii = new Float64Array((w + 1) * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let row = 0;
+    for (let x = 0; x < w; x++) { row += gray[y * w + x]; ii[(y + 1) * (w + 1) + x + 1] = ii[y * (w + 1) + x + 1] + row; }
+  }
+  const r = 4;
+  const pts = [];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const x0 = Math.max(0, x - r), y0 = Math.max(0, y - r), x1 = Math.min(w, x + r + 1), y1 = Math.min(h, y + r + 1);
+      const m = (ii[y1 * (w + 1) + x1] - ii[y0 * (w + 1) + x1] - ii[y1 * (w + 1) + x0] + ii[y0 * (w + 1) + x0]) / ((x1 - x0) * (y1 - y0));
+      if (m > 150 && gray[y * w + x] < m - 35) pts.push(x, y);
+    }
+  }
+  if (pts.length < 400) return 0;
+  const step = Math.max(1, Math.floor(pts.length / 2 / 6000));
+  const score = (deg) => {
+    const a = deg * Math.PI / 180; const s = Math.sin(a), c = Math.cos(a);
+    const off = w * Math.abs(s) + 2;
+    const bins = new Float32Array(Math.ceil(h + 2 * off + w));
+    for (let i = 0; i < pts.length; i += 2 * step) bins[Math.round(-pts[i] * s + pts[i + 1] * c + off)]++;
+    let sum = 0;
+    for (let i = 0; i < bins.length; i++) sum += bins[i] * bins[i];
+    return sum;
+  };
+  const flat = score(0);
+  let best = 0; let bestScore = flat;
+  for (let deg = -30; deg <= 30; deg += 1) { const v = score(deg); if (v > bestScore) { bestScore = v; best = deg; } }
+  for (let deg = best - 0.75; deg <= best + 0.75; deg += 0.25) { const v = score(deg); if (v > bestScore) { bestScore = v; best = deg; } }
+  // Ett svar vid sökområdets kant, eller ett som knappt slår rak text, är
+  // inte en tydlig lutning: då görs ingenting.
+  if (Math.abs(best) >= 28 || bestScore < flat * 1.15) return 0;
+  return best;
+}
+
+/**
+ * Rätar upp en snett fotad text (IKEA-kvittot 2026-10-04 låg 15° på sned).
+ * Tesseract läser rader, och en lutande rad läses som brus. Under 1,5° görs
+ * ingenting.
+ */
+function deskew(canvas) {
+  let deg = 0;
+  try {
+    const { gray, w, h } = smallGray(canvas, 400);
+    deg = estimateSkewFromGray(gray, w, h);
+  } catch { return canvas; }
+  if (Math.abs(deg) < 1.5) return canvas;
+  const a = deg * Math.PI / 180;
+  const W = canvas.width, H = canvas.height;
+  const nw = Math.round(W * Math.abs(Math.cos(a)) + H * Math.abs(Math.sin(a)));
+  const nh = Math.round(W * Math.abs(Math.sin(a)) + H * Math.abs(Math.cos(a)));
+  const out = document.createElement('canvas');
+  out.width = nw; out.height = nh;
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, nw, nh);
+  ctx.translate(nw / 2, nh / 2);
+  ctx.rotate(-a);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(canvas, -W / 2, -H / 2);
+  return out;
+}
+
 function renderStage(stage, target) {
   const { base, bounds, quad } = stage;
   // Gick kvittots form att hitta rätas papperet ut till en rak rektangel och
@@ -998,7 +1146,7 @@ function renderStage(stage, target) {
   } catch (err) {
     console.warn('[OCR] Kunde inte mäta bildkvaliteten:', err);
   }
-  return { source: enhanceCanvasForOcr(tightenToInk(canvas, target)), quality };
+  return { source: enhanceCanvasForOcr(tightenToInk(deskew(canvas), target)), quality };
 }
 
 /**
@@ -1259,10 +1407,25 @@ async function extractTextFromImage(imageSource, onProgress, { quad = null } = {
   onProgress?.('Läser av en gång till och jämför…');
   const second = renderStage(stage, CAREFUL_OCR_DIMENSION);
   const b = await recognizeWith(second.source, onProgress, { psm: '6', label: 'Läser av noggrant' });
-  const aFirst = readingScore(a) >= readingScore(b);
-  const best = aFirst ? a : b;
-  const other = aFirst ? b : a;
-  const quality = aFirst ? first.quality : second.quality;
+  let readings = [{ r: a, quality: first.quality }, { r: b, quality: second.quality }];
+  // Gav ingen av läsningarna ett belopp att lita på kan utklippningen ha tagit
+  // fel del av bilden (en ljus vägg i stället för kvittot). Då provas andra
+  // utklipp: där bilden ser ut som text, och hela bilden. Den som ger ett
+  // kvitto vinner, precis som en människa letar tills hon hittar texten.
+  if (!quad && Math.max(readingScore(a), readingScore(b)) < 3) {
+    const alternatives = [];
+    try { const t = textRegionBounds(stage.base); if (t) alternatives.push({ ...stage, quad: null, bounds: t }); } catch { /* hoppa över */ }
+    alternatives.push({ ...stage, quad: null, bounds: null });
+    for (const alt of alternatives) {
+      onProgress?.('Letar efter kvittot i bilden…');
+      const rendered = renderStage(alt, CAREFUL_OCR_DIMENSION);
+      readings.push({ r: await recognizeWith(rendered.source, onProgress, { label: 'Letar efter kvittot' }), quality: rendered.quality });
+    }
+  }
+  readings = readings.map(x => ({ ...x, score: readingScore(x.r) })).sort((x, y) => y.score - x.score);
+  const best = readings[0].r;
+  const other = readings[1].r;
+  const quality = readings[0].quality;
   const doubtful = await rereadDate(best);
   let logo = null;
   try { logo = await readLogo(best.source); } catch { logo = null; }
@@ -1623,11 +1786,13 @@ const NUMBER_KINDS = [
   { kind: 'bokning', label: 'Bokningsnummer', re: /boknings\s*-?\s*(?:nr|nummer|id|referens|ref)\.?|booking\s*-?\s*(?:no|nr|number|id|ref|reference)\.?/i },
   { kind: 'transaktion', label: 'Transaktionsnummer', re: /transaktions\s*-?\s*(?:nr|nummer|id|referens|ref)\.?|transaction\s*-?\s*(?:no|nr|number|id|ref|reference)\.?/i },
   { kind: 'bon', label: 'Bonnummer', re: /bon\s*-?\s*(?:nr|nummer)\.?|nota\s*-?\s*(?:nr|nummer)?\.?|k[oö]p\s*-?\s*(?:nr|nummer|id)\.?/i },
+  // ICA: 'Kassa: 03 Nr: 5790'. Ett ensamt Nr med kolon är kvittots nummer.
+  { kind: 'kvitto', label: 'Kvittonummer', re: /(?<![A-Za-zÅÄÖåäö.])nr(?=\s*:)/ },
   { kind: 'referens', label: 'Referensnummer', re: /referens\s*-?\s*(?:nr|nummer)?\.?|reference\s*-?\s*(?:no|nr|number)\.?|ref\.?\s*-?\s*(?:nr|nummer|no)\.?/i },
 ];
 // Kortterminalens rader (Anbud, referens, MID, TID, Streckkod) innehåller långa
 // koder som ser ut som nummer men aldrig är kvittots eget: de hoppas över.
-const NOT_A_NUMBER_LINE_RE = /org\.?\s*nr|orgnr|\btel\b|telefon|phone|moms(?:reg)?\.?\s*nr|vat\s*(?:no|nr|number|id)|kund\s*-?\s*(?:nr|nummer)|customer\s*(?:no|nr|number|id)|personnummer|bankgiro|plusgiro|\biban\b|\banbud\b|streckkod|\bmid\b|\bptid\b|\btid\b|terminal|korttyp/i;
+const NOT_A_NUMBER_LINE_RE = /org\.?\s*nr|orgnr|\btel\b|telefon|phone|moms(?:reg)?\.?\s*nr|vat\s*(?:no|nr|number|id)|kund\s*-?\s*(?:nr|nummer)|customer\s*(?:no|nr|number|id)|personnummer|bankgiro|plusgiro|\biban\b|\banbud\b|streckkod|\bmid\b|\bptid\b|\btid\b(?!\s*:?\s*\d{1,2}[:.]\d{2})|terminal|korttyp/i;
 const NUMBER_TOKEN = '([A-Za-z0-9#][A-Za-z0-9\\-/]{2,29})';
 // Efter numret får inte en valuta, en enhet eller ett procenttecken följa:
 // "Order 250 kr" är ett belopp, inte ett ordernummer.
@@ -1657,6 +1822,28 @@ const FUZZY_LABEL_WORDS = ['ordernummer', 'fakturanummer', 'kvittonummer', 'best
 // Tecken som OCR förväxlar: kostar ingenting att byta mot varandra.
 const OCR_LOOKALIKES = { '0': 'o', '1': 'l', 'i': 'l', '5': 's', '8': 'b', '6': 'g' };
 const fold = (ch) => OCR_LOOKALIKES[ch] || ch;
+
+// Ord som bara en kedja skriver på sina kvitton. Matchas tåligt mot
+// felläsning (en bokstav fel per sex tecken).
+const CHAIN_FINGERPRINTS = [
+  { chain: 'ICA', words: ['bonusgrundande', 'stammiskort', 'ica-kort', 'supermarket', 'kvantum'] },
+  { chain: 'Coop', words: ['poänggrundande', 'poanggrundande', 'medmera', 'coop-appen'] },
+  { chain: 'Willys', words: ['willys'] },
+  { chain: 'Hemköp', words: ['hemköpskortet', 'hemkopskortet'] },
+  { chain: 'Lidl', words: ['lidl'] },
+];
+
+/** Kedjan som kvittots egna ord pekar på, eller null. Exporterad för testerna. */
+export function chainFromFingerprint(text) {
+  const words = String(text || '').toLowerCase().split(/[^a-zåäö-]+/).filter(w => w.length >= 5);
+  for (const { chain, words: marks } of CHAIN_FINGERPRINTS) {
+    for (const mark of marks) {
+      const limit = mark.length >= 10 ? 2 : Math.floor(mark.length / 6);
+      if (words.some(w => Math.abs(w.length - mark.length) <= limit && labelDistance(w, mark, limit) <= limit)) return chain;
+    }
+  }
+  return null;
+}
 
 function labelDistance(word, target, limit) {
   if (Math.abs(word.length - target.length) > limit) return limit + 1;
@@ -1802,9 +1989,15 @@ function findLabelledNumber(list) {
         // Numret delat av ett mellanslag ("Kvitto 21901 384216"): OCR har
         // klyvt ett långt nummer, ofta för att en siffra lästes fel. Bitarna
         // hör ihop, men numret är inte säkert och ska kontrolleras.
-        const rest = line.slice(m.index + m[0].length).match(/^\s+(\d{3,})\s*$/);
+        const after = line.slice(m.index + m[0].length);
+        const rest = after.match(/^\s+(\d{3,})\s*$/);
         if (rest && /^\d+$/.test(inlineNumber)) {
           return { number: inlineNumber + rest[1], kind, label, uncertain: true };
+        }
+        // Ett tecken som ¢, € eller § direkt efter ett långt nummer är oftast en
+        // felläst sista siffra ("219010088421¢" för …4216): Kontrollera.
+        if (/^\d{6,}$/.test(inlineNumber) && /^[¢€£$§©®¥]/.test(after)) {
+          return { number: inlineNumber, kind, label, uncertain: true };
         }
         return { number: inlineNumber, kind, label };
       }
@@ -2091,7 +2284,7 @@ const NET_LINE_RE = /exkl\.?\s*moms|excl\.?\s*(?:vat|tax)|netto|f[öo]re moms|be
 // Rader som står på varje kvitto från butiken oavsett vad som köptes: villkor,
 // öppettider, kontrolluppgifter och kontaktvägar. De får inte styra vilket
 // konto som föreslås — se keywordText i parseReceiptText.
-const BOILERPLATE_LINE_RE = /[öo]ppet k[öo]p|bytesr[äa]tt|reklamation|villkor|garanti|spara kvittot|kundens ex|v[äa]lkommen|[öo]ppettider|www\.|kontrollkod|kontrollenhe|\btel\.?\s*nr\b|telnr|telefon\s*:|org\.?\s*nr|f[öo]rpackning|hygienartiklar/i;
+const BOILERPLATE_LINE_RE = /[öo]ppet k[öo]p|bytesr[äa]tt|reklamat|villkor|garanti|spara kvittot|kundens ex|v[äa]lkommen|[öo]ppettider|www\.|kontrollkod|kontrollenhe|\btel\.?\s*nr\b|telnr|telefon\s*:|org\.?\s*nr|f[öo]rpackning|hygienartiklar/i;
 
 // Hur det betalades, ur texten på kvittot. En uttrycklig rad ("Betalningssätt:
 // Swish", "Payment method: Card") väger tyngre än ett lösryckt ord någon
@@ -2123,7 +2316,13 @@ export function detectPaymentMethod(text, { isInvoice = false } = {}) {
   }
   // En faktura utan uttrycklig betalrad är ännu obetald. Lösa ord som
   // "kort" i löptexten på en faktura säger inget om hur den betalades.
-  if (isInvoice) return { method: 'invoice', explicit: false };
+  // En "Tax invoice" från en kassa som visar kortbetalning eller kontanter
+  // med växel är redan betald (IKEA-kvittot: CASH 1.000,00, CHANGE DUE).
+  if (isInvoice) {
+    if (CARD_TERMINAL_RE.test(source)) return { method: 'card', explicit: false };
+    if (/\b(?:cash|kontant)\b[^\n]*\d|change due|v[äa]xel\b/i.test(source)) return { method: 'cash', explicit: false };
+    return { method: 'invoice', explicit: false };
+  }
   const any = classify(source);
   if (any) return { method: any, explicit: false };
   if (CARD_TERMINAL_RE.test(source)) return { method: 'card', explicit: false };
@@ -2381,6 +2580,17 @@ function flagConflictingTotals(lines, result) {
   return conflict ? { ...result, amountGuessed: true, amountConflict: true } : result;
 }
 
+/**
+ * Ett heltal som belopp ("Total … 4") på ett kvitto där alla priser står med
+ * ören är troligen ett felläst brottstycke. Det märks Kontrollera.
+ */
+function flagSuspiciousInteger(lines, result) {
+  if (!result.amount || result.amountVerified || result.amountGuessed || !Number.isInteger(result.amount)) return result;
+  const decimals = lines.reduce((n, l) => n + (String(l).match(/\d[.,]\d{2}\b/g) || []).length, 0);
+  const written = lines.some(l => String(l).includes(String(result.amount) + ',00') || String(l).includes(String(result.amount) + '.00'));
+  return decimals >= 3 && !written ? { ...result, amountGuessed: true } : result;
+}
+
 function reconcileWithVatTable(lines, result) {
   if (result.currency || result.reverseCharge || result.creditNote) return result;
   const triples = vatTableTriples(lines);
@@ -2389,8 +2599,17 @@ function reconcileWithVatTable(lines, result) {
   // momskontrollen; här gäller en tabell med en sats.
   const rates = new Set(triples.map(t => t.rate));
   if (rates.size !== 1) return flagConflictingTotals(lines, result);
+  // Momstabellen har rader för flera satser ("12,00 …" och "25,00 …") men bara
+  // en av dem gick att läsa: den raden är inte hela totalen.
+  const rateRows = new Set(lines.map(l => (l.match(/(?:^|[\s|/>-])(25|12|6)(?:[.,]00)?\s*%?\s+\d+[.,]\d{2}/) || [])[1]).filter(Boolean));
+  if (rateRows.size > 1) return flagConflictingTotals(lines, result);
   const t = triples[0];
   const amount = result.amount;
+  // En rad ur en momstabell med flera satser (25 %: 6,40 + 1,60 = 8,00) är
+  // bara en del av totalen. Står ett större belopp på en totalrad gäller inte
+  // raden som facit.
+  const totalLineValues = lines.filter(l => /att betala|totalt?|summa|kortk[öo]p|belopp|amount|brutto/i.test(l)).flatMap(l => amountsOnLine(l));
+  if (totalLineValues.some(v => v > t.gross * 1.1 + 1)) return flagConflictingTotals(lines, result);
   if (amount && Math.abs(amount - t.gross) < 0.005) {
     if (result.amountVerified && result.vatVerified) return result;
     return { ...result, amountVerified: true, amountGuessed: false, vatRate: t.rate, vatRateGuessed: false, vatAmount: t.vat, vatVerified: true, vatMismatch: false, vatRates: null };
@@ -2562,7 +2781,8 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
       if (isRealDate(value)) dateCandidates.push({ date: value, raw, lineIndex, due: DUE_DATE_LINE_RE.test(line), labelled });
     };
     // YYYY-MM-DD eller YYYY/MM/DD eller YYYY.MM.DD
-    const m1 = line.match(/\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b/);
+    // Det andra skiljetecknet kan ha lästs som ett mellanslag ("2022-09 16").
+    const m1 = line.match(/\b(20\d{2})[-/.](\d{1,2})(?:[-/.]|\s)(\d{1,2})\b(?![.,]\d)/);
     if (m1) {
       const iso = `${m1[1]}-${m1[2].padStart(2, '0')}-${m1[3].padStart(2, '0')}`;
       if (isRealDate(iso)) {
@@ -2681,6 +2901,18 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     }
   }
 
+  // Avrundning: "Totalt 15 varor 261,38 / Avrundning 0,12 / Totalt 261,50".
+  // Det som betalades är totalen EFTER avrundningsraden.
+  const roundingIndex = lines.findIndex(l => /avrundning|[öo]resavrundning|rounding/i.test(l));
+  if (amount && roundingIndex >= 0) {
+    for (const line of lines.slice(roundingIndex + 1)) {
+      if (primaryAmountKeywords.test(line) && !isNotTotalLine(line)) {
+        const parsed = lastAmountOnLine(line);
+        if (parsed !== null) { amount = parsed; amountLine = line; break; }
+      }
+    }
+  }
+
   // 2. Om inget primärt hittades, prova sekundära nyckelord
   if (!amount) {
     for (const line of lines) {
@@ -2752,7 +2984,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     const explicitSek = /\bsek\b|\bkr\b|:-/i.test(amountLine);
     // Ett ensamt valutatecken på ett svenskt kassakvitto är OCR-brus, inte
     // en valuta. En uttrycklig kod (USD, EUR …) gäller alltid.
-    const symbolCounts = !(swedishReceipt && !/\b(USD|GBP|EUR|NOK|DKK|CHF|JPY|CNY|RMB|CAD|AUD)\b/i.test(text));
+    const symbolCounts = !(swedishReceipt && !/\b(USD|GBP|EUR|NOK|DKK|CHF|JPY|CNY|RMB|CAD|AUD|PLN|CZK|HUF|ISK|TRY|THB|MYR|SGD|HKD|INR|NZD|ZAR)\b/i.test(text));
     if (!explicitSek) {
       if (symbolCounts && /\$/.test(amountLine)) currency = 'USD';
       else if (symbolCounts && /£/.test(amountLine)) currency = 'GBP';
@@ -2764,7 +2996,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
       else if (symbolCounts && /元/.test(amountLine)) currency = 'CNY';
       else if (symbolCounts && /¥/.test(amountLine)) currency = 'JPY';
       else {
-        const codeMatch = amountLine.match(/\b(USD|GBP|EUR|NOK|DKK|CHF|JPY|CNY|RMB|CAD|AUD)\b/i);
+        const codeMatch = amountLine.match(/\b(USD|GBP|EUR|NOK|DKK|CHF|JPY|CNY|RMB|CAD|AUD|PLN|CZK|HUF|ISK|TRY|THB|MYR|SGD|HKD|INR|NZD|ZAR)\b/i);
         if (codeMatch) {
           const code = codeMatch[1].toUpperCase();
           // RMB ("renminbi") är det vardagliga namnet, CNY är ISO-koden
@@ -2783,8 +3015,10 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     if (/\bUSD\b|US\$|\$/.test(text)) currency = 'USD';
     else if (/\bGBP\b|£/.test(text)) currency = 'GBP';
     else if (/\bEUR\b|€/.test(text)) currency = 'EUR';
+    // RM (Malaysia) skrivs ofta "RM 60.00" eller "Amount(RM)".
+    else if (/\bMYR\b|\bRM\b|\(RM\)/.test(text)) currency = 'MYR';
     else {
-      const codeAnywhere = text.match(/\b(NOK|DKK|CHF|JPY|CNY|RMB|CAD|AUD)\b/);
+      const codeAnywhere = text.match(/\b(NOK|DKK|CHF|JPY|CNY|RMB|CAD|AUD|PLN|CZK|HUF|ISK|TRY|THB|SGD|HKD|INR|NZD|ZAR)\b/);
       if (codeAnywhere) currency = codeAnywhere[1] === 'RMB' ? 'CNY' : codeAnywhere[1];
     }
   }
@@ -2833,6 +3067,23 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   // Ingen känd kedja: leta upp den BÄSTA raden i dokumentets huvud, inte den
   // första. Det är en gissning (supplierMatched förblir false med flit), men
   // den ska åtminstone vara rätt stavad.
+  // Kedjans kännetecken i texten, när logotypen inte gick att läsa: ord som
+  // bara en kedja skriver på sina kvitton ("Bonusgrundande belopp" är ICA,
+  // "Poänggrundande" och MedMera är Coop, "Willys Plus" är Willys).
+  if (!supplier) {
+    const chain = chainFromFingerprint(text);
+    if (chain) {
+      const known = KNOWN_SUPPLIERS.find(s => s.name === chain);
+      supplier = chain;
+      supplierMatched = true;
+      if (known) {
+        accountCode = known.account;
+        accountChoices = known.choices || null;
+        if (known.vat !== undefined) vatRate = known.vat;
+      }
+    }
+  }
+
   if (!supplier) supplier = pickSupplierName(lines);
 
   // ── 4. Momssats ──────────────────────────────────────────────────────────
@@ -2978,7 +3229,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   }
   const numberFound = findReceiptNumberDetailed(lines);
 
-  return reconcileWithVatTable(lines, {
+  return flagSuspiciousInteger(lines, reconcileWithVatTable(lines, {
     date, dateGuessed, dateText, amount, amountGuessed: amountVerified ? false : amountGuessed, amountVerified, vatRate,
     vatRateGuessed: vatCheck.verified ? false : (vatRateGuessed || vatCheck.mismatch),
     vatAmount: vatCheck.vatAmount, vatVerified: vatCheck.verified, vatMismatch: vatCheck.mismatch,
@@ -2993,5 +3244,5 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     notReceipt: false, documentKind: doc.isInvoice ? 'invoice' : 'receipt',
     paymentMethod: detectPaymentMethod(text, { isInvoice: doc.isInvoice }).method,
     reverseCharge, reverseChargeUnclear,
-  });
+  }));
 }

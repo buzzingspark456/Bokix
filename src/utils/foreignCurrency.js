@@ -7,7 +7,8 @@
  * man kan ange det belopp banken faktiskt drog.
  */
 
-export const CURRENCIES = ['USD', 'EUR', 'GBP', 'NOK', 'DKK', 'CHF', 'JPY', 'CNY', 'CAD', 'AUD'];
+// Valutor som Europeiska centralbanken har dagskurs för (utils/currencyConversion.js).
+export const CURRENCIES = ['USD', 'EUR', 'GBP', 'NOK', 'DKK', 'CHF', 'JPY', 'CNY', 'CAD', 'AUD', 'PLN', 'CZK', 'HUF', 'ISK', 'TRY', 'THB', 'MYR', 'SGD', 'HKD', 'INR', 'NZD', 'ZAR'];
 
 const round2 = (v) => Math.round(v * 100) / 100;
 

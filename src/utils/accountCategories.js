@@ -190,7 +190,7 @@ export const ACCOUNT_KEYWORD_RULES = [
   { re: /representation|gåva|present/, code: '6072' },
   // RÄTTAT: låg på 6100 ("Kontorsmateriel och trycksaker") — 5910
   // "Annonsering" är rätt hylla för reklam/annonser.
-  { re: /reklam|annons|marknadsföring|facebook ads|google ads/, code: '5910' },
+  { re: /reklam(?!at)|annons|marknadsföring|facebook ads|google ads/, code: '5910' },
   // UPPGRADERAT: 5000 är gruppkontot "Lokalkostnader", 5020 "El" är
   // exakt raden för en elräkning.
   { re: /elräkning|elnät|vattenfall|e\.on|fortum/, code: '5020' },
