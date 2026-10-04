@@ -118,7 +118,7 @@ const BALANCE_EPSILON = 0.01;
 // ska generera en varning, annars skulle varenda verklig, fullständig
 // SIE4-fil dränka förhandsgranskningen i varningar för helt normala rader.
 const KNOWN_UNHANDLED_TAGS = new Set([
-  '#FLAGGA', '#PROSA', '#FTYP', '#FNR', '#ADRESS', '#TAXAR', '#KPTYP',
+  '#FLAGGA', '#PROSA', '#FNR', '#ADRESS', '#TAXAR', '#KPTYP',
   '#VALUTA', '#KTYP', '#ENHET', '#SRU', '#DIM', '#UNDERDIM', '#OBJEKT',
   '#OIB', '#OUB', '#PSALDO', '#PBUDGET', '#RTRANS', '#BTRANS', '#KSUMMA',
 ]);
@@ -132,7 +132,7 @@ export function parseSieFile(arrayBuffer) {
   const text = decodeSieBuffer(arrayBuffer);
   const records = parseLines(text);
 
-  const meta = { program: null, format: null, sieType: null, companyName: null, orgNr: null, generatedDate: null };
+  const meta = { program: null, format: null, sieType: null, companyName: null, orgNr: null, generatedDate: null, companyType: null };
   const fiscalYears = [];
   const accountsByCode = new Map();
   const verifications = [];
@@ -161,6 +161,11 @@ export function parseSieFile(arrayBuffer) {
       }
       case '#GEN':
         meta.generatedDate = sieDateToIso(rec.tokens[0]);
+        break;
+      // Företagsform (AB, E, HB, KB, EK …): avgör vilket eget kapital-konto
+      // en skillnad i ingående balans hör hemma på (sieImportCheck.js).
+      case '#FTYP':
+        meta.companyType = (rec.tokens[0] || '').toUpperCase() || null;
         break;
       case '#RAR': {
         const index = Number.parseInt(rec.tokens[0], 10);

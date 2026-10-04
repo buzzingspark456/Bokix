@@ -5,6 +5,7 @@ import { AccountSearch } from './shared/SearchInputs';
 import { ProgramLogo } from './shared/BrandLogos';
 import { MIGRATION_SOURCES, OTHER_PROGRAM_HINT, MENU_MOVED_HINT } from '../utils/migrationSources';
 import { t } from '../i18n';
+import { checkSieImport, applySieFixes } from '../utils/sieImportCheck';
 
 // ── SIE4-import — ladda upp fil → kontomappning → förhandsgranskning →
 // commit. Samma fyrstegsstruktur (modal-overlay/-content/-footer, steg-
@@ -45,6 +46,9 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
   const [fileName, setFileName] = useState('');
   const [parsed, setParsed] = useState(null); // parseSieFile()-resultatet
   const [accountRows, setAccountRows] = useState([]); // kontomappningens arbetsstate
+  // Rättelser användaren valt i förhandsgranskningen (sieImportCheck.js):
+  // { bookOpeningDifference, roundOff, skipUnbalanced }.
+  const [fixes, setFixes] = useState({});
 
   const loadSieModule = async () => {
     if (sieMod) return sieMod;
@@ -67,6 +71,7 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
       }
       setFileName(file.name);
       setParsed(result);
+      setFixes({});
       // Bygg kontomappningens arbetsrader — en per importerat konto,
       // jämfört mot det här företagets BEFINTLIGA kontoplan. Aldrig en
       // blind 1:1-matchning: varje avvikelse (namn skiljer sig, eller
@@ -129,21 +134,30 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
       openingVerification.rows = openingVerification.rows.map(r => ({ ...r, account: remapAccount(r.account) }));
     }
 
-    const allToCommit = openingVerification ? [...importVerifications, openingVerification] : importVerifications;
-    const unbalanced = allToCommit.filter(v => v.balanced === false);
+    // Vad som inte går ihop, och de rättelser användaren valt.
+    const check = checkSieImport({ opening: openingVerification, verifications: importVerifications, companyType: parsed.meta?.companyType, accountsByCode });
+    const fixed = applySieFixes({ opening: openingVerification, verifications: importVerifications }, check, fixes);
+    // Det som fortfarande stoppar importen.
+    const blocking = {
+      opening: Boolean(check.opening && (!fixes.bookOpeningDifference || check.opening.cause === 'result_accounts')),
+      rounding: Boolean(check.rounding && !fixes.roundOff),
+      unbalanced: Boolean(check.unbalanced && !fixes.skipUnbalanced),
+    };
     const dupTag = fingerprintFile({ name: fileName }, parsed.meta);
     const alreadyImported = verifications.some(v => (v.sourceId || '').startsWith(dupTag));
 
     return {
       accountsToAdd,
-      verificationsToImport: importVerifications,
-      openingVerification,
-      unbalanced,
+      verificationsToImport: fixed.verifications,
+      openingVerification: fixed.opening,
+      check,
+      blocking,
+      blocked: blocking.opening || blocking.rounding || blocking.unbalanced,
       warnings: parsed.warnings,
       alreadyImported,
       sourceTag: dupTag,
     };
-  }, [parsed, mappingResult, accounts, sieMod, fileName, verifications]);
+  }, [parsed, mappingResult, accounts, sieMod, fileName, verifications, fixes]);
 
   const handleCommit = () => {
     if (!preview) return;
@@ -160,7 +174,7 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
   };
 
   const hasIncompleteMapping = accountRows.some(r => !r.add && r.status === 'new' && !r.remapTo);
-  const canCommit = !!preview && preview.verificationsToImport.length + (preview.openingVerification ? 1 : 0) > 0 && preview.unbalanced.length === 0 && !hasIncompleteMapping;
+  const canCommit = !!preview && preview.verificationsToImport.length + (preview.openingVerification ? 1 : 0) > 0 && !preview.blocked && !hasIncompleteMapping;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -216,7 +230,7 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
         )}
 
         {step === 3 && preview && (
-          <SiePreviewStep preview={preview} meta={parsed?.meta} />
+          <SiePreviewStep preview={preview} meta={parsed?.meta} fixes={fixes} setFixes={setFixes} onReupload={() => setStep(1)} />
         )}
 
         <div className="modal-footer">
@@ -229,7 +243,7 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
             </button>
           )}
           {step === 3 && (
-            <button disabled={busy || !canCommit} onClick={handleCommit} style={{ padding: '9px 18px', background: canCommit ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: (busy || !canCommit) ? 'not-allowed' : 'pointer' }}>
+            <button disabled={busy || !canCommit} onClick={handleCommit} style={{ padding: '9px 18px', background: canCommit ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: (busy || !canCommit) ? 'not-allowed' : 'pointer', opacity: canCommit ? 1 : 0.5 }}>
               {t('ui.importera')} {preview.verificationsToImport.length + (preview.openingVerification ? 1 : 0)} {t('ui.verifikationer')}
             </button>
           )}
@@ -400,8 +414,57 @@ function AccountMappingStep({ rows, setRows, existingAccounts }) {
   );
 }
 
-function SiePreviewStep({ preview, meta }) {
-  const { accountsToAdd, verificationsToImport, openingVerification, unbalanced, warnings, alreadyImported } = preview;
+const fmtKr = (v) => `${new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(Number(v) || 0))} kr`;
+
+// Ett problem i filen: vad, varför, siffrorna, vad man gör, och knapparna.
+function ProblemCard({ tone = 'red', title, children, steps, actions }) {
+  const bg = tone === 'red' ? 'var(--status-red-bg)' : 'var(--status-amber-bg)';
+  const fg = tone === 'red' ? 'var(--status-red-text)' : 'var(--status-amber-text)';
+  return (
+    <div style={{ background: bg, color: fg, borderRadius: '10px', padding: '14px 16px', marginBottom: '12px', fontSize: '13px', lineHeight: 1.55 }}>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontWeight: 700 }}>
+        <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 2 }} />
+        <span>{title}</span>
+      </div>
+      <div style={{ paddingLeft: '23px' }}>
+        {children}
+        {steps?.length > 0 && (
+          <>
+            <div style={{ fontWeight: 700, marginTop: '10px' }}>{t('ui.sie_sa_rattar_du')}</div>
+            <ol style={{ margin: '4px 0 0', paddingLeft: '18px' }}>
+              {steps.map((st, i) => <li key={i}>{st}</li>)}
+            </ol>
+          </>
+        )}
+        {actions && <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' }}>{actions}</div>}
+      </div>
+    </div>
+  );
+}
+
+const primaryBtn = { padding: '8px 14px', background: 'var(--text-main)', color: 'var(--bg-card)', border: 'none', borderRadius: '8px', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' };
+const secondaryBtn = { padding: '8px 14px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
+
+// Ett val som är gjort: grön rad med möjlighet att ångra.
+function ChosenFix({ text, onUndo }) {
+  return (
+    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', borderRadius: '10px', padding: '10px 14px', marginBottom: '12px', fontSize: '12.5px' }}>
+      <CheckCircle2 size={15} style={{ flexShrink: 0 }} />
+      <span style={{ flex: 1 }}>{text}</span>
+      <button type="button" onClick={onUndo} style={{ background: 'none', border: 'none', color: 'inherit', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit', fontSize: '12.5px' }}>{t('ui.sie_angra')}</button>
+    </div>
+  );
+}
+
+function SiePreviewStep({ preview, meta, fixes = {}, setFixes, onReupload }) {
+  const { accountsToAdd, verificationsToImport, openingVerification, check, warnings, alreadyImported } = preview;
+  // "Visma eEkonomi 2025.3" → "Visma eEkonomi": versionen säger inget i en instruktion.
+  const program = (meta?.program || '').replace(/\s+v?\d[\d.]*$/i, '').trim() || t('ui.sie_ditt_gamla_program');
+  const plural = (n, one, many) => t(n === 1 ? one : many, { n });
+  // Parserns rader om verifikationer som inte balanserar visas i korten ovan.
+  const otherWarnings = warnings.filter(w => !/balanserar inte/.test(w));
+  const setFix = (key, value) => setFixes?.(f => ({ ...f, [key]: value }));
+  const reupload = <button type="button" onClick={onReupload} style={primaryBtn}>{t('ui.sie_ladda_upp_ny_fil')}</button>;
   const allRows = openingVerification ? [...verificationsToImport, openingVerification] : verificationsToImport;
 
   return (
@@ -417,21 +480,80 @@ function SiePreviewStep({ preview, meta }) {
         </div>
       )}
 
-      {unbalanced.length > 0 && (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px', fontSize: '12.5px' }}>
-          <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span>{unbalanced.length} {t('ui.verifikation_er_balanserar_inte_debet_kredit_imp')}</span>
-        </div>
-      )}
+      {check?.opening && (fixes.bookOpeningDifference && check.opening.cause !== 'result_accounts' ? (
+        <ChosenFix
+          text={t('ui.sie_skillnad_bokas', { amount: fmtKr(check.opening.diff), code: check.opening.equity.code, name: check.opening.equity.name })}
+          onUndo={() => setFix('bookOpeningDifference', false)}
+        />
+      ) : (
+        <ProblemCard
+          title={t('ui.sie_ib_skiljer', { amount: fmtKr(check.opening.diff) })}
+          steps={check.opening.cause === 'result_accounts'
+            ? [t('ui.sie_steg_ratt_ar', { program }), t('ui.sie_steg_ladda_upp')]
+            : [t('ui.sie_steg_stang_aret', { program }), t('ui.sie_steg_exportera', { program }), t('ui.sie_steg_ladda_upp')]}
+          actions={<>
+            {reupload}
+            {check.opening.cause !== 'result_accounts' && (
+              <button type="button" onClick={() => setFix('bookOpeningDifference', true)} style={secondaryBtn}>
+                {t('ui.sie_boka_skillnaden', { code: check.opening.equity.code })}
+              </button>
+            )}
+          </>}
+        >
+          <div style={{ marginTop: '4px' }}>
+            {check.opening.cause === 'result_accounts'
+              ? t('ui.sie_orsak_resultatkonton', { accounts: check.opening.resultAccounts.slice(0, 6).join(', ') })
+              : t('ui.sie_orsak_ej_avslutat', { program })}
+          </div>
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '8px', fontSize: '12.5px' }}>
+            <span>{t('ui.sie_debet_totalt')} <strong>{fmtKr(check.opening.debet)}</strong></span>
+            <span>{t('ui.sie_kredit_totalt')} <strong>{fmtKr(check.opening.kredit)}</strong></span>
+            <span>{t('ui.sie_skillnad')} <strong>{fmtKr(check.opening.diff)}</strong></span>
+          </div>
+        </ProblemCard>
+      ))}
+
+      {check?.rounding && (fixes.roundOff ? (
+        <ChosenFix text={plural(check.rounding.length, 'ui.sie_avrundning_vald_1', 'ui.sie_avrundning_vald')} onUndo={() => setFix('roundOff', false)} />
+      ) : (
+        <ProblemCard
+          tone="amber"
+          title={plural(check.rounding.length, 'ui.sie_avrundning_rubrik_1', 'ui.sie_avrundning_rubrik')}
+          actions={<button type="button" onClick={() => setFix('roundOff', true)} style={primaryBtn}>{t('ui.sie_lagg_till_avrundning')}</button>}
+        >
+          <div style={{ marginTop: '4px' }}>{t('ui.sie_avrundning_text', { program })}</div>
+          <div style={{ marginTop: '6px', fontSize: '12px' }}>{check.rounding.slice(0, 8).map(r => `${r.label} (${fmtKr(r.diff)})`).join(' · ')}{check.rounding.length > 8 ? ' …' : ''}</div>
+        </ProblemCard>
+      ))}
+
+      {check?.unbalanced && (fixes.skipUnbalanced ? (
+        <ChosenFix text={plural(check.unbalanced.length, 'ui.sie_hoppar_over_1', 'ui.sie_hoppar_over')} onUndo={() => setFix('skipUnbalanced', false)} />
+      ) : (
+        <ProblemCard
+          title={plural(check.unbalanced.length, 'ui.sie_ver_skiljer_rubrik_1', 'ui.sie_ver_skiljer_rubrik')}
+          steps={[t('ui.sie_steg_ratta_ver', { program }), t('ui.sie_steg_exportera', { program }), t('ui.sie_steg_ladda_upp')]}
+          actions={<>
+            {reupload}
+            <button type="button" onClick={() => setFix('skipUnbalanced', true)} style={secondaryBtn}>{t('ui.sie_hoppa_over')}</button>
+          </>}
+        >
+          <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '12.5px' }}>
+            {check.unbalanced.slice(0, 8).map(r => (
+              <span key={r.index}><strong>{r.label}</strong> {r.date} · {r.description} · {t('ui.sie_skiljer', { amount: fmtKr(r.diff) })}</span>
+            ))}
+            {check.unbalanced.length > 8 && <span>+ {check.unbalanced.length - 8} {t('ui.till')}</span>}
+          </div>
+        </ProblemCard>
+      ))}
 
       <div style={{ display: 'flex', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', fontWeight: 700 }}>{accountsToAdd.length} {t('ui.nya_konton')}</span>
         <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', fontWeight: 700 }}>{verificationsToImport.length} {t('ui.verifikationer')}</span>
-        {openingVerification && <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: openingVerification.balanced ? 'var(--status-green-bg)' : 'var(--status-red-bg)', color: openingVerification.balanced ? 'var(--status-green-text)' : 'var(--status-red-text)', fontWeight: 700 }}>{t('ui.n1_ingaende_balans_verifikation')}</span>}
-        {warnings.length > 0 && <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', fontWeight: 700 }}>{warnings.length} {t('ui.varningar')}</span>}
+        {openingVerification && <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: openingVerification.balanced !== false ? 'var(--status-green-bg)' : 'var(--status-red-bg)', color: openingVerification.balanced !== false ? 'var(--status-green-text)' : 'var(--status-red-text)', fontWeight: 700 }}>{t('ui.n1_ingaende_balans_verifikation')}</span>}
+        {otherWarnings.length > 0 && <span style={{ fontSize: '12.5px', padding: '4px 10px', borderRadius: '999px', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', fontWeight: 700 }}>{otherWarnings.length} {t('ui.varningar')}</span>}
       </div>
 
-      <div style={{ maxHeight: '280px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '8px', marginBottom: warnings.length ? '12px' : 0 }}>
+      <div style={{ maxHeight: '280px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '8px', marginBottom: otherWarnings.length ? '12px' : 0 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
           <thead>
             <tr style={{ background: 'var(--bg-muted)', position: 'sticky', top: 0 }}>
@@ -453,10 +575,10 @@ function SiePreviewStep({ preview, meta }) {
         {allRows.length > 200 && <div style={{ padding: '8px 10px', fontSize: '12px', color: 'var(--text-muted)' }}>+ {allRows.length - 200} {t('ui.till')}</div>}
       </div>
 
-      {warnings.length > 0 && (
+      {otherWarnings.length > 0 && (
         <div style={{ maxHeight: '120px', overflowY: 'auto', background: 'var(--bg-muted)', borderRadius: '8px', padding: '10px 12px' }}>
-          {warnings.map((w, i) => (
-            <div key={i} style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginBottom: i < warnings.length - 1 ? '4px' : 0 }}>• {w}</div>
+          {otherWarnings.map((w, i) => (
+            <div key={i} style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginBottom: i < otherWarnings.length - 1 ? '4px' : 0 }}>• {w}</div>
           ))}
         </div>
       )}
