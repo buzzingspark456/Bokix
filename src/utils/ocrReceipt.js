@@ -823,6 +823,52 @@ function inverseProjection(quad, outW, outH) {
  * med bilinjär sampling så texten inte blir taggig. Returnerar en ny canvas,
  * eller null om formen inte gick att räkna om.
  */
+// ── Var på fotot en rad lästes ──
+// Bilden som läses är utklippt, uträtad, roterad och förstorad i flera steg.
+// Varje steg sparar hur en punkt i den nya bilden hittas i den förra, så att
+// en rad Tesseract läste kan ritas på originalfotot (kvittovyn markerar var
+// beloppet, datumet och leverantören stod).
+function linkCanvas(out, parent, toParent) {
+  if (out && out !== parent) { out.__parent = parent; out.__toParent = toParent; }
+  return out;
+}
+
+/** Punkt i en bearbetad bild → andel (0–1) av originalfotot, eller null. */
+function toBaseFraction(canvas, x, y) {
+  let c = canvas;
+  let pt = { x, y };
+  for (let i = 0; c && c.__parent && i < 12; i++) {
+    pt = c.__toParent(pt.x, pt.y);
+    if (!pt || !Number.isFinite(pt.x) || !Number.isFinite(pt.y)) return null;
+    c = c.__parent;
+  }
+  if (!c || !c.__isBase || !c.width || !c.height) return null;
+  return { x: pt.x / c.width, y: pt.y / c.height };
+}
+
+/**
+ * Tesseracts rader med läge på originalfotot, som andelar:
+ * [{ text, box: { x, y, w, h } }]. Tom lista om läget inte går att räkna ut.
+ */
+function layoutLinesOf(blocks, source) {
+  const out = [];
+  (blocks || []).forEach(b => (b.paragraphs || []).forEach(par => (par.lines || []).forEach((l) => {
+    const text = String(l.text || '').trim();
+    const bb = l.bbox;
+    if (!text || !bb) return;
+    const corners = [[bb.x0, bb.y0], [bb.x1, bb.y0], [bb.x1, bb.y1], [bb.x0, bb.y1]].map(([x, y]) => toBaseFraction(source, x, y));
+    if (corners.some(c => !c)) return;
+    const xs = corners.map(c => c.x); const ys = corners.map(c => c.y);
+    const clamp = (v) => Math.min(1, Math.max(0, v));
+    const x0 = clamp(Math.min(...xs)); const y0 = clamp(Math.min(...ys));
+    const x1 = clamp(Math.max(...xs)); const y1 = clamp(Math.max(...ys));
+    if (x1 - x0 <= 0 || y1 - y0 <= 0) return;
+    const r = (v) => Math.round(v * 10000) / 10000;
+    out.push({ text, box: { x: r(x0), y: r(y0), w: r(x1 - x0), h: r(y1 - y0) } });
+  })));
+  return out;
+}
+
 function warpQuadToCanvas(base, quadFractions, target) {
   const quad = quadFractions.map(p => ({ x: p.x * base.width, y: p.y * base.height }));
   const [tl, tr, br, bl] = quad;
@@ -870,6 +916,7 @@ function warpQuadToCanvas(base, quadFractions, target) {
     }
   }
   outCtx.putImageData(dstImage, 0, 0);
+  linkCanvas(out, base, (x, y) => project(x, y));
   // `srcLongEdge`: hur stort kvittot var i originalets pixlar. Det, och inte
   // storleken efter uppskalning, säger om fotot togs för långt ifrån.
   return { canvas: out, srcLongEdge: Math.round(Math.max(srcW, srcH)) };
@@ -983,6 +1030,7 @@ async function stageImage(imageSource, { quad: manualQuad = null } = {}) {
     base.width = Math.max(1, Math.round(bitmap.width * scale));
     base.height = Math.max(1, Math.round(bitmap.height * scale));
     base.getContext('2d').drawImage(bitmap, 0, 0, base.width, base.height);
+    base.__isBase = true;
     // Hörn som användaren själv dragit ut (Justera kanter) gäller före det
     // som hittas automatiskt.
     if (manualQuad) return { base, bounds: null, quad: manualQuad };
@@ -1043,7 +1091,7 @@ function tightenToInk(canvas, target) {
   const ctx = out.getContext("2d");
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
-  return out;
+  return linkCanvas(out, canvas, (x, y) => ({ x: sx + x * sw / out.width, y: sy + y * sh / out.height }));
 }
 
 /**
@@ -1115,7 +1163,12 @@ function deskew(canvas) {
   ctx.rotate(-a);
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(canvas, -W / 2, -H / 2);
-  return out;
+  // Tillbaka: vrid åt andra hållet runt mitten.
+  const cos = Math.cos(a); const sin = Math.sin(a);
+  return linkCanvas(out, canvas, (x, y) => {
+    const dx = x - nw / 2; const dy = y - nh / 2;
+    return { x: dx * cos - dy * sin + W / 2, y: dx * sin + dy * cos + H / 2 };
+  });
 }
 
 function renderStage(stage, target) {
@@ -1167,6 +1220,7 @@ function renderStage(stage, target) {
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(base, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  linkCanvas(canvas, base, (x, y) => ({ x: sx + x * sw / canvas.width, y: sy + y * sh / canvas.height }));
   let quality = null;
   try {
     quality = {
@@ -1217,6 +1271,7 @@ async function recognizeWith(source, onProgress, { psm = null, label = 'Läser a
       confidence: typeof data.confidence === 'number' ? data.confidence : null,
       weakTokens: weakDigitWords(data.blocks),
       digitWords: digitWordsOf(data.blocks),
+      layout: layoutLinesOf(data.blocks, source),
       source,
     };
   } finally {
@@ -1428,7 +1483,7 @@ async function extractTextFromImage(imageSource, onProgress, { quad = null } = {
   const stage = await stageImage(imageSource, { quad });
   if (!stage) {
     // Ingen canvas att arbeta med (mycket gammal webbläsare): läs originalet.
-    const { source: _source, digitWords: _words, ...only } = await recognizeWith(imageSource, onProgress);
+    const { source: _source, digitWords: _words, layout: _layout, ...only } = await recognizeWith(imageSource, onProgress);
     return { ...only, quality: null };
   }
   // Två oberoende avläsningar: olika storlek och olika sätt att dela upp
@@ -1466,6 +1521,8 @@ async function extractTextFromImage(imageSource, onProgress, { quad = null } = {
   const withLogo = (text) => (logo && !String(text).toLowerCase().startsWith(logo.toLowerCase()) ? `${logo}
 ${text}` : text);
   const { source: _source, digitWords: _words, ...result } = best;
+  // Båda läsningarnas rader: fälten kan komma från vilken som helst av dem.
+  result.layout = [...(best.layout || []), ...(isUnreadableText(other.text) ? [] : (other.layout || []))];
   if (doubtful) result.weakTokens = [...(result.weakTokens || []), doubtful];
   result.text = isUnreadableText(other.text)
     ? withLogo(result.text)

@@ -103,7 +103,7 @@ export function clearCachedOcrText(key) {
 /**
  * Läser ett dokument, men hoppar över själva avläsningen om samma dokument
  * lästs förut. `force` (knappen "Läs av igen") läser alltid om.
- * Returnerar { text, confidence, weakTokens, quality, cached }. `weakTokens` (ord
+ * Returnerar { text, confidence, weakTokens, quality, layout, cached }. `weakTokens` (ord
  * med siffror som OCR var osäker på) är, som `confidence`, `null` för en cachad träff. `confidence` (Tesseracts
  * egen avläsningssäkerhet, 0–100, se ocrReceipt.js) och `quality` (bildens
  * mätvärden och ett råd om fotot) är bara `null` för en CACHAD träff — de
@@ -116,10 +116,12 @@ export async function readDocumentText(input, onProgress, { force = false, reade
   // Egna hörn (Justera kanter) betyder alltid en ny avläsning.
   if (!force && !quad) {
     const hit = getCachedOcrText(key);
-    if (hit) return { text: hit, confidence: null, weakTokens: null, quality: null, cached: true };
+    if (hit) return { text: hit, confidence: null, weakTokens: null, quality: null, layout: null, cached: true };
   }
   const read = reader || (await import('./ocrReceipt')).ocrFile;
-  const { text, confidence, weakTokens, quality } = await (quad ? read(input, onProgress, { quad }) : read(input, onProgress));
+  const { text, confidence, weakTokens, quality, layout } = await (quad ? read(input, onProgress, { quad }) : read(input, onProgress));
   setCachedOcrText(key, text);
-  return { text, confidence, weakTokens: weakTokens || null, quality: quality || null, cached: false };
+  // `layout` (var på fotot raderna stod) cachas inte: rutorna sparas på
+  // kvittots utkast i stället, se Expenses.jsx.
+  return { text, confidence, weakTokens: weakTokens || null, quality: quality || null, layout: layout || null, cached: false };
 }

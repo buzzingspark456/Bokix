@@ -16,6 +16,7 @@ import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { parseReceiptText, OCR_DRAFT_VERSION } from '../utils/ocrReceipt';
 import { readDocumentText } from '../utils/ocrCache';
+import { locateFieldBoxes } from '../utils/ocrFieldBoxes';
 import { ScanOverlay, OcrChecklist, photoHintText, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
 import { convertToSek } from '../utils/currencyConversion';
 import { historyForSupplier, historyFromVerifications } from '../utils/receiptHistory';
@@ -305,6 +306,18 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   // eller en moms som inte gick ihop. Ett tydligt foto som lästes rätt får
   // aldrig en anmärkning om fotot.
   const [photoHint, setPhotoHint] = useState(draft?.photoHint || null);
+  // Var på fotot värdena lästes (andelar av bilden), från avläsningen. Ligger
+  // kvar på utkastet även efter att kvittot sparats: det är samma fil.
+  const [fieldBoxes, setFieldBoxes] = useState(currentDraft?.boxes || null);
+  // Fältet man håller musen över eller står i: dess rad markeras på kvittot.
+  const [activeBox, setActiveBox] = useState(null);
+  const BOX_LABELS = { date: tr('ui.datum'), amount: tr('ui.belopp'), supplier: tr('ui.leverantor'), receiptNumber: tr('ui.kvittonummer'), vatAmount: tr('ui.moms') };
+  const boxProps = (key) => (fieldBoxes?.[key] ? {
+    onMouseEnter: () => setActiveBox(key),
+    onMouseLeave: () => setActiveBox(a => (a === key ? null : a)),
+    onFocusCapture: () => setActiveBox(key),
+    onBlurCapture: () => setActiveBox(a => (a === key ? null : a)),
+  } : {});
   // Företagets egen historik: en leverantör som redan finns på tidigare
   // kvitton ger samma konto och momssats som oftast förut. Det slår de
   // allmänna reglerna, eftersom det är så företaget själv bokför.
@@ -334,10 +347,14 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     setRevealed({});
     setOcrVat(null);
     setFlashKey(null);
+    setActiveBox(null);
     try {
-      const { text, confidence, weakTokens, quality, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force, quad });
+      const { text, confidence, weakTokens, quality, layout, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force, quad });
       if (!isCurrent()) return;
       const parsed = parseReceiptText(text, { confidence, weakTokens });
+      // En cachad läsning har inget läge; då gäller rutorna från förra gången.
+      const boxes = layout ? locateFieldBoxes(layout, parsed) : (currentDraft?.boxes || null);
+      setFieldBoxes(boxes && Object.keys(boxes).length > 0 ? boxes : null);
       // Rådet om fotot visas bara när avläsningen inte blev bra: blev beloppet
       // avläst och kontrollerat mot momsen spelar det ingen roll att bilden
       // kunde varit skarpare.
@@ -448,6 +465,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         unreadable: Boolean(parsed.unreadable),
         photoHint: hint,
         ocrVat: draftVat,
+        boxes: boxes && Object.keys(boxes).length > 0 ? boxes : null,
       });
 
       setOcrStatus('done');
@@ -656,6 +674,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             type={receipt.receiptType}
             expandable
             emptyText={tr('ui.ingen_fil_ar_sparad_for_det_har_kvittot_uppgifte')}
+            highlight={activeBox && fieldBoxes?.[activeBox] ? { box: fieldBoxes[activeBox], label: BOX_LABELS[activeBox] } : null}
             imageTools={canScan && (
               <button type="button" className="dv-btn" disabled={busy} onClick={() => setEditingCorners(true)} title={tr('ui.dra_hornen_till_kvittots_horn')}>
                 <Crop size={14} /> {tr('ui.justera_kanter')}
@@ -821,12 +840,12 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
 
 
             <div className="rc-grid">
-              <div className={flashField === 'date' ? 'rc-flash' : undefined}>
+              <div className={flashField === 'date' ? 'rc-flash' : undefined} {...boxProps('date')}>
                 <label style={labelSt}>{tr('ui.datum')} {ocrFields.has('date') && <OcrBadge />}</label>
                 <input type="date" disabled={readOnly} value={form.date} onChange={e => { setForm(f => ({ ...f, date: e.target.value })); setOcrFields(s => { const n = new Set(s); n.delete('date'); return n; }); }} style={inputStErr(errors.date)} />
                 {errors.date && <div style={errSt}>{errors.date}</div>}
               </div>
-              <div className={flashField === 'amount' ? 'rc-flash' : undefined}>
+              <div className={flashField === 'amount' ? 'rc-flash' : undefined} {...boxProps('amount')}>
                 <label style={labelSt}>{tr('ui.belopp_ink_moms_kr')} {ocrFields.has('amount') && <OcrBadge />}</label>
                 <AmountInput disabled={readOnly} value={form.amount} onChange={v => { setForm(f => ({ ...f, amount: v })); setOcrFields(s => { const n = new Set(s); n.delete('amount'); return n; }); setOcrVat(null); onSekEdited(v); }} style={inputStErr(errors.amount)} />
                 {errors.amount && <div style={errSt}>{errors.amount}</div>}
@@ -884,7 +903,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   {form.refund && <div className="rc-hint">{tr('ui.pengarna_kommer_tillbaka_kostnaden_och_momsen_mi')}</div>}
                 </div>
               )}
-              <div className={`rc-span${flashField === 'supplier' ? ' rc-flash' : ''}`}>
+              <div className={`rc-span${flashField === 'supplier' ? ' rc-flash' : ''}`} {...boxProps('supplier')}>
                 <label style={labelSt}>{tr('ui.inkopsstalle_leverantor')} {ocrFields.has('supplier') && <OcrBadge />}</label>
                 <TextSuggestInput
                   disabled={readOnly}
@@ -897,7 +916,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 />
                 {errors.supplier && <div style={errSt}>{errors.supplier}</div>}
               </div>
-              <div className={`rc-span${flashField === 'receiptNumber' ? ' rc-flash' : ''}`}>
+              <div className={`rc-span${flashField === 'receiptNumber' ? ' rc-flash' : ''}`} {...boxProps('receiptNumber')}>
                 <label style={labelSt}>{tr('ui.kvitto_faktura_eller_ordernummer_valfritt')} {ocrFields.has('receiptNumber') && <OcrBadge />}</label>
                 <input
                   disabled={readOnly}
@@ -914,7 +933,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   {tr('ui.foretaget_ar_inte_momsregistrerat_sa_momsen_pa_k')}
                 </div>
               ) : (
-              <div className={`rc-span${flashField === 'vatRate' ? ' rc-flash' : ''}`}>
+              <div className={`rc-span${flashField === 'vatRate' ? ' rc-flash' : ''}`} {...boxProps('vatAmount')}>
                 <label style={labelSt}>{tr('ui.momssats')} {ocrFields.has('vatRate') && <OcrBadge />}</label>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   {[25, 12, 6, 0, 'mixed'].map(v => {

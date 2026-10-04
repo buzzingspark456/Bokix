@@ -2062,6 +2062,7 @@
     "leveransuppgifter": "Delivery details",
     "leveransvillkor_utforande": "Delivery terms / Execution",
     "leverantor": "Provider",
+    "kvittonummer": "Receipt number",
     "leverantor_2": "Supplier *",
     "leverantorens_fakturanummer": "Supplier's invoice number *",
     "leverantorens_namn": "Supplier name",

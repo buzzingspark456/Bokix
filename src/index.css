@@ -3043,6 +3043,32 @@ textarea.form-control {
    inte skrolla till kanterna), medan en bredare bild faktiskt gör ytan
    skrollbar. Grundläget ("Passa") är i stället ren fit-to-box. */
 .dv-body > * { margin: auto; }
+/* Raden där avläsningen hittade ett värde (kvittovyn: man håller musen över
+   eller står i ett fält). Rutan följer med när ytan skrollas. */
+.dv-mark {
+  position: absolute;
+  margin: 0;
+  border: 2px solid var(--accent);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+  animation: dvMarkIn 160ms var(--ease) both;
+}
+.dv-mark-label {
+  position: absolute;
+  left: -2px;
+  bottom: calc(100% + 4px);
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+@keyframes dvMarkIn { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .dv-mark { animation: none; } }
 .dv-img {
   display: block;
   flex-shrink: 0;

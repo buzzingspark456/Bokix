@@ -52,12 +52,32 @@ function fileNameFromUrl(url, fallback) {
  * Saknas den gissar vi på filändelsen i URL:en — ett underlag sparat innan
  * typen började lagras ska inte tappa sin förhandsvisning.
  */
-export function DocumentPane({ url, type, name, emptyText, className = '', expandable = false, imageTools = null }) {
+/**
+ * `highlight`: { box: { x, y, w, h } (andelar 0–1 av bilden), label } — en ruta
+ * som ritas ovanpå en bild, där avläsningen hittade ett värde (kvittovyn,
+ * Expenses.jsx). Bara för bilder: en PDF visas i webbläsarens egen visare,
+ * där inget går att rita.
+ */
+export function DocumentPane({ url, type, name, emptyText, className = '', expandable = false, imageTools = null, highlight = null }) {
   const activeUrl = useSignedUrl(url);
   const [zoom, setZoom] = useState(FIT_ZOOM);
   const [imgFailed, setImgFailed] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const imgRef = useRef(null);
+  const markRef = useRef(null);
+  // Var motivet (själva bilden, inte elementets låda) ligger i visarytan.
+  const [imgRect, setImgRect] = useState(null);
+  const measureImgRect = () => {
+    const img = imgRef.current;
+    if (!img || !img.naturalWidth || !img.naturalHeight) { setImgRect(null); return; }
+    const elW = img.clientWidth; const elH = img.clientHeight;
+    let w = elW; let h = elH;
+    if (img.classList.contains('dv-img-fit')) {
+      const ratio = img.naturalWidth / img.naturalHeight;
+      if (elW / elH > ratio) { h = elH; w = elH * ratio; } else { w = elW; h = elW / ratio; }
+    }
+    setImgRect({ left: img.offsetLeft + (elW - w) / 2, top: img.offsetTop + (elH - h) / 2, width: w, height: h });
+  };
   // Bildens SYNLIGA bredd i "Passa"-läget, så att 110 % blir 10 % större än vad
   // man ser just nu. Bildelementet fyller hela ytan och ritar motivet med
   // object-fit: contain, så elementets egen bredd är större än det synliga
@@ -100,6 +120,21 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
   const label = name || fileNameFromUrl(url, 'Underlag');
   const isImage = kind === 'image' && !imgFailed;
 
+  // Måtten ändras med zoom, fönsterstorlek och när bilden laddats klart.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!isImage || !img || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(() => measureImgRect());
+    ro.observe(img);
+    measureImgRect();
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isImage, activeUrl, zoom]);
+  // Inzoomat: skrolla så att den markerade raden syns.
+  useEffect(() => {
+    if (highlight && zoom !== FIT_ZOOM) markRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }, [highlight, zoom]);
+
   return (
     <div className={`dv-doc ${className}`.trim()}>
       <div className="dv-bar">
@@ -134,7 +169,7 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
         </span>
       </div>
 
-      <div className="dv-body" style={kind === 'pdf' ? { padding: 0 } : undefined}>
+      <div className="dv-body" style={kind === 'pdf' ? { padding: 0 } : { position: 'relative' }}>
         {pending ? (
           <div className="dv-empty"><span>{t('ui.hamtar_underlaget')}</span></div>
         ) : isImage ? (
@@ -144,6 +179,7 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
             src={activeUrl}
             alt={label}
             onError={() => setImgFailed(true)}
+            onLoad={measureImgRect}
             // På mobil öppnar ett tryck på kvittot helskärmsvyn, där det går
             // att zooma och panorera utan att formuläret ligger i vägen.
             onClick={expandable && zoom === FIT_ZOOM && isNarrowScreen() ? () => setExpanded(true) : undefined}
@@ -163,6 +199,21 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
                   ? t('ui.filformatet_gar_inte_att_forhandsvisa_har_oppna')
                   : emptyText || t('ui.inget_underlag_ar_sparat_har_annu')}
             </span>
+          </div>
+        )}
+        {isImage && highlight?.box && imgRect && (
+          <div
+            ref={markRef}
+            className="dv-mark"
+            aria-hidden="true"
+            style={{
+              left: imgRect.left + highlight.box.x * imgRect.width - 4,
+              top: imgRect.top + highlight.box.y * imgRect.height - 3,
+              width: highlight.box.w * imgRect.width + 8,
+              height: highlight.box.h * imgRect.height + 6,
+            }}
+          >
+            {highlight.label && <span className="dv-mark-label">{highlight.label}</span>}
           </div>
         )}
       </div>

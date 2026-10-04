@@ -45,11 +45,11 @@ describe('ocrCache', () => {
     const reader = vi.fn(async () => ({ text: 'Texten på kvittot', confidence: 88 }));
     const file = { name: 'k.jpg', size: 100, lastModified: 1 };
     const first = await readDocumentText(file, null, { reader });
-    expect(first).toEqual({ text: 'Texten på kvittot', confidence: 88, weakTokens: null, quality: null, cached: false });
+    expect(first).toEqual({ text: 'Texten på kvittot', confidence: 88, weakTokens: null, quality: null, layout: null, cached: false });
     const second = await readDocumentText(file, null, { reader });
     // En cachad träff sparar bara texten (se filkommentaren i ocrCache.js) —
     // confidence och bildens mätvärden blir null i stället för gamla siffror.
-    expect(second).toEqual({ text: 'Texten på kvittot', confidence: null, weakTokens: null, quality: null, cached: true });
+    expect(second).toEqual({ text: 'Texten på kvittot', confidence: null, weakTokens: null, quality: null, layout: null, cached: true });
     expect(reader).toHaveBeenCalledTimes(1);
     await readDocumentText(file, null, { reader, force: true });
     expect(reader).toHaveBeenCalledTimes(2);
