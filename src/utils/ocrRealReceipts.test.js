@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
-import { parseReceiptText, estimateSkewFromGray, chainFromFingerprint } from './ocrReceipt.js';
+import { parseReceiptText, estimateSkewFromGray, chainFromFingerprint, legalNameFromLines, correctNameSpelling } from './ocrReceipt.js';
 
 // Riktiga kvitton som användaren skickade 2026-10-04, lästa av vår egen
 // avläsning (två läsningar per kvitto). Facit är läst för hand ur bilderna.
@@ -48,7 +48,8 @@ describe('riktiga kvitton', () => {
   });
   it('Harvey Norman i Malaysia: ringgit, datum DD.MM.YY', () => {
     const r = read('r11');
-    expect(r.supplier).toMatch(/^Harvey Norman/);
+    // Säljarens juridiska namn står på kvittot och går före butikens logga.
+    expect(r.supplier).toMatch(/^Elitetrax Marketing Sdn Bhd/i);
     expect(r.date).toBe('2018-02-11');
     expect(r.amount).toBe(60);
     expect(r.currency).toBe('MYR');
@@ -122,4 +123,25 @@ describe('regler från provkörningen mot främmande kvitton', () => {
     expect(p(['SHOP SDN BHD', '20-01-16 11:49', 'Total 57.40']).date).toBe('2016-01-20');
     expect(p(['Butik AB', '20-01-16 11:49', 'Totalt 57,40', 'Moms 25% 11,48']).date).toBe('2020-01-16');
   });
+});
+
+describe('leverantörens namn', () => {
+  it.each([
+    [['GARDENIA BAKERIES (KL) SDN BHD (139386 X)', 'lot 3, Jalan Pelabur 23/1,'], 'GARDENIA BAKERIES KL SDN BHD'],
+    [['GARDENIA BAKERIES (RL SDN BHD 019386 X)'], 'GARDENIA BAKERIES RL SDN BHD'],
+    [['Bond nn Jt', 'AEON CO. (M) BHD (128928-H) ='], 'AEON CO. M BHD'],
+    [['YONG CEN ENTERPRISE PC a', '8, JALAN SUBANG JASA 2,'], 'YONG CEN ENTERPRISE'],
+    [['AIK HUAT HARDWARE', 'ENTERPRISE (SETIA', 'ALAM) SUN BHO', '822737-X'], 'AIK HUAT HARDWARE ENTERPRISE SETIA ALAM SDN BHD'],
+    [['Faktura', 'Exempelföretag AB', 'Storgatan 1'], 'Exempelföretag AB'],
+    [['Faktura till:', 'Kundföretag AB', 'Fakturadatum 2026-01-02'], null],
+    [['Betalning', 'Nordea Bank AB', 'IBAN SE00'], null],
+  ])('%j → %s', (lines, want) => expect(legalNameFromLines(lines)).toBe(want));
+
+  it.each([
+    ['SNEET FOREST CAFE', '', 'SWEET FOREST CAFE'],
+    ['AIK HUAT HARGWARE', 'AIK HUAT HARDWARE', 'AIK HUAT HARDWARE'],
+    ['MR. D.1.Y. M SDN BHD', '', 'MR. D.I.Y. M SDN BHD'],
+    ['Bageriet Solrosen', '', 'Bageriet Solrosen'],
+    ['7-Eleven', '', '7-Eleven'],
+  ])('%s → %s', (name, text, want) => expect(correctNameSpelling(name, `${name}\n${text}`)).toBe(want));
 });

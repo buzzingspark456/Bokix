@@ -2219,12 +2219,72 @@ const despace = (s) => String(s).toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
  * varför det inte räcker att ta första raden.
  */
 // Bolagsformer i slutet av ett namn.
-const COMPANY_FORM_RE = /\b(?:AB|Aktiebolag|HB|KB|Ek\.?\s*f[öo]r\.?|Ltd|Limited|Inc|LLC|GmbH|Oy|ApS|A\/S|SDN\.?\s*BHD|BHD|S\/B|Enterprise|Trading)\.?\s*\)?$/i;
+// OCR läser SDN BHD som "SON BHD" och "SUN BHO".
+const COMPANY_FORM_RE = /\b(?:AB|Aktiebolag|HB|KB|Ek\.?\s*f[öo]r\.?|Ltd|Limited|Inc|LLC|GmbH|Oy|ApS|A\/S|S[DOU0]N\.?\s*BH[DO0]|BH[DO0]|S\/B|Enterprise|Trading)\.?\s*\)?$/i;
 // Rubriker och servicerader som aldrig är säljarens namn.
 const NAME_JUNK_RE = /\b(?:tax invoice|invoice|receipt|kvittokopia|shopping hours|opening hours|[öo]ppettider|v[äa]lkommen|welcome|thank you|tack f[öo]r|adjustment note|credit note|kreditnota|cash bill|cash sale)\b/i;
 
+/**
+ * Säljarens juridiska namn var som helst i dokumentet: en rad som slutar på
+ * en bolagsform (AB, Ltd, GmbH, SDN BHD …). Ett registreringsnummer efter
+ * namnet ("GARDENIA BAKERIES (KL) SDN BHD (139386 X)") tas bort, och ett namn
+ * på två rader ("HOME MASTER HARDWARE &" / "ELECTRICAL", eller
+ * "AIK HUAT HARDWARE ENTERPRISE" / "(SETIA ALAM) SDN BHD") läses ihop. Banker
+ * och köparens adressblock räknas inte. Exporterad för testerna.
+ */
+export function legalNameFromLines(lines) {
+  const list = (lines || []).map(l => String(l).trim());
+  const BUYER_RE = /faktura\s*till|fakturaadress|leveransadress|\bkund\b|customer|bill\s*to|ship\s*to|sold\s*to|mottagare|k[öo]pare/i;
+  const BANK_RE = /\bbank\b|bankgiro|plusgiro|swift|\biban\b|clearing|\bbic\b/i;
+  for (let i = 0; i < list.length; i++) {
+    let line = list[i]
+      // Skräptecken i slutet ("… BHD (128928-H) =", "|”").
+      .replace(/[\s=|”"'’~:;,-]+$/, '')
+      // Registreringsnummer efter namnet: "(139386 X)", "(1109-A)", "(616227-D)".
+      .replace(/\s*\(\s*\d[0-9A-Z -]{2,}\)\s*\.?\s*$/, '')
+      // … och när parentesen är trasig: "(RL SDN BHD 019386 X)".
+      .replace(/\s+\d{4,}[\s-]*[A-Z]?\s*\)?\s*$/, '')
+      // Upp till två korta brusord efter bolagsformen ("ENTERPRISE PC a").
+      .replace(/(\b(?:AB|Aktiebolag|HB|KB|Ltd|Limited|Inc|LLC|GmbH|Oy|ApS|SDN\.?\s*BHD\.?|BHD|S\/B|Enterprise|Trading))(?:\s+\S{1,3}){1,2}$/i, '$1');
+    // Ledande löpnummer ("000002 BAIFU (M) Sdn Bhd") hör inte till namnet.
+    line = line.replace(/^\d{3,}\s+/, '');
+    if (!line || BANK_RE.test(line) || /\d{3,}/.test(line.replace(/\(.*?\)/g, ''))) continue;
+    // Tabellrubriker och beloppsrader ("Qty UOM U.Price Amt Inc", "CHANGE RM
+    // 1.60", "SUB TOTAL Inc") slutar ibland på något som liknar en bolagsform.
+    if (/\d[.,]\d{2}\b|\b(?:qty|uom|price|amt|amount|total|subtotal|change|cash|cashier|guest|check|moms|belopp|summa)\b/i.test(line)) continue;
+    if (list.slice(Math.max(0, i - 3), i).some(l => BUYER_RE.test(l))) continue;
+    if (!COMPANY_FORM_RE.test(cleanSupplierName(line))) continue;
+    // Namnet började på raderna ovanför: en parentes som öppnades där
+    // ("ENTERPRISE (SETIA" / "ALAM) SDN BHD"), ett & i slutet, och rena
+    // namnrader ovanför det (inga siffror, inga rubriker som FAKTURA).
+    const nameOnly = (l) => l && !/\d/.test(l) && !BANK_RE.test(l) && !NAME_SKIP_RE.test(l.trim()) && !NAME_JUNK_RE.test(l)
+      && !BUYER_RE.test(l) && /^[\p{Lu}\s&.'’()-]+$/u.test(l) && l.trim().split(/\s+/).length <= 5;
+    const opens = (s) => (s.match(/\(/g) || []).length - (s.match(/\)/g) || []).length;
+    let k = i - 1;
+    let joined = 0;
+    while (k >= 0 && joined < 2) {
+      const prev = list[k] || '';
+      const needsPrev = opens(line) < 0 || /^\(/.test(line) || /(?:&|\band|\boch)\s*$/i.test(prev);
+      const sameName = joined > 0 && nameOnly(prev);
+      if (!(needsPrev || sameName) || !prev || /\d{3,}/.test(prev) || BANK_RE.test(prev) || !nameOnly(prev.replace(/\(.*$/, ''))) break;
+      line = `${prev} ${line}`;
+      joined++;
+      k--;
+    }
+    // Före bolagsformen ska det stå ett riktigt namn: minst ett ord på fyra
+    // bokstäver och sammanlagt minst sex ("I COME Ab" är brus).
+    const beforeForm = cleanSupplierName(line).replace(COMPANY_FORM_RE, '').trim();
+    if (!/\p{L}{4}/u.test(beforeForm) || (beforeForm.match(/\p{L}/gu) || []).length < 6) continue;
+    // Bolagsformen som den ska skrivas, inte som OCR läste den ("SUN BHO").
+    const clean = cleanSupplierName(line).replace(/\bS[DOU0]N\.?\s*BH[DO0]\b/i, 'SDN BHD');
+    if (clean.length >= 4 && (clean.match(/\p{L}/gu) || []).length >= 4) return clean;
+  }
+  return null;
+}
+
 export function pickSupplierName(lines, headerLines = 8) {
   const candidates = [];
+  const joinedIntoPrevious = new Set();
   // Första raden som ser ut som en adress: gatunummer, postnummer, "Jalan",
   // "Street", "gatan" …
   const firstAddressIndex = (lines || []).slice(0, headerLines).findIndex(l => (
@@ -2232,7 +2292,14 @@ export function pickSupplierName(lines, headerLines = 8) {
   ));
   (lines || []).slice(0, headerLines).forEach((line, index) => {
     if (!line || line.length < 3 || NAME_SKIP_RE.test(line) || line.includes('http') || line.includes('@')) return;
+    if (joinedIntoPrevious.has(index)) return;
     let raw = line;
+    // Ett namn på två rader: "HOME MASTER HARDWARE &" / "ELECTRICAL".
+    const following = (lines || [])[index + 1];
+    if (/(?:&|\band|\boch)\s*$/i.test(line) && following && !/\d{3,}/.test(following)) {
+      raw = `${line} ${following}`;
+      joinedIntoPrevious.add(index + 1);
+    }
     const label = NAME_LABEL_RE.exec(raw);
     if (label) raw = raw.slice(0, label.index);
     const clean = cleanSupplierName(raw);
@@ -2772,10 +2839,12 @@ export function mergeReadings(readings) {
   if (!out.amountVerified && out.amount && same('amount', out.amount) >= 2 && !usable.some(r => r.amountConflict)) out.amountGuessed = false;
 
   // Leverantören: en känd butik före ett namn med org.-nummer före resten.
-  const supplierRank = (r) => (!r.supplier ? 0 : r.supplierMatched ? 3 : r.supplierConfirmed ? 2 : 1) + same('supplier', r.supplier) * 0.1;
+  // Känd kedja före juridiskt namn (med bolagsform) före namn med org.-nummer
+  // under före resten.
+  const supplierRank = (r) => (!r.supplier ? 0 : r.supplierMatched ? 3 : r.supplierIsLegalName ? 2.5 : r.supplierConfirmed ? 2 : 1) + same('supplier', r.supplier) * 0.1;
   const sup = [...usable].sort((a, b) => supplierRank(b) - supplierRank(a))[0];
   Object.assign(out, {
-    supplier: sup.supplier, supplierMatched: sup.supplierMatched,
+    supplier: sup.supplier, supplierMatched: sup.supplierMatched, supplierIsLegalName: sup.supplierIsLegalName,
     supplierConfirmed: sup.supplierConfirmed || (Boolean(sup.supplier) && same('supplier', sup.supplier) >= 2),
   });
   // Kontot följer leverantören, utom när beloppets avläsning gav omvänd moms.
@@ -2811,12 +2880,70 @@ export function mergeReadings(readings) {
   return out;
 }
 
+/**
+ * Rättar stavningen i leverantörens namn mot resten av texten: ett ord som
+ * OCR läst fel på ett ställe ("SNEET FOREST CAFE", "HARGWARE") står ofta rätt
+ * på ett annat (den andra läsningen, sidfoten, "Tack för besöket hos …").
+ * Varje ord i namnet byts mot den stavning, högst en bokstav ifrån, som
+ * förekommer flest gånger i texten. Exporterad för testerna.
+ */
+// Vanliga ord i företagsnamn (svenska och engelska). Ett ord i namnet som är
+// en bokstav ifrån ett av dem, och inte självt ett ord, är en felläsning.
+const NAME_WORDS = [
+  'BUTIK', 'BUTIKEN', 'LIVS', 'LIVSMEDEL', 'BAGERI', 'BAGERIET', 'KONDITORI', 'CAFE', 'KAFE', 'RESTAURANG', 'PIZZERIA',
+  'BYGG', 'BYGGVAROR', 'JÄRN', 'JÄRNHANDEL', 'FÄRG', 'HANDEL', 'HANDELS', 'IMPORT', 'EXPORT', 'KONSULT', 'KONSULTER',
+  'REDOVISNING', 'REDOVISNINGSBYRÅ', 'TRANSPORT', 'FASTIGHET', 'FASTIGHETER', 'SERVICE', 'TJÄNSTER', 'GRUPPEN', 'GROUP',
+  'HOLDING', 'INVEST', 'DESIGN', 'MEDIA', 'SYSTEM', 'TEKNIK', 'DATA', 'BILAR', 'BILVERKSTAD', 'VERKSTAD', 'FRISÖR',
+  'BLOMMOR', 'APOTEK', 'APOTEKET', 'OPTIK', 'SPORT', 'KLÄDER', 'SKOR', 'MÖBLER', 'HEM', 'TRÄDGÅRD', 'MARKNAD',
+  'SWEET', 'HARDWARE', 'ELECTRICAL', 'ELECTRONICS', 'STATIONERY', 'ENTERPRISE', 'TRADING', 'MARKET', 'SUPERMARKET',
+  'BAKERY', 'BAKERIES', 'BOOK', 'BOOKS', 'BOOKSTORE', 'CENTRE', 'CENTER', 'STORE', 'STORES', 'SHOP', 'HOME', 'HOUSE',
+  'SUPPLY', 'SUPPLIES', 'RESTAURANT', 'COFFEE', 'KITCHEN', 'FOOD', 'FOODS', 'FRESH', 'MART', 'PHARMACY', 'HEALTH',
+  'BEAUTY', 'FURNITURE', 'FURNISHING', 'MOTOR', 'MOTORS', 'AUTO', 'PETROL', 'STATION', 'HOTEL', 'TRAVEL', 'RETAIL',
+  'INTERNATIONAL', 'MARKETING', 'SOLUTIONS', 'TECHNOLOGY', 'TECHNOLOGIES', 'SERVICES', 'COMPANY', 'FOREST',
+];
+const NAME_WORD_SET = new Set(NAME_WORDS);
+
+export function correctNameSpelling(name, text) {
+  if (!name) return name;
+  // Siffror mitt i bokstäver är felläsningar: "D.1.Y." är D.I.Y.
+  name = name.split(/\s+/).map(w => (/\p{L}/u.test(w) && /[0158]/.test(w) && !/\d{2,}/.test(w)
+    ? w.replace(/(?<=[\p{L}.]|^)[01](?=[\p{L}.]|$)/gu, (d) => (d === '0' ? 'O' : 'I')).replace(/(?<=\p{L})5(?=\p{L})/gu, 'S').replace(/(?<=\p{L})8(?=\p{L})/gu, 'B')
+    : w)).join(' ');
+  const counts = new Map();
+  for (const w of String(text || '').split(/[^\p{L}\p{N}.&'-]+/u)) {
+    if (w.length >= 4) counts.set(w.toUpperCase(), (counts.get(w.toUpperCase()) || 0) + 1);
+  }
+  return name.split(/\s+/).map((word) => {
+    if (word.length < 4) return word;
+    const upper = word.toUpperCase();
+    let best = upper; let bestCount = counts.get(upper) || 0;
+    for (const [candidate, count] of counts) {
+      if (count > bestCount && Math.abs(candidate.length - upper.length) <= 1 && labelDistance(candidate, upper, 1) <= 1
+        // Bara bokstäver byts mot bokstäver: "D.1.Y" ska bli "D.I.Y", men ett
+        // ord får aldrig bli ett tal.
+        && /\p{L}{3}/u.test(candidate)) {
+        best = candidate; bestCount = count;
+      }
+    }
+    // Ingen annan stavning i texten: ordförrådet avgör ("SNEET" → SWEET).
+    if (best === upper && !NAME_WORD_SET.has(upper)) {
+      const known = NAME_WORDS.find(w => Math.abs(w.length - upper.length) <= 1 && w.length >= 5 && labelDistance(w, upper, 1) <= 1);
+      if (known) best = known;
+    }
+    if (best === upper) return word;
+    // Behåll ordets egen versalisering.
+    return word === upper ? best : word === word.toLowerCase() ? best.toLowerCase() : best.charAt(0) + best.slice(1).toLowerCase();
+  }).join(' ');
+}
+
 export function parseReceiptText(text, options = {}) {
   if (typeof text === 'string' && text.includes('\u001e')) {
     const parts = text.split(/\r?\n\u001e\r?\n/).filter(p => p.trim());
-    return mergeReadings(parts.map((part, i) => parseOneReading(part, i === 0 ? options : { ...options, weakTokens: null })));
+    const merged = mergeReadings(parts.map((part, i) => parseOneReading(part, i === 0 ? options : { ...options, weakTokens: null })));
+    return merged.supplierMatched ? merged : { ...merged, supplier: correctNameSpelling(merged.supplier, text) };
   }
-  return parseOneReading(text, options);
+  const single = parseOneReading(text, options);
+  return single.supplierMatched ? single : { ...single, supplier: correctNameSpelling(single.supplier, text) };
 }
 
 function parseOneReading(text, { confidence = null, weakTokens = null, today = new Date() } = {}) {
@@ -3217,6 +3344,13 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     }
   }
 
+  // Säljarens juridiska namn (med bolagsform) någonstans i dokumentet.
+  let supplierIsLegalName = false;
+  if (!supplier) {
+    supplier = legalNameFromLines(lines);
+    supplierIsLegalName = Boolean(supplier);
+  }
+
   if (!supplier) supplier = pickSupplierName(lines);
 
   // ── 4. Momssats ──────────────────────────────────────────────────────────
@@ -3372,7 +3506,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     creditNote,
     receiptNumber: numberFound?.number ?? null, receiptNumberKind: numberFound?.kind ?? null, receiptNumberLabel: numberFound?.label ?? null,
     receiptNumberGuessed: Boolean(numberFound?.uncertain),
-    supplier, supplierMatched, supplierConfirmed: supplierMatched || supplierHasOrgNumber(lines, supplier), accountCode, accountGuessed, accountSource, currency,
+    supplier, supplierMatched, supplierConfirmed: supplierMatched || supplierHasOrgNumber(lines, supplier), supplierIsLegalName, accountCode, accountGuessed, accountSource, currency,
     accountChoices: accountSource === 'supplier' ? accountChoices : null,
     notReceipt: false, documentKind: doc.isInvoice ? 'invoice' : 'receipt',
     paymentMethod: detectPaymentMethod(text, { isInvoice: doc.isInvoice }).method,
