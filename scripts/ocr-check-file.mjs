@@ -30,7 +30,7 @@ for (const file of files) {
     const { text, confidence, quality } = await ocrFile(blob, () => {});
     const parsed = parseReceiptText(text, { confidence });
     return { text, confidence, quality, parsed };
-  }, { b64: buf.toString('base64'), type: file.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg' }, { timeout: 300000 });
+  }, { b64: buf.toString('base64'), type: file.toLowerCase().endsWith('.pdf') ? 'application/pdf' : (file.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg') }, { timeout: 300000 });
 
   const q = out.quality || {};
   const p = out.parsed;

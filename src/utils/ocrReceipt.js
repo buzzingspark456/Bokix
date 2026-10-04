@@ -27,7 +27,20 @@ const MONTHS_MAP = {
   november: '11', december: '12',
   january: '01', february: '02', march: '03',
   june: '06', july: '07', august: '08', october: '10',
+  mai: '05', dez: '12', mär: '03', märz: '03',
 };
+
+/** Månadsnumret för ett månadsnamn, också när OCR läst "rn" för "m" eller 0 för o. */
+export function monthFromWord(raw) {
+  const w = String(raw || '').toLowerCase().replace(/rn/g, 'm').replace(/0/g, 'o').replace(/\.$/, '');
+  if (MONTHS_MAP[w]) return MONTHS_MAP[w];
+  if (w.length >= 3 && MONTHS_MAP[w.slice(0, 3)] && /^[a-zåäö]+$/.test(w)) {
+    // Bara när ordet är början på ett riktigt månadsnamn ("septembe", "sept").
+    const full = Object.keys(MONTHS_MAP).find(k => k.length > 3 && k.startsWith(w));
+    if (full || w.length <= 4) return MONTHS_MAP[w.slice(0, 3)];
+  }
+  return null;
+}
 
 /**
  * Tolkar en enskild siffersträng från ett kvitto — "48,99", "1.234,56"
@@ -105,6 +118,10 @@ const NOT_AMOUNT_LINE_RE = /\*{3,}|x{4,}|korttyp|terminal|\banbud\b|\bmid\b|\bpt
 function stripNonAmounts(line) {
   return String(line)
     .replace(/\d{1,2}(?:[.,]\d+)?\s*%/g, ' ')
+    // Org.-nummer (738200-2850) och telefonnummer (010-741 67 80): Coop-kvittot
+    // 2026-10-04 fick org.-numret som belopp.
+    .replace(/\b\d{6}-\d{4}\b/g, ' ')
+    .replace(/\b0\d{1,3}-\d[\d ]{4,9}\d\b/g, ' ')
     .replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, ' ')
     .replace(/\b(?:20|19)\d{2}[-/.]\d{1,2}[-/.]\d{1,2}\b|\b\d{1,2}[-/.]\d{1,2}[-/.](?:20|19)\d{2}\b/g, ' ')
     .replace(/\b\d{1,3}\s*(?:st|stk|x|×)\b/gi, ' ');
@@ -121,6 +138,8 @@ function stripNonAmounts(line) {
  * används bara när raden inte har något starkare belopp alls.
  */
 function amountsOnLine(line) {
+  // "ATT BETALA ( 10 ARTIKLAR ) 193,75": antalet tas bort, beloppet är kvar.
+  line = String(line).replace(/\(?\s*\d{1,4}\s*(?:artiklar|artikel|items?|varor)\s*\S?\)?/gi, ' ');
   if (NOT_AMOUNT_LINE_RE.test(line)) return [];
   const cleaned = stripNonAmounts(line);
   const strong = cleaned.match(MONEY_TOKEN_RE);
@@ -335,9 +354,8 @@ function enhanceCanvasForOcr(canvas) {
   }
 }
 
-// Andra försöket läser av en större bild (och som ett enda textblock). Det
-// kostar tid, så det görs bara när det första försöket inte gav ett belopp att
-// lita på — se needsCarefulPass.
+// Andra avläsningen läser en större bild som ett enda textblock; båda vägs
+// samman fält för fält (mergeReadings).
 const CAREFUL_OCR_DIMENSION = 2600;
 // Taket innan bilden ens ritas ut en första gång: en 12-megapixelbild som
 // canvas är ~50 MB, och en telefon har inte det att slösa med. 3000 räcker med
@@ -456,6 +474,55 @@ function documentBounds(canvas) {
   }
   if (inside === 0 || dark / inside < 0.02) return null;
   return { x0: x0 / w, y0: y0 / h, x1: x1 / w, y1: y1 / h, ratio };
+}
+
+/**
+ * Reserv när papperet inte syns mot underlaget (vitt kvitto på vitt papper,
+ * en inskannad A4 med kvittot mitt på): textens egen yta. Kolumner och rader
+ * med svärta letas upp, små luckor slås ihop och den sträcka som har mest
+ * text vinner, så att en fläck i kanten inte drar ut rutan. Coop-kvittot
+ * 2026-10-04 lästes annars som hela A4-sidan med fem pixlar höga tecken.
+ */
+export function inkBoundsFromGray(gray, w, h) {
+  const t = otsuThreshold(gray);
+  // Bara tydligt mörka punkter räknas som svärta.
+  const dark = Math.max(60, Math.min(t, 120));
+  const cols = new Float32Array(w);
+  const rows = new Float32Array(h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (gray[y * w + x] < dark) { cols[x]++; rows[y]++; }
+    }
+  }
+  // Hela textens utsträckning, men de yttersta promillen svärta räknas bort
+  // så att en fläck eller ett pennstreck i kanten inte drar ut rutan. Luckor
+  // mellan textstycken får aldrig klippa bort ett stycke.
+  const span = (profile) => {
+    let total = 0;
+    for (let i = 0; i < profile.length; i++) total += profile[i];
+    if (total === 0) return null;
+    const cut = total * 0.003;
+    let acc = 0; let start = 0;
+    for (; start < profile.length; start++) { acc += profile[start]; if (acc > cut) break; }
+    acc = 0; let end = profile.length - 1;
+    for (; end > start; end--) { acc += profile[end]; if (acc > cut) break; }
+    return { start, end: end + 1 };
+  };
+  const col = span(cols);
+  const row = span(rows);
+  if (!col || !row) return null;
+  const mx = Math.round(w * 0.025); const my = Math.round(h * 0.025);
+  const x0 = Math.max(0, col.start - mx); const x1 = Math.min(w, col.end + mx);
+  const y0 = Math.max(0, row.start - my); const y1 = Math.min(h, row.end + my);
+  const ratio = ((x1 - x0) * (y1 - y0)) / (w * h);
+  if (ratio > 0.75 || ratio < 0.02 || (x1 - x0) < w * 0.08) return null;
+  return { x0: x0 / w, y0: y0 / h, x1: x1 / w, y1: y1 / h, ratio, ink: true };
+}
+
+function inkBounds(canvas) {
+  const { gray, w, h } = smallGray(canvas, 600);
+  if (w < 40 || h < 40) return null;
+  return inkBoundsFromGray(gray, w, h);
 }
 
 // ── Kvittots form: hitta hörnen och räta ut papperet ─────────────────────
@@ -833,6 +900,10 @@ async function stageImage(imageSource, { quad: manualQuad = null } = {}) {
     let quad = null;
     try { quad = documentQuad(base); } catch (err) { console.warn('[OCR] Kunde inte hitta kvittots form:', err); }
     try { bounds = documentBounds(base); } catch (err) { console.warn('[OCR] Kunde inte hitta kvittot i bilden:', err); }
+    // Papperet syntes inte mot underlaget: klipp efter texten i stället.
+    if (!quad && !bounds) {
+      try { bounds = inkBounds(base); } catch (err) { console.warn('[OCR] Kunde inte hitta texten i bilden:', err); }
+    }
     return { base, bounds, quad };
   } finally {
     bitmap.close?.();
@@ -844,6 +915,26 @@ async function stageImage(imageSource, { quad: manualQuad = null } = {}) {
  * MAX_UPSCALE), mäter bildkvaliteten och förbättrar bilden för Tesseract.
  * Returnerar { source, quality } — `source` är den canvas OCR ska läsa.
  */
+/**
+ * Fyller texten bara en liten del av det utklippta papperet (ett kvitto på
+ * en inskannad A4, där sidans kant togs för papperet) klipps det en gång till
+ * efter texten och förstoras, högst tre gånger.
+ */
+function tightenToInk(canvas, target) {
+  let ink = null;
+  try { ink = inkBounds(canvas); } catch { return canvas; }
+  if (!ink || ink.ratio > 0.35) return canvas;
+  const sx = Math.round(ink.x0 * canvas.width); const sy = Math.round(ink.y0 * canvas.height);
+  const sw = Math.max(1, Math.round((ink.x1 - ink.x0) * canvas.width)); const sh = Math.max(1, Math.round((ink.y1 - ink.y0) * canvas.height));
+  const scale = Math.max(1, Math.min(3, target / Math.max(sw, sh)));
+  const out = document.createElement("canvas");
+  out.width = Math.round(sw * scale); out.height = Math.round(sh * scale);
+  const ctx = out.getContext("2d");
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
+  return out;
+}
+
 function renderStage(stage, target) {
   const { base, bounds, quad } = stage;
   // Gick kvittots form att hitta rätas papperet ut till en rak rektangel och
@@ -873,7 +964,7 @@ function renderStage(stage, target) {
         } catch (err) {
           console.warn('[OCR] Kunde inte mäta bildkvaliteten:', err);
         }
-        return { source: enhanceCanvasForOcr(warped.canvas), quality };
+        return { source: enhanceCanvasForOcr(tightenToInk(warped.canvas, target)), quality };
       }
     } catch (err) {
       console.warn('[OCR] Kunde inte räta ut kvittot, klipper ut i stället:', err);
@@ -884,7 +975,9 @@ function renderStage(stage, target) {
   const sw = bounds ? Math.max(1, Math.round((bounds.x1 - bounds.x0) * base.width)) : base.width;
   const sh = bounds ? Math.max(1, Math.round((bounds.y1 - bounds.y0) * base.height)) : base.height;
   const cropLongEdge = Math.max(sw, sh);
-  const scale = Math.min(MAX_UPSCALE, target / cropLongEdge);
+  // Utklippt efter texten (inkBounds): bilden var liten från början, så den
+  // får förstoras mer för att tecknen ska nå en läsbar höjd.
+  const scale = Math.min(bounds?.ink ? 3 : MAX_UPSCALE, target / cropLongEdge);
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(sw * scale));
   canvas.height = Math.max(1, Math.round(sh * scale));
@@ -903,7 +996,7 @@ function renderStage(stage, target) {
   } catch (err) {
     console.warn('[OCR] Kunde inte mäta bildkvaliteten:', err);
   }
-  return { source: enhanceCanvasForOcr(canvas), quality };
+  return { source: enhanceCanvasForOcr(tightenToInk(canvas, target)), quality };
 }
 
 /**
@@ -1015,6 +1108,103 @@ async function rereadDate(reading) {
 }
 
 /**
+ * Logotypens ruta i bilden: en grupp STORA tecken i övre delen. Mörka
+ * sammanhängande fläckar letas upp; de som är mycket högre än vanlig text
+ * (och inte är tunna streck, som en pennmarkering i kanten) och ligger på
+ * samma höjd bildar logotypen. Returnerar { x0, y0, x1, y1 } i bildens
+ * punkter, eller null. Exporterad för testerna.
+ */
+export function logoBox(gray, w, h, dark = 110) {
+  const seen = new Uint8Array(w * h);
+  const stack = new Int32Array(w * h);
+  const comps = [];
+  for (let start = 0; start < w * h; start++) {
+    if (seen[start] || gray[start] >= dark) continue;
+    let top = 0; stack[top++] = start; seen[start] = 1;
+    let x0 = w, y0 = h, x1 = 0, y1 = 0, n = 0;
+    while (top > 0) {
+      const i = stack[--top]; n++;
+      const x = i % w; const y = (i / w) | 0;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      if (x > 0 && !seen[i - 1] && gray[i - 1] < dark) { seen[i - 1] = 1; stack[top++] = i - 1; }
+      if (x < w - 1 && !seen[i + 1] && gray[i + 1] < dark) { seen[i + 1] = 1; stack[top++] = i + 1; }
+      if (y > 0 && !seen[i - w] && gray[i - w] < dark) { seen[i - w] = 1; stack[top++] = i - w; }
+      if (y < h - 1 && !seen[i + w] && gray[i + w] < dark) { seen[i + w] = 1; stack[top++] = i + w; }
+    }
+    if (n >= 4) comps.push({ x0, y0, x1: x1 + 1, y1: y1 + 1, n });
+  }
+  // Vanlig texthöjd: medianen av fläckar som ser ut som tecken.
+  const glyphs = comps.filter(c => (c.y1 - c.y0) >= 4 && (c.x1 - c.x0) <= (c.y1 - c.y0) * 3);
+  if (glyphs.length < 20) return null;
+  const hs = glyphs.map(c => c.y1 - c.y0).sort((a, b) => a - b);
+  const median = hs[Math.floor(hs.length / 2)];
+  const big = glyphs.filter(c => {
+    const ch = c.y1 - c.y0; const cw = c.x1 - c.x0;
+    return c.y0 < h * 0.3 && ch >= median * 2 && cw >= ch * 0.25 && c.n >= ch * cw * 0.15;
+  });
+  if (big.length === 0) return null;
+  // Den översta gruppen stora tecken på samma höjd.
+  big.sort((a, b) => a.y0 - b.y0);
+  const first = big[0];
+  const row = big.filter(c => c.y0 < first.y1 && c.y1 > first.y0);
+  return {
+    x0: Math.min(...row.map(c => c.x0)), y0: Math.min(...row.map(c => c.y0)),
+    x1: Math.max(...row.map(c => c.x1)), y1: Math.max(...row.map(c => c.y1)),
+  };
+}
+
+/**
+ * Logotypen överst på kvittot. Butikens namn står ofta bara som grafik (Coop,
+ * ICA, Lidl) och vanlig avläsning ser den inte som text, så leverantören blev
+ * orten på raden under ("Kagerod"). Logotypens stora tecken läses för sig,
+ * i lagom storlek och som en enda rad. Ett ord som inte är en känd butik
+ * används bara om det är ett rent, säkert läst ord.
+ */
+async function readLogo(source) {
+  if (!source || typeof document === 'undefined') return null;
+  const scan = Math.min(1, 900 / source.width);
+  const w = Math.max(1, Math.round(source.width * scan));
+  const h = Math.max(1, Math.round(source.height * scan));
+  const small = document.createElement('canvas');
+  small.width = w; small.height = h;
+  small.getContext('2d').drawImage(source, 0, 0, w, h);
+  const box = logoBox(grayscaleOf(small), w, h);
+  if (!box) return null;
+  const logo = { y0: box.y0, y1: box.y1 };
+  const x0 = box.x0; const x1 = box.x1;
+  // Lite luft runt om, men inte så mycket att raden under kommer med.
+  const padX = Math.round((logo.y1 - logo.y0) * 0.3); const padY = Math.round((logo.y1 - logo.y0) * 0.08);
+  const sx = Math.max(0, x0 - padX) / scan; const sy = Math.max(0, logo.y0 - padY) / scan;
+  const sw = Math.min(w, x1 + padX) / scan - sx; const sh = Math.min(h, logo.y1 + padY) / scan - sy;
+  const scale = 90 / Math.max(1, (logo.y1 - logo.y0) / scan);
+  const crop = document.createElement('canvas');
+  crop.width = Math.max(1, Math.round(sw * scale)); crop.height = Math.max(1, Math.round(sh * scale));
+  const ctx = crop.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, crop.width, crop.height);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(source, sx, sy, sw, sh, 0, 0, crop.width, crop.height);
+  const { createWorker } = await import('tesseract.js');
+  const worker = await createWorker('eng', 1);
+  try {
+    await worker.setParameters({ tessedit_pageseg_mode: '7' });
+    const { data } = await worker.recognize(crop);
+
+    const word = String(data.text || '').replace(/[^\p{L}\p{N}&' -]/gu, ' ').replace(/\s+/g, ' ').trim();
+    if (!word || word.length < 2 || word.length > 30 || !/\p{L}{2}/u.test(word)) return null;
+    if (matchKnownSupplierFuzzy([word], 1)) return word;
+    // Ett okänt ord måste vara säkert läst, minst fyra bokstäver och inte ett
+    // vanligt kvittoord (en suddig bild gav annars leverantören "Kort").
+    if (/^(?:kort|kvitto|kassa|total\w*|summa|moms|datum|tack|kopia|butik|org|tel|kund\w*)$/i.test(word)) return null;
+    return (data.confidence >= 85 && /^[\p{L}&' -]{4,}$/u.test(word)) ? word : null;
+  } catch (err) {
+    console.warn('[OCR] Kunde inte läsa logotypen:', err);
+    return null;
+  } finally {
+    await worker.terminate();
+  }
+}
+
+/**
  * Hur mycket en avläsning gav: används för att välja mellan två försök. Ett
  * belopp som är kontrollerat mot momsen väger tyngst — det är det fältet som
  * blir fel bokföring om det är fel. Tesseracts egen säkerhet får vara
@@ -1031,17 +1221,6 @@ function readingScore({ text, confidence }) {
   if (parsed.receiptNumber) score += 1;
   if (parsed.supplierMatched) score += 1;
   return score + (confidence || 0) / 1000;
-}
-
-/**
- * Behövs ett andra, noggrannare försök? Bara när det första inte gav något
- * belopp att lita på — det vanliga fallet (ett tydligt foto) läses av en gång
- * och tar lika lång tid som förut.
- */
-function needsCarefulPass({ text, confidence }) {
-  if (isUnreadableText(text)) return true;
-  const parsed = parseReceiptText(text, { confidence });
-  return parsed.notReceipt || !parsed.amount || parsed.amountGuessed || (typeof confidence === 'number' && confidence < 70);
 }
 
 /**
@@ -1069,21 +1248,30 @@ async function extractTextFromImage(imageSource, onProgress, { quad = null } = {
     const { source: _source, digitWords: _words, ...only } = await recognizeWith(imageSource, onProgress);
     return { ...only, quality: null };
   }
+  // Två oberoende avläsningar: olika storlek och olika sätt att dela upp
+  // sidan ger fel på olika ställen, och sammanvägningen (mergeReadings) tar
+  // varje fält från den avläsning där det går ihop. Den andra kostar några
+  // sekunder; rätt svar är värt dem.
   const first = renderStage(stage, MAX_OCR_DIMENSION);
-  let best = await recognizeWith(first.source, onProgress);
-  let quality = first.quality;
-  if (needsCarefulPass(best)) {
-    onProgress?.('Läser av en gång till, mer noggrant…');
-    const second = renderStage(stage, CAREFUL_OCR_DIMENSION);
-    const retry = await recognizeWith(second.source, onProgress, { psm: '6', label: 'Läser av noggrant' });
-    if (readingScore(retry) > readingScore(best)) {
-      best = retry;
-      quality = second.quality;
-    }
-  }
+  const a = await recognizeWith(first.source, onProgress);
+  onProgress?.('Läser av en gång till och jämför…');
+  const second = renderStage(stage, CAREFUL_OCR_DIMENSION);
+  const b = await recognizeWith(second.source, onProgress, { psm: '6', label: 'Läser av noggrant' });
+  const aFirst = readingScore(a) >= readingScore(b);
+  const best = aFirst ? a : b;
+  const other = aFirst ? b : a;
+  const quality = aFirst ? first.quality : second.quality;
   const doubtful = await rereadDate(best);
+  let logo = null;
+  try { logo = await readLogo(best.source); } catch { logo = null; }
+  // Logotypen läggs först i texten, där butikens namn hade stått i text.
+  const withLogo = (text) => (logo && !String(text).toLowerCase().startsWith(logo.toLowerCase()) ? `${logo}
+${text}` : text);
   const { source: _source, digitWords: _words, ...result } = best;
   if (doubtful) result.weakTokens = [...(result.weakTokens || []), doubtful];
+  result.text = isUnreadableText(other.text)
+    ? withLogo(result.text)
+    : withLogo(result.text) + READING_SEPARATOR + withLogo(other.text);
   return { ...result, quality };
 }
 
@@ -1489,7 +1677,12 @@ function labelDistance(word, target, limit) {
 
 /** Rättar felstavade etiketter ("Ordermummer") till den riktiga ("Ordernummer"). */
 export function repairNumberLabels(lines) {
-  return (lines || []).map(line => String(line).replace(/[A-Za-zÅÄÖåäö0-9]{10,}/g, (word) => {
+  return (lines || []).map(line => String(line)
+    // Den korta etiketten "Kvittonr" först på raden, följd av ett långt nummer
+    // ("Keittons 100234"): två fel tecken tillåts bara just där.
+    .replace(/^(\s*)([A-Za-zÅÄÖåäö]{7,9})(?=[:.]?\s+\d{5,})/, (m, space, word) => (
+      labelDistance(word.toLowerCase(), 'kvittonr', 2) <= 2 ? `${space}Kvittonr` : m))
+    .replace(/[A-Za-zÅÄÖåäö0-9]{10,}/g, (word) => {
     const lower = word.toLowerCase();
     if (FUZZY_LABEL_WORDS.includes(lower)) return word;
     // Ett ord som är mest siffror är ett nummer, inte en etikett.
@@ -1904,7 +2097,10 @@ const BOILERPLATE_LINE_RE = /[öo]ppet k[öo]p|bytesr[äa]tt|reklamation|villkor
 // en faktura som inte visar någon betalning är ännu obetald.
 const PAYMENT_LABEL_RE = /(?:betalningss[äa]tt|betals[äa]tt|payment\s*(?:method|type)|betalning|betalt\s*med|paid\s*(?:by|with))\s*[:\-]?\s*(.*)/i;
 const PAY_SWISH_RE = /\bswish\b/i;
-const PAY_CARD_RE = /\b(?:kort(?:betalning|k[öo]p|typ)?|bankkort|card|mastercard|maestro|debit|amex|contactless|kontaktl[öo]s)\b/i;
+const PAY_CARD_RE = /\b(?:kort(?:betalning|k[öo]p|typ)?|bankkort|card|mastercard|maestro|debit|amex|contactless|kontaktl[öo]s)\b|mastercar|k[oöij0]rtk[oö0]p/i;
+// Kortterminalens egna rader står bara på ett kortkvitto: maskerat kortnummer
+// (************8903), applikations-id (AID A0000000041010) och TVR/TSI.
+const CARD_TERMINAL_RE = /[*x#]{6,}\s?\d{4}\b|\bAID\b[^\n]*\bA0{4,}\d+|\bTVR\b[^\n]*\d{6,}/i;
 const PAY_CASH_RE = /\b(?:kontant|kontanter|cash)\b(?!\s*back)/i;
 
 export function detectPaymentMethod(text, { isInvoice = false } = {}) {
@@ -1928,6 +2124,7 @@ export function detectPaymentMethod(text, { isInvoice = false } = {}) {
   if (isInvoice) return { method: 'invoice', explicit: false };
   const any = classify(source);
   if (any) return { method: any, explicit: false };
+  if (CARD_TERMINAL_RE.test(source)) return { method: 'card', explicit: false };
   return { method: null, explicit: false };
 }
 
@@ -2051,10 +2248,25 @@ function repairFutureDate(iso, limit) {
 }
 
 /**
+ * Rättelser av "MMDD" där en enda siffra bytts mot en den ofta förväxlas med.
+ * Sorterade med den vanligaste förväxlingen först. Exporterad för testerna.
+ */
+export function repairDateDigits(mmdd) {
+  const out = [];
+  for (let i = 0; i < mmdd.length; i++) {
+    const alts = CONFUSABLE_DIGITS[mmdd[i]] || '';
+    for (let k = 0; k < alts.length; k++) out.push({ mmdd: mmdd.slice(0, i) + alts[k] + mmdd.slice(i + 1), rank: k });
+  }
+  // Vanligaste förväxlingen först (7 läst för 1 före 7 läst för 2).
+  return out.sort((a, b) => a.rank - b.rank);
+}
+
+/**
  * Väljer köpdatumet bland datumen som hittades och säger om det bör
  * kontrolleras. `weakTokens` är ord med siffror som OCR själv var osäker på
  * (se recognizeWith); saknas de avgör datumen och `lowConfidence` ensamma.
  */
+
 export function pickReceiptDate(candidates, { today = new Date(), weakTokens = null, lowConfidence = false } = {}) {
   if (!candidates.length) return { date: null, dateGuessed: false };
   const tomorrow = new Date(today.getTime() + 24 * 3600 * 1000);
@@ -2113,7 +2325,75 @@ const LOW_OCR_CONFIDENCE = 60;
  * eller en cachad avläsning där siffran inte sparades) och then avgör
  * innehållet ensamt, som förut.
  */
-export function parseReceiptText(text, { confidence = null, weakTokens = null, today = new Date() } = {}) {
+// Skiljer flera oberoende avläsningar av samma dokument i en och samma text
+// (se extractTextFromImage). Texten cachas som den är, så sammanvägningen görs
+// om varje gång tolkningen körs.
+export const READING_SEPARATOR = '\n\u001e\n';
+
+/**
+ * Väger samman flera avläsningar av samma kvitto fält för fält, som en
+ * människa som läser två gånger: varje fält tas från den avläsning där det är
+ * säkrast (ett belopp som går ihop med momsen slår ett som inte gör det), och
+ * två avläsningar som säger samma sak bekräftar varandra. Exporterad för
+ * testerna.
+ */
+export function mergeReadings(readings) {
+  const usable = readings.filter(r => !r.notReceipt);
+  if (usable.length === 0) return readings[0];
+  if (usable.length === 1) return usable[0];
+  const same = (key, value) => usable.filter(r => r[key] && r[key] === value).length;
+
+  // Beloppet och allt som hör ihop med det (moms, valuta, retur) från samma avläsning.
+  const amountRank = (r) => (!r.amount ? 0 : r.amountVerified ? 4 : r.vatVerified ? 3 : r.amountGuessed ? 1 : 2);
+  const base = [...usable].sort((a, b) => (amountRank(b) - amountRank(a)) || (same('amount', b.amount) - same('amount', a.amount)))[0];
+  const out = { ...base };
+  if (!out.amountVerified && out.amount && same('amount', out.amount) >= 2) out.amountGuessed = false;
+
+  // Leverantören: en känd butik före ett namn med org.-nummer före resten.
+  const supplierRank = (r) => (!r.supplier ? 0 : r.supplierMatched ? 3 : r.supplierConfirmed ? 2 : 1) + same('supplier', r.supplier) * 0.1;
+  const sup = [...usable].sort((a, b) => supplierRank(b) - supplierRank(a))[0];
+  Object.assign(out, {
+    supplier: sup.supplier, supplierMatched: sup.supplierMatched,
+    supplierConfirmed: sup.supplierConfirmed || (Boolean(sup.supplier) && same('supplier', sup.supplier) >= 2),
+  });
+  // Kontot följer leverantören, utom när beloppets avläsning gav omvänd moms.
+  if (!out.reverseCharge && sup.accountCode && (!out.accountCode || out.accountGuessed || !sup.accountGuessed)) {
+    Object.assign(out, { accountCode: sup.accountCode, accountGuessed: sup.accountGuessed, accountSource: sup.accountSource });
+  }
+
+  // Datumet: säkra avläsningar först; två som säger samma datum bekräftar det.
+  const dated = usable.filter(r => r.date);
+  if (dated.length) {
+    const agreed = dated.find(r => same('date', r.date) >= 2);
+    const sure = dated.filter(r => !r.dateGuessed);
+    const pick = agreed || sure[0] || dated[0];
+    const conflict = sure.some(r => r.date !== pick.date);
+    Object.assign(out, { date: pick.date, dateText: pick.dateText, dateGuessed: agreed ? conflict : (pick.dateGuessed || conflict) });
+  }
+
+  // Numret: samma nummer i två avläsningar, annars ett som inte är osäkert.
+  const numbered = usable.filter(r => r.receiptNumber);
+  if (numbered.length) {
+    const agreed = numbered.find(r => same('receiptNumber', r.receiptNumber) >= 2);
+    const pick = agreed || numbered.find(r => !r.receiptNumberGuessed) || numbered[0];
+    Object.assign(out, {
+      receiptNumber: pick.receiptNumber, receiptNumberKind: pick.receiptNumberKind, receiptNumberLabel: pick.receiptNumberLabel,
+      receiptNumberGuessed: agreed ? false : pick.receiptNumberGuessed,
+    });
+  }
+  if (!out.paymentMethod) out.paymentMethod = usable.find(r => r.paymentMethod)?.paymentMethod || null;
+  return out;
+}
+
+export function parseReceiptText(text, options = {}) {
+  if (typeof text === 'string' && text.includes(READING_SEPARATOR)) {
+    const parts = text.split(READING_SEPARATOR).filter(p => p.trim());
+    return mergeReadings(parts.map((part, i) => parseOneReading(part, i === 0 ? options : { ...options, weakTokens: null })));
+  }
+  return parseOneReading(text, options);
+}
+
+function parseOneReading(text, { confidence = null, weakTokens = null, today = new Date() } = {}) {
   if (!text || typeof text !== 'string') {
     return { ...EMPTY_PARSE };
   }
@@ -2179,19 +2459,53 @@ export function parseReceiptText(text, { confidence = null, weakTokens = null, t
   }
 
   const dateCandidates = [];
-  lines.forEach((line, lineIndex) => {
+  const repairedDates = [];
+  const compactDates = [];
+  lines.forEach((rawLine, lineIndex) => {
+    // Bokstäver som OCR läser i stället för siffror inne i ett datum
+    // ("2O24-O5-26", "26.0S.2024"): bara i ord som ser ut som ett datum.
+    const line = String(rawLine).replace(/\b[\dOoIlSBZ|]{1,4}[-./][\dOoIlSBZ|]{1,2}[-./][\dOoIlSBZ|]{2,4}\b/g, (tok) => (
+      (tok.match(/\d/g) || []).length >= 4
+        ? tok.replace(/[Oo]/g, '0').replace(/[Il|]/g, '1').replace(/S/g, '5').replace(/B/g, '8').replace(/Z/g, '2')
+        : tok));
+    // En rad med en datumetikett väger tyngre än ett datum någon annanstans
+    // (en kampanjtext, en garantitid, ett utskriftsdatum).
+    const labelled = /\b(?:k[öo]p|faktura|kvitto|transaktions|leverans|invoice|issue|purchase|order)?\s*(?:datum|date)\b|\bdat\b/i.test(line);
     const push = (value, raw) => {
-      if (isRealDate(value)) dateCandidates.push({ date: value, raw, lineIndex, due: DUE_DATE_LINE_RE.test(line) });
+      if (isRealDate(value)) dateCandidates.push({ date: value, raw, lineIndex, due: DUE_DATE_LINE_RE.test(line), labelled });
     };
     // YYYY-MM-DD eller YYYY/MM/DD eller YYYY.MM.DD
     const m1 = line.match(/\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b/);
     if (m1) {
-      push(`${m1[1]}-${m1[2].padStart(2, '0')}-${m1[3].padStart(2, '0')}`, m1[0]);
+      const iso = `${m1[1]}-${m1[2].padStart(2, '0')}-${m1[3].padStart(2, '0')}`;
+      if (isRealDate(iso)) {
+        push(iso, m1[0]);
+      } else {
+        // Ett omöjligt datum ("2022-11-74") är en felläst siffra. De rättelser
+        // som ger ett riktigt datum sparas och avgörs mot kvittots andra
+        // datum nedan (kortterminalens "221114").
+        // Bara när en siffra uppenbart är fel (dag över 31, månad över 12):
+        // "2026-02-30" är inget läsfel och lämnas utan datum.
+        const clearlyMisread = Number(m1[3]) > 31 || Number(m1[2]) > 12;
+        if (clearlyMisread) repairDateDigits(`${m1[2].padStart(2, '0')}${m1[3].padStart(2, '0')}`).forEach(({ mmdd: md, rank }) => {
+          const fixed = `${m1[1]}-${md.slice(0, 2)}-${md.slice(2)}`;
+          if (isRealDate(fixed)) repairedDates.push({ date: fixed, raw: m1[0], lineIndex, due: DUE_DATE_LINE_RE.test(line), rank });
+        });
+      }
       return;
     }
+    // Kortterminalens datum: ÅÅMMDD följt av klockslaget TTMMSS ("221114 141911").
+    const mc = line.match(/\b(\d{2})(\d{2})(\d{2})\s+[0-2]\d[0-5]\d[0-5]\d\b/);
+    if (mc) {
+      const iso = `20${mc[1]}-${mc[2]}-${mc[3]}`;
+      if (isRealDate(iso)) compactDates.push(iso);
+    }
+    // ÅÅÅÅMMDD efter en datumetikett ("Datum 20240526").
+    const mcl = line.match(/(?:datum|date|dat\.?)\s*:?\s*(20\d{2})(\d{2})(\d{2})\b/i);
+    if (mcl) { push(`${mcl[1]}-${mcl[2]}-${mcl[3]}`, mcl[0]); return; }
     // DD/MM/YYYY eller MM/DD/YYYY (- eller . fungerar också) — se
     // resolveDayMonth ovan för vilken tolkning som vinner.
-    const m2 = line.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})\b/);
+    const m2 = line.match(/\b(\d{1,2})\s?[-/.]\s?(\d{1,2})\s?[-/.]\s?(20\d{2})\b/);
     if (m2) {
       const { day, month } = resolveDayMonth(m2[1], m2[2]);
       if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
@@ -2199,34 +2513,63 @@ export function parseReceiptText(text, { confidence = null, weakTokens = null, t
         return;
       }
     }
-    // DD/MM-YY, DD/MM/YY eller MM/DD-YY ("01/06-22", "23/09/26"). Kassakvitton
-    // skriver ofta tvåsiffrigt årtal med snedstreck hela vägen — med bara
-    // bindestreck som sista avgränsare (som förut) fick ett sånt kvitto inget
-    // datum alls.
-    const m3 = line.match(/\b(\d{1,2})[/.-](\d{1,2})[/.-]([12]\d)\b/);
+    // Tre tvåsiffriga grupper: DD/MM/YY ("23/09/26", "26/5-24") eller ÅÅ-MM-DD
+    // ("24-05-26", vanligt på svenska kassor). Går båda att läsa väljs den som
+    // inte ligger i framtiden och är närmast idag.
+    const m3 = line.match(/\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{2})\b(?![/.-]\d)/);
     if (m3) {
+      const options = [];
       const yr = parseInt(m3[3], 10);
-      const fullYear = yr < 70 ? 2000 + yr : 1900 + yr;
       const { day, month } = resolveDayMonth(m3[1], m3[2]);
-      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-        push(`${fullYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`, m3[0]);
-        return;
-      }
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) options.push(`${yr < 70 ? 2000 + yr : 1900 + yr}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+      if (/^\d{2}-\d{1,2}-\d{2}$/.test(m3[0])) options.push(`20${m3[1]}-${m3[2].padStart(2, '0')}-${m3[3]}`);
+      const limit = isoLocal(new Date(today.getTime() + 24 * 3600 * 1000));
+      // Med bindestreck skriver svenska kassor ÅÅ-MM-DD (svensk standard), så
+      // den läsningen gäller om den inte ligger i framtiden.
+      const ymd = options[1];
+      const best = (ymd && isRealDate(ymd) && ymd <= limit)
+        ? ymd
+        : options.filter(isRealDate).sort((x, y) => ((x <= limit) === (y <= limit) ? (x < y ? 1 : -1) : (x <= limit ? -1 : 1)))[0];
+      if (best) { push(best, m3[0]); return; }
     }
-    // Textdatum: "May 12, 2024" eller "12 maj 2024" eller "12 juni 2023"
-    const m4 = line.match(/\b(\d{1,2})?\s*([a-zA-ZåäöÅÄÖ]{3,10})\s+(\d{1,2})?,?\s*(20\d{2})\b/);
-    if (m4) {
-      const monthStr = m4[2].toLowerCase();
-      const monthNum = MONTHS_MAP[monthStr];
-      const day = (m4[1] || m4[3] || '1').padStart(2, '0');
-      const year = m4[4];
-      if (monthNum) {
-        push(`${year}-${monthNum}-${day}`, m4[0]);
-        return;
-      }
+    // Datum med månaden i ord: "26 maj 2024", "26-May-2024", "26. Mai 2024",
+    // "May 26th, 2024", "maj 26 2024". Dagen MÅSTE stå: ett "maj 2024" utan dag
+    // blev förut den första i månaden (Elgiganten-kvittot fick 1 maj i stället
+    // för 26 maj).
+    const DMY_RE = /\b(\d{1,2})(?:st|nd|rd|th|:e|:a)?\.?[\s/-]*([A-Za-zÅÄÖåäö]{3,10})\.?[\s/,-]*((?:20)?\d{2})\b/g;
+    const MDY_RE = /\b([A-Za-zÅÄÖåäö]{3,10})\.?[\s/-]*(\d{1,2})(?:st|nd|rd|th)?,?[\s/-]+(20\d{2})\b/g;
+    const textual = [
+      ...[...line.matchAll(DMY_RE)].map(m => ({ m, day: m[1], mon: m[2], year: m[3] })),
+      ...[...line.matchAll(MDY_RE)].map(m => ({ m, day: m[2], mon: m[1], year: m[3] })),
+    ];
+    for (const { m, day, mon, year } of textual) {
+      const monthNum = monthFromWord(mon);
+      if (!monthNum) continue;
+      const fullYear = year.length === 2 ? `20${year}` : year;
+      push(`${fullYear}-${monthNum}-${day.padStart(2, '0')}`, m[0]);
+      return;
     }
   });
-  const { date, dateText = null, dateGuessed } = pickReceiptDate(dateCandidates, { today, weakTokens, lowConfidence });
+  // Rättade datum: ett som stämmer med kortterminalens datum eller ett annat
+  // datum på kvittot räknas som avläst. Utan något att stämma mot används en
+  // rättelse bara när den är ensam, och då som något att kontrollera.
+  // Etiketterade datum först, annars i dokumentets ordning (sorteringen är stabil).
+  dateCandidates.sort((a, b) => Number(Boolean(b.labelled)) - Number(Boolean(a.labelled)));
+  let dateRepairedUnconfirmed = false;
+  if (repairedDates.length) {
+    const others = new Set([...compactDates, ...dateCandidates.map(c => c.date)]);
+    const confirmed = repairedDates.find(r => others.has(r.date));
+    if (confirmed) dateCandidates.unshift(confirmed);
+    else if (!dateCandidates.length && repairedDates.filter(r => r.rank === repairedDates[0].rank).length === 1) {
+      // Ensam bästa rättelse: används, men som något att kontrollera.
+      dateCandidates.push(repairedDates[0]);
+      dateRepairedUnconfirmed = true;
+    }
+  }
+  if (!dateCandidates.length && compactDates.length) dateCandidates.push({ date: compactDates[0], raw: compactDates[0], lineIndex: -1, due: false });
+  const pickedDate = pickReceiptDate(dateCandidates, { today, weakTokens, lowConfidence });
+  const { date, dateText = null } = pickedDate;
+  const dateGuessed = pickedDate.dateGuessed || dateRepairedUnconfirmed;
 
   // ── 2. Totalbelopp ────────────────────────────────────────────────────────
   let amount = null;
