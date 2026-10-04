@@ -4,7 +4,7 @@ import {
   Trash2, Mail, Laptop, Lock, KeyRound, Image as ImageIcon,
   Palette, Hash, Calendar, X, ZoomIn, ZoomOut, Maximize2, ExternalLink, Sun, Moon,
   UserRound, Users, Cog, ArrowLeft, ArrowRight,
-  Sparkles, CheckCircle2, HelpCircle, LogOut, Search, ChevronRight, Fingerprint, CalendarFilled, MailFilled, BankFilled,
+  Sparkles, CheckCircle2, HelpCircle, LogOut, Search, ChevronRight, Fingerprint, CalendarFilled, MailFilled, BankFilled, Inbox,
 } from './icons';
 import { supabase } from '../supabaseClient';
 import { passkeysAvailable, isPasskeyCancel, appLockEnabledFor, setAppLock, rememberPasskeyOnDevice } from '../utils/sessionPolicy';
@@ -2431,6 +2431,47 @@ export default function Settings({
   // idé som openIntegration: listan först, en egen sida när man valt.
   const [advancedView, setAdvancedView] = useState(null);
   const [calendarCopied, setCalendarCopied] = useState(false);
+  // E-postinkorgen (api/inbox/index.js): adressen, senast mottaget mejl och
+  // Gmails bekräftelsekod. Hämtas när Kopplingar öppnas, och var tjugonde
+  // sekund medan inkorgens sida är öppen (koden från Gmail kommer inom en minut).
+  const [inboxInfo, setInboxInfo] = useState(null);
+  const [inboxError, setInboxError] = useState('');
+  const [inboxBusy, setInboxBusy] = useState(false);
+  const [inboxTab, setInboxTab] = useState('gmail');
+  const [inboxCopied, setInboxCopied] = useState('');
+  const loadInbox = async (action = 'get') => {
+    // Demot (readOnly) har ingen databas: visa hur det ser ut med en påhittad adress.
+    if (readOnly) { setInboxInfo({ address: 'exempelforetag-k29fq7m@inbox.bokix.se', lastReceivedAt: null, gmailCode: null }); return; }
+    if (!activeCompanyId) return;
+    setInboxBusy(true);
+    setInboxError('');
+    try {
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      const res = await fetch('/api/inbox', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+        body: JSON.stringify({ companyId: activeCompanyId, action }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || tr('ui.inkorg_fel'));
+      setInboxInfo(json);
+    } catch (err) {
+      setInboxError(err?.message || tr('ui.inkorg_fel'));
+    } finally {
+      setInboxBusy(false);
+    }
+  };
+  useEffect(() => {
+    if (activeTab !== 'integrations') return undefined;
+    loadInbox();
+    if (openIntegration !== 'email-inbox') return undefined;
+    const timer = setInterval(() => loadInbox(), 20000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, openIntegration, activeCompanyId]);
+  const copyInbox = async (text, key) => {
+    try { await navigator.clipboard.writeText(text); setInboxCopied(key); setTimeout(() => setInboxCopied(''), 2000); } catch { /* urklipp blockerat */ }
+  };
   const backupInputRef = useRef(null);
   const [invoiceNumberError, setInvoiceNumberError] = useState('');
 
@@ -2597,7 +2638,7 @@ export default function Settings({
   // Undersidor (en koppling, eller radering i Import och export): egen
   // rubrik och en väg tillbaka till listan.
   const subPage = activeTab === 'integrations' && openIntegration
-    ? { title: ({ stripe: 'Stripe', zettle: 'Zettle', calendar: tr('ui.kalender'), gmail: 'Gmail', 'business-email': tr('ui.egen_e_postadress'), bank: tr('ui.din_bank') })[openIntegration] || '', back: () => setOpenIntegration(null) }
+    ? { title: ({ stripe: 'Stripe', zettle: 'Zettle', calendar: tr('ui.kalender'), gmail: 'Gmail', 'business-email': tr('ui.egen_e_postadress'), bank: tr('ui.din_bank'), 'email-inbox': tr('ui.inkorg_namn') })[openIntegration] || '', back: () => setOpenIntegration(null) }
     : activeTab === 'advanced' && advancedView
       ? { title: advancedView === 'delete-data' ? tr('ui.radera_foretagets_bokforingsdata') : tr('ui.radera_foretag'), back: () => setAdvancedView(null) }
       : null;
@@ -2779,6 +2820,98 @@ export default function Settings({
           </button>
         </SettingRow>
       </SettingCard>
+    </>
+  );
+
+  // E-postinkorgen: adressen, om något kommit, Gmails kod och hur man
+  // vidarebefordrar från Gmail, Outlook och Apple Mail.
+  const GMAIL_FILTER = 'has:attachment (faktura OR kvitto OR invoice OR receipt OR kvittering)';
+  const inboxSteps = {
+    gmail: [tr('ui.inkorg_gmail_1'), tr('ui.inkorg_gmail_2'), tr('ui.inkorg_gmail_3'), tr('ui.inkorg_gmail_4')],
+    outlook: [tr('ui.inkorg_outlook_1'), tr('ui.inkorg_outlook_2'), tr('ui.inkorg_outlook_3')],
+    apple: [tr('ui.inkorg_apple_1'), tr('ui.inkorg_apple_2'), tr('ui.inkorg_apple_3')],
+    other: [tr('ui.inkorg_annan_1')],
+  };
+  const inboxNotes = { outlook: tr('ui.inkorg_outlook_not'), apple: tr('ui.inkorg_apple_not') };
+  const emailInboxCard = (
+    <>
+      <SettingCard title={tr('ui.inkorg_adress_rubrik')}>
+        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', maxWidth: '560px', lineHeight: 1.55 }}>{tr('ui.inkorg_intro')}</p>
+        {!inboxInfo ? (
+          <div style={{ fontSize: '13px', color: inboxError ? 'var(--status-red-text)' : 'var(--text-muted)' }}>{inboxError || tr('ui.inkorg_hamtar')}</div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <input readOnly value={inboxInfo.address} onFocus={e => e.target.select()} aria-label={tr('ui.inkorg_adress_rubrik')} style={{ ...inputBase, flex: '1 1 260px', maxWidth: '420px', fontFamily: 'ui-monospace, monospace', fontSize: '13.5px' }} />
+              <button type="button" onClick={() => copyInbox(inboxInfo.address, 'address')} style={btnTile}>{inboxCopied === 'address' ? tr('ui.kopierad') : tr('ui.kopiera')}</button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '14px', fontSize: '13px', color: inboxInfo.lastReceivedAt ? 'var(--status-green-text)' : 'var(--text-muted)' }}>
+              {inboxInfo.lastReceivedAt && <CheckCircle2 size={16} />}
+              {inboxInfo.lastReceivedAt ? tr('ui.inkorg_mottaget', { v: relativeTimeSv(inboxInfo.lastReceivedAt) }) : tr('ui.inkorg_inget_mottaget')}
+            </div>
+            {inboxInfo.gmailCode && (
+              <div style={{ marginTop: '14px', padding: '12px 14px', borderRadius: '10px', background: 'var(--status-green-bg)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 200px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--status-green-text)' }}>{tr('ui.inkorg_gmail_kod')}</div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-main)', fontFamily: 'ui-monospace, monospace' }}>{inboxInfo.gmailCode}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{tr('ui.inkorg_gmail_kod_hjalp')}</div>
+                </div>
+                <button type="button" onClick={() => copyInbox(inboxInfo.gmailCode, 'code')} style={btnTile}>{inboxCopied === 'code' ? tr('ui.kopierad') : tr('ui.kopiera')}</button>
+              </div>
+            )}
+          </>
+        )}
+      </SettingCard>
+      {inboxInfo && (
+        <SettingCard title={tr('ui.inkorg_vidarebefordra')}>
+          <div role="tablist" style={{ display: 'inline-flex', gap: '2px', padding: '3px', borderRadius: '10px', background: 'var(--bg-muted)', marginBottom: '16px', flexWrap: 'wrap' }}>
+            {[['gmail', 'Gmail'], ['outlook', 'Outlook'], ['apple', 'Apple Mail'], ['other', tr('ui.inkorg_annan')]].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={inboxTab === id}
+                onClick={() => setInboxTab(id)}
+                style={{ padding: '7px 14px', border: 'none', borderRadius: '8px', fontFamily: 'inherit', fontSize: '13px', cursor: 'pointer', fontWeight: inboxTab === id ? 600 : 500, background: inboxTab === id ? 'var(--bg-card)' : 'transparent', color: inboxTab === id ? 'var(--text-main)' : 'var(--text-muted)', boxShadow: inboxTab === id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '620px' }}>
+            {inboxSteps[inboxTab].map((step, i) => (
+              <li key={i} style={{ display: 'flex', gap: '12px', fontSize: '13.5px', color: 'var(--text-main)', lineHeight: 1.5 }}>
+                <span style={{ flex: 'none', width: '22px', height: '22px', borderRadius: '50%', background: 'var(--bg-muted)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
+          {inboxTab === 'gmail' && (
+            <div style={{ marginTop: '16px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>{tr('ui.inkorg_filter')}</div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <input readOnly value={GMAIL_FILTER} onFocus={e => e.target.select()} aria-label={tr('ui.inkorg_filter')} style={{ ...inputBase, flex: '1 1 260px', maxWidth: '520px', fontFamily: 'ui-monospace, monospace', fontSize: '12.5px' }} />
+                <button type="button" onClick={() => copyInbox(GMAIL_FILTER, 'filter')} style={btnTile}>{inboxCopied === 'filter' ? tr('ui.kopierad') : tr('ui.kopiera')}</button>
+              </div>
+            </div>
+          )}
+          {inboxNotes[inboxTab] && <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '14px 0 0' }}>{inboxNotes[inboxTab]}</p>}
+        </SettingCard>
+      )}
+      {inboxInfo && (
+        <SettingCard>
+          <SettingRow label={tr('ui.inkorg_ny_adress')} description={tr('ui.inkorg_ny_adress_desc')} last>
+            <button
+              type="button"
+              disabled={inboxBusy}
+              onClick={async () => { if (await confirmDialog(tr('ui.inkorg_ny_adress_fraga'))) loadInbox('rotate'); }}
+              style={btnSecondary}
+            >
+              {tr('ui.inkorg_ny_adress')}
+            </button>
+          </SettingRow>
+        </SettingCard>
+      )}
     </>
   );
 
@@ -3315,6 +3448,17 @@ export default function Settings({
           {tr('ui.anslut')}
         </button>
       ),
+    },
+    {
+      id: 'email-inbox',
+      name: tr('ui.inkorg_namn'),
+      tagline: tr('ui.inkorg_tagline'),
+      logo: <Inbox size={30} color="#1f2937" />,
+      connected: Boolean(inboxInfo?.lastReceivedAt),
+      connectedAs: inboxInfo?.address || null,
+      statusLabel: inboxInfo?.lastReceivedAt ? tr('ui.inkorg_tar_emot') : tr('ui.inkorg_inte_installd'),
+      detail: true,
+      keywords: 'mejl vidarebefordra kvitto faktura inkorg gmail outlook',
     },
     {
       id: 'calendar',
@@ -4239,7 +4383,7 @@ export default function Settings({
           {activeTab === 'integrations' && !openIntegration && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               <SettingCard flush>
-                {['stripe', 'zettle', 'gmail', 'business-email', 'calendar'].map(id => integrationCatalogue.find(i => i.id === id)).filter(Boolean).map(item => (
+                {['email-inbox', 'stripe', 'zettle', 'gmail', 'business-email', 'calendar'].map(id => integrationCatalogue.find(i => i.id === id)).filter(Boolean).map(item => (
                   <SettingsLinkRow
                     key={item.id}
                     logo={item.logo}
@@ -4261,6 +4405,7 @@ export default function Settings({
               {openIntegration === 'stripe' && stripeCard}
               {openIntegration === 'zettle' && zettleCard}
               {openIntegration === 'calendar' && calendarCard}
+              {openIntegration === 'email-inbox' && emailInboxCard}
               {openIntegration === 'gmail' && gmailCard}
               {openIntegration === 'business-email' && businessEmailCard}
             </div>

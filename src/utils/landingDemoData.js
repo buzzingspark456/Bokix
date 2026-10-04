@@ -253,6 +253,14 @@ export function createDemoSeed() {
     description: '', supplier: 'Exempelmacken', amount: 890, netAmount: 712, vatAmount: 178, vatRate: 25,
     costAccount: '', receiptUrl: '', receiptType: '', uploadedBy: null,
   });
+  // Kom in via företagets e-postinkorg (vidarebefordrad faktura), inte ifyllt än.
+  expenses.push({
+    id: 'demo_exp_inbox', type: 'receipt', date: daysFromToday(-1),
+    description: '', supplier: '', amount: 0, netAmount: 0, vatAmount: 0, vatRate: 25,
+    costAccount: '', receiptUrl: '', receiptType: 'application/pdf',
+    uploadedBy: { source: 'email', name: '', email: 'faktura@exempelel.se' },
+    inbox: { source: 'email', from: 'faktura@exempelel.se', subject: 'Din elfaktura för september', fileName: 'faktura-8841.pdf', receivedAt: new Date().toISOString() },
+  });
   // Obetald leverantörsfaktura — bokförd (skuld mot 2440), inte reglerad än.
   expenses.push({
     id: 'demo_exp_supplier1', type: 'supplier_invoice', invoiceNumber: 'KM-3381',

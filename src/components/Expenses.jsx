@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { isVatExempt } from '../utils/vatRegistration';
 import {
-  UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop,
+  UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop, Mail,
 } from './icons';
 import { AccountSearch } from './shared/SearchInputs';
 import AccountInlinePicker from './shared/AccountInlinePicker';
@@ -1689,6 +1689,9 @@ export default function Expenses({
                       // Vem som laddade upp är bara intressant när det finns fler
                       // än en person att skilja på (samma resonemang som ovan).
                       const uploaderName = showUploaderTabs && effectiveTab === 'all' ? displayUploaderName(r.uploadedBy) : null;
+                      // Kom kvittot via företagets e-postinkorg står avsändaren
+                      // alltid, och ämnet får vara namnet tills kvittot fyllts i.
+                      const fromEmail = r.inbox?.source === 'email' ? (r.inbox.from || tr('ui.okant')) : null;
                       const isImage = r.receiptType?.startsWith('image/') && r.receiptUrl;
                       const isPdf = r.receiptType === 'application/pdf' && r.receiptUrl;
                       return (
@@ -1711,9 +1714,14 @@ export default function Expenses({
                             )}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.supplier || r.description || tr('ui.namnlost_kvitto')}</div>
+                            <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.supplier || r.description || r.inbox?.subject || r.inbox?.fileName || tr('ui.namnlost_kvitto')}</div>
                             <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{formatDate(r.date)}{categoryName ? ` · ${categoryName}` : ''}{folderName ? ` · ${folderName}` : ''}</div>
-                            {uploaderName && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>{tr('ui.uppladdat_av')} {uploaderName}</div>}
+                            {fromEmail ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px', minWidth: 0 }}>
+                                <Mail size={11} style={{ flexShrink: 0 }} />
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tr('ui.inkorg_kalla_mejl', { v: fromEmail })}</span>
+                              </div>
+                            ) : uploaderName && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>{tr('ui.uppladdat_av')} {uploaderName}</div>}
                           </div>
                           <div style={{ textAlign: 'right', flexShrink: 0 }}>
                             <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)' }}>{formatSEK(r.amount)}</div>
