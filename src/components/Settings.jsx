@@ -2443,7 +2443,17 @@ export default function Settings({
   const [senderError, setSenderError] = useState('');
   const loadInbox = async (action = 'get', extra = {}) => {
     // Demot (readOnly) har ingen databas: visa hur det ser ut med en påhittad adress.
-    if (readOnly) { setInboxInfo({ address: 'exempelforetag-k29fq7m@inbox.bokix.se', lastReceivedAt: null, gmailCode: null }); return; }
+    if (readOnly) {
+      setInboxInfo(prev => prev || {
+        address: 'exempelforetag-k29fq7m@inbox.bokix.se',
+        lastReceivedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        gmailCode: null,
+        allowedSenders: ['@exempelel.se', '@exempeltelefoni.se'],
+        lastBlockedFrom: null,
+        lastBlockedAt: null,
+      });
+      return;
+    }
     if (!activeCompanyId) return;
     setInboxBusy(true);
     setInboxError('');

@@ -261,6 +261,14 @@ export function createDemoSeed() {
     uploadedBy: { source: 'email', name: '', email: 'faktura@exempelel.se' },
     inbox: { source: 'email', from: 'faktura@exempelel.se', subject: 'Din elfaktura för september', fileName: 'faktura-8841.pdf', receivedAt: new Date().toISOString() },
   });
+  // Kom också via e-postinkorgen, redan granskad och bokförd.
+  expenses.push({
+    id: 'demo_exp_inbox_booked', type: 'receipt', date: daysFromToday(-6),
+    description: 'Mobilabonnemang', supplier: 'Exempeltelefoni AB', amount: 499, netAmount: 399.2, vatAmount: 99.8, vatRate: 25,
+    costAccount: '6212', receiptUrl: '', receiptType: 'application/pdf',
+    uploadedBy: { source: 'email', name: '', email: 'faktura@exempeltelefoni.se' },
+    inbox: { source: 'email', from: 'faktura@exempeltelefoni.se', subject: 'Din faktura från Exempeltelefoni', fileName: 'faktura-2210.pdf', receivedAt: new Date().toISOString() },
+  });
   // Obetald leverantörsfaktura — bokförd (skuld mot 2440), inte reglerad än.
   expenses.push({
     id: 'demo_exp_supplier1', type: 'supplier_invoice', invoiceNumber: 'KM-3381',
