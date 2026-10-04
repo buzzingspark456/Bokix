@@ -81,3 +81,21 @@ describe('lutning', () => {
   it('hittar 12° lutning', () => expect(Math.abs(estimateSkewFromGray(...lines(12)) - 12)).toBeLessThan(1.5));
   it('rak text ger 0', () => expect(estimateSkewFromGray(...lines(0))).toBe(0));
 });
+
+describe('riktiga fakturor', () => {
+  it('faktura med etiketter i en rad och värden under, grå brödtext, "Belopp utan moms"', () => {
+    const r = parseReceiptText(fs.readFileSync(new URL('./__fixtures__/faktura-i20.txt', import.meta.url), 'utf8'), { today });
+    expect(r.supplier).toBe('Exempelföretag Ab');
+    expect(r.receiptNumber).toBe('1234');
+    expect(r.date).toBe('2020-10-25');
+    expect(r.amount).toBe(1620);
+    expect(r.vatAmount).toBe(270);
+    expect(r.paymentMethod).toBe('invoice');
+  });
+  it('fakturamall med Totalt och Moms(25.00%)', () => {
+    const r = parseReceiptText(fs.readFileSync(new URL('./__fixtures__/faktura-i22.txt', import.meta.url), 'utf8'), { today });
+    expect(r.date).toBe('2020-08-18');
+    expect(r.amount).toBe(4869.38);
+    expect(r.vatAmount).toBe(973.88);
+  });
+});

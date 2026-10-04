@@ -1,0 +1,31 @@
+Faktura
+Exempelföretag Ab Kundföretag Ab
+Företagsgatan 2, Bert Betalarson,
+123 45 Hemstad. Köparvägen 10
+123 45 Köpstad
+Fakturanummer Kundnummer Referensnummer Fakturadatum Förfallodag
+1234 10 A00342 25.10.2020 24.11.2020
+Tilläggsinformation
+14 dagars returrätt gäller för oanvända varor.
+Beskrivning Antal Enhet ÅPris Moms % Moms kr Belopp
+Arbete 5 h 60,00 kr 25% 60,00 kr 300,00 kr
+Produkt 10 st 105,00 kr 25% 210,00 kr 1 050,00 kr
+Belopp utan moms 1 350,00 kr
+Moms totalt 270,00 kr
+Summa att betala 1 620,00 kr
+Godkänd för F-skatt
+Exempelföretag Ab Kontaktuppgifter Betalningsinformation
+Företagsgatan 2 Freddy Företagare Bank Nordea
+123 45 Hemstad Telefon 02 123 45 67 SWIFT/BIC BBRUBEBS
+Org nummer 0123 456 789 Email Freddy@foretag se IBAN SE00 0000 0000 0000
+
+
+Faktura
+Exempelföretag Ab Kundföretag Ab
+Företagsgatan 2, Bert Betalarson,
+123 45 Hemstad. Köparvägen 10
+123 45 Köpstad
+Fakturanummer Kundnummer Referensnummer Fakturadatum Förfallodag
+1234 10 A00342 25.10.2020 24.11.2020
+Tilläggsinformation
+14 dagars returrätt gäller för oanvända varor.

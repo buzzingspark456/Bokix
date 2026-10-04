@@ -1,0 +1,47 @@
+JA INV24.SE
+€ FAKTURERINGSPROGRAM
+Faktura till:
+[Kundens företagsnamn] Fakturadatum: 2020-08-18
+[KUNGENS Företags ress] > Förfallodatum: 2020-09-01
+Org. nr.: [Kundens organisationsnummer] Betalningsvillkor: 14 dagar
+Momsreg. nr.: [Kundens Dröjsmålsränta: 5%
+momsregistreringsnummer] |
+Er referens: [Kundens referens]
+Faktura # 1
+Benämning Antal Å-pris Belopp
+Testprodukt 1 995,00 995,00
+Testprodukt (Rabatt 10%) 1 -99,50 -99,50
+Testprodukt 2 3 1 000,00 3 000,00
+Belopp: 3 895,50 kr
+Moms(25.00%): 973,88 kr
+Totalt: 4 869,38 kr
+[Företagsnamn] [Address] [Banknamn]
+Org. nr.: [Organisationsnummer] Telefon: [Telefon] [IBAN]
+Momsreg. nr.: SWIFT/BIC: [SWIFT/BIC]
+[Momsregistreringsnummer] Bankgiro: [bankgiro]
+Godkänd för F-skatt Swish: [swish]
+Vår referens: [Vår referens]
+
+
+ty GRAM
+Faktura till:
+[Kundens foretagsnamn]
+Fakt tum: 2020-08-1
+[Kundens foretagsadress] — Förfallodatum: 2020-09-01
+Mormsreg. nr. [Kundens onsnummer] Betalningsvillkor: 14 dagar
+momsregistreringsnummer] Dröjsmålsränta: 5%
+Er referens: [Kundens referens]
+Faktura # 1
+Benamning Antal A-pris Belopp
+Testprodukt 1 995,00 995,00
+Testprodukt (Rabatt 10%) 1 -99,50 -99,50
+Testprodukt 2 3 1 000,00 3 000,00
+Belopp: 3 895,50 kr
+Moms(25.00%): 973,88 kr
+Totalt: 4 869,38 kr
+[Företagsnamn] [Address] [Banknamn]
+Org. nr.: [Organisationsnummer] Telefon: [Telefon] [IBAN]
+Momsreg. nr.: SWIFT/BIC: [SWIFT/BIC]
+[Momsregistreringsnummer] Bankgiro: [bankgiro]
+Godkänd för F-skatt Swish: [swish]
+Vår referens: [Vår referens]

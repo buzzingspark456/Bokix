@@ -561,15 +561,24 @@ function textRegionBounds(canvas) {
  * text vinner, så att en fläck i kanten inte drar ut rutan. Coop-kvittot
  * 2026-10-04 lästes annars som hela A4-sidan med fem pixlar höga tecken.
  */
-export function inkBoundsFromGray(gray, w, h) {
-  const t = otsuThreshold(gray);
-  // Bara tydligt mörka punkter räknas som svärta.
-  const dark = Math.max(60, Math.min(t, 120));
+export function inkBoundsFromGray(gray, w, h, { anySize = false } = {}) {
+  // Svärta är det som är tydligt mörkare än sin närmaste omgivning, inte det
+  // som är mörkare än en fast gräns: grå brödtext på en faktura (#666) ska
+  // räknas, skrynkligt papper och skuggor ska inte. Med en fast gräns klipptes
+  // en faktura av under rubrikerna och beloppen lästes aldrig.
+  const ii = new Float64Array((w + 1) * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let row = 0;
+    for (let x = 0; x < w; x++) { row += gray[y * w + x]; ii[(y + 1) * (w + 1) + x + 1] = ii[y * (w + 1) + x + 1] + row; }
+  }
+  const r = Math.max(3, Math.round(Math.min(w, h) / 100));
   const cols = new Float32Array(w);
   const rows = new Float32Array(h);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      if (gray[y * w + x] < dark) { cols[x]++; rows[y]++; }
+      const x0 = Math.max(0, x - r), y0 = Math.max(0, y - r), x1 = Math.min(w, x + r + 1), y1 = Math.min(h, y + r + 1);
+      const m = (ii[y1 * (w + 1) + x1] - ii[y0 * (w + 1) + x1] - ii[y1 * (w + 1) + x0] + ii[y0 * (w + 1) + x0]) / ((x1 - x0) * (y1 - y0));
+      if (gray[y * w + x] < m - 40) { cols[x]++; rows[y]++; }
     }
   }
   // Hela textens utsträckning, men de yttersta promillen svärta räknas bort
@@ -593,14 +602,15 @@ export function inkBoundsFromGray(gray, w, h) {
   const x0 = Math.max(0, col.start - mx); const x1 = Math.min(w, col.end + mx);
   const y0 = Math.max(0, row.start - my); const y1 = Math.min(h, row.end + my);
   const ratio = ((x1 - x0) * (y1 - y0)) / (w * h);
-  if (ratio > 0.75 || ratio < 0.02 || (x1 - x0) < w * 0.08) return null;
+  // anySize: bara textens utsträckning, oavsett hur stor del av bilden den är.
+  if (!anySize && (ratio > 0.75 || ratio < 0.02 || (x1 - x0) < w * 0.08)) return null;
   return { x0: x0 / w, y0: y0 / h, x1: x1 / w, y1: y1 / h, ratio, ink: true };
 }
 
-function inkBounds(canvas) {
+function inkBounds(canvas, options) {
   const { gray, w, h } = smallGray(canvas, 600);
   if (w < 40 || h < 40) return null;
-  return inkBoundsFromGray(gray, w, h);
+  return inkBoundsFromGray(gray, w, h, options);
 }
 
 // ── Kvittots form: hitta hörnen och räta ut papperet ─────────────────────
@@ -976,13 +986,34 @@ async function stageImage(imageSource, { quad: manualQuad = null } = {}) {
     if (manualQuad) return { base, bounds: null, quad: manualQuad };
     let bounds = null;
     let quad = null;
+    let cropMaybeCutsText = false;
     try { quad = documentQuad(base); } catch (err) { console.warn('[OCR] Kunde inte hitta kvittots form:', err); }
     try { bounds = documentBounds(base); } catch (err) { console.warn('[OCR] Kunde inte hitta kvittot i bilden:', err); }
+    // Klipper utklippet bort text? En digital faktura med ett mörkt tabellhuvud
+    // delar sidan i två ljusa ytor, och då togs bara den övre för papperet
+    // (beloppen lästes aldrig). Ligger en tydlig del av bildens text utanför
+    // utklippet är utklippet fel och används inte.
+    if (quad || bounds) {
+      let text = null;
+      try { text = inkBounds(base, { anySize: true }); } catch { text = null; }
+      if (text) {
+        const box = quad
+          ? { x0: Math.min(...quad.map(p => p.x)), y0: Math.min(...quad.map(p => p.y)), x1: Math.max(...quad.map(p => p.x)), y1: Math.max(...quad.map(p => p.y)) }
+          : bounds;
+        const tw = text.x1 - text.x0, th = text.y1 - text.y0;
+        const iw = Math.max(0, Math.min(text.x1, box.x1) - Math.max(text.x0, box.x0));
+        const ih = Math.max(0, Math.min(text.y1, box.y1) - Math.max(text.y0, box.y0));
+        // Avgörs inte här: på ett foto ser bordet runt kvittot också ut som
+        // text. Utklippet läses som vanligt, och hela bilden läses också;
+        // den läsning som ger ett kvitto som går ihop vinner.
+        if (tw > 0 && th > 0 && (iw * ih) / (tw * th) < 0.85) cropMaybeCutsText = true;
+      }
+    }
     // Papperet syntes inte mot underlaget: klipp efter texten i stället.
     if (!quad && !bounds) {
       try { bounds = inkBounds(base); } catch (err) { console.warn('[OCR] Kunde inte hitta texten i bilden:', err); }
     }
-    return { base, bounds, quad };
+    return { base, bounds, quad, cropMaybeCutsText };
   } finally {
     bitmap.close?.();
   }
@@ -1412,7 +1443,7 @@ async function extractTextFromImage(imageSource, onProgress, { quad = null } = {
   // fel del av bilden (en ljus vägg i stället för kvittot). Då provas andra
   // utklipp: där bilden ser ut som text, och hela bilden. Den som ger ett
   // kvitto vinner, precis som en människa letar tills hon hittar texten.
-  if (!quad && Math.max(readingScore(a), readingScore(b)) < 3) {
+  if (!quad && (stage.cropMaybeCutsText || Math.max(readingScore(a), readingScore(b)) < 3)) {
     const alternatives = [];
     try { const t = textRegionBounds(stage.base); if (t) alternatives.push({ ...stage, quad: null, bounds: t }); } catch { /* hoppa över */ }
     alternatives.push({ ...stage, quad: null, bounds: null });
@@ -2167,6 +2198,9 @@ export function matchKnownSupplierFuzzy(lines, headerLines = 8) {
 /** Ett namn utan skräptecken: "(DOLLAR$TORE ;" blir "DOLLARSTORE". */
 export function cleanSupplierName(raw) {
   return String(raw || '')
+    // Två kolumner som lästs ihop ("Exempelföretag Ab Kundföretag Ab"): säljaren
+    // står till vänster, så namnet slutar vid första bolagsformen.
+    .replace(/^(.+?\b(?:AB|Ab|HB|KB|Aktiebolag|Ltd|Inc|GmbH|Oy|ApS))\b\s+\S.*$/u, '$1')
     // Stiliserade logotyper skriver S som ett dollartecken.
     .replace(/\$/g, 'S')
     .replace(/[^\p{L}\p{N}\s&.,'’/-]/gu, ' ')
@@ -2190,7 +2224,7 @@ export function pickSupplierName(lines, headerLines = 8) {
     const label = NAME_LABEL_RE.exec(raw);
     if (label) raw = raw.slice(0, label.index);
     const clean = cleanSupplierName(raw);
-    if (clean.length < 2 || ANY_DATE_RE.test(clean) || NAME_ADDRESS_RE.test(clean)) return;
+    if (clean.length < 2 || ANY_DATE_RE.test(clean) || NAME_ADDRESS_RE.test(clean) || NAME_SKIP_RE.test(clean)) return;
     const letters = (clean.match(/\p{L}/gu) || []).length;
     if (letters < 2 || letters / clean.length < 0.5) return;
     const tokens = clean.split(/\s+/).filter(Boolean);
@@ -2203,6 +2237,10 @@ export function pickSupplierName(lines, headerLines = 8) {
     score -= tokens.filter(t => t.replace(/[^\p{L}]/gu, '').length <= 3 && !NAME_SHORT_OK_RE.test(t)).length;
     if (tokens.length > 5) score -= 1;
     if (clean.length > 40) score -= 1;
+    // Säljarens namn står ovanför org.-numret (namn, adress, org.nr). Ett namn
+    // högst tre rader ovanför ett org.-nummer slår brus högre upp ("LUM" över
+    // "Dollarstore / Org nr: …").
+    if (!/\d/.test(clean) && (lines || []).slice(index + 1, index + 4).some(l => /org\.?\s*n|orgnr|\b\d{6}-\d{4}\b/i.test(l))) score += 3;
     candidates.push({ clean, tokens: tokens.length, index, score, key: despace(clean) });
   });
   if (candidates.length === 0) return null;
@@ -2270,7 +2308,7 @@ const looksLikeMoms = (line) => MOMS_RE.test(String(line));
 // Rader som INTE är totalen: belopp exklusive moms, momsen själv, rabatter,
 // växel. "Totalt inkl. moms" är däremot totalen, trots ordet moms.
 function isNotTotalLine(line) {
-  if (/exkl|excl|ex\.?\s*moms|f[öo]re moms|netto|before tax|\bnet\b|rabatt|discount|avrundning|v[äa]xel|tillbaka|\bchange\b/i.test(line)) return true;
+  if (/exkl|excl|ex\.?\s*moms|utan moms|f[öo]re moms|netto|before tax|\bnet\b|rabatt|discount|avrundning|v[äa]xel|tillbaka|\bchange\b/i.test(line)) return true;
   // En rad med ordet moms är momsen, inte totalen — ÄVEN när den heter "TOTAL
   // MOMS". Det är summan av momsen på kvittot, inte summan att betala, och
   // lästes tidigare som totalbelopp: ett kvitto på 15 kr med 3 kr moms fick
@@ -2279,7 +2317,7 @@ function isNotTotalLine(line) {
   if ((looksLikeMoms(line) || /\bvat\b|\btax\b|\bmva\b/i.test(line)) && !/inkl|incl|ing[åa]r|brutto|gross|amount due/i.test(line)) return true;
   return false;
 }
-const NET_LINE_RE = /exkl\.?\s*moms|excl\.?\s*(?:vat|tax)|netto|f[öo]re moms|before tax|subtotal|delsumma/i;
+const NET_LINE_RE = /exkl\.?\s*moms|utan moms|excl\.?\s*(?:vat|tax)|netto|f[öo]re moms|before tax|subtotal|delsumma/i;
 
 // Rader som står på varje kvitto från butiken oavsett vad som köptes: villkor,
 // öppettider, kontrolluppgifter och kontaktvägar. De får inte styra vilket
@@ -2625,6 +2663,44 @@ function reconcileWithVatTable(lines, result) {
   return { ...result, amount: t.gross, amountVerified: true, amountGuessed: false, vatRate: t.rate, vatRateGuessed: false, vatAmount: t.vat, vatVerified: true, vatMismatch: false, vatRates: null };
 }
 
+// Etiketter som fakturor ställer i en rad med värdena på raden under.
+const COLUMN_LABELS = [
+  'fakturanummer', 'fakturanr', 'kundnummer', 'kundnr', 'referensnummer', 'ordernummer', 'ordernr', 'fakturadatum',
+  'förfallodag', 'förfallodatum', 'datum', 'ocr', 'er referens', 'vår referens', 'invoice number', 'invoice no',
+  'invoice date', 'due date', 'date', 'customer number', 'order number',
+];
+
+/**
+ * Fakturor skriver ofta en rad med etiketter och värdena på raden under:
+ *   Fakturanummer Kundnummer Referensnummer Fakturadatum Förfallodag
+ *   1234          10         A00342         25.10.2020   24.11.2020
+ * OCR läser det som två rader, och då hör inget värde ihop med sin etikett.
+ * När raden under har lika många värden som raden har etiketter läggs
+ * "Etikett: värde" till efter dem, så att nummer- och datumreglerna känner
+ * igen dem. Exporterad för testerna.
+ */
+export function expandColumnTables(lines) {
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    out.push(lines[i]);
+    const header = String(lines[i]).toLowerCase();
+    const labels = [];
+    let rest = header.replace(/[:|]/g, ' ').replace(/\s+/g, ' ').trim();
+    while (rest) {
+      const hit = COLUMN_LABELS.filter(l => rest.startsWith(l) && (rest.length === l.length || rest[l.length] === ' '))
+        .sort((a, b) => b.length - a.length)[0];
+      if (!hit) break;
+      labels.push(hit);
+      rest = rest.slice(hit.length).trim();
+    }
+    if (rest || labels.length < 2 || i + 1 >= lines.length) continue;
+    const values = String(lines[i + 1]).replace(/[|]/g, ' ').trim().split(/\s+/);
+    if (values.length !== labels.length || !values.some(v => /\d/.test(v))) continue;
+    labels.forEach((label, k) => out.push(`${label.charAt(0).toUpperCase()}${label.slice(1)}: ${values[k]}`));
+  }
+  return out;
+}
+
 // Skiljer flera oberoende avläsningar av samma dokument i en och samma text
 // (se extractTextFromImage). Texten cachas som den är, så sammanvägningen görs
 // om varje gång tolkningen körs.
@@ -2711,7 +2787,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   // kvitto eller en faktura.
   if (isUnreadableText(text)) return { ...EMPTY_PARSE, notReceipt: true, unreadable: true, documentKind: 'unreadable' };
 
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const lines = expandColumnTables(text.split('\n').map(l => l.trim()).filter(Boolean));
   // Text som kontoreglerna får läsa: kvittots egna rader UTAN finstilt och
   // kontaktuppgifter. Butikens villkorstext ("Inget byte eller öppet köp av
   // livsmedel, hygienartiklar, djurmat…") och telefonnumret i sidhuvudet står
