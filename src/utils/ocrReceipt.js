@@ -107,7 +107,7 @@ const MONEY_TOKEN_RE = new RegExp(`${MONEY_DECIMAL_SOURCE}|\\b\\d{1,3}(?:[.,]\\d
 
 // Rader där en siffra aldrig är ett belopp: kortnummer och terminalkoder
 // ("XXXX 1234", "AID 123456") och antalsrader ("Antal artiklar 3").
-const NOT_AMOUNT_LINE_RE = /\*{3,}|x{4,}|korttyp|terminal|\banbud\b|\bmid\b|\bptid\b|\baid\b|auth|\bantal\b|artiklar|\bitems\b|kvantitet|^(?!.*(?:belopp|summa|total|att betala)).*(?:master\s*car|\bvisa\b|\bdebit\b|refnr|kontrollnr|\btvr\b|\btsi\b|medlemskort|po[äa]ngsaldo)/i;
+const NOT_AMOUNT_LINE_RE = /\*{3,}|x{4,}|korttyp|terminal|\banbud\b|\bmid\b|\bptid\b|\baid\b|auth|\bantal\b|artiklar|\bitems\b|kvantitet|\bqty\b|quantity|^(?!.*(?:belopp|summa|total|att betala)).*(?:master\s*car|\bvisa\b|\bdebit\b|refnr|kontrollnr|\btvr\b|\btsi\b|medlemskort|po[äa]ngsaldo)/i;
 
 /**
  * Plockar bort det som ser ut som ett belopp men inte är det, innan siffrorna
@@ -578,7 +578,9 @@ export function inkBoundsFromGray(gray, w, h, { anySize = false } = {}) {
     for (let x = 0; x < w; x++) {
       const x0 = Math.max(0, x - r), y0 = Math.max(0, y - r), x1 = Math.min(w, x + r + 1), y1 = Math.min(h, y + r + 1);
       const m = (ii[y1 * (w + 1) + x1] - ii[y0 * (w + 1) + x1] - ii[y1 * (w + 1) + x0] + ii[y0 * (w + 1) + x0]) / ((x1 - x0) * (y1 - y0));
-      if (gray[y * w + x] < m - 40) { cols[x]++; rows[y]++; }
+      // Relativt omgivningen: på ett mörkt foto skiljer text och papper bara
+      // ett trettiotal nivåer, på ett ljust över hundra.
+      if (m - gray[y * w + x] > Math.max(12, 0.25 * m)) { cols[x]++; rows[y]++; }
     }
   }
   // Hela textens utsträckning, men de yttersta promillen svärta räknas bort
@@ -2152,7 +2154,7 @@ const NAME_LABEL_RE = /(?:faktura|kvitto|invoice|receipt)\s*(?:nummer|nr|no\.?|d
 // Adress- och kontaktrader är inte namnet, hur fint de än står i huvudet.
 const NAME_ADDRESS_RE = /\b(?:gatan|gatu|v[äa]gen|gr[äa]nd|torget|\bbox\b|tel(?:efon)?|telnr|\btfn\b|butik|kassa|\bkvitto\b)\b/i;
 // Bolagsformer och liknande korta ord är inte sönderdelade ord.
-const NAME_SHORT_OK_RE = /^(?:ab|hb|kb|as|a\/s|aps|oy|ltd|inc|llc|co|&|och|the|i|of)$/i;
+const NAME_SHORT_OK_RE = /^(?:ab|hb|kb|as|a\/s|aps|oy|ltd|inc|llc|co|&|och|the|i|of|sdn|bhd|s\/b|pte|plc|gmbh)$/i;
 
 // Kedjenamn som OCR stavat fel. Prickarna och de klassiska teckenförväxlingarna
 // viks ihop innan jämförelsen, så "C00P", "1CA" och "HEMKOP" hittar Coop, ICA
@@ -2216,15 +2218,25 @@ const despace = (s) => String(s).toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
  * Leverantörens namn ur de första raderna, eller null. Se kommentaren ovan för
  * varför det inte räcker att ta första raden.
  */
+// Bolagsformer i slutet av ett namn.
+const COMPANY_FORM_RE = /\b(?:AB|Aktiebolag|HB|KB|Ek\.?\s*f[öo]r\.?|Ltd|Limited|Inc|LLC|GmbH|Oy|ApS|A\/S|SDN\.?\s*BHD|BHD|S\/B|Enterprise|Trading)\.?\s*\)?$/i;
+// Rubriker och servicerader som aldrig är säljarens namn.
+const NAME_JUNK_RE = /\b(?:tax invoice|invoice|receipt|kvittokopia|shopping hours|opening hours|[öo]ppettider|v[äa]lkommen|welcome|thank you|tack f[öo]r|adjustment note|credit note|kreditnota|cash bill|cash sale)\b/i;
+
 export function pickSupplierName(lines, headerLines = 8) {
   const candidates = [];
+  // Första raden som ser ut som en adress: gatunummer, postnummer, "Jalan",
+  // "Street", "gatan" …
+  const firstAddressIndex = (lines || []).slice(0, headerLines).findIndex(l => (
+    NAME_ADDRESS_RE.test(l) || /\b\d{3}\s?\d{2}\b(?![.,]\d)|\bno\.?\s*\d|\bjalan\b|\bstreet\b|\broad\b|\bstr\.|\d+\s*,/i.test(l)
+  ));
   (lines || []).slice(0, headerLines).forEach((line, index) => {
     if (!line || line.length < 3 || NAME_SKIP_RE.test(line) || line.includes('http') || line.includes('@')) return;
     let raw = line;
     const label = NAME_LABEL_RE.exec(raw);
     if (label) raw = raw.slice(0, label.index);
     const clean = cleanSupplierName(raw);
-    if (clean.length < 2 || ANY_DATE_RE.test(clean) || NAME_ADDRESS_RE.test(clean) || NAME_SKIP_RE.test(clean)) return;
+    if (clean.length < 2 || ANY_DATE_RE.test(clean) || NAME_ADDRESS_RE.test(clean) || NAME_SKIP_RE.test(clean) || NAME_JUNK_RE.test(clean)) return;
     const letters = (clean.match(/\p{L}/gu) || []).length;
     if (letters < 2 || letters / clean.length < 0.5) return;
     const tokens = clean.split(/\s+/).filter(Boolean);
@@ -2234,13 +2246,21 @@ export function pickSupplierName(lines, headerLines = 8) {
     if (/\d/.test(clean)) score -= 2;
     // Ord på högst tre bokstäver som inte är bolagsformer: ett namn som OCR
     // delat mitt itu ("DOLL ARS TORE").
-    score -= tokens.filter(t => t.replace(/[^\p{L}]/gu, '').length <= 3 && !NAME_SHORT_OK_RE.test(t)).length;
+    // Halv poäng per ord: korta ord finns i riktiga namn också ("GIN KEE").
+    score -= 0.5 * tokens.filter(t => t.replace(/[^\p{L}]/gu, '').length <= 3 && !NAME_SHORT_OK_RE.test(t)).length;
+    // Under den första adressraden kommer adressens fortsättning (ort, län),
+    // inte namnet, och en rad som slutar på komma är en del av en adress.
+    if (firstAddressIndex >= 0 && index > firstAddressIndex) score -= 2;
+    if (/,\s*[|]?\s*$/.test(line)) score -= 2;
     if (tokens.length > 5) score -= 1;
     if (clean.length > 40) score -= 1;
     // Säljarens namn står ovanför org.-numret (namn, adress, org.nr). Ett namn
     // högst tre rader ovanför ett org.-nummer slår brus högre upp ("LUM" över
     // "Dollarstore / Org nr: …").
     if (!/\d/.test(clean) && (lines || []).slice(index + 1, index + 4).some(l => /org\.?\s*n|orgnr|\b\d{6}-\d{4}\b/i.test(l))) score += 3;
+    // Ett namn som slutar på en bolagsform (AB, Ltd, GmbH, SDN BHD …) är
+    // säljarens juridiska namn: det starkaste tecknet som finns i texten.
+    if (COMPANY_FORM_RE.test(clean)) score += 4;
     candidates.push({ clean, tokens: tokens.length, index, score, key: despace(clean) });
   });
   if (candidates.length === 0) return null;
@@ -2629,6 +2649,30 @@ function flagSuspiciousInteger(lines, result) {
   return decimals >= 3 && !written ? { ...result, amountGuessed: true } : result;
 }
 
+/**
+ * Kontanter minus växel är totalen: "CASH 100,00 / CHANGE 1,00" bevisar 99,00
+ * även när totalraden lästs som 89,00. Gäller bara när växel faktiskt gavs
+ * och beloppen går ihop med något på kvittot. Exporterad för testerna.
+ */
+export function reconcileWithCash(lines, result) {
+  if (result.amountVerified || result.notReceipt) return result;
+  const firstAmount = (re) => {
+    for (const l of lines) if (re.test(l)) { const v = amountsOnLine(l.replace(re, ' ')); if (v.length) return v[v.length - 1]; }
+    return null;
+  };
+  const cash = firstAmount(/\b(?:cash|kontant(?:er)?|contant|bar)\b\s*:?/i);
+  const change = firstAmount(/\b(?:change(?: due)?|v[äa]xel|tillbaka|retur)\b\s*:?/i);
+  if (!cash || change === null || change <= 0 || change >= cash) return result;
+  const implied = Math.round((cash - change) * 100) / 100;
+  const amount = result.amount;
+  if (amount && Math.abs(amount - implied) < 0.005) return { ...result, amountVerified: true, amountGuessed: false };
+  // Totalen saknas, eller skiljer på en felläst siffra: kontanterna avgör.
+  if (!amount || confusableAmounts(amount, implied) || !lines.some(l => /total|summa|att betala|amount/i.test(l))) {
+    return { ...result, amount: implied, amountVerified: true, amountGuessed: false };
+  }
+  return { ...result, amountGuessed: true };
+}
+
 function reconcileWithVatTable(lines, result) {
   if (result.currency || result.reverseCharge || result.creditNote) return result;
   const triples = vatTableTriples(lines);
@@ -2840,6 +2884,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     return looksAmerican ? { day: nb, month: na } : { day: na, month: nb };
   }
 
+  const swedishDocument = /\bmoms\b|\bsek\b|\bkr\b|org\.?\s*n|kvitto|totalt|att betala|[åäö]/i.test(text);
   const dateCandidates = [];
   const repairedDates = [];
   const compactDates = [];
@@ -2905,7 +2950,9 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
       const yr = parseInt(m3[3], 10);
       const { day, month } = resolveDayMonth(m3[1], m3[2]);
       if (month >= 1 && month <= 12 && day >= 1 && day <= 31) options.push(`${yr < 70 ? 2000 + yr : 1900 + yr}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
-      if (/^\d{2}-\d{1,2}-\d{2}$/.test(m3[0])) options.push(`20${m3[1]}-${m3[2].padStart(2, '0')}-${m3[3]}`);
+      // ÅÅ-MM-DD bara på ett svenskt kvitto: i resten av världen är "20-01-16"
+      // den 20 januari 2016 (SROIE-kvittona från Malaysia).
+      if (swedishDocument && /^\d{2}-\d{1,2}-\d{2}$/.test(m3[0])) options.push(`20${m3[1]}-${m3[2].padStart(2, '0')}-${m3[3]}`);
       const limit = isoLocal(new Date(today.getTime() + 24 * 3600 * 1000));
       // Med bindestreck skriver svenska kassor ÅÅ-MM-DD (svensk standard), så
       // den läsningen gäller om den inte ligger i framtiden.
@@ -2965,8 +3012,18 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   const primaryAmountKeywords = /att betala|total amount|amount paid|amount due|totalt|total\b/i;
   const secondaryAmountKeywords = /summa|belopp|sum\b|to pay|kort|card|sek|kronor|subtotal/i;
 
-  // 1. Försök först med primära nyckelord (t.ex. "Totalt: 193,75" eller "Att betala: 900,58")
+  // 0. Ord som bara står vid beloppet att betala vinner över allt som heter
+  // "Total" ("Total Ok supplies", "Total 6% supplies" på samma kvitto).
+  const payableKeywords = /grand total|total payable|amount payable|amount due|balance due|total due|net total|summa att betala|totalt att betala|att betala/i;
   for (const line of lines) {
+    if (payableKeywords.test(line) && !isNotTotalLine(line)) {
+      const parsed = lastAmountOnLine(line);
+      if (parsed !== null) { amount = parsed; amountLine = line; break; }
+    }
+  }
+
+  // 1. Försök först med primära nyckelord (t.ex. "Totalt: 193,75" eller "Att betala: 900,58")
+  for (const line of amount ? [] : lines) {
     if (primaryAmountKeywords.test(line) && !/subtotal|delbelopp/i.test(line) && !isNotTotalLine(line)) {
       const parsed = lastAmountOnLine(line);
       if (parsed !== null) {
@@ -3305,7 +3362,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   }
   const numberFound = findReceiptNumberDetailed(lines);
 
-  return flagSuspiciousInteger(lines, reconcileWithVatTable(lines, {
+  return flagSuspiciousInteger(lines, reconcileWithCash(lines, reconcileWithVatTable(lines, {
     date, dateGuessed, dateText, amount, amountGuessed: amountVerified ? false : amountGuessed, amountVerified, vatRate,
     vatRateGuessed: vatCheck.verified ? false : (vatRateGuessed || vatCheck.mismatch),
     vatAmount: vatCheck.vatAmount, vatVerified: vatCheck.verified, vatMismatch: vatCheck.mismatch,
@@ -3320,5 +3377,5 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     notReceipt: false, documentKind: doc.isInvoice ? 'invoice' : 'receipt',
     paymentMethod: detectPaymentMethod(text, { isInvoice: doc.isInvoice }).method,
     reverseCharge, reverseChargeUnclear,
-  }));
+  })));
 }

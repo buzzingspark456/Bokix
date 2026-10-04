@@ -99,3 +99,27 @@ describe('riktiga fakturor', () => {
     expect(r.vatAmount).toBe(973.88);
   });
 });
+
+// Regler från provkörningen mot SROIE (973 inskannade kvitton med facit,
+// ICDAR 2019) — 41 av dem lästes; texterna ingår inte i repot.
+describe('regler från provkörningen mot främmande kvitton', () => {
+  const p = (lines) => parseReceiptText(lines.join('\n'), { today });
+  it('"Total QTY: 4" är ett antal, inte totalen', () => {
+    expect(p(['SWEET FOREST CAFE', 'Date: 14/02/2018', 'Total QTY: 4', 'Total (Inclusive of GST): 30.30', 'CASH : 50.00', 'CHANGE : 19.70']).amount).toBe(30.3);
+  });
+  it('"Total Payable" vinner över andra rader som heter Total', () => {
+    expect(p(['GARDENIA BAKERIES (KL) SDN BHD', 'Total 0% supplies: 39.01', 'Total Payable: 20.21']).amount).toBe(20.21);
+  });
+  it('kontanter minus växel rättar en felläst total (89,00 → 99,00)', () => {
+    const r = p(['ASO ELECTRICAL TRADING SDN BHD', 'Total : 89.00', 'CASH : 100.00', 'Change : 1.00']);
+    expect(r.amount).toBe(99);
+    expect(r.amountVerified).toBe(true);
+  });
+  it('namnet med bolagsform vinner över ort och rubrik', () => {
+    expect(p(['tan woon yann', 'BOOK TA .K (TAMAN DAYA) SDN BHD', '78941 7-W', 'NO.53, JALAN SAGU 18,', 'TAMAN DAYA,', '81100 JOHOR BAHRU,', 'JOHOR', 'TAX INVOICE', 'Total 9.00']).supplier).toMatch(/SDN BHD$/);
+  });
+  it('"20-01-16" är 20 januari 2016 utomlands men 2020-01-16 på ett svenskt kvitto', () => {
+    expect(p(['SHOP SDN BHD', '20-01-16 11:49', 'Total 57.40']).date).toBe('2016-01-20');
+    expect(p(['Butik AB', '20-01-16 11:49', 'Totalt 57,40', 'Moms 25% 11,48']).date).toBe('2020-01-16');
+  });
+});
