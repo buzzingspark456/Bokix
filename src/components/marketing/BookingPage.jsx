@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
@@ -65,7 +65,8 @@ export default function BookingPage() {
   const [form, setForm] = useState({ name: '', email: '', company: '', phone: '', note: '' });
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
-  const [captchaToken, setCaptchaToken] = useState('');
+  // Cloudflare-kollen körs först när man trycker Boka tiden.
+  const captchaRef = useRef(null);
   const [captchaRound, setCaptchaRound] = useState(0);
 
   const loadTaken = () => fetch('/api/contact', { cache: 'no-store' })
@@ -88,6 +89,12 @@ export default function BookingPage() {
     setSending(true);
     setError('');
     try {
+      let captchaToken = null;
+      try {
+        captchaToken = await captchaRef.current?.execute();
+      } catch {
+        throw new Error('Kunde inte verifiera att du inte är en robot. Försök igen.');
+      }
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -107,7 +114,6 @@ export default function BookingPage() {
       setError(err.message || 'Det gick inte att boka. Försök igen.');
     } finally {
       setSending(false);
-      setCaptchaToken('');
       setCaptchaRound(n => n + 1);
     }
   }
@@ -289,7 +295,7 @@ export default function BookingPage() {
                       <label className="bk-label" htmlFor="bk-note">Något särskilt du vill att vi tittar på?</label>
                       <textarea id="bk-note" className="bk-input" rows={3} placeholder="Valfritt" style={{ resize: 'vertical', minHeight: '90px' }} value={form.note} onChange={e => update('note', e.target.value)} />
                     </div>
-                    <Turnstile key={captchaRound} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+                    <Turnstile key={captchaRound} ref={captchaRef} onDemand />
                     {error && <div style={{ color: 'var(--mkt-accent-red-fg)', fontSize: '13.5px', margin: '10px 0 0' }}>{error}</div>}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginTop: '18px', flexWrap: 'wrap' }}>
                       <button type="submit" className="bk-btn" disabled={sending}>{sending ? 'Bokar…' : 'Boka tiden'}</button>

@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef } from 'react';
+import React, { forwardRef, useEffect, useId, useImperativeHandle, useRef } from 'react';
 
 // Bot-/captcha-spärr på registrering och inloggning (säkerhetsgranskningen,
 // punkt "Add bot protection") — Cloudflare Turnstile, inte Google
@@ -40,25 +40,56 @@ function loadTurnstileScript() {
   return scriptLoadPromise;
 }
 
-export default function Turnstile({ onVerify, onExpire }) {
+// `onDemand`: kollen körs först när formuläret skickas (ref.execute(),
+// som löser till en token), och rutan syns bara om Cloudflare behöver att
+// besökaren klickar. Utan den körs kollen direkt och rutan syns alltid.
+// Varje token gäller ett anrop, så anroparen byter `key` efter varje försök.
+const Turnstile = forwardRef(function Turnstile({ onVerify, onExpire, onDemand = false }, ref) {
   const containerId = useId().replace(/:/g, '');
   const widgetIdRef = useRef(null);
+  const readyRef = useRef(null);
+  const pendingRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    execute() {
+      if (!siteKey) return Promise.resolve(null);
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => { pendingRef.current = null; reject(new Error('timeout')); }, 60000);
+        pendingRef.current = {
+          resolve: (t) => { clearTimeout(timer); resolve(t); },
+          reject: (e) => { clearTimeout(timer); reject(e); },
+        };
+        (readyRef.current || Promise.reject(new Error('not_loaded')))
+          .then(() => window.turnstile.execute(`#${containerId}`))
+          .catch((e) => { pendingRef.current?.reject(e); pendingRef.current = null; });
+      });
+    },
+  }));
 
   useEffect(() => {
     if (!siteKey) return; // inte konfigurerat — se filkommentaren ovan
     let cancelled = false;
 
-    loadTurnstileScript()
+    readyRef.current = loadTurnstileScript()
       .then(() => {
-        if (cancelled || !window.turnstile) return;
+        if (cancelled || !window.turnstile) throw new Error('not_loaded');
         widgetIdRef.current = window.turnstile.render(`#${containerId}`, {
           sitekey: siteKey,
-          callback: (token) => onVerify?.(token),
+          ...(onDemand ? { execution: 'execute', appearance: 'interaction-only' } : {}),
+          callback: (token) => {
+            onVerify?.(token);
+            pendingRef.current?.resolve(token);
+            pendingRef.current = null;
+          },
           'expired-callback': () => onExpire?.(),
-          'error-callback': () => onExpire?.(),
+          'error-callback': () => {
+            onExpire?.();
+            pendingRef.current?.reject(new Error('turnstile_error'));
+            pendingRef.current = null;
+          },
         });
-      })
-      .catch((err) => console.error('Turnstile kunde inte laddas:', err));
+      });
+    readyRef.current.catch((err) => console.error('Turnstile kunde inte laddas:', err));
 
     return () => {
       cancelled = true;
@@ -71,4 +102,6 @@ export default function Turnstile({ onVerify, onExpire }) {
 
   if (!siteKey) return null;
   return <div id={containerId} style={{ margin: '4px 0' }} />;
-}
+});
+
+export default Turnstile;
