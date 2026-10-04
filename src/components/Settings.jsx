@@ -27,6 +27,7 @@ import { ACCESS_PAGES, ACCESS_LEVELS, defaultPageAccess, accessForPage } from '.
 import { isUfCompany, ufSettingsSections, ufFreePeriod, UF_FREE_MONTHS } from '../utils/ufMode';
 import { closeUfYear } from '../utils/ufClose';
 import SieImportModal from './SieImportModal';
+import Turnstile from './Turnstile';
 import SkattekontoImportModal from './SkattekontoImportModal';
 import SieAttachmentsModal from './SieAttachmentsModal';
 import { ProgramLogo } from './shared/BrandLogos';
@@ -990,6 +991,10 @@ function PasswordSection({ user, readOnly = false, bare = false }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [showReauth, setShowReauth] = useState(false);
+  // Kontrollen av nuvarande lösenord är en riktig inloggning, så Supabase
+  // kräver captcha även här när Turnstile är påslaget.
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaRound, setCaptchaRound] = useState(0);
   // Bara relevant i `bare`-läget (kombinerat "Säkerhet"-kort, kundönskemål
   // från en mockup): formuläret ligger dolt tills man klickar "Byt
   // lösenord" på raden, i stället för att alltid stå uppfällt — annars
@@ -1007,8 +1012,12 @@ function PasswordSection({ user, readOnly = false, bare = false }) {
     if (newPw.length < 8) { setError(tr('ui.nytt_losenord_maste_vara_minst_8_tecken')); return; }
     if (newPw !== confirmPw) { setError(tr('ui.losenorden_matchar_inte_varandra')); return; }
     setBusy(true);
-    const { error: reauthError } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPw });
+    const { error: reauthError } = await supabase.auth.signInWithPassword({
+      email: user.email, password: currentPw,
+      options: captchaToken ? { captchaToken } : undefined,
+    });
     setBusy(false);
+    setCaptchaToken(''); setCaptchaRound(n => n + 1);
     if (reauthError) {
       setError(tr('ui.nuvarande_losenord_stammer_inte'));
       return;
@@ -1056,6 +1065,7 @@ function PasswordSection({ user, readOnly = false, bare = false }) {
               <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} style={inputBase} autoComplete="new-password" minLength={8} required />
             </div>
           </div>
+          <Turnstile key={captchaRound} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
           {error && <div style={{ color: 'var(--status-red-text)', fontSize: '13px', marginTop: '10px' }}>{error}</div>}
           <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
             <button type="submit" disabled={busy || !currentPw || !newPw || !confirmPw} style={{ ...btnPrimary, opacity: (busy || !currentPw || !newPw || !confirmPw) ? 0.5 : 1, cursor: (busy || !currentPw || !newPw || !confirmPw) ? 'not-allowed' : 'pointer' }}>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ShieldCheck, Lock, ArrowRight, KeyRound } from '../icons';
 import { supabase } from '../../supabaseClient';
+import Turnstile from '../Turnstile';
 
 // ── Inloggningen till /internal ─────────────────────────────────────────
 // Medvetet ett HELT annat utseende än den vanliga kund-inloggningen
@@ -29,6 +30,10 @@ export default function InternalAuth({ onAuthenticated, startInMfaMode = false }
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(startInMfaMode);
   const [error, setError] = useState('');
+  // Supabase kräver captcha på all lösenordsinloggning när Turnstile är
+  // påslaget där, även här. Token gäller ett försök, `captchaRound` ger en ny.
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaRound, setCaptchaRound] = useState(0);
 
   useEffect(() => {
     if (!startInMfaMode) return;
@@ -58,7 +63,10 @@ export default function InternalAuth({ onAuthenticated, startInMfaMode = false }
     setError('');
     setLoading(true);
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email, password,
+        options: captchaToken ? { captchaToken } : undefined,
+      });
       if (signInError) throw signInError;
 
       const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
@@ -82,6 +90,7 @@ export default function InternalAuth({ onAuthenticated, startInMfaMode = false }
       onAuthenticated();
     } catch (err) {
       setError(err?.message === 'Invalid login credentials' ? 'Fel e-post eller lösenord.' : (err?.message || 'Något gick fel.'));
+      setCaptchaToken(''); setCaptchaRound(n => n + 1);
       setLoading(false);
     }
   };
@@ -139,6 +148,7 @@ export default function InternalAuth({ onAuthenticated, startInMfaMode = false }
                   <input type="password" required value={password} onChange={e => setPassword(e.target.value)} style={inputStyle} autoComplete="current-password" />
                 </div>
               </div>
+              <Turnstile key={captchaRound} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
               {error && <div style={{ fontSize: '12.5px', color: '#f87171', lineHeight: 1.5 }}>{error}</div>}
               <button type="submit" disabled={loading} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
