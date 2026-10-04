@@ -23,6 +23,9 @@ const PATTERNS = [
   [/email not confirmed/i, () => 'E-postadressen är inte bekräftad än — kolla inkorgen efter bekräftelsemailet.'],
   [/email rate limit exceeded/i, () => 'För många e-postutskick till den adressen just nu. Försök igen om en stund.'],
   [/password should be at least/i, () => 'Lösenordet är för kort.'],
+  // Turnstile (Supabase Attack Protection): token saknas, är förbrukad
+  // eller underkänd.
+  [/captcha/i, () => 'Kunde inte verifiera att du inte är en robot. Försök igen.'],
 ];
 
 export function translateSupabaseAuthError(message) {

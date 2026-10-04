@@ -132,17 +132,23 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
-  const [forgotCaptchaToken, setForgotCaptchaToken] = useState('');
 
-  // Bot-/captcha-spärr (säkerhetsgranskningen) — se Turnstile.jsx för
-  // aktivering. Egna tokens per formulär eftersom det är separata
-  // widget-instanser (olika steg/vyer).
-  const [loginCaptchaToken, setLoginCaptchaToken] = useState('');
-  const [regCaptchaToken, setRegCaptchaToken] = useState('');
-  // En Turnstile-token gäller bara ETT anrop. Räknaren byter `key` på
-  // widgetarna efter varje försök så att nästa försök får en ny token.
+  // Bot-/captcha-spärr (Turnstile.jsx, onDemand): ingen ruta i formulären,
+  // kollen körs när man trycker på knappen och rutan visas bara om
+  // Cloudflare vill att man kryssar. En token gäller ETT anrop, så
+  // `captchaRound` byter `key` på widgetarna efter varje försök.
+  const loginCaptchaRef = useRef(null);
+  const regCaptchaRef = useRef(null);
+  const forgotCaptchaRef = useRef(null);
   const [captchaRound, setCaptchaRound] = useState(0);
-  const newCaptchaRound = () => { setLoginCaptchaToken(''); setRegCaptchaToken(''); setForgotCaptchaToken(''); setCaptchaRound(n => n + 1); };
+  const newCaptchaRound = () => setCaptchaRound(n => n + 1);
+  const runCaptcha = async (ref) => {
+    try {
+      return await ref.current?.execute();
+    } catch {
+      throw new Error(translateSupabaseAuthError('captcha verification process failed'));
+    }
+  };
   const signupRecaptchaRef = useRef(null);
 
   // Step 0 – Personal info
@@ -299,6 +305,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     setForgotLoading(true);
     try {
       if (!forgotEmail.trim()) throw new Error(t('ui.ange_din_e_postadress'));
+      const forgotCaptchaToken = await runCaptcha(forgotCaptchaRef);
       const res = await fetch('/api/auth/request-password-reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -336,6 +343,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     setLoading(true);
     try {
       if (!loginEmail || !loginPassword) throw new Error(t('ui.fyll_i_alla_falt'));
+      const loginCaptchaToken = await runCaptcha(loginCaptchaRef);
       const { error } = await supabase.auth.signInWithPassword({
         email: loginEmail,
         password: loginPassword,
@@ -463,6 +471,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       // det egentligen var signUp() som aldrig lyckades.
       let accountCreated = false;
       try {
+        const regCaptchaToken = await runCaptcha(regCaptchaRef);
         const { data, error } = await supabase.auth.signUp({
           email: regEmail,
           password: regPassword,
@@ -753,7 +762,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                   <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
                     {t('ui.om_det_finns_ett_konto_med_den_adressen_har_vi_s')}
                   </div>
-                  <button className="auth-btn-ghost" type="button" onClick={() => { setShowForgotPassword(false); setForgotSent(false); }} style={{ marginTop: '20px', background: 'none', border: 'none', borderRadius: '8px', color: BRAND.green, fontWeight: 700, fontSize: '13.5px', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px' }}>
+                  <button className="auth-btn-ghost auth-link" type="button" onClick={() => { setShowForgotPassword(false); setForgotSent(false); }} style={{ marginTop: '20px', background: 'none', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 8px' }}>
                     <ArrowLeft size={14} /> {t('ui.tillbaka_till_inloggning')}
                   </button>
                 </div>
@@ -766,7 +775,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                       <input className="auth-input" type="email" name="email" autoComplete="email" inputMode="email" autoCapitalize="none" spellCheck={false} style={{ ...inputStyle, paddingLeft: '48px' }} placeholder={t('ui.din_epost_se')} value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required autoFocus />
                     </div>
                   </div>
-                  <Turnstile key={`f${captchaRound}`} onVerify={setForgotCaptchaToken} onExpire={() => setForgotCaptchaToken('')} />
+                  <Turnstile key={`f${captchaRound}`} ref={forgotCaptchaRef} onDemand />
                   {errorMsg && <div style={{ padding: '12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>}
                   <button className="auth-btn-primary" type="submit" disabled={forgotLoading} style={{ width: '100%', padding: '20px 22px', background: BRAND.green, border: 'none', borderRadius: '13px', fontSize: '18px', fontWeight: 700, color: 'white', cursor: forgotLoading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: forgotLoading ? 0.7 : 1 }}>
                     {forgotLoading ? t('ui.skickar') : t('ui.skicka_aterstallningslank')} <ArrowRight size={18} />
@@ -804,7 +813,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                   <input className="auth-input" type="password" id="login-password" name="password" autoComplete="current-password" style={{ ...inputStyle, paddingLeft: '48px' }} placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
                 </div>
               </div>
-              <Turnstile key={`l${captchaRound}`} onVerify={setLoginCaptchaToken} onExpire={() => setLoginCaptchaToken('')} />
+              <Turnstile key={`l${captchaRound}`} ref={loginCaptchaRef} onDemand />
               {errorMsg && <div style={{ padding: '12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>}
               <button className="auth-btn-primary" type="submit" disabled={loading} style={{ width: '100%', padding: '20px 22px', background: BRAND.green, border: 'none', borderRadius: '13px', fontSize: '18px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
                 {loading ? t('ui.loggar_in') : t('ui.logga_in')} <ArrowRight size={18} />
@@ -1174,7 +1183,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                       {t('ui.jag_godkanner')} <Link to="/terms" target="_blank" style={{ color: BRAND.greenDark, fontWeight: 600 }}>{t('ui.anvandarvillkoren')}</Link> {t('ui.och')} <Link to="/pub" target="_blank" style={{ color: BRAND.greenDark, fontWeight: 600 }}>{t('ui.personuppgiftsbitradesavtalet')}</Link>{t('ui.och_har_last')} <Link to="/privacy" target="_blank" style={{ color: BRAND.greenDark, fontWeight: 600 }}>{t('ui.integritetspolicyn')}</Link>.
                     </span>
                   </label>
-                  <Turnstile key={`r${captchaRound}`} onVerify={setRegCaptchaToken} onExpire={() => setRegCaptchaToken('')} />
+                  <Turnstile key={`r${captchaRound}`} ref={regCaptchaRef} onDemand />
                 </div>
               )}
 
