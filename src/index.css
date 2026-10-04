@@ -7443,57 +7443,6 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 .dash-todo-empty-title { font-size: 15px; font-weight: 700; color: var(--text-main); }
 .dash-todo-empty-text { font-size: 13.5px; color: var(--text-muted); text-align: right; }
 
-/* ══ Startlogga (index.html #bokix-launch, public/theme-init.js) ══════════
-   Visas bara när appen startar. Konturen ritas fram (0,9 s), gradienten
-   fyller bokstäverna och en ljusglimt sveper över; sedan andas loggan lugnt
-   tills App.jsx sätter data-launch="leaving" och den tonar bort. */
-#bokix-launch { display: none; }
-html[data-launch] #bokix-launch {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-page);
-  transition: opacity 0.32s ease, visibility 0s linear 0.32s;
-  /* Säkerhetsnät: försvinner av sig själv om appen aldrig hinner säga till. */
-  animation: blSafety 0.3s ease 10s forwards;
-}
-html[data-launch] body { overflow: hidden; }
-html[data-launch="leaving"] #bokix-launch { opacity: 0; visibility: hidden; pointer-events: none; }
-.bl-logo {
-  width: min(52vw, 220px);
-  height: auto;
-  overflow: visible;
-  animation: blRise 1.1s cubic-bezier(0.22, 1, 0.36, 1) both, blBreathe 2.4s ease-in-out 1.5s infinite;
-}
-.bl-stroke {
-  fill: none;
-  stroke: url(#blGrad);
-  stroke-width: 0.7;
-  stroke-linejoin: round;
-  stroke-dasharray: 100;
-  stroke-dashoffset: 100;
-  animation: blDraw 0.9s cubic-bezier(0.65, 0, 0.35, 1) forwards, blStrokeOut 0.4s ease 0.85s forwards;
-}
-.bl-fill {
-  fill: url(#blGrad);
-  opacity: 0;
-  animation: blFill 0.45s ease 0.7s forwards;
-}
-@keyframes blDraw { to { stroke-dashoffset: 0; } }
-@keyframes blStrokeOut { to { opacity: 0; } }
-@keyframes blFill { to { opacity: 1; } }
-@keyframes blRise { from { transform: scale(0.94); filter: blur(2px); } to { transform: scale(1); filter: blur(0); } }
-@keyframes blBreathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.72; } }
-@keyframes blSafety { to { opacity: 0; visibility: hidden; } }
-@media (prefers-reduced-motion: reduce) {
-  .bl-logo { animation: none; }
-  .bl-stroke { display: none; }
-  .bl-fill { animation: blFill 0.3s ease forwards; }
-}
-
 /* ══════════════════════════════════════════════
    FÖRHANDSVISNING BREDVID FORMULÄRET (faktura/offert, 2026-10-03)
    Valfri kolumn till höger (shared/LivePreviewPane.jsx). Formuläret och

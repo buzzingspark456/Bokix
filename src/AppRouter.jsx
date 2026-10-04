@@ -189,14 +189,6 @@ function RootRoute({ locale = 'sv' }) {
     if (location.state?.enterApp) setWantsApp(true);
   }, [location.state]);
 
-  // Startloggan (public/theme-init.js) tänds av VILKEN sparad Supabase-nyckel
-  // som helst, men bara App.jsx släcker den. Visas webbplatsen i stället
-  // (nyckeln var inte den vi letar efter, eller i den andra lagringen) låg
-  // loggan annars kvar över sidan i tio sekunder.
-  useEffect(() => {
-    if (!wantsApp) document.documentElement.removeAttribute('data-launch');
-  }, [wantsApp]);
-
   if (wantsApp) {
     return (
       <>
@@ -224,6 +216,8 @@ function RootRoute({ locale = 'sv' }) {
         // registreringen ska då starta i UF-läge: inget organisationsnummer,
         // inget betalsteg. Går samma väg som `plan` (location.state), inte
         // via en egen mekanism.
+        // Registrering utan valt abonnemang går via /priser (se App.jsx).
+        if (mode === 'signup' && !plan && !options?.uf) { navigate('/priser'); return; }
         navigate('.', { state: { enterApp: true, authMode: mode, ...(plan ? { plan } : {}), ...(options?.uf ? { uf: true } : {}) } });
         setWantsApp(true);
       }}

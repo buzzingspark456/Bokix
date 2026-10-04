@@ -1281,6 +1281,12 @@ function App() {
   const navigate = useNavigate();
   useEffect(() => {
     if (location.state?.enterApp) {
+      // Registrering utan valt abonnemang går via /priser, så besökaren
+      // väljer nivå själv i stället för att tyst få 179 kr-nivån.
+      if (location.state?.authMode === 'signup' && !location.state?.plan && !location.state?.uf) {
+        navigate('/priser', { replace: true });
+        return;
+      }
       setShowLanding(false);
       setAuthMode(location.state?.authMode === 'signup' ? 'signup' : 'login');
       if (location.state?.plan) setSelectedPlan(location.state.plan);
@@ -1317,19 +1323,6 @@ function App() {
   const [user, setUser] = useState(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
-  // Startloggan (index.html #bokix-launch, satt av public/theme-init.js)
-  // tonas bort när appen är redo: inloggningen klar, eller inloggnings-
-  // skärmen visas. Tidigast när konturen hunnit ritas klart (~1,1 s från
-  // att sidan började laddas), så animationen aldrig klipps mitt i.
-  useEffect(() => {
-    if (isLoadingAuth) return undefined;
-    const root = document.documentElement;
-    if (!root.hasAttribute('data-launch')) return undefined;
-    const wait = Math.max(0, 1100 - (performance.now?.() ?? 1100));
-    const t1 = setTimeout(() => root.setAttribute('data-launch', 'leaving'), wait);
-    const t2 = setTimeout(() => root.removeAttribute('data-launch'), wait + 400);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [isLoadingAuth]);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(() => localStorage.getItem('bokix_onboarding_completed') === 'true');
   // Bara sättaren används — själva värdet speglas till localStorage men
   // läses aldrig tillbaka från React-state någonstans (showOnboarding
@@ -4821,7 +4814,7 @@ function App() {
               <MfaChallengeScreen onVerify={handleMfaVerify} onCancel={handleMfaCancel} />
             ) : !isLoggedIn ? (
               showLanding
-                ? <LandingPage onEnterApp={(mode, plan) => { setShowLanding(false); setAuthMode(mode === 'signup' ? 'signup' : 'login'); if (plan) setSelectedPlan(plan); }} />
+                ? <LandingPage onEnterApp={(mode, plan) => { if (mode === 'signup' && !plan) { navigate('/priser'); return; } setShowLanding(false); setAuthMode(mode === 'signup' ? 'signup' : 'login'); if (plan) setSelectedPlan(plan); }} />
                 : <Auth onLogin={handleLogin} onBackToLanding={inInstalledApp ? () => {} : () => setShowLanding(true)} initialMode={authMode} plan={selectedPlan} initialUf={signupAsUf} />
             ) : showOnboarding ? (
               // Bugkritiskt: `showOnboarding`/handleOnboardingComplete/
