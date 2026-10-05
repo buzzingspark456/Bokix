@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { KitStyles, KitCta, PrimaryButton, GhostLink } from './subpageKit';
@@ -61,14 +61,39 @@ function useSiteTheme() {
   return theme;
 }
 
+// Affischbild och film sätts först när spelaren närmar sig skärmen. Förut
+// stod affischen redan i den förrenderade HTML:en (alltid ljus), så webbläsaren
+// hämtade alla tolv ljusa bilder direkt och sedan de tolv mörka när temat lästs
+// in: 24 bilder, ~3 MB, på en mobil. Rutan har fast bildformat (aspect-ratio)
+// så inget hoppar när bilden kommer.
+// `key` är videons nyckel: när temat lästs in byts <video> ut (key={file}),
+// och då måste observatören sättas på det nya elementet.
+function useNearViewport(key) {
+  const ref = useRef(null);
+  const [near, setNear] = useState(false);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || near) return;
+    if (typeof IntersectionObserver === 'undefined') { setNear(true); return; }
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) { setNear(true); io.disconnect(); }
+    }, { rootMargin: '600px 0px' });
+    io.observe(node);
+    return () => io.disconnect();
+  }, [near, key]);
+  return [ref, near];
+}
+
 function GuideVideo({ slug, title, theme }) {
   const file = theme === 'dark' ? `${slug}-dark` : slug;
+  const [ref, near] = useNearViewport(file);
   return (
     <video
+      ref={ref}
       key={file}
       className="gd-video"
-      src={`/videos/${file}.mp4`}
-      poster={`/videos/${file}.jpg`}
+      src={near ? `/videos/${file}.mp4` : undefined}
+      poster={near ? `/videos/${file}.jpg` : undefined}
       controls
       playsInline
       preload="none"

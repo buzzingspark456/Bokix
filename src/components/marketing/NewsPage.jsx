@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from '../icons';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
+import { blogThumb } from '../../utils/blogThumb';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 import { NEWS_POSTS } from '../../content/marketing/news';
 
@@ -80,7 +81,7 @@ export default function NewsPage() {
             <li key={post.slug}>
               <Reveal delay={i * 60}>
                 <Link to={post.path} className="bx-news-card lp-card-hover">
-                  <img src={post.image} alt={post.imageAlt} loading={i === 0 ? 'eager' : 'lazy'} width="1200" height="630" />
+                  <img src={blogThumb(post.image)} alt={post.imageAlt} loading={i === 0 ? 'eager' : 'lazy'} width="800" height="420" />
                   <div className="bx-news-body">
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 10px', fontSize: '12.5px', color: MUTED, fontWeight: 600, marginBottom: '11px' }}>
                       <span style={{ fontSize: '11.5px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--mkt-accent-green-fg)', background: 'var(--mkt-accent-green-soft)', padding: '3px 10px', borderRadius: '999px' }}>{post.category}</span>

@@ -41,12 +41,49 @@ export default function CookieBanner() {
     setTimeout(() => setVisible(false), 220);
   };
 
-  if (!visible) return null;
+  // Kortet sitter mot botten. Ritades det synligt direkt och typsnittet (eller
+  // en fet vikt som bara bannern använder) laddades in efteråt, blev texten
+  // högre och hela kortet hoppade uppåt: CLS 0,15 på långsam mobil för varje
+  // förstagångsbesökare (Googles gräns för "bra" är 0,1). Därför ritas det
+  // först när typsnitten det använder är hämtade (högst 2,5 s). Ett element
+  // som dyker upp räknas inte som layoutskift, bara ett som flyttar sig.
+  // (Att rita kortet osynligt först och visa det sedan räckte inte: Chrome
+  // räknade ändå skiftet, och document.fonts.ready var klar för tidigt.)
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!visible || ready) return;
+    let done = false;
+    const show = () => { if (!done) { done = true; setReady(true); } };
+    // Google Fonts-länken laddas asynkront (media="print" → "all", se
+    // font-swap.js), och dess typsnitt registreras först en stund efter att
+    // länken bytt till "all". Fram till dess svarar document.fonts.load/ready
+    // "klart" direkt, eftersom det inte finns något Inter att vänta på. Så:
+    // titta var 100:e ms tills Inter finns registrerat och de vikter bannern
+    // använder (400 brödtext, 600 länk, 700 rubrik/knappar) är hämtade.
+    const SPECS = ['400 13px Inter', '600 13px Inter', '700 15.5px Inter'];
+    const f = document.fonts;
+    const poll = () => {
+      if (done) return;
+      if (!f?.check) return show();
+      const hasInter = [...f].some((x) => x.family.replace(/["']/g, '') === 'Inter');
+      if (hasInter) {
+        SPECS.forEach((s) => f.load(s, 'Åäö').catch(() => {}));
+        if (SPECS.every((s) => f.check(s, 'Åäö'))) return show();
+      }
+      setTimeout(poll, 100);
+    };
+    poll();
+    const t = setTimeout(show, 2500);
+    return () => { done = true; clearTimeout(t); };
+  }, [visible, ready]);
+
+  if (!visible || !ready) return null;
 
   return (
     <div
       role="dialog"
       aria-label="Cookieinställningar"
+      aria-hidden={ready ? undefined : true}
       style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}
     >
       {/* Kundfeedback (mobil, skärmdump): kortet ligger fast mot botten

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from '../icons';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
+import { blogThumb } from '../../utils/blogThumb';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 import { BLOG_POSTS } from '../../content/marketing/blog';
 
@@ -73,7 +74,7 @@ export default function BlogPage() {
                 className="lp-card-hover"
                 style={{ display: 'block', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '18px', overflow: 'hidden', boxShadow: CARD_SHADOW, textDecoration: 'none', height: '100%' }}
               >
-                <img className="bx-blog-card-img" src={post.image} alt={post.imageAlt} loading="lazy" />
+                <img className="bx-blog-card-img" src={blogThumb(post.image)} alt={post.imageAlt} loading="lazy" width="800" height="420" />
                 <div style={{ padding: '22px 24px 26px' }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 10px', fontSize: '12.5px', color: MUTED, fontWeight: 600, marginBottom: '11px' }}>
                     {post.category ? <span style={{ fontSize: '11.5px', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--mkt-accent-green-fg)', background: 'var(--mkt-accent-green-soft)', padding: '3px 10px', borderRadius: '999px' }}>{post.category}</span> : null}
