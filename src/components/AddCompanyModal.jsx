@@ -20,6 +20,10 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting,
   const [companyName, setCompanyName] = useState('');
   const [orgNr, setOrgNr] = useState('');
   const [address, setAddress] = useState('');
+  // Postnummer och ort ur företagsregistret; inga egna fält här, de går
+  // med till företaget och kan ändras i Inställningar → Företagsuppgifter.
+  const [postalCode, setPostalCode] = useState('');
+  const [city, setCity] = useState('');
   // Kundönskemål: det nya företaget ska inte bara TYST få kontots e-post
   // i bakgrunden (se App.jsx: createEmptyCompanyData) — man ska se den och
   // kunna ändra den redan här, precis som org.nummer/namnet. Förvalt till
@@ -34,6 +38,8 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting,
     if (key === 'name') setCompanyName(value);
     else if (key === 'orgNr') setOrgNr(formatOrgNr(value));
     else if (key === 'address') setAddress(value);
+    else if (key === 'postalCode') setPostalCode(value);
+    else if (key === 'city') setCity(value);
   });
 
   if (!isOpen) return null;
@@ -43,6 +49,8 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting,
     setCompanyName('');
     setOrgNr('');
     setAddress('');
+    setPostalCode('');
+    setCity('');
     setEmail(defaultEmail);
     setSetup(EMPTY_COMPANY_SETUP);
     companyLookup.clearNameResults();
@@ -62,7 +70,7 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting,
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!canSubmit) return;
-    onSubmit({ companyName: companyName.trim(), orgNr, address, email: email.trim(), setup: companySetupToCompany(setup, orgNr) });
+    onSubmit({ companyName: companyName.trim(), orgNr, address, postalCode, city, email: email.trim(), setup: companySetupToCompany(setup, orgNr) });
   };
 
   return (

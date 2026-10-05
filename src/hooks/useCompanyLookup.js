@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { lookupCompanyByOrgNumber, searchCompaniesByName } from '../utils/companyLookup';
 import { detectOrgType } from '../utils/orgType';
+import { niceCase, formatPostalCode } from '../utils/registryText';
 
 const NAME_DEBOUNCE_MS = 500;
 const NAME_MIN_CHARS = 3;
@@ -53,9 +54,11 @@ export function useCompanyLookup(set) {
     setLastCompany(company);
     set('name', company.name || '');
     set('orgNr', company.orgNumber || '');
-    if (company.street) set('address', company.street);
-    if (company.postalCode) set('postalCode', company.postalCode);
-    if (company.city) set('city', company.city);
+    // Registren skriver ofta med versaler ("STOCKHOLM"); vanlig skrivning
+    // och "111 53" innan det hamnar i formuläret.
+    if (company.street) set('address', niceCase(company.street));
+    if (company.postalCode) set('postalCode', formatPostalCode(company.postalCode));
+    if (company.city) set('city', niceCase(company.city));
     // FöretagsAPI's own legalForm (e.g. "AB", "HB") — the register's actual
     // answer, not the local digit-position guess in utils/orgType.js. Passed
     // through as an extra field the same way address/postalCode/city already

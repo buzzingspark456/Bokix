@@ -21,6 +21,10 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
   const [logoUrl, setLogoUrl] = useState(initialCompanyData?.company?.logoUrl || '');
   const [orgNr, setOrgNr] = useState(initialCompanyData?.company?.orgNr || '');
   const [address, setAddress] = useState(initialCompanyData?.company?.address || '');
+  // Postnummer och ort: inga egna fält i guiden, men ett uppslag här fyller
+  // dem, och redan sparade värden (från registreringen) följer med orörda.
+  const [postalCode, setPostalCode] = useState(initialCompanyData?.company?.postalCode || '');
+  const [city, setCity] = useState(initialCompanyData?.company?.city || '');
   const [email, setEmail] = useState(initialCompanyData?.company?.email || '');
   const [phone, setPhone] = useState(initialCompanyData?.company?.phone || '');
   // Räkenskapsår och momsregistrering, samma frågor som vid registreringen.
@@ -45,6 +49,8 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
     if (key === 'name') setCompanyName(value);
     else if (key === 'orgNr') setOrgNr(formatOrgNr(value));
     else if (key === 'address') setAddress(value);
+    else if (key === 'postalCode') setPostalCode(value);
+    else if (key === 'city') setCity(value);
   });
 
   const nameFieldRef = useRef(null);
@@ -53,7 +59,7 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
   const handleNext = () => {
     if (step === steps.length - 1) {
       const setup = companySetupToCompany(companySetup, orgNr);
-      onComplete({ companyName, logoUrl, orgNr, address, email, phone, fiscalYear: setup.fiscalYear, vatPeriod, chartPlan, setup });
+      onComplete({ companyName, logoUrl, orgNr, address, postalCode, city, email, phone, fiscalYear: setup.fiscalYear, vatPeriod, chartPlan, setup });
       return;
     }
     setStep((prev) => prev + 1);

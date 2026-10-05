@@ -27,8 +27,26 @@ let language = (() => {
   return 'sv';
 })();
 
+// Tvingat språk för vyer som alltid ska vara på ett visst språk oavsett
+// sparat val: inloggning och registrering visas på svenska, precis som resten
+// av webbplatsen (bara svenska sedan 2026-10-02). Det sparade valet rörs
+// inte, så appen är på engelska igen efter inloggning för den som valt det.
+let forced = null;
+const current = () => forced || language;
+
 export function getLanguage() {
-  return language;
+  return current();
+}
+
+/** Tvingar `lang` medan komponenten är monterad. Sätts redan under första
+ * renderingen (useState-initieraren), så inget hinner visas på fel språk. */
+export function useForcedLanguage(lang) {
+  useState(() => { forced = lang; });
+  useEffect(() => {
+    forced = lang;
+    listeners.forEach(fn => fn());
+    return () => { forced = null; listeners.forEach(fn => fn()); };
+  }, [lang]);
 }
 
 export function setLanguage(lang) {
@@ -43,7 +61,7 @@ function readPath(dict, path) {
 }
 
 export function t(key, vars) {
-  let str = readPath(DICTS[language], key) ?? readPath(DICTS.sv, key) ?? key;
+  let str = readPath(DICTS[current()], key) ?? readPath(DICTS.sv, key) ?? key;
   if (vars) {
     Object.entries(vars).forEach(([k, v]) => { str = str.replaceAll(`{{${k}}}`, v); });
   }
@@ -59,11 +77,11 @@ export function useTranslation() {
     listeners.add(listener);
     return () => listeners.delete(listener);
   }, []);
-  return { t, language, setLanguage };
+  return { t, language: current(), setLanguage };
 }
 
 // Språkinställning för datum med månads- och veckodagsnamn (Intl). Belopp
 // formateras fortfarande med sv-SE, eftersom kronor skrivs likadant.
 export function dateLocale() {
-  return language === 'en' ? 'en-GB' : 'sv-SE';
+  return current() === 'en' ? 'en-GB' : 'sv-SE';
 }

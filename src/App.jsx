@@ -700,7 +700,12 @@ function createEmptyCompanyData(companyInfo) {
       // (förvalt ur EU:s momsregister, se FiscalYearVatFields.jsx), null
       // när det aldrig besvarats (äldre företag).
       vatRegistered: typeof companyInfo.vatRegistered === 'boolean' ? companyInfo.vatRegistered : null,
-      address: '',
+      // Gata, postnummer och ort, se utils/companyAddress.js. Förifyllda
+      // från företagsregistret när de hittades vid registreringen eller i
+      // "Lägg till företag".
+      address: companyInfo.address || '',
+      postalCode: companyInfo.postalCode || '',
+      city: companyInfo.city || '',
       // Kundönskemål: "din e-post ska redan stå där" — förifylld från
       // kontots EGEN e-post vid registreringen (första företaget skapas
       // alltid direkt efter signUp(), se anropsstället nedan) så
@@ -2324,6 +2329,11 @@ function App() {
             : null,
           vatRegistered: typeof metadata.vat_registered === 'boolean' ? metadata.vat_registered : null,
           vatNr: metadata.vat_nr || '',
+          // Adressen ur företagsregistret, om uppslaget lyckades vid
+          // registreringen (Auth.jsx), så den står i Företagsuppgifter direkt.
+          address: metadata.company_address || '',
+          postalCode: metadata.company_postal_code || '',
+          city: metadata.company_city || '',
           isUf: Boolean(metadata.uf),
           ufSchool: metadata.uf_school || '',
           ufStartedAt: metadata.uf_started_at || '',
@@ -3007,6 +3017,8 @@ function App() {
             name,
             orgNr: profile.orgNr || data.companies[data.activeCompanyId].company.orgNr,
             address: profile.address || data.companies[data.activeCompanyId].company.address,
+            postalCode: profile.postalCode || data.companies[data.activeCompanyId].company.postalCode || '',
+            city: profile.city || data.companies[data.activeCompanyId].company.city || '',
             email: profile.email || data.companies[data.activeCompanyId].company.email,
             phone: profile.phone || data.companies[data.activeCompanyId].company.phone,
             logoUrl: profile.logoUrl || data.companies[data.activeCompanyId].company.logoUrl,
@@ -3070,12 +3082,11 @@ function App() {
   // Räkenskapsår/momsperiod/kontoplan sätts inte i formuläret längre —
   // createEmptyCompanyData:s egna förval duger, ändringsbart i
   // Inställningar sen.
-  const handleCreateNewCompany = async ({ companyName, orgNr, address, email, setup }) => {
+  const handleCreateNewCompany = async ({ companyName, orgNr, address, postalCode, city, email, setup }) => {
     setNewCompanyModalSubmitting(true);
     try {
-      const newCompanyData = createEmptyCompanyData({ name: companyName, orgNr, email: email || user?.email || '', ...(setup || {}) });
+      const newCompanyData = createEmptyCompanyData({ name: companyName, orgNr, address, postalCode, city, email: email || user?.email || '', ...(setup || {}) });
       newCompanyData.company.requiresOwnPayment = true;
-      if (address) newCompanyData.company.address = address;
       const companyId = newCompanyData.company.id;
       const nextState = {
         ...data,

@@ -21,7 +21,7 @@ import Recaptcha from './Recaptcha';
 import { TERMS_VERSION } from '../utils/legalVersion';
 import CompanyLookupResults from './shared/CompanyLookupResults';
 import FiscalYearVatFields, { EMPTY_COMPANY_SETUP, companySetupComplete, companySetupToCompany } from './shared/FiscalYearVatFields';
-import { t } from '../i18n';
+import { t, useForcedLanguage } from '../i18n';
 
 // ── Litet Stripe-märke — se motsvarande kommentar i PaymentRequiredGate.jsx
 // (samma lokala-kopia-mönster). ──
@@ -47,7 +47,9 @@ const labelStyle = {
   marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.04em',
 };
 
-const REGISTER_STEPS = [t('ui.personlig_info'), t('ui.bekrafta_e_post'), t('ui.foretag'), t('ui.losenord')];
+// Nycklar, inte färdiga texter: översätts när sidan ritas, så att det
+// tvingade svenska språket (useForcedLanguage nedan) gäller även här.
+const REGISTER_STEPS = ['ui.personlig_info', 'ui.bekrafta_e_post', 'ui.foretag', 'ui.losenord'];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ── Autouppslag mot FöretagsAPI på registreringens "Ditt företag"-steg
@@ -99,6 +101,9 @@ const PENDING_INVITE_KEY = 'bokix_pending_invite_token';
  * fungerar oförändrat. Servern validerar värdet igen — det här är ett
  * val, inte ett löfte om vad som debiteras. */
 export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'employer_monthly', initialUf = false }) {
+  // Inloggning och registrering är alltid på svenska, som resten av
+  // webbplatsen. Ett sparat språkval (engelska) gäller igen inne i appen.
+  useForcedLanguage('sv');
   const [isLogin, setIsLogin] = useState(initialMode !== 'signup');
   // Priset i rutan ovanför "Skapa konto"-knappen ska vara det besökaren
   // just valde på prissidan, inte 179 kr för alla (som det stod innan
@@ -234,6 +239,10 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   // via applyCompany) — authoritative, unlike the digit-position guess
   // below. Empty until a lookup actually resolves.
   const [regLegalForm, setRegLegalForm] = useState('');
+  // Adressen ur registret. Inga fält i det här steget, men den sparas i
+  // user_metadata och hamnar på det första företaget (App.jsx), så den står
+  // i Inställningar → Företagsuppgifter direkt efter registreringen.
+  const [regAddress, setRegAddress] = useState({ address: '', postalCode: '', city: '' });
   // "Jag har inget företag än" — se knappen i steg 2 och handleNextStep:s
   // regStep===2-gren för hela resonemanget.
   const [skipCompany, setSkipCompany] = useState(false);
@@ -261,11 +270,10 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   const orgType = detectOrgType(regOrgNr);
   const displayedOrgType = (regLegalForm && formatLegalForm(regLegalForm)) || orgType;
 
-  // Autouppslag mot FöretagsAPI — det här steget har bara namn + org.nummer
-  // (till skillnad från Contacts.jsx finns ingen adress/postnr/ort-fält
-  // här ännu, det fylls i senare i OnboardingFlow.jsx efter inloggning),
-  // så adaptern nedan ignorerar de flesta fälten från useCompanyLookup —
-  // utom 'legalForm' (se regLegalForm ovan), som ersätter den lokala
+  // Autouppslag i företagsregistret — det här steget visar bara namn +
+  // org.nummer, men adressen (gata, postnr, ort) sparas undan i regAddress
+  // och följer med till företaget (se ovan). 'legalForm' (se regLegalForm
+  // ovan) ersätter den lokala
   // gissningen i orgType.js med registrets faktiska svar så fort ett
   // uppslag lyckas. org.nummer formateras via SAMMA formatOrgNr som
   // fältets egen onChange använder, så en ifylld post-lookup-siffersträng
@@ -274,6 +282,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     if (key === 'name') setRegCompany(value);
     else if (key === 'orgNr') setRegOrgNr(formatOrgNr(value));
     else if (key === 'legalForm') setRegLegalForm(value);
+    else if (key === 'address' || key === 'postalCode' || key === 'city') setRegAddress(a => ({ ...a, [key]: value }));
   };
   const companyLookup = useCompanyLookup(handleLookupField);
   // Ankare för träfflistan när man söker på företagsnamnet.
@@ -499,6 +508,9 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               ...((hasPendingInvite || skipCompany || isUfSignup) ? {} : (() => {
                 const setup = companySetupToCompany(regSetup, regOrgNr);
                 return {
+                  company_address: regAddress.address,
+                  company_postal_code: regAddress.postalCode,
+                  company_city: regAddress.city,
                   fiscal_year: setup.fiscalYear,
                   ...(setup.firstFiscalYear ? { first_fiscal_year_start: setup.firstFiscalYear.start, first_fiscal_year_end: setup.firstFiscalYear.end } : {}),
                   vat_registered: setup.vatRegistered,
@@ -845,7 +857,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                     <div style={{ position: 'relative', height: '4px', borderRadius: '2px', background: 'var(--border)', overflow: 'hidden' }}>
                       <div style={{ position: 'absolute', inset: 0, borderRadius: '2px', background: '#0b6329', transform: `scaleX(${i <= regStep ? 1 : 0})`, transformOrigin: 'left', transition: 'transform 0.35s ease' }} />
                     </div>
-                    <span style={{ fontSize: '13px', fontWeight: i === regStep ? 700 : 500, color: i <= regStep ? BRAND.greenDark : 'var(--text-muted)' }}>{s}</span>
+                    <span style={{ fontSize: '13px', fontWeight: i === regStep ? 700 : 500, color: i <= regStep ? BRAND.greenDark : 'var(--text-muted)' }}>{t(s)}</span>
                   </div>
                 ))}
               </div>
@@ -1052,7 +1064,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                             style={{ ...inputStyle, paddingLeft: '42px' }}
                             placeholder="556123-4567"
                             value={regOrgNr}
-                            onChange={e => { const formatted = formatOrgNr(e.target.value); setRegOrgNr(formatted); setRegCompany(''); setRegLegalForm(''); companyLookup.handleOrgNrChange(formatted); }}
+                            onChange={e => { const formatted = formatOrgNr(e.target.value); setRegOrgNr(formatted); setRegCompany(''); setRegLegalForm(''); setRegAddress({ address: '', postalCode: '', city: '' }); companyLookup.handleOrgNrChange(formatted); }}
                             required
                           />
                         </div>
