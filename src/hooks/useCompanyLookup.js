@@ -62,6 +62,10 @@ export function useCompanyLookup(set) {
     // are; a caller's `set` that doesn't know this key just ignores it,
     // same as any other consumer of this hook that hasn't opted in.
     if (company.legalForm) set('legalForm', company.legalForm);
+    // Samma bekräftelse ("Hämtat från bolagsregistret") oavsett om träffen
+    // kom via organisationsnumret eller ett val i namnlistan; förut visades
+    // den bara för nummervägen.
+    setOrgLookup({ status: 'done', message: `Uppgifter hämtade: ${company.name}` });
     if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
     setNameResults([]);
     setNameSearch({ status: 'idle', message: '' });

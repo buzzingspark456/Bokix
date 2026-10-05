@@ -5,6 +5,7 @@ import { requireAuthedUser, loadMemberCompany, requireActiveSubscription, requir
 import { checkRateLimit } from './_rateLimit.js';
 import { createClient } from '@supabase/supabase-js';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
+import { isBolagsverketConfigured, lookupOrgNumber, BolagsverketError } from './_bolagsverket.js';
 
 // Huvudsakligen till för en INBJUDEN användare (se supabase-setup.sql:
 // company_members — ägare + upp till 2 inbjudna = max 3 per företag) att
@@ -162,14 +163,37 @@ async function handleCompanyLookup(body, res) {
     await handleVatLookup(body, res);
     return;
   }
-  const foretagsApiKey = getForetagsApiKey();
-  if (!foretagsApiKey) {
-    res.status(503).json({ error: 'Företagsuppslag är inte konfigurerat (FORETAGSAPI_KEY saknas).' });
-    return;
-  }
   const query = typeof body?.query === 'string' ? body.query.trim() : '';
   if (!query) {
     res.status(400).json({ error: 'query krävs.' });
+    return;
+  }
+
+  // Uppslag på organisationsnummer går direkt till Bolagsverket (gratis,
+  // ingen mellanhand, se _bolagsverket.js) när nycklarna finns. FöretagsAPI
+  // är kvar för namnsökningen, som Bolagsverkets API inte har, och som
+  // reserv för nummeruppslag tills Bolagsverket-nycklarna är på plats.
+  if (body?.mode === 'orgnr' && isBolagsverketConfigured()) {
+    const digits = query.replace(/\D/g, '');
+    if (digits.length !== 10) {
+      res.status(400).json({ error: 'Organisationsnumret måste vara 10 siffror.' });
+      return;
+    }
+    try {
+      res.status(200).json({ companies: await lookupOrgNumber(digits) });
+    } catch (error) {
+      res.status(error instanceof BolagsverketError ? error.status : 502).json({ error: error?.message || 'Kunde inte slå upp företaget just nu.' });
+    }
+    return;
+  }
+
+  const foretagsApiKey = getForetagsApiKey();
+  if (!foretagsApiKey) {
+    res.status(503).json({
+      error: body?.mode === 'name'
+        ? 'Sök på organisationsnummer i stället, eller fyll i uppgifterna manuellt.'
+        : 'Företagsuppslag är inte konfigurerat.',
+    });
     return;
   }
 

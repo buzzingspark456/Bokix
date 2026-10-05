@@ -1085,6 +1085,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                           required
                         />
                         {companyLookup.nameSearch.status === 'loading' && <div style={{ fontSize: '12.5px', marginTop: '6px', color: 'var(--text-secondary)' }}>{t('ui.soker_i_foretagsregistret')}</div>}
+                        {companyLookup.nameSearch.status === 'error' && <div style={{ fontSize: '12.5px', marginTop: '6px', color: 'var(--text-secondary)' }}>{companyLookup.nameSearch.message}</div>}
                         <CompanyLookupResults results={companyLookup.nameResults} onPick={companyLookup.applyCompany} anchorRef={regCompanyFieldRef} />
                         {/* Kort, flyktig bekräftelse direkt efter ett lyckat
                             uppslag — fältet ovan är annars identiskt oavsett om

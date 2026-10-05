@@ -73,6 +73,7 @@ export default function OnboardingFlow({ onComplete, onSkip, initialCompanyName,
                 style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 14px', fontSize: '14px' }}
               />
               {companyLookup.nameSearch.status === 'loading' && <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-secondary)' }}>{t('ui.soker_i_foretagsregistret')}</div>}
+              {companyLookup.nameSearch.status === 'error' && <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-secondary)' }}>{companyLookup.nameSearch.message}</div>}
               <CompanyLookupResults results={companyLookup.nameResults} onPick={companyLookup.applyCompany} anchorRef={nameFieldRef} />
             </div>
             <div>

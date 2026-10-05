@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
     <PolicyLayout
       title="Integritetspolicy"
       path="/privacy"
-      updated="2026-09-29"
+      updated="2026-10-05"
       metaTitle="Integritetspolicy | Bokix"
       metaDescription="Vilken personuppgiftsinformation Bokix samlar in, varför, hur länge den sparas och vilka rättigheter du har enligt GDPR."
     >
@@ -39,7 +39,7 @@ export default function PrivacyPolicy() {
           head={['Kategori', 'Exempel', 'Varifrån']}
           rows={[
             ['Kontouppgifter', 'Namn, e-postadress, lösenord (lagras hashat, aldrig i klartext)', 'Du, vid registrering'],
-            ['Företagsuppgifter', 'Företagsnamn, organisationsnummer, adress, momsregistreringsnummer, räkenskapsår', 'Du, samt offentliga register (Bolagsverket via FöretagsAPI och EU:s momsregister VIES) när du söker upp ett företag'],
+            ['Företagsuppgifter', 'Företagsnamn, organisationsnummer, adress, momsregistreringsnummer, räkenskapsår', 'Du, samt offentliga register (Bolagsverket, direkt eller via FöretagsAPI, och EU:s momsregister VIES) när du söker upp ett företag'],
             ['Bokföringsdata', 'Verifikationer, fakturor, kvitton, kund- och leverantörsuppgifter, kontoplan', 'Du, löpande i tjänsten'],
             ['Personaluppgifter (lönemodulen)', 'Anställdas namn, personnummer, lön, skattetabell, bankkontonummer', 'Du, vid registrering av anställda'],
             ['Kassaförsäljning', 'Försäljningar från din Zettle-kassa: belopp, moms, datum och betalsätt', 'Zettle, bara om du själv kopplat det'],
@@ -68,7 +68,7 @@ export default function PrivacyPolicy() {
           <li style={policyLi}><strong>Vercel</strong> — driftar och hostar hela tjänsten (webbappen och de serverfunktioner som hanterar t.ex. betalningar och e-post). All trafik till Bokix passerar genom Vercels infrastruktur.</li>
           <li style={policyLi}><strong>Vercel BotID</strong> — automatiserad bot-/missbruksdetektering på formulär (t.ex. registrering), en del av Vercel-plattformen ovan.</li>
           <li style={policyLi}><strong>Google reCAPTCHA</strong> — kontrollerar på kontaktformuläret att det är en människa som skickar. Google får då teknisk information om din webbläsare och ditt besök.</li>
-          <li style={policyLi}><strong>FöretagsAPI och VIES</strong> — när du söker upp ett företag (ditt eget, en kund eller en leverantör) skickas organisations- eller momsnumret dit för att hämta namn och adress ur offentliga register. Inget annat skickas.</li>
+          <li style={policyLi}><strong>Bolagsverket, FöretagsAPI och VIES</strong> — när du söker upp ett företag (ditt eget, en kund eller en leverantör) skickas organisationsnumret, momsnumret eller det namn du söker på dit för att hämta namn och adress ur offentliga register. Inget annat skickas.</li>
           <li style={policyLi}><strong>Zettle</strong> — <em>endast om du själv kopplar din Zettle-kassa</em>. Bokix hämtar då dina försäljningar därifrån för att bokföra dem. Du kan koppla från när du vill under Inställningar.</li>
           <li style={policyLi}><strong>Analysverktyg, bara med ditt samtycke</strong> — Google Analytics (Google), Microsoft Clarity (Microsoft) och PostHog mäter hur besökare använder Bokix och sätts först efter att du klickat "Acceptera alla" i cookiebannern. PostHog körs i EU-molnet (Frankfurt) och används bara för att räkna sidvisningar. Ingen bokföringsdata, inga kunduppgifter och inga klick eller inmatningar skickas dit. Exakt vilka cookies som sätts står i <a href="/cookies" style={link}>cookiepolicyn</a>.</li>
           <li style={policyLi}><strong>Google</strong> — <em>endast om du själv väljer att koppla din Gmail-adress som avsändare</em> (Inställningar → Fakturautskick). Fakturan skickas då genom ditt eget Google-konto i stället för via Bokix. Se avsnitt 5 nedan för exakt vad det innebär.</li>

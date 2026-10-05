@@ -123,6 +123,7 @@ export default function AddCompanyModal({ isOpen, onClose, onSubmit, submitting,
               required
             />
             {companyLookup.nameSearch.status === 'loading' && <span className="form-hint">{t('ui.soker_i_foretagsregistret')}</span>}
+            {companyLookup.nameSearch.status === 'error' && <span className="form-hint">{companyLookup.nameSearch.message}</span>}
             <CompanyLookupResults results={companyLookup.nameResults} onPick={companyLookup.applyCompany} anchorRef={nameFieldRef} />
           </div>
           <div className="form-group">
