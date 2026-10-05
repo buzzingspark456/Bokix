@@ -146,3 +146,22 @@ describe('runOffsiteBackup', () => {
     expect((await runOffsiteBackup(admin, store, KEY, { now })).filesCopied).toBe(2)
   })
 })
+
+// Skyddsnät: en ny tabell i någon supabase-*.sql måste antingen säkerhetskopieras
+// (TABLES) eller uttryckligen hoppas över här, annars fallerar testet.
+describe('TABLES täcker databasen', () => {
+  const SKIPPED = new Set([
+    'system_events', // driftloggar, återskapas av sig själva
+  ])
+  it('varje tabell i SQL-filerna finns i nattkopian eller är medvetet överhoppad', async () => {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const { TABLES } = await import('./_offsiteBackup.js')
+    const root = path.resolve(import.meta.dirname, '..')
+    const sql = fs.readdirSync(root).filter(f => /^supabase-.*\.sql$/.test(f)).map(f => fs.readFileSync(path.join(root, f), 'utf8')).join('\n')
+    const created = new Set([...sql.matchAll(/create\s+table\s+(?:if\s+not\s+exists\s+)?public\.([a-z_]+)/gi)].map(m => m[1].toLowerCase()))
+    expect(created.size).toBeGreaterThan(5)
+    const missing = [...created].filter(t => !TABLES.includes(t) && !SKIPPED.has(t))
+    expect(missing, `Lägg till i TABLES (api/_offsiteBackup.js) eller i SKIPPED: ${missing.join(', ')}`).toEqual([])
+  })
+})

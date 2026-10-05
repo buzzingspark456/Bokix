@@ -28,10 +28,16 @@ const DB_KEEP_DAYS = 35;
 const FILE_GRACE_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const TABLES = [
+// En ny tabell med data som inte går att återskapa ska läggas till HÄR, annars
+// följer den inte med i nattkopian (inkorgstabellerna och inloggnings-/
+// säkerhetsloggarna saknades, upptäckt vid återställningstestet 2026-10-05).
+// Testet i _offsiteBackup.test.js jämför listan med tabellerna i SQL-filerna.
+// system_events (driftloggar) hoppas medvetet över.
+export const TABLES = [
   'user_data', 'subscriptions', 'company_members', 'email_senders',
   'stripe_payment_events', 'stripe_ledger_events', 'zettle_ledger_events',
   'audit_log', 'blog_posts', 'contact_messages', 'cron_progress',
+  'inbox_addresses', 'inbox_items', 'login_events', 'security_events',
 ];
 
 // Nattkopiorna (_kopior) hoppas över: de är redan med i databasdumpen.
