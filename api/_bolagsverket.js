@@ -145,10 +145,27 @@ export function toSummary(org, fiscal = {}) {
   };
 }
 
+// Kort cache per varm instans: samma nummer slås ofta upp flera gånger i rad
+// (fältet raderas och skrivs om), och gränsen är 60 anrop/min för hela Bokix
+// med två anrop per uppslag. Bara lyckade svar sparas.
+const CACHE_MS = 10 * 60 * 1000;
+const CACHE_MAX = 300;
+const cache = new Map();
+export function _resetLookupCache() { cache.clear(); }
+
 /** Slår upp ett organisationsnummer (10 siffror). Returnerar en lista med
  * 0 eller 1 träff (samma form som FöretagsAPI-uppslaget), eller kastar
  * BolagsverketError när registret inte går att nå. */
 export async function lookupOrgNumber(digits) {
+  const hit = cache.get(digits);
+  if (hit && hit.expiresAt > Date.now()) return hit.value;
+  const value = await fetchOrgNumber(digits);
+  if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value);
+  cache.set(digits, { value, expiresAt: Date.now() + CACHE_MS });
+  return value;
+}
+
+async function fetchOrgNumber(digits) {
   // Företaget och årsredovisningslistan hämtas samtidigt; listan är bara
   // ett tillägg (räkenskapsåret) och får fallera utan att uppslaget gör det.
   const [orgRes, docRes] = await Promise.all([

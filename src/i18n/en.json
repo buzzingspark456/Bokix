@@ -1442,7 +1442,7 @@
     "hamtar_kursen": "Fetching the rate…",
     "hamtar_skattetabeller_fran_skatteverket": "Fetching tax tables from Skatteverket…",
     "hamtar_underlaget": "Fetching the document…",
-    "hamtat_fran_bolagsregistret_andra_garna_om_nagot": "Fetched from the company register — feel free to change anything that is more accurate.",
+    "hamtat_fran_bolagsregistret_andra_garna_om_nagot": "Retrieved from Bolagsverket (the Swedish Companies Registration Office). Feel free to change anything that is not right.",
     "hamtat_kontrollera_falten_och_klicka_spara_andri": "Fetched — check the fields and click Save changes.",
     "handelselogg": "Event log",
     "handelser": "{{check}} events",

@@ -181,10 +181,17 @@ async function handleCompanyLookup(body, res) {
     }
     try {
       res.status(200).json({ companies: await lookupOrgNumber(digits) });
+      return;
     } catch (error) {
-      res.status(error instanceof BolagsverketError ? error.status : 502).json({ error: error?.message || 'Kunde inte slå upp företaget just nu.' });
+      // Bolagsverket nere, överbelastat (429) eller inloggningen trasig:
+      // fall tillbaka på FöretagsAPI nedan om nyckeln finns, så att
+      // användaren ändå får sina uppgifter.
+      console.error('Bolagsverket-uppslaget misslyckades, provar FöretagsAPI:', error?.status || '', error?.message || error);
+      if (!getForetagsApiKey()) {
+        res.status(error instanceof BolagsverketError ? error.status : 502).json({ error: error?.message || 'Kunde inte slå upp företaget just nu.' });
+        return;
+      }
     }
-    return;
   }
 
   const foretagsApiKey = getForetagsApiKey();

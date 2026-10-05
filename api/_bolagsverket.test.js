@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { toSummary, toIsoDate, fiscalYearFromDocuments, lookupOrgNumber, isBolagsverketConfigured, _resetTokenCache, BolagsverketError } from './_bolagsverket.js'
+import { toSummary, toIsoDate, fiscalYearFromDocuments, lookupOrgNumber, isBolagsverketConfigured, _resetTokenCache, _resetLookupCache, BolagsverketError } from './_bolagsverket.js'
 
 // Bolagsverkets eget exempelsvar ur OpenAPI-specifikationen
 // (components.examples.organisationer-aktiebolag-svar), förkortat.
@@ -76,6 +76,7 @@ describe('lookupOrgNumber', () => {
     process.env.BOLAGSVERKET_CLIENT_ID = 'id'
     process.env.BOLAGSVERKET_CLIENT_SECRET = 'hemligt'
     _resetTokenCache()
+    _resetLookupCache()
     calls = []
   })
   afterEach(() => { vi.unstubAllGlobals(); delete process.env.BOLAGSVERKET_CLIENT_ID; delete process.env.BOLAGSVERKET_CLIENT_SECRET })
@@ -113,8 +114,28 @@ describe('lookupOrgNumber', () => {
       '/dokumentlista': json(200, { dokument: [] }),
     })
     await lookupOrgNumber('5299999994')
-    await lookupOrgNumber('5299999994')
+    await lookupOrgNumber('5567037485')
     expect(calls.filter(c => c.url.includes('/oauth2/token'))).toHaveLength(1)
+  })
+
+  it('samma nummer igen svaras ur cachen utan nya anrop', async () => {
+    stub({
+      '/oauth2/token': json(200, { access_token: 'tok', expires_in: 3600 }),
+      '/organisationer': json(200, { organisationer: [AB] }),
+      '/dokumentlista': json(200, { dokument: [] }),
+    })
+    await lookupOrgNumber('5299999994')
+    const before = calls.length
+    const [c] = await lookupOrgNumber('5299999994')
+    expect(c.name).toBe('Cykelbolaget AB')
+    expect(calls.length).toBe(before)
+  })
+
+  it('fel sparas inte i cachen', async () => {
+    stub({ '/oauth2/token': json(200, { access_token: 'tok', expires_in: 3600 }), '/organisationer': json(503, {}), '/dokumentlista': json(200, {}) })
+    await expect(lookupOrgNumber('5299999994')).rejects.toBeInstanceOf(BolagsverketError)
+    stub({ '/oauth2/token': json(200, { access_token: 'tok', expires_in: 3600 }), '/organisationer': json(200, { organisationer: [AB] }), '/dokumentlista': json(200, { dokument: [] }) })
+    expect((await lookupOrgNumber('5299999994'))[0].name).toBe('Cykelbolaget AB')
   })
 
   it('finns inte → tom lista, inget fel', async () => {

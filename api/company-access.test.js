@@ -46,6 +46,16 @@ describe('company-access lookup', () => {
     expect(res.statusCode).toBe(429)
   })
 
+  it('Bolagsverket nere → reserv via FöretagsAPI', async () => {
+    process.env.BOLAGSVERKET_CLIENT_ID = 'id'; process.env.BOLAGSVERKET_CLIENT_SECRET = 's'; process.env.FORETAGSAPI_KEY = 'k'
+    const { BolagsverketError } = await import('./_bolagsverket.js')
+    lookupOrgNumber.mockRejectedValue(new BolagsverketError('nere', 502))
+    const res = makeRes()
+    await handler(post({ mode: 'orgnr', query: '5560000000' }), res)
+    expect(res.statusCode).toBe(200)
+    expect(res.body.companies[0].name).toBe('Från FöretagsAPI')
+  })
+
   it('utan Bolagsverket-nycklar används FöretagsAPI som förut', async () => {
     process.env.FORETAGSAPI_KEY = 'k'
     const res = makeRes()
