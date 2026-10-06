@@ -755,7 +755,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           'tb-send'
         )}
         {pdfError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{pdfError}</span>}
-        {topBarBtn(pdfBusy ? 'Skapar PDF…' : 'Ladda ner PDF', <Download size={13} />, handleDownloadPdf, {}, pdfBusy, undefined, 'tb-pdf')}
+        {topBarBtn(pdfBusy ? tr('ui.skapar_pdf') : tr('ui.ladda_ner_pdf'), <Download size={13} />, handleDownloadPdf, {}, pdfBusy, undefined, 'tb-pdf')}
         {topBarBtn(tr('ui.forhandsgranska'), <Eye size={13} />, () => setShowPreview(v => !v), showPreview ? activeToolbarPillStyle : {}, false, undefined, 'tb-preview')}
       </div>
 

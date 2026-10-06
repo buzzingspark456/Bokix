@@ -103,7 +103,26 @@ export async function renderInvoicePdf(node) {
  * oförändrade beteendet för "Ladda ner PDF"-knappen. */
 export async function exportInvoicePdf(node, filename = 'faktura.pdf') {
   const pdf = await renderInvoicePdf(node);
+  if (await sharePdf(pdf, filename)) return;
   pdf.save(filename);
+}
+
+// Telefon: telefonens egen delningsmeny (Mail, Meddelanden, WhatsApp, Spara
+// i Filer …) i stället för en nedladdning som hamnar i en mapp man aldrig
+// hittar. Webbläsaren kan neka om renderingen tog för lång tid efter
+// trycket (NotAllowedError); då laddas filen ner som förut. Avbryter man
+// själv delningen (AbortError) händer ingenting.
+async function sharePdf(pdf, filename) {
+  if (typeof navigator === 'undefined' || !navigator.share || !navigator.canShare) return false;
+  if (!window.matchMedia?.('(pointer: coarse)').matches) return false;
+  const file = new File([pdf.output('blob')], filename, { type: 'application/pdf' });
+  if (!navigator.canShare({ files: [file] })) return false;
+  try {
+    await navigator.share({ files: [file], title: filename.replace(/\.pdf$/i, '') });
+    return true;
+  } catch (err) {
+    return err?.name === 'AbortError';
+  }
 }
 
 /** Samma rendering, men returnerar PDF:en som en ren base64-sträng (utan

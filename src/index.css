@@ -7744,3 +7744,20 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .rq-check:disabled { display: none; }
   .rq-check { width: 22px !important; height: 22px !important; margin-top: 6px !important; }
 }
+/* Ingen anslutning (App.jsx, isOffline): en rad överst, som i en app. */
+.offline-banner {
+  position: sticky;
+  top: 0;
+  z-index: 119;
+  padding: 8px 16px;
+  background: var(--status-amber-bg);
+  color: var(--status-amber-text);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.35;
+}
+@media (max-width: 768px) {
+  .offline-banner { top: var(--topbar-height); }
+  html[data-form] .offline-banner { position: static; }
+}

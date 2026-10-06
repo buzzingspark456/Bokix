@@ -60,8 +60,15 @@ function readPath(dict, path) {
   return path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : undefined), dict);
 }
 
+// Pekskärm (telefon, surfplatta): en text kan ha en variant med suffixet
+// "__touch" som används i stället, t.ex. "Tryck för att välja fil" där
+// datorn säger "Dra och släpp … eller klicka". Ingen kan dra en fil till en
+// telefon.
+const TOUCH = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
+
 export function t(key, vars) {
-  let str = readPath(DICTS[current()], key) ?? readPath(DICTS.sv, key) ?? key;
+  let str = (TOUCH ? readPath(DICTS[current()], `${key}__touch`) : undefined)
+    ?? readPath(DICTS[current()], key) ?? readPath(DICTS.sv, key) ?? key;
   if (vars) {
     Object.entries(vars).forEach(([k, v]) => { str = str.replaceAll(`{{${k}}}`, v); });
   }

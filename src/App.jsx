@@ -1893,6 +1893,20 @@ function App() {
     window.location.reload();
   };
 
+  // Utan nät: en rad överst som säger det (som i en app), i stället för att
+  // sparningen tyst misslyckas. När nätet kommer tillbaka sparas det som
+  // väntar direkt, utan att man behöver ändra något mer först.
+  const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' && navigator.onLine === false);
+  const syncNowRef = useRef(syncUserDataNow);
+  syncNowRef.current = syncUserDataNow;
+  useEffect(() => {
+    const goOffline = () => setIsOffline(true);
+    const goOnline = () => { setIsOffline(false); syncNowRef.current(); };
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online', goOnline);
+    return () => { window.removeEventListener('offline', goOffline); window.removeEventListener('online', goOnline); };
+  }, []);
+
   // Inloggningshistorik (Inställningar > Säkerhet > Inloggningshistorik).
   // Skriver EN rad per faktisk SIGNED_IN-händelse (se onAuthStateChange
   // nedan) — men supabase-js's SIGNED_IN kan i vissa fall trigga fler
@@ -3273,7 +3287,7 @@ function App() {
   // token:en saknas/är ogiltig, se verifyReauthGrant i _signedToken.js.
   const handleOpenStripeOnboarding = async (reauthToken) => {
     if (!user) {
-      alert(tr('ui.logga_in_for_att_ansluta_stripe'));
+      setToast({ message: tr('ui.logga_in_for_att_ansluta_stripe'), variant: 'error' });
       return;
     }
     if (company.stripeAccountId) return; // redan anslutet — inget att göra
@@ -3292,7 +3306,7 @@ function App() {
       window.location.href = payload.url;
     } catch (error) {
       console.error(error);
-      alert(tr('ui.kunde_inte_ansluta_stripe', { v0: error.message || error }));
+      setToast({ message: tr('ui.kunde_inte_ansluta_stripe', { v0: error.message || error }), variant: 'error' });
     }
   };
 
@@ -3323,7 +3337,7 @@ function App() {
       setCompanyInfo({ ...company, stripeAccountId: '' });
     } catch (error) {
       console.error(error);
-      alert(tr('ui.kunde_inte_koppla_fran_stripe', { v0: error.message || error }));
+      setToast({ message: tr('ui.kunde_inte_koppla_fran_stripe', { v0: error.message || error }), variant: 'error' });
     }
   };
 
@@ -3335,7 +3349,7 @@ function App() {
   // reserverat för Zettles egen redirect tillbaka.
   const handleOpenZettleOnboarding = async () => {
     if (!user) {
-      alert(tr('ui.logga_in_for_att_ansluta_zettle'));
+      setToast({ message: tr('ui.logga_in_for_att_ansluta_zettle'), variant: 'error' });
       return;
     }
     if (company.zettleAccessToken) return; // redan anslutet — inget att göra
@@ -3354,7 +3368,7 @@ function App() {
       window.location.href = payload.url;
     } catch (error) {
       console.error(error);
-      alert(tr('ui.kunde_inte_ansluta_zettle', { v0: error.message || error }));
+      setToast({ message: tr('ui.kunde_inte_ansluta_zettle', { v0: error.message || error }), variant: 'error' });
     }
   };
 
@@ -5361,6 +5375,9 @@ function App() {
           </div>
         </div>
 
+        {isOffline && (
+          <div className="offline-banner" role="status">{tr('ui.offline_banner')}</div>
+        )}
         <div className="main-content-inner">
           <Suspense fallback={<PageContentSkeleton tab={activeTab} />}>
             {/* Kundfeedback ("menyn står i vägen"): den fasta bottennaven
