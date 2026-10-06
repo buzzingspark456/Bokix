@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { ChevronDown, ChevronUp } from '../icons';
 import { useTranslation } from '../../i18n';
 import { haptic } from '../../utils/haptics';
+import SwipeRow from './SwipeRow';
 
 // Sida 43 (uppföljning): en enda delad tabell-komponent för listsidornas
 // rader — riktig <table>/<thead>/<tbody>, aldrig fritt staplade <div>:er
@@ -296,6 +297,11 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
             const key = rowKey(row);
             const expanded = Boolean(isExpanded?.(row));
             const m = mobileList(row, i);
+            // swipeActions: åtgärder man får fram genom att svepa raden åt
+            // vänster (SwipeRow), i stället för knappar på varje rad. Inte
+            // medan man markerar rader.
+            const swipe = m.swipeActions?.length && !mobileSelecting;
+            const RowEl = swipe ? SwipeRow : 'div';
             return (
               <React.Fragment key={key}>
                 {groupBy && renderGroupHeader && groupStartIndices.has(i) && (
@@ -303,7 +309,8 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
                     {groupHeaderCell(row)}
                   </div>
                 )}
-                <div
+                <RowEl
+                  {...(swipe ? { actions: m.swipeActions } : {})}
                   className="lt-mobile-row"
                   data-selected={selectable?.checked(row) ? 'true' : undefined}
                   onClick={() => handleMobileRowClick(row)}
@@ -341,7 +348,7 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
                       </div>
                     )}
                   </div>
-                </div>
+                </RowEl>
                 {expanded && renderExpanded && (
                   <div className="lt-mobile-expanded">{renderExpanded(row)}</div>
                 )}

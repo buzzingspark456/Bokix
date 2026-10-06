@@ -131,6 +131,7 @@ function ReviewRowShell({
       {onToggleSelect && (
         <input
           type="checkbox"
+          className="rq-check"
           checked={selected}
           disabled={!selectable}
           onChange={onToggleSelect}

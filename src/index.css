@@ -7679,3 +7679,68 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .mform-page > form,
   .mform-page > .mform-body { padding: 16px; }
 }
+/* Formulär och detaljvyer glider in från höger på telefon, som en ny skärm
+   i en app, och går att svepa bort från vänsterkanten (shared/MobileForm.jsx).
+   !important: flera formulär har en egen inline-animation (fadeIn). */
+@keyframes mformIn {
+  from { transform: translateX(100%); }
+  to { transform: none; }
+}
+@keyframes mformBarIn {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@media (max-width: 768px) {
+  .main-content-inner *:has(> .mform-head) {
+    animation: mformIn 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) backwards !important;
+  }
+  .mform-bar { animation: mformBarIn 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+  .mform-dragging {
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.18);
+    will-change: transform;
+  }
+  body:has(.mform-dragging) .mform-bar { opacity: 0; transition: opacity 0.12s; }
+  html[data-form] .main-wrapper { overflow-x: hidden; }
+}
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .main-content-inner *:has(> .mform-head),
+  .mform-bar { animation: none !important; }
+}
+/* Svep åt vänster på en listrad (shared/SwipeRow.jsx): åtgärderna ligger
+   under raden och kommer fram när raden glider undan. */
+.swipe-row { position: relative; overflow: hidden; border-bottom: 1px solid var(--border-light); }
+.swipe-row:last-child { border-bottom: none; }
+.swipe-row > .lt-mobile-row { position: relative; z-index: 1; border-bottom: none; touch-action: pan-y; }
+.swipe-row-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+}
+.swipe-row-action {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 6px;
+  border: none;
+  background: var(--text-secondary);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+}
+.swipe-row-action--accent { background: var(--accent); }
+.swipe-row-action--danger { background: #d93a3a; }
+/* Granskning på telefon: en avstängd kryssruta (posten saknar konto) går
+   inte att använda och tar bara plats; de som går att markera blir större. */
+@media (max-width: 768px) {
+  .rq-check:disabled { display: none; }
+  .rq-check { width: 22px !important; height: 22px !important; margin-top: 6px !important; }
+}

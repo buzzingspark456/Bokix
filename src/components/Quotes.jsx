@@ -1239,25 +1239,13 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
               // desktoptabellen — på telefonen gick en offert därför att läsa
               // men inte att göra något med. Kundfeedback: "man får ej info …
               // ska vara bra som fakturering". Samma två handlers som
-              // kolumnen använder, ingen egen logik.
-              meta2: (
-                <span style={{ display: 'inline-flex', gap: '8px', marginTop: '4px' }} onClick={e => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    onClick={(e) => handleConvert(q, e)}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}
-                  >
-                    <FileText size={12} /> {t('ui.skapa_faktura')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => handleDelete(q.id, e)}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', background: 'none', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '11.5px', fontWeight: 600, color: 'var(--status-red-text)', cursor: 'pointer', fontFamily: 'inherit' }}
-                  >
-                    <Trash2 size={12} /> {t('ui.ta_bort')}
-                  </button>
-                </span>
-              ),
+              // kolumnen använder, ingen egen logik. Ligger bakom ett svep åt
+              // vänster (SwipeRow) i stället för som knappar på varje rad;
+              // Skapa faktura finns också inne i offerten.
+              swipeActions: [
+                { key: 'convert', label: t('ui.skapa_faktura'), icon: FileText, tone: 'accent', onClick: (e) => handleConvert(q, e) },
+                { key: 'delete', label: t('ui.ta_bort'), icon: Trash2, tone: 'danger', onClick: (e) => handleDelete(q.id, e) },
+              ],
             };
           }}
           columns={[
