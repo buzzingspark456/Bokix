@@ -7,6 +7,7 @@ import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/Li
 import ListTable from './shared/ListTable';
 import { BRAND } from '../utils/brandColors';
 import { t } from '../i18n';
+import { MobileFormMode } from './shared/MobileForm';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 const inputSt = { width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' };
@@ -212,11 +213,14 @@ export default function Payroll({
       )}
 
       {activeTab === 'employees' && viewState !== 'list' && (
-        <div style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <button onClick={() => { setViewState('list'); setSelectedEmployee(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>{t('ui.tillbaka')}</button>
-            <span style={{ color: 'var(--border)' }}>|</span>
-            <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{viewState === 'new' ? t('ui.ny_anstalld') : t('ui.redigera_anstalld')}</h2>
+        <div className="mform-page" style={{ padding: '24px' }}>
+          <MobileFormMode />
+          <div className="mform-head" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <button className="mform-back" onClick={() => { setViewState('list'); setSelectedEmployee(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>
+              <span className="mform-back-desk">{t('ui.tillbaka')}</span><span className="mform-back-phone">{t('ui.avbryt')}</span>
+            </button>
+            <span className="mform-sep" style={{ color: 'var(--border)' }}>|</span>
+            <h2 className="mform-title" style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{viewState === 'new' ? t('ui.ny_anstalld') : t('ui.redigera_anstalld')}</h2>
           </div>
           <EmployeeForm
             initial={viewState === 'edit' ? selectedEmployee : null}

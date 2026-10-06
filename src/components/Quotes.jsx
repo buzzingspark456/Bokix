@@ -10,6 +10,7 @@ import { BRAND } from '../utils/brandColors';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { confirmDialog } from './shared/ConfirmDialog';
+import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { t } from '../i18n';
 
 const fmtSEK = (val) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
@@ -113,6 +114,7 @@ const toolbarBtnStyle = (active) => ({
  * rakt av — samma CSS-klass, samma mönster, samma mobilanpassning.
  */
 function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, articles = [], onSave, onClose, onConvert, onSyncBeforeServerCall }) {
+  useMobileForm();
   const [customerId, setCustomerId] = useState(quote?.customerId || '');
   const [customerName, setCustomerName] = useState(quote?.customerName || '');
   const [date, setDate] = useState(quote?.date || new Date().toISOString().split('T')[0]);
@@ -473,23 +475,26 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
       `}</style>
 
       {/* ── Top bar ── */}
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
-        <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-          {t('ui.tillbaka')}
+      <div className="mform-head" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
+        <button type="button" className="mform-back" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span className="mform-back-desk">{t('ui.tillbaka')}</span><span className="mform-back-phone">{t('ui.avbryt')}</span>
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div className="mform-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{quote ? t('ui.offert', { previewNumber }) : t('ui.ny_offert')}</h1>
           <span style={{ padding: '4px 10px', background: statusStyle.bg, color: statusStyle.color, borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{statusStyle.label}</span>
         </div>
         <div style={{ flex: 1, minWidth: '8px' }} />
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="mform-head-actions" style={{ display: 'flex', gap: '8px' }}>
           <button type="button" onClick={onClose} style={outlineBtnStyle}>{t('ui.avbryt')}</button>
           <button type="button" onClick={handleSubmit} style={buttonStyle}><Check size={14} /> {quote ? t('ui.spara_andringar') : t('ui.spara_offert')}</button>
         </div>
       </div>
+      <MobileFormBar>
+        <button type="button" className="mform-bar-primary" onClick={handleSubmit}>{quote ? t('ui.spara_andringar') : t('ui.spara_offert')}</button>
+      </MobileFormBar>
 
       {/* ── Åtgärdsrad: statusflöde, konvertering, e-post, PDF, förhandsgranska ── */}
-      <div className="quote-toolbar doc-toolbar" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className={`quote-toolbar doc-toolbar${quote ? '' : ' is-new'}`} style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
         {quote && (!quote.status || quote.status === 'draft') && (
           <button type="button" className="tb-status" onClick={() => setStatus('sent')} style={toolbarBtnStyle(status === 'sent')}>{t('ui.markera_som_skickad')}</button>
         )}

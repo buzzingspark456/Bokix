@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   Plus, Search, ChevronRight, ChevronDown,
   AlertCircle, RotateCcw, RefreshCw,
-  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, BookOpen, CheckCircle2, Paperclip,
+  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, BookOpen, CheckCircle2, Paperclip, Camera,
 } from './icons';
+import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { BRAND } from '../utils/brandColors';
 import { PartySearch, ProjectSearch, AccountSearch } from './shared/SearchInputs';
@@ -197,6 +198,9 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   const [expandedRows, setExpandedRows] = useState(new Set());
   const toggleRowOverride = (i) => setExpandedRows(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; });
   const fileInputRef = useRef(null);
+  // Telefon: kameran öppnas direkt, i stället för en dra-och-släpp-yta.
+  const cameraInputRef = useRef(null);
+  useMobileForm();
 
   // ── OCR ──────────────────────────────────────────────────────────────────
   // Samma idé som kvittovyn i Utgifter (Expenses.jsx): släpp in en bild eller
@@ -659,18 +663,20 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
     // formuläret under. Sidan bakom monteras inte alls så länge den här är
     // öppen (se `if (showForm) return …` i Bokforing nedan).
     <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-muted)', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.15s ease' }}>
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
-        <button type="button" data-tour="page-verifications-cancel" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-          {tr('ui.tillbaka')}
+      <div className="mform-head" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
+        <button type="button" className="mform-back" data-tour="page-verifications-cancel" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span className="mform-back-desk">{tr('ui.tillbaka')}</span><span className="mform-back-phone">{tr('ui.avbryt')}</span>
         </button>
         {/* En rättelseverifikation (`initial` fylld men `number` medvetet
             tömd, se "Rätta"-knappen nedan) ska visas och beskrivas som en
             NY verifikation — den ärver bara text/rader, aldrig originalets
             nummer eller "redigera befintlig"-språket. */}
-        <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{title}</h1>
-        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{tr('ui.serie')} {series} · {previewNumber}</span>
+        <div className="mform-title" style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+          <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{title}</h1>
+          <span className="mform-meta" style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{tr('ui.serie')} {series} · {previewNumber}</span>
+        </div>
         <div style={{ flex: 1, minWidth: '8px' }} />
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="mform-head-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button type="button" onClick={onClose} style={{ padding: '9px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>{tr('ui.avbryt')}</button>
           <button type="button" onClick={() => handleSave('draft')} disabled={attachmentBusy} style={{ padding: '9px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: attachmentBusy ? 'not-allowed' : 'pointer', opacity: attachmentBusy ? 0.6 : 1 }}>
             {attachmentBusy ? tr('ui.laddar_upp_3') : tr('ui.spara_som_utkast')}
@@ -686,6 +692,15 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
           </button>
         </div>
       </div>
+      <MobileFormBar>
+        {!canReview && validationMessages.length > 0 && <div className="mform-bar-hint">{validationMessages[0]}</div>}
+        <button type="button" className="mform-bar-secondary" onClick={() => handleSave('draft')} disabled={attachmentBusy}>
+          {attachmentBusy ? tr('ui.laddar_upp_3') : tr('ui.spara_som_utkast')}
+        </button>
+        <button type="button" className="mform-bar-primary" onClick={() => canReview && setShowReview(true)} disabled={!canReview}>
+          {initial?.number ? tr('ui.granska_spara') : tr('ui.granska_bokfor')}
+        </button>
+      </MobileFormBar>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 'clamp(14px, 2vw, 24px)' }}>
       <div className="ver-form-card" style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)', padding: 'clamp(16px, 2.2vw, 28px)', maxWidth: '1180px', margin: '0 auto', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -698,7 +713,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         </div>
         <div style={{ flex: 3 }}>
           <label style={fieldLabel}>{tr('ui.beskrivning')} {ocrFields.has('desc') && <OcrBadge />}</label>
-          <input data-tour="page-verifications-field" value={desc} onChange={e => { setDesc(e.target.value); setOcrFields(s => { const n = new Set(s); n.delete('desc'); return n; }); }} placeholder={tr('ui.verifikationstext')} style={inp} autoFocus />
+          <input data-tour="page-verifications-field" value={desc} onChange={e => { setDesc(e.target.value); setOcrFields(s => { const n = new Set(s); n.delete('desc'); return n; }); }} placeholder={tr('ui.verifikationstext')} style={inp} autoFocus={!window.matchMedia?.('(max-width: 768px)').matches} />
         </div>
         <div style={{ width: '200px' }}>
           <label style={fieldLabel}>{tr('ui.serie')}</label>
@@ -1059,6 +1074,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
             style={{ minWidth: 0, borderRadius: '12px', outline: `2px dashed ${dragOver ? 'var(--text-main)' : 'transparent'}`, outlineOffset: '3px', transition: 'outline-color 0.15s' }}
           >
             <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={e => acceptFile(e.target.files[0])} accept=".pdf,.png,.jpg,.jpeg,.webp" />
+            <input type="file" ref={cameraInputRef} style={{ display: 'none' }} onChange={e => acceptFile(e.target.files[0])} accept="image/*" capture="environment" />
             {hasAttachment ? (
               <>
                 <div style={{ position: 'relative' }}>
@@ -1154,9 +1170,14 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                 className="ver-drop" onClick={() => fileInputRef.current?.click()}
                 style={{ border: `1px dashed ${dragOver ? 'var(--text-main)' : 'var(--border)'}`, borderRadius: '12px', background: dragOver ? 'var(--bg-muted)' : 'var(--bg-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', height: 'clamp(320px, calc(44vh / var(--app-zoom, 1)), 560px)', boxSizing: 'border-box' }}
               >
-                <UploadCloud size={26} color="var(--text-muted)" style={{ marginBottom: '10px' }} />
-                <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('ui.dra_och_slapp_kvittot_har')}</span>
+                <UploadCloud className="ver-drop-desk" size={26} color="var(--text-muted)" style={{ marginBottom: '10px' }} />
+                <span className="ver-drop-desk" style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('ui.dra_och_slapp_kvittot_har')}</span>
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', maxWidth: '260px' }}>{tr('ui.pdf_eller_bild_max')} {MAX_ATTACHMENT_MB} {tr('ui.mb_vi_laser_av_datum_belopp_och_konto_automatisk')}</span>
+                {/* Telefon: ingen går att dra något till, så två riktiga knappar. */}
+                <div className="ver-drop-phone" onClick={e => e.stopPropagation()}>
+                  <button type="button" className="ver-drop-cam" onClick={() => cameraInputRef.current?.click()}><Camera size={18} /> {tr('ui.fota_kvitto')}</button>
+                  <button type="button" className="ver-drop-file" onClick={() => fileInputRef.current?.click()}><Paperclip size={16} /> {tr('ui.valj_fil')}</button>
+                </div>
               </div>
             )}
           </div>

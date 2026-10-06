@@ -23,6 +23,7 @@ import RowActionMenu from './shared/RowActionMenu';
 import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, STRONG_DRAFT, STATUS_PILL, getRowBg } from './shared/invoiceStatusStyle';
 import { AccountSearch } from './shared/SearchInputs';
 import ListTable from './shared/ListTable';
+import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 // Kodgranskning: fanns tidigare som en egen lokal kopia här OCH som
 // grossInvoiceAmount i reportCalculations.js (den senare påstod sig i sin
 // egen kommentar vara "delad istället för en tredje tyst kopia", men var i
@@ -172,6 +173,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   // En bokförd faktura (allt utom utkast) får inte längre ändra belopp/rader/kund —
   // korrigeringar sker via kreditfaktura. Datum och kommentar går fortfarande att ändra.
   const isLocked = Boolean(initial) && (initial.status || 'draft') !== 'draft';
+  useMobileForm();
 
   // `prefill` (från t.ex. Tidrapportering → "Skapa faktura") sätter bara
   // startvärden för en NY faktura — aldrig när `initial` redan pekar på en
@@ -657,13 +659,13 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
       {/* ── Top bar — samma mönster som QuoteEditor (Quotes.jsx): sticky,
           18px titel + statusmärke till vänster, Avbryt/Spara till höger,
           istället för en tät rad med KUNDFAKTURA/OCR/VER.NR i versaler. ── */}
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
-        <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-          {tr('ui.tillbaka')}
+      <div className="mform-head" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
+        <button type="button" className="mform-back" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span className="mform-back-desk">{tr('ui.tillbaka')}</span><span className="mform-back-phone">{tr('ui.avbryt')}</span>
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div className="mform-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{initial ? tr('ui.faktura_4', { nextNum }) : tr('ui.ny_faktura')}</h1>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tr('ui.ocr_2')} {ocr}{tr('ui.ver_nr')} {linkedVerification?.number || '—'}</span>
+          <span className="mform-meta" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tr('ui.ocr_2')} {ocr}{tr('ui.ver_nr')} {linkedVerification?.number || '—'}</span>
           {isLocked && (
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--status-amber-text)', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '20px', padding: '4px 10px', fontWeight: 600 }}>
               <Lock size={11} /> {tr('ui.bokford')}
@@ -688,7 +690,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           ))}
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="mform-head-actions" style={{ display: 'flex', gap: '8px' }}>
           <button type="button" data-tour="page-invoices-cancel" data-inv-tour="form-cancel" onClick={onClose} style={listHeaderButtonStyle('secondary')}>{tr('ui.avbryt')}</button>
           <button type="button" onClick={() => handleSave('sent')} style={listHeaderButtonStyle('primary')}>
             <Check size={14} /> {initial ? tr('ui.spara_andringar') : tr('ui.skapa_faktura')}
@@ -705,7 +707,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           Knapparna har nu ett tydligt mellanrum (gap) sinsemellan istället
           för att bara skiljas åt av en tunn kantlinje — annars är det för
           lätt att klicka fel på grannknappen. */}
-      <div className="quote-toolbar invoice-toolbar doc-toolbar" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', flexShrink: 0, overflowX: 'auto', position: 'relative' }}>
+      <div className={`quote-toolbar invoice-toolbar doc-toolbar${initial ? '' : ' is-new'}`} style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', flexShrink: 0, overflowX: 'auto', position: 'relative' }}>
         {topBarBtn(tr('ui.registrera_betalning'), <CreditCard size={13} />, () => setShowPaymentBox(v => !v), showPaymentBox ? activeToolbarPillStyle : {}, !initial, !initial ? tr('ui.spara_fakturan_forst') : undefined, 'tb-pay')}
         {topBarBtn(
           'Markera som obetald',
@@ -1342,7 +1344,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
 
           {/* Spara/bokför — sista raden i formuläret, samma placering och
               knappstil som QuoteEditor:s "Avbryt/Spara offert". */}
-          <div style={{ padding: '20px 32px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <div className="mform-foot" style={{ padding: '20px 32px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
             <button type="button" onClick={() => handleSave('draft')} style={outlineToolbarBtnStyle}>
               {tr('ui.spara_som_utkast')}
             </button>
@@ -1350,6 +1352,14 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
               <Check size={14} /> {tr('ui.bokfor_2')}
             </button>
           </div>
+          <MobileFormBar>
+            {(initial?.status || 'draft') === 'draft' && (
+              <button type="button" className="mform-bar-secondary" onClick={() => handleSave('draft')}>{tr('ui.spara_som_utkast')}</button>
+            )}
+            <button type="button" className="mform-bar-primary" onClick={() => handleSave('sent')}>
+              {initial ? tr('ui.spara_andringar') : tr('ui.skapa_faktura')}
+            </button>
+          </MobileFormBar>
         </div>
       </div>
 

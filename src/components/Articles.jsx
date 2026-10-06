@@ -8,6 +8,7 @@ import { articlesToCsv, csvToArticles, downloadCsv } from '../utils/csvRegister'
 import Inventory from './Inventory';
 import PricingTool from './PricingTool';
 import { t } from '../i18n';
+import { MobileFormMode, MobileFormBar } from './shared/MobileForm';
 
 const fmt = (val) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
 
@@ -166,16 +167,22 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
     const canSave = Boolean(editing.description.trim());
     return (
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: 'var(--bg-page)' }}>
-        <div style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <button type="button" onClick={cancelEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>{t('ui.tillbaka')}</button>
-            <span style={{ color: 'var(--border)' }}>|</span>
-            <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
+        <div className="mform-page" style={{ padding: '24px' }}>
+          <MobileFormMode />
+          <div className="mform-head" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <button type="button" className="mform-back" onClick={cancelEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>
+              <span className="mform-back-desk">{t('ui.tillbaka')}</span><span className="mform-back-phone">{t('ui.avbryt')}</span>
+            </button>
+            <span className="mform-sep" style={{ color: 'var(--border)' }}>|</span>
+            <h2 className="mform-title" style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
               {editingOriginal ? t('ui.andra_artikel') : t('ui.ny_artikel')}
             </h2>
           </div>
+          <MobileFormBar>
+            <button type="submit" form="article-form" className="mform-bar-primary" disabled={!canSave}>{t('ui.spara_artikel')}</button>
+          </MobileFormBar>
 
-          <form onSubmit={e => { e.preventDefault(); save(); }}>
+          <form id="article-form" onSubmit={e => { e.preventDefault(); save(); }}>
             <div style={sectionStyle}>
               <h3 style={sectionTitleStyle}>{t('ui.grunduppgifter')}</h3>
               <div className="form-row-2" style={grid2}>
@@ -258,7 +265,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
               )}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <div className="mform-foot" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button type="button" onClick={cancelEdit} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>
                 {t('ui.avbryt')}
               </button>

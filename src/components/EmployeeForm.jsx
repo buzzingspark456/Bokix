@@ -8,6 +8,7 @@ import { EMPLOYMENT_TYPES, SALARY_FORMS, TAX_FORMS, TAX_TABLE_COLUMNS, VACATION_
 import { isValidIban } from '../utils/salaryPaymentFile';
 import { summarizeVacation } from '../utils/vacation';
 import { BRAND } from '../utils/brandColors';
+import { MobileFormBar } from './shared/MobileForm';
 import { t as tr } from '../i18n';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
@@ -95,7 +96,10 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
   const hasBankInfo = Boolean(form.clearingNumber && form.accountNumber);
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form id="employee-form" onSubmit={handleSubmit}>
+      <MobileFormBar>
+        <button type="submit" form="employee-form" className="mform-bar-primary">{tr('ui.spara_anstalld')}</button>
+      </MobileFormBar>
       <Section title={tr('ui.personuppgifter')}>
         <div className="form-row-3" style={grid3}>
           <div>
@@ -395,7 +399,7 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
         <p style={helpTextStyle}>{tr('ui.kravs_for_att_den_anstallda_ska_tas_med_i_den_ne')}</p>
       </Section>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+      <div className="mform-foot" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
         <button type="button" onClick={onCancel} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>{tr('ui.avbryt')}</button>
         <button type="submit" style={{ padding: '9px 18px', background: 'var(--accent)', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>{tr('ui.spara_anstalld')}</button>
       </div>

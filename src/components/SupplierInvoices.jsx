@@ -13,6 +13,7 @@ import { uploadFileToStorage } from '../utils/fileUpload';
 import { useSignedUrl } from '../utils/signedUrls';
 import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
+import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { t } from '../i18n';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
@@ -211,6 +212,7 @@ function AttachmentField({ file, previewUrl, onSelect, onRemove, error, busy }) 
 // liten modal, och lämnas via en vanlig "← Tillbaka"-knapp — ingen
 // sidnavigering, ingen route-ändring.
 function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], user, uploadFn, onSave, onClose }) {
+  useMobileForm();
   const [supplierId, setSupplierId] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -347,19 +349,24 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
   return (
     <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.15s ease' }}>
       {/* ── Top bar — samma mönster som Kundfakturans InvoiceForm. ── */}
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
-        <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-          {t('ui.tillbaka')}
+      <div className="mform-head" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
+        <button type="button" className="mform-back" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span className="mform-back-desk">{t('ui.tillbaka')}</span><span className="mform-back-phone">{t('ui.avbryt')}</span>
         </button>
-        <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{t('ui.ny_leverantorsfaktura')}</h1>
+        <h1 className="mform-title" style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{t('ui.ny_leverantorsfaktura')}</h1>
         <div style={{ flex: 1, minWidth: '8px' }} />
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="mform-head-actions" style={{ display: 'flex', gap: '8px' }}>
           <button type="button" onClick={onClose} style={listHeaderButtonStyle('secondary')}>{t('ui.avbryt')}</button>
           <button type="button" onClick={submit} disabled={attachmentBusy} style={{ ...listHeaderButtonStyle('primary'), opacity: attachmentBusy ? 0.6 : 1 }}>
             <Check size={14} /> {attachmentBusy ? t('ui.laddar_upp_3') : t('ui.registrera_faktura')}
           </button>
         </div>
       </div>
+      <MobileFormBar>
+        <button type="button" className="mform-bar-primary" onClick={submit} disabled={attachmentBusy}>
+          {attachmentBusy ? t('ui.laddar_upp_3') : t('ui.registrera_faktura')}
+        </button>
+      </MobileFormBar>
 
       <div className="sup-form" style={{ flex: 1, overflowY: 'auto' }}>
         {/* Kundfeedback: kändes smalare/mindre "rymlig" än Kundfakturans

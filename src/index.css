@@ -7479,3 +7479,176 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 .dash-todo-empty-title { font-size: 15px; font-weight: 700; color: var(--text-main); }
 .dash-todo-empty-text { font-size: 13.5px; color: var(--text-muted); text-align: right; }
 
+/* ══ Formulär som helskärm på telefon (shared/MobileForm.jsx) ══
+   Ny faktura, Ny verifikation m.fl.: appens toppfält och bottenmeny göms
+   medan formuläret är öppet (html[data-form]). Formulärets egen rubrikrad
+   blir appens navigationsfält (Avbryt till vänster, namnet i mitten) och
+   spara-knapparna står fast längst ned i .mform-bar. Datorn påverkas inte. */
+.mform-bar,
+.mform-back-phone,
+.ver-drop-phone { display: none; }
+@media (max-width: 768px) {
+  html[data-form] .global-top-bar,
+  html[data-form] .mobile-bottom-nav,
+  html[data-form] .page-fab,
+  html[data-form] .ptr-indicator { display: none !important; }
+  /* Ny kund, Ny anställd m.fl. visas inne i listsidan: dess rubrik och
+     flikar hör till listan, inte till formuläret. */
+  html[data-form] .list-page-header { display: none !important; }
+  html[data-form] .mobile-nav-spacer { height: calc(96px + env(safe-area-inset-bottom, 0px)); }
+
+  .mform-head {
+    position: sticky !important;
+    top: 0;
+    z-index: 10;
+    flex-wrap: wrap !important;
+    justify-content: space-between;
+    min-height: 54px;
+    margin: 0 !important;
+    padding: 0 6px !important;
+    gap: 0 6px !important;
+    background: var(--bg-card) !important;
+    border-bottom: 1px solid var(--border) !important;
+  }
+  .mform-head .mform-sep { display: none; }
+  /* Extra knappar på en befintlig post (Aktivera, Ta bort): egen rad under
+     namnet i stället för att trängas med Avbryt. */
+  .mform-head .mform-head-extra {
+    flex-basis: 100%;
+    margin: 0 0 10px !important;
+    padding: 0 10px;
+  }
+  .mform-head .mform-head-extra > button { flex: 1 1 0; justify-content: center; min-height: 40px; }
+  .mform-head .mform-back {
+    position: relative;
+    z-index: 1;
+    min-height: 54px;
+    padding: 0 10px !important;
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    color: var(--accent-text) !important;
+  }
+  .mform-back-desk { display: none; }
+  .mform-back-phone { display: inline; }
+  .mform-head .mform-title {
+    position: absolute;
+    left: 50%;
+    top: 27px;
+    transform: translate(-50%, -50%);
+    max-width: 58%;
+    margin: 0 !important;
+    flex-direction: column;
+    flex-wrap: nowrap !important;
+    gap: 1px !important;
+    text-align: center;
+    pointer-events: none;
+  }
+  .mform-head .mform-title h1 {
+    font-size: 16.5px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  .mform-head .mform-title > span { pointer-events: auto; }
+  .mform-head .mform-meta { font-size: 11px !important; white-space: nowrap; }
+  .mform-head-actions,
+  .mform-foot { display: none !important; }
+
+  /* Ny faktura: skicka, PDF och betalning finns först när fakturan är
+     sparad. På datorn står de gråa som en påminnelse, på telefonen tar
+     de bara plats före det man faktiskt ska fylla i. */
+  .quote-toolbar.doc-toolbar.is-new .tb-pay,
+  .quote-toolbar.doc-toolbar.is-new .tb-unpay,
+  .quote-toolbar.doc-toolbar.is-new .tb-send,
+  .quote-toolbar.doc-toolbar.is-new .tb-pdf,
+  .quote-toolbar.doc-toolbar.is-new .toolbar-email-input { display: none !important; }
+
+  .mform-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 140;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--bg-card) 90%, transparent);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    backdrop-filter: saturate(180%) blur(18px);
+    border-top: 1px solid var(--border);
+  }
+  html[data-keyboard="open"] .mform-bar { display: none; }
+  .mform-bar-hint {
+    flex-basis: 100%;
+    font-size: 12.5px;
+    line-height: 1.35;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+  .mform-bar > button {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 50px;
+    border-radius: 14px;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 12px;
+  }
+  .mform-bar-secondary {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+  }
+  .mform-bar-primary {
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    color: #fff;
+  }
+  .mform-bar > button:disabled {
+    background: var(--bg-muted);
+    border-color: var(--border);
+    color: var(--text-muted);
+    cursor: not-allowed;
+  }
+  .mform-bar > button:active:not(:disabled) { transform: scale(0.98); }
+
+  /* Underlaget i Ny verifikation: ingen kan dra något till en telefon. */
+  .ver-drop { height: auto !important; padding: 16px !important; }
+  .ver-drop-desk { display: none !important; }
+  .ver-drop-phone {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    order: -1;
+    margin-bottom: 10px;
+  }
+  .ver-drop-phone > button {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 48px;
+    border-radius: 12px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .ver-drop-cam { background: var(--accent); border: 1px solid var(--accent); color: #fff; }
+  .ver-drop-file { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); }
+}
+
+@media (max-width: 768px) {
+  /* Formulär som ligger i en vanlig sida med luft runt om (Ny kund m.fl.). */
+  .mform-page { padding: 0 !important; }
+  .mform-page > form,
+  .mform-page > .mform-body { padding: 16px; }
+}

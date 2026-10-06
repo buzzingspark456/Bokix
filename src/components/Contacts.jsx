@@ -8,6 +8,7 @@ import { validateEmailList, isValidIban } from '../utils/validators';
 import { contactsToCsv, csvToContacts, downloadCsv } from '../utils/csvRegister';
 import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
+import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { t, useTranslation, getLanguage } from '../i18n';
 
 // Texterna finns under contacts.* i src/i18n/sv.json och en.json.
@@ -105,7 +106,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
   }[form.customerType];
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form id="contact-form" onSubmit={handleSubmit}>
       <Section title={c('sections.customerType')}>
         <select value={form.customerType} onChange={e => handleTypeChange(e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
           {CUSTOMER_TYPES.map(o => <option key={o.id} value={o.id}>{c(o.labelKey)}</option>)}
@@ -230,7 +231,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
         <textarea value={form.notes} onChange={e => set('notes', e.target.value)} style={{ ...inputBase, minHeight: '80px', resize: 'vertical' }} placeholder={c('help.notesCustomer')} />
       </Section>
 
-      <FormActions onCancel={onCancel} saveLabel={c('actions.saveCustomer')} />
+      <FormActions onCancel={onCancel} saveLabel={c('actions.saveCustomer')} formId="contact-form" />
     </form>
   );
 }
@@ -293,7 +294,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form id="contact-form" onSubmit={handleSubmit}>
       <Section title={c('sections.supplierType')}>
         <select value={form.supplierType} onChange={e => handleTypeChange(e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
           {SUPPLIER_TYPES.map(o => <option key={o.id} value={o.id}>{c(o.labelKey)}</option>)}
@@ -434,14 +435,21 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
         <textarea value={form.notes} onChange={e => set('notes', e.target.value)} style={{ ...inputBase, minHeight: '80px', resize: 'vertical' }} placeholder={c('help.notesSupplier')} />
       </Section>
 
-      <FormActions onCancel={onCancel} saveLabel={c('actions.saveSupplier')} />
+      <FormActions onCancel={onCancel} saveLabel={c('actions.saveSupplier')} formId="contact-form" />
     </form>
   );
 }
 
-function FormActions({ onCancel, saveLabel }) {
+// formId: spara-knappen på telefon ligger utanför <form> (MobileFormBar
+// renderas i body), så den kopplas till formuläret med form-attributet.
+function FormActions({ onCancel, saveLabel, formId }) {
+  useMobileForm();
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '4px' }}>
+    <>
+    <MobileFormBar>
+      <button type="submit" form={formId} className="mform-bar-primary">{saveLabel}</button>
+    </MobileFormBar>
+    <div className="mform-foot" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '4px' }}>
       <button type="button" data-tour="page-contacts-cancel" onClick={onCancel} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>
         {c('actions.cancel')}
       </button>
@@ -449,6 +457,7 @@ function FormActions({ onCancel, saveLabel }) {
         {saveLabel}
       </button>
     </div>
+    </>
   );
 }
 
@@ -825,11 +834,13 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
             )}
           </>
         ) : (
-          <div style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-              <button onClick={() => setViewState('list')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>{c('actions.back')}</button>
-              <span style={{ color: 'var(--border)' }}>|</span>
-              <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
+          <div className="mform-page" style={{ padding: '24px' }}>
+            <div className="mform-head" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+              <button className="mform-back" onClick={() => setViewState('list')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>
+                <span className="mform-back-desk">{c('actions.back')}</span><span className="mform-back-phone">{c('actions.cancel')}</span>
+              </button>
+              <span className="mform-sep" style={{ color: 'var(--border)' }}>|</span>
+              <h2 className="mform-title" style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
                 {viewState === 'new'
                   ? newBtnText
                   : c(isCustomerTab ? 'list.editCustomer' : 'list.editSupplier')}
@@ -840,7 +851,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                   radering blockeras tyst i den funktionen om kontakten har
                   kopplade affärshändelser, då erbjuds inaktivering istället. */}
               {viewState === 'edit' && selectedContact && (
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+                <div className="mform-head-extra" style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
                   {/* Samma "tonad pill"-look som Aktiv/Inaktiv-badgen i
                       listan (status-green/status-amber) i stället för en
                       platt grå knapp — färgen speglar VAD klicket gör:

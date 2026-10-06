@@ -100,7 +100,7 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
   const hasTabs = tabs && tabs.items?.length > 0;
   const pills = Boolean(hasTabs && tabs.variant === 'pills');
   return (
-    <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 20px', paddingBottom: hasTabs ? 0 : '16px', flexShrink: 0 }}>
+    <div className="list-page-header" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 20px', paddingBottom: hasTabs ? 0 : '16px', flexShrink: 0 }}>
       <div className="page-header-row page-header-top" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 0', gap: '16px', flexWrap: 'wrap' }}>
         <div>
           {/* Kundfeedback ("luft i sidhuvudet", samma princip som Startsidan):
