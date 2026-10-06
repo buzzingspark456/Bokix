@@ -55,6 +55,7 @@ import { collectStorageUrls } from './utils/storageUrls';
 import { computeEmployeePayroll, summarizePayrollRun, FEE_RULES_VERSION } from './utils/payrollCalculation';
 import BokixWordmark, { BokixMark } from './components/shared/BokixWordmark';
 import MobileTopTitle from './components/shared/MobileTopTitle';
+import { installMobileKeyboard } from './utils/mobileKeyboard';
 import PullToRefresh from './components/shared/PullToRefresh';
 import { seriesForSource, getNextNumber as getNextVerificationNumber } from './utils/verificationNumbering';
 
@@ -1190,6 +1191,9 @@ function App() {
     document.addEventListener('focusout', onOut);
     return () => { document.removeEventListener('focusin', onIn); document.removeEventListener('focusout', onOut); root.removeAttribute('data-keyboard'); };
   }, []);
+  // Returtangenten (Nästa/Klar), rätt tangentbord och fältet framskrollat
+  // ovanför tangentbordet — se utils/mobileKeyboard.js.
+  useEffect(() => installMobileKeyboard(), []);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
   // 'signup' | 'login' — vilken Auth-flik som ska visas när showLanding

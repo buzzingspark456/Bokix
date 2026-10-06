@@ -180,7 +180,7 @@ function CustomerForm({ initial, onSave, onCancel }) {
           </div>
           <div>
             <label style={labelStyle}>{c('fields.postalCode')}</label>
-            <input type="text" value={form.postalCode} onChange={e => set('postalCode', e.target.value)} style={inputBase} />
+            <input type="text" inputMode="numeric" value={form.postalCode} onChange={e => set('postalCode', e.target.value)} style={inputBase} />
           </div>
           <div>
             <label style={labelStyle}>{c('fields.city')}</label>
@@ -358,7 +358,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
           </div>
           <div>
             <label style={labelStyle}>{c('fields.postalCode')}</label>
-            <input type="text" value={form.postalCode} onChange={e => set('postalCode', e.target.value)} style={inputBase} />
+            <input type="text" inputMode="numeric" value={form.postalCode} onChange={e => set('postalCode', e.target.value)} style={inputBase} />
           </div>
           <div>
             <label style={labelStyle}>{c('fields.city')}</label>
@@ -394,11 +394,11 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
               <div className="form-row-2" style={{ ...grid2, marginTop: '12px' }}>
                 <div>
                   <label style={labelStyle}>{c('fields.clearing')}</label>
-                  <input type="text" value={form.clearingNumber} onChange={e => set('clearingNumber', e.target.value)} style={inputBase} />
+                  <input type="text" inputMode="numeric" value={form.clearingNumber} onChange={e => set('clearingNumber', e.target.value)} style={inputBase} />
                 </div>
                 <div>
                   <label style={labelStyle}>{c('fields.accountNumber')}</label>
-                  <input type="text" value={form.accountNumber} onChange={e => set('accountNumber', e.target.value)} style={inputBase} />
+                  <input type="text" inputMode="numeric" value={form.accountNumber} onChange={e => set('accountNumber', e.target.value)} style={inputBase} />
                 </div>
               </div>
             )}

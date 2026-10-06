@@ -114,7 +114,7 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
           </div>
           <div>
             <label style={labelStyle}>{tr('ui.personnummer')}</label>
-            <input value={form.ssn} onChange={e => set('ssn', formatPersonnummerInput(e.target.value))} placeholder={tr('ui.aaaammdd_xxxx')} style={inputStyle(errors.ssn)} />
+            <input inputMode="numeric" value={form.ssn} onChange={e => set('ssn', formatPersonnummerInput(e.target.value))} placeholder={tr('ui.aaaammdd_xxxx')} style={inputStyle(errors.ssn)} />
             {errors.ssn && <div style={errorTextStyle}>{errors.ssn}</div>}
           </div>
           <div>
@@ -127,7 +127,7 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
           </div>
           <div>
             <label style={labelStyle}>{tr('ui.postnummer')}</label>
-            <input value={form.postalCode} onChange={e => set('postalCode', e.target.value)} style={inputBase} />
+            <input inputMode="numeric" value={form.postalCode} onChange={e => set('postalCode', e.target.value)} style={inputBase} />
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={labelStyle}>{tr('ui.gatuadress')}</label>
@@ -366,11 +366,11 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
         <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>{tr('ui.clearingnummer')}</label>
-            <input value={form.clearingNumber} onChange={e => set('clearingNumber', e.target.value)} style={inputBase} />
+            <input inputMode="numeric" value={form.clearingNumber} onChange={e => set('clearingNumber', e.target.value)} style={inputBase} />
           </div>
           <div>
             <label style={labelStyle}>{tr('ui.kontonummer')}</label>
-            <input value={form.accountNumber} onChange={e => set('accountNumber', e.target.value)} style={inputBase} />
+            <input inputMode="numeric" value={form.accountNumber} onChange={e => set('accountNumber', e.target.value)} style={inputBase} />
           </div>
         </div>
         {!hasBankInfo && (

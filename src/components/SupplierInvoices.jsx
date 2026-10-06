@@ -404,7 +404,7 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
               </div>
               <div>
                 <label style={labelSt}>{t('ui.ocr_betalningsreferens_2')}</label>
-                <input value={ocrNumber} onChange={e => setOcrNumber(e.target.value)} placeholder={t('ui.ocr_nummer')} style={inputSt} />
+                <input inputMode="numeric" value={ocrNumber} onChange={e => setOcrNumber(e.target.value)} placeholder={t('ui.ocr_nummer')} style={inputSt} />
               </div>
             </div>
             <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
