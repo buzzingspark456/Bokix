@@ -7761,3 +7761,93 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .offline-banner { top: var(--topbar-height); }
   html[data-form] .offline-banner { position: static; }
 }
+/* ══ Fält på telefon: datum, belopp och listor ser ut som textfälten ══
+   Samma regler som kvittoformuläret (.rc-form ovan) har haft, nu i hela
+   appen. iPhone ritar datumfält med en egen minsta bredd (de sticker ut
+   över kanten i två kolumner), centrerad text och ingen höjd när de är
+   tomma; rullistor får en grå systemknapp i stället för fältets vita ruta;
+   beloppsfält får små pilknappar. Allt blir här samma höjd, ram och
+   vänsterställda text som ett vanligt textfält. */
+@media (max-width: 768px) {
+  .app-container input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  .app-container select,
+  .app-container textarea {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .app-container input[type="date"],
+  .app-container input[type="month"],
+  .app-container input[type="time"],
+  .app-container input[type="datetime-local"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    text-align: left;
+    line-height: normal;
+  }
+  .app-container input[type="date"]::-webkit-date-and-time-value,
+  .app-container input[type="month"]::-webkit-date-and-time-value,
+  .app-container input[type="time"]::-webkit-date-and-time-value,
+  .app-container input[type="datetime-local"]::-webkit-date-and-time-value {
+    text-align: left;
+    min-height: 1.4em;
+    margin: 0;
+  }
+  .app-container input::-webkit-calendar-picker-indicator { margin: 0; }
+
+  .app-container input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+  .app-container input[type="number"]::-webkit-inner-spin-button,
+  .app-container input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+  .app-container select {
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 44px;
+    background-color: var(--bg-card);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a8f98' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    background-size: 16px 16px !important;
+    padding-right: 36px !important;
+    color: var(--text-main);
+  }
+  /* Rutnät och rader med fält: en kolumn får aldrig bli bredare än sin plats. */
+  .app-container .form-row-2 > *,
+  .app-container .rc-grid > * { min-width: 0; }
+  /* Verifikationens fältrader (Datum/Beskrivning/Serie m.fl.): ett fält per
+     rad i full bredd, inte tre hoptryckta bredvid varandra. */
+  .app-container .ver-form-row > * { flex: 1 1 100% !important; min-width: 0; }
+}
+@media (max-width: 768px) {
+  /* Tre fält i rad blir ett per rad på telefon (inline-kolumnerna vinner
+     annars över basregeln), och fälten i en tvåkolumnsrad står på samma
+     höjd även när den ena etiketten bryts på två rader. */
+  .app-container .form-row-3 { grid-template-columns: 1fr !important; }
+  .app-container .form-row-2 { align-items: end; }
+  /* Datumfält i full bredd som de andra fälten, även där datorn har en
+     smalare maxbredd (Slutdatum i Nytt projekt). */
+  .app-container input[type="date"],
+  .app-container input[type="month"] { max-width: 100% !important; }
+  /* Formulärnamnet i toppfältet på en rad, med … om det inte får plats. */
+  .mform-head h1.mform-title,
+  .mform-head h2.mform-title {
+    font-size: 16.5px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+@media (max-width: 768px) {
+  /* Alla textfält lika höga som rullistorna och datumfälten (44 px, Apples
+     minsta tryckyta), så fält bredvid varandra står i linje. Inte inne i
+     tabeller och fakturarader, där raden har sin egen täthet. */
+  .app-container input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not(table input) {
+    min-height: 44px;
+  }
+  /* "Rader per sida" i Kundfakturors statusrad: telefonens lista skrollar,
+     väljaren låg gömd längst ut i en rad man sveper. */
+  .inv-pills > label:has(select) { display: none !important; }
+}

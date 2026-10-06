@@ -252,14 +252,16 @@ export default function Payroll({
           {showNewRun && (
             <div style={{ ...panelCard, padding: '20px', margin: '20px 24px 0' }}>
               <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700 }}>{t('ui.ny_lonekorning')}</h3>
-              <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
-                <div>
+              {/* Radbryter på smal skärm: två fasta 180px-fält bredvid varandra
+                  stack ut över kanten på en telefon. */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+                <div style={{ flex: '0 1 180px', minWidth: '150px' }}>
                   <label style={labelSt}>{t('ui.period')}</label>
-                  <input type="month" value={newRunPeriod} onChange={e => setNewRunPeriod(e.target.value)} style={{ ...inputSt, width: '180px' }} />
+                  <input type="month" value={newRunPeriod} onChange={e => setNewRunPeriod(e.target.value)} style={{ ...inputSt, width: '100%' }} />
                 </div>
-                <div>
+                <div style={{ flex: '0 1 180px', minWidth: '150px' }}>
                   <label style={labelSt}>{t('ui.utbetalningsdatum')}</label>
-                  <input type="date" value={newRunPayDate} onChange={e => setNewRunPayDate(e.target.value)} style={{ ...inputSt, width: '180px' }} />
+                  <input type="date" value={newRunPayDate} onChange={e => setNewRunPayDate(e.target.value)} style={{ ...inputSt, width: '100%' }} />
                 </div>
               </div>
               <div style={{ fontSize: '13px', color: activeEmployeesForPeriod.length === 0 ? 'var(--status-red-text)' : 'var(--text-secondary)', marginBottom: '14px' }}>
