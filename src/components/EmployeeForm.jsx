@@ -301,7 +301,7 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
             padding: '14px 16px', marginBottom: '18px', borderRadius: '10px', background: 'var(--bg-muted)',
           }}>
             <div>
-              <div style={helpTextStyle}>{tr('ui.intjanat')} {vacationSummary.vacationYear}</div>
+              <div style={helpTextStyle}>{tr('ui.intjanat')} {vacationSummary.vacationYear.label}</div>
               <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-main)' }}>{vacationSummary.earned} {tr('ui.dagar')}</div>
             </div>
             <div>
@@ -318,7 +318,7 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
             </div>
             {vacationSummary.overEntitlement && (
               <div style={{ gridColumn: '1 / -1', fontSize: '12px', color: 'var(--status-red-text)' }}>
-                {tr('ui.fler_dagar_uttagna_an_intjanat_sparat_kontroller')} {vacationSummary.vacationYear}.
+                {tr('ui.fler_dagar_uttagna_an_intjanat_sparat_kontroller')} {vacationSummary.vacationYear.label}.
               </div>
             )}
           </div>
