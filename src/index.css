@@ -6495,32 +6495,41 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .sup-row .qr-remove { grid-column: 1 / -1; justify-self: end; min-height: 40px; }
 }
 
-/* Flikrader på telefon: alla flikar syns samtidigt som knappar som radbryter,
-   i stället för en rad som skrollar i sidled och gömmer de sista flikarna. */
+/* Flikrader på telefon: EN rad som man sveper i sidled, som segmentraderna i
+   en app. Tidigare radbröts de till upp till fyra rader (Skatt och bokslut,
+   Bank) och tog halva skärmen innan innehållet började. Kanten tonas där det
+   finns fler flikar, och den valda fliken skrollas alltid fram
+   (ListPageHeader). */
 @media (max-width: 768px) {
   .page-header-tabs {
-    flex-wrap: wrap !important;
-    overflow: visible !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
     gap: 8px !important;
-    padding: 12px 0 14px !important;
-    margin-top: 0 !important;
+    margin: 0 -20px !important;
+    padding: 10px 20px 12px !important;
+    scroll-padding: 0 20px;
     background: none !important;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 28px), transparent 100%);
   }
+  .page-header-tabs::-webkit-scrollbar { display: none; }
   .page-header-tabs > button {
-    flex: 1 1 auto;
-    flex-shrink: 1;
+    flex: 0 0 auto !important;
     justify-content: center;
     min-height: 36px;
-    padding: 6px 12px !important;
+    padding: 6px 14px !important;
     margin: 0 !important;
     border: 1px solid var(--border) !important;
     border-radius: 999px;
     background: var(--bg-muted) !important;
     color: var(--text-secondary) !important;
-    font-size: 13px !important;
+    font-size: 13.5px !important;
     font-weight: 600 !important;
-    white-space: normal;
-    text-align: center;
+    white-space: nowrap;
   }
   .page-header-tabs > button[aria-current="page"] {
     background: var(--accent) !important;
@@ -7197,7 +7206,25 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
     gap: 8px !important;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.12);
   }
-  .page-fab svg { width: 20px; height: 20px; }
+  .page-fab svg { width: 20px; height: 20px; flex-shrink: 0; }
+  /* Krymper till en rund plusknapp när man skrollar nedåt i listan, så den
+     inte ligger över belopp och statusmärken; full igen när man skrollar
+     uppåt (MobileTopTitle sätter data-fab-compact). */
+  .page-fab {
+    max-width: 280px;
+    overflow: hidden;
+    white-space: nowrap;
+    justify-content: flex-start !important;
+    transition: max-width 0.22s ease, padding 0.22s ease;
+  }
+  .main-wrapper[data-fab-compact] .page-fab {
+    max-width: 56px;
+    width: 56px;
+    height: 56px !important;
+    padding: 0 18px !important;
+    gap: 40px !important; /* texten hamnar utanför den runda knappen */
+  }
+  @media (prefers-reduced-motion: reduce) { .page-fab { transition: none; } }
   html[data-keyboard="open"] .page-fab { display: none !important; }
   /* Plats under sista raden så den flytande knappen aldrig ligger över den. */
   .main-wrapper:has(.page-fab) .mobile-nav-spacer {

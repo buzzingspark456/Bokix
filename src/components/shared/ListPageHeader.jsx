@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Search, RefreshCw, SlidersHorizontal, Plus, MoreHorizontal } from '../icons';
 import { t } from '../../i18n';
 
@@ -99,6 +99,19 @@ const tabPillStyle = (active) => ({
 export default function ListPageHeader({ title, subtitle, actions = [], tabs, children }) {
   const hasTabs = tabs && tabs.items?.length > 0;
   const pills = Boolean(hasTabs && tabs.variant === 'pills');
+  // Telefon: flikraden är en rad man sveper i sidled (index.css). Den valda
+  // fliken skrollas fram så den aldrig står gömd bakom kanten. Bara raden
+  // själv flyttas, aldrig sidan (scrollIntoView hade kunnat skrolla sidan).
+  const tabsRef = useRef(null);
+  const activeTabId = hasTabs ? tabs.activeId : null;
+  useEffect(() => {
+    const row = tabsRef.current;
+    const btn = row?.querySelector('[aria-current="page"]');
+    if (!row || !btn || row.scrollWidth <= row.clientWidth) return;
+    const left = row.scrollLeft + btn.getBoundingClientRect().left - row.getBoundingClientRect().left;
+    const target = left - (row.clientWidth - btn.offsetWidth) / 2;
+    row.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+  }, [activeTabId]);
   return (
     <div className="list-page-header" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 20px', paddingBottom: hasTabs ? 0 : '16px', flexShrink: 0 }}>
       <div className="page-header-row page-header-top" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 0', gap: '16px', flexWrap: 'wrap' }}>
@@ -152,6 +165,7 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
 
       {hasTabs && (
         <div
+          ref={tabsRef}
           className={'page-header-tabs' + (pills ? ' page-header-tabs--pills' : '')}
           style={{ display: 'flex', gap: pills ? '7px' : 0, marginTop: pills ? '10px' : '12px', paddingBottom: pills ? '12px' : 0 }}
         >
