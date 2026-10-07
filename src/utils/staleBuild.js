@@ -6,6 +6,16 @@
 
 const KEY = 'bokix_stale_build_reload';
 
+// När main.jsx stoppar Vites preloadError (preventDefault) kastar importen
+// inget fel, den lyckas i stället med undefined. En lazy()-sida kraschar då
+// på "reading 'default'" under de millisekunder omladdningen tar (sågs live
+// 2026-10-07). Flaggan låter ErrorBoundary och felrapporteringen tiga då.
+let reloading = false;
+
+export function isReloadingForNewBuild() {
+  return reloading;
+}
+
 export function isChunkLoadError(error) {
   const msg = String(error?.message || error || '');
   return /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS|ChunkLoadError|Loading chunk .* failed/i.test(msg);
@@ -20,6 +30,7 @@ export function reloadOnceForNewBuild() {
   } catch {
     return false;
   }
+  reloading = true;
   window.location.reload();
   return true;
 }

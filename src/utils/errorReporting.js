@@ -2,11 +2,15 @@
 // loggar dem i Systemstatus och mejlar ett larm (högst ett i timmen).
 // Högst fem rapporter per sidladdning och aldrig samma fel två gånger, så
 // en felande loop inte översvämmar något.
+import { isReloadingForNewBuild } from './staleBuild.js';
+
 const sent = new Set();
 let count = 0;
 
 export function reportClientError(error, source = 'global') {
   try {
+    // Sidan laddas redan om för en ny version, felet är en följd av det.
+    if (isReloadingForNewBuild()) return;
     const message = String(error?.message || error || '').slice(0, 300);
     if (!message || count >= 5 || sent.has(message)) return;
     sent.add(message);
