@@ -20,7 +20,7 @@ import { adminGet } from './adminApi';
 // Inkorg (kontaktformulären) och Systemstatus (2026-09-27) — Blogg (admin-CMS) togs bort 2026-09-13, se
 // api/admin/index.js:s kommentar för varför.
 export default function InternalApp() {
-  const [status, setStatus] = useState('checking'); // checking | needs-login | needs-mfa | unauthorized | authorized | error
+  const [status, setStatus] = useState('checking'); // checking | needs-login | unauthorized | authorized | error
   const [activeTab, setActiveTab] = useState('analytics');
   const [errorMsg, setErrorMsg] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
@@ -37,13 +37,7 @@ export default function InternalApp() {
       setStatus('authorized');
     } catch (err) {
       const message = String(err.message || '');
-      // "mfa_required" (api/admin/index.js:s getTokenAal) — en session
-      // finns redan (t.ex. en flik inloggad i den vanliga appen sedan
-      // innan) men har inte klarat tvåfaktorssteget än i den HÄR fliken.
-      // Skiljs från "unauthorized" (fel e-post) — den ena går att fixa med
-      // en kod, den andra inte alls.
-      if (message === 'mfa_required') setStatus('needs-mfa');
-      else if (message.includes('behörighet')) setStatus('unauthorized');
+      if (message.includes('behörighet')) setStatus('unauthorized');
       else { setErrorMsg(err.message); setStatus('error'); }
     }
   };
@@ -61,10 +55,6 @@ export default function InternalApp() {
 
   if (status === 'needs-login') {
     return <InternalAuth onAuthenticated={checkAccess} />;
-  }
-
-  if (status === 'needs-mfa') {
-    return <InternalAuth startInMfaMode onAuthenticated={checkAccess} />;
   }
 
   if (status === 'unauthorized') {

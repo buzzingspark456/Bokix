@@ -48,32 +48,9 @@ function isAdminEmail(email) {
   return ADMIN_EMAILS.includes(String(email || '').trim().toLowerCase());
 }
 
-// Tvingad tvåfaktorsautentisering för /internal (kundönskemål: "gör det
-// super, super svårt att komma in") — ett läckt eller gissat lösenord
-// ENSAMT ska aldrig räcka hit, till skillnad från resten av appen där 2FA
-// är valfritt. Den RIKTIGA spärren måste ligga HÄR, server-side: en klient
-// som redan har en session (t.ex. en flik inloggad i den vanliga appen)
-// skulle annars kunna hoppa förbi InternalAuth.jsx:s UI helt och anropa
-// det här API:t direkt med en aal1-token.
-//
-// aal (Authenticator Assurance Level) står redan i JWT-payloaden som
-// Supabase signerar — kräver alltså inget extra nätverksanrop, bara att
-// avkoda base64url-delen. Vi verifierar INTE signaturen själva här: det
-// gjorde redan requireAuthedUser ovan (supabase.auth.getUser(token) mot
-// Supabase Auth), den här funktionen bara läser ut en claim ur en token
-// vi redan vet är äkta.
-function getTokenAal(req) {
-  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
-  const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
-  const part = token?.split('.')[1];
-  if (!part) return null;
-  try {
-    const json = Buffer.from(part.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
-    return JSON.parse(json)?.aal || null;
-  } catch {
-    return null;
-  }
-}
+// Tvåfaktor krävs inte längre för /internal (ägarens val 2026-10-07):
+// e-post + lösenord eller Face ID (passkey) räcker. Spärren är ADMIN_EMAILS
+// ovan, plus Turnstile på lösenordsinloggningen.
 
 function getAdminClient() {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -580,20 +557,6 @@ export default async function handler(req, res) {
     res.status(403).json({ error: 'Du har inte behörighet till admin-panelen.' });
     return;
   }
-  if (getTokenAal(req) !== 'aal2') {
-    // Rätt e-post, rätt lösenord, men ingen klarad tvåfaktorskod — värt
-    // att se i loggen om det upprepas (ett läckt lösenord utan enheten
-    // som har koden), till skillnad från den vanliga "glömde logga in med
-    // 2FA än"-vägen som InternalApp.jsx redan löser i UI:t utan att
-    // användaren märker det som ett fel.
-    await logSecurityEvent(admin, 'mfa_required', user.email);
-    // Samma svarsform som klienten redan vet hantera (se InternalApp.jsx:s
-    // "mfa_required"-gren) — en tydlig, egen felkod i stället för att
-    // klämma in det i det generella 403-svaret ovan.
-    res.status(401).json({ error: 'mfa_required' });
-    return;
-  }
-
   try {
     if (req.method === 'GET') {
       const resource = req.query?.resource;
