@@ -23,7 +23,9 @@ function ufMailer() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Datastädning — kör en gång per dygn från api/cron/reminders.js.
+// Datastädning — kör en gång per dygn från api/cron/data-retention.js (egen
+// cron sedan 2026-10-08, med egen tidsgräns; Pro-planen har ingen
+// 12-funktionsgräns längre). Texten nedan är från tiden i reminders.js.
 //
 // Ingen egen endpoint med flit: Vercels Hobby-plan tillåter tolv
 // serverfunktioner och vi ligger redan på tolv (se filkommentaren i
@@ -109,14 +111,25 @@ async function listAllObjects(admin, bucket, prefix, depth = 0) {
  * aldrig en global genomgång av bucketen. Det gör att en bugg i en enskild
  * användares data inte kan råka radera någon annans filer.
  */
-export async function cleanOrphanFiles(admin, { buckets = ['bokix-uploads', 'companylogo'], now = new Date(), dryRun = false } = {}) {
-  const cutoff = new Date(now.getTime() - ORPHAN_FILE_GRACE_DAYS * DAY_MS);
-  const { data: rows, error } = await admin.from('user_data').select('user_id, state');
-  if (error) throw error;
+// Användarna läses 50 i taget (varje rad är ett helt företags bokföring),
+// och jobbet stannar vid `deadline`. `startAfter` fortsätter där förra
+// natten slutade; resumeFrom i svaret är var nästa körning ska börja (null =
+// klar).
+const USER_PAGE = 50;
 
+export async function cleanOrphanFiles(admin, { buckets = ['bokix-uploads', 'companylogo'], now = new Date(), dryRun = false, deadline = Infinity, startAfter = null } = {}) {
+  const cutoff = new Date(now.getTime() - ORPHAN_FILE_GRACE_DAYS * DAY_MS);
   let scanned = 0;
   let removed = 0;
+  let last = startAfter;
+  for (;;) {
+    let q = admin.from('user_data').select('user_id, state').order('user_id').limit(USER_PAGE);
+    if (last) q = q.gt('user_id', last);
+    const { data: rows, error } = await q;
+    if (error) throw error;
   for (const row of rows || []) {
+    if (Date.now() > deadline) return { scanned, removed, resumeFrom: last };
+    last = row.user_id;
     const referenced = collectStoragePaths(row.state);
     for (const bucket of buckets) {
       const objects = await listAllObjects(admin, bucket, row.user_id);
@@ -134,7 +147,9 @@ export async function cleanOrphanFiles(admin, { buckets = ['bokix-uploads', 'com
       removed += orphans.length;
     }
   }
-  return { scanned, removed };
+    if (!rows || rows.length < USER_PAGE) break;
+  }
+  return { scanned, removed, resumeFrom: null };
 }
 
 /**
@@ -148,12 +163,23 @@ export async function cleanOrphanFiles(admin, { buckets = ['bokix-uploads', 'com
 export async function cleanAbandonedSignups(admin, { now = new Date(), dryRun = false } = {}) {
   const cutoff = new Date(now.getTime() - ABANDONED_SIGNUP_DAYS * DAY_MS);
 
-  const { data: rows, error } = await admin
-    .from('user_data')
-    .select('user_id, state, created_at')
-    .lt('created_at', cutoff.toISOString());
-  if (error) throw error;
-  if (!rows?.length) return { candidates: 0, removed: 0 };
+  // Sidvis: på sikt är nästan alla konton äldre än gränsen. Bara konton
+  // utan bokföring behålls i minnet, inte hela bokföringen för alla.
+  const rows = [];
+  let scannedRows = 0;
+  for (let from = 0; ; from += USER_PAGE) {
+    const { data, error } = await admin
+      .from('user_data')
+      .select('user_id, state, created_at')
+      .lt('created_at', cutoff.toISOString())
+      .order('user_id')
+      .range(from, from + USER_PAGE - 1);
+    if (error) throw error;
+    scannedRows += data?.length || 0;
+    for (const r of data || []) if (!hasBookkeepingData(r.state)) rows.push({ user_id: r.user_id });
+    if (!data || data.length < USER_PAGE) break;
+  }
+  if (!scannedRows) return { candidates: 0, removed: 0 };
 
   const userIds = rows.map(r => r.user_id);
   const { data: subs, error: subErr } = await admin
@@ -163,8 +189,8 @@ export async function cleanAbandonedSignups(admin, { now = new Date(), dryRun = 
   if (subErr) throw subErr;
   const hasSubscription = new Set((subs || []).map(s => s.user_id));
 
-  const abandoned = rows.filter(r => !hasSubscription.has(r.user_id) && !hasBookkeepingData(r.state));
-  if (dryRun) return { candidates: rows.length, removed: abandoned.length, dryRun: true };
+  const abandoned = rows.filter(r => !hasSubscription.has(r.user_id));
+  if (dryRun) return { candidates: scannedRows, removed: abandoned.length, dryRun: true };
 
   let removed = 0;
   for (const row of abandoned) {
@@ -182,7 +208,7 @@ export async function cleanAbandonedSignups(admin, { now = new Date(), dryRun = 
       console.warn('Kunde inte städa övergiven registrering:', row.user_id, err.message);
     }
   }
-  return { candidates: rows.length, removed };
+  return { candidates: scannedRows, removed };
 }
 
 /** Hur länge ett meddelande från kontaktformuläret sparas. Står i
@@ -212,11 +238,24 @@ export async function cleanOldContactMessages(admin, { now = new Date(), dryRun 
 
 /** Alla jobben, som cronen anropar dem. Fel loggas men får aldrig fälla
  * hela cron-körningen: påminnelseutskicken är viktigare än städningen. */
+async function readCursor(admin, id) {
+  const { data } = await admin.from('cron_progress').select('cursor_value').eq('id', id).maybeSingle();
+  return data?.cursor_value || null;
+}
+async function writeCursor(admin, id, value) {
+  await admin.from('cron_progress').upsert({ id, cursor_value: value, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+}
+
 export async function runDataRetention(admin, options = {}) {
   const result = { snapshots: null, orphanFiles: null, abandonedSignups: null, errors: [] };
+  // Med en tidsgräns (egna cronen, api/cron/data-retention.js) fortsätter
+  // nattkopiorna och filstädningen där förra natten slutade.
+  const resumable = Number.isFinite(options.deadline);
   // Nattkopiorna först: de ska finnas innan något städas (se _archive.js).
   try {
-    result.snapshots = await snapshotAllUsers(admin, options);
+    const startAfter = resumable ? await readCursor(admin, 'retention_snapshots') : null;
+    result.snapshots = await snapshotAllUsers(admin, { ...options, startAfter });
+    if (resumable && !options.dryRun) await writeCursor(admin, 'retention_snapshots', result.snapshots.resumeFrom || null);
     if (result.snapshots.errors.length) result.errors.push(...result.snapshots.errors.slice(0, 5).map(e => `snapshot ${e}`));
   } catch (err) {
     result.errors.push(`snapshots: ${err.message}`);
@@ -228,7 +267,9 @@ export async function runDataRetention(admin, options = {}) {
     result.errors.push(`expiredArchives: ${err.message}`);
   }
   try {
-    result.orphanFiles = await cleanOrphanFiles(admin, options);
+    const startAfter = resumable ? await readCursor(admin, 'retention_orphans') : null;
+    result.orphanFiles = await cleanOrphanFiles(admin, { ...options, startAfter });
+    if (resumable && !options.dryRun) await writeCursor(admin, 'retention_orphans', result.orphanFiles.resumeFrom || null);
   } catch (err) {
     result.errors.push(`orphanFiles: ${err.message}`);
   }

@@ -235,17 +235,24 @@ const monthlyFile = (m) => m.file || `man-${m.month}.json`;
  * månadskopian. Gallrar dagskopior äldre än DAILY_KEEP_DAYS och
  * månadskopior vars arkivtid gått ut.
  */
-export async function snapshotAllUsers(admin, { now = new Date(), dryRun = false } = {}) {
+export async function snapshotAllUsers(admin, { now = new Date(), dryRun = false, deadline = Infinity, startAfter = null } = {}) {
   if (!dryRun) await ensureArchiveBucket(admin);
   const today = now.toISOString().slice(0, 10);
   const month = today.slice(0, 7);
   const summary = { users: 0, written: 0, monthly: 0, pruned: 0, bytes: 0, errors: [] };
 
-  const PAGE = 200;
+  // 50 åt gången (varje rad är ett helt företags bokföring). Vid
+  // tidsgränsen returneras resumeFrom, så nästa natt fortsätter därifrån.
+  const PAGE = 50;
+  let last = startAfter;
   for (let from = 0; ; from += PAGE) {
-    const { data: rows, error } = await admin.from('user_data').select('user_id, state').order('user_id').range(from, from + PAGE - 1);
+    let q = admin.from('user_data').select('user_id, state').order('user_id');
+    if (startAfter) q = q.gt('user_id', startAfter);
+    const { data: rows, error } = await q.range(from, from + PAGE - 1);
     if (error) throw error;
     for (const row of rows || []) {
+      if (Date.now() > deadline) return { ...summary, resumeFrom: last };
+      last = row.user_id;
       if (!hasBookkeeping(row.state)) continue;
       summary.users += 1;
       try {
@@ -296,7 +303,7 @@ export async function snapshotAllUsers(admin, { now = new Date(), dryRun = false
     }
     if (!rows || rows.length < PAGE) break;
   }
-  return summary;
+  return { ...summary, resumeFrom: null };
 }
 
 /**

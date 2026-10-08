@@ -21,7 +21,7 @@ function makeAdmin({ rows, subs = [] }) {
         then: undefined,
       }
       if (table === 'user_data') {
-        api.select = () => ({ lt: () => Promise.resolve({ data: rows, error: null }) })
+        api.select = () => ({ lt: () => ({ order: () => ({ range: (a, b) => Promise.resolve({ data: rows.slice(a, b + 1), error: null }) }) }) })
         api.delete = () => ({ eq: (_c, v) => { deleted.userData.push(v); return Promise.resolve({ error: null }) } })
       }
       return api

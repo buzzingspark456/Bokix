@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/offsite-backup",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/data-retention",
+      "schedule": "30 3 * * *"
     }
   ],
   "rewrites": [
@@ -252,6 +256,12 @@
   ],
   "functions": {
     "api/cron/offsite-backup.js": {
+      "maxDuration": 300
+    },
+    "api/cron/data-retention.js": {
+      "maxDuration": 300
+    },
+    "api/cron/reminders.js": {
       "maxDuration": 300
     }
   }

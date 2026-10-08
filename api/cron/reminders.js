@@ -90,7 +90,10 @@ const TRIAL_REMINDER_DAYS_BEFORE = 3;
 // exakta gräns: konsekvensen av att stanna för tidigt är bara att en
 // fullständig genomsökning sprids ut över fler dagars körningar (se
 // cron_progress i supabase-setup.sql), aldrig ett avbrutet skriv-anrop.
-const TIME_BUDGET_MS = 8000;
+// Sedan 2026-10-08 har funktionen 300 s (vercel.json, Pro-planen), så
+// budgeten är 240 s: med 8 s hade några hundra konton spritt ut en
+// genomsökning över flera dygn och påminnelserna kommit dagar för sent.
+const TIME_BUDGET_MS = 240_000;
 
 const daysBetween = (a, b) => Math.round((a - b) / 86400000);
 
@@ -238,7 +241,8 @@ export default async function handler(req, res) {
     // hämtas OCH bearbetas varvat (inte "hämta allt, bearbeta sen") så att
     // tidsbudgeten också täcker själva hämtningen för en väldigt stor
     // tabell, inte bara e-postutskicken.
-    const PAGE_SIZE = 1000;
+    // 50 åt gången: varje rad är ett helt konto med all bokföring.
+    const PAGE_SIZE = 50;
     const { data: progressRow, error: progressError } = await admin
       .from('cron_progress')
       .select('cursor_value')
@@ -694,7 +698,10 @@ export default async function handler(req, res) {
     // räkenskapsinformation omfattas av bokföringslagens arkivkrav och är
     // undantaget. Körs bara när hela genomgången hann klart, så en
     // tidsbudget-avbruten körning inte städar på halva underlaget.
-    if (completedFullPass) {
+    // Datastädningen har sin egen cron sedan 2026-10-08
+    // (api/cron/data-retention.js), med egen tidsgräns. Här körs den bara
+    // vid ett manuellt provanrop (?retention=1).
+    if (completedFullPass && req.query?.retention) {
       summary.dataRetention = await runDataRetention(admin, { dryRun });
       if (summary.dataRetention.errors?.length) {
         summary.errors.push(...summary.dataRetention.errors);
