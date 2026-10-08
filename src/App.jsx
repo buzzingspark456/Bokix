@@ -2316,7 +2316,9 @@ function App() {
         // företag löser det sig automatiskt här, eftersom det nu finns med
         // i companies igen.
         Object.keys(resolvedState.companies || {}).forEach(id => {
-          if (ownedSharedCompanyIds.has(id)) {
+          // Inbjudan kan bära företagets eget company.id i stället för
+          // nyckeln (äldre konton, se findCompanyEntry i api/_auth.js).
+          if (ownedSharedCompanyIds.has(id) || ownedSharedCompanyIds.has(resolvedState.companies[id]?.company?.id)) {
             resolvedState.companies[id] = { ...resolvedState.companies[id], __hasActiveMembers: true };
           }
         });

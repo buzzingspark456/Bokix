@@ -1,7 +1,7 @@
 import { applySecurityHeaders } from './_security.js';
 import { canWriteField } from '../src/utils/pageAccess.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
-import { requireAuthedUser, loadMemberCompany, requireActiveSubscription, requireOwnerPaidAccess, hasPaidAccess, isFreeEmail } from './_auth.js';
+import { requireAuthedUser, loadMemberCompany, requireActiveSubscription, requireOwnerPaidAccess, hasPaidAccess, isFreeEmail, findCompanyEntry } from './_auth.js';
 import { checkRateLimit } from './_rateLimit.js';
 import { createClient } from '@supabase/supabase-js';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
@@ -412,14 +412,18 @@ export default async function handler(req, res) {
     // klient-anrop aldrig kan.
     let ownerUserId = null;
     let ownerCompanyData = null;
+    // Nyckeln där företaget faktiskt ligger i ägarens state, som kan skilja
+    // sig från det id klienten skickar (se findCompanyEntry i _auth.js).
+    // set_company_field skriver bara till en befintlig nyckel.
+    let companyKey = companyId;
     {
       const { data: ownRow, error: ownRowError } = await admin.from('user_data').select('state').eq('user_id', user.id).maybeSingle();
       if (ownRowError) {
         res.status(500).json({ error: ownRowError.message });
         return;
       }
-      const existing = ownRow?.state?.companies?.[companyId];
-      if (existing) { ownerUserId = user.id; ownerCompanyData = existing; }
+      const existing = findCompanyEntry(ownRow?.state?.companies, companyId);
+      if (existing) { ownerUserId = user.id; ownerCompanyData = existing.data; companyKey = existing.key; }
     }
 
     if (ownerUserId) {
@@ -467,11 +471,12 @@ export default async function handler(req, res) {
         return;
       }
       ownerUserId = member.ownerUserId;
+      companyKey = member.companyKey || companyId;
     }
 
     const { error: rpcError } = await admin.rpc('set_company_field', {
       p_user_id: ownerUserId,
-      p_company_id: companyId,
+      p_company_id: companyKey,
       p_field: field,
       p_value: value,
     });

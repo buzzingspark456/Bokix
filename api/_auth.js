@@ -39,6 +39,19 @@ export async function requireAuthedUser(req, res) {
   return data.user;
 }
 
+/** Hittar ett företag i state.companies. Nyckeln och företagets eget
+ * company.id är oftast samma, men inte alltid: äldre konton har företaget
+ * under en annan nyckel än sitt id (createEmptyCompanyData-buggen), och
+ * Inställningar bjuder in med company.id. Provar nyckeln först, sedan
+ * company.id. Returnerar { key, data } (key = där det faktiskt ligger, och
+ * dit skrivningar ska gå) eller null. */
+export function findCompanyEntry(companies, companyId) {
+  if (!companies || !companyId) return null;
+  if (companies[companyId]) return { key: companyId, data: companies[companyId] };
+  const match = Object.entries(companies).find(([, c]) => c?.company?.id === companyId);
+  return match ? { key: match[0], data: match[1] } : null;
+}
+
 /** Slår upp det angivna företaget i DEN VERIFIERADE användarens egen
  * sparade state — bevisar ägarskap utan att lita på ett client-supplied
  * company_id ensamt (id:t måste faktiskt finnas i just den här
@@ -57,7 +70,7 @@ export async function loadOwnedCompany(userId, companyId, res) {
     res.status(500).json({ error: error.message });
     return null;
   }
-  const companyData = row?.state?.companies?.[companyId];
+  const companyData = findCompanyEntry(row?.state?.companies, companyId)?.data;
   if (!companyData) {
     res.status(403).json({ error: 'Företaget hittades inte för den inloggade användaren.' });
     return null;
@@ -116,8 +129,8 @@ export async function loadOwnedOrMemberCompany(userId, companyId, res, { require
     res.status(500).json({ error: error.message });
     return null;
   }
-  const ownCompanyData = row?.state?.companies?.[companyId];
-  if (ownCompanyData) return { companyData: ownCompanyData, ownerUserId: userId, role: 'owner' };
+  const ownEntry = findCompanyEntry(row?.state?.companies, companyId);
+  if (ownEntry) return { companyData: ownEntry.data, companyKey: ownEntry.key, ownerUserId: userId, role: 'owner' };
 
   const member = await loadMemberCompany(userId, companyId, res);
   if (!member) return null;
@@ -125,7 +138,7 @@ export async function loadOwnedOrMemberCompany(userId, companyId, res, { require
     res.status(403).json({ error: 'Din roll (läsare) tillåter inte den här åtgärden.' });
     return null;
   }
-  return { companyData: member.companyData, ownerUserId: member.ownerUserId, role: member.role };
+  return { companyData: member.companyData, companyKey: member.companyKey, ownerUserId: member.ownerUserId, role: member.role };
 }
 
 /** Samma sorts ägarskapsbevis som loadOwnedCompany ovan, men för en
@@ -175,14 +188,15 @@ export async function loadMemberCompany(userId, companyId, res) {
     res.status(500).json({ error: rowError.message });
     return null;
   }
-  const companyData = row?.state?.companies?.[companyId];
+  const entry = findCompanyEntry(row?.state?.companies, companyId);
+  const companyData = entry?.data;
   if (!companyData) {
     // Ägaren finns, men själva företaget är borta ur deras state (t.ex.
     // togs bort) — inbjudan pekar på ett företag som inte längre finns.
     res.status(403).json({ error: 'Företaget hittades inte längre.' });
     return null;
   }
-  return { companyData, role: membership.role, pageAccess: membership.page_access || null, ownerUserId: membership.owner_user_id };
+  return { companyData, companyKey: entry.key, role: membership.role, pageAccess: membership.page_access || null, ownerUserId: membership.owner_user_id };
 }
 
 // ── Server-side betalningsspärr ────────────────────────────────────────
