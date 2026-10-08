@@ -3545,7 +3545,9 @@
     "skicka_lanken_sjalv": "Skicka länken själv, till exempel i ett sms. Den finns också kvar i listan nedan.",
     "kopiera_lanken": "Kopiera länken",
     "kopierad_kort": "Kopierad",
-    "kopiera_inbjudningslanken": "Kopiera inbjudningslänken"
+    "kopiera_inbjudningslanken": "Kopiera inbjudningslänken",
+    "ta_bort_aterkallad_inbjudan": "Ta bort den återkallade inbjudan från listan?",
+    "kunde_inte_ta_bort_inbjudan": "Kunde inte ta bort inbjudan. Försök igen."
   },
   "glossary": {
     "g01": {

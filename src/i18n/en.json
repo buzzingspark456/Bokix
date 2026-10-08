@@ -3545,7 +3545,9 @@
     "skicka_lanken_sjalv": "Send the link yourself, for example by text message. It also stays in the list below.",
     "kopiera_lanken": "Copy link",
     "kopierad_kort": "Copied",
-    "kopiera_inbjudningslanken": "Copy invitation link"
+    "kopiera_inbjudningslanken": "Copy invitation link",
+    "ta_bort_aterkallad_inbjudan": "Remove the revoked invitation from the list?",
+    "kunde_inte_ta_bort_inbjudan": "Could not remove the invitation. Try again."
   },
   "glossary": {
     "g01": {

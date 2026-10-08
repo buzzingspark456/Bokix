@@ -867,8 +867,8 @@ WITH CHECK (
 --      { member_user_id = mitt eget uid, status = 'active' } — dvs. en
 --      inbjuden person kan bara "lösa in" inbjudan, aldrig sätta sig själv
 --      till 'editor' eller återaktivera en redan återkallad rad.
--- Ingen DELETE-policy: återkallelse är en statusändring, inte en radering
--- — lämnar ett revisionsspår istället för att tysta ta bort historiken.
+-- Återkallelse är en statusändring, inte en radering. Ägaren kan sedan
+-- själv ta bort en återkallad rad ur listan (DELETE-policyn nedan).
 CREATE OR REPLACE FUNCTION private.stored_member_role(target_id uuid)
 RETURNS text
 LANGUAGE sql
@@ -907,6 +907,16 @@ WITH CHECK (
     -- en underfråga mot company_members här ger "infinite recursion".
     AND role = private.stored_member_role(id)
   )
+);
+
+-- DELETE: ägaren får ta bort en ÅTERKALLAD rad, inget annat. En aktiv
+-- eller väntande medlem måste återkallas först.
+DROP POLICY IF EXISTS "Ägare tar bort återkallad inbjudan" ON public.company_members;
+CREATE POLICY "Ägare tar bort återkallad inbjudan"
+ON public.company_members FOR DELETE TO authenticated
+USING (
+  owner_user_id = (select auth.uid())
+  AND status = 'revoked'
 );
 
 -- set_company_field: samma SECURITY DEFINER-mönster som

@@ -1795,6 +1795,21 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
     loadMembers();
   };
 
+  // Tar bort en redan återkallad rad helt ur listan. Databasen tillåter
+  // bara det för återkallade rader (policyn "Ägare tar bort återkallad
+  // inbjudan"), så en aktiv medlem måste alltid återkallas först.
+  const handleDeleteRevoked = async (memberId) => {
+    if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
+    if (!(await confirmDialog(tr('ui.ta_bort_aterkallad_inbjudan'), { danger: true }))) return;
+    const { data: deleted, error } = await supabase.from('company_members').delete().eq('id', memberId).select('id');
+    if (error || !deleted?.length) {
+      console.error('Kunde inte ta bort inbjudan:', error);
+      setInviteError(tr('ui.kunde_inte_ta_bort_inbjudan'));
+      return;
+    }
+    loadMembers();
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
@@ -1922,7 +1937,11 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
             ) : null,
           }] : []),
           ...(isOwner ? [{
-            key: 'actions', label: '', align: 'right', render: row => (!row.isOwnerRow && row.status !== 'revoked') ? (
+            key: 'actions', label: '', align: 'right', render: row => (!row.isOwnerRow && row.status === 'revoked') ? (
+              <button onClick={() => handleDeleteRevoked(row.id)} title={tr('ui.ta_bort')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <Trash2 size={15} />
+              </button>
+            ) : (!row.isOwnerRow && row.status !== 'revoked') ? (
               <div style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
                 {/* Väntande inbjudan: länken går alltid att hämta igen. */}
                 {row.status === 'pending' && row.invite_token && (() => {
