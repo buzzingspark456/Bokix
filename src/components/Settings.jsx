@@ -1731,7 +1731,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
       // VILKET dokument som skickas, bara mottagare/ämne/HTML. Misslyckas
       // SJÄLVA UTSKICKET (t.ex. Resend nere) tas raden inte bort — ägaren
       // kan bjuda in igen, eller dela länken manuellt.
-      const inviteUrl = `${window.location.origin}/invite?token=${inserted.invite_token}`;
+      const inviteUrl = `${window.location.origin}/invite?token=${inserted.invite_token}&email=${encodeURIComponent(email)}`;
       const html = buildInviteEmailHtml({
         companyName: company.name,
         inviterName: [firstName, lastName].filter(Boolean).join(' ') || user?.email,

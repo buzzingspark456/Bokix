@@ -3534,7 +3534,13 @@
     "val_mat_personal_kort": "Mat till personalen",
     "val_utrustning": "Utrustning, verktyg eller elektronik",
     "val_material": "Material eller tillbehör som förbrukas",
-    "val_kontorsmaterial": "Kontorsmaterial"
+    "val_kontorsmaterial": "Kontorsmaterial",
+    "inbjuden_rubrik": "Du är inbjuden",
+    "inbjuden_text": "Skapa ett eget konto för dig själv. Inget företag, organisationsnummer eller betalning behövs, du kommer direkt in i företaget du blev inbjuden till.",
+    "inbjuden_sedan": "Sedan kommer du direkt in i företaget du är inbjuden till.",
+    "inbjuden_ruta": "Ingen betalning. Företaget du är inbjuden till står för abonnemanget.",
+    "inbjuden_epost_tips": "Använd samma e-postadress som inbjudan skickades till.",
+    "inbjuden_skapa_konto": "Skapa konto"
   },
   "glossary": {
     "g01": {

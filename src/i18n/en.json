@@ -3534,7 +3534,13 @@
     "val_mat_personal_kort": "Food for staff",
     "val_utrustning": "Equipment, tools or electronics",
     "val_material": "Materials or accessories that get used up",
-    "val_kontorsmaterial": "Office supplies"
+    "val_kontorsmaterial": "Office supplies",
+    "inbjuden_rubrik": "You have been invited",
+    "inbjuden_text": "Create your own personal account. No company, organisation number or payment is needed, you go straight into the company you were invited to.",
+    "inbjuden_sedan": "Then you go straight into the company you were invited to.",
+    "inbjuden_ruta": "No payment. The company that invited you pays for the subscription.",
+    "inbjuden_epost_tips": "Use the same email address the invitation was sent to.",
+    "inbjuden_skapa_konto": "Create account"
   },
   "glossary": {
     "g01": {

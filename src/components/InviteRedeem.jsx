@@ -24,8 +24,13 @@ export default function InviteRedeem() {
     const token = searchParams.get('token');
     if (token && typeof window !== 'undefined') {
       sessionStorage.setItem(PENDING_INVITE_KEY, token);
+      // Adressen inbjudan skickades till, så registreringen kan fyllas i
+      // med rätt e-post (inlösen kräver samma adress).
+      const email = searchParams.get('email');
+      if (email) sessionStorage.setItem('bokix_pending_invite_email', email);
     }
-    navigate('/', { replace: true, state: { enterApp: true } });
+    // Den inbjudna har oftast inget konto än: öppna Skapa konto direkt.
+    navigate('/', { replace: true, state: { enterApp: true, authMode: 'signup', invite: true } });
   }, [searchParams, navigate]);
 
   return null;

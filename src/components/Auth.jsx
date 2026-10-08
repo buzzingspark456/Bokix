@@ -159,7 +159,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   // Step 0 – Personal info
   const [regFirstName, setRegFirstName] = useState('');
   const [regLastName, setRegLastName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
+  const [regEmail, setRegEmail] = useState(() => (typeof window !== 'undefined' && sessionStorage.getItem(PENDING_INVITE_KEY) && sessionStorage.getItem('bokix_pending_invite_email')) || '');
   const [regPassword, setRegPassword] = useState('');
   const [regPassword2, setRegPassword2] = useState('');
   // Användarvillkoren och personuppgiftsbiträdesavtalet måste godkännas
@@ -852,7 +852,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
             {/* Step indicator */}
             <div style={{ marginBottom: '28px' }}>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '18px' }}>
-                {REGISTER_STEPS.map((s, i) => (
+                {REGISTER_STEPS.map((s, i) => (hasPendingInvite && i === 2) ? null : (
                   <div key={s} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '7px' }}>
                     <div style={{ position: 'relative', height: '4px', borderRadius: '2px', background: 'var(--border)', overflow: 'hidden' }}>
                       <div style={{ position: 'absolute', inset: 0, borderRadius: '2px', background: '#0b6329', transform: `scaleX(${i <= regStep ? 1 : 0})`, transformOrigin: 'left', transition: 'transform 0.35s ease' }} />
@@ -876,8 +876,15 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                     isUfSignup-grenen returnerar direkt, ingen
                     createStripeSubscriptionCheckout). Texten ljög alltså för
                     exakt den kontotyp den handlar minst om. */}
-                {regStep === 3 && !isUfSignup && t('ui.sedan_skickas_du_vidare_till_betalning')}
+                {regStep === 3 && hasPendingInvite && t('ui.inbjuden_sedan')}
+                {regStep === 3 && !isUfSignup && !hasPendingInvite && t('ui.sedan_skickas_du_vidare_till_betalning')}
               </p>
+              {hasPendingInvite && regStep === 0 && (
+                <div style={{ marginTop: '14px', padding: '12px 14px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>{t('ui.inbjuden_rubrik')}</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{t('ui.inbjuden_text')} {t('ui.inbjuden_epost_tips')}</div>
+                </div>
+              )}
             </div>
 
             <form onSubmit={handleNextStep} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1185,7 +1192,9 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                   <div style={{ display: 'flex', gap: '9px', alignItems: 'flex-start', padding: '10px 12px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '9px' }}>
                     <ShieldCheck size={15} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
                     <span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                      {isUfSignup
+                      {hasPendingInvite
+                        ? t('ui.inbjuden_ruta')
+                        : isUfSignup
                         ? t('ui.nasta_steg_ar_appen_uf_kontot_ar_gratis_i_manade', { UF_FREE_MONTHS })
                         : <>{t('ui.nast_skickas_du_till')} <StripeBadge /> {t('ui.for_att_lagga_in_betalningsuppgifter_30_dagar_gr')} {selectedPlan ? selectedPlan.price : 179} {t('ui.kr_man_avsluta_innan_dess_sa_kostar_det_ingentin')}</>}
                     </span>
@@ -1207,7 +1216,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               {!redirectingToPayment && (
                 <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
                   {regStep > 0 && (
-                    <button className="auth-btn-ghost" type="button" onClick={() => { setRegStep(s => s - 1); setErrorMsg(''); }} style={{ padding: '20px 26px', border: '1px solid var(--border)', borderRadius: '13px', fontSize: '17px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                    <button className="auth-btn-ghost" type="button" onClick={() => { setRegStep(s => (hasPendingInvite && s === 3) ? 1 : s - 1); setErrorMsg(''); }} style={{ padding: '20px 26px', border: '1px solid var(--border)', borderRadius: '13px', fontSize: '17px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
                       <ArrowLeft size={16} /> {t('ui.tillbaka_2')}
                     </button>
                   )}
@@ -1217,7 +1226,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                     const busy = loading || verifying;
                     const isDisabled = busy || codeIncomplete;
                     let label;
-                    if (regStep === REGISTER_STEPS.length - 1) label = busy ? t('ui.skapar_konto') : (isUfSignup ? t('ui.skapa_uf_konto') : t('ui.skapa_konto_och_betalning'));
+                    if (regStep === REGISTER_STEPS.length - 1) label = busy ? t('ui.skapar_konto') : (hasPendingInvite ? t('ui.inbjuden_skapa_konto') : isUfSignup ? t('ui.skapa_uf_konto') : t('ui.skapa_konto_och_betalning'));
                     else if (regStep === 0) label = busy ? t('ui.skickar_kod') : t('ui.fortsatt');
                     else if (regStep === 1) label = verifying ? t('ui.bekraftar') : t('ui.bekrafta');
                     else label = busy ? t('ui.fortsatter') : t('ui.fortsatt');

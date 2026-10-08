@@ -1294,7 +1294,7 @@ function App() {
     if (location.state?.enterApp) {
       // Registrering utan valt abonnemang går via /priser, så besökaren
       // väljer nivå själv i stället för att tyst få 179 kr-nivån.
-      if (location.state?.authMode === 'signup' && !location.state?.plan && !location.state?.uf) {
+      if (location.state?.authMode === 'signup' && !location.state?.plan && !location.state?.uf && !location.state?.invite) {
         navigate('/priser', { replace: true });
         return;
       }
