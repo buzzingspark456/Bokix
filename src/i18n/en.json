@@ -3547,7 +3547,9 @@
     "kopierad_kort": "Copied",
     "kopiera_inbjudningslanken": "Copy invitation link",
     "ta_bort_aterkallad_inbjudan": "Remove the revoked invitation from the list?",
-    "kunde_inte_ta_bort_inbjudan": "Could not remove the invitation. Try again."
+    "kunde_inte_ta_bort_inbjudan": "Could not remove the invitation. Try again.",
+    "skapa_lank_i_stallet": "Create link instead",
+    "inbjudningslank_skapad": "Invitation link created"
   },
   "glossary": {
     "g01": {

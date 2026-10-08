@@ -3547,7 +3547,9 @@
     "kopierad_kort": "Kopierad",
     "kopiera_inbjudningslanken": "Kopiera inbjudningslänken",
     "ta_bort_aterkallad_inbjudan": "Ta bort den återkallade inbjudan från listan?",
-    "kunde_inte_ta_bort_inbjudan": "Kunde inte ta bort inbjudan. Försök igen."
+    "kunde_inte_ta_bort_inbjudan": "Kunde inte ta bort inbjudan. Försök igen.",
+    "skapa_lank_i_stallet": "Skapa länk i stället",
+    "inbjudningslank_skapad": "Inbjudningslänk skapad"
   },
   "glossary": {
     "g01": {

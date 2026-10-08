@@ -1720,7 +1720,9 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
   const activeOrPendingCount = members.filter(m => m.status !== 'revoked').length;
   const atCap = activeOrPendingCount >= 2;
 
-  const handleInvite = async (e) => {
+  // `viaLink`: skapa bara inbjudan och visa länken, inget mejl (t.ex. när
+  // ägaren hellre skickar länken själv till sin redovisningskonsult).
+  const handleInvite = async (e, viaLink = false) => {
     e.preventDefault();
     if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
     setInviteError(''); setInviteSuccess(''); setInviteLink(null);
@@ -1741,6 +1743,13 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
       // SJÄLVA UTSKICKET (t.ex. Resend nere) tas raden inte bort — ägaren
       // kan bjuda in igen, eller dela länken manuellt.
       const inviteUrl = inviteUrlFor(inserted.invite_token, email);
+      if (viaLink) {
+        setInviteLink({ url: inviteUrl, reason: '', viaLink: true });
+        setInviteEmail('');
+        setShowInviteForm(false);
+        loadMembers();
+        return;
+      }
       const html = buildInviteEmailHtml({
         companyName: company.name,
         inviterName: [firstName, lastName].filter(Boolean).join(' ') || user?.email,
@@ -1865,6 +1874,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
           {inviteError && <p style={{ color: BRAND.redText, fontSize: '13px', marginTop: '10px' }}>{inviteError}</p>}
           <div style={{ marginTop: '16px', display: 'flex', gap: '10px' }}>
             <button type="submit" disabled={inviteBusy} style={{ ...btnPrimary, opacity: inviteBusy ? 0.6 : 1 }}>{inviteBusy ? tr('ui.skickar_2') : tr('ui.skicka_inbjudan')}</button>
+            <button type="button" disabled={inviteBusy} onClick={e => handleInvite(e, true)} style={{ ...btnSecondary, display: 'flex', alignItems: 'center', gap: '6px', opacity: inviteBusy ? 0.6 : 1 }}><Copy size={14} />{tr('ui.skapa_lank_i_stallet')}</button>
             <button type="button" onClick={() => setShowInviteForm(false)} style={btnSecondary}>{tr('ui.avbryt')}</button>
           </div>
         </form>
@@ -1872,7 +1882,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
 
       {inviteLink && (
         <div style={{ padding: '12px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', fontSize: '13px', marginBottom: '16px', maxWidth: '560px' }}>
-          <div style={{ color: 'var(--text-main)', fontWeight: 600, marginBottom: '4px' }}>{tr('ui.inbjudan_skapad_mejl_ej')}</div>
+          <div style={{ color: 'var(--text-main)', fontWeight: 600, marginBottom: '4px' }}>{inviteLink.viaLink ? tr('ui.inbjudningslank_skapad') : tr('ui.inbjudan_skapad_mejl_ej')}</div>
           <div style={{ color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.5 }}>
             {tr('ui.skicka_lanken_sjalv')}{inviteLink.reason ? ` (${inviteLink.reason})` : ''}
           </div>
