@@ -528,9 +528,22 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
         let { data, error } = await doSignUp(regCaptchaToken);
         // Avvisad Cloudflare-token (gått ut eller redan använd): ett nytt
         // försök med en färsk token innan användaren får se ett fel.
+        // Om det nya försöket också fallerar visas Supabases FÖRSTA svar, inte
+        // en väntetid på Cloudflare som döljer den verkliga orsaken.
         if (error && /captcha/i.test(error.message || '') && regCaptchaRef.current?.reset) {
+          console.error('Supabase avvisade registreringen:', error);
+          const firstError = error;
           regCaptchaRef.current.reset();
-          ({ data, error } = await doSignUp(await runCaptcha(regCaptchaRef)));
+          try {
+            const retryToken = await Promise.race([
+              runCaptcha(regCaptchaRef),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('retry-timeout')), 10000)),
+            ]);
+            ({ data, error } = await doSignUp(retryToken));
+          } catch {
+            error = firstError;
+          }
+          if (error && /captcha/i.test(error.message || '')) error = firstError;
         }
         if (error) throw error;
         accountCreated = true;
