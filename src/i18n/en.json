@@ -3550,7 +3550,8 @@
     "kunde_inte_ta_bort_inbjudan": "Could not remove the invitation. Try again.",
     "skapa_lank_i_stallet": "Create link instead",
     "inbjudningslank_skapad": "Invitation link created",
-    "kontot_skapat_logga_in": "Your account is created. Sign in under Log in."
+    "kontot_skapat_logga_in": "Your account is created. Sign in under Log in.",
+    "inbjudan_redan_anvand": "The invitation has already been used or was revoked. Ask the person who invited you to send a new one."
   },
   "glossary": {
     "g01": {

@@ -162,6 +162,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   const [regFirstName, setRegFirstName] = useState('');
   const [regLastName, setRegLastName] = useState('');
   const [regEmail, setRegEmail] = useState(() => (typeof window !== 'undefined' && sessionStorage.getItem(PENDING_INVITE_KEY) && sessionStorage.getItem('bokix_pending_invite_email')) || '');
+  const [invitedEmailLocked] = useState(() => Boolean(typeof window !== 'undefined' && sessionStorage.getItem(PENDING_INVITE_KEY) && sessionStorage.getItem('bokix_pending_invite_email')));
   const [regPassword, setRegPassword] = useState('');
   const [regPassword2, setRegPassword2] = useState('');
   // Användarvillkoren och personuppgiftsbiträdesavtalet måste godkännas
@@ -993,6 +994,9 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                         style={{ ...inputStyle, paddingLeft: '42px' }}
                         placeholder={t('ui.anna_foretag_se')}
                         value={regEmail}
+                        // Inbjudan går bara att lösa in med adressen den
+                        // skickades till, så den går inte att ändra här.
+                        readOnly={invitedEmailLocked}
                         // En redan verifierad kod/token hörde till den GAMLA
                         // adressen — måste nollställas så en ändrad adress
                         // aldrig kan glida igenom på gårdagens verifiering.

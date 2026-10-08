@@ -1657,7 +1657,16 @@ function App() {
         .eq('invite_token', token)
         .maybeSingle();
       if (!invite || invite.status !== 'pending') {
+        // Syns inte raden alls är kontot oftast skapat med en annan adress än
+        // inbjudan gick till (RLS visar bara den egna). Säg det, i stället för
+        // att personen tyst hamnar på betalsidan.
         sessionStorage.removeItem(PENDING_INVITE_KEY);
+        setToast({
+          message: !invite
+            ? tr('ui.kunde_inte_losa_in_inbjudan_kontrollera_att_du_a')
+            : tr('ui.inbjudan_redan_anvand'),
+          variant: 'error',
+        });
         return;
       }
       if (new Date(invite.expires_at) <= new Date()) {
