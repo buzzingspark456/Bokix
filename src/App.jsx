@@ -427,6 +427,7 @@ import UfLockedPage from './components/UfLockedPage';
 import AddCompanyModal from './components/AddCompanyModal';
 import { maybeAutoStartTour, startProductTourWhenReady } from './utils/productTour';
 import { startInvoiceTourWhenReady } from './utils/invoiceTour';
+import { mergeCompanies, mergeCompany, makeRecordPatch } from './utils/stateMerge';
 
 // Fallback under den enda <Suspense> som omsluter App-komponentens JSX (se
 // return-satsen längre ner) — visas bara under den korta stund en lazy-flik
@@ -977,7 +978,14 @@ function loadDataForUser(userId) {
 }
 
 function saveData(data, ownerId) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  // Webbläsarens lokala lagring rymmer bara ca 5 MB. Ett stort företag, eller
+  // en konsult med många kunders företag, går över det, och då ska bara
+  // den lokala kopian utebli. Sparningen till Supabase måste ändå köras.
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+  }
   if (ownerId) {
     try { localStorage.setItem(STORAGE_OWNER_KEY, ownerId); } catch { /* privat läge etc. */ }
   }
@@ -1631,6 +1639,8 @@ function App() {
   // sin egen PL/pgSQL-vitlista (kan inte importera JS) och måste synkas dit
   // manuellt.
   const SHARED_COMPANY_WRITABLE_FIELDS = COMPANY_WRITABLE_FIELDS;
+  // Fler delade företag än så hämtas bara som namn vid inloggningen.
+  const SHARED_EAGER_LIMIT = 3;
 
   const getAccessToken = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -1716,6 +1726,25 @@ function App() {
       .eq('status', 'active');
     if (!memberships || memberships.length === 0) return {};
 
+    // Många företag (en redovisningskonsult med flera kunder): bara namnen
+    // nu, i ett anrop. Ett företag hämtas helt när det öppnas, se
+    // loadSharedCompanyStub. Med några få hämtas allt direkt som förut.
+    if (memberships.length > SHARED_EAGER_LIMIT) {
+      try {
+        const res = await fetch('/api/company-access?list=1', { headers: { Authorization: `Bearer ${accessToken}` } });
+        if (res.ok) {
+          const { companies = [] } = await res.json();
+          return Object.fromEntries(companies.map(c => [c.company_id, {
+            company: c.company,
+            __stub: true,
+            __shared: { ownerUserId: c.owner_user_id, role: c.role, pageAccess: c.pageAccess || null, ownerPaid: c.ownerPaid !== false },
+          }]));
+        }
+      } catch (err) {
+        console.error('Kunde inte hämta listan över delade företag, hämtar ett i taget:', err);
+      }
+    }
+
     // Parallellt, inte sekventiellt — en person som är inbjuden till FLERA
     // olika ägares företag (t.ex. en redovisningskonsult med flera kunder)
     // ska inte behöva vänta ett nätverks-tur-och-retur PER företag i följd
@@ -1741,18 +1770,36 @@ function App() {
     return results;
   };
 
-  // Läser om ETT av mina EGNA företag direkt från min egen user_data-rad
-  // (tillåtet av RLS — jag läser bara min egen rad). Används bara precis
-  // innan en helblobs-sparning av ett företag jag delar med andra (se
-  // persist-effekten) — en färsk kopia här, istället för min ev. förlegade
-  // lokala state, är det som faktiskt stänger kapplöpningen mot en samtidig
-  // editor-ändring (som gick via set_company_field och alltså inte syns i
-  // min lokala `data` förrän jag laddar om).
-  const fetchFreshOwnCompany = async (companyId) => {
-    if (!user) return null;
-    const { data: row, error } = await supabase.from('user_data').select('state').eq('user_id', user.id).maybeSingle();
-    if (error || !row?.state?.companies?.[companyId]) return null;
-    return row.state.companies[companyId];
+  // Hämtar hela företaget bakom en __stub (se fetchSharedCompanies) när det
+  // öppnas. Referenspunkten för sparningen nollställs, så att det inlästa
+  // inte räknas som en ändring att skicka tillbaka.
+  const loadingStubRef = useRef(null);
+  const loadSharedCompanyStub = async (companyId) => {
+    if (loadingStubRef.current === companyId) return;
+    loadingStubRef.current = companyId;
+    try {
+      const accessToken = await getAccessToken();
+      const res = await fetch(`/api/company-access?company_id=${encodeURIComponent(companyId)}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const json = res.ok ? await res.json() : null;
+      if (!json?.company) throw new Error(`HTTP ${res.status}`);
+      delete lastPersistedSharedFieldsRef.current[companyId];
+      setData(prev => {
+        const stub = prev.companies?.[companyId];
+        if (!stub?.__stub) return prev;
+        return { ...prev, companies: { ...prev.companies, [companyId]: { ...json.company, __shared: { ...stub.__shared, role: json.role, pageAccess: json.pageAccess || null, ownerPaid: json.ownerPaid !== false } } } };
+      });
+    } catch (err) {
+      console.error('Kunde inte hämta delat företag', companyId, err);
+      setToast({ message: tr('ui.kunde_inte_hamta_foretaget'), variant: 'error' });
+      // Laddningsskärmen släpper, i stället för att stå kvar för alltid.
+      setData(prev => (prev.companies?.[companyId]?.__stub
+        ? { ...prev, companies: { ...prev.companies, [companyId]: { ...prev.companies[companyId], __stubError: true } } }
+        : prev));
+    } finally {
+      loadingStubRef.current = null;
+    }
   };
 
   // Sparar ETT delat företags ändrade fält via api/company-access.js — ett
@@ -1765,7 +1812,7 @@ function App() {
   // den RIKTIGA spärren är ändå servern (api/company-access.js 403:ar).
   const lastPersistedSharedFieldsRef = useRef({});
   const persistSharedCompanyFields = async (companyId, companyData) => {
-    if (companyData.__shared?.role !== 'editor') return;
+    if (companyData.__shared?.role !== 'editor' || companyData.__stub) return;
 
     // Första gången det här företaget dyker upp i en sparningscykel den här
     // sessionen (precis inläst via fetchSharedCompanies) finns inget
@@ -1788,11 +1835,17 @@ function App() {
     if (changedFields.length === 0) return;
 
     for (const field of changedFields) {
+      // Listor (verifikationer, kvitton …): bara de poster som ändrats, så att
+      // anropet inte växer med hela historiken. Annars hela värdet + base.
+      const patch = makeRecordPatch(last[field], companyData[field]);
+      const payload = patch && (patch.upsert.length || patch.remove.length)
+        ? { company_id: companyId, field, patch }
+        : { company_id: companyId, field, value: companyData[field], base: last[field] };
       try {
         const res = await fetch('/api/company-access', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({ company_id: companyId, field, value: companyData[field] }),
+          body: JSON.stringify(payload),
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -1834,7 +1887,8 @@ function App() {
       Object.assign(payload, extras);
     }
 
-    const { error } = await supabase.from('user_data').upsert(payload, { onConflict: 'user_id' });
+    const { data: savedRows, error } = await supabase.from('user_data').upsert(payload, { onConflict: 'user_id' }).select('updated_at');
+    if (!error && savedRows?.[0]?.updated_at) serverSyncRef.current.updatedAt = savedRows[0].updated_at;
     if (error) {
       if (isSupabaseUnavailableError(error)) {
         setSupabaseEnabled(false);
@@ -1862,6 +1916,66 @@ function App() {
     return true;
   };
 
+  // Vad servern hade vid senaste synken (updated_at + mina egna företag).
+  // Sparningen skriver bara om raden är oförändrad sedan dess. Har någon
+  // annan skrivit emellan (annan enhet, en inbjuden konsult via
+  // set_company_field, påminnelse-cronen) hämtas raden och slås ihop post
+  // för post (utils/stateMerge.js) i stället för att skrivas över.
+  const serverSyncRef = useRef({ updatedAt: null, baseCompanies: null });
+  const syncInFlightRef = useRef(null);
+  const saveOwnCompaniesMerged = async (snapshot, ownCompanies) => {
+    // En sparning i taget, annars jämför två samtidiga mot samma bas.
+    while (syncInFlightRef.current) await syncInFlightRef.current.catch(() => {});
+    const run = (async () => {
+      const ref = serverSyncRef.current;
+      let companies = ownCompanies;
+      const done = (savedCompanies) => {
+        ref.baseCompanies = savedCompanies;
+        if (savedCompanies === ownCompanies) return;
+        // Visa det andra ändrat, utan att tappa det som skrivits här
+        // medan sparningen pågick.
+        setData(prev => {
+          const entries = Object.entries(prev.companies || {});
+          const prevOwn = Object.fromEntries(entries.filter(([, c]) => !c.__shared));
+          const prevShared = Object.fromEntries(entries.filter(([, c]) => c.__shared));
+          return { ...prev, companies: { ...mergeCompanies(ownCompanies, prevOwn, savedCompanies), ...prevShared } };
+        });
+      };
+      if (ref.updatedAt && ref.baseCompanies) {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const { data: rows, error } = await supabase
+            .from('user_data')
+            .update({ state: { ...snapshot, companies } })
+            .eq('user_id', user.id)
+            .eq('updated_at', ref.updatedAt)
+            .select('updated_at');
+          if (error) break; // felhanteringen nedan (för stor, nätverk osv.)
+          if (rows?.length) {
+            ref.updatedAt = rows[0].updated_at;
+            done(companies);
+            return;
+          }
+          // Någon annan har skrivit sedan förra synken: hämta och slå ihop.
+          const { data: fresh, error: freshError } = await supabase
+            .from('user_data')
+            .select('state, updated_at')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          if (freshError || !fresh) break;
+          const serverCompanies = fresh.state?.companies || {};
+          companies = mergeCompanies(ref.baseCompanies, companies, serverCompanies);
+          ref.baseCompanies = serverCompanies;
+          ref.updatedAt = fresh.updated_at;
+        }
+      }
+      // Första sparningen, ett fel, eller tre krockar i rad: spara som förut
+      // (med det sammanslagna) hellre än inte alls.
+      if (await saveUserDataToSupabase({ ...snapshot, companies })) done(companies);
+    })();
+    syncInFlightRef.current = run;
+    try { await run; } finally { if (syncInFlightRef.current === run) syncInFlightRef.current = null; }
+  };
+
   // Skriver hela user_data-bloben till Supabase OMEDELBART — samma logik
   // som den debouncade "Persist"-useEffecten längre ner (2000 ms), bara
   // utan väntetiden. Bugkritiskt, hittat 2026-09-22: den debouncade
@@ -1882,11 +1996,7 @@ function App() {
       const sharedEntries = entries.filter(([, c]) => c.__shared);
       const ownEntries = entries.filter(([, c]) => !c.__shared);
       await Promise.all(sharedEntries.map(([id, c]) => persistSharedCompanyFields(id, c)));
-      const ownCompanies = {};
-      await Promise.all(ownEntries.map(async ([id, c]) => {
-        ownCompanies[id] = c.__hasActiveMembers ? ((await fetchFreshOwnCompany(id)) || c) : c;
-      }));
-      await saveUserDataToSupabase({ ...data, companies: ownCompanies });
+      await saveOwnCompaniesMerged(data, Object.fromEntries(ownEntries));
     } catch (err) {
       // Best effort — ett misslyckat flush-försök ska aldrig blockera
       // anroparen (t.ex. e-postutskicket). Den vanliga debouncade
@@ -2247,11 +2357,9 @@ function App() {
       }
 
       // Mina EGNA företag som JAG delar med andra (company_members,
-      // owner_user_id = jag, status='active') — taggas __hasActiveMembers
-      // nedan så persist-effekten vet att den måste läsa om just DE
-      // företagen precis innan varje helblobs-sparning (se
-      // fetchFreshOwnCompany/persist-effekten) istället för att lita blint
-      // på min lokala, ev. förlegade kopia.
+      // owner_user_id = jag, status='active') — taggas __hasActiveMembers.
+      // Att en inbjuden konsults ändringar inte skrivs över sköts av
+      // sammanslagningen i saveOwnCompaniesMerged.
       const { data: ownedMemberships } = supabaseEnabled
         ? await supabase.from('company_members').select('company_id').eq('owner_user_id', authUser.id).eq('status', 'active')
         : { data: null };
@@ -2259,7 +2367,7 @@ function App() {
 
       const { data: dbData, error } = await supabase
         .from('user_data')
-        .select('state,onboarding_completed,onboarding_skipped,company_name,company_orgnr,contact_details,company_settings')
+        .select('state,updated_at,onboarding_completed,onboarding_skipped,company_name,company_orgnr,contact_details,company_settings')
         .eq('user_id', authUser.id)
         .maybeSingle();
 
@@ -2278,7 +2386,7 @@ function App() {
 
         const fallback = await supabase
           .from('user_data')
-          .select('state')
+          .select('state,updated_at')
           .eq('user_id', authUser.id)
           .maybeSingle();
 
@@ -2304,6 +2412,11 @@ function App() {
 
       if (resultData && resultData.state) {
         const backendState = await loadCompanyDataFromBackend(resultData.state.activeCompanyId);
+        // Utgångsläget för sammanslagningen vid sparning (saveOwnCompaniesMerged).
+        serverSyncRef.current = {
+          updatedAt: resultData.updated_at || null,
+          baseCompanies: resultData.updated_at ? structuredClone(resultData.state.companies || {}) : null,
+        };
         // normalizeStore: samma engångsmigrering av offerter/fakturor som
         // loadData() kör för localStorage-vägen — måste köras här också,
         // annars stannar ett Supabase-konto kvar på den gamla delade listan
@@ -2615,10 +2728,9 @@ function App() {
     //   1) __shared-företag sparas ALDRIG i min egen user_data-rad (data
     //      hör hemma hos ägaren) — ett fält i taget via
     //      persistSharedCompanyFields (api/company-access.js).
-    //   2) Mina EGNA företag sparas som förut, en helblobs-upsert — MEN om
-    //      jag själv har delat ett av dem med andra (__hasActiveMembers),
-    //      läses just DET företaget om FÄRSKT precis innan skrivningen
-    //      (fetchFreshOwnCompany) istället för att lita på min ev.
+    //   2) Mina EGNA företag sparas som en helblob, men bara om raden är
+    //      oförändrad sedan förra synken, annars slås den ihop post för
+    //      post (saveOwnCompaniesMerged) istället för att lita på min ev.
     //      förlegade lokala kopia — annars skulle min egen periodiska
     //      sparning kunna tysta skriva över en samtidig editors ändring som
     //      gick via spår (1) ovan sekunder tidigare. Se kommentaren vid
@@ -2632,6 +2744,63 @@ function App() {
 
     return () => timeoutIds.forEach(clearTimeout);
   }, [data, user, isLoggedIn, syncCompanyDataToBackend]);
+
+  // Ett delat företag som bara är hämtat som namn (__stub) hämtas helt när
+  // det öppnas. Måste stå INNAN `if (isLoadingAuth) return ...`.
+  const activeStub = data.companies?.[data.activeCompanyId];
+  const activeIsStub = Boolean(activeStub?.__stub && !activeStub.__stubError);
+  useEffect(() => {
+    if (activeIsStub && user) loadSharedCompanyStub(data.activeCompanyId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIsStub, data.activeCompanyId, user]);
+
+  // Tillbaka till fliken: hämta det någon annan ändrat (ägaren eller en
+  // inbjuden konsult, eller jag själv på en annan enhet) och slå ihop med
+  // det som visas här, utan att ladda om sidan.
+  const refreshFromServerRef = useRef(null);
+  refreshFromServerRef.current = async () => {
+    if (!user || !isLoggedIn || !supabaseEnabled) return;
+    const active = data.companies?.[data.activeCompanyId];
+    if (active?.__shared) {
+      if (active.__stub) return;
+      const accessToken = await getAccessToken();
+      if (!accessToken) return;
+      const companyId = data.activeCompanyId;
+      const res = await fetch(`/api/company-access?company_id=${encodeURIComponent(companyId)}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!res.ok) return;
+      const json = await res.json();
+      const last = lastPersistedSharedFieldsRef.current[companyId];
+      if (!json?.company || !last) return;
+      setData(prev => {
+        const local = prev.companies?.[companyId];
+        if (!local?.__shared) return prev;
+        const merged = mergeCompany(last, local, { ...json.company, __shared: local.__shared });
+        // Det som kom från servern räknas som sparat, så det inte skickas tillbaka.
+        for (const f of SHARED_COMPANY_WRITABLE_FIELDS) if (local[f] === last[f]) last[f] = merged[f];
+        return { ...prev, companies: { ...prev.companies, [companyId]: merged } };
+      });
+      return;
+    }
+    const { data: meta } = await supabase.from('user_data').select('updated_at').eq('user_id', user.id).maybeSingle();
+    if (meta?.updated_at && serverSyncRef.current.updatedAt && meta.updated_at !== serverSyncRef.current.updatedAt) {
+      await syncUserDataNow(); // krocken upptäcks där och slås ihop
+    }
+  };
+  useEffect(() => {
+    if (!isLoggedIn) return undefined;
+    let lastRun = 0;
+    const onFocus = () => {
+      if (document.visibilityState === 'hidden' || Date.now() - lastRun < 15000) return;
+      lastRun = Date.now();
+      refreshFromServerRef.current?.().catch(err => console.warn('Kunde inte hämta ändringar:', err?.message || err));
+    };
+    document.addEventListener('visibilitychange', onFocus);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', onFocus);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [isLoggedIn]);
 
   // ── Avstämning av Stripe-betalningshändelser ────────────────────────────
   // Se den långa kommentaren ovanför stripe_payment_events i
@@ -3137,7 +3306,7 @@ function App() {
     }
   };
 
-  if (isLoadingAuth) {
+  if (isLoadingAuth || activeIsStub) {
     // Tidigare stod en felsökningstext ("Kontrollera att Supabase-nycklar
     // är inlagda") här permanent, synlig för alla vid varje sidladdning —
     // en intern debug-notering som aldrig skulle vara användarvänd.

@@ -5,6 +5,7 @@ import { requireAuthedUser, loadMemberCompany, requireActiveSubscription, requir
 import { checkRateLimit } from './_rateLimit.js';
 import { createClient } from '@supabase/supabase-js';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
+import { mergeField, applyRecordPatch } from '../src/utils/stateMerge.js';
 import { isBolagsverketConfigured, lookupOrgNumber, BolagsverketError } from './_bolagsverket.js';
 
 // Huvudsakligen till för en INBJUDEN användare (se supabase-setup.sql:
@@ -315,6 +316,51 @@ export default async function handler(req, res) {
   if (!user) return;
 
   try {
+    // GET ?list=1: bara namn och uppgifter för varje företag jag är inbjuden
+    // till, i ett anrop. En redovisningskonsult med många kunder ska inte
+    // behöva ladda ned alla kunders bokföring vid inloggningen. Hela
+    // företaget hämtas först när det öppnas (GET ?company_id=X nedan).
+    if (req.method === 'GET' && req.query?.list) {
+      const url = process.env.VITE_SUPABASE_URL;
+      const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!url || !key) {
+        res.status(503).json({ error: 'SUPABASE_SERVICE_ROLE_KEY saknas.' });
+        return;
+      }
+      const admin = createClient(url, key);
+      const { data: memberships, error } = await admin
+        .from('company_members')
+        .select('company_id, owner_user_id, role, page_access')
+        .eq('member_user_id', user.id)
+        .eq('status', 'active');
+      if (error) {
+        res.status(500).json({ error: error.message });
+        return;
+      }
+      const owners = [...new Set((memberships || []).map(m => m.owner_user_id))];
+      const ownerState = new Map();
+      const ownerPaid = new Map();
+      await Promise.all(owners.map(async (ownerId) => {
+        const { data: row } = await admin.from('user_data').select('state').eq('user_id', ownerId).maybeSingle();
+        ownerState.set(ownerId, row?.state?.companies || {});
+        ownerPaid.set(ownerId, await hasPaidAccess(admin, ownerId));
+      }));
+      const companies = (memberships || []).map((m) => {
+        const entry = findCompanyEntry(ownerState.get(m.owner_user_id), m.company_id);
+        if (!entry?.data) return null;
+        return {
+          company_id: m.company_id,
+          owner_user_id: m.owner_user_id,
+          company: entry.data.company || {},
+          role: m.role,
+          pageAccess: m.page_access || null,
+          ownerPaid: ownerPaid.get(m.owner_user_id) !== false,
+        };
+      }).filter(Boolean);
+      res.status(200).json({ companies });
+      return;
+    }
+
     if (req.method === 'GET') {
       const companyId = req.query?.company_id;
       if (!companyId) {
@@ -387,8 +433,12 @@ export default async function handler(req, res) {
     // POST (fältsparning) — postBody parsades redan ovan. Betalkontrollen
     // görs längre ner, när vi vet om anroparen är ägaren (egen prenumeration)
     // eller en inbjuden medlem (ägarens prenumeration).
-    const { company_id: companyId, field, value } = postBody || {};
-    if (!companyId || !field || value === undefined) {
+    // patch = { upsert, remove }: bara de ändrade posterna i en lista (se
+    // makeRecordPatch i src/utils/stateMerge.js), läggs på serverns lista nedan.
+    const { company_id: companyId, field, base, patch } = postBody || {};
+    let { value } = postBody || {};
+    const isPatch = patch && Array.isArray(patch.upsert) && Array.isArray(patch.remove);
+    if (!companyId || !field || (value === undefined && !isPatch)) {
       res.status(400).json({ error: 'company_id, field och value krävs.' });
       return;
     }
@@ -472,7 +522,13 @@ export default async function handler(req, res) {
       }
       ownerUserId = member.ownerUserId;
       companyKey = member.companyKey || companyId;
+      // Medlemmen skickar med vad fältet var när den senast sparade (base).
+      // Har ägaren ändrat samma lista sedan dess slås de ihop post för post
+      // i stället för att medlemmens kopia skriver över ägarens nya poster.
+      if (isPatch) value = applyRecordPatch(member.companyData?.[field], patch);
+      else if (base !== undefined) value = mergeField(base, value, member.companyData?.[field]);
     }
+    if (isPatch && value === undefined) value = applyRecordPatch(ownerCompanyData?.[field], patch);
 
     const { error: rpcError } = await admin.rpc('set_company_field', {
       p_user_id: ownerUserId,
