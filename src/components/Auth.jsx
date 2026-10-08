@@ -150,8 +150,10 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   const runCaptcha = async (ref) => {
     try {
       return await ref.current?.execute();
-    } catch {
-      throw new Error(translateSupabaseAuthError('captcha verification process failed'));
+    } catch (e) {
+      // Orsaken i parentes ("timeout" = Cloudflare gav aldrig någon token),
+      // så att ett fel går att felsöka utifrån en skärmbild.
+      throw new Error(`${translateSupabaseAuthError('captcha verification process failed')} (cloudflare: ${e?.message || 'okänt'})`);
     }
   };
   const signupRecaptchaRef = useRef(null);
@@ -582,8 +584,12 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
         setErrorMsg(
           accountCreated
             ? t('ui.kontot_skapades_men_vi_kunde_inte_skicka_dig_vid', { stripeIssue })
-            : translateSupabaseAuthError(err.message)
+            : (/captcha/i.test(err.message || '') && !/\(cloudflare:/.test(err.message || '')
+              // Supabase avvisade token:en: visa Supabases egna ord också.
+              ? `${translateSupabaseAuthError(err.message)} (supabase: ${err.message})`
+              : translateSupabaseAuthError(err.message))
         );
+        console.error('Registreringen misslyckades:', err);
         if (!accountCreated) newCaptchaRound();
       } finally {
         setLoading(false);
