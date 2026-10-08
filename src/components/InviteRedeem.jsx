@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
 
 // Samma nyckel som App.jsx (redeemPendingInvite) och Auth.jsx
 // (hasPendingInvite) läser — satt EN gång här, konsumeras/rensas där.
@@ -29,8 +30,18 @@ export default function InviteRedeem() {
       const email = searchParams.get('email');
       if (email) sessionStorage.setItem('bokix_pending_invite_email', email);
     }
-    // Den inbjudna har oftast inget konto än: öppna Skapa konto direkt.
-    navigate('/', { replace: true, state: { enterApp: true, authMode: 'signup', invite: true } });
+    // Redan inloggad (t.ex. har konto sedan tidigare): ladda om appen helt,
+    // så att inloggningen körs igen med tokenet på plats och inbjudan löses
+    // in (App.jsx: redeemPendingInvite). Annars hann appen starta före
+    // tokenet sparades och personen hamnade på betalsidan.
+    supabase.auth.getSession().then(({ data }) => {
+      if (data?.session) {
+        window.location.replace('/');
+        return;
+      }
+      // Den inbjudna har oftast inget konto än: öppna Skapa konto direkt.
+      navigate('/', { replace: true, state: { enterApp: true, authMode: 'signup', invite: true } });
+    });
   }, [searchParams, navigate]);
 
   return null;
