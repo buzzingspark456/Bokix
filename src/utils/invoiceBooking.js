@@ -39,8 +39,11 @@ export function invoiceLineNet(row) {
  * @param vatAccounts utgående momskonto per momssats, t.ex. { 25: '2611', 0: null }
  * @param rate växelkurs för en faktura i annan valuta (SEK per enhet); 1 för SEK.
  *   Bokföringen ska vara i kronor, så varje belopp räknas om med kursen.
+ * @param rotRutDeduction ROT/RUT-avdraget i kronor. Den delen av fordran är på
+ *   Skatteverket, inte på kunden, och bokas på 1513 (Kundfordringar – delad
+ *   faktura) i stället för 1510.
  */
-export function invoiceBookingRows(rows, { revenueAccounts = {}, vatAccounts = {}, receivableAccount = '1510', rate = 1 } = {}) {
+export function invoiceBookingRows(rows, { revenueAccounts = {}, vatAccounts = {}, receivableAccount = '1510', rate = 1, rotRutDeduction = 0 } = {}) {
   const fx = Number(rate) > 0 ? Number(rate) : 1;
   const vatByRate = {};
   let gross = 0;
@@ -60,7 +63,10 @@ export function invoiceBookingRows(rows, { revenueAccounts = {}, vatAccounts = {
     gross += net * (1 + rate / 100);
   });
 
-  const out = [signed(receivableAccount, gross, 'debet')];
+  const split = round2(Number(rotRutDeduction) || 0);
+  const out = split !== 0
+    ? [signed(receivableAccount, gross - split, 'debet'), signed('1513', split, 'debet')]
+    : [signed(receivableAccount, gross, 'debet')];
 
   revenue.forEach((amount, account) => { if (round2(amount) !== 0) out.push(signed(account, amount, 'kredit')); });
 

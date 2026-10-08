@@ -26,6 +26,7 @@ import { useTranslation, dateLocale } from '../i18n';
 import { PeriodHeading } from './reports/ReportUI';
 import { overviewPeriodBounds, buildResultSeries, companyFiscalYearSetting } from '../utils/reportCalculations';
 import { layoutRect, layoutViewport } from '../utils/dropdownPlacement';
+import { invoiceCustomerRemaining } from '../utils/rotRutConfig';
 
 // Intäkter-vs-Utgifter-grafens färger kommer numera från paletten
 // (utils/chartPalette.js, se `chart` i komponenten): förvalet är samma
@@ -412,13 +413,6 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // i stället, så de aldrig kan visa ett annat tidsspann än det PeriodPicker
   // faktiskt är satt till. Se kommentaren vid NYCKELTAL-blocket i JSX:en.
 
-  // ── Fakturabelopp inkl. moms — samma formel som App.jsx:s invoiceGross,
-  // upprepad lokalt eftersom den inte exporteras därifrån. ──
-  const invoiceGross = (inv) => (inv.rows || []).reduce((sum, r) => {
-    const lineNet = r.qty * r.unitPrice;
-    return sum + lineNet + lineNet * (r.vatRate / 100);
-  }, 0);
-
   // ── Att göra ──
   // Hela kalenderdagar efter förfallodagen, samma räkning som Utestående.
   // Förut räknades från klockslaget: en faktura som förföll i dag blev
@@ -428,7 +422,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   const unhandledReceipts = expenses.filter(e => !e.costAccount);
   const pendingPayrollRuns = payrollRuns.filter(r => r.completedSteps?.includes('calculated') && !r.completedSteps?.includes('booked'));
 
-  const overdueAmount = overdueInvoices.reduce((sum, i) => sum + Math.max(0, invoiceGross(i) - (i.paidAmount || 0)), 0);
+  const overdueAmount = overdueInvoices.reduce((sum, i) => sum + invoiceCustomerRemaining(i), 0);
   const mostOverdueDays = overdueInvoices.reduce((max, i) => Math.max(max, calendarDaysOverdue(i.dueDate)), 0);
 
   const vatDeadline = useMemo(() => nextVatDeadline(company, vatPeriods), [company, vatPeriods]);
@@ -614,7 +608,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     const unpaidInvoices = (invoices || []).filter(i => i.status === 'sent');
     // Delbetalda fakturor räknas på det som ÅTERSTÅR, inte på hela
     // beloppet — annars säger rutan att man har mer att få in än man har.
-    const receivable = unpaidInvoices.reduce((sum, i) => sum + Math.max(0, invoiceGross(i) - (i.paidAmount || 0)), 0);
+    const receivable = unpaidInvoices.reduce((sum, i) => sum + invoiceCustomerRemaining(i), 0);
     const overdueIn = unpaidInvoices.filter(i => daysOverdue(i.dueDate) > 0);
     const oldestOverdue = overdueIn.reduce((max, i) => Math.max(max, daysOverdue(i.dueDate)), 0);
 
@@ -633,7 +627,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
       ...unpaidInvoices.map(i => ({
         key: `in-${i.id}`, dir: 'in', tab: 'invoices',
         name: nameOf(i.customerId, i.invoiceNumber ? `#${i.invoiceNumber}` : ''),
-        amount: Math.max(0, invoiceGross(i) - (i.paidAmount || 0)), dueDate: i.dueDate, overdue: daysOverdue(i.dueDate),
+        amount: invoiceCustomerRemaining(i), dueDate: i.dueDate, overdue: daysOverdue(i.dueDate),
       })),
       ...unpaidSupplier.map(e => ({
         key: `out-${e.id}`, dir: 'out', tab: 'expenses',

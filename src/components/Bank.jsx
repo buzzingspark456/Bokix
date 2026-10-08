@@ -18,6 +18,8 @@ import { guessAccountFromText } from '../utils/accountCategories';
 import Reconciliation from './Reconciliation';
 import { bankHeaderLabel } from '../utils/bankHeaderLabels';
 import { t as tr } from '../i18n';
+import { invoiceCustomerRemaining } from '../utils/rotRutConfig';
+import { reconcileImportedSales } from '../utils/importedSalesReconcile';
 
 // Bank – CSV/Excel-import. `bankImport.js` (parsning/normalisering/
 // matchningsförslag, statisk import av papaparse+xlsx) laddas BARA lazy
@@ -69,17 +71,12 @@ function StatusBadge({ status }) {
 }
 
 // ── Matchningskandidater (fullständig lista, inte bara "bästa gissning") ──
-function invoiceGross(inv) {
-  return (inv.rows || []).reduce((sum, r) => {
-    const lineNet = (r.qty || 0) * (r.unitPrice || 0);
-    return sum + lineNet + lineNet * ((r.vatRate || 0) / 100);
-  }, 0);
-}
 function invoiceCandidates(invoices, contacts) {
   return (invoices || [])
     .filter(inv => inv.status !== 'paid' && inv.status !== 'draft')
     .map(inv => {
-      const remaining = Math.max(0, invoiceGross(inv) - (inv.paidAmount || 0));
+      // Kundens del: vid ROT/RUT betalar kunden fakturan minus avdraget.
+      const remaining = invoiceCustomerRemaining(inv);
       const customer = (contacts || []).find(c => c.id === inv.customerId);
       return { id: inv.id, remaining, label: tr('ui.kr_3', { invoiceNumber: inv.invoiceNumber, v1: customer?.name || 'okänd kund', v2: fmt(remaining) }) };
     })
@@ -201,6 +198,19 @@ export default function Bank({
     onSetBankTransactions(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t));
   };
 
+  // Försäljning som importerats från en annan app (ROT/RUT-importen) är
+  // redan bokförd per dag. Kundernas Swish-betalningar på samma dag stäms av
+  // mot den i ett svep i stället för att ignoreras rad för rad
+  // (utils/importedSalesReconcile.js).
+  const hasImportedSales = verifications.some(v => v.source === 'rotrut_import');
+  const [reconcileResult, setReconcileResult] = useState(null);
+  const handleReconcileImported = () => {
+    const r = reconcileImportedSales(bankTransactions, verifications, (row) => accountById(accountIdOf(row)).ledgerAccount);
+    const byId = new Map(r.updates.map(u => [u.id, u.patch]));
+    if (byId.size) onSetBankTransactions(prev => prev.map(t => (byId.has(t.id) ? { ...t, ...byId.get(t.id) } : t)));
+    setReconcileResult(r);
+  };
+
   // Efter en lyckad import: en förvald 90-dagarsfiltrering (se dateFrom
   // ovan, motiveringen finns i planen — ingen paginering finns i appen) kan
   // annars tyst gömma nyss importerade rader om kontoutdraget sträcker sig
@@ -288,7 +298,8 @@ export default function Bank({
   };
 
   const handleQuickBook = (row, { date, description, series, counterAccount }) => {
-    const amount = Math.round(Math.abs(row.amount));
+    // Med ören: bokföringen ska ha beloppet exakt som på kontoutdraget.
+    const amount = Math.round(Math.abs(row.amount) * 100) / 100;
     const isInflow = row.amount > 0;
     // Vilket bankkonto raden faktiskt kom ifrån (flera bankkonton,
     // kundönskemål) — inte längre alltid 1930.
@@ -320,6 +331,7 @@ export default function Bank({
           // Visas bara när det FINNS en ohanterad importomgång att ångra —
           // en permanent "Ångra"-knapp bredvid "Importera" hade sett ut som
           // en lika stor och lika vanlig handling som importen själv.
+          ...(hasImportedSales ? [{ key: 'reconcile-imported', label: tr('bankReconcile.button'), icon: CheckCircle2, onClick: handleReconcileImported }] : []),
           ...(latestBatch ? [{ key: 'undo', label: tr('ui.angra_import', { count: latestBatch.count }), icon: Undo2, onClick: handleUndoImport }] : []),
           { key: 'import', label: tr('ui.importera_transaktioner'), icon: Upload, onClick: () => setShowImportModal(true), variant: 'primary' },
         ]}
@@ -336,6 +348,18 @@ export default function Bank({
           onChange: setActiveTab,
         }}
       />
+
+      {reconcileResult && (
+        <div style={{ margin: '12px 20px 0', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', lineHeight: 1.55, background: reconcileResult.unmatchedDays.length ? 'var(--status-amber-bg)' : 'var(--status-green-bg)', color: reconcileResult.unmatchedDays.length ? 'var(--status-amber-text)' : 'var(--status-green-text)', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+          <div style={{ flex: 1 }}>
+            <div>{tr('bankReconcile.result', { rows: reconcileResult.updates.length, days: reconcileResult.matchedDays })}</div>
+            {reconcileResult.unmatchedDays.length > 0 && (
+              <div>{tr('bankReconcile.unmatched', { list: reconcileResult.unmatchedDays.slice(0, 8).map(d => tr('bankReconcile.day', { date: d.date, expected: d.expected.toLocaleString('sv-SE'), found: d.found.toLocaleString('sv-SE') })).join('; ') })}</div>
+            )}
+          </div>
+          <button type="button" onClick={() => setReconcileResult(null)} aria-label={tr('ui.stang')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0 }}><X size={14} /></button>
+        </div>
+      )}
 
       {activeTab !== 'reconcile' && <ListFilterBar
         onClear={() => { setSearch(''); setDateFrom(''); setDateTo(''); setSelectedAccountId('all'); }}

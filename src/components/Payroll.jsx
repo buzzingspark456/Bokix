@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { Plus, ChevronRight, UsersRound, UserCog, CalendarClock, Search, Palmtree } from './icons';
+import { Plus, ChevronRight, UsersRound, UserCog, CalendarClock, Search, Palmtree, Download, Upload, Landmark } from './icons';
+import EmployeeImportModal from './EmployeeImportModal';
+import FosModal from './FosModal';
+import { downloadCsv } from '../utils/csvRegister';
+import { employeesToCsv } from '../utils/employeeCsv';
 import VacationOverview from './VacationOverview';
 import EmployeeForm from './EmployeeForm';
 import PayrollRunDetail from './PayrollRunDetail';
@@ -12,10 +16,10 @@ import { MobileFormMode } from './shared/MobileForm';
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 const inputSt = { width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' };
 const labelSt = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' };
-const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid #ececef', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)', overflow: 'hidden' };
+const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-xs)', overflow: 'hidden' };
 
 export default function Payroll({
-  company, employees = [], onSaveEmployee, accounts = [], projects = [],
+  company, employees = [], onSaveEmployee, onImportEmployees, onApplyFos, onSyncBeforeServerCall, accounts = [], projects = [],
   payrollRuns = [], onCreateRun, onUpdateRunRow, onAdvanceRunStep, onBookRun, onMarkRunPaid, onRefreshRunSnapshots,
 }) {
   const [activeTab, setActiveTab] = useState('employees');
@@ -26,6 +30,8 @@ export default function Payroll({
   const [selectedRunId, setSelectedRunId] = useState(null);
 
   const [showNewRun, setShowNewRun] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [showFos, setShowFos] = useState(false);
   const [newRunPeriod, setNewRunPeriod] = useState(new Date().toISOString().slice(0, 7));
   const [newRunPayDate, setNewRunPayDate] = useState('');
 
@@ -71,6 +77,8 @@ export default function Payroll({
       <PayrollRunDetail
         run={selectedRun}
         previousRun={previousRun}
+        allRuns={payrollRuns}
+        onSyncBeforeServerCall={onSyncBeforeServerCall}
         accounts={accounts}
         company={company}
         onBack={() => setSelectedRunId(null)}
@@ -92,7 +100,12 @@ export default function Payroll({
         title={t('ui.anstallda_och_lon')}
         actions={
           activeTab === 'employees' && viewState === 'list'
-            ? [{ key: 'new-employee', label: t('ui.ny_anstalld'), icon: Plus, onClick: () => { setSelectedEmployee(null); setViewState('new'); }, variant: 'primary' }]
+            ? [
+                ...(employees.length > 0 ? [{ key: 'export-employees', label: t('employeeImport.export_button'), icon: Download, onClick: () => downloadCsv(`anstallda_${new Date().toISOString().slice(0, 10)}.csv`, employeesToCsv(employees)) }] : []),
+                ...(onApplyFos && employees.length > 0 ? [{ key: 'fos', label: t('fos.button'), icon: Landmark, onClick: () => setShowFos(true) }] : []),
+                ...(onImportEmployees ? [{ key: 'import-employees', label: t('employeeImport.import_button'), icon: Upload, onClick: () => setShowImport(true) }] : []),
+                { key: 'new-employee', label: t('ui.ny_anstalld'), icon: Plus, onClick: () => { setSelectedEmployee(null); setViewState('new'); }, variant: 'primary' },
+              ]
             : activeTab === 'runs'
               ? [{
                   key: 'new-run', label: t('ui.ny_lonekorning'), icon: Plus, variant: 'primary',
@@ -250,7 +263,7 @@ export default function Payroll({
               marginal (de är fristående kort, inte tabellen), men
               ListTable nedan är nu flush precis som överallt annars. */}
           {showNewRun && (
-            <div style={{ ...panelCard, padding: '20px', margin: '20px 24px 0' }}>
+            <div style={{ ...panelCard, padding: '20px', margin: '20px 24px 20px' }}>
               <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700 }}>{t('ui.ny_lonekorning')}</h3>
               {/* Radbryter på smal skärm: två fasta 180px-fält bredvid varandra
                   stack ut över kanten på en telefon. */}
@@ -325,6 +338,16 @@ export default function Payroll({
         </div>
       )}
       </div>
+      {showFos && (
+        <FosModal company={company} employees={employees} onApply={onApplyFos} onClose={() => setShowFos(false)} />
+      )}
+      {showImport && (
+        <EmployeeImportModal
+          employees={employees}
+          onImport={(rows) => { onImportEmployees(rows); setShowImport(false); }}
+          onClose={() => setShowImport(false)}
+        />
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { invoiceCustomerRemaining } from '../../src/utils/rotRutConfig.js';
 
 // Säkerhetsfix (se säkerhetsgranskningen): `create-checkout-session.js`
 // tog tidigare emot `line_items`/`application_fee_amount` RAKT från
@@ -45,22 +46,26 @@ export async function resolveInvoiceLineItems({ userId, companyId, invoiceId }) 
     return { error: 'Stripe är inte anslutet för det här företaget.', status: 400 };
   }
 
-  // Samma beräkning som App.jsx:s getInvoicePaymentLinkUrl gjorde
-  // client-side tidigare — flyttad hit, inte ändrad.
+  // Beloppet är det kunden har kvar att betala, exakt som fakturan visar
+  // det: med moms, radrabatt och ören, minus ROT/RUT-avdraget (som
+  // Skatteverket betalar) och minus det som redan betalats. Tidigare byggdes
+  // en Stripe-rad per fakturarad av `unitPrice`, som är priset UTAN moms,
+  // och antal avrundades till heltal. En faktura på 1 000 kr + moms drogs
+  // då som 1 000 kr, och betalningen räckte aldrig för att fakturan skulle
+  // bli betald.
   const currency = (invoice.currency || 'SEK').toLowerCase();
-  const lineItems = (invoice.rows || [])
-    .filter(r => r.description && r.unitPrice > 0)
-    .map(r => ({
-      price_data: {
-        currency,
-        product_data: { name: r.description },
-        unit_amount: Math.round((r.unitPrice || 0) * 100),
-      },
-      quantity: Math.max(1, Math.round(r.qty || 1)),
-    }));
-  if (lineItems.length === 0) {
-    return { error: 'Fakturan saknar giltiga rader.', status: 400 };
+  const dueOre = Math.round(invoiceCustomerRemaining(invoice) * 100);
+  if (dueOre <= 0) {
+    return { error: 'Fakturan är redan betald.', status: 400 };
   }
+  const lineItems = [{
+    price_data: {
+      currency,
+      product_data: { name: `Faktura ${invoice.invoiceNumber || ''}`.trim() },
+      unit_amount: dueOre,
+    },
+    quantity: 1,
+  }];
 
   // Bokix egen avgift — kundbeslut: ska följa Stripes EGEN avgift (inte
   // vara en fast, orelaterad procentsats) plus Bokix egen marginal ovanpå.

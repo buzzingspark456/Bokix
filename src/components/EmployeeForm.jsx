@@ -223,6 +223,19 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
 
         <div style={{ marginTop: '16px' }}>
           <label style={labelStyle}>{tr('ui.skattetabell_2')}</label>
+          {/* Hämtat via Fråga om skatteavdrag (FosModal): visa varifrån och
+              ett eventuellt jämkningsbeslut, som gäller i stället för tabellen. */}
+          {(form.taxFetchedAt || form.taxAdjustment) && (
+            <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 10px', lineHeight: 1.5 }}>
+              {form.taxFetchedAt && <div>{tr('fos.formFetched', { date: form.taxFetchedAt })}</div>}
+              {form.taxAdjustment && (
+                <div>
+                  {tr('fos.formAdjustment', { percent: form.taxAdjustment.percent, from: form.taxAdjustment.from, to: form.taxAdjustment.to })}{' '}
+                  <button type="button" onClick={() => set('taxAdjustment', null)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--status-red-text)', textDecoration: 'underline', cursor: 'pointer', fontSize: '12.5px', fontFamily: 'inherit' }}>{tr('fos.formRemove')}</button>
+                </div>
+              )}
+            </div>
+          )}
           {(() => {
             const chosen = String(form.taxTable.tabellnr || '');
             const suggestion = suggestTaxTables(form.municipality);

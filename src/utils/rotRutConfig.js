@@ -35,5 +35,29 @@ export function calcRotRutDeduction(rotRutType, rows) {
   const rate = ROT_RUT_RATES[rotRutType]?.percent || 0;
   if (!rate) return { rate: 0, laborGross: 0, deduction: 0 };
   const laborGross = (rows || []).filter(r => r.rotRutLabor).reduce((sum, r) => sum + rowGross(r), 0);
-  return { rate, laborGross, deduction: Math.round(laborGross * rate / 100) };
+  // Avrundas NEDÅT till hela kronor: Skatteverket godtar aldrig ett begärt
+  // belopp som är större än det kunden betalat för arbetet, och med 50 %
+  // RUT på t.ex. 717 kr skulle 358,50 avrundat uppåt bli 359 mot 358 betalt.
+  // Mot noll för en kreditfaktura (negativa rader), så att krediten vänder
+  // exakt det originalet bokade: -358, inte -359.
+  const raw = Math.round(laborGross * rate) / 100;
+  return { rate, laborGross, deduction: Math.sign(raw) * Math.floor(Math.abs(raw)) || 0 };
+}
+
+/** Det kunden själv ska betala på en faktura: hela beloppet minus ROT/RUT-
+ * avdraget, som Skatteverket betalar i stället. Har Skatteverket avslagit
+ * begäran (`rotRutStatus: 'rejected'`) ska kunden betala hela beloppet.
+ * Fakturor i annan valuta kan inte ha husavdrag, och räknas som förut. */
+export function invoiceCustomerDue(inv) {
+  const gross = (inv?.rows || []).reduce((sum, r) => sum + rowGross(r), 0) || Number(inv?.amount) || 0;
+  if (!inv?.rotRutType || inv.rotRutStatus === 'rejected') return gross;
+  if ((inv.currency || 'SEK') !== 'SEK') return gross;
+  // Det belopp som bokades på 1513 när fakturan skapades, om det finns.
+  const deduction = inv.rotRutBookedDeduction ?? calcRotRutDeduction(inv.rotRutType, inv.rows).deduction;
+  return gross - deduction;
+}
+
+/** Kvar för kunden att betala. */
+export function invoiceCustomerRemaining(inv) {
+  return Math.max(0, invoiceCustomerDue(inv) - (Number(inv?.paidAmount) || 0));
 }

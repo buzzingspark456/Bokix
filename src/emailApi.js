@@ -49,6 +49,12 @@ export async function sendInvoiceEmail(payload) {
   return requestEmailApi('send-invoice', payload);
 }
 
+/** Mejlar ett lönebesked. Mottagaren slås upp på servern ur den anställdas
+ * sparade e-post (api/email/send-payslip.js), därför skickas bara id:t. */
+export async function sendPayslipEmail({ companyId, employeeId, period, attachmentBase64 }) {
+  return requestEmailApi('send-payslip', { company_id: companyId, employee_id: employeeId, period, attachmentBase64 });
+}
+
 /** Sida 33, Steg 2 — skapar en avsändardomän hos Resend och returnerar de
  * DNS-poster (SPF/DKIM) företaget ska lägga till hos sin egen
  * domänleverantör. */

@@ -10,12 +10,12 @@ const fmt = (v) => new Intl.NumberFormat('sv-SE').format(v || 0);
  */
 export default function CalculationRow({ label, formula, result }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '16px', padding: '9px 0', borderBottom: '1px solid var(--border-light)' }}>
-      <div style={{ minWidth: '220px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)' }}>{label}</div>
-      <div style={{ flex: 1, fontSize: '12.5px', color: 'var(--text-muted)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{formula}</div>
-      {result !== null && result !== undefined && (
-        <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{fmt(result)} {t('ui.kr')}</div>
-      )}
+    <div className="calc-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 220px) minmax(0, 1fr) auto', columnGap: '16px', alignItems: 'baseline', padding: '10px 0', borderBottom: '1px solid var(--border-light)' }}>
+      <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-main)' }}>{label}</div>
+      <div className="calc-row-formula" style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: 1.5, fontVariantNumeric: 'tabular-nums' }}>{formula}</div>
+      <div style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--text-main)', whiteSpace: 'nowrap', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+        {result !== null && result !== undefined ? `${fmt(result)} ${t('ui.kr')}` : ''}
+      </div>
     </div>
   );
 }

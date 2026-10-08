@@ -104,3 +104,21 @@ describe('grossInvoiceAmount med rabatt', () => {
     expect(grossInvoiceAmount({ rows: [{ qty: 2, unitPrice: 500, vatRate: 25 }] })).toBe(1250)
   })
 })
+
+describe('ROT/RUT-avdrag', () => {
+  it('avdraget bokas på 1513 och resten på 1510, balanserat', () => {
+    const rows = invoiceBookingRows([{ qty: 1, unitPrice: 4000, vatRate: 25 }], { revenueAccounts: { 25: '3001' }, vatAccounts: { 25: '2611' }, rotRutDeduction: 1500 })
+    expect(rows.find(r => r.account === '1510').debet).toBe(3500)
+    expect(rows.find(r => r.account === '1513').debet).toBe(1500)
+    const d = rows.reduce((s, r) => s + r.debet - r.kredit, 0)
+    expect(Math.abs(d)).toBeLessThan(0.001)
+  })
+})
+
+describe('ROT/RUT-kreditfaktura', () => {
+  it('krediten vänder både 1510 och 1513', () => {
+    const rows = invoiceBookingRows([{ qty: 1, unitPrice: -4000, vatRate: 25 }], { revenueAccounts: { 25: '3001' }, vatAccounts: { 25: '2611' }, rotRutDeduction: -1500 })
+    expect(rows.find(r => r.account === '1510').kredit).toBe(3500)
+    expect(rows.find(r => r.account === '1513').kredit).toBe(1500)
+  })
+})

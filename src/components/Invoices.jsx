@@ -34,7 +34,9 @@ import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { grossInvoiceAmount as grossOf } from '../utils/reportCalculations';
 import { hasSeenInvoiceTour, startInvoiceTour } from '../utils/invoiceTour';
 import { waitForElement } from '../utils/productTour';
-import { ROT_RUT_RATES, ROT_RUT_COMBINED_CAP, calcRotRutDeduction } from '../utils/rotRutConfig';
+import { ROT_RUT_RATES, ROT_RUT_COMBINED_CAP, calcRotRutDeduction, invoiceCustomerRemaining } from '../utils/rotRutConfig';
+import { workTypesFor, RUT_FLAT_RATE_TYPES } from '../utils/rotRutRequest';
+import RotRutRequestModal from './RotRutRequestModal';
 import { t as tr, dateLocale } from '../i18n';
 
 const newRowId = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `row_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -218,7 +220,15 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   // customerType === 'se_individual', se Contacts.jsx), aldrig företag.
   // 'none' | 'rot' | 'rut'. Se utils/rotRutConfig.js för procentsatser/tak
   // och varför avdraget räknas på arbetsradernas BRUTTObelopp (inkl. moms).
-  const [rotRutType, setRotRutType] = useState(initial?.rotRutType || 'none');
+  const [rotRutTypeChoice, setRotRutType] = useState(initial?.rotRutType || 'none');
+  // Uppgifter som Skatteverket kräver i begäran om utbetalning (se
+  // utils/rotRutRequest.js): typ av arbete, timmar och, för ROT, fastigheten
+  // eller bostadsrättsföreningen och lägenheten.
+  const [rotRutWorkType, setRotRutWorkType] = useState(initial?.rotRutWorkType || '');
+  const [rotRutHours, setRotRutHours] = useState(initial?.rotRutHours ?? '');
+  const [rotRutProperty, setRotRutProperty] = useState(initial?.rotRutProperty || '');
+  const [rotRutBrfOrgNr, setRotRutBrfOrgNr] = useState(initial?.rotRutBrfOrgNr || '');
+  const [rotRutApartment, setRotRutApartment] = useState(initial?.rotRutApartment || '');
   const [invoiceType, setInvoiceType] = useState('Faktura');
   const [terms, setTerms] = useState('30 dagar');
   // Bugkritiskt: sparades tidigare aldrig med på fakturan (se handleSave
@@ -227,6 +237,8 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   // och öppnades på nytt, eller när en betalningslänk skapades (som därför
   // alltid hårdkodade 'sek' oavsett vad som stod här).
   const [currency, setCurrency] = useState(initial?.currency || 'SEK');
+  // Husavdrag finns bara för fakturor i kronor (Skatteverket betalar ut i kronor).
+  const rotRutType = currency === 'SEK' ? rotRutTypeChoice : 'none';
   // Växelkursen (SEK per en enhet av valutan) som fakturan bokförs med.
   // Bokföringen ska vara i kronor, så en faktura i EUR bokförs med beloppet
   // gånger kursen. Hämtas för fakturadatumet (ECB:s referenskurs, se
@@ -383,7 +395,10 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   const customerHasPersonnummer = Boolean(customer?.orgNr?.trim());
 
   const alreadyPaid = initial?.paidAmount || 0;
-  const remainingDue = Math.max(0, totals.total - alreadyPaid);
+  // Vid ROT/RUT betalar kunden fakturan minus avdraget (resten kommer från
+  // Skatteverket), utom när Skatteverket har avslagit begäran.
+  const customerDue = rotRutType !== 'none' && initial?.rotRutStatus !== 'rejected' ? amountAfterRotRut : totals.total;
+  const remainingDue = Math.max(0, customerDue - alreadyPaid);
 
   // Fylla i betalningsformuläret med rimliga defaults (hela kvarvarande
   // beloppet, dagens datum) varje gång det öppnas.
@@ -520,6 +535,16 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
     setTimeout(prepareEmailAttachments, 0);
   };
 
+  const rotRutFields = () => (rotRutType === 'none'
+    ? { rotRutWorkType: undefined, rotRutHours: undefined, rotRutProperty: undefined, rotRutBrfOrgNr: undefined, rotRutApartment: undefined }
+    : {
+        rotRutWorkType: workTypesFor(rotRutType).includes(rotRutWorkType) ? rotRutWorkType : undefined,
+        rotRutHours: rotRutHours === '' ? undefined : Number(rotRutHours),
+        rotRutProperty: rotRutType === 'rot' ? rotRutProperty.trim() || undefined : undefined,
+        rotRutBrfOrgNr: rotRutType === 'rot' ? rotRutBrfOrgNr.trim() || undefined : undefined,
+        rotRutApartment: rotRutType === 'rot' ? rotRutApartment.trim() || undefined : undefined,
+      });
+
   const handleSave = (status = 'draft') => {
     const rate = Number(String(fxRate).replace(',', '.'));
     if (currency !== 'SEK' && !(rate > 0)) {
@@ -530,7 +555,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
     // "Spara"-knapp) så en kommentar man skrivit på en NY, ännu osparad
     // faktura faktiskt följer med — annars gick den förlorad eftersom
     // Kommentar-knappen tidigare var helt avstängd innan första sparningen.
-    onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, projectId: projectId || undefined, priceInclVat, rotRutType: rotRutType !== 'none' ? rotRutType : undefined, internalNote: commentDraft, invoiceTemplateSnapshot, currency, fxRate: currency !== 'SEK' ? rate : undefined });
+    onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, projectId: projectId || undefined, priceInclVat, rotRutType: rotRutType !== 'none' && currency === 'SEK' ? rotRutType : undefined, ...(currency === 'SEK' ? rotRutFields() : {}), internalNote: commentDraft, invoiceTemplateSnapshot, currency, fxRate: currency !== 'SEK' ? rate : undefined });
   };
 
   const handleDownloadPdf = async () => {
@@ -1014,7 +1039,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
             {/* Husavdrag (ROT/RUT) — bara relevant när kunden är en
                 privatperson, aldrig ett företag. Döljs helt annars istället
                 för att visas gråad/förklaras varför den inte går att välja. */}
-            {customerIsIndividual && (
+            {customerIsIndividual && currency === 'SEK' && (
               <div style={{ marginTop: '16px' }}>
                 <label style={lbl}>{tr('ui.husavdrag')}</label>
                 <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '9px', overflow: 'hidden', maxWidth: '300px' }}>
@@ -1034,8 +1059,44 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                       </p>
                     )}
                     <p style={{ margin: 0 }}>
-                      {tr('ui.avdraget_raknas_bara_pa_rader_markta_arbete_neda')} {ROT_RUT_RATES[rotRutType].label} {tr('ui.och_eventuellt_andra_husavdrag_delar_samma_tak_p')} {new Intl.NumberFormat('sv-SE').format(ROT_RUT_COMBINED_CAP)} {tr('ui.kr_per_person_och_ar_bokix_haller_idag_inte_reda')}
+                      {tr('ui.avdraget_raknas_bara_pa_rader_markta_arbete_neda')} {ROT_RUT_RATES[rotRutType].label} {tr('ui.och_eventuellt_andra_husavdrag_delar_samma_tak_p')} {new Intl.NumberFormat('sv-SE').format(ROT_RUT_COMBINED_CAP)} {tr('rotRut.capNote')}
                     </p>
+                  </div>
+                )}
+                {rotRutType !== 'none' && (
+                  <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginTop: '12px' }}>
+                    <div>
+                      <label style={lbl}>{tr('rotRut.workType')}</label>
+                      <select value={workTypesFor(rotRutType).includes(rotRutWorkType) ? rotRutWorkType : ''} onChange={e => setRotRutWorkType(e.target.value)} style={inp}>
+                        <option value="">{tr('rotRut.chooseWorkType')}</option>
+                        {workTypesFor(rotRutType).map(w => <option key={w} value={w}>{tr(`rotRut.work.${w}`)}</option>)}
+                      </select>
+                    </div>
+                    {!RUT_FLAT_RATE_TYPES.includes(rotRutWorkType) && (
+                      <div>
+                        <label style={lbl}>{tr('rotRut.hours')}</label>
+                        <input inputMode="numeric" value={rotRutHours} onChange={e => setRotRutHours(e.target.value.replace(/\D/g, '').slice(0, 3))} style={inp} placeholder="8" />
+                      </div>
+                    )}
+                    {rotRutType === 'rot' && (
+                      <>
+                        <div>
+                          <label style={lbl}>{tr('rotRut.property')}</label>
+                          <input value={rotRutProperty} onChange={e => setRotRutProperty(e.target.value.slice(0, 40))} style={inp} placeholder={tr('rotRut.propertyPlaceholder')} />
+                        </div>
+                        <div>
+                          <label style={lbl}>{tr('rotRut.brfOrgNr')}</label>
+                          <input inputMode="numeric" value={rotRutBrfOrgNr} onChange={e => setRotRutBrfOrgNr(e.target.value.slice(0, 13))} style={inp} placeholder="769600-0000" />
+                        </div>
+                        <div>
+                          <label style={lbl}>{tr('rotRut.apartment')}</label>
+                          <input value={rotRutApartment} onChange={e => setRotRutApartment(e.target.value.slice(0, 25))} style={inp} placeholder="1102" />
+                        </div>
+                      </>
+                    )}
+                    <div style={{ gridColumn: '1 / -1', fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                      {tr(rotRutType === 'rot' ? 'rotRut.formHelpRot' : 'rotRut.formHelpRut')}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1881,7 +1942,7 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onS
 
       const html = `
         <p>Hej${customer?.contactPerson ? ' ' + customer.contactPerson : ''},</p>
-        <p>Här är en betalningslänk för faktura <strong>${invoice.invoiceNumber}</strong> på <strong>${fmt(grossOf(invoice))} kr</strong>${attachmentBase64 ? ', med fakturan bifogad som PDF' : ''}.</p>
+        <p>Här är en betalningslänk för faktura <strong>${invoice.invoiceNumber}</strong> på <strong>${fmt(invoiceCustomerRemaining(invoice))} kr</strong>${attachmentBase64 ? ', med fakturan bifogad som PDF' : ''}.</p>
         <p style="margin: 20px 0;">
           <a href="${url}" style="display:inline-block;padding:12px 26px;background:#0b6329;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">Betala nu</a>
         </p>
@@ -1967,7 +2028,7 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onS
   );
 }
 
-export default function Invoices({ ufQuota = { limited: false }, invoices, contacts, accounts = [], onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, setInvoices, company, globalAction, clearGlobalAction, verifications = [], onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [], onSyncBeforeServerCall }) {
+export default function Invoices({ ufQuota = { limited: false }, invoices, contacts, accounts = [], onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, onRotRutRequested, onRotRutPayout, onRotRutRejected, onImportRotRutBookings, onRotRutBatchRequested, onRotRutBatchPayout, setInvoices, company, globalAction, clearGlobalAction, verifications = [], onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [], onSyncBeforeServerCall }) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   // react-routers setSearchParams navigerar till bara "?…" och tappar
@@ -1996,6 +2057,12 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
   const [searchInput, setSearchInput] = useState('');
   const search = useDebouncedValue(searchInput, 300);
   const [showExtendedSearch, setShowExtendedSearch] = useState(false);
+  // ROT/RUT-begäran till Skatteverket (RotRutRequestModal). Knappen visas
+  // bara för den som faktiskt har fakturor med husavdrag.
+  const [showRotRut, setShowRotRut] = useState(false); // false | 'new' | 'import'
+  const rotRutBatches = company?.rotRutBatches || [];
+  const hasRotRut = invoices.some(i => i.rotRutType) || rotRutBatches.length > 0;
+  const rotRutToRequest = invoices.filter(i => i.rotRutType && !i.rotRutStatus && !i.creditFor && i.status === 'paid').length;
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [amountMin, setAmountMin] = useState('');
@@ -2051,6 +2118,12 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
       setShowForm(true); setEditingInvoice(null);
       setInvoicePrefill(globalAction.payload || null);
       clearGlobalAction?.();
+    }
+    // Inställningar → Importera → ROT/RUT-uppdrag från en annan app.
+    if (globalAction?.type === 'rotrut_import') {
+      setShowRotRut('import');
+      clearGlobalAction?.();
+      return;
     }
     // Kundönskemål: Granskningskön (ReviewQueue.jsx) visade en Stripe-
     // betalnings ihopmatchade faktura bara som ett rått id-textsträng —
@@ -2201,7 +2274,14 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
       type: 'invoice',
       invoiceNumber: nextNum,
       creditFor: original.invoiceNumber,
+      // ROT/RUT som inte begärts än: krediten tar även bort avdraget (1513),
+      // och originalet ska inte längre dyka upp som att begära. Är avdraget
+      // redan begärt eller utbetalt krediteras bara som vanligt.
+      ...(original.rotRutType && !original.rotRutStatus ? { rotRutType: original.rotRutType } : {}),
     });
+    if (original.rotRutType && !original.rotRutStatus) {
+      setInvoices(prev => prev.map(i => (i.id === original.id ? { ...i, rotRutStatus: 'credited' } : i)));
+    }
     closeForm();
   };
 
@@ -2586,6 +2666,11 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
                 : tr('ui.av_fakturor_kvar_idag', { remaining: ufQuota.remaining, limit: ufQuota.limit })}
             </span>
           )}
+          {hasRotRut && (
+            <button onClick={() => setShowRotRut('new')} style={listHeaderButtonStyle('secondary')} title={tr('rotRut.buttonTitle')}>
+              {tr('rotRut.button')}{rotRutToRequest > 0 ? ` (${rotRutToRequest})` : ''}
+            </button>
+          )}
           <button
             className="inv-cta page-fab" data-tour="page-invoices-cta" data-inv-tour="create-cta"
             onClick={() => { setShowForm(true); setEditingInvoice(null); setInvoicePrefill(null); }}
@@ -2749,6 +2834,24 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
         </div>
       )}
     </div>
+
+    {showRotRut && (
+      <RotRutRequestModal
+        invoices={invoices}
+        contacts={contacts}
+        company={company}
+        batches={rotRutBatches}
+        uid={uid}
+        initialTab={showRotRut}
+        onImportBookings={onImportRotRutBookings}
+        onBatchRequested={onRotRutBatchRequested}
+        onBatchPayout={onRotRutBatchPayout}
+        onRequested={onRotRutRequested}
+        onPayout={onRotRutPayout}
+        onRejected={onRotRutRejected}
+        onClose={() => setShowRotRut(false)}
+      />
+    )}
 
     {paymentLinkInvoice && onGetPaymentLinkUrl && (
       <PaymentLinkModal

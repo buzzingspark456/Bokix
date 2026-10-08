@@ -1,15 +1,17 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2, ExternalLink, RefreshCw, Landmark, CreditCard, Trash2,
-  Wallet, Receipt, Banknote, ShieldCheck,
+  Upload, Send,
 } from './icons';
+import { sendPayslipEmail } from '../emailApi';
+import { parsePayrollHours } from '../utils/payrollHoursImport';
 import CalculationRow from './shared/CalculationRow';
 import ListPageHeader from './shared/ListPageHeader';
 import { BRAND } from '../utils/brandColors';
 import { computeEmployeePayroll, summarizePayrollRun, FEE_RULES_VERSION } from '../utils/payrollCalculation';
 import { PAY_TYPE_GROUPS, PAY_LINE_KINDS, getPayType, defaultRateFor } from '../utils/payTypes';
 import { PAYROLL_RUN_STEPS, PAYROLL_ACCOUNTS } from '../utils/payrollConfig';
-import { generatePayslipPdf } from '../utils/payslipExport';
+import { generatePayslipPdf, generateAllPayslipsPdf, yearToDate } from '../utils/payslipExport';
 import { describeRow } from '../utils/plainBooking';
 import { downloadAgiPdf } from '../utils/agiExport';
 import { downloadAgiXml } from '../utils/agiXml';
@@ -20,7 +22,7 @@ import { t as tr } from '../i18n';
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE').format(Math.round(v || 0));
 const fmtSigned = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${new Intl.NumberFormat('sv-SE').format(Math.round(Math.abs(v || 0)))} kr`;
-const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid #ececef', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' };
+const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-xs)' };
 
 function StatusBadge({ status }) {
   const map = {
@@ -39,14 +41,14 @@ function StatusBadge({ status }) {
 // alla större SaaS-produkter) gör klart/kommande/framtida läsbart på en
 // blick, oavsett färgseende. Bocken ersätter siffran när steget är klart,
 // linjen till NÄSTA cirkel färgas i så fort steget FÖRE den är klart.
-function StepButtons({ completedSteps, onAdvance, canBook }) {
+function StepButtons({ completedSteps, onAdvance, canBook, canApprove = true }) {
   return (
     <div className="payroll-stepper" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', rowGap: '20px', paddingTop: '22px' }}>
       {PAYROLL_RUN_STEPS.map((step, i) => {
         const isDone = completedSteps.includes(step.id);
         const prevDone = i === 0 || completedSteps.includes(PAYROLL_RUN_STEPS[i - 1].id);
         const isNext = !isDone && prevDone;
-        const disabled = !prevDone || isDone || (step.id === 'booked' && !canBook);
+        const disabled = !prevDone || isDone || (step.id === 'booked' && !canBook) || (step.id === 'approved' && !canApprove);
         const isLast = i === PAYROLL_RUN_STEPS.length - 1;
         return (
           <React.Fragment key={step.id}>
@@ -109,26 +111,30 @@ function StepButtons({ completedSteps, onAdvance, canBook }) {
 // att visa "detta är ett avdrag" (röd skatt) kontra "detta är kvar" (grön
 // netto), ikonen gör bara att man känner igen KORTET snabbare, inte bara
 // TALET.
+// Ett enda lugnt kort i stället för fyra kort och en stor grön balk
+// (kundönskemål 2026-10-07: "snyggare, syns bra"). Siffrorna står i
+// textfärg; bara totalkostnaden, den man faktiskt betalar, är framhävd.
 function SummaryCards({ totals }) {
-  const cards = [
-    { label: tr('ui.brutto'), value: totals.gross, color: 'var(--text-main)', icon: Wallet },
-    { label: tr('ui.skatt'), value: totals.tax, color: 'var(--status-red-text)', icon: Receipt },
-    { label: tr('ui.netto'), value: totals.net, color: 'var(--status-green-text)', icon: Banknote },
-    { label: tr('ui.avgifter'), value: totals.employerFee + totals.vacationFee, color: 'var(--text-main)', icon: ShieldCheck },
+  const cells = [
+    { label: tr('ui.brutto'), value: totals.gross },
+    { label: tr('ui.skatt'), value: totals.tax },
+    { label: tr('ui.netto'), value: totals.net, hint: tr('payrollUi.netHint') },
+    { label: tr('ui.avgifter'), value: totals.employerFee + totals.vacationFee },
   ];
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 190px), 1fr))', gap: '12px', marginBottom: '12px' }}>
-      {cards.map(c => (
-        <div key={c.label} style={{ ...panelCard, padding: '16px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-          <div style={{ width: 34, height: 34, borderRadius: '10px', background: 'var(--bg-muted)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <c.icon size={16} />
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '5px' }}>{c.label}</div>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: c.color }}>{fmt(c.value)} {tr('ui.kr')}</div>
-          </div>
+    <div className="payroll-summary" style={{ ...panelCard, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) minmax(0, 1.3fr)', marginBottom: '28px', overflow: 'hidden' }}>
+      {cells.map(c => (
+        <div key={c.label} style={{ padding: '16px 18px', borderRight: '1px solid var(--border-light)', minWidth: 0 }}>
+          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>{c.label}</div>
+          <div style={{ fontSize: '19px', fontWeight: 700, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{fmt(c.value)} {tr('ui.kr')}</div>
+          {c.hint && <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '3px' }}>{c.hint}</div>}
         </div>
       ))}
+      <div style={{ padding: '16px 20px', background: 'var(--bg-muted)', minWidth: 0 }}>
+        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>{tr('ui.total_kostnad')}</div>
+        <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{fmt(totals.totalCost)} {tr('ui.kr')}</div>
+        <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '3px' }}>{tr('payrollUi.totalHint')}</div>
+      </div>
     </div>
   );
 }
@@ -257,7 +263,7 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
     </div>
   );
 }
-function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked }) {
+function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, payslipArgs }) {
   const [expanded, setExpanded] = useState(false);
   const isZero = computed.gross === 0 && computed.net === 0 && computed.tax === 0;
   const diff = previousComputed ? computed.net - previousComputed.net : null;
@@ -266,9 +272,9 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked }) {
   return (
     <div style={{ ...panelCard, marginBottom: '10px', overflow: 'hidden', transition: 'box-shadow 0.15s' }}>
       <div
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer' }}
+        className="payroll-emp-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '14px 18px', cursor: 'pointer' }}
         onClick={() => setExpanded(e => !e)}
-        onMouseEnter={e => { e.currentTarget.parentElement.style.boxShadow = '0 4px 14px rgba(15, 23, 42, 0.08)'; }}
+        onMouseEnter={e => { e.currentTarget.parentElement.style.boxShadow = 'var(--shadow-sm)'; }}
         onMouseLeave={e => { e.currentTarget.parentElement.style.boxShadow = panelCard.boxShadow; }}
       >
         {/* flex:1 + minWidth:0 (mobil): utan detta orsakade den langa
@@ -284,7 +290,7 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked }) {
             )}
           </div>
           {isZero ? (
-            <div style={{ fontSize: '12.5px', color: 'var(--status-amber-text)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ fontSize: '12.5px', color: 'var(--status-amber-text)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               {/* Bugfix (kundrapport): visade "Inga tidrapporter" oavsett
                   löneform — meningslöst för en månadsanställd (ingen
                   timme-koncept alls för dem), vars faktiska problem är en
@@ -292,41 +298,37 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked }) {
                   tidrapporter. Se payrollCalculation.js: Grundlön-formeln
                   för en månadsanställd är "monthlySalary × employmentRate%",
                   helt skild från timanställdas "hourlyRate × hoursWorked". */}
-              <span>{isHourly ? tr('ui.inga_tidrapporter_registrerade_for_denna_period') : tr('ui.ingen_manadslon_angiven_kontrollera_lon_anstalln')}</span>
-              {isHourly && !locked && (
-                <span onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input
-                    type="number" min="0" placeholder={tr('ui.timmar')} value={row.hoursWorked || ''}
-                    onChange={e => onUpdateRow(row.employeeId, { hoursWorked: e.target.value })}
-                    style={{ width: '70px', padding: '3px 6px', border: '1px solid var(--border)', borderRadius: '5px', fontSize: '12px' }}
-                  />
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tr('ui.timmar_denna_period')}</span>
-                </span>
-              )}
+              <span>{isHourly ? tr('payrollUi.noHours') : tr('payrollUi.noSalary')}</span>
             </div>
           ) : (
-            <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span>{tr('ui.skatt')} {fmt(computed.tax)} {tr('ui.kr_netto')} {fmt(computed.net)} {tr('ui.kr_avgifter')} {fmt(computed.employerFee)} {tr('ui.kr_semester')} {fmt(computed.vacationProvision)} {tr('ui.kr')}</span>
-              {isHourly && !locked && (
-                <span onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input
-                    type="number" min="0" value={row.hoursWorked || ''}
-                    onChange={e => onUpdateRow(row.employeeId, { hoursWorked: e.target.value })}
-                    style={{ width: '60px', padding: '3px 6px', border: '1px solid var(--border)', borderRadius: '5px', fontSize: '12px' }}
-                  />
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tr('ui.tim')}</span>
-                </span>
-              )}
+            <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '3px' }}>
+              {tr('payrollUi.rowSummary', { tax: fmt(computed.tax), net: fmt(computed.net) })}
             </div>
           )}
           {!computed.hasBankInfo && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--status-red-text)', marginTop: '4px' }}>
-              <AlertTriangle size={12} /> {tr('ui.saknar_bankkontouppgifter_kan_inte_inkluderas_i')}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              <AlertTriangle size={12} color="var(--status-amber-text)" /> {tr('payrollUi.noBank')}
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ fontWeight: 800, fontSize: '17px', color: 'var(--text-main)' }}>{fmt(computed.gross)} {tr('ui.kr')}</div>
+        <div className="payroll-emp-right" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {/* Timmarna är det man fyller i varje månad för en timanställd:
+              ett riktigt fält här, inte en liten ruta inne i texten. */}
+          {isHourly && !locked && (
+            <label className="payroll-emp-hours" onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+              <input
+                type="number" min="0" step="0.5" inputMode="decimal" placeholder="0" value={row.hoursWorked || ''}
+                onChange={e => onUpdateRow(row.employeeId, { hoursWorked: e.target.value })}
+                style={{ width: '76px', padding: '7px 9px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', textAlign: 'right', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit' }}
+                aria-label={tr('payrollUi.hours')}
+              />
+              {tr('payrollUi.hoursShort')}
+            </label>
+          )}
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{fmt(computed.gross)} {tr('ui.kr')}</div>
+            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{tr('payrollUi.gross')}</div>
+          </div>
           {expanded ? <ChevronUp size={16} color="var(--text-muted)" /> : <ChevronDown size={16} color="var(--text-muted)" />}
         </div>
       </div>
@@ -336,7 +338,7 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked }) {
           <PayLinesEditor row={row} computed={computed} onUpdateRow={onUpdateRow} locked={locked} />
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
             <button
-              onClick={(e) => { e.stopPropagation(); generatePayslipPdf({ employee: row.employeeSnapshot, computed, period: row.period }).save(`lonebesked-${row.employeeSnapshot.lastName}-${row.period}.pdf`); }}
+              onClick={(e) => { e.stopPropagation(); generatePayslipPdf(payslipArgs({ row, computed })).save(`lonebesked-${row.employeeSnapshot.lastName}-${row.period}.pdf`); }}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}
             >
               <Download size={13} /> {tr('ui.ladda_ner_lonebesked_pdf')}
@@ -388,8 +390,23 @@ export function VerificationBlock({ title, rows, accounts }) {
   );
 }
 
-export default function PayrollRunDetail({ run, previousRun, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onUpdateRow, onRefreshSnapshots }) {
+export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyncBeforeServerCall, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onUpdateRow, onRefreshSnapshots }) {
   const [agiConfirmed, setAgiConfirmed] = useState(run.completedSteps.includes('agi'));
+  // Timmar från fil (utils/payrollHoursImport.js), i stället för en rad i taget.
+  const hoursFileRef = useRef(null);
+  const [hoursResult, setHoursResult] = useState(null);
+  const handleHoursFile = (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const r = parsePayrollHours(String(ev.target.result || ''), run.rows);
+      if (!r.missingColumns.length) r.updates.forEach(u => onUpdateRow(u.employeeId, { hoursWorked: u.hours }));
+      setHoursResult(r);
+    };
+    reader.readAsText(f, 'utf-8');
+  };
   const [agiFileProblems, setAgiFileProblems] = useState(null); // { errors, warnings } från senaste filförsöket
   const [showBankGuide, setShowBankGuide] = useState(false);
   // Kundfeedback ("man ska kunna göra manuellt om man vill"): Betala-steget
@@ -431,6 +448,44 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
     return run.rows.map(row => ({ row, computed: computeEmployeePayroll(row.employeeSnapshot, row) }));
   }, [run.rows, tablesReady]);
   const totals = useMemo(() => summarizePayrollRun(computedRows.map(r => r.computed)), [computedRows]);
+
+  // ── Lönebesked till alla (se panelen längre ner) ──
+  const [mailState, setMailState] = useState({ busy: false, done: 0, total: 0, result: null });
+  const withEmail = computedRows.filter(r => String(r.row.employeeSnapshot?.email || '').includes('@'));
+  const withoutEmail = computedRows.filter(r => !String(r.row.employeeSnapshot?.email || '').includes('@'));
+  const sentCount = run.rows.filter(r => r.payslipSentAt).length;
+  const payslipArgs = ({ row, computed }) => ({
+    employee: row.employeeSnapshot, computed, period: row.period || run.period, company, payDate: run.payDate,
+    ytd: yearToDate({
+      employeeId: row.employeeId, period: run.period, runs: allRuns, current: computed,
+      computeRow: (r) => computeEmployeePayroll(r.employeeSnapshot, r),
+    }),
+  });
+  const handleDownloadAllPayslips = () => {
+    generateAllPayslipsPdf(computedRows.map(payslipArgs)).save(`lonebesked-${run.period}.pdf`);
+  };
+  const handleEmailPayslips = async () => {
+    if (withEmail.length === 0) return;
+    // Mottagaren slås upp på servern ur den sparade anställda, så det som
+    // står på skärmen måste vara sparat först.
+    try { await onSyncBeforeServerCall?.(); } catch { /* skickar ändå, servern säger till om e-post saknas */ }
+    setMailState({ busy: true, done: 0, total: withEmail.length, result: null });
+    let sent = 0;
+    const failed = [];
+    for (const r of withEmail) {
+      const name = `${r.row.employeeSnapshot.firstName} ${r.row.employeeSnapshot.lastName}`;
+      try {
+        const base64 = generatePayslipPdf(payslipArgs(r)).output('datauristring').split(',')[1];
+        await sendPayslipEmail({ companyId: company?.id, employeeId: r.row.employeeId, period: run.period, attachmentBase64: base64 });
+        onUpdateRow(r.row.employeeId, { payslipSentAt: new Date().toISOString() });
+        sent++;
+      } catch (err) {
+        failed.push(`${name}: ${err.message}`);
+      }
+      setMailState(s => ({ ...s, done: s.done + 1 }));
+    }
+    setMailState({ busy: false, done: 0, total: 0, result: { sent, failed } });
+  };
 
   const previousComputedByEmployee = useMemo(() => {
     if (!previousRun) return {};
@@ -559,7 +614,12 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
         actions={[{ key: 'back', label: tr('ui.tillbaka_till_lonekorningar'), icon: ChevronLeft, onClick: onBack }]}
       >
         <div style={{ padding: '14px 0 16px' }}>
-          <StepButtons completedSteps={run.completedSteps} onAdvance={handleAdvance} canBook={canBook} />
+          <StepButtons completedSteps={run.completedSteps} onAdvance={handleAdvance} canBook={canBook} canApprove={totals.gross > 0} />
+          {/* En körning utan lön att betala ut ska inte kunna godkännas,
+              betalas och bokföras (kundens skärmdump 2026-10-07: 0 kr markerat betalt). */}
+          {totals.gross <= 0 && !run.completedSteps.includes('approved') && (
+            <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>{tr('payrollUi.nothingToPay')}</div>
+          )}
         </div>
       </ListPageHeader>
 
@@ -569,7 +629,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <div style={{ flex: 1 }}>
             <div>
-              {missingTaxTable.length === 1 ? tr('ui.en_anstalld_saknar') : tr('ui.anstallda_saknar_2', { length: missingTaxTable.length })} {tr('ui.skattetabell_3')}{missingTaxTable.map(r => `${r.employeeSnapshot?.firstName || ''} ${r.employeeSnapshot?.lastName || ''}`.trim()).join(', ')}{tr('ui.skatteavdraget_visas_som_0_kr_tills_detta_atgard')}
+              {missingTaxTable.length === 1 ? tr('ui.en_anstalld_saknar') : tr('ui.anstallda_saknar_2', { length: missingTaxTable.length })} {tr('ui.skattetabell_3')}{missingTaxTable.map(r => `${r.employeeSnapshot?.firstName || ''} ${r.employeeSnapshot?.lastName || ''}`.trim()).join(', ')}{tr('ui.skatteavdraget_visas_som_0_kr_tills_detta_atgard')} {tr('fos.runHint')}
             </div>
             {isDraftRun ? (
               <div style={{ marginTop: '8px' }}>
@@ -591,7 +651,7 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
       )}
 
       {missingBankInfo.length > 0 && (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: 'var(--status-red-text)' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '10px', padding: '10px 14px', marginBottom: '16px', fontSize: '13px', color: 'var(--status-amber-text)' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <span>{missingBankInfo.length} {missingBankInfo.length === 1 ? tr('ui.anstalld_saknar') : tr('ui.anstallda_saknar')} {tr('ui.clearing_kontonummer_och_kommer_inte_att_inklude')}</span>
         </div>
@@ -605,23 +665,33 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
       )}
 
       <SummaryCards totals={totals} />
-      {/* Bugfix (kundrapport, dark mode): bakgrunden var --text-main, som
-          i mörkt tema ÄR nästan-vit text-färgen (#eef3ea) — rutan blev då
-          nästan-vit med vit text, osynlig. --accent skrivs aldrig om per
-          tema (samma gröna varumärkesfärg i både ljust och mörkt läge),
-          vilket är samma mönster som knappar i resten av appen använder
-          för accentfärgad yta med vit text. */}
-      <div style={{ background: 'var(--accent)', color: 'white', borderRadius: '14px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', boxShadow: '0 4px 14px color-mix(in srgb, var(--accent) 25%, transparent)' }}>
-        <span style={{ fontWeight: 600, fontSize: '14px' }}>{tr('ui.total_kostnad')}</span>
-        <span style={{ fontWeight: 800, fontSize: '22px' }}>{fmt(totals.totalCost)} {tr('ui.kr')}</span>
-      </div>
 
-      <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 12px' }}>{tr('ui.anstallda_i_korningen')}</h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', margin: '0 0 12px' }}>
+        <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{tr('ui.anstallda_i_korningen')}</h3>
+        {!run.completedSteps.includes('booked') && (
+          <button type="button" onClick={() => hoursFileRef.current?.click()} title={tr('payrollHours.title')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
+            <Upload size={14} /> {tr('payrollHours.button')}
+          </button>
+        )}
+        <input type="file" ref={hoursFileRef} accept=".csv,text/csv,.txt" style={{ display: 'none' }} onChange={handleHoursFile} />
+      </div>
+      {hoursResult && (
+        <div style={{ background: hoursResult.missingColumns.length || hoursResult.unmatched.length || hoursResult.errors.length ? 'var(--status-amber-bg)' : 'var(--status-green-bg)', color: hoursResult.missingColumns.length || hoursResult.unmatched.length || hoursResult.errors.length ? 'var(--status-amber-text)' : 'var(--status-green-text)', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', fontSize: '13px', lineHeight: 1.55 }}>
+          {hoursResult.missingColumns.length > 0 ? tr('payrollHours.missing', { cols: hoursResult.missingColumns.join(', ') }) : (
+            <>
+              <div>{tr('payrollHours.done', { n: hoursResult.updates.length, hours: hoursResult.updates.reduce((s, u) => s + u.hours, 0).toLocaleString('sv-SE') })}</div>
+              {hoursResult.updates.some(u => !u.hourly) && <div>{tr('payrollHours.monthly', { names: hoursResult.updates.filter(u => !u.hourly).map(u => u.name).join(', ') })}</div>}
+              {hoursResult.unmatched.length > 0 && <div>{tr('payrollHours.unmatched', { list: hoursResult.unmatched.map(u => `${tr('payrollHours.row', { line: u.line })} ${u.name || u.ssn}`).join(', ') })}</div>}
+              {hoursResult.errors.length > 0 && <div>{tr('payrollHours.bad', { list: hoursResult.errors.map(e => tr('payrollHours.row', { line: e.line })).join(', ') })}</div>}
+            </>
+          )}
+        </div>
+      )}
       {computedRows.map(({ row, computed }) => (
         <EmployeeRow
           key={row.employeeId} row={row} computed={computed}
           previousComputed={previousComputedByEmployee[row.employeeId]}
-          accounts={accounts} onUpdateRow={onUpdateRow}
+          accounts={accounts} onUpdateRow={onUpdateRow} payslipArgs={payslipArgs}
           locked={run.completedSteps.includes('booked')}
         />
       ))}
@@ -788,6 +858,37 @@ export default function PayrollRunDetail({ run, previousRun, accounts, company, 
                   )}
                 </div>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Lönebesked till alla på en gång: en PDF med alla (att skriva ut eller
+          arkivera) eller ett mejl per anställd med sitt eget lönebesked.
+          Med många timanställda är en knapp per person inte hållbart. */}
+      {run.completedSteps.includes('approved') && computedRows.length > 0 && (
+        <div style={{ ...panelCard, marginTop: '28px', padding: '20px' }}>
+          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 8px' }}>{tr('payslips.title')}</h3>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
+            {tr('payslips.intro', { n: computedRows.length, withEmail: withEmail.length, sent: sentCount })}
+          </p>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button type="button" onClick={handleDownloadAllPayslips} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
+              <Download size={14} /> {tr('payslips.downloadAll')}
+            </button>
+            <button type="button" onClick={handleEmailPayslips} disabled={withEmail.length === 0 || mailState.busy} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: withEmail.length === 0 || mailState.busy ? 'var(--gray-300)' : BRAND.green, border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, color: 'white', cursor: withEmail.length === 0 || mailState.busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+              <Send size={14} /> {mailState.busy ? tr('payslips.sending', { done: mailState.done, total: mailState.total }) : tr('payslips.emailAll', { n: withEmail.length })}
+            </button>
+          </div>
+          {withoutEmail.length > 0 && (
+            <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
+              {tr('payslips.noEmail', { names: withoutEmail.map(r => `${r.row.employeeSnapshot.firstName} ${r.row.employeeSnapshot.lastName}`).join(', ') })}
+            </div>
+          )}
+          {mailState.result && (
+            <div style={{ marginTop: '12px', fontSize: '12.5px', color: mailState.result.failed.length ? 'var(--status-red-text)' : 'var(--status-green-text)' }}>
+              {tr('payslips.result', { sent: mailState.result.sent })}
+              {mailState.result.failed.length > 0 && ` ${tr('payslips.failed', { list: mailState.result.failed.join('; ') })}`}
             </div>
           )}
         </div>

@@ -58,3 +58,20 @@ export function validatePersonnummer(value) {
 
   return { valid: true, error: null };
 }
+
+/**
+ * Personnummer som 12 siffror, eller '' om det inte går. Tio siffror får
+ * sekel efter "+" (100 år eller äldre) eller efter vad som är rimligt mot
+ * året, samma regel som Skatteverket.
+ */
+export function toTwelveDigits(raw, refYear = new Date().getFullYear()) {
+  const s = String(raw || '').trim();
+  const d = digitsOnly(s);
+  if (d.length === 12) return d;
+  if (d.length !== 10) return '';
+  const yy = Number(d.slice(0, 2));
+  let century = Math.floor(refYear / 100) * 100;
+  if (century + yy > refYear) century -= 100;
+  if (s.includes('+')) century -= 100;
+  return String(century + yy).slice(0, 2) + d;
+}

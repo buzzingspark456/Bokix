@@ -2356,7 +2356,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
 
 export default function Settings({
   company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], quotes = [], expenses = [],
-  contacts = [], projects = [], onImport, onReset, onBulkImportSie, onAttachVerificationFiles, stripeAccountId, onConnectStripe, onDisconnectStripe,
+  contacts = [], projects = [], onImport, onReset, onBulkImportSie, onOpenRotRutImport, onAttachVerificationFiles, stripeAccountId, onConnectStripe, onDisconnectStripe,
   zettleConnected = false, onConnectZettle,
   user,
   // Hjälp och Logga ut ligger i Inställningar på telefon (på dator finns de
@@ -4244,6 +4244,13 @@ export default function Settings({
                   description={tr('ui.bokfor_preliminarskatt_moms_rantor_och_inbetalni')}
                   onClick={readOnly ? undefined : () => setShowSkattekontoImport(true)}
                 />
+                {onOpenRotRutImport && (
+                  <SettingsLinkRow
+                    title={tr('rotRut.import.settingsTitle')}
+                    description={tr('rotRut.import.settingsDescription')}
+                    onClick={readOnly ? undefined : onOpenRotRutImport}
+                  />
+                )}
                 <SettingsLinkRow
                   title={tr('ui.underlag_till_sie_import')}
                   description={tr('ui.filer_som_heter_som_verifikatet_till_exempel_a31')}

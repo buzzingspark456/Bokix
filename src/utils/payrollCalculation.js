@@ -21,6 +21,14 @@ const round = (v) => Math.round(v || 0);
  * här, beräkningsmotorn slår aldrig upp anställdens NUVARANDE
  * skattetabellinställning, bara den som frystes när körningen skapades.
  */
+/** Ett jämkningsbeslut som gäller någon dag i löneperioden (ÅÅÅÅ-MM). */
+export function activeTaxAdjustment(adj, period) {
+  if (!adj || !Number.isFinite(Number(adj.percent)) || !adj.from || !adj.to || !/^\d{4}-\d{2}$/.test(String(period || ''))) return false;
+  const start = `${period}-01`;
+  const end = `${period}-31`;
+  return adj.from <= end && adj.to >= start;
+}
+
 export function computeEmployeePayroll(employee, row) {
   const vatRuleId = employee.vacationRule || 'procentregeln';
   const vacationRule = VACATION_RULES.find(r => r.id === vatRuleId) || VACATION_RULES[0];
@@ -97,6 +105,13 @@ export function computeEmployeePayroll(employee, row) {
   } else if (employee.secondaryIncome) {
     tax = round(taxableIncome * SECONDARY_INCOME_TAX_RATE);
     taxNote = `Sidoinkomst: ${(SECONDARY_INCOME_TAX_RATE * 100).toFixed(0)}% fast skatteavdrag (fristående beräkningsväg, inte tabellbaserad)`;
+  } else if (activeTaxAdjustment(employee.taxAdjustment, row.period)) {
+    // Jämkningsbeslut från Skatteverket (hämtat via Fråga om skatteavdrag,
+    // utils/fosRequest.js): procentsatsen gäller på kontant lön och förmåner
+    // i stället för tabellen, så länge beslutet gäller.
+    const j = employee.taxAdjustment;
+    tax = round(taxableIncome * Number(j.percent) / 100);
+    taxNote = `Jämkning ${j.percent} % enligt Skatteverkets beslut (${j.from} till ${j.to})`;
   } else if (employee.taxTable?.tabellnr && employee.taxTable?.kolumn) {
     try {
       const { amount, extrapolated, extrapolatedFrom } = lookupSkatteavdrag({

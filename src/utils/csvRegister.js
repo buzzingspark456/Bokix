@@ -23,7 +23,7 @@ export function rowsToCsv(headers, rows) {
 // Enkel men korrekt CSV-tolkning (citattecken, inbäddad avgränsare/radbrytning
 // i ett fält) — inte bara `line.split(';')`, som går sönder på t.ex. en
 // adress skriven som "Storgatan 1; 2 tr".
-export function parseCsv(text) {
+export function parseCsv(text, delim = DELIM) {
   const clean = text.replace(/^﻿/, '');
   const rows = [];
   let row = [];
@@ -38,7 +38,7 @@ export function parseCsv(text) {
       } else field += c;
     } else if (c === '"') {
       inQuotes = true;
-    } else if (c === DELIM) {
+    } else if (c === delim) {
       row.push(field); field = '';
     } else if (c === '\n' || c === '\r') {
       if (c === '\r' && clean[i + 1] === '\n') i++;
@@ -49,6 +49,15 @@ export function parseCsv(text) {
   }
   if (field !== '' || row.length) { row.push(field); rows.push(row); }
   return rows;
+}
+
+/** Semikolon, komma eller tabb, efter vad rubrikraden använder mest. Exporter
+ * från andra system (bokningsappar, tidrapporter, engelsk Excel) är ofta
+ * kommaseparerade. */
+export function detectDelimiter(text) {
+  const first = String(text || '').replace(/^\ufeff/, '').split(/\r?\n/)[0] || '';
+  const counts = [';', ',', '\t'].map(d => [d, first.split(d).length - 1]).sort((x, y) => y[1] - x[1]);
+  return counts[0][1] > 0 ? counts[0][0] : ';';
 }
 
 export function downloadCsv(filename, csv) {
@@ -103,7 +112,7 @@ export function articlesToCsv(list) {
 // Matchar CSV-rubriker mot fältnycklar oavsett kolumnordning (saknad rubrik
 // → fältet blir tomt) — en export som öppnats och sparats om i Excel
 // (kolumner kan ha flyttats om) går fortfarande att importera igen.
-function rowsToObjects(rows, columns) {
+export function rowsToObjects(rows, columns) {
   if (rows.length === 0) return [];
   const [headerRow, ...dataRows] = rows;
   const indexByKey = {};

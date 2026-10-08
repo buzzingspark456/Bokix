@@ -15,6 +15,7 @@
 // kolumnmappningen för bekräftelse/rättelse innan något importeras.
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import { invoiceCustomerRemaining } from './rotRutConfig';
 
 // ── Teckenkodning (bara CSV — .xlsx har sin egen inbyggda kodning) ──────
 // De flesta banker exporterar UTF-8 numera, men Windows-1252 (Excel-export
@@ -330,15 +331,11 @@ export function buildBankTransactionRecords(rows, importBatchId, accountId) {
 // bekräfta i Bank.jsx, aldrig auto-bokat utan klick.
 const AMOUNT_TOLERANCE = 1; // kr, avrundningsmarginal
 
-function invoiceGross(inv) {
-  return (inv.rows || []).reduce((sum, r) => {
-    const lineNet = (r.qty || 0) * (r.unitPrice || 0);
-    return sum + lineNet + lineNet * ((r.vatRate || 0) / 100);
-  }, 0);
-}
-
+// Det kunden har kvar att betala: med radrabatt och minus ROT/RUT-avdraget
+// (som Skatteverket betalar). Samma funktion som Bank.jsx:s kandidatlista,
+// så att förslaget och listan aldrig räknar olika.
 export function invoiceRemaining(inv) {
-  return Math.max(0, invoiceGross(inv) - (inv.paidAmount || 0));
+  return invoiceCustomerRemaining(inv);
 }
 
 function daysBetween(a, b) {

@@ -30,6 +30,7 @@ import healthHandler from './api/health.js'
 import inboxHandler from './api/inbox/index.js'
 import inboxEmailHandler from './api/inbox/email.js'
 import sendInvoiceHandler from './api/email/send-invoice.js'
+import sendPayslipHandler from './api/email/send-payslip.js'
 import { requireAuthedUser, loadOwnedOrMemberCompany } from './api/_auth.js'
 import { isRequestFromBot } from './api/_botid.js'
 
@@ -111,7 +112,9 @@ const generalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardH
 const sensitiveLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false })
 app.use('/api/', generalLimiter)
 app.use('/api/stripe/', sensitiveLimiter)
-app.use('/api/email/', sensitiveLimiter)
+// Lönebesked har en egen, högre gräns i api/email/send-payslip.js (ett utskick
+// till alla anställda), så den lägre e-postgränsen här gäller inte den rutten.
+app.use('/api/email/', (req, res, next) => (req.path === '/send-payslip' ? next() : sensitiveLimiter(req, res, next)))
 app.use('/api/company-access', sensitiveLimiter)
 
 // Bugkritiskt: MÅSTE registreras INNAN den globala express.json() nedan.
@@ -304,6 +307,7 @@ app.post('/api/stripe/create-subscription-checkout', (req, res) => createSubscri
 // egen Gmail, men gjorde det aldrig. Samma fix som de andra: importera och
 // kör produktionens handler direkt, ingen andra kopia att glida isär från.
 app.post('/api/email/send-invoice', (req, res) => sendInvoiceHandler(req, res))
+app.post('/api/email/send-payslip', (req, res) => sendPayslipHandler(req, res))
 
 // GET/POST /api/company-access — kördes tidigare som en handkopierad,
 // egen lokal-dev-version av api/company-access.js. Bugkritiskt mönster

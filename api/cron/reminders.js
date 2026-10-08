@@ -11,6 +11,7 @@ import { runDataRetention } from './_dataRetention.js';
 import { logSystemEvent } from '../_systemEvents.js';
 import { hasPaidAccess } from '../_auth.js';
 import { refreshZettleToken, fetchZettlePurchases } from '../zettle/_client.js';
+import { invoiceCustomerRemaining } from '../../src/utils/rotRutConfig.js';
 
 // Bugkritiskt (lokal utveckling, samma orsak/fix som api/_resend.js): måste
 // vara en LAT, memoiserad getter, inte en toppnivå-konstant. server.js
@@ -91,7 +92,6 @@ const TRIAL_REMINDER_DAYS_BEFORE = 3;
 // cron_progress i supabase-setup.sql), aldrig ett avbrutet skriv-anrop.
 const TIME_BUDGET_MS = 8000;
 
-const grossOf = (inv) => inv.rows?.reduce((a, r) => a + r.qty * r.unitPrice * (1 + r.vatRate / 100), 0) || inv.amount || 0;
 const daysBetween = (a, b) => Math.round((a - b) / 86400000);
 
 function startOfToday() {
@@ -332,7 +332,8 @@ export default async function handler(req, res) {
                 summary.invoiceReminders += 1;
                 continue;
               }
-              const remainingDue = Math.max(0, grossOf(inv) - (inv.paidAmount || 0));
+              // Kundens del: vid ROT/RUT betalar Skatteverket avdraget.
+              const remainingDue = invoiceCustomerRemaining(inv);
               const html = buildInvoiceReminderHtml({ invoice: inv, customer, company: companyData.company, grossAmount: remainingDue });
               // Har företaget kopplat sin egen adress ska påminnelsen komma
               // därifrån, precis som fakturan gjorde. En påminnelse från en

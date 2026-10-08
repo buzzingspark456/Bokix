@@ -44,6 +44,8 @@ import { describeForeign } from './utils/foreignCurrency';
 import { convertToSek } from './utils/currencyConversion';
 import { invoiceBookingRows } from './utils/invoiceBooking';
 import { grossInvoiceAmount } from './utils/reportCalculations';
+import { calcRotRutDeduction, invoiceCustomerDue, invoiceCustomerRemaining } from './utils/rotRutConfig';
+import { mergeImportedEmployees } from './utils/employeeCsv';
 import { planFromId } from './utils/plans';
 import { detectOrgType } from './utils/orgType';
 import { BRAND, ACCENT_COLORS } from './utils/brandColors';
@@ -3635,6 +3637,12 @@ function App() {
       // genom att backdatera fakturan.
       createdAt: new Date().toISOString(),
     };
+    // ROT/RUT: avdraget är en fordran på Skatteverket och bokas på 1513.
+    // Kontot sparas på fakturan så att utbetalningen senare krediterar rätt
+    // konto (äldre fakturor bokade hela fordran på 1510).
+    const rotRutDeduction = invType !== 'quote' && inv.rotRutType && !inv.rotRutStatus && (inv.currency || 'SEK') === 'SEK'
+      ? calcRotRutDeduction(inv.rotRutType, inv.rows).deduction : 0;
+    if (rotRutDeduction !== 0) { inv.rotRutReceivable = '1513'; inv.rotRutBookedDeduction = rotRutDeduction; }
     setInvoices(prev => [...prev, inv]);
 
     if (invType === 'quote') return;
@@ -3642,7 +3650,7 @@ function App() {
     // Med ören och med radrabatten, se utils/invoiceBooking.js. En avrundnings-
     // differens på ören bokas av withRoundingBalance i handleAddVerification.
     // En faktura i annan valuta bokförs i kronor med fakturans kurs (fxRate).
-    const verRows = invoiceBookingRows(inv.rows, { revenueAccounts: REVENUE_ACCOUNTS, vatAccounts: VAT_ACCOUNTS, rate: invoiceFxRate(inv) });
+    const verRows = invoiceBookingRows(inv.rows, { revenueAccounts: REVENUE_ACCOUNTS, vatAccounts: VAT_ACCOUNTS, rate: invoiceFxRate(inv), rotRutDeduction });
 
     handleAddVerification({
       date: inv.date,
@@ -3749,7 +3757,8 @@ function App() {
     const fx = invoiceFxRate(inv);
     const foreign = fx !== 1;
 
-    const totalGross = invoiceGross(inv);
+    // Kundens del: vid ROT/RUT betalar Skatteverket avdraget, inte kunden.
+    const totalGross = invoiceCustomerDue(inv);
     const alreadyPaid = inv.paidAmount || 0;
     const remaining = Math.max(0, totalGross - alreadyPaid);
     const paymentAmount = foreign && amountIsSek ? remaining : Math.min(amount, remaining);
@@ -3845,9 +3854,114 @@ function App() {
   const handleMarkInvoicePaid = (invoiceId) => {
     const inv = invoices.find(i => i.id === invoiceId);
     if (!inv) return;
-    const remaining = Math.max(0, invoiceGross(inv) - (inv.paidAmount || 0));
+    const remaining = invoiceCustomerRemaining(inv);
     if (remaining <= 0) return;
     handleRegisterInvoicePayment(invoiceId, remaining, new Date().toISOString().split('T')[0]);
+  };
+
+  // ── ROT/RUT-avdrag hos Skatteverket ──
+  // Begärd: filen är skapad och (förhoppningsvis) uppladdad. Ingen bokföring.
+  const handleRotRutRequested = (invoiceIds, date) => {
+    const ids = new Set(invoiceIds);
+    setInvoices(prev => prev.map(i => (ids.has(i.id) ? { ...i, rotRutStatus: 'requested', rotRutRequestedAt: date } : i)));
+  };
+
+  // Utbetalt: Skatteverket sätter in avdraget på skattekontot (1630), och
+  // fordran på 1513 (eller 1510 för äldre fakturor) är reglerad.
+  const handleRotRutPayout = (invoiceIds, date) => {
+    invoiceIds.forEach(id => {
+      const inv = invoices.find(i => i.id === id);
+      if (!inv?.rotRutType) return;
+      const amount = inv.rotRutBookedDeduction ?? calcRotRutDeduction(inv.rotRutType, inv.rows).deduction;
+      if (amount <= 0) return;
+      handleAddVerification({
+        date,
+        description: `${inv.rotRutType.toUpperCase()}-avdrag från Skatteverket, faktura ${inv.invoiceNumber}`,
+        source: 'rotrut_payout',
+        sourceId: id,
+        rows: [
+          { account: '1630', debet: amount, kredit: 0 },
+          { account: inv.rotRutReceivable || '1510', debet: 0, kredit: amount },
+        ],
+      });
+    });
+    const ids = new Set(invoiceIds);
+    setInvoices(prev => prev.map(i => (ids.has(i.id) ? { ...i, rotRutStatus: 'paid', rotRutPaidDate: date } : i)));
+  };
+
+  // ── ROT/RUT-försäljning från en annan app (utils/bookingImport.js) ──
+  // En verifikation per betaldag i stället för en faktura per uppdrag, så att
+  // företagets data inte växer med varje städning. Bara en sammanfattning per
+  // import sparas, nästlad under 'company' (samma skäl som bankImportProfiles:
+  // fältet är redan skrivbart för inbjudna, ingen SQL-ändring behövs).
+  const setRotRutBatches = (fn) => updateCompanyField('company', prev => ({ ...prev, rotRutBatches: fn(prev?.rotRutBatches || []) }));
+
+  const handleImportRotRutBookings = ({ batch, days, payAccount, attachment }) => {
+    days.forEach(day => {
+      handleAddVerification({
+        date: day.date,
+        description: `${batch.type.toUpperCase()}-försäljning ${day.date}, ${day.count} uppdrag (${batch.fileName})`,
+        source: 'rotrut_import',
+        sourceId: batch.id,
+        ...(attachment ? { attachmentUrl: attachment.url, attachmentName: attachment.name, attachmentType: 'text/csv' } : {}),
+        rows: [
+          ...invoiceBookingRows(day.invoiceRows, { revenueAccounts: REVENUE_ACCOUNTS, vatAccounts: VAT_ACCOUNTS, receivableAccount: payAccount, rotRutDeduction: day.deduction }),
+          // Betaltjänstens avgift (kolumnen Avgift) dras från pengarna innan
+          // de når banken: bankkostnad, ingen moms (finansiell tjänst).
+          ...(day.fee > 0 ? [{ account: '6570', debet: day.fee, kredit: 0 }, { account: payAccount, debet: 0, kredit: day.fee }] : []),
+        ],
+      });
+    });
+    setRotRutBatches(prev => [...prev, batch]);
+  };
+
+  const handleRotRutBatchRequested = (batchId, date) => {
+    setRotRutBatches(prev => prev.map(b => (b.id === batchId ? { ...b, status: 'requested', requestedAt: date } : b)));
+  };
+
+  // Utbetalning för en hel import. Betalar Skatteverket mindre än begärt har
+  // de avslagit en del, och den delen ska kunderna betala: den flyttas från
+  // 1513 till kundfordringar (1510).
+  const handleRotRutBatchPayout = (batchId, date, amount) => {
+    const b = (company?.rotRutBatches || []).find(x => x.id === batchId);
+    if (!b) return;
+    const paid = Math.max(0, Math.min(Number(amount) || 0, b.deduction));
+    const rejected = Math.round((b.deduction - paid) * 100) / 100;
+    handleAddVerification({
+      date,
+      description: `${b.type.toUpperCase()}-avdrag från Skatteverket, ${b.fileName}`,
+      source: 'rotrut_payout',
+      sourceId: batchId,
+      rows: [
+        ...(paid > 0 ? [{ account: '1630', debet: paid, kredit: 0 }] : []),
+        ...(rejected > 0 ? [{ account: '1510', debet: rejected, kredit: 0 }] : []),
+        { account: '1513', debet: 0, kredit: b.deduction },
+      ],
+    });
+    setRotRutBatches(prev => prev.map(x => (x.id === batchId ? { ...x, status: 'paid', paidDate: date, paidAmount: paid } : x)));
+  };
+
+  // Avslaget: kunden ska betala avdraget själv. Fordran flyttas från 1513
+  // till kunden (1510) och fakturan blir obetald igen för den delen.
+  const handleRotRutRejected = (invoiceId, date) => {
+    const inv = invoices.find(i => i.id === invoiceId);
+    if (!inv?.rotRutType) return;
+    const amount = inv.rotRutBookedDeduction ?? calcRotRutDeduction(inv.rotRutType, inv.rows).deduction;
+    if (amount > 0 && inv.rotRutReceivable === '1513') {
+      handleAddVerification({
+        date,
+        description: `${inv.rotRutType.toUpperCase()}-avdrag avslaget, faktura ${inv.invoiceNumber}`,
+        source: 'rotrut_rejected',
+        sourceId: invoiceId,
+        rows: [
+          { account: '1510', debet: amount, kredit: 0 },
+          { account: '1513', debet: 0, kredit: amount },
+        ],
+      });
+    }
+    setInvoices(prev => prev.map(i => (i.id === invoiceId
+      ? { ...i, rotRutStatus: 'rejected', status: i.status === 'paid' ? 'sent' : i.status, paidDate: i.status === 'paid' ? undefined : i.paidDate }
+      : i)));
   };
 
   // "Markera som obetald" ångrar en registrerad betalning — status och
@@ -4219,6 +4333,13 @@ function App() {
     }
   };
 
+  // CSV-import av anställda (EmployeeImportModal). Uppdaterar på personnummer.
+  const handleImportEmployees = (rows) => {
+    const { added, updated } = mergeImportedEmployees(employees, rows);
+    setEmployees(prev => mergeImportedEmployees(prev, rows).list);
+    setToast({ message: tr('employeeImport.done', { added, updated }), variant: 'success' });
+  };
+
   // Skapar en ny lönekörning. Fryser en ögonblicksbild av varje anställds
   // lönerelevanta fält vid skapandet — en historisk körning ska alltid visa
   // exakt det som gällde då, även om den anställdas profil ändras senare
@@ -4293,6 +4414,22 @@ function App() {
   // annars skulle ett anställd-sparande och en uppdatering av samma
   // körnings ögonblicksbild i samma synkrona händelsekedja kunna se
   // olika (den senare inaktuell) versioner av samma company-state.
+  // Skattetabell/jämkning från Skatteverkets svarsfil (FosModal). Lönekörningar
+  // som inte räknats än får de nya uppgifterna direkt, samma regel som
+  // handleRefreshRunSnapshots nedan: en räknad körning ändras aldrig i efterhand.
+  const handleApplyFos = (updates) => {
+    const byId = new Map(updates.map(u => [u.id, u.patch]));
+    const updated = employees.map(e => (byId.has(e.id) ? { ...e, ...byId.get(e.id) } : e));
+    setEmployees(prev => prev.map(e => (byId.has(e.id) ? { ...e, ...byId.get(e.id) } : e)));
+    setPayrollRuns(prev => prev.map(r => (r.completedSteps.includes('calculated') ? r : {
+      ...r,
+      rows: r.rows.map(row => {
+        const current = updated.find(e => e.id === row.employeeId);
+        return current && byId.has(current.id) ? { ...row, employeeSnapshot: { ...row.employeeSnapshot, ...byId.get(current.id) } } : row;
+      }),
+    })));
+  };
+
   const handleRefreshRunSnapshots = (runId, currentEmployees) => {
     setPayrollRuns(prev => prev.map(r => {
       if (r.id !== runId || r.completedSteps.includes('calculated')) return r;
@@ -4565,6 +4702,9 @@ function App() {
             company={company}
             employees={employees}
             onSaveEmployee={handleSaveEmployee}
+            onImportEmployees={handleImportEmployees}
+            onApplyFos={handleApplyFos}
+            onSyncBeforeServerCall={syncUserDataNow}
             accounts={accounts}
             projects={projects}
             payrollRuns={payrollRuns}
@@ -4624,6 +4764,12 @@ function App() {
             onAdd={handleAddInvoice}
             onMarkPaid={handleMarkInvoicePaid}
             onRegisterPayment={handleRegisterInvoicePayment}
+            onRotRutRequested={handleRotRutRequested}
+            onRotRutPayout={handleRotRutPayout}
+            onRotRutRejected={handleRotRutRejected}
+            onImportRotRutBookings={handleImportRotRutBookings}
+            onRotRutBatchRequested={handleRotRutBatchRequested}
+            onRotRutBatchPayout={handleRotRutBatchPayout}
             onUnmarkPaid={handleUnmarkInvoicePaid}
             onGetPaymentLinkUrl={getInvoicePaymentLinkUrl}
             stripeAccountId={company.stripeAccountId}
@@ -4872,6 +5018,7 @@ function App() {
             onToggleSidebarStyle={toggleSidebarStyle}
             sharedAccess={currentCompany.__shared || null}
             onBulkImportSie={handleBulkImportVerifications}
+            onOpenRotRutImport={() => handleGlobalAction({ type: 'rotrut_import' }, 'invoices')}
             onAttachVerificationFiles={handleAttachVerificationFiles}
             themePreference={themePreference}
             onSetThemePreference={setThemePreference}

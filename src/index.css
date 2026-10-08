@@ -7851,3 +7851,22 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
      väljaren låg gömd längst ut i en rad man sveper. */
   .inv-pills > label:has(select) { display: none !important; }
 }
+
+/* Lönekörningens sammanfattning och beräkningsrader (PayrollRunDetail,
+   shared/CalculationRow): fem kolumner på dator, två på smal skärm med
+   totalkostnaden över hela bredden; formeln hamnar under etiketten. */
+@media (max-width: 900px) {
+  .payroll-summary { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .payroll-summary > div { border-right: none !important; border-bottom: 1px solid var(--border-light); }
+  .payroll-summary > div:last-child { grid-column: 1 / -1; border-bottom: none; }
+  .calc-row { grid-template-columns: minmax(0, 1fr) auto !important; }
+  .calc-row-formula { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* Telefon: timmarna för en timanställd på en egen rad under namnet, så att
+   namnet och beloppen inte trängs ihop. */
+@media (max-width: 600px) {
+  .payroll-emp-head { flex-wrap: wrap; }
+  .payroll-emp-right { display: contents !important; }
+  .payroll-emp-hours { order: 3; width: 100%; }
+}

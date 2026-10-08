@@ -40,6 +40,7 @@ const SOURCE_SERIES = {
   inventory: 'I',
   payroll: 'K',
   zettle_ledger: 'L',
+  rotrut_import: 'L',
   vat_declaration: 'M',
 };
 
