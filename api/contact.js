@@ -330,6 +330,21 @@ export default async function handler(req, res) {
     }
 
     if (saved) await markContactEmailSent(saved);
+
+    // Kopia till den inloggade avsändaren, så att det syns i den egna
+    // inkorgen att meddelandet gick iväg. Bara inloggade: adressen kommer då
+    // från sessionen, så ingen kan låta rutten mejla en främmande adress.
+    if (user?.email) {
+      const copy = await sendEmail(resendApiKey, {
+        from: getEmailFrom(),
+        to: [user.email],
+        subject: `Vi har fått ditt meddelande (${topic})`,
+        html: buildEmailHtml({ name, email, topic, message }),
+        reply_to: getContactInbox(),
+      });
+      if (!copy.ok) console.error('Resend API error (contact copy):', copy.data);
+    }
+
     res.status(200).json({ id: data.id });
   } catch (error) {
     console.error('Contact form send error:', error);

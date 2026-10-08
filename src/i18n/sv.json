@@ -3553,7 +3553,17 @@
     "inbjudningslank_skapad": "Inbjudningslänk skapad",
     "kontot_skapat_logga_in": "Kontot är skapat. Logga in under Logga in.",
     "robotkontroll_blockerad": "Robotkontrollen från Cloudflare kunde inte laddas. Det beror oftast på en annonsblockerare eller ett webbläsartillägg. Pausa det för bokix.se, eller prova en annan webbläsare, och försök igen.",
-    "inbjudan_redan_anvand": "Inbjudan är redan använd eller återkallad. Be den som bjöd in dig att skicka en ny."
+    "inbjudan_redan_anvand": "Inbjudan är redan använd eller återkallad. Be den som bjöd in dig att skicka en ny.",
+    "vad_galler_det": "Vad gäller det?",
+    "amne_hjalp_med_bokix": "Hjälp med Bokix",
+    "amne_nagot_fungerar_inte": "Något fungerar inte",
+    "amne_prenumeration_och_betalning": "Prenumeration och betalning",
+    "amne_personuppgifter_och_sakerhet": "Personuppgifter och säkerhet",
+    "amne_nagot_annat": "Något annat",
+    "skriv_ditt_meddelande": "Skriv vad du behöver hjälp med.",
+    "tack_meddelandet_ar_skickat": "Tack! Vi har fått ditt meddelande och svarar via mejl.",
+    "skickas_fran_din_e_post": "Skickas från din e-post",
+    "vi_svarar_till_den_har_adressen": "Vi svarar till den här adressen. Du får också en kopia."
   },
   "glossary": {
     "g01": {

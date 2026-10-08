@@ -1560,6 +1560,9 @@ function App() {
   const [reportErrorModal, setReportErrorModal] = useState(false);
   const [reportErrorText, setReportErrorText] = useState('');
   const [reportErrorBusy, setReportErrorBusy] = useState(false);
+  // Samma ämnen som kontaktsidan (ContactPage.jsx TOPICS); value måste
+  // finnas i ALLOWED_TOPICS i api/contact.js.
+  const [reportErrorTopic, setReportErrorTopic] = useState('Felrapport');
 
   const handleSubmitErrorReport = async () => {
     const message = reportErrorText.trim();
@@ -1578,13 +1581,14 @@ function App() {
           'Content-Type': 'application/json',
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify({ name: senderName, email: user?.email || '', topic: 'Felrapport', message }),
+        body: JSON.stringify({ name: senderName, email: user?.email || '', topic: reportErrorTopic, message }),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload?.error || tr('ui.kunde_inte_skicka', { status: res.status }));
       setReportErrorModal(false);
       setReportErrorText('');
-      setToast({ message: tr('ui.tack_felrapporten_ar_skickad_till_oss'), variant: 'success' });
+      setReportErrorTopic('Felrapport');
+      setToast({ message: tr('ui.tack_meddelandet_ar_skickat'), variant: 'success' });
     } catch (err) {
       setToast({ message: err.message || tr('ui.kunde_inte_skicka_felrapporten_forsok_igen_om_en'), variant: 'error' });
     } finally {
@@ -6017,24 +6021,53 @@ function App() {
         <div className="modal-overlay" onClick={() => { if (!reportErrorBusy) setReportErrorModal(false); }}>
           <div className="modal-content" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">{tr('ui.rapportera_fel')}</h2>
+              <h2 className="modal-title">{tr('ui.kontakta_support')}</h2>
               <button className="modal-close" onClick={() => setReportErrorModal(false)}>
                 <X size={18} />
               </button>
             </div>
             <form onSubmit={(e) => { e.preventDefault(); handleSubmitErrorReport(); }}>
               <div className="form-group">
-                <label className="form-label">{tr('ui.vad_gick_fel')}</label>
+                <label className="form-label">{tr('ui.vad_galler_det')}</label>
+                <div className="filter-pills contact-topics" role="radiogroup">
+                  {[
+                    ['Support', 'ui.amne_hjalp_med_bokix'],
+                    ['Felrapport', 'ui.amne_nagot_fungerar_inte'],
+                    ['Fakturering & pris', 'ui.amne_prenumeration_och_betalning'],
+                    ['Säkerhet & integritet', 'ui.amne_personuppgifter_och_sakerhet'],
+                    ['Övrigt', 'ui.amne_nagot_annat'],
+                  ].map(([value, key]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={reportErrorTopic === value}
+                      className={`filter-pill${reportErrorTopic === value ? ' active' : ''}`}
+                      onClick={() => setReportErrorTopic(value)}
+                    >
+                      {tr(key)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">{reportErrorTopic === 'Felrapport' ? tr('ui.vad_gick_fel') : tr('ui.meddelande')}</label>
                 <textarea
                   className="form-control"
                   rows={5}
-                  placeholder={tr('ui.beskriv_vad_som_hande_garna_vilken_sida_du_var_p')}
+                  placeholder={reportErrorTopic === 'Felrapport' ? tr('ui.beskriv_vad_som_hande_garna_vilken_sida_du_var_p') : tr('ui.skriv_ditt_meddelande')}
                   value={reportErrorText}
                   onChange={e => setReportErrorText(e.target.value)}
                   autoFocus
                   required
                 />
-                <span className="form-hint">{tr('ui.skickas_till_support_bokix_se')}</span>
+              </div>
+              {/* Svaret går till kontots e-post (reply_to i api/contact.js,
+                  adressen tas från inloggningen, inte från klienten). */}
+              <div className="contact-sender">
+                <span className="contact-sender-label">{tr('ui.skickas_fran_din_e_post')}</span>
+                <span className="contact-sender-email">{user?.email}</span>
+                <span className="form-hint">{tr('ui.vi_svarar_till_den_har_adressen')}</span>
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setReportErrorModal(false)} disabled={reportErrorBusy}>
