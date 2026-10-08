@@ -482,7 +482,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       // det egentligen var signUp() som aldrig lyckades.
       let accountCreated = false;
       try {
-        // Ger Cloudflare ingen token inom 10 s (t.ex. stoppad av ett
+        // Ger Cloudflare ingen token inom 5 s (t.ex. stoppad av ett
         // webbläsartillägg) skickas registreringen ändå. Supabase avgör: är
         // captchan påslagen där avvisas anropet som förut, så inget skydd
         // försvinner. Är den avstängd går registreringen igenom.
@@ -490,7 +490,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
         try {
           regCaptchaToken = await Promise.race([
             runCaptcha(regCaptchaRef),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
           ]);
         } catch (captchaErr) {
           console.warn('Ingen Cloudflare-token, försöker utan:', captchaErr?.message);
@@ -542,14 +542,14 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
         // försök med en färsk token innan användaren får se ett fel.
         // Om det nya försöket också fallerar visas Supabases FÖRSTA svar, inte
         // en väntetid på Cloudflare som döljer den verkliga orsaken.
-        if (error && /captcha/i.test(error.message || '') && regCaptchaRef.current?.reset) {
+        if (error && regCaptchaToken && /captcha/i.test(error.message || '') && regCaptchaRef.current?.reset) {
           console.error('Supabase avvisade registreringen:', error);
           const firstError = error;
           regCaptchaRef.current.reset();
           try {
             const retryToken = await Promise.race([
               runCaptcha(regCaptchaRef),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('retry-timeout')), 10000)),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('retry-timeout')), 5000)),
             ]);
             ({ data, error } = await doSignUp(retryToken));
           } catch {
@@ -568,6 +568,15 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
         // onAuthStateChange (App.jsx) tar över (kräver bekräftad e-post
         // beroende på projektets Supabase-inställningar, precis som annars).
         if (hasPendingInvite) {
+          // Utan session (Supabase kräver bekräftad e-post) stod sidan tidigare
+          // bara still. Logga in direkt i stället, eller visa varför det inte gick.
+          if (!data?.session) {
+            const { error: signInError } = await supabase.auth.signInWithPassword({ email: regEmail, password: regPassword });
+            if (signInError) {
+              console.error('Inloggning efter registrering misslyckades:', signInError);
+              setErrorMsg(`${t('ui.kontot_skapat_logga_in')} (${translateSupabaseAuthError(signInError.message)})`);
+            }
+          }
           setLoading(false);
           return;
         }
