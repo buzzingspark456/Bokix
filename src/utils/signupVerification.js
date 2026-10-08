@@ -35,3 +35,9 @@ export async function sendSignupCode(email, recaptchaToken = null) {
 export async function verifySignupCode({ email, code, token }) {
   await requestVerification({ action: 'verify-signup-code', email, code, token });
 }
+
+/** Bekräftar e-posten på kontot som just skapades, med samma kod och
+ * token som redan godkändes i steg 2 (se confirm-signup-email på servern). */
+export async function confirmSignupEmail({ email, code, token, userId }) {
+  await requestVerification({ action: 'confirm-signup-email', email, code, token, userId });
+}

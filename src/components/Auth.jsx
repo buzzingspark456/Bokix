@@ -8,7 +8,7 @@ import {
 import { supabase } from '../supabaseClient';
 import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
-import { sendSignupCode, verifySignupCode } from '../utils/signupVerification';
+import { sendSignupCode, verifySignupCode, confirmSignupEmail } from '../utils/signupVerification';
 import { translateSupabaseAuthError } from '../utils/translateAuthError';
 import { passkeyLoginOffered, rememberPasskeyOnDevice, isPasskeyCancel, setAppLock } from '../utils/sessionPolicy';
 import { BRAND } from '../utils/brandColors';
@@ -571,7 +571,29 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
           // Utan session (Supabase kräver bekräftad e-post) stod sidan tidigare
           // bara still. Logga in direkt i stället, eller visa varför det inte gick.
           if (!data?.session) {
-            const { error: signInError } = await supabase.auth.signInWithPassword({ email: regEmail, password: regPassword });
+            // Supabase kräver bekräftad e-post. Adressen är redan bevisad med
+            // koden i steg 2, så servern bekräftar den och personen loggas in.
+            if (data?.user?.id) {
+              try {
+                await confirmSignupEmail({ email: regEmail, code: regVerifyCode, token: otpToken, userId: data.user.id });
+              } catch (confirmErr) {
+                console.error('Kunde inte bekräfta e-posten:', confirmErr);
+              }
+            }
+            // Ny Cloudflare-token (den förra gick åt till signUp), om captchan är på.
+            let signInCaptcha = null;
+            try {
+              regCaptchaRef.current?.reset?.();
+              signInCaptcha = await Promise.race([
+                runCaptcha(regCaptchaRef),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+              ]);
+            } catch { /* utan token; Supabase avgör */ }
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+              email: regEmail,
+              password: regPassword,
+              ...(signInCaptcha ? { options: { captchaToken: signInCaptcha } } : {}),
+            });
             if (signInError) {
               console.error('Inloggning efter registrering misslyckades:', signInError);
               setErrorMsg(`${t('ui.kontot_skapat_logga_in')} (${translateSupabaseAuthError(signInError.message)})`);

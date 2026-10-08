@@ -230,6 +230,63 @@ async function handleVerifySignupCode(req, body, res) {
   res.status(200).json({ ok: true });
 }
 
+/** Markerar e-posten som bekräftad på ett NYSS skapat konto (Auth.jsx,
+ * direkt efter supabase.auth.signUp). Kontot skapas fortfarande av
+ * Supabase med captcha som vanligt; det här ersätter bara Supabases egen
+ * bekräftelselänk, eftersom personen redan bevisat adressen med koden från
+ * send-signup-code. Kräver samma kod + signerade token, att kontots e-post
+ * är exakt den adressen, att den inte redan är bekräftad och att kontot
+ * skapades inom den senaste timmen. Utan detta stod en inbjuden person med
+ * ett konto som inte gick att logga in på (2026-10-08). */
+const CONFIRM_SIGNUP_MAX_AGE_MS = 60 * 60 * 1000;
+async function handleConfirmSignupEmail(req, body, res) {
+  const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
+  const code = typeof body?.code === 'string' ? body.code.trim() : '';
+  const token = typeof body?.token === 'string' ? body.token : '';
+  const userId = typeof body?.userId === 'string' ? body.userId : '';
+  if (!email || !code || !token || !userId) {
+    res.status(400).json({ error: 'E-post, kod, token och konto krävs.' });
+    return;
+  }
+  if (!(await checkRateLimit(req, res, { key: 'confirm-signup-ip', max: 10 }))) return;
+  if (!(await checkRateLimit(req, res, { key: 'confirm-signup-email', windowMs: 60 * 60 * 1000, max: 5, identifier: email }))) return;
+
+  const payload = verifySignedToken(token, CONFIRM_SIGNUP_MAX_AGE_MS);
+  if (!payload || payload.email !== email || payload.code !== code) {
+    res.status(400).json({ error: 'Bekräftelsekoden har gått ut. Gå tillbaka och skicka en ny kod.' });
+    return;
+  }
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    res.status(503).json({ error: 'Supabase är inte konfigurerat.' });
+    return;
+  }
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+  const { data: found, error: getError } = await admin.auth.admin.getUserById(userId);
+  const target = found?.user;
+  if (getError || !target || (target.email || '').toLowerCase() !== email) {
+    res.status(400).json({ error: 'Kontot hittades inte.' });
+    return;
+  }
+  if (target.email_confirmed_at) {
+    res.status(200).json({ ok: true });
+    return;
+  }
+  if (Date.now() - new Date(target.created_at).getTime() > CONFIRM_SIGNUP_MAX_AGE_MS) {
+    res.status(400).json({ error: 'Kontot är för gammalt för att bekräftas här.' });
+    return;
+  }
+  const { error: updError } = await admin.auth.admin.updateUserById(userId, { email_confirm: true });
+  if (updError) {
+    console.error('handleConfirmSignupEmail updateUserById error:', updError.message);
+    res.status(500).json({ error: 'Kunde inte bekräfta e-postadressen. Försök igen.' });
+    return;
+  }
+  res.status(200).json({ ok: true });
+}
+
 /** Skickar en engångskod till DEN INLOGGADE ANVÄNDARENS EGEN, av Supabase
  * verifierade e-post (user.email från requireAuthedUser) — ALDRIG till en
  * client-supplied adress i body:n, annars kunde vem som helst med en
@@ -367,6 +424,10 @@ export default async function handler(req, res) {
   }
   if (body?.action === 'verify-signup-code') {
     await handleVerifySignupCode(req, body, res);
+    return;
+  }
+  if (body?.action === 'confirm-signup-email') {
+    await handleConfirmSignupEmail(req, body, res);
     return;
   }
   if (body?.action === 'send-reauth-code') {
