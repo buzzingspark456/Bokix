@@ -1569,9 +1569,15 @@ function App() {
       const senderName = [user?.user_metadata?.first_name, user?.user_metadata?.last_name].filter(Boolean).join(' ').trim()
         || company?.name
         || tr('ui.bokix_anvandare');
+      // Inloggningen ersätter reCAPTCHA i api/contact.js; utan den svarar
+      // rutten "Kunde inte verifiera att du inte är en robot".
+      const accessToken = await getAccessToken();
       const res = await fetch('/api/contact', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify({ name: senderName, email: user?.email || '', topic: 'Felrapport', message }),
       });
       const payload = await res.json().catch(() => ({}));

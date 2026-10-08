@@ -56,6 +56,22 @@ function adminClient() {
   return url && key ? createClient(url, key) : null;
 }
 
+// Inloggad avsändare (appens Rapportera fel) eller null. Appen visar ingen
+// reCAPTCHA, så en giltig Supabase-session får räcka som robotkontroll.
+async function sessionUser(req) {
+  const header = req.headers['authorization'] || '';
+  const token = typeof header === 'string' && header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+  const url = process.env.VITE_SUPABASE_URL;
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!token || !url || !anonKey) return null;
+  try {
+    const { data, error } = await createClient(url, anonKey).auth.getUser(token);
+    return error ? null : data?.user || null;
+  } catch {
+    return null;
+  }
+}
+
 // Id för det sparade meddelandet, eller null om det inte gick att spara.
 async function saveContactMessage(row) {
   try {
@@ -249,8 +265,9 @@ export default async function handler(req, res) {
   try {
     const body = await parseJsonBody(req);
     if (body?.kind === 'booking') { await handleBooking(req, res, body); return; }
+    const user = await sessionUser(req);
     const name = typeof body?.name === 'string' ? body.name.trim() : '';
-    const email = typeof body?.email === 'string' ? body.email.trim() : '';
+    const email = user?.email || (typeof body?.email === 'string' ? body.email.trim() : '');
     const topic = ALLOWED_TOPICS.includes(body?.topic) ? body.topic : 'Övrigt';
     const message = typeof body?.message === 'string' ? body.message.trim() : '';
 
@@ -268,7 +285,7 @@ export default async function handler(req, res) {
     // som Turnstile.jsx redan har på klientsidan, så en installation utan
     // reCAPTCHA-nycklar (eller ett Playwright-test, se e2e/contact.spec.js)
     // inte går sönder bara för att widgeten aldrig renderades.
-    if (hasRecaptchaSecretKey()) {
+    if (!user && hasRecaptchaSecretKey()) {
       const { ok } = await verifyRecaptcha(body?.recaptchaToken, getClientIp(req));
       if (!ok) {
         res.status(400).json({ error: 'Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen.' });
