@@ -80,7 +80,8 @@ const InviteRedeem = lazy(() => import('./components/InviteRedeem'));
 
 // Den INLOGGADE bokföringsappen — Stripe, Supabase, sidomeny, lönehantering,
 // allt. Lazy-laddad: bara RootRoute nedan avgör OM/NÄR den ens hämtas.
-const App = lazy(() => import('./App'));
+// Väntar även in engelskan för den som valt det (i18n/index.js, languageReady).
+const App = lazy(() => Promise.all([import('./App'), import('./i18n').then(m => m.languageReady)]).then(([m]) => m));
 
 // Identisk minimalkopia av App.jsx:s egen RouteLoadingFallback — kan inte
 // importera den därifrån, den filen är precis det som fortfarande laddas

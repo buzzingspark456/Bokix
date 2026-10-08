@@ -14,7 +14,7 @@
 //       ett kontos filer (kvitton, underlag, arkiv) till en mapp
 import fs from 'fs';
 import path from 'path';
-import { readBackupConfig, createOffsiteStore, unpackJson, decrypt } from '../api/_offsiteBackup.js';
+import { readBackupConfig, createOffsiteStore, unpackJson, decrypt, readDatabaseDump } from '../api/_offsiteBackup.js';
 
 function loadDotEnv() {
   if (!fs.existsSync('.env')) return;
@@ -41,9 +41,9 @@ async function manifest() {
 
 async function loadDump(date) {
   const day = date || (await manifest()).dumps.at(-1);
-  const blob = await store.get(`db/${day}.json.gz.enc`);
-  if (!blob) throw new Error(`Ingen databasdump för ${day}.`);
-  return { day, dump: unpackJson(blob, config.key) };
+  const dump = await readDatabaseDump(store, config.key, day);
+  if (!dump) throw new Error(`Ingen databasdump för ${day}.`);
+  return { day, dump };
 }
 
 if (command === 'status') {

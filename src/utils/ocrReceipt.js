@@ -1246,10 +1246,50 @@ function renderStage(stage, target) {
  * sammanhangslöst brus i stället för att bli helt tom. Se classifyDocument/
  * parseReceiptText nedan, som är just den skillnaden byggd för att fånga.
  */
+// Ett kvitto läses 4–6 gånger (två avläsningar, ibland fler utklipp, datum
+// och logotyp). Att starta Tesseract kostar en eller ett par sekunder varje
+// gång, så en motor per språkuppsättning återanvänds och stängs först när den
+// varit oanvänd en minut. Jobben körs ett i taget per motor, och
+// inställningarna återställs till Tesseracts förval före varje jobb.
+const OCR_IDLE_MS = 60_000;
+const OCR_DEFAULT_PARAMS = { tessedit_pageseg_mode: '6', tessedit_char_whitelist: '' };
+const ocrSlots = new Map();
+let ocrLogger = null;
+
+async function withOcrWorker(langs, job) {
+  const key = String(langs);
+  let slot = ocrSlots.get(key);
+  if (!slot) {
+    slot = { pending: 0, timer: null, queue: Promise.resolve() };
+    slot.worker = import('tesseract.js').then(({ createWorker }) => createWorker(langs, 1, { logger: m => ocrLogger?.(m) }));
+    ocrSlots.set(key, slot);
+  }
+  const drop = () => {
+    if (ocrSlots.get(key) === slot) ocrSlots.delete(key);
+    slot.worker.then(w => w.terminate()).catch(() => {});
+  };
+  clearTimeout(slot.timer);
+  slot.pending += 1;
+  const run = slot.queue.then(async () => {
+    const worker = await slot.worker;
+    await worker.setParameters(OCR_DEFAULT_PARAMS);
+    return job(worker);
+  });
+  slot.queue = run.catch(() => {});
+  try {
+    return await run;
+  } catch (err) {
+    drop(); // en trasig motor ska inte återanvändas
+    throw err;
+  } finally {
+    slot.pending -= 1;
+    if (slot.pending === 0 && ocrSlots.get(key) === slot) slot.timer = setTimeout(drop, OCR_IDLE_MS);
+  }
+}
+
 async function recognizeWith(source, onProgress, { psm = null, label = 'Läser av kvitto' } = {}) {
-  const { createWorker } = await import('tesseract.js');
-  const worker = await createWorker(['swe', 'eng'], 1, {
-    logger: m => {
+  return withOcrWorker(['swe', 'eng'], async (worker) => {
+    ocrLogger = (m) => {
       if (m.status === 'recognizing text') {
         const pct = Math.round((m.progress || 0) * 100);
         onProgress?.(`${label}… ${pct}%`);
@@ -1258,10 +1298,7 @@ async function recognizeWith(source, onProgress, { psm = null, label = 'Läser a
       } else if (m.status === 'loading tesseract core' || m.status === 'initializing tesseract') {
         onProgress?.('Förbereder OCR…');
       }
-    },
-  });
-
-  try {
+    };
     if (psm) {
       try { await worker.setParameters({ tessedit_pageseg_mode: psm }); } catch (err) { console.warn('[OCR] Kunde inte sätta sidläge:', err); }
     }
@@ -1274,9 +1311,7 @@ async function recognizeWith(source, onProgress, { psm = null, label = 'Läser a
       layout: layoutLinesOf(data.blocks, source),
       source,
     };
-  } finally {
-    await worker.terminate();
-  }
+  });
 }
 
 // Ord med siffror som Tesseract läste med lägre säkerhet än så här. Ett datum
@@ -1330,18 +1365,17 @@ async function rereadDate(reading) {
   ctx.fillRect(0, 0, crop.width, crop.height);
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(source, sx, sy, sw, sh, 0, 0, crop.width, crop.height);
-  const { createWorker } = await import('tesseract.js');
-  const worker = await createWorker('eng', 1);
   try {
-    await worker.setParameters({ tessedit_pageseg_mode: '7', tessedit_char_whitelist: '0123456789-/.:' });
-    const { data } = await worker.recognize(crop);
-    const again = digits(data.text);
-    return again.length >= 4 && again !== digits(word.text) ? word.text : null;
+    return await withOcrWorker('eng', async (worker) => {
+      ocrLogger = null;
+      await worker.setParameters({ tessedit_pageseg_mode: '7', tessedit_char_whitelist: '0123456789-/.:' });
+      const { data } = await worker.recognize(crop);
+      const again = digits(data.text);
+      return again.length >= 4 && again !== digits(word.text) ? word.text : null;
+    });
   } catch (err) {
     console.warn('[OCR] Kunde inte läsa om datumet:', err);
     return null;
-  } finally {
-    await worker.terminate();
   }
 }
 
@@ -1421,11 +1455,12 @@ async function readLogo(source) {
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, crop.width, crop.height);
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(source, sx, sy, sw, sh, 0, 0, crop.width, crop.height);
-  const { createWorker } = await import('tesseract.js');
-  const worker = await createWorker('eng', 1);
   try {
-    await worker.setParameters({ tessedit_pageseg_mode: '7' });
-    const { data } = await worker.recognize(crop);
+    const data = await withOcrWorker('eng', async (worker) => {
+      ocrLogger = null;
+      await worker.setParameters({ tessedit_pageseg_mode: '7' });
+      return (await worker.recognize(crop)).data;
+    });
 
     const word = String(data.text || '').replace(/[^\p{L}\p{N}&' -]/gu, ' ').replace(/\s+/g, ' ').trim();
     if (!word || word.length < 2 || word.length > 30 || !/\p{L}{2}/u.test(word)) return null;
@@ -1437,8 +1472,6 @@ async function readLogo(source) {
   } catch (err) {
     console.warn('[OCR] Kunde inte läsa logotypen:', err);
     return null;
-  } finally {
-    await worker.terminate();
   }
 }
 

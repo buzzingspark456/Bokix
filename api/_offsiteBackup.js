@@ -9,8 +9,13 @@ import { AwsClient } from 'aws4fetch';
 // leverantör (Cloudflare R2 med EU-jurisdiktion, Backblaze B2 i Amsterdam
 // eller liknande, inom EU):
 //
-//   db/YYYY-MM-DD.json.gz.enc   alla tabeller + användarlistan, en per natt,
-//                               de senaste DB_KEEP_DAYS dagarna sparas
+//   db/YYYY-MM-DD/<tabell>-NNNN.json.gz.enc
+//                               alla tabeller + användarlistan, en mapp per
+//                               natt i bitar, så att minnet räcker även med
+//                               många kunder. index.json.gz.enc i mappen
+//                               listar bitarna. De senaste DB_KEEP_DAYS
+//                               dagarna sparas. (Före 2026-10-08: en enda
+//                               db/YYYY-MM-DD.json.gz.enc, läses fortfarande.)
 //   files/<bucket>/<sökväg>.enc varje fil i lagringsbuckets, kopieras en
 //                               gång och igen när den ändrats
 //   manifest.json.gz.enc        vilka filer som kopierats
@@ -115,16 +120,20 @@ export function createOffsiteStore(config) {
   };
 }
 
-async function readAllRows(admin, table) {
-  const rows = [];
-  const PAGE = 1000;
+// user_data-raderna är stora (ett helt företags bokföring var), så de läses
+// och sparas färre åt gången.
+const pageSizeFor = (table) => (table === 'user_data' ? 50 : 1000);
+
+// Läser en tabell bit för bit och lämnar varje bit till onPage, så att hela
+// tabellen aldrig ligger i minnet samtidigt.
+async function forEachPage(admin, table, onPage) {
+  const PAGE = pageSizeFor(table);
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await admin.from(table).select('*').order('id').range(from, from + PAGE - 1);
     if (error) throw new Error(`${table}: ${error.message}`);
-    rows.push(...(data || []));
+    if (data?.length) await onPage(data);
     if (!data || data.length < PAGE) break;
   }
-  return rows;
 }
 
 // Konton (id, e-post, metadata) behövs för att kunna koppla ihop raderna
@@ -146,10 +155,62 @@ async function readAllUsers(admin) {
   return users;
 }
 
-export async function dumpDatabase(admin, now = new Date()) {
+// Skriver nattens dump bit för bit till db/<datum>/ och returnerar
+// { parts, bytes }. parts listar varje sparad bit (för gallringen).
+export async function writeDatabaseDump(admin, store, key, now = new Date()) {
+  const day = now.toISOString().slice(0, 10);
+  const index = { format: 'bokix-offsite-2', createdAt: now.toISOString(), users: [], tables: {} };
+  const parts = [];
+  let bytes = 0;
+  const putPart = async (name, rows) => {
+    const path = `db/${day}/${name}.json.gz.enc`;
+    const blob = packJson(rows, key);
+    await store.put(path, blob);
+    parts.push(path);
+    bytes += blob.length;
+    return path;
+  };
+  for (const table of TABLES) {
+    index.tables[table] = [];
+    let n = 0;
+    await forEachPage(admin, table, async (rows) => {
+      index.tables[table].push(await putPart(`${table}-${String(n++).padStart(4, '0')}`, rows));
+    });
+  }
+  const users = await readAllUsers(admin);
+  for (let i = 0; i < users.length; i += 1000) {
+    index.users.push(await putPart(`users-${String(i / 1000).padStart(4, '0')}`, users.slice(i, i + 1000)));
+  }
+  // Index sist: finns det är dumpen komplett.
+  const indexPath = `db/${day}/index.json.gz.enc`;
+  const indexBlob = packJson(index, key);
+  await store.put(indexPath, indexBlob);
+  parts.push(indexPath);
+  bytes += indexBlob.length;
+  return { parts, bytes };
+}
+
+// Läser en natts dump (båda formaten) som { users, tables }. Används vid
+// återställning på en dator (scripts/restore-offsite-backup.mjs).
+export async function readDatabaseDump(store, key, day) {
+  const indexBlob = await store.get(`db/${day}/index.json.gz.enc`);
+  if (!indexBlob) {
+    const old = await store.get(`db/${day}.json.gz.enc`);
+    return old ? unpackJson(old, key) : null;
+  }
+  const index = unpackJson(indexBlob, key);
+  const readParts = async (paths) => {
+    const rows = [];
+    for (const path of paths) {
+      const blob = await store.get(path);
+      if (!blob) throw new Error(`Saknad del av dumpen: ${path}`);
+      rows.push(...unpackJson(blob, key));
+    }
+    return rows;
+  };
   const tables = {};
-  for (const table of TABLES) tables[table] = await readAllRows(admin, table);
-  return { format: 'bokix-offsite-1', createdAt: now.toISOString(), users: await readAllUsers(admin), tables };
+  for (const [table, paths] of Object.entries(index.tables)) tables[table] = await readParts(paths);
+  return { format: index.format, createdAt: index.createdAt, users: await readParts(index.users), tables };
 }
 
 // Alla filer i en bucket, rekursivt. Mappar saknar id i Supabase-listan.
@@ -180,15 +241,22 @@ export async function runOffsiteBackup(admin, store, key, { now = new Date(), de
 
   const manifest = (await store.get('manifest.json.gz.enc').then(b => (b ? unpackJson(b, key) : null))) || { dumps: [], files: {} };
 
-  const dump = packJson(await dumpDatabase(admin, now), key);
-  await store.put(`db/${today}.json.gz.enc`, dump);
-  summary.dbBytes = dump.length;
+  // Körs samma dag igen: dagens gamla bitar bort först, så att inga blir
+  // kvar om antalet rader minskat.
+  manifest.dumpParts = manifest.dumpParts || {};
+  for (const path of manifest.dumpParts[today] || []) {
+    try { await store.del(path); } catch (err) { summary.errors.push(err.message); }
+  }
+  const { parts, bytes } = await writeDatabaseDump(admin, store, key, now);
+  manifest.dumpParts[today] = parts;
+  summary.dbBytes = bytes;
   manifest.dumps = [...new Set([...(manifest.dumps || []), today])].sort();
   const cutoff = new Date(now.getTime() - DB_KEEP_DAYS * DAY_MS).toISOString().slice(0, 10);
   for (const date of manifest.dumps.filter(d => d < cutoff)) {
     try {
-      await store.del(`db/${date}.json.gz.enc`);
+      for (const path of manifest.dumpParts[date] || [`db/${date}.json.gz.enc`]) await store.del(path);
       manifest.dumps = manifest.dumps.filter(d => d !== date);
+      delete manifest.dumpParts[date];
     } catch (err) {
       summary.errors.push(err.message);
     }

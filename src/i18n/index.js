@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import sv from './sv.json';
-import en from './en.json';
 
 // Minimal i18n-motor — MEDVETET utan Context/Provider (skulle kräva att
 // hela App.jsx-trädet lindas in) — ett externt, delat store-mönster
@@ -15,9 +14,23 @@ import en from './en.json';
 // fullt byggt, inte varje sträng i appen ännu; nya `t('område.nyckel')`-
 // nycklar läggs till i BÅDA språkfilerna i takt med att fler delar av
 // appen görs om, komponent för komponent.
-const DICTS = { sv, en };
+//
+// Engelskan (ca 250 kB) laddas bara för den som valt engelska, inte för
+// varje besökare på webbplatsen. languageReady väntas in innan appen visas
+// (AppRouter.jsx), så att ingen ser svenska i en blinkning.
+const DICTS = { sv };
 const STORAGE_KEY = 'bokix_language';
 const listeners = new Set();
+
+let enPromise = null;
+function loadEnglish() {
+  if (!enPromise) {
+    enPromise = import('./en.json')
+      .then((m) => { DICTS.en = m.default || m; listeners.forEach(fn => fn()); })
+      .catch((err) => { enPromise = null; console.error('Kunde inte ladda engelskan:', err); });
+  }
+  return enPromise;
+}
 
 let language = (() => {
   try {
@@ -26,6 +39,8 @@ let language = (() => {
   } catch { /* privat läge/blockerad storage — kör vidare med svenska */ }
   return 'sv';
 })();
+
+export const languageReady = language === 'en' ? loadEnglish() : Promise.resolve();
 
 // Tvingat språk för vyer som alltid ska vara på ett visst språk oavsett
 // sparat val: inloggning och registrering visas på svenska, precis som resten
@@ -53,6 +68,7 @@ export function setLanguage(lang) {
   if (lang !== 'sv' && lang !== 'en') return;
   language = lang;
   try { localStorage.setItem(STORAGE_KEY, lang); } catch { /* samma reservläge som ovan */ }
+  if (lang === 'en' && !DICTS.en) loadEnglish();
   listeners.forEach(fn => fn());
 }
 
@@ -67,8 +83,9 @@ function readPath(dict, path) {
 const TOUCH = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
 
 export function t(key, vars) {
-  let str = (TOUCH ? readPath(DICTS[current()], `${key}__touch`) : undefined)
-    ?? readPath(DICTS[current()], key) ?? readPath(DICTS.sv, key) ?? key;
+  const dict = DICTS[current()] || DICTS.sv;
+  let str = (TOUCH ? readPath(dict, `${key}__touch`) : undefined)
+    ?? readPath(dict, key) ?? readPath(DICTS.sv, key) ?? key;
   if (vars) {
     Object.entries(vars).forEach(([k, v]) => { str = str.replaceAll(`{{${k}}}`, v); });
   }

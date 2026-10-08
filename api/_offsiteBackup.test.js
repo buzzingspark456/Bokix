@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { randomBytes } from 'node:crypto'
-import { encrypt, decrypt, packJson, unpackJson, readBackupConfig, runOffsiteBackup } from './_offsiteBackup.js'
+import { encrypt, decrypt, packJson, unpackJson, readBackupConfig, runOffsiteBackup, readDatabaseDump } from './_offsiteBackup.js'
 
 const KEY = randomBytes(32)
 const DAY = 24 * 60 * 60 * 1000
@@ -89,7 +89,7 @@ describe('runOffsiteBackup', () => {
     expect(summary.errors).toEqual([])
     expect(summary.filesCopied).toBe(2)
 
-    const dump = unpackJson(store.objects.get('db/2026-10-01.json.gz.enc'), KEY)
+    const dump = await readDatabaseDump(store, KEY, '2026-10-01')
     expect(dump.tables.user_data[0].user_id).toBe('u1')
     expect(dump.users[0].email).toBe('a@b.se')
     expect(decrypt(store.objects.get('files/bokix-uploads/u1/files/kvitto.jpg.enc'), KEY).toString()).toBe('JPG')
@@ -134,8 +134,23 @@ describe('runOffsiteBackup', () => {
     const store = makeStore()
     await runOffsiteBackup(admin, store, KEY, { now })
     await runOffsiteBackup(admin, store, KEY, { now: new Date(now.getTime() + 40 * DAY) })
-    expect(store.objects.has('db/2026-10-01.json.gz.enc')).toBe(false)
-    expect(store.objects.has('db/2026-11-10.json.gz.enc')).toBe(true)
+    expect([...store.objects.keys()].some(k => k.startsWith('db/2026-10-01/'))).toBe(false)
+    expect(store.objects.has('db/2026-11-10/index.json.gz.enc')).toBe(true)
+  })
+
+  it('delar upp stora tabeller i bitar och läser tillbaka allt', async () => {
+    const rows = Array.from({ length: 120 }, (_, i) => ({ id: String(i).padStart(3, '0'), user_id: 'u' + i, state: {} }))
+    const admin = makeAdmin({ tables: { user_data: rows } })
+    const store = makeStore()
+    await runOffsiteBackup(admin, store, KEY, { now })
+    expect([...store.objects.keys()].filter(k => k.startsWith('db/2026-10-01/user_data-'))).toHaveLength(3)
+    expect((await readDatabaseDump(store, KEY, '2026-10-01')).tables.user_data).toHaveLength(120)
+  })
+
+  it('läser även en dump i det gamla formatet', async () => {
+    const store = makeStore()
+    await store.put('db/2026-09-01.json.gz.enc', packJson({ users: [], tables: { user_data: [{ id: '1' }] } }, KEY))
+    expect((await readDatabaseDump(store, KEY, '2026-09-01')).tables.user_data).toHaveLength(1)
   })
 
   it('stannar vid tidsgränsen och tar resten nästa natt', async () => {
