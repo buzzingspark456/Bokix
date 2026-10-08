@@ -1926,6 +1926,7 @@
     "kunde_inte_bokforas_automatiskt_konto_saknas": "Kunde inte bokföras automatiskt — konto saknas",
     "kunde_inte_byta_losenord_forsok_igen_om_en_stund": "Kunde inte byta lösenord. Försök igen om en stund.",
     "kunde_inte_hamta_skattetabellen_fran_skatteverke": "Kunde inte hämta skattetabellen från Skatteverket (",
+    "kunde_inte_hamta_foretaget": "Kunde inte hämta företaget. Försök igen om en stund.",
     "kunde_inte_hamta_status": "Kunde inte hämta status.",
     "kunde_inte_hitta_nagra_rader_i_filen_kontrollera": "Kunde inte hitta några rader i filen. Kontrollera att den innehåller en rubrikrad.",
     "kunde_inte_importera": "Kunde inte importera: {{message}}",
@@ -3551,6 +3552,7 @@
     "skapa_lank_i_stallet": "Skapa länk i stället",
     "inbjudningslank_skapad": "Inbjudningslänk skapad",
     "kontot_skapat_logga_in": "Kontot är skapat. Logga in under Logga in.",
+    "robotkontroll_blockerad": "Robotkontrollen från Cloudflare kunde inte laddas. Det beror oftast på en annonsblockerare eller ett webbläsartillägg. Pausa det för bokix.se, eller prova en annan webbläsare, och försök igen.",
     "inbjudan_redan_anvand": "Inbjudan är redan använd eller återkallad. Be den som bjöd in dig att skicka en ny."
   },
   "glossary": {
@@ -3847,5 +3849,10 @@
     "hoursShort": "tim",
     "gross": "brutto",
     "nothingToPay": "Det finns ingen lön att betala ut än. Fyll i timmar eller månadslön innan du godkänner."
+  },
+  "bankLearning": {
+    "button": "Bokför {{count}} kända",
+    "confirm": "Bokför {{count}} rader mot samma konto som förra gångerna samma motpart dök upp? Du kan rätta en verifikation i efterhand.",
+    "hint": "Samma konto som du använt {{count}} gånger för den här motparten."
   }
 }

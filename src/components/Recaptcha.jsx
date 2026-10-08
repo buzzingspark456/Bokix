@@ -28,6 +28,7 @@ import React, { forwardRef, useEffect, useId, useImperativeHandle, useRef } from
 const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || import.meta.env.VITE_RECAPTCHA_SITE;
 
 let scriptLoadPromise = null;
+const BLOCKED_MESSAGE = 'Googles robotkontroll kunde inte laddas. Det beror oftast på en annonsblockerare eller ett webbläsartillägg. Pausa det för bokix.se, eller prova en annan webbläsare, och försök igen.';
 function loadRecaptchaScript() {
   if (window.grecaptcha?.render) return Promise.resolve();
   if (!scriptLoadPromise) {
@@ -41,7 +42,7 @@ function loadRecaptchaScript() {
       script.src = 'https://www.google.com/recaptcha/api.js?onload=__bokixRecaptchaOnLoad&render=explicit';
       script.async = true;
       script.defer = true;
-      script.onerror = () => reject(new Error('Kunde inte ladda reCAPTCHA.'));
+      script.onerror = () => { scriptLoadPromise = null; reject(new Error(BLOCKED_MESSAGE)); };
       document.head.appendChild(script);
     });
   }
@@ -94,13 +95,25 @@ const Recaptcha = forwardRef(function Recaptcha({ onExpire }, ref) {
      * inte är konfigurerat — se filkommentaren). Avvisas om utmaningen
      * går ut eller misslyckas; anropande formulär (ContactPage.jsx) fångar
      * det som vilket annat inskickningsfel som helst. */
-    execute: () => {
-      if (!siteKey) return Promise.resolve(null);
-      if (widgetIdRef.current == null || !window.grecaptcha) {
-        return Promise.reject(new Error('reCAPTCHA är inte klart än. Försök igen om en stund.'));
+    // Trycker man innan Google hunnit ladda väntar den in det (högst 10 s)
+    // i stället för att be användaren försöka igen. En utmaning som stängs
+    // utan svar ger ett fel efter två minuter, så knappen inte snurrar för
+    // alltid.
+    execute: async () => {
+      if (!siteKey) return null;
+      const loadedBy = Date.now() + 10_000;
+      while (widgetIdRef.current == null || !window.grecaptcha) {
+        if (!scriptLoadPromise && !window.grecaptcha) throw new Error(BLOCKED_MESSAGE);
+        if (Date.now() > loadedBy) throw new Error(BLOCKED_MESSAGE);
+        await new Promise(r => setTimeout(r, 200));
       }
       return new Promise((resolve, reject) => {
-        pendingRef.current = { resolve, reject };
+        const timer = setTimeout(() => {
+          if (pendingRef.current?.resolve === done) pendingRef.current = null;
+          reject(new Error('Robotkontrollen blev inte klar. Försök igen.'));
+        }, 120_000);
+        const done = (token) => { clearTimeout(timer); resolve(token); };
+        pendingRef.current = { resolve: done, reject: (err) => { clearTimeout(timer); reject(err); } };
         window.grecaptcha.execute(widgetIdRef.current);
       });
     },

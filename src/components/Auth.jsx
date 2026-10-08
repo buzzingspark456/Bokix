@@ -151,6 +151,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     try {
       return await ref.current?.execute();
     } catch (e) {
+      if (e?.message === 'blocked') throw new Error(t('ui.robotkontroll_blockerad'));
       // Orsaken i parentes ("timeout" = Cloudflare gav aldrig någon token),
       // så att ett fel går att felsöka utifrån en skärmbild.
       throw new Error(`${translateSupabaseAuthError('captcha verification process failed')} (cloudflare: ${e?.message || 'okänt'})`);
@@ -482,6 +483,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       // fel i själva Stripe-anropet felaktigt visa "kontot skapades" när
       // det egentligen var signUp() som aldrig lyckades.
       let accountCreated = false;
+      let captchaMissing = false;
       try {
         // Ger Cloudflare ingen token inom 5 s (t.ex. stoppad av ett
         // webbläsartillägg) skickas registreringen ändå. Supabase avgör: är
@@ -491,9 +493,10 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
         try {
           regCaptchaToken = await Promise.race([
             runCaptcha(regCaptchaRef),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
           ]);
         } catch (captchaErr) {
+          captchaMissing = true;
           console.warn('Ingen Cloudflare-token, försöker utan:', captchaErr?.message);
         }
         const doSignUp = (captchaToken) => supabase.auth.signUp({
@@ -641,10 +644,13 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
         setErrorMsg(
           accountCreated
             ? t('ui.kontot_skapades_men_vi_kunde_inte_skicka_dig_vid', { stripeIssue })
-            : (/captcha/i.test(err.message || '') && !/\(cloudflare:/.test(err.message || '')
-              // Supabase avvisade token:en: visa Supabases egna ord också.
-              ? `${translateSupabaseAuthError(err.message)} (supabase: ${err.message})`
-              : translateSupabaseAuthError(err.message))
+            : captchaMissing && /captcha/i.test(err.message || '')
+              // Ingen token kom alls (blockerad eller för långsam): säg varför.
+              ? t('ui.robotkontroll_blockerad')
+              : (/captcha/i.test(err.message || '') && !/\(cloudflare:/.test(err.message || '')
+                // Supabase avvisade token:en: visa Supabases egna ord också.
+                ? `${translateSupabaseAuthError(err.message)} (supabase: ${err.message})`
+                : translateSupabaseAuthError(err.message))
         );
         console.error('Registreringen misslyckades:', err);
         if (!accountCreated) newCaptchaRound();

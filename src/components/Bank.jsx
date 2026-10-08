@@ -15,6 +15,7 @@ import { BRAND } from '../utils/brandColors';
 import { BankLogo } from './shared/BrandLogos';
 import { BANK_SOURCES, OTHER_BANK_HINT, MAX_BANK_FILE_MB, ACCEPTED_BANK_EXTENSIONS, splitBankPath } from '../utils/bankSources';
 import { guessAccountFromText } from '../utils/accountCategories';
+import { buildBankHistory, suggestFromHistory } from '../utils/bankLearning';
 import Reconciliation from './Reconciliation';
 import { bankHeaderLabel } from '../utils/bankHeaderLabels';
 import { t as tr } from '../i18n';
@@ -297,6 +298,27 @@ export default function Bank({
     setExpandedId(null);
   };
 
+  // Det användaren bokfört förut (utils/bankLearning.js).
+  const bankHistory = useMemo(
+    () => buildBankHistory(bankTransactions, verifications, (row) => accountById(accountIdOf(row)).ledgerAccount),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bankTransactions, verifications, effectiveAccounts],
+  );
+  // Ej hanterade rader där samma motpart bokförts minst två gånger mot samma
+  // konto, och kontot finns i kontoplanen. Rader i en redan momsredovisad
+  // period tas inte med, de ska man titta på själv.
+  const autoBookable = useMemo(() => (bankTransactions || [])
+    .filter(t => t.status === 'unmatched')
+    .map(t => ({ row: t, s: suggestFromHistory(t, bankHistory) }))
+    .filter(({ row, s }) => s?.confident && accounts.some(a => a.code === s.accountCode) && !findLockedVatPeriod(row.date, vatPeriods)),
+  [bankTransactions, bankHistory, accounts, vatPeriods]);
+
+  const handleAutoBook = async () => {
+    if (!autoBookable.length) return;
+    if (!(await confirmDialog(tr('bankLearning.confirm', { count: autoBookable.length })))) return;
+    autoBookable.forEach(({ row, s }) => handleQuickBook(row, { date: row.date, description: row.description || tr('ui.banktransaktion'), series: 'A', counterAccount: s.accountCode }));
+  };
+
   const handleQuickBook = (row, { date, description, series, counterAccount }) => {
     // Med ören: bokföringen ska ha beloppet exakt som på kontoutdraget.
     const amount = Math.round(Math.abs(row.amount) * 100) / 100;
@@ -314,7 +336,7 @@ export default function Bank({
         ? [{ account: bankLedgerAccount, debet: amount, kredit: 0 }, { account: counterAccount, debet: 0, kredit: amount }]
         : [{ account: counterAccount, debet: amount, kredit: 0 }, { account: bankLedgerAccount, debet: 0, kredit: amount }],
     });
-    updateRow(row.id, { status: 'booked', verificationSource: 'bank_import' });
+    updateRow(row.id, { status: 'booked', verificationSource: 'bank_import', bookedAccount: String(counterAccount) });
     setExpandedId(null);
   };
 
@@ -332,6 +354,7 @@ export default function Bank({
           // en permanent "Ångra"-knapp bredvid "Importera" hade sett ut som
           // en lika stor och lika vanlig handling som importen själv.
           ...(hasImportedSales ? [{ key: 'reconcile-imported', label: tr('bankReconcile.button'), icon: CheckCircle2, onClick: handleReconcileImported }] : []),
+          ...(autoBookable.length ? [{ key: 'auto-book', label: tr('bankLearning.button', { count: autoBookable.length }), icon: CheckCircle2, onClick: handleAutoBook }] : []),
           ...(latestBatch ? [{ key: 'undo', label: tr('ui.angra_import', { count: latestBatch.count }), icon: Undo2, onClick: handleUndoImport }] : []),
           { key: 'import', label: tr('ui.importera_transaktioner'), icon: Upload, onClick: () => setShowImportModal(true), variant: 'primary' },
         ]}
@@ -455,6 +478,7 @@ export default function Bank({
                 accounts={accounts}
                 vatPeriods={vatPeriods}
                 ledgerAccount={accountById(accountIdOf(t)).ledgerAccount}
+                historySuggestion={suggestFromHistory(t, bankHistory)}
                 onConfirmInvoiceMatch={id => handleConfirmInvoiceMatch(t, id)}
                 onConfirmSupplierMatch={id => handleConfirmSupplierMatch(t, id)}
                 onQuickBook={form => handleQuickBook(t, form)}
@@ -645,11 +669,11 @@ function BankAccountsModal({ accounts, bankTransactions, onAdd, onRename, onDele
 }
 
 // ── Radexpansion: matchningsförslag + "Bokför direkt" + "Ignorera" ───────
-function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, vatPeriods, ledgerAccount = '1930', onConfirmInvoiceMatch, onConfirmSupplierMatch, onQuickBook, onIgnore, onDelete }) {
+function BankRowDetail({ row, historySuggestion, invoiceCandidates, supplierCandidates, accounts, vatPeriods, ledgerAccount = '1930', onConfirmInvoiceMatch, onConfirmSupplierMatch, onQuickBook, onIgnore, onDelete }) {
   const isInflow = row.amount > 0;
   const candidates = isInflow ? invoiceCandidates : supplierCandidates;
   const [selectedId, setSelectedId] = useState('');
-  const [showQuickBook, setShowQuickBook] = useState(false);
+  const [showQuickBook, setShowQuickBook] = useState(Boolean(historySuggestion?.accountCode));
   const [qbDate, setQbDate] = useState(row.date);
   const [qbDesc, setQbDesc] = useState(row.description || '');
   const [qbSeries, setQbSeries] = useState('A');
@@ -661,8 +685,10 @@ function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, v
   // kundinbetalnings motkonto går inte att gissa ur en beskrivning. Fältet
   // förblir helt redigerbart och bokförs aldrig utan ett uttryckligt klick
   // på "Bokför" — samma bekräftelsekrav som redan gäller för raden.
+  // Först det användaren själv bokfört för samma motpart, sedan reglerna.
+  const fromHistory = historySuggestion?.accountCode && accounts.some(a => a.code === historySuggestion.accountCode) ? historySuggestion : null;
   const suggestion = !isInflow ? guessAccountFromText(row.description) : null;
-  const suggestedCode = suggestion?.accountCode && accounts.some(a => a.code === suggestion.accountCode) ? suggestion.accountCode : '';
+  const suggestedCode = fromHistory?.accountCode || (suggestion?.accountCode && accounts.some(a => a.code === suggestion.accountCode) ? suggestion.accountCode : '');
   const [qbAccount, setQbAccount] = useState(suggestedCode);
   const [qbAccountIsSuggestion, setQbAccountIsSuggestion] = useState(Boolean(suggestedCode));
 
@@ -741,7 +767,9 @@ function BankRowDetail({ row, invoiceCandidates, supplierCandidates, accounts, v
               />
               {qbAccountIsSuggestion && qbAccount && (
                 <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '5px 0 0' }}>
-                  {tr('ui.forslag_utifran_beskrivningen_kontrollera_innan')}
+                  {fromHistory && qbAccount === fromHistory.accountCode
+                    ? tr('bankLearning.hint', { count: fromHistory.times })
+                    : tr('ui.forslag_utifran_beskrivningen_kontrollera_innan')}
                 </p>
               )}
             </div>

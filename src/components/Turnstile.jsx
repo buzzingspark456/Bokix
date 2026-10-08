@@ -24,6 +24,10 @@ import React, { forwardRef, useEffect, useId, useImperativeHandle, useRef } from
 const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
 let scriptLoadPromise = null;
+// Sätts när Cloudflares skript inte gick att ladda (oftast en annonsblockerare).
+// Då kommer ingen token någonsin, så execute() svarar direkt i stället för att
+// låta knappen snurra i 45 sekunder.
+let scriptBlocked = false;
 function loadTurnstileScript() {
   if (window.turnstile) return Promise.resolve();
   if (!scriptLoadPromise) {
@@ -33,7 +37,7 @@ function loadTurnstileScript() {
       script.async = true;
       script.defer = true;
       script.onload = () => resolve();
-      script.onerror = () => reject(new Error('Kunde inte ladda Turnstile.'));
+      script.onerror = () => { scriptBlocked = true; scriptLoadPromise = null; reject(new Error('Kunde inte ladda Turnstile.')); };
       document.head.appendChild(script);
     });
   }
@@ -55,6 +59,7 @@ const Turnstile = forwardRef(function Turnstile({ onVerify, onExpire, onDemand =
   useImperativeHandle(ref, () => ({
     execute() {
       if (!siteKey) return Promise.resolve(null);
+      if (scriptBlocked) return Promise.reject(new Error('blocked'));
       if (tokenRef.current) {
         const t = tokenRef.current;
         tokenRef.current = null;

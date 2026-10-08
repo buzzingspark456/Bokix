@@ -1926,6 +1926,7 @@
     "kunde_inte_bokforas_automatiskt_konto_saknas": "Could not be booked automatically — account missing",
     "kunde_inte_byta_losenord_forsok_igen_om_en_stund": "Could not change the password. Try again in a moment.",
     "kunde_inte_hamta_skattetabellen_fran_skatteverke": "Could not fetch the tax table from Skatteverket (",
+    "kunde_inte_hamta_foretaget": "Could not load the company. Try again in a moment.",
     "kunde_inte_hamta_status": "Could not fetch the status.",
     "kunde_inte_hitta_nagra_rader_i_filen_kontrollera": "Could not find any rows in the file. Check that it contains a header row.",
     "kunde_inte_importera": "Could not import: {{message}}",
@@ -3551,6 +3552,7 @@
     "skapa_lank_i_stallet": "Create link instead",
     "inbjudningslank_skapad": "Invitation link created",
     "kontot_skapat_logga_in": "Your account is created. Sign in under Log in.",
+    "robotkontroll_blockerad": "The Cloudflare robot check could not load. This is usually caused by an ad blocker or a browser extension. Pause it for bokix.se, or try another browser, and try again.",
     "inbjudan_redan_anvand": "The invitation has already been used or was revoked. Ask the person who invited you to send a new one."
   },
   "glossary": {
@@ -3847,5 +3849,10 @@
     "hoursShort": "h",
     "gross": "gross",
     "nothingToPay": "There is no salary to pay yet. Enter hours or a monthly salary before approving."
+  },
+  "bankLearning": {
+    "button": "Book {{count}} known",
+    "confirm": "Book {{count}} rows to the same account as the previous times this payee appeared? You can correct a verification afterwards.",
+    "hint": "The account you have used {{count}} times for this payee."
   }
 }
