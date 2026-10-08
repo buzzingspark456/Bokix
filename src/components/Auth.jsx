@@ -482,7 +482,19 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       // det egentligen var signUp() som aldrig lyckades.
       let accountCreated = false;
       try {
-        const regCaptchaToken = await runCaptcha(regCaptchaRef);
+        // Ger Cloudflare ingen token inom 10 s (t.ex. stoppad av ett
+        // webbläsartillägg) skickas registreringen ändå. Supabase avgör: är
+        // captchan påslagen där avvisas anropet som förut, så inget skydd
+        // försvinner. Är den avstängd går registreringen igenom.
+        let regCaptchaToken = null;
+        try {
+          regCaptchaToken = await Promise.race([
+            runCaptcha(regCaptchaRef),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
+          ]);
+        } catch (captchaErr) {
+          console.warn('Ingen Cloudflare-token, försöker utan:', captchaErr?.message);
+        }
         const doSignUp = (captchaToken) => supabase.auth.signUp({
           email: regEmail,
           password: regPassword,
