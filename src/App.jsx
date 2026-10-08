@@ -34,6 +34,7 @@ import {
   Lock,
   Package,
   ClipboardCheck,
+  Check,
 } from './components/icons';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { getNextInvoiceNumber } from './utils/invoiceNumbering';
@@ -1487,6 +1488,7 @@ function App() {
   // Global intent state
   const [globalAction, setGlobalAction] = useState(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [companySearch, setCompanySearch] = useState('');
   const [isNotifMenuOpen, setIsNotifMenuOpen] = useState(false);
   const [isHelpDrawerOpen, setIsHelpDrawerOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -1923,13 +1925,24 @@ function App() {
   // för post (utils/stateMerge.js) i stället för att skrivas över.
   const serverSyncRef = useRef({ updatedAt: null, baseCompanies: null });
   const syncInFlightRef = useRef(null);
+  const lastSavedOwnRef = useRef(null);
   const saveOwnCompaniesMerged = async (snapshot, ownCompanies) => {
     // En sparning i taget, annars jämför två samtidiga mot samma bas.
     while (syncInFlightRef.current) await syncInFlightRef.current.catch(() => {});
+    // Inget eget har ändrats sedan förra lyckade sparningen (t.ex. bara ett
+    // delat företag eller något i ett annat konto): skriv inte hela kontot
+    // igen. Appen byter alltid ut det som ändras, så referenser räcker.
+    const last = lastSavedOwnRef.current;
+    if (last && Object.keys(ownCompanies).length === Object.keys(last.companies).length
+      && Object.entries(ownCompanies).every(([id, c]) => last.companies[id] === c)
+      && Object.keys(snapshot).every(k => k === 'companies' || snapshot[k] === last.snapshot[k])) {
+      return;
+    }
     const run = (async () => {
       const ref = serverSyncRef.current;
       let companies = ownCompanies;
       const done = (savedCompanies) => {
+        lastSavedOwnRef.current = { companies: ownCompanies, snapshot };
         ref.baseCompanies = savedCompanies;
         if (savedCompanies === ownCompanies) return;
         // Visa det andra ändrat, utan att tappa det som skrivits här
@@ -4814,6 +4827,47 @@ function App() {
 
   const companyList = Object.values(data.companies).map(c => c.company);
 
+  // Byt företag i profilmenyn (dator och telefon): en ägare med flera
+  // företag, eller en redovisningskonsult inbjuden av flera kunder. Med
+  // många företag finns en sökruta.
+  const companyEntries = Object.entries(data.companies || {});
+  const renderCompanySwitcher = () => {
+    if (companyEntries.length < 2) return null;
+    const q = companySearch.trim().toLowerCase();
+    const shown = companyEntries.filter(([, c]) => !q || `${c.company?.name || ''} ${c.company?.orgNr || ''}`.toLowerCase().includes(q));
+    return (
+      <>
+        <div style={{ padding: '6px 14px 4px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{tr('companySwitcher.title')}</div>
+        {companyEntries.length > 6 && (
+          <div style={{ padding: '2px 10px 6px' }}>
+            <input
+              value={companySearch}
+              onChange={e => setCompanySearch(e.target.value)}
+              placeholder={tr('companySwitcher.search')}
+              aria-label={tr('companySwitcher.search')}
+              style={{ width: '100%', padding: '7px 10px', borderRadius: '7px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontSize: '13px', fontFamily: 'inherit' }}
+            />
+          </div>
+        )}
+        <div style={{ maxHeight: '260px', overflowY: 'auto' }}>
+          {shown.map(([id, c]) => (
+            <button
+              key={id}
+              onClick={() => { handleSwitchCompany(id); setIsProfileMenuOpen(false); setCompanySearch(''); }}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', fontWeight: id === data.activeCompanyId ? 700 : undefined }}
+            >
+              <span style={{ width: 14, display: 'inline-flex', flexShrink: 0 }}>{id === data.activeCompanyId ? <Check size={14} /> : null}</span>
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>{c.company?.name || tr('ui.mitt_foretag')}</span>
+              {c.__shared && <span style={{ fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0, fontWeight: 400 }}>{tr('companySwitcher.invited')}</span>}
+            </button>
+          ))}
+          {shown.length === 0 && <div style={{ padding: '6px 14px', fontSize: '13px', color: 'var(--text-muted)' }}>{tr('companySwitcher.none')}</div>}
+        </div>
+        <div className="dropdown-divider"></div>
+      </>
+    );
+  };
+
   const renderContent = () => {
     const commonProps = {
       accounts, balances, verifications,
@@ -5546,6 +5600,7 @@ function App() {
                     </div>
                   </div>
                   <div className="dropdown-divider"></div>
+                  {renderCompanySwitcher()}
                   {/* Kundfeedback: "Profil" och "Inställningar" var redundanta
                       här — Inställningar finns redan som en egen punkt i
                       huvudsidomenyn (navGroups/navItems ovan) och "Profil" är
@@ -5673,6 +5728,7 @@ function App() {
                     {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} {theme === 'dark' ? tr('ui.ljust_lage') : tr('ui.morkt_lage')}
                   </button>
                   <div className="dropdown-divider"></div>
+                  {renderCompanySwitcher()}
                   {/* Kundfeedback: "Profil" och "Inställningar" var redundanta
                       här — Inställningar finns redan som en egen punkt i
                       huvudsidomenyn (navGroups/navItems ovan) och "Profil" är

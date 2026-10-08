@@ -1397,7 +1397,7 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
     // samma dag som originalet) håller då ändå en stabil, förutsägbar
     // ordning i stället för att hoppa om vid varje omrendering.
     .slice()
-    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.number || '').localeCompare(a.number || ''));
+    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || String(b.number ?? '').localeCompare(String(a.number ?? ''), undefined, { numeric: true }));
 
   const visibleVers = pageSize === 'all' ? filteredVers : filteredVers.slice(0, pageSize);
 

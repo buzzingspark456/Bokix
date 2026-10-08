@@ -3853,6 +3853,14 @@
   "bankLearning": {
     "button": "Bokför {{count}} kända",
     "confirm": "Bokför {{count}} rader mot samma konto som förra gångerna samma motpart dök upp? Du kan rätta en verifikation i efterhand.",
-    "hint": "Samma konto som du använt {{count}} gånger för den här motparten."
+    "hint": "Samma konto som du använt {{count}} gånger för den här motparten.",
+    "matchButton": "Matcha {{count}} säkra",
+    "matchConfirm": "Markera {{count}} fakturor som betalda med bankraderna de säkert hör till (samma belopp eller fakturanumret i texten)?"
+  },
+  "companySwitcher": {
+    "title": "Företag",
+    "search": "Sök företag",
+    "invited": "Inbjuden",
+    "none": "Inget företag matchar"
   }
 }

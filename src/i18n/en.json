@@ -3853,6 +3853,14 @@
   "bankLearning": {
     "button": "Book {{count}} known",
     "confirm": "Book {{count}} rows to the same account as the previous times this payee appeared? You can correct a verification afterwards.",
-    "hint": "The account you have used {{count}} times for this payee."
+    "hint": "The account you have used {{count}} times for this payee.",
+    "matchButton": "Match {{count}} sure",
+    "matchConfirm": "Mark {{count}} invoices as paid with the bank rows they clearly belong to (same amount or the invoice number in the text)?"
+  },
+  "companySwitcher": {
+    "title": "Companies",
+    "search": "Search companies",
+    "invited": "Invited",
+    "none": "No company matches"
   }
 }

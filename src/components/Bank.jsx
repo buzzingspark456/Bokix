@@ -16,6 +16,7 @@ import { BankLogo } from './shared/BrandLogos';
 import { BANK_SOURCES, OTHER_BANK_HINT, MAX_BANK_FILE_MB, ACCEPTED_BANK_EXTENSIONS, splitBankPath } from '../utils/bankSources';
 import { guessAccountFromText } from '../utils/accountCategories';
 import { buildBankHistory, suggestFromHistory } from '../utils/bankLearning';
+import { suggestMatch, findSureMatches } from '../utils/bankMatching';
 import Reconciliation from './Reconciliation';
 import { bankHeaderLabel } from '../utils/bankHeaderLabels';
 import { t as tr } from '../i18n';
@@ -310,8 +311,24 @@ export default function Bank({
   const autoBookable = useMemo(() => (bankTransactions || [])
     .filter(t => t.status === 'unmatched')
     .map(t => ({ row: t, s: suggestFromHistory(t, bankHistory) }))
-    .filter(({ row, s }) => s?.confident && accounts.some(a => a.code === s.accountCode) && !findLockedVatPeriod(row.date, vatPeriods)),
-  [bankTransactions, bankHistory, accounts, vatPeriods]);
+    .filter(({ row, s }) => s?.confident && accounts.some(a => a.code === s.accountCode) && !findLockedVatPeriod(row.date, vatPeriods)
+      // En rad som hör till en obetald faktura ska matchas, inte bokföras som kostnad.
+      && !suggestMatch(row, { invoices, expenses })?.sure),
+  [bankTransactions, bankHistory, accounts, vatPeriods, invoices, expenses]);
+
+  // Inbetalningar och utbetalningar som säkert hör till en obetald faktura
+  // (unikt belopp eller fakturanumret i texten, utils/bankMatching.js).
+  const sureMatches = useMemo(
+    () => findSureMatches(bankTransactions, { invoices, expenses }).filter(({ row }) => !findLockedVatPeriod(row.date, vatPeriods)),
+    [bankTransactions, invoices, expenses, vatPeriods],
+  );
+  const handleMatchAll = async () => {
+    if (!sureMatches.length) return;
+    if (!(await confirmDialog(tr('bankLearning.matchConfirm', { count: sureMatches.length })))) return;
+    sureMatches.forEach(({ row, match }) => (match.type === 'invoice'
+      ? handleConfirmInvoiceMatch(row, match.id)
+      : handleConfirmSupplierMatch(row, match.id)));
+  };
 
   const handleAutoBook = async () => {
     if (!autoBookable.length) return;
@@ -354,6 +371,7 @@ export default function Bank({
           // en permanent "Ångra"-knapp bredvid "Importera" hade sett ut som
           // en lika stor och lika vanlig handling som importen själv.
           ...(hasImportedSales ? [{ key: 'reconcile-imported', label: tr('bankReconcile.button'), icon: CheckCircle2, onClick: handleReconcileImported }] : []),
+          ...(sureMatches.length ? [{ key: 'match-all', label: tr('bankLearning.matchButton', { count: sureMatches.length }), icon: CheckCircle2, onClick: handleMatchAll }] : []),
           ...(autoBookable.length ? [{ key: 'auto-book', label: tr('bankLearning.button', { count: autoBookable.length }), icon: CheckCircle2, onClick: handleAutoBook }] : []),
           ...(latestBatch ? [{ key: 'undo', label: tr('ui.angra_import', { count: latestBatch.count }), icon: Undo2, onClick: handleUndoImport }] : []),
           { key: 'import', label: tr('ui.importera_transaktioner'), icon: Upload, onClick: () => setShowImportModal(true), variant: 'primary' },
@@ -479,6 +497,7 @@ export default function Bank({
                 vatPeriods={vatPeriods}
                 ledgerAccount={accountById(accountIdOf(t)).ledgerAccount}
                 historySuggestion={suggestFromHistory(t, bankHistory)}
+                matchSuggestion={suggestMatch(t, { invoices, expenses })}
                 onConfirmInvoiceMatch={id => handleConfirmInvoiceMatch(t, id)}
                 onConfirmSupplierMatch={id => handleConfirmSupplierMatch(t, id)}
                 onQuickBook={form => handleQuickBook(t, form)}
@@ -669,10 +688,11 @@ function BankAccountsModal({ accounts, bankTransactions, onAdd, onRename, onDele
 }
 
 // ── Radexpansion: matchningsförslag + "Bokför direkt" + "Ignorera" ───────
-function BankRowDetail({ row, historySuggestion, invoiceCandidates, supplierCandidates, accounts, vatPeriods, ledgerAccount = '1930', onConfirmInvoiceMatch, onConfirmSupplierMatch, onQuickBook, onIgnore, onDelete }) {
+function BankRowDetail({ row, historySuggestion, matchSuggestion, invoiceCandidates, supplierCandidates, accounts, vatPeriods, ledgerAccount = '1930', onConfirmInvoiceMatch, onConfirmSupplierMatch, onQuickBook, onIgnore, onDelete }) {
   const isInflow = row.amount > 0;
   const candidates = isInflow ? invoiceCandidates : supplierCandidates;
-  const [selectedId, setSelectedId] = useState('');
+  // Förvald med den faktura som troligast hör till raden (bankMatching.js).
+  const [selectedId, setSelectedId] = useState(() => (matchSuggestion && candidates.some(c => c.id === matchSuggestion.id) ? matchSuggestion.id : ''));
   const [showQuickBook, setShowQuickBook] = useState(Boolean(historySuggestion?.accountCode));
   const [qbDate, setQbDate] = useState(row.date);
   const [qbDesc, setQbDesc] = useState(row.description || '');
