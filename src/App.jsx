@@ -2238,6 +2238,22 @@ function App() {
       // nyss inlöst inbjudan inte synas förrän NÄSTA inloggning.
       await redeemPendingInvite(authUser);
 
+      // Hastighet: de här fyra frågorna hängde förut på varandra, en
+      // tur-och-retur till Supabase i taget. Nu startar de samtidigt och
+      // väntas in där de behövs. (Supabase-frågor körs först vid .then.)
+      const userDataPromise = supabase
+        .from('user_data')
+        .select('state,updated_at,onboarding_completed,onboarding_skipped,company_name,company_orgnr,contact_details,company_settings')
+        .eq('user_id', authUser.id)
+        .maybeSingle()
+        .then(r => r);
+      const ownedMembershipsPromise = supabase.from('company_members').select('company_id').eq('owner_user_id', authUser.id).eq('status', 'active').then(r => r);
+      const firstSubscriptionsPromise = supabase
+        .from('subscriptions')
+        .select('company_id, status, trial_ends_at, current_period_end, cancel_at_period_end')
+        .eq('user_id', authUser.id)
+        .then(r => r);
+
       // ── Delade företag (company_members) — hämtas FÖRE betalspärren, för
       // att en inbjuden användare utan egen prenumeration aldrig ska
       // blockeras: de rider på ÄGARENS aktiva prenumeration, se
@@ -2272,8 +2288,11 @@ function App() {
       // Kartan (keyed på company_id, '' = legacy) används sen igen längre
       // ner (setSubscriptionsMap) för isActiveCompanyPaid — det AKTIVA
       // företagets egen, reaktiva betalspärr.
+      let subscriptionsPromise = firstSubscriptionsPromise;
       const fetchSubscriptionsMap = async () => {
-        const { data, error } = await supabase
+        const pending = subscriptionsPromise;
+        subscriptionsPromise = null;
+        const { data, error } = pending ? await pending : await supabase
           .from('subscriptions')
           .select('company_id, status, trial_ends_at, current_period_end, cancel_at_period_end')
           .eq('user_id', authUser.id);
@@ -2373,16 +2392,10 @@ function App() {
       // owner_user_id = jag, status='active') — taggas __hasActiveMembers.
       // Att en inbjuden konsults ändringar inte skrivs över sköts av
       // sammanslagningen i saveOwnCompaniesMerged.
-      const { data: ownedMemberships } = supabaseEnabled
-        ? await supabase.from('company_members').select('company_id').eq('owner_user_id', authUser.id).eq('status', 'active')
-        : { data: null };
+      const { data: ownedMemberships } = await ownedMembershipsPromise;
       const ownedSharedCompanyIds = new Set((ownedMemberships || []).map(m => m.company_id));
 
-      const { data: dbData, error } = await supabase
-        .from('user_data')
-        .select('state,updated_at,onboarding_completed,onboarding_skipped,company_name,company_orgnr,contact_details,company_settings')
-        .eq('user_id', authUser.id)
-        .maybeSingle();
+      const { data: dbData, error } = await userDataPromise;
 
       let resultData = dbData;
       if (error) {

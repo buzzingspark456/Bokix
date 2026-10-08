@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense, useLayoutEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, Sun, Moon, ChevronDown, ArrowRight } from '../icons';
 import { BRAND } from '../../utils/brandColors';
@@ -83,17 +83,28 @@ const WEBSITE_SCHEMA = {
 // köra — exakt den rapporterade "mörkt, sen ljust"-blinkningen. Måste
 // defaulta till EXAKT samma värde som theme-init.js för en ny besökare,
 // annars finns blinkningen kvar oavsett vilket håll den går.
+function storedMarketingTheme() {
+  try {
+    const stored = localStorage.getItem('bokix_theme_pref') || localStorage.getItem('bokix_theme');
+    if (stored === 'light' || stored === 'dark') return stored;
+    if (stored === 'system') {
+      return (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    }
+  } catch { /* privat läge/blockerad storage — kör vidare med standardvalet */ }
+  return 'dark';
+}
+
 export function useMarketingTheme() {
-  const [theme, setTheme] = useState(() => {
-    try {
-      const stored = localStorage.getItem('bokix_theme_pref') || localStorage.getItem('bokix_theme');
-      if (stored === 'light' || stored === 'dark') return stored;
-      if (stored === 'system') {
-        return (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-      }
-    } catch { /* privat läge/blockerad storage — kör vidare med standardvalet */ }
-    return 'dark';
-  });
+  // Startar på 'dark', samma som den förrenderade sidan, och byter till det
+  // sparade valet innan något hunnit målas (useLayoutEffect). Startsidan
+  // hydreras (main.jsx), och React rättar inte ett attribut som skiljer sig
+  // vid hydrering: med det sparade valet direkt hade en besökare som valt
+  // ljust fått startsidan mörk.
+  const [theme, setTheme] = useState('dark');
+  useLayoutEffect(() => {
+    const stored = storedMarketingTheme();
+    if (stored !== 'dark') setTheme(stored);
+  }, []);
   useEffect(() => {
     try {
       localStorage.setItem('bokix_theme_pref', theme);

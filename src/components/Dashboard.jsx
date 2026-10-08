@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
 import {
   FileText, Receipt,
   ChevronRight, ArrowUpRight, ArrowDownRight,
@@ -16,14 +16,15 @@ import SieImportModal from './SieImportModal';
 import { BRAND } from '../utils/brandColors';
 import { resolveChartPalette } from '../utils/chartPalette';
 import { useIsDarkTheme } from '../hooks/useIsDarkTheme';
-import { RevenueExpenseChart, ReportDisplayProvider } from './reports/ReportUI';
+import { ReportDisplayProvider, PeriodHeading } from './reports/reportDisplay';
+// Diagrammet (recharts) laddas för sig, så siffrorna syns direkt.
+const RevenueExpenseChart = lazy(() => import('./reports/ReportUI').then(m => ({ default: m.RevenueExpenseChart })));
 import { useTranslation, dateLocale } from '../i18n';
 // Kundönskemål: samma fem period-flikar (Denna månad/3 mån/6 mån/
 // Räkenskapsåret/Sedan start) som Rapport och analys → Företagsöversikt,
 // på "Intäkter vs Utgifter"-grafen här också — delad komponent/lista och
 // delad datumberäkning istället för en andra, lokal implementation som kan
 // glida isär (se PeriodPicker/OVERVIEW_PERIODS-kommentaren i ReportUI.jsx).
-import { PeriodHeading } from './reports/ReportUI';
 import { overviewPeriodBounds, buildResultSeries, companyFiscalYearSetting } from '../utils/reportCalculations';
 import { layoutRect, layoutViewport } from '../utils/dropdownPlacement';
 import { invoiceCustomerRemaining } from '../utils/rotRutConfig';
@@ -1035,6 +1036,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
               </div>
             )}
             <div ref={chartSlotRef}>
+            <Suspense fallback={<div style={{ height: chartH }} aria-hidden="true" />}>
             <RevenueExpenseChart
               data={combinedChartData}
               indexKey="name"
@@ -1046,6 +1048,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
               prevName={t('dashboard.chart.resultLastYear')}
               partialLast={lastIsPartial}
             />
+            </Suspense>
             </div>
           </ReportDisplayProvider>
         )}

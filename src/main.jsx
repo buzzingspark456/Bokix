@@ -1,5 +1,5 @@
 import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
+import { createRoot, hydrateRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { initBotId } from 'botid/client/core'
 import { schedulePosthogInit } from './utils/posthog.js'
@@ -9,7 +9,7 @@ import './index.css'
 // inloggade bokföringsappen) laddas numera lazy, bara när den faktiskt
 // behövs. Se kommentaren vid App-komponentens topp i App.jsx för fulla
 // resonemanget, och AppRouter.jsx för hur/när den avgör det.
-import AppRouter from './AppRouter.jsx'
+import AppRouter, { shouldLoadAppImmediately } from './AppRouter.jsx'
 import ErrorBoundary from './components/shared/ErrorBoundary.jsx'
 import { installGlobalErrorHandlers } from './utils/errorReporting.js'
 import { reloadOnceForNewBuild } from './utils/staleBuild.js'
@@ -127,12 +127,33 @@ initBotId({
 // enskild felkälla i. Turnstile (Auth.jsx) + serverns egna 5/dygn-gräns
 // (_rateLimit.js) täcker missbruksrisken utan den risken.
 
-createRoot(document.getElementById('root')).render(
+const tree = (
   <StrictMode>
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ErrorBoundary>
         <AppRouter />
       </ErrorBoundary>
     </BrowserRouter>
-  </StrictMode>,
-)
+  </StrictMode>
+);
+
+// Startsidan är förrenderad (scripts/prerender.mjs). Med hydrateRoot tar
+// React över den HTML som redan syns i stället för att rita om allt: med
+// createRoot ersattes varje element, och Google räknade rubriken som synlig
+// först när JavaScriptet kört (LCP ca 2,7 s i stället för under 1 s på en
+// mellanklass-telefon). Bara "/" och bara när startsidan faktiskt ska visas
+// (inte den inloggade appen): de andra sidorna laddas med lazy() och
+// Suspense i AppRouter, vilket servern inte renderar likadant.
+const rootEl = document.getElementById('root');
+const canHydrate = window.location.pathname === '/'
+  && rootEl.firstElementChild?.id === 'lp-root'
+  && !shouldLoadAppImmediately();
+if (canHydrate) {
+  hydrateRoot(rootEl, tree, {
+    // Skiljer sig något (t.ex. tema) ritar React om just den delen; det ska
+    // synas i konsolen men aldrig stoppa sidan.
+    onRecoverableError: (error) => console.warn('Hydrering:', error?.message || error),
+  });
+} else {
+  createRoot(rootEl).render(tree);
+}

@@ -136,7 +136,7 @@ function getSupabaseSessionKey() {
 //
 // Allt annat (den vanliga förstagångsbesökaren på "/") får den lätta
 // marknadsbunten, ingenting mer.
-function shouldLoadAppImmediately() {
+export function shouldLoadAppImmediately() {
   if (typeof window === 'undefined') return false;
   try {
     const sessionKey = getSupabaseSessionKey();

@@ -22,6 +22,7 @@ import { useIsDarkTheme } from '../../hooks/useIsDarkTheme';
 // som sidoeffekt här, laddas en gång oavsett hur många ställen som
 // importerar ReportUI.jsx.
 import '../../tremor.css';
+import { useReportDisplay, PeriodHeading, fmtDateRange } from './reportDisplay';
 import { t, dateLocale } from '../../i18n';
 
 // Delade presentationsdelar för Rapport och analys — flyttade hit oförändrade
@@ -121,27 +122,9 @@ export const COST_BG = '#f4e9ed'; // spårets ton bakom rankningsstaplarna, samm
  * provider (t.ex. ett enskilt diagram i en annan del av appen) ritar
  * därför precis som förut.
  */
-const ReportDisplayContext = React.createContext({
-  palette: resolveChartPalette(),
-  amount: makeAmountFormatters(),
-});
-
-export function ReportDisplayProvider({ colors, unit, children }) {
-  // Temat är en del av paletten, inte en separat sak varje diagram måste
-  // komma ihåg: två toner är valda för ett ljust ark och skrivs om i mörkt
-  // läge (se resolveChartPalette). Läses här, EN gång, så alla paneler
-  // under providern byter samtidigt när användaren växlar tema.
-  const isDark = useIsDarkTheme();
-  const value = useMemo(() => ({
-    palette: resolveChartPalette(colors, { dark: isDark }),
-    amount: makeAmountFormatters(unit),
-  }), [colors, unit, isDark]);
-  return <ReportDisplayContext.Provider value={value}>{children}</ReportDisplayContext.Provider>;
-}
-
-export function useReportDisplay() {
-  return React.useContext(ReportDisplayContext);
-}
+// Kontexten, providern och PeriodHeading ligger i reportDisplay.jsx (utan
+// recharts, så Startsidan kan visa siffrorna innan diagrammen laddats).
+export { ReportDisplayProvider, useReportDisplay, PeriodHeading, fmtDateRange } from './reportDisplay';
 
 /** Färg- och enhetsväljaren. Ligger i rapportens rubrikrad, inte under
  * Inställningar: det är ett val man vill göra medan man tittar på
@@ -462,7 +445,6 @@ export const fmtMonthYear = (d) => new Intl.DateTimeFormat(dateLocale(), { month
 // (t.ex. "18 nov. 2025 – 5 sep. 2026", vilket "Senaste 6 månaderna" och
 // "Sedan start" båda kan göra) — helt automatiskt, ingen egen sträng-
 // hopslagning att hålla koll på för det specialfallet.
-export const fmtDateRange = (start, end) => new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }).formatRange(start, end);
 export const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 export function formatDelta(current, previous, invert = false) {
@@ -872,14 +854,6 @@ export const OVERVIEW_PERIODS = [
  * komponent (inte inline i varje anropsställe) eftersom både
  * Företagsöversikten (ReportDetail.jsx) och startsidans "Intäkter vs
  * Utgifter" (Dashboard.jsx) nu visar exakt samma rad. */
-export function PeriodHeading({ label, start, end }) {
-  return (
-    <div>
-      <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{label}</div>
-      <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px', fontVariantNumeric: 'tabular-nums' }}>{fmtDateRange(start, end)}</div>
-    </div>
-  );
-}
 
 /** Sammanfattningslista bredvid ett diagram — en färgad stapel + namn +
  * belopp per serie, radskild med en tunn linje. Modellerad rakt av på
