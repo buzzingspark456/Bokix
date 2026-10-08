@@ -5,6 +5,26 @@ import { requireAuthedUser, loadOwnedOrMemberCompany, requireActiveSubscription 
 import { checkRateLimit } from '../_rateLimit.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { trySendFromOwnAddress } from '../_smtp.js';
+import { createClient } from '@supabase/supabase-js';
+
+// Ägarens egen väntande inbjudan, plus företagets data om den finns (för
+// avsändarnamn och egen domän). null om raden inte är ägarens.
+async function loadOwnInvite(userId, inviteId) {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  const admin = createClient(url, key);
+  const { data: invite } = await admin
+    .from('company_members')
+    .select('invited_email, company_id')
+    .eq('id', inviteId)
+    .eq('owner_user_id', userId)
+    .eq('status', 'pending')
+    .maybeSingle();
+  if (!invite) return null;
+  const { data: row } = await admin.from('user_data').select('state').eq('user_id', userId).maybeSingle();
+  return { ...invite, companyData: row?.state?.companies?.[invite.company_id] || null };
+}
 
 // Speglar POST /api/email/send-invoice i server.js (lokal dev via
 // `npm run dev`) — Vercel kör aldrig server.js i produktion, bara filer
@@ -48,20 +68,45 @@ export default async function handler(req, res) {
   // company-access.js.
   const user = await requireAuthedUser(req, res);
   if (!user) return;
-  if (!await requireActiveSubscription(user, res)) return;
 
   try {
     const body = await parseJsonBody(req);
-    const { to, subject, html, replyTo, attachmentBase64, attachmentFilename, company_id: companyId } = body || {};
+    const { subject, html, replyTo, attachmentBase64, attachmentFilename, invite_id: inviteId } = body || {};
+    let { to, company_id: companyId } = body || {};
 
-    if (!to || !subject || !html || !companyId) {
+    let companyData;
+    let ownerUserId;
+    if (inviteId) {
+      // Inbjudningsmejl (Settings.jsx). Behörigheten är själva inbjudan:
+      // raden måste vara ägarens egen och väntande, och mottagaren tas från
+      // raden, inte från klienten. Betalspärren kollades redan när raden
+      // skapades (RLS "Ägare skapar inbjudan"). Kräver inte att företaget
+      // hunnit sparas i user_data, som ett nytt konto ibland inte har.
+      const invite = await loadOwnInvite(user.id, inviteId);
+      if (!invite) {
+        await logSystemEvent('email_failed', `Inbjudan ${inviteId}: hittades inte för avsändaren`);
+        res.status(404).json({ error: 'Inbjudan hittades inte.' });
+        return;
+      }
+      to = invite.invited_email;
+      companyId = invite.company_id;
+      ownerUserId = user.id;
+      companyData = invite.companyData || {};
+    } else {
+      if (!await requireActiveSubscription(user, res)) return;
+      if (!to || !companyId) {
+        res.status(400).json({ error: 'to, subject, html och company_id krävs.' });
+        return;
+      }
+      const owned = await loadOwnedOrMemberCompany(user.id, companyId, res);
+      if (!owned) return;
+      ({ companyData, ownerUserId } = owned);
+    }
+
+    if (!subject || !html) {
       res.status(400).json({ error: 'to, subject, html och company_id krävs.' });
       return;
     }
-
-    const owned = await loadOwnedOrMemberCompany(user.id, companyId, res);
-    if (!owned) return;
-    const { companyData, ownerUserId } = owned;
 
     const basePayload = {
       to: [to],
@@ -107,7 +152,7 @@ export default async function handler(req, res) {
     // Bugkritiskt: ett misslyckat utskick med kundens egen domän försöker
     // automatiskt igen med systemadressen istället för att hela utskicket
     // bara faller — se sendWithFallback i _resend.js.
-    const result = await sendWithFallback(basePayload, companyData.company);
+    const result = await sendWithFallback(basePayload, companyData?.company);
 
     if (!result.ok) {
       console.error('Resend API error:', result.data);

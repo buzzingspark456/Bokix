@@ -830,6 +830,22 @@ USING (
 -- teoretiskt kunna klara <2-kollen båda två (klassisk TOCTOU) — accepterat
 -- här, en ägare som klickar "bjud in" två gånger på millisekunden är inget
 -- verkligt hot, och värsta utfallet är en tredje rad, inte en säkerhetslucka.
+CREATE OR REPLACE FUNCTION private.count_open_invites(target_owner uuid, target_company text)
+RETURNS bigint
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT count(*) FROM public.company_members cm
+  WHERE cm.owner_user_id = target_owner
+    AND cm.company_id = target_company
+    AND cm.status IN ('pending', 'active');
+$$;
+
+REVOKE ALL ON FUNCTION private.count_open_invites(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION private.count_open_invites(uuid, text) TO authenticated;
+
 DROP POLICY IF EXISTS "Ägare skapar inbjudan" ON public.company_members;
 CREATE POLICY "Ägare skapar inbjudan"
 ON public.company_members FOR INSERT TO authenticated
@@ -838,12 +854,9 @@ WITH CHECK (
   -- Bara den som själv får skriva (betalar) kan bjuda in. Annars kunde ett
   -- obetalt konto bjuda in sin egen andra adress och fortsätta gratis.
   AND private.can_write_user_data((select auth.uid()))
-  AND (
-    SELECT count(*) FROM public.company_members cm
-    WHERE cm.owner_user_id = (select auth.uid())
-      AND cm.company_id = company_members.company_id
-      AND cm.status IN ('pending', 'active')
-  ) < 2
+  -- Räknas via SECURITY DEFINER-funktion: en underfråga mot company_members
+  -- här ger "infinite recursion detected in policy".
+  AND private.count_open_invites((select auth.uid()), company_id) < 2
 );
 
 -- UPDATE: två helt olika användare av samma policy.
@@ -856,6 +869,19 @@ WITH CHECK (
 --      till 'editor' eller återaktivera en redan återkallad rad.
 -- Ingen DELETE-policy: återkallelse är en statusändring, inte en radering
 -- — lämnar ett revisionsspår istället för att tysta ta bort historiken.
+CREATE OR REPLACE FUNCTION private.stored_member_role(target_id uuid)
+RETURNS text
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT cm.role FROM public.company_members cm WHERE cm.id = target_id;
+$$;
+
+REVOKE ALL ON FUNCTION private.stored_member_role(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION private.stored_member_role(uuid) TO authenticated;
+
 DROP POLICY IF EXISTS "Hantera eller lös in medlemskap" ON public.company_members;
 CREATE POLICY "Hantera eller lös in medlemskap"
 ON public.company_members FOR UPDATE TO authenticated
@@ -876,9 +902,10 @@ WITH CHECK (
     -- role måste vara oförändrad — utan detta kollar WITH CHECK bara de tre
     -- fälten ovan, så en inbjuden 'viewer' kunde annars skicka med role:
     -- 'editor' i samma UPDATE och lösa in sig själv med skrivrätt de aldrig
-    -- blivit beviljade. Jämför mot raden som redan ligger lagrad (self-join
-    -- på primärnyckeln) istället för att lita på vad klienten skickar.
-    AND role = (SELECT cm.role FROM public.company_members cm WHERE cm.id = company_members.id)
+    -- blivit beviljade. Jämför mot raden som redan ligger lagrad istället
+    -- för att lita på vad klienten skickar. Via SECURITY DEFINER-funktion,
+    -- en underfråga mot company_members här ger "infinite recursion".
+    AND role = private.stored_member_role(id)
   )
 );
 

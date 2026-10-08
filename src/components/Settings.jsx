@@ -1744,10 +1744,11 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
           subject: `Du är inbjuden till ${company.name || 'ett företag'} på Bokix`,
           html,
           company_id: company.id,
+          invite_id: inserted.id,
         });
       } catch (sendErr) {
         console.error('Kunde inte skicka inbjudningsmejlet:', sendErr);
-        setInviteSuccess(tr('ui.inbjudan_mejl_misslyckades', { url: inviteUrl }));
+        setInviteSuccess(`${tr('ui.inbjudan_mejl_misslyckades', { url: inviteUrl })}${sendErr?.message ? ` (${sendErr.message})` : ''}`);
         setInviteEmail('');
         setShowInviteForm(false);
         loadMembers();
