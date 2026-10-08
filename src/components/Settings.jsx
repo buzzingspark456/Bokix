@@ -4,7 +4,7 @@ import {
   Trash2, Mail, Laptop, Lock, KeyRound, Image as ImageIcon,
   Palette, Hash, Calendar, X, ZoomIn, ZoomOut, Maximize2, ExternalLink, Sun, Moon,
   UserRound, Users, Cog, ArrowLeft, ArrowRight,
-  Sparkles, CheckCircle2, HelpCircle, LogOut, Search, ChevronRight, Fingerprint, CalendarFilled, MailFilled, BankFilled, Inbox,
+  Sparkles, CheckCircle2, HelpCircle, LogOut, Search, ChevronRight, Fingerprint, CalendarFilled, MailFilled, BankFilled, Inbox, Copy,
 } from './icons';
 import { supabase } from '../supabaseClient';
 import { passkeysAvailable, isPasskeyCancel, appLockEnabledFor, setAppLock, rememberPasskeyOnDevice } from '../utils/sessionPolicy';
@@ -1685,6 +1685,15 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
+  // Länk att skicka själv när mejlet inte gick iväg: { url, reason }.
+  const [inviteLink, setInviteLink] = useState(null);
+  const [copiedLink, setCopiedLink] = useState('');
+  const inviteUrlFor = (token, email) => `${window.location.origin}/invite?token=${token}&email=${encodeURIComponent(email)}`;
+  const copyInviteLink = async (url) => {
+    try { await navigator.clipboard.writeText(url); } catch { window.prompt(tr('ui.kopiera_lanken'), url); return; }
+    setCopiedLink(url);
+    setTimeout(() => setCopiedLink(c => (c === url ? '' : c)), 2000);
+  };
 
   const loadMembers = async () => {
     if (!company?.id) { setLoading(false); return; }
@@ -1695,7 +1704,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
     // här för att uppnå det, policyn gör jobbet.
     const { data, error } = await supabase
       .from('company_members')
-      .select('id, invited_email, role, status, invited_at, expires_at, page_access')
+      .select('id, invited_email, role, status, invited_at, expires_at, page_access, invite_token')
       .eq('company_id', company.id)
       .order('invited_at', { ascending: true });
     if (!error) setMembers(data || []);
@@ -1714,7 +1723,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
   const handleInvite = async (e) => {
     e.preventDefault();
     if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
-    setInviteError(''); setInviteSuccess('');
+    setInviteError(''); setInviteSuccess(''); setInviteLink(null);
     const email = inviteEmail.trim().toLowerCase();
     if (!email || !email.includes('@')) { setInviteError(tr('ui.ange_en_giltig_e_postadress_2')); return; }
     setInviteBusy(true);
@@ -1731,7 +1740,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
       // VILKET dokument som skickas, bara mottagare/ämne/HTML. Misslyckas
       // SJÄLVA UTSKICKET (t.ex. Resend nere) tas raden inte bort — ägaren
       // kan bjuda in igen, eller dela länken manuellt.
-      const inviteUrl = `${window.location.origin}/invite?token=${inserted.invite_token}&email=${encodeURIComponent(email)}`;
+      const inviteUrl = inviteUrlFor(inserted.invite_token, email);
       const html = buildInviteEmailHtml({
         companyName: company.name,
         inviterName: [firstName, lastName].filter(Boolean).join(' ') || user?.email,
@@ -1748,7 +1757,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
         });
       } catch (sendErr) {
         console.error('Kunde inte skicka inbjudningsmejlet:', sendErr);
-        setInviteSuccess(`${tr('ui.inbjudan_mejl_misslyckades', { url: inviteUrl })}${sendErr?.message ? ` (${sendErr.message})` : ''}`);
+        setInviteLink({ url: inviteUrl, reason: sendErr?.message || '' });
         setInviteEmail('');
         setShowInviteForm(false);
         loadMembers();
@@ -1846,6 +1855,22 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
         </form>
       )}
 
+      {inviteLink && (
+        <div style={{ padding: '12px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', fontSize: '13px', marginBottom: '16px', maxWidth: '560px' }}>
+          <div style={{ color: 'var(--text-main)', fontWeight: 600, marginBottom: '4px' }}>{tr('ui.inbjudan_skapad_mejl_ej')}</div>
+          <div style={{ color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.5 }}>
+            {tr('ui.skicka_lanken_sjalv')}{inviteLink.reason ? ` (${inviteLink.reason})` : ''}
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <input readOnly value={inviteLink.url} onFocus={e => e.target.select()} style={{ ...inputBase, flex: 1, minWidth: 0, fontSize: '13px', padding: '8px 10px', textOverflow: 'ellipsis' }} />
+            <button type="button" onClick={() => copyInviteLink(inviteLink.url)} style={{ ...btnPrimary, display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              {copiedLink === inviteLink.url ? <Check size={15} /> : <Copy size={15} />}
+              {copiedLink === inviteLink.url ? tr('ui.kopierad_kort') : tr('ui.kopiera_lanken')}
+            </button>
+          </div>
+        </div>
+      )}
+
       {inviteSuccess && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '10px 12px', background: BRAND.greenLight, color: BRAND.greenDark, borderRadius: '8px', fontSize: '13px', marginBottom: '16px' }}>
           <Check size={15} style={{ flexShrink: 0, marginTop: '1px' }} /> <span>{inviteSuccess}</span>
@@ -1898,9 +1923,20 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
           }] : []),
           ...(isOwner ? [{
             key: 'actions', label: '', align: 'right', render: row => (!row.isOwnerRow && row.status !== 'revoked') ? (
-              <button onClick={() => handleRevoke(row.id)} title={tr('ui.aterkalla_atkomst')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                <Trash2 size={15} />
-              </button>
+              <div style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
+                {/* Väntande inbjudan: länken går alltid att hämta igen. */}
+                {row.status === 'pending' && row.invite_token && (() => {
+                  const url = inviteUrlFor(row.invite_token, row.invited_email);
+                  return (
+                    <button onClick={() => copyInviteLink(url)} title={tr('ui.kopiera_inbjudningslanken')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: copiedLink === url ? BRAND.greenDark : 'var(--text-muted)' }}>
+                      {copiedLink === url ? <Check size={15} /> : <Copy size={15} />}
+                    </button>
+                  );
+                })()}
+                <button onClick={() => handleRevoke(row.id)} title={tr('ui.aterkalla_atkomst')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                  <Trash2 size={15} />
+                </button>
+              </div>
             ) : null,
           }] : []),
         ]}

@@ -481,7 +481,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       let accountCreated = false;
       try {
         const regCaptchaToken = await runCaptcha(regCaptchaRef);
-        const { data, error } = await supabase.auth.signUp({
+        const doSignUp = (captchaToken) => supabase.auth.signUp({
           email: regEmail,
           password: regPassword,
           options: {
@@ -520,9 +520,16 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               terms_accepted_at: new Date().toISOString(),
               terms_version: TERMS_VERSION,
             },
-            ...(regCaptchaToken ? { captchaToken: regCaptchaToken } : {}),
+            ...(captchaToken ? { captchaToken } : {}),
           }
         });
+        let { data, error } = await doSignUp(regCaptchaToken);
+        // Avvisad Cloudflare-token (gått ut eller redan använd): ett nytt
+        // försök med en färsk token innan användaren får se ett fel.
+        if (error && /captcha/i.test(error.message || '') && regCaptchaRef.current?.reset) {
+          regCaptchaRef.current.reset();
+          ({ data, error } = await doSignUp(await runCaptcha(regCaptchaRef)));
+        }
         if (error) throw error;
         accountCreated = true;
 

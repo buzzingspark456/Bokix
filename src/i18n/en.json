@@ -3540,7 +3540,12 @@
     "inbjuden_sedan": "Then you go straight into the company you were invited to.",
     "inbjuden_ruta": "No payment. The company that invited you pays for the subscription.",
     "inbjuden_epost_tips": "Use the same email address the invitation was sent to.",
-    "inbjuden_skapa_konto": "Create account"
+    "inbjuden_skapa_konto": "Create account",
+    "inbjudan_skapad_mejl_ej": "Invitation created, but the email could not be sent",
+    "skicka_lanken_sjalv": "Send the link yourself, for example by text message. It also stays in the list below.",
+    "kopiera_lanken": "Copy link",
+    "kopierad_kort": "Copied",
+    "kopiera_inbjudningslanken": "Copy invitation link"
   },
   "glossary": {
     "g01": {

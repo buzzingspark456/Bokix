@@ -71,6 +71,13 @@ const Turnstile = forwardRef(function Turnstile({ onVerify, onExpire, onDemand =
         waitersRef.current.push(waiter);
       });
     },
+    // Ny token från samma widget, t.ex. när Supabase avvisat den förra.
+    reset() {
+      tokenRef.current = null;
+      if (widgetIdRef.current != null && window.turnstile) {
+        try { window.turnstile.reset(widgetIdRef.current); } catch { /* borttagen */ }
+      }
+    },
   }));
 
   useEffect(() => {

@@ -3540,7 +3540,12 @@
     "inbjuden_sedan": "Sedan kommer du direkt in i företaget du är inbjuden till.",
     "inbjuden_ruta": "Ingen betalning. Företaget du är inbjuden till står för abonnemanget.",
     "inbjuden_epost_tips": "Använd samma e-postadress som inbjudan skickades till.",
-    "inbjuden_skapa_konto": "Skapa konto"
+    "inbjuden_skapa_konto": "Skapa konto",
+    "inbjudan_skapad_mejl_ej": "Inbjudan skapad, men mejlet kunde inte skickas",
+    "skicka_lanken_sjalv": "Skicka länken själv, till exempel i ett sms. Den finns också kvar i listan nedan.",
+    "kopiera_lanken": "Kopiera länken",
+    "kopierad_kort": "Kopierad",
+    "kopiera_inbjudningslanken": "Kopiera inbjudningslänken"
   },
   "glossary": {
     "g01": {
