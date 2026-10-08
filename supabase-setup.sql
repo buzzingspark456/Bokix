@@ -937,10 +937,9 @@ USING (
 -- körrätt kunnat skriva in i t.ex. companies.<id>.company.stripeAccountId
 -- via den här funktionen och kringgå set_company_stripe_account helt.
 --
--- create_missing = FALSE (till skillnad från set_company_stripe_account):
--- hittar jsonb_set ingen befintlig companies.<id>-gren blir anropet en
--- no-op istället för att hitta på en ny, halvfärdig företagsstruktur —
--- en trasig/saknad gren ska upptäckas, inte tystas.
+-- create_missing = TRUE sedan 2026-10-08 (supabase-2026-10-08-set-company-field-skapa.sql):
+-- ett fält som saknas i företaget skapas. Att själva företaget finns kräver
+-- WHERE-villkoret nedan, så ingen halvfärdig företagsstruktur hittas på.
 CREATE OR REPLACE FUNCTION public.set_company_field(
   p_user_id uuid,
   p_company_id text,
@@ -971,7 +970,7 @@ BEGIN
     coalesce(state, '{}'::jsonb),
     ARRAY['companies', p_company_id, p_field],
     p_value,
-    false
+    true
   )
   WHERE user_id = p_user_id
     AND state #> ARRAY['companies', p_company_id] IS NOT NULL;

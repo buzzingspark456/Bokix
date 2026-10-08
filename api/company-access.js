@@ -56,6 +56,19 @@ import { isBolagsverketConfigured, lookupOrgNumber, BolagsverketError } from './
 // två separata endpoints.
 const WRITABLE_FIELDS = new Set(COMPANY_WRITABLE_FIELDS);
 
+// Lägger till ett fält som saknas i ägarens företag (se anropet i POST).
+async function addMissingField(admin, ownerUserId, companyKey, field, value) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data: row } = await admin.from('user_data').select('state, updated_at').eq('user_id', ownerUserId).maybeSingle();
+    const company = row?.state?.companies?.[companyKey];
+    if (!company) return false;
+    const state = { ...row.state, companies: { ...row.state.companies, [companyKey]: { ...company, [field]: value } } };
+    const { data: updated } = await admin.from('user_data').update({ state }).eq('user_id', ownerUserId).eq('updated_at', row.updated_at).select('user_id');
+    if (updated?.length) return true;
+  }
+  return false;
+}
+
 // Läses INTE in som modul-nivå-konstant — samma gotcha som _signedToken.js/
 // _oauthState.js redan har en identisk kommentar om: server.js:s
 // dotenv.config() körs EFTER sina egna imports (ES-moduler kör hela det
@@ -462,6 +475,8 @@ export default async function handler(req, res) {
     // klient-anrop aldrig kan.
     let ownerUserId = null;
     let ownerCompanyData = null;
+    // Företagets nuvarande innehåll (ägarens eller medlemmens uppslag).
+    let currentCompanyData = null;
     // Nyckeln där företaget faktiskt ligger i ägarens state, som kan skilja
     // sig från det id klienten skickar (se findCompanyEntry i _auth.js).
     // set_company_field skriver bara till en befintlig nyckel.
@@ -473,7 +488,7 @@ export default async function handler(req, res) {
         return;
       }
       const existing = findCompanyEntry(ownRow?.state?.companies, companyId);
-      if (existing) { ownerUserId = user.id; ownerCompanyData = existing.data; companyKey = existing.key; }
+      if (existing) { ownerUserId = user.id; ownerCompanyData = existing.data; currentCompanyData = existing.data; companyKey = existing.key; }
     }
 
     if (ownerUserId) {
@@ -522,6 +537,7 @@ export default async function handler(req, res) {
       }
       ownerUserId = member.ownerUserId;
       companyKey = member.companyKey || companyId;
+      currentCompanyData = member.companyData;
       // Medlemmen skickar med vad fältet var när den senast sparade (base).
       // Har ägaren ändrat samma lista sedan dess slås de ihop post för post
       // i stället för att medlemmens kopia skriver över ägarens nya poster.
@@ -529,6 +545,21 @@ export default async function handler(req, res) {
       else if (base !== undefined) value = mergeField(base, value, member.companyData?.[field]);
     }
     if (isPatch && value === undefined) value = applyRecordPatch(ownerCompanyData?.[field], patch);
+
+    // set_company_field skriver bara över ett fält som redan finns
+    // (jsonb_set med create_missing = false). Ett företag som aldrig haft
+    // t.ex. offerter eller AGI-rapporter fick då medlemmens första sparning
+    // tyst bortslängd. Saknas fältet skrivs det här i stället, villkorat på
+    // updated_at så att en samtidig ändring inte skrivs över.
+    if (currentCompanyData && !(field in currentCompanyData)) {
+      const written = await addMissingField(admin, ownerUserId, companyKey, field, value);
+      if (!written) {
+        res.status(409).json({ error: 'Företaget ändrades samtidigt. Försök igen.' });
+        return;
+      }
+      res.status(200).json({ ok: true });
+      return;
+    }
 
     const { error: rpcError } = await admin.rpc('set_company_field', {
       p_user_id: ownerUserId,
