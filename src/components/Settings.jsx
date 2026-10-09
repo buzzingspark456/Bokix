@@ -18,6 +18,8 @@ import ListPageHeader from './shared/ListPageHeader';
 import { sendReauthCode, verifyReauthCode, changePassword } from '../utils/reauthVerification';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
+import { reconcileSieOpenings } from '../utils/sieOpeningReconcile';
+import { resultAccountFor } from '../utils/yearEnd';
 import { getGreeting } from '../utils/greeting';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { newCalendarKey, calendarFeedUrl, calendarChoices } from '../utils/calendarFeed';
@@ -2422,7 +2424,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
 
 export default function Settings({
   company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], quotes = [], expenses = [],
-  contacts = [], projects = [], onImport, onReset, onBulkImportSie, onOpenRotRutImport, onAttachVerificationFiles, stripeAccountId, onConnectStripe, onDisconnectStripe,
+  contacts = [], projects = [], onImport, onReset, onBulkImportSie, onRepairSieOpenings, onOpenRotRutImport, onAttachVerificationFiles, stripeAccountId, onConnectStripe, onDisconnectStripe,
   zettleConnected = false, onConnectZettle,
   user,
   // Hjälp och Logga ut ligger i Inställningar på telefon (på dator finns de
@@ -2758,6 +2760,11 @@ export default function Settings({
     supabase.auth.updateUser({ data: patch });
   };
 
+  // Ingående balanser från SIE-import som räknas dubbelt (utils/sieOpeningReconcile.js).
+  const sieOpeningsNeedRepair = useMemo(
+    () => reconcileSieOpenings(verifications, { equityAccount: resultAccountFor(detectOrgType(company?.orgNr)) }).needsRepair,
+    [verifications, company?.orgNr],
+  );
   const maxUsedInvoiceNumber = useMemo(() => Math.max(0, ...invoices.map(i => Number(i.invoiceNumber) || 0)), [invoices]);
 
   const saveNextInvoiceNumber = () => {
@@ -4291,6 +4298,13 @@ export default function Settings({
           {activeTab === 'advanced' && !advancedView && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               <input ref={backupInputRef} type="file" accept="application/json" onChange={handleImportFile} disabled={importBusy} style={{ display: 'none' }} />
+              {sieOpeningsNeedRepair && onRepairSieOpenings && !readOnly && (
+                <div style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', marginBottom: '14px', background: 'var(--bg-card)' }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>{tr('ui.sie_ib_dubbel_titel')}</div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '10px' }}>{tr('ui.sie_ib_dubbel_text')}</div>
+                  <button type="button" onClick={onRepairSieOpenings} style={{ padding: '8px 14px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>{tr('ui.sie_ib_dubbel_knapp')}</button>
+                </div>
+              )}
               <SettingCard title={tr('ui.importera')} flush>
                 <SettingsLinkRow
                   title={tr('ui.flytta_hit_bokforingen')}

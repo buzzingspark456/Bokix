@@ -314,6 +314,7 @@ export function buildOpeningVerification(openingBalances, fiscalYearStart, { ser
     date: fiscalYearStart,
     description: 'Ingående balanser (SIE4-import)',
     source: 'sie_import',
+    sieOpening: true,
     status: 'booked',
     rows,
     balanced,

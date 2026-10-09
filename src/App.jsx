@@ -49,6 +49,8 @@ import { calcRotRutDeduction, invoiceCustomerDue, invoiceCustomerRemaining } fro
 import { mergeImportedEmployees } from './utils/employeeCsv';
 import { planFromId } from './utils/plans';
 import { detectOrgType } from './utils/orgType';
+import { reconcileSieOpenings, applySieOpeningReconcile } from './utils/sieOpeningReconcile';
+import { resultAccountFor } from './utils/yearEnd';
 import { BRAND, ACCENT_COLORS } from './utils/brandColors';
 import { vatSettlementRows } from './utils/vatCalculation';
 import { isReverseChargePurchaseAccount, withReverseChargeRows } from './utils/reverseCharge';
@@ -3809,8 +3811,17 @@ function App() {
           sourceId: v.sourceId || `${sourceTag}_${seriesLetter}_${v.sieNumber ?? i}`,
         };
       });
-      return [...prev, ...withNumbers];
+      // Importerade ingående balanser bokar bara det föregående års
+      // verifikationer inte redan ger, så att två importerade år inte
+      // dubblar saldona (se utils/sieOpeningReconcile.js).
+      const merged = [...prev, ...withNumbers];
+      return applySieOpeningReconcile(merged, reconcileSieOpenings(merged, { equityAccount: resultAccountFor(detectOrgType(company?.orgNr)) }));
     });
+  };
+
+  // Samma rättelse för data som importerades före den, från Inställningar.
+  const handleRepairSieOpenings = () => {
+    updateCompanyField('verifications', prev => applySieOpeningReconcile(prev, reconcileSieOpenings(prev, { equityAccount: resultAccountFor(detectOrgType(company?.orgNr)) })));
   };
 
   // Underlag som kopplats i efterhand (SIE-importens underlag). Rör bara
@@ -5275,6 +5286,7 @@ function App() {
             onToggleSidebarStyle={toggleSidebarStyle}
             sharedAccess={currentCompany.__shared || null}
             onBulkImportSie={handleBulkImportVerifications}
+            onRepairSieOpenings={handleRepairSieOpenings}
             onOpenRotRutImport={() => handleGlobalAction({ type: 'rotrut_import' }, 'invoices')}
             onAttachVerificationFiles={handleAttachVerificationFiles}
             themePreference={themePreference}
