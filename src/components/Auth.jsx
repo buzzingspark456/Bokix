@@ -91,6 +91,18 @@ function passwordStrength(pw) {
 // ändå bort explicit av redeemPendingInvite oavsett utfall.
 const PENDING_INVITE_KEY = 'bokix_pending_invite_token';
 
+// Ber webbläsaren spara inloggningen i Google-/Microsoft-kontots
+// lösenordshanterare (Chrome, Edge). Appen loggar in utan sidbyte och
+// registreringen tar e-post och lösenord i olika steg, så webbläsarens egen
+// "Spara lösenord?"-ruta kom inte alltid. Safari saknar API:t men läser
+// autocomplete-attributen på fälten. Ett fel här får aldrig stoppa inloggningen.
+function offerToSavePassword(email, password, name) {
+  try {
+    if (!email || !password || typeof window === 'undefined' || !window.PasswordCredential || !navigator.credentials?.store) return;
+    navigator.credentials.store(new window.PasswordCredential({ id: email, password, name: name || email })).catch(() => {});
+  } catch { /* ignoreras */ }
+}
+
 // Kundönskemål ("skapa konto gratis ska gå till registrering, inte
 // inloggning") — vilken flik som visas när formuläret öppnas styrs av
 // VILKEN knapp som togs hit (Prova gratis/Kom igång/Skapa konto → 'signup',
@@ -363,6 +375,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
         options: loginCaptchaToken ? { captchaToken: loginCaptchaToken } : undefined,
       });
       if (error) throw error;
+      offerToSavePassword(loginEmail, loginPassword);
     } catch (err) {
       setErrorMsg(translateSupabaseAuthError(err.message));
       newCaptchaRound();
@@ -563,6 +576,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
         }
         if (error) throw error;
         accountCreated = true;
+        offerToSavePassword(regEmail, regPassword, [regFirstName, regLastName].filter(Boolean).join(' '));
 
         // Inbjuden person: inget eget företag, ingen egen prenumeration att
         // betala för — de rider på ägarens (se supabase-setup.sql:
