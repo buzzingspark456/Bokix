@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import useFitLevel from './utils/useFitLevel';
-import { visiblePages } from './utils/pageAccess';
+import { visiblePages, accessForPage } from './utils/pageAccess';
 import { isUfCompany, ufPageState, ufInvoiceQuota, ufFreePeriod, UF_NAV_IDS, UF_HIDDEN_REPORT_IDS } from './utils/ufMode';
 import { t as tr, useTranslation } from './i18n';
 import {
@@ -1733,12 +1733,27 @@ function App() {
   // ska aldrig blockeras av EN trasig inbjudan bland flera).
   const fetchSharedCompanies = async (authUserId, accessToken) => {
     if (!accessToken) return {};
-    const { data: memberships } = await supabase
+    const membersQuery = () => supabase
       .from('company_members')
       .select('company_id, owner_user_id, role')
       .eq('member_user_id', authUserId)
       .eq('status', 'active');
+    let { data: memberships, error: membersError } = await membersQuery();
+    // Ett tillfälligt fel här fick en inbjuden revisor att se betalspärren
+    // (inget eget abonnemang + inga delade företag = obetalt konto). Ett nytt
+    // försök innan vi ger upp.
+    if (membersError) ({ data: memberships } = await membersQuery());
     if (!memberships || memberships.length === 0) return {};
+    // Ett företag som inte gick att hämta just nu (nätverk, serverfel, för
+    // stort svar) blir en __stub som hämtas om när det öppnas, i stället för
+    // att tyst försvinna. Annars fick en inbjuden utan egen prenumeration
+    // betalningsrutan för 179 kr (kundrapport 2026-10-09). Bara 401/403/404
+    // betyder att åtkomsten verkligen är borta.
+    const stubFor = (m) => ({
+      company: { id: m.company_id, name: '' },
+      __stub: true,
+      __shared: { ownerUserId: m.owner_user_id, role: m.role, pageAccess: null, ownerPaid: true },
+    });
 
     // Många företag (en redovisningskonsult med flera kunder): bara namnen
     // nu, i ett anrop. Ett företag hämtas helt när det öppnas, se
@@ -1769,7 +1784,10 @@ function App() {
         const res = await fetch(`/api/company-access?company_id=${encodeURIComponent(m.company_id)}`, {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (![401, 403, 404].includes(res.status)) results[m.company_id] = stubFor(m);
+          return;
+        }
         const json = await res.json();
         if (json?.company) {
           // __shared markerar företaget som INTE mitt eget — se
@@ -1779,6 +1797,7 @@ function App() {
         }
       } catch (err) {
         console.error('Kunde inte hämta delat företag', m.company_id, err);
+        results[m.company_id] = stubFor(m);
       }
     }));
     return results;
@@ -3215,6 +3234,8 @@ function App() {
   // platshållarföretag redan HÄR, innan användaren skrivit in något alls
   // (så "Avbryt" lämnade kvar ett spöktomt företag om man ångrade sig).
   const handleStartNewCompany = () => {
+    // Bara inbjuden (inget eget företag): ingen väg till en egen betalning.
+    if (!Object.values(data.companies || {}).some(c => !c?.__shared)) return;
     setNewCompanyModalOpen(true);
   };
 
@@ -3353,6 +3374,19 @@ function App() {
     // topbar + Startsidans kort/graf/lista), se AppLoadingSkeleton ovan.
     return <AppLoadingSkeleton tab={activeTab} />;
   }
+  // Ett delat företag som inte gick att hämta: ett tydligt fel med nytt
+  // försök, aldrig appen med halva datan och aldrig en betalningsruta.
+  if (activeStub?.__stubError) {
+    const retry = () => setData(prev => ({ ...prev, companies: { ...prev.companies, [prev.activeCompanyId]: { ...prev.companies[prev.activeCompanyId], __stubError: false } } }));
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'var(--bg-main)' }}>
+        <div style={{ maxWidth: '420px', width: '100%', textAlign: 'center', padding: '28px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
+          <p style={{ fontSize: '14.5px', color: 'var(--text-main)', margin: '0 0 18px', lineHeight: 1.6 }}>{tr('ui.kunde_inte_hamta_foretaget')}</p>
+          <button type="button" onClick={retry} style={{ padding: '10px 20px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>{tr('ui.forsok_igen')}</button>
+        </div>
+      </div>
+    );
+  }
 
   // Current company data
   const currentCompany = data.companies[data.activeCompanyId];
@@ -3371,7 +3405,11 @@ function App() {
   const unlockedCompanyId = activeSharedLocked
     ? Object.keys(data.companies || {}).find(id => id !== data.activeCompanyId && data.companies[id]?.__shared?.ownerPaid !== false)
     : null;
+  // Ett delat företag betalas av ägaren (ownerPaid ovan, kollat på servern).
+  // Den inbjudnas egen subscriptionsMap har aldrig ägarens rader, så
+  // requiresOwnPayment får inte kräva betalning av en inbjuden revisor.
   const isActiveCompanyPaid = !activeSharedLocked && (isFreeAccountEmail(user?.email)
+    || Boolean(currentCompany?.__shared)
     || !company?.requiresOwnPayment
     || ALLOWED_SUBSCRIPTION_STATUSES.includes(subscriptionsMap[company.id]?.status));
   const accounts = currentCompany.accounts;
@@ -4786,6 +4824,16 @@ function App() {
   const sharedNavIds = currentCompany?.__shared
     ? visiblePages(currentCompany.__shared.pageAccess, currentCompany.__shared.role)
     : null;
+  // Anställda och lön syns alltid för en inbjuden, även utan behörighet:
+  // sidan förklarar då att ägaren måste ge åtkomst. Utan den letade en
+  // inbjuden revisor efter löneimporten och hamnade i Lägg till företag och
+  // Stripe-betalningen (kundrapport 2026-10-09).
+  const payrollLockedForMember = Boolean(currentCompany?.__shared)
+    && accessForPage(currentCompany.__shared.pageAccess, 'payroll', currentCompany.__shared.role) === 'none';
+  if (payrollLockedForMember && sharedNavIds && !sharedNavIds.includes('payroll')) sharedNavIds.push('payroll');
+  // Bara inbjuden (inget eget företag): Lägg till företag leder till en egen
+  // prenumeration, så den visas inte. Inbjudningar till fler företag fungerar ändå.
+  const ownsAnyCompany = Object.values(data.companies || {}).some(c => !c?.__shared);
   // UF-läget (utils/ufMode.js) skär bort de sidor ett UF-företag aldrig
   // ska använda — offerter, projekt och lön. Det är en EGEN begränsning
   // vid sidan av sidbehörigheterna ovan, inte samma sak: behörigheterna
@@ -4964,6 +5012,14 @@ function App() {
           />
         );
       case 'payroll':
+        if (payrollLockedForMember) {
+          return (
+            <div style={{ maxWidth: '560px', margin: '48px auto', padding: '24px 26px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 8px' }}>{tr('ui.lon_ingen_atkomst_titel')}</h2>
+              <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>{tr('ui.lon_ingen_atkomst_text', { company: company?.name || '' })}</p>
+            </div>
+          );
+        }
         return (
           <Payroll
             key={company?.id || data.activeCompanyId}
@@ -5666,8 +5722,12 @@ function App() {
                   <button onClick={() => { setReportErrorModal(true); setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> {tr('ui.rapportera_fel')}</button>
                   <button className="profile-item-desktop-only" onClick={() => { setIsHelpDrawerOpen(true); setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> {tr('ui.hjalp_support')}</button>
                   <div className="dropdown-divider"></div>
-                  <button onClick={() => { handleStartNewCompany(); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> {tr('ui.lagg_till_foretag')}</button>
-                  <div className="dropdown-divider"></div>
+                  {ownsAnyCompany && (
+                    <>
+                      <button onClick={() => { handleStartNewCompany(); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> {tr('ui.lagg_till_foretag')}</button>
+                      <div className="dropdown-divider"></div>
+                    </>
+                  )}
                   <button onClick={async () => {
                     await supabase.auth.signOut();
                     clearLocalData();
@@ -5783,8 +5843,12 @@ function App() {
                   <button onClick={() => { setReportErrorModal(true); setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> {tr('ui.rapportera_fel')}</button>
                   <button onClick={() => { setIsHelpDrawerOpen(true); setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> {tr('ui.hjalp_support')}</button>
                   <div className="dropdown-divider"></div>
-                  <button onClick={() => { handleStartNewCompany(); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> {tr('ui.lagg_till_foretag')}</button>
-                  <div className="dropdown-divider"></div>
+                  {ownsAnyCompany && (
+                    <>
+                      <button onClick={() => { handleStartNewCompany(); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> {tr('ui.lagg_till_foretag')}</button>
+                      <div className="dropdown-divider"></div>
+                    </>
+                  )}
                   <button onClick={async () => {
                     await supabase.auth.signOut();
                     clearLocalData();
