@@ -64,6 +64,15 @@ export function defaultPageAccess(role = 'editor', template = null) {
   return Object.fromEntries(ACCESS_PAGES.map(p => [p.id, p.id === 'payroll' ? 'none' : level]));
 }
 
+/** Färdig roll för en revisor eller redovisningskonsult: redigerare med
+ * alla sidor, även lönerna. Förvalet ovan stänger lön, och en inbjuden
+ * konsult hittade då inte löneimporten (kundrapport 2026-10-09). Rollen
+ * finns bara i inbjudningsformuläret och sparas som 'editor'. */
+export const ACCOUNTANT_PRESET = 'accountant';
+export function accountantPageAccess() {
+  return Object.fromEntries(ACCESS_PAGES.map(p => [p.id, 'edit']));
+}
+
 /**
  * Vad gäller för en viss sida?
  *

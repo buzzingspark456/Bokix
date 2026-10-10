@@ -27,7 +27,7 @@ import { confirmDialog } from './shared/ConfirmDialog';
 import { newCalendarKey, calendarFeedUrl, calendarChoices } from '../utils/calendarFeed';
 import { downloadSie4 } from '../utils/sieExport';
 import { planFromId, PLAN_TIERS } from '../utils/plans';
-import { ACCESS_PAGES, ACCESS_LEVELS, defaultPageAccess, accessForPage, canWriteField } from '../utils/pageAccess';
+import { ACCESS_PAGES, ACCESS_LEVELS, defaultPageAccess, accessForPage, canWriteField, ACCOUNTANT_PRESET, accountantPageAccess } from '../utils/pageAccess';
 import { isUfCompany, ufSettingsSections, ufFreePeriod, UF_FREE_MONTHS } from '../utils/ufMode';
 import { closeUfYear } from '../utils/ufClose';
 import SieImportModal from './SieImportModal';
@@ -1680,7 +1680,9 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
   const [loading, setLoading] = useState(true);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  // 'accountant' är ett förval i formuläret (utils/pageAccess.js) och sparas som redigerare.
   const [inviteRole, setInviteRole] = useState('editor');
+  const inviteDbRole = inviteRole === ACCOUNTANT_PRESET ? 'editor' : inviteRole;
   // Sidbehörigheter (utils/pageAccess.js). Förvalet är allt utom lön —
   // ägaren ändrar fritt innan inbjudan skickas.
   const [invitePages, setInvitePages] = useState(() => defaultPageAccess('editor', company?.roleTemplates?.editor));
@@ -1736,7 +1738,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
     try {
       const { data: inserted, error } = await supabase
         .from('company_members')
-        .insert({ owner_user_id: user.id, company_id: company.id, invited_email: email, role: inviteRole, page_access: invitePages })
+        .insert({ owner_user_id: user.id, company_id: company.id, invited_email: email, role: inviteDbRole, page_access: invitePages })
         .select()
         .single();
       if (error) throw error;
@@ -1758,7 +1760,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
         companyName: company.name,
         inviterName: [firstName, lastName].filter(Boolean).join(' ') || user?.email,
         inviteUrl,
-        role: inviteRole,
+        role: inviteDbRole,
       });
       try {
         await sendInvoiceEmail({
@@ -1857,12 +1859,20 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
               <label style={labelStyle}>{tr('ui.roll')}</label>
               <select
                 value={inviteRole}
-                onChange={e => { setInviteRole(e.target.value); setInvitePages(defaultPageAccess(e.target.value, company?.roleTemplates?.[e.target.value])); }}
+                onChange={e => {
+                  const next = e.target.value;
+                  setInviteRole(next);
+                  setInvitePages(next === ACCOUNTANT_PRESET ? accountantPageAccess() : defaultPageAccess(next, company?.roleTemplates?.[next]));
+                }}
                 style={inputBase}
               >
                 <option value="editor">{tr('ui.kan_redigera')}</option>
                 <option value="viewer">{tr('ui.kan_bara_lasa')}</option>
+                <option value={ACCOUNTANT_PRESET}>{tr('ui.roll_revisor')}</option>
               </select>
+              {inviteRole === ACCOUNTANT_PRESET && (
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '6px 0 0', lineHeight: 1.5 }}>{tr('ui.roll_revisor_hint')}</p>
+              )}
             </div>
           </div>
 
@@ -1871,7 +1881,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
           <div style={{ marginTop: '18px', paddingTop: '18px', borderTop: '1px solid var(--border-light)' }}>
             <PageAccessPicker
               value={invitePages}
-              role={inviteRole}
+              role={inviteDbRole}
               onChange={setInvitePages}
             />
           </div>

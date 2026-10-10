@@ -3148,6 +3148,8 @@
     "sie_inte_nu": "Not now",
     "sie_och": "and",
     "sie_ar_stangda": "Closed and locked: {{years}}",
+    "roll_revisor": "Auditor / accounting consultant",
+    "roll_revisor_hint": "Can edit everything, including payroll, so the consultant can handle bookkeeping, payroll and year-end. You can change single pages below.",
     "forsok_igen": "Try again",
     "lon_ingen_atkomst_titel": "You don't have access to payroll",
     "lon_ingen_atkomst_text": "The owner of {{company}} hasn't given you access to Employees and payroll. Ask the owner to open Settings → Users, choose you and set Employees and payroll to Can edit. Then you can add and import employees here. It costs you nothing.",

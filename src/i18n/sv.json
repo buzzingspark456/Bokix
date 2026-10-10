@@ -3148,6 +3148,8 @@
     "sie_inte_nu": "Inte nu",
     "sie_och": "och",
     "sie_ar_stangda": "Stängt och låst: {{years}}",
+    "roll_revisor": "Revisor / redovisningskonsult",
+    "roll_revisor_hint": "Kan redigera allt, även löner, så att konsulten kan sköta bokföring, lön och bokslut. Du kan ändra enskilda sidor nedan.",
     "forsok_igen": "Försök igen",
     "lon_ingen_atkomst_titel": "Du har inte åtkomst till löner",
     "lon_ingen_atkomst_text": "Ägaren av {{company}} har inte gett dig behörighet till Anställda och lön. Be ägaren öppna Inställningar → Användare, välja dig och sätta Anställda och lön till Kan redigera. Sedan kan du lägga till och importera anställda här. Det kostar ingenting för dig.",
