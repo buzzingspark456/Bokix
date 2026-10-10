@@ -11,13 +11,19 @@ const TAG_FROM_SOURCE_ID = /^(sie_import_.+_(?:\d{4}-\d{2}-\d{2}|okant-datum))_[
 export function sieImportTagOf(v) {
   if (!v) return null;
   if (v.sieImportTag) return v.sieImportTag;
-  const m = TAG_FROM_SOURCE_ID.exec(String(v.sourceId || ''));
-  return m ? m[1] : null;
+  const sourceId = String(v.sourceId || '');
+  const m = TAG_FROM_SOURCE_ID.exec(sourceId);
+  if (m) return m[1];
+  // Oväntad form: ta bort "_<serie>_<nummer>" i slutet hellre än att dölja
+  // importen, och samla resten under en gemensam rad.
+  if (sourceId.startsWith('sie_import_')) return sourceId.split('_').slice(0, -2).join('_') || 'sie_import';
+  if (String(v.source || '').startsWith('sie_import')) return 'sie_import';
+  return null;
 }
 
 function describeTag(tag) {
   const m = /^sie_import_(.+)_(\d{4}-\d{2}-\d{2}|okant-datum)$/.exec(tag);
-  if (!m) return { fileName: tag, generatedDate: null };
+  if (!m) return { fileName: tag === 'sie_import' ? 'SIE-import' : tag.replace(/^sie_import_/, ''), generatedDate: null };
   return { fileName: m[1], generatedDate: m[2] === 'okant-datum' ? null : m[2] };
 }
 

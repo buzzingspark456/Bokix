@@ -6,6 +6,8 @@ describe('sieImportBatches', () => {
     expect(sieImportTagOf({ sourceId: 'sie_import_Foretag_2025.se_2026-01-15_A_12' })).toBe('sie_import_Foretag_2025.se_2026-01-15');
     expect(sieImportTagOf({ sourceId: 'sie_import_fil_med_understreck.si_okant-datum_B_3' })).toBe('sie_import_fil_med_understreck.si_okant-datum');
     expect(sieImportTagOf({ sourceId: 'skattekonto_import_x' })).toBeNull();
+    expect(sieImportTagOf({ source: 'sie_import', sourceId: 'sie_import_konstig_A_B_1' })).toBe('sie_import_konstig_A');
+    expect(sieImportTagOf({ source: 'sie_import' })).toBe('sie_import');
     expect(sieImportTagOf({ sieImportTag: 'sie_import_a.se_2026-01-01', sourceId: 'x' })).toBe('sie_import_a.se_2026-01-01');
   });
 
