@@ -50,6 +50,7 @@ import { mergeImportedEmployees } from './utils/employeeCsv';
 import { planFromId } from './utils/plans';
 import { detectOrgType } from './utils/orgType';
 import { reconcileSieOpenings, applySieOpeningReconcile } from './utils/sieOpeningReconcile';
+import { sieImportTagOf } from './utils/sieImportBatches';
 import { resultAccountFor } from './utils/yearEnd';
 import { BRAND, ACCENT_COLORS } from './utils/brandColors';
 import { vatSettlementRows } from './utils/vatCalculation';
@@ -3847,6 +3848,7 @@ function App() {
           status: 'booked',
           source: v.source || sourceTag,
           sourceId: v.sourceId || `${sourceTag}_${seriesLetter}_${v.sieNumber ?? i}`,
+          ...(String(sourceTag).startsWith('sie_import_') ? { sieImportTag: sourceTag } : {}),
         };
       });
       // Importerade ingående balanser bokar bara det föregående års
@@ -3855,6 +3857,17 @@ function App() {
       const merged = [...prev, ...withNumbers];
       return applySieOpeningReconcile(merged, reconcileSieOpenings(merged, { equityAccount: resultAccountFor(detectOrgType(company?.orgNr)) }));
     });
+  };
+
+  // Tar bort allt en SIE-fil förde in (Inställningar → Importera) och räknar
+  // om övriga importers ingående balanser. Kontona som importen lade till
+  // ligger kvar. Settings stoppar redan borttagning i ett låst år.
+  const handleDeleteSieImport = (tag) => {
+    updateCompanyField('verifications', prev => {
+      const kept = prev.filter(v => sieImportTagOf(v) !== tag);
+      return applySieOpeningReconcile(kept, reconcileSieOpenings(kept, { equityAccount: resultAccountFor(detectOrgType(company?.orgNr)) }));
+    });
+    setToast({ message: tr('ui.sie_import_borttagen'), variant: 'success' });
   };
 
   // Samma rättelse för data som importerades före den, från Inställningar.
@@ -5343,6 +5356,7 @@ function App() {
             sharedAccess={currentCompany.__shared || null}
             onBulkImportSie={handleBulkImportVerifications}
             onRepairSieOpenings={handleRepairSieOpenings}
+            onDeleteSieImport={handleDeleteSieImport}
             onOpenRotRutImport={() => handleGlobalAction({ type: 'rotrut_import' }, 'invoices')}
             onAttachVerificationFiles={handleAttachVerificationFiles}
             themePreference={themePreference}

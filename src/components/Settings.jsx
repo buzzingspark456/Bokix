@@ -19,6 +19,8 @@ import { sendReauthCode, verifyReauthCode, changePassword } from '../utils/reaut
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
 import { reconcileSieOpenings } from '../utils/sieOpeningReconcile';
+import { sieImportBatches } from '../utils/sieImportBatches';
+import { lockedPeriodFor } from '../utils/fiscalYear';
 import { resultAccountFor } from '../utils/yearEnd';
 import { getGreeting } from '../utils/greeting';
 import { confirmDialog } from './shared/ConfirmDialog';
@@ -2424,7 +2426,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
 
 export default function Settings({
   company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], quotes = [], expenses = [],
-  contacts = [], projects = [], onImport, onReset, onBulkImportSie, onRepairSieOpenings, onOpenRotRutImport, onAttachVerificationFiles, stripeAccountId, onConnectStripe, onDisconnectStripe,
+  contacts = [], projects = [], onImport, onReset, onBulkImportSie, onRepairSieOpenings, onDeleteSieImport, onOpenRotRutImport, onAttachVerificationFiles, stripeAccountId, onConnectStripe, onDisconnectStripe,
   zettleConnected = false, onConnectZettle,
   user,
   // Hjälp och Logga ut ligger i Inställningar på telefon (på dator finns de
@@ -2765,6 +2767,21 @@ export default function Settings({
     () => reconcileSieOpenings(verifications, { equityAccount: resultAccountFor(detectOrgType(company?.orgNr)) }).needsRepair,
     [verifications, company?.orgNr],
   );
+  // Importerade SIE-filer, var och en går att ta bort (App.jsx handleDeleteSieImport).
+  const sieBatches = useMemo(() => sieImportBatches(verifications), [verifications]);
+  const handleDeleteSieImport = async (batch) => {
+    const lockedIds = new Set(batch.ids);
+    const locked = verifications.find(v => lockedIds.has(v.id) && lockedPeriodFor(v.date, company?.lockedFiscalYears));
+    if (locked) {
+      window.alert(tr('ui.sie_import_last_ar', { year: lockedPeriodFor(locked.date, company?.lockedFiscalYears) }));
+      return;
+    }
+    const laterImports = sieBatches.some(o => o.tag !== batch.tag && o.from && batch.to && o.from > batch.to);
+    const message = tr('ui.sie_import_ta_bort_fraga', { file: batch.fileName, count: batch.count })
+      + (laterImports ? '\n\n' + tr('ui.sie_import_senare_ar') : '');
+    if (!(await confirmDialog(message, { danger: true, confirmLabel: tr('ui.ta_bort') }))) return;
+    onDeleteSieImport(batch.tag);
+  };
   const maxUsedInvoiceNumber = useMemo(() => Math.max(0, ...invoices.map(i => Number(i.invoiceNumber) || 0)), [invoices]);
 
   const saveNextInvoiceNumber = () => {
@@ -4344,6 +4361,27 @@ export default function Settings({
               </SettingCard>
               {importMsg && (
                 <div style={{ fontSize: '12.5px', margin: '10px 0 0', fontWeight: 600, color: importMsg.startsWith('Kunde inte') ? 'var(--status-red-text)' : BRAND.greenDark }}>{importMsg}</div>
+              )}
+
+              {sieBatches.length > 0 && (
+                <SettingCard title={tr('ui.sie_importer_titel')} description={tr('ui.sie_importer_beskrivning')} flush>
+                  {sieBatches.map(b => (
+                    <SettingsLinkRow
+                      key={b.tag}
+                      title={b.fileName}
+                      description={tr('ui.sie_import_rad', { count: b.count, from: b.from || '', to: b.to || '' })}
+                      right={onDeleteSieImport && !readOnly ? (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSieImport(b)}
+                          style={{ padding: '6px 12px', background: 'transparent', color: 'var(--status-red-text)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        >
+                          {tr('ui.ta_bort')}
+                        </button>
+                      ) : null}
+                    />
+                  ))}
+                </SettingCard>
               )}
 
               <SettingCard title={tr('ui.exportera')} flush>
