@@ -2426,7 +2426,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
 
 export default function Settings({
   company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], quotes = [], expenses = [],
-  contacts = [], projects = [], onImport, onReset, onBulkImportSie, onRepairSieOpenings, onDeleteSieImport, onOpenRotRutImport, onAttachVerificationFiles, stripeAccountId, onConnectStripe, onDisconnectStripe,
+  contacts = [], projects = [], onImport, onReset, onBulkImportSie, onRepairSieOpenings, onDeleteSieImport, onOpenRotRutImport, enabledFeatures = null, onAttachVerificationFiles, stripeAccountId, onConnectStripe, onDisconnectStripe,
   zettleConnected = false, onConnectZettle,
   user,
   // Hjälp och Logga ut ligger i Inställningar på telefon (på dator finns de
@@ -4248,6 +4248,22 @@ export default function Settings({
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               {/* Accounted-stil: en rad per inställning, etiketten till vänster
                   och kontrollen till höger. */}
+              {enabledFeatures && (
+                <SettingCard title={tr('ui.funktioner_titel')} description={tr('ui.funktioner_beskrivning')}>
+                  {[
+                    { id: 'articles', label: tr('ui.funktion_artiklar'), description: tr('ui.funktion_artiklar_desc') },
+                    { id: 'projects', label: tr('ui.funktion_projekt'), description: tr('ui.funktion_projekt_desc') },
+                  ].map((row, i, all) => (
+                    <SettingRow key={row.id} label={row.label} description={row.description} last={i === all.length - 1}>
+                      <ToggleSwitch
+                        checked={Boolean(enabledFeatures[row.id])}
+                        disabled={readOnly}
+                        onChange={() => setCompanyInfo({ ...company, features: { ...(company?.features || {}), [row.id]: !enabledFeatures[row.id] } })}
+                      />
+                    </SettingRow>
+                  ))}
+                </SettingCard>
+              )}
               <SettingCard title={tr('ui.moms')} description={tr('ui.hur_ofta_du_redovisar_moms')}>
                 <SettingRow label={tr('ui.momsregistrerat_2')} last={company?.vatRegistered === false}>
                   <select

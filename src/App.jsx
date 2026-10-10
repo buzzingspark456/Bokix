@@ -51,6 +51,7 @@ import { planFromId } from './utils/plans';
 import { detectOrgType } from './utils/orgType';
 import { reconcileSieOpenings, applySieOpeningReconcile } from './utils/sieOpeningReconcile';
 import { sieImportTagOf } from './utils/sieImportBatches';
+import { OPTIONAL_FEATURES, isFeatureOn, hiddenFeatureNavIds } from './utils/optionalFeatures';
 import { resultAccountFor } from './utils/yearEnd';
 import { BRAND, ACCENT_COLORS } from './utils/brandColors';
 import { vatSettlementRows } from './utils/vatCalculation';
@@ -4904,6 +4905,11 @@ function App() {
   // allowedNavIds är null för ett vanligt eget företag, så det här är ett
   // no-op där. 'settings' undantas precis som i sidomenyn.
   const isNavIdAllowed = (id) => allowedNavIds === null || id === 'settings' || allowedNavIds.includes(id);
+  // Gömda funktioner (utils/optionalFeatures.js) syns inte i menyn, men
+  // sidan finns kvar. Kollas på menyvalets eget id, eftersom Artiklar
+  // delar behörighet med Kundfakturor (navAccessId).
+  const featureHiddenNavIds = hiddenFeatureNavIds(currentCompany);
+  const isNavItemShown = (item) => !featureHiddenNavIds.includes(item.id) && isNavIdAllowed(navAccessId(item.id));
   // Offerter, Kundfakturor, Artiklar och Leverantörsfakturor markeras bara på sin egen sida.
   const isNavItemActive = (item) => (item.exact
     ? resolveTab(activeTab) === item.id
@@ -4912,7 +4918,7 @@ function App() {
   // Det som redan finns i bottenraden (Kvitton, Bokföring, Rapport) tas inte med i Meny.
   const barIds = visibleMobileNavItems.map(item => item.id);
   const visibleMobileSheetSections = mobileSheetSections
-    .map(sec => ({ ...sec, items: sec.items.filter(item => isNavIdAllowed(navAccessId(item.id)) && !barIds.includes(item.id)) }))
+    .map(sec => ({ ...sec, items: sec.items.filter(item => isNavItemShown(item) && !barIds.includes(item.id)) }))
     .filter(sec => sec.items.length > 0);
   // Som på datorn: Granskning visas bara när något väntar, eller när man står på sidan.
   const reviewSheetVisible = isNavIdAllowed('review') && (reviewTotal > 0 || resolveNavGroup(activeTab) === 'review');
@@ -5357,6 +5363,7 @@ function App() {
             onBulkImportSie={handleBulkImportVerifications}
             onRepairSieOpenings={handleRepairSieOpenings}
             onDeleteSieImport={handleDeleteSieImport}
+            enabledFeatures={Object.fromEntries(OPTIONAL_FEATURES.map(f => [f.id, isFeatureOn(currentCompany, f.id)]))}
             onOpenRotRutImport={() => handleGlobalAction({ type: 'rotrut_import' }, 'invoices')}
             onAttachVerificationFiles={handleAttachVerificationFiles}
             themePreference={themePreference}
@@ -5525,7 +5532,7 @@ function App() {
                 { id: 'settings', label: t('nav.settings'), short: t('navShort.settings'), icon: SettingsIcon },
               ],
             },
-          ].map(group => ({ ...group, items: group.items.filter(item => !item.hidden && isNavIdAllowed(navAccessId(item.id))) }))
+          ].map(group => ({ ...group, items: group.items.filter(item => !item.hidden && isNavItemShown(item)) }))
            .filter(group => group.items.length > 0)
            .map((group, gi) => {
             const isItemActive = (item) => (item.exact
