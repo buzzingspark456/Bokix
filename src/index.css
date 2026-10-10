@@ -7886,3 +7886,20 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 .contact-sender-label { font-size: 12px; color: var(--text-secondary); }
 .contact-sender-email { font-size: 14px; font-weight: 600; color: var(--text-main); word-break: break-all; }
 .contact-topics .filter-pill.active { background: var(--lime-500); border-color: var(--lime-500); color: #fff; }
+
+/* Lönekörningens steg i en yta (PayrollRunDetail.jsx): rutor och tabeller
+   går kant i kant med en linje ovan och under, i stället för egna kort. */
+.payroll-stage-body .pr-panel {
+  border-radius: 0 !important;
+  border-left: none !important;
+  border-right: none !important;
+  box-shadow: none !important;
+  margin-left: -24px !important;
+  margin-right: -24px !important;
+}
+
+/* Tabellerna i stegen: första och sista kolumnen i linje med rubrikerna. */
+.payroll-stage-body .pr-panel table th:first-child,
+.payroll-stage-body .pr-panel table td:first-child { padding-left: 24px !important; }
+.payroll-stage-body .pr-panel table th:last-child,
+.payroll-stage-body .pr-panel table td:last-child { padding-right: 24px !important; }

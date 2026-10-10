@@ -19,6 +19,7 @@ import { AGI_XML_ENABLED } from '../utils/featureFlags';
 import { preloadSkattetabell } from '../utils/skattetabell';
 import { downloadSalaryPaymentFile, getDebtorAccountError } from '../utils/salaryPaymentFile';
 import { t as tr } from '../i18n';
+import { SKV_AGI_URL } from './AgiReportDetails';
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE').format(Math.round(v || 0));
 const fmtSigned = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${new Intl.NumberFormat('sv-SE').format(Math.round(Math.abs(v || 0)))} kr`;
@@ -247,8 +248,8 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
     </div>
   );
 }
-function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, payslipArgs, flat = false }) {
-  const [expanded, setExpanded] = useState(false);
+function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, flat = false, defaultOpen = false }) {
+  const [expanded, setExpanded] = useState(defaultOpen);
   const isZero = computed.gross === 0 && computed.net === 0 && computed.tax === 0;
   const diff = previousComputed ? computed.net - previousComputed.net : null;
   const isHourly = row.employeeSnapshot.salaryForm === 'timlon';
@@ -320,14 +321,6 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, pay
         <div style={{ padding: flat ? '4px 24px 16px' : '4px 18px 16px', borderTop: '1px solid var(--border-light)' }}>
           {computed.steps.map((s, i) => <CalculationRow key={i} {...s} />)}
           <PayLinesEditor row={row} computed={computed} onUpdateRow={onUpdateRow} locked={locked} />
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
-            <button
-              onClick={(e) => { e.stopPropagation(); generatePayslipPdf(payslipArgs({ row, computed })).save(`lonebesked-${row.employeeSnapshot.lastName}-${row.period}.pdf`); }}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}
-            >
-              <Download size={13} /> {tr('ui.ladda_ner_lonebesked_pdf')}
-            </button>
-          </div>
         </div>
       )}
     </div>
@@ -340,7 +333,7 @@ function EmployeeSummaryTable({ computedRows, onDownload }) {
   const th = { padding: '10px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: 'right' };
   const td = { padding: '12px 16px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' };
   return (
-    <div style={{ ...panelCard, overflowX: 'auto', marginBottom: '20px' }}>
+    <div className="pr-panel" style={{ ...panelCard, overflowX: 'auto', marginBottom: '20px' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
         <thead>
           <tr style={{ background: 'var(--bg-muted)' }}>
@@ -416,7 +409,7 @@ function PayslipPreview({ computedRows, payslipArgs }) {
   }, [current?.row.employeeId, current?.computed.net]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!current) return null;
   return (
-    <div style={{ ...panelCard, marginBottom: '20px' }}>
+    <div className="pr-panel" style={{ ...panelCard, marginBottom: '20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', padding: '14px 18px', borderBottom: '1px solid var(--border-light)' }}>
         <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('payrollStages.previewTitle')}</div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -451,7 +444,7 @@ export function VerificationBlock({ title, rows, accounts }) {
   return (
     <div style={{ marginBottom: '16px' }}>
       <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>{title}</div>
-      <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
+      <div className="pr-panel" style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr style={{ background: 'var(--bg-muted)' }}>
@@ -719,7 +712,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
       </ListPageHeader>
 
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-      <div className="payroll-stage-head" style={{ padding: '18px 24px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
+      <div className="payroll-stage-head" style={{ padding: '18px 24px', background: 'var(--bg-card)' }}>
         <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: 'var(--text-main)' }}>{tr(`payrollStages.${stage}Title`)}</h2>
         <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.55, maxWidth: '760px' }}>{tr(`payrollStages.${stage}Text`, { period: run.period })}</p>
       {stage === 'calculated' && missingTaxTable.length > 0 && (
@@ -787,17 +780,17 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
       )}
       <div style={{ margin: '0 -24px -18px', borderTop: '1px solid var(--border-light)' }}>
       {computedRows.map(({ row, computed }) => (
-        <EmployeeRow flat
+        <EmployeeRow flat defaultOpen={computedRows.length <= 5 || computed.gross === 0}
           key={row.employeeId} row={row} computed={computed}
           previousComputed={previousComputedByEmployee[row.employeeId]}
-          accounts={accounts} onUpdateRow={onUpdateRow} payslipArgs={payslipArgs}
+          accounts={accounts} onUpdateRow={onUpdateRow}
           locked={run.completedSteps.includes('booked')}
         />
       ))}
       </div>
       </>)}
       </div>
-      <div className="payroll-stage-body" style={{ padding: stage === 'calculated' ? 0 : '20px 24px', flex: 1 }}>
+      <div className="payroll-stage-body" style={{ padding: stage === 'calculated' ? 0 : '4px 24px 20px', flex: 1, background: 'var(--bg-card)' }}>
       {(stage === 'approved' || stage === 'done') && (
         <EmployeeSummaryTable computedRows={computedRows} onDownload={stage === 'done' ? (r) => generatePayslipPdf(payslipArgs(r)).save(`lonebesked-${r.row.employeeSnapshot.lastName}-${run.period}.pdf`) : null} />
       )}
@@ -816,7 +809,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
       {stage === 'paid' && (
         <div>
           {run.completedSteps.includes('paid') ? (
-            <div style={{ ...panelCard, padding: '20px', display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
+            <div className="pr-panel" style={{ ...panelCard, padding: '20px', display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
               <div style={{ width: 40, height: 40, borderRadius: '10px', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Check size={20} />
               </div>
@@ -833,7 +826,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
 
           {/* Vem får vad: beloppet och kontot per anställd, det man behöver
               för att betala själv i internetbanken. */}
-          <div style={{ ...panelCard, overflowX: 'auto', marginBottom: '20px' }}>
+          <div className="pr-panel" style={{ ...panelCard, overflowX: 'auto', marginBottom: '20px' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
               <thead>
                 <tr style={{ background: 'var(--bg-muted)' }}>
@@ -875,11 +868,11 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
               </div>
 
               {payMethod === 'manual' ? (
-                <div style={{ ...panelCard, padding: '18px 20px', fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                <div className="pr-panel" style={{ ...panelCard, padding: '18px 20px', fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                   {tr('payPanel.manualText')}
                 </div>
               ) : (
-                <div style={{ ...panelCard, padding: '18px 20px' }}>
+                <div className="pr-panel" style={{ ...panelCard, padding: '18px 20px' }}>
                   {/* Det som måste vara på plats för en betalfil, som en lista. */}
                   {[
                     [!debtorAccountError, debtorAccountError ? tr('payPanel.companyIbanMissing') : tr('payPanel.companyIbanOk')],
@@ -932,7 +925,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
         <PayslipPreview computedRows={computedRows} payslipArgs={payslipArgs} />
       )}
       {(stage === 'payslips' || stage === 'done') && computedRows.length > 0 && (
-        <div style={{ ...panelCard, marginBottom: '20px', padding: '20px' }}>
+        <div className="pr-panel" style={{ ...panelCard, marginBottom: '20px', padding: '20px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 8px' }}>{tr('payslips.title')}</h3>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
             {tr('payslips.intro', { n: computedRows.length, withEmail: withEmail.length, sent: sentCount })}
@@ -969,7 +962,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
           var det, vilket fick stegraden ovan att se bakvänd ut (ett SENARE
           steg grönt/klart medan ett TIDIGARE fortfarande stod grått). */}
       {(stage === 'agi' || stage === 'done') && run.completedSteps.includes('booked') && (
-        <div style={{ ...panelCard, marginBottom: '20px', padding: '20px' }}>
+        <div className="pr-panel" style={{ ...panelCard, marginBottom: '20px', padding: '20px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 8px' }}>{tr('ui.agi_och_skatt')}</h3>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
             {AGI_XML_ENABLED
@@ -1001,7 +994,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
               <Download size={14} /> {AGI_XML_ENABLED ? tr('ui.sammanstallning_pdf') : tr('ui.ladda_ner_agi_sammanstallning_pdf')}
             </button>
             <a
-              href="https://www.skatteverket.se/foretag"
+              href={SKV_AGI_URL}
               target="_blank"
               rel="noopener noreferrer"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)', textDecoration: 'none' }}
