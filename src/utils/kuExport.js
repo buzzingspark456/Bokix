@@ -84,7 +84,7 @@ export function generateKuPdf({ company, year, employeeTotals }) {
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text(`Kontrolluppgifter (KU) — inkomstår ${year}`, marginX, y);
+  doc.text(`Årsöversikt löner ${year}`, marginX, y);
   y += 22;
 
   doc.setFont('helvetica', 'normal');
@@ -133,7 +133,7 @@ export function generateKuPdf({ company, year, employeeTotals }) {
   doc.setTextColor(120);
   doc.text('Detta är en sammanställning från Bokix, inte Skatteverkets officiella blankett.', marginX, y);
   y += 14;
-  doc.text('Baserat endast på bokförda lönekörningar för året. Kontrolluppgifter lämnas in på skatteverket.se med BankID, senast 31 januari.', marginX, y);
+  doc.text('Baserat på bokförda lönekörningar. Lönen redovisas varje månad i arbetsgivardeklarationen, så ingen kontrolluppgift lämnas för den.', marginX, y);
 
   return doc;
 }

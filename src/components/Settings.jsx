@@ -2935,7 +2935,6 @@ export default function Settings({
         {[
           { id: 'vat', label: tr('ui.momsdeklaration'), description: tr('ui.kal_moms_desc') },
           { id: 'agi', label: tr('ui.arbetsgivardeklaration'), description: tr('ui.kal_agi_desc') },
-          { id: 'ku', label: tr('ui.kontrolluppgifter'), description: tr('ui.kal_ku_desc') },
           { id: 'invoices', label: tr('ui.kundfakturor'), description: tr('ui.nar_obetalda_fakturor_forfaller') },
           { id: 'supplierInvoices', label: tr('ui.leverantorsfakturor_stor'), description: tr('ui.kal_lev_desc') },
         ].map((row, i, all) => (

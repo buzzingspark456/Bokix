@@ -95,19 +95,9 @@ export function buildCalendarEvents(companyData, { today = new Date(), vat = tru
       });
     }
   }
-  if (runsPayroll && ku) {
-    for (const year of [today.getFullYear(), today.getFullYear() + 1]) {
-      const due = new Date(year, 0, 31);
-      rollForwardPastWeekend(due);
-      if (!inRange(due)) continue;
-      events.push({
-        uid: `ku-${year}`,
-        date: ymd(due),
-        title: `Kontrolluppgifter för ${year - 1}`,
-        description: 'Kontrolluppgifter om lön och förmåner till Skatteverket.',
-      });
-    }
-  }
+  // Kontrolluppgifter för lön lämnas inte sedan 2019: lönen redovisas per
+  // person i den månatliga arbetsgivardeklarationen. Ingen händelse för det.
+  void ku;
 
   if (invoices) {
     const contacts = new Map((companyData?.contacts || []).map(c => [c.id, c]));

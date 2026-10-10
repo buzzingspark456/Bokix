@@ -19,6 +19,7 @@ import { detectOrgType } from '../utils/orgType';
 import { isUfCompany, UF_TAX_SECTION_IDS } from '../utils/ufMode';
 import { summarizeAnnualPayrollByEmployee, neededTaxTableKeysForYear, downloadKuPdf } from '../utils/kuExport';
 import { downloadAgiPdf } from '../utils/agiExport';
+import AgiReportDetails from './AgiReportDetails';
 import { downloadNePdf } from '../utils/neExport';
 import { computeEmployeePayroll } from '../utils/payrollCalculation';
 import { preloadSkattetabell } from '../utils/skattetabell';
@@ -429,6 +430,8 @@ export default function Taxes({
 
   // ── AGI (Arbetsgivardeklaration) ──
   const [agiYear, setAgiYear] = useState(currentYear);
+  // Vilken AGI-månad som visas i detalj (AgiReportDetails).
+  const [openAgiId, setOpenAgiId] = useState(null);
   const [agiMonth, setAgiMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
   const [agiBulkBusy, setAgiBulkBusy] = useState(false);
 
@@ -755,7 +758,9 @@ export default function Taxes({
     // (annars finns inget att deklarera, samma "ingen anställd, ingen AGI-deadline"-princip
     // som agiDeadlineInfo nedan redan använder).
     ...(hasPayroll ? [{ id: 'agi', label: tr('ui.arbetsgivardeklaration') }] : []),
-    ...(hasPayroll ? [{ id: 'ku', label: tr('ui.kontrolluppgifter') }] : []),
+    // Årsöversikt per anställd (hette Kontrolluppgifter). Ingen kontrolluppgift
+    // lämnas för lön sedan 2019, lönen redovisas i AGI varje månad.
+    ...(hasPayroll ? [{ id: 'ku', label: tr('ui.arsoversikt_lon') }] : []),
     // Periodisk sammanställning, när företaget har kunder i andra EU-länder.
     ...(company?.vatRegistered !== false && hasEuCustomers ? [{ id: 'ecsales', label: tr('ui.periodisk_sammanstallning') }] : []),
     { id: 'yearend', label: tr('ui.arsbokslut') },
@@ -892,7 +897,9 @@ export default function Taxes({
       });
     }
 
-    if (hasTab('ku') && kuDeadlineInfo) {
+    // Ingen deadline för lönens kontrolluppgifter: de lämnas inte sedan 2019,
+    // lönen redovisas per person i AGI varje månad.
+    if (false && hasTab('ku') && kuDeadlineInfo) {
       const filedKey = `ku:${kuDeadlineInfo.incomeYear}`;
       const filedAt = filedDate(filedKey);
       list.push({
@@ -1259,9 +1266,9 @@ export default function Taxes({
           <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{tr('ui.kontrolluppgifter_ku')}</h2>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{tr('ui.arsoversikt_lon_titel')}</h2>
                 <p style={{ margin: '8px 0 0', fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '540px' }}>
-                  {tr('ui.arssammanstallning_per_anstalld_kontant_bruttolo')}
+                  {tr('ui.arsoversikt_lon_text')}
                 </p>
               </div>
               <select value={kuYear} onChange={e => setKuYear(e.target.value)} style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
@@ -1311,16 +1318,8 @@ export default function Taxes({
                   onClick={() => downloadKuPdf({ company, year: kuYear, employeeTotals: kuEmployeeTotals }, `kontrolluppgifter-${kuYear}.pdf`)}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: (!kuTablesReady || kuEmployeeTotals.length === 0) ? 'var(--text-muted)' : 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: (!kuTablesReady || kuEmployeeTotals.length === 0) ? 'not-allowed' : 'pointer' }}
                 >
-                  <Download size={14} /> {tr('ui.ladda_ner_sammanstallning_pdf')}
+                  <Download size={14} /> {tr('ui.arsoversikt_lon_ladda_ner')}
                 </button>
-                <a
-                  href="https://www.skatteverket.se/foretag"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)', textDecoration: 'none' }}
-                >
-                  {tr('ui.oppna_skatteverket_se')} <ExternalLink size={13} />
-                </a>
               </div>
             </div>
           </div>
@@ -1400,7 +1399,8 @@ export default function Taxes({
                     {[...agiReports].sort((a, b) => b.period.localeCompare(a.period)).map(report => {
                       const run = payrollRuns.find(r => r.id === report.payrollRunId);
                       return (
-                        <div key={report.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', padding: '12px 14px', background: 'var(--bg-muted)', borderRadius: '10px' }}>
+                        <div key={report.id} style={{ border: '1px solid var(--border-light)', borderRadius: '10px', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', padding: '12px 14px', background: 'var(--bg-muted)' }}>
                           <div style={{ minWidth: '140px', fontWeight: 700, fontSize: '13.5px', color: 'var(--text-main)' }}>{monthLabel(report.period)}</div>
                           <span style={{ padding: '3px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, background: report.isZero ? 'var(--border-light)' : 'var(--status-blue-bg)', color: report.isZero ? 'var(--text-secondary)' : 'var(--status-blue-text)' }}>
                             {report.isZero ? tr('ui.nolldeklaration') : tr('ui.fran_lonekorning')}
@@ -1412,15 +1412,15 @@ export default function Taxes({
                             {report.status === 'submitted' ? tr('ui.inlamnad') : tr('ui.utkast')}
                           </span>
                           <div style={{ display: 'flex', gap: '6px' }}>
+                            {/* Detaljerna (huvuduppgift, individuppgifter, fil, PDF och
+                                länk till Skatteverket) i AgiReportDetails.jsx. */}
                             <button
-                              title={tr('ui.ladda_ner_pdf')}
-                              onClick={() => {
-                                const computedRows = run ? run.rows.map(row => ({ row, computed: computeEmployeePayroll(row.employeeSnapshot, row) })) : [];
-                                downloadAgiPdf({ company, period: report.period, computedRows, totals: report.totals }, `agi-${report.period}.pdf`);
-                              }}
-                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '7px', color: 'var(--text-main)', cursor: 'pointer' }}
+                              type="button"
+                              aria-expanded={openAgiId === report.id}
+                              onClick={() => setOpenAgiId(id => (id === report.id ? null : report.id))}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', height: '32px', padding: '0 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '7px', color: 'var(--text-main)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
                             >
-                              <Download size={14} />
+                              {openAgiId === report.id ? tr('agiDetails.hide') : tr('agiDetails.show')}
                             </button>
                             {report.status !== 'submitted' && (
                               <button
@@ -1441,6 +1441,8 @@ export default function Taxes({
                               </button>
                             )}
                           </div>
+                        </div>
+                        {openAgiId === report.id && <AgiReportDetails report={report} run={run} company={company} />}
                         </div>
                       );
                     })}

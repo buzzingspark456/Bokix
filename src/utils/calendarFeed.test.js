@@ -26,7 +26,8 @@ describe('buildCalendarEvents', () => {
     expect(buildCalendarEvents({ company: {} }, { today }).some(e => e.uid.startsWith('agi-'))).toBe(false);
     const events = buildCalendarEvents({ company: {}, payrollRuns: [{ id: 'p1' }] }, { today });
     expect(events.some(e => e.uid === 'agi-2026-09' && e.date === '2026-10-12')).toBe(true);
-    expect(events.some(e => e.uid === 'ku-2027' && e.date === '2027-02-01')).toBe(true);
+    // Ingen kontrolluppgift för lön sedan 2019 (lönen redovisas i AGI).
+    expect(events.some(e => e.uid.startsWith('ku-'))).toBe(false);
   });
 
   it('lägger in obetalda fakturor med kund och belopp, men inte betalda, utkast eller offerter', () => {
