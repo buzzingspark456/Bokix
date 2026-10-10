@@ -34,73 +34,57 @@ function StatusBadge({ status }) {
   return <span style={{ padding: '4px 12px', borderRadius: '999px', fontSize: '12.5px', fontWeight: 700, background: s.bg, color: s.color }}>{s.label}</span>;
 }
 
-// Kundönskemål ("mycket bättre UI"): en rad likadana piller gav ingen känsla
-// av att det här ÄR en sekvens — bara sex knappar i samma form, färgen fick
-// bära hela beskedet om ordning. Numrerade cirklar + en förbindelselinje
-// mellan dem (samma mönster som checkout-/onboardingflöden hos i princip
-// alla större SaaS-produkter) gör klart/kommande/framtida läsbart på en
-// blick, oavsett färgseende. Bocken ersätter siffran när steget är klart,
-// linjen till NÄSTA cirkel färgas i så fort steget FÖRE den är klart.
-function StepButtons({ completedSteps, onAdvance, canBook, canApprove = true }) {
+// Lönekörningen i steg (2026-10-10): en rad med stegen överst, och varje
+// steg visar bara sitt eget innehåll. Raden används för att FLYTTA SIG
+// mellan stegen (klara steg och det steg man står på går att öppna), inte
+// för att utföra dem: varje steg har sin egen tydliga knapp längst ner.
+// Sista steget, Klart, samlar allt. Numrerade cirklar med en linje mellan
+// gör ordningen läsbar på en blick, oavsett färgseende.
+const RUN_STAGES = [...PAYROLL_RUN_STEPS.map(s => s.id), 'done'];
+function StageNav({ stage, completedSteps, onOpen }) {
+  const labels = Object.fromEntries(PAYROLL_RUN_STEPS.map(s => [s.id, s.label]));
+  labels.done = tr('payrollStages.doneShort');
+  const allDone = PAYROLL_RUN_STEPS.every(s => completedSteps.includes(s.id));
+  // Det steg man kommit till: första ej klara, eller Klart.
+  const reached = allDone ? RUN_STAGES.length - 1 : RUN_STAGES.findIndex(id => !completedSteps.includes(id));
   return (
-    <div className="payroll-stepper" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', rowGap: '20px', paddingTop: '22px' }}>
-      {PAYROLL_RUN_STEPS.map((step, i) => {
-        const isDone = completedSteps.includes(step.id);
-        const prevDone = i === 0 || completedSteps.includes(PAYROLL_RUN_STEPS[i - 1].id);
-        const isNext = !isDone && prevDone;
-        const disabled = !prevDone || isDone || (step.id === 'booked' && !canBook) || (step.id === 'approved' && !canApprove);
-        const isLast = i === PAYROLL_RUN_STEPS.length - 1;
+    <nav className="payroll-stepper" aria-label={tr('payrollStages.navLabel')} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', rowGap: '10px', padding: '12px 0 14px' }}>
+      {RUN_STAGES.map((id, i) => {
+        const isDone = id === 'done' ? allDone : completedSteps.includes(id);
+        const isCurrent = stage === id;
+        const openable = i <= reached;
+        const isLast = i === RUN_STAGES.length - 1;
         return (
-          <React.Fragment key={step.id}>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              {/* Kundfeedback ("hur skulle jag veta att det är man skulle
-                  trycka, ha en pil eller nått") — accentfärgen räckte inte
-                  som ledtråd ensam. Studsande pil + "Klicka här"-etikett
-                  pekar rakt ut det enda steg som faktiskt går att klicka
-                  just nu. */}
-              {isNext && !disabled && (
-                <div
-                  style={{
-                    position: 'absolute', top: '-24px', left: '15px',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px',
-                    animation: 'bokix-step-bounce 1s ease-in-out infinite', pointerEvents: 'none',
-                  }}
-                >
-                  <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent-text)', whiteSpace: 'nowrap' }}>{tr('ui.klicka_har')}</span>
-                  <ChevronDown size={13} color="var(--accent)" style={{ marginTop: '-2px' }} />
-                </div>
-              )}
-              <button
-                disabled={disabled}
-                onClick={() => onAdvance(step.id)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '9px', padding: '4px 14px 4px 4px', borderRadius: '999px',
-                  fontSize: '13px', fontWeight: 700, border: 'none', background: 'none',
-                  cursor: disabled ? 'not-allowed' : 'pointer',
-                  animation: (isNext && !disabled) ? 'bokix-step-pulse 1.8s ease-in-out infinite' : 'none',
-                }}
-              >
-                <span style={{
-                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '12.5px', fontWeight: 800,
-                  background: isDone ? BRAND.green : (isNext ? 'var(--accent)' : 'var(--border-light)'),
-                  color: isDone || isNext ? 'white' : 'var(--text-muted)',
-                  boxShadow: isNext ? '0 0 0 4px var(--status-green-bg)' : 'none',
-                  transition: 'background 0.15s, box-shadow 0.15s',
-                }}>
-                  {isDone ? <Check size={15} /> : i + 1}
-                </span>
-                <span className="step-label" style={{ color: isDone ? 'var(--text-main)' : (isNext ? 'var(--text-main)' : 'var(--text-muted)') }}>{step.label}</span>
-              </button>
-            </div>
+          <React.Fragment key={id}>
+            <button
+              type="button"
+              disabled={!openable}
+              aria-current={isCurrent ? 'step' : undefined}
+              onClick={() => onOpen(id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 12px 4px 4px', borderRadius: '999px',
+                fontSize: '13px', fontWeight: isCurrent ? 800 : 600, border: 'none',
+                background: isCurrent ? 'var(--bg-muted)' : 'none', fontFamily: 'inherit',
+                cursor: openable ? 'pointer' : 'not-allowed',
+              }}
+            >
+              <span style={{
+                width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800,
+                background: isDone ? BRAND.green : (isCurrent ? 'var(--accent)' : 'var(--border-light)'),
+                color: isDone || isCurrent ? 'white' : 'var(--text-muted)',
+              }}>
+                {isDone ? <Check size={14} /> : i + 1}
+              </span>
+              <span className="step-label" style={{ color: openable ? 'var(--text-main)' : 'var(--text-muted)' }}>{labels[id]}</span>
+            </button>
             {!isLast && (
-              <span aria-hidden className="step-connector" style={{ flex: '1 1 24px', minWidth: '20px', maxWidth: '56px', height: '2px', margin: '0 2px', borderRadius: '1px', background: isDone ? BRAND.green : 'var(--border-light)', transition: 'background 0.15s' }} />
+              <span aria-hidden className="step-connector" style={{ flex: '1 1 16px', minWidth: '12px', maxWidth: '40px', height: '2px', margin: '0 2px', borderRadius: '1px', background: isDone ? BRAND.green : 'var(--border-light)' }} />
             )}
           </React.Fragment>
         );
       })}
-    </div>
+    </nav>
   );
 }
 
@@ -350,6 +334,113 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, pay
   );
 }
 
+// En rad per anställd: brutto, skatt, netto och arbetsgivaravgift. Visas i
+// Granska och i Klart, med ett lönebesked att ladda ner per person.
+function EmployeeSummaryTable({ computedRows, onDownload }) {
+  const th = { padding: '10px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: 'right' };
+  const td = { padding: '12px 16px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' };
+  return (
+    <div style={{ ...panelCard, overflowX: 'auto', marginBottom: '20px' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
+        <thead>
+          <tr style={{ background: 'var(--bg-muted)' }}>
+            <th style={{ ...th, textAlign: 'left' }}>{tr('payrollStages.employee')}</th>
+            <th style={th}>{tr('payrollStages.gross')}</th>
+            <th style={th}>{tr('payrollStages.tax')}</th>
+            <th style={th}>{tr('payrollStages.net')}</th>
+            <th style={th}>{tr('payrollStages.fee')}</th>
+            {onDownload && <th style={th} />}
+          </tr>
+        </thead>
+        <tbody>
+          {computedRows.map(({ row, computed }) => (
+            <tr key={row.employeeId} style={{ borderTop: '1px solid var(--border-light)' }}>
+              <td style={{ ...td, textAlign: 'left', fontWeight: 700, color: 'var(--text-main)' }}>{row.employeeSnapshot.firstName} {row.employeeSnapshot.lastName}</td>
+              <td style={td}>{fmt(computed.gross)} {tr('ui.kr')}</td>
+              <td style={td}>{fmt(computed.tax)} {tr('ui.kr')}</td>
+              <td style={{ ...td, fontWeight: 700 }}>{fmt(computed.net)} {tr('ui.kr')}</td>
+              <td style={td}>{fmt(computed.employerFee)} {tr('ui.kr')}</td>
+              {onDownload && (
+                <td style={td}>
+                  <button type="button" onClick={() => onDownload({ row, computed })} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 10px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    <Download size={12} /> {tr('payrollStages.payslip')}
+                  </button>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// Lönebeskedet som det ser ut, för en anställd i taget (samma PDF som
+// laddas ner och mejlas).
+function PayslipPreview({ computedRows, payslipArgs }) {
+  const [employeeId, setEmployeeId] = useState(computedRows[0]?.row.employeeId);
+  const current = computedRows.find(r => r.row.employeeId === employeeId) || computedRows[0];
+  const [url, setUrl] = useState(null);
+  // Sidan ritas som en bild med pdf.js (samma som kvittoavläsningen), så att
+  // förhandsvisningen fungerar i alla webbläsare, även i en iPhone där en
+  // PDF i en ram inte visas. Öppna som PDF ger den riktiga filen.
+  const [image, setImage] = useState(null);
+  useEffect(() => {
+    if (!current) return undefined;
+    let made = null;
+    let cancelled = false;
+    setImage(null);
+    try {
+      const doc = generatePayslipPdf(payslipArgs(current));
+      made = doc.output('bloburl');
+      setUrl(String(made));
+      const data = new Uint8Array(doc.output('arraybuffer'));
+      (async () => {
+        try {
+          const pdfjsLib = await import('pdfjs-dist');
+          if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+          }
+          const pdf = await pdfjsLib.getDocument({ data }).promise;
+          const pdfPage = await pdf.getPage(1);
+          const viewport = pdfPage.getViewport({ scale: 2 });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          await pdfPage.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+          if (!cancelled) setImage(canvas.toDataURL('image/png'));
+        } catch { /* visas då via länken Öppna som PDF */ }
+      })();
+    } catch { setUrl(null); }
+    return () => { cancelled = true; if (made) URL.revokeObjectURL(String(made)); };
+  }, [current?.row.employeeId, current?.computed.net]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!current) return null;
+  return (
+    <div style={{ ...panelCard, marginBottom: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', padding: '14px 18px', borderBottom: '1px solid var(--border-light)' }}>
+        <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('payrollStages.previewTitle')}</div>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {computedRows.length > 1 && (
+            <select value={current.row.employeeId} onChange={e => setEmployeeId(e.target.value)} aria-label={tr('payrollStages.employee')} style={{ padding: '7px 10px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit' }}>
+              {computedRows.map(r => <option key={r.row.employeeId} value={r.row.employeeId}>{r.row.employeeSnapshot.firstName} {r.row.employeeSnapshot.lastName}</option>)}
+            </select>
+          )}
+          {url && <a href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('payrollStages.openPdf')}</a>}
+        </div>
+      </div>
+      {image ? (
+        <div style={{ padding: '18px', background: 'var(--bg-muted)', display: 'flex', justifyContent: 'center' }}>
+          <img src={image} alt={tr('payrollStages.previewTitle')} style={{ display: 'block', width: '100%', maxWidth: '760px', height: 'auto', borderRadius: '6px', boxShadow: '0 8px 24px rgba(15,23,42,0.18)', background: 'white' }} />
+        </div>
+      ) : url ? (
+        <div style={{ padding: '18px', fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('payrollStages.previewLoading')}</div>
+      ) : (
+        <div style={{ padding: '18px', fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('payrollStages.previewMissing')}</div>
+      )}
+    </div>
+  );
+}
+
 export function VerificationBlock({ title, rows, accounts }) {
   // Lönebokföringen visas på vanlig svenska (pengar ut, kostnad, skuld ökar)
   // i stället för debet- och kreditkolumner — se utils/plainBooking.js.
@@ -503,6 +594,15 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
   const debtorAccountError = getDebtorAccountError(company);
   const canBook = run.completedSteps.includes('paid');
 
+  // Steget som visas: först det första som inte är klart, sedan det man
+  // klickar på i stegraden. Efter en åtgärd går vyn vidare till nästa steg.
+  const firstOpenStage = RUN_STAGES.find(id => id !== 'done' && !run.completedSteps.includes(id)) || 'done';
+  const [stage, setStage] = useState(firstOpenStage);
+  useEffect(() => { setStage(firstOpenStage); }, [run.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const nextStage = (id) => RUN_STAGES[RUN_STAGES.indexOf(id) + 1] || 'done';
+  const prevStage = (id) => RUN_STAGES[RUN_STAGES.indexOf(id) - 1];
+  const markPaid = (method) => { onMarkPaid(run.id, method); setStage('payslips'); };
+
   const handleDownloadPayFile = () => {
     setPayFileBusy(true); setPayFileError(''); setPayFileResult(null);
     try {
@@ -571,6 +671,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
     } else {
       onAdvanceStep(run.id, stepId);
     }
+    setStage(nextStage(stepId));
   };
 
   if (!tablesReady) {
@@ -613,18 +714,16 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
         subtitle={subtitleParts.join(' · ')}
         actions={[{ key: 'back', label: tr('ui.tillbaka_till_lonekorningar'), icon: ChevronLeft, onClick: onBack }]}
       >
-        <div style={{ padding: '14px 0 16px' }}>
-          <StepButtons completedSteps={run.completedSteps} onAdvance={handleAdvance} canBook={canBook} canApprove={totals.gross > 0} />
-          {/* En körning utan lön att betala ut ska inte kunna godkännas,
-              betalas och bokföras (kundens skärmdump 2026-10-07: 0 kr markerat betalt). */}
-          {totals.gross <= 0 && !run.completedSteps.includes('approved') && (
-            <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>{tr('payrollUi.nothingToPay')}</div>
-          )}
-        </div>
+        <StageNav stage={stage} completedSteps={run.completedSteps} onOpen={setStage} />
       </ListPageHeader>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
-      {missingTaxTable.length > 0 && (
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div className="payroll-stage-head" style={{ padding: '18px 24px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
+        <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: 'var(--text-main)' }}>{tr(`payrollStages.${stage}Title`)}</h2>
+        <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.55, maxWidth: '760px' }}>{tr(`payrollStages.${stage}Text`, { period: run.period })}</p>
+      </div>
+      <div className="payroll-stage-body" style={{ padding: '20px 24px', flex: 1 }}>
+      {stage === 'calculated' && missingTaxTable.length > 0 && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: 'var(--status-red-text)' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <div style={{ flex: 1 }}>
@@ -650,22 +749,27 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
         </div>
       )}
 
-      {missingBankInfo.length > 0 && (
+      {(stage === 'calculated' || stage === 'paid') && missingBankInfo.length > 0 && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '10px', padding: '10px 14px', marginBottom: '16px', fontSize: '13px', color: 'var(--status-amber-text)' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <span>{missingBankInfo.length} {missingBankInfo.length === 1 ? tr('ui.anstalld_saknar') : tr('ui.anstallda_saknar')} {tr('ui.clearing_kontonummer_och_kommer_inte_att_inklude')}</span>
         </div>
       )}
 
-      {tablesError && (
+      {stage === 'calculated' && tablesError && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: 'var(--status-amber-text)' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <span>{tr('ui.kunde_inte_hamta_skattetabellen_fran_skatteverke')}{tablesError}{tr('ui.skatteavdrag_kan_inte_beraknas_korrekt_forran_de')}</span>
         </div>
       )}
 
-      <SummaryCards totals={totals} />
+      {(stage === 'calculated' || stage === 'approved' || stage === 'done') && <SummaryCards totals={totals} />}
 
+      {(stage === 'approved' || stage === 'done') && (
+        <EmployeeSummaryTable computedRows={computedRows} onDownload={stage === 'done' ? (r) => generatePayslipPdf(payslipArgs(r)).save(`lonebesked-${r.row.employeeSnapshot.lastName}-${run.period}.pdf`) : null} />
+      )}
+
+      {stage === 'calculated' && (<>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', margin: '0 0 12px' }}>
         <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{tr('ui.anstallda_i_korningen')}</h3>
         {!run.completedSteps.includes('booked') && (
@@ -695,9 +799,10 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
           locked={run.completedSteps.includes('booked')}
         />
       ))}
+      </>)}
 
-      {run.completedSteps.includes('approved') && (
-        <div style={{ marginTop: '28px' }}>
+      {stage === 'booked' && (
+        <div>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 4px' }}>{tr('ui.forhandsgranskning_verifikationer')}</h3>
           <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '0 0 16px' }}>{tr('ui.genereras_och_bokfors_som_tre_separata_verifikat')}</p>
           <VerificationBlock title={tr('ui.block_1_lon')} rows={verBlocks.block1} accounts={accounts} />
@@ -706,8 +811,8 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
         </div>
       )}
 
-      {run.completedSteps.includes('approved') && (
-        <div style={{ marginTop: '28px' }}>
+      {stage === 'paid' && (
+        <div>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 12px' }}>{tr('ui.betalningsmetod')}</h3>
 
           {/* Kundfeedback ("all information", "hela stilen är inte så bra"):
@@ -805,7 +910,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
                     direkt där handlingen ägde rum. */}
                 <div style={{ marginTop: 'auto', paddingTop: '18px', borderTop: '1px solid var(--border-light)' }}>
                   <button
-                    onClick={() => onMarkPaid(run.id, 'bank')}
+                    onClick={() => markPaid('bank')}
                     style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 20px', background: 'var(--status-green-text)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer' }}
                   >
                     <Check size={15} /> {tr('ui.markera_som_betald')}
@@ -849,7 +954,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
                         {tr('ui.t_ex_swish_kontant_eller_en_separat_overforing_d')}
                       </p>
                       <button
-                        onClick={() => onMarkPaid(run.id, 'manual')}
+                        onClick={() => markPaid('manual')}
                         style={{ width: '100%', padding: '9px 12px', background: 'var(--bg-muted)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}
                       >
                         {tr('ui.markera_som_betald_manuellt')}
@@ -866,8 +971,11 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
       {/* Lönebesked till alla på en gång: en PDF med alla (att skriva ut eller
           arkivera) eller ett mejl per anställd med sitt eget lönebesked.
           Med många timanställda är en knapp per person inte hållbart. */}
-      {run.completedSteps.includes('approved') && computedRows.length > 0 && (
-        <div style={{ ...panelCard, marginTop: '28px', padding: '20px' }}>
+      {stage === 'payslips' && computedRows.length > 0 && (
+        <PayslipPreview computedRows={computedRows} payslipArgs={payslipArgs} />
+      )}
+      {(stage === 'payslips' || stage === 'done') && computedRows.length > 0 && (
+        <div style={{ ...panelCard, marginBottom: '20px', padding: '20px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 8px' }}>{tr('payslips.title')}</h3>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
             {tr('payslips.intro', { n: computedRows.length, withEmail: withEmail.length, sent: sentCount })}
@@ -903,8 +1011,8 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
           var näst på tur — kunde markera 'agi' som klar innan 'booked' ens
           var det, vilket fick stegraden ovan att se bakvänd ut (ett SENARE
           steg grönt/klart medan ett TIDIGARE fortfarande stod grått). */}
-      {run.completedSteps.includes('booked') && (
-        <div style={{ ...panelCard, marginTop: '28px', padding: '20px' }}>
+      {(stage === 'agi' || stage === 'done') && run.completedSteps.includes('booked') && (
+        <div style={{ ...panelCard, marginBottom: '20px', padding: '20px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 8px' }}>{tr('ui.agi_och_skatt')}</h3>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
             {AGI_XML_ENABLED
@@ -971,11 +1079,43 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
           )}
 
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', color: 'var(--text-main)', cursor: 'pointer' }}>
-            <input type="checkbox" checked={agiConfirmed} onChange={e => { setAgiConfirmed(e.target.checked); if (e.target.checked) onAdvanceStep(run.id, 'agi'); }} disabled={run.completedSteps.includes('agi')} />
+            <input type="checkbox" checked={agiConfirmed} onChange={e => { setAgiConfirmed(e.target.checked); if (e.target.checked) { onAdvanceStep(run.id, 'agi'); setStage('done'); } }} disabled={run.completedSteps.includes('agi')} />
             {tr('ui.jag_har_lamnat_in_arbetsgivardeklarationen_agi_h')}
           </label>
         </div>
       )}
+      </div>
+      <div className="payroll-stage-footer" style={{ position: 'sticky', bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', padding: '12px 24px', background: 'var(--bg-card)', borderTop: '1px solid var(--border)' }}>
+        <div>
+          {prevStage(stage) && (
+            <button type="button" onClick={() => setStage(prevStage(stage))} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
+              <ChevronLeft size={14} /> {tr('payrollStages.back')}
+            </button>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {(() => {
+            const done = stage === 'done' || run.completedSteps.includes(stage);
+            const primary = (label, onClick, disabled = false) => (
+              <button type="button" onClick={onClick} disabled={disabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 20px', background: disabled ? 'var(--gray-300)' : BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 700, cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                {label}
+              </button>
+            );
+            const note = (text) => <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>{text}</span>;
+            if (stage === 'done') return primary(tr('ui.tillbaka_till_lonekorningar'), onBack);
+            if (done) return primary(`${tr('payrollStages.next')} →`, () => setStage(nextStage(stage)));
+            switch (stage) {
+              case 'calculated': return primary(tr('payrollStages.calculatedAction'), () => handleAdvance('calculated'));
+              case 'approved': return (<>{totals.gross <= 0 && note(tr('payrollUi.nothingToPay'))}{primary(tr('payrollStages.approvedAction'), () => handleAdvance('approved'), totals.gross <= 0)}</>);
+              case 'paid': return note(tr('payrollStages.paidHint'));
+              case 'payslips': return primary(tr('payrollStages.payslipsAction'), () => handleAdvance('payslips'));
+              case 'booked': return (<>{!canBook && note(tr('payrollStages.bookedNeedsPaid'))}{primary(tr('payrollStages.bookedAction'), () => handleAdvance('booked'), !canBook)}</>);
+              case 'agi': return note(tr('payrollStages.agiHint'));
+              default: return null;
+            }
+          })()}
+        </div>
+      </div>
       </div>
     </div>
   );

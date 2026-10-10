@@ -5929,7 +5929,10 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
    information i mindre yta. */
 @media (max-width: 640px) {
   .payroll-stepper span.step-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .payroll-stepper .step-connector { flex: 0 0 16px !important; max-width: 16px !important; }
+  .payroll-stepper .step-connector { flex: 0 0 10px !important; min-width: 10px !important; max-width: 10px !important; }
+  /* Alla sju steg på en rad: knapparna utan egen utfyllnad runt cirkeln. */
+  .payroll-stepper { flex-wrap: nowrap !important; }
+  .payroll-stepper > button { padding: 2px !important; }
 }
 
 /* ══════════════════════════════════════════════

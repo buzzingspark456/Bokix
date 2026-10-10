@@ -111,7 +111,7 @@ export default function Payroll({
             : activeTab === 'runs'
               ? [{
                   key: 'new-run', label: t('ui.ny_lonekorning'), icon: Plus, variant: 'primary',
-                  onClick: () => { if (employees.length === 0) { setActiveTab('employees'); setViewState('new'); } else setShowNewRun(true); },
+                  onClick: () => { if (employees.length === 0) { setActiveTab('employees'); setViewState('new'); } else { if (!newRunPayDate) setNewRunPayDate(`${newRunPeriod}-25`); setShowNewRun(true); } },
                   title: employees.length === 0 ? t('ui.lagg_till_en_anstalld_forst') : undefined,
                 }]
               : []
@@ -281,35 +281,53 @@ export default function Payroll({
               marginal (de är fristående kort, inte tabellen), men
               ListTable nedan är nu flush precis som överallt annars. */}
           {showNewRun && (
-            <div style={{ ...panelCard, padding: '20px', margin: '20px 24px 20px' }}>
-              <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700 }}>{t('ui.ny_lonekorning')}</h3>
-              {/* Radbryter på smal skärm: två fasta 180px-fält bredvid varandra
-                  stack ut över kanten på en telefon. */}
+            <section className="payroll-newrun" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '20px 24px' }}>
+              <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 800, color: 'var(--text-main)' }}>{t('ui.ny_lonekorning')}</h3>
+              <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{t('payrollStages.newRunText')}</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
-                <div style={{ flex: '0 1 180px', minWidth: '150px' }}>
+                <div style={{ flex: '0 1 200px', minWidth: '150px' }}>
                   <label style={labelSt}>{t('ui.period')}</label>
-                  <input type="month" value={newRunPeriod} onChange={e => setNewRunPeriod(e.target.value)} style={{ ...inputSt, width: '100%' }} />
+                  <input type="month" value={newRunPeriod} onChange={e => { setNewRunPeriod(e.target.value); if (e.target.value) setNewRunPayDate(`${e.target.value}-25`); }} style={{ ...inputSt, width: '100%', background: 'var(--bg-card)', color: 'var(--text-main)' }} />
                 </div>
-                <div style={{ flex: '0 1 180px', minWidth: '150px' }}>
+                <div style={{ flex: '0 1 200px', minWidth: '150px' }}>
                   <label style={labelSt}>{t('ui.utbetalningsdatum')}</label>
-                  <input type="date" value={newRunPayDate} onChange={e => setNewRunPayDate(e.target.value)} style={{ ...inputSt, width: '100%' }} />
+                  <input type="date" value={newRunPayDate} onChange={e => setNewRunPayDate(e.target.value)} style={{ ...inputSt, width: '100%', background: 'var(--bg-card)', color: 'var(--text-main)' }} />
                 </div>
               </div>
-              <div style={{ fontSize: '13px', color: activeEmployeesForPeriod.length === 0 ? 'var(--status-red-text)' : 'var(--text-secondary)', marginBottom: '14px' }}>
-                {activeEmployeesForPeriod.length === 0
-                  ? t('ui.ingen_anstalld_ar_aktiv_under_vald_period_kontro')
-                  : t('ui.kommer_att_inkluderas_i_denna_korning', { length: activeEmployeesForPeriod.length, v1: activeEmployeesForPeriod.length === 1 ? 'anställd' : 'anställda' })}
-              </div>
+
+              {activeEmployeesForPeriod.length === 0 ? (
+                <div style={{ fontSize: '13px', color: 'var(--status-red-text)', marginBottom: '14px' }}>{t('ui.ingen_anstalld_ar_aktiv_under_vald_period_kontro')}</div>
+              ) : (
+                <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden', marginBottom: '14px' }}>
+                  <div style={{ padding: '10px 14px', background: 'var(--bg-muted)', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                    {t('ui.kommer_att_inkluderas_i_denna_korning', { length: activeEmployeesForPeriod.length, v1: activeEmployeesForPeriod.length === 1 ? 'anställd' : 'anställda' })}
+                  </div>
+                  {activeEmployeesForPeriod.map(e => {
+                    const hourly = e.salaryForm === 'timlon';
+                    const pay = hourly ? `${new Intl.NumberFormat('sv-SE').format(Number(e.hourlyRate) || 0)} kr/tim` : `${new Intl.NumberFormat('sv-SE').format(Number(e.monthlySalary) || 0)} kr/mån`;
+                    const missingTax = !e.secondaryIncome && !e.taxTable?.tabellnr;
+                    return (
+                      <div key={e.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', borderTop: '1px solid var(--border-light)', fontSize: '13.5px' }}>
+                        <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{e.firstName} {e.lastName}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+                          {missingTax && <span style={{ fontSize: '12px', color: 'var(--status-amber-text)', fontWeight: 600 }}>{t('payrollStages.noTaxTable')}</span>}
+                          {pay}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               {existingRunForPeriod && (
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
                   {t('ui.det_finns_redan_en_lonekorning_for')} {newRunPeriod} ({existingRunForPeriod.completedSteps.includes('booked') ? t('ui.bokford_2') : existingRunForPeriod.completedSteps.includes('calculated') ? t('ui.beraknad') : t('ui.utkast_2')}{t('ui.fortsatt_bara_om_du_medvetet_vill_skapa_en_till')}
                 </div>
               )}
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                <button onClick={() => setShowNewRun(false)} style={{ padding: '9px 18px', background: 'var(--border-light)', border: 'none', borderRadius: '8px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>{t('ui.avbryt')}</button>
-                <button onClick={handleCreateRun} disabled={activeEmployeesForPeriod.length === 0} style={{ padding: '9px 18px', background: activeEmployeesForPeriod.length ? 'var(--accent)' : 'var(--border)', color: activeEmployeesForPeriod.length ? 'white' : 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: activeEmployeesForPeriod.length ? 'pointer' : 'not-allowed' }}>{t('ui.skapa')}</button>
+                <button onClick={() => setShowNewRun(false)} style={{ padding: '10px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>{t('ui.avbryt')}</button>
+                <button onClick={handleCreateRun} disabled={activeEmployeesForPeriod.length === 0} style={{ padding: '10px 20px', background: activeEmployeesForPeriod.length ? 'var(--accent)' : 'var(--border)', color: activeEmployeesForPeriod.length ? 'white' : 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: activeEmployeesForPeriod.length ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>{t('payrollStages.createRun')}</button>
               </div>
-            </div>
+            </section>
           )}
 
           <ListTable
