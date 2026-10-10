@@ -73,7 +73,17 @@ await page.waitForTimeout(1500);
 for (const p of PAGES) {
   await page.evaluate((h) => { location.hash = h; }, p);
   await page.waitForTimeout(1300);
-  await page.screenshot({ path: `test-results/oversikt-${WIDTH}-${p}.png` });
+  if (process.env.TAB_CLICK) { await page.locator('.page-header-tabs button:visible', { hasText: new RegExp(process.env.TAB_CLICK) }).first().click(); await page.waitForTimeout(900); }
+  await page.screenshot({ path: `test-results/oversikt-${WIDTH}-${p}${process.env.TAB_CLICK ? '-flik' : ''}.png` });
+  if (process.env.RECON) {
+    await page.locator('input[type=number]:visible').first().fill('299561');
+    await page.waitForTimeout(500);
+    const diff = await page.evaluate(() => [...document.querySelectorAll('.fp-stat')].map(e => e.innerText.replace(/s+/g, ' ')).join(' | '));
+    await page.getByRole('button', { name: /Spara avstämning/ }).click();
+    await page.waitForTimeout(700);
+    await page.screenshot({ path: `test-results/oversikt-${WIDTH}-avstamning-sparad.png` });
+    out.push('avstämning: ' + diff + ' | strip: ' + await page.evaluate(() => document.querySelector('.fp-strip-sub')?.innerText));
+  }
   if (process.env.CLICK) {
     const more = page.locator('.lph-more:visible').first();
     if (await more.count()) { await more.click(); await page.waitForTimeout(500); await page.screenshot({ path: `test-results/oversikt-${WIDTH}-${p}-meny.png` }); out.push(p + ' meny-rader: ' + await page.locator('.lph-more-sheet button').count()); await page.mouse.click(5, 5); await page.waitForTimeout(400); out.push(p + ' meny stängd: ' + !(await page.locator('.lph-more-sheet').count())); }

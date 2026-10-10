@@ -4267,5 +4267,17 @@
   "stubError": {
     "otherCompany": "Öppna ett annat företag",
     "logout": "Logga ut"
+  },
+  "bankUi": {
+    "reconcileShort": "Kontroll"
+  },
+  "reconcileUi": {
+    "cash": "Kassa",
+    "lead": "Fyll i saldot från kontoutdraget. Det som ännu inte är bokfört räknas bort, resten är en differens att förklara.",
+    "leadCash": "Räkna kontanterna och fyll i beloppet.",
+    "lastOk": "Senast avstämd {{date}}, stämde",
+    "lastDiff": "Senast avstämd {{date}}, differens",
+    "history": "Tidigare avstämningar",
+    "noAccounts": "Lägg till ett bankkonto först (Bankkonton)."
   }
 }

@@ -8317,3 +8317,15 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .rc-chips > * { flex-shrink: 0; white-space: nowrap; }
   .rc-chips .rc-toolbar-divider { display: none; }
 }
+
+/* Flikar som radbryts i stället för att skrolla i sidled (Bank, 2026-10-10). */
+.tab-label-short { display: none; }
+@media (max-width: 1199px) {
+  .page-header-tabs.page-header-tabs--wrap { flex-wrap: wrap !important; overflow: visible !important; row-gap: 6px; background: none !important; }
+}
+@media (max-width: 768px) {
+  .page-header-tabs.page-header-tabs--wrap { gap: 6px !important; padding-right: 0 !important; }
+  .page-header-tabs.page-header-tabs--wrap > button { flex: 0 0 auto; }
+  .page-header-tabs--wrap .tab-label-long { display: none; }
+  .page-header-tabs--wrap .tab-label-short { display: inline; }
+}

@@ -9,35 +9,20 @@ const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, ma
 const pad = (n) => String(n).padStart(2, '0');
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const newId = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `rec_${Date.now()}_${Math.random().toString(36).slice(2)}`);
-
-const inp = {
-  width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '9px',
-  fontSize: '14px', color: 'var(--text-main)', background: 'var(--bg-card)', outline: 'none',
-  fontFamily: 'inherit', boxSizing: 'border-box',
-};
-const lbl = { display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' };
-const card = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '20px' };
-const primaryBtn = { display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', border: 'none', background: 'var(--accent)', color: '#fff' };
-
-function Line({ label, value, strong, tone }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderTop: '1px solid var(--border)', fontSize: '13.5px' }}>
-      <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
-      <span style={{ fontWeight: strong ? 800 : 600, color: tone || 'var(--text-main)' }}>{value}</span>
-    </div>
-  );
-}
+const isZero = (n) => Math.abs(n || 0) < 0.005;
 
 /**
- * Avstämning av bankkonton och kassa — flik i Bank. Kontoutdragets saldo
- * jämförs mot bokföringen, med ej hanterade transaktioner som förklaring.
- * Räkningen ligger i utils/reconciliation.js.
+ * Kontroll mot banken (avstämning av bankkonton och kassa), flik i Bank.
+ * Samma platta stil som Skatt och bokslut: statusrad överst, sedan saldot
+ * att fylla i med siffrorna på en rad, sist historiken. Bokfört saldo och ej
+ * hanterade transaktioner syns direkt, innan något är ifyllt. Räkningen
+ * ligger i utils/reconciliation.js.
  */
 export default function Reconciliation({ bankAccounts = [], bankTransactions = [], verifications = [], accounts = [], reconciliations = [], onSave, onDelete }) {
   const hasCashAccount = accounts.some(a => a.code === '1910');
   const targets = useMemo(() => [
     ...bankAccounts.map(a => ({ key: a.id, kind: 'bank', name: a.name, ledgerAccount: a.ledgerAccount, accountId: a.id })),
-    ...(hasCashAccount ? [{ key: 'cash', kind: 'cash', name: 'Kassa', ledgerAccount: '1910' }] : []),
+    ...(hasCashAccount ? [{ key: 'cash', kind: 'cash', name: tr('reconcileUi.cash'), ledgerAccount: '1910' }] : []),
   ], [bankAccounts, hasCashAccount]);
 
   const [targetKey, setTargetKey] = useState(targets[0]?.key);
@@ -47,24 +32,30 @@ export default function Reconciliation({ bankAccounts = [], bankTransactions = [
   const [message, setMessage] = useState('');
 
   const target = targets.find(t => t.key === targetKey) || targets[0];
+  const isCash = target?.kind === 'cash';
   const latest = useMemo(() => latestReconciliations(reconciliations), [reconciliations]);
+  const last = target ? latest.get(target.ledgerAccount) : null;
 
+  // Räknas även utan ifyllt belopp, så bokfört saldo och ej hanterade syns direkt.
   const result = useMemo(() => {
-    if (!target || amount === '') return null;
-    return target.kind === 'cash'
-      ? reconcileCash({ verifications, ledgerAccount: target.ledgerAccount, countedAmount: amount, date })
-      : reconcileBank({ verifications, bankTransactions, ledgerAccount: target.ledgerAccount, accountId: target.accountId, statementBalance: amount, date });
-  }, [target, amount, date, verifications, bankTransactions]);
+    if (!target) return null;
+    const value = amount === '' ? 0 : amount;
+    return isCash
+      ? reconcileCash({ verifications, ledgerAccount: target.ledgerAccount, countedAmount: value, date })
+      : reconcileBank({ verifications, bankTransactions, ledgerAccount: target.ledgerAccount, accountId: target.accountId, statementBalance: value, date });
+  }, [target, isCash, amount, date, verifications, bankTransactions]);
+  const filled = amount !== '';
 
   const save = () => {
-    if (!result) return;
+    if (!result || !filled) return;
     onSave({
       id: newId(), ledgerAccount: target.ledgerAccount, accountName: target.name, kind: target.kind, date,
-      statementBalance: target.kind === 'cash' ? result.countedAmount : result.statementBalance,
+      statementBalance: isCash ? result.countedAmount : result.statementBalance,
       ledgerBalance: result.ledgerBalance, pending: result.pendingNet || 0, difference: result.difference,
       note: note.trim(), createdAt: new Date().toISOString(),
     });
-    setAmount(''); setNote(''); setMessage(result.reconciled ? tr('ui.avstamningen_ar_sparad') : tr('ui.avstamningen_ar_sparad_med_differens'));
+    setAmount(''); setNote('');
+    setMessage(result.reconciled ? tr('ui.avstamningen_ar_sparad') : tr('ui.avstamningen_ar_sparad_med_differens'));
   };
 
   const remove = async (r) => {
@@ -73,106 +64,142 @@ export default function Reconciliation({ bankAccounts = [], bankTransactions = [
   };
 
   const history = [...reconciliations].sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.createdAt).localeCompare(String(a.createdAt)));
-  const isCash = target?.kind === 'cash';
+  const lastOk = last && isZero(last.difference);
+  const tone = !last ? '' : lastOk ? 'done' : 'warn';
+
+  if (!target) {
+    return <div className="fp-page"><div className="fp-section">{tr('reconcileUi.noAccounts')}</div></div>;
+  }
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--text-secondary)', maxWidth: '680px' }}>
-        {tr('ui.stam_av_att_saldot_pa_kontoutdraget_stammer_med')}
-      </p>
+    <div className="fp-page">
+      <section className={`fp-strip ${tone}`}>
+        <div>
+          <div className="fp-strip-title">{lastOk && <CheckCircle2 size={18} />}{target.name} <span style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>({target.ledgerAccount})</span></div>
+          <div className="fp-strip-sub">
+            {!last ? tr('ui.aldrig_avstamd')
+              : lastOk ? tr('reconcileUi.lastOk', { date: last.date })
+              : <>{tr('reconcileUi.lastDiff', { date: last.date })} <strong>{fmt(last.difference)} kr</strong></>}
+          </div>
+          <div className="fp-hint" style={{ marginTop: '6px' }}>{isCash ? tr('reconcileUi.leadCash') : tr('reconcileUi.lead')}</div>
+        </div>
+      </section>
 
       {targets.length > 1 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+        <div className="filter-pills fp-pills" role="tablist" aria-label={tr('ui.konto_2')}>
           {targets.map(t => {
-            const last = latest.get(t.ledgerAccount);
-            const ok = last && Math.abs(last.difference) < 0.005;
+            const l = latest.get(t.ledgerAccount);
+            const ok = l && isZero(l.difference);
             return (
-              <button
-                key={t.key} type="button" onClick={() => { setTargetKey(t.key); setAmount(''); setMessage(''); }}
-                style={{ ...card, textAlign: 'left', cursor: 'pointer', borderColor: t.key === target?.key ? 'var(--accent)' : 'var(--border)', fontFamily: 'inherit' }}
-              >
-                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{t.name} <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>({t.ledgerAccount})</span></div>
-                <div style={{ fontSize: '12.5px', marginTop: '4px', color: ok ? 'var(--status-green-text)' : 'var(--text-secondary)' }}>
-                  {last ? tr('ui.senast_avstamd', { date: last.date, v1: ok ? '' : `, differens ${fmt(last.difference)} kr` }) : tr('ui.aldrig_avstamd')}
-                </div>
+              <button key={t.key} type="button" role="tab" aria-selected={t.key === target.key}
+                className={`filter-pill${t.key === target.key ? ' active' : ''}`}
+                onClick={() => { setTargetKey(t.key); setAmount(''); setMessage(''); }}>
+                {t.name}{ok ? ' ✓' : ''}
               </button>
             );
           })}
         </div>
       )}
 
-      {target && (
-        <div style={card}>
-          <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700 }}>{tr('ui.stam_av')} {target.name} ({target.ledgerAccount})</h3>
-          <div className="form-row-2" style={{ display: 'grid', gap: '16px' }}>
+      <section className="fp-section">
+        <div className="fp-fields">
+          <div className="fp-grid-2">
             <div>
-              <label style={lbl}>{tr('ui.datum')}</label>
-              <input type="date" style={inp} value={date} onChange={e => e.target.value && setDate(e.target.value)} />
+              <label className="fp-label">{tr('ui.datum')}</label>
+              <input type="date" className="fp-input" value={date} onChange={e => e.target.value && setDate(e.target.value)} />
             </div>
             <div>
-              <label style={lbl}>{isCash ? tr('ui.raknade_kontanter_kr') : tr('ui.saldo_enligt_kontoutdraget_kr')}</label>
-              <input type="number" step="0.01" style={inp} value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" />
+              <label className="fp-label">{isCash ? tr('ui.raknade_kontanter_kr') : tr('ui.saldo_enligt_kontoutdraget_kr')}</label>
+              <input type="number" inputMode="decimal" step="0.01" className="fp-input" value={amount} onChange={e => { setAmount(e.target.value); setMessage(''); }} placeholder="0,00" />
             </div>
           </div>
+        </div>
+      </section>
 
-          {result && (
-            <div style={{ marginTop: '18px' }}>
-              <Line label={isCash ? tr('ui.raknade_kontanter') : tr('ui.saldo_enligt_kontoutdrag')} value={`${fmt(isCash ? result.countedAmount : result.statementBalance)} kr`} />
-              <Line label={tr('ui.bokfort_saldo_pa', { ledgerAccount: target.ledgerAccount })} value={`${fmt(result.ledgerBalance)} kr`} />
-              {!isCash && <Line label={tr('ui.ej_hanterade_transaktioner_st', { pendingCount: result.pendingCount })} value={`${result.pendingNet > 0 ? '+' : ''}${fmt(result.pendingNet)} kr`} />}
-              <Line
-                label={result.reconciled ? tr('ui.avstamt') : tr('ui.oforklarad_differens')}
-                value={`${fmt(result.difference)} kr`} strong
-                tone={result.reconciled ? 'var(--status-green-text)' : 'var(--status-red-text)'}
-              />
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginTop: '14px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                {result.reconciled ? <CheckCircle2 size={18} color="var(--status-green-text)" style={{ flexShrink: 0 }} /> : <AlertTriangle size={18} color="var(--status-amber-text)" style={{ flexShrink: 0 }} />}
-                <span>
-                  {result.reconciled
-                    ? tr('ui.kontot_stammer_spara_avstamningen_som_underlag_i')
-                    : isCash
-                      ? tr('ui.kassan_stammer_inte_mot_bokforingen_kontrollera')
-                      : result.difference > 0
-                        ? tr('ui.banken_har_mer_pengar_an_bokforingen_forvantar_s')
-                        : tr('ui.banken_har_mindre_pengar_an_bokforingen_forvanta')}
-                </span>
-              </div>
-              <div style={{ marginTop: '16px' }}>
-                <label style={lbl}>{tr('ui.anteckning_valfri')}</label>
-                <input style={inp} value={note} onChange={e => setNote(e.target.value)} placeholder={tr('ui.t_ex_differensen_ar_en_obokford_bankavgift')} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                <button type="button" style={primaryBtn} onClick={save}>{tr('ui.spara_avstamning')}</button>
-              </div>
+      {result && (
+        <div className="fp-stats">
+          <div className="fp-stat">
+            <div className="fp-stat-label">{isCash ? tr('ui.raknade_kontanter') : tr('ui.saldo_enligt_kontoutdrag')}</div>
+            <div className="fp-stat-value">{filled ? `${fmt(isCash ? result.countedAmount : result.statementBalance)} kr` : '–'}</div>
+          </div>
+          <div className="fp-stat">
+            <div className="fp-stat-label">{tr('ui.bokfort_saldo_pa', { ledgerAccount: target.ledgerAccount })}</div>
+            <div className="fp-stat-value">{fmt(result.ledgerBalance)} kr</div>
+          </div>
+          {!isCash && (
+            <div className="fp-stat">
+              <div className="fp-stat-label">{tr('ui.ej_hanterade_transaktioner_st', { pendingCount: result.pendingCount })}</div>
+              <div className="fp-stat-value">{result.pendingNet > 0 ? '+' : ''}{fmt(result.pendingNet)} kr</div>
             </div>
           )}
-          {message && <p style={{ margin: '12px 0 0', fontSize: '13px', color: 'var(--status-green-text)' }}>{message}</p>}
+          <div className="fp-stat">
+            <div className="fp-stat-label">{filled && result.reconciled ? tr('ui.avstamt') : tr('ui.differens')}</div>
+            <div className="fp-stat-value" style={{ color: !filled ? 'var(--text-muted)' : result.reconciled ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
+              {filled ? `${fmt(result.difference)} kr` : '–'}
+            </div>
+          </div>
         </div>
       )}
 
-      <div style={{ border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', background: 'var(--bg-card)' }}>
-        <ListTable
-          rowKey={r => r.id}
-          rows={history}
-          emptyMessage={tr('ui.inga_sparade_avstamningar_annu')}
-          mobileList={r => ({ primary: r.accountName, amount: `${fmt(r.difference)} kr`, meta: `${r.date}${r.note ? ` · ${r.note}` : ''}` })}
-          columns={[
-            { key: 'date', label: tr('ui.datum'), render: r => r.date },
-            { key: 'accountName', label: tr('ui.konto_2'), fontWeight: 600, color: 'var(--text-main)', render: r => `${r.accountName} (${r.ledgerAccount})` },
-            { key: 'statementBalance', label: tr('ui.kontoutdrag'), align: 'right', render: r => `${fmt(r.statementBalance)} kr` },
-            { key: 'ledgerBalance', label: tr('ui.bokfort_2'), align: 'right', render: r => `${fmt(r.ledgerBalance)} kr` },
-            {
-              key: 'difference', label: tr('ui.differens'), align: 'right',
-              render: r => <span style={{ color: Math.abs(r.difference) < 0.005 ? 'var(--status-green-text)' : 'var(--status-red-text)', fontWeight: 600 }}>{Math.abs(r.difference) < 0.005 ? tr('ui.avstamt') : `${fmt(r.difference)} kr`}</span>,
-            },
-            { key: 'note', label: tr('ui.anteckning'), wrap: true, render: r => r.note || '' },
-            {
-              key: 'actions', label: '', align: 'right', width: 50,
-              render: r => <button type="button" title={tr('ui.ta_bort')} onClick={() => remove(r)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px' }}><Trash2 size={14} /></button>,
-            },
-          ]}
-        />
-      </div>
+      {result && filled && (
+        <section className="fp-section">
+          <div className="fp-fields">
+            <div className={`fp-hint ${result.reconciled ? 'good' : 'bad'}`} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '13.5px', marginTop: 0 }}>
+              {result.reconciled ? <CheckCircle2 size={17} style={{ flexShrink: 0 }} /> : <AlertTriangle size={17} style={{ flexShrink: 0 }} />}
+              <span>
+                {result.reconciled
+                  ? tr('ui.kontot_stammer_spara_avstamningen_som_underlag_i')
+                  : isCash
+                    ? tr('ui.kassan_stammer_inte_mot_bokforingen_kontrollera')
+                    : result.difference > 0
+                      ? tr('ui.banken_har_mer_pengar_an_bokforingen_forvantar_s')
+                      : tr('ui.banken_har_mindre_pengar_an_bokforingen_forvanta')}
+              </span>
+            </div>
+            <div>
+              <label className="fp-label">{tr('ui.anteckning_valfri')}</label>
+              <input className="fp-input" value={note} onChange={e => setNote(e.target.value)} placeholder={tr('ui.t_ex_differensen_ar_en_obokford_bankavgift')} />
+            </div>
+          </div>
+          <div className="fp-foot">
+            <button type="button" className="agi-btn primary" onClick={save}><CheckCircle2 size={15} /> {tr('ui.spara_avstamning')}</button>
+          </div>
+        </section>
+      )}
+
+      {message && <div className="fp-section"><div className="fp-hint good" style={{ marginTop: 0 }}>{message}</div></div>}
+
+      <section className="fp-section" style={{ paddingBottom: 0, borderBottom: 'none' }}>
+        <h3 className="fp-title">{tr('reconcileUi.history')}</h3>
+      </section>
+      <ListTable
+        rowKey={r => r.id}
+        rows={history}
+        emptyMessage={tr('ui.inga_sparade_avstamningar_annu')}
+        mobileList={r => ({
+          dot: isZero(r.difference) ? 'var(--status-green-text)' : 'var(--status-red-text)',
+          primary: `${r.accountName} (${r.ledgerAccount})`,
+          amount: isZero(r.difference) ? tr('ui.avstamt') : `${fmt(r.difference)} kr`,
+          meta: `${r.date}${r.note ? ` · ${r.note}` : ''}`,
+        })}
+        columns={[
+          { key: 'date', label: tr('ui.datum'), render: r => r.date },
+          { key: 'accountName', label: tr('ui.konto_2'), fontWeight: 600, color: 'var(--text-main)', render: r => `${r.accountName} (${r.ledgerAccount})` },
+          { key: 'statementBalance', label: tr('ui.kontoutdrag'), align: 'right', render: r => `${fmt(r.statementBalance)} kr` },
+          { key: 'ledgerBalance', label: tr('ui.bokfort_2'), align: 'right', render: r => `${fmt(r.ledgerBalance)} kr` },
+          {
+            key: 'difference', label: tr('ui.differens'), align: 'right',
+            render: r => isZero(r.difference)
+              ? <span className="agi-pill ok">{tr('ui.avstamt')}</span>
+              : <span style={{ color: 'var(--status-red-text)', fontWeight: 600 }}>{fmt(r.difference)} kr</span>,
+          },
+          { key: 'note', label: tr('ui.anteckning'), wrap: true, render: r => r.note || '' },
+          {
+            key: 'actions', label: '', align: 'right', width: 50,
+            render: r => <button type="button" title={tr('ui.ta_bort')} onClick={() => remove(r)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--status-red-text)', padding: '2px' }}><Trash2 size={14} /></button>,
+          },
+        ]}
+      />
     </div>
   );
 }

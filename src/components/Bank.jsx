@@ -383,8 +383,10 @@ export default function Bank({
             { id: 'matched', label: tr('ui.matchade'), badge: tabCounts.matched },
             { id: 'booked', label: tr('ui.bokforda'), badge: tabCounts.booked },
             { id: 'ignored', label: tr('ui.ignorerade'), badge: tabCounts.ignored },
-            { id: 'reconcile', label: tr('ui.avstamning') },
+            { id: 'reconcile', label: tr('ui.avstamning'), shortLabel: tr('bankUi.reconcileShort') },
           ],
+          // Radbryts i halvskärm och på telefon i stället för att skrolla i sidled.
+          wrap: true,
           activeId: activeTab,
           onChange: setActiveTab,
         }}

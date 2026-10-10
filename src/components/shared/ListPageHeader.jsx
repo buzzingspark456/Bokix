@@ -176,7 +176,7 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
       {hasTabs && (
         <div
           ref={tabsRef}
-          className={'page-header-tabs' + (pills ? ' page-header-tabs--pills' : '')}
+          className={'page-header-tabs' + (pills ? ' page-header-tabs--pills' : '') + (tabs.wrap ? ' page-header-tabs--wrap' : '')}
           style={{ display: 'flex', gap: pills ? '7px' : 0, marginTop: pills ? '10px' : '12px', paddingBottom: pills ? '12px' : 0 }}
         >
           {tabs.items.map(t => (
@@ -188,7 +188,9 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
               style={pills ? tabPillStyle(tabs.activeId === t.id) : tabButtonStyle(tabs.activeId === t.id)}
             >
               {t.icon && <t.icon size={14} />}
-              {t.label}{typeof t.badge === 'number' && t.badge > 0 ? ` · ${t.badge}` : ''}
+              {t.shortLabel
+                ? <><span className="tab-label-long">{t.label}</span><span className="tab-label-short">{t.shortLabel}</span></>
+                : t.label}{typeof t.badge === 'number' && t.badge > 0 ? ` · ${t.badge}` : ''}
             </button>
           ))}
         </div>

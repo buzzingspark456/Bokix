@@ -4267,5 +4267,17 @@
   "stubError": {
     "otherCompany": "Open another company",
     "logout": "Log out"
+  },
+  "bankUi": {
+    "reconcileShort": "Check"
+  },
+  "reconcileUi": {
+    "cash": "Cash",
+    "lead": "Enter the balance from the bank statement. Anything not yet booked is deducted, the rest is a difference to explain.",
+    "leadCash": "Count the cash and enter the amount.",
+    "lastOk": "Last reconciled {{date}}, matched",
+    "lastDiff": "Last reconciled {{date}}, difference",
+    "history": "Earlier reconciliations",
+    "noAccounts": "Add a bank account first (Bank accounts)."
   }
 }
