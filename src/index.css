@@ -7930,3 +7930,9 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .payslip-list { border-right: none !important; border-bottom: 1px solid var(--border-light); }
   .payslip-list ul { max-height: 260px !important; }
 }
+
+/* Semester (VacationOverview.jsx): på telefon namn och dagar på första raden, stapeln under. */
+@media (max-width: 640px) {
+  .vacation-row { grid-template-columns: minmax(0, 1fr) auto auto !important; row-gap: 8px !important; }
+  .vacation-row .vacation-bar { grid-column: 1 / -1; grid-row: 2; }
+}

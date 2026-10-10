@@ -268,6 +268,7 @@ export default function Payroll({
           employees={employees}
           payrollRuns={payrollRuns}
           onSelectEmployee={(employee) => { setActiveTab('employees'); setSelectedEmployee(employee); setViewState('edit'); }}
+          onOpenRuns={() => setActiveTab('runs')}
         />
       )}
 

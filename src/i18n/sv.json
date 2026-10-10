@@ -3924,6 +3924,31 @@
     "downloadFor": "Ladda ner lönebesked för {{name}}",
     "none": "Ingen matchar sökningen."
   },
+  "vacationUi": {
+    "intro": "Hur många semesterdagar varje anställd har kvar och vad de kostar. Semester tas ut i lönekörningen, med knappen + Semester under personen.",
+    "daysLeft": "Dagar kvar att ta ut",
+    "daysLeftHint": "Alla anställda, inklusive sparade dagar",
+    "days": "dagar",
+    "cost": "Vad dagarna kostar",
+    "costHint": "Semesterlön {{pay}} kr och arbetsgivaravgift {{fee}} kr",
+    "savable": "Kan sparas vid årsskiftet",
+    "savableHint": "Dagar över {{n}} får sparas till nästa år",
+    "yearEndSoon": "Semesteråret slutar {{date}} (om {{days}} dagar). {{savable}} dagar ligger över 20 och kan sparas. Övriga dagar bör tas ut innan dess.",
+    "barText": "{{taken}} av {{earned}} dagar uttagna",
+    "savedText": "{{n}} sparade",
+    "daysLeftShort": "dagar kvar",
+    "historyTitle": "Uttaget per lönekörning",
+    "historyEmpty": "Ingen semester uttagen än i år.",
+    "addInRun": "Lägg till semester i en lönekörning",
+    "openEmployee": "Öppna anställd",
+    "howTake": "Semester tas ut genom att lägga till Semesteruttag på den anställda i lönekörningen för månaden. Dagarna räknas av när lönen räknas fram.",
+    "day": "dag",
+    "ruleSamma": "Lönen löper, plus tillägg per dag",
+    "ruleProcent": "12 % av förra årets lön",
+    "costUnknown": "Kan inte räknas än: förra semesterårets lön finns inte i Bokix",
+    "noBasis": "Värdet per dag räknas på lönen under förra semesteråret, och den finns inte i Bokix än. Det blir rätt när det finns ett års lönekörningar, eller lägg in semestertillägget själv i lönekörningen.",
+    "monthlyOnProcent": "Den anställda har månadslön men procentregeln. Med månadslön används oftast sammalöneregeln, ändra under Anställda om ert avtal säger det."
+  },
   "payrollStages": {
     "doneShort": "Klart",
     "navLabel": "Lönekörningens steg",
@@ -4033,7 +4058,9 @@
     "hours": "Timmar denna period",
     "hoursShort": "tim",
     "gross": "brutto",
-    "nothingToPay": "Det finns ingen lön att betala ut än. Fyll i timmar eller månadslön innan du godkänner."
+    "nothingToPay": "Det finns ingen lön att betala ut än. Fyll i timmar eller månadslön innan du godkänner.",
+    "vacationLeft": "semester {{n}} d kvar",
+    "addVacation": "Semester"
   },
   "bankLearning": {
     "button": "Bokför {{count}} kända",

@@ -1,78 +1,57 @@
 import React, { useMemo, useState } from 'react';
-import { Info, AlertTriangle, Palmtree, ChevronDown, ChevronUp, Wallet } from './icons';
-import ListTable from './shared/ListTable';
+import { Info, AlertTriangle, Palmtree, ChevronDown, ChevronUp, ChevronRight } from './icons';
 import { BRAND } from '../utils/brandColors';
-import { summarizeVacationLiability, VACATION_MODEL_NOTES } from '../utils/vacation';
+import { summarizeVacationLiability, VACATION_MODEL_NOTES, VACATION_DAYS_BEFORE_SAVING } from '../utils/vacation';
 import { EMPLOYER_FEE_CATEGORIES } from '../utils/payrollConfig';
 import { t } from '../i18n';
 
-// Semesteröversikten. Fram till nu kunde lönemodulen räkna fram
-// semesterskulden i KRONOR (12 % av bruttolönen varje månad, bokfört mot
-// 2920) men aldrig svara på frågan alla faktiskt ställer: hur många dagar
-// har jag kvar? Det är den vyn.
+// Semesteröversikten (Anställda och lön → Semester): hur många dagar varje
+// anställd har kvar och vad de kostar. Allt är härlett, inget är en sparad
+// siffra som kan bli inaktuell: intjänandet ur anställningsdatum och
+// semesterår, uttaget ur lönekörningarnas Semesteruttag, dagvärdet ur
+// semesterregeln (utils/vacation.js).
 //
-// Allt här är härlett, ingenting är en sparad siffra som kan bli inaktuell:
-// intjänandet räknas ur anställningsdatum och semesterår, uttaget ur
-// lönekörningarnas semesterarter, och dagvärdet ur den anställdas
-// semesterregel. Se utils/vacation.js för paragraferna bakom varje steg.
+// 2026-10-10: samma stil som lönekörningen, en yta kant i kant i stället för
+// kort, en stapel per anställd (intjänat mot uttaget), en rad som går att
+// öppna med uttagen per lönekörning, och en påminnelse före semesterårets
+// slut om dagar som kan sparas. Semester TAS UT i lönekörningen (där lönen
+// betalas), därför leder raden dit.
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE').format(Math.round(v || 0));
-const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' };
 
-// Plain-språk för Regel-kolumnen (se RULE_LABEL nedan) — vilken juridisk
-// paragraf som gäller är sällan det en företagare tänker på, VILKEN
-// ANSTÄLLNINGSFORM den hör till är det. Den formella termen finns kvar,
-// bara nedtonad, inte borttagen.
+// Vad regeln betyder, inte vilken anställningsform den brukar höra till (en
+// månadsavlönad kan ha procentregeln, då stod det fel 'Timlön' förut).
 const RULE_LABEL = {
-  sammaloneregeln: { primary: t('ui.manadslon'), formal: 'Sammalöneregeln' },
-  procentregeln: { primary: t('ui.timlon_rorlig'), formal: 'Procentregeln' },
+  sammaloneregeln: { primary: t('vacationUi.ruleSamma'), formal: 'Sammalöneregeln' },
+  procentregeln: { primary: t('vacationUi.ruleProcent'), formal: 'Procentregeln' },
 };
 
-// Kundfeedback: "semesterdelen under Anställda och lön — jag förstår inte
-// vad det är, kan du göra den enklare?" Siffrorna var rätt, men varje kort
-// och kolumn hette något ur bokföringens språk ("Semesterskuld", "Att stämma
-// av mot 2920 + 2940") utan att någonstans säga vad talet BETYDER för den
-// som driver företaget. Därför: en förklarande underrad på varje kort, en
-// mening högst upp om vad sidan är, och en förklaring på varje kolumnrubrik
-// (ListTable `help`). Inga siffror är ändrade — bara vad de kallas.
-//
-// Andra omgången kundfeedback ("för mycket text, förstår inte vad som
-// står där, inte snyggt"): förklaringstexten om HUR beräkningen fungerar
-// (paragrafhänvisningar, semesterårets datum) stod tidigare alltid synlig
-// längst ner — en permanent textvägg ingen bad om att läsa just då. Den är
-// nu gömd bakom en egen flik (se "Hur räknas det?" nedan), och korten fick
-// ikoner + en tydligare rangordning: DAGARNA är huvudsiffran (det är svaret
-// på frågan "hur mycket semester har jag kvar att ge"), KOSTNADEN är den
-// solida, färgade panelen (samma mönster som lönekörningens "Total
-// kostnad") eftersom det är balansräkningsposten som faktiskt spelar roll
-// för bokföringen.
-function SummaryCard({ icon: Icon, label, value, unit, hint }) {
-  return (
-    <div style={{ ...panelCard, padding: '18px 20px', flex: '1 1 240px', minWidth: 0, display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-      <div style={{ width: 40, height: 40, borderRadius: '11px', background: BRAND.greenLight, color: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <Icon size={19} />
-      </div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>{label}</div>
-        <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
-          {value}{unit && <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', marginLeft: '5px' }}>{unit}</span>}
-        </div>
-        {hint && <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '5px', lineHeight: 1.5 }}>{hint}</div>}
-      </div>
-    </div>
-  );
+/** '1 dag', '5 dagar'. */
+const daysText = (n) => `${fmt(n)} ${Math.round(n) === 1 ? t('vacationUi.day') : t('vacationUi.days')}`;
+
+/** Uttagna semesterdagar per lönekörning för en anställd, nyast först. */
+function takenByRun(employeeId, payrollRuns) {
+  return payrollRuns
+    .filter(run => run.completedSteps?.includes('calculated'))
+    .map(run => ({
+      period: run.period,
+      days: (run.rows || [])
+        .filter(r => r.employeeId === employeeId)
+        .flatMap(r => r.lines || [])
+        .filter(l => l.payTypeId === 'vacation_taken')
+        .reduce((s, l) => s + (Number(l.quantity) || 0), 0),
+    }))
+    .filter(x => x.days > 0)
+    .sort((a, b) => b.period.localeCompare(a.period));
 }
 
-export default function VacationOverview({ employees = [], payrollRuns = [], onSelectEmployee }) {
-  // Avgiftssatsen som skulden ska bära: samma standardsats lönekörningen
-  // själv använder, inte en egen kopia.
+export default function VacationOverview({ employees = [], payrollRuns = [], onSelectEmployee, onOpenRuns }) {
   const feeRate = EMPLOYER_FEE_CATEGORIES.anstalld.rate;
   const summary = useMemo(
     () => summarizeVacationLiability({ employees, payrollRuns, feeRate }),
     [employees, payrollRuns, feeRate]
   );
-  // Kollapsad som förval — se filkommentaren ovan. Öppnas av den som
-  // faktiskt undrar över en siffra, inte påtvingad alla.
+  const [openId, setOpenId] = useState(null);
   const [showRules, setShowRules] = useState(false);
 
   if (!employees.length) {
@@ -89,127 +68,147 @@ export default function VacationOverview({ employees = [], payrollRuns = [], onS
     );
   }
 
+  const end = summary.vacationYear.end;
+  const daysToYearEnd = Math.ceil((end - new Date()) / 86400000);
+  const savable = summary.rows.reduce((s, r) => s + r.savableAtYearEnd, 0);
+  const cost = summary.totalLiability + summary.totalLiabilityFee;
+  const cells = [
+    { label: t('vacationUi.daysLeft'), value: daysText(summary.totalDays), hint: t('vacationUi.daysLeftHint') },
+    cost === 0 && summary.totalDays > 0
+      ? { label: t('vacationUi.cost'), value: '—', hint: t('vacationUi.costUnknown') }
+      : { label: t('vacationUi.cost'), value: `${fmt(cost)} ${t('ui.kr')}`, hint: t('vacationUi.costHint', { pay: fmt(summary.totalLiability), fee: fmt(summary.totalLiabilityFee) }) },
+    { label: t('vacationUi.savable'), value: daysText(savable), hint: t('vacationUi.savableHint', { n: VACATION_DAYS_BEFORE_SAVING }) },
+  ];
+
   return (
-    <div style={{ padding: 'clamp(14px, 3vw, 24px) clamp(14px, 3vw, 24px) 28px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
-        <div style={{ width: 44, height: 44, borderRadius: '12px', background: BRAND.greenLight, color: BRAND.greenDark, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Palmtree size={21} />
-        </div>
-        <div>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>
-            {t('ui.semesteraret')} {summary.vacationYear.label}
+    <div style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg-card)', flex: 1 }}>
+      {/* Rubrik, förklaring och summorna i samma yta. */}
+      <div style={{ padding: '18px 24px' }}>
+        <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: 'var(--text-main)' }}>
+          {t('ui.semesteraret')} {summary.vacationYear.label}
+        </h2>
+        <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.55, maxWidth: '760px' }}>{t('vacationUi.intro')}</p>
+
+        {daysToYearEnd <= 75 && daysToYearEnd > 0 && savable > 0 && (
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginTop: '14px', padding: '10px 14px', borderRadius: '10px', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', fontSize: '13px', lineHeight: 1.5 }}>
+            <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 2 }} />
+            <span>{t('vacationUi.yearEndSoon', { date: end.toLocaleDateString('sv-SE'), days: daysToYearEnd, savable: fmt(savable) })}</span>
           </div>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6, maxWidth: '640px' }}>
-            {t('ui.intjanade_och_uttagna_semesterdagar_per_anstalld')}
-          </p>
+        )}
+
+        <div className="payroll-summary" style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', border: '1px solid var(--border)', borderRadius: '14px', overflow: 'hidden' }}>
+          {cells.map((c, i) => (
+            <div key={c.label} style={{ padding: '16px 18px', borderRight: i < cells.length - 1 ? '1px solid var(--border-light)' : 'none', background: i === 1 ? 'var(--bg-muted)' : 'transparent', minWidth: 0 }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>{c.label}</div>
+              <div style={{ fontSize: '21px', fontWeight: 800, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{c.value}</div>
+              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.45 }}>{c.hint}</div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Dagarna är huvudsiffran (kortet till vänster, samma neutrala stil
-          som övriga sammanfattningskort i appen) — kostnaden får en egen,
-          färgad panel istället för ett tredje likadant kort, samma mönster
-          som lönekörningens "Total kostnad"-rad. Det gör tydligt att det
-          är TVÅ olika sorters svar: en mängd (dagar) och en konsekvens
-          (kronor mot balansräkningen), inte tre parallella mätetal. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '14px', alignItems: 'stretch' }}>
-        <SummaryCard
-          icon={Palmtree}
-          label={t('ui.dagar_kvar_att_ta_ut')}
-          value={fmt(summary.totalDays)}
-          unit="dagar"
-          hint={t('ui.intjanade_minus_redan_uttagna_dagar_alla_anstall')}
-        />
-        <div style={{ background: BRAND.green, color: 'white', borderRadius: '14px', padding: '18px 20px', flex: '1 1 260px', minWidth: 0, display: 'flex', gap: '14px', alignItems: 'flex-start', boxShadow: '0 4px 14px color-mix(in srgb, var(--accent) 22%, transparent)' }}>
-          <div style={{ width: 40, height: 40, borderRadius: '11px', background: 'rgba(255,255,255,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Wallet size={19} />
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.85)', marginBottom: '4px' }}>{t('ui.vad_de_dagarna_kostar')}</div>
-            <div style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
-              {fmt(summary.totalLiability + summary.totalLiabilityFee)} <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{t('ui.kr')}</span>
-            </div>
-            <div style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.85)', marginTop: '5px', lineHeight: 1.5 }}>
-              {t('ui.semesterlon')} {fmt(summary.totalLiability)} {t('ui.kr_arbetsgivaravgift')} {fmt(summary.totalLiabilityFee)} {t('ui.kr_ska_stamma_mot_konto_2920_2940_i_balansraknin')}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={panelCard}>
-        <ListTable
-          rowKey={r => r.employee.id}
-          onRowClick={onSelectEmployee ? (r => onSelectEmployee(r.employee)) : undefined}
-          rows={summary.rows}
-          // Åtta kolumner får aldrig plats på en telefon. Den kompakta
-          // listraden (samma som Verifikationer/Bank) bär det man faktiskt
-          // vill veta i mobilen: vem, hur många dagar kvar, och vad de
-          // kostar — resten finns kvar i tabellen på en större skärm.
-          mobileList={r => ({
-            dot: r.overEntitlement ? 'var(--status-amber-text)' : 'var(--status-green-text)',
-            primary: `${r.employee.firstName} ${r.employee.lastName}`,
-            amount: t('ui.d_kvar', { v: fmt(r.remaining) }),
-            meta: t('ui.intjanat_d_uttaget_d', { v0: fmt(r.earned), v1: fmt(r.taken), v2: r.saved ? ` · sparade ${fmt(r.saved)} d` : '' }),
-            meta2: t('ui.kostar_nar_de_tas_ut', { v: fmt(r.liabilityTotal) }) + (r.payPerDay ? t('ui.kr_per_dag', { v: fmt(r.payPerDay) }) : ''),
-          })}
-          columns={[
-            {
-              key: 'name', label: t('ui.anstalld'), fontWeight: 600, color: 'var(--text-main)', fontSize: '14px',
-              render: r => `${r.employee.firstName} ${r.employee.lastName}`,
-            },
-            {
-              key: 'rule', label: t('ui.anstallningsform'),
-              help: t('ui.hur_semesterlonen_raknas_for_den_anstallda_manad'),
-              render: r => {
-                const label = RULE_LABEL[r.rule];
-                if (!label) return '—';
-                return (
-                  <span>
-                    <span style={{ color: 'var(--text-main)' }}>{label.primary}</span>
-                    <span style={{ display: 'block', fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '1px' }}>{label.formal}</span>
-                  </span>
-                );
-              },
-            },
-            { key: 'earned', label: t('ui.intjanat'), align: 'right', help: t('ui.semesterdagar_den_anstallda_har_tjanat_ihop_unde'), render: r => `${fmt(r.earned)} d` },
-            { key: 'taken', label: t('ui.uttaget'), align: 'right', help: t('ui.semesterdagar_som_redan_tagits_ut_hamtat_ur_lone'), render: r => `${fmt(r.taken)} d` },
-            {
-              key: 'remaining', label: t('ui.kvar'), align: 'right', fontWeight: 700, color: 'var(--text-main)',
-              help: t('ui.intjanat_minus_uttaget_dagarna_den_anstallda_for'),
-              render: r => (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
-                  {r.overEntitlement && (
-                    <AlertTriangle size={13} color="var(--status-amber-text)" aria-label={t('ui.fler_uttagna_dagar_an_intjanade')} />
-                  )}
-                  {fmt(r.remaining)} {t('ui.d')}
+      {/* En rad per anställd, kant i kant. */}
+      <div style={{ borderTop: '1px solid var(--border-light)' }}>
+        {summary.rows.map(r => {
+          const name = `${r.employee.firstName} ${r.employee.lastName}`;
+          const open = openId === r.employee.id;
+          const total = Math.max(r.earned + r.saved, 1);
+          const takenPct = Math.min(100, (r.taken / total) * 100);
+          const rule = RULE_LABEL[r.rule];
+          const history = open ? takenByRun(r.employee.id, payrollRuns) : [];
+          return (
+            <div key={r.employee.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+              <button
+                type="button"
+                aria-expanded={open}
+                onClick={() => setOpenId(open ? null : r.employee.id)}
+                className="vacation-row"
+                style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 2fr) auto auto', gap: '18px', alignItems: 'center', padding: '14px 24px', background: open ? 'var(--bg-muted)' : 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
+              >
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                  <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{rule ? rule.primary : ''}</span>
                 </span>
-              ),
-            },
-            { key: 'saved', label: t('ui.sparade'), align: 'right', help: t('ui.dagar_som_flyttats_med_fran_tidigare_semesterar'), render: r => (r.saved ? `${fmt(r.saved)} d` : '—') },
-            {
-              key: 'perDay', label: t('ui.per_dag'), align: 'right',
-              help: t('ui.vad_en_semesterdag_kostar_i_lon_for_den_har_anst'),
-              render: r => (r.payPerDay ? `${fmt(r.payPerDay)} kr` : '—'),
-            },
-            {
-              key: 'liability', label: t('ui.total_kostnad'), align: 'right', fontWeight: 600, color: 'var(--text-main)',
-              help: t('ui.kvarvarande_dagar_dagvardet_plus_arbetsgivaravgi'),
-              render: r => `${fmt(r.liabilityTotal)} kr`,
-            },
-          ]}
-        />
+                {/* Stapeln: intjänat (hela) och uttaget (fyllt). */}
+                <span className="vacation-bar" style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', height: '8px', borderRadius: '999px', background: 'var(--border-light)', overflow: 'hidden' }}>
+                    <span style={{ display: 'block', height: '100%', width: `${takenPct}%`, background: r.overEntitlement ? 'var(--status-amber-text)' : 'var(--accent)', borderRadius: '999px' }} />
+                  </span>
+                  <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-secondary)', marginTop: '5px' }}>
+                    {t('vacationUi.barText', { taken: fmt(r.taken), earned: fmt(r.earned) })}{r.saved ? ` · ${t('vacationUi.savedText', { n: fmt(r.saved) })}` : ''}
+                  </span>
+                </span>
+                <span style={{ textAlign: 'right' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '16px', fontWeight: 800, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' }}>
+                    {r.overEntitlement && <AlertTriangle size={14} color="var(--status-amber-text)" aria-label={t('ui.fler_uttagna_dagar_an_intjanade')} />}
+                    {fmt(r.totalAvailable)}
+                  </span>
+                  <span style={{ display: 'block', fontSize: '11.5px', color: 'var(--text-muted)' }}>{t('vacationUi.daysLeftShort')}</span>
+                </span>
+                {open ? <ChevronUp size={16} color="var(--text-muted)" /> : <ChevronDown size={16} color="var(--text-muted)" />}
+              </button>
+
+              {open && (
+                <div style={{ padding: '4px 24px 18px', background: 'var(--bg-muted)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px', marginBottom: '14px' }}>
+                    {[
+                      [t('ui.intjanat'), daysText(r.earned)],
+                      [t('ui.uttaget'), daysText(r.taken)],
+                      [t('ui.sparade'), r.saved ? daysText(r.saved) : '—'],
+                      [t('ui.per_dag'), r.payPerDay ? `${fmt(r.payPerDay)} ${t('ui.kr')}` : '—'],
+                      [t('ui.total_kostnad'), r.liabilityTotal ? `${fmt(r.liabilityTotal)} ${t('ui.kr')}` : '—'],
+                    ].map(([label, value]) => (
+                      <div key={label} style={{ padding: '10px 12px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-light)' }}>
+                        <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>{label}</div>
+                        <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {!r.payPerDay && r.totalAvailable > 0 && (
+                    <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>{t('vacationUi.noBasis')}</div>
+                  )}
+                  {r.rule === 'procentregeln' && r.employee.salaryForm !== 'timlon' && (
+                    <div style={{ fontSize: '12.5px', color: 'var(--status-amber-text)', marginBottom: '12px', lineHeight: 1.5 }}>{t('vacationUi.monthlyOnProcent')}</div>
+                  )}
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>{t('vacationUi.historyTitle')}</div>
+                  {history.length === 0 ? (
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '14px' }}>{t('vacationUi.historyEmpty')}</div>
+                  ) : (
+                    <ul style={{ listStyle: 'none', margin: '0 0 14px', padding: 0 }}>
+                      {history.map(h => (
+                        <li key={h.period} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border-light)', fontSize: '13px', color: 'var(--text-main)' }}>
+                          <span>{t('ui.lonekorning', { period: h.period })}</span>
+                          <span style={{ fontWeight: 700 }}>{daysText(h.days)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    {onOpenRuns && (
+                      <button type="button" onClick={onOpenRuns} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        {t('vacationUi.addInRun')} <ChevronRight size={14} />
+                      </button>
+                    )}
+                    {onSelectEmployee && (
+                      <button type="button" onClick={() => onSelectEmployee(r.employee)} style={{ padding: '9px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        {t('vacationUi.openEmployee')}
+                      </button>
+                    )}
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{rule ? rule.formal : ''}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      {/* Modellens gränser skrivs ut — men bara om man frågar. En
-          semesterberäkning som ser exakt ut men bygger på förenklingar är
-          farligare än en som säger var den slutar gälla (särskilt vid
-          sjukfrånvaro, där lagen ger fortsatt intjänande men modellen inte
-          gör det), så informationen är kvar i sin helhet — bara gömd bakom
-          en flik i stället för alltid påslagen. */}
-      <div style={panelCard}>
+      {/* Hur det räknas, bara om man frågar. */}
+      <div style={{ borderBottom: '1px solid var(--border-light)' }}>
         <button
           type="button"
           onClick={() => setShowRules(s => !s)}
-          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '14px 24px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Info size={15} color="var(--text-secondary)" />
@@ -218,17 +217,14 @@ export default function VacationOverview({ employees = [], payrollRuns = [], onS
           {showRules ? <ChevronUp size={15} color="var(--text-muted)" /> : <ChevronDown size={15} color="var(--text-muted)" />}
         </button>
         {showRules && (
-          <div style={{ padding: '0 18px 18px' }}>
+          <div style={{ padding: '0 24px 18px' }}>
             <ul style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <li style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                 {t('ui.semesteraret_loper_1_april')} {summary.vacationYear.start.getFullYear()} {t('ui.n31_mars')} {summary.vacationYear.end.getFullYear()}{t('ui.dagarna_tjanades_in_under_de_tolv_manaderna_dess')}
               </li>
-              <li style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                {t('ui.intjanade_dagar_anstallningstid_under_intjanande')}
-              </li>
-              <li style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                {t('ui.dagvarde_sammaloneregeln_manadslon_ger_semestert')}
-              </li>
+              <li style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{t('ui.intjanade_dagar_anstallningstid_under_intjanande')}</li>
+              <li style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{t('ui.dagvarde_sammaloneregeln_manadslon_ger_semestert')}</li>
+              <li style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{t('vacationUi.howTake')}</li>
               {VACATION_MODEL_NOTES.map(note => (
                 <li key={note} style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{note}</li>
               ))}

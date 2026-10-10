@@ -3924,6 +3924,31 @@
     "downloadFor": "Download payslip for {{name}}",
     "none": "No one matches the search."
   },
+  "vacationUi": {
+    "intro": "How many vacation days each employee has left and what they cost. Vacation is taken in the pay run, with the + Vacation button under the person.",
+    "daysLeft": "Days left to take",
+    "daysLeftHint": "All employees, including saved days",
+    "days": "days",
+    "cost": "What the days cost",
+    "costHint": "Vacation pay {{pay}} SEK and employer fee {{fee}} SEK",
+    "savable": "Can be saved at year-end",
+    "savableHint": "Days over {{n}} may be saved to next year",
+    "yearEndSoon": "The vacation year ends {{date}} (in {{days}} days). {{savable}} days are over 20 and can be saved. Other days should be taken before then.",
+    "barText": "{{taken}} of {{earned}} days taken",
+    "savedText": "{{n}} saved",
+    "daysLeftShort": "days left",
+    "historyTitle": "Taken per pay run",
+    "historyEmpty": "No vacation taken yet this year.",
+    "addInRun": "Add vacation in a pay run",
+    "openEmployee": "Open employee",
+    "howTake": "Vacation is taken by adding Vacation taken to the employee in the pay run for the month. The days are deducted when the salary is calculated.",
+    "day": "day",
+    "ruleSamma": "Salary continues, plus a daily supplement",
+    "ruleProcent": "12 % of last year's pay",
+    "costUnknown": "Cannot be calculated yet: last vacation year's pay is not in Bokix",
+    "noBasis": "The value per day is based on pay during the last vacation year, which is not in Bokix yet. It becomes right once there is a year of pay runs, or enter the vacation pay yourself in the pay run.",
+    "monthlyOnProcent": "The employee has a monthly salary but the percentage rule. Monthly salaries usually use the same-salary rule, change it under Employees if your agreement says so."
+  },
   "payrollStages": {
     "doneShort": "Done",
     "navLabel": "Pay run steps",
@@ -4033,7 +4058,9 @@
     "hours": "Hours this period",
     "hoursShort": "h",
     "gross": "gross",
-    "nothingToPay": "There is no salary to pay yet. Enter hours or a monthly salary before approving."
+    "nothingToPay": "There is no salary to pay yet. Enter hours or a monthly salary before approving.",
+    "vacationLeft": "vacation {{n}} d left",
+    "addVacation": "Vacation"
   },
   "bankLearning": {
     "button": "Book {{count}} known",

@@ -19,6 +19,7 @@ import { AGI_XML_ENABLED } from '../utils/featureFlags';
 import { preloadSkattetabell } from '../utils/skattetabell';
 import { downloadSalaryPaymentFile, getDebtorAccountError } from '../utils/salaryPaymentFile';
 import { t as tr } from '../i18n';
+import { summarizeVacation } from '../utils/vacation';
 import { SKV_AGI_URL } from './AgiReportDetails';
 
 const fmt = (v) => new Intl.NumberFormat('sv-SE').format(Math.round(v || 0));
@@ -171,6 +172,11 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: lines.length ? '10px' : '6px', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.lonearter')}</span>
         {!locked && (
+          <span style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Semesteruttag är den löneart man oftast lägger till: egen knapp. */}
+          <button type="button" onClick={() => addLine('vacation_taken')} style={{ ...cellInput, width: 'auto', cursor: 'pointer', fontWeight: 700 }}>
+            + {tr('payrollUi.addVacation')}
+          </button>
           <select
             value={adding}
             onChange={e => addLine(e.target.value)}
@@ -184,6 +190,7 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
               </optgroup>
             ))}
           </select>
+          </span>
         )}
       </div>
 
@@ -248,7 +255,7 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
     </div>
   );
 }
-function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, flat = false, defaultOpen = false }) {
+function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, flat = false, defaultOpen = false, vacationLeft = null }) {
   const [expanded, setExpanded] = useState(defaultOpen);
   const isZero = computed.gross === 0 && computed.net === 0 && computed.tax === 0;
   const diff = previousComputed ? computed.net - previousComputed.net : null;
@@ -288,6 +295,7 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, fla
           ) : (
             <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '3px' }}>
               {tr('payrollUi.rowSummary', { tax: fmt(computed.tax), net: fmt(computed.net) })}
+              {vacationLeft != null && ` · ${tr('payrollUi.vacationLeft', { n: fmt(vacationLeft) })}`}
             </div>
           )}
           {!computed.hasBankInfo && (
@@ -577,6 +585,11 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
     return run.rows.map(row => ({ row, computed: computeEmployeePayroll(row.employeeSnapshot, row) }));
   }, [run.rows, tablesReady]);
   const totals = useMemo(() => summarizePayrollRun(computedRows.map(r => r.computed)), [computedRows]);
+  // Semesterdagar kvar per anställd (utils/vacation.js), visas i Lön och timmar.
+  const vacationLeftById = useMemo(() => Object.fromEntries(run.rows.map(r => [
+    r.employeeId,
+    summarizeVacation({ employee: r.employeeSnapshot, payrollRuns: allRuns }).totalAvailable,
+  ])), [run.rows, allRuns]);
 
   // ── Lönebesked till alla (se panelen längre ner) ──
   const [mailState, setMailState] = useState({ busy: false, done: 0, total: 0, result: null });
@@ -827,6 +840,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
       <div style={{ margin: '0 -24px -18px', borderTop: '1px solid var(--border-light)' }}>
       {computedRows.map(({ row, computed }) => (
         <EmployeeRow flat defaultOpen={computedRows.length <= 5 || computed.gross === 0}
+          vacationLeft={vacationLeftById[row.employeeId]}
           key={row.employeeId} row={row} computed={computed}
           previousComputed={previousComputedByEmployee[row.employeeId]}
           accounts={accounts} onUpdateRow={onUpdateRow}
