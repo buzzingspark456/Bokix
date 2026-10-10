@@ -43,3 +43,40 @@ describe('computeInk2s', () => {
     expect(new Set(keys).size).toBe(keys.length)
   })
 })
+
+describe('INK2S i SRU och förslag (2026-10-10)', async () => {
+  const { ink2sSruRows, suggestInk2s, resolveInk2sValues } = await import('./ink2s')
+  const { generateInk2rSru } = await import('./sruExport')
+  const fy = { start: '2025-01-01', end: '2025-12-31' }
+  const v = (date, rows, extra = {}) => ({ id: date + Math.random(), date, rows, ...extra })
+
+  it('skriver resultat, justeringar och överskott med rätt koder', () => {
+    const r = computeInk2s({ '4.3c': 1000, '4.13': -500 }, 50000)
+    expect(ink2sSruRows(r)).toEqual([['7650', 50000], ['7653', 1000], ['7762', 500], ['7670', 50500]])
+  })
+  it('förlust och underskott', () => {
+    const r = computeInk2s({}, -20000)
+    expect(ink2sSruRows(r)).toEqual([['7750', 20000], ['7770', 20000]])
+  })
+  it('föreslår skatt, ej avdragsgilla kostnader, skattefri ränta och schablonintäkt', () => {
+    const verifications = [
+      v('2024-12-31', [{ account: '2125', debet: 0, kredit: 100000 }, { account: '8811', debet: 100000, kredit: 0 }]),
+      v('2025-03-01', [{ account: '6072', debet: 1200, kredit: 0 }, { account: '1930', debet: 0, kredit: 1200 }]),
+      v('2025-05-01', [{ account: '1630', debet: 40, kredit: 0 }, { account: '8314', debet: 0, kredit: 40 }]),
+      v('2025-12-31', [{ account: '8910', debet: 9000, kredit: 0 }, { account: '2512', debet: 0, kredit: 9000 }]),
+    ]
+    const s = suggestInk2s({ verifications, fy, previousUnderskott: 3000 })
+    expect(s.suggestions).toEqual({ '4.3a': 9000, '4.3c': 1200, '4.5c': 40, '4.6a': 1960, '4.14a': 3000 })
+  })
+  it('det användaren skrivit går före förslaget, även 0', () => {
+    const vals = resolveInk2sValues({ '4.3c': '0', '4.3a': '' }, { '4.3a': 9000, '4.3c': 1200 })
+    expect(vals['4.3a']).toBe(9000)
+    expect(vals['4.3c']).toBe(0)
+  })
+  it('SRU-filen får INK2S-raderna och överskottet på huvudblanketten', () => {
+    const ink2s = computeInk2s({ '4.3c': 1000 }, 50000)
+    const { blankettSru } = generateInk2rSru({ orgNr: '5566778899', name: 'AB', postalCode: '11122', city: 'Sthlm' }, { rows: [] }, [{ row: '3.26', amount: 50000 }], fy, new Date(2026, 0, 1), ink2s)
+    expect(blankettSru).toMatch(/#BLANKETT INK2-2025P4[\s\S]*#UPPGIFT 7104 51000/)
+    expect(blankettSru).toMatch(/#BLANKETT INK2S-2025P4[\s\S]*#UPPGIFT 7653 1000[\s\S]*#UPPGIFT 7670 51000/)
+  })
+})

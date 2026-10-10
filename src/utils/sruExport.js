@@ -13,8 +13,9 @@
  * (framställningsdatum och -tid, inte periodens slut):
  *   INK2   räkenskapsårets början och slut (7011/7012)
  *   INK2R  balans- och resultaträkningen (7201–7370, 7410–7550)
- *   INK2S  bara årets resultat (7650/7750). Resten av de skattemässiga
- *          justeringarna fyller användaren i hos Skatteverket.
+ *   INK2S  årets resultat (7650/7750), de skattemässiga justeringarna och
+ *          över- eller underskottet (7670/7770), när computeInk2s skickas med.
+ *          Över-/underskottet skrivs då också på huvudblanketten (7104/7114).
  *
  * Fältkoderna i INK2R är kontrollerade mot INK2R_SKV2002-33-01-24-04.xls.
  * Belopp är heltal. Numeriskt_A får vara negativt, Numeriskt_B inte; där
@@ -22,6 +23,7 @@
  * positivt på den kod som tecknet pekar ut.
  */
 import { createZip } from './zipStore';
+import { ink2sSruRows, INK2_MAIN_SRU } from './ink2s';
 
 const pad = (n, len = 2) => String(n).padStart(len, '0');
 const ymd = (iso) => String(iso || '').replace(/-/g, '');
@@ -62,7 +64,7 @@ const clean = (s) => String(s || '').replace(/[\r\n]+/g, ' ').trim();
  * @param period   { start: 'ÅÅÅÅ-MM-DD', end: 'ÅÅÅÅ-MM-DD' } eller bara slutdatumet
  * @param now      framställningstidpunkt (för tester)
  */
-export function generateInk2rSru(company, ink2r, resultRows, period, now = new Date()) {
+export function generateInk2rSru(company, ink2r, resultRows, period, now = new Date(), ink2s = null) {
   const end = typeof period === 'string' ? period : period?.end;
   const start = typeof period === 'string' || !period?.start
     ? (() => { const d = new Date(`${end}T12:00:00`); d.setFullYear(d.getFullYear() - 1); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })()
@@ -104,12 +106,17 @@ export function generateInk2rSru(company, ink2r, resultRows, period, now = new D
     .map(r => [r.fieldCode, Math.round(r.fieldCodePlus || r.fieldCodeMinus ? Math.abs(r.amount) : r.amount)]);
 
   const result = (resultRows || []).find(r => r.row === '3.26' || r.row === '3.27');
-  const ink2s = result ? [[result.row === '3.26' ? '7650' : '7750', Math.round(Math.abs(result.amount))]] : [];
+  const ink2sRows = ink2s
+    ? ink2sSruRows(ink2s)
+    : (result ? [[result.row === '3.26' ? '7650' : '7750', Math.round(Math.abs(result.amount))]] : []);
+  const mainRows = ink2s
+    ? [...(ink2s.overskott ? [[INK2_MAIN_SRU.overskott, Math.round(ink2s.overskott)]] : []), ...(ink2s.underskott ? [[INK2_MAIN_SRU.underskott, Math.round(ink2s.underskott)]] : [])]
+    : [];
 
   let blankettSru = '';
-  blankettSru += block('INK2', period7011);
+  blankettSru += block('INK2', [...period7011, ...mainRows]);
   blankettSru += block('INK2R', [...period7011, ...amountRows]);
-  blankettSru += block('INK2S', [...period7011, ...ink2s]);
+  blankettSru += block('INK2S', [...period7011, ...ink2sRows]);
   blankettSru += `#FIL_SLUT${L}`;
 
   return { infoSru, blankettSru };
@@ -133,8 +140,8 @@ export function encodeWindows1252(str) {
 /** Laddar ner INFO.SRU och BLANKETTER.SRU i EN zip-fil. Två nedladdningar i
  * rad stoppas ofta av webbläsaren; packa upp och ladda upp båda filerna
  * hos Skatteverket. */
-export function downloadInk2rSru(company, ink2r, resultRows, period) {
-  const { infoSru, blankettSru } = generateInk2rSru(company, ink2r, resultRows, period);
+export function downloadInk2rSru(company, ink2r, resultRows, period, ink2s = null) {
+  const { infoSru, blankettSru } = generateInk2rSru(company, ink2r, resultRows, period, new Date(), ink2s);
   const end = typeof period === 'string' ? period : period?.end;
   const zip = createZip([
     { name: 'INFO.SRU', data: encodeWindows1252(infoSru) },

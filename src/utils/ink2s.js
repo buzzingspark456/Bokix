@@ -1,3 +1,5 @@
+import { getDebet, getKredit } from './verificationAmounts';
+import { isBooked } from './reportCalculations';
 /**
  * INK2S — Skattemässiga justeringar (rad 4.1–4.16) av Skatteverkets
  * Inkomstdeklaration 2. Till skillnad från INK2R (ink2r.js/
@@ -15,9 +17,7 @@
  * inte med — de påverkar inte över-/underskottsberäkningen och är
  * rena tilläggsuppgifter, avsiktligt utanför den här första versionen.
  *
- * Ingen SRU-fältkod finns här av samma anledning som i
- * ink2rResultat.js: ingen pålitlig källa för INK2S:s koder har hittats,
- * så det här skrivs inte med i SRU-filen (se sruExport.js).
+ * Fältkoderna för SRU-filen finns i INK2S_SRU längre ner.
  */
 export const INK2S_ROWS = [
   { key: '4.3a', row: '4.3 a', label: 'Skatt på årets resultat', group: 'Bokförda kostnader som inte ska dras av', sign: '+' },
@@ -78,4 +78,111 @@ export function computeInk2s(values, arsResultat) {
     overskott: total > 0 ? total : 0,
     underskott: total < 0 ? -total : 0,
   };
+}
+
+// ── SRU-fältkoder (2026-10-10) ──
+// Ur Skatteverkets fältnamnstabell INK2S_SKV2002-33-01-24-04 (paketet
+// 2025P4). "±"-rader har en kod för plus och en för minus; beloppet skrivs
+// alltid positivt på koden som tecknet pekar ut. 4.15/4.16 förs över till
+// huvudblanketten som 7104 (1.1 överskott) och 7114 (1.2 underskott).
+export const INK2S_SRU = {
+  '4.1': '7650', '4.2': '7750',
+  '4.3a': '7651', '4.3b': '7652', '4.3c': '7653',
+  '4.4a': '7751', '4.4b': '7764',
+  '4.5a': '7752', '4.5b': '7753', '4.5c': '7754',
+  '4.6a': '7654', '4.6b': '7668', '4.6c': '7655', '4.6d': '7673', '4.6e': '7665',
+  '4.7a': '7755', '4.7b': '7656', '4.7c': '7756', '4.7d': '7657', '4.7e': '7658', '4.7f': '7757',
+  '4.8a': '7758', '4.8b': '7659', '4.8c': '7660', '4.8d': '7759',
+  '4.9': { plus: '7666', minus: '7765' },
+  '4.10': { plus: '7661', minus: '7760' },
+  '4.11': '7761', '4.12': '7662',
+  '4.13': { plus: '7663', minus: '7762' },
+  '4.14a': '7763', '4.14b': '7671', '4.14c': '7672',
+  '4.15': '7670', '4.16': '7770',
+};
+export const INK2_MAIN_SRU = { overskott: '7104', underskott: '7114' };
+
+/** Raderna som [fältkod, belopp] för SRU-filen: årets resultat, varje
+ * ifylld justering och över- eller underskottet. Hela kronor. */
+export function ink2sSruRows(ink2s) {
+  const out = [];
+  const push = (code, amount) => { const v = Math.round(Math.abs(amount)); if (v) out.push([code, v]); };
+  if (ink2s.arsResultatVinst) push(INK2S_SRU['4.1'], ink2s.arsResultatVinst);
+  if (ink2s.arsResultatForlust) push(INK2S_SRU['4.2'], ink2s.arsResultatForlust);
+  for (const r of ink2s.rows) {
+    if (!r.value) continue;
+    const code = INK2S_SRU[r.key];
+    if (typeof code === 'object') push(r.value >= 0 ? code.plus : code.minus, r.value);
+    else push(code, r.value);
+  }
+  if (ink2s.overskott) push(INK2S_SRU['4.15'], ink2s.overskott);
+  if (ink2s.underskott) push(INK2S_SRU['4.16'], ink2s.underskott);
+  return out;
+}
+
+// ── Förslag ur bokföringen ──
+// Det som går att läsa ut säkert ur kontona. Användaren kan alltid ändra.
+//   4.3a  bokförd skatt på årets resultat (8910–8980)
+//   4.3c  kostnader bokförda som ej avdragsgilla (BAS-kontona för det)
+//   4.5c  skattefria intäkter (8314 skattefria ränteintäkter)
+//   4.6a  schablonintäkt: periodiseringsfonder vid årets ingång gånger
+//         statslåneräntan 30 november året innan (IL 30 kap. 6 a §)
+//   4.14a outnyttjat underskott från förra årets deklaration i Bokix
+const TAX_ACCOUNTS = /^89[1-8]\d$/;
+const NON_DEDUCTIBLE = new Set(['6072', '6982', '6992', '7623', '7632', '8423']);
+const TAX_FREE_INCOME = new Set(['8314']);
+const PERIODISERINGSFOND = /^21[1-4]\d$/;
+
+// Statslåneräntan 30 november året före beskattningsåret, i procent
+// (Riksgälden). Nyckel = året beskattningsåret börjar.
+export const STATSLANERANTA = { 2024: 2.62, 2025: 1.96, 2026: 2.55 };
+
+export function suggestInk2s({ verifications, fy, previousUnderskott = 0 }) {
+  let tax = 0; let nonDeductible = 0; let taxFree = 0; let fundsAtStart = 0;
+  const accounts = new Map();
+  const add = (key, account, amount) => {
+    const list = accounts.get(key) || new Map();
+    list.set(account, (list.get(account) || 0) + amount);
+    accounts.set(key, list);
+  };
+  for (const v of verifications || []) {
+    if (!isBooked(v) || !v.date) continue;
+    const inYear = v.date >= fy.start && v.date <= fy.end;
+    // Ingående balans: allt före året, plus IB-verifikationer på första dagen.
+    const opening = v.date < fy.start || (v.date === fy.start && (v.isOpeningBalance || /ingående balans/i.test(v.description || '')));
+    for (const r of v.rows || []) {
+      const account = String(r.account || '');
+      const net = getDebet(r) - getKredit(r);
+      if (opening && PERIODISERINGSFOND.test(account)) fundsAtStart -= net;
+      if (!inYear || opening) continue;
+      if (TAX_ACCOUNTS.test(account)) { tax += net; add('4.3a', account, net); }
+      if (NON_DEDUCTIBLE.has(account)) { nonDeductible += net; add('4.3c', account, net); }
+      if (TAX_FREE_INCOME.has(account)) { taxFree -= net; add('4.5c', account, -net); }
+    }
+  }
+  const rate = STATSLANERANTA[Number(String(fy.start).slice(0, 4))];
+  const suggestions = {};
+  const round = (n) => Math.round(n);
+  if (round(tax) > 0) suggestions['4.3a'] = round(tax);
+  if (round(nonDeductible) > 0) suggestions['4.3c'] = round(nonDeductible);
+  if (round(taxFree) > 0) suggestions['4.5c'] = round(taxFree);
+  if (fundsAtStart > 0 && rate != null) suggestions['4.6a'] = round(fundsAtStart * rate / 100);
+  if (previousUnderskott > 0) suggestions['4.14a'] = round(previousUnderskott);
+  return {
+    suggestions,
+    fundsAtStart: round(fundsAtStart),
+    rate,
+    // Kontona bakom varje förslag, för att kunna visa var beloppet kommer ifrån.
+    accounts: Object.fromEntries([...accounts.entries()].map(([k, m]) => [k, [...m.entries()].map(([account, amount]) => ({ account, amount: round(amount) })).filter(a => a.amount)])),
+  };
+}
+
+/** Värdet som gäller för en rad: det användaren skrivit, annars förslaget. */
+export function resolveInk2sValues(saved = {}, suggestions = {}) {
+  const out = {};
+  for (const def of INK2S_ROWS) {
+    const s = saved?.[def.key];
+    out[def.key] = s !== undefined && s !== null && s !== '' ? Number(s) || 0 : (suggestions[def.key] || 0);
+  }
+  return out;
 }
