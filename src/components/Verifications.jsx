@@ -1472,7 +1472,6 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
       {/* ── Top section: title + tabs ─────────────────────────── */}
       <ListPageHeader
         title={tr('ui.bokforing')}
-        subtitle={tr('ui.verifikationer_kontoplan_och_bokforingsposter')}
         actions={
           activeTab === 'verifications' ? [
             { key: 'next', type: 'note', label: tr('ui.nasta'), value: nextNumber },
