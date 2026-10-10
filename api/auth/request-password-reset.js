@@ -116,7 +116,7 @@ async function handlePasswordReset(req, body, res) {
     res.status(200).json({ ok: true });
   } catch (err) {
     console.error('request-password-reset unexpected error:', err);
-    res.status(500).json({ error: 'Något gick fel. Försök igen om en stund.' });
+    res.status(500).json({ error: 'Något gick fel. Försök igen om en stund, eller kontakta support@bokix.se om det upprepas.' });
   }
 }
 
@@ -169,7 +169,7 @@ async function handleSendSignupCode(req, body, res) {
   // för att x-is-human aldrig skickades. Rate-limiten ovan (20/IP,
   // 5/e-post/timme) är det faktiska skyddet mot missbruk.
   if (!hasResendApiKey()) {
-    res.status(503).json({ error: 'E-postutskick är inte konfigurerat just nu.' });
+    res.status(503).json({ error: 'E-postutskick fungerar inte just nu. Försök igen om en stund, eller kontakta support@bokix.se.' });
     return;
   }
 
@@ -197,7 +197,7 @@ async function handleSendSignupCode(req, body, res) {
     res.status(200).json({ ok: true, token });
   } catch (err) {
     console.error('handleSendSignupCode unexpected error:', err);
-    res.status(500).json({ error: 'Något gick fel. Försök igen om en stund.' });
+    res.status(500).json({ error: 'Något gick fel. Försök igen om en stund, eller kontakta support@bokix.se om det upprepas.' });
   }
 }
 
@@ -300,7 +300,7 @@ async function handleSendReauthCode(req, res) {
   if (!(await checkRateLimit(req, res, { key: 'reauth-code-user', windowMs: 60 * 60 * 1000, max: 10, identifier: user.id }))) return;
 
   if (!hasResendApiKey()) {
-    res.status(503).json({ error: 'E-postutskick är inte konfigurerat just nu.' });
+    res.status(503).json({ error: 'E-postutskick fungerar inte just nu. Försök igen om en stund, eller kontakta support@bokix.se.' });
     return;
   }
 
@@ -328,7 +328,7 @@ async function handleSendReauthCode(req, res) {
     res.status(200).json({ ok: true, token });
   } catch (err) {
     console.error('handleSendReauthCode unexpected error:', err);
-    res.status(500).json({ error: 'Något gick fel. Försök igen om en stund.' });
+    res.status(500).json({ error: 'Något gick fel. Försök igen om en stund, eller kontakta support@bokix.se om det upprepas.' });
   }
 }
 
@@ -386,7 +386,7 @@ async function handleChangePassword(req, body, res) {
     return;
   }
   if (!verifyReauthGrant(reauthToken, user.id)) {
-    res.status(403).json({ error: 'Åtkomst nekad.' });
+    res.status(403).json({ error: 'Åtkomst nekad. Logga in med kontot som har tillgång till företaget, eller be ägaren bjuda in dig.' });
     return;
   }
 

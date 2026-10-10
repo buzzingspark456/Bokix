@@ -182,7 +182,7 @@ async function handleBooking(req, res, body) {
   if (hasTurnstileSecretKey()) {
     const { ok } = await verifyTurnstile(body?.captchaToken, getClientIp(req));
     if (!ok) {
-      res.status(400).json({ error: 'Kunde inte verifiera att du inte är en robot. Försök igen.' });
+      res.status(400).json({ error: 'Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen. Har du en annonsblockerare, pausa den för bokix.se.' });
       return;
     }
   }

@@ -90,7 +90,7 @@ async function handleStart(res, user, body) {
     state = createSignedState({ user_id: owned.ownerUserId, company_id: companyId });
   } catch (err) {
     console.error('Zettle OAuth start error:', err);
-    res.status(500).json({ error: 'Kunde inte starta Zettle-anslutningen.' });
+    res.status(500).json({ error: 'Kunde inte starta Zettle-anslutningen. Försök igen om en stund, eller kontakta support@bokix.se.' });
     return;
   }
 

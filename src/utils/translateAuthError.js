@@ -25,7 +25,7 @@ const PATTERNS = [
   [/password should be at least/i, () => 'Lösenordet är för kort.'],
   // Turnstile (Supabase Attack Protection): token saknas, är förbrukad
   // eller underkänd.
-  [/captcha/i, () => 'Kunde inte verifiera att du inte är en robot. Försök igen.'],
+  [/captcha/i, () => 'Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen. Har du en annonsblockerare, pausa den för bokix.se.'],
 ];
 
 export function translateSupabaseAuthError(message) {

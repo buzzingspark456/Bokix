@@ -135,7 +135,7 @@ export async function loadOwnedOrMemberCompany(userId, companyId, res, { require
   const member = await loadMemberCompany(userId, companyId, res);
   if (!member) return null;
   if (requireEditor && member.role !== 'editor') {
-    res.status(403).json({ error: 'Din roll (läsare) tillåter inte den här åtgärden.' });
+    res.status(403).json({ error: 'Din roll (läsare) tillåter inte den här åtgärden. Be ägaren ändra din roll till Kan redigera under Inställningar → Användare.' });
     return null;
   }
   return { companyData: member.companyData, companyKey: member.companyKey, ownerUserId: member.ownerUserId, role: member.role };

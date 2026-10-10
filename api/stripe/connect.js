@@ -58,7 +58,7 @@ async function handleStart(res, user, body) {
     state = createSignedState({ user_id: owned.ownerUserId, company_id: companyId });
   } catch (err) {
     console.error('Stripe OAuth start error:', err);
-    res.status(500).json({ error: 'Kunde inte starta Stripe-anslutningen.' });
+    res.status(500).json({ error: 'Kunde inte starta Stripe-anslutningen. Försök igen om en stund, eller kontakta support@bokix.se.' });
     return;
   }
 
@@ -95,7 +95,7 @@ async function handleDisconnect(res, user, body) {
   // body:n kan inte peka på ett annat konto.
   const stripeAccountId = companyData.company?.stripeAccountId;
   if (!stripeAccountId) {
-    res.status(400).json({ error: 'Inget Stripe-konto är anslutet för det här företaget.' });
+    res.status(400).json({ error: 'Inget Stripe-konto är anslutet för det här företaget. Anslut Stripe under Inställningar → Kopplingar.' });
     return;
   }
 
@@ -164,7 +164,7 @@ export default async function handler(req, res) {
       // tillbaka, se callback.js), medan FRÅNKOPPLING river en redan
       // aktiv betalningsväg direkt — mer känsligt, får behålla spärren.
       if (!verifyReauthGrant(body?.reauthToken, user.id)) {
-        res.status(403).json({ error: 'Åtkomst nekad.' });
+        res.status(403).json({ error: 'Åtkomst nekad. Logga in med kontot som har tillgång till företaget, eller be ägaren bjuda in dig.' });
         return;
       }
       await handleDisconnect(res, user, body);

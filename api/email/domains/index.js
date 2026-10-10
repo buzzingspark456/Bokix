@@ -243,7 +243,7 @@ async function handleOauthExchange(req, res, body) {
   // kan en state:n från någon annans flöde återanvändas för att länka ett
   // Google-konto till fel företag.
   if (claims.uid !== user.id) {
-    res.status(403).json({ error: 'Kopplingen hör till en annan inloggning.' });
+    res.status(403).json({ error: 'Kopplingen hör till en annan inloggning. Logga in med kontot som startade kopplingen och försök igen.' });
     return;
   }
   const companyId = claims.cid;

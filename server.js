@@ -421,7 +421,7 @@ app.post('/api/email/domains', async (req, res, next) => {
   if (body.action === 'oauth-exchange') {
     const claims = verifyState(body.state)
     if (!claims) { res.status(400).json({ error: 'Kopplingen kunde inte verifieras. Försök igen.' }); return }
-    if (claims.uid !== user.id) { res.status(403).json({ error: 'Kopplingen hör till en annan inloggning.' }); return }
+    if (claims.uid !== user.id) { res.status(403).json({ error: 'Kopplingen hör till en annan inloggning. Logga in med kontot som startade kopplingen och försök igen.' }); return }
     try {
       const { refreshToken, email } = await exchangeCode(body.code, devOrigin)
       if (!email) { res.status(400).json({ error: 'Kunde inte läsa vilken adress som kopplades.' }); return }
@@ -602,7 +602,7 @@ async function persistStripeAccountId({ userId, companyId, stripeAccountId }) {
 // filkommentaren i api/stripe/connect.js. Speglat likadant här.
 app.post('/api/stripe/connect', async (req, res) => {
   if (await isRequestFromBot()) {
-    res.status(403).json({ error: 'Åtkomst nekad.' })
+    res.status(403).json({ error: 'Åtkomst nekad. Logga in med kontot som har tillgång till företaget, eller be ägaren bjuda in dig.' })
     return
   }
 
@@ -621,7 +621,7 @@ app.post('/api/stripe/connect', async (req, res) => {
   // request-password-reset.js ovan) — se filkommentaren strax ovan om
   // varför Stripe OAuth-flödet medvetet inte rördes vid det bytet.
   if (!verifyReauthGrant(reauthToken, user.id)) {
-    res.status(403).json({ error: 'Åtkomst nekad.' })
+    res.status(403).json({ error: 'Åtkomst nekad. Logga in med kontot som har tillgång till företaget, eller be ägaren bjuda in dig.' })
     return
   }
 
@@ -633,7 +633,7 @@ app.post('/api/stripe/connect', async (req, res) => {
       const { companyData, ownerUserId } = owned
       const stripeAccountId = companyData.company?.stripeAccountId
       if (!stripeAccountId) {
-        return res.status(400).json({ error: 'Inget Stripe-konto är anslutet för det här företaget.' })
+        return res.status(400).json({ error: 'Inget Stripe-konto är anslutet för det här företaget. Anslut Stripe under Inställningar → Kopplingar.' })
       }
 
       const clientId = process.env.STRIPE_CONNECT_CLIENT_ID
@@ -674,7 +674,7 @@ app.post('/api/stripe/connect', async (req, res) => {
     state = createSignedState({ user_id: owned.ownerUserId, company_id: companyId })
   } catch (err) {
     console.error('Stripe OAuth start error:', err)
-    res.status(500).json({ error: 'Kunde inte starta Stripe-anslutningen.' })
+    res.status(500).json({ error: 'Kunde inte starta Stripe-anslutningen. Försök igen om en stund, eller kontakta support@bokix.se.' })
     return
   }
 
@@ -753,7 +753,7 @@ async function persistZettleTokens({ userId, companyId, accessToken, refreshToke
 
 app.post('/api/zettle/callback', async (req, res) => {
   if (await isRequestFromBot()) {
-    res.status(403).json({ error: 'Åtkomst nekad.' })
+    res.status(403).json({ error: 'Åtkomst nekad. Logga in med kontot som har tillgång till företaget, eller be ägaren bjuda in dig.' })
     return
   }
 
@@ -782,7 +782,7 @@ app.post('/api/zettle/callback', async (req, res) => {
     state = createZettleSignedState({ user_id: owned.ownerUserId, company_id: companyId })
   } catch (err) {
     console.error('Zettle OAuth start error:', err)
-    res.status(500).json({ error: 'Kunde inte starta Zettle-anslutningen.' })
+    res.status(500).json({ error: 'Kunde inte starta Zettle-anslutningen. Försök igen om en stund, eller kontakta support@bokix.se.' })
     return
   }
 

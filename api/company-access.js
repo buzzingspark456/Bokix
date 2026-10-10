@@ -522,7 +522,7 @@ export default async function handler(req, res) {
       const member = await loadMemberCompany(user.id, companyId, res);
       if (!member) return;
       if (member.role !== 'editor') {
-        res.status(403).json({ error: 'Din roll (läsare) tillåter inte att spara ändringar.' });
+        res.status(403).json({ error: 'Din roll (läsare) tillåter inte att spara ändringar. Be ägaren ändra din roll till Kan redigera under Inställningar → Användare.' });
         return;
       }
       if (!await requireOwnerPaidAccess(member.ownerUserId, res)) return;
@@ -532,7 +532,7 @@ export default async function handler(req, res) {
       // (alla inbjudningar gjorda innan behörigheterna fanns) släpps allt
       // igenom precis som förut.
       if (!canWriteField(member.pageAccess, field, member.role)) {
-        res.status(403).json({ error: 'Du har inte behörighet till den delen av företaget.' });
+        res.status(403).json({ error: 'Du har inte behörighet till den delen av företaget. Be ägaren ge dig Kan redigera för sidan under Inställningar → Användare.' });
         return;
       }
       ownerUserId = member.ownerUserId;

@@ -85,7 +85,7 @@ export async function checkRateLimit(req, res, { key, windowMs = 15 * 60 * 1000,
   // Spärrade adresser (BLOCKED_IPS, se _abuse.js) stoppas här, i den kontroll
   // som alla publika endpoints redan gör.
   if (isIpBlocked(getClientIp(req))) {
-    res.status(403).json({ error: 'Åtkomst nekad.' });
+    res.status(403).json({ error: 'Åtkomst nekad. Logga in med kontot som har tillgång till företaget, eller be ägaren bjuda in dig.' });
     return false;
   }
   const who = createHash('sha256').update(String(identifier || getClientIp(req))).digest('hex').slice(0, 32);

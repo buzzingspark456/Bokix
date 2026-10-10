@@ -43,7 +43,7 @@ export async function resolveInvoiceLineItems({ userId, companyId, invoiceId }) 
   // i requesten styra om pengarna till ett helt annat konto.
   const stripeAccountId = companyData.company?.stripeAccountId;
   if (!stripeAccountId) {
-    return { error: 'Stripe är inte anslutet för det här företaget.', status: 400 };
+    return { error: 'Stripe är inte anslutet för det här företaget. Anslut Stripe under Inställningar → Kopplingar.', status: 400 };
   }
 
   // Beloppet är det kunden har kvar att betala, exakt som fakturan visar

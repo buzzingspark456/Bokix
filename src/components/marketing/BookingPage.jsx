@@ -93,7 +93,7 @@ export default function BookingPage() {
       try {
         captchaToken = await captchaRef.current?.execute();
       } catch {
-        throw new Error('Kunde inte verifiera att du inte är en robot. Försök igen.');
+        throw new Error('Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen. Har du en annonsblockerare, pausa den för bokix.se.');
       }
       const res = await fetch('/api/contact', {
         method: 'POST',

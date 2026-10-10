@@ -1020,7 +1020,7 @@ function PasswordSection({ user, readOnly = false, bare = false }) {
     try { captchaToken = await captchaRef.current?.execute(); } catch {
       setBusy(false);
       setCaptchaRound(n => n + 1);
-      setError('Kunde inte verifiera att du inte är en robot. Försök igen.');
+      setError('Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen. Har du en annonsblockerare, pausa den för bokix.se.');
       return;
     }
     const { error: reauthError } = await supabase.auth.signInWithPassword({

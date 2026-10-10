@@ -33,7 +33,7 @@ export default function InternalAuth({ onAuthenticated }) {
     setLoading(true);
     try {
       let captchaToken = null;
-      try { captchaToken = await captchaRef.current?.execute(); } catch { throw new Error('Kunde inte verifiera att du inte är en robot. Försök igen.'); }
+      try { captchaToken = await captchaRef.current?.execute(); } catch { throw new Error('Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen. Har du en annonsblockerare, pausa den för bokix.se.'); }
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email, password,
         options: captchaToken ? { captchaToken } : undefined,
