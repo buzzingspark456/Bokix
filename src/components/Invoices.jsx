@@ -18,6 +18,7 @@ import { sendInvoiceEmail } from '../emailApi';
 import { BRAND } from '../utils/brandColors';
 import { getNextInvoiceNumber } from '../utils/invoiceNumbering';
 import { confirmDialog } from './shared/ConfirmDialog';
+import { showUndo, restoreAt } from './shared/undoToast';
 import ListPageHeader, { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle, PAGE_SIZE_OPTIONS } from './shared/ListPageHeader';
 import RowActionMenu from './shared/RowActionMenu';
 import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, STRONG_DRAFT, STATUS_PILL, getRowBg } from './shared/invoiceStatusStyle';
@@ -2328,8 +2329,10 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
   // Ett utkast har ingen sådan koppling än, så det går att bara ta bort.
   const handleDeleteInvoice = async (inv, e) => {
     e?.stopPropagation();
-    if (!(await confirmDialog(tr('ui.ta_bort_utkastet_det_gar_inte_att_angra', { invoiceNumber: inv.invoiceNumber }), { danger: true }))) return;
+    // Ett utkast tas bort direkt, med Ångra i notisen (shared/undoToast.js).
+    const index = invoices.findIndex(i => i.id === inv.id);
     setInvoices(prev => prev.filter(i => i.id !== inv.id));
+    showUndo({ message: tr('ui.undo_utkast_borttaget'), onUndo: () => setInvoices(prev => restoreAt(prev, inv, index)) });
   };
 
   // Manuell "markera som skickad" för utkast — samma statusövergång som

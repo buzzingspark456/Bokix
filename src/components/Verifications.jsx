@@ -16,6 +16,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { DocumentPane, DocumentLightbox } from './shared/DocumentViewer';
 import { uploadFileToStorage, deleteFileFromStorage } from '../utils/fileUpload';
 import { confirmDialog, promptDialog } from './shared/ConfirmDialog';
+import { showUndo, restoreAt } from './shared/undoToast';
 import { parseReceiptText } from '../utils/ocrReceipt';
 import { readDocumentText } from '../utils/ocrCache';
 import { historyFromVerifications } from '../utils/receiptHistory';
@@ -1368,8 +1369,11 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
   // verifikation, som aldrig raderas — bara rättas, se Rätta-knappen), så
   // en hård radering är säker här.
   const handleDeleteDraft = async (v) => {
-    if (!(await confirmDialog(tr('ui.ta_bort_utkastet_det_gar_inte_att_angra_2', { number: v.number }), { title: tr('ui.ta_bort_utkast'), confirmLabel: tr('ui.ta_bort'), danger: true }))) return;
-    setVerifications?.(prev => prev.filter(x => x.id !== v.id));
+    // Ett utkast tas bort direkt, med Ångra i notisen (shared/undoToast.js).
+    if (!setVerifications) return;
+    const index = verifications.findIndex(x => x.id === v.id);
+    setVerifications(prev => prev.filter(x => x.id !== v.id));
+    showUndo({ message: tr('ui.undo_utkast_borttaget'), onUndo: () => setVerifications(prev => restoreAt(prev, v, index)) });
   };
 
   // Filter verifications

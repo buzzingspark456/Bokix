@@ -1086,7 +1086,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             ) : status !== 'reversed' ? (
               <button
                 type="button"
-                onClick={async () => { if (await confirmDialog(tr('ui.ta_bort_det_har_kvittot_det_gar_inte_att_angra'), { danger: true })) { onDelete(receipt.id); onClose(); } }}
+                onClick={() => { onDelete(receipt.id); onClose(); }}
                 style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'none', border: 'none', color: BRAND.redText, fontSize: '13px', fontWeight: 600, cursor: 'pointer', padding: '8px 4px' }}
               >
                 <Trash2 size={14} /> {tr('ui.ta_bort')}

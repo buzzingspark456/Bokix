@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { CheckCircle2, AlertCircle, Info, X } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import { t } from '../../i18n';
@@ -29,13 +29,18 @@ const VARIANTS = {
 // det lyckades. Klick på åtgärden stänger notisen själv (samma onClose),
 // anroparen behöver inte göra det manuellt i sin egen handler.
 export default function Toast({ message, variant = 'success', action, onClose, duration = 6000 }) {
+  // Senaste onClose i en ref: App.jsx skickar en ny funktion vid varje
+  // omritning, och tidtagningen ska inte börja om för det (då kunde en
+  // notis stå kvar hur länge som helst).
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     if (!message) return undefined;
     // Ett litet tick i telefonen när något sparats, som i en app.
     if (variant === 'success') haptic('success');
-    const timer = setTimeout(onClose, duration);
+    const timer = setTimeout(() => onCloseRef.current?.(), duration);
     return () => clearTimeout(timer);
-  }, [message, duration, onClose]); // eslint-disable-line react-hooks/exhaustive-deps // eslint-disable-line react-hooks/exhaustive-deps
+  }, [message, duration]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!message) return null;
   const { bg, color, Icon } = VARIANTS[variant] || VARIANTS.info;
@@ -64,7 +69,7 @@ export default function Toast({ message, variant = 'success', action, onClose, d
             onClick={() => { action.onClick(); onClose(); }}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '8px', padding: 0, background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 700, color, fontFamily: 'inherit' }}
           >
-            {action.label} →
+            {action.label}{action.noArrow ? '' : ' →'}
           </button>
         )}
       </div>

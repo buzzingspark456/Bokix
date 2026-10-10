@@ -10,6 +10,7 @@ import { BRAND } from '../utils/brandColors';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { confirmDialog } from './shared/ConfirmDialog';
+import { showUndo, restoreAt } from './shared/undoToast';
 import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { t } from '../i18n';
 
@@ -1057,8 +1058,12 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
 
   const handleDelete = async (id, e) => {
     e?.stopPropagation();
-    if (!(await confirmDialog(t('ui.vill_du_ta_bort_denna_offert'), { title: t('ui.ta_bort_offert'), confirmLabel: t('ui.ta_bort'), danger: true }))) return;
-    if (setQuotes) setQuotes(prev => prev.filter(q => q.id !== id));
+    // Tas bort direkt, med Ångra i notisen (shared/undoToast.js).
+    if (!setQuotes) return;
+    const index = quotes.findIndex(q => q.id === id);
+    const removed = quotes[index];
+    setQuotes(prev => prev.filter(q => q.id !== id));
+    if (removed) showUndo({ message: t('ui.undo_offert_borttagen'), onUndo: () => setQuotes(prev => restoreAt(prev, removed, index)) });
   };
 
   // Offerter och fakturor är separata listor (se App.jsx: normalizeStore/

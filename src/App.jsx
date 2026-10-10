@@ -56,6 +56,7 @@ import { buildTodoItems, readDismissedTodoKeys } from './utils/todoItems';
 import { guidesForPage } from './utils/pageGuides';
 import { GuideContext } from './components/shared/GuideContext';
 import GuideModal from './components/GuideModal';
+import { registerUndo, showUndo, restoreAt } from './components/shared/undoToast';
 import { resultAccountFor, buildYearEndClosing } from './utils/yearEnd';
 import { BRAND, ACCENT_COLORS } from './utils/brandColors';
 import { vatSettlementRows } from './utils/vatCalculation';
@@ -1504,6 +1505,28 @@ function App() {
   // { message, variant } | null — se Toast.jsx samt stripe_connect-
   // useEffect nedan, som satte en blockerande alert() innan.
   const [toast, setToast] = useState(null);
+  // Ångra-notisen (shared/undoToast.js). pendingUndoRef håller den ångring
+  // som visas just nu; stängs notisen utan Ångra körs dess onCommit.
+  const pendingUndoRef = useRef(null);
+  const commitPendingUndo = () => {
+    const pending = pendingUndoRef.current;
+    pendingUndoRef.current = null;
+    pending?.onCommit?.();
+  };
+  useEffect(() => registerUndo((opts) => {
+    commitPendingUndo();
+    pendingUndoRef.current = opts;
+    setToast({
+      message: opts.message,
+      variant: 'success',
+      undo: true,
+      action: { label: tr('ui.angra'), noArrow: true, onClick: () => { pendingUndoRef.current = null; opts.onUndo?.(); } },
+    });
+  }), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const closeToast = () => {
+    commitPendingUndo();
+    setToast(null);
+  };
   const [highlightVerificationId, setHighlightVerificationId] = useState(null);
 
   const handleGlobalAction = (action, tab) => {
@@ -4615,9 +4638,19 @@ function App() {
     // hyra för evigt. "Best effort" (se deleteFileFromStorage) — väntar inte
     // in svaret, ett misslyckat städförsök ska aldrig fördröja eller blockera
     // att kvittot faktiskt försvinner ur listan.
-    const expense = expenses.find(e => e.id === expenseId);
-    if (expense?.receiptUrl) deleteFileFromStorage(expense.receiptUrl);
+    //
+    // Tas bort direkt med Ångra i notisen (shared/undoToast.js); bildfilen
+    // raderas först när ångra-tiden gått ut, annars gick den inte att få
+    // tillbaka.
+    const index = expenses.findIndex(e => e.id === expenseId);
+    const expense = expenses[index];
+    if (!expense) return;
     setExpenses(prev => prev.filter(e => e.id !== expenseId));
+    showUndo({
+      message: tr('ui.undo_kvitto_borttaget'),
+      onUndo: () => setExpenses(prev => restoreAt(prev, expense, index)),
+      onCommit: () => { if (expense.receiptUrl) deleteFileFromStorage(expense.receiptUrl); },
+    });
   };
 
   // Rättar ett redan bokfört kvitto genom att skapa en NY, länkad
@@ -6120,7 +6153,7 @@ function App() {
 
       {/* ── Toast — ersätter blockerande alert() för t.ex. "Stripe är nu
           ansluten", se stripe_connect-useEffect ── */}
-      <Toast message={toast?.message} variant={toast?.variant} action={toast?.action} onClose={() => setToast(null)} />
+      <Toast message={toast?.message} variant={toast?.variant} action={toast?.action} duration={toast?.undo ? 8000 : 6000} onClose={closeToast} />
 
       {/* ── Confirm/prompt-dialog — ersätter native window.confirm()/
           window.prompt() överallt i appen (Quotes/Invoices/Expenses/

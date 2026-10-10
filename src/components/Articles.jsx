@@ -4,6 +4,7 @@ import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/Li
 import ListTable from './shared/ListTable';
 import { AccountSearch } from './shared/SearchInputs';
 import { confirmDialog } from './shared/ConfirmDialog';
+import { showUndo, restoreAt } from './shared/undoToast';
 import { articlesToCsv, csvToArticles, downloadCsv } from '../utils/csvRegister';
 import Inventory from './Inventory';
 import PricingTool from './PricingTool';
@@ -153,8 +154,11 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
 
   const remove = async (a) => {
     const label = a.description || a.articleNumber || 'artikeln';
-    if (!(await confirmDialog(t('ui.ta_bort_fran_registret_redan_sparade_fakturor_oc', { label }), { danger: true }))) return;
+    // Tas bort direkt, med Ångra i notisen (shared/undoToast.js). Redan
+    // sparade fakturor och offerter påverkas inte.
+    const index = articles.indexOf(a);
     setArticles(prev => prev.filter(x => x !== a));
+    showUndo({ message: t('ui.undo_borttagen', { name: label }), onUndo: () => setArticles(prev => restoreAt(prev, a, index)) });
   };
 
   // ── Redigeringsläge: kundfeedback ("ska se ut som Ny kund, inte så mycket

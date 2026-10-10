@@ -8,6 +8,7 @@ import { validateEmailList, isValidIban } from '../utils/validators';
 import { contactsToCsv, csvToContacts, downloadCsv } from '../utils/csvRegister';
 import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
+import { showUndo, restoreAt } from './shared/undoToast';
 import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { t, useTranslation, getLanguage } from '../i18n';
 
@@ -552,12 +553,14 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
       }
       return;
     }
-    if (!(await confirmDialog(
-      c('dialogs.deleteConfirm', { name: contact.name || c(isCustomer ? 'dialogs.theCustomer' : 'dialogs.theSupplier').toLowerCase() }),
-      { title: c(isCustomer ? 'dialogs.deleteCustomerTitle' : 'dialogs.deleteSupplierTitle'), confirmLabel: c('actions.delete'), danger: true }
-    ))) return;
+    // Utan historik: tas bort direkt, med Ångra i notisen (shared/undoToast.js).
+    const index = contacts.findIndex(x => x.id === contact.id);
     setContacts(prev => prev.filter(c => c.id !== contact.id));
     setViewState('list');
+    showUndo({
+      message: t('ui.undo_borttagen', { name: contact.name || c(isCustomer ? 'dialogs.theCustomer' : 'dialogs.theSupplier') }),
+      onUndo: () => setContacts(prev => restoreAt(prev, contact, index)),
+    });
   };
 
   const handleSaveCustomer = (data) => {
