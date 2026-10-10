@@ -1,9 +1,10 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Download, ExternalLink, FileText, AlertTriangle } from './icons';
 import { INK2S_ROWS, computeInk2s, suggestInk2s, resolveInk2sValues } from '../utils/ink2s';
 import { computeInk2rResultat } from '../utils/ink2rResultat';
 import { downloadInk2rSru } from '../utils/sruExport';
 import { previewInk2Pdf } from '../utils/ink2Pdf';
+import { downloadFilledSkv2002 } from '../utils/skvBlankett';
 import { previousFiscalYear } from '../utils/annualReport';
 import { incomeDeclarationDueDate, daysFromToday } from '../utils/declarationDeadlines';
 import { detectOrgType } from '../utils/orgType';
@@ -74,6 +75,15 @@ export default function Ink2View({
 
   const downloadSru = () => downloadInk2rSru(company, ink2r, ink2rResultat.rows, { start: fy.start, end: fy.end }, ink2s);
   const previewPdf = () => previewInk2Pdf({ company, fyLabel: fy.label, ink2r, resultRows: ink2rResultat.rows, ink2s });
+  // Skatteverkets egen blankett, ifylld (utils/skvBlankett.js).
+  const [officialBusy, setOfficialBusy] = useState(false);
+  const [officialError, setOfficialError] = useState('');
+  const downloadOfficial = async () => {
+    setOfficialBusy(true); setOfficialError('');
+    try { await downloadFilledSkv2002({ company, fy, ink2r, resultRows: ink2rResultat.rows, ink2s }); }
+    catch (err) { setOfficialError(err.message || t('ink2Ui.officialError')); }
+    finally { setOfficialBusy(false); }
+  };
   const scrollTo = (ref) => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const Pill = ({ kind }) => {
@@ -139,12 +149,14 @@ export default function Ink2View({
           <div className="ink2v-card-head"><span>{t('ink2Ui.filing')}</span><Pill kind={filedAt || allReady ? 'done' : sruMissing.length ? 'missing' : 'wait'} /></div>
           <p>{sruMissing.length ? t('ink2Ui.filingMissing', { fields: sruMissing.join(', ') }) : allReady ? t('ink2Ui.filingOk') : t('ink2Ui.filingWait')}</p>
           <div className="ink2v-card-actions">
-            <button type="button" className="agi-btn" onClick={previewPdf} disabled={!hasBooks}><FileText size={14} /> {t('ink2Ui.pdf')}</button>
+            <button type="button" className="agi-btn" onClick={downloadOfficial} disabled={!hasBooks || officialBusy}><FileText size={14} /> {officialBusy ? t('ink2Ui.officialBusy') : t('ink2Ui.official')}</button>
+            <button type="button" className="agi-btn" onClick={previewPdf} disabled={!hasBooks}>{t('ink2Ui.pdf')}</button>
             {sruMissing.length > 0 && onNavigateToTab
               ? <button type="button" className="agi-btn" onClick={() => onNavigateToTab('settings')}>{t('ink2Ui.settingsBtn')}</button>
               : <button type="button" className="agi-btn" onClick={downloadSru} disabled={!sruReady}><Download size={14} /> SRU</button>}
             <a className={`agi-btn${allReady && !filedAt ? ' primary' : ''}`} href={SKV_EFILE} target="_blank" rel="noopener noreferrer">{t('ink2Ui.skv')} <ExternalLink size={13} /></a>
           </div>
+          {officialError && <div className="fp-hint bad">{officialError}</div>}
         </div>
       </div>
 
@@ -155,16 +167,31 @@ export default function Ink2View({
         {scheduleDetails}
       </section>
 
-      {/* Detaljer: INK2S */}
+      {/* Detaljer: INK2S. En centrerad kolumn: summering överst, sedan varje
+          rad med blankettens tecken (+ läggs till, − dras av) och sist det
+          skattemässiga resultatet. */}
       <section className="fp-section" ref={adjRef}>
-        <h3 className="fp-title" style={{ marginBottom: '2px' }}>{t('ink2Ui.adjTitle')}</h3>
-        <div className="fp-hint" style={{ marginTop: 0, marginBottom: '14px' }}>{t('ink2Ui.adjSub')}</div>
         <div className="ink2v-adj">
-          <div className="ink2v-row strong">
-            <span className="ink2v-no">{ink2s.arsResultatForlust ? '4.2' : '4.1'}</span>
-            <span className="ink2v-label">{ink2s.arsResultatForlust ? t('ink2Ui.result42') : t('ink2Ui.result41')}</span>
-            <span className="ink2v-amount">{kr(ink2s.arsResultatForlust || ink2s.arsResultatVinst)}</span>
+          <h3 className="fp-title" style={{ marginBottom: '2px' }}>{t('ink2Ui.adjTitle')}</h3>
+          <div className="fp-hint" style={{ marginTop: 0, marginBottom: '16px' }}>{t('ink2Ui.adjSub')}</div>
+
+          <div className="ink2v-sum">
+            <div>
+              <span>{ink2s.arsResultatForlust ? t('ink2Ui.result42') : t('ink2Ui.result41')}</span>
+              <strong>{kr(Math.abs(ink2rResultat.total))}</strong>
+            </div>
+            <div className="op">{ink2s.adjustments < 0 ? '−' : '+'}</div>
+            <div>
+              <span>{t('ink2Ui.adjustments')}</span>
+              <strong>{kr(Math.abs(ink2s.adjustments))}</strong>
+            </div>
+            <div className="op">=</div>
+            <div className="res">
+              <span>{ink2s.underskott ? t('ink2Ui.underskott') : t('ink2Ui.overskott')}</span>
+              <strong>{kr(ink2s.underskott || ink2s.overskott)}</strong>
+            </div>
           </div>
+
           {groups.map(g => (
             <div key={g.title} className="ink2v-group">
               <div className="ink2v-group-title">{g.title}</div>
@@ -172,9 +199,11 @@ export default function Ink2View({
                 const sug = suggestion.suggestions[def.key];
                 const own = saved[def.key];
                 const usingSuggestion = sug != null && (own === undefined || own === null || own === '');
+                const shown = usingSuggestion ? sug : (own ?? '');
+                const hasValue = Number(shown) !== 0 && shown !== '';
                 const from = suggestion.accounts[def.key]?.map(a => a.account).join(', ');
                 return (
-                  <div key={def.key} className="ink2v-row">
+                  <div key={def.key} className={`ink2v-row${hasValue ? ' filled' : ''}`}>
                     <span className="ink2v-no">{def.row}</span>
                     <span className="ink2v-label">
                       {def.label}
@@ -185,12 +214,13 @@ export default function Ink2View({
                         </small>
                       )}
                     </span>
+                    <span className={`ink2v-sign s${def.sign === '+' ? 'p' : def.sign === '-' ? 'm' : 'b'}`} aria-hidden="true">{def.sign === '-' ? '−' : def.sign}</span>
                     <span className="ink2v-amount">
                       <input
                         type="number" inputMode="decimal" step="1" min={def.sign === '±' ? undefined : 0}
                         className={`fp-input ink2v-input${usingSuggestion ? ' suggested' : ''}`}
-                        value={usingSuggestion ? sug : (own ?? '')}
-                        placeholder="0"
+                        value={shown}
+                        placeholder="–"
                         disabled={Boolean(filedAt)}
                         onChange={e => setValue(def.key, e.target.value)}
                         aria-label={`${def.row} ${def.label}`}
@@ -201,16 +231,19 @@ export default function Ink2View({
               })}
             </div>
           ))}
+
           <div className="ink2v-row total">
             <span className="ink2v-no">{ink2s.underskott ? '4.16' : '4.15'}</span>
             <span className="ink2v-label">{t('ink2Ui.taxableResult')}: {ink2s.underskott ? t('ink2Ui.underskott') : t('ink2Ui.overskott')}</span>
+            <span className="ink2v-sign" aria-hidden="true">=</span>
             <span className="ink2v-amount">{kr(ink2s.underskott || ink2s.overskott)}</span>
           </div>
-        </div>
-        <div className="fp-foot" style={{ justifyContent: 'flex-start' }}>
-          {taxChecked
-            ? <button type="button" className="agi-btn" onClick={() => setChecked(false)} disabled={Boolean(filedAt)}>{t('ink2Ui.undoChecked')}</button>
-            : <button type="button" className="agi-btn primary" onClick={() => setChecked(true)}><CheckCircle2 size={15} /> {t('ink2Ui.confirmChecked')}</button>}
+
+          <div className="fp-foot" style={{ justifyContent: 'center' }}>
+            {taxChecked
+              ? <button type="button" className="agi-btn" onClick={() => setChecked(false)} disabled={Boolean(filedAt)}>{t('ink2Ui.undoChecked')}</button>
+              : <button type="button" className="agi-btn primary" onClick={() => setChecked(true)}><CheckCircle2 size={15} /> {t('ink2Ui.confirmChecked')}</button>}
+          </div>
         </div>
       </section>
     </div>

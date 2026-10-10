@@ -4224,7 +4224,7 @@
     "filingOk": "PDF och SRU-filer är redo.",
     "filingWait": "Blir redo när kontrollerna är klara.",
     "filingMissing": "Fyll i {{fields}} i företagsuppgifterna.",
-    "pdf": "Förhandsvisa underlag (PDF)",
+    "pdf": "Bokix underlag (PDF)",
     "sru": "Ladda ner INFO.SRU och BLANKETTER.SRU",
     "skv": "Öppna Skatteverket",
     "lockBtn": "Gå till bokslutet",
@@ -4245,6 +4245,10 @@
     "confirmChecked": "Jag har kontrollerat skatten",
     "undoChecked": "Ändra igen",
     "result41": "Årets resultat, vinst",
-    "result42": "Årets resultat, förlust"
+    "result42": "Årets resultat, förlust",
+    "official": "Skatteverkets blankett, ifylld",
+    "officialBusy": "Hämtar blanketten …",
+    "officialError": "Kunde inte skapa blanketten.",
+    "adjustments": "Justeringar"
   }
 }

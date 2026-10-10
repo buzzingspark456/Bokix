@@ -4224,7 +4224,7 @@
     "filingOk": "PDF and SRU files are ready.",
     "filingWait": "Ready once the checks are done.",
     "filingMissing": "Fill in {{fields}} in the company details.",
-    "pdf": "Preview basis (PDF)",
+    "pdf": "Bokix summary (PDF)",
     "sru": "Download INFO.SRU and BLANKETTER.SRU",
     "skv": "Open the Tax Agency",
     "lockBtn": "Go to year-end closing",
@@ -4245,6 +4245,10 @@
     "confirmChecked": "I have checked the tax",
     "undoChecked": "Edit again",
     "result41": "Result for the year, profit",
-    "result42": "Result for the year, loss"
+    "result42": "Result for the year, loss",
+    "official": "Tax Agency form, filled in",
+    "officialBusy": "Fetching the form …",
+    "officialError": "Could not create the form.",
+    "adjustments": "Adjustments"
   }
 }

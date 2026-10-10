@@ -75,7 +75,13 @@ const texts = {};
 for (const [name, file] of [['Årsredovisning', 'arsredovisning'], ['Inkomstdeklaration', 'ink2'], ['Utdelning', 'utdelning']]) {
   const b = page.locator('.tax-steps button', { hasText: name });
   if (await b.count()) { await b.first().click(); await shot(file); texts[file] = await page.evaluate(() => document.body.innerText);
-    if (file === 'ink2') { await page.locator('.ink2v-link', { hasText: 'Kontrollera' }).first().click(); await page.waitForTimeout(900); await page.screenshot({ path: 'test-results/arsred-ink2-skatt' + tag + '.png' }); }
+    if (file === 'ink2') {
+      if (fs.existsSync('C:/tmp/skv2002/skv2002-2026-12-31.pdf')) {
+        await page.route('**/api/skv-blankett**', r => r.fulfill({ status: 200, contentType: 'application/pdf', body: fs.readFileSync('C:/tmp/skv2002/skv2002-2026-12-31.pdf') }));
+        const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }).catch(() => null), page.getByRole('button', { name: /Skatteverkets blankett/ }).first().click()]);
+        if (dl) { await dl.saveAs('test-results/skv-fran-appen.pdf'); console.log('Officiell blankett:', dl.suggestedFilename()); } else console.log('Officiell blankett: ingen nedladdning');
+      }
+      await page.locator('.ink2v-link', { hasText: 'Kontrollera' }).first().click(); await page.waitForTimeout(900); await page.screenshot({ path: 'test-results/arsred-ink2-skatt' + tag + '.png' }); }
   }
 }
 console.log('Steg:', JSON.stringify(steps));
