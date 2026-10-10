@@ -4093,5 +4093,32 @@
     "due": "due {{date}}",
     "year": "Year",
     "total": "Total {{year}}"
+  },
+  "agiYear": {
+    "next": "Next up",
+    "nextTitle": "Employer declaration for {{month}}",
+    "dueOn": "File and pay by {{date}}",
+    "toPay": "{{amount}} kr to pay",
+    "open": "Open",
+    "create": "Create AGI",
+    "createZero": "Create zero declaration",
+    "allDone": "Everything is filed",
+    "allDoneSub": "The next employer declaration is created when the month's pay run is done.",
+    "nothingYet": "No employer declarations yet",
+    "nothingYetSub": "Once you have run payroll, the month's AGI shows up here.",
+    "zeroNote": "{{n}} months without pay are missing a zero declaration. It is required every month while the company is registered as an employer.",
+    "createAllZero": "Create all {{n}}",
+    "submitted": "Filed",
+    "draft": "Draft",
+    "todo": "To do",
+    "missing": "Missing",
+    "noPay": "No pay",
+    "tax": "Tax",
+    "fee": "Employer fee",
+    "pay": "To pay",
+    "due": "Due",
+    "empty": "No months to show for this year.",
+    "markSubmitted": "Mark as filed",
+    "submittedOn": "Filed {{date}}"
   }
 }

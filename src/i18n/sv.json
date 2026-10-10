@@ -4093,5 +4093,32 @@
     "due": "senast {{date}}",
     "year": "År",
     "total": "Totalt {{year}}"
+  },
+  "agiYear": {
+    "next": "Härnäst",
+    "nextTitle": "Arbetsgivardeklaration för {{month}}",
+    "dueOn": "Lämnas och betalas senast {{date}}",
+    "toPay": "{{amount}} kr att betala",
+    "open": "Öppna",
+    "create": "Skapa AGI",
+    "createZero": "Skapa nolldeklaration",
+    "allDone": "Allt är inlämnat",
+    "allDoneSub": "Nästa arbetsgivardeklaration skapas när månadens lön är körd.",
+    "nothingYet": "Inga arbetsgivardeklarationer än",
+    "nothingYetSub": "När du har kört en lönekörning hamnar månadens AGI här.",
+    "zeroNote": "{{n}} månader utan lön saknar en nolldeklaration. Den krävs varje månad när företaget är registrerat som arbetsgivare.",
+    "createAllZero": "Skapa alla {{n}}",
+    "submitted": "Inlämnad",
+    "draft": "Utkast",
+    "todo": "Att göra",
+    "missing": "Saknas",
+    "noPay": "Ingen lön",
+    "tax": "Skatt",
+    "fee": "Arbetsgivaravgift",
+    "pay": "Att betala",
+    "due": "Senast",
+    "empty": "Inga månader att visa för det här året.",
+    "markSubmitted": "Markera som inlämnad",
+    "submittedOn": "Inlämnad {{date}}"
   }
 }

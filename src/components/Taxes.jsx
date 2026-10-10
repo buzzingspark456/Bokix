@@ -19,7 +19,7 @@ import { detectOrgType } from '../utils/orgType';
 import { isUfCompany, UF_TAX_SECTION_IDS } from '../utils/ufMode';
 import { summarizeAnnualPayrollByEmployee, neededTaxTableKeysForYear, downloadKuPdf } from '../utils/kuExport';
 import { downloadAgiPdf } from '../utils/agiExport';
-import AgiReportDetails from './AgiReportDetails';
+import AgiYearView from './AgiYearView';
 import { downloadNePdf } from '../utils/neExport';
 import { computeEmployeePayroll } from '../utils/payrollCalculation';
 import { preloadSkattetabell } from '../utils/skattetabell';
@@ -429,50 +429,24 @@ export default function Taxes({
   }, [payrollRuns, kuYear]);
 
   // ── AGI (Arbetsgivardeklaration) ──
-  const [agiYear, setAgiYear] = useState(currentYear);
-  // Vilken AGI-månad som visas i detalj (AgiReportDetails).
-  const [openAgiId, setOpenAgiId] = useState(null);
-  const [agiMonth, setAgiMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
-  const [agiBulkBusy, setAgiBulkBusy] = useState(false);
-
-  // Vilka månader som borde ha en AGI-rapport men inte har det — räknat
-  // från den FÖRSTA anställningen (aldrig från årets januari rakt av: ett
-  // företag som nyanställde i juni "saknar" inte AGI för januari–maj, det
-  // fanns ingen arbetsgivarskyldighet då) till och med innevarande månad
-  // (eller december för ett tidigare år). Kräver Skatteverkets
-  // "nolldeklaration" precis som för månader MED löneutbetalning — se
-  // bannern som använder listan.
-  const earliestEmploymentMonth = useMemo(() => {
-    const dates = employees.map(e => e.startDate).filter(Boolean);
-    if (!dates.length) return null;
-    return dates.reduce((min, d) => (d < min ? d : min)).slice(0, 7); // 'YYYY-MM'
-  }, [employees]);
+  // Avslutade månader utan AGI-rapport, räknat från den första lönekörningen
+  // eller AGI:n i Bokix (samma regel som AgiYearView). Månader före det kan
+  // ha lämnats någon annanstans, så de räknas inte som saknade.
   const missingAgiMonths = useMemo(() => {
-    if (!earliestEmploymentMonth) return [];
-    const year = Number(agiYear);
-    const [earliestYear, earliestMonth] = earliestEmploymentMonth.split('-').map(Number);
-    if (year < earliestYear) return [];
+    const first = [...payrollRuns.map(r => r.period), ...agiReports.map(r => r.period)].filter(Boolean).sort()[0];
+    if (!first) return [];
     const now = new Date();
-    const startMonth = year === earliestYear ? earliestMonth : 1;
-    const endMonth = year === now.getFullYear() ? now.getMonth() + 1 : 12;
+    const thisPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const existing = new Set(agiReports.map(r => r.period));
     const months = [];
-    for (let m = startMonth; m <= endMonth; m++) {
-      const period = `${year}-${String(m).padStart(2, '0')}`;
+    const [fyr, fm] = first.split('-').map(Number);
+    for (let d = new Date(fyr, fm - 1, 1); ; d.setMonth(d.getMonth() + 1)) {
+      const period = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (period >= thisPeriod) break;
       if (!existing.has(period)) months.push(period);
     }
     return months;
-  }, [earliestEmploymentMonth, agiYear, agiReports]);
-
-  const handleCreateAllMissingAgi = async () => {
-    if (!onCreateAgiReport || missingAgiMonths.length === 0) return;
-    setAgiBulkBusy(true);
-    try {
-      for (const period of missingAgiMonths) onCreateAgiReport(period);
-    } finally {
-      setAgiBulkBusy(false);
-    }
-  };
+  }, [payrollRuns, agiReports]);
 
   const checklist = company?.yearEndChecklist?.[fyKey] || {};
   const lockedYears = company?.lockedFiscalYears || {};
@@ -1367,155 +1341,15 @@ export default function Taxes({
               knappar och en 5-stegs arbetsgångsrad i stället för stycken
               som förklarar samma sak i ord. */}
           {activeSection === 'agi' && (
-            <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-              <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
-                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{tr('ui.arbetsgivardeklaration_agi')}</h2>
-                <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('ui.manadsvis_pa_individniva')}</p>
-              </div>
-
-              <div style={{ padding: '20px 24px' }}>
-                {missingAgiMonths.length > 0 && (
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', borderRadius: '10px', padding: '14px 16px', marginBottom: '20px' }}>
-                    <AlertTriangle size={16} color="var(--status-amber-text)" style={{ flexShrink: 0, marginTop: '1px' }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--status-amber-text)', marginBottom: '2px' }}>
-                        {tr('ui.saknar_deklaration')} {missingAgiMonths.map(p => monthLabel(p, { withYear: false })).join(', ')}
-                      </div>
-                      <div style={{ fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
-                        {tr('ui.aven_manader_utan_loneutbetalning_kraver_en_noll')}
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleCreateAllMissingAgi}
-                      disabled={agiBulkBusy}
-                      style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: agiBulkBusy ? 'default' : 'pointer', opacity: agiBulkBusy ? 0.7 : 1 }}
-                    >
-                      {agiBulkBusy ? <Loader2 size={14} className="spin" style={{ animation: 'spin 0.8s linear infinite' }} /> : <Plus size={14} />}
-                      {tr('ui.skapa_agi_underlag')}
-                    </button>
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '10px', flexWrap: 'wrap', marginBottom: '24px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{tr('ui.ar')}</label>
-                    <select value={agiYear} onChange={e => setAgiYear(e.target.value)} style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
-                      {[Number(currentYear) - 1, Number(currentYear)].map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{tr('ui.manad')}</label>
-                    <select value={agiMonth} onChange={e => setAgiMonth(e.target.value)} style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
-                      {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(m => (
-                        <option key={m} value={m}>{monthLabel(`${agiYear}-${m}`, { withYear: false })}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <button
-                    disabled={agiReports.some(r => r.period === `${agiYear}-${agiMonth}`)}
-                    onClick={() => onCreateAgiReport?.(`${agiYear}-${agiMonth}`)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px', fontWeight: 600, fontSize: '13px', border: 'none',
-                      background: agiReports.some(r => r.period === `${agiYear}-${agiMonth}`) ? 'var(--border-light)' : 'var(--accent)',
-                      color: agiReports.some(r => r.period === `${agiYear}-${agiMonth}`) ? 'var(--text-muted)' : 'white',
-                      cursor: agiReports.some(r => r.period === `${agiYear}-${agiMonth}`) ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    <Plus size={14} /> {tr('ui.skapa_agi')}
-                  </button>
-                </div>
-
-                <h3 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 10px' }}>{tr('ui.agi_per_manad')}</h3>
-                {agiReports.length === 0 ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '13.5px', padding: '8px 0 20px' }}>
-                    <Users size={16} /> {tr('ui.inga_agi_rapporter_annu')}
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gap: '8px', marginBottom: '24px' }}>
-                    {[...agiReports].sort((a, b) => b.period.localeCompare(a.period)).map(report => {
-                      const run = payrollRuns.find(r => r.id === report.payrollRunId);
-                      return (
-                        <div key={report.id} style={{ border: '1px solid var(--border-light)', borderRadius: '10px', overflow: 'hidden' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', padding: '12px 14px', background: 'var(--bg-muted)' }}>
-                          <div style={{ minWidth: '140px', fontWeight: 700, fontSize: '13.5px', color: 'var(--text-main)' }}>{monthLabel(report.period)}</div>
-                          <span style={{ padding: '3px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, background: report.isZero ? 'var(--border-light)' : 'var(--status-blue-bg)', color: report.isZero ? 'var(--text-secondary)' : 'var(--status-blue-text)' }}>
-                            {report.isZero ? tr('ui.nolldeklaration') : tr('ui.fran_lonekorning')}
-                          </span>
-                          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', flex: 1, minWidth: '160px' }}>
-                            {fmt(report.totals.tax)} {tr('ui.skatt_2')} {fmt(report.totals.employerFee)} {tr('ui.avgifter_2')}
-                          </div>
-                          <span style={{ padding: '3px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, background: report.status === 'submitted' ? 'var(--status-green-bg)' : 'var(--status-amber-bg)', color: report.status === 'submitted' ? 'var(--status-green-text)' : 'var(--status-amber-text)' }}>
-                            {report.status === 'submitted' ? tr('ui.inlamnad') : tr('ui.utkast')}
-                          </span>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            {/* Detaljerna (huvuduppgift, individuppgifter, fil, PDF och
-                                länk till Skatteverket) i AgiReportDetails.jsx. */}
-                            <button
-                              type="button"
-                              aria-expanded={openAgiId === report.id}
-                              onClick={() => setOpenAgiId(id => (id === report.id ? null : report.id))}
-                              style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', height: '32px', padding: '0 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '7px', color: 'var(--text-main)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-                            >
-                              {openAgiId === report.id ? tr('agiDetails.hide') : tr('agiDetails.show')}
-                            </button>
-                            {report.status !== 'submitted' && (
-                              <button
-                                title={tr('ui.markera_inlamnad')}
-                                onClick={() => onMarkAgiSubmitted?.(report.id)}
-                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '7px', color: 'var(--status-green-text)', cursor: 'pointer' }}
-                              >
-                                <CheckCircle2 size={14} />
-                              </button>
-                            )}
-                            {onDeleteAgiReport && (
-                              <button
-                                title={tr('ui.ta_bort')}
-                                onClick={async () => { if (await confirmDialog(tr('ui.ta_bort_agi_rapporten_for', { v0: monthLabel(report.period) }), { danger: true })) onDeleteAgiReport(report.id); }}
-                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '7px', color: 'var(--status-red-text)', cursor: 'pointer' }}
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        {openAgiId === report.id && <AgiReportDetails report={report} run={run} company={company} />}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Arbetsflödet — fem korta ord i stället för fem stycken
-                    text. Ren orientering ("var är jag i processen"), ingen
-                    förklaring av VARFÖR varje steg finns — den bor redan i
-                    Lönekörningens egna steg.
-                    Kundönskemål ("boring, vibe coded — gör den levande"):
-                    en egen ikon och en svagt tonad (inte platt grå) cirkel
-                    per steg i stället för identiska gråa nummer-bubblor,
-                    plus radbrytning per steg (inte bara per chip) på smal
-                    skärm — annars kunde en ensam pil hamna kvar ensam på
-                    en egen rad när chippen bröts av under den. */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', paddingTop: '18px', borderTop: '1px solid var(--border-light)' }}>
-                  {[
-                    { n: 1, label: tr('ui.lonekorning_2'), icon: Users },
-                    { n: 2, label: tr('ui.skapa_agi'), icon: Plus },
-                    { n: 3, label: tr('ui.granska'), icon: ClipboardList },
-                    { n: 4, label: tr('ui.ladda_upp_pa_skv'), icon: Download },
-                    { n: 5, label: tr('ui.markera_inlamnad'), icon: CheckCircle2 },
-                  ].map((step, i, arr) => (
-                    <div key={step.n} style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '4px 10px 4px 4px', borderRadius: '999px', background: 'var(--status-blue-bg)' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '999px', background: 'var(--bg-card)', color: 'var(--status-blue-text)', flexShrink: 0 }}>
-                          <step.icon size={12} />
-                        </span>
-                        <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--status-blue-text)' }}>{step.label}</span>
-                      </div>
-                      {i < arr.length - 1 && <ArrowRight size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            // AGI som ett år, en rad per månad (AgiYearView.jsx).
+            <AgiYearView
+              agiReports={agiReports}
+              payrollRuns={payrollRuns}
+              company={company}
+              onCreateAgiReport={onCreateAgiReport}
+              onMarkAgiSubmitted={onMarkAgiSubmitted}
+              onDeleteAgiReport={onDeleteAgiReport}
+            />
           )}
 
           {/* Inkomstdeklaration 2 — INK2R (balansräkning). Enskild firma

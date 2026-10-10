@@ -4745,6 +4745,12 @@ function App() {
 
   const handleMarkAgiSubmitted = (reportId) => {
     setAgiReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'submitted', submittedAt: new Date().toISOString() } : r));
+    // Samma sak i lönekörningen, så AGI-steget där också är klart.
+    const report = agiReports.find(r => r.id === reportId);
+    if (report) {
+      setPayrollRuns(prev => prev.map(r => (r.period === report.period && r.completedSteps.includes('booked') && !r.completedSteps.includes('agi'))
+        ? { ...r, completedSteps: [...r.completedSteps, 'agi'] } : r));
+    }
   };
 
   const handleDeleteAgiReport = (reportId) => {
@@ -4806,6 +4812,25 @@ function App() {
       if (r.id !== runId || r.completedSteps.includes(stepId)) return r; // idempotent
       return { ...r, completedSteps: [...r.completedSteps, stepId] };
     }));
+    // "Jag har lämnat in AGI" i lönekörningen markerar också månadens
+    // AGI-rapport som inlämnad (och skapar den om den saknas), så
+    // Skatt och bokslut visar samma sak.
+    if (stepId === 'agi') {
+      const run = payrollRuns.find(r => r.id === runId);
+      if (!run) return;
+      const existing = agiReports.find(r => r.period === run.period);
+      if (existing) {
+        if (existing.status !== 'submitted') handleMarkAgiSubmitted(existing.id);
+      } else {
+        const totals = summarizePayrollRun(run.rows.map(row => computeEmployeePayroll(row.employeeSnapshot, row)));
+        const now = new Date().toISOString();
+        setAgiReports(prev => [...prev, {
+          id: `agi_${run.period}_${Date.now()}`, period: run.period, payrollRunId: run.id, isZero: false,
+          totals: { gross: totals.gross, tax: totals.tax, employerFee: totals.employerFee },
+          status: 'submitted', createdAt: now, submittedAt: now,
+        }]);
+      }
+    }
   };
 
   // Bokför en lönekörning som tre summerade verifikationer (inte en per

@@ -7949,3 +7949,53 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .vacation-row { grid-template-columns: minmax(0, 1fr) auto auto !important; row-gap: 8px !important; }
   .vacation-row .vacation-bar { grid-column: 1 / -1; grid-row: 2; }
 }
+
+/* ── AGI per år (AgiYearView.jsx) ── en rad per månad, som Lönekörningar. */
+.agi-year { display: flex; flex-direction: column; background: var(--bg-card); border-top: 1px solid var(--border); min-height: 100%; }
+.agi-next { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 20px 24px; border-bottom: 1px solid var(--border); background: var(--status-amber-bg); }
+.agi-next.late { background: var(--status-red-bg); }
+.agi-next.done { background: var(--status-green-bg); }
+.agi-next-label { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
+.agi-next-title { margin-top: 3px; font-size: 18px; font-weight: 750; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+.agi-next.done .agi-next-title { color: var(--status-green-text); }
+.agi-next-sub { margin-top: 4px; font-size: 13.5px; color: var(--text-main); }
+.agi-next.late .agi-next-sub strong { color: var(--status-red-text); }
+.agi-next:not(.late):not(.done) .agi-next-sub strong { color: var(--status-amber-text); }
+.agi-next-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.agi-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.agi-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.agi-btn.danger { color: var(--status-red-text); }
+.agi-zero-note { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 24px; border-bottom: 1px solid var(--border-light); font-size: 13px; color: var(--text-secondary); }
+.agi-years { padding: 12px 24px 0; }
+.agi-empty { padding: 40px 24px; text-align: center; color: var(--text-secondary); font-size: 14px; }
+.agi-table { display: flex; flex-direction: column; margin-top: 8px; }
+.agi-tr { display: grid; grid-template-columns: minmax(130px, 1.3fr) 1fr 0.9fr 1fr 1fr 0.8fr minmax(100px, 0.9fr) 24px; align-items: center; gap: 12px; padding: 13px 24px; font-size: 14px; color: var(--text-main); border-bottom: 1px solid var(--border-light); }
+.agi-row > .agi-tr { cursor: pointer; }
+.agi-row > .agi-tr:hover { background: var(--bg-muted); }
+.agi-row > .agi-tr.quiet { cursor: default; color: var(--text-secondary); }
+.agi-row > .agi-tr.quiet:hover { background: none; }
+.agi-th { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); padding-top: 10px; padding-bottom: 10px; background: var(--bg-muted); }
+.agi-tr .num { text-align: right; font-variant-numeric: tabular-nums; }
+.agi-tr > :nth-child(6) { padding-left: 18px; }
+.agi-tr .strong { font-weight: 700; }
+.agi-tr .late { color: var(--status-red-text); font-weight: 600; }
+.agi-month { font-weight: 700; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.agi-tr.quiet .agi-month { font-weight: 500; }
+.agi-zero-tag { font-size: 11px; font-weight: 600; color: var(--text-secondary); background: var(--border-light); padding: 2px 7px; border-radius: 999px; }
+.agi-pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.agi-pill.ok { background: var(--status-green-bg); color: var(--status-green-text); }
+.agi-pill.warn { background: var(--status-amber-bg); color: var(--status-amber-text); }
+.agi-pill.late { background: var(--status-red-bg); color: var(--status-red-text); }
+.agi-pill.mute { color: var(--text-secondary); padding-left: 0; }
+.agi-chev { color: var(--text-muted); display: flex; justify-content: flex-end; }
+.agi-row.open > .agi-tr { background: var(--bg-muted); }
+.agi-detail { border-bottom: 1px solid var(--border); background: var(--bg-card); }
+.agi-detail-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 14px 24px 0; }
+.agi-submitted-at { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--status-green-text); }
+@media (max-width: 700px) {
+  .agi-next { padding: 16px; }
+  .agi-zero-note, .agi-years { padding-left: 16px; padding-right: 16px; }
+  .agi-tr { grid-template-columns: minmax(0, 1fr) auto auto 18px; padding: 12px 16px; gap: 10px; }
+  .agi-tr > :nth-child(2), .agi-tr .col-hide { display: none; }
+  .agi-detail-actions { padding: 12px 16px 0; }
+}
