@@ -3,7 +3,7 @@ import { isFeatureOn, hiddenFeatureNavIds } from './optionalFeatures';
 
 describe('optionalFeatures', () => {
   it('göms för ett nytt företag utan data', () => {
-    expect(hiddenFeatureNavIds({ company: {} })).toEqual(['articles', 'projects', 'time']);
+    expect(hiddenFeatureNavIds({ company: {} })).toEqual(['articles', 'projects', 'time', 'accruals', 'fixed_assets']);
   });
   it('syns om det redan finns data, så att ingen tappar något', () => {
     expect(isFeatureOn({ company: {}, articles: [{ id: 1 }] }, 'articles')).toBe(true);

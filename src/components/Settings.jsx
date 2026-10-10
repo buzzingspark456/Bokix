@@ -4263,6 +4263,8 @@ export default function Settings({
                   {[
                     { id: 'articles', label: tr('ui.funktion_artiklar'), description: tr('ui.funktion_artiklar_desc') },
                     { id: 'projects', label: tr('ui.funktion_projekt'), description: tr('ui.funktion_projekt_desc') },
+                    { id: 'accruals', label: tr('ui.funktion_periodiseringar'), description: tr('ui.funktion_periodiseringar_desc') },
+                    { id: 'fixed_assets', label: tr('ui.funktion_anlaggningstillgangar'), description: tr('ui.funktion_anlaggningstillgangar_desc') },
                   ].map((row, i, all) => (
                     <SettingRow key={row.id} label={row.label} description={row.description} last={i === all.length - 1}>
                       <ToggleSwitch

@@ -15,6 +15,10 @@ export const OPTIONAL_FEATURES = [
     navIds: ['projects', 'time'],
     hasData: (c) => (c?.projects || []).length > 0 || (c?.billableTimeEntries || []).length > 0 || (c?.timeEntries || []).length > 0,
   },
+  // Flikar under Bokföring (inte menyval). Periodiseringar sköter också
+  // semesterlöneskulden, så ett företag med lön har den kvar.
+  { id: 'accruals', navIds: ['accruals'], hasData: (c) => (c?.company?.accruals || []).length > 0 || (c?.payrollRuns || []).length > 0 },
+  { id: 'fixed_assets', navIds: ['fixed_assets'], hasData: (c) => (c?.company?.fixedAssets || []).length > 0 },
 ];
 
 /** Är funktionen påslagen för företaget? `companyData` är hela företagsgrenen. */

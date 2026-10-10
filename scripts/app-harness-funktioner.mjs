@@ -31,7 +31,8 @@ async function run(label, emptyModules, check) {
     return JSON.parse(JSON.stringify(createDemoSeed()));
   });
   await p0.close();
-  if (emptyModules) { company.articles = []; company.projects = []; company.timeEntries = []; company.billableTimeEntries = []; }
+  if (emptyModules) { company.articles = []; company.projects = []; company.timeEntries = []; company.billableTimeEntries = []; company.payrollRuns = []; company.company.accruals = []; company.company.fixedAssets = []; }
+  else company.company.accruals = [{ id: 'acc1', description: 'Förutbetald hyra', amount: 12000, start: '2026-01-01', months: 12, account: '1710', costAccount: '5010' }];
   const id = company.company.id;
   const server = { row: { id: 'r1', user_id: UID, state: { activeCompanyId: id, companies: { [id]: company } }, updated_at: newTs(), onboarding_completed: true, onboarding_skipped: false, company_name: company.company.name } };
 
@@ -76,6 +77,12 @@ async function run(label, emptyModules, check) {
 
 // 1. Nytt företag utan data: gömt, sedan påslaget.
 await run('nytt företag', true, async ({ page, menu, server, id }) => {
+  await page.evaluate(() => { location.hash = 'verifications'; });
+  await page.waitForTimeout(1200);
+  const bokTabs = await page.evaluate(() => document.body.innerText.includes('Periodiseringar') || document.body.innerText.includes('Anläggningstillgångar'));
+  console.log('  Bokföring visar Periodiseringar/Anläggningstillgångar:', bokTabs);
+  await page.evaluate(() => { location.hash = 'dashboard'; });
+  await page.waitForTimeout(800);
   const before = await menu();
   console.log('  menyn före:', JSON.stringify(before));
   await page.evaluate(() => {
@@ -96,14 +103,21 @@ await run('nytt företag', true, async ({ page, menu, server, id }) => {
   const after = await menu();
   console.log('  menyn efter påslag:', JSON.stringify(after), '| sparat:', JSON.stringify(server.row.state.companies[id].company.features));
   await page.screenshot({ path: 'test-results/harness-funktioner-efter.png' });
-  return !before.artiklar && !before.projekt && after.artiklar && after.projekt;
+  return !bokTabs && !before.artiklar && !before.projekt && after.artiklar && after.projekt;
 });
 
 // 2. Företag med artiklar och projekt: kvar utan att välja något.
-await run('befintligt med data', false, async ({ menu }) => {
+await run('befintligt med data', false, async ({ page, menu }) => {
   const m = await menu();
   console.log('  menyn:', JSON.stringify(m));
-  return m.artiklar && m.projekt;
+  await page.evaluate(() => { location.hash = 'verifications'; });
+  await page.waitForTimeout(1200);
+  // Testföretaget har en periodisering (ska synas) men inga anläggningstillgångar.
+  const per = await page.evaluate(() => document.body.innerText.includes('Periodiseringar'));
+  const anl = await page.evaluate(() => document.body.innerText.includes('Anläggningstillgångar'));
+  console.log('  Bokföring: Periodiseringar', per, '| Anläggningstillgångar', anl);
+  const tabs = per && !anl;
+  return m.artiklar && m.projekt && tabs;
 });
 
 await browser.close();

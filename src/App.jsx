@@ -5377,7 +5377,9 @@ function App() {
             extraTabs={isUfCompany(company) ? [] : [
               { id: 'accruals', label: tr('ui.periodiseringar'), content: <Accruals company={company} accounts={accounts} verifications={verifications} employees={employees} payrollRuns={payrollRuns} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
               { id: 'fixed_assets', label: tr('ui.anlaggningstillgangar'), content: <FixedAssets company={company} accounts={accounts} verifications={verifications} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
-            ]}
+            // Gömda funktioner (utils/optionalFeatures.js) visas inte, utom när
+            // man kommer dit via en länk (t.ex. bokslutets checklista).
+            ].filter(tab => isFeatureOn(currentCompany, tab.id) || verificationsInitialTab === tab.id)}
           />
         );
       case 'bank':
