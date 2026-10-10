@@ -8358,3 +8358,38 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
     text-overflow: ellipsis;
   }
 }
+
+/* ── Stegguide (StepFlow.jsx): Årsbokslut och Årsredovisning ── */
+.stepflow { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 420px; }
+.stepflow-rail { list-style: none; margin: 0; padding: 16px 12px; border-right: 1px solid var(--border-light); display: flex; flex-direction: column; gap: 2px; }
+.stepflow-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: none; border-radius: 9px; background: none; text-align: left; font: inherit; font-size: 13.5px; color: var(--text-secondary); cursor: pointer; }
+.stepflow-item:hover { background: var(--bg-muted); }
+.stepflow-item.active { background: var(--bg-muted); color: var(--text-main); font-weight: 700; }
+.stepflow-item.done .stepflow-title { color: var(--text-secondary); }
+.stepflow-mark { flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--text-secondary); }
+.stepflow-item.active .stepflow-mark { border-color: var(--chip-active-border); color: var(--chip-active-text); }
+.stepflow-item.done .stepflow-mark { border-color: transparent; background: var(--status-green-bg); color: var(--status-green-text); }
+.stepflow-title { min-width: 0; line-height: 1.35; }
+.stepflow-panel { padding: 24px 28px; display: flex; flex-direction: column; gap: 14px; min-width: 0; max-width: 820px; }
+.stepflow-count { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
+.stepflow-h { margin: 0; font-size: 20px; font-weight: 750; color: var(--text-main); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.stepflow-text { margin: 0; font-size: 14px; line-height: 1.55; color: var(--text-secondary); max-width: 620px; }
+.stepflow-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border-light); }
+.stepflow-result { display: flex; align-items: baseline; gap: 10px; padding: 14px 16px; border-radius: 10px; background: var(--bg-muted); font-size: 14px; color: var(--text-secondary); }
+.stepflow-result strong { font-size: 20px; color: var(--text-main); font-variant-numeric: tabular-nums; }
+.stepflow-left { display: flex; flex-direction: column; gap: 6px; }
+.stepflow-left button { justify-content: flex-start; }
+@media (max-width: 900px) {
+  .stepflow { grid-template-columns: 1fr; min-height: 0; }
+  .stepflow-rail { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border-light); padding: 12px 16px; gap: 6px; scrollbar-width: none; }
+  .stepflow-rail::-webkit-scrollbar { display: none; }
+  .stepflow-item { width: auto; padding: 4px; border-radius: 999px; }
+  .stepflow-item .stepflow-title { display: none; }
+  .stepflow-item.active { background: none; }
+  .stepflow-item.active .stepflow-mark { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .stepflow-mark { width: 30px; height: 30px; }
+  .stepflow-panel { padding: 18px 16px; }
+  .stepflow-h { font-size: 18px; }
+}
+.ye-progress { margin-top: 10px; height: 6px; max-width: 360px; border-radius: 999px; background: var(--border-light); overflow: hidden; }
+.ye-progress span { display: block; height: 100%; border-radius: 999px; background: var(--status-green-text); }

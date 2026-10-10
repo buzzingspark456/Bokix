@@ -4279,5 +4279,30 @@
     "lastDiff": "Last reconciled {{date}}, difference",
     "history": "Earlier reconciliations",
     "noAccounts": "Add a bank account first (Bank accounts)."
+  },
+  "stepFlow": {
+    "steps": "Steps",
+    "stepOf": "Step {{n}} of {{total}}",
+    "back": "Back",
+    "next": "Next step"
+  },
+  "yearEndWizard": {
+    "progress": "{{done}} of {{total}} steps done",
+    "locked": "The financial year is locked {{date}}",
+    "lockTitle": "Lock the financial year",
+    "lockText": "The result for the year is booked and the year is locked. After that the bookkeeping for the year cannot be changed.",
+    "lockedText": "The year is locked and the result is booked.",
+    "remaining": "Finish these steps first:",
+    "markDone": "Mark as done",
+    "undoDone": "Undo done",
+    "open": "Open"
+  },
+  "arWizard": {
+    "sendTitle": "Sign and send",
+    "reportText": "Briefly what the company does and where it has its registered office.",
+    "signText": "All board members and any CEO sign the annual report.",
+    "onePerLine": "One per line.",
+    "agmBy": "The AGM must be held by {{date}}.",
+    "download": "Download and sign"
   }
 }

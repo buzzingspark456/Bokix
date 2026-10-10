@@ -4279,5 +4279,30 @@
     "lastDiff": "Senast avstämd {{date}}, differens",
     "history": "Tidigare avstämningar",
     "noAccounts": "Lägg till ett bankkonto först (Bankkonton)."
+  },
+  "stepFlow": {
+    "steps": "Steg",
+    "stepOf": "Steg {{n}} av {{total}}",
+    "back": "Tillbaka",
+    "next": "Nästa steg"
+  },
+  "yearEndWizard": {
+    "progress": "{{done}} av {{total}} steg klara",
+    "locked": "Räkenskapsåret är låst {{date}}",
+    "lockTitle": "Lås räkenskapsåret",
+    "lockText": "Årets resultat bokförs och året låses. Efter det går bokföringen för året inte att ändra.",
+    "lockedText": "Året är låst och årets resultat är bokfört.",
+    "remaining": "Gör klart de här stegen först:",
+    "markDone": "Markera som klar",
+    "undoDone": "Ångra klar",
+    "open": "Öppna"
+  },
+  "arWizard": {
+    "sendTitle": "Skriv under och skicka",
+    "reportText": "Kort om vad bolaget gör och var det har sitt säte.",
+    "signText": "Alla i styrelsen och en eventuell vd skriver under årsredovisningen.",
+    "onePerLine": "En per rad.",
+    "agmBy": "Årsstämman ska hållas senast {{date}}.",
+    "download": "Ladda ner och skriv under"
   }
 }

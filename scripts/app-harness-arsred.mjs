@@ -72,7 +72,7 @@ await page.locator('.list-page-header button >> visible=true', { hasText: 'Årsa
 await page.waitForTimeout(700);
 const steps = await page.evaluate(() => [...document.querySelectorAll('.tax-steps button')].map(b => b.innerText.trim()));
 const texts = {};
-for (const [name, file] of [['Årsredovisning', 'arsredovisning'], ['Inkomstdeklaration', 'ink2'], ['Utdelning', 'utdelning']]) {
+for (const [name, file] of [['Årsbokslut', 'arsbokslut'], ['Årsredovisning', 'arsredovisning'], ['Inkomstdeklaration', 'ink2'], ['Utdelning', 'utdelning']]) {
   const b = page.locator('.tax-steps button', { hasText: name });
   if (await b.count()) { await b.first().click(); await shot(file); texts[file] = await page.evaluate(() => document.body.innerText);
     if (file === 'ink2') {

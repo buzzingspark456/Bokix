@@ -20,6 +20,7 @@ import { isUfCompany, UF_TAX_SECTION_IDS } from '../utils/ufMode';
 import { summarizeAnnualPayrollByEmployee, neededTaxTableKeysForYear, downloadKuPdf } from '../utils/kuExport';
 import { downloadAgiPdf } from '../utils/agiExport';
 import AgiYearView from './AgiYearView';
+import YearEndWizard from './YearEndWizard';
 import Ink2View from './Ink2View';
 import { downloadNePdf } from '../utils/neExport';
 import { computeEmployeePayroll } from '../utils/payrollCalculation';
@@ -1099,144 +1100,33 @@ export default function Taxes({
 
           {/* Årsbokslut */}
           {activeSection === 'yearend' && (
-          <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                {tr('ui.arsbokslut')} {fy.label}
-                {isLocked && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', borderRadius: '999px', background: 'var(--border-light)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600 }}>
-                    <Lock size={12} /> {tr('ui.rakenskapsar_last')}
-                  </span>
-                )}
-              </h2>
-              <p style={{ margin: '8px 0 0', fontSize: '14px', color: 'var(--text-secondary)' }}>
-                {tr('ui.folj_stegen_nedan_for_att_stanga_rakenskapsaret')}
-              </p>
-            </div>
-
-            <div style={{ padding: '0' }}>
-              {steps.map((step, index) => {
-                const clickable = step.kind === 'manual' && !isLocked;
-                return (
-                  <div
-                    key={step.id}
-                    className="checklist-row-stack"
-                    onClick={clickable ? () => toggleManualStep(step.key) : undefined}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '16px 24px', gap: '16px',
-                      borderBottom: index < steps.length - 1 ? '1px solid var(--border-light)' : 'none',
-                      background: step.status === 'Klar' ? 'var(--bg-muted)' : 'var(--bg-card)',
-                      cursor: clickable ? 'pointer' : 'default',
-                    }}
-                  >
-                    {/* Bugkritiskt (mobil): utan flex:1 här startade den här
-                        gruppens bredd fran sitt eget max-content (titel +
-                        hint helt outbrutna), och när den sen tvingades
-                        krympa av .flexShrink:0-statuspillret till höger
-                        kollapsade textblocket ner mot sin min-content-bredd
-                        — ett ord per rad. flex:1 (flex-basis:0%, inte auto)
-                        ger den istallet en förutsägbar andel av radens
-                        FAKTISKA bredd direkt, ingen våldsam efterhands-
-                        krympning. */}
-                    <div style={{ display: 'flex', flex: 1, alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                      <div style={{
-                        width: '28px', height: '28px', borderRadius: '50%',
-                        background: 'var(--border-light)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 700,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                      }}>
-                        {step.n}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{
-                          fontSize: '14px', fontWeight: 500,
-                          color: step.status === 'Klar' ? 'var(--text-muted)' : 'var(--text-main)',
-                          textDecoration: step.status === 'Klar' ? 'line-through' : 'none',
-                        }}>
-                          {step.title}
-                        </div>
-                        {step.hint && (
-                          <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px' }}>{step.hint}</div>
-                        )}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                      {(step.section || step.tab) && step.status !== 'Klar' && (step.section || onNavigateToTab) && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); if (step.section) setActiveSection(step.section); else onNavigateToTab(step.tab); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-text)', fontSize: '12px', fontWeight: 600, fontFamily: 'inherit', padding: '2px' }}
-                        >
-                          {tr('ui.atgarda')} <ChevronRight size={12} />
-                        </button>
-                      )}
-                      <div style={{
-                        display: 'flex', alignItems: 'center', gap: '6px',
-                        padding: '4px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
-                        background: getStatusBg(step.status), color: getStatusColor(step.status),
-                      }}>
-                        {getStatusIcon(step.status)}
-                        {stepStatusLabel(step.status)}
-                      </div>
-                    </div>
+            // Årsbokslutet som en guide, ett steg i taget (YearEndWizard.jsx).
+            <YearEndWizard
+              fyLabel={fy.label}
+              steps={stepsBeforeLock}
+              isLocked={isLocked}
+              lockedAt={closing?.lockedAt}
+              canLock={canLock}
+              partnersReady={partnersReady}
+              yearResult={yearResult}
+              fmt={fmt}
+              onToggleManual={toggleManualStep}
+              onOpenStep={(step) => { if (step.section) setActiveSection(step.section); else onNavigateToTab?.(step.tab); }}
+              onLock={handleLockYear}
+              onGoPartners={() => setActiveSection('partners')}
+              nextFiling={isLocked && nextFilingSection && sectionTabs.some(t => t.id === nextFilingSection)
+                ? { label: tr('ui.forbered_deklarationen'), onClick: () => setActiveSection(nextFilingSection) }
+                : null}
+              notices={legacyYears.map(y => (
+                <div key={y.year} className="fp-warn" role="status">
+                  <div>
+                    <span style={{ flex: 1 }}>{tr('ui.resultatet_for')} {y.year} ({fmt(y.result)} {tr('ui.kr_ligger_pa_2099_som_ar_aktiebolagets_konto_for')}</span>
+                    <button type="button" className="ink2v-link" style={{ color: 'inherit' }} onClick={() => handleReclassifyYear(y)}>{tr('ui.flytta_till_2019')}</button>
                   </div>
-                );
-              })}
-            </div>
-
-            <div style={{ padding: '20px 24px', background: 'var(--bg-muted)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                <Calculator size={16} /> {isLocked ? tr('ui.bokfort_resultat') : tr('ui.beraknat_resultat')}: <strong style={{ color: yearResult >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>{fmt(yearResult)}</strong>
-              </div>
-              <button
-                onClick={handleLockYear}
-                disabled={!canLock}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px',
-                  background: isLocked ? '#16a34a' : canLock ? 'var(--accent)' : 'var(--text-muted)',
-                  border: 'none', borderRadius: '8px', color: 'white', fontSize: '14px', fontWeight: 600,
-                  cursor: canLock ? 'pointer' : 'not-allowed',
-                }}
-              >
-                <Lock size={16} /> {isLocked ? tr('ui.rakenskapsar_last') : tr('ui.las_rakenskapsar_och_skapa_bokslut')}
-              </button>
-            </div>
-            {isLocked && nextFilingSection && sectionTabs.some(t => t.id === nextFilingSection) && (
-              <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', fontSize: '13.5px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                <span><strong>{tr('ui.bokslutet_ar_klart')}</strong> {tr('ui.nasta_steg_ar')} {isSoleProp ? tr('ui.ne_bilagan') : 'inkomstdeklarationen'}{tr('ui.bokix_forbereder_filerna_at_dig')}</span>
-                <button type="button" onClick={() => setActiveSection(nextFilingSection)} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '8px 14px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
-                  {tr('ui.forbered_deklarationen')} <ChevronRight size={15} />
-                </button>
-              </div>
-            )}
-            {legacyYears.map(y => (
-              <div key={y.year} style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <span>{tr('ui.resultatet_for')} {y.year} ({fmt(y.result)} {tr('ui.kr_ligger_pa_2099_som_ar_aktiebolagets_konto_for')}</span>
-                <button type="button" onClick={() => handleReclassifyYear(y)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 700, fontSize: '13px', textDecoration: 'underline', padding: 0 }}>{tr('ui.flytta_till_2019')}</button>
-              </div>
-            ))}
-            {!isLocked && !partnersReady && (
-              <div style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <span>{tr('ui.lagg_in_delagarna_och_deras_andelar_innan_du_las')}</span>
-                <button type="button" onClick={() => setActiveSection('partners')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontWeight: 700, fontSize: '13px', textDecoration: 'underline', padding: 0 }}>{tr('ui.ga_till_delagare')}</button>
-              </div>
-            )}
-
-            {/* Bolagsformsspecifik hjälptext + källor — enligt Skatteverkets
-                regler: bokslutet ska innehålla balans- och resultaträkning,
-                förenklat årsbokslut går bra upp till 3 Mkr i nettoomsättning,
-                en enskild firma deklarerar resultatet vidare med en
-                NE-bilaga (inte en årsredovisning), och ett handelsbolag/
-                kommanditbolag betalar ingen egen bolagsskatt alls — resultatet
-                fördelas på delägarna, som var och en deklarerar sin andel med
-                en N3A-bilaga (eller K10 för en fåmansföretagsdelägare) i sin
-                EGEN inkomstdeklaration. Tre olika texter, inte en generisk
-                AB-text för "allt som inte är enskild firma" (kundönskemål:
-                "om det är ett handelsbolag ska det vara byggt för
-                handelsbolag"). */}
-            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', background: 'var(--bg-card)' }}>
-              <div style={{ display: 'flex', gap: '10px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                <Info size={15} style={{ flexShrink: 0, marginTop: 1, color: 'var(--text-muted)' }} />
-                <div>
+                </div>
+              ))}
+              orgNote={(
+                <div className="fp-hint" style={{ marginTop: 0, fontSize: '12.5px', lineHeight: 1.6 }}>
                   {isSoleProp ? (
                     <span>{tr('ui.som_enskild_firma_deklarerar_du_resultatet_vidar')} <strong>{tr('ui.ne_bilaga')}</strong> {tr('ui.i_din_inkomstdeklaration_efter_att_bokslutet_ar')}</span>
                   ) : isTradingPartnership ? (
@@ -1244,22 +1134,12 @@ export default function Taxes({
                   ) : (
                     <span>{tr('ui.bokslutet_ska_innehalla_en_balans_och_resultatra')}</span>
                   )}
-                  {' '}{tr('ui.bokix_hjalper_dig_strukturera_underlaget_men_ers')}
-                  <div style={{ display: 'flex', gap: '14px', marginTop: '8px', flexWrap: 'wrap' }}>
-                    {[
-                      [tr('ui.moms'), 'https://www.skatteverket.se/foretag/moms'],
-                      [tr('ui.bokforing_och_bokslut'), 'https://www.skatteverket.se/foretag/drivaforetag/bokforingochbokslut.4.58d555751259e4d661680006527.html'],
-                      [tr('ui.enskild_naringsverksamhet'), 'https://www.skatteverket.se/foretag/drivaforetag/foretagsformer/enskildnaringsverksamhet/bokforingochdeklaration.4.361dc8c15312eff6fd2c99f.html'],
-                    ].map(([label, url]) => (
-                      <a key={url} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-text)', fontWeight: 600, textDecoration: 'none' }}>
-                        {label} <ExternalLink size={11} />
-                      </a>
-                    ))}
-                  </div>
+                  <span style={{ display: 'inline-flex', gap: '12px', marginLeft: '8px', flexWrap: 'wrap' }}>
+                    <a href="https://www.skatteverket.se/foretag/drivaforetag/bokforingochbokslut.4.58d555751259e4d661680006527.html" target="_blank" rel="noopener noreferrer" className="ink2v-link">{tr('ui.bokforing_och_bokslut')} <ExternalLink size={11} /></a>
+                  </span>
                 </div>
-              </div>
-            </div>
-          </div>
+              )}
+            />
           )}
 
           {/* Kontrolluppgifter (KU) */}
