@@ -495,7 +495,8 @@ export default function Taxes({
   // ort (INFO.SRU), så knappen kräver dem i stället för att ge en fil som
   // Skatteverket inte tar emot.
   const sruMissing = sruMissingFields(company);
-  const canDownloadSru = ink2r.balanced && sruMissing.length === 0;
+  const canDownloadSru = ink2r.balanced && ink2r.rows.length > 0 && sruMissing.length === 0;
+  const ink2ScheduleReady = ink2r.balanced && ink2r.rows.length > 0;
   const ink2Warnings = [
     !isLocked && tr('ui.rakenskapsaret_ar_inte_last_siffrorna_kan_andras'),
     !hasBookingsThisYear && tr('ui.inga_bokforda_transaktioner_for_rakenskapsaret', { label: fy.label }),
@@ -1368,98 +1369,59 @@ export default function Taxes({
                     ))}
                   </p>
                 </div>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 11px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: isLocked ? 'var(--status-green-bg)' : 'var(--bg-muted)', color: isLocked ? 'var(--status-green-text)' : 'var(--text-secondary)', border: isLocked ? 'none' : '1px solid var(--border)', flexShrink: 0 }}>
-                  {isLocked ? <><CheckCircle2 size={13} /> {tr('ui.bokslutet_ar_last_2')}</> : <><Clock size={13} /> {tr('ui.forhandsvisning')}</>}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 11px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: canDownloadSru ? 'var(--status-green-bg)' : 'var(--status-amber-bg)', color: canDownloadSru ? 'var(--status-green-text)' : 'var(--status-amber-text)', flexShrink: 0 }}>
+                  {canDownloadSru ? <><CheckCircle2 size={13} /> {tr('ui.ink2_status_nastan_klar')}</> : <><Clock size={13} /> {tr('ui.ink2_status_behover_kontroll')}</>}
                 </span>
               </div>
 
-              {/* Kundfeedback: "man vet inte riktigt vad man ska göra här".
-                  Sidan visade två långa tabeller först och gömde knapparna
-                  längst ner — samma innehåll, men ingen ordning att följa.
-                  Momsdeklarationens steg-för-steg (samma sida, fliken
-                  bredvid) var precis det användaren berömde, så INK2R får
-                  samma språk: tre steg, med status på det första och
-                  knapparna direkt i steg två och tre. */}
-              <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg-muted)', display: 'grid', gap: 0 }}>
-                <Ink2Step
-                  n={1}
-                  done={ink2r.balanced && ink2r.rows.length > 0}
-                  title={tr('ui.kontrollera_att_balansrakningen_stammer')}
-                >
-                  {ink2r.rows.length === 0 ? (
-                    <span style={{ color: 'var(--text-secondary)' }}>{tr('ui.inga_bokforda_balanskonton_annu_for_rakenskapsar')} {fy.label}{tr('ui.bokfor_aret_forst')}</span>
-                  ) : ink2r.balanced ? (
-                    <span style={{ color: 'var(--text-secondary)' }}>
-                      {tr('ui.tillgangar')} {fmt(ink2r.totalAssets)} {tr('ui.eget_kapital_och_skulder_2')} {fmt(ink2r.totalEquityAndLiabilities)}{tr('ui.klart_att_lamna_in')}
-                    </span>
-                  ) : (
-                    <span style={{ color: 'var(--text-secondary)' }}>
-                      <strong style={{ color: 'var(--status-red-text)' }}>{tr('ui.skillnad_2')} {fmt(Math.abs(ink2r.difference))} {tr('ui.kr_2')}</strong>{' '}
-                      {tr('ui.tillgangarna_ar')} {ink2r.difference > 0 ? tr('ui.storre') : 'mindre'} {tr('ui.an_eget_kapital_och_skulder_arets_resultat_ar_re')}
-                      {onNavigateToTab && (
-                        <>
-                          {' '}
-                          <button
-                            type="button"
-                            onClick={() => onNavigateToTab('reports')}
-                            style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--accent-text)', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
-                          >
-                            {tr('ui.oppna_balansrakningen')}
-                          </button>
-                          {' '}{tr('ui.for_att_se_var_differensen_sitter')}
-                        </>
-                      )}
-                    </span>
-                  )}
-                </Ink2Step>
-
-                <Ink2Step n={2} title={tr('ui.ladda_ner_sru_filerna')}>
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <button
-                      disabled={!canDownloadSru}
-                      onClick={() => downloadInk2rSru(company, ink2r, ink2rResultat.rows, { start: fy.start, end: fy.end })}
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: canDownloadSru ? 'var(--accent)' : 'var(--border)', color: canDownloadSru ? 'white' : 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', fontFamily: 'inherit', cursor: canDownloadSru ? 'pointer' : 'not-allowed' }}
-                    >
-                      <Download size={14} /> {tr('ui.ladda_ner_sru_filerna')}
-                    </button>
-                    <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-                      {sruMissing.length > 0 ? (
-                        <>
-                          {tr('ui.skatteverket_kraver')} {sruMissing.join(', ').replace(/, ([^,]*)$/, ' och $1')} {tr('ui.i_filen_fyll_i_det_under_installningar_foretag')}
-                          {onNavigateToTab && (
-                            <>
-                              {' '}
-                              <button type="button" onClick={() => onNavigateToTab('settings')} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--accent-text)', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>
-                                {tr('ui.oppna_installningar')}
-                              </button>
-                            </>
-                          )}
-                        </>
-                      ) : !ink2r.balanced ? (
-                        tr('ui.gar_att_ladda_ner_nar_balansrakningen_stammer')
-                      ) : (
-                        tr('ui.en_zip_fil_med_info_sru_och_blanketter_sru_packa')
-                      )}
-                    </span>
-                  </div>
-                </Ink2Step>
-
-                <Ink2Step n={3} title={tr('ui.lamna_in_hos_skatteverket')} last>
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <a
-                      href="https://sso.skatteverket.se/fv_ext/fv_web/login.do"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)', textDecoration: 'none' }}
-                    >
-                      {tr('ui.oppna_skatteverket')} <ExternalLink size={13} />
-                    </a>
-                    <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)', maxWidth: '620px' }}>
-                      {tr('ui.logga_in_med_bankid_som_foretag_e_tjansten')} <em>{tr('ui.filoverforing')}</em> {tr('ui.filtyp')} <em>{tr('ui.inkomstdeklaration')}</em> {tr('ui.ladda_upp_info_sru_och_blanketter_sru_dar_fyller')}
-                    </span>
-                  </div>
-                </Ink2Step>
+              <div style={{ padding: '22px 24px', borderBottom: '1px solid var(--border)', background: 'linear-gradient(145deg, var(--bg-muted), var(--bg-card))' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                  <span style={{ width: '30px', height: '30px', display: 'grid', placeItems: 'center', borderRadius: '9px', flexShrink: 0, background: ink2ScheduleReady ? 'var(--status-green-bg)' : 'var(--status-amber-bg)', color: ink2ScheduleReady ? 'var(--status-green-text)' : 'var(--status-amber-text)' }}>
+                    {ink2ScheduleReady ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                  </span>
+                  <p style={{ margin: '3px 0 0', maxWidth: '720px', fontSize: '13px', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+                    {tr('ui.ink2_intro')}
+                  </p>
+                </div>
               </div>
+
+              <section style={{ padding: '22px 24px', borderBottom: '1px solid var(--border)' }} aria-labelledby="ink2-schedule-title">
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '5px' }}>{tr('ui.ink2_step_label', { n: 1 })}</div>
+                    <h3 id="ink2-schedule-title" style={{ fontSize: '17px', margin: 0, color: 'var(--text-main)' }}>{tr('ui.rakenskapsschema')}</h3>
+                    <p style={{ margin: '5px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('ui.ink2_schedule_auto')}</p>
+                  </div>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 10px', borderRadius: '999px', background: ink2ScheduleReady ? 'var(--status-green-bg)' : 'var(--status-amber-bg)', color: ink2ScheduleReady ? 'var(--status-green-text)' : 'var(--status-amber-text)', fontSize: '12px', fontWeight: 700 }}>
+                    {ink2ScheduleReady ? <CheckCircle2 size={13} /> : <AlertTriangle size={13} />}
+                    {ink2ScheduleReady ? tr('ui.ink2_balans_balanserar') : tr('ui.ink2_balans_behover_kontroll')}
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1px', background: 'var(--border)', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
+                  {[
+                    { label: tr('ui.summa_tillgangar'), amount: ink2r.totalAssets },
+                    { label: tr('ui.eget_kapital_och_skulder'), amount: ink2r.totalEquityAndLiabilities },
+                    { label: tr('ui.arets_resultat'), amount: ink2rResultat.total },
+                  ].map(item => (
+                    <div key={item.label} style={{ background: 'var(--bg-card)', padding: '13px 15px' }}>
+                      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 600 }}>{item.label}</div>
+                      <div style={{ marginTop: '4px', fontSize: '18px', fontWeight: 750, fontVariantNumeric: 'tabular-nums', color: 'var(--text-main)' }}>{fmt(item.amount)}</div>
+                    </div>
+                  ))}
+                </div>
+                {ink2r.rows.length === 0 ? (
+                  <p style={{ margin: '12px 0 0', color: 'var(--status-amber-text)', fontSize: '13px' }}>{tr('ui.ink2_no_bookings', { year: fy.label })}</p>
+                ) : !ink2r.balanced ? (
+                  <p style={{ margin: '12px 0 0', color: 'var(--status-red-text)', fontSize: '13px' }}>
+                    {tr('ui.ink2_balance_difference', { amount: fmt(Math.abs(ink2r.difference)) })}{' '}
+                    {onNavigateToTab && <button type="button" onClick={() => onNavigateToTab('reports')} style={{ background: 'none', border: 0, padding: 0, font: 'inherit', color: 'var(--accent-text)', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer' }}>{tr('ui.oppna_balansrakningen')}</button>}
+                  </p>
+                ) : (
+                  <p style={{ margin: '12px 0 0', color: 'var(--status-green-text)', fontSize: '13px' }}>{tr('ui.ink2_balance_totals', { assets: fmt(ink2r.totalAssets), equity: fmt(ink2r.totalEquityAndLiabilities) })}</p>
+                )}
+                <details style={{ marginTop: '15px', borderTop: '1px solid var(--border-light)', paddingTop: '13px' }}>
+                  <summary style={{ cursor: 'pointer', color: 'var(--accent-text)', fontSize: '13px', fontWeight: 700 }}>{tr('ui.ink2_show_schedule_details')}</summary>
+                  <div style={{ paddingTop: '18px' }}>
 
               <div style={{ padding: '20px 24px' }}>
                 {ink2Warnings.length > 0 && (
@@ -1545,10 +1507,8 @@ export default function Taxes({
                   </div>
                 )}
 
-                {/* Knapparna satt tidigare HÄR, längst ner efter två långa
-                    tabeller — de ligger nu i steg 2 och 3 högst upp, där man
-                    faktiskt letar efter dem. Kvar här: bara källhänvisningen
-                    för fältkoderna, som hör till tabellerna ovan. */}
+                {/* Källa för blankettens fältkoder, nära raderna som bygger
+                    på den officiella kontokopplingen. */}
                 <div style={{ display: 'flex', gap: '10px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: '10px', padding: '12px 14px', background: 'var(--bg-muted)', borderRadius: '8px' }}>
                   <Info size={15} style={{ flexShrink: 0, marginTop: 1, color: 'var(--text-muted)' }} />
                   <div>
@@ -1556,6 +1516,9 @@ export default function Taxes({
                   </div>
                 </div>
               </div>
+                  </div>
+                </details>
+              </section>
             </div>
           )}
 
@@ -1566,11 +1529,12 @@ export default function Taxes({
               årets resultat för 4.1/4.2, och att resten fylls i där. Sparade
               värden (company.ink2s) ligger kvar orörda. */}
           {!filesOwnIncomeDeclaration && activeSection === 'ink2' && (
-            <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden', marginTop: '16px' }}>
+            <section aria-labelledby="ink2-tax-adjustments-title" style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden', marginTop: '16px' }}>
               <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
-                <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{tr('ui.skattemassiga_justeringar_ink2s')}</h2>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '5px' }}>{tr('ui.ink2_step_label', { n: 2 })}</div>
+                <h2 id="ink2-tax-adjustments-title" style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{tr('ui.skattemassiga_justeringar_ink2s')}</h2>
                 <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '620px', lineHeight: 1.6 }}>
-                  {tr('ui.fylls_i_direkt_hos_skatteverket_nar_du_lamnar_in')}
+                  {tr('ui.ink2_adjustments_description')}
                 </p>
               </div>
               <div style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
@@ -1595,7 +1559,65 @@ export default function Taxes({
                   {tr('ui.vanliga_justeringar_ar_ej_avdragsgilla_kostnader')}
                 </div>
               </div>
-            </div>
+            </section>
+          )}
+
+          {!filesOwnIncomeDeclaration && activeSection === 'ink2' && (
+            <section aria-labelledby="ink2-submit-title" style={{ marginTop: '16px', padding: '22px 24px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px' }}>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '5px' }}>{tr('ui.ink2_step_label', { n: 3 })}</div>
+              <h2 id="ink2-submit-title" style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{tr('ui.ink2_download_title')}</h2>
+              <p style={{ margin: '6px 0 16px', fontSize: '13px', lineHeight: 1.6, color: 'var(--text-secondary)', maxWidth: '700px' }}>{tr('ui.ink2_download_description')}</p>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {canDownloadSru && (
+                  <button
+                    type="button"
+                    onClick={() => downloadInk2rSru(company, ink2r, ink2rResultat.rows, { start: fy.start, end: fy.end })}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', minHeight: '38px', padding: '8px 15px', border: 'none', borderRadius: '8px', background: 'var(--accent)', color: 'white', fontFamily: 'inherit', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}
+                  >
+                    <Download size={15} /> {tr('ui.ink2_download_sru')}
+                  </button>
+                )}
+                <a
+                  href="https://sso.skatteverket.se/fv_ext/fv_web/login.do"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', minHeight: '38px', padding: '8px 12px', color: 'var(--accent-text)', fontSize: '13px', fontWeight: 650, textDecoration: 'none' }}
+                >
+                  {tr('ui.ink2_open_efile')} <ExternalLink size={13} />
+                </a>
+              </div>
+              {!canDownloadSru && (
+                <div style={{ marginTop: '14px', padding: '11px 13px', borderRadius: '8px', background: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', fontSize: '12.5px', lineHeight: 1.55 }}>
+                  {sruMissing.length > 0
+                    ? tr('ui.ink2_missing_company_fields', { fields: sruMissing.join(', ') })
+                    : ink2r.rows.length === 0
+                      ? tr('ui.ink2_no_bookings', { year: fy.label })
+                      : tr('ui.ink2_balance_difference', { amount: fmt(Math.abs(ink2r.difference)) })}
+                  {sruMissing.length > 0 && onNavigateToTab && (
+                    <>
+                      {' '}
+                      <button type="button" onClick={() => onNavigateToTab('settings')} style={{ border: 0, padding: 0, background: 'none', color: 'inherit', font: 'inherit', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer' }}>{tr('ui.oppna_installningar')}</button>
+                    </>
+                  )}
+                </div>
+              )}
+              <p style={{ margin: '14px 0 0', display: 'flex', gap: '8px', fontSize: '12px', lineHeight: 1.55, color: 'var(--text-muted)' }}>
+                <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span>{tr('ui.ink2_sru_notice')}</span>
+              </p>
+              <div style={{ marginTop: '18px', paddingTop: '15px', borderTop: '1px solid var(--border)' }}>
+                <div style={{ fontSize: '13px', fontWeight: 650, color: 'var(--text-main)' }}>{tr('ui.ink2_paper_option_title')}</div>
+                <p style={{ margin: '4px 0 9px', fontSize: '12px', lineHeight: 1.55, color: 'var(--text-secondary)' }}>{tr('ui.ink2_paper_option_description')}</p>
+                <a
+                  href="https://www.skatteverket.se/foretag/etjansterochblanketter/blanketterbroschyrer/blanketter/info/2002.4.39f16f103821c58f680006188.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent-text)', fontSize: '12.5px', fontWeight: 650, textDecoration: 'none' }}
+                >
+                  {tr('ui.ink2_official_form')} <ExternalLink size={13} />
+                </a>
+              </div>
+            </section>
           )}
 
           {/* NE-bilaga — bara enskild firma. Manuell ifyllnad, samma

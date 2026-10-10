@@ -9,7 +9,7 @@ import {
 import { supabase } from '../supabaseClient';
 import { passkeysAvailable, isPasskeyCancel, appLockEnabledFor, setAppLock, rememberPasskeyOnDevice } from '../utils/sessionPolicy';
 import { sendInvoiceEmail } from '../emailApi';
-import { cancelStripeSubscription, reactivateStripeSubscription, openBillingPortal } from '../stripeApi';
+import { cancelStripeSubscription, reactivateStripeSubscription, openBillingPortal, getSubscriptionInvoices } from '../stripeApi';
 import { BRAND, ACCENT_COLORS } from '../utils/brandColors';
 import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
@@ -2061,16 +2061,23 @@ const SUBSCRIPTION_STATUS_LABELS = {
   canceled: tr('ui.avslutad'), unpaid: tr('ui.obetald'), incomplete: tr('ui.ofullstandig'), incomplete_expired: tr('ui.utgangen'),
 };
 
-/** Betalningsuppgifter / Fakturor & kvitton (Prenumeration) — EN knapp som
- * öppnar Stripes egen, hostade Billing Portal i en ny flik. Stripe hanterar
- * redan kortbyte OCH kvittohistorik korrekt där, så det byggs inte om i
- * appen (se _subscriptionCheckout.js:s billing-portal-gren). */
-function BillingPortalButton({ companyId, label }) {
+/** Knappen för prenumerationens fakturor hämtar historiken för alla företag
+ * på kontot. Kortbytesknappen går fortsatt till Stripes Billing Portal. */
+function BillingPortalButton({ companyId, label, showInvoices = false }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [invoices, setInvoices] = useState(null);
   const open = async () => {
     setBusy(true); setError('');
     try {
+      if (showInvoices) {
+        if (invoices !== null) {
+          setInvoices(null);
+          return;
+        }
+        setInvoices(await getSubscriptionInvoices());
+        return;
+      }
       const url = await openBillingPortal(companyId);
       window.open(url, '_blank', 'noopener,noreferrer');
     } catch (err) {
@@ -2082,9 +2089,61 @@ function BillingPortalButton({ companyId, label }) {
   return (
     <div>
       <button type="button" onClick={open} disabled={busy} style={{ ...btnSecondary, opacity: busy ? 0.6 : 1 }}>
-        <ExternalLink size={14} style={{ verticalAlign: 'middle', marginRight: '7px' }} />{busy ? tr('ui.oppnar') : label}
+        {showInvoices ? <Download size={14} style={{ verticalAlign: 'middle', marginRight: '7px' }} /> : <ExternalLink size={14} style={{ verticalAlign: 'middle', marginRight: '7px' }} />}
+        {busy ? tr('ui.laddar') : showInvoices && invoices !== null ? tr('ui.dolj_fakturor') : label}
       </button>
       {error && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginTop: '6px' }}>{error}</div>}
+      {invoices && (
+        <div style={{ width: 'min(680px, calc(100vw - 48px))', marginTop: '12px', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
+          <div style={{ padding: '12px 14px', fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', background: 'var(--bg-muted)' }}>
+            {tr('ui.prenumerationsfakturor_kvitton')}
+          </div>
+          {invoices.length === 0 ? (
+            <p style={{ margin: 0, padding: '14px', color: 'var(--text-secondary)', fontSize: '13px' }}>{tr('ui.inga_prenumerationsfakturor')}</p>
+          ) : (
+            <div>
+              {invoices.map((invoice, index) => {
+                const amount = invoice.status === 'paid' ? invoice.amount_paid : invoice.amount_due;
+                const currency = (invoice.currency || 'sek').toUpperCase();
+                const formattedAmount = new Intl.NumberFormat(getLanguage(), { style: 'currency', currency }).format((amount || 0) / 100);
+                const statusLabel = invoice.status === 'paid'
+                  ? tr('ui.betald')
+                  : invoice.status === 'draft'
+                    ? tr('ui.utkast')
+                    : invoice.status === 'void'
+                      ? tr('ui.faktura_makulerad')
+                      : invoice.status === 'open' || invoice.status === 'uncollectible'
+                        ? tr('ui.obetald')
+                        : invoice.status;
+                return (
+                  <div key={invoice.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', padding: '12px 14px', borderTop: index === 0 ? 'none' : '1px solid var(--border-light)' }}>
+                    <div style={{ minWidth: '180px', flex: 1 }}>
+                      <div style={{ color: 'var(--text-main)', fontSize: '13px', fontWeight: 600 }}>
+                        {invoice.number || invoice.id} · {formattedAmount}
+                      </div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '3px' }}>
+                        {new Date(invoice.created * 1000).toLocaleDateString(getLanguage())} · {statusLabel}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                      {invoice.hosted_invoice_url && (
+                        <a href={invoice.hosted_invoice_url} target="_blank" rel="noopener noreferrer" style={{ color: BRAND.greenDark, fontSize: '12.5px', fontWeight: 600 }}>
+                          {tr('ui.visa_faktura')}
+                        </a>
+                      )}
+                      {invoice.invoice_pdf && (
+                        <a href={invoice.invoice_pdf} target="_blank" rel="noopener noreferrer" style={{ color: BRAND.greenDark, fontSize: '12.5px', fontWeight: 600 }}>
+                          {tr('ui.ladda_ner_kvitto')}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -4568,8 +4627,8 @@ export default function Settings({
                   <SettingsSection title={tr('ui.betalningsuppgifter')} description={tr('ui.byt_kort_eller_se_fakturor_kvitton_hos_stripe')}>
                     <SettingCard>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' }}>
-                        <BillingPortalButton companyId={activeCompanyId} label={tr('ui.byt_betalkort')} />
-                        <BillingPortalButton companyId={activeCompanyId} label={tr('ui.se_fakturor_kvitton')} />
+                        <BillingPortalButton companyId={company?.requiresOwnPayment ? company.id : null} label={tr('ui.byt_betalkort')} />
+                        <BillingPortalButton companyId={company?.requiresOwnPayment ? company.id : null} label={tr('ui.se_fakturor_kvitton')} showInvoices />
                       </div>
                       <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '10px 0 0', lineHeight: 1.6 }}>{tr('ui.oppnas_hos_stripe_i_en_ny_flik')}</p>
                     </SettingCard>

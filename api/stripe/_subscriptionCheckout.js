@@ -7,7 +7,8 @@ import { checkRateLimit, getClientIp } from '../_rateLimit.js';
 import { createClient } from '@supabase/supabase-js';
 import { trialDecision, trialMetadata } from './_trialGuard.js';
 import { requireAuthedUser } from '../_auth.js';
-import { hasExistingSubscription, getSubscriptionRow, getStripeCustomerId, upsertSubscription, subscriptionFieldsFromStripe, PAID_STATUSES } from './_subscriptions.js';
+import { hasExistingSubscription, getSubscriptionRow, getStripeCustomerId, getStripeCustomerIds, upsertSubscription, subscriptionFieldsFromStripe, PAID_STATUSES } from './_subscriptions.js';
+import { listSubscriptionCustomerIds, listSubscriptionInvoices } from './_billingInvoices.js';
 
 // Läses INTE in som modul-nivå-konstant — samma gotcha som _resend.js/
 // _signedToken.js/company-access.js:s getForetagsApiKey redan har en
@@ -124,13 +125,26 @@ export default async function handler(req, res) {
     // skickat med company_id), ett riktigt värde bara för "Lägg till
     // företag" (App.jsx). Se _subscriptions.js:s kommentar för hur ''
     // (legacy) vs ett riktigt id hålls isär i databasen.
+    // ── Hämta samtliga Bokix-prenumerationsfakturor för kontot. Varje
+    // företag kan ha en egen Stripe-kund, så kund-id:n från databasen
+    // kombineras med Stripe-prenumerationer vars metadata pekar på den
+    // inloggade användaren. Bara säkra fakturalänkar och visningsfält
+    // skickas tillbaka till klienten.
+    if (body.action === 'billing-invoices') {
+      const authedUser = await requireAuthedUser(req, res);
+      if (!authedUser) return;
+
+      const storedCustomerIds = await getStripeCustomerIds(authedUser.id);
+      const customerIds = await listSubscriptionCustomerIds(stripe, authedUser.id, storedCustomerIds);
+      const invoices = await listSubscriptionInvoices(stripe, customerIds);
+      res.status(200).json({ invoices });
+      return;
+    }
+
     // ── Stripes Billing Portal (Inställningar → Prenumeration →
-    // Betalningsuppgifter / Fakturor & kvitton) — EN hostad Stripe-sida som
-    // redan hanterar BÅDE kortbyte OCH kvitto-/fakturahistorik korrekt, i
-    // stället för att bygga om det i appen (egna Stripe-API-anrop för
-    // betalkort och en egen fakturalista, dubbelt jobb och en yta till att
-    // hålla säker). Kräver alltid en inloggad session — precis som cancel/
-    // reactivate nedan, av samma skäl.
+    // Betalningsuppgifter → byt kort). Fakturahistoriken visas i appen så
+    // att den kan omfatta flera Stripe-kunder för samma Bokix-konto.
+    // Kräver alltid en inloggad session.
     if (body.action === 'billing-portal') {
       const authedUser = await requireAuthedUser(req, res);
       if (!authedUser) return;

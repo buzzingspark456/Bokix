@@ -24,7 +24,13 @@ export default async function handler(req, res) {
 
   // Om anropet gäller en prenumeration (Bokix egen plan / cancel / reactivate)
   // delegeras det till subscriptionCheckoutHandler så vi ryms under Vercels 12-funktionsgräns.
-  if (!body?.invoice_id || body?.action === 'cancel' || body?.action === 'reactivate' || body?.planId || body?.priceId || req.url?.includes('create-subscription-checkout')) {
+  if (
+    !body?.invoice_id
+    || ['cancel', 'reactivate', 'billing-portal', 'billing-invoices', 'sync'].includes(body?.action)
+    || body?.planId
+    || body?.priceId
+    || req.url?.includes('create-subscription-checkout')
+  ) {
     return subscriptionCheckoutHandler(req, res);
   }
 

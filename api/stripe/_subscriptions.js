@@ -88,6 +88,22 @@ export async function getStripeCustomerId(userId, companyId = null) {
   return data?.stripe_customer_id || null;
 }
 
+/** Alla Stripe-kunder som hör till det inloggade kontots prenumerationer. */
+export async function getStripeCustomerIds(userId) {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY saknas — kan inte läsa prenumerationskunder.');
+  }
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+  const { data, error } = await admin
+    .from('subscriptions')
+    .select('stripe_customer_id')
+    .eq('user_id', userId);
+  if (error) throw new Error(`Kunde inte läsa prenumerationskunder: ${error.message}`);
+  return [...new Set((data || []).map(row => row.stripe_customer_id).filter(Boolean))];
+}
+
 export async function upsertSubscription({
   userId,
   companyId = null,

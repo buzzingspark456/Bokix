@@ -123,6 +123,13 @@ export async function openBillingPortal(companyId = null) {
   return url;
 }
 
+export async function getSubscriptionInvoices() {
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Du måste vara inloggad för att se fakturor och kvitton.');
+  const { invoices } = await requestStripeApi('create-subscription-checkout', { action: 'billing-invoices' }, session.access_token);
+  return invoices;
+}
+
 // Hämtar prenumerationen direkt ur Stripe och sparar den i
 // public.subscriptions (action 'sync' i _subscriptionCheckout.js). Anropas
 // av betalspärren innan den säger "inte betalt", som reserv om webhooken
