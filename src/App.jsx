@@ -52,6 +52,7 @@ import { detectOrgType } from './utils/orgType';
 import { reconcileSieOpenings, applySieOpeningReconcile } from './utils/sieOpeningReconcile';
 import { sieImportTagOf } from './utils/sieImportBatches';
 import { OPTIONAL_FEATURES, isFeatureOn, hiddenFeatureNavIds } from './utils/optionalFeatures';
+import { buildTodoItems, readDismissedTodoKeys } from './utils/todoItems';
 import { guidesForPage } from './utils/pageGuides';
 import { GuideContext } from './components/shared/GuideContext';
 import GuideModal from './components/GuideModal';
@@ -4850,29 +4851,30 @@ function App() {
   // Granskning-sidan har också flikarna Stripe och Zettle. Deras rader räknas
   // i integrationReviewCount (hämtas högre upp) och ingår i det som menyn visar.
   const reviewTotal = reviewCount + integrationReviewCount;
-  const notificationCount = reviewCount + expenses.filter(e => ['draft', 'pending'].includes(e.status)).length;
 
   // Notis-klockan hade ingen panel bakom sig — bara ett antal, ingen väg att
   // se VAD som väntar eller klicka sig dit. Samma tre underlag som Startsidans
   // "Att göra idag" (Dashboard.jsx) redan räknar fram, men enklare — ingen
   // moms-deadline/lönekörning här, notisklockan behöver inte duplicera HELA
   // den logiken för att vara användbar, bara ge en klickbar genväg.
-  const overdueInvoicesForNotif = invoices.filter(i => i.status === 'sent' && new Date(i.dueDate) < new Date());
-  const draftOrPendingExpenses = expenses.filter(e => ['draft', 'pending'].includes(e.status));
-  const notifications = [
-    ...(overdueInvoicesForNotif.length > 0 ? [{
-      icon: AlertTriangle, tone: 'red', tab: 'invoices',
-      text: overdueInvoicesForNotif.length === 1 ? tr('ui.n1_faktura_har_forfallit') : tr('ui.fakturor_har_forfallit', { length: overdueInvoicesForNotif.length }),
-    }] : []),
-    ...(reviewCount > 0 ? [{
-      icon: ReceiptText, tone: 'green', tab: 'review',
-      text: tr('ui.kvitto_vantar_pa_granskning', { reviewCount, v1: reviewCount > 1 ? 'n' : '' }),
-    }] : []),
-    ...(draftOrPendingExpenses.length > 0 ? [{
-      icon: FileText, tone: 'amber', tab: 'expenses',
-      text: tr('ui.utgift_vantar_pa_hantering', { length: draftOrPendingExpenses.length, v1: draftOrPendingExpenses.length > 1 ? 'er' : '' }),
-    }] : []),
-  ];
+  // Samma lista som Startsidans Att göra (utils/todoItems.js), utan de rader
+  // användaren dolt där. Klick öppnar just den saken, som på Startsidan.
+  const notifications = buildTodoItems({
+    t, company, invoices, expenses, contacts, verifications, payrollRuns, employees, agiReports, bankTransactions,
+    vatPeriods, reviewTotal, hiddenNavIds: hiddenFeatureNavIds(currentCompany), dismissedKeys: readDismissedTodoKeys(company?.id),
+  }).map(item => ({
+    icon: item.sev === 'success' ? FileText : AlertTriangle,
+    tone: item.sev === 'danger' ? 'red' : item.sev === 'warning' ? 'amber' : 'green',
+    text: [item.title, item.detail].filter(Boolean).join(' · '),
+    target: item.target,
+  }));
+  // Klockans siffra = antalet rader i listan.
+  const notificationCount = notifications.length;
+  const openNotification = (n) => {
+    if (n.target?.action) handleGlobalAction(n.target.action, n.target.tab);
+    else handleNavTabChange(n.target?.tab || 'dashboard');
+    setIsNotifMenuOpen(false);
+  };
 
   // ── Render content ──
   // Vilka sidor som får synas i menyn. null = alla (mitt eget företag, eller
@@ -5063,6 +5065,10 @@ function App() {
             payrollRuns={payrollRuns}
             employees={employees}
             reviewTotal={reviewTotal}
+            agiReports={agiReports}
+            bankTransactions={bankTransactions}
+            hiddenNavIds={featureHiddenNavIds}
+            onOpenItem={handleGlobalAction}
             onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears}
           />
         );
@@ -5427,7 +5433,7 @@ function App() {
           />
         );
       default:
-        return <Dashboard {...commonProps} invoices={invoices} expenses={expenses} contacts={contacts} setActiveTab={setActiveTab} company={company} onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears} />;
+        return <Dashboard {...commonProps} invoices={invoices} expenses={expenses} contacts={contacts} setActiveTab={handleNavTabChange} company={company} vatPeriods={vatPeriods} payrollRuns={payrollRuns} employees={employees} reviewTotal={reviewTotal} agiReports={agiReports} bankTransactions={bankTransactions} hiddenNavIds={featureHiddenNavIds} onOpenItem={handleGlobalAction} onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears} />;
     }
   };
 
@@ -5725,7 +5731,7 @@ function App() {
                   {notifications.length === 0 ? (
                     <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.inget_nytt_just_nu')}</div>
                   ) : notifications.map((n, i) => (
-                    <button key={i} onClick={() => { handleNavTabChange(n.tab); setIsNotifMenuOpen(false); }}>
+                    <button key={i} onClick={() => openNotification(n)}>
                       <span style={{ width: 26, height: 26, borderRadius: '7px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `var(--status-${n.tone}-bg)`, color: `var(--status-${n.tone}-text)` }}>
                         <n.icon size={13} />
                       </span>
@@ -5857,7 +5863,7 @@ function App() {
                   {notifications.length === 0 ? (
                     <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.inget_nytt_just_nu')}</div>
                   ) : notifications.map((n, i) => (
-                    <button key={i} onClick={() => { handleNavTabChange(n.tab); setIsNotifMenuOpen(false); }}>
+                    <button key={i} onClick={() => openNotification(n)}>
                       <span style={{ width: 26, height: 26, borderRadius: '7px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `var(--status-${n.tone}-bg)`, color: `var(--status-${n.tone}-text)` }}>
                         <n.icon size={13} />
                       </span>

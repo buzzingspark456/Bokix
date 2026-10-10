@@ -10,7 +10,7 @@ import {
   // kontra en diagramkomponent).
   LineChart as LineChartIcon, AreaChart as AreaChartIcon, Table2,
 } from './icons';
-import { nextVatDeadline, quarterToRange } from '../utils/declarationDeadlines';
+import { buildTodoItems, todoDismissedKey, calendarDaysOverdue } from '../utils/todoItems';
 import { getGreeting } from '../utils/greeting';
 import SieImportModal from './SieImportModal';
 import { BRAND } from '../utils/brandColors';
@@ -66,7 +66,7 @@ const SIE_IMPORT_DISMISSED_KEY = 'bokix_dashboard_sie_import_dismissed';
 // fjärde faktura förfaller utöver de tre redan avfärdade) är det en NY
 // verklig händelse och ska synas igen, inte tyst svalt av en gammal
 // avfärdning.
-function todoDismissedKey(companyId) { return `bokix_dashboard_todo_dismissed_${companyId || 'default'}`; }
+// Nyckeln och listan bor i utils/todoItems.js (todoDismissedKey, buildTodoItems).
 // Kundrapporterad bugg: "Grattis, du är igång!"-firandet blossade upp på
 // NYTT varje gång man lämnade Dashboard och kom tillbaka, trots att alla
 // fyra steg redan var klara sedan tidigare besök. Orsaken var
@@ -181,9 +181,12 @@ function ChartDataTable({ data, fmt, hasPrevYearData, comparisonLabel }) {
 }
 
 
-// Ordningen i Att göra idag: försenat först, sedan det som närmar sig, sist det som är mindre bråttom.
-// Bara en sorteringsnyckel: raderna visas utan färg.
-const SEV_RANK = { danger: 0, warning: 1, success: 2 };
+// Ikonen per sorts rad i Att göra (utils/todoItems.js har bara `kind`).
+const TODO_ICONS = {
+  overdue_invoices: TodoOverdueIcon, supplier_due: TodoOverdueIcon, vat_deadline: TodoVatIcon, agi_deadline: TodoVatIcon,
+  year_end: TodoVatIcon, start_vat: TodoVatIcon, payroll_pending: TodoPayrollIcon, employees_tax: TodoPayrollIcon,
+  review: TodoReviewIcon, bank_unmatched: TodoReviewIcon, draft_invoices: TodoDraftIcon,
+};
 
 /* ── Nyckeltalsruta: Resultat, Intäkter, Kostnader och Likviditet som fyra
    mjuka grå rutor, Resultatet först och i sin egen färg (`tint`). Färgen
@@ -192,15 +195,6 @@ const SEV_RANK = { danger: 0, warning: 1, success: 2 };
    fjolårsdata står förändringen först som ett litet märke (`delta`), grönt
    uppåt och rött nedåt. Rött belopp bara för en förlust. Layouten bor i
    index.css (.dash-kpi-*). ── */
-/** Hur många hela kalenderdagar sedan förfallodagen (0 om den inte passerat). */
-function calendarDaysOverdue(dueDate) {
-  if (!dueDate) return 0;
-  const [y, m, d] = String(dueDate).slice(0, 10).split('-').map(Number);
-  if (!y || !m || !d) return 0;
-  const today = new Date();
-  const diff = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) - Date.UTC(y, m - 1, d);
-  return Math.max(0, Math.round(diff / 86400000));
-}
 
 // Rutorna är bara siffror, inga knappar (2026-10-03): de ledde förut till
 // Rapporter, Kvitton och Bank, vilket ingen kunde gissa sig till.
@@ -295,7 +289,7 @@ function useIsPhone(maxWidth = 640) {
   return phone;
 }
 
-export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie, onCloseImportedYears }) {
+export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie, onCloseImportedYears, agiReports = [], bankTransactions = [], hiddenNavIds = [], onOpenItem }) {
   const { t } = useTranslation();
   const FORMAT_MODES = formatModes(t);
   // Har företaget personal? Avgörs på verkliga anställda och lönekörningar,
@@ -414,154 +408,18 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // i stället, så de aldrig kan visa ett annat tidsspann än det PeriodPicker
   // faktiskt är satt till. Se kommentaren vid NYCKELTAL-blocket i JSX:en.
 
-  // ── Att göra ──
-  // Hela kalenderdagar efter förfallodagen, samma räkning som Utestående.
-  // Förut räknades från klockslaget: en faktura som förföll i dag blev
-  // försenad redan kl. 02, och sent på kvällen avrundades 6,9 dagar till 7.
-  const overdueInvoices = invoices.filter(i => i.status === 'sent' && calendarDaysOverdue(i.dueDate) > 0);
-  const draftInvoices   = invoices.filter(i => i.status === 'draft');
-  const unhandledReceipts = expenses.filter(e => !e.costAccount);
-  const pendingPayrollRuns = payrollRuns.filter(r => r.completedSteps?.includes('calculated') && !r.completedSteps?.includes('booked'));
-
-  const overdueAmount = overdueInvoices.reduce((sum, i) => sum + invoiceCustomerRemaining(i), 0);
-  const mostOverdueDays = overdueInvoices.reduce((max, i) => Math.max(max, calendarDaysOverdue(i.dueDate)), 0);
-
-  const vatDeadline = useMemo(() => nextVatDeadline(company, vatPeriods), [company, vatPeriods]);
-
-  // Röd: förfallet (passerat förfallodatum). Gul: kommande deadline inom en
-  // snar tidsram (~7 dagar). Grön: mindre brådskande, men värt att veta om.
-  // Kundönskemål: "om det inte finns något ska 'Att göra idag' inte visas
-  // alls" — det fanns tidigare ALLTID minst en post (en syntetisk "Inget
-  // kräver din uppmärksamhet idag"-rad nedan om listan annars var tom),
-  // just för att ge kortet ett "belöningsläge" i stället för att försvinna.
-  // Ingen sådan platshållare längre — en riktigt tom lista betyder nu en
-  // riktigt dold sektion, se anropsstället (rendrar bara `todos.length >
-  // 0`). `kind` är en stabil kategori-nyckel per möjlig rad (till skillnad
-  // från `text`, som ändras med siffrorna) — dismissTodo/dismissedTodoKeys
-  // (ovan) nycklar på kind+text TILLSAMMANS, så en avfärdad rad återkommer
-  // automatiskt den dagen den faktiska texten (beloppet/antalet/datumet)
-  // ändras, i stället för att vara tyst begravd för gott.
-  // Varje rad har en rubrik (vad det gäller) och en detaljrad (belopp och
-  // när). Bara tidsangivelsen blir röd, och bara när något är försenat, som
-  // förfallna påminnelser i iPhones Påminnelser. `text` (rubrik + detalj)
-  // är fortfarande nyckeln för att dölja en rad, se dismissKey nedan.
-  const daysAgoLabel = (days) => (days <= 1 ? t('dashboard.todo.whenYesterday') : t('dashboard.todo.whenDaysAgo', { days }));
-  const rawTodos = [];
-  if (overdueInvoices.length > 0) {
-    const one = overdueInvoices.length === 1 ? overdueInvoices[0] : null;
-    const customer = one && contacts.find(c => c.id === one.customerId)?.name;
-    rawTodos.push({
-      kind: 'overdue_invoices', group: 'invoices', sev: 'danger', tab: 'invoices', daysLeft: -mostOverdueDays, late: true,
-      tone: 'bad', icon: TodoOverdueIcon, primary: true, action: one ? t('dashboard.todo.actionInvoice') : t('dashboard.todo.actionInvoices'),
-      title: one
-        ? (customer ? t('dashboard.todo.overdueOneTitle', { number: one.invoiceNumber, customer }) : t('dashboard.todo.overdueOneTitleNoCustomer', { number: one.invoiceNumber }))
-        : t('dashboard.todo.overdueManyTitle', { count: overdueInvoices.length }),
-      // Märket säger bara "Förfallen"; hur länge sedan står i detaljraden,
-      // annars klipps märket i den smala högerkolumnen.
-      detail: [
-        one ? fmt(overdueAmount) : t('dashboard.todo.amountTotal', { amount: fmt(overdueAmount) }),
-        one ? t('dashboard.todo.overdueWhen', { when: daysAgoLabel(mostOverdueDays) }) : t('dashboard.todo.overdueOldestWhen', { when: daysAgoLabel(mostOverdueDays) }),
-      ].join(' · '),
-      when: t('dashboard.todo.chipOverdue'),
-    });
-  }
-  // Bara om något är bokfört i kvartalet: ett företag som började i oktober
-  // har ingen Q3-moms att deklarera och ska inte påminnas om den.
-  const vatQuarterHasActivity = vatDeadline && (() => {
-    const [from, to] = quarterToRange(vatDeadline.year, vatDeadline.quarter);
-    return (verifications || []).some(v => v.date && v.date >= from && v.date <= to);
-  })();
-  if (vatDeadline && vatQuarterHasActivity && (vatDeadline.daysLeft < 0 || vatDeadline.daysLeft <= 7)) {
-    const late = vatDeadline.daysLeft < 0;
-    const whenDue = vatDeadline.daysLeft === 0 ? t('dashboard.todos.whenToday') : vatDeadline.daysLeft === 1 ? t('dashboard.todos.whenTomorrow') : t('dashboard.todos.whenInDays', { days: vatDeadline.daysLeft });
-    rawTodos.push({
-      kind: 'vat_deadline', group: 'tax', sev: late ? 'danger' : 'warning', tab: 'taxes', daysLeft: vatDeadline.daysLeft, late,
-      tone: late ? 'bad' : 'warn', icon: TodoVatIcon, action: t('dashboard.todo.actionVat'),
-      title: t('dashboard.todo.vatTitle', { quarter: vatDeadline.quarter }),
-      when: late ? t('dashboard.todo.vatLate') : t('dashboard.todo.vatDue', { when: whenDue }),
-    });
-  }
-  if (pendingPayrollRuns.length > 0) {
-    rawTodos.push({
-      kind: 'payroll_pending', group: 'payroll', sev: 'warning', tab: 'payroll',
-      tone: 'warn', icon: TodoPayrollIcon, action: t('dashboard.todo.actionPayroll'),
-      title: pendingPayrollRuns.length === 1
-        ? t('dashboard.todo.payrollOneTitle', { period: pendingPayrollRuns[0].period || '' })
-        : t('dashboard.todo.payrollManyTitle', { count: pendingPayrollRuns.length }),
-      detail: t('dashboard.todo.payrollDetail'),
-    });
-  }
-  // Det som väntar i Granskning: kvitton utan konto plus betalningar från
-  // Stripe och Zettle (reviewTotal från App.jsx, samma siffra som menyns
-  // märke). Raden leder till Granskning, där man faktiskt går igenom dem,
-  // och inte till Kvitton som förut.
-  const reviewCount = Math.max(reviewTotal ?? 0, unhandledReceipts.length);
-  if (reviewCount > 0) {
-    const receipts = unhandledReceipts.length;
-    const payments = reviewCount - receipts;
-    rawTodos.push({
-      kind: 'review', group: 'bookkeeping', sev: 'success', tab: 'review',
-      tone: 'brand', icon: TodoReviewIcon, primary: true, action: t('dashboard.todo.actionReview'),
-      title: reviewCount === 1 ? t('dashboard.todo.reviewOneTitle') : t('dashboard.todo.reviewManyTitle', { count: reviewCount }),
-      detail: receipts && payments
-        ? t('dashboard.todo.reviewDetailBoth', { receipts, payments })
-        : receipts
-          ? (receipts === 1 ? t('dashboard.todo.reviewDetailReceiptOne') : t('dashboard.todo.reviewDetailReceipts', { count: receipts }))
-          : t('dashboard.todo.reviewDetailPayments', { count: payments }),
-    });
-  }
-  if (draftInvoices.length > 0) {
-    rawTodos.push({
-      kind: 'draft_invoices', group: 'invoices', sev: 'success', tab: 'invoices',
-      tone: 'neu', icon: TodoDraftIcon, action: t('dashboard.todo.actionDraft'),
-      title: draftInvoices.length === 1 ? t('dashboard.todo.draftOneTitle') : t('dashboard.todo.draftManyTitle', { count: draftInvoices.length }),
-      detail: draftInvoices.length === 1 ? t('dashboard.todo.draftOneDetail') : t('dashboard.todo.draftManyDetail'),
-    });
-  }
-  // Första veckan: det som gör kontot klart, som vanliga rader i Att göra
-  // (en tidigare separat checklista stängdes av på kundönskemål). Varje rad
-  // försvinner när saken är gjord, eller när man döljer den.
-  const startSteps = [
-    {
-      kind: 'start_company', done: Boolean(company?.orgNr && company?.address && (company?.bankgiro || company?.plusgiro || company?.iban)),
-      tab: 'company', title: t('dashboard.start.companyTitle'), detail: t('dashboard.start.companyDetail'),
-    },
-    {
-      kind: 'start_vat', done: company?.vatRegistered === true || company?.vatRegistered === false,
-      tab: 'settings_system', title: t('dashboard.start.vatTitle'), detail: t('dashboard.start.vatDetail'),
-    },
-    {
-      kind: 'start_receipt', done: expenses.length > 0,
-      tab: 'expenses', title: t('dashboard.start.receiptTitle'), detail: t('dashboard.start.receiptDetail'),
-    },
-    {
-      kind: 'start_invoice', done: invoices.length > 0,
-      tab: 'invoices', title: t('dashboard.start.invoiceTitle'), detail: t('dashboard.start.invoiceDetail'),
-    },
-  ];
-  // Bara för ett nytt konto: ett företag som redan bokför (eller har flyttat
-  // hit sin historik) ska inte plötsligt få "Kom igång"-rader.
-  const isYoungAccount = (verifications || []).length < 25;
-  startSteps.filter(s => isYoungAccount && !s.done).forEach(({ done: _done, ...s }) => {
-    // Överraden säger vad raden är (Kom igång); rubriken säger vad man gör.
-    rawTodos.push({ ...s, action: t('dashboard.todo.group.start'), group: 'start', sev: 'success', tone: 'brand', icon: s.kind === 'start_vat' ? TodoVatIcon : TodoDraftIcon });
-  });
-  rawTodos.forEach(r => { r.text = [r.title, r.detail, r.when].filter(Boolean).join(' · '); });
-  // Allvarsgrad först (försenat före kommande), men DÄRINOM det som har
-  // minst tid kvar. Utan `daysLeft` som andrahandsnyckel avgjorde
-  // insättningsordningen i koden vad som stod överst, vilket inte har
-  // något med hur bråttom det är att göra.
-  rawTodos.sort((a, b) => {
-    const bySeverity = SEV_RANK[a.sev] - SEV_RANK[b.sev];
-    if (bySeverity !== 0) return bySeverity;
-    const aDays = a.daysLeft ?? Number.POSITIVE_INFINITY;
-    const bDays = b.daysLeft ?? Number.POSITIVE_INFINITY;
-    return aDays - bDays;
-  });
-
-  const todos = rawTodos
-    .map(t => ({ ...t, dismissKey: `${t.kind}::${t.text}` }))
-    .filter(t => !dismissedTodoKeys.has(t.dismissKey));
+  // En rad eller faktura öppnar just den saken (App.jsx handleGlobalAction),
+  // annars sidan.
+  const openTarget = (target) => {
+    if (!target) return;
+    if (target.action && onOpenItem) onOpenItem(target.action, target.tab);
+    else setActiveTab(target.tab);
+  };
+  // ── Att göra ── (utils/todoItems.js, samma lista som notisklockan)
+  const todos = buildTodoItems({
+    t, company, invoices, expenses, contacts, verifications, payrollRuns, employees, agiReports, bankTransactions,
+    vatPeriods, reviewTotal, hiddenNavIds, dismissedKeys: dismissedTodoKeys,
+  }).map(item => ({ ...item, icon: TODO_ICONS[item.kind] || TodoDraftIcon }));
 
   // ── Onboarding ──
   const hasCustomers  = contacts.some(c => c.type === 'customer');
@@ -654,12 +512,12 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     const nameOf = (id, fallback) => (contacts || []).find(c => c.id === id)?.name || fallback || '';
     const items = [
       ...unpaidInvoices.map(i => ({
-        key: `in-${i.id}`, dir: 'in', tab: 'invoices',
+        key: `in-${i.id}`, dir: 'in', target: { tab: 'invoices', action: { type: 'open_invoice', payload: { id: i.id } } },
         name: nameOf(i.customerId, i.invoiceNumber ? `#${i.invoiceNumber}` : ''),
         amount: invoiceCustomerRemaining(i), dueDate: i.dueDate, overdue: daysOverdue(i.dueDate),
       })),
       ...unpaidSupplier.map(e => ({
-        key: `out-${e.id}`, dir: 'out', tab: 'expenses',
+        key: `out-${e.id}`, dir: 'out', target: { tab: 'supplier_invoices', action: { type: 'view_supplier_invoice', payload: { id: e.id } } },
         name: nameOf(e.supplierId, e.supplier || e.description),
         amount: Number(e.amount) || 0, dueDate: e.dueDate, overdue: daysOverdue(e.dueDate),
       })),
@@ -831,7 +689,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             {showGroupTitles && <h3 className="dash-todo-group-title">{t(`dashboard.todo.group.${g.id}`)}</h3>}
             <ul className="dash-todo-group-list">
               {g.items.map(todo => (
-                <TodayRow key={todo.dismissKey} item={todo} onClick={() => todo.tab && setActiveTab(todo.tab)} onDismiss={() => dismissTodo(todo.dismissKey)} />
+                <TodayRow key={todo.dismissKey} item={todo} onClick={() => openTarget(todo.target)} onDismiss={() => dismissTodo(todo.dismissKey)} />
               ))}
             </ul>
           </section>
@@ -1165,7 +1023,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                 <ul>
                   {outstanding.items.map(it => (
                     <li key={it.key}>
-                      <button type="button" className="dash-out-row" onClick={() => setActiveTab(it.tab)}>
+                      <button type="button" className="dash-out-row" onClick={() => openTarget(it.target)}>
                         <i className="dash-out-dot" style={{ background: it.dir === 'in' ? chartRevenue : chartExpense }} aria-hidden="true" />
                         <span className="dash-out-main">
                           <span className="dash-out-name">{it.name}</span>
