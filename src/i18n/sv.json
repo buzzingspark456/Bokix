@@ -4259,6 +4259,9 @@
     "openVer": "Öppna {{number}}",
     "type_monthly": "Moms per månad",
     "type_quarterly": "Moms per kvartal",
-    "type_yearly": "Moms per år"
+    "type_yearly": "Moms per år",
+    "rule_mustBeMonthly": "Omsättningen är över 40 miljoner kronor. Då ska momsen redovisas per månad, senast den 26:e månaden efter.",
+    "rule_yearlyTooLarge": "Omsättningen är över 1 miljon kronor. Då får momsen inte redovisas per år, välj månad eller kvartal.",
+    "changePeriod": "Ändra i Inställningar"
   }
 }

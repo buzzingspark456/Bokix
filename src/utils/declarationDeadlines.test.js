@@ -6,7 +6,7 @@ describe('nextVatDeadline', () => {
     const ref = new Date(2026, 9, 10)
     expect(nextVatDeadline({ vatPeriod: 'monthly' }, {}, { referenceDate: ref }).key).toBe('2026-08')
     expect(nextVatDeadline({ vatPeriod: 'monthly' }, { '2026-08': {} }, { referenceDate: ref }).key).toBe('2026-09')
-    expect(nextVatDeadline({ vatPeriod: 'yearly' }, {})).toBeNull()
+    expect(nextVatDeadline({ vatPeriod: 'yearly' }, {}, { referenceDate: ref }).key).toBe('2026')
     const fiscalYears = { previous: { key: '2025', start: '2025-01-01', end: '2025-12-31', label: '2025' }, current: { key: '2026', start: '2026-01-01', end: '2026-12-31', label: '2026' } }
     const y = nextVatDeadline({ vatPeriod: 'yearly' }, {}, { fiscalYears, orgType: 'Enskild firma', referenceDate: ref })
     expect(y.key).toBe('2026')
@@ -249,5 +249,32 @@ describe('fler förfallodagar (2026-10-10)', async () => {
   it('AGI för september 2026 senast 12 oktober', () => {
     expect(iso(m.agiDueDate('2026-09'))).toBe('2026-10-12')
     expect(iso(m.agiDueDate('2026-07'))).toBe('2026-08-17')
+  })
+})
+
+describe('momsregler och räkenskapsår utan beroenden (2026-10-10)', async () => {
+  const m = await import('./declarationDeadlines.js')
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  it('månadsmoms över 40 mkr: den 26:e månaden efter, 27:e i december', () => {
+    expect(iso(m.monthlyVatDueDateLarge('2026-09'))).toBe('2026-10-26')
+    expect(iso(m.monthlyVatDueDateLarge('2026-11'))).toBe('2026-12-28') // 27 dec 2026 är en söndag
+    expect(m.nextVatDeadline({ vatPeriod: 'monthly' }, {}, { referenceDate: new Date(2026, 9, 10), largeTurnover: true }).key).toBe('2026-09')
+  })
+  it('räkenskapsår med brutet år och första förlängda år', () => {
+    const fy = m.fiscalYearsAt({ fiscalYear: '2025-07-01' }, new Date(2026, 9, 10))
+    expect(fy.current).toMatchObject({ start: '2026-07-01', end: '2027-06-30', key: '2026/2027' })
+    expect(fy.previous).toMatchObject({ start: '2025-07-01', end: '2026-06-30' })
+    const first = m.fiscalYearsAt({ firstFiscalYear: { start: '2025-09-01', end: '2026-12-31' } }, new Date(2026, 9, 10))
+    expect(first.current.key).toBe('2025/2026')
+  })
+  it('regler: över 40 mkr kräver månad, helår bara upp till 1 mkr', () => {
+    expect(m.vatPeriodRules({ vatPeriod: 'quarterly' }, 45e6).problem).toBe('mustBeMonthly')
+    expect(m.vatPeriodRules({ vatPeriod: 'yearly' }, 2e6).problem).toBe('yearlyTooLarge')
+    expect(m.vatPeriodRules({ vatPeriod: 'yearly' }, 8e5).problem).toBeNull()
+    expect(m.vatPeriodRules({ vatPeriod: 'monthly' }, 45e6).problem).toBeNull()
+  })
+  it('årsmoms räknas även utan räkenskapsår från anroparen (servern)', () => {
+    const d = m.nextVatDeadline({ vatPeriod: 'yearly', orgNr: '556677-8899' }, {}, { referenceDate: new Date(2026, 9, 10) })
+    expect(iso(d.dueDate)).toBe('2027-08-17')
   })
 })

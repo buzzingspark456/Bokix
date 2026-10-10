@@ -72,19 +72,19 @@ function Stepper({ current, maxReached, isBooked, onSelect }) {
 export default function VatDeclaration({
   verifications = [], invoices = [], expenses = [], company = {},
   vatPeriods = {}, onBookPeriod, onNavigateToVerification, filings = {}, onToggleFiled, focusPeriod,
-  fiscalYears = null, orgType = null, euTrade = false,
+  fiscalYears = null, orgType = null, euTrade = false, largeTurnover = false, periodRules = null, onOpenSettings = null,
 }) {
   const today = new Date();
   // Perioden följer företagets redovisningssätt (månad, kvartal eller helår).
   // Förvald är den period som ska lämnas härnäst.
   const type = vatPeriodType(company);
-  const opts = { fiscalYears, orgType, euTrade };
+  const opts = { fiscalYears, orgType, euTrade, largeTurnover };
   const infoFor = (key) => {
     if (type === 'yearly') {
       const fy = [fiscalYears?.current, fiscalYears?.previous].find(f => f?.key === key) || fiscalYears?.current;
       return fy ? yearlyVatPeriodInfo(fy, opts) : null;
     }
-    return type === 'monthly' ? monthlyVatPeriodInfo(key) : quarterlyVatPeriodInfo(key);
+    return type === 'monthly' ? monthlyVatPeriodInfo(key, { largeTurnover }) : quarterlyVatPeriodInfo(key);
   };
   const defaultKey = () => nextVatDeadlineFor(company, vatPeriods, opts)?.key
     || (type === 'yearly' ? fiscalYears?.current?.key : vatPeriodKeyFor(type, today));
@@ -235,6 +235,18 @@ export default function VatDeclaration({
           {isBooked && <span className="agi-pill ok"><Lock size={12} style={{ verticalAlign: '-1px' }} /> {t('ui.bokford')}</span>}
         </div>
       </section>
+
+      {/* Lagens gränser: över 40 mkr ska momsen redovisas per månad, och
+          helår får bara väljas upp till 1 mkr. */}
+      {periodRules?.problem && (
+        <div className="fp-warn" role="status">
+          <div>
+            <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: '2px' }} />
+            <span style={{ flex: 1 }}>{t(`vatUi.rule_${periodRules.problem}`)}</span>
+            {onOpenSettings && <button type="button" className="ink2v-link" style={{ color: 'inherit' }} onClick={onOpenSettings}>{t('vatUi.changePeriod')}</button>}
+          </div>
+        </div>
+      )}
 
       <div style={{ padding: '24px' }}>
         <Stepper current={step} maxReached={maxReachedStep} isBooked={isBooked} onSelect={setStep} />

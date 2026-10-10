@@ -28,7 +28,8 @@ import { computeInk2r } from '../utils/ink2r';
 import { computeInk2rResultat } from '../utils/ink2rResultat';
 import { computeNeBalance, computeNeResult, computeNeBalanceSuggestions, computeNeResultSuggestions } from '../utils/ne';
 import { sruMissingFields } from '../utils/sruExport';
-import { nextVatDeadline, nextAgiDeadline, nextKuDeadline, vatDueDate, nextMonthlyVatDeadline, yearlyVatDueDate, incomeDeclarationDueDate, daysFromToday } from '../utils/declarationDeadlines';
+import { vatContextFor } from '../utils/declarationDeadlines';
+import { nextVatDeadline, nextAgiDeadline, nextKuDeadline, vatDueDate, yearlyVatDueDate, incomeDeclarationDueDate, daysFromToday } from '../utils/declarationDeadlines';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { activeFiscalYear, inPeriod } from '../utils/fiscalYear';
 import { t as tr, dateLocale } from '../i18n';
@@ -776,11 +777,10 @@ export default function Taxes({
   // kundens uttryckliga krav var att ALDRIG visa ett gissat datum här.
   // Momsens räkenskapsår, bolagsform och EU-handel (styr helårsmomsens datum).
   const vatFiscalYears = useMemo(() => ({ current: fy, previous: previousFiscalYear(fy, company) }), [fy, company]);
-  const vatEuTrade = useMemo(() => {
-    const euAccounts = new Set(['2614', '2615', '2645', '3108', '3308', '4515', '4516', '4535', '4536']);
-    return verifications.some(v => v.date >= vatFiscalYears.previous.start && (v.rows || []).some(r => euAccounts.has(String(r.account))));
-  }, [verifications, vatFiscalYears]);
-  const vatDeadlineInfo = useMemo(() => nextVatDeadline(company, vatPeriods, { fiscalYears: vatFiscalYears, orgType, euTrade: vatEuTrade }), [company, vatPeriods, vatFiscalYears, orgType, vatEuTrade]);
+  // Omsättning, EU-handel och vilka momsperioder som är tillåtna (vatContextFor).
+  const vatCtx = useMemo(() => vatContextFor(company, verifications), [company, verifications]);
+  const vatEuTrade = vatCtx.euTrade;
+  const vatDeadlineInfo = useMemo(() => nextVatDeadline(company, vatPeriods, { fiscalYears: vatFiscalYears, orgType, euTrade: vatEuTrade, largeTurnover: vatCtx.largeTurnover }), [company, vatPeriods, vatFiscalYears, orgType, vatEuTrade, vatCtx.largeTurnover]);
   const agiDeadlineInfo = useMemo(() => (payrollRuns.length > 0 ? nextAgiDeadline() : null), [payrollRuns.length]);
   // Kundfeedback ("viktiga datum visar inget när det senaste är avklarat"):
   // moms/AGI var tidigare de ENDA två deadline-typerna — utanför en snar
@@ -838,7 +838,7 @@ export default function Taxes({
       };
       if (company?.vatPeriod === 'monthly') {
         // Månadsmoms: nästa månad som ska in, med Skatteverkets datum.
-        const next = nextMonthlyVatDeadline();
+        const next = vatDeadlineInfo ? { periodKey: vatDeadlineInfo.key, dueDate: vatDeadlineInfo.dueDate, daysLeft: vatDeadlineInfo.daysLeft } : null;
         if (next) {
           const filedKey = `vat:${next.periodKey}`;
           const filedAt = filedDate(filedKey);
@@ -1091,6 +1091,9 @@ export default function Taxes({
             fiscalYears={vatFiscalYears}
             orgType={orgType}
             euTrade={vatEuTrade}
+            largeTurnover={vatCtx.largeTurnover}
+            periodRules={vatCtx.rules}
+            onOpenSettings={onNavigateToTab ? () => onNavigateToTab('settings') : null}
           />
           )}
 

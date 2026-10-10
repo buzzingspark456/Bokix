@@ -4259,6 +4259,9 @@
     "openVer": "Open {{number}}",
     "type_monthly": "Monthly VAT",
     "type_quarterly": "Quarterly VAT",
-    "type_yearly": "Yearly VAT"
+    "type_yearly": "Yearly VAT",
+    "rule_mustBeMonthly": "Turnover is above SEK 40 million. VAT must then be reported monthly, by the 26th of the following month.",
+    "rule_yearlyTooLarge": "Turnover is above SEK 1 million. VAT may then not be reported yearly, choose monthly or quarterly.",
+    "changePeriod": "Change in Settings"
   }
 }

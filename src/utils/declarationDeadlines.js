@@ -20,6 +20,8 @@
 // imports. En liten, stabil 5-radersfunktion att hålla dubblerad är
 // billigare än att lägga till .js-ändelser i hela vatCalculation.js:s
 // beroendekedja.
+import { detectOrgType } from './orgType.js';
+
 export function quarterToRange(year, quarter) {
   const startMonth = (quarter - 1) * 3;
   const start = new Date(Date.UTC(year, startMonth, 1));
@@ -248,11 +250,11 @@ export function vatPeriodType(company) {
   return p === 'monthly' || p === 'yearly' ? p : 'quarterly';
 }
 
-export function monthlyVatPeriodInfo(key) {
+export function monthlyVatPeriodInfo(key, { largeTurnover = false } = {}) {
   const [y, m] = key.split('-').map(Number);
   const start = `${key}-01`;
   const end = iso(new Date(y, m, 0));
-  return { key, type: 'monthly', start, end, year: y, month: m, dueDate: monthlyVatDueDate(key), eskdPeriod: `${y}${String(m).padStart(2, '0')}`, label: `${MONTH_NAMES_SV[m - 1]} ${y}` };
+  return { key, type: 'monthly', start, end, year: y, month: m, dueDate: largeTurnover ? monthlyVatDueDateLarge(key) : monthlyVatDueDate(key), eskdPeriod: `${y}${String(m).padStart(2, '0')}`, label: `${MONTH_NAMES_SV[m - 1]} ${y}` };
 }
 
 export function quarterlyVatPeriodInfo(key) {
@@ -289,20 +291,21 @@ export function previousVatPeriodKey(key) {
 /** Nästa momsdeklaration för alla redovisningssätt. För helår krävs
  * fiscalYears: { current, previous } (räkenskapsår), annars null.
  * Hoppar över bokförda perioder. Returnerar periodinfo plus daysLeft. */
-export function nextVatDeadlineFor(company, vatPeriods = {}, { fiscalYears = null, orgType = null, euTrade = false, referenceDate = new Date() } = {}) {
+export function nextVatDeadlineFor(company, vatPeriods = {}, { fiscalYears = null, orgType = null, euTrade = false, largeTurnover = false, referenceDate = new Date() } = {}) {
   if (company?.vatRegistered === false) return null;
   const today = new Date(referenceDate);
   today.setHours(0, 0, 0, 0);
   const type = vatPeriodType(company);
   const withDays = (info) => ({ ...info, daysLeft: Math.round((info.dueDate - today) / 86400000) });
   if (type === 'yearly') {
-    if (!fiscalYears?.current) return null;
+    if (!fiscalYears?.current) fiscalYears = fiscalYearsAt(company, today);
+    if (!orgType) orgType = detectOrgType(company?.orgNr);
     const candidates = [fiscalYears.previous, fiscalYears.current].filter(Boolean)
       .map(fy => yearlyVatPeriodInfo(fy, { orgType, euTrade }))
       .filter(p => !vatPeriods[p.key] && p.dueDate && p.dueDate >= today);
     return candidates[0] ? withDays(candidates[0]) : null;
   }
-  const info = type === 'monthly' ? monthlyVatPeriodInfo : quarterlyVatPeriodInfo;
+  const info = type === 'monthly' ? (k) => monthlyVatPeriodInfo(k, { largeTurnover }) : quarterlyVatPeriodInfo;
   // Börja två perioder bakåt: den som senast tog slut kan fortfarande vara kvar att lämna.
   let key = vatPeriodKeyFor(type, today);
   key = previousVatPeriodKey(previousVatPeriodKey(key));
@@ -323,4 +326,118 @@ export function nextVatPeriodKey(key) {
   const [y, m] = key.split('-').map(Number);
   const d = new Date(y, m, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// ── Räkenskapsår och momsregler utan beroenden (2026-10-10) ──
+// Samma regler som fiscalYear.js (activeFiscalYear, periodLabel) och
+// annualReport.js (previousFiscalYear), men utan importer så att även
+// servern (api/cron/reminders.js) kan räkna helårsmomsens datum.
+const fyLabel = (start, end) => {
+  const y1 = start.slice(0, 4); const y2 = end.slice(0, 4);
+  if (start.slice(5) === '01-01' && end.slice(5) === '12-31' && y1 === y2) return y1;
+  return y1 === y2 ? `${start} – ${end}` : `${y1}/${y2}`;
+};
+const fyOf = (start, end) => { const label = fyLabel(start, end); return { start, end, label, key: label }; };
+
+/** { current, previous } räkenskapsår för ett datum. */
+export function fiscalYearsAt(company, now = new Date()) {
+  const today = iso(now);
+  const first = company?.firstFiscalYear;
+  let current;
+  if (first?.start && first?.end && today >= first.start && today <= first.end) {
+    current = fyOf(first.start, first.end);
+  } else {
+    const configured = company?.fiscalYear ? new Date(`${String(company.fiscalYear).slice(0, 10)}T12:00:00`) : new Date(now.getFullYear(), 0, 1);
+    let start = new Date(now.getFullYear(), configured.getMonth(), configured.getDate());
+    if (iso(start) > today) start = new Date(now.getFullYear() - 1, configured.getMonth(), configured.getDate());
+    const end = new Date(start.getFullYear() + 1, start.getMonth(), start.getDate());
+    end.setDate(end.getDate() - 1);
+    current = fyOf(iso(start), iso(end));
+  }
+  const dayBefore = new Date(`${current.start}T12:00:00`);
+  dayBefore.setDate(dayBefore.getDate() - 1);
+  const prevEnd = iso(dayBefore);
+  let previous;
+  if (first?.start && first?.end === prevEnd) previous = fyOf(first.start, first.end);
+  else {
+    const s = new Date(`${current.start}T12:00:00`);
+    s.setFullYear(s.getFullYear() - 1);
+    previous = fyOf(iso(s), prevEnd);
+  }
+  return { current, previous };
+}
+
+// Momsens gränser (SFL 26 kap. 10–14 §§): beskattningsunderlaget (exkl.
+// import) över 40 mkr kräver månadsmoms med den 26:e månaden efter; helår
+// får bara väljas när underlaget är högst 1 mkr.
+export const VAT_MONTHLY_REQUIRED_ABOVE = 40000000;
+export const VAT_YEARLY_ALLOWED_UP_TO = 1000000;
+
+/** Momspliktig försäljning (3000–3799 netto, kredit positivt) i en period.
+ * Ett närmevärde för beskattningsunderlaget. */
+export function vatTurnover(verifications, period) {
+  let sum = 0;
+  for (const v of verifications || []) {
+    if (!v?.date || v.date < period.start || v.date > period.end || v.status === 'draft') continue;
+    for (const r of v.rows || []) {
+      const n = Number(String(r.account || '').slice(0, 4));
+      if (n >= 3000 && n <= 3799) sum += (Number(r.kredit) || 0) - (Number(r.debet) || 0);
+    }
+  }
+  return sum;
+}
+
+/** Omsättningen som avgör momsperioden: förra räkenskapsåret om det har
+ * bokföring, annars det pågående (uppräknat till helår). */
+export function vatTurnoverForRules(verifications, fiscalYears) {
+  const prev = fiscalYears?.previous;
+  const cur = fiscalYears?.current;
+  if (prev && (verifications || []).some(v => v.date >= prev.start && v.date <= prev.end)) return vatTurnover(verifications, prev);
+  if (!cur) return 0;
+  const days = (a, b) => Math.max(1, Math.round((new Date(`${b}T12:00:00`) - new Date(`${a}T12:00:00`)) / 86400000) + 1);
+  const today = iso(new Date());
+  const to = today < cur.end ? today : cur.end;
+  if (to < cur.start) return 0;
+  return vatTurnover(verifications, { start: cur.start, end: to }) * (days(cur.start, cur.end) / days(cur.start, to));
+}
+
+/** Kontroll av företagets valda momsperiod mot omsättningen. Returnerar
+ * { required: 'monthly'|null, allowedYearly, largeTurnover, problem }. */
+export function vatPeriodRules(company, turnover) {
+  const chosen = vatPeriodType(company);
+  const largeTurnover = turnover > VAT_MONTHLY_REQUIRED_ABOVE;
+  const allowedYearly = turnover <= VAT_YEARLY_ALLOWED_UP_TO;
+  let problem = null;
+  if (largeTurnover && chosen !== 'monthly') problem = 'mustBeMonthly';
+  else if (chosen === 'yearly' && !allowedYearly) problem = 'yearlyTooLarge';
+  return { chosen, largeTurnover, allowedYearly, problem };
+}
+
+/** Månadsmoms när omsättningen är över 40 mkr: den 26:e månaden efter,
+ * den 27:e när det är december. */
+export function monthlyVatDueDateLarge(periodKey) {
+  const [y, m] = periodKey.split('-').map(Number);
+  const due = new Date(y, m, 1);
+  return dayAfterWeekend(due.getFullYear(), due.getMonth(), due.getMonth() === 11 ? 27 : 26);
+}
+
+// Handel med andra EU-länder (EU-försäljning, EU-förvärv, omvänd moms) syns
+// på de här kontona. Styr helårsmomsens datum.
+const EU_ACCOUNTS = new Set(['2614', '2615', '2645', '3108', '3308', '4515', '4516', '4535', '4536']);
+export function hasEuTrade(verifications, since) {
+  return (verifications || []).some(v => v.date >= since && (v.rows || []).some(r => EU_ACCOUNTS.has(String(r.account))));
+}
+
+/** Allt som behövs för företagets momsdatum, räknat ur bokföringen. */
+export function vatContextFor(company, verifications, now = new Date()) {
+  const fiscalYears = fiscalYearsAt(company, now);
+  const turnover = vatTurnoverForRules(verifications, fiscalYears);
+  return {
+    fiscalYears,
+    orgType: detectOrgType(company?.orgNr),
+    euTrade: hasEuTrade(verifications, fiscalYears.previous.start),
+    largeTurnover: turnover > VAT_MONTHLY_REQUIRED_ABOVE,
+    turnover,
+    rules: vatPeriodRules(company, turnover),
+  };
 }

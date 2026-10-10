@@ -3,7 +3,7 @@
 // Google Kalender, Apple och Outlook prenumererar på. Ren logik utan
 // beroenden till React eller i18n, så den kan köras både i api/calendar.js
 // och i tester.
-import { quarterToRange, vatDueDate, dueDayForMonth, rollForwardPastWeekend, monthlyVatPeriodInfo } from './declarationDeadlines.js';
+import { quarterToRange, vatDueDate, dueDayForMonth, rollForwardPastWeekend, monthlyVatPeriodInfo, vatContextFor, nextVatDeadline } from './declarationDeadlines.js';
 
 /** Slumpad nyckel som skyddar länken. Byts när användaren skapar en ny
  * länk, och då slutar den gamla fungera. */
@@ -83,10 +83,16 @@ export function buildCalendarEvents(companyData, { today = new Date(), vat = tru
     for (let i = -3; i < 14; i++) {
       const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
       const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
-      const p = monthlyVatPeriodInfo(key);
+      const p = monthlyVatPeriodInfo(key, { largeTurnover: vatContextFor(company, companyData?.verifications || []).largeTurnover });
       if (!inRange(p.dueDate) || vatPeriodDone(vatPeriods[key])) continue;
       events.push({ uid: `moms-${key}`, date: ymd(p.dueDate), title: `Momsdeklaration ${p.label}`, description: `Moms för ${p.start} till ${p.end} ska vara deklarerad och betald.` });
     }
+  }
+
+  // Helårsmoms: nästa deklaration för räkenskapsåret.
+  if (vat && company.vatRegistered !== false && company.vatPeriod === 'yearly') {
+    const next = nextVatDeadline(company, companyData?.vatPeriods || {}, vatContextFor(company, companyData?.verifications || [], today));
+    if (next && inRange(next.dueDate)) events.push({ uid: `moms-${next.key}`, date: ymd(next.dueDate), title: `Momsdeklaration ${next.label}`, description: `Moms för ${next.start} till ${next.end} ska vara deklarerad och betald.` });
   }
 
   // AGI och kontrolluppgifter, bara för företag som kör löner.

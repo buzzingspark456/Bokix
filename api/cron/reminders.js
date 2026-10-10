@@ -5,7 +5,7 @@ import { applySecurityHeaders } from '../_security.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { trySendFromOwnAddress } from '../_smtp.js';
 import { buildInvoiceReminderHtml, buildVatDeadlineHtml, buildAgiDeadlineHtml, buildTrialEndingHtml } from '../_emailTemplates.js';
-import { nextVatDeadline, nextAgiDeadline } from '../../src/utils/declarationDeadlines.js';
+import { nextVatDeadline, nextAgiDeadline, vatContextFor } from '../../src/utils/declarationDeadlines.js';
 import { planFromId } from '../../src/utils/plans.js';
 import { runDataRetention } from './_dataRetention.js';
 import { logSystemEvent } from '../_systemEvents.js';
@@ -382,7 +382,7 @@ export default async function handler(req, res) {
           // annars göra att daysLeft aldrig träffar exakt N igen för den här
           // perioden och påminnelsen uteblir helt. remindersSent-markören
           // nedan gör ändå att den bara skickas EN gång per period.
-          const vatDeadline = declarationRemindersOn ? nextVatDeadline(companyData.company, companyData.vatPeriods || {}) : null;
+          const vatDeadline = declarationRemindersOn ? nextVatDeadline(companyData.company, companyData.vatPeriods || {}, vatContextFor(companyData.company, companyData.verifications || [])) : null;
           if (vatDeadline && vatDeadline.daysLeft <= notif.declarationReminderDays) {
             const periodKey = vatDeadline.key;
             const period = (companyData.vatPeriods || {})[periodKey] || {};

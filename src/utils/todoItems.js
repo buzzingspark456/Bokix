@@ -9,7 +9,7 @@
 //
 // Raderna har ingen ikon här (ikonerna är React-komponenter, se
 // Dashboard.jsx TODO_ICONS), bara `kind`.
-import { nextVatDeadline, nextAgiDeadline } from './declarationDeadlines';
+import { nextVatDeadline, nextAgiDeadline, vatContextFor } from './declarationDeadlines';
 import { invoiceCustomerRemaining } from './rotRutConfig';
 import { activeFiscalYear } from './fiscalYear';
 
@@ -106,7 +106,7 @@ export function buildTodoItems({
 
   // Momsdeklarationen, bara om något är bokfört i kvartalet: ett företag som
   // började i oktober har ingen Q3-moms att deklarera.
-  const vatDeadline = nextVatDeadline(company, vatPeriods);
+  const vatDeadline = nextVatDeadline(company, vatPeriods, vatContextFor(company, verifications));
   const vatQuarterHasActivity = vatDeadline && verifications.some(v => v.date && v.date >= vatDeadline.start && v.date <= vatDeadline.end);
   if (vatDeadline && vatQuarterHasActivity && vatDeadline.daysLeft <= 7) {
     const late = vatDeadline.daysLeft < 0;
