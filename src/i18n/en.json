@@ -4074,5 +4074,24 @@
     "search": "Search companies",
     "invited": "Invited",
     "none": "No company matches"
+  },
+  "taxOverview": {
+    "now": "Now",
+    "later": "Later",
+    "done": "Done",
+    "noDate": "No date"
+  },
+  "payrollYear": {
+    "month": "Month",
+    "gross": "Pay before tax",
+    "payout": "Payout",
+    "agi": "Employer declaration",
+    "status": "Status",
+    "submitted": "Filed",
+    "noRun": "No pay run",
+    "create": "Create pay run",
+    "due": "due {{date}}",
+    "year": "Year",
+    "total": "Total {{year}}"
   }
 }

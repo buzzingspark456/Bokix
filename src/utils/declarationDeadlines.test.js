@@ -215,3 +215,33 @@ describe('nextKuDeadline', () => {
     expect(result.daysLeft).toBeGreaterThanOrEqual(0)
   })
 })
+
+describe('fler förfallodagar (2026-10-10)', async () => {
+  const m = await import('./declarationDeadlines.js')
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  it('månadsmoms: augusti 2026 senast 12 oktober, juni senast 17 augusti', () => {
+    expect(iso(m.monthlyVatDueDate('2026-08'))).toBe('2026-10-12')
+    expect(iso(m.monthlyVatDueDate('2026-06'))).toBe('2026-08-17')
+    expect(iso(m.monthlyVatDueDate('2026-11'))).toBe('2027-01-18') // 17 jan 2027 är en söndag
+  })
+  it('nästa månadsmoms den 10 oktober 2026 är augusti', () => {
+    expect(m.nextMonthlyVatDeadline(new Date(2026, 9, 10)).periodKey).toBe('2026-08')
+    expect(m.nextMonthlyVatDeadline(new Date(2026, 9, 13)).periodKey).toBe('2026-09')
+  })
+  it('helårsmoms per bolagsform', () => {
+    expect(iso(m.yearlyVatDueDate({ orgType: 'Enskild firma', fyEnd: '2026-12-31' }))).toBe('2027-05-12')
+    expect(iso(m.yearlyVatDueDate({ orgType: 'Aktiebolag (AB)', fyEnd: '2026-12-31' }))).toBe('2027-08-17')
+    expect(iso(m.yearlyVatDueDate({ orgType: 'Aktiebolag (AB)', fyEnd: '2026-04-30' }))).toBe('2026-12-14') // 12 dec är en lördag
+    expect(iso(m.yearlyVatDueDate({ orgType: 'Handelsbolag / Kommanditbolag', fyEnd: '2026-12-31' }))).toBe('2027-02-26')
+  })
+  it('inkomstdeklaration digitalt', () => {
+    expect(iso(m.incomeDeclarationDueDate({ orgType: 'Aktiebolag (AB)', fyEnd: '2025-12-31' }))).toBe('2026-08-03')
+    expect(iso(m.incomeDeclarationDueDate({ orgType: 'Aktiebolag (AB)', fyEnd: '2026-06-30' }))).toBe('2027-01-15')
+    expect(iso(m.incomeDeclarationDueDate({ orgType: 'Enskild firma', fyEnd: '2025-12-31' }))).toBe('2026-05-04')
+    expect(m.incomeDeclarationDueDate({ orgType: 'Handelsbolag / Kommanditbolag', fyEnd: '2025-12-31' })).toBeNull()
+  })
+  it('AGI för september 2026 senast 12 oktober', () => {
+    expect(iso(m.agiDueDate('2026-09'))).toBe('2026-10-12')
+    expect(iso(m.agiDueDate('2026-07'))).toBe('2026-08-17')
+  })
+})

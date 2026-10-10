@@ -10,7 +10,9 @@ import PayrollRunDetail from './PayrollRunDetail';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle, listHeaderButtonStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { BRAND } from '../utils/brandColors';
-import { t } from '../i18n';
+import { t, dateLocale } from '../i18n';
+import { computeEmployeePayroll, summarizePayrollRun } from '../utils/payrollCalculation';
+import { agiDueDate, daysFromToday } from '../utils/declarationDeadlines';
 import { MobileFormMode } from './shared/MobileForm';
 
 const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
@@ -20,11 +22,11 @@ const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: 
 
 export default function Payroll({
   company, employees = [], onSaveEmployee, onImportEmployees, onApplyFos, onSyncBeforeServerCall, accounts = [], projects = [],
-  payrollRuns = [], onCreateRun, onUpdateRunRow, onAdvanceRunStep, onBookRun, onMarkRunPaid, onRefreshRunSnapshots,
+  payrollRuns = [], onCreateRun, onUpdateRunRow, onAdvanceRunStep, onBookRun, onMarkRunPaid, onRefreshRunSnapshots, agiReports = [],
 }) {
   const [activeTab, setActiveTab] = useState('employees');
   const [search, setSearch] = useState('');
-  const [runSearch, setRunSearch] = useState('');
+  const [runYear, setRunYear] = useState(new Date().getFullYear());
   const [viewState, setViewState] = useState('list'); // 'list' | 'new' | 'edit'
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [selectedRunId, setSelectedRunId] = useState(null);
@@ -50,7 +52,57 @@ export default function Payroll({
   };
 
   const sortedRuns = [...payrollRuns].sort((a, b) => b.period.localeCompare(a.period));
-  const filteredRuns = sortedRuns.filter(r => !runSearch || r.period.toLowerCase().includes(runSearch.toLowerCase()));
+  // Årsvyn: en rad per månad med lön före skatt, utbetalningsdag och AGI.
+  // Innevarande år visar januari till och med den senaste av innevarande
+  // månad och sista lönekörningen; tidigare år visar alla tolv månader.
+  const thisYear = new Date().getFullYear();
+  const runYears = [...new Set([thisYear, ...payrollRuns.map(r => Number(String(r.period).slice(0, 4))).filter(Boolean)])].sort((a, b) => b - a);
+  const shownYear = runYears.includes(runYear) ? runYear : thisYear;
+  const yearRuns = sortedRuns.filter(r => String(r.period).startsWith(`${shownYear}-`));
+  const lastMonth = shownYear < thisYear ? 12 : Math.max(
+    shownYear === thisYear ? new Date().getMonth() + 1 : 1,
+    ...yearRuns.map(r => Number(r.period.slice(5, 7))),
+  );
+  const filteredRuns = [];
+  for (let m = lastMonth; m >= 1; m--) {
+    const period = `${shownYear}-${String(m).padStart(2, '0')}`;
+    const monthRuns = yearRuns.filter(r => r.period === period);
+    if (monthRuns.length) monthRuns.forEach(run => filteredRuns.push({ key: run.id, period, run }));
+    else filteredRuns.push({ key: `empty-${period}`, period, run: null });
+  }
+  const runGross = (run) => {
+    try {
+      return summarizePayrollRun(run.rows.map(row => computeEmployeePayroll(row.employeeSnapshot || {}, row))).gross;
+    } catch { return null; }
+  };
+  const fmtShortDate = (d) => new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(d);
+  const agiInfo = (row) => {
+    const due = agiDueDate(row.period);
+    const report = agiReports.find(r => r.period === row.period);
+    // Inlämnad om AGI-rapporten är markerad, eller om steget bockats av i lönekörningen.
+    const submitted = report?.status === 'submitted' || Boolean(row.run?.completedSteps?.includes('agi'));
+    return { due, submitted, daysLeft: daysFromToday(due) };
+  };
+  const monthName = (period) => {
+    const name = new Intl.DateTimeFormat(dateLocale(), { month: 'long' }).format(new Date(`${period}-01T12:00:00`));
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  };
+  const runStatus = (r) => r.completedSteps.includes('booked') ? t('ui.bokford') : (r.completedSteps.includes('calculated') ? t('ui.bokforda_status_berakn') : t('ui.utkast'));
+  const runTone = (status) => status === t('ui.bokford') ? { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' } : status === t('ui.bokforda_status_berakn') ? { bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : { bg: 'var(--border-light)', color: 'var(--text-secondary)' };
+  const agiCell = (row) => {
+    if (!row.run) return <span style={{ color: 'var(--text-muted)' }}>–</span>;
+    const a = agiInfo(row);
+    if (a.submitted) return <span style={{ color: 'var(--status-green-text)', fontWeight: 600 }}>{t('payrollYear.submitted')}</span>;
+    const color = a.daysLeft < 0 ? 'var(--status-red-text)' : a.daysLeft <= 7 ? 'var(--status-amber-text)' : 'var(--text-main)';
+    return <span style={{ color, fontWeight: a.daysLeft <= 7 ? 600 : 400 }}>{t('payrollYear.due', { date: fmtShortDate(a.due) })}</span>;
+  };
+  const openRow = (row) => {
+    if (row.run) { setSelectedRunId(row.run.id); return; }
+    if (employees.length === 0) { setActiveTab('employees'); setViewState('new'); return; }
+    setNewRunPeriod(row.period);
+    setNewRunPayDate(`${row.period}-25`);
+    setShowNewRun(true);
+  };
   const selectedRun = payrollRuns.find(r => r.id === selectedRunId);
   const selectedRunIndex = sortedRuns.findIndex(r => r.id === selectedRunId);
   const previousRun = selectedRunIndex >= 0 ? sortedRuns[selectedRunIndex + 1] : null;
@@ -137,14 +189,21 @@ export default function Payroll({
           från Anställda — samma ListFilterBar/sökfält-mönster nu på båda. */}
       {((activeTab === 'employees' && viewState === 'list') || activeTab === 'runs') && (
         <ListFilterBar>
-          <div style={{ position: 'relative' }}>
-            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            {activeTab === 'employees' ? (
+          {activeTab === 'employees' ? (
+            <div style={{ position: 'relative' }}>
+              <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input type="text" placeholder={t('ui.sok_anstalld')} value={search} onChange={e => setSearch(e.target.value)} style={listSearchInputStyle} />
-            ) : (
-              <input type="text" placeholder={t('ui.sok_period_t_ex_2026_08')} value={runSearch} onChange={e => setRunSearch(e.target.value)} style={listSearchInputStyle} />
-            )}
-          </div>
+            </div>
+          ) : (
+            // Lönekörningar visas per år. Bara år som har lönekörningar (och
+            // innevarande år) finns att välja, så ett nytt företag ser bara 2026.
+            // Första barnet i filterraden, så det syns även på telefon.
+            <div className="filter-pills" role="tablist" aria-label={t('payrollYear.year')}>
+              {runYears.map(y => (
+                <button key={y} type="button" role="tab" aria-selected={y === shownYear} className={`filter-pill${y === shownYear ? ' active' : ''}`} onClick={() => setRunYear(y)}>{y}</button>
+              ))}
+            </div>
+          )}
         </ListFilterBar>
       )}
 
@@ -332,41 +391,55 @@ export default function Payroll({
           )}
 
           <ListTable
-            rowKey={r => r.id}
-            onRowClick={r => setSelectedRunId(r.id)}
-            // Kundönskemål (uppföljning): varningen om att lägga till en
-            // anställd låg tidigare som en egen ruta OVANFÖR hela fliken —
-            // flyttad hit, UNDER "Inga tidigare lönekörningar", i stället
-            // för att sväva ovanför/före tomt-läget.
-            emptyMessage={sortedRuns.length === 0 ? (
+            rowKey={r => r.key}
+            onRowClick={openRow}
+            // Utan anställda finns inget att köra: då visas tomt-läget med
+            // uppmaningen att lägga till en anställd först.
+            emptyMessage={(
               <div>
                 <div>{t('ui.inga_tidigare_lonekorningar')}</div>
-                {employees.length === 0 && (
-                  <div style={{ marginTop: '10px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
-                    {t('ui.du_behover_lagga_till_minst_en_anstalld_innan_du')}
-                  </div>
-                )}
+                <div style={{ marginTop: '10px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
+                  {t('ui.du_behover_lagga_till_minst_en_anstalld_innan_du')}
+                </div>
               </div>
-            ) : t('ui.ingen_matchade_sokningen')}
-            rows={filteredRuns}
-            mobileList={r => {
-              const status = r.completedSteps.includes('booked') ? t('ui.bokford') : (r.completedSteps.includes('calculated') ? t('ui.bokforda_status_berakn') : t('ui.utkast'));
-              const tone = status === t('ui.bokford') ? { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' } : status === t('ui.bokforda_status_berakn') ? { bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : { bg: 'var(--border-light)', color: 'var(--text-secondary)' };
+            )}
+            rows={employees.length === 0 && sortedRuns.length === 0 ? [] : filteredRuns}
+            mobileList={row => {
+              if (!row.run) return { dot: 'var(--border)', primary: monthName(row.period), meta: t('payrollYear.noRun'), amount: '' };
+              const status = runStatus(row.run);
+              const tone = runTone(status);
+              const gross = runGross(row.run);
+              const a = agiInfo(row);
               return {
                 dot: tone.color,
-                primary: t('ui.lonekorning', { period: r.period }),
-                meta: `${r.rows.length} ${r.rows.length === 1 ? t('ui.anstalld_2') : t('ui.anstallda_2')}`,
+                primary: monthName(row.period),
+                amount: gross != null ? formatSEK(gross) : '',
+                meta: [
+                  row.run.payDate ? fmtShortDate(new Date(`${row.run.payDate}T12:00:00`)) : null,
+                  a.submitted ? `AGI: ${t('payrollYear.submitted').toLowerCase()}` : `AGI ${t('payrollYear.due', { date: fmtShortDate(a.due) })}`,
+                ].filter(Boolean).join(' · '),
                 pill: <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: tone.bg, color: tone.color }}>{status}</span>,
               };
             }}
             columns={[
-              { key: 'period', label: t('ui.period'), fontWeight: 700, color: 'var(--text-main)', fontSize: '14px', render: r => t('ui.lonekorning', { period: r.period }) },
-              { key: 'employees', label: t('ui.anstallda'), color: 'var(--text-main)', fontSize: '14px', render: r => r.rows.length },
+              { key: 'period', label: t('payrollYear.month'), fontWeight: 700, color: 'var(--text-main)', fontSize: '14px', render: row => <span style={{ color: row.run ? 'var(--text-main)' : 'var(--text-secondary)', fontWeight: row.run ? 700 : 500 }}>{monthName(row.period)}</span> },
+              { key: 'gross', label: t('payrollYear.gross'), color: 'var(--text-main)', fontSize: '14px', render: row => {
+                if (!row.run) return <span style={{ color: 'var(--text-muted)' }}>–</span>;
+                const gross = runGross(row.run);
+                return <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{gross != null ? formatSEK(gross) : '–'}</span>;
+              } },
+              { key: 'payout', label: t('payrollYear.payout'), color: 'var(--text-main)', fontSize: '14px', render: row => row.run?.payDate ? fmtShortDate(new Date(`${row.run.payDate}T12:00:00`)) :<span style={{ color: 'var(--text-muted)' }}>–</span> },
+              { key: 'agi', label: t('payrollYear.agi'), fontSize: '14px', render: agiCell },
               {
-                key: 'status', label: t('ui.status'), render: r => {
-                  const status = r.completedSteps.includes('booked') ? t('ui.bokford') : (r.completedSteps.includes('calculated') ? t('ui.bokforda_status_berakn') : t('ui.utkast'));
-                  const statusColor = status === t('ui.bokford') ? { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' } : status === t('ui.bokforda_status_berakn') ? { bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' } : { bg: 'var(--border-light)', color: 'var(--text-secondary)' };
-                  return <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: statusColor.bg, color: statusColor.color }}>{status}</span>;
+                key: 'status', label: t('payrollYear.status'), render: row => {
+                  // Tidigare månader utan lön är bara tomma; innevarande och
+                  // kommande månad erbjuder att skapa lönekörningen.
+                  if (!row.run) return row.period >= new Date().toISOString().slice(0, 7)
+                    ? <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--chip-active-text)' }}>{t('payrollYear.create')}</span>
+                    : <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{t('payrollYear.noRun')}</span>;
+                  const status = runStatus(row.run);
+                  const tone = runTone(status);
+                  return <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: tone.bg, color: tone.color }}>{status}</span>;
                 },
               },
               { key: 'chevron', label: '', align: 'right', render: () => <ChevronRight size={16} color="var(--text-muted)" /> },

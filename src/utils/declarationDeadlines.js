@@ -181,3 +181,91 @@ export function nextKuDeadline(referenceDate = new Date()) {
   const incomeYear = dueDate.getFullYear() - 1; // KU:n som förfaller avser alltid FÖREGÅENDE inkomstår
   return { daysLeft, incomeYear, dueDate };
 }
+
+// ── Fler förfallodagar (2026-10-10) ──
+// Så att Översikten har ett riktigt datum för allt, oavsett momsperiod och
+// bolagsform. Källa: skatteverket.se, "När ska jag deklarera moms?" och
+// "Viktiga datum" för inkomstdeklarationen. Bokix-användare lämnar in
+// digitalt (fil eller e-tjänst), så de digitala datumen används.
+
+const dayAfterWeekend = (y, m, d) => rollForwardPastWeekend(new Date(y, m, d));
+const daysFromToday = (d, referenceDate = new Date()) => {
+  const today = new Date(referenceDate);
+  today.setHours(0, 0, 0, 0);
+  return Math.round((d - today) / 86400000);
+};
+
+/** Månadsmoms (omsättning upp till 40 mkr): den 12:e i andra månaden efter
+ * perioden, den 17:e i januari och augusti. periodKey är "YYYY-MM". */
+export function monthlyVatDueDate(periodKey) {
+  const [y, m] = periodKey.split('-').map(Number);
+  const due = new Date(y, m - 1 + 2, 1);
+  return dayAfterWeekend(due.getFullYear(), due.getMonth(), dueDayForMonth(due.getMonth()));
+}
+
+/** Nästa månadsmoms som inte har passerat. Månaden som tog slut för två
+ * månader sedan först, annars förra månaden. */
+export function nextMonthlyVatDeadline(referenceDate = new Date()) {
+  const today = new Date(referenceDate);
+  today.setHours(0, 0, 0, 0);
+  for (let back = 2; back >= 0; back--) {
+    const p = new Date(today.getFullYear(), today.getMonth() - back, 1);
+    const periodKey = `${p.getFullYear()}-${String(p.getMonth() + 1).padStart(2, '0')}`;
+    const dueDate = monthlyVatDueDate(periodKey);
+    if (dueDate >= today) return { periodKey, dueDate, daysLeft: daysFromToday(dueDate, today) };
+  }
+  return null;
+}
+
+// Räkenskapsårets sista månad (1–12) styr aktiebolagets datum.
+const endMonthOf = (fyEnd) => Number(String(fyEnd).slice(5, 7));
+const endYearOf = (fyEnd) => Number(String(fyEnd).slice(0, 4));
+
+/** Helårsmoms. Enskild firma: 12 maj året efter (26 februari vid handel med
+ * andra EU-länder). Aktiebolag och ekonomisk förening utan EU-handel: samma
+ * dag som inkomstdeklarationen, digitalt. Handelsbolag och alla med
+ * EU-handel: den 26:e i andra månaden efter året (27:e i december). */
+export function yearlyVatDueDate({ orgType, fyEnd, euTrade = false }) {
+  if (!fyEnd) return null;
+  const y = endYearOf(fyEnd);
+  const m = endMonthOf(fyEnd);
+  const isSoleProp = orgType === 'Enskild firma';
+  // Aktiebolag (AB), ekonomisk förening och okänd form räknas som bolag.
+  const isCompany = !isSoleProp && orgType !== 'Handelsbolag / Kommanditbolag';
+  if (isSoleProp && !euTrade) return dayAfterWeekend(y + 1, 4, 12);
+  if (isSoleProp && euTrade) return dayAfterWeekend(y + 1, 1, 26);
+  if (isCompany && !euTrade) {
+    if (m <= 4) return dayAfterWeekend(y, 11, 12);       // 12 december
+    if (m <= 6) return dayAfterWeekend(y + 1, 0, 17);    // 17 januari
+    if (m <= 8) return dayAfterWeekend(y + 1, 3, 12);    // 12 april
+    return dayAfterWeekend(y + 1, 7, 17);                // 17 augusti
+  }
+  const due = new Date(y, m - 1 + 2, 1);
+  return dayAfterWeekend(due.getFullYear(), due.getMonth(), due.getMonth() === 11 ? 27 : 26);
+}
+
+/** Inkomstdeklarationen, digitalt. Aktiebolag och ekonomisk förening
+ * (INK2) efter räkenskapsårets slut: januari–april 1 december, maj–juni
+ * 15 januari, juli–augusti 1 april, september–december 1 augusti. Enskild
+ * firma (INK1 med NE): 2 maj året efter. Handelsbolag: null, delägarna
+ * deklarerar själva. */
+export function incomeDeclarationDueDate({ orgType, fyEnd }) {
+  if (!fyEnd) return null;
+  const y = endYearOf(fyEnd);
+  const m = endMonthOf(fyEnd);
+  if (orgType === 'Enskild firma') return dayAfterWeekend(y + 1, 4, 2);
+  if (orgType === 'Handelsbolag / Kommanditbolag') return null;
+  if (m <= 4) return dayAfterWeekend(y, 11, 1);
+  if (m <= 6) return dayAfterWeekend(y + 1, 0, 15);
+  if (m <= 8) return dayAfterWeekend(y + 1, 3, 1);
+  return dayAfterWeekend(y + 1, 7, 1);
+}
+
+/** AGI för en lönemånad: den 12:e månaden efter (17:e i januari och augusti). */
+export function agiDueDate(periodKey) {
+  const [y, m] = periodKey.split('-').map(Number);
+  const due = new Date(y, m, 1);
+  return dayAfterWeekend(due.getFullYear(), due.getMonth(), dueDayForMonth(due.getMonth()));
+}
+
+export { daysFromToday };

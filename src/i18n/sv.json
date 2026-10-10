@@ -4074,5 +4074,24 @@
     "search": "Sök företag",
     "invited": "Inbjuden",
     "none": "Inget företag matchar"
+  },
+  "taxOverview": {
+    "now": "Nu",
+    "later": "Längre fram",
+    "done": "Klart",
+    "noDate": "Inget datum"
+  },
+  "payrollYear": {
+    "month": "Månad",
+    "gross": "Lön före skatt",
+    "payout": "Löneutbetalning",
+    "agi": "Arbetsgivardeklaration",
+    "status": "Status",
+    "submitted": "Inlämnad",
+    "noRun": "Ingen lönekörning",
+    "create": "Skapa lönekörning",
+    "due": "senast {{date}}",
+    "year": "År",
+    "total": "Totalt {{year}}"
   }
 }

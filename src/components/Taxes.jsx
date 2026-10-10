@@ -27,7 +27,7 @@ import { computeInk2r } from '../utils/ink2r';
 import { computeInk2rResultat } from '../utils/ink2rResultat';
 import { computeNeBalance, computeNeResult, computeNeBalanceSuggestions, computeNeResultSuggestions } from '../utils/ne';
 import { downloadInk2rSru, sruMissingFields } from '../utils/sruExport';
-import { nextVatDeadline, nextAgiDeadline, nextKuDeadline, vatDueDate } from '../utils/declarationDeadlines';
+import { nextVatDeadline, nextAgiDeadline, nextKuDeadline, vatDueDate, nextMonthlyVatDeadline, yearlyVatDueDate, incomeDeclarationDueDate, daysFromToday } from '../utils/declarationDeadlines';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { activeFiscalYear, inPeriod } from '../utils/fiscalYear';
 import { t as tr, dateLocale } from '../i18n';
@@ -861,8 +861,41 @@ export default function Taxes({
           filedKey, canMark: booked,
         };
       };
-      if (!quarterly) {
-        list.push({ key: 'vat', section: 'vat', title: tr('ui.momsdeklaration'), subtitle: tr('ui.moms'), dueDate: null, daysLeft: null, done: false, status: tr('ui.oppna_for_att_forbereda_momsdeklarationen'), cta: tr('ui.oppna_moms') });
+      if (company?.vatPeriod === 'monthly') {
+        // Månadsmoms: nästa månad som ska in, med Skatteverkets datum.
+        const next = nextMonthlyVatDeadline();
+        if (next) {
+          const filedKey = `vat:${next.periodKey}`;
+          const filedAt = filedDate(filedKey);
+          list.push({
+            key: `vat-${next.periodKey}`, section: 'vat', title: tr('ui.momsdeklaration'),
+            subtitle: monthLabel(next.periodKey), dueDate: next.dueDate, daysLeft: next.daysLeft,
+            done: Boolean(filedAt),
+            status: filedAt ? tr('ui.inlamnad_datum', { filedAt }) : tr('ui.oppna_for_att_forbereda_momsdeklarationen'),
+            cta: tr('ui.oppna_moms'), filedKey, canMark: true,
+          });
+        }
+      } else if (!quarterly) {
+        // Helårsmoms: datumet beror på bolagsform, räkenskapsårets slut och
+        // om företaget handlar med andra EU-länder (EU-konton i bokföringen).
+        const prevFy = previousFiscalYear(fy, company);
+        const euAccounts = new Set(['2614', '2615', '2645', '3108', '3308', '4515', '4516', '4535', '4536']);
+        const euTradeIn = (period) => verifications.some(v => v.date >= period.start && v.date <= period.end && (v.rows || []).some(r => euAccounts.has(String(r.account))));
+        const prevDue = yearlyVatDueDate({ orgType, fyEnd: prevFy.end, euTrade: euTradeIn(prevFy) });
+        const usePrev = prevDue && !filedDate(`vat:${prevFy.key}`) && daysFromToday(prevDue) >= -30
+          && verifications.some(v => v.date >= prevFy.start && v.date <= prevFy.end);
+        const year = usePrev ? prevFy : fy;
+        const dueDate = usePrev ? prevDue : yearlyVatDueDate({ orgType, fyEnd: fy.end, euTrade: euTradeIn(fy) });
+        const filedKey = `vat:${year.key}`;
+        const filedAt = filedDate(filedKey);
+        list.push({
+          key: 'vat', section: 'vat', title: tr('ui.momsdeklaration'),
+          subtitle: tr('ui.rakenskapsar_3', { label: year.label }),
+          dueDate, daysLeft: dueDate ? daysFromToday(dueDate) : null,
+          done: Boolean(filedAt),
+          status: filedAt ? tr('ui.inlamnad_datum', { filedAt }) : tr('ui.oppna_for_att_forbereda_momsdeklarationen'),
+          cta: tr('ui.oppna_moms'), filedKey, canMark: true,
+        });
       } else {
         // Bokförda kvartal som ännu inte är markerade som inlämnade får inte försvinna ur listan
         // (nextVatDeadline hoppar direkt till nästa kvartal när ett är bokfört). Bara de som
@@ -913,12 +946,15 @@ export default function Taxes({
       });
     }
 
+    // Inkomstdeklarationens datum (digitalt) för räkenskapsåret. Bokslutet
+    // måste vara klart före det, så samma datum gäller där.
+    const declarationDue = incomeDeclarationDueDate({ orgType, fyEnd: fy.end });
     if (hasTab('yearend')) {
       const doneCount = stepsBeforeLock.filter(s => s.status === 'Klar').length;
       list.push({
         key: 'yearend', section: 'yearend', title: tr('ui.arsbokslut'),
         subtitle: tr('ui.rakenskapsar_3', { label: fy.label }),
-        dueDate: null, daysLeft: null,
+        dueDate: isLocked ? null : declarationDue, daysLeft: !isLocked && declarationDue ? daysFromToday(declarationDue) : null,
         done: isLocked,
         status: isLocked ? tr('ui.bokslutet_ar_last_datum', { v0: new Date(closing.lockedAt).toLocaleDateString('sv-SE') }) : tr('ui.av_steg_ar_klara', { doneCount, length: stepsBeforeLock.length }),
         cta: isLocked ? tr('ui.visa_bokslutet') : tr('ui.fortsatt_bokslutet'),
@@ -985,7 +1021,7 @@ export default function Taxes({
         key: 'filing', section: filingSection,
         title: isSoleProp ? tr('ui.ne_bilaga') : tr('ui.inkomstdeklaration_ink2'),
         subtitle: tr('ui.rakenskapsar_3', { label: fy.label }),
-        dueDate: null, daysLeft: null,
+        dueDate: declarationDue, daysLeft: declarationDue ? daysFromToday(declarationDue) : null,
         done: Boolean(filedAt),
         status: filedAt ? tr('ui.inlamnad_datum', { filedAt }) : isLocked ? tr('ui.bokslutet_ar_klart_forbered_filerna_och_lamna_in') : tr('ui.vantar_pa_att_bokslutet_blir_klart'),
         cta: isLocked ? tr('ui.forbered_deklarationen') : tr('ui.se_forhandsvisning'),

@@ -5147,6 +5147,7 @@ function App() {
             onBookRun={handleBookRun}
             onMarkRunPaid={handleMarkRunPaid}
             onRefreshRunSnapshots={handleRefreshRunSnapshots}
+            agiReports={agiReports}
           />
         );
       case 'taxes':

@@ -1,6 +1,6 @@
 import React from 'react';
 import { CheckCircle2, ChevronRight, ExternalLink } from './icons';
-import { t } from '../i18n';
+import { t, dateLocale } from '../i18n';
 
 // Översikten i Skatt och bokslut: allt man behöver göra, i den ordning det brådskar, med en
 // tydlig knapp för varje sak. Bokix har ingen koppling till Skatteverket, så varje rad leder
@@ -9,7 +9,31 @@ import { t } from '../i18n';
 //
 // `items` byggs i Taxes.jsx (overviewItems): { key, section, title, subtitle, dueLabel,
 // daysLabel, urgency, done, status, cta, filedKey, canMark }.
+// Datumrutan till vänster: dag och månad för när det ska vara inne, en bock
+// när det är klart, ett streck när uppgiften saknar datum.
+function DateTile({ item }) {
+  if (item.done) return <span className="tax-date done" aria-hidden="true"><CheckCircle2 size={22} /></span>;
+  if (!item.dueDate) return <span className="tax-date none" aria-label={t('taxOverview.noDate')}>–</span>;
+  const d = new Date(item.dueDate);
+  const month = new Intl.DateTimeFormat(dateLocale(), { month: 'short' }).format(d).replace('.', '');
+  return (
+    <span className={`tax-date${item.urgency ? ` ${item.urgency}` : ''}`} aria-hidden="true">
+      <span className="tax-date-day">{d.getDate()}</span>
+      <span className="tax-date-month">{month}</span>
+    </span>
+  );
+}
+
+// Nu: det som ska in inom 45 dagar, är försenat eller saknar datum.
+// Längre fram: resten. Klart: det som är inlämnat eller låst.
+const SOON_DAYS = 45;
+
 export default function TaxOverview({ items, summary, onOpen, onToggleFiled, vatExempt = false }) {
+  const groups = [
+    { id: 'now', label: t('taxOverview.now'), rows: items.filter(i => !i.done && (i.daysLeft == null || i.daysLeft <= SOON_DAYS)) },
+    { id: 'later', label: t('taxOverview.later'), rows: items.filter(i => !i.done && i.daysLeft != null && i.daysLeft > SOON_DAYS) },
+    { id: 'done', label: t('taxOverview.done'), rows: items.filter(i => i.done) },
+  ].filter(g => g.rows.length > 0);
   return (
     <div className="tax-ov">
       <section className="tax-ov-card" aria-label={t('ui.att_gora')}>
@@ -17,12 +41,13 @@ export default function TaxOverview({ items, summary, onOpen, onToggleFiled, vat
           <h2 className="tax-ov-title">{t('ui.att_gora')}</h2>
           <p className="tax-ov-summary">{summary}</p>
         </div>
+        {groups.map(g => (
+        <div key={g.id} className="tax-todo-group">
+        {groups.length > 1 && <h3 className="tax-todo-group-title">{g.label}</h3>}
         <ul className="tax-todo-list">
-          {items.map(item => (
+          {g.rows.map(item => (
             <li key={item.key} className={`tax-todo-row${item.done ? ' done' : ''}`}>
-              <span className="tax-todo-mark" aria-hidden="true">
-                {item.done ? <CheckCircle2 size={22} /> : <span className="tax-todo-ring" />}
-              </span>
+              <DateTile item={item} />
               <div className="tax-todo-main">
                 <div className="tax-todo-title">{item.title}</div>
                 <div className="tax-todo-sub">
@@ -46,6 +71,8 @@ export default function TaxOverview({ items, summary, onOpen, onToggleFiled, vat
             </li>
           ))}
         </ul>
+        </div>
+        ))}
       </section>
 
       <section className="tax-ov-card tax-how" aria-label={t('ui.sa_lamnar_du_in')}>
