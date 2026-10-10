@@ -314,7 +314,7 @@ export default function Taxes({
   employees = [], payrollRuns = [], agiReports = [],
   onCreateAgiReport, onMarkAgiSubmitted, onDeleteAgiReport,
   vatPeriods = {}, onBookVatPeriod, onNavigateToVerification,
-  onAddVerification, setCompanyInfo, setAccounts, onNavigateToTab, initialSection,
+  onAddVerification, setCompanyInfo, setAccounts, onNavigateToTab, initialSection, showInventoryStep = true,
 }) {
   // Kalenderåret styr bara AGI och kontrolluppgifter, som alltid följer
   // kalenderåret. Bokslut, INK2, NE och SRU följer företagets räkenskapsår
@@ -618,7 +618,7 @@ export default function Taxes({
     }));
   };
 
-  const steps = [
+  const allSteps = [
     {
       id: 1, kind: 'manual', key: 'bankRecon', title: tr('ui.avstamning_bankkonto'),
       // Klar antingen manuellt, eller automatiskt när en avstämning utan
@@ -677,11 +677,21 @@ export default function Taxes({
     },
   ];
 
+  // Bara de steg som gäller för företaget: lönesteget kräver lön,
+  // avskrivningar anläggningstillgångar och inventering att artiklar och
+  // lager används. Förut stod de där ändå, och ett steg som aldrig kan bli
+  // klart stoppade låsningen (en enskild firma utan anställda kunde inte
+  // låsa året). Numreringen följer de steg som visas.
+  const stepApplies = (s) => (s.id !== 4 || employees.length > 0 || payrollRuns.length > 0)
+    && (s.id !== 5 || (company?.fixedAssets || []).length > 0)
+    && (s.id !== 7 || showInventoryStep);
+  const steps = allSteps.filter(stepApplies).map((s, i) => ({ ...s, n: i + 1 }));
+
   // Bara steg 1–7 kan bli klara innan låsning — steg 8 ("bokför årets
   // resultat") och steg 9 ("lås räkenskapsåret") ÄR själva låsningen och
   // blir Klar som en följd av den, inte en förutsättning för den. Att
   // kräva steg 8 här skulle göra knappen evigt inaktiv.
-  const stepsBeforeLock = steps.slice(0, 7);
+  const stepsBeforeLock = steps.filter(s => s.id < 8);
   // Ett handels-/kommanditbolag måste ha delägarna inlagda innan året kan
   // låsas — bokslutet fördelar resultatet direkt på dem.
   // Statusen jämförs i koden på svenska ('Klar', 'Pågår'); bara visningen översätts.
@@ -751,7 +761,9 @@ export default function Taxes({
     { id: 'yearend', label: tr('ui.arsbokslut') },
     // Årsredovisning till Bolagsverket, bara aktiebolag.
     ...(orgType === 'Aktiebolag (AB)' ? [{ id: 'annual', label: tr('ui.arsredovisning') }] : []),
-    ...(!filesOwnIncomeDeclaration ? [{ id: 'ink2', label: tr('ui.inkomstdeklaration') }] : []),
+    // INK2 för aktiebolag och ekonomisk förening. Inte ideell förening eller
+    // stiftelse, som lämnar en annan blankett (INK3) som Bokix inte fyller i.
+    ...(!filesOwnIncomeDeclaration && orgType !== 'Ideell förening / stiftelse' ? [{ id: 'ink2', label: tr('ui.inkomstdeklaration') }] : []),
     // NE-bilaga — bara enskild firma. INTE handelsbolag (som också har
     // filesOwnIncomeDeclaration=true men deklarerar sin andel med en N3A/
     // K10-bilaga i stället, se hjälptexten i Årsbokslut-kortet).
@@ -761,6 +773,22 @@ export default function Taxes({
     ...(isTradingPartnership ? [{ id: 'partners', label: tr('ui.delagare') }] : []),
     ...(orgType === 'Aktiebolag (AB)' ? [{ id: 'dividend', label: tr('ui.utdelning') }] : []),
   ].filter(tab => !isUfCompany(company) || UF_TAX_SECTION_IDS.includes(tab.id));
+
+  // Fyra flikar i stället för upp till åtta (2026-10-10): det som hör ihop
+  // ligger under samma flik, med en rad steg under när fliken har flera
+  // delar. Årsavslut visar stegen i den ordning de görs, och bara de som
+  // gäller för bolagsformen (sectionTabs ovan avgör det).
+  const TAX_GROUPS = [
+    { id: 'g_overview', label: tr('ui.oversikt'), sections: ['dates'] },
+    { id: 'g_vat', label: tr('ui.moms'), sections: ['vat', 'ecsales'] },
+    { id: 'g_payroll', label: tr('ui.skatt_lon'), sections: ['agi', 'ku'] },
+    { id: 'g_yearend', label: tr('ui.arsavslut'), sections: ['yearend', 'annual', 'ink2', 'ne', 'partners', 'dividend'], numbered: true },
+  ];
+  const groupTabs = TAX_GROUPS
+    .map(g => ({ ...g, sections: g.sections.filter(id => sectionTabs.some(t => t.id === id)) }))
+    .filter(g => g.sections.length > 0);
+  const activeGroup = groupTabs.find(g => g.sections.includes(activeSection)) || groupTabs[0];
+  const sectionLabel = (id) => sectionTabs.find(t => t.id === id)?.label || id;
 
   // ── Viktiga datum ── Kundfeedback (två omgångar): profilmenyns "Viktiga
   // datum" ledde hit men landade alltid på Moms-fliken utan att visa något
@@ -989,8 +1017,28 @@ export default function Taxes({
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
         title={tr('ui.skatt_och_bokslut')}
-        tabs={{ items: sectionTabs, activeId: activeSection, onChange: setActiveSection }}
+        tabs={{
+          items: groupTabs.map(g => ({ id: g.id, label: g.label })),
+          activeId: activeGroup?.id,
+          onChange: (id) => setActiveSection(groupTabs.find(g => g.id === id)?.sections[0] || 'dates'),
+        }}
       />
+      {activeGroup && activeGroup.sections.length > 1 && (
+        <div className="filter-pills tax-steps" role="tablist" style={{ padding: '10px 20px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          {activeGroup.sections.map((id, i) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={activeSection === id}
+              className={'filter-pill' + (activeSection === id ? ' active' : '')}
+              onClick={() => setActiveSection(id)}
+            >
+              {activeGroup.numbered ? `${i + 1}. ${sectionLabel(id)}` : sectionLabel(id)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── Content Area — bara den aktiva fliken renderas, inte alla fem
           kort staplade i en lång skroll längre. Ingen padding här längre
@@ -1073,7 +1121,7 @@ export default function Taxes({
                         background: 'var(--border-light)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 700,
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                       }}>
-                        {step.id}
+                        {step.n}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{

@@ -3506,6 +3506,8 @@
     "bokningar_sma": "bookings",
     "bokning_rubrik": "Booking",
     "kvitto_eller_fil": "Receipt or file",
+    "skatt_lon": "Payroll",
+    "arsavslut": "Year-end",
     "foretagskonto_bank": "Business account/bank",
     "filen_jpg_png": "The file must be JPG or PNG.",
     "bilden_max_3mb": "The image can be at most 3 MB.",

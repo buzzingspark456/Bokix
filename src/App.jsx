@@ -5153,6 +5153,7 @@ function App() {
         return (
           <Taxes
             key={company?.id || data.activeCompanyId}
+            showInventoryStep={isFeatureOn(currentCompany, 'articles')}
             company={company}
             verifications={verifications}
             invoices={invoices}
