@@ -43,7 +43,7 @@ function emptyEmployee() {
     salaryForm: 'manadslon', monthlySalary: '', hourlyRate: '',
     taxForm: 'a_skatt', secondaryIncome: false,
     municipality: '', taxTableMode: 'manual', taxTable: { tabellnr: '', kolumn: 1, year: new Date().getFullYear() },
-    vacationRule: 'procentregeln', vacationDays: 25, savedVacationDays: 0,
+    vacationRule: 'sammaloneregeln', vacationDays: 25, savedVacationDays: 0,
     costCenter: '', projectId: '',
     clearingNumber: '', accountNumber: '', iban: '', bic: '',
     active: true,
@@ -171,7 +171,7 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
           </div>
           <div>
             <label style={labelStyle}>{tr('ui.loneform')}</label>
-            <select value={form.salaryForm} onChange={e => set('salaryForm', e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
+            <select value={form.salaryForm} onChange={e => { set('salaryForm', e.target.value); set('vacationRule', e.target.value === 'timlon' ? 'procentregeln' : 'sammaloneregeln'); }} style={{ ...inputBase, background: 'var(--bg-card)' }}>
               {SALARY_FORMS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
             </select>
           </div>

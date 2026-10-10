@@ -25,6 +25,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { computeEmployeePayroll } from './payrollCalculation';
+import { defaultVacationRule, WORKDAYS_PER_MONTH } from './payrollConfig';
 
 /** Semesterårets längd i dagar, som semesterlagen räknar (§7). Skottår
  * ignoreras med flit: lagen skriver 365, inte "årets längd". */
@@ -110,7 +111,7 @@ export function earnedPaidDays(employee, vacationYear) {
  * därför parametern `earningYearGross`.
  */
 export function vacationPayPerDay(employee, earningYearGross = 0) {
-  const rule = employee?.vacationRule || 'procentregeln';
+  const rule = employee?.vacationRule || defaultVacationRule(employee);
   if (rule === 'sammaloneregeln') {
     const monthly = Number(employee?.monthlySalary) || 0;
     return {
@@ -192,17 +193,24 @@ export function summarizeVacation({ employee, payrollRuns = [], asOf = new Date(
 
   const remaining = Math.max(earned - taken, 0);
   const totalAvailable = remaining + saved;
+  // Vad en kvarvarande dag är värd som skuld. Vid sammalöneregeln betalas
+  // lönen ändå under ledigheten, men dagen är intjänad och ska finnas som
+  // skuld: dagslön (månadslön / 21) plus semestertillägget.
+  const monthly = Number(employee?.monthlySalary) || 0;
+  const liabilityPerDay = pay.rule === 'sammaloneregeln'
+    ? Math.round((monthly / WORKDAYS_PER_MONTH + monthly * VACATION_SUPPLEMENT_RATE) * 100) / 100
+    : pay.perDay;
   // Skulden: kvarvarande betalda dagar (inklusive sparade) gånger vad en dag
   // är värd, plus arbetsgivaravgifter — det är den summa som ska finnas på
   // 2920 och 2940 när året stängs.
-  const liability = Math.round(totalAvailable * pay.perDay);
+  const liability = Math.round(totalAvailable * liabilityPerDay);
   const liabilityFee = Math.round(liability * feeRate);
 
   return {
     vacationYear, earningYear, earningYearGross,
     entitlement: Number(employee?.vacationDays) || 25,
     earned, taken, remaining, saved, totalAvailable,
-    payPerDay: pay.perDay, payBasis: pay.basis, payNote: pay.note, rule: pay.rule,
+    payPerDay: liabilityPerDay, supplementPerDay: pay.perDay, payBasis: pay.basis, payNote: pay.note, rule: pay.rule,
     liability, liabilityFee, liabilityTotal: liability + liabilityFee,
     // Dagar över 20 får sparas till kommande år (§18). Visas som en
     // upplysning vid årsskiftet, inte som något systemet gör automatiskt.

@@ -40,6 +40,8 @@
  *  taxFree      Skattefri ersättning. Betalas ut men beskattas inte och ger
  *               inga avgifter. (Milersättning, traktamente inom schablon.)
  */
+import { defaultVacationRule } from './payrollConfig';
+
 export const PAY_LINE_KINDS = {
   addition: { id: 'addition', label: 'Tillägg', sign: 1, taxable: true, employerFee: true, vacationBase: true, paidOut: true },
   absence: { id: 'absence', label: 'Bruttoavdrag', sign: -1, taxable: true, employerFee: true, vacationBase: true, paidOut: true },
@@ -206,7 +208,7 @@ export const PAY_TYPE_GROUPS = [
 export function defaultRateFor(payType, employee) {
   if (!payType) return null;
   if (payType.basis === 'vacationDay') {
-    if (employee?.vacationRule === 'sammaloneregeln') {
+    if ((employee?.vacationRule || defaultVacationRule(employee)) === 'sammaloneregeln') {
       const monthly = Number(employee.monthlySalary) || 0;
       // Semestertillägg enligt semesterlagen § 16 a: 0,43 % av
       // månadslönen per betald dag.

@@ -148,7 +148,8 @@ export function csvToEmployees(text, { currentYear = new Date().getFullYear() } 
       salaryForm, monthlySalary: orDefault(monthlySalary, ''), hourlyRate: orDefault(hourlyRate, ''),
       taxForm: taxForm || 'a_skatt', secondaryIncome: yesNo(o.secondaryIncome) === true,
       municipality: kommun || '', taxTableMode: 'manual', taxTable: { tabellnr, kolumn, year: currentYear },
-      vacationRule: 'procentregeln', vacationDays: orDefault(vacationDays, 25), savedVacationDays: 0,
+      // Semesterlagen: sammalöneregeln vid fast månadslön, procentregeln vid timlön.
+      vacationRule: salaryForm === 'timlon' ? 'procentregeln' : 'sammaloneregeln', vacationDays: orDefault(vacationDays, 25), savedVacationDays: 0,
       costCenter: '', projectId: '',
       clearingNumber: o.clearingNumber.replace(/\D/g, ''), accountNumber: o.accountNumber.replace(/\D/g, ''), iban, bic: o.bic.toUpperCase(),
       active: true,

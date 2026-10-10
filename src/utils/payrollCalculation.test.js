@@ -31,8 +31,13 @@ describe('computeEmployeePayroll — grundflöde (månadslön, sidoinkomst)', ()
   it('arbetsgivaravgift är 31,42 % av det skattegrundande underlaget', () => {
     expect(result.employerFee).toBe(Math.round(30000 * 0.3142))
   })
-  it('semesteravsättning är 12 % av bruttolönen (procentregeln)', () => {
-    expect(result.vacationProvision).toBe(Math.round(30000 * 0.12))
+  // Ingen regel vald och fast månadslön: sammalöneregeln, som i semesterlagen 16 a §.
+  // 25/12 intjänade dagar × (30 000 / 21 + 0,43 % av 30 000) = 3 245 kr.
+  it('semesteravsättning enligt sammalöneregeln vid månadslön utan vald regel', () => {
+    expect(result.vacationProvision).toBe(Math.round((25 / 12) * (30000 / 21 + 30000 * 0.0043)))
+  })
+  it('semesteravsättning är 12 % av bruttolönen med procentregeln', () => {
+    expect(computeEmployeePayroll({ ...baseEmployee, vacationRule: 'procentregeln' }, {}).vacationProvision).toBe(Math.round(30000 * 0.12))
   })
   it('total arbetsgivarkostnad summerar brutto + avgifter + semester + semesteravgift', () => {
     expect(result.totalCost).toBe(result.gross + result.employerFee + result.vacationProvision + result.vacationFee)
@@ -84,9 +89,17 @@ describe('computeEmployeePayroll — skatteavdrag utan tabell', () => {
 })
 
 describe('computeEmployeePayroll — semesterregler', () => {
-  it('sammalöneregeln (och övriga icke-procentregeln) beräknar inte semesteravsättning automatiskt', () => {
+  // Förut gav sammalöneregeln 0 kr i avsättning (ingen skuld bokades på 2920).
+  it('sammalöneregeln räknar avsättningen på intjänade dagar, dagslön och tillägg', () => {
     const result = computeEmployeePayroll({ ...baseEmployee, vacationRule: 'sammaloneregeln' }, {})
-    expect(result.vacationProvision).toBe(0)
+    expect(result.vacationProvision).toBe(3245)
+  })
+  it('timlön utan vald regel får procentregeln', () => {
+    const result = computeEmployeePayroll({ ...baseEmployee, salaryForm: 'timlon', hourlyRate: 200 }, { hoursWorked: 100 })
+    expect(result.vacationProvision).toBe(Math.round(20000 * 0.12))
+  })
+  it('ingen avsättning för regeln Ingen semesteravsättning', () => {
+    expect(computeEmployeePayroll({ ...baseEmployee, vacationRule: 'ingen' }, {}).vacationProvision).toBe(0)
   })
 })
 
@@ -150,5 +163,12 @@ describe('åldersanpassad arbetsgivaravgift (körningar med feeRules 2)', () => 
     expect(r.tax).toBe(0)
     expect(r.employerFee).toBe(0)
     expect(r.fTax).toBe(true)
+  })
+})
+
+describe('computeEmployeePayroll — sammalöneregeln och semesteruttag', () => {
+  it('semestertillägget räknas inte som rörlig lön i avsättningen', () => {
+    const withVacation = computeEmployeePayroll({ ...baseEmployee, vacationRule: 'sammaloneregeln' }, { lines: [{ id: 'v', payTypeId: 'vacation_taken', quantity: 1, rate: 129 }] })
+    expect(withVacation.vacationProvision).toBe(3245)
   })
 })

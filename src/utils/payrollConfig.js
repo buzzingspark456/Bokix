@@ -107,6 +107,17 @@ export const VACATION_RULES = [
   { id: 'ingen', label: 'Ingen semesteravsättning', rate: null },
 ];
 
+/** Semesterregeln när ingen är vald, som i semesterlagen: sammalöneregeln
+ * (16 a §) för fast månadslön, procentregeln (16 b §) för timlön och rörlig lön. */
+export function defaultVacationRule(employee) {
+  return employee?.salaryForm === 'timlon' ? 'procentregeln' : 'sammaloneregeln';
+}
+
+/** Arbetsdagar per månad för en dags lön vid sammalöneregeln (månadslön / 21). */
+export const WORKDAYS_PER_MONTH = 21;
+/** Semestertillägg per dag vid sammalöneregeln (16 a §): 0,43 % av månadslönen. */
+export const SAMMALON_SUPPLEMENT_RATE = 0.0043;
+
 export const MIN_VACATION_DAYS = 25; // Semesterlagens lagstadgade minimum
 
 // Sidoinkomst — fast 30 % skatteavdrag, en helt separat beräkningsväg

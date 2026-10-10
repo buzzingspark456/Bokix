@@ -532,7 +532,7 @@ export function createDemoSeed() {
       salaryForm: 'manadslon', monthlySalary: '38500', hourlyRate: '',
       taxForm: 'a_skatt', secondaryIncome: false,
       municipality: 'Stockholm', taxTableMode: 'manual', taxTable: { tabellnr: '33', kolumn: 1, year: YEAR },
-      vacationRule: 'procentregeln', vacationDays: 25,
+      vacationRule: 'sammaloneregeln', vacationDays: 25,
       costCenter: '', projectId: '',
       // Strukturellt giltiga (mod-97) men uppdiktade — se company.iban ovan.
       clearingNumber: '8398', accountNumber: '2574667', iban: 'SE1850000000058398257467', bic: 'HANDSESS', active: true,
@@ -546,7 +546,7 @@ export function createDemoSeed() {
       salaryForm: 'manadslon', monthlySalary: '42000', hourlyRate: '',
       taxForm: 'a_skatt', secondaryIncome: false,
       municipality: 'Stockholm', taxTableMode: 'manual', taxTable: { tabellnr: '33', kolumn: 1, year: YEAR },
-      vacationRule: 'procentregeln', vacationDays: 25,
+      vacationRule: 'sammaloneregeln', vacationDays: 25,
       costCenter: '', projectId: '',
       clearingNumber: '8398', accountNumber: '2574668', iban: 'SE8850000000058398257468', bic: 'NDEASESS', active: true,
     },

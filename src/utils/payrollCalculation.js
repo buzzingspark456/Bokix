@@ -1,3 +1,4 @@
+import { defaultVacationRule, WORKDAYS_PER_MONTH, SAMMALON_SUPPLEMENT_RATE } from './payrollConfig';
 import { lookupSkatteavdrag } from './skattetabell';
 import { EMPLOYER_FEE_CATEGORIES, VACATION_RULES, SECONDARY_INCOME_TAX_RATE, employerFeeFor, employerFeeAmount } from './payrollConfig';
 
@@ -30,7 +31,7 @@ export function activeTaxAdjustment(adj, period) {
 }
 
 export function computeEmployeePayroll(employee, row) {
-  const vatRuleId = employee.vacationRule || 'procentregeln';
+  const vatRuleId = employee.vacationRule || defaultVacationRule(employee);
   const vacationRule = VACATION_RULES.find(r => r.id === vatRuleId) || VACATION_RULES[0];
   // F-skatt: mottagaren betalar själv skatt och egenavgifter. Arbetsgivaren
   // gör varken skatteavdrag eller betalar arbetsgivaravgift, och ersättningen
@@ -164,6 +165,21 @@ export function computeEmployeePayroll(employee, row) {
   if (vacationRule.id === 'procentregeln') {
     vacationProvision = gross * vacationRule.rate;
     vacationFormula = `Procentregeln ${(vacationRule.rate * 100).toFixed(0)}%: ${round(gross)} (semesterunderlag) × ${(vacationRule.rate * 100).toFixed(0)}%`;
+  } else if (vacationRule.id === 'sammaloneregeln') {
+    // Sammalöneregeln (semesterlagen 16 a §): månadens intjänade dagar
+    // (semesterdagar / 12) gånger dagens värde, dagslön (grundlön / 21)
+    // plus semestertillägget 0,43 %. Rörliga lönedelar ger 12 % (16 a §
+    // andra stycket).
+    const days = (Number(employee.vacationDays) || 25) / 12;
+    const perDay = baseSalary / WORKDAYS_PER_MONTH + baseSalary * SAMMALON_SUPPLEMENT_RATE;
+    // Rörliga lönedelar: tillägg och avdrag som hör till semesterunderlaget
+    // (övertid, OB, bonus), men inte själva semesterlönen.
+    const VACATION_PAY_TYPES = ['vacation_taken', 'holiday_pay_out'];
+    const variable = Math.max(payLines.lines
+      .filter(l => (l.kind === 'addition' || l.kind === 'absence') && !VACATION_PAY_TYPES.includes(l.payTypeId))
+      .reduce((s, l) => s + (Number(l.signedAmount) || 0), 0) + (Number(row.additions) || 0), 0);
+    vacationProvision = days * perDay + variable * 0.12;
+    vacationFormula = `Sammalöneregeln: ${(Math.round(days * 100) / 100).toString().replace('.', ',')} dagar × (${round(baseSalary)} / 21 + 0,43 %)${variable ? ` + 12 % av rörliga delar ${round(variable)}` : ''}`;
   } else {
     vacationFormula = `${vacationRule.label} — beräknas inte automatiskt i denna version, hanteras manuellt.`;
   }
