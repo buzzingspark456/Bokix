@@ -19,6 +19,18 @@ installGlobalErrorHandlers()
 
 // Gammal flik efter en ny deploy: sidfilen finns inte längre. Ladda om en
 // gång i stället för att visa "Något gick fel" (se utils/staleBuild.js).
+// Klick på en rubrik (label) som inte är kopplad till sitt fält: lägg markören
+// i fältet under den, så man hamnar i rutan i stället för bredvid den. Gäller
+// hela appen. Kopplade labels (for/inuti) sköter webbläsaren själv.
+document.addEventListener('click', (e) => {
+  const label = e.target?.closest?.('label');
+  if (!label || label.htmlFor || label.querySelector('input,textarea,select')) return;
+  if (window.getSelection?.().toString()) return; // markerar text för att kopiera
+  const box = label.parentElement;
+  const field = box?.querySelector('input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not(:disabled), textarea:not(:disabled), select:not(:disabled)');
+  if (field && typeof field.focus === 'function') field.focus();
+});
+
 window.addEventListener('vite:preloadError', (event) => {
   if (reloadOnceForNewBuild()) event.preventDefault()
 })

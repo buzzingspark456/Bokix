@@ -8393,3 +8393,16 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 }
 .ye-progress { margin-top: 10px; height: 6px; max-width: 360px; border-radius: 999px; background: var(--border-light); overflow: hidden; }
 .ye-progress span { display: block; height: 100%; border-radius: 999px; background: var(--status-green-text); }
+
+/* ── Muspekaren (2026-10-10) ── Textmarkören (I-balken) bara där man kan
+   skriva. Förut visade webbläsaren den över all text och tomma ytor runt
+   fälten, så det såg ut som att man kunde skriva utanför rutan. Text går
+   fortfarande att markera och kopiera. Inline cursor-stilar vinner. */
+body { cursor: default; }
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="color"]):not([type="date"]):not([type="month"]):not([type="time"]):not(:disabled),
+textarea:not(:disabled),
+[contenteditable="true"], [contenteditable=""] { cursor: text; }
+input[type="date"], input[type="month"], input[type="time"], select, label[for], summary,
+input[type="checkbox"], input[type="radio"], input[type="file"], input[type="color"],
+button:not(:disabled), a[href], [role="button"], [role="tab"], [role="menuitem"] { cursor: pointer; }
+input:disabled, textarea:disabled, select:disabled, button:disabled { cursor: not-allowed; }
