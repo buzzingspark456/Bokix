@@ -102,6 +102,19 @@ export function lookupSkatteavdrag({ year, tabellnr, kolumn, inkomst, periodCode
     return { amount: val === '' || val === undefined ? 0 : Number(val), extrapolated: false };
   }
 
+  // Över de kronbelopp tabellen anger (för månadstabellen 80 000 kr) har
+  // Skatteverket procentrader ("30%"): skatteavdraget är en procentsats av
+  // hela inkomsten. Den översta raden saknar övre gräns. Förut användes
+  // högsta kronraden i stället, så skatten slutade öka över 80 000 kr i
+  // månaden (2026-10-10, syntes med många anställda i en lönekörning).
+  const percentRows = rows.filter(r => r['antal dgr'] === periodCode.replace(/B$/, '%'));
+  const percentMatch = percentRows.find(r => income >= Number(r['inkomst fr.o.m.'])
+    && (r['inkomst t.o.m.'] === '' || r['inkomst t.o.m.'] === undefined || income <= Number(r['inkomst t.o.m.'])));
+  if (percentMatch) {
+    const pct = Number(percentMatch[`kolumn ${kolumn}`]);
+    if (Number.isFinite(pct)) return { amount: Math.floor(income * pct / 100), extrapolated: false, percent: pct };
+  }
+
   // Inkomst utanför tabellens angivna intervall — använd närmaste kända
   // raden som approximation och flagga det tydligt, hellre än att krascha
   // eller tyst returnera fel belopp.

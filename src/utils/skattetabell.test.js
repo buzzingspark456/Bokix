@@ -49,3 +49,33 @@ describe('lookupSkatteavdrag - utanfor tabellens intervall', () => {
     expect(result.extrapolatedFrom).toBe('highest')
   })
 })
+
+// Över 80 000 kr i månaden anger Skatteverket skatten i procent ("30%"-rader).
+// Förut slutade skatten öka där, eftersom högsta kronraden användes.
+const ROWS_WITH_PERCENT = [
+  { tabellnr: '33', 'antal dgr': '30B', 'inkomst fr.o.m.': '79801', 'inkomst t.o.m.': '80000', 'kolumn 1': '26595' },
+  { tabellnr: '33', 'antal dgr': '30%', 'inkomst fr.o.m.': '80001', 'inkomst t.o.m.': '81000', 'kolumn 1': '33' },
+  { tabellnr: '33', 'antal dgr': '30%', 'inkomst fr.o.m.': '81001', 'inkomst t.o.m.': '1269000', 'kolumn 1': '45' },
+  { tabellnr: '33', 'antal dgr': '30%', 'inkomst fr.o.m.': '1269001', 'inkomst t.o.m.': '', 'kolumn 1': '52' },
+]
+
+describe('lookupSkatteavdrag - procentrader över 80 000 kr', () => {
+  beforeEach(async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ results: ROWS_WITH_PERCENT, next: null }) })
+    await preloadSkattetabell('2026', '33')
+  })
+
+  it('kronraden gäller upp till 80 000 kr', () => {
+    expect(lookupSkatteavdrag({ year: '2026', tabellnr: '33', kolumn: 1, inkomst: 80000 })).toEqual({ amount: 26595, extrapolated: false })
+  })
+
+  it('över 80 000 kr är skatten procent av hela inkomsten', () => {
+    expect(lookupSkatteavdrag({ year: '2026', tabellnr: '33', kolumn: 1, inkomst: 80500 }).amount).toBe(26565)
+    expect(lookupSkatteavdrag({ year: '2026', tabellnr: '33', kolumn: 1, inkomst: 100000 }).amount).toBe(45000)
+  })
+
+  it('översta raden saknar övre gräns', () => {
+    const r = lookupSkatteavdrag({ year: '2026', tabellnr: '33', kolumn: 1, inkomst: 2000000 })
+    expect(r).toMatchObject({ amount: 1040000, extrapolated: false })
+  })
+})
