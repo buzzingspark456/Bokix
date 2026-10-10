@@ -3897,6 +3897,21 @@
     "how": "How to file: log in with BankID at the Swedish Tax Agency, choose the month and Declare via file, upload the XML file, review and sign. Then mark it as filed here.",
     "howZero": "How to file: log in with BankID at the Swedish Tax Agency, choose the month and click Declare zero. Then mark it as filed here."
   },
+  "payPanel": {
+    "amount": "To pay out",
+    "account": "To account",
+    "noAccount": "Account number missing, fill it in under Employees",
+    "payDate": "Payout {{date}}",
+    "howTitle": "How do you pay?",
+    "manual": "Yourself in online banking or Swish",
+    "file": "Payment file for the bank",
+    "manualText": "Enter one payment per employee in your banking app, with the amounts and accounts above, so the money arrives on the payout day. Then click Mark as paid.",
+    "companyIbanOk": "The company IBAN is there.",
+    "companyIbanMissing": "The company IBAN is missing or wrong. Fill it in under Settings → Payment.",
+    "allIban": "All employees have IBAN and BIC.",
+    "someIban": "{{n}} of {{total}} employees have IBAN and BIC. Missing: {{names}}. Fill in under Employees, otherwise they are left out of the file.",
+    "fileNote": "The file (ISO 20022 pain.001) is uploaded in your bank's file service. That usually needs a file agreement with the bank, so ask the bank in good time. Bokix never sends the file itself."
+  },
   "payrollStages": {
     "doneShort": "Done",
     "navLabel": "Pay run steps",

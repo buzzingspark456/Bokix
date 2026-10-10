@@ -3897,6 +3897,21 @@
     "how": "Så lämnar du den: logga in med BankID hos Skatteverket, välj månaden och Deklarera via fil, ladda upp XML-filen, granska och signera. Markera den sedan som inlämnad här.",
     "howZero": "Så lämnar du den: logga in med BankID hos Skatteverket, välj månaden och klicka Deklarera noll. Markera den sedan som inlämnad här."
   },
+  "payPanel": {
+    "amount": "Att betala ut",
+    "account": "Till konto",
+    "noAccount": "Kontonummer saknas, fyll i under Anställda",
+    "payDate": "Utbetalning {{date}}",
+    "howTitle": "Hur betalar du?",
+    "manual": "Själv i internetbanken eller med Swish",
+    "file": "Betalfil till banken",
+    "manualText": "Lägg in en betalning per anställd i bankens app, med beloppen och kontona ovan, så att pengarna är framme på utbetalningsdagen. Klicka sedan på Markera som betald.",
+    "companyIbanOk": "Företagets IBAN finns.",
+    "companyIbanMissing": "Företagets IBAN saknas eller är fel. Fyll i den under Inställningar → Betalning.",
+    "allIban": "Alla anställda har IBAN och BIC.",
+    "someIban": "{{n}} av {{total}} anställda har IBAN och BIC. Saknas: {{names}}. Fyll i under Anställda, annars kommer de inte med i filen.",
+    "fileNote": "Filen (ISO 20022 pain.001) laddas upp i bankens filtjänst. Det kräver oftast ett filavtal med banken, så fråga banken i god tid. Bokix skickar aldrig filen själv."
+  },
   "payrollStages": {
     "doneShort": "Klart",
     "navLabel": "Lönekörningens steg",

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
-  Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2, ExternalLink, RefreshCw, Landmark, CreditCard, Trash2,
+  Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2, ExternalLink, RefreshCw, Trash2,
   Upload, Send,
 } from './icons';
 import { sendPayslipEmail } from '../emailApi';
@@ -98,7 +98,7 @@ function StageNav({ stage, completedSteps, onOpen }) {
 // Ett enda lugnt kort i stället för fyra kort och en stor grön balk
 // (kundönskemål 2026-10-07: "snyggare, syns bra"). Siffrorna står i
 // textfärg; bara totalkostnaden, den man faktiskt betalar, är framhävd.
-function SummaryCards({ totals }) {
+function SummaryCards({ totals, flat = false }) {
   const cells = [
     { label: tr('ui.brutto'), value: totals.gross },
     { label: tr('ui.skatt'), value: totals.tax },
@@ -106,7 +106,7 @@ function SummaryCards({ totals }) {
     { label: tr('ui.avgifter'), value: totals.employerFee + totals.vacationFee },
   ];
   return (
-    <div className="payroll-summary" style={{ ...panelCard, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) minmax(0, 1.3fr)', marginBottom: '28px', overflow: 'hidden' }}>
+    <div className="payroll-summary" style={{ ...panelCard, ...(flat ? { boxShadow: 'none', marginTop: '16px', marginBottom: 0 } : { marginBottom: '28px' }), display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) minmax(0, 1.3fr)', overflow: 'hidden' }}>
       {cells.map(c => (
         <div key={c.label} style={{ padding: '16px 18px', borderRight: '1px solid var(--border-light)', minWidth: 0 }}>
           <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>{c.label}</div>
@@ -247,19 +247,19 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
     </div>
   );
 }
-function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, payslipArgs }) {
+function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, payslipArgs, flat = false }) {
   const [expanded, setExpanded] = useState(false);
   const isZero = computed.gross === 0 && computed.net === 0 && computed.tax === 0;
   const diff = previousComputed ? computed.net - previousComputed.net : null;
   const isHourly = row.employeeSnapshot.salaryForm === 'timlon';
 
   return (
-    <div style={{ ...panelCard, marginBottom: '10px', overflow: 'hidden', transition: 'box-shadow 0.15s' }}>
+    <div style={flat ? { borderBottom: '1px solid var(--border-light)' } : { ...panelCard, marginBottom: '10px', overflow: 'hidden', transition: 'box-shadow 0.15s' }}>
       <div
-        className="payroll-emp-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '14px 18px', cursor: 'pointer' }}
+        className="payroll-emp-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: flat ? '14px 24px' : '14px 18px', cursor: 'pointer' }}
         onClick={() => setExpanded(e => !e)}
-        onMouseEnter={e => { e.currentTarget.parentElement.style.boxShadow = 'var(--shadow-sm)'; }}
-        onMouseLeave={e => { e.currentTarget.parentElement.style.boxShadow = panelCard.boxShadow; }}
+        onMouseEnter={e => { if (flat) e.currentTarget.style.background = 'var(--bg-muted)'; else e.currentTarget.parentElement.style.boxShadow = 'var(--shadow-sm)'; }}
+        onMouseLeave={e => { if (flat) e.currentTarget.style.background = ''; else e.currentTarget.parentElement.style.boxShadow = panelCard.boxShadow; }}
       >
         {/* flex:1 + minWidth:0 (mobil): utan detta orsakade den langa
             "Skatt X kr · Netto Y kr..."-sammanfattningsraden nedan sidledes
@@ -317,7 +317,7 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, pay
         </div>
       </div>
       {expanded && (
-        <div style={{ padding: '4px 18px 16px', borderTop: '1px solid var(--border-light)' }}>
+        <div style={{ padding: flat ? '4px 24px 16px' : '4px 18px 16px', borderTop: '1px solid var(--border-light)' }}>
           {computed.steps.map((s, i) => <CalculationRow key={i} {...s} />)}
           <PayLinesEditor row={row} computed={computed} onUpdateRow={onUpdateRow} locked={locked} />
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
@@ -506,7 +506,6 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
   // och inget alternativ för den som betalat på annat sätt (Swish, kontant,
   // en separat överföring). showManualPay slår bara på/av den mindre synliga
   // "annat sätt"-sektionen, döljs by default så Bank förblir förstahandsvalet.
-  const [showManualPay, setShowManualPay] = useState(false);
   const [tablesReady, setTablesReady] = useState(false);
   const [tablesError, setTablesError] = useState(null);
   const [payFileBusy, setPayFileBusy] = useState(false);
@@ -602,6 +601,8 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
   const nextStage = (id) => RUN_STAGES[RUN_STAGES.indexOf(id) + 1] || 'done';
   const prevStage = (id) => RUN_STAGES[RUN_STAGES.indexOf(id) - 1];
   const markPaid = (method) => { onMarkPaid(run.id, method); setStage('payslips'); };
+  const [payMethodChoice, setPayMethodChoice] = useState(null);
+  const payMethod = payMethodChoice || (!debtorAccountError && missingIbanInfo.length === 0 ? 'bank' : 'manual');
 
   const handleDownloadPayFile = () => {
     setPayFileBusy(true); setPayFileError(''); setPayFileResult(null);
@@ -721,10 +722,8 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
       <div className="payroll-stage-head" style={{ padding: '18px 24px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}>
         <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: 'var(--text-main)' }}>{tr(`payrollStages.${stage}Title`)}</h2>
         <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.55, maxWidth: '760px' }}>{tr(`payrollStages.${stage}Text`, { period: run.period })}</p>
-      </div>
-      <div className="payroll-stage-body" style={{ padding: '20px 24px', flex: 1 }}>
       {stage === 'calculated' && missingTaxTable.length > 0 && (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: 'var(--status-red-text)' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', margin: '14px 0 0', fontSize: '13px', color: 'var(--status-red-text)' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <div style={{ flex: 1 }}>
             <div>
@@ -750,27 +749,22 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
       )}
 
       {(stage === 'calculated' || stage === 'paid') && missingBankInfo.length > 0 && (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '10px', padding: '10px 14px', marginBottom: '16px', fontSize: '13px', color: 'var(--status-amber-text)' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '10px', padding: '10px 14px', margin: '14px 0 0', fontSize: '13px', color: 'var(--status-amber-text)' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <span>{missingBankInfo.length} {missingBankInfo.length === 1 ? tr('ui.anstalld_saknar') : tr('ui.anstallda_saknar')} {tr('ui.clearing_kontonummer_och_kommer_inte_att_inklude')}</span>
         </div>
       )}
 
       {stage === 'calculated' && tablesError && (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '20px', fontSize: '13px', color: 'var(--status-amber-text)' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '12px 14px', margin: '14px 0 0', fontSize: '13px', color: 'var(--status-amber-text)' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <span>{tr('ui.kunde_inte_hamta_skattetabellen_fran_skatteverke')}{tablesError}{tr('ui.skatteavdrag_kan_inte_beraknas_korrekt_forran_de')}</span>
         </div>
       )}
 
-      {(stage === 'calculated' || stage === 'approved' || stage === 'done') && <SummaryCards totals={totals} />}
-
-      {(stage === 'approved' || stage === 'done') && (
-        <EmployeeSummaryTable computedRows={computedRows} onDownload={stage === 'done' ? (r) => generatePayslipPdf(payslipArgs(r)).save(`lonebesked-${r.row.employeeSnapshot.lastName}-${run.period}.pdf`) : null} />
-      )}
-
+      {(stage === 'calculated' || stage === 'approved' || stage === 'done') && <SummaryCards totals={totals} flat />}
       {stage === 'calculated' && (<>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', margin: '0 0 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', margin: '22px 0 12px' }}>
         <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{tr('ui.anstallda_i_korningen')}</h3>
         {!run.completedSteps.includes('booked') && (
           <button type="button" onClick={() => hoursFileRef.current?.click()} title={tr('payrollHours.title')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -791,15 +785,23 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
           )}
         </div>
       )}
+      <div style={{ margin: '0 -24px -18px', borderTop: '1px solid var(--border-light)' }}>
       {computedRows.map(({ row, computed }) => (
-        <EmployeeRow
+        <EmployeeRow flat
           key={row.employeeId} row={row} computed={computed}
           previousComputed={previousComputedByEmployee[row.employeeId]}
           accounts={accounts} onUpdateRow={onUpdateRow} payslipArgs={payslipArgs}
           locked={run.completedSteps.includes('booked')}
         />
       ))}
+      </div>
       </>)}
+      </div>
+      <div className="payroll-stage-body" style={{ padding: stage === 'calculated' ? 0 : '20px 24px', flex: 1 }}>
+      {(stage === 'approved' || stage === 'done') && (
+        <EmployeeSummaryTable computedRows={computedRows} onDownload={stage === 'done' ? (r) => generatePayslipPdf(payslipArgs(r)).save(`lonebesked-${r.row.employeeSnapshot.lastName}-${run.period}.pdf`) : null} />
+      )}
+
 
       {stage === 'booked' && (
         <div>
@@ -813,16 +815,8 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
 
       {stage === 'paid' && (
         <div>
-          <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 12px' }}>{tr('ui.betalningsmetod')}</h3>
-
-          {/* Kundfeedback ("all information", "hela stilen är inte så bra"):
-              en redan betald körning visade tidigare exakt samma formulär
-              som en obetald — ingen bekräftelse på VAD som faktiskt hände.
-              Ersätts nu med en ren kvittens (metod + datum) istället för
-              att lämna nedladdnings-/markera-som-betald-knapparna aktiva
-              för en redan avslutad betalning. */}
           {run.completedSteps.includes('paid') ? (
-            <div style={{ ...panelCard, padding: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ ...panelCard, padding: '20px', display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
               <div style={{ width: 40, height: 40, borderRadius: '10px', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Check size={20} />
               </div>
@@ -835,135 +829,98 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: '16px', alignItems: 'stretch' }}>
-              <div style={{ ...panelCard, padding: '20px', display: 'flex', flexDirection: 'column' }}>
-                <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Landmark size={16} color="var(--accent)" /> {tr('ui.bank_betalfil')}
-                </h4>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>{tr('ui.format')}</label>
-                <select disabled style={{ width: '100%', maxWidth: '360px', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', background: 'var(--bg-muted)', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                  <option>{tr('ui.iso_20022_pain_001_xml')}</option>
-                </select>
-                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: 1.5 }}>
-                  {tr('ui.iso_20022_standarden_for_betalfiler_kraver_oftas')}
-                </p>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', fontSize: '12.5px', color: 'var(--status-amber-text)', lineHeight: 1.5 }}>
-                  <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-                  <span>{tr('ui.pain_001_skickas_normalt_via_filkommunikationsav')}</span>
-                </div>
+          ) : null}
 
-                {debtorAccountError && (
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', color: 'var(--status-red-text)', lineHeight: 1.5 }}>
-                    <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-                    <span>{debtorAccountError}</span>
-                  </div>
-                )}
+          {/* Vem får vad: beloppet och kontot per anställd, det man behöver
+              för att betala själv i internetbanken. */}
+          <div style={{ ...panelCard, overflowX: 'auto', marginBottom: '20px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-muted)' }}>
+                  {[[tr('payrollStages.employee'), 'left'], [tr('payPanel.amount'), 'right'], [tr('payPanel.account'), 'left']].map(([h, align]) => (
+                    <th key={h} style={{ padding: '10px 16px', textAlign: align, fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {computedRows.map(({ row, computed }) => {
+                  const e = row.employeeSnapshot;
+                  const account = computed.iban ? computed.iban : (e.clearingNumber && e.accountNumber ? `${e.clearingNumber}-${e.accountNumber}` : '');
+                  return (
+                    <tr key={row.employeeId} style={{ borderTop: '1px solid var(--border-light)' }}>
+                      <td style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-main)' }}>{e.firstName} {e.lastName}</td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{fmt(computed.net)} {tr('ui.kr')}</td>
+                      <td style={{ padding: '12px 16px', color: account ? 'var(--text-secondary)' : 'var(--status-amber-text)', fontVariantNumeric: 'tabular-nums' }}>
+                        {account || tr('payPanel.noAccount')}
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-muted)' }}>
+                  <td style={{ padding: '12px 16px', fontWeight: 700 }}>{tr('ui.summa')}</td>
+                  <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 800, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{fmt(totals.net)} {tr('ui.kr')}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>{tr('payPanel.payDate', { date: run.payDate || '—' })}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-                {missingIbanInfo.length > 0 && (
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                    <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1, color: 'var(--text-muted)' }} />
-                    <span>
-                      {missingIbanInfo.length} {missingIbanInfo.length === 1 ? tr('ui.anstalld_saknar') : tr('ui.anstallda_saknar')} {tr('ui.iban_bic')}{missingIbanInfo.map(r => `${r.row.employeeSnapshot?.firstName || ''} ${r.row.employeeSnapshot?.lastName || ''}`.trim()).join(', ')}{tr('ui.och_exkluderas_fran_betalfilen_om_du_laddar_ner')}
-                    </span>
-                  </div>
-                )}
-
-                {payFileError && (
-                  <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', marginBottom: '12px' }}>{payFileError}</div>
-                )}
-                {payFileResult && (
-                  <div style={{ fontSize: '12.5px', color: 'var(--status-green-text)', marginBottom: '12px', fontWeight: 600 }}>
-                    {tr('ui.betalfil_nedladdad')} {payFileResult.eligible} {payFileResult.eligible === 1 ? tr('ui.anstalld_2') : tr('ui.anstallda_2')} {tr('ui.inkluderade')}
-                    {payFileResult.excluded.length > 0 ? tr('ui.exkluderade_saknar_iban_bic', { length: payFileResult.excluded.length }) : '.'}
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={handleDownloadPayFile}
-                    disabled={payFileBusy || Boolean(debtorAccountError) || missingIbanInfo.length === computedRows.length}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 700, border: 'none',
-                      background: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'var(--border)' : 'var(--accent)',
-                      color: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'var(--text-muted)' : 'white',
-                      cursor: (payFileBusy || debtorAccountError || missingIbanInfo.length === computedRows.length) ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    <Download size={15} /> {payFileBusy ? tr('ui.skapar_fil') : tr('ui.ladda_ner_betalfil')}
-                  </button>
-                  <button type="button" onClick={() => setShowBankGuide(s => !s)} style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-                    {tr('ui.sa_importerar_du_filen_i_din_bank')} {showBankGuide ? <ChevronUp size={13} style={{ verticalAlign: 'middle' }} /> : <ChevronDown size={13} style={{ verticalAlign: 'middle' }} />}
-                  </button>
-                </div>
-                {showBankGuide && (
-                  <div style={{ marginTop: '12px', padding: '14px', background: 'var(--bg-muted)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.6 }}>
-                    {tr('ui.i_de_flesta_internetbanker_logga_in_pa_foretaget')}
-                  </div>
-                )}
-
-                {/* Kundfeedback ("man ska kunna markera som betald"): fanns
-                    tidigare INGEN knapp här alls — enda vägen att slutföra
-                    Betala-steget var pilen i sidhuvudet, helt frikopplad
-                    från den här panelen och det du faktiskt just gjorde
-                    (laddade ner filen). Riktig bekräftelse-knapp nu,
-                    direkt där handlingen ägde rum. */}
-                <div style={{ marginTop: 'auto', paddingTop: '18px', borderTop: '1px solid var(--border-light)' }}>
-                  <button
-                    onClick={() => markPaid('bank')}
-                    style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 20px', background: 'var(--status-green-text)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13.5px', cursor: 'pointer' }}
-                  >
-                    <Check size={15} /> {tr('ui.markera_som_betald')}
-                  </button>
-                  <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '8px 0 0' }}>
-                    {tr('ui.klicka_nar_lonerna_faktiskt_ar_utbetalda_t_ex_ef')}
-                  </p>
-                </div>
+          {!run.completedSteps.includes('paid') && (
+            <>
+              <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 10px' }}>{tr('payPanel.howTitle')}</h3>
+              <div className="filter-pills" role="radiogroup" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                {[['manual', tr('payPanel.manual')], ['bank', tr('payPanel.file')]].map(([id, label]) => (
+                  <button key={id} type="button" role="radio" aria-checked={payMethod === id} className={'filter-pill' + (payMethod === id ? ' active' : '')} onClick={() => setPayMethodChoice(id)}>{label}</button>
+                ))}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ ...panelCard, padding: '20px', opacity: 0.6 }}>
-                  <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CreditCard size={16} color="var(--text-muted)" /> {tr('ui.kort_stripe')}
-                  </h4>
-                  <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 18px' }}>
-                    {tr('ui.lampligt_for_enstaka_mindre_utbetalningar_men_kr')}
-                  </p>
-                  <button disabled style={{ width: '100%', padding: '9px 12px', background: 'var(--border-light)', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'not-allowed' }}>
-                    {tr('ui.kommer_snart')}
-                  </button>
+              {payMethod === 'manual' ? (
+                <div style={{ ...panelCard, padding: '18px 20px', fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  {tr('payPanel.manualText')}
                 </div>
-
-                {/* Kundfeedback ("man ska kunna göra manuellt om man
-                    vill"): den enda vägen framåt var tidigare att anta att
-                    ALLA betalar via den här bankfilen. En del betalar via
-                    Swish, kontant eller en separat överföring redan innan
-                    de ens öppnar Bokix — de ska kunna säga det, inte tvingas
-                    låtsas att en bankfil användes. */}
-                <div style={{ ...panelCard, padding: '18px' }}>
-                  <button
-                    type="button" onClick={() => setShowManualPay(s => !s)}
-                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600 }}
-                  >
-                    {tr('ui.betalade_du_pa_ett_annat_satt')}
-                    {showManualPay ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                  </button>
-                  {showManualPay && (
-                    <div style={{ marginTop: '12px' }}>
-                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 12px', lineHeight: 1.5 }}>
-                        {tr('ui.t_ex_swish_kontant_eller_en_separat_overforing_d')}
-                      </p>
-                      <button
-                        onClick={() => markPaid('manual')}
-                        style={{ width: '100%', padding: '9px 12px', background: 'var(--bg-muted)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}
-                      >
-                        {tr('ui.markera_som_betald_manuellt')}
-                      </button>
+              ) : (
+                <div style={{ ...panelCard, padding: '18px 20px' }}>
+                  {/* Det som måste vara på plats för en betalfil, som en lista. */}
+                  {[
+                    [!debtorAccountError, debtorAccountError ? tr('payPanel.companyIbanMissing') : tr('payPanel.companyIbanOk')],
+                    [missingIbanInfo.length === 0, missingIbanInfo.length === 0
+                      ? tr('payPanel.allIban')
+                      : tr('payPanel.someIban', { n: computedRows.length - missingIbanInfo.length, total: computedRows.length, names: missingIbanInfo.map(r => `${r.row.employeeSnapshot?.firstName || ''} ${r.row.employeeSnapshot?.lastName || ''}`.trim()).join(', ') })],
+                  ].map(([ok, text], i) => (
+                    <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '13.5px', color: ok ? 'var(--text-main)' : 'var(--status-amber-text)', marginBottom: '8px' }}>
+                      {ok ? <Check size={16} color="var(--status-green-text)" style={{ flexShrink: 0, marginTop: 1 }} /> : <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />}
+                      <span>{text}</span>
+                    </div>
+                  ))}
+                  <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '6px 0 14px', lineHeight: 1.55 }}>{tr('payPanel.fileNote')}</p>
+                  {payFileError && <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', marginBottom: '12px' }}>{payFileError}</div>}
+                  {payFileResult && (
+                    <div style={{ fontSize: '12.5px', color: 'var(--status-green-text)', marginBottom: '12px', fontWeight: 600 }}>
+                      {tr('ui.betalfil_nedladdad')} {payFileResult.eligible} {payFileResult.eligible === 1 ? tr('ui.anstalld_2') : tr('ui.anstallda_2')} {tr('ui.inkluderade')}
+                      {payFileResult.excluded.length > 0 ? tr('ui.exkluderade_saknar_iban_bic', { length: payFileResult.excluded.length }) : '.'}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {(() => {
+                      const blocked = payFileBusy || Boolean(debtorAccountError) || missingIbanInfo.length === computedRows.length;
+                      return (
+                        <button onClick={handleDownloadPayFile} disabled={blocked} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 18px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 700, border: 'none', background: blocked ? 'var(--border)' : 'var(--accent)', color: blocked ? 'var(--text-muted)' : 'white', cursor: blocked ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                          <Download size={15} /> {payFileBusy ? tr('ui.skapar_fil') : tr('ui.ladda_ner_betalfil')}
+                        </button>
+                      );
+                    })()}
+                    <button type="button" onClick={() => setShowBankGuide(v => !v)} style={{ background: 'none', border: 'none', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {tr('ui.sa_importerar_du_filen_i_din_bank')} {showBankGuide ? <ChevronUp size={13} style={{ verticalAlign: 'middle' }} /> : <ChevronDown size={13} style={{ verticalAlign: 'middle' }} />}
+                    </button>
+                  </div>
+                  {showBankGuide && (
+                    <div style={{ marginTop: '12px', padding: '14px', background: 'var(--bg-muted)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.6 }}>
+                      {tr('ui.i_de_flesta_internetbanker_logga_in_pa_foretaget')}
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -1107,7 +1064,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
             switch (stage) {
               case 'calculated': return primary(tr('payrollStages.calculatedAction'), () => handleAdvance('calculated'));
               case 'approved': return (<>{totals.gross <= 0 && note(tr('payrollUi.nothingToPay'))}{primary(tr('payrollStages.approvedAction'), () => handleAdvance('approved'), totals.gross <= 0)}</>);
-              case 'paid': return note(tr('payrollStages.paidHint'));
+              case 'paid': return primary(tr('ui.markera_som_betald'), () => markPaid(payMethod));
               case 'payslips': return primary(tr('payrollStages.payslipsAction'), () => handleAdvance('payslips'));
               case 'booked': return (<>{!canBook && note(tr('payrollStages.bookedNeedsPaid'))}{primary(tr('payrollStages.bookedAction'), () => handleAdvance('booked'), !canBook)}</>);
               case 'agi': return note(tr('payrollStages.agiHint'));
