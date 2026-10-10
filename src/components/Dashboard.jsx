@@ -651,6 +651,8 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // Resten ligger bakom "Visa alla", så kortet aldrig blir en lång vägg.
   const TODO_VISIBLE = 4;
   const [todosExpanded, setTodosExpanded] = useState(false);
+  // Utestående: fyra fakturor syns i smalt fönster, resten bakom Visa alla.
+  const [outExpanded, setOutExpanded] = useState(false);
   // "Minimera" fäller ihop listan till bara rubriken; valet sparas i webbläsaren.
   const [todosCollapsed, setTodosCollapsed] = useState(() => {
     try { return localStorage.getItem('bokix_todo_collapsed') === '1'; } catch { return false; }
@@ -1018,7 +1020,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             {/* De obetalda fakturorna, närmast förfallodag först. Listan tar den
                 höjd kortet har kvar och skrollar om den inte får plats. */}
             {outstanding.items.length > 0 && (
-              <div className="dash-out-list">
+              <div className={`dash-out-list${outExpanded ? ' is-open' : ''}`}>
                 <div className="dash-out-list-title">{t('dashboard.outstanding.listTitle')}</div>
                 <ul>
                   {outstanding.items.map(it => (
@@ -1042,6 +1044,12 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                     </li>
                   ))}
                 </ul>
+                {outstanding.items.length > 4 && (
+                  <button type="button" className="dash-todo-more dash-out-more" onClick={() => setOutExpanded(v => !v)} aria-expanded={outExpanded}>
+                    {outExpanded ? t('dashboard.todo.showLess') : t('dashboard.todo.showAll', { count: outstanding.items.length })}
+                    <ChevronRight size={15} aria-hidden="true" style={{ transform: outExpanded ? 'rotate(-90deg)' : 'rotate(90deg)' }} />
+                  </button>
+                )}
               </div>
             )}
 

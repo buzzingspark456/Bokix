@@ -8211,3 +8211,20 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 .vat-error { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 10px; background: var(--status-red-bg); color: var(--status-red-text); font-size: 13.5px; line-height: 1.5; }
 .vat-error .agi-btn { flex-shrink: 0; height: 32px; }
 @media (max-width: 600px) { .vat-error { flex-wrap: wrap; } .vat-error .agi-btn { margin-left: 26px; } }
+
+/* Utestående med många fakturor (2026-10-10). Smalt fönster: fyra rader och
+   Visa alla, som öppnar en skrollbar lista. Bred skärm: listan har alltid
+   plats för några rader och skrollar, även när Att göra är lång. */
+.dash-out-list.is-open li:nth-child(n+5) { display: list-item; }
+.dash-out-list.is-open ul { max-height: 420px; overflow-y: auto; }
+.dash-out-more { margin-top: 2px; color: var(--text-main) !important; }
+@media (min-width: 1200px) {
+  .dash-body .dash-out-list { min-height: 210px; }
+  .dash-body .dash-out-more { display: none; }
+}
+/* Har högerkolumnen mer än fönstret rymmer slutar diagramkortet vid
+   diagrammet i stället för att sträckas med ett tomt fält; högerkolumnen
+   fortsätter nedåt och sidan skrollar. */
+@media (min-width: 1200px) {
+  .dash-body .dash-chart-card { align-self: start; }
+}
