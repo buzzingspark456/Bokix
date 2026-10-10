@@ -8206,3 +8206,8 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .ink2v-sum { grid-template-columns: 1fr; text-align: left; }
   .ink2v-sum .op { display: none; }
 }
+
+/* Momsdeklarationens fel: tydlig rad med knapp till verifikationen. */
+.vat-error { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 10px; background: var(--status-red-bg); color: var(--status-red-text); font-size: 13.5px; line-height: 1.5; }
+.vat-error .agi-btn { flex-shrink: 0; height: 32px; }
+@media (max-width: 600px) { .vat-error { flex-wrap: wrap; } .vat-error .agi-btn { margin-left: 26px; } }

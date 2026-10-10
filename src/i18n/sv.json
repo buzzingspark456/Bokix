@@ -256,7 +256,8 @@
       "bankDetail": "Koppla till en faktura eller välj konto",
       "actionYearEnd": "Gör bokslut",
       "yearEndTitle": "Stäng räkenskapsåret {{year}}",
-      "yearEndDetail": "Bokslut och lås året under Skatt och bokslut"
+      "yearEndDetail": "Bokslut och lås året under Skatt och bokslut",
+      "vatTitleLabel": "Momsdeklaration {{label}}"
     },
     "unit": {
       "label": "Visa belopp i",
@@ -4250,5 +4251,14 @@
     "officialBusy": "Hämtar blanketten …",
     "officialError": "Kunde inte skapa blanketten.",
     "adjustments": "Justeringar"
+  },
+  "vatUi": {
+    "due": "Lämnas och betalas senast {{date}}",
+    "filed": "inlämnad",
+    "filedOn": "Inlämnad {{date}}",
+    "openVer": "Öppna {{number}}",
+    "type_monthly": "Moms per månad",
+    "type_quarterly": "Moms per kvartal",
+    "type_yearly": "Moms per år"
   }
 }

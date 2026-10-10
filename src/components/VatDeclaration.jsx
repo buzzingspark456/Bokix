@@ -2,11 +2,15 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, ChevronRight, Download, Lock, FileText, ExternalLink } from './icons';
 import {
   computeVatPeriod, roundedVatPeriod, validateVatPeriod, compareToPreviousPeriod, vatRutaValue,
-  quarterToRange, previousQuarterRange, vatSettlementRows,
+  vatSettlementRows,
 } from '../utils/vatCalculation';
 import { VAT_RUTOR, VAT_SETTLEMENT_ACCOUNT } from '../utils/vatConfig';
 import { DEFAULT_ACCOUNTS } from './AccountsData';
 import { t, dateLocale } from '../i18n';
+import {
+  vatPeriodType, monthlyVatPeriodInfo, quarterlyVatPeriodInfo, yearlyVatPeriodInfo,
+  previousVatPeriodKey, nextVatDeadlineFor, vatPeriodKeyFor, daysFromToday,
+} from '../utils/declarationDeadlines';
 
 // Kontonamnen i Steg 3:s bokföringsförslag.
 const ACCOUNT_NAME = Object.fromEntries(DEFAULT_ACCOUNTS.map(a => [a.code, a.name]));
@@ -68,11 +72,23 @@ function Stepper({ current, maxReached, isBooked, onSelect }) {
 export default function VatDeclaration({
   verifications = [], invoices = [], expenses = [], company = {},
   vatPeriods = {}, onBookPeriod, onNavigateToVerification, filings = {}, onToggleFiled, focusPeriod,
+  fiscalYears = null, orgType = null, euTrade = false,
 }) {
   const today = new Date();
-  const defaultQuarter = Math.floor(today.getMonth() / 3) + 1;
-  const [year, setYear] = useState(today.getFullYear());
-  const [quarter, setQuarter] = useState(defaultQuarter);
+  // Perioden följer företagets redovisningssätt (månad, kvartal eller helår).
+  // Förvald är den period som ska lämnas härnäst.
+  const type = vatPeriodType(company);
+  const opts = { fiscalYears, orgType, euTrade };
+  const infoFor = (key) => {
+    if (type === 'yearly') {
+      const fy = [fiscalYears?.current, fiscalYears?.previous].find(f => f?.key === key) || fiscalYears?.current;
+      return fy ? yearlyVatPeriodInfo(fy, opts) : null;
+    }
+    return type === 'monthly' ? monthlyVatPeriodInfo(key) : quarterlyVatPeriodInfo(key);
+  };
+  const defaultKey = () => nextVatDeadlineFor(company, vatPeriods, opts)?.key
+    || (type === 'yearly' ? fiscalYears?.current?.key : vatPeriodKeyFor(type, today));
+  const [periodKey, setPeriodKey] = useState(defaultKey);
   const [step, setStep] = useState(1);
   const [booking, setBooking] = useState(false);
   const [xmlError, setXmlError] = useState('');
@@ -80,26 +96,54 @@ export default function VatDeclaration({
   // innan React hunnit rendera om (useState-uppdateringar batchas).
   const bookingRef = useRef(false);
 
-  // Översikten (TaxOverview) kan skicka hit ett bestämt kvartal: öppna det, och gå direkt till
-  // "Lämna in" om perioden redan är bokförd.
+  // Översikten kan skicka hit en bestämd period: öppna den, och gå direkt
+  // till "Lämna in" om den redan är bokförd.
   useEffect(() => {
     if (!focusPeriod) return;
-    setYear(focusPeriod.year);
-    setQuarter(focusPeriod.quarter);
-    setStep(vatPeriods[`${focusPeriod.year}-Q${focusPeriod.quarter}`] ? 4 : 1);
+    const key = focusPeriod.key || (focusPeriod.quarter ? `${focusPeriod.year}-Q${focusPeriod.quarter}` : null);
+    if (!key) return;
+    setPeriodKey(key);
+    setStep(vatPeriods[key] ? 4 : 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusPeriod]);
 
-  const [periodStart, periodEnd] = useMemo(() => quarterToRange(year, quarter), [year, quarter]);
-  const periodKey = `${year}-Q${quarter}`;
-  const bookedInfo = vatPeriods[periodKey];
+  const info = useMemo(() => infoFor(periodKey) || quarterlyVatPeriodInfo(vatPeriodKeyFor('quarterly', today)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [periodKey, type, fiscalYears, orgType, euTrade]);
+  const periodStart = info.start;
+  const periodEnd = info.end;
+  const year = info.year;
+  const quarter = info.quarter || null;
+  const bookedInfo = vatPeriods[info.key];
   const isBooked = Boolean(bookedInfo);
+
+  // Perioderna att välja bland: de senaste och den pågående, men inga
+  // perioder från innan företaget hade någon bokföring.
+  const firstBooking = useMemo(() => verifications.reduce((min, v) => (v.date && (!min || v.date < min) ? v.date : min), null), [verifications]);
+  const periodOptions = useMemo(() => {
+    const keep = (p) => p.key === periodKey || !firstBooking || p.end >= firstBooking;
+    if (type === 'yearly') return [fiscalYears?.current, fiscalYears?.previous].filter(Boolean).map(fy => yearlyVatPeriodInfo(fy, opts)).filter(keep);
+    const list = [];
+    let key = vatPeriodKeyFor(type, today);
+    for (let i = 0; i < (type === 'monthly' ? 15 : 6); i++) { list.push(infoFor(key)); key = previousVatPeriodKey(key); }
+    if (!list.some(p => p.key === periodKey) && infoFor(periodKey)) list.unshift(infoFor(periodKey));
+    return list.filter(keep);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, fiscalYears, periodKey, firstBooking]);
 
   const calc = useMemo(() => computeVatPeriod({ verifications, periodStart, periodEnd }), [verifications, periodStart, periodEnd]);
   const rounded = useMemo(() => roundedVatPeriod(calc), [calc]);
   const validation = useMemo(() => validateVatPeriod({ verifications, invoices, expenses, periodStart, periodEnd }), [verifications, invoices, expenses, periodStart, periodEnd]);
 
-  const [prevStart, prevEnd] = useMemo(() => previousQuarterRange(year, quarter), [year, quarter]);
+  const [prevStart, prevEnd] = useMemo(() => {
+    if (type === 'yearly') {
+      const shift = (d) => `${Number(d.slice(0, 4)) - 1}${d.slice(4)}`;
+      return [shift(periodStart), shift(periodEnd)];
+    }
+    const prev = infoFor(previousVatPeriodKey(info.key));
+    return [prev.start, prev.end];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [info.key, type]);
   const prevCalc = useMemo(() => computeVatPeriod({ verifications, periodStart: prevStart, periodEnd: prevEnd }), [verifications, prevStart, prevEnd]);
   const periodWarnings = useMemo(() => compareToPreviousPeriod(calc, prevCalc), [calc, prevCalc]);
 
@@ -126,7 +170,7 @@ export default function VatDeclaration({
     setBooking(true);
     try {
       onBookPeriod?.({
-        periodKey, periodStart, periodEnd, quarter, year,
+        periodKey: info.key, periodStart, periodEnd, quarter, year, periodType: type, label: info.label,
         rounded, outputVatByRate: rounded.outputVatByRate, inputVat: rounded.inputVat, netToPay: rounded.netToPay,
       });
       setStep(4);
@@ -140,13 +184,13 @@ export default function VatDeclaration({
   const handleDownloadXml = () => {
     setXmlError('');
     try {
-      downloadVatDeclarationXml({ company, year, quarter, rounded }, `momsdeklaration-${periodKey}.xml`);
+      downloadVatDeclarationXml({ company, year, quarter, rounded, eskdPeriod: info.eskdPeriod }, `momsdeklaration-${info.key.replace('/', '-')}.xml`);
     } catch (e) {
       setXmlError(e.message);
     }
   };
 
-  const periodLabel = t('ui.kvartal_till', { quarter, periodStart, periodEnd });
+  const periodLabel = quarter ? t('ui.kvartal_till', { quarter, periodStart, periodEnd }) : `${info.label} (${periodStart} – ${periodEnd})`;
   // Läsbart datumspann istället för råa ISO-datum (2026-07-01) i sidhuvudet
   // — samma "förklara vad det är, datumet"-feedback som dropdownens
   // månadsintervall ovan löser, bara för den redan valda perioden.
@@ -157,32 +201,40 @@ export default function VatDeclaration({
   // flush direkt under Skatt och bokslut → Moms-flikens flikrad
   // (Taxes.jsx, "no space"-genomgången), en rundad topp mot en rak
   // flikrad lämnade en böjd glipa i hörnen.
+  const daysLeft = info.dueDate ? daysFromToday(info.dueDate) : null;
+  const fmtDue = info.dueDate ? info.dueDate.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+  const daysText = (n) => (n < 0 ? t('ui.forsenad') : n === 0 ? t('ui.idag_2') : n === 1 ? t('ui.imorgon') : t('ui.om_dagar', { daysLeft: n }));
+  const filedAt = filings[`vat:${periodKey}`]?.at;
+  const tone = filedAt ? 'done' : daysLeft != null && daysLeft < 0 ? 'late' : daysLeft != null && daysLeft <= 14 ? 'warn' : '';
+  const optionLabel = (p) => {
+    const name = p.type === 'quarterly' ? `${t('ui.kvartal')} ${p.quarter} ${p.year} (${QUARTER_MONTH_LABEL[p.quarter]})` : p.label.charAt(0).toUpperCase() + p.label.slice(1);
+    const mark = filings[`vat:${p.key}`]?.at ? ` · ${t('vatUi.filed')}` : vatPeriods[p.key] ? ` · ${t('ui.bokford')}` : '';
+    return name + mark;
+  };
+
   return (
-    <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-      {/* Sidhuvud: period, datespan, antal underlag */}
-      <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{t('ui.momsdeklaration')}</h2>
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              {periodDateRange} · {transactionCount} {transactionCount === 1 ? t('ui.underliggande_transaktion') : t('ui.underliggande_transaktioner')}
-            </div>
+    <div className="fp-page">
+      {/* Period, sista dag och periodväljare. Perioden följer företagets
+          redovisningssätt (Inställningar → Moms). */}
+      <section className={`fp-strip ${tone}`}>
+        <div>
+          <div className="fp-strip-title">{filedAt && <CheckCircle2 size={18} />}{t('ui.momsdeklaration')} {quarter ? `${t('ui.kvartal').toLowerCase()} ${quarter} ${year}` : info.label}</div>
+          <div className="fp-strip-sub">
+            {filedAt
+              ? t('vatUi.filedOn', { date: new Date(filedAt).toLocaleDateString('sv-SE') })
+              : info.dueDate ? <>{t('vatUi.due', { date: fmtDue })} · <strong>{daysText(daysLeft)}</strong></> : null}
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <select value={quarter} onChange={e => { setQuarter(Number(e.target.value)); setStep(1); }} disabled={isBooked} style={{ padding: '7px 10px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
-              {[1, 2, 3, 4].map(q => <option key={q} value={q}>{t('ui.kvartal')} {q} ({QUARTER_MONTH_LABEL[q]})</option>)}
-            </select>
-            <select value={year} onChange={e => { setYear(Number(e.target.value)); setStep(1); }} disabled={isBooked} style={{ padding: '7px 10px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
-              {[today.getFullYear() - 1, today.getFullYear(), today.getFullYear() + 1].map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-            {isBooked && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', borderRadius: '999px', fontSize: '12px', fontWeight: 600 }}>
-                <Lock size={12} /> {t('ui.bokford')}
-              </span>
-            )}
+          <div className="fp-hint" style={{ marginTop: '6px' }}>
+            {periodDateRange} · {transactionCount} {transactionCount === 1 ? t('ui.underliggande_transaktion') : t('ui.underliggande_transaktioner')} · {t('vatUi.type_' + type)}
           </div>
         </div>
-      </div>
+        <div className="fp-actions">
+          <select className="fp-input" style={{ width: 'auto' }} value={periodKey} onChange={e => { setPeriodKey(e.target.value); setStep(1); }} aria-label={t('ui.period')}>
+            {periodOptions.map(p => <option key={p.key} value={p.key}>{optionLabel(p)}</option>)}
+          </select>
+          {isBooked && <span className="agi-pill ok"><Lock size={12} style={{ verticalAlign: '-1px' }} /> {t('ui.bokford')}</span>}
+        </div>
+      </section>
 
       <div style={{ padding: '24px' }}>
         <Stepper current={step} maxReached={maxReachedStep} isBooked={isBooked} onSelect={setStep} />
@@ -196,19 +248,15 @@ export default function VatDeclaration({
                   <AlertCircle size={18} /> {validation.errors.length} {validation.errors.length === 1 ? t('ui.fel_maste_atgardas') : t('ui.fel_maste_atgardas')} {t('ui.innan_du_kan_ga_vidare')}
                 </div>
                 {validation.errors.map((err, i) => (
-                  <button
-                    key={i}
-                    onClick={() => err.verificationId && onNavigateToVerification?.(err.verificationId)}
-                    disabled={!err.verificationId}
-                    style={{
-                      textAlign: 'left', padding: '12px 14px', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)',
-                      borderRadius: '8px', color: 'var(--status-red-text)', fontSize: '13px', cursor: err.verificationId ? 'pointer' : 'default',
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', fontFamily: 'inherit',
-                    }}
-                  >
-                    <span>{err.message}</span>
-                    {err.verificationId && <ChevronRight size={15} style={{ flexShrink: 0 }} />}
-                  </button>
+                  <div key={i} className="vat-error">
+                    <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <span style={{ flex: 1 }}>{err.message}</span>
+                    {err.verificationId && (
+                      <button type="button" className="agi-btn" onClick={() => onNavigateToVerification?.(err.verificationId)}>
+                        {t('vatUi.openVer', { number: err.number || '' })} <ChevronRight size={14} />
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             ) : (
@@ -380,7 +428,7 @@ export default function VatDeclaration({
                 <button
                   onClick={() => downloadVatDeclarationPdf(
                     { company, periodLabel, rounded, rutor: rutorForDisplay },
-                    `momsdeklaration-${periodKey}.pdf`
+                    `momsdeklaration-${periodKey.replace("/", "-")}.pdf`
                   )}
                   style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
                 >

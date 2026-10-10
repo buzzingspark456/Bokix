@@ -9,7 +9,7 @@
 //
 // Raderna har ingen ikon här (ikonerna är React-komponenter, se
 // Dashboard.jsx TODO_ICONS), bara `kind`.
-import { nextVatDeadline, nextAgiDeadline, quarterToRange } from './declarationDeadlines';
+import { nextVatDeadline, nextAgiDeadline } from './declarationDeadlines';
 import { invoiceCustomerRemaining } from './rotRutConfig';
 import { activeFiscalYear } from './fiscalYear';
 
@@ -107,16 +107,13 @@ export function buildTodoItems({
   // Momsdeklarationen, bara om något är bokfört i kvartalet: ett företag som
   // började i oktober har ingen Q3-moms att deklarera.
   const vatDeadline = nextVatDeadline(company, vatPeriods);
-  const vatQuarterHasActivity = vatDeadline && (() => {
-    const [from, to] = quarterToRange(vatDeadline.year, vatDeadline.quarter);
-    return verifications.some(v => v.date && v.date >= from && v.date <= to);
-  })();
+  const vatQuarterHasActivity = vatDeadline && verifications.some(v => v.date && v.date >= vatDeadline.start && v.date <= vatDeadline.end);
   if (vatDeadline && vatQuarterHasActivity && vatDeadline.daysLeft <= 7) {
     const late = vatDeadline.daysLeft < 0;
     rows.push({
       kind: 'vat_deadline', group: 'tax', sev: late ? 'danger' : 'warning', daysLeft: vatDeadline.daysLeft, late,
       tone: late ? 'bad' : 'warn', action: t('dashboard.todo.actionVat'), target: { tab: 'taxes_vat' },
-      title: t('dashboard.todo.vatTitle', { quarter: vatDeadline.quarter }),
+      title: vatDeadline.quarter ? t('dashboard.todo.vatTitle', { quarter: vatDeadline.quarter }) : t('dashboard.todo.vatTitleLabel', { label: vatDeadline.label }),
       when: late ? t('dashboard.todo.vatLate') : t('dashboard.todo.vatDue', { when: whenIn(vatDeadline.daysLeft) }),
     });
   }

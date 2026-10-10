@@ -32,7 +32,7 @@ export function buildInvoiceReminderHtml({ invoice, customer, company, grossAmou
 export function buildVatDeadlineHtml({ company, deadline, siteUrl }) {
   return `
     <p>Hej${company?.name ? ' ' + company.name : ''},</p>
-    <p>Momsdeklarationen för <strong>kvartal ${deadline.quarter}, ${deadline.year}</strong> ska vara inlämnad till Skatteverket senast <strong>${formatDate(deadline.dueDate)}</strong>.</p>
+    <p>Momsdeklarationen för <strong>${deadline.label || `kvartal ${deadline.quarter} ${deadline.year}`}</strong> ska vara inlämnad till Skatteverket senast <strong>${formatDate(deadline.dueDate)}</strong>.</p>
     ${siteUrl ? ctaButton(`${siteUrl}/`, 'Öppna Bokix') : ''}
     <p>Med vänlig hälsning<br/>Bokix</p>
   `;

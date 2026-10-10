@@ -173,3 +173,19 @@ describe('findLockedVatPeriod', () => {
     expect(findLockedVatPeriod('2026-02-10', null)).toBeNull()
   })
 })
+
+describe('validateVatPeriod — begripliga fel (2026-10-10)', async () => {
+  const { validateVatPeriod } = await import('./vatCalculation')
+  const base = { periodStart: '2026-10-01', periodEnd: '2026-12-31', invoices: [], expenses: [] }
+  it('säger när momsen saknas helt', () => {
+    const v = { id: 'v1', number: 'C002', date: '2026-10-05', rows: [{ account: '1930', debet: 100, kredit: 0 }, { account: '3002', debet: 0, kredit: 100 }] }
+    const r = validateVatPeriod({ ...base, verifications: [v] })
+    expect(r.errors[0].message).toMatch(/C002: försäljningen på 3002 \(12 % moms\) har ingen moms bokförd/)
+    expect(r.errors[0].number).toBe('C002')
+  })
+  it('säger när momsen är bokförd med fel sats', () => {
+    const v = { id: 'v2', number: 'C003', date: '2026-10-05', rows: [{ account: '1930', debet: 125, kredit: 0 }, { account: '3002', debet: 0, kredit: 100 }, { account: '2611', debet: 0, kredit: 25 }] }
+    const r = validateVatPeriod({ ...base, verifications: [v] })
+    expect(r.errors[0].message).toMatch(/momsen är bokförd på 2611 \(25 %\)/)
+  })
+})

@@ -213,7 +213,14 @@ export function validateVatPeriod({ verifications = [], invoices = [], expenses 
       const expectedVatAccount = OUTPUT_VAT_ACCOUNT_BY_RATE[rate];
       const hasVatRow = rows.some(r => r.account === expectedVatAccount);
       if (!hasVatRow) {
-        errors.push({ type: 'missing_vat_rate', verificationId: v.id, message: `Verifikation ${v.number || v.id}: försäljningsraden på konto ${sr.account} saknar en motsvarande momsrad (${expectedVatAccount}).` });
+        // Säg vad som är fel och vad man gör: momsen saknas helt, eller den är
+        // bokförd på ett momskonto med en annan sats än försäljningskontot.
+        const otherVat = rows.find(r => RATE_BY_VAT_ACCOUNT[r.account] != null && r.account !== expectedVatAccount);
+        const num = v.number || v.id;
+        const message = otherVat
+          ? `${num}: försäljningen på ${sr.account} är för ${rate} % moms, men momsen är bokförd på ${otherVat.account} (${RATE_BY_VAT_ACCOUNT[otherVat.account]} %). Ändra så att försäljning och moms har samma sats.`
+          : `${num}: försäljningen på ${sr.account} (${rate} % moms) har ingen moms bokförd. Lägg till momsen på ${expectedVatAccount}, eller byt till 3004 om försäljningen är momsfri.`;
+        errors.push({ type: 'missing_vat_rate', verificationId: v.id, number: num, message });
       }
     });
   });

@@ -84,45 +84,11 @@ export function vatDueDate(year, quarter) {
   return rollForwardPastWeekend(d);
 }
 
-export function nextVatDeadline(company, vatPeriods) {
-  // Inte momsregistrerat (vatRegistered === false): ingen momsdeklaration.
-  if (company?.vatRegistered === false) return null;
-  if ((company?.vatPeriod || 'quarterly') !== 'quarterly') return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  // Börja i kvartalet som senast tog slut: dess deklaration lämnas under
-  // innevarande kvartal (Q3 senast 12 november osv.). Förut började den i
-  // innevarande kvartal, vars dag alltid låg månader bort, så den 3 oktober
-  // fanns ingen påminnelse om Q3-momsen alls (hittat 2026-10-03). Har förra
-  // kvartalets dag redan passerat gäller innevarande kvartal, som förut.
-  let y = today.getFullYear();
-  let q = Math.floor(today.getMonth() / 3);
-  if (q === 0) { q = 4; y -= 1; }
-  if (today > vatDueDate(y, q)) {
-    q += 1;
-    if (q > 4) { q = 1; y += 1; }
-  }
-  let guard = 0;
-  while (vatPeriods?.[`${y}-Q${q}`] && guard < 8) {
-    q += 1;
-    if (q > 4) { q = 1; y += 1; }
-    guard += 1;
-  }
-  const [, periodEnd] = quarterToRange(y, q);
-  const d = new Date(periodEnd + 'T00:00:00');
-  // Bugkritiskt (hittades vid en noggrannhetsgranskning, 2026-09-01):
-  // periodEnd är kvartalets SISTA dag (t.ex. 31 december för kvartal 4) —
-  // att köra setMonth(+2) MEDAN dagen fortfarande står på 31 lät JS:s egen
-  // överspills-regel (december har fler dagar än februari) knuffa datumet
-  // vidare till MARS istället för februari, ett helt fel förfallomånad för
-  // just kvartal 4. setDate(1) FÖRST (en dag som finns i alla månader)
-  // eliminerar överspillet helt innan setMonth+setDate(rätt dag) körs.
-  d.setDate(1);
-  d.setMonth(d.getMonth() + 2);
-  d.setDate(dueDayForMonth(d.getMonth()));
-  rollForwardPastWeekend(d);
-  const daysLeft = Math.round((d - today) / 86400000);
-  return { daysLeft, quarter: q, year: y, dueDate: d };
+/** Nästa momsdeklaration. Kvartal och månad räknas alltid; helår kräver
+ * opts.fiscalYears (se nextVatDeadlineFor). Svaret har daysLeft, dueDate,
+ * key, label, start, end, och year/quarter för kvartal (som förut). */
+export function nextVatDeadline(company, vatPeriods, opts = {}) {
+  return nextVatDeadlineFor(company, vatPeriods || {}, opts);
 }
 
 /** AGI (arbetsgivardeklaration) — förfallodag 12:e (eller 17:e i
@@ -269,3 +235,92 @@ export function agiDueDate(periodKey) {
 }
 
 export { daysFromToday };
+
+// ── Momsperioder för alla redovisningssätt (2026-10-10) ──
+// En period har en nyckel: "2026-09" (månad), "2026-Q3" (kvartal) eller
+// räkenskapsårets nyckel "2026" / "2025/2026" (helår). vatPeriodInfo ger
+// datum, sista dag och eSKD-periodens ÅÅÅÅMM (sista månaden i perioden).
+const MONTH_NAMES_SV = ['januari', 'februari', 'mars', 'april', 'maj', 'juni', 'juli', 'augusti', 'september', 'oktober', 'november', 'december'];
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+export function vatPeriodType(company) {
+  const p = company?.vatPeriod || 'quarterly';
+  return p === 'monthly' || p === 'yearly' ? p : 'quarterly';
+}
+
+export function monthlyVatPeriodInfo(key) {
+  const [y, m] = key.split('-').map(Number);
+  const start = `${key}-01`;
+  const end = iso(new Date(y, m, 0));
+  return { key, type: 'monthly', start, end, year: y, month: m, dueDate: monthlyVatDueDate(key), eskdPeriod: `${y}${String(m).padStart(2, '0')}`, label: `${MONTH_NAMES_SV[m - 1]} ${y}` };
+}
+
+export function quarterlyVatPeriodInfo(key) {
+  const [y, q] = key.split('-Q').map(Number);
+  const [start, end] = quarterToRange(y, q);
+  return { key, type: 'quarterly', start, end, year: y, quarter: q, dueDate: vatDueDate(y, q), eskdPeriod: `${y}${String(q * 3).padStart(2, '0')}`, label: `kvartal ${q} ${y}` };
+}
+
+/** fy: { key, start, end, label }. orgType/euTrade styr helårsdatumet. */
+export function yearlyVatPeriodInfo(fy, { orgType = null, euTrade = false } = {}) {
+  const end = fy.end;
+  return { key: fy.key, type: 'yearly', start: fy.start, end, year: Number(end.slice(0, 4)), dueDate: yearlyVatDueDate({ orgType, fyEnd: end, euTrade }), eskdPeriod: end.slice(0, 4) + end.slice(5, 7), label: `räkenskapsåret ${fy.label || fy.key}` };
+}
+
+/** Nyckeln för perioden som innehåller ett datum (månad eller kvartal). */
+export function vatPeriodKeyFor(type, date) {
+  const d = typeof date === 'string' ? new Date(`${date}T12:00:00`) : date;
+  if (type === 'monthly') return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  return `${d.getFullYear()}-Q${Math.floor(d.getMonth() / 3) + 1}`;
+}
+
+/** Perioden före (månad eller kvartal). */
+export function previousVatPeriodKey(key) {
+  if (/-Q\d$/.test(key)) {
+    let [y, q] = key.split('-Q').map(Number);
+    q -= 1; if (q < 1) { q = 4; y -= 1; }
+    return `${y}-Q${q}`;
+  }
+  const [y, m] = key.split('-').map(Number);
+  const d = new Date(y, m - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Nästa momsdeklaration för alla redovisningssätt. För helår krävs
+ * fiscalYears: { current, previous } (räkenskapsår), annars null.
+ * Hoppar över bokförda perioder. Returnerar periodinfo plus daysLeft. */
+export function nextVatDeadlineFor(company, vatPeriods = {}, { fiscalYears = null, orgType = null, euTrade = false, referenceDate = new Date() } = {}) {
+  if (company?.vatRegistered === false) return null;
+  const today = new Date(referenceDate);
+  today.setHours(0, 0, 0, 0);
+  const type = vatPeriodType(company);
+  const withDays = (info) => ({ ...info, daysLeft: Math.round((info.dueDate - today) / 86400000) });
+  if (type === 'yearly') {
+    if (!fiscalYears?.current) return null;
+    const candidates = [fiscalYears.previous, fiscalYears.current].filter(Boolean)
+      .map(fy => yearlyVatPeriodInfo(fy, { orgType, euTrade }))
+      .filter(p => !vatPeriods[p.key] && p.dueDate && p.dueDate >= today);
+    return candidates[0] ? withDays(candidates[0]) : null;
+  }
+  const info = type === 'monthly' ? monthlyVatPeriodInfo : quarterlyVatPeriodInfo;
+  // Börja två perioder bakåt: den som senast tog slut kan fortfarande vara kvar att lämna.
+  let key = vatPeriodKeyFor(type, today);
+  key = previousVatPeriodKey(previousVatPeriodKey(key));
+  for (let i = 0; i < 16; i++) {
+    const p = info(key);
+    if (!vatPeriods[key] && p.dueDate >= today) return withDays(p);
+    key = nextVatPeriodKey(key);
+  }
+  return null;
+}
+
+export function nextVatPeriodKey(key) {
+  if (/-Q\d$/.test(key)) {
+    let [y, q] = key.split('-Q').map(Number);
+    q += 1; if (q > 4) { q = 1; y += 1; }
+    return `${y}-Q${q}`;
+  }
+  const [y, m] = key.split('-').map(Number);
+  const d = new Date(y, m, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}

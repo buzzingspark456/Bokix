@@ -384,7 +384,7 @@ export default async function handler(req, res) {
           // nedan gör ändå att den bara skickas EN gång per period.
           const vatDeadline = declarationRemindersOn ? nextVatDeadline(companyData.company, companyData.vatPeriods || {}) : null;
           if (vatDeadline && vatDeadline.daysLeft <= notif.declarationReminderDays) {
-            const periodKey = `${vatDeadline.year}-Q${vatDeadline.quarter}`;
+            const periodKey = vatDeadline.key;
             const period = (companyData.vatPeriods || {})[periodKey] || {};
             const marker = `deadline_${notif.declarationReminderDays}d`;
             const recipient = companyData.company?.email;
@@ -397,7 +397,7 @@ export default async function handler(req, res) {
                   const html = buildVatDeadlineHtml({ company: companyData.company, deadline: vatDeadline, siteUrl: SITE_URL });
                   const result = await sendWithFallback({
                     to: [recipient],
-                    subject: `Påminnelse: momsdeklaration kvartal ${vatDeadline.quarter} ska in ${vatDeadline.dueDate.toLocaleDateString('sv-SE')}`,
+                    subject: `Påminnelse: momsdeklaration för ${vatDeadline.label} ska in ${vatDeadline.dueDate.toLocaleDateString('sv-SE')}`,
                     html,
                   }, companyData.company);
                   if (!result.ok) throw new Error(result.data?.message || 'Resend-fel');

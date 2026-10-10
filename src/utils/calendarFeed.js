@@ -3,7 +3,7 @@
 // Google Kalender, Apple och Outlook prenumererar på. Ren logik utan
 // beroenden till React eller i18n, så den kan köras både i api/calendar.js
 // och i tester.
-import { quarterToRange, vatDueDate, dueDayForMonth, rollForwardPastWeekend } from './declarationDeadlines.js';
+import { quarterToRange, vatDueDate, dueDayForMonth, rollForwardPastWeekend, monthlyVatPeriodInfo } from './declarationDeadlines.js';
 
 /** Slumpad nyckel som skyddar länken. Byts när användaren skapar en ny
  * länk, och då slutar den gamla fungera. */
@@ -74,6 +74,18 @@ export function buildCalendarEvents(companyData, { today = new Date(), vat = tru
         title: `Momsdeklaration kvartal ${q} ${year}`,
         description: `Moms för ${from} till ${to} ska vara deklarerad och betald.`,
       });
+    }
+  }
+
+  // Moms per månad: varje månads deklaration inom fönstret.
+  if (vat && company.vatRegistered !== false && company.vatPeriod === 'monthly') {
+    const vatPeriods = companyData?.vatPeriods || {};
+    for (let i = -3; i < 14; i++) {
+      const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+      const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+      const p = monthlyVatPeriodInfo(key);
+      if (!inRange(p.dueDate) || vatPeriodDone(vatPeriods[key])) continue;
+      events.push({ uid: `moms-${key}`, date: ymd(p.dueDate), title: `Momsdeklaration ${p.label}`, description: `Moms för ${p.start} till ${p.end} ska vara deklarerad och betald.` });
     }
   }
 

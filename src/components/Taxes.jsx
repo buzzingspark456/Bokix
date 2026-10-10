@@ -774,7 +774,13 @@ export default function Taxes({
   // ställen. Bokslutsdeadline visas MEDVETET INTE — ingen befintlig,
   // verifierad uträkning för den finns i declarationDeadlines.js, och
   // kundens uttryckliga krav var att ALDRIG visa ett gissat datum här.
-  const vatDeadlineInfo = useMemo(() => nextVatDeadline(company, vatPeriods), [company, vatPeriods]);
+  // Momsens räkenskapsår, bolagsform och EU-handel (styr helårsmomsens datum).
+  const vatFiscalYears = useMemo(() => ({ current: fy, previous: previousFiscalYear(fy, company) }), [fy, company]);
+  const vatEuTrade = useMemo(() => {
+    const euAccounts = new Set(['2614', '2615', '2645', '3108', '3308', '4515', '4516', '4535', '4536']);
+    return verifications.some(v => v.date >= vatFiscalYears.previous.start && (v.rows || []).some(r => euAccounts.has(String(r.account))));
+  }, [verifications, vatFiscalYears]);
+  const vatDeadlineInfo = useMemo(() => nextVatDeadline(company, vatPeriods, { fiscalYears: vatFiscalYears, orgType, euTrade: vatEuTrade }), [company, vatPeriods, vatFiscalYears, orgType, vatEuTrade]);
   const agiDeadlineInfo = useMemo(() => (payrollRuns.length > 0 ? nextAgiDeadline() : null), [payrollRuns.length]);
   // Kundfeedback ("viktiga datum visar inget när det senaste är avklarat"):
   // moms/AGI var tidigare de ENDA två deadline-typerna — utanför en snar
@@ -841,7 +847,7 @@ export default function Taxes({
             subtitle: monthLabel(next.periodKey), dueDate: next.dueDate, daysLeft: next.daysLeft,
             done: Boolean(filedAt),
             status: filedAt ? tr('ui.inlamnad_datum', { filedAt }) : tr('ui.oppna_for_att_forbereda_momsdeklarationen'),
-            cta: tr('ui.oppna_moms'), filedKey, canMark: true,
+            cta: tr('ui.oppna_moms'), filedKey, canMark: true, vatPeriod: { key: next.periodKey },
           });
         }
       } else if (!quarterly) {
@@ -863,7 +869,7 @@ export default function Taxes({
           dueDate, daysLeft: dueDate ? daysFromToday(dueDate) : null,
           done: Boolean(filedAt),
           status: filedAt ? tr('ui.inlamnad_datum', { filedAt }) : tr('ui.oppna_for_att_forbereda_momsdeklarationen'),
-          cta: tr('ui.oppna_moms'), filedKey, canMark: true,
+          cta: tr('ui.oppna_moms'), filedKey, canMark: true, vatPeriod: { key: year.key },
         });
       } else {
         // Bokförda kvartal som ännu inte är markerade som inlämnade får inte försvinna ur listan
@@ -1082,6 +1088,9 @@ export default function Taxes({
             filings={filings}
             onToggleFiled={toggleFiled}
             focusPeriod={vatFocus}
+            fiscalYears={vatFiscalYears}
+            orgType={orgType}
+            euTrade={vatEuTrade}
           />
           )}
 

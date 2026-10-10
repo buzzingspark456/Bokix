@@ -256,7 +256,8 @@
       "bankDetail": "Match it to an invoice or choose an account",
       "actionYearEnd": "Do year-end",
       "yearEndTitle": "Close the fiscal year {{year}}",
-      "yearEndDetail": "Year-end closing and lock under Tax and year-end"
+      "yearEndDetail": "Year-end closing and lock under Tax and year-end",
+      "vatTitleLabel": "VAT return {{label}}"
     },
     "unit": {
       "label": "Show amounts in",
@@ -4250,5 +4251,14 @@
     "officialBusy": "Fetching the form …",
     "officialError": "Could not create the form.",
     "adjustments": "Adjustments"
+  },
+  "vatUi": {
+    "due": "File and pay by {{date}}",
+    "filed": "filed",
+    "filedOn": "Filed {{date}}",
+    "openVer": "Open {{number}}",
+    "type_monthly": "Monthly VAT",
+    "type_quarterly": "Quarterly VAT",
+    "type_yearly": "Yearly VAT"
   }
 }

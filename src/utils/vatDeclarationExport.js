@@ -85,7 +85,7 @@ function formatOrgNrForEskd(orgNr) {
  * kommentaren ovan för vilka fält som är bekräftade och varför bara de
  * tas med. Kastar om org.numret saknas/är ogiltigt — filen kan inte
  * skickas till Skatteverket utan ett giltigt org.nummer. */
-export function generateVatDeclarationXml({ company, year, quarter, rounded }) {
+export function generateVatDeclarationXml({ company, year, quarter, rounded, eskdPeriod: periodOverride = null }) {
   const orgNr = formatOrgNrForEskd(company?.orgNr);
   if (!orgNr) {
     throw new Error('Företaget saknar ett giltigt organisationsnummer (10 siffror) — lägg till det i Inställningar innan XML-filen kan skapas.');
@@ -96,7 +96,7 @@ export function generateVatDeclarationXml({ company, year, quarter, rounded }) {
     '<eSKDUpload Version="6.0">',
     `<OrgNr>${orgNr}</OrgNr>`,
     '<Moms>',
-    `<Period>${eskdPeriod(year, quarter)}</Period>`,
+    `<Period>${periodOverride || eskdPeriod(year, quarter)}</Period>`,
   ];
   // Rutor med värdet 0 utelämnas; ruta 49 skrivs alltid.
   for (const [tag, ruta] of ESKD_TAGS) {
@@ -124,8 +124,8 @@ function encodeIso88591(str) {
   return bytes;
 }
 
-export function downloadVatDeclarationXml({ company, year, quarter, rounded }, filename) {
-  const xml = generateVatDeclarationXml({ company, year, quarter, rounded });
+export function downloadVatDeclarationXml({ company, year, quarter, rounded, eskdPeriod = null }, filename) {
+  const xml = generateVatDeclarationXml({ company, year, quarter, rounded, eskdPeriod });
   const blob = new Blob([encodeIso88591(xml)], { type: 'application/xml' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

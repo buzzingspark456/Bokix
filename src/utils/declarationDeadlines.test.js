@@ -2,9 +2,15 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { nextVatDeadline, nextAgiDeadline, nextKuDeadline, vatDueDate } from './declarationDeadlines'
 
 describe('nextVatDeadline', () => {
-  it('returns null for non-quarterly reporting', () => {
-    expect(nextVatDeadline({ vatPeriod: 'monthly' }, {})).toBeNull()
+  it('månadsmoms och helår (helår kräver räkenskapsåret)', () => {
+    const ref = new Date(2026, 9, 10)
+    expect(nextVatDeadline({ vatPeriod: 'monthly' }, {}, { referenceDate: ref }).key).toBe('2026-08')
+    expect(nextVatDeadline({ vatPeriod: 'monthly' }, { '2026-08': {} }, { referenceDate: ref }).key).toBe('2026-09')
     expect(nextVatDeadline({ vatPeriod: 'yearly' }, {})).toBeNull()
+    const fiscalYears = { previous: { key: '2025', start: '2025-01-01', end: '2025-12-31', label: '2025' }, current: { key: '2026', start: '2026-01-01', end: '2026-12-31', label: '2026' } }
+    const y = nextVatDeadline({ vatPeriod: 'yearly' }, {}, { fiscalYears, orgType: 'Enskild firma', referenceDate: ref })
+    expect(y.key).toBe('2026')
+    expect(y.eskdPeriod).toBe('202612')
   })
 
   it('defaults to quarterly when vatPeriod is unset', () => {
