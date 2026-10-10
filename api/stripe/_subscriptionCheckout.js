@@ -149,9 +149,34 @@ export default async function handler(req, res) {
       const authedUser = await requireAuthedUser(req, res);
       if (!authedUser) return;
 
-      const stripeCustomerId = await getStripeCustomerId(authedUser.id, body.company_id || null);
+      let stripeCustomerId = await getStripeCustomerId(authedUser.id, body.company_id || null);
+      // Reserv när raden saknar kund-id: ta kunden från prenumerationen, eller
+      // leta bland kontots Stripe-kunder efter en prenumeration som tillhör
+      // just den här användaren och det här företaget (samma regel som 'sync').
       if (!stripeCustomerId) {
-        res.status(404).json({ error: 'Ingen Stripe-kund hittades för det här företaget.' });
+        const wantedCompanyId = body.company_id || null;
+        const subRow = await getSubscriptionRow(authedUser.id, wantedCompanyId);
+        if (subRow?.stripe_subscription_id) {
+          try {
+            const sub = await stripe.subscriptions.retrieve(subRow.stripe_subscription_id);
+            stripeCustomerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id || null;
+          } catch (err) {
+            console.warn('billing-portal: kunde inte hämta prenumerationen', err.message);
+          }
+        }
+        if (!stripeCustomerId && authedUser.email) {
+          const customers = await stripe.customers.list({ email: authedUser.email, limit: 10 });
+          for (const customer of customers.data) {
+            const subs = await stripe.subscriptions.list({ customer: customer.id, status: 'all', limit: 20 });
+            if (subs.data.some(s => s.metadata?.user_id === authedUser.id && (s.metadata?.company_id || null) === wantedCompanyId)) {
+              stripeCustomerId = customer.id;
+              break;
+            }
+          }
+        }
+      }
+      if (!stripeCustomerId) {
+        res.status(404).json({ error: 'Vi hittar inga betalningsuppgifter för det här företaget än. Skriv till oss så hjälper vi dig.' });
         return;
       }
 
