@@ -8329,3 +8329,32 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .page-header-tabs--wrap .tab-label-long { display: none; }
   .page-header-tabs--wrap .tab-label-short { display: inline; }
 }
+
+/* Bankens flikar på telefon: ett jämnt rutnät, tre lika breda per rad, i
+   stället för en ojämn radbrytning med en ensam flik på andra raden. Ingen
+   tonad kant (den är till för skrollande flikrader). */
+@media (max-width: 768px) {
+  .page-header-tabs.page-header-tabs--wrap {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px !important;
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 10px 0 12px !important;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .page-header-tabs.page-header-tabs--wrap > button {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+    text-align: center;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
