@@ -6,6 +6,8 @@ import { ProgramLogo } from './shared/BrandLogos';
 import { MIGRATION_SOURCES, OTHER_PROGRAM_HINT, MENU_MOVED_HINT } from '../utils/migrationSources';
 import { t } from '../i18n';
 import { checkSieImport, applySieFixes } from '../utils/sieImportCheck';
+import { fileFiscalYear, sortFilesByYear, closableImportedYears } from '../utils/sieImportYears';
+import { fiscalYearLabel } from '../utils/sieAttachments';
 
 // ── SIE4-import — ladda upp fil → kontomappning → förhandsgranskning →
 // commit. Samma fyrstegsstruktur (modal-overlay/-content/-footer, steg-
@@ -37,18 +39,21 @@ function fingerprintFile(file, meta) {
   return `sie_import_${safeName}_${meta?.generatedDate || 'okant-datum'}`;
 }
 
-export default function SieImportModal({ accounts = [], verifications = [], onImport, onClose }) {
+export default function SieImportModal({ accounts = [], verifications = [], company = null, onImport, onCloseYears, onClose }) {
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [sieMod, setSieMod] = useState(null); // lazy-laddad src/utils/sieImport.js
-  const [fileName, setFileName] = useState('');
-  const [parsed, setParsed] = useState(null); // parseSieFile()-resultatet
+  // Inlästa filer, äldst räkenskapsår först: [{ name, parsed }], där parsed
+  // är parseSieFile()-resultatet. Flera filer = flytt i ett steg, en per år.
+  const [files, setFiles] = useState([]);
   const [accountRows, setAccountRows] = useState([]); // kontomappningens arbetsstate
-  // Rättelser användaren valt i förhandsgranskningen (sieImportCheck.js):
-  // { bookOpeningDifference, roundOff, skipUnbalanced }.
-  const [fixes, setFixes] = useState({});
+  // Rättelser användaren valt i förhandsgranskningen (sieImportCheck.js),
+  // per fil: { [index]: { bookOpeningDifference, roundOff, skipUnbalanced } }.
+  const [fixesByFile, setFixesByFile] = useState({});
+  // Avslutade år som kan stängas direkt efter importen (sista steget).
+  const [closableYears, setClosableYears] = useState([]);
 
   const loadSieModule = async () => {
     if (sieMod) return sieMod;
@@ -59,24 +64,32 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
 
   const existingByCode = useMemo(() => new Map(accounts.map(a => [a.code, a])), [accounts]);
 
-  const handleFile = async (file) => {
-    if (!file) return;
+  const handleFiles = async (fileList) => {
+    const picked = [...(fileList || [])];
+    if (picked.length === 0) return;
     setBusy(true); setError('');
     try {
       const mod = await loadSieModule();
-      const buffer = await file.arrayBuffer();
-      const result = mod.parseSieFile(buffer);
-      if (result.accounts.length === 0 && result.verifications.length === 0) {
-        throw new Error(t('ui.hittade_varken_konton_eller_verifikationer_i_fil'));
+      const read = [];
+      for (const file of picked) {
+        const result = mod.parseSieFile(await file.arrayBuffer());
+        if (result.accounts.length === 0 && result.verifications.length === 0) {
+          const msg = t('ui.hittade_varken_konton_eller_verifikationer_i_fil');
+          throw new Error(picked.length > 1 ? `${file.name}: ${msg}` : msg);
+        }
+        read.push({ name: file.name, parsed: result });
       }
-      setFileName(file.name);
-      setParsed(result);
-      setFixes({});
-      // Bygg kontomappningens arbetsrader — en per importerat konto,
-      // jämfört mot det här företagets BEFINTLIGA kontoplan. Aldrig en
-      // blind 1:1-matchning: varje avvikelse (namn skiljer sig, eller
-      // koden saknas helt) flaggas explicit för steg 2.
-      const rows = result.accounts.map(a => {
+      const sorted = sortFilesByYear(read);
+      setFiles(sorted);
+      setFixesByFile({});
+      // Bygg kontomappningens arbetsrader — en per importerat konto (ur
+      // alla filer, det nyaste årets namn gäller), jämfört mot det här
+      // företagets BEFINTLIGA kontoplan. Aldrig en blind 1:1-matchning:
+      // varje avvikelse (namn skiljer sig, eller koden saknas helt) flaggas
+      // explicit för steg 2.
+      const byCode = new Map();
+      for (const f of sorted) for (const a of f.parsed.accounts) byCode.set(a.code, a);
+      const rows = [...byCode.values()].map(a => {
         const existing = existingByCode.get(a.code);
         if (!existing) return { code: a.code, importedName: a.name, existingName: null, status: 'new', add: true, remapTo: '' };
         if (existing.name === a.name) return { code: a.code, importedName: a.name, existingName: existing.name, status: 'match', add: false, remapTo: '' };
@@ -107,8 +120,8 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
     return { accountsToAdd, codeRemap };
   }, [accountRows]);
 
-  const preview = useMemo(() => {
-    if (!parsed) return null;
+  const previews = useMemo(() => files.map(({ name: fileName, parsed }, index) => {
+    const fixes = fixesByFile[index] || {};
     const { accountsToAdd, codeRemap } = mappingResult;
     const remapAccount = (code) => codeRemap[code] || code;
     const accountsByCode = new Map([...accounts, ...accountsToAdd].map(a => [a.code, a]));
@@ -126,7 +139,7 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
       rows: v.rows.map(r => ({ ...r, account: remapAccount(r.account), accountName: accountsByCode.get(remapAccount(r.account))?.name || r.account })),
     }));
 
-    const fiscalYearZero = parsed.fiscalYears.find(fy => fy.index === 0);
+    const fiscalYearZero = fileFiscalYear(parsed);
     const openingVerification = sieMod && fiscalYearZero
       ? sieMod.buildOpeningVerification(parsed.openingBalances, fiscalYearZero.start, { accountsByCode })
       : null;
@@ -156,28 +169,48 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
       warnings: parsed.warnings,
       alreadyImported,
       sourceTag: dupTag,
+      fiscalYear: fiscalYearZero,
     };
-  }, [parsed, mappingResult, accounts, sieMod, fileName, verifications, fixes]);
+  }), [files, mappingResult, accounts, sieMod, verifications, fixesByFile]);
+
+  const setFixesFor = (index) => (updater) => setFixesByFile(prev => ({
+    ...prev,
+    [index]: typeof updater === 'function' ? updater(prev[index] || {}) : updater,
+  }));
+  const countOf = (p) => p.verificationsToImport.length + (p.openingVerification ? 1 : 0);
+  const totalCount = previews.reduce((s, p) => s + countOf(p), 0);
 
   const handleCommit = () => {
-    if (!preview) return;
+    if (previews.length === 0) return;
     setBusy(true);
     try {
-      const toCommit = preview.openingVerification
-        ? [...preview.verificationsToImport, preview.openingVerification]
-        : preview.verificationsToImport;
-      onImport(toCommit, preview.accountsToAdd, preview.sourceTag);
-      onClose();
+      // Äldst först: varje års ingående balans räknas då mot året före
+      // (App.jsx kör sieOpeningReconcile efter varje fil). Nya konton
+      // läggs till med den första filen.
+      previews.forEach((p, i) => {
+        const toCommit = p.openingVerification ? [...p.verificationsToImport, p.openingVerification] : p.verificationsToImport;
+        if (toCommit.length === 0 && i > 0) return;
+        onImport(toCommit, i === 0 ? p.accountsToAdd : [], p.sourceTag);
+      });
+      const years = onCloseYears ? closableImportedYears(previews.map(p => p.fiscalYear), company) : [];
+      if (years.length > 0) {
+        setClosableYears(years);
+        setStep(4);
+      } else {
+        onClose();
+      }
     } finally {
       setBusy(false);
     }
   };
 
   const hasIncompleteMapping = accountRows.some(r => !r.add && r.status === 'new' && !r.remapTo);
-  const canCommit = !!preview && preview.verificationsToImport.length + (preview.openingVerification ? 1 : 0) > 0 && !preview.blocked && !hasIncompleteMapping;
+  const canCommit = previews.length > 0 && totalCount > 0 && previews.every(p => !p.blocked) && !hasIncompleteMapping;
+  const yearLabelOf = (p, i) => (p.fiscalYear ? fiscalYearLabel(p.fiscalYear.start, p.fiscalYear.end) : files[i]?.name);
+  const closableLabel = joinYears(closableYears.map(y => y.label));
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={step === 4 ? undefined : onClose}>
       <div className="modal-content" style={{ maxWidth: '760px' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <span className="modal-title">{t('ui.importera_bokforing_sie4')}</span>
@@ -204,7 +237,7 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
           <div
             onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
-            onDrop={e => { e.preventDefault(); setIsDragging(false); handleFile(e.dataTransfer.files?.[0]); }}
+            onDrop={e => { e.preventDefault(); setIsDragging(false); handleFiles(e.dataTransfer.files); }}
             onClick={() => document.getElementById('sie-import-file').click()}
             style={{
               border: `1.5px dashed ${isDragging ? BRAND.green : 'var(--gray-300)'}`,
@@ -213,7 +246,7 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
               cursor: busy ? 'wait' : 'pointer', transition: 'border-color 0.15s, background 0.15s',
             }}
           >
-            <input type="file" id="sie-import-file" style={{ display: 'none' }} accept=".si,.se,.sie" disabled={busy} onChange={e => handleFile(e.target.files?.[0])} />
+            <input type="file" id="sie-import-file" multiple style={{ display: 'none' }} accept=".si,.se,.sie" disabled={busy} onChange={e => handleFiles(e.target.files)} />
             <div style={{ width: 44, height: 44, borderRadius: '999px', background: BRAND.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
               <UploadCloud size={20} color={BRAND.greenDark} />
             </div>
@@ -222,6 +255,7 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
             </h3>
             <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '0 0 6px' }}>{t('ui.dra_och_slapp_filen_har_eller_klicka_for_att_val')}</p>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{t('ui.si_se_eller_sie_exporterat_fran_ditt_tidigare_bo')}</p>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0 0' }}>{t('ui.sie_flera_ar_tips')}</p>
           </div>
         )}
 
@@ -229,14 +263,41 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
           <AccountMappingStep rows={accountRows} setRows={setAccountRows} existingAccounts={accounts} />
         )}
 
-        {step === 3 && preview && (
-          <SiePreviewStep preview={preview} meta={parsed?.meta} fixes={fixes} setFixes={setFixes} onReupload={() => setStep(1)} />
+        {step === 3 && previews.length === 1 && (
+          <SiePreviewStep preview={previews[0]} meta={files[0].parsed.meta} fixes={fixesByFile[0] || {}} setFixes={setFixesFor(0)} onReupload={() => setStep(1)} />
+        )}
+
+        {step === 3 && previews.length > 1 && (
+          <div>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.6 }}>
+              {t('ui.sie_flera_ar_intro', { n: previews.length, years: joinYears(previews.map(yearLabelOf)) })}
+            </p>
+            {previews.map((p, i) => (
+              <section key={p.sourceTag + i} style={{ borderTop: '1px solid var(--border)', paddingTop: '14px', marginTop: i === 0 ? 0 : '18px' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 10px', display: 'flex', gap: '8px', alignItems: 'baseline', flexWrap: 'wrap' }}>
+                  {yearLabelOf(p, i)}
+                  <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)' }}>{files[i].name} · {t('ui.sie_antal_verifikationer', { n: countOf(p) })}</span>
+                </h3>
+                <SiePreviewStep preview={p} meta={files[i].parsed.meta} fixes={fixesByFile[i] || {}} setFixes={setFixesFor(i)} onReupload={() => setStep(1)} />
+              </section>
+            ))}
+          </div>
+        )}
+
+        {step === 4 && (
+          <div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', borderRadius: '10px', padding: '10px 14px', marginBottom: '16px', fontSize: '13px', fontWeight: 600 }}>
+              <CheckCircle2 size={16} style={{ flexShrink: 0 }} /> {t('ui.sie_import_klar')}
+            </div>
+            <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 6px' }}>{t('ui.sie_stang_ar_titel', { years: closableLabel })}</h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>{t('ui.sie_stang_ar_text', { years: closableLabel })}</p>
+          </div>
         )}
 
         <div className="modal-footer">
-          {step > 1 && <button onClick={() => setStep(s => s - 1)} style={{ padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>{t('ui.tillbaka_2')}</button>}
+          {step > 1 && step < 4 && <button onClick={() => setStep(s => s - 1)} style={{ padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>{t('ui.tillbaka_2')}</button>}
           <span style={{ flex: 1 }} />
-          <button onClick={onClose} style={{ padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>{t('ui.avbryt')}</button>
+          <button onClick={onClose} style={{ padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>{step === 4 ? t('ui.sie_inte_nu') : t('ui.avbryt')}</button>
           {step === 2 && (
             <button disabled={hasIncompleteMapping} onClick={() => setStep(3)} style={{ padding: '9px 18px', background: hasIncompleteMapping ? 'var(--gray-300)' : BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: hasIncompleteMapping ? 'not-allowed' : 'pointer' }}>
               {t('ui.forhandsgranska')}
@@ -244,13 +305,24 @@ export default function SieImportModal({ accounts = [], verifications = [], onIm
           )}
           {step === 3 && (
             <button disabled={busy || !canCommit} onClick={handleCommit} style={{ padding: '9px 18px', background: canCommit ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: (busy || !canCommit) ? 'not-allowed' : 'pointer', opacity: canCommit ? 1 : 0.5 }}>
-              {t('ui.importera')} {preview.verificationsToImport.length + (preview.openingVerification ? 1 : 0)} {t('ui.verifikationer')}
+              {t('ui.importera')} {totalCount} {t('ui.verifikationer')}
+            </button>
+          )}
+          {step === 4 && (
+            <button onClick={() => { onCloseYears(closableYears); onClose(); }} style={{ padding: '9px 18px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+              {t('ui.sie_stang_ar_knapp', { years: closableLabel })}
             </button>
           )}
         </div>
       </div>
     </div>
   );
+}
+
+// "2024", "2024 och 2025", "2023, 2024 och 2025".
+function joinYears(labels) {
+  if (labels.length <= 1) return labels[0] || '';
+  return `${labels.slice(0, -1).join(', ')} ${t('ui.sie_och')} ${labels[labels.length - 1]}`;
 }
 
 function ProgramStep({ onContinue }) {

@@ -295,7 +295,7 @@ function useIsPhone(maxWidth = 640) {
   return phone;
 }
 
-export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie }) {
+export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie, onCloseImportedYears }) {
   const { t } = useTranslation();
   const FORMAT_MODES = formatModes(t);
   // Har företaget personal? Avgörs på verkliga anställda och lönekörningar,
@@ -1327,6 +1327,8 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
         <SieImportModal
           accounts={accounts}
           verifications={verifications}
+          company={company}
+          onCloseYears={onCloseImportedYears}
           onImport={(newVerifications, newAccounts, sourceTag) => onBulkImportSie?.(newVerifications, newAccounts, sourceTag)}
           onClose={() => setShowSieImportModal(false)}
         />

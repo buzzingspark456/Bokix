@@ -52,7 +52,7 @@ import { detectOrgType } from './utils/orgType';
 import { reconcileSieOpenings, applySieOpeningReconcile } from './utils/sieOpeningReconcile';
 import { sieImportTagOf } from './utils/sieImportBatches';
 import { OPTIONAL_FEATURES, isFeatureOn, hiddenFeatureNavIds } from './utils/optionalFeatures';
-import { resultAccountFor } from './utils/yearEnd';
+import { resultAccountFor, buildYearEndClosing } from './utils/yearEnd';
 import { BRAND, ACCENT_COLORS } from './utils/brandColors';
 import { vatSettlementRows } from './utils/vatCalculation';
 import { isReverseChargePurchaseAccount, withReverseChargeRows } from './utils/reverseCharge';
@@ -3871,6 +3871,26 @@ function App() {
     setToast({ message: tr('ui.sie_import_borttagen'), variant: 'success' });
   };
 
+  // Flytt i ett steg (SieImportModal.jsx): avslutade år som just importerats
+  // stängs på samma sätt som "Lås räkenskapsåret" under Skatt och bokslut —
+  // en bokslutsverifikation per år och ett lås. Bokslutet gjordes redan i
+  // det gamla programmet, så stegen före låsningen (moms, lön …) gäller inte
+  // här. Därefter räknas ingående balanser om, eftersom årets resultat nu
+  // ligger på eget kapital i stället för på resultatkontona.
+  const handleCloseImportedYears = (years) => {
+    const orgType = detectOrgType(company?.orgNr);
+    const locks = {};
+    for (const fy of years) {
+      const period = /^\d{4}$/.test(fy.label) ? fy.label : { start: fy.start, end: fy.end };
+      const { verification, result, destination } = buildYearEndClosing({ verifications, year: period, orgType, partners: company?.partners });
+      if (verification) handleAddVerification(verification);
+      locks[fy.label] = { lockedAt: new Date().toISOString(), result, resultAccount: destination, start: fy.start, end: fy.end };
+    }
+    setCompanyInfo(prev => ({ ...prev, lockedFiscalYears: { ...(prev?.lockedFiscalYears || {}), ...locks } }));
+    handleRepairSieOpenings();
+    setToast({ message: tr('ui.sie_ar_stangda', { years: years.map(y => y.label).join(', ') }), variant: 'success' });
+  };
+
   // Samma rättelse för data som importerades före den, från Inställningar.
   const handleRepairSieOpenings = () => {
     updateCompanyField('verifications', prev => applySieOpeningReconcile(prev, reconcileSieOpenings(prev, { equityAccount: resultAccountFor(detectOrgType(company?.orgNr)) })));
@@ -5012,7 +5032,7 @@ function App() {
             payrollRuns={payrollRuns}
             employees={employees}
             reviewTotal={reviewTotal}
-            onBulkImportSie={handleBulkImportVerifications}
+            onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears}
           />
         );
       case 'time':
@@ -5360,7 +5380,7 @@ function App() {
             sidebarStyle={sidebarStyle}
             onToggleSidebarStyle={toggleSidebarStyle}
             sharedAccess={currentCompany.__shared || null}
-            onBulkImportSie={handleBulkImportVerifications}
+            onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears}
             onRepairSieOpenings={handleRepairSieOpenings}
             onDeleteSieImport={handleDeleteSieImport}
             enabledFeatures={Object.fromEntries(OPTIONAL_FEATURES.map(f => [f.id, isFeatureOn(currentCompany, f.id)]))}
@@ -5376,7 +5396,7 @@ function App() {
           />
         );
       default:
-        return <Dashboard {...commonProps} invoices={invoices} expenses={expenses} contacts={contacts} setActiveTab={setActiveTab} company={company} onBulkImportSie={handleBulkImportVerifications} />;
+        return <Dashboard {...commonProps} invoices={invoices} expenses={expenses} contacts={contacts} setActiveTab={setActiveTab} company={company} onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears} />;
     }
   };
 

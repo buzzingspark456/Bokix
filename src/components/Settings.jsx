@@ -2426,7 +2426,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
 
 export default function Settings({
   company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], quotes = [], expenses = [],
-  contacts = [], projects = [], onImport, onReset, onBulkImportSie, onRepairSieOpenings, onDeleteSieImport, onOpenRotRutImport, enabledFeatures = null, onAttachVerificationFiles, stripeAccountId, onConnectStripe, onDisconnectStripe,
+  contacts = [], projects = [], onImport, onReset, onBulkImportSie, onRepairSieOpenings, onDeleteSieImport, onCloseImportedYears, onOpenRotRutImport, enabledFeatures = null, onAttachVerificationFiles, stripeAccountId, onConnectStripe, onDisconnectStripe,
   zettleConnected = false, onConnectZettle,
   user,
   // Hjälp och Logga ut ligger i Inställningar på telefon (på dator finns de
@@ -4940,6 +4940,8 @@ export default function Settings({
         <SieImportModal
           accounts={accounts}
           verifications={verifications}
+          company={company}
+          onCloseYears={readOnly ? undefined : onCloseImportedYears}
           onImport={(newVerifications, newAccounts, sourceTag) => onBulkImportSie?.(newVerifications, newAccounts, sourceTag)}
           onClose={() => setShowSieImport(false)}
         />
