@@ -1051,7 +1051,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         {/* Right side: Attachment */}
         <div className="ver-form-attachment" style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.underlag')}</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.kvitto_eller_fil')}</div>
             {ocrStatus === 'scanning' && (
               <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted)' }}>
                 <ScanLine size={12} style={{ animation: 'spin 1s linear infinite' }} /> {ocrMessage || tr('ui.laser')}
@@ -1422,7 +1422,7 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px' }}>
         <span style={{ fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-main)' }}>{label}</span>
         <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-          {rowsInGroup.length} {rowsInGroup.length === 1 ? tr('ui.verifikation_3') : tr('ui.verifikationer')} · {fmtSEK(total)}
+          {rowsInGroup.length} {rowsInGroup.length === 1 ? tr('ui.verifikation_3') : tr('ui.bokningar_sma')} · {fmtSEK(total)}
         </span>
       </div>
     );
@@ -1497,7 +1497,7 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
           <ListFilterBar
             onClear={() => { setSearchInput(''); setDateFrom(''); setDateTo(''); setSeries('all'); setMonthFilter('all'); }}
             count={filteredVers.length}
-            countLabel={tr('ui.verifikationer')}
+            countLabel={tr('ui.bokningar_sma')}
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
             activeFilters={(dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (series !== 'all' ? 1 : 0) + (monthFilter !== 'all' ? 1 : 0)}
@@ -1578,7 +1578,7 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
               renderGroupHeader={renderVerGroupHeader}
               columns={[
                 {
-                  key: 'number', label: tr('ui.verifikation'), fontWeight: 700, color: 'var(--text-main)', render: v => (
+                  key: 'number', label: tr('ui.bokning_rubrik'), fontWeight: 700, color: 'var(--text-main)', render: v => (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} id={`ver-row-${v.id}`}>
                       {expandedId === v.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       {v.number}

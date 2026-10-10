@@ -31,9 +31,9 @@ function SupplierInvoiceAttachment({ url, name, isImage, isPdf }) {
   if (!activeUrl) return null;
   return (
     <>
-      <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.underlag')}</h3>
+      <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.kvitto_eller_fil')}</h3>
       {isImage ? (
-        <img src={activeUrl} alt={name || t('ui.underlag')} style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', objectFit: 'contain', boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }} />
+        <img src={activeUrl} alt={name || t('ui.kvitto_eller_fil')} style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', objectFit: 'contain', boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }} />
       ) : (
         <a href={activeUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: BRAND.green, fontWeight: 600, fontSize: '13px', textDecoration: 'none' }}>
           <FileText size={18} /> {isPdf ? t('ui.oppna_pdf_underlag') : (name || t('ui.oppna_underlag'))}
@@ -382,7 +382,7 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
 
           {/* Underlag */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 12px' }}>{t('ui.underlag')} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{t('ui.rekommenderas')}</span></h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 12px' }}>{t('ui.kvitto_eller_fil')} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{t('ui.rekommenderas')}</span></h3>
             <AttachmentField file={attachment} previewUrl={attachmentPreviewUrl} onSelect={selectAttachment} onRemove={() => setAttachment(null)} error={attachmentError} busy={attachmentBusy} />
           </div>
 

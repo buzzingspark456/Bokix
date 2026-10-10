@@ -235,7 +235,7 @@ export function DocumentLightbox({ url, type, name, onClose }) {
   }, [onClose]);
 
   return (
-    <div className="dv-lightbox" role="dialog" aria-modal="true" aria-label={name || t('ui.underlag')}>
+    <div className="dv-lightbox" role="dialog" aria-modal="true" aria-label={name || t('ui.kvitto_eller_fil')}>
       <DocumentPane url={url} type={type} name={name} />
       <button type="button" className="dv-close" onClick={onClose} aria-label={t('ui.stang')}>
         <X size={18} />
