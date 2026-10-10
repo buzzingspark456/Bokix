@@ -52,6 +52,9 @@ import { detectOrgType } from './utils/orgType';
 import { reconcileSieOpenings, applySieOpeningReconcile } from './utils/sieOpeningReconcile';
 import { sieImportTagOf } from './utils/sieImportBatches';
 import { OPTIONAL_FEATURES, isFeatureOn, hiddenFeatureNavIds } from './utils/optionalFeatures';
+import { guidesForPage } from './utils/pageGuides';
+import { GuideContext } from './components/shared/GuideContext';
+import GuideModal from './components/GuideModal';
 import { resultAccountFor, buildYearEndClosing } from './utils/yearEnd';
 import { BRAND, ACCENT_COLORS } from './utils/brandColors';
 import { vatSettlementRows } from './utils/vatCalculation';
@@ -1043,6 +1046,7 @@ const tabAliases = {
   revenue:          'invoices',
   expense_overview: 'expenses',
   receipts:         'expenses',
+  settings_system:  'settings',
   supplierInvoices: 'expenses',
   transfers:        'verifications',
   dashboard:        'dashboard',
@@ -1523,6 +1527,10 @@ function App() {
   // Moms — den fliken existerar nu specifikt för det, se Taxes.jsx.
   const taxesSectionAliases = { taxes: 'dates', taxes_vat: 'vat', taxes_yearend: 'yearend' };
   const [taxesInitialSection, setTaxesInitialSection] = useState('dates');
+  // Inställningssidans avsnitt när man kommer via en genväg ('company',
+  // 'settings_system'). Nollställs vid all annan navigering, så att menyns
+  // Inställningar fortsatt öppnar översikten.
+  const [settingsShortcutSection, setSettingsShortcutSection] = useState(null);
 
   // Samma bugg, samma fix som taxesSectionAliases ovan: profilmenyns
   // "Kontoplaner" gjorde handleNavTabChange('accounts'), men tabAliases
@@ -1562,15 +1570,29 @@ function App() {
   // TYST från den inloggade sessionen (så enkelt som möjligt, bara EN
   // textruta att fylla i) — se handleSubmitErrorReport/modalen nedan.
   const [reportErrorModal, setReportErrorModal] = useState(false);
+  const [guideModalOpen, setGuideModalOpen] = useState(false);
   const [reportErrorText, setReportErrorText] = useState('');
   const [reportErrorBusy, setReportErrorBusy] = useState(false);
   // Samma ämnen som kontaktsidan (ContactPage.jsx TOPICS); value måste
   // finnas i ALLOWED_TOPICS i api/contact.js.
   const [reportErrorTopic, setReportErrorTopic] = useState('Felrapport');
 
+  // Supporten ska slippa fråga var man var: sidan och företaget skickas med
+  // under meddelandet (och visas i rutan, så att inget skickas i hemlighet).
+  // En funktion, inte ett värde: `company` deklareras längre ned i komponenten.
+  const getSupportContextLine = () => {
+    const id = resolveTab(activeTab);
+    const key = id === 'invoices' ? 'nav.customerInvoices' : `nav.${id}`;
+    const label = t(key);
+    const page = label === key ? id : label;
+    const active = data.companies?.[data.activeCompanyId]?.company;
+    return tr('ui.support_kontext', { page, company: [active?.name, active?.orgNr].filter(Boolean).join(', ') || '–' });
+  };
+
   const handleSubmitErrorReport = async () => {
-    const message = reportErrorText.trim();
-    if (!message) return;
+    const typed = reportErrorText.trim();
+    if (!typed) return;
+    const message = `${typed}\n\n${getSupportContextLine()}`;
     setReportErrorBusy(true);
     try {
       const senderName = [user?.user_metadata?.first_name, user?.user_metadata?.last_name].filter(Boolean).join(' ').trim()
@@ -1605,6 +1627,7 @@ function App() {
     const rTab = resolveTab(tabId);
     if (taxesSectionAliases[tabId]) setTaxesInitialSection(taxesSectionAliases[tabId]);
     if (verificationsSectionAliases[tabId]) setVerificationsInitialTab(verificationsSectionAliases[tabId]);
+    setSettingsShortcutSection({ company: 'company', settings_system: 'system' }[tabId] || null);
     setActiveTab(rTab);
     // Bokföring-sidans flikar får sitt eget id i adressen (#accruals), så att
     // en omladdning landar på fliken och inte bara på sidan.
@@ -3077,7 +3100,8 @@ function App() {
     // redan här (samma render som satte isLoggedIn/showOnboarding).
     // handleNavTabChange skickas med så rundturen kan navigera in på
     // varje sektion på riktigt (se productTour.js:s withNavigation).
-    maybeAutoStartTour(user.id, handleNavTabChange);
+    // Gömda funktioner (utils/optionalFeatures.js) hoppas över i rundturen.
+    maybeAutoStartTour(user.id, handleNavTabChange, hiddenFeatureNavIds(data.companies?.[data.activeCompanyId]));
   }, [isLoggedIn, showOnboarding, subscriptionGate, user, data.activeCompanyId, data.companies, subscriptionsMap]);
 
   const handleLogin = () => {
@@ -4989,6 +5013,12 @@ function App() {
     );
   };
 
+  // "Se hur" i sidhuvudet: filmerna för sidan man står på (utils/pageGuides.js).
+  // Gömda funktioner (Artiklar, Projekt) visar ingen film.
+  const pageGuideTab = resolveTab(activeTab);
+  const pageGuides = featureHiddenNavIds.includes(pageGuideTab) ? [] : guidesForPage(pageGuideTab);
+  const pageGuideContext = pageGuides.length > 0 ? { guides: pageGuides, open: () => setGuideModalOpen(true) } : null;
+
   const renderContent = () => {
     const commonProps = {
       accounts, balances, verifications,
@@ -4997,7 +5027,8 @@ function App() {
 
     // 'company' (sidomenyn/profilmenyn) och 'settings' landar båda på
     // inställningssidan — den förra direkt på Företag-fliken.
-    const settingsInitialSection = activeTab === 'company' ? 'company' : undefined;
+    // 'settings_system' (Att göra: "Välj om företaget har moms") landar på Allmänt.
+    const settingsInitialSection = settingsShortcutSection || (activeTab === 'company' ? 'company' : undefined);
 
     // Kom man ändå hit — bokmärkt URL-hash, en genväg från en annan sida,
     // produktrundturen — visas förklaringen i stället för sidan. Ligger
@@ -5944,7 +5975,9 @@ function App() {
                 mekanism som redan lät sidans overflow nå upp genom alla
                 lager till .main-wrapper innan den här fixen. */}
             <div className="page-content-with-spacer">
-              {renderContent()}
+              <GuideContext.Provider value={pageGuideContext}>
+                {renderContent()}
+              </GuideContext.Provider>
               <div className="mobile-nav-spacer" aria-hidden="true" />
             </div>
           </Suspense>
@@ -6074,8 +6107,9 @@ function App() {
       <HelpDrawer
         isOpen={isHelpDrawerOpen}
         onClose={() => setIsHelpDrawerOpen(false)}
-        onStartTour={() => { setIsHelpDrawerOpen(false); handleNavTabChange('dashboard'); startProductTourWhenReady({ uid: user?.id, navigate: handleNavTabChange }); }}
+        onStartTour={() => { setIsHelpDrawerOpen(false); handleNavTabChange('dashboard'); startProductTourWhenReady({ uid: user?.id, navigate: handleNavTabChange, hiddenTabs: hiddenFeatureNavIds(currentCompany) }); }}
         onStartInvoiceTour={() => { setIsHelpDrawerOpen(false); handleNavTabChange('invoices'); startInvoiceTourWhenReady({ uid: user?.id }); }}
+        onContactSupport={(topic) => { setIsHelpDrawerOpen(false); setReportErrorTopic(topic); setReportErrorModal(true); }}
       />
 
       {/* ── Toast — ersätter blockerande alert() för t.ex. "Stripe är nu
@@ -6134,6 +6168,10 @@ function App() {
           "som en kontaktlista", en enda ruta att fylla i, så enkelt som
           möjligt — namn/e-post skickas tyst med från den inloggade
           sessionen, se handleSubmitErrorReport. ── */}
+      {guideModalOpen && pageGuides.length > 0 && (
+        <GuideModal guides={pageGuides} onClose={() => setGuideModalOpen(false)} />
+      )}
+
       {reportErrorModal && (
         <div className="modal-overlay" onClick={() => { if (!reportErrorBusy) setReportErrorModal(false); }}>
           <div className="modal-content" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
@@ -6178,6 +6216,7 @@ function App() {
                   autoFocus
                   required
                 />
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0 0' }}>{tr('ui.support_kontext_info', { line: getSupportContextLine() })}</p>
               </div>
               {/* Svaret går till kontots e-post (reply_to i api/contact.js,
                   adressen tas från inloggningen, inte från klienten). */}

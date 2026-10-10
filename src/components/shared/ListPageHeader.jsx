@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Search, RefreshCw, SlidersHorizontal, Plus, MoreHorizontal } from '../icons';
+import React, { useState, useRef, useEffect, useContext } from 'react';
+import { Search, RefreshCw, SlidersHorizontal, Plus, MoreHorizontal, PlayCircle } from '../icons';
+import { GuideContext } from './GuideContext';
 import { t } from '../../i18n';
 
 // Sida 43: en enda delad sidhuvud-komponent för alla listsidor (Kunder,
@@ -98,6 +99,8 @@ const tabPillStyle = (active) => ({
  */
 export default function ListPageHeader({ title, subtitle, actions = [], tabs, children }) {
   const hasTabs = tabs && tabs.items?.length > 0;
+  // Se hur: filmen för sidan (App.jsx sätter GuideContext, utils/pageGuides.js).
+  const guide = useContext(GuideContext);
   const pills = Boolean(hasTabs && tabs.variant === 'pills');
   // Telefon: flikraden är en rad man sveper i sidled (index.css). Den valda
   // fliken skrollas fram så den aldrig står gömd bakom kanten. Bara raden
@@ -120,7 +123,14 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
               2px kändes hopklämt mellan rubrik och undertext — 6px (samma
               rytm som Dashboard.jsx:s hälsningsrader) ger läsbar andrum
               utan att blåsa upp den kompakta verktygsrads-höjden här. */}
-          <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--text-main)' }}>{title}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--text-main)' }}>{title}</h1>
+            {guide?.guides?.length > 0 && (
+              <button type="button" className="lph-guide" onClick={guide.open} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', border: 'none', borderRadius: '999px', background: 'var(--bg-muted)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <PlayCircle size={14} /> {t('ui.se_hur')}
+              </button>
+            )}
+          </div>
           {subtitle && <p className="page-header-subtitle" style={{ margin: '6px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>{subtitle}</p>}
         </div>
         {actions.length > 0 && (

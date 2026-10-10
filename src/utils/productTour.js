@@ -213,8 +213,8 @@ const STEP_DEFS = [
  * flaggade steg (just nu bara dash-checklist) — den kollen är trygg
  * eftersom startProductTourWhenReady redan garanterat väntat in
  * Dashboard-chunken innan buildSteps() körs. */
-function buildSteps() {
-  return STEP_DEFS.filter(step => !step.optional || document.querySelector(step.element));
+function buildSteps(hiddenTabs = []) {
+  return STEP_DEFS.filter(step => (!step.optional || document.querySelector(step.element)) && !(step.tab && hiddenTabs.includes(step.tab)));
 }
 
 /** Går in i `step`: byter flik (om satt), öppnar ev. formulär
@@ -269,8 +269,8 @@ function withNavigation(steps, navigate) {
  * `uid` (Supabase user.id) används bara för att minnas att just det kontot
  * sett den, se hasSeenTour. `navigate` = App.jsx:s handleNavTabChange, se
  * withNavigation ovan för varför den behövs. */
-export function startProductTour({ uid, navigate } = {}) {
-  const steps = buildSteps();
+export function startProductTour({ uid, navigate, hiddenTabs = [] } = {}) {
+  const steps = buildSteps(hiddenTabs);
   if (steps.length === 0) return null;
   const nav = withNavigation(steps, navigate || (() => {}));
 
@@ -301,15 +301,15 @@ export function startProductTour({ uid, navigate } = {}) {
 /** Väntar in Dashboard-fliken (se waitForElement ovan) och startar sedan.
  * Delad av auto-starten (App.jsx, maybeAutoStartTour) och "Starta rundtur
  * igen" i Hjälp och support (HelpDrawer.jsx → App.jsx:s onStartTour). */
-export async function startProductTourWhenReady({ uid, navigate } = {}) {
+export async function startProductTourWhenReady({ uid, navigate, hiddenTabs = [] } = {}) {
   await waitForElement('.dash-top');
-  return startProductTour({ uid, navigate });
+  return startProductTour({ uid, navigate, hiddenTabs });
 }
 
 /** Auto-start vid inloggning — bara om kontot inte redan sett den här
  * versionen. Anropas från App.jsx efter att inloggningen/betalspärrarna
  * släppt igenom till den riktiga app-vyn, se dess egen kommentar. */
-export function maybeAutoStartTour(uid, navigate) {
+export function maybeAutoStartTour(uid, navigate, hiddenTabs = []) {
   if (hasSeenTour(uid)) return null;
-  return startProductTourWhenReady({ uid, navigate });
+  return startProductTourWhenReady({ uid, navigate, hiddenTabs });
 }

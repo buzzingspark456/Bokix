@@ -55,6 +55,16 @@
     }
   },
   "dashboard": {
+    "start": {
+      "companyTitle": "Fyll i företagsuppgifterna",
+      "companyDetail": "Organisationsnummer, adress och bankgiro syns på dina fakturor",
+      "vatTitle": "Välj om företaget har moms",
+      "vatDetail": "Avgör hur kvitton och fakturor bokförs",
+      "receiptTitle": "Lägg in ditt första kvitto",
+      "receiptDetail": "Fota eller ladda upp, Bokix läser av beloppet",
+      "invoiceTitle": "Skicka din första faktura",
+      "invoiceDetail": "Bokförs automatiskt när du skickar den"
+    },
     "period": {
       "year": "I år",
       "last12": "Senaste 12 mån",
@@ -188,7 +198,8 @@
         "bookkeeping": "Bokföring",
         "tax": "Moms och skatt",
         "payroll": "Lön",
-        "other": "Övrigt"
+        "other": "Övrigt",
+        "start": "Kom igång"
       },
       "minimize": "Minimera",
       "expand": "Visa",
@@ -2287,7 +2298,7 @@
     "moms_deklaration": "Moms & deklaration",
     "moms_fran_zettle": "Moms (från Zettle):",
     "moms_i_kronor": "Moms i kronor",
-    "moms_kontoplan_verifikationsserier_valuta_och_ex": "Moms, kontoplan, verifikationsserier, valuta och export.",
+    "moms_kontoplan_verifikationsserier_valuta_och_ex": "Funktioner som artiklar, lager och projekt, moms, kontoplan, verifikationsserier och valuta.",
     "moms_pa_forsaljningen": "Moms på försäljningen",
     "moms_pa_kvittot": "Moms på kvittot",
     "moms_som_xml_fil_inkomstdeklaration_som_sru_file": "Moms som XML-fil, inkomstdeklaration som SRU-filer, arbetsgivardeklaration som underlag.",
@@ -3150,6 +3161,9 @@
     "sie_ar_stangda": "Stängt och låst: {{years}}",
     "roll_revisor": "Revisor / redovisningskonsult",
     "roll_revisor_hint": "Kan redigera allt, även löner, så att konsulten kan sköta bokföring, lön och bokslut. Du kan ändra enskilda sidor nedan.",
+    "se_hur": "Se hur",
+    "support_kontext": "Skickat från sidan {{page}} i företaget {{company}}.",
+    "support_kontext_info": "Följer med så att vi ser var du är: {{line}}",
     "forsok_igen": "Försök igen",
     "lon_ingen_atkomst_titel": "Du har inte åtkomst till löner",
     "lon_ingen_atkomst_text": "Ägaren av {{company}} har inte gett dig behörighet till Anställda och lön. Be ägaren öppna Inställningar → Användare, välja dig och sätta Anställda och lön till Kan redigera. Sedan kan du lägga till och importera anställda här. Det kostar ingenting för dig.",

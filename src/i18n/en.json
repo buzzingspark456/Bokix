@@ -55,6 +55,16 @@
     }
   },
   "dashboard": {
+    "start": {
+      "companyTitle": "Fill in your company details",
+      "companyDetail": "Organisation number, address and bankgiro appear on your invoices",
+      "vatTitle": "Choose whether the company has VAT",
+      "vatDetail": "Decides how receipts and invoices are booked",
+      "receiptTitle": "Add your first receipt",
+      "receiptDetail": "Take a photo or upload, Bokix reads the amount",
+      "invoiceTitle": "Send your first invoice",
+      "invoiceDetail": "Booked automatically when you send it"
+    },
     "period": {
       "year": "This year",
       "last12": "Last 12 mo",
@@ -188,7 +198,8 @@
         "bookkeeping": "Bookkeeping",
         "tax": "VAT and tax",
         "payroll": "Payroll",
-        "other": "Other"
+        "other": "Other",
+        "start": "Get started"
       },
       "minimize": "Minimize",
       "expand": "Show",
@@ -2287,7 +2298,7 @@
     "moms_deklaration": "VAT & declarations",
     "moms_fran_zettle": "VAT (from Zettle):",
     "moms_i_kronor": "VAT in kronor",
-    "moms_kontoplan_verifikationsserier_valuta_och_ex": "VAT, chart of accounts, voucher series, currency and export.",
+    "moms_kontoplan_verifikationsserier_valuta_och_ex": "Features such as items, inventory and projects, VAT, chart of accounts, voucher series and currency.",
     "moms_pa_forsaljningen": "VAT on the sale",
     "moms_pa_kvittot": "VAT on the receipt",
     "moms_som_xml_fil_inkomstdeklaration_som_sru_file": "VAT as an XML file, income tax return as SRU files, employer declaration as data.",
@@ -3150,6 +3161,9 @@
     "sie_ar_stangda": "Closed and locked: {{years}}",
     "roll_revisor": "Auditor / accounting consultant",
     "roll_revisor_hint": "Can edit everything, including payroll, so the consultant can handle bookkeeping, payroll and year-end. You can change single pages below.",
+    "se_hur": "See how",
+    "support_kontext": "Sent from the page {{page}} in the company {{company}}.",
+    "support_kontext_info": "Included so we can see where you are: {{line}}",
     "forsok_igen": "Try again",
     "lon_ingen_atkomst_titel": "You don't have access to payroll",
     "lon_ingen_atkomst_text": "The owner of {{company}} hasn't given you access to Employees and payroll. Ask the owner to open Settings → Users, choose you and set Employees and payroll to Can edit. Then you can add and import employees here. It costs you nothing.",

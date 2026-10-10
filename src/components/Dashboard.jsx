@@ -518,6 +518,34 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
       detail: draftInvoices.length === 1 ? t('dashboard.todo.draftOneDetail') : t('dashboard.todo.draftManyDetail'),
     });
   }
+  // Första veckan: det som gör kontot klart, som vanliga rader i Att göra
+  // (en tidigare separat checklista stängdes av på kundönskemål). Varje rad
+  // försvinner när saken är gjord, eller när man döljer den.
+  const startSteps = [
+    {
+      kind: 'start_company', done: Boolean(company?.orgNr && company?.address && (company?.bankgiro || company?.plusgiro || company?.iban)),
+      tab: 'company', title: t('dashboard.start.companyTitle'), detail: t('dashboard.start.companyDetail'),
+    },
+    {
+      kind: 'start_vat', done: company?.vatRegistered === true || company?.vatRegistered === false,
+      tab: 'settings_system', title: t('dashboard.start.vatTitle'), detail: t('dashboard.start.vatDetail'),
+    },
+    {
+      kind: 'start_receipt', done: expenses.length > 0,
+      tab: 'expenses', title: t('dashboard.start.receiptTitle'), detail: t('dashboard.start.receiptDetail'),
+    },
+    {
+      kind: 'start_invoice', done: invoices.length > 0,
+      tab: 'invoices', title: t('dashboard.start.invoiceTitle'), detail: t('dashboard.start.invoiceDetail'),
+    },
+  ];
+  // Bara för ett nytt konto: ett företag som redan bokför (eller har flyttat
+  // hit sin historik) ska inte plötsligt få "Kom igång"-rader.
+  const isYoungAccount = (verifications || []).length < 25;
+  startSteps.filter(s => isYoungAccount && !s.done).forEach(({ done: _done, ...s }) => {
+    // Överraden säger vad raden är (Kom igång); rubriken säger vad man gör.
+    rawTodos.push({ ...s, action: t('dashboard.todo.group.start'), group: 'start', sev: 'success', tone: 'brand', icon: s.kind === 'start_vat' ? TodoVatIcon : TodoDraftIcon });
+  });
   rawTodos.forEach(r => { r.text = [r.title, r.detail, r.when].filter(Boolean).join(' · '); });
   // Allvarsgrad först (försenat före kommande), men DÄRINOM det som har
   // minst tid kvar. Utan `daysLeft` som andrahandsnyckel avgjorde
@@ -784,7 +812,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     return acc;
   }, []);
   const showGroupTitles = todoGroups.length > 1;
-  const todoCard = !isNew && todos.length > 0 ? (
+  const todoCard = todos.length > 0 ? (
     <section className="dash-todo-card" aria-label={t('dashboard.today.title')}>
       <div className="dash-todo-head">
         <h2 className="dash-todo-title">
