@@ -27,7 +27,7 @@ import { confirmDialog } from './shared/ConfirmDialog';
 import { newCalendarKey, calendarFeedUrl, calendarChoices } from '../utils/calendarFeed';
 import { downloadSie4 } from '../utils/sieExport';
 import { planFromId, PLAN_TIERS } from '../utils/plans';
-import { ACCESS_PAGES, ACCESS_LEVELS, defaultPageAccess, accessForPage } from '../utils/pageAccess';
+import { ACCESS_PAGES, ACCESS_LEVELS, defaultPageAccess, accessForPage, canWriteField } from '../utils/pageAccess';
 import { isUfCompany, ufSettingsSections, ufFreePeriod, UF_FREE_MONTHS } from '../utils/ufMode';
 import { closeUfYear } from '../utils/ufClose';
 import SieImportModal from './SieImportModal';
@@ -2769,6 +2769,10 @@ export default function Settings({
   );
   // Importerade SIE-filer, var och en går att ta bort (App.jsx handleDeleteSieImport).
   const sieBatches = useMemo(() => sieImportBatches(verifications), [verifications]);
+  // Ägaren alltid; en inbjuden bara som redigerare med rätt att ändra
+  // verifikationer (samma kontroll som api/company-access.js gör).
+  const canDeleteSieImport = Boolean(onDeleteSieImport) && !readOnly
+    && (!sharedAccess || (sharedAccess.role === 'editor' && canWriteField(sharedAccess.pageAccess, 'verifications', sharedAccess.role)));
   const handleDeleteSieImport = async (batch) => {
     const lockedIds = new Set(batch.ids);
     const locked = verifications.find(v => lockedIds.has(v.id) && lockedPeriodFor(v.date, company?.lockedFiscalYears));
@@ -4370,7 +4374,7 @@ export default function Settings({
                       key={b.tag}
                       title={b.fileName}
                       description={tr('ui.sie_import_rad', { count: b.count, from: b.from || '', to: b.to || '' })}
-                      right={onDeleteSieImport && !readOnly ? (
+                      right={canDeleteSieImport ? (
                         <button
                           type="button"
                           onClick={() => handleDeleteSieImport(b)}
