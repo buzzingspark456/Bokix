@@ -1000,8 +1000,10 @@ export default function SupplierInvoices({
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px',
                   borderRadius: '999px', fontSize: '10px', fontWeight: 700,
-                  background: opt.strong ? 'rgba(255,255,255,0.28)' : 'var(--status-chip-bg)',
-                  color: opt.strong ? '#ffffff' : (neutral ? 'var(--text-secondary)' : opt.color),
+                  // Siffran i chipets egen textfärg på en mörkare platta, så den går att
+                  // läsa på både gult och rött (vit siffra på gult syntes inte).
+                  background: opt.color === '#ffffff' ? 'rgba(0,0,0,0.22)' : 'rgba(0,0,0,0.08)',
+                  color: neutral ? 'var(--text-secondary)' : opt.color,
                 }}>{count}</span>
               </button>
             );

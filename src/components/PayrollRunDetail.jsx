@@ -370,9 +370,19 @@ function EmployeeSummaryTable({ computedRows, onDownload }) {
 
 // Lönebeskedet som det ser ut, för en anställd i taget (samma PDF som
 // laddas ner och mejlas).
-function PayslipPreview({ computedRows, payslipArgs }) {
+function PayslipPreview({ computedRows, payslipArgs, period }) {
   const [employeeId, setEmployeeId] = useState(computedRows[0]?.row.employeeId);
   const current = computedRows.find(r => r.row.employeeId === employeeId) || computedRows[0];
+  // Med många anställda: sök på namn.
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const listed = q ? computedRows.filter(r => `${r.row.employeeSnapshot.firstName} ${r.row.employeeSnapshot.lastName}`.toLowerCase().includes(q)) : computedRows;
+  const mailStatus = (r) => {
+    if (r.row.payslipSentAt) return { text: tr('payslipList.sent', { date: new Date(r.row.payslipSentAt).toLocaleDateString('sv-SE') }), tone: 'green' };
+    if (!String(r.row.employeeSnapshot?.email || '').includes('@')) return { text: tr('payslipList.noEmail'), tone: 'amber' };
+    return { text: tr('payslipList.notSent'), tone: 'muted' };
+  };
+  const download = (r) => generatePayslipPdf(payslipArgs(r)).save(`lonebesked-${r.row.employeeSnapshot.lastName}-${period}.pdf`);
   const [url, setUrl] = useState(null);
   // Sidan ritas som en bild med pdf.js (samma som kvittoavläsningen), så att
   // förhandsvisningen fungerar i alla webbläsare, även i en iPhone där en
@@ -408,28 +418,64 @@ function PayslipPreview({ computedRows, payslipArgs }) {
     return () => { cancelled = true; if (made) URL.revokeObjectURL(String(made)); };
   }, [current?.row.employeeId, current?.computed.net]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!current) return null;
+  const toneColor = { green: 'var(--status-green-text)', amber: 'var(--status-amber-text)', muted: 'var(--text-muted)' };
   return (
-    <div className="pr-panel" style={{ ...panelCard, marginBottom: '20px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', padding: '14px 18px', borderBottom: '1px solid var(--border-light)' }}>
-        <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('payrollStages.previewTitle')}</div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {computedRows.length > 1 && (
-            <select value={current.row.employeeId} onChange={e => setEmployeeId(e.target.value)} aria-label={tr('payrollStages.employee')} style={{ padding: '7px 10px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit' }}>
-              {computedRows.map(r => <option key={r.row.employeeId} value={r.row.employeeId}>{r.row.employeeSnapshot.firstName} {r.row.employeeSnapshot.lastName}</option>)}
-            </select>
-          )}
-          {url && <a href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('payrollStages.openPdf')}</a>}
+    <div className="pr-panel payslip-browser" style={{ ...panelCard, marginBottom: '20px', display: 'grid', gridTemplateColumns: computedRows.length > 1 ? 'minmax(240px, 320px) minmax(0, 1fr)' : 'minmax(0, 1fr)' }}>
+      {computedRows.length > 1 && (
+        <div className="payslip-list" style={{ borderRight: '1px solid var(--border-light)', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border-light)' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>{tr('payslipList.title', { n: computedRows.length })}</div>
+            {computedRows.length > 6 && (
+              <input
+                type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={tr('payslipList.search')}
+                aria-label={tr('payslipList.search')}
+                style={{ marginTop: '8px', width: '100%', boxSizing: 'border-box', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit' }}
+              />
+            )}
+          </div>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, overflowY: 'auto', maxHeight: '640px' }}>
+            {listed.map(r => {
+              const active = r.row.employeeId === current.row.employeeId;
+              const st = mailStatus(r);
+              return (
+                <li key={r.row.employeeId} style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-light)', background: active ? 'var(--lime-50)' : 'transparent', boxShadow: active ? 'inset 3px 0 0 var(--accent)' : 'none' }}>
+                  <button type="button" onClick={() => setEmployeeId(r.row.employeeId)} aria-current={active ? 'true' : undefined} style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', padding: '11px 14px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    <span style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                      <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.row.employeeSnapshot.firstName} {r.row.employeeSnapshot.lastName}</span>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{fmt(r.computed.net)} {tr('ui.kr')}</span>
+                    </span>
+                    <span style={{ display: 'block', fontSize: '12px', marginTop: '2px', color: toneColor[st.tone] }}>{st.text}</span>
+                  </button>
+                  <button type="button" onClick={() => download(r)} title={tr('payslipList.download')} aria-label={tr('payslipList.downloadFor', { name: `${r.row.employeeSnapshot.firstName} ${r.row.employeeSnapshot.lastName}` })} style={{ background: 'none', border: 'none', padding: '10px 12px', cursor: 'pointer', color: 'var(--text-secondary)', lineHeight: 0 }}>
+                    <Download size={15} />
+                  </button>
+                </li>
+              );
+            })}
+            {listed.length === 0 && <li style={{ padding: '14px', fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('payslipList.none')}</li>}
+          </ul>
         </div>
-      </div>
-      {image ? (
-        <div style={{ padding: '18px', background: 'var(--bg-muted)', display: 'flex', justifyContent: 'center' }}>
-          <img src={image} alt={tr('payrollStages.previewTitle')} style={{ display: 'block', width: '100%', maxWidth: '760px', height: 'auto', borderRadius: '6px', boxShadow: '0 8px 24px rgba(15,23,42,0.18)', background: 'white' }} />
-        </div>
-      ) : url ? (
-        <div style={{ padding: '18px', fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('payrollStages.previewLoading')}</div>
-      ) : (
-        <div style={{ padding: '18px', fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('payrollStages.previewMissing')}</div>
       )}
+      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', padding: '12px 18px', borderBottom: '1px solid var(--border-light)' }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>{current.row.employeeSnapshot.firstName} {current.row.employeeSnapshot.lastName}</div>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button type="button" onClick={() => download(current)} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'none', border: 'none', padding: 0, fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
+              <Download size={14} /> {tr('payslipList.download')}
+            </button>
+            {url && <a href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('payrollStages.openPdf')}</a>}
+          </div>
+        </div>
+        {image ? (
+          <div style={{ padding: '18px', background: 'var(--bg-muted)', display: 'flex', justifyContent: 'center', flex: 1 }}>
+            <img src={image} alt={tr('payrollStages.previewTitle')} style={{ display: 'block', width: '100%', maxWidth: '700px', height: 'auto', alignSelf: 'flex-start', borderRadius: '6px', boxShadow: '0 8px 24px rgba(15,23,42,0.18)', background: 'white' }} />
+          </div>
+        ) : url ? (
+          <div style={{ padding: '18px', fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('payrollStages.previewLoading')}</div>
+        ) : (
+          <div style={{ padding: '18px', fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('payrollStages.previewMissing')}</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -861,9 +907,15 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
           {!run.completedSteps.includes('paid') && (
             <>
               <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 10px' }}>{tr('payPanel.howTitle')}</h3>
-              <div className="filter-pills" role="radiogroup" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
-                {[['manual', tr('payPanel.manual')], ['bank', tr('payPanel.file')]].map(([id, label]) => (
-                  <button key={id} type="button" role="radio" aria-checked={payMethod === id} className={'filter-pill' + (payMethod === id ? ' active' : '')} onClick={() => setPayMethodChoice(id)}>{label}</button>
+              <div className="choice-cards" role="radiogroup" aria-label={tr('payPanel.howTitle')}>
+                {[['manual', tr('payPanel.manual'), tr('payPanel.manualDesc')], ['bank', tr('payPanel.file'), tr('payPanel.fileDesc')]].map(([id, label, desc]) => (
+                  <button key={id} type="button" role="radio" aria-checked={payMethod === id} className={'choice-card' + (payMethod === id ? ' is-active' : '')} onClick={() => setPayMethodChoice(id)}>
+                    <span className="choice-card-dot" aria-hidden="true">{payMethod === id && <Check size={12} />}</span>
+                    <span>
+                      <span className="choice-card-title">{label}</span>
+                      <span className="choice-card-desc">{desc}</span>
+                    </span>
+                  </button>
                 ))}
               </div>
 
@@ -921,9 +973,6 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
       {/* Lönebesked till alla på en gång: en PDF med alla (att skriva ut eller
           arkivera) eller ett mejl per anställd med sitt eget lönebesked.
           Med många timanställda är en knapp per person inte hållbart. */}
-      {stage === 'payslips' && computedRows.length > 0 && (
-        <PayslipPreview computedRows={computedRows} payslipArgs={payslipArgs} />
-      )}
       {(stage === 'payslips' || stage === 'done') && computedRows.length > 0 && (
         <div className="pr-panel" style={{ ...panelCard, marginBottom: '20px', padding: '20px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 8px' }}>{tr('payslips.title')}</h3>
@@ -950,6 +999,9 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
             </div>
           )}
         </div>
+      )}
+      {stage === 'payslips' && computedRows.length > 0 && (
+        <PayslipPreview computedRows={computedRows} payslipArgs={payslipArgs} period={run.period} />
       )}
 
       {/* Bugfix (kundrapport: "funkar inte som den ska"): gated tidigare på

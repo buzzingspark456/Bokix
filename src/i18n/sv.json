@@ -3910,7 +3910,19 @@
     "companyIbanMissing": "Företagets IBAN saknas eller är fel. Fyll i den under Inställningar → Betalning.",
     "allIban": "Alla anställda har IBAN och BIC.",
     "someIban": "{{n}} av {{total}} anställda har IBAN och BIC. Saknas: {{names}}. Fyll i under Anställda, annars kommer de inte med i filen.",
-    "fileNote": "Filen (ISO 20022 pain.001) laddas upp i bankens filtjänst. Det kräver oftast ett filavtal med banken, så fråga banken i god tid. Bokix skickar aldrig filen själv."
+    "fileNote": "Filen (ISO 20022 pain.001) laddas upp i bankens filtjänst. Det kräver oftast ett filavtal med banken, så fråga banken i god tid. Bokix skickar aldrig filen själv.",
+    "manualDesc": "Lägg in betalningarna i bankens app. Enklast för några få anställda.",
+    "fileDesc": "Ladda ner en fil och ladda upp den i banken. Kräver oftast filavtal."
+  },
+  "payslipList": {
+    "title": "Anställda ({{n}})",
+    "search": "Sök anställd",
+    "sent": "Mejlat {{date}}",
+    "noEmail": "Saknar e-post",
+    "notSent": "Inte mejlat än",
+    "download": "Ladda ner",
+    "downloadFor": "Ladda ner lönebesked för {{name}}",
+    "none": "Ingen matchar sökningen."
   },
   "payrollStages": {
     "doneShort": "Klart",

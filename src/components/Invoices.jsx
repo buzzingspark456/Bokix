@@ -2752,7 +2752,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px',
                 borderRadius: '999px', fontSize: '10px', fontWeight: 700,
                 // Siffran i chipets egen textfärg, så den går att läsa även på gult.
-                background: opt.color === '#ffffff' ? 'rgba(255,255,255,0.26)' : 'rgba(0,0,0,0.08)',
+                background: opt.color === '#ffffff' ? 'rgba(0,0,0,0.22)' : 'rgba(0,0,0,0.08)',
                 color: neutral ? 'var(--text-secondary)' : opt.color,
               }}>{count}</span>
             </button>

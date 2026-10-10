@@ -3910,7 +3910,19 @@
     "companyIbanMissing": "The company IBAN is missing or wrong. Fill it in under Settings → Payment.",
     "allIban": "All employees have IBAN and BIC.",
     "someIban": "{{n}} of {{total}} employees have IBAN and BIC. Missing: {{names}}. Fill in under Employees, otherwise they are left out of the file.",
-    "fileNote": "The file (ISO 20022 pain.001) is uploaded in your bank's file service. That usually needs a file agreement with the bank, so ask the bank in good time. Bokix never sends the file itself."
+    "fileNote": "The file (ISO 20022 pain.001) is uploaded in your bank's file service. That usually needs a file agreement with the bank, so ask the bank in good time. Bokix never sends the file itself.",
+    "manualDesc": "Enter the payments in your banking app. Easiest for a few employees.",
+    "fileDesc": "Download a file and upload it to the bank. Usually needs a file agreement."
+  },
+  "payslipList": {
+    "title": "Employees ({{n}})",
+    "search": "Search employee",
+    "sent": "Emailed {{date}}",
+    "noEmail": "No email",
+    "notSent": "Not emailed yet",
+    "download": "Download",
+    "downloadFor": "Download payslip for {{name}}",
+    "none": "No one matches the search."
   },
   "payrollStages": {
     "doneShort": "Done",

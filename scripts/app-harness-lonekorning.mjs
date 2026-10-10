@@ -28,6 +28,12 @@ const company = await p0.evaluate(async () => {
 });
 await p0.close();
 company.payrollRuns = [];
+// MANY=12 ger tolv anställda (för att se hur stegen ser ut med många).
+if (process.env.MANY) {
+  const first = ['Anna', 'Bo', 'Cecilia', 'David', 'Elin', 'Fredrik', 'Greta', 'Hugo', 'Ida', 'Jonas', 'Klara', 'Leo', 'Maja', 'Nils'];
+  const base = company.employees[0];
+  company.employees = Array.from({ length: Number(process.env.MANY) }, (_, i) => ({ ...base, id: 'emp_' + i, firstName: first[i % first.length], lastName: 'Exempel' + (i + 1), email: i % 3 === 0 ? '' : 'p' + i + '@exempel.se', monthlySalary: 30000 + i * 1500 }));
+}
 const id = company.company.id;
 const server = { row: { id: 'r1', user_id: UID, state: { activeCompanyId: id, companies: { [id]: company } }, updated_at: newTs(), onboarding_completed: true, onboarding_skipped: false, company_name: company.company.name } };
 const saved = () => server.row.state.companies[id];
@@ -58,7 +64,7 @@ await page.route(`${SUPA}/**`, async (route) => {
 });
 await page.route('**/api/**', r => r.fulfill({ json: {} }));
 
-const tag = WIDTH < 600 ? '-telefon' : '';
+const tag = (WIDTH < 600 ? '-telefon' : '') + (process.env.MANY ? '-manga' : '');
 const shot = async (name) => { await page.waitForTimeout(700); await page.screenshot({ path: `test-results/lon-${name}${tag}.png` }); };
 const heading = () => page.evaluate(() => document.querySelector('.payroll-stage-head h2')?.innerText || null);
 const click = async (re) => { await page.getByRole('button', { name: re }).first().click(); await page.waitForTimeout(800); };

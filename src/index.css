@@ -57,6 +57,9 @@
   --lime-500: #5ba85a;
   --lime-600: #4a944a;
   --lime-700: #3a7a3a;
+  /* Vald/aktiv: text och kant som syns i båda temana (mörkt läge nedan). */
+  --chip-active-text: var(--lime-700);
+  --chip-active-border: var(--lime-200);
 
   /* ── Allra Blå (Accent) ── */
   --blue-50:  #eef5fb;
@@ -152,7 +155,9 @@
   /* ── Text ── */
   --text-main:      var(--gray-900);
   --text-secondary: var(--gray-600);
-  --text-muted:     var(--gray-400);
+  /* Dämpad text: #a1a1aa gav bara 2,5:1 mot vitt (svårläst). #686871 ger
+     minst 4,5:1 både mot vitt och mot de ljusgrå ytorna (2026-10-10). */
+  --text-muted:     #686871;
   --text-inverse:   var(--white);
 
   /* ZettleLogo (Settings.jsx) är en riktig rasterbild (Zettles egen
@@ -411,6 +416,8 @@
 }
 
 :root[data-theme="dark"] {
+  --chip-active-text: #9ee09a;
+  --chip-active-border: rgba(134, 209, 130, 0.5);
   --bg-page:    #0f1a13;
   --bg-card:    #17281c;
   --bg-sidebar: #0c1f14;
@@ -517,6 +524,8 @@
    förloras för den som uttryckligen valt ljust läge trots mörkt OS. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --chip-active-text: #9ee09a;
+    --chip-active-border: rgba(134, 209, 130, 0.5);
     --bg-page:    #0f1a13;
     --bg-card:    #17281c;
     --bg-sidebar: #0c1f14;
@@ -2535,8 +2544,8 @@ html[data-sheet="open"] .main-wrapper { overflow: hidden !important; touch-actio
 
 .badge.paid {
   background: var(--lime-50);
-  color: var(--lime-700);
-  border: 1px solid var(--lime-200);
+  color: var(--chip-active-text);
+  border: 1px solid var(--chip-active-border);
 }
 
 .badge.overdue {
@@ -2585,9 +2594,9 @@ html[data-sheet="open"] .main-wrapper { overflow: hidden !important; touch-actio
 }
 
 .filter-pill.active {
-  color: var(--lime-700);
+  color: var(--chip-active-text);
   background: var(--lime-50);
-  border-color: var(--lime-200);
+  border-color: var(--chip-active-border);
   font-weight: 600;
 }
 
@@ -4113,7 +4122,7 @@ textarea.form-control {
 }
 
 .ds-onboarding-item:hover {
-  border-color: var(--lime-200);
+  border-color: var(--chip-active-border);
 }
 
 .ds-onboarding-item.done {
@@ -4156,7 +4165,7 @@ textarea.form-control {
 }
 
 .ds-kpi:hover {
-  border-color: var(--lime-200);
+  border-color: var(--chip-active-border);
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
@@ -4255,7 +4264,7 @@ textarea.form-control {
 }
 
 .ds-todo:hover {
-  border-color: var(--lime-200);
+  border-color: var(--chip-active-border);
   box-shadow: var(--shadow-sm);
   transform: translateX(2px);
 }
@@ -4375,7 +4384,7 @@ textarea.form-control {
 
 .kpi-clickable { cursor: pointer; width: 100%; }
 .kpi-clickable:hover {
-  border-color: var(--lime-200);
+  border-color: var(--chip-active-border);
   box-shadow: var(--shadow-sm);
   transform: translateY(-1px);
 }
@@ -7903,3 +7912,21 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 .payroll-stage-body .pr-panel table td:first-child { padding-left: 24px !important; }
 .payroll-stage-body .pr-panel table th:last-child,
 .payroll-stage-body .pr-panel table td:last-child { padding-right: 24px !important; }
+
+/* Valkort: två eller fler val med rubrik och en rad text (Lön → Betala).
+   Valt kort får accentkant och en bock; texten är alltid fullt läsbar. */
+.choice-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.choice-card { display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 14px 16px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--bg-card); color: var(--text-main); cursor: pointer; font-family: inherit; transition: border-color 0.15s, background 0.15s; }
+.choice-card:hover { border-color: var(--chip-active-border); }
+.choice-card.is-active { border-color: var(--accent); background: var(--lime-50); }
+.choice-card-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; color: #fff; }
+.choice-card.is-active .choice-card-dot { background: var(--accent); border-color: var(--accent); }
+.choice-card-title { display: block; font-size: 14px; font-weight: 700; color: var(--text-main); }
+.choice-card-desc { display: block; font-size: 12.5px; color: var(--text-secondary); margin-top: 3px; line-height: 1.45; }
+
+/* Lönebesked (PayrollRunDetail.jsx): på telefon listan ovanför lönebeskedet. */
+@media (max-width: 760px) {
+  .payslip-browser { grid-template-columns: minmax(0, 1fr) !important; }
+  .payslip-list { border-right: none !important; border-bottom: 1px solid var(--border-light); }
+  .payslip-list ul { max-height: 260px !important; }
+}
