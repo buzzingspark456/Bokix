@@ -3159,6 +3159,10 @@
     "sie_inte_nu": "Not now",
     "sie_och": "and",
     "sie_ar_stangda": "Closed and locked: {{years}}",
+    "sie_nasta_underlag_titel": "Next: add the attachments",
+    "sie_nasta_underlag_text": "The SIE file has no receipts or invoices. Upload the files from your previous program and they are linked to the right verification by file name, for example A31.pdf.",
+    "sie_nasta_underlag_knapp": "Add attachments",
+    "sie_klar": "Done",
     "roll_revisor": "Auditor / accounting consultant",
     "roll_revisor_hint": "Can edit everything, including payroll, so the consultant can handle bookkeeping, payroll and year-end. You can change single pages below.",
     "se_hur": "See how",
@@ -3822,7 +3826,10 @@
     "partial": "Rows with errors are left out. Fix them in the file and import again; those already added are only updated.",
     "import": "Import {{n}}",
     "done": "{{added}} employees added, {{updated}} updated.",
-    "needsTaxTable": "{{n}} employees have no tax table. Import, then fetch the tables with Fetch tax tables."
+    "needsTaxTable": "{{n}} employees have no tax table. Import, then fetch the tables with Fetch tax tables.",
+    "next_title": "{{count}} employees imported. Next step: tax tables",
+    "next_text": "Fetch each employee's tax table and any adjustment from the Swedish Tax Agency, so the first salary deducts the right tax.",
+    "next_text_missing": "{{missing}} of them have no tax table. Fetch the tables from the Swedish Tax Agency before the first payroll run, so the right tax is deducted."
   },
   "payrollHours": {
     "button": "Import hours",

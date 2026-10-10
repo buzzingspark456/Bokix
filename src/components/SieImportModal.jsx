@@ -39,7 +39,7 @@ function fingerprintFile(file, meta) {
   return `sie_import_${safeName}_${meta?.generatedDate || 'okant-datum'}`;
 }
 
-export default function SieImportModal({ accounts = [], verifications = [], company = null, onImport, onCloseYears, onClose }) {
+export default function SieImportModal({ accounts = [], verifications = [], company = null, onImport, onCloseYears, onOpenAttachments, onClose }) {
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -193,7 +193,9 @@ export default function SieImportModal({ accounts = [], verifications = [], comp
         onImport(toCommit, i === 0 ? p.accountsToAdd : [], p.sourceTag);
       });
       const years = onCloseYears ? closableImportedYears(previews.map(p => p.fiscalYear), company) : [];
-      if (years.length > 0) {
+      // Sista steget: stäng avslutade år och/eller koppla underlag (SIE-filen
+      // har aldrig med kvittobilder).
+      if (years.length > 0 || onOpenAttachments) {
         setClosableYears(years);
         setStep(4);
       } else {
@@ -289,15 +291,26 @@ export default function SieImportModal({ accounts = [], verifications = [], comp
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'var(--status-green-bg)', color: 'var(--status-green-text)', borderRadius: '10px', padding: '10px 14px', marginBottom: '16px', fontSize: '13px', fontWeight: 600 }}>
               <CheckCircle2 size={16} style={{ flexShrink: 0 }} /> {t('ui.sie_import_klar')}
             </div>
-            <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 6px' }}>{t('ui.sie_stang_ar_titel', { years: closableLabel })}</h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>{t('ui.sie_stang_ar_text', { years: closableLabel })}</p>
+            {closableYears.length > 0 && (<>
+              <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 6px' }}>{t('ui.sie_stang_ar_titel', { years: closableLabel })}</h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>{t('ui.sie_stang_ar_text', { years: closableLabel })}</p>
+            </>)}
+            {onOpenAttachments && (
+              <div style={{ marginTop: closableYears.length > 0 ? '16px' : 0, paddingTop: closableYears.length > 0 ? '16px' : 0, borderTop: closableYears.length > 0 ? '1px solid var(--border-light)' : 'none', display: 'flex', gap: '12px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 300px' }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>{t('ui.sie_nasta_underlag_titel')}</div>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '3px', lineHeight: 1.5 }}>{t('ui.sie_nasta_underlag_text')}</div>
+                </div>
+                <button type="button" onClick={() => { onClose(); onOpenAttachments(); }} style={{ padding: '8px 14px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>{t('ui.sie_nasta_underlag_knapp')}</button>
+              </div>
+            )}
           </div>
         )}
 
         <div className="modal-footer">
           {step > 1 && step < 4 && <button onClick={() => setStep(s => s - 1)} style={{ padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>{t('ui.tillbaka_2')}</button>}
           <span style={{ flex: 1 }} />
-          <button onClick={onClose} style={{ padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>{step === 4 ? t('ui.sie_inte_nu') : t('ui.avbryt')}</button>
+          <button onClick={onClose} style={{ padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>{step === 4 ? (closableYears.length > 0 ? t('ui.sie_inte_nu') : t('ui.sie_klar')) : t('ui.avbryt')}</button>
           {step === 2 && (
             <button disabled={hasIncompleteMapping} onClick={() => setStep(3)} style={{ padding: '9px 18px', background: hasIncompleteMapping ? 'var(--gray-300)' : BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: hasIncompleteMapping ? 'not-allowed' : 'pointer' }}>
               {t('ui.forhandsgranska')}
@@ -308,7 +321,7 @@ export default function SieImportModal({ accounts = [], verifications = [], comp
               {t('ui.importera')} {totalCount} {t('ui.verifikationer')}
             </button>
           )}
-          {step === 4 && (
+          {step === 4 && closableYears.length > 0 && (
             <button onClick={() => { onCloseYears(closableYears); onClose(); }} style={{ padding: '9px 18px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
               {t('ui.sie_stang_ar_knapp', { years: closableLabel })}
             </button>

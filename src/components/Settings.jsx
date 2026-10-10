@@ -4952,6 +4952,7 @@ export default function Settings({
           verifications={verifications}
           company={company}
           onCloseYears={readOnly ? undefined : onCloseImportedYears}
+          onOpenAttachments={readOnly ? undefined : () => setShowSieAttachments(true)}
           onImport={(newVerifications, newAccounts, sourceTag) => onBulkImportSie?.(newVerifications, newAccounts, sourceTag)}
           onClose={() => setShowSieImport(false)}
         />

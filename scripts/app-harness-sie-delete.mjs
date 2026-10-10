@@ -117,8 +117,10 @@ await page.getByRole('button', { name: 'Förhandsgranska' }).click().catch(() =>
 await page.waitForTimeout(500);
 await page.getByRole('button', { name: /^Importera \d+ verifikationer/ }).click().catch(() => fail('importknappen saknas'));
 await waitSaved(() => imported().length > 0, 'importen');
-const notNow = page.getByRole('button', { name: 'Inte nu' });
-if (await notNow.count()) await notNow.click();
+const step4 = await page.evaluate(() => (document.querySelector('.modal-content')?.innerText || '').split('\n').filter(Boolean).join(' | '));
+console.log('Sista steget:', JSON.stringify(step4.slice(0, 400)));
+const notNow = page.getByRole('button', { name: /^(Inte nu|Klar)$/ });
+if (await notNow.count()) await notNow.first().click();
 console.log('Efter import: totalt', savedVerifications().length, '| från SIE-filen', imported().length, '| taggar', [...new Set(imported().map(v => v.sieImportTag))]);
 await page.waitForTimeout(800);
 

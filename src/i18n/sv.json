@@ -3159,6 +3159,10 @@
     "sie_inte_nu": "Inte nu",
     "sie_och": "och",
     "sie_ar_stangda": "Stängt och låst: {{years}}",
+    "sie_nasta_underlag_titel": "Nästa: lägg till underlagen",
+    "sie_nasta_underlag_text": "SIE-filen har inga kvitton eller fakturor. Ladda upp filerna från ditt förra program så kopplas de till rätt verifikation via filnamnet, till exempel A31.pdf.",
+    "sie_nasta_underlag_knapp": "Lägg till underlag",
+    "sie_klar": "Klar",
     "roll_revisor": "Revisor / redovisningskonsult",
     "roll_revisor_hint": "Kan redigera allt, även löner, så att konsulten kan sköta bokföring, lön och bokslut. Du kan ändra enskilda sidor nedan.",
     "se_hur": "Se hur",
@@ -3822,7 +3826,10 @@
     "partial": "Rader med fel följer inte med. Rätta dem i filen och importera igen, de som redan finns uppdateras bara.",
     "import": "Importera {{n}}",
     "done": "{{added}} anställda tillagda, {{updated}} uppdaterade.",
-    "needsTaxTable": "{{n}} anställda saknar skattetabell. Importera, och hämta sedan tabellerna med Hämta skattetabeller."
+    "needsTaxTable": "{{n}} anställda saknar skattetabell. Importera, och hämta sedan tabellerna med Hämta skattetabeller.",
+    "next_title": "{{count}} anställda importerade. Nästa steg: skattetabellerna",
+    "next_text": "Hämta varje anställds skattetabell och eventuell jämkning från Skatteverket, så att första lönen drar rätt skatt.",
+    "next_text_missing": "{{missing}} av dem saknar skattetabell. Hämta tabellerna från Skatteverket innan första lönekörningen, så att rätt skatt dras."
   },
   "payrollHours": {
     "button": "Importera timmar",

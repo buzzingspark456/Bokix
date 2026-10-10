@@ -7,7 +7,7 @@ import { employeesToCsv } from '../utils/employeeCsv';
 import VacationOverview from './VacationOverview';
 import EmployeeForm from './EmployeeForm';
 import PayrollRunDetail from './PayrollRunDetail';
-import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
+import ListPageHeader, { ListFilterBar, listSearchInputStyle, listHeaderButtonStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { BRAND } from '../utils/brandColors';
 import { t } from '../i18n';
@@ -32,6 +32,8 @@ export default function Payroll({
   const [showNewRun, setShowNewRun] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showFos, setShowFos] = useState(false);
+  // { count, missing } direkt efter en import av anställda: visar nästa steg.
+  const [afterImport, setAfterImport] = useState(null);
   const [newRunPeriod, setNewRunPeriod] = useState(new Date().toISOString().slice(0, 7));
   const [newRunPayDate, setNewRunPayDate] = useState('');
 
@@ -155,6 +157,22 @@ export default function Payroll({
 
       {activeTab === 'employees' && viewState === 'list' && (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+          {/* Nästa steg direkt efter en import: skattetabellerna från
+              Skatteverket, så att första lönekörningen drar rätt skatt. */}
+          {afterImport && onApplyFos && employees.length > 0 && (
+            <div role="status" style={{ margin: '14px 20px 0', padding: '14px 16px', border: '1px solid var(--border)', borderRadius: '10px', background: 'var(--bg-card)', display: 'flex', gap: '14px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 0, flex: '1 1 320px' }}>
+                <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>{t('employeeImport.next_title', { count: afterImport.count })}</div>
+                <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '3px', lineHeight: 1.5 }}>
+                  {afterImport.missing > 0 ? t('employeeImport.next_text_missing', { missing: afterImport.missing }) : t('employeeImport.next_text')}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="button" onClick={() => setAfterImport(null)} style={{ ...listHeaderButtonStyle('secondary') }}>{t('ui.sie_inte_nu')}</button>
+                <button type="button" onClick={() => { setAfterImport(null); setShowFos(true); }} style={{ ...listHeaderButtonStyle('primary') }}>{t('fos.button')}</button>
+              </div>
+            </div>
+          )}
           {/* Kundfeedback ("white space"-genomgången): en tom lista visade
               tidigare bara en paddad tabellrad, utan egen höjd att centrera
               sig i — samma fix som Quotes.jsx/Contacts.jsx: tomt-läge som
@@ -344,7 +362,11 @@ export default function Payroll({
       {showImport && (
         <EmployeeImportModal
           employees={employees}
-          onImport={(rows) => { onImportEmployees(rows); setShowImport(false); }}
+          onImport={(rows) => {
+            onImportEmployees(rows);
+            setShowImport(false);
+            setAfterImport({ count: rows.length, missing: rows.filter(r => r.needsTaxTable || !r.employee?.taxTable?.tabellnr).length });
+          }}
           onClose={() => setShowImport(false)}
         />
       )}
