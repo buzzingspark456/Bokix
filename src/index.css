@@ -8044,3 +8044,128 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .fp-stats { grid-template-columns: 1fr 1fr; }
   .fp-grid-2 { grid-template-columns: 1fr; }
 }
+
+/* INK2: låt bokslutsunderlaget fungera även i delad skärm och på telefon. */
+@media (max-width: 900px) {
+  .ink2-workflow__header,
+  .ink2-workflow__intro,
+  .ink2-workflow__schedule,
+  .ink2-workflow__detail-content,
+  .ink2-workflow__section-header,
+  .ink2-workflow__adjustment-result,
+  .ink2-workflow__delivery {
+    padding: 18px !important;
+  }
+
+  .ink2-workflow__header {
+    flex-direction: column;
+  }
+
+  .ink2-workflow__header > span {
+    align-self: flex-start;
+  }
+
+  .ink2-workflow__columns {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 20px !important;
+  }
+
+  .ink2-workflow__top-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .ink2-workflow__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .ink2-workflow__top-stats > *,
+  .ink2-workflow__stats > * {
+    min-width: 0;
+    padding: 12px !important;
+  }
+
+  .ink2-workflow__top-stats > div > div:last-child,
+  .ink2-workflow__stats > div > div:nth-child(2) {
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    font-size: clamp(15px, 2.8vw, 18px) !important;
+  }
+
+  .ink2-workflow__adjustment-result {
+    align-items: flex-start !important;
+  }
+
+  .ink2-workflow__notice {
+    margin: 0 18px 18px !important;
+  }
+
+  .ink2-workflow__table-scroll {
+    max-width: 100%;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ink2-workflow__table {
+    min-width: 440px;
+  }
+
+  .ink2-workflow__actions {
+    align-items: stretch !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .ink2-workflow__header,
+  .ink2-workflow__intro,
+  .ink2-workflow__schedule,
+  .ink2-workflow__detail-content,
+  .ink2-workflow__section-header,
+  .ink2-workflow__adjustment-result,
+  .ink2-workflow__delivery {
+    padding: 15px !important;
+  }
+
+  .ink2-workflow__top-stats,
+  .ink2-workflow__stats {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .ink2-workflow__top-stats > div,
+  .ink2-workflow__stats > div {
+    padding: 11px 13px !important;
+  }
+
+  .ink2-workflow__notice {
+    margin: 0 15px 15px !important;
+    padding: 11px !important;
+  }
+
+  .ink2-workflow__paper-option > p {
+    overflow-wrap: anywhere;
+  }
+
+  .ink2-workflow__actions > *,
+  .ink2-workflow__primary-action,
+  .ink2-workflow__secondary-action {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .ink2-workflow__secondary-action {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-card);
+  }
+
+  .ink2-workflow__paper-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}

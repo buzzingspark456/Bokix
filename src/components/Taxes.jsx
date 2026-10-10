@@ -1359,8 +1359,8 @@ export default function Taxes({
               nu även via egen flik (`sectionTabs` ovan skapar aldrig en
               "Inkomstdeklaration"-flik för enskild firma/handelsbolag). */}
           {!filesOwnIncomeDeclaration && activeSection === 'ink2' && (
-            <div style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-              <div style={{ padding: '22px 24px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
+            <div className="ink2-workflow" style={{ background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+              <div className="ink2-workflow__header" style={{ padding: '22px 24px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
                 <div style={{ minWidth: 0 }}>
                   <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{tr('ui.inkomstdeklaration_2')}</h2>
                   <p style={{ margin: '5px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
@@ -1374,7 +1374,7 @@ export default function Taxes({
                 </span>
               </div>
 
-              <div style={{ padding: '22px 24px', borderBottom: '1px solid var(--border)', background: 'linear-gradient(145deg, var(--bg-muted), var(--bg-card))' }}>
+              <div className="ink2-workflow__intro" style={{ padding: '22px 24px', borderBottom: '1px solid var(--border)', background: 'linear-gradient(145deg, var(--bg-muted), var(--bg-card))' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                   <span style={{ width: '30px', height: '30px', display: 'grid', placeItems: 'center', borderRadius: '9px', flexShrink: 0, background: ink2ScheduleReady ? 'var(--status-green-bg)' : 'var(--status-amber-bg)', color: ink2ScheduleReady ? 'var(--status-green-text)' : 'var(--status-amber-text)' }}>
                     {ink2ScheduleReady ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
@@ -1385,7 +1385,7 @@ export default function Taxes({
                 </div>
               </div>
 
-              <section style={{ padding: '22px 24px', borderBottom: '1px solid var(--border)' }} aria-labelledby="ink2-schedule-title">
+              <section className="ink2-workflow__schedule" style={{ padding: '22px 24px', borderBottom: '1px solid var(--border)' }} aria-labelledby="ink2-schedule-title">
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', marginBottom: '16px' }}>
                   <div>
                     <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '5px' }}>{tr('ui.ink2_step_label', { n: 1 })}</div>
@@ -1397,7 +1397,7 @@ export default function Taxes({
                     {ink2ScheduleReady ? tr('ui.ink2_balans_balanserar') : tr('ui.ink2_balans_behover_kontroll')}
                   </span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1px', background: 'var(--border)', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
+                <div className="ink2-workflow__top-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1px', background: 'var(--border)', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
                   {[
                     { label: tr('ui.summa_tillgangar'), amount: ink2r.totalAssets },
                     { label: tr('ui.eget_kapital_och_skulder'), amount: ink2r.totalEquityAndLiabilities },
@@ -1421,9 +1421,9 @@ export default function Taxes({
                 )}
                 <details style={{ marginTop: '15px', borderTop: '1px solid var(--border-light)', paddingTop: '13px' }}>
                   <summary style={{ cursor: 'pointer', color: 'var(--accent-text)', fontSize: '13px', fontWeight: 700 }}>{tr('ui.ink2_show_schedule_details')}</summary>
-                  <div style={{ paddingTop: '18px' }}>
+                  <div className="ink2-workflow__details" style={{ paddingTop: '18px' }}>
 
-              <div style={{ padding: '20px 24px' }}>
+              <div className="ink2-workflow__detail-content" style={{ padding: '20px 24px' }}>
                 {ink2Warnings.length > 0 && (
                   <div style={{ marginBottom: '20px', padding: '14px 16px', borderRadius: '10px', background: 'var(--status-amber-bg)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700, color: 'var(--status-amber-text)', marginBottom: '6px' }}>
@@ -1438,7 +1438,7 @@ export default function Taxes({
                 {/* Nyckeltalen överst, så sidan går att läsa på fem sekunder:
                     balansräkningens två summor och resultatet. Detaljerna
                     (varje rad, klickbar till kontona) ligger under. */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1px', background: 'var(--border-light)', border: '1px solid var(--border-light)', borderRadius: '12px', overflow: 'hidden', marginBottom: '24px' }}>
+                <div className="ink2-workflow__stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1px', background: 'var(--border-light)', border: '1px solid var(--border-light)', borderRadius: '12px', overflow: 'hidden', marginBottom: '24px' }}>
                   {[
                     { label: tr('ui.summa_tillgangar'), amount: ink2r.totalAssets },
                     { label: tr('ui.eget_kapital_och_skulder'), amount: ink2r.totalEquityAndLiabilities, note: ink2r.rows.length === 0 ? null : ink2r.balanced ? tr('ui.balanserar') : tr('ui.skillnad', { v0: fmt(Math.abs(ink2r.difference)) }), ok: ink2r.balanced },
@@ -1464,7 +1464,7 @@ export default function Taxes({
                   </div>
                 ) : (
                   <div
-                    className="form-row-2"
+                    className="form-row-2 ink2-workflow__columns"
                     style={{ display: 'grid', gap: '28px', marginBottom: '20px' }}
                   >
                     {(() => {
@@ -1484,8 +1484,8 @@ export default function Taxes({
                 {ink2rResultat.rows.length > 0 && (
                   <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
                     <h3 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 12px', color: 'var(--text-main)' }}>{tr('ui.resultatrakning_rad_3_1_3_27')}</h3>
-                    <div style={{ overflowX: 'auto', marginBottom: '12px' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
+                    <div className="ink2-workflow__table-scroll" style={{ overflowX: 'auto', marginBottom: '12px' }}>
+                      <table className="ink2-workflow__table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
                         <thead>
                           <tr style={{ borderBottom: '1px solid var(--border)' }}>
                             <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-secondary)', fontWeight: 600, width: '52px' }}>{tr('ui.rad')}</th>
@@ -1529,15 +1529,15 @@ export default function Taxes({
               årets resultat för 4.1/4.2, och att resten fylls i där. Sparade
               värden (company.ink2s) ligger kvar orörda. */}
           {!filesOwnIncomeDeclaration && activeSection === 'ink2' && (
-            <section aria-labelledby="ink2-tax-adjustments-title" style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden', marginTop: '16px' }}>
-              <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
+            <section className="ink2-workflow__adjustments" aria-labelledby="ink2-tax-adjustments-title" style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden', marginTop: '16px' }}>
+              <div className="ink2-workflow__section-header" style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '5px' }}>{tr('ui.ink2_step_label', { n: 2 })}</div>
                 <h2 id="ink2-tax-adjustments-title" style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{tr('ui.skattemassiga_justeringar_ink2s')}</h2>
                 <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '620px', lineHeight: 1.6 }}>
                   {tr('ui.ink2_adjustments_description')}
                 </p>
               </div>
-              <div style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+              <div className="ink2-workflow__adjustment-result" style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
                 <div>
                   <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
                     {ink2rResultat.total < 0 ? tr('ui.n4_2_arets_resultat_forlust') : tr('ui.n4_1_arets_resultat_vinst')}
@@ -1553,7 +1553,7 @@ export default function Taxes({
                   {tr('ui.oppna_skatteverket')} <ExternalLink size={13} />
                 </a>
               </div>
-              <div style={{ display: 'flex', gap: '10px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 24px 20px', padding: '12px 14px', background: 'var(--bg-muted)', borderRadius: '8px' }}>
+              <div className="ink2-workflow__notice" style={{ display: 'flex', gap: '10px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 24px 20px', padding: '12px 14px', background: 'var(--bg-muted)', borderRadius: '8px' }}>
                 <Info size={15} style={{ flexShrink: 0, marginTop: 1, color: 'var(--text-muted)' }} />
                 <div>
                   {tr('ui.vanliga_justeringar_ar_ej_avdragsgilla_kostnader')}
@@ -1563,13 +1563,14 @@ export default function Taxes({
           )}
 
           {!filesOwnIncomeDeclaration && activeSection === 'ink2' && (
-            <section aria-labelledby="ink2-submit-title" style={{ marginTop: '16px', padding: '22px 24px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px' }}>
+            <section className="ink2-workflow__delivery" aria-labelledby="ink2-submit-title" style={{ marginTop: '16px', padding: '22px 24px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px' }}>
               <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '5px' }}>{tr('ui.ink2_step_label', { n: 3 })}</div>
               <h2 id="ink2-submit-title" style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{tr('ui.ink2_download_title')}</h2>
               <p style={{ margin: '6px 0 16px', fontSize: '13px', lineHeight: 1.6, color: 'var(--text-secondary)', maxWidth: '700px' }}>{tr('ui.ink2_download_description')}</p>
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <div className="ink2-workflow__actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                 {canDownloadSru && (
                   <button
+                    className="ink2-workflow__primary-action"
                     type="button"
                     onClick={() => downloadInk2rSru(company, ink2r, ink2rResultat.rows, { start: fy.start, end: fy.end })}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', minHeight: '38px', padding: '8px 15px', border: 'none', borderRadius: '8px', background: 'var(--accent)', color: 'white', fontFamily: 'inherit', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}
@@ -1578,6 +1579,7 @@ export default function Taxes({
                   </button>
                 )}
                 <a
+                  className="ink2-workflow__secondary-action"
                   href="https://sso.skatteverket.se/fv_ext/fv_web/login.do"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -1605,10 +1607,11 @@ export default function Taxes({
                 <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />
                 <span>{tr('ui.ink2_sru_notice')}</span>
               </p>
-              <div style={{ marginTop: '18px', paddingTop: '15px', borderTop: '1px solid var(--border)' }}>
+              <div className="ink2-workflow__paper-option" style={{ marginTop: '18px', paddingTop: '15px', borderTop: '1px solid var(--border)' }}>
                 <div style={{ fontSize: '13px', fontWeight: 650, color: 'var(--text-main)' }}>{tr('ui.ink2_paper_option_title')}</div>
                 <p style={{ margin: '4px 0 9px', fontSize: '12px', lineHeight: 1.55, color: 'var(--text-secondary)' }}>{tr('ui.ink2_paper_option_description')}</p>
                 <a
+                  className="ink2-workflow__paper-link"
                   href="https://www.skatteverket.se/foretag/etjansterochblanketter/blanketterbroschyrer/blanketter/info/2002.4.39f16f103821c58f680006188.html"
                   target="_blank"
                   rel="noopener noreferrer"
