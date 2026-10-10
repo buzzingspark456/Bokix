@@ -129,7 +129,7 @@ describe('summarizePayrollRun', () => {
 
   it('returnerar nollor för en tom lönekörning', () => {
     const summary = summarizePayrollRun([])
-    expect(summary).toEqual({ gross: 0, tax: 0, net: 0, employerFee: 0, vacationProvision: 0, vacationFee: 0, taxFree: 0, totalCost: 0 })
+    expect(summary).toEqual({ gross: 0, tax: 0, net: 0, employerFee: 0, vacationProvision: 0, vacationFee: 0, vacationUsed: 0, vacationUsedFee: 0, taxFree: 0, totalCost: 0 })
   })
 })
 
@@ -170,5 +170,28 @@ describe('computeEmployeePayroll — sammalöneregeln och semesteruttag', () => 
   it('semestertillägget räknas inte som rörlig lön i avsättningen', () => {
     const withVacation = computeEmployeePayroll({ ...baseEmployee, vacationRule: 'sammaloneregeln' }, { lines: [{ id: 'v', payTypeId: 'vacation_taken', quantity: 1, rate: 129 }] })
     expect(withVacation.vacationProvision).toBe(3245)
+  })
+})
+
+describe('computeEmployeePayroll — uttagen semester minskar skulden', () => {
+  it('sammalöneregeln: uttagna dagar × (dagslön + tillägg)', () => {
+    const r = computeEmployeePayroll({ ...baseEmployee, vacationRule: 'sammaloneregeln' }, { lines: [{ id: 'v', payTypeId: 'vacation_taken', quantity: 2, rate: 129 }] })
+    expect(r.vacationUsed).toBe(Math.round(2 * (30000 / 21 + 30000 * 0.0043)))
+    expect(r.vacationUsedFee).toBe(Math.round(r.vacationUsed * 0.3142))
+  })
+  it('procentregeln: utbetald semesterlön', () => {
+    const r = computeEmployeePayroll({ ...baseEmployee, vacationRule: 'procentregeln' }, { lines: [{ id: 'v', payTypeId: 'vacation_taken', quantity: 3, rate: 1500 }] })
+    expect(r.vacationUsed).toBe(4500)
+  })
+  it('semesterersättning vid slutlön förbrukar skulden', () => {
+    const r = computeEmployeePayroll({ ...baseEmployee, vacationRule: 'sammaloneregeln' }, { lines: [{ id: 'p', payTypeId: 'holiday_pay_out', quantity: 1, rate: 8000 }] })
+    expect(r.vacationUsed).toBe(8000)
+  })
+  it('ingen semester, inget uttag', () => {
+    expect(computeEmployeePayroll(baseEmployee, {}).vacationUsed).toBe(0)
+  })
+  it('totalkostnaden räknar inte uttagen semester två gånger', () => {
+    const r = computeEmployeePayroll({ ...baseEmployee, vacationRule: 'procentregeln' }, { lines: [{ id: 'v', payTypeId: 'vacation_taken', quantity: 3, rate: 1500 }] })
+    expect(r.totalCost).toBeCloseTo(r.gross + r.employerFee + r.vacationProvision + r.vacationFee - r.vacationUsed - r.vacationUsedFee, -1)
   })
 })

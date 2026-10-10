@@ -191,12 +191,43 @@ export function computeEmployeePayroll(employee, row) {
   const vacationFee = vacationProvision * feeCategory.rate;
   steps.push({ label: 'Arbetsgivaravgifter på semesteravsättning', formula: `${round(vacationProvision)} × ${feePct} %`, result: round(vacationFee) });
 
+  // 10. Uttagen semester minskar skulden. Det som redan är avsatt på 2920
+  // (och avgiften på 2940) förbrukas när dagarna tas ut, så skulden alltid
+  // motsvarar de dagar som är kvar. Sammalöneregeln: dagens värde
+  // (dagslön + tillägg) per uttagen dag. Procentregeln: utbetald semesterlön.
+  // Semesterersättning (t.ex. vid slutlön) betalar alltid ut skulden.
+  let vacationUsed = 0;
+  let usedFormula = '';
+  if (vacationRule.id === 'sammaloneregeln' || vacationRule.id === 'procentregeln') {
+    const takenLines = payLines.lines.filter(l => l.payTypeId === 'vacation_taken');
+    const payoutAmount = payLines.lines.filter(l => l.payTypeId === 'holiday_pay_out').reduce((s, l) => s + (Number(l.amount) || 0), 0);
+    if (vacationRule.id === 'sammaloneregeln') {
+      const takenDays = takenLines.reduce((s, l) => s + (Number(l.quantity) || 0), 0);
+      const perDay = baseSalary / WORKDAYS_PER_MONTH + baseSalary * SAMMALON_SUPPLEMENT_RATE;
+      vacationUsed = takenDays * perDay + payoutAmount;
+      if (takenDays) usedFormula = `${String(takenDays).replace('.', ',')} dagar × (${round(baseSalary)} / 21 + 0,43 %)`;
+    } else {
+      const takenAmount = takenLines.reduce((s, l) => s + (Number(l.amount) || 0), 0);
+      vacationUsed = takenAmount + payoutAmount;
+      if (takenAmount) usedFormula = `Utbetald semesterlön ${round(takenAmount)}`;
+    }
+    if (payoutAmount) usedFormula = (usedFormula ? usedFormula + ' + ' : '') + `semesterersättning ${round(payoutAmount)}`;
+  }
+  const vacationUsedFee = vacationUsed * feeCategory.rate;
+  if (vacationUsed) {
+    steps.push({ label: 'Uttagen semester (minskar skulden)', formula: usedFormula, result: -round(vacationUsed) });
+    steps.push({ label: 'Arbetsgivaravgifter på uttagen semester', formula: `${round(vacationUsed)} × ${feePct} %`, result: -round(vacationUsedFee) });
+  }
+
   // 11. Total arbetsgivarkostnad. Skattefria ersättningar är ingen lön
   // men är pengar som lämnar företaget, så de hör hemma i kostnaden —
   // annars underskattas vad lönekörningen faktiskt kostar.
-  const totalCost = gross + employerFee + vacationProvision + vacationFee + taxFree;
+  // Uttagen semester var redan kostnadsförd när den tjänades in, så den
+  // dras av här (annars räknas den två gånger).
+  const totalCost = gross + employerFee + vacationProvision + vacationFee + taxFree - vacationUsed - vacationUsedFee;
   const costFormula = `${round(gross)} + ${round(employerFee)} + ${round(vacationProvision)} + ${round(vacationFee)}`
-    + (taxFree ? ` + ${round(taxFree)} (skattefritt)` : '');
+    + (taxFree ? ` + ${round(taxFree)} (skattefritt)` : '')
+    + (vacationUsed ? ` − ${round(vacationUsed + vacationUsedFee)} (uttagen semester)` : '');
   steps.push({ label: 'Total arbetsgivarkostnad', formula: costFormula, result: round(totalCost) });
 
   return {
@@ -204,6 +235,7 @@ export function computeEmployeePayroll(employee, row) {
     tax: round(tax), net: round(net), employerFee: round(employerFee),
     taxFree: round(taxFree), payLines: payLines.lines,
     vacationProvision: round(vacationProvision), vacationFee: round(vacationFee),
+    vacationUsed: round(vacationUsed), vacationUsedFee: round(vacationUsedFee),
     totalCost: round(totalCost), feeCategory, fTax, vacationRule, steps,
     hasBankInfo: Boolean(employee.clearingNumber && employee.accountNumber),
     // IBAN/BIC är vad den faktiska betalfilen (ISO 20022 pain.001) kräver —
@@ -224,7 +256,9 @@ export function summarizePayrollRun(computedRows) {
     employerFee: acc.employerFee + r.employerFee,
     vacationProvision: acc.vacationProvision + r.vacationProvision,
     vacationFee: acc.vacationFee + r.vacationFee,
+    vacationUsed: acc.vacationUsed + (r.vacationUsed || 0),
+    vacationUsedFee: acc.vacationUsedFee + (r.vacationUsedFee || 0),
     taxFree: acc.taxFree + (r.taxFree || 0),
     totalCost: acc.totalCost + r.totalCost,
-  }), { gross: 0, tax: 0, net: 0, employerFee: 0, vacationProvision: 0, vacationFee: 0, taxFree: 0, totalCost: 0 });
+  }), { gross: 0, tax: 0, net: 0, employerFee: 0, vacationProvision: 0, vacationFee: 0, vacationUsed: 0, vacationUsedFee: 0, taxFree: 0, totalCost: 0 });
 }

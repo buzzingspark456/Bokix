@@ -105,7 +105,7 @@ function SummaryCards({ totals, flat = false }) {
     { label: tr('ui.brutto'), value: totals.gross },
     { label: tr('ui.skatt'), value: totals.tax },
     { label: tr('ui.netto'), value: totals.net, hint: tr('payrollUi.netHint') },
-    { label: tr('ui.avgifter'), value: totals.employerFee + totals.vacationFee },
+    { label: tr('ui.avgifter'), value: totals.employerFee + totals.vacationFee - (totals.vacationUsedFee || 0) },
   ];
   return (
     <div className="payroll-summary" style={{ ...panelCard, ...(flat ? { boxShadow: 'none', marginTop: '16px', marginBottom: 0 } : { marginBottom: '28px' }), display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) minmax(0, 1.3fr)', overflow: 'hidden' }}>
@@ -707,6 +707,16 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
       { account: acc.vacationProvisionLiability, description: `Lön ${period}: Semesteravsättning`, debet: 0, kredit: totals.vacationProvision },
       { account: acc.vacationSocialFeeCost, description: `Lön ${period}: Sociala avgifter semester`, debet: totals.vacationFee, kredit: 0 },
       { account: acc.vacationSocialFeeLiability, description: `Lön ${period}: Sociala avgifter semester`, debet: 0, kredit: totals.vacationFee },
+      // Uttagen semester förbrukar skulden: 2920/2940 minskar och
+      // kostnaden som redan bokats vid intjänandet återförs.
+      ...(totals.vacationUsed ? [
+        { account: acc.vacationProvisionLiability, description: `Lön ${period}: Uttagen semester`, debet: totals.vacationUsed, kredit: 0 },
+        { account: acc.vacationProvisionCost, description: `Lön ${period}: Uttagen semester`, debet: 0, kredit: totals.vacationUsed },
+      ] : []),
+      ...(totals.vacationUsedFee ? [
+        { account: acc.vacationSocialFeeLiability, description: `Lön ${period}: Sociala avgifter uttagen semester`, debet: totals.vacationUsedFee, kredit: 0 },
+        { account: acc.vacationSocialFeeCost, description: `Lön ${period}: Sociala avgifter uttagen semester`, debet: 0, kredit: totals.vacationUsedFee },
+      ] : []),
     ];
     return { block1, block2, block3 };
   }, [totals, period, computedRows]);
