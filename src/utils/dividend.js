@@ -109,3 +109,24 @@ export function dividendStatus(dividend, verifications) {
     .map(v => v.sourceId));
   return { decided: ids.has(`dividend_${dividend.id}`), paid: ids.has(`dividend_${dividend.id}_payment`) };
 }
+
+/** Utdelningsgränsen enligt ABL 17 kap. 3 § och 18 kap. 4 §: det fria egna
+ * kapitalet i den senast fastställda balansräkningen (räkenskapsårets slut
+ * före beslutet), minus utdelning som redan beslutats efter den dagen.
+ * Årets pågående resultat räknas alltså inte. balanceDate är slutdagen för
+ * det räkenskapsår som balansräkningen gäller. */
+export function dividendLimit({ verifications, accounts, dividends = [], balanceDate, date, amount = 0, excludeId = null }) {
+  const free = freeEquityAt(verifications, accounts, balanceDate).total;
+  const decidedSince = round2((dividends || [])
+    .filter(d => d.id !== excludeId && d.date > balanceDate && (!date || d.date <= date))
+    .reduce((s, d) => s + (Number(d.amount) || 0), 0));
+  const maxDividend = Math.max(0, round2(free - decidedSince));
+  const value = round2(Number(amount) || 0);
+  return { freeEquity: free, decidedSince, maxDividend, amount: value, withinLimit: value <= maxDividend + 0.005 };
+}
+
+/** Utbetalningsdagen för en utdelning, eller null om den inte är utbetald. */
+export function dividendPaymentDate(dividend, verifications) {
+  const v = (verifications || []).find(x => x.source === 'dividend' && x.sourceId === `dividend_${dividend.id}_payment` && (x.status || 'booked') !== 'draft');
+  return v?.date || null;
+}

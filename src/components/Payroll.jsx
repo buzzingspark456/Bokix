@@ -52,23 +52,18 @@ export default function Payroll({
   };
 
   const sortedRuns = [...payrollRuns].sort((a, b) => b.period.localeCompare(a.period));
-  // Årsvyn: en rad per månad med lön före skatt, utbetalningsdag och AGI.
-  // Innevarande år visar januari till och med den senaste av innevarande
-  // månad och sista lönekörningen; tidigare år visar alla tolv månader.
+  // Årsvyn: bara månader som har en lönekörning (gjord eller importerad).
+  // Månader utan lön visas inte, utom innevarande månad som en rad för att
+  // skapa månadens lönekörning.
   const thisYear = new Date().getFullYear();
   const runYears = [...new Set([thisYear, ...payrollRuns.map(r => Number(String(r.period).slice(0, 4))).filter(Boolean)])].sort((a, b) => b - a);
   const shownYear = runYears.includes(runYear) ? runYear : thisYear;
   const yearRuns = sortedRuns.filter(r => String(r.period).startsWith(`${shownYear}-`));
-  const lastMonth = shownYear < thisYear ? 12 : Math.max(
-    shownYear === thisYear ? new Date().getMonth() + 1 : 1,
-    ...yearRuns.map(r => Number(r.period.slice(5, 7))),
-  );
-  const filteredRuns = [];
-  for (let m = lastMonth; m >= 1; m--) {
-    const period = `${shownYear}-${String(m).padStart(2, '0')}`;
-    const monthRuns = yearRuns.filter(r => r.period === period);
-    if (monthRuns.length) monthRuns.forEach(run => filteredRuns.push({ key: run.id, period, run }));
-    else filteredRuns.push({ key: `empty-${period}`, period, run: null });
+  const currentPeriod = new Date().toISOString().slice(0, 7);
+  const filteredRuns = yearRuns.map(run => ({ key: run.id, period: run.period, run }));
+  if (shownYear === thisYear && !yearRuns.some(r => r.period === currentPeriod)) {
+    filteredRuns.push({ key: `empty-${currentPeriod}`, period: currentPeriod, run: null });
+    filteredRuns.sort((a, b) => b.period.localeCompare(a.period));
   }
   const runGross = (run) => {
     try {
@@ -405,7 +400,7 @@ export default function Payroll({
             )}
             rows={employees.length === 0 && sortedRuns.length === 0 ? [] : filteredRuns}
             mobileList={row => {
-              if (!row.run) return { dot: 'var(--border)', primary: monthName(row.period), meta: t('payrollYear.noRun'), amount: '' };
+              if (!row.run) return { dot: 'var(--border)', primary: monthName(row.period), meta: t('payrollYear.create'), amount: '' };
               const status = runStatus(row.run);
               const tone = runTone(status);
               const gross = runGross(row.run);

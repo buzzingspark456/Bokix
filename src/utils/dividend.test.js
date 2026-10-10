@@ -88,3 +88,24 @@ describe('dividend entries', () => {
     expect(dividendPerShare(40000, 0)).toBeNull()
   })
 })
+
+describe('dividendLimit (ABL 17:3, 18:4)', async () => {
+  const { dividendLimit } = await import('./dividend.js')
+  const accounts = [{ code: '3001', name: 'Försäljning', type: 'intakt' }, { code: '1930', name: 'Bank', type: 'tillgang' }]
+  const v = (date, account, debet, kredit) => ({ id: date + account, date, rows: [{ account, debet, kredit }, { account: '1930', debet: kredit, kredit: debet }] })
+  const verifications = [
+    v('2025-01-01', '2091', 0, 100000),   // balanserat resultat
+    v('2025-06-01', '3001', 0, 50000),    // vinst 2025
+    v('2026-03-01', '3001', 0, 80000),    // vinst 2026, inte fastställd
+  ]
+  it('räknar bara med fastställd balansräkning, inte årets resultat', () => {
+    const r = dividendLimit({ verifications, accounts, balanceDate: '2025-12-31', date: '2026-05-01' })
+    expect(r.freeEquity).toBe(150000)
+    expect(r.maxDividend).toBe(150000)
+  })
+  it('drar av utdelning som redan beslutats efter balansdagen', () => {
+    const r = dividendLimit({ verifications, accounts, dividends: [{ id: 'a', date: '2026-04-01', amount: 60000 }], balanceDate: '2025-12-31', date: '2026-05-01', amount: 100000 })
+    expect(r.maxDividend).toBe(90000)
+    expect(r.withinLimit).toBe(false)
+  })
+})

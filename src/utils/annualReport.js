@@ -43,10 +43,19 @@ function withLabel({ start, end }) {
 
 /** Sista dag att lämna in till Bolagsverket: sju månader efter räkenskapsårets slut. */
 export function annualReportDeadline(fyEnd) {
+  return monthsAfterYearEnd(fyEnd, 7);
+}
+
+/** Sista dag för årsstämman: sex månader efter räkenskapsårets slut (ABL 7 kap. 10 §). */
+export function agmDeadline(fyEnd) {
+  return monthsAfterYearEnd(fyEnd, 6);
+}
+
+function monthsAfterYearEnd(fyEnd, months) {
   const d = new Date(`${fyEnd}T12:00:00`);
   const day = d.getDate();
   d.setDate(1);
-  d.setMonth(d.getMonth() + 7);
+  d.setMonth(d.getMonth() + months);
   const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
   // Slutar året på en månads sista dag är fristen också en sista dag.
   const lastOfFyMonth = new Date(`${fyEnd}T12:00:00`);
