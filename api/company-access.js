@@ -4,6 +4,7 @@ import { parseJsonBody } from './stripe/_parseBody.js';
 import { requireAuthedUser, loadMemberCompany, requireActiveSubscription, requireOwnerPaidAccess, hasPaidAccess, isFreeEmail, findCompanyEntry } from './_auth.js';
 import { checkRateLimit } from './_rateLimit.js';
 import { createClient } from '@supabase/supabase-js';
+import { gzipSync } from 'zlib';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
 import { mergeField, applyRecordPatch } from '../src/utils/stateMerge.js';
 import { isBolagsverketConfigured, lookupOrgNumber, BolagsverketError } from './_bolagsverket.js';
@@ -271,13 +272,34 @@ async function handleCompanyLookup(body, res) {
   res.status(200).json({ companies });
 }
 
+// Användar-id ur inloggningstoken, bara för att räkna anrop (själva
+// behörigheten kontrolleras med requireAuthedUser). Faller tillbaka på
+// tokenet om det inte går att läsa.
+function tokenSubject(token) {
+  try {
+    const payload = JSON.parse(Buffer.from(String(token).split('.')[1], 'base64url').toString('utf8'));
+    return payload?.sub || token;
+  } catch {
+    return token;
+  }
+}
+
 export default async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'GET' && req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
-  if (!(await checkRateLimit(req, res, { key: 'company-access', max: 60 }))) return;
+  // Inloggade anrop (hämta och spara delade företag) räknas per inloggning
+  // med en hög gräns: en revisor som arbetar sparar ett anrop per ändrat
+  // fält, och flera på samma kontor delar IP-adress. Med 60 per IP slog
+  // spärren till mitt i arbetet och gav Kunde inte hämta företaget.
+  // Anrop utan inloggning (företagsuppslaget) har kvar gränsen per IP.
+  const authHeader = String(req.headers?.authorization || '');
+  const rateOk = authHeader.startsWith('Bearer ')
+    ? await checkRateLimit(req, res, { key: 'company-access-user', max: 1500, identifier: tokenSubject(authHeader.slice(7)) })
+    : await checkRateLimit(req, res, { key: 'company-access', max: 60 });
+  if (!rateOk) return;
 
   // OBS: ingen BotID-koll här längre (till skillnad från main.jsx:s
   // filkommentar, som är föråldrad på den punkten — se rättningen i den
@@ -389,7 +411,20 @@ export default async function handler(req, res) {
       const url = process.env.VITE_SUPABASE_URL;
       const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
       const ownerPaid = url && key ? await hasPaidAccess(createClient(url, key), member.ownerUserId) : true;
-      res.status(200).json({ company: member.companyData, role: member.role, pageAccess: member.pageAccess || null, ownerPaid });
+      // Stora företag (flera års bokföring) kan bli större än Vercels gräns
+      // för svar (4,5 MB). Över 1 MB skickas svaret komprimerat; webbläsaren
+      // packar upp det själv.
+      const body = JSON.stringify({ company: member.companyData, role: member.role, pageAccess: member.pageAccess || null, ownerPaid });
+      const acceptsGzip = /gzip/.test(String(req.headers?.['accept-encoding'] || ''));
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store');
+      if (acceptsGzip && body.length > 1024 * 1024) {
+        res.setHeader('Content-Encoding', 'gzip');
+        res.setHeader('Vary', 'Accept-Encoding');
+        res.status(200).send(gzipSync(body));
+      } else {
+        res.status(200).send(body);
+      }
       return;
     }
 

@@ -109,6 +109,8 @@ await page.route('**/api/company-access**', async r => {
     } else server.shared[body.field] = body.value;
     return r.fulfill({ json: { ok: true } });
   }
+  // FAIL429=1: första hämtningen av företaget svarar 429 (för många anrop).
+  if (process.env.FAIL429 && !u.searchParams.get('list') && req.method() === 'GET' && !server.failed429) { server.failed429 = true; return r.fulfill({ status: 429, json: { error: 'För många försök.' } }); }
   if (u.searchParams.get('list')) return r.fulfill({ json: { companies: [{ company_id: COMPANY_ID, owner_user_id: 'owner1', company: server.shared.company, role: memberRole, pageAccess: null, ownerPaid: true }] } });
   if (u.searchParams.get('company_id')) return r.fulfill({ json: { company: server.shared, role: memberRole, pageAccess: null, ownerPaid: true } });
   return r.fulfill({ json: { ok: true } });

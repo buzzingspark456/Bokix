@@ -1710,6 +1710,32 @@ function App() {
     return session?.access_token || null;
   };
 
+  // Hämtar ett delat företag och försöker igen vid tillfälliga fel: 401
+  // (utgånget inloggningstoken, förnyas först), 429, 5xx och nätverksfel.
+  // Förut gav ett enda misslyckat anrop direkt Kunde inte hämta företaget.
+  // Svarar { ok, status, json }. 403 och 404 försöks inte igen.
+  const fetchSharedCompanyWithRetry = async (companyId, tokenIn = null) => {
+    const waits = [0, 1200, 3500];
+    let token = tokenIn;
+    let last = { ok: false, status: 0, json: null };
+    for (let i = 0; i < waits.length; i++) {
+      if (waits[i]) await new Promise(res => setTimeout(res, waits[i]));
+      try {
+        if (!token || (i > 0 && last.status === 401)) {
+          if (last.status === 401) await supabase.auth.refreshSession().catch(() => {});
+          token = await getAccessToken();
+        }
+        const res = await fetch(`/api/company-access?company_id=${encodeURIComponent(companyId)}`, { headers: { Authorization: `Bearer ${token}` } });
+        const json = res.ok ? await res.json() : null;
+        last = { ok: res.ok && Boolean(json?.company), status: res.status, json };
+        if (last.ok || res.status === 403 || res.status === 404) return last;
+      } catch (err) {
+        last = { ok: false, status: 0, json: null, error: err };
+      }
+    }
+    return last;
+  };
+
   // Löser in en väntande inbjudan (se InviteRedeem.jsx, som lägger tokenet
   // här) — MÅSTE köras med en riktig, redan etablerad session (annars
   // matchar ingen RLS-policy nedan), så anropas allra först i fetchUserData
@@ -1830,14 +1856,12 @@ function App() {
     const results = {};
     await Promise.all(memberships.map(async (m) => {
       try {
-        const res = await fetch(`/api/company-access?company_id=${encodeURIComponent(m.company_id)}`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (!res.ok) {
-          if (![401, 403, 404].includes(res.status)) results[m.company_id] = stubFor(m);
+        const got = await fetchSharedCompanyWithRetry(m.company_id, accessToken);
+        if (!got.ok) {
+          if (![403, 404].includes(got.status)) results[m.company_id] = stubFor(m);
           return;
         }
-        const json = await res.json();
+        const json = got.json;
         if (json?.company) {
           // __shared markerar företaget som INTE mitt eget — se
           // persist-effekten längre ner, som aldrig får skriva in det här i
@@ -1860,12 +1884,9 @@ function App() {
     if (loadingStubRef.current === companyId) return;
     loadingStubRef.current = companyId;
     try {
-      const accessToken = await getAccessToken();
-      const res = await fetch(`/api/company-access?company_id=${encodeURIComponent(companyId)}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const json = res.ok ? await res.json() : null;
-      if (!json?.company) throw new Error(`HTTP ${res.status}`);
+      const got = await fetchSharedCompanyWithRetry(companyId);
+      const json = got.json;
+      if (!got.ok || !json?.company) throw new Error(`HTTP ${got.status}`);
       delete lastPersistedSharedFieldsRef.current[companyId];
       setData(prev => {
         const stub = prev.companies?.[companyId];
@@ -3433,6 +3454,14 @@ function App() {
         <div style={{ maxWidth: '420px', width: '100%', textAlign: 'center', padding: '28px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
           <p style={{ fontSize: '14.5px', color: 'var(--text-main)', margin: '0 0 18px', lineHeight: 1.6 }}>{tr('ui.kunde_inte_hamta_foretaget')}</p>
           <button type="button" onClick={retry} style={{ padding: '10px 20px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>{tr('ui.forsok_igen')}</button>
+          {/* Kommer man inte vidare: byt till ett annat företag eller logga ut,
+              i stället för att sitta fast på felet. */}
+          <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '14px' }}>
+            {Object.keys(data.companies || {}).some(id => id !== data.activeCompanyId && !data.companies[id]?.__stub) && (
+              <button type="button" onClick={() => { const other = Object.keys(data.companies).find(id => id !== data.activeCompanyId && !data.companies[id]?.__stub); if (other) setData(prev => ({ ...prev, activeCompanyId: other })); }} style={{ background: 'none', border: 'none', padding: 0, fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit' }}>{tr('stubError.otherCompany')}</button>
+            )}
+            <button type="button" onClick={async () => { await supabase.auth.signOut(); clearLocalData(); setIsLoggedIn(false); }} style={{ background: 'none', border: 'none', padding: 0, fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit' }}>{tr('stubError.logout')}</button>
+          </div>
         </div>
       </div>
     );
@@ -5769,14 +5798,14 @@ function App() {
           </div>
 
           <div className="desktop-topbar-right">
-            <button data-tour="topbar-help" className="topbar-icon-btn" title={tr('ui.hjalp_support')} onClick={() => setIsHelpDrawerOpen(true)}>
+            <button data-tour="topbar-help" className="topbar-icon-btn" title={tr('ui.hjalp_support')} onClick={() => { setIsNotifMenuOpen(false); setIsProfileMenuOpen(false); setIsHelpDrawerOpen(true); }}>
               <HelpCircle size={23} />
             </button>
             <button className="topbar-icon-btn" title={theme === 'dark' ? tr('ui.ljust_lage') : tr('ui.morkt_lage')} onClick={toggleTheme}>
               {theme === 'dark' ? <Sun size={23} /> : <Moon size={23} />}
             </button>
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-              <button className="topbar-icon-btn" title={tr('ui.notiser')} onClick={() => setIsNotifMenuOpen(!isNotifMenuOpen)}>
+              <button className="topbar-icon-btn" title={tr('ui.notiser')} onClick={() => { setIsProfileMenuOpen(false); setIsNotifMenuOpen(v => !v); }}>
                 <Bell size={23} />
               </button>
               {notificationCount > 0 && (
@@ -5808,7 +5837,7 @@ function App() {
               <div
                 data-tour="topbar-profile"
                 className="topbar-profile-trigger"
-                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                onClick={() => { setIsNotifMenuOpen(false); setIsProfileMenuOpen(v => !v); }}
                 style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '4px', borderRadius: '8px' }}
               >
                 <div className="topbar-avatar" title={user?.email || tr('ui.profil')}>
@@ -5908,7 +5937,7 @@ function App() {
             {/* Tema-knappen (måne/sol) ligger i profilmenyn på telefon: i en
                 app står bara det man använder hela tiden i toppfältet. */}
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-              <button className="topbar-icon-btn" title={tr('ui.notiser')} onClick={() => setIsNotifMenuOpen(!isNotifMenuOpen)}>
+              <button className="topbar-icon-btn" title={tr('ui.notiser')} onClick={() => { setIsProfileMenuOpen(false); setIsNotifMenuOpen(v => !v); }}>
                 <Bell size={23} />
               </button>
               {notificationCount > 0 && (
@@ -5938,7 +5967,7 @@ function App() {
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
               <div
                 className="topbar-profile-trigger"
-                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                onClick={() => { setIsNotifMenuOpen(false); setIsProfileMenuOpen(v => !v); }}
                 style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '4px', borderRadius: '8px' }}
               >
                 <div className="topbar-avatar" title={user?.email || tr('ui.profil')}>
@@ -6089,7 +6118,7 @@ function App() {
               via en länk inifrån en annan sida, inte bara via sheeten själv. */}
           <button
             className={`mobile-nav-btn ${isMobileSheetItemActive ? 'active' : ''}`}
-            onClick={() => setMobileMoreOpen(true)}
+            onClick={() => { setIsNotifMenuOpen(false); setIsProfileMenuOpen(false); setMobileMoreOpen(true); }}
             aria-haspopup="true"
             aria-expanded={mobileMoreOpen}
           >

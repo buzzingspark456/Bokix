@@ -5978,7 +5978,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .page-header-top > div:first-child { flex: 1 1 auto; min-width: 0; }
   .page-header-subtitle { display: none; }
   .page-header-actions { flex: 0 0 auto; }
-  .page-header-actions > span { display: none; }
+  .page-header-actions > span:not(.lph-more-wrap) { display: none; }
   .page-header-actions > button { height: 40px; padding: 0 14px !important; font-size: 14px !important; }
   .page-header-actions--many { flex: 1 1 100% !important; width: 100% !important; }
   .page-header-actions--many > button { flex: 1 1 auto; }
@@ -7201,7 +7201,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 @media (max-width: 768px) {
   /* Sidhuvudets sekundära knappar ligger bakom "⋯" på telefon. */
   .page-header-actions > .lph-secondary { display: none !important; }
-  .page-header-actions > button.lph-more {
+  .page-header-actions .lph-more {
     display: inline-flex;
     flex: 0 0 auto !important;
     width: 40px;
@@ -7345,7 +7345,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .global-top-bar .topbar-profile-trigger { padding: 5px !important; }
   /* ⋯ utan ram: "Prefer system-provided symbols without borders"
      (toolbars › Actions). */
-  .page-header-actions > button.lph-more {
+  .page-header-actions .lph-more {
     width: 44px;
     height: 44px;
     border: 0;
@@ -8227,4 +8227,93 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
    fortsätter nedåt och sidan skrollar. */
 @media (min-width: 1200px) {
   .dash-body .dash-chart-card { align-self: start; }
+}
+
+/* ══ Halvskärm på dator (769–1199 px), 2026-10-10 ══
+   Sidhuvudet: bara huvudknappen syns, de andra ligger bakom ⋯ när det finns
+   flera. Filterraden: sökfältet och Filter, resten fälls ut. Samma idé som
+   på telefon, men i datorns storlekar. */
+.lph-more-wrap { position: relative; display: inline-flex; }
+.lph-more-backdrop { position: fixed; inset: 0; z-index: 250; background: transparent; }
+@media (min-width: 769px) and (max-width: 1199px) {
+  .page-header-actions--many > .lph-secondary { display: none !important; }
+  .page-header-actions--many .lph-more {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; padding: 0 !important;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg-card); color: var(--text-secondary);
+  }
+  .lph-more-sheet { z-index: 260; min-width: 220px; }
+
+  .lfb-row { flex-wrap: wrap !important; gap: 8px !important; }
+  .lfb-primary { display: block; flex: 1 1 0; min-width: 0; max-width: 460px; }
+  .lfb-primary > * { width: 100%; }
+  .lfb-primary input { width: 100% !important; }
+  .lfb-toggle {
+    display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--text-main);
+    font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; flex-shrink: 0;
+  }
+  .lfb[data-open="true"] .lfb-toggle { background: var(--bg-muted); }
+  .lfb-toggle-badge {
+    min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: #fff;
+    font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  }
+  .lfb-more { display: none; }
+  .lfb[data-open="true"] .lfb-more { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 100%; width: 100%; margin-top: 2px; }
+  .lfb-second { display: none !important; }
+  .lfb[data-open="true"] .lfb-second { display: flex !important; margin-top: 10px; }
+  .lfb-count-line { display: block; font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+  .lfb-count { display: none; }
+}
+
+/* Kvitton: verktygsraden (2026-10-10). Dator som förut. Telefon: sökfält och
+   Filter på en rad, månad och vy bakom Filter, chipsen på en svepbar rad. */
+.rc-chips { display: contents; }
+.rc-tb-toggle { display: none; }
+@media (max-width: 768px) {
+  .rc-toolbar { gap: 8px !important; }
+  .rc-toolbar > .rc-search { flex: 1 1 0 !important; min-width: calc(100% - 130px); height: 42px; box-sizing: border-box; }
+  .rc-tb-toggle {
+    display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 14px; flex-shrink: 0;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--text-main);
+    font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .rc-toolbar.is-open .rc-tb-toggle { background: var(--bg-muted); }
+  .rc-toolbar .rc-tb-extra { display: none !important; }
+  .rc-toolbar.is-open .rc-tb-extra { display: flex !important; flex: 1 1 calc(50% - 4px); height: 40px; }
+  .rc-toolbar.is-open select.rc-tb-extra { display: block !important; }
+  .rc-chips {
+    display: flex; flex: 1 1 100%; gap: 8px; overflow-x: auto; scrollbar-width: none;
+    margin: 0 -16px; padding: 0 16px 2px;
+  }
+  .rc-chips::-webkit-scrollbar { display: none; }
+  .rc-chips > * { flex-shrink: 0; white-space: nowrap; }
+  .rc-chips .rc-toolbar-divider { display: none; }
+}
+
+/* Projektens nyckeltal på telefon: tre små rutor på en rad i stället för
+   tre höga rader (2026-10-10). */
+@media (max-width: 768px) {
+  .proj-kpi { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .proj-kpi > div { flex-direction: column; align-items: flex-start !important; gap: 6px !important; padding: 10px 12px !important; }
+  .proj-kpi > div > div:first-child { display: none !important; }
+  .proj-kpi > div > div:last-child > div:last-child span:first-child { font-size: 16px !important; }
+  .proj-kpi > div > div:last-child > div:last-child span:last-child:not(:first-child) { display: block; width: 100%; }
+}
+@media (min-width: 769px) and (max-width: 1199px) {
+  .rc-toolbar > .rc-search { flex: 1 1 0 !important; min-width: 260px; max-width: 460px; }
+  .rc-tb-toggle {
+    display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; flex-shrink: 0;
+    border: 1px solid var(--border); border-radius: 9px; background: var(--bg-card); color: var(--text-main);
+    font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  }
+  .rc-toolbar.is-open .rc-tb-toggle { background: var(--bg-muted); }
+  .rc-toolbar .rc-tb-extra { display: none !important; }
+  .rc-toolbar.is-open .rc-tb-extra { display: flex !important; }
+  .rc-toolbar.is-open select.rc-tb-extra { display: block !important; }
+  .rc-chips { display: flex; flex: 1 1 100%; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+  .rc-chips::-webkit-scrollbar { display: none; }
+  .rc-chips > * { flex-shrink: 0; white-space: nowrap; }
+  .rc-chips .rc-toolbar-divider { display: none; }
 }

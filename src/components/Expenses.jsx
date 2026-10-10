@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { isVatExempt } from '../utils/vatRegistration';
 import {
-  UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop, Mail,
+  UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop, Mail, SlidersHorizontal,
 } from './icons';
 import { AccountSearch } from './shared/SearchInputs';
 import AccountInlinePicker from './shared/AccountInlinePicker';
@@ -1188,6 +1188,7 @@ export default function Expenses({
   // man bara se allt i en enda lista. Oberoende av monthFilter (man kan
   // fortfarande vilja se "bara augusti" OCH ha det platt).
   const [flatView, setFlatView] = useState(false);
+  const [rcFiltersOpen, setRcFiltersOpen] = useState(false);
 
   useEffect(() => () => {
     // Städa upp alla pågående upload-timers om komponenten avmonteras
@@ -1458,7 +1459,7 @@ export default function Expenses({
               samma rad (radbryter på smal skärm). Sökningen är parad med
               filtren istället för med en rubrik, eftersom det ÄR ett
               filter — samma sak som statuspillren gör. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
+          <div className={`rc-toolbar${rcFiltersOpen ? ' is-open' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
             <div className="rc-search" style={{ flex: '1 1 220px' }}>
               <Search size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
               <input
@@ -1474,9 +1475,14 @@ export default function Expenses({
                 </button>
               )}
             </div>
+            {/* Telefon: månad och vy ligger bakom Filter (index.css, rc-toolbar). */}
+            <button type="button" className="rc-tb-toggle" onClick={() => setRcFiltersOpen(v => !v)} aria-expanded={rcFiltersOpen}>
+              <SlidersHorizontal size={15} /> {tr('shared.filterBar.filter')}
+              {(monthFilter !== 'all' || flatView || effectiveTab !== 'all') && <span className="lfb-toggle-badge">{[monthFilter !== 'all', flatView, effectiveTab !== 'all'].filter(Boolean).length}</span>}
+            </button>
 
             {showUploaderTabs && (
-              <div className="rc-segmented">
+              <div className="rc-segmented rc-tb-extra">
                 {[{ id: 'all', label: tr('ui.alla') }, { id: 'mine', label: tr('ui.mina') }].map(t => (
                   <button
                     key={t.id}
@@ -1495,6 +1501,7 @@ export default function Expenses({
                 istället (kundönskemål: "show all in August ... from all
                 years"). */}
             <select
+              className="rc-tb-extra"
               value={monthFilter}
               onChange={e => setMonthFilter(e.target.value)}
               aria-label={tr('ui.filtrera_pa_manad')}
@@ -1506,11 +1513,13 @@ export default function Expenses({
 
             {/* Grupperat (rubriker per månad/år) kontra en enda platt lista
                 — oberoende av månadsfiltret ovan. */}
-            <div className="rc-segmented">
+            <div className="rc-segmented rc-tb-extra">
               <button onClick={() => setFlatView(false)} className={!flatView ? 'active' : ''}>{tr('ui.grupperat')}</button>
               <button onClick={() => setFlatView(true)} className={flatView ? 'active' : ''}>{tr('ui.lista')}</button>
             </div>
 
+            {/* Status- och mappchips: en rad som går att svepa på telefon. */}
+            <div className="rc-chips">
             {Object.values(statusCounts).some(c => c > 0) && (
               <>
                 {(showUploaderTabs) && <span className="rc-toolbar-divider" />}
@@ -1592,6 +1601,7 @@ export default function Expenses({
             >
               <FolderPlus size={13} /> {folders.length === 0 ? tr('ui.skapa_en_mapp') : tr('ui.mappar')}
             </button>
+            </div>
             <AnchoredDropdown anchorRef={folderManagerAnchorRef} panelRef={folderManagerPanelRef} open={folderManagerOpen} minWidth={230} maxHeight={340}>
               <div style={{ padding: '10px' }}>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>

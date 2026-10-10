@@ -197,18 +197,21 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
   );
 }
 
-// "⋯"-knappen på telefon: sidans sekundära knappar i en bottenpanel, samma
-// panelstil som profilmenyn (profile-dropdown, se index.css). Dold på datorn.
+// "⋯"-knappen: sidans sekundära knappar. På telefon i en bottenpanel, i
+// halvskärm på dator som en meny under knappen (profile-dropdown, se
+// index.css). Dold på bred dator, där knapparna syns direkt.
 function MoreActions({ actions }) {
   const [open, setOpen] = useState(false);
   return (
-    <>
+    <span className="lph-more-wrap">
       <button type="button" className="lph-more topbar-icon-btn" aria-label={t('shared.moreActions')} aria-expanded={open} onClick={() => setOpen(true)}>
         <MoreHorizontal size={22} />
       </button>
       {open && (
         <>
           <div className="mobile-dropdown-backdrop" onClick={() => setOpen(false)} />
+          {/* Klick utanför stänger menyn även på dator (halvskärm). */}
+          <div className="lph-more-backdrop" onClick={() => setOpen(false)} />
           <div className="profile-dropdown lph-more-sheet" role="menu">
             {actions.map((a, i) => (
               <button
@@ -224,7 +227,7 @@ function MoreActions({ actions }) {
           </div>
         </>
       )}
-    </>
+    </span>
   );
 }
 

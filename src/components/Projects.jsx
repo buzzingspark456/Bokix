@@ -132,7 +132,7 @@ function getReportStatus(timeReportStatuses, personId, monthKey, customerId) {
 // behåller sin fristående kort-look, `flush` är opt-in.
 function ProjectKpiStrip({ items, flush = false }) {
   return (
-    <div style={{
+    <div className="proj-kpi" style={{
       ...cardBase,
       ...(flush ? { borderRadius: 0 } : {}),
       display: 'grid',
@@ -966,6 +966,22 @@ function ProjectsListTable({ list, contacts, timeEntries, expandedProjectId, set
       emptyMessage={emptyMessage}
       rows={list}
       rowStyle={p => (p.status === 'finished' ? { opacity: 0.7 } : {})}
+      // Telefon och smalt fönster: en ren rad per projekt som i övriga listor
+      // (namn, kund och tid, lönsamhet till höger, status som pill).
+      mobileList={p => {
+        const isFinished = p.status === 'finished';
+        const profit = (p.revenue || 0) - (p.cost || 0);
+        const customer = contacts.find(c => c.id === p.customerId)?.name || tr('ui.okand_kund');
+        return {
+          dot: isFinished ? 'var(--text-muted)' : (p.color || BRAND.green),
+          primary: [p.projectNumber, p.name].filter(Boolean).join(' · '),
+          amount: <span style={{ color: profit >= 0 ? 'var(--text-main)' : 'var(--status-red-text)' }}>{formatSEK(profit)}</span>,
+          meta: `${customer} · ${formatHours(p.timeSpent || 0)} ${tr('ui.av')} ${p.budgetHours || 0} ${tr('ui.h')}`,
+          pill: isFinished
+            ? <span style={{ fontSize: '11px', padding: '2px 8px', background: 'var(--gray-100)', color: 'var(--text-secondary)', borderRadius: '999px', fontWeight: 600 }}>{tr('ui.avslutat')}</span>
+            : <span style={{ fontSize: '11px', padding: '2px 8px', background: BRAND.greenLight, color: BRAND.greenDark, borderRadius: '999px', fontWeight: 600 }}>{tr('ui.pagar')}</span>,
+        };
+      }}
       columns={[
         {
           key: 'project', label: tr('ui.projekt'), render: p => {
