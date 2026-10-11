@@ -384,6 +384,8 @@ function director(page, events) {
     // Klick som öppnar filväljaren; filen väljs som en användare skulle.
     async upload(loc, file) {
       const chooser = page.waitForEvent('filechooser', { timeout: 8000 });
+      // Hittas inte knappen får väntan inte krascha hela körningen.
+      chooser.catch(() => {});
       await this.click(loc);
       await (await chooser).setFiles(file);
       await sleep(400);
@@ -522,7 +524,7 @@ const GUIDES = {
     await d.caption(1, 'Gå till Kvitton', 'Gå till Kvitton.');
     await d.click(nav('Kvitton'));
     await d.caption(2, 'Ladda upp ett foto av kvittot', 'Ladda upp ett foto av kvittot. Det går bra att ta det med mobilen.');
-    await d.upload(panel.getByText(/Ladda upp|Välj fil|Dra och släpp/).first(), RECEIPT);
+    await d.upload(panel.locator('.rc-drop').first(), RECEIPT);
     await d.caption(3, 'Tryck på Läs av kvittot', 'Tryck på Läs av kvittot.');
     await d.click(panel.getByRole('button', { name: /Läs av kvittot/ }).first());
     await d.caption(4, 'Datum, belopp och moms fylls i åt dig', 'Nu läser Bokix av datum, belopp och moms, och fyller i fälten åt dig.');
@@ -553,7 +555,7 @@ const GUIDES = {
     await d.caption(2, 'Tryck på Ny verifikation', 'Tryck på Ny verifikation.');
     await d.click(btn('Ny verifikation'));
     await d.caption(3, 'Beskriv köpet och beloppet', 'Skriv vad du har köpt, och vad det kostade med moms.');
-    await d.type(panel.getByPlaceholder('Verifikationstext...'), 'Kontorsmaterial');
+    await d.type(panel.getByPlaceholder('Vad gäller verifikationen...'), 'Kontorsmaterial');
     await d.type(field('Belopp inkl. moms (kr)'), '495');
     await d.caption(4, 'Vad har du köpt?', 'Sök sedan fram vad det är för slags köp. Här blir det kontorsmaterial.');
     await d.type(panel.getByPlaceholder('Sök, till exempel kontorsmaterial'), 'kontorsmat');

@@ -48,8 +48,8 @@
     "date": "2026-09-29"
   },
   "/guider": {
-    "hash": "9e61346c047cf8a5",
-    "date": "2026-09-29"
+    "hash": "27041c8ddd3a27cb",
+    "date": "2026-10-11"
   },
   "/bokix-i-korthet": {
     "hash": "fc4c2e6d442d4dd8",
@@ -104,12 +104,12 @@
     "date": "2026-09-29"
   },
   "/verktyg/momsdatum": {
-    "hash": "fcdd0e28f3875669",
-    "date": "2026-10-10"
+    "hash": "3fe46e804464158f",
+    "date": "2026-10-11"
   },
   "/verktyg/arsredovisning": {
-    "hash": "d5648b04b0e3ca01",
-    "date": "2026-10-10"
+    "hash": "45bd64fbe14d7c15",
+    "date": "2026-10-11"
   },
   "/enkel-bokforing": {
     "hash": "87d1fc7dfe0a1b39",
@@ -166,5 +166,53 @@
   "/nyheter/skicka-fakturor-fran-din-egen-gmail": {
     "hash": "8947b620b8a40a4a",
     "date": "2026-09-29"
+  },
+  "/guider/lagg-upp-kund": {
+    "hash": "16a4749f7127716c",
+    "date": "2026-10-11"
+  },
+  "/guider/skapa-faktura": {
+    "hash": "bcf65b1b45a5bc49",
+    "date": "2026-10-11"
+  },
+  "/guider/skicka-faktura": {
+    "hash": "30bb12f0541bc548",
+    "date": "2026-10-11"
+  },
+  "/guider/registrera-betalning": {
+    "hash": "fb3d89d320664db4",
+    "date": "2026-10-11"
+  },
+  "/guider/skapa-offert": {
+    "hash": "69d4d7fae611bde2",
+    "date": "2026-10-11"
+  },
+  "/guider/ny-artikel": {
+    "hash": "bfa41ab0ab106dab",
+    "date": "2026-10-11"
+  },
+  "/guider/ladda-upp-kvitto": {
+    "hash": "2292e080bfd48552",
+    "date": "2026-10-11"
+  },
+  "/guider/ny-verifikation": {
+    "hash": "3377fb3886a0bdc0",
+    "date": "2026-10-11"
+  },
+  "/guider/ny-anstalld": {
+    "hash": "7764188a18c80d18",
+    "date": "2026-10-11"
+  },
+  "/guider/nytt-projekt": {
+    "hash": "ecc49d075f2cfadc",
+    "date": "2026-10-11"
+  },
+  "/guider/momsdeklaration": {
+    "hash": "a86a020d41c6841a",
+    "date": "2026-10-11"
+  },
+  "/guider/rapporter": {
+    "hash": "92de6070cb4a925c",
+    "date": "2026-10-11"
   }
 }

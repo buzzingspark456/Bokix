@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MarketingLayout from './MarketingLayout';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
@@ -7,9 +7,31 @@ import { GUIDE_GROUPS, GUIDE_UPLOAD_DATE } from '../../content/marketing/guides'
 
 const GUIDES = GUIDE_GROUPS.flatMap(group => group.guides);
 
+// Förrenderingen (det Google läser) visar alltid den ljusa filmen. Står
+// sajten i mörkt läge byts filmen till namn-dark.mp4 efter montering.
+function useSiteTheme() {
+  const [theme, setTheme] = useState('light');
+  useEffect(() => {
+    const root = document.documentElement;
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    const read = () => {
+      const attr = root.getAttribute('data-theme');
+      setTheme((attr ? attr === 'dark' : !!mq?.matches) ? 'dark' : 'light');
+    };
+    read();
+    const obs = new MutationObserver(read);
+    obs.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+    mq?.addEventListener?.('change', read);
+    return () => { obs.disconnect(); mq?.removeEventListener?.('change', read); };
+  }, []);
+  return theme;
+}
+
 export default function GuideVideoPage({ slug }) {
   const guide = GUIDES.find(item => item.slug === slug);
+  const theme = useSiteTheme();
   if (!guide) return null;
+  const file = theme === 'dark' ? `${guide.slug}-dark` : guide.slug;
 
   const transcript = TRANSCRIPTS[guide.slug]?.join(' ') || '';
   const videoUrl = `${SITE_URL}/videos/${guide.slug}.mp4`;
@@ -59,9 +81,10 @@ export default function GuideVideoPage({ slug }) {
           <h1 className="kx-h1" style={{ margin: '16px 0 10px' }}>{guide.title}</h1>
           <p className="kx-lead" style={{ margin: '0 0 26px' }}>{guide.lead}</p>
           <video
+            key={file}
             className="gd-watch-video"
-            src={`/videos/${guide.slug}.mp4`}
-            poster={`/videos/${guide.slug}.jpg`}
+            src={`/videos/${file}.mp4`}
+            poster={`/videos/${file}.jpg`}
             controls
             playsInline
             preload="none"
