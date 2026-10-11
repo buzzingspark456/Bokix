@@ -217,6 +217,8 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
     templateId: company?.invoiceTemplateId || DEFAULT_INVOICE_TEMPLATE,
     accentColor: company?.invoiceAccentColor || '',
     logoUrl: company?.logoUrl || '',
+    logoSize: company?.invoiceLogoSize || 'medium',
+    showCompanyName: company?.invoiceShowCompanyName ?? false,
     footerText: company?.invoiceFooterText || '',
   });
 
@@ -1001,6 +1003,8 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                   template={templateSnapshot.templateId}
                   accentColor={templateSnapshot.accentColor}
                   logoUrl={templateSnapshot.logoUrl}
+                  logoSize={templateSnapshot.logoSize}
+                  showCompanyName={templateSnapshot.showCompanyName}
                   footerText={templateSnapshot.footerText}
                 />
                 </PaperFit>
@@ -1025,6 +1029,8 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
           template={templateSnapshot.templateId}
           accentColor={templateSnapshot.accentColor}
           logoUrl={templateSnapshot.logoUrl}
+          logoSize={templateSnapshot.logoSize}
+          showCompanyName={templateSnapshot.showCompanyName}
           footerText={templateSnapshot.footerText}
         />
       </div>

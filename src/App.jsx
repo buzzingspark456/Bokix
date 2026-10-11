@@ -58,7 +58,7 @@ import { GuideContext } from './components/shared/GuideContext';
 import GuideModal from './components/GuideModal';
 import { registerUndo, showUndo, restoreAt } from './components/shared/undoToast';
 import { resultAccountFor, buildYearEndClosing } from './utils/yearEnd';
-import { BRAND, ACCENT_COLORS } from './utils/brandColors';
+import { BRAND } from './utils/brandColors';
 import { vatSettlementRows } from './utils/vatCalculation';
 import { isReverseChargePurchaseAccount, withReverseChargeRows } from './utils/reverseCharge';
 import { COMPANY_WRITABLE_FIELDS } from './utils/companyFields.js';
@@ -1425,24 +1425,12 @@ function App() {
     });
   }, [theme]);
 
-  // ── Färgtema (Inställningar → Utseende → Färgtema) ── Samma spara-i-
-  // localStorage/sätt-attribut-på-<html>-mönster som temat ovan. 'green'
-  // (Bokix, förvalet) sätter INGET `data-accent`-attribut alls — index.css
-  // :root ÄR redan grönt, så den som aldrig öppnar den här inställningen
-  // ser en helt oförändrad app.
-  const [accentColor, setAccentColorState] = useState(() => {
-    try {
-      const stored = localStorage.getItem('bokix_accent');
-      if (stored && ACCENT_COLORS.some(a => a.id === stored)) return stored;
-    } catch { /* privat läge/blockerad storage — kör vidare med förvalet */ }
-    return 'green';
-  });
+  // Färgtemat (blått, lila m.fl.) är borttaget 2026-10-11: appen är alltid
+  // Bokix grön. Rensar ett tidigare sparat val.
   useEffect(() => {
-    if (accentColor === 'green') document.documentElement.removeAttribute('data-accent');
-    else document.documentElement.setAttribute('data-accent', accentColor);
-    try { localStorage.setItem('bokix_accent', accentColor); } catch { /* samma reservläge som ovan */ }
-  }, [accentColor]);
-  const setAccentColor = (id) => setAccentColorState(ACCENT_COLORS.some(a => a.id === id) ? id : 'green');
+    document.documentElement.removeAttribute('data-accent');
+    try { localStorage.removeItem('bokix_accent'); } catch { /* privat läge */ }
+  }, []);
 
   // ── Kompakt/normal layout (Inställningar → Utseende) ── Samma mönster.
   const [density, setDensityState] = useState(() => {
@@ -5516,8 +5504,6 @@ function App() {
             onAttachVerificationFiles={handleAttachVerificationFiles}
             themePreference={themePreference}
             onSetThemePreference={setThemePreference}
-            accentColor={accentColor}
-            onSetAccentColor={setAccentColor}
             density={density}
             onSetDensity={setDensity}
             initialSection={settingsInitialSection}

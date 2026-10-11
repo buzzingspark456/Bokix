@@ -18,18 +18,13 @@
  * `green`/`greenHover` (knappar, logga, sidopanelens bakgrund) pekade
  * tidigare på literal hex med flit ("sidopanelen är samma gröna yta
  * oavsett TEMA, inte en surface som ska mörkna") — fortfarande sant, men
- * Färgtema (Inställningar → Utseende, `data-accent` på <html>, se
- * index.css) är en ANNAN axel än ljust/mörkt: användarens valda
- * varumärkesaccent, inte en temaväxling. `var(--accent)`/`var(--accent-
- * hover)` är fortfarande en FAST färg ur temats synvinkel (skrivs bara om
- * av `data-accent`, aldrig av `data-theme`) — precis samma egenskap som
- * innan, bara att "fast" nu betyder "fast tills du väljer en annan accent"
- * i stället för "fast, punkt". En inline style som sätter `color:
+ * pekar nu på --accent i index.css (alltid Bokix grön; färgtemat togs bort
+ * 2026-10-11). En inline style som sätter `color:
  * BRAND.green` fortsätter fungera oförändrat: `var(...)` är ett giltigt
  * CSS-värde rakt av, ingen konsument behöver ändras.
  */
 export const BRAND = {
-  green: 'var(--accent)',       // Primär accent: knappar, logga, sidopanel — Färgtema (index.css `data-accent`)
+  green: 'var(--accent)',       // Primär accent: knappar, logga, sidopanel (index.css --accent)
   greenHover: 'var(--accent-hover)',
   greenDark: 'var(--status-green-text)',  // Text på ljusgrön bakgrund (aktiv menypunkt, positiv badge)
   greenLight: 'var(--status-green-bg)',   // Bakgrund: aktiv menypunkt, positiv badge, avatar-cirkel
@@ -75,21 +70,6 @@ export const VIVID = {
  * SAMMA gradienter istället för att uppfinna en ny, nästan-men-inte-riktigt
  * matchande nyans (kundönskemål: "samma [stil] på alla sidor").
  */
-/**
- * Färgtema (Inställningar → Utseende → Färgtema) — de val användaren kan
- * välja mellan. `id` matchar `data-accent`-värdena i index.css exakt.
- * `swatch` är bara till för själva väljar-UI:t i Settings.jsx (en cirkel i
- * ungefär rätt nyans) — appens FAKTISKA färg kommer alltid från CSS-
- * variablerna (--accent m.fl.), inte från den här hex-koden.
- */
-export const ACCENT_COLORS = [
-  { id: 'green', label: 'Bokix grönt', swatch: '#0b6329' },
-  { id: 'blue', label: 'Blått', swatch: '#1d5fa8' },
-  { id: 'purple', label: 'Lila', swatch: '#6d28d9' },
-  { id: 'rose', label: 'Rosa', swatch: '#9d1055' },
-  { id: 'amber', label: 'Amber', swatch: '#b45309' },
-  { id: 'slate', label: 'Skiffer', swatch: '#334155' },
-];
 
 export const KPI_GRADIENTS = {
   positive: ['#2f8a3a', '#54b854'], // Resultat: vinst, Omsättning/Intäkter

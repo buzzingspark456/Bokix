@@ -619,6 +619,18 @@ USING (bucket_id = 'profile' AND (storage.foldername(name))[1] = (SELECT auth.ui
 -- Samma fix/resonemang som "Publik läsning av profile" ovan.
 DROP POLICY IF EXISTS "Publik läsning av companylogo" ON storage.objects;
 
+-- Upsert (ny bild ersätter den gamla) kräver SELECT. Bara den egna mappen,
+-- så ingen kan lista andras filer (supabase-2026-10-11-logotyp-las.sql).
+DROP POLICY IF EXISTS "Egen läsning i companylogo" ON storage.objects;
+CREATE POLICY "Egen läsning i companylogo"
+ON storage.objects FOR SELECT TO authenticated
+USING (bucket_id = 'companylogo' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
+
+DROP POLICY IF EXISTS "Egen läsning i profile" ON storage.objects;
+CREATE POLICY "Egen läsning i profile"
+ON storage.objects FOR SELECT TO authenticated
+USING (bucket_id = 'profile' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
+
 DROP POLICY IF EXISTS "Egen uppladdning i companylogo" ON storage.objects;
 CREATE POLICY "Egen uppladdning i companylogo"
 ON storage.objects FOR INSERT TO authenticated

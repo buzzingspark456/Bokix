@@ -38,12 +38,20 @@ export const DEFAULT_INVOICE_TEMPLATE = 'bold';
 const InvoiceDocument = forwardRef(function InvoiceDocument(
   {
     invoice, customer, company, rows = [], totals, currency = 'SEK', invoiceText, docLabel = 'FAKTURA',
-    docType = 'invoice', logoUrl, footerText, template = DEFAULT_INVOICE_TEMPLATE, accentColor, rotRut = null,
+    docType = 'invoice', logoUrl, logoSize = 'small', showCompanyName = true, footerText, template = DEFAULT_INVOICE_TEMPLATE, accentColor, rotRut = null,
   },
   ref
 ) {
   const tpl = INVOICE_TEMPLATES[template] || INVOICE_TEMPLATES[DEFAULT_INVOICE_TEMPLATE];
   const accent = accentColor || tpl.defaultAccent;
+  // Logotypens storlek (Fakturor → Anpassa mallen). Fakturor sparade före
+  // inställningen har inget värde och behåller den lilla storleken.
+  const logoScale = { small: 1, medium: 1.6, large: 2.4 }[logoSize] || 1;
+  const logoStyle = (h, w, mb) => ({ maxHeight: Math.round(h * logoScale), maxWidth: Math.round(w * logoScale), marginBottom: mb, display: 'block', objectFit: 'contain' });
+  // Logotypen innehåller ofta redan namnet, så nya fakturor döljer namnet
+  // under den (Fakturor → Anpassa mallen). Äldre fakturor saknar värdet och
+  // visar namnet som förut.
+  const showName = !logoUrl || showCompanyName !== false;
   // Bugkritiskt: filtret var `r.description` ensamt, alltså doldes varje
   // rad utan text — ÄVEN om den hade antal och pris. Summan räknas på alla
   // rader, så resultatet blev en faktura där det stod "Inga rader tillagda
@@ -154,8 +162,8 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
       {isBold && (
         <div className="a4-header-stripe" style={{ background: accent }}>
           <div className="a4-company-on-stripe">
-            {logoUrl ? <img src={logoUrl} alt={(company?.invoiceDisplayName || company?.name) || 'Logotyp'} style={{ maxHeight: 40, maxWidth: 160, marginBottom: 10, display: 'block' }} /> : null}
-            <div className="a4-company-name">{(company?.invoiceDisplayName || company?.name) || 'Ditt företag'}</div>
+            {logoUrl ? <img src={logoUrl} alt={(company?.invoiceDisplayName || company?.name) || 'Logotyp'} style={logoStyle(40, 160, 10)} /> : null}
+            {showName && <div className="a4-company-name">{(company?.invoiceDisplayName || company?.name) || 'Ditt företag'}</div>}
             <div className="a4-company-detail">
               {formatCompanyAddress(company) || 'Adress saknas'}<br />
               {company?.orgNr ? `Org.nr ${company.orgNr}` : ''}{company?.vatNr ? ` · VAT ${company.vatNr}` : ''}<br />
@@ -176,7 +184,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
       {isClassic && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#111', marginBottom: 6 }}>{(company?.invoiceDisplayName || company?.name) || 'Ditt företag'}</div>
+            {showName && <div style={{ fontSize: 17, fontWeight: 700, color: '#111', marginBottom: 6 }}>{(company?.invoiceDisplayName || company?.name) || 'Ditt företag'}</div>}
             <div style={{ fontSize: 11.5, color: '#52525b', lineHeight: 1.7 }}>
               {formatCompanyAddress(company) || 'Adress saknas'}<br />
               {company?.orgNr ? `Org.nr ${company.orgNr}` : ''}{company?.vatNr ? ` · VAT ${company.vatNr}` : ''}<br />
@@ -184,13 +192,14 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{
-              width: 64, height: 64, borderRadius: '50%', border: `1.5px solid ${accent}`, marginLeft: 'auto', marginBottom: 12,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: '#f8fafc',
-            }}>
-              {logoUrl ? <img src={logoUrl} alt={(company?.invoiceDisplayName || company?.name) || 'Logotyp'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <span style={{ fontSize: 20, fontWeight: 700, color: accent }}>{((company?.invoiceDisplayName || company?.name) || '?')[0]}</span>}
-            </div>
+            {logoUrl ? <img src={logoUrl} alt={(company?.invoiceDisplayName || company?.name) || 'Logotyp'} style={{ ...logoStyle(48, 170, 12), marginLeft: 'auto' }} /> : (
+              <div style={{
+                width: 64, height: 64, borderRadius: '50%', border: `1.5px solid ${accent}`, marginLeft: 'auto', marginBottom: 12,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: '#f8fafc',
+              }}>
+                <span style={{ fontSize: 20, fontWeight: 700, color: accent }}>{((company?.invoiceDisplayName || company?.name) || '?')[0]}</span>
+              </div>
+            )}
             <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '0.06em', color: accent, margin: '0 0 10px' }}>{docLabel}</h1>
             <div style={{ display: 'grid', gridTemplateColumns: 'auto auto', gap: '2px 14px', textAlign: 'right' }}>
               {meta.map(([l, v]) => (
@@ -208,8 +217,8 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, gap: 20 }}>
           <div>
             <h1 style={{ fontSize: 38, fontWeight: 800, color: accent, margin: '0 0 14px', letterSpacing: '-0.02em' }}>{docLabel}</h1>
-            {logoUrl && <img src={logoUrl} alt={(company?.invoiceDisplayName || company?.name) || 'Logotyp'} style={{ maxHeight: 32, maxWidth: 140, marginBottom: 10, display: 'block' }} />}
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 4 }}>{(company?.invoiceDisplayName || company?.name) || 'Ditt företag'}</div>
+            {logoUrl && <img src={logoUrl} alt={(company?.invoiceDisplayName || company?.name) || 'Logotyp'} style={logoStyle(32, 140, 10)} />}
+            {showName && <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 4 }}>{(company?.invoiceDisplayName || company?.name) || 'Ditt företag'}</div>}
             <div style={{ fontSize: 11.5, color: '#52525b', lineHeight: 1.7 }}>
               {formatCompanyAddress(company) || 'Adress saknas'}<br />
               {company?.orgNr ? `Org.nr ${company.orgNr}` : ''}{company?.vatNr ? ` · VAT ${company.vatNr}` : ''}
@@ -230,8 +239,8 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
       {isGrid && (
         <div style={{ border: '1.5px solid #18181b', padding: '16px 20px', marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            {logoUrl ? <img src={logoUrl} alt={(company?.invoiceDisplayName || company?.name) || 'Logotyp'} style={{ maxHeight: 34, maxWidth: 150, marginBottom: 8, display: 'block' }} /> : null}
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 4 }}>{(company?.invoiceDisplayName || company?.name) || 'Ditt företag'}</div>
+            {logoUrl ? <img src={logoUrl} alt={(company?.invoiceDisplayName || company?.name) || 'Logotyp'} style={logoStyle(34, 150, 8)} /> : null}
+            {showName && <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 4 }}>{(company?.invoiceDisplayName || company?.name) || 'Ditt företag'}</div>}
             <div style={{ fontSize: 11, color: '#3f3f46', lineHeight: 1.6 }}>
               {formatCompanyAddress(company) || 'Adress saknas'}<br />
               {company?.orgNr ? `Org.nr ${company.orgNr}` : ''}{company?.vatNr ? ` · VAT ${company.vatNr}` : ''}

@@ -10,7 +10,7 @@ import { supabase } from '../supabaseClient';
 import { passkeysAvailable, isPasskeyCancel, appLockEnabledFor, setAppLock, rememberPasskeyOnDevice } from '../utils/sessionPolicy';
 import { sendInvoiceEmail } from '../emailApi';
 import { cancelStripeSubscription, reactivateStripeSubscription, openBillingPortal, getSubscriptionInvoices } from '../stripeApi';
-import { BRAND, ACCENT_COLORS } from '../utils/brandColors';
+import { BRAND } from '../utils/brandColors';
 import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import ListTable from './shared/ListTable';
@@ -789,6 +789,7 @@ function ImageUploadField({ label, value, onChange, uploadPath, bucket, hint, re
       if (/bucket not found/i.test(msg)) friendly = `Bildlagring är inte konfigurerad ännu (bucket "${bucket}" saknas — kör storage-delen av supabase-setup.sql).`;
       else if (/mime type/i.test(msg)) friendly = tr('ui.filen_jpg_png');
       else if (/exceeded the maximum allowed size/i.test(msg)) friendly = tr('ui.bilden_max_3mb');
+      else if (/row-level security/i.test(msg)) friendly = tr('ui.bilden_kunde_inte_sparas_behorighet');
       setError(friendly);
     } finally {
       setBusy(false);
@@ -1494,7 +1495,7 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
 
   const previewProps = {
     invoice: SAMPLE_INVOICE, customer: SAMPLE_CUSTOMER, company, rows: SAMPLE_ROWS, totals: SAMPLE_TOTALS,
-    currency: 'SEK', logoUrl: company?.logoUrl, footerText: company?.invoiceFooterText, accentColor,
+    currency: 'SEK', logoUrl: company?.logoUrl, logoSize: company?.invoiceLogoSize || 'medium', showCompanyName: company?.invoiceShowCompanyName ?? false, footerText: company?.invoiceFooterText, accentColor,
   };
 
   return (
@@ -1530,6 +1531,37 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
             <div style={{ marginBottom: '18px' }}>
               <ImageUploadField label={tr('ui.logotyp')} value={company?.logoUrl || ''} onChange={(v) => setCompanyInfo({ ...company, logoUrl: v })} uploadPath={`${user?.id}/logo-${company?.id}`} bucket="companylogo" hint={tr('ui.jpg_eller_png_max_3_mb')} readOnly={readOnly} />
             </div>
+
+            {/* Storlek och namn bredvid logotypen (InvoiceDocument.jsx). Sparas
+                i fakturans mallögonblicksbild som mallen och färgen. */}
+            {company?.logoUrl && (
+              <div style={{ marginBottom: '18px' }}>
+                <label style={labelStyle}>{tr('ui.logotypens_storlek')}</label>
+                <div role="radiogroup" aria-label={tr('ui.logotypens_storlek')} style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
+                  {[['small', tr('ui.liten')], ['medium', tr('ui.mellan')], ['large', tr('ui.stor')]].map(([id, label]) => {
+                    const active = (company?.invoiceLogoSize || 'medium') === id;
+                    return (
+                      <button
+                        key={id} type="button" role="radio" aria-checked={active} disabled={readOnly}
+                        onClick={() => setCompanyInfo({ ...company, invoiceLogoSize: id })}
+                        style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: readOnly ? 'default' : 'pointer', border: `1px solid ${active ? BRAND.green : 'var(--border)'}`, background: active ? 'var(--bg-subtle, var(--bg-page))' : 'var(--bg-card)', color: 'var(--text-main)' }}
+                      >{label}</button>
+                    );
+                  })}
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', cursor: readOnly ? 'default' : 'pointer' }}>
+                  <span>
+                    <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('ui.visa_foretagsnamnet_vid_logotypen')}</span>
+                    <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)' }}>{tr('ui.visa_foretagsnamnet_vid_logotypen_desc')}</span>
+                  </span>
+                  <ToggleSwitch
+                    checked={company?.invoiceShowCompanyName ?? false}
+                    onChange={(e) => setCompanyInfo({ ...company, invoiceShowCompanyName: e.target.checked })}
+                    disabled={readOnly}
+                  />
+                </label>
+              </div>
+            )}
 
             <div style={{ marginBottom: '18px' }}>
               <label style={labelStyle}>{tr('ui.accentfarg')}</label>
@@ -2507,7 +2539,6 @@ export default function Settings({
   onDeleteCompany,
   // Färgtema/Kompakt layout (Utseende) — localStorage + attribut på <html>,
   // ägda av App.jsx, exakt samma mönster som tema/sidopanel ovan.
-  accentColor = 'green', onSetAccentColor,
   density = 'normal', onSetDensity,
   // Tema-preferensen kan vara 'system' (se App.jsx) — `theme` nedan förblir
   // det FAKTISKT tillämpade värdet, som allt annat i den här filen redan
@@ -4730,38 +4761,6 @@ export default function Settings({
                             {active && <Check size={14} style={{ marginLeft: 'auto' }} />}
                           </span>
                           <span style={{ display: 'block', fontSize: '12.5px', color: active ? BRAND.greenDark : 'var(--text-secondary)', marginTop: '4px' }}>{opt.hint}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </SettingCard>
-              </SettingsSection>
-
-              <SettingsSection
-                title={t('settings.appearance.accent')}
-                description={t('settings.appearance.accentHint')}
-              >
-                <SettingCard>
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                    {ACCENT_COLORS.map(a => {
-                      const active = accentColor === a.id;
-                      return (
-                        <button
-                          key={a.id}
-                          type="button"
-                          onClick={() => onSetAccentColor?.(a.id)}
-                          aria-pressed={active}
-                          title={a.label}
-                          style={{
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
-                            padding: '10px 12px', borderRadius: '10px', cursor: active ? 'default' : 'pointer', fontFamily: 'inherit',
-                            border: '1.5px solid ' + (active ? a.swatch : 'var(--border)'), background: 'var(--bg-card)', minWidth: '84px',
-                          }}
-                        >
-                          <span style={{ width: 28, height: 28, borderRadius: '50%', background: a.swatch, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {active && <Check size={14} color="white" />}
-                          </span>
-                          <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-main)' }}>{a.label}</span>
                         </button>
                       );
                     })}

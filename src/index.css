@@ -347,55 +347,6 @@
   --bg-sidebar: #0b3d2a;
 }
 
-/* ══ FÄRGTEMA (Inställningar → Utseende → Färgtema) ══
-   Personligt val (user_metadata.accentColor, App.jsx), satt som
-   `data-accent` på <html>. Bara varumärkesIDENTITETEN byter färg — knappar,
-   logga, sidopanel, aktiv menypunkt (BRAND.green/greenHover i
-   brandColors.js pekar på --accent/--accent-hover, se den filens
-   kommentar) — INTE semantiska statusfärger (--status-green-* = "betald"/
-   positivt, orört här) och INTE VIVID-paletten (ämnesfärger i
-   inställningarnas ikonrutnät m.m., orelaterad till varumärkesaccent).
-   Grönt är default och har INGEN egen data-accent="green"-regel här —
-   :root-värdena ovan ÄR redan grönt, så den som aldrig rör inställningen
-   ser exakt samma app som innan den här funktionen fanns. Varje annat val
-   skriver om samma tre lager som grönt redan har: accent-familjen
-   (ljust läge), sidopanelens tre nyanser (ljus/mörk-sidopanel/mörkt tema),
-   och accent-text i mörkt läge (ljusare variant för kontrast/läsbarhet). */
-:root[data-accent="blue"] {
-  --accent: #1d5fa8; --accent-hover: #164a85; --accent-light: #e8f1fb; --accent-border: #a8d1eb; --accent-text: #1d5fa8;
-  --bg-sidebar: #1d5fa8;
-}
-:root:not([data-theme="dark"])[data-accent="blue"][data-sidebar-style="dark"] { --bg-sidebar: #123a67; }
-:root[data-theme="dark"][data-accent="blue"] { --accent-text: #7cc4f0; --bg-sidebar: #0d2740; }
-
-:root[data-accent="purple"] {
-  --accent: #6d28d9; --accent-hover: #5b21b6; --accent-light: #f1eafe; --accent-border: #d8c7f7; --accent-text: #6d28d9;
-  --bg-sidebar: #6d28d9;
-}
-:root:not([data-theme="dark"])[data-accent="purple"][data-sidebar-style="dark"] { --bg-sidebar: #4c1d95; }
-:root[data-theme="dark"][data-accent="purple"] { --accent-text: #c4a6f5; --bg-sidebar: #2e1065; }
-
-:root[data-accent="rose"] {
-  --accent: #9d1055; --accent-hover: #7d0d44; --accent-light: #fdeaf3; --accent-border: #f3c2dd; --accent-text: #9d1055;
-  --bg-sidebar: #9d1055;
-}
-:root:not([data-theme="dark"])[data-accent="rose"][data-sidebar-style="dark"] { --bg-sidebar: #6b0b39; }
-:root[data-theme="dark"][data-accent="rose"] { --accent-text: #f0a8ce; --bg-sidebar: #3d0620; }
-
-:root[data-accent="amber"] {
-  --accent: #b45309; --accent-hover: #92400a; --accent-light: #fef6e7; --accent-border: #fde3a7; --accent-text: #b45309;
-  --bg-sidebar: #b45309;
-}
-:root:not([data-theme="dark"])[data-accent="amber"][data-sidebar-style="dark"] { --bg-sidebar: #7c3a06; }
-:root[data-theme="dark"][data-accent="amber"] { --accent-text: #f0b429; --bg-sidebar: #472102; }
-
-:root[data-accent="slate"] {
-  --accent: #334155; --accent-hover: #1e293b; --accent-light: #eef1f5; --accent-border: #cbd5e1; --accent-text: #334155;
-  --bg-sidebar: #334155;
-}
-:root:not([data-theme="dark"])[data-accent="slate"][data-sidebar-style="dark"] { --bg-sidebar: #1e293b; }
-:root[data-theme="dark"][data-accent="slate"] { --accent-text: #b9c4d4; --bg-sidebar: #111827; }
-
 /* ══ KOMPAKT LAYOUT (Inställningar → Utseende → Kompakt/normal) ══
    `data-density="compact"` på <html>, personligt val (localStorage, samma
    mönster som tema). Inline style-objekt (appens genomgående konvention,

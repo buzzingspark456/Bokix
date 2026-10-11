@@ -427,6 +427,8 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
     templateId: company?.invoiceTemplateId || DEFAULT_INVOICE_TEMPLATE,
     accentColor: company?.invoiceAccentColor || '',
     logoUrl: company?.logoUrl || '',
+    logoSize: company?.invoiceLogoSize || 'medium',
+    showCompanyName: company?.invoiceShowCompanyName ?? false,
     footerText: company?.invoiceFooterText || '',
   });
 
@@ -1638,6 +1640,8 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                   template={invoiceTemplateSnapshot.templateId}
                   accentColor={invoiceTemplateSnapshot.accentColor}
                   logoUrl={invoiceTemplateSnapshot.logoUrl}
+                  logoSize={invoiceTemplateSnapshot.logoSize}
+                  showCompanyName={invoiceTemplateSnapshot.showCompanyName}
                   footerText={invoiceTemplateSnapshot.footerText}
                   rotRut={rotRutType !== 'none' ? { type: rotRutType, ...rotRut } : null}
                 />
@@ -1663,6 +1667,8 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           template={invoiceTemplateSnapshot.templateId}
           accentColor={invoiceTemplateSnapshot.accentColor}
           logoUrl={invoiceTemplateSnapshot.logoUrl}
+          logoSize={invoiceTemplateSnapshot.logoSize}
+          showCompanyName={invoiceTemplateSnapshot.showCompanyName}
           footerText={invoiceTemplateSnapshot.footerText}
           rotRut={rotRutType !== 'none' ? { type: rotRutType, ...rotRut } : null}
         />
@@ -1775,7 +1781,7 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
     customer, company, rows, totals,
     currency: invoice.currency || 'SEK',
     invoiceText: invoice.invoiceText || '',
-    template: tpl.templateId, accentColor: tpl.accentColor, logoUrl: tpl.logoUrl, footerText: tpl.footerText,
+    template: tpl.templateId, accentColor: tpl.accentColor, logoUrl: tpl.logoUrl, logoSize: tpl.logoSize, showCompanyName: tpl.showCompanyName, footerText: tpl.footerText,
     rotRut: invoice.rotRutType ? { type: invoice.rotRutType, ...rotRut } : null,
   };
 
@@ -1889,7 +1895,7 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onS
     customer, company, rows, totals,
     currency: invoice.currency || 'SEK',
     invoiceText: invoice.invoiceText || '',
-    template: tpl.templateId, accentColor: tpl.accentColor, logoUrl: tpl.logoUrl, footerText: tpl.footerText,
+    template: tpl.templateId, accentColor: tpl.accentColor, logoUrl: tpl.logoUrl, logoSize: tpl.logoSize, showCompanyName: tpl.showCompanyName, footerText: tpl.footerText,
     rotRut: invoice.rotRutType ? { type: invoice.rotRutType, ...rotRut } : null,
   };
   const captureRef = useRef(null);
