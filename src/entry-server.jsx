@@ -39,6 +39,8 @@ import MomsDatumPage from './components/marketing/tools/MomsDatumPage.jsx';
 import ArsredovisningPage from './components/marketing/tools/ArsredovisningPage.jsx';
 import OrdlistaPage from './components/marketing/OrdlistaPage.jsx';
 import GuidesPage from './components/marketing/GuidesPage.jsx';
+import GuideVideoPage from './components/marketing/GuideVideoPage.jsx';
+import { GUIDE_GROUPS } from './content/marketing/guides.js';
 import BokixFactsPage from './components/marketing/BokixFactsPage.jsx';
 import HomeScreenPage from './components/marketing/HomeScreenPage.jsx';
 import FaqPage from './components/marketing/FaqPage.jsx';
@@ -73,6 +75,10 @@ const BASE_PAGES = {
   '/lon': PayrollPage,
   '/ordlista': OrdlistaPage,
   '/guider': GuidesPage,
+  ...Object.fromEntries(GUIDE_GROUPS.flatMap(group => group.guides.map(guide => [
+    `/guider/${guide.slug}`,
+    () => <GuideVideoPage slug={guide.slug} />,
+  ]))),
   '/bokix-i-korthet': BokixFactsPage,
   '/lagg-till-pa-hemskarmen': HomeScreenPage,
   '/vanliga-fragor': FaqPage,

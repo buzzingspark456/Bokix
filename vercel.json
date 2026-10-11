@@ -72,6 +72,10 @@
       "destination": "/guider/index.html"
     },
     {
+      "source": "/guider/:slug",
+      "destination": "/guider/:slug/index.html"
+    },
+    {
       "source": "/bokix-i-korthet",
       "destination": "/bokix-i-korthet/index.html"
     },

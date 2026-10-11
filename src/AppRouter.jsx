@@ -4,6 +4,7 @@ import LandingPage from './components/LandingPage';
 import CookieBanner from './components/CookieBanner';
 import { allLocalizedRoutes } from './content/marketing/routes';
 import { ALL_ARTICLES } from './content/marketing/news';
+import { GUIDE_GROUPS } from './content/marketing/guides';
 import { capturePosthogPageview } from './utils/posthog.js';
 import { getAuthStorage, isStandaloneApp } from './utils/authStorage';
 
@@ -59,6 +60,7 @@ const MomsDatumPage = lazy(() => import('./components/marketing/tools/MomsDatumP
 const ArsredovisningPage = lazy(() => import('./components/marketing/tools/ArsredovisningPage'));
 const OrdlistaPage = lazy(() => import('./components/marketing/OrdlistaPage'));
 const GuidesPage = lazy(() => import('./components/marketing/GuidesPage'));
+const GuideVideoPage = lazy(() => import('./components/marketing/GuideVideoPage'));
 const BokixFactsPage = lazy(() => import('./components/marketing/BokixFactsPage'));
 const HomeScreenPage = lazy(() => import('./components/marketing/HomeScreenPage'));
 const FaqPage = lazy(() => import('./components/marketing/FaqPage'));
@@ -308,6 +310,13 @@ export default function AppRouter() {
         <Route path="/lon-arbetsgivare" element={<Navigate to="/lon" replace />} />
         <Route path="/ordlista" element={<Suspense fallback={<AppLoadingFallback />}><OrdlistaPage /></Suspense>} />
         <Route path="/guider" element={<Suspense fallback={<AppLoadingFallback />}><GuidesPage /></Suspense>} />
+        {GUIDE_GROUPS.flatMap(group => group.guides).map(guide => (
+          <Route
+            key={guide.slug}
+            path={`/guider/${guide.slug}`}
+            element={<Suspense fallback={<AppLoadingFallback />}><GuideVideoPage slug={guide.slug} /></Suspense>}
+          />
+        ))}
         <Route path="/bokix-i-korthet" element={<Suspense fallback={<AppLoadingFallback />}><BokixFactsPage /></Suspense>} />
         <Route path="/lagg-till-pa-hemskarmen" element={<Suspense fallback={<AppLoadingFallback />}><HomeScreenPage /></Suspense>} />
         <Route path="/vanliga-fragor" element={<Suspense fallback={<AppLoadingFallback />}><FaqPage /></Suspense>} />

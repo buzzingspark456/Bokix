@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { ALL_ARTICLES } from '../src/content/marketing/news.js';
 import { FAQ_GROUPS } from '../src/components/marketing/faqData.js';
 import { BOKIX_SUMMARY, BOKIX_FACTS, BOKIX_FEATURES, BOKIX_DIFFERENT, BOKIX_NOT_FOR } from '../src/content/marketing/bokixFacts.js';
-import { GUIDE_GROUPS } from '../src/content/marketing/guides.js';
+import { GUIDE_GROUPS, GUIDE_UPLOAD_DATE } from '../src/content/marketing/guides.js';
 import { MARKETING_ROUTES, DEFAULT_LOCALE, LOCALE_META, availableLocalesFor, localizedPath } from '../src/content/marketing/routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -70,6 +70,32 @@ function buildPage(render, routePath) {
   return html;
 }
 
+const xmlEscape = (value) => String(value).replace(/[<>&'"]/g, (char) => ({
+  '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;',
+})[char]);
+
+function imagesFromHtml(html) {
+  const images = new Set();
+  const addImage = (src) => {
+    if (!src || /^(data:|blob:)/i.test(src)) return;
+    const imageUrl = new URL(src, SITE_URL);
+    if (!['www.bokix.se', 'bokix.se'].includes(imageUrl.hostname)) return;
+    if (!/\.(?:avif|gif|jpe?g|png|webp)$/i.test(imageUrl.pathname)) return;
+    images.add(imageUrl.href);
+  };
+  for (const [, attributes] of html.matchAll(/<img\b([^>]*)>/gi)) {
+    const src = attributes.match(/\bsrc=["']([^"']+)["']/i)?.[1];
+    const alt = attributes.match(/\balt=["']([^"']*)["']/i)?.[1]?.trim();
+    if (alt) addImage(src);
+  }
+  for (const [, attributes] of html.matchAll(/<video\b([^>]*)>/gi)) {
+    addImage(attributes.match(/\bposter=["']([^"']+)["']/i)?.[1]);
+  }
+  return [...images];
+}
+
+const pageImages = new Map();
+
 // Bara sidor som är riktigt förrenderade (egen <h1>, egen canonical) ska stå
 // här. /boka-genomgang, /privacy, /terms, /cookies och /pub levererar bara
 // app-skalet med canonical mot startsidan, så Google ser dem som kopior av
@@ -77,9 +103,6 @@ function buildPage(render, routePath) {
 // förrenderas.
 // Senaste ändringsdatum för bloggen och nyheterna: det nyaste inlägget.
 const latest = (posts) => posts.map(p => p.dateModified || p.datePublished).sort().at(-1);
-// Uppdateras när videoguiderna spelas in på nytt (samma datum som UPLOADED i GuidesPage.jsx).
-const GUIDES_UPDATED = '2026-09-28';
-
 // ── lastmod för sidor utan eget datum (startsidan, priser, verktygen …) ──
 // Bing och Google litar bara på lastmod som stämmer: ett datum som byts vid
 // varje bygge ignoreras. Därför sparas ett fingeravtryck av varje sidas
@@ -137,7 +160,14 @@ const SITEMAP_MANIFEST = [
   { path: '/verktyg/momsdatum', changefreq: 'monthly', priority: '0.6' },
   { path: '/verktyg/arsredovisning', changefreq: 'monthly', priority: '0.6' },
   { path: '/ordlista', changefreq: 'monthly', priority: '0.6' },
-  { path: '/guider', changefreq: 'monthly', priority: '0.6', lastmod: GUIDES_UPDATED },
+  { path: '/guider', changefreq: 'monthly', priority: '0.6', lastmod: GUIDE_UPLOAD_DATE },
+  ...GUIDE_GROUPS.flatMap(group => group.guides.map(guide => ({
+    path: `/guider/${guide.slug}`,
+    changefreq: 'monthly',
+    priority: '0.6',
+    lastmod: GUIDE_UPLOAD_DATE,
+    video: guide,
+  }))),
   { path: '/blogg', changefreq: 'weekly', priority: '0.6', lastmod: latest(ALL_ARTICLES.filter(p => p.body && !p.news)) },
   { path: '/nyheter', changefreq: 'weekly', priority: '0.6', lastmod: latest(ALL_ARTICLES.filter(p => p.body && p.news)) },
   // Artiklarna härleds ur blog.js och news.js, samma lista som routing/förrendering.
@@ -164,6 +194,8 @@ function generateSitemap() {
         lastmod: entry.lastmod || pageLastmod[localizedPath(locale, entry.path)],
         changefreq: entry.changefreq,
         priority: entry.priority,
+        images: pageImages.get(localizedPath(locale, entry.path)) || [],
+        video: entry.video || null,
         alternates: isMarketingRoute && locales.length > 1
           ? [...locales.map((l) => ({ hreflang: LOCALE_META[l].hreflang, href: `${SITE_URL}${localizedPath(l, entry.path)}` })),
              { hreflang: 'x-default', href: `${SITE_URL}${entry.path}` }]
@@ -177,12 +209,25 @@ function generateSitemap() {
       ? '\n' + u.alternates.map((a) => `    <xhtml:link rel="alternate" hreflang="${a.hreflang}" href="${a.href}" />`).join('\n')
       : '';
     const lastmod = u.lastmod ? `\n    <lastmod>${u.lastmod}</lastmod>` : '';
-    return `  <url>\n    <loc>${u.loc}</loc>${alternateTags}${lastmod}\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`;
+    const imageTags = u.images.map(image =>
+      `\n    <image:image><image:loc>${xmlEscape(image)}</image:loc></image:image>`,
+    ).join('');
+    const videoTags = u.video ? (() => {
+      const durationParts = u.video.duration.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+      const duration = durationParts
+        ? Number(durationParts[1] || 0) * 3600 + Number(durationParts[2] || 0) * 60 + Number(durationParts[3] || 0)
+        : 0;
+      const videoUrl = `${SITE_URL}/videos/${u.video.slug}.mp4`;
+      const thumbnailUrl = `${SITE_URL}/videos/${u.video.slug}.jpg`;
+      const description = `${u.video.lead} Se videon och läs hela instruktionen.`;
+      return `\n    <video:video>\n      <video:thumbnail_loc>${xmlEscape(thumbnailUrl)}</video:thumbnail_loc>\n      <video:title>${xmlEscape(u.video.title)}</video:title>\n      <video:description>${xmlEscape(description)}</video:description>\n      <video:content_loc>${xmlEscape(videoUrl)}</video:content_loc>\n      <video:duration>${duration}</video:duration>\n      <video:publication_date>${GUIDE_UPLOAD_DATE}</video:publication_date>\n    </video:video>`;
+    })() : '';
+    return `  <url>\n    <loc>${xmlEscape(u.loc)}</loc>${alternateTags}${lastmod}${imageTags}${videoTags}\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`;
   }).join('\n');
 
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${body}\n</urlset>\n`;
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">\n${body}\n</urlset>\n`;
   fs.writeFileSync(path.join(distDir, 'sitemap.xml'), xml);
-  console.log(`✓ sitemap.xml (${urls.length} URL:er, ${urls.filter(u => u.alternates.length).length} med hreflang-alternates)`);
+  console.log(`✓ sitemap.xml (${urls.length} URL:er, ${urls.filter(u => u.images.length).length} med bilder, ${urls.filter(u => u.video).length} med video)`);
 }
 
 // Artikeltext som ren text: **fet** och [länk](url) blir läsbar text.
@@ -259,6 +304,7 @@ async function main() {
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(outPath, html);
     recordPageDate(route, html);
+    pageImages.set(route, imagesFromHtml(html));
     console.log(`✓ Förrenderade ${route} -> ${path.relative(distDir, outPath) || 'index.html'} (${(html.length / 1024).toFixed(1)} kB)`);
   }
 

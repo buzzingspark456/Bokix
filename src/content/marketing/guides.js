@@ -2,6 +2,8 @@
 // Används av GuidesPage.jsx och av llms-full.txt (scripts/prerender.mjs).
 // Filmerna spelas in med scripts/record-guide-videos.mjs; ny guide = post i
 // GUIDES där, inspelning, och en rad här.
+export const GUIDE_UPLOAD_DATE = '2026-09-28';
+
 export const GUIDE_GROUPS = [
   {
     title: 'Sälja och fakturera',

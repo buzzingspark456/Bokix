@@ -9,6 +9,7 @@
 // (`/priser`). Övriga språk prefixas (`/no/priser`). Se localizedPath().
 
 import { ALL_ARTICLES } from './news.js';
+import { GUIDE_GROUPS } from './guides.js';
 
 export const DEFAULT_LOCALE = 'sv';
 
@@ -31,6 +32,7 @@ export const MARKETING_ROUTES = [
   '/', '/funktioner', '/priser', '/om-oss', '/kontakt',
   '/byt-bokforingsprogram', '/koppla-bank', '/uf',
   '/integrationer', '/sakerhet', '/lon', '/ordlista', '/guider', '/bokix-i-korthet', '/lagg-till-pa-hemskarmen', '/vanliga-fragor', '/blogg', '/nyheter',
+  ...GUIDE_GROUPS.flatMap(group => group.guides.map(guide => `/guider/${guide.slug}`)),
   '/verktyg', '/verktyg/skanna-kvitto', '/verktyg/momskalkylator', '/verktyg/lonekalkylator', '/verktyg/egenavgifter',
   '/verktyg/rot-rut', '/verktyg/drojsmalsranta', '/verktyg/utdelning',
   '/verktyg/momsdatum', '/verktyg/arsredovisning',
