@@ -2336,6 +2336,8 @@
     "moms_att_betala": "Moms att betala",
     "moms_att_fa_tillbaka": "Moms att få tillbaka",
     "moms_deklaration": "Moms & deklaration",
+    "nytt_i_e_postinkorgen": "E-postinkorgen",
+    "nytt_i_e_postinkorgen_desc": "Ett mejl till er på morgonen när kvitton kom in till företagets e-postinkorg dagen före.",
     "moms_fran_zettle": "Moms (från Zettle):",
     "moms_i_kronor": "Moms i kronor",
     "moms_kontoplan_verifikationsserier_valuta_och_ex": "Funktioner som artiklar, lager och projekt, moms, kontoplan, verifikationsserier och valuta.",

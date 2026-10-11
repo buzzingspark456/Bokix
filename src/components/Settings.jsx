@@ -4971,6 +4971,17 @@ export default function Settings({
                     disabled={readOnly || !emailNotificationsOn}
                   />
                 </SettingRow>
+                {/* Daglig sammanfattning, api/cron/_inboxDigest.js. */}
+                <SettingRow
+                  label={tr('ui.nytt_i_e_postinkorgen')}
+                  description={tr('ui.nytt_i_e_postinkorgen_desc')}
+                >
+                  <ToggleSwitch
+                    checked={company?.notifications?.inboxDigestEnabled ?? true}
+                    onChange={(e) => setCompanyInfo({ ...company, notifications: { ...company?.notifications, inboxDigestEnabled: e.target.checked } })}
+                    disabled={readOnly || !emailNotificationsOn}
+                  />
+                </SettingRow>
                 <SettingRow
                   label={tr('ui.systemmeddelanden')}
                   description={tr('ui.kommer_senare_bokix_har_i_dagslaget_inga_produkt')}

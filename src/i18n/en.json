@@ -2336,6 +2336,8 @@
     "moms_att_betala": "VAT to pay",
     "moms_att_fa_tillbaka": "VAT to get back",
     "moms_deklaration": "VAT & declarations",
+    "nytt_i_e_postinkorgen": "Email inbox",
+    "nytt_i_e_postinkorgen_desc": "An email to you in the morning when receipts arrived in the company email inbox the day before.",
     "moms_fran_zettle": "VAT (from Zettle):",
     "moms_i_kronor": "VAT in kronor",
     "moms_kontoplan_verifikationsserier_valuta_och_ex": "Features such as items, inventory and projects, VAT, chart of accounts, voucher series and currency.",
