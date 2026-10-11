@@ -35,6 +35,7 @@ import {
   Package,
   ClipboardCheck,
   Check,
+  Banknote, Mail, CalendarClock,
 } from './components/icons';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { getNextInvoiceNumber } from './utils/invoiceNumbering';
@@ -52,7 +53,8 @@ import { detectOrgType } from './utils/orgType';
 import { reconcileSieOpenings, applySieOpeningReconcile } from './utils/sieOpeningReconcile';
 import { sieImportTagOf } from './utils/sieImportBatches';
 import { OPTIONAL_FEATURES, isFeatureOn, hiddenFeatureNavIds } from './utils/optionalFeatures';
-import { buildTodoItems, readDismissedTodoKeys } from './utils/todoItems';
+import { buildNotificationFeed, readSeenKeys, writeSeenKeys, isUnread, notificationWhen } from './utils/notificationFeed';
+import { nextVatDeadline, nextAgiDeadline, vatContextFor } from './utils/declarationDeadlines';
 import { guidesForPage } from './utils/pageGuides';
 import { GuideContext } from './components/shared/GuideContext';
 import GuideModal from './components/GuideModal';
@@ -1488,6 +1490,11 @@ function App() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [companySearch, setCompanySearch] = useState('');
   const [isNotifMenuOpen, setIsNotifMenuOpen] = useState(false);
+  // Sedda notiser per företag (utils/notificationFeed.js) och vilka som var
+  // nya när klockan öppnades, så att de syns som nya tills den stängs.
+  const [seenNotifKeys, setSeenNotifKeys] = useState(() => new Set());
+  const [notifOpenedUnread, setNotifOpenedUnread] = useState(() => new Set());
+  useEffect(() => { setSeenNotifKeys(readSeenKeys(data.activeCompanyId)); setNotifOpenedUnread(new Set()); }, [data.activeCompanyId]);
   const [isHelpDrawerOpen, setIsHelpDrawerOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   // { message, variant } | null — se Toast.jsx samt stripe_connect-
@@ -2958,6 +2965,8 @@ function App() {
         // dyka upp och försöka appliceras om och om igen.
         if (invoiceExists && event.amount_total) {
           handleRegisterInvoicePayment(event.invoice_id, event.amount_total, event.paid_at?.split('T')[0]);
+          // Notisklockan visar bara betalningar via Betala nu (utils/notificationFeed.js).
+          setInvoices(prev => prev.map(i => (i.id === event.invoice_id ? { ...i, paidVia: 'stripe' } : i)));
         }
         await supabase.from('stripe_payment_events').update({ applied_at: new Date().toISOString() }).eq('id', event.id);
       }
@@ -3058,26 +3067,35 @@ function App() {
   // menyn följer med när man godkänt det sista. Måste stå INNAN
   // `if (isLoadingAuth) return ...` (hooks-ordningen).
   const [integrationReviewCount, setIntegrationReviewCount] = useState(0);
+  // De senaste ogranskade raderna, till notisklockan.
+  const [integrationEvents, setIntegrationEvents] = useState([]);
   const onReviewTab = resolveTab(activeTab) === 'review';
   useEffect(() => {
-    if (!user?.id || !supabaseEnabled || !data.activeCompanyId) { setIntegrationReviewCount(0); return undefined; }
+    if (!user?.id || !supabaseEnabled || !data.activeCompanyId) { setIntegrationReviewCount(0); setIntegrationEvents([]); return undefined; }
     let cancelled = false;
     const countPending = async (table) => {
       try {
-        const { count, error } = await supabase
+        const { data: rows, count, error } = await supabase
           .from(table)
-          .select('id', { count: 'exact', head: true })
+          .select('id, created_at', { count: 'exact' })
           .eq('user_id', user.id)
           .eq('company_id', data.activeCompanyId)
-          .is('reviewed_at', null);
-        return error ? 0 : (count || 0);
+          .is('reviewed_at', null)
+          .order('created_at', { ascending: false })
+          .limit(20);
+        return error ? { count: 0, rows: [] } : { count: count || 0, rows: rows || [] };
       } catch {
-        return 0;
+        return { count: 0, rows: [] };
       }
     };
     (async () => {
       const [stripe, zettle] = await Promise.all([countPending('stripe_ledger_events'), countPending('zettle_ledger_events')]);
-      if (!cancelled) setIntegrationReviewCount(stripe + zettle);
+      if (cancelled) return;
+      setIntegrationReviewCount(stripe.count + zettle.count);
+      setIntegrationEvents([
+        ...stripe.rows.map(r => ({ id: r.id, source: 'stripe', at: r.created_at })),
+        ...zettle.rows.map(r => ({ id: r.id, source: 'zettle', at: r.created_at })),
+      ]);
     })();
     return () => { cancelled = true; };
   }, [user?.id, supabaseEnabled, data.activeCompanyId, onReviewTab]);
@@ -4927,29 +4945,66 @@ function App() {
   // i integrationReviewCount (hämtas högre upp) och ingår i det som menyn visar.
   const reviewTotal = reviewCount + integrationReviewCount;
 
-  // Notis-klockan hade ingen panel bakom sig — bara ett antal, ingen väg att
-  // se VAD som väntar eller klicka sig dit. Samma tre underlag som Startsidans
-  // "Att göra idag" (Dashboard.jsx) redan räknar fram, men enklare — ingen
-  // moms-deadline/lönekörning här, notisklockan behöver inte duplicera HELA
-  // den logiken för att vara användbar, bara ge en klickbar genväg.
-  // Samma lista som Startsidans Att göra (utils/todoItems.js), utan de rader
-  // användaren dolt där. Klick öppnar just den saken, som på Startsidan.
-  const notifications = buildTodoItems({
-    t, company, invoices, expenses, contacts, verifications, payrollRuns, employees, agiReports, bankTransactions,
-    vatPeriods, reviewTotal, hiddenNavIds: hiddenFeatureNavIds(currentCompany), dismissedKeys: readDismissedTodoKeys(company?.id),
-  }).map(item => ({
-    icon: item.sev === 'success' ? FileText : AlertTriangle,
-    tone: item.sev === 'danger' ? 'red' : item.sev === 'warning' ? 'amber' : 'green',
-    text: [item.title, item.detail].filter(Boolean).join(' · '),
-    target: item.target,
-  }));
-  // Klockans siffra = antalet rader i listan.
-  const notificationCount = notifications.length;
+  // Notisklockan: det som hänt (utils/notificationFeed.js). Att göra finns
+  // på Startsidan och nås längst ner i listan. Siffran är antalet nya och
+  // nollas när klockan öppnas; det som var nytt markeras tills den stängs.
+  const vatSoon = (() => {
+    const d = nextVatDeadline(company, vatPeriods, vatContextFor(company, verifications));
+    const active = d && verifications.some(v => v.date && v.date >= d.start && v.date <= d.end);
+    return active && d.daysLeft <= 7 ? d : null;
+  })();
+  const agiSoon = (() => {
+    if (hiddenFeatureNavIds(currentCompany).includes('payroll')) return null;
+    const d = nextAgiDeadline(new Date());
+    const booked = payrollRuns.some(r => r.period === d.periodKey && r.completedSteps?.includes('booked'));
+    const submitted = agiReports.some(r => r.period === d.periodKey && r.status === 'submitted');
+    return booked && !submitted && d.daysLeft <= 7 ? d : null;
+  })();
+  const notifications = buildNotificationFeed({ t, invoices, expenses, integrationEvents, vat: vatSoon, agi: agiSoon });
+  const notificationCount = notifications.filter(n => isUnread(n, seenNotifKeys)).length;
+  const toggleNotifMenu = () => {
+    setIsProfileMenuOpen(false);
+    if (isNotifMenuOpen) { setIsNotifMenuOpen(false); return; }
+    setNotifOpenedUnread(new Set(notifications.filter(n => isUnread(n, seenNotifKeys)).map(n => n.keys.join('|'))));
+    setSeenNotifKeys(seen => writeSeenKeys(data.activeCompanyId, seen, notifications.flatMap(n => n.keys)));
+    setIsNotifMenuOpen(true);
+  };
   const openNotification = (n) => {
     if (n.target?.action) handleGlobalAction(n.target.action, n.target.tab);
     else handleNavTabChange(n.target?.tab || 'dashboard');
     setIsNotifMenuOpen(false);
   };
+  const NOTIF_ICON = { paid: Banknote, inbox: Mail, integration: Banknote, deadline: CalendarClock };
+  const renderNotifPanel = () => (
+    <div className="profile-dropdown notif-dropdown">
+      <div className="profile-header" style={{ paddingBottom: 4 }}>
+        <div className="profile-name">{tr('ui.notiser')}</div>
+      </div>
+      <div className="dropdown-divider"></div>
+      {notifications.length === 0 ? (
+        <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>{t('notifFeed.empty')}</div>
+      ) : notifications.map((n) => {
+        const Icon = NOTIF_ICON[n.kind] || Bell;
+        const fresh = notifOpenedUnread.has(n.keys.join('|'));
+        return (
+          <button key={n.keys.join('|')} onClick={() => openNotification(n)} style={{ alignItems: 'flex-start' }}>
+            <span style={{ width: 26, height: 26, borderRadius: '7px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `var(--status-${n.tone}-bg)`, color: `var(--status-${n.tone}-text)`, opacity: fresh ? 1 : 0.6 }}>
+              <Icon size={13} />
+            </span>
+            <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+              <span style={{ display: 'block', overflowWrap: 'break-word', fontWeight: fresh ? 600 : 400, color: fresh ? 'var(--text-main)' : 'var(--text-secondary)' }}>{n.text}</span>
+              <span style={{ display: 'block', fontSize: '11.5px', color: 'var(--text-muted)', marginTop: 2 }}>{notificationWhen(t, n.at)}</span>
+            </span>
+            {fresh && <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', flexShrink: 0, marginTop: 6 }} />}
+          </button>
+        );
+      })}
+      <div className="dropdown-divider"></div>
+      <button onClick={() => { handleNavTabChange('dashboard'); setIsNotifMenuOpen(false); }} style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+        {t('notifFeed.todo')}
+      </button>
+    </div>
+  );
 
   // ── Render content ──
   // Vilka sidor som får synas i menyn. null = alla (mitt eget företag, eller
@@ -5791,32 +5846,15 @@ function App() {
               {theme === 'dark' ? <Sun size={23} /> : <Moon size={23} />}
             </button>
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-              <button className="topbar-icon-btn" title={tr('ui.notiser')} onClick={() => { setIsProfileMenuOpen(false); setIsNotifMenuOpen(v => !v); }}>
+              <button className="topbar-icon-btn" title={tr('ui.notiser')} onClick={toggleNotifMenu}>
                 <Bell size={23} />
               </button>
               {notificationCount > 0 && (
-                <span style={{ position: 'absolute', top: 3, right: 3, minWidth: 18, height: 18, padding: '0 4px', backgroundColor: '#ef4444', color: 'white', borderRadius: '999px', fontSize: '10px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                <span style={{ position: 'absolute', top: 2, right: 0, minWidth: 16, height: 16, padding: '0 4px', backgroundColor: '#ef4444', color: 'white', borderRadius: '999px', fontSize: '9.5px', fontWeight: 700, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                   {notificationCount}
                 </span>
               )}
-              {isNotifMenuOpen && (
-                <div className="profile-dropdown notif-dropdown">
-                  <div className="profile-header" style={{ paddingBottom: 4 }}>
-                    <div className="profile-name">{tr('ui.notiser')}</div>
-                  </div>
-                  <div className="dropdown-divider"></div>
-                  {notifications.length === 0 ? (
-                    <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.inget_nytt_just_nu')}</div>
-                  ) : notifications.map((n, i) => (
-                    <button key={i} onClick={() => openNotification(n)}>
-                      <span style={{ width: 26, height: 26, borderRadius: '7px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `var(--status-${n.tone}-bg)`, color: `var(--status-${n.tone}-text)` }}>
-                        <n.icon size={13} />
-                      </span>
-                      {n.text}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {isNotifMenuOpen && renderNotifPanel()}
             </div>
 
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
@@ -5923,32 +5961,15 @@ function App() {
             {/* Tema-knappen (måne/sol) ligger i profilmenyn på telefon: i en
                 app står bara det man använder hela tiden i toppfältet. */}
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-              <button className="topbar-icon-btn" title={tr('ui.notiser')} onClick={() => { setIsProfileMenuOpen(false); setIsNotifMenuOpen(v => !v); }}>
+              <button className="topbar-icon-btn" title={tr('ui.notiser')} onClick={toggleNotifMenu}>
                 <Bell size={23} />
               </button>
               {notificationCount > 0 && (
-                <span style={{ position: 'absolute', top: 3, right: 3, minWidth: 18, height: 18, padding: '0 4px', backgroundColor: '#ef4444', color: 'white', borderRadius: '999px', fontSize: '10px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                <span style={{ position: 'absolute', top: 2, right: 0, minWidth: 16, height: 16, padding: '0 4px', backgroundColor: '#ef4444', color: 'white', borderRadius: '999px', fontSize: '9.5px', fontWeight: 700, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                   {notificationCount}
                 </span>
               )}
-              {isNotifMenuOpen && (
-                <div className="profile-dropdown notif-dropdown">
-                  <div className="profile-header" style={{ paddingBottom: 4 }}>
-                    <div className="profile-name">{tr('ui.notiser')}</div>
-                  </div>
-                  <div className="dropdown-divider"></div>
-                  {notifications.length === 0 ? (
-                    <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.inget_nytt_just_nu')}</div>
-                  ) : notifications.map((n, i) => (
-                    <button key={i} onClick={() => openNotification(n)}>
-                      <span style={{ width: 26, height: 26, borderRadius: '7px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `var(--status-${n.tone}-bg)`, color: `var(--status-${n.tone}-text)` }}>
-                        <n.icon size={13} />
-                      </span>
-                      {n.text}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {isNotifMenuOpen && renderNotifPanel()}
             </div>
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
               <div

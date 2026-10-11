@@ -4,11 +4,13 @@ import useFitLevel from '../utils/useFitLevel';
 import {
   Menu, X, HelpCircle, LogOut, Bell, Sun, Moon, ChevronDown, ChevronRight, FolderTree, FileCheck, Shield, Calculator, AlertTriangle, UsersRound, Receipt, FileText,
   LayoutDashboard, Users, Package, NavHomeIcon, NavQuotesIcon, NavInvoicesIcon, Inbox, NavReceiptsIcon, Briefcase, ClipboardCheck, BookOpen, Landmark, BarChart3,
-  Settings as SettingsIcon,
+  Settings as SettingsIcon, Banknote, Mail, CalendarClock,
 } from './icons';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark, useMarketingTheme } from './marketing/MarketingLayout';
 import { createDemoSeed } from '../utils/landingDemoData';
+import { buildNotificationFeed, isUnread, notificationWhen } from '../utils/notificationFeed';
+import { t as tr } from '../i18n';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { grossInvoiceAmount } from '../utils/reportCalculations';
 
@@ -128,22 +130,13 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   // ut och kännas exakt som riktiga dashboardet, inklusive den gröna
   // Granskning-badgen i sidomenyn, inte en förenklad variant utan den.
   const reviewCount = seed.expenses.filter(e => !e.costAccount).length;
-  // Samma uträkning som riktiga appens notificationCount (App.jsx):
-  // granskningskön plus utgifter som ligger kvar i utkast/pending.
-  const notificationCount = reviewCount + seed.expenses.filter(e => ['draft', 'pending'].includes(e.status)).length;
-  // Samma tre notissorter som appen bygger (App.jsx: notifications) —
-  // förfallna fakturor, kvitton i granskningskön, utgifter som ligger kvar
-  // i utkast. Klick navigerar till samma flik som i appen.
-  const demoNotifications = (() => {
-    const today = new Date().toISOString().slice(0, 10);
-    const overdue = seed.invoices.filter(i => i.status === 'sent' && i.dueDate && i.dueDate < today);
-    const drafts = seed.expenses.filter(e => ['draft', 'pending'].includes(e.status));
-    return [
-      ...(overdue.length > 0 ? [{ icon: AlertTriangle, tone: 'red', tab: 'invoices', text: overdue.length === 1 ? '1 faktura har förfallit' : `${overdue.length} fakturor har förfallit` }] : []),
-      ...(reviewCount > 0 ? [{ icon: Receipt, tone: 'green', tab: 'review', text: `${reviewCount} kvitto${reviewCount > 1 ? 'n' : ''} väntar på granskning` }] : []),
-      ...(drafts.length > 0 ? [{ icon: FileText, tone: 'amber', tab: 'expenses', text: `${drafts.length} utgift${drafts.length > 1 ? 'er' : ''} väntar på hantering` }] : []),
-    ];
-  })();
+  // Samma notislista som riktiga appen (utils/notificationFeed.js), med
+  // demons exempeldata. Sedda notiser sparas bara så länge demon är öppen.
+  const demoNotifications = useMemo(() => buildNotificationFeed({ t: tr, invoices: seed.invoices, expenses: seed.expenses }), [seed]);
+  const [demoSeen, setDemoSeen] = useState(() => new Set());
+  const [demoOpenedUnread, setDemoOpenedUnread] = useState(() => new Set());
+  const notificationCount = demoNotifications.filter(n => isUnread(n, demoSeen)).length;
+  const DEMO_NOTIF_ICON = { paid: Banknote, inbox: Mail, integration: Banknote, deadline: CalendarClock };
   const [activeDemoTab, setActiveDemoTab] = useState(initialTab);
   const [globalAction, setGlobalAction] = useState(null);
   // Mobilens "Meny"-bottensheet (Sida 26 i riktiga appen) — ersätter den
@@ -559,11 +552,18 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
                 {theme === 'dark' ? <Sun size={23} /> : <Moon size={23} />}
               </button>
               <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-                <button className="topbar-icon-btn" onClick={() => { setNotifOpen(o => !o); setProfileOpen(false); }} title="Notiser">
+                <button className="topbar-icon-btn" onClick={() => {
+                  setProfileOpen(false);
+                  if (!notifOpen) {
+                    setDemoOpenedUnread(new Set(demoNotifications.filter(n => isUnread(n, demoSeen)).map(n => n.keys.join('|'))));
+                    setDemoSeen(new Set(demoNotifications.flatMap(n => n.keys)));
+                  }
+                  setNotifOpen(o => !o);
+                }} title="Notiser">
                   <Bell size={23} />
                 </button>
                 {notificationCount > 0 && (
-                  <span style={{ position: 'absolute', top: 3, right: 3, minWidth: 18, height: 18, padding: '0 4px', backgroundColor: '#ef4444', color: 'white', borderRadius: '999px', fontSize: '10px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ position: 'absolute', top: 2, right: 0, minWidth: 16, height: 16, padding: '0 4px', backgroundColor: '#ef4444', color: 'white', borderRadius: '999px', fontSize: '9.5px', fontWeight: 700, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                     {notificationCount}
                   </span>
                 )}
@@ -574,15 +574,27 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
                     </div>
                     <div className="dropdown-divider"></div>
                     {demoNotifications.length === 0 ? (
-                      <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>Inget nytt just nu</div>
-                    ) : demoNotifications.map((n, i) => (
-                      <button key={i} onClick={() => { openTab(n.tab); setNotifOpen(false); }}>
-                        <span style={{ width: 26, height: 26, borderRadius: '7px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `var(--status-${n.tone}-bg)`, color: `var(--status-${n.tone}-text)` }}>
-                          <n.icon size={13} />
-                        </span>
-                        {n.text}
-                      </button>
-                    ))}
+                      <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>{tr('notifFeed.empty')}</div>
+                    ) : demoNotifications.map((n) => {
+                      const Icon = DEMO_NOTIF_ICON[n.kind] || Bell;
+                      const fresh = demoOpenedUnread.has(n.keys.join('|'));
+                      return (
+                        <button key={n.keys.join('|')} onClick={() => { openTab(n.target?.tab || 'dashboard'); setNotifOpen(false); }} style={{ alignItems: 'flex-start' }}>
+                          <span style={{ width: 26, height: 26, borderRadius: '7px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `var(--status-${n.tone}-bg)`, color: `var(--status-${n.tone}-text)`, opacity: fresh ? 1 : 0.6 }}>
+                            <Icon size={13} />
+                          </span>
+                          <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                            <span style={{ display: 'block', overflowWrap: 'break-word', fontWeight: fresh ? 600 : 400, color: fresh ? 'var(--text-main)' : 'var(--text-secondary)' }}>{n.text}</span>
+                            <span style={{ display: 'block', fontSize: '11.5px', color: 'var(--text-muted)', marginTop: 2 }}>{notificationWhen(tr, n.at)}</span>
+                          </span>
+                          {fresh && <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', flexShrink: 0, marginTop: 6 }} />}
+                        </button>
+                      );
+                    })}
+                    <div className="dropdown-divider"></div>
+                    <button onClick={() => { openTab('dashboard'); setNotifOpen(false); }} style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                      {tr('notifFeed.todo')}
+                    </button>
                   </div>
                 )}
               </div>

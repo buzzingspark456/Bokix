@@ -4313,5 +4313,22 @@
     "onePerLine": "One per line.",
     "agmBy": "The AGM must be held by {{date}}.",
     "download": "Download and sign"
+  },
+  "notifFeed": {
+    "invoicePaid": "Invoice {{number}} was paid via Pay now, {{amount}}",
+    "inboxOne": "New receipt by email from {{from}}",
+    "inboxMany": "{{count}} new receipts by email from {{from}}",
+    "unknownSender": "unknown sender",
+    "integrationOne": "New {{name}} event to book",
+    "integrationMany": "{{count}} new {{name}} events to book",
+    "vatSoon": "The VAT return for {{label}} is due in {{days}} days",
+    "vatLate": "The VAT return for {{label}} is overdue",
+    "agiSoon": "The employer declaration for {{period}} is due in {{days}} days",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "empty": "Nothing new right now",
+    "todo": "To do on the Home page",
+    "markAll": "All read",
+    "inboxManySenders": "{{count}} new receipts by email, including from {{from}}"
   }
 }

@@ -204,6 +204,8 @@ export function createDemoSeed() {
     id: 'demo_inv_current', type: 'invoice', invoiceNumber: '1011', customerId: 'demo_c5',
     date: daysFromToday(-5), dueDate: daysFromToday(25), status: 'paid',
     paidAmount: Math.round(58000 * 1.25), paidDate: daysFromToday(-2),
+    // Betald via Betala nu: syns i notisklockan (utils/notificationFeed.js).
+    paidVia: 'stripe',
     ourRef: '', theirRef: '', ourOrderNr: '', internalNote: '',
     rows: [{ description: 'Konsulttimmar', qty: 1, unitPrice: 58000, vatRate: 25 }],
   });

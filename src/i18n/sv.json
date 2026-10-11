@@ -4313,5 +4313,22 @@
     "onePerLine": "En per rad.",
     "agmBy": "Årsstämman ska hållas senast {{date}}.",
     "download": "Ladda ner och skriv under"
+  },
+  "notifFeed": {
+    "invoicePaid": "Faktura {{number}} är betald via Betala nu, {{amount}}",
+    "inboxOne": "Nytt kvitto via e-post från {{from}}",
+    "inboxMany": "{{count}} nya kvitton via e-post från {{from}}",
+    "unknownSender": "okänd avsändare",
+    "integrationOne": "Ny händelse från {{name}} att bokföra",
+    "integrationMany": "{{count}} nya händelser från {{name}} att bokföra",
+    "vatSoon": "Momsdeklarationen för {{label}} ska in om {{days}} dagar",
+    "vatLate": "Momsdeklarationen för {{label}} är försenad",
+    "agiSoon": "Arbetsgivardeklarationen för {{period}} ska in om {{days}} dagar",
+    "today": "I dag",
+    "yesterday": "I går",
+    "empty": "Inget nytt just nu",
+    "todo": "Att göra på Startsidan",
+    "markAll": "Allt är läst",
+    "inboxManySenders": "{{count}} nya kvitton via e-post, bland annat från {{from}}"
   }
 }
