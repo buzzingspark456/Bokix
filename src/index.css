@@ -4943,6 +4943,26 @@ textarea.form-control {
   cursor: pointer;
 }
 .ver-add-note:hover { color: var(--text-main); }
+/* Fälten i Ny verifikation: större och luftigare på dator och halvskärm
+   (appen visas i 90 % där). En gemensam storlek för alla fält i kortet, även
+   kontosökningen i tabellen, som annars var en liten, kompakt ruta.
+   Telefonen har egna, redan stora fält (mform-*) och rörs inte. */
+@media (min-width: 769px) {
+  .ver-split-form :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea):not(:disabled) {
+    font-size: 14.5px !important;
+    padding-top: 11px !important;
+    padding-bottom: 11px !important;
+    padding-left: 13px !important;
+    border-radius: 8px !important;
+    border-color: var(--border) !important;
+  }
+  .ver-split-form .ver-adv-table { font-size: 14px !important; }
+  .ver-split-form .ver-adv-table th { font-size: 12px !important; padding-bottom: 10px !important; }
+  .ver-split-form .ver-adv-row td { padding-top: 8px !important; padding-bottom: 8px !important; }
+  .ver-split-form .ver-adv-sum td { font-size: 14.5px !important; }
+  .ver-split-form [role="tablist"] button { font-size: 13.5px !important; padding: 8px 16px !important; }
+  .ver-split-form .ver-add-note { font-size: 13.5px; }
+}
 
 /* Fältrader i verifikationsformuläret (datum/beskrivning/serie,
    kostnadsställe/projekt/motpart) — bryter till flera rader i stället för

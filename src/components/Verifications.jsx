@@ -196,14 +196,10 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   const [attachmentBusy, setAttachmentBusy] = useState(false);
   const [attachmentError, setAttachmentError] = useState('');
   const [showAttachmentLightbox, setShowAttachmentLightbox] = useState(false);
-  // Underlaget tar halva skärmen; går att dölja så bara fälten syns.
-  const [showDoc, setShowDoc] = useState(() => {
-    try { return localStorage.getItem('bokix.verificationShowDoc') !== '0'; } catch { return true; }
-  });
-  const toggleDoc = () => setShowDoc(v => {
-    try { localStorage.setItem('bokix.verificationShowDoc', v ? '0' : '1'); } catch { /* privat läge */ }
-    return !v;
-  });
+  // Underlaget tar halva skärmen och visas alltid från början; Dölj gäller
+  // bara den verifikation man har öppen.
+  const [showDoc, setShowDoc] = useState(true);
+  const toggleDoc = () => setShowDoc(v => !v);
   // Anteckningen är sällan ifylld: en länk tills man behöver den.
   const [showNote, setShowNote] = useState(Boolean(initial?.internalNote));
   const [dragOver, setDragOver] = useState(false);
@@ -632,13 +628,13 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   };
 
   const inp = { padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.15s', color: 'var(--text-main)', background: 'var(--bg-card)' };
-  const labelStyle = { display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' };
+  const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' };
 
   // Förhandsvisning av nästa nummer, i den serie som faktiskt är vald —
   // det riktiga numret sätts vid sparande så att det alltid är aktuellt.
   const previewNumber = initial?.number || (getNextNumber ? getNextNumber(series) : nextNumber);
 
-  const fieldLabel = { display: 'block', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '5px' };
+  const fieldLabel = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '7px' };
 
   // Valideringen räknas här (inte inne i knappraden längst ner, där den låg
   // förut) eftersom den nu behövs på TVÅ ställen: i sidhuvudets primärknapp
