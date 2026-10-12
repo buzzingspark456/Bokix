@@ -8448,3 +8448,90 @@ input[type="date"], input[type="month"], input[type="time"], select, label[for],
 input[type="checkbox"], input[type="radio"], input[type="file"], input[type="color"],
 button:not(:disabled), a[href], [role="button"], [role="tab"], [role="menuitem"] { cursor: pointer; }
 input:disabled, textarea:disabled, select:disabled, button:disabled { cursor: not-allowed; }
+
+/* ── Kontoplanen (shared/AccountsPanel.jsx) ─────────────────────────
+   Eget rutnät per rad i stället för en tabell: Konto, Kontonamn, Saldo,
+   Aktiv och Ta bort får alltid plats i bredden (tabellen klippte Saldo
+   och Aktiv på halvskärm). Hela sidan scrollar; klassrubriken står kvar
+   överst. På telefon flyttar saldot in under kontonamnet. */
+.acc-list {
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  background: var(--bg-card);
+}
+.acc-class + .acc-class { border-top: 1px solid var(--border); }
+.acc-class-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg-page);
+  border: none;
+  font: inherit;
+  color: var(--text-main);
+  text-align: left;
+  cursor: pointer;
+}
+.acc-class-head svg { flex-shrink: 0; color: var(--text-secondary); }
+.acc-class:last-child .acc-class-head[aria-expanded="false"] { border-radius: 0 0 10px 10px; }
+.acc-class-name { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 700; }
+.acc-class-count { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.acc-class-bal { min-width: 90px; text-align: right; font-size: 13px; font-weight: 700; color: var(--status-green-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.acc-class-bal.neg { color: var(--status-red-text); }
+.acc-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 128px 84px 32px;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 14px;
+  border-top: 1px solid var(--border-light);
+  font-size: 13px;
+}
+.acc-row-head {
+  padding: 8px 14px;
+  background: var(--bg-muted);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.acc-sub {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 12px 14px 6px;
+  border-top: 1px solid var(--border-light);
+  font-size: 12.5px;
+}
+.acc-sub-code { font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; }
+.acc-sub-name { flex: 1; min-width: 0; font-weight: 600; color: var(--text-secondary); }
+.acc-sub-count { font-size: 12px; color: var(--text-muted); }
+.acc-code { font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; }
+.acc-name { min-width: 0; color: var(--text-main); line-height: 1.35; overflow-wrap: anywhere; }
+.acc-bal { text-align: right; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.acc-bal.pos, .acc-bal-inline.pos { color: var(--status-green-text); font-weight: 700; }
+.acc-bal.neg, .acc-bal-inline.neg { color: var(--status-red-text); font-weight: 700; }
+.acc-bal-inline { display: none; }
+.acc-active { display: flex; justify-content: center; }
+.acc-locked { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+.acc-del-cell { display: flex; justify-content: center; }
+.acc-del { display: inline-flex; padding: 4px; background: none; border: none; border-radius: 6px; color: var(--status-red-text); cursor: pointer; }
+.acc-del:hover:not(:disabled) { background: var(--status-red-bg); }
+.acc-del:disabled { color: var(--border); cursor: not-allowed; }
+.acc-empty { padding: 14px; font-size: 12.5px; color: var(--text-muted); }
+@media (max-width: 640px) {
+  .acc-row { grid-template-columns: 46px minmax(0, 1fr) 52px 28px; gap: 10px; padding: 10px 12px; }
+  .acc-row > .acc-bal { display: none; }
+  .acc-bal-inline { display: block; margin-top: 2px; font-size: 12px; color: var(--text-muted); }
+  .acc-locked-text { display: none; }
+  .acc-class-head { padding: 12px; flex-wrap: wrap; row-gap: 2px; }
+  .acc-class-bal { min-width: 0; }
+  .acc-sub { padding: 12px 12px 6px; }
+}

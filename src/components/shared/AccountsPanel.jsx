@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Search, ChevronDown, ChevronRight, Lock, X } from '../icons';
 import { accountMatches } from '../../utils/accountSearch';
-import ListTable from './ListTable';
 import { t } from '../../i18n';
 import { BAS_ACCOUNT_GROUPS } from '../AccountsData';
 
@@ -73,6 +72,15 @@ export default function AccountsPanel({ accounts = [], balances = {}, verificati
       .reduce((sum, a) => sum + (balances[a.code] || 0), 0);
   };
 
+  const usedCount = useMemo(() => {
+    const m = {};
+    for (const v of verifications) {
+      const seen = new Set();
+      for (const r of v.rows || []) if (r.account && !seen.has(r.account)) { seen.add(r.account); m[r.account] = (m[r.account] || 0) + 1; }
+    }
+    return m;
+  }, [verifications]);
+
   const handleAddAccount = () => {
     if (!newAccCode || !newAccName) return;
     if (accounts.find(a => a.code === newAccCode)) { alert(t('ui.konto_finns_redan', { newAccCode })); return; }
@@ -81,7 +89,7 @@ export default function AccountsPanel({ accounts = [], balances = {}, verificati
   };
 
   const handleDeactivateAccount = (code) => {
-    const used = verifications.filter(v => v.rows?.some(r => r.account === code)).length;
+    const used = usedCount[code] || 0;
     if (used > 0) { alert(t('ui.kontot_anvands_i_verifikationer_och_kan_inte_tas', { used })); return; }
     setAccounts(prev => prev.filter(a => a.code !== code));
   };
@@ -121,80 +129,91 @@ export default function AccountsPanel({ accounts = [], balances = {}, verificati
         </div>
       )}
 
-      <div style={{ border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 10px 10px', maxHeight: '520px', overflowY: 'auto' }}>
+      {/* Ingen egen scroll-låda: hela sidan scrollar och klassrubriken
+          står kvar överst (sticky). Raderna är ett eget rutnät som alltid
+          får plats i bredden, se .acc-* i index.css. */}
+      <div className="acc-list">
         {BAS_GROUPS.map(g => {
           const groupAccs = getGroupAccounts(g.code);
           const groupBal = getGroupBalance(g.code);
           const isOpen = expandedGroups[g.code];
-          const hasMatch = !accountSearch || groupAccs.length > 0;
-          if (!hasMatch) return null;
-
+          if (accountSearch && groupAccs.length === 0) return null;
+          // Underrubriker per BAS-kontogrupp (de två första siffrorna).
+          const sections = [];
+          for (const a of groupAccs) {
+            const key = String(a.code).slice(0, 2);
+            if (!sections.length || sections[sections.length - 1].key !== key) sections.push({ key, accounts: [] });
+            sections[sections.length - 1].accounts.push(a);
+          }
           return (
-            <div key={g.code} style={{ borderBottom: '1px solid var(--border)' }}>
-              <div
-                onClick={() => setExpandedGroups(prev => ({ ...prev, [g.code]: !prev[g.code] }))}
-                style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-page)', cursor: 'pointer', userSelect: 'none', position: 'sticky', top: 0, zIndex: 2, borderBottom: '1px solid var(--border)' }}
-              >
-                {isOpen ? <ChevronDown size={15} style={{ marginRight: 8, color: 'var(--text-secondary)' }} /> : <ChevronRight size={15} style={{ marginRight: 8, color: 'var(--text-secondary)' }} />}
-                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', flex: 1 }}>{g.label}</span>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginRight: 12 }}>{groupAccs.length} {t('ui.konton_2')}</span>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: groupBal >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)', minWidth: 100, textAlign: 'right' }}>
-                  {format(groupBal)}
-                </span>
-              </div>
-
+            <section key={g.code} className="acc-class">
+              <button type="button" className="acc-class-head" aria-expanded={Boolean(isOpen)} onClick={() => setExpandedGroups(prev => ({ ...prev, [g.code]: !prev[g.code] }))}>
+                {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                <span className="acc-class-name">{g.label}</span>
+                <span className="acc-class-count">{groupAccs.length} {t('ui.konton_2')}</span>
+                <span className={`acc-class-bal${groupBal < 0 ? ' neg' : ''}`}>{format(groupBal)}</span>
+              </button>
               {isOpen && (
-                <ListTable
-                  rowKey={a => a.code}
-                  groupBy={a => String(a.code).slice(0, 2)}
-                  renderGroupHeader={(key, rows) => (
-                    <span style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                      <span style={{ fontWeight: 700, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' }}>{key}</span>
-                      <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{BAS_ACCOUNT_GROUPS[key] || ''}</span>
-                      <span style={{ marginLeft: 'auto', fontWeight: 500, color: 'var(--text-muted)' }}>{rows.length}</span>
-                    </span>
-                  )}
-                  emptyMessage={t('ui.inga_matchande_konton')}
-                  rows={groupAccs}
-                  columns={[
-                    { key: 'code', label: t('ui.konto_2'), fontWeight: 700, color: 'var(--text-main)', render: a => a.code },
-                    { key: 'name', label: t('ui.kontonamn'), color: 'var(--text-main)', render: a => a.name },
-                    {
-                      key: 'balance', label: t('ui.saldo'), align: 'right', render: a => {
-                        const bal = balances[a.code] || 0;
-                        return <span style={{ fontWeight: bal !== 0 ? 700 : 400, color: bal > 0 ? 'var(--status-green-text)' : bal < 0 ? 'var(--status-red-text)' : 'var(--text-muted)' }}>{bal !== 0 ? format(bal) : '—'}</span>;
-                      },
-                    },
-                    {
-                      key: 'active', label: t('ui.aktiv'), align: 'center', render: a => (
-                        a.system ? (
-                          <span title={t('ui.karnkonto_bokforingen_bokfor_automatiskt_mot_det')} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                            <Lock size={11} /> {t('ui.alltid_pa')}
-                          </span>
-                        ) : (
-                          <ToggleSwitchInline checked={Boolean(a.active)} onChange={() => handleToggleAccountActive(a.code)} />
-                        )
-                      ),
-                    },
-                    {
-                      key: 'actions', label: '', align: 'center', render: a => {
-                        const usedInVers = verifications.filter(v => v.rows?.some(r => r.account === a.code)).length;
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => handleDeactivateAccount(a.code)}
-                            title={usedInVers > 0 ? t('ui.anvands_i_verifikationer_kan_inte_tas_bort', { usedInVers }) : t('ui.ta_bort_konto')}
-                            style={{ background: 'none', border: 'none', cursor: usedInVers > 0 ? 'not-allowed' : 'pointer', color: usedInVers > 0 ? 'var(--border)' : '#ef4444', padding: '2px' }}
-                          >
-                            <X size={13} />
-                          </button>
-                        );
-                      },
-                    },
-                  ]}
-                />
+                groupAccs.length === 0 ? (
+                  <div className="acc-empty">{t('ui.inga_matchande_konton')}</div>
+                ) : (
+                  <div className="acc-rows" role="table" aria-label={g.label}>
+                    <div className="acc-row acc-row-head" role="row">
+                      <span role="columnheader">{t('ui.konto_2')}</span>
+                      <span role="columnheader">{t('ui.kontonamn')}</span>
+                      <span role="columnheader" className="acc-bal">{t('ui.saldo')}</span>
+                      <span role="columnheader" className="acc-active">{t('ui.aktiv')}</span>
+                      <span role="columnheader" aria-label={t('ui.ta_bort_konto')} />
+                    </div>
+                    {sections.map(sec => (
+                      <React.Fragment key={sec.key}>
+                        <div className="acc-sub" role="row">
+                          <span className="acc-sub-code">{sec.key}</span>
+                          <span className="acc-sub-name">{BAS_ACCOUNT_GROUPS[sec.key] || ''}</span>
+                          <span className="acc-sub-count">{sec.accounts.length}</span>
+                        </div>
+                        {sec.accounts.map(a => {
+                          const bal = balances[a.code] || 0;
+                          const used = usedCount[a.code] || 0;
+                          const balText = bal !== 0 ? format(bal) : '—';
+                          return (
+                            <div key={a.code} className="acc-row" role="row">
+                              <span className="acc-code" role="cell">{a.code}</span>
+                              <span className="acc-name" role="cell">
+                                {a.name}
+                                {bal !== 0 && <span className={`acc-bal-inline${bal > 0 ? ' pos' : ' neg'}`}>{balText}</span>}
+                              </span>
+                              <span className={`acc-bal${bal > 0 ? ' pos' : bal < 0 ? ' neg' : ''}`} role="cell">{balText}</span>
+                              <span className="acc-active" role="cell">
+                                {a.system ? (
+                                  <span className="acc-locked" title={t('ui.karnkonto_bokforingen_bokfor_automatiskt_mot_det')}>
+                                    <Lock size={11} /> <span className="acc-locked-text">{t('ui.alltid_pa')}</span>
+                                  </span>
+                                ) : (
+                                  <ToggleSwitchInline checked={Boolean(a.active)} onChange={() => handleToggleAccountActive(a.code)} />
+                                )}
+                              </span>
+                              <span role="cell" className="acc-del-cell">
+                                <button
+                                  type="button"
+                                  className="acc-del"
+                                  onClick={() => handleDeactivateAccount(a.code)}
+                                  disabled={used > 0}
+                                  title={used > 0 ? t('ui.anvands_i_verifikationer_kan_inte_tas_bort', { usedInVers: used }) : t('ui.ta_bort_konto')}
+                                  aria-label={t('ui.ta_bort_konto')}
+                                >
+                                  <X size={13} />
+                                </button>
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                )
               )}
-            </div>
+            </section>
           );
         })}
       </div>

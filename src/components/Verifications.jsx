@@ -1813,7 +1813,9 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
       {/* Sjalvstandig, delad komponent (shared/AccountsPanel.jsx) - samma
           vy ateranvands oforandrad i Installningar > System > Kontoplan. */}
       {activeTab === 'accounts' && (
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 20px' }}>
+        // Ingen egen overflow här: sidan scrollar, och då kan kontoplanens
+        // klassrubrik stå kvar överst (sticky fastnar annars mot den här).
+        <div style={{ flex: 1, minHeight: 0, padding: '14px 20px' }}>
           <AccountsPanel accounts={accounts} balances={balances} verifications={verifications} setAccounts={setAccounts} fmt={fmt} />
         </div>
       )}
