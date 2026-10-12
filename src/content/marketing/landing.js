@@ -10,8 +10,8 @@
 export const LANDING_CONTENT = {
   sv: {
     meta: {
-      // Sökordet först (som Bokio och Fortnox), varumärket sist.
-      title: 'Enkelt bokföringsprogram för småföretag | Bokix',
+      // Startsidan är Bokix egen sida: namnet först, sedan vad Bokix är.
+      title: 'Bokix: enkelt bokföringsprogram för småföretag',
       description: 'Bokix är ett enkelt bokföringsprogram för småföretag. Bokföring, fakturering, kvitton, lön och moms i ett verktyg, för alla bolagsformer. Från 129 kr/mån.',
     },
     schema: {
