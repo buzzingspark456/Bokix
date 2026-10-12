@@ -58,9 +58,13 @@ function fileNameFromUrl(url, fallback) {
  * Expenses.jsx). Bara för bilder: en PDF visas i webbläsarens egen visare,
  * där inget går att rita.
  */
-export function DocumentPane({ url, type, name, emptyText, className = '', expandable = false, imageTools = null, highlight = null }) {
+// `initialZoom`: öppna på t.ex. 0.8 (80 % av passad storlek) så att hela
+// underlaget syns med luft runt. Sätts när bilden laddat, eftersom den
+// passade bredden måste mätas först. En PDF får samma zoom via #zoom=.
+export function DocumentPane({ url, type, name, emptyText, className = '', expandable = false, imageTools = null, highlight = null, initialZoom = FIT_ZOOM }) {
   const activeUrl = useSignedUrl(url);
   const [zoom, setZoom] = useState(FIT_ZOOM);
+  const initialZoomDone = useRef(false);
   const [imgFailed, setImgFailed] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const imgRef = useRef(null);
@@ -100,7 +104,7 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
 
   // Ny fil i samma panel: börja om från passa-i-rutan och ge en bild som
   // förut misslyckades en ny chans.
-  useEffect(() => { setZoom(FIT_ZOOM); setImgFailed(false); setExpanded(false); }, [url]);
+  useEffect(() => { setZoom(FIT_ZOOM); setImgFailed(false); setExpanded(false); initialZoomDone.current = false; }, [url]);
   // Den signerade länken kommer strax efter `url` (se useSignedUrl). Ett
   // fel på en tidigare länk ska inte fastna när den giltiga väl är här.
   useEffect(() => { setImgFailed(false); }, [activeUrl]);
@@ -179,7 +183,14 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
             src={activeUrl}
             alt={label}
             onError={() => setImgFailed(true)}
-            onLoad={measureImgRect}
+            onLoad={() => {
+              measureImgRect();
+              if (initialZoom !== FIT_ZOOM && !initialZoomDone.current) {
+                initialZoomDone.current = true;
+                fitWidthRef.current = measureFitWidth();
+                setZoom(initialZoom);
+              }
+            }}
             // På mobil öppnar ett tryck på kvittot helskärmsvyn, där det går
             // att zooma och panorera utan att formuläret ligger i vägen.
             onClick={expandable && zoom === FIT_ZOOM && isNarrowScreen() ? () => setExpanded(true) : undefined}
@@ -188,7 +199,7 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
               : { width: fitWidthRef.current ? `${Math.round(fitWidthRef.current * zoom)}px` : `${zoom * 100}%`, maxWidth: 'none', maxHeight: 'none' }}
           />
         ) : kind === 'pdf' ? (
-          <iframe className="dv-frame" src={activeUrl} title={label} />
+          <iframe className="dv-frame" src={initialZoom !== FIT_ZOOM ? `${activeUrl}#zoom=${Math.round(initialZoom * 100)}` : activeUrl} title={label} />
         ) : (
           <div className="dv-empty">
             <Receipt size={38} strokeWidth={1.5} />

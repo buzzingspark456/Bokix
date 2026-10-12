@@ -3134,6 +3134,17 @@ textarea.form-control {
 }
 .ver-doc-btn:hover { background: var(--bg-muted); }
 .ver-doc-btn-muted { color: var(--text-secondary); }
+/* Läs av: huvudknappen i underlaget, lite tydligare än de andra. */
+.ver-doc-btn-scan {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px 6px 11px;
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent-text, var(--text-main));
+}
+.ver-doc-btn-scan:hover { background: color-mix(in srgb, var(--accent) 10%, var(--bg-card)); }
+@keyframes verScanPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.85); } }
+@media (prefers-reduced-motion: reduce) { .ver-doc-btn-scan svg { animation: none !important; } }
 
 /* ── Vänster: kvittot (dokumentvisaren + skannern) ── */
 .rc-doc {
@@ -4856,6 +4867,47 @@ textarea.form-control {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   max-width: none;
 }
+/* Dolt underlag: fälten får bredden, en smal flik står kvar till höger. */
+.ver-split:not(.has-doc) {
+  grid-template-columns: minmax(0, 1fr) auto;
+  max-width: 1240px;
+}
+.ver-doc-rail {
+  position: sticky;
+  top: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  writing-mode: vertical-rl;
+  padding: 16px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.ver-doc-rail svg { transform: rotate(90deg); }
+.ver-doc-rail:hover { background: var(--bg-muted); }
+.ver-doc-hide {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 5px 10px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.ver-doc-hide:hover { color: var(--text-main); background: var(--bg-muted); }
 .ver-split-doc {
   position: sticky;
   top: 0;
@@ -4875,25 +4927,6 @@ textarea.form-control {
 .ver-split-doc .ver-drop {
   height: calc(100vh / var(--app-zoom, 1) - 300px) !important;
   min-height: 380px;
-}
-.ver-doc-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 14px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-main);
-  cursor: pointer;
-}
-.ver-doc-toggle:hover { background: var(--bg-muted); }
-.ver-doc-toggle-phone { display: none; }
-@media (max-width: 768px) {
-  .ver-doc-toggle-phone { display: inline-flex; margin: 0 0 12px; }
 }
 .ver-add-note {
   display: inline-flex;
@@ -4927,8 +4960,11 @@ textarea.form-control {
 /* Halvskärm och telefon: underlaget överst (man börjar med kvittot),
    fälten under, inget sticky. */
 @media (max-width: 1080px) {
-  .ver-split.has-doc { grid-template-columns: minmax(0, 1fr); }
-  .ver-split-doc { position: static; max-height: none; overflow: visible; }
+  .ver-split.has-doc,
+  .ver-split:not(.has-doc) { grid-template-columns: minmax(0, 1fr); }
+  .ver-split-doc { position: static; max-height: none; overflow: visible; order: -1; }
+  .ver-doc-rail { position: static; order: -1; writing-mode: horizontal-tb; justify-content: center; width: 100%; padding: 11px 14px; }
+  .ver-doc-rail svg { transform: none; }
   .ver-split-doc .dv-embed { height: clamp(300px, calc(46vh / var(--app-zoom, 1)), 520px) !important; min-height: 0; }
   .ver-split-doc .ver-drop { height: clamp(220px, calc(34vh / var(--app-zoom, 1)), 380px) !important; min-height: 0; }
 }
