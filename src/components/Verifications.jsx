@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   Plus, Search, ChevronRight, ChevronDown,
   AlertCircle, RotateCcw, RefreshCw,
-  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, BookOpen, CheckCircle2, Paperclip, Camera,
+  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, BookOpen, CheckCircle2, Paperclip, Camera, Eye, EyeOff,
 } from './icons';
 import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
@@ -140,12 +140,10 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
           kredit: getKredit(r) ? String(getKredit(r)) : '',
           desc: r.desc || '',
         }))
-      // TVÅ tomma rader, inte en. En verifikation kan per definition aldrig
-      // bestå av en enda rad (debet måste möta kredit — formulärets egen
-      // validering nedan kräver också minst två), så en ensam rad var ett
-      // steg användaren alltid måste ta själv innan något gick att spara.
-      // En tom startrad visas — användaren lägger till fler via "Lägg till rad".
+      // TVÅ tomma rader, inte en: en verifikation har alltid minst en
+      // debet- och en kreditrad, så det är så den börjar (som i Fortnox m.fl.).
       : [
+          { account: '', accountName: '', debet: '', kredit: '', desc: '' },
           { account: '', accountName: '', debet: '', kredit: '', desc: '' },
         ]
   );
@@ -175,7 +173,11 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
           kredit: r.kredit ? r.kredit.toFixed(2) : '',
           desc: '',
         }))
-      : [{ account: '', accountName: '', debet: '', kredit: '', desc: '' }]);
+      // Två tomma rader (debet + kredit), samma som en ny verifikation.
+      : [
+          { account: '', accountName: '', debet: '', kredit: '', desc: '' },
+          { account: '', accountName: '', debet: '', kredit: '', desc: '' },
+        ]);
   }, [mode, simpleBuilt, accounts]);
 
   const [attachment, setAttachment] = useState(null); // nyvald, ännu ej uppladdad fil
@@ -194,6 +196,16 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   const [attachmentBusy, setAttachmentBusy] = useState(false);
   const [attachmentError, setAttachmentError] = useState('');
   const [showAttachmentLightbox, setShowAttachmentLightbox] = useState(false);
+  // Underlaget tar halva skärmen; går att dölja så bara fälten syns.
+  const [showDoc, setShowDoc] = useState(() => {
+    try { return localStorage.getItem('bokix.verificationShowDoc') !== '0'; } catch { return true; }
+  });
+  const toggleDoc = () => setShowDoc(v => {
+    try { localStorage.setItem('bokix.verificationShowDoc', v ? '0' : '1'); } catch { /* privat läge */ }
+    return !v;
+  });
+  // Anteckningen är sällan ifylld: en länk tills man behöver den.
+  const [showNote, setShowNote] = useState(Boolean(initial?.internalNote));
   const [dragOver, setDragOver] = useState(false);
   const [fileError, setFileError] = useState('');
   const [expandedRows, setExpandedRows] = useState(new Set());
@@ -678,6 +690,9 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         </div>
         <div style={{ flex: 1, minWidth: '8px' }} />
         <div className="mform-head-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button type="button" className="ver-doc-toggle" aria-pressed={showDoc} onClick={toggleDoc}>
+            {showDoc ? <EyeOff size={14} /> : <Eye size={14} />} {showDoc ? 'Dölj underlag' : 'Visa underlag'}
+          </button>
           <button type="button" onClick={onClose} style={{ padding: '9px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>{tr('ui.avbryt')}</button>
           <button type="button" onClick={() => handleSave('draft')} disabled={attachmentBusy} style={{ padding: '9px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: attachmentBusy ? 'not-allowed' : 'pointer', opacity: attachmentBusy ? 0.6 : 1 }}>
             {attachmentBusy ? tr('ui.laddar_upp_3') : tr('ui.spara_som_utkast')}
@@ -703,8 +718,182 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         </button>
       </MobileFormBar>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: 'clamp(14px, 2vw, 24px)' }}>
-      <div className="ver-form-card" style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)', padding: 'clamp(16px, 2.2vw, 28px)', maxWidth: '1180px', margin: '0 auto', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+      <div className="ver-split-scroll" style={{ flex: 1, overflowY: 'auto', padding: 'clamp(14px, 2vw, 24px)' }}>
+      {/* Underlaget till vänster, allt man skriver till höger (samma sida
+          som kvittovyn i Utgifter). "Dölj underlag" i rubrikraden ger
+          fälten hela bredden. Under 1080px staplas de, underlaget först. */}
+      {/* Telefon: rubrikradens knappar är dolda där, så knappen står här. */}
+      <button type="button" className="ver-doc-toggle ver-doc-toggle-phone" aria-pressed={showDoc} onClick={toggleDoc}>
+        {showDoc ? <EyeOff size={14} /> : <Eye size={14} />} {showDoc ? 'Dölj underlag' : 'Visa underlag'}
+      </button>
+      <div className={`ver-split${showDoc ? ' has-doc' : ''}`}>
+        {showDoc && (
+        <div className="ver-form-attachment ver-split-doc">
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.kvitto_eller_fil')}</div>
+            {ocrStatus === 'scanning' && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                <ScanLine size={12} style={{ animation: 'spin 1s linear infinite' }} /> {ocrMessage || tr('ui.laser')}
+              </span>
+            )}
+          </div>
+          {/* Ett uppladdat underlag visas i SAMMA visare som kvittovyn i
+              Utgifter (shared/DocumentViewer.jsx), inte som en tumnagel i
+              släppytan. Skillnaden var påtaglig: en 140px hög bild av ett
+              kvitto går inte att läsa av, och en PDF fick ingen förhands-
+              visning alls. Panelen har samma höjd som den tomma släppytan,
+              så spalten är lika hög före och efter en uppladdning — sidan
+              hoppar inte när man lägger till eller byter underlag. */}
+          <div
+            onDragOver={e => { e.preventDefault(); if (!dragOver) setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => {
+              e.preventDefault(); setDragOver(false);
+              acceptFile(e.dataTransfer.files?.[0]);
+            }}
+            style={{ minWidth: 0, borderRadius: '12px', outline: `2px dashed ${dragOver ? 'var(--text-main)' : 'transparent'}`, outlineOffset: '3px', transition: 'outline-color 0.15s' }}
+          >
+            <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={e => acceptFile(e.target.files[0])} accept=".pdf,.png,.jpg,.jpeg,.webp" />
+            <input type="file" ref={cameraInputRef} style={{ display: 'none' }} onChange={e => acceptFile(e.target.files[0])} accept="image/*" capture="environment" />
+            {hasAttachment ? (
+              <>
+                <div style={{ position: 'relative' }}>
+                  <DocumentPane
+                    className="dv-embed"
+                    url={displayAttachmentUrl}
+                    type={displayAttachmentType}
+                    name={displayAttachmentName}
+                  />
+                  {ocrStatus === 'scanning' && <ScanOverlay flush detail={ocrMessage} />}
+                </div>
+                <div className="ver-doc-actions">
+                  <button type="button" className="ver-doc-btn" disabled={ocrStatus === 'scanning'} onClick={rerunOcr} style={ocrStatus === 'scanning' ? { cursor: 'not-allowed', opacity: 0.6 } : undefined}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><ScanLine size={12} style={{ animation: ocrStatus === 'scanning' ? 'spin 1s linear infinite' : 'none' }} /> {ocrStatus === 'scanning' ? tr('ui.laser') : (Object.keys(revealed).length > 0 ? tr('ui.las_av_igen') : tr('ui.las_av_underlaget'))}</span>
+                  </button>
+                  <button type="button" className="ver-doc-btn" onClick={() => setShowAttachmentLightbox(true)}>{tr('ui.visa_i_fullstorlek')}</button>
+                  <button type="button" className="ver-doc-btn" onClick={() => fileInputRef.current?.click()}>{tr('ui.byt_fil')}</button>
+                  <button type="button" className="ver-doc-btn ver-doc-btn-muted" onClick={() => { setAttachment(null); setExistingAttachment(null); }}>{tr('ui.ta_bort')}</button>
+                </div>
+                {(ocrStatus === 'scanning' || revealing || Object.keys(revealed).length > 0) && (
+                  <OcrChecklist scanning={ocrStatus === 'scanning'} revealed={revealed} items={VER_OCR_ITEMS} />
+                )}
+                {!revealing && accountSuggestion && accountChoices && (
+                  <div className="rc-verify rc-verify-suggest" style={{ flexWrap: 'wrap' }}>
+                    <span>{tr('ui.vad_gallde_kopet')}</span>
+                    {accountChoices.map(c => (
+                      <button key={c.code} type="button" className="rc-chip" onClick={() => applyAccountSuggestion(c.code)} title={accounts.find(a => a.code === c.code)?.name || ''}>
+                        {tr(c.why)} · {c.code}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {!revealing && accountSuggestion && !accountChoices && (
+                  <div className="rc-verify rc-verify-suggest">
+                    <span>{tr('ui.forslag_pa_konto')} <strong>{accountSuggestion} {accounts.find(a => a.code === accountSuggestion)?.name || ''}</strong></span>
+                    <button type="button" className="rc-link" onClick={applyAccountSuggestion}>{tr('ui.anvand')}</button>
+                  </div>
+                )}
+                {!revealing && notReceipt && (
+                  <div className="rc-verify rc-verify-warn">
+                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                    {unreadable ? (
+                      <span>{tr('ui.bilden_gick_inte_att_lasa_av_sa_inget_har_fyllts')} {photoHintText(photoHint) || tr('ui.ta_om_fotot_narmre_rakare_och_med_battre_ljus_el')}</span>
+                    ) : (
+                      <span>{tr('ui.det_har_ser_inte_ut_som_ett_kvitto_eller_en_fakt_2')}</span>
+                    )}
+                  </div>
+                )}
+                {/* Bilden satte gränsen för avläsningen: säg vad som är fel med
+                    den. Visas bara när ett fält faktiskt blev osäkert. */}
+                {!revealing && !notReceipt && photoHint && (
+                  <div className="rc-verify rc-verify-warn">
+                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                    <span>{photoHintText(photoHint)} {tr('ui.las_av_igen_med_den_nya_bilden_eller_fyll_i_rade')}</span>
+                  </div>
+                )}
+                {!revealing && ocrVat && ocrVat.amountVerified && !ocrVat.verified && (
+                  <div className="rc-verify rc-verify-ok">
+                    <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
+                    <span>{tr('ui.beloppet_stammer_netto_plus_moms_pa_fakturan_bli')}</span>
+                  </div>
+                )}
+                {/* Retur eller kreditnota: pengarna går åt andra hållet. */}
+                {!revealing && ocrVat && ocrVat.creditNote && (
+                  <div className="rc-verify rc-verify-warn">
+                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                    <span>{tr('ui.underlaget_ser_ut_som_en_retur_eller_en_kreditno')}</span>
+                  </div>
+                )}
+                {/* Flera momssatser på samma underlag: momsen är avläst men är
+                    inte EN sats. Här går det att lösa — en rad per sats. */}
+                {!revealing && ocrVat && ocrVat.rates && (
+                  <div className="rc-verify rc-verify-warn">
+                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                    <span>{tr('ui.underlaget_har_moms_i_flera_satser')}{ocrVat.rates.map(r => `${r} %`).join(' och ')}{tr('ui.tillsammans')} {fmt(ocrVat.vatAmount)} {tr('ui.kr_momsen_ar_ifylld_med_det_beloppet_sa_den_blir')}</span>
+                  </div>
+                )}
+                {!revealing && ocrVat && ocrVat.verified && (
+                  <div className="rc-verify rc-verify-ok">
+                    <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
+                    <span>{tr('ui.momsen_stammer_mot_beloppen_pa_underlaget')}{fmt(ocrVat.vatAmount)} {tr('ui.kr_moms')}</span>
+                  </div>
+                )}
+                {!revealing && ocrVat && ocrVat.mismatch && (
+                  <div className="rc-verify rc-verify-warn">
+                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                    <span>{tr('ui.momsbeloppet_pa_underlaget')}{fmt(ocrVat.vatAmount)} {tr('ui.kr_stammer_inte_mot_nagon_momssats_for_det_belop')}</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div
+                className="ver-drop" onClick={() => fileInputRef.current?.click()}
+                style={{ border: `1px dashed ${dragOver ? 'var(--text-main)' : 'var(--border)'}`, borderRadius: '12px', background: dragOver ? 'var(--bg-muted)' : 'var(--bg-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', height: 'clamp(320px, calc(44vh / var(--app-zoom, 1)), 560px)', boxSizing: 'border-box' }}
+              >
+                <UploadCloud className="ver-drop-desk" size={26} color="var(--text-muted)" style={{ marginBottom: '10px' }} />
+                <span className="ver-drop-desk" style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('ui.dra_och_slapp_kvittot_har')}</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', maxWidth: '260px' }}>{tr('ui.pdf_eller_bild_max')} {MAX_ATTACHMENT_MB} {tr('ui.mb_vi_laser_av_datum_belopp_och_konto_automatisk')}</span>
+                {/* Telefon: ingen går att dra något till, så två riktiga knappar. */}
+                <div className="ver-drop-phone" onClick={e => e.stopPropagation()}>
+                  <button type="button" className="ver-drop-cam" onClick={() => cameraInputRef.current?.click()}><Camera size={18} /> {tr('ui.fota_kvitto')}</button>
+                  <button type="button" className="ver-drop-file" onClick={() => fileInputRef.current?.click()}><Paperclip size={16} /> {tr('ui.valj_fil')}</button>
+                </div>
+              </div>
+            )}
+          </div>
+          {fileError && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: 'var(--status-red-text)' }}>
+              <AlertCircle size={13} style={{ flexShrink: 0 }} /> {fileError}
+            </div>
+          )}
+          {ocrStatus === 'error' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: BRAND.amberText, background: BRAND.amberBg, borderRadius: '8px', padding: '6px 10px' }}>
+              <AlertCircle size={13} style={{ flexShrink: 0 }} /> {tr('ui.kunde_inte_lasa_av_kvittot_automatiskt_fyll_i_ra')}
+            </div>
+          )}
+          {attachmentBusy && (
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>{tr('ui.laddar_upp_underlag')}</div>
+          )}
+          {attachmentError && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: 'var(--status-red-text)' }}>
+              <AlertCircle size={13} style={{ flexShrink: 0 }} /> {attachmentError}
+            </div>
+          )}
+          {!hasAttachment && (
+            <div style={{ marginTop: '12px' }} onClick={e => e.stopPropagation()}>
+              <label style={labelStyle}>{tr('ui.var_forvaras_originalet')}</label>
+              <input
+                value={originalLocation}
+                onChange={e => setOriginalLocation(e.target.value)}
+                placeholder={tr('ui.t_ex_parm_2026_nr_14_eller_e_post_2026_08_12')}
+                style={inp}
+              />
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>{tr('ui.frivilligt_men_bra_att_fylla_i_nar_inget_underla')}</span>
+            </div>
+          )}
+        </div>
+        )}
+      <div className="ver-form-card ver-split-form" style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)', padding: 'clamp(16px, 2.2vw, 28px)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', minWidth: 0 }}>
 
       {/* Datum / Beskrivning / Serie */}
       <div className="ver-form-row" style={{ marginBottom: '10px' }}>
@@ -746,26 +935,36 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         </span>
       </div>
 
-      <div style={{ marginBottom: '18px' }}>
-        <label style={fieldLabel}>{tr('ui.intern_anteckning_valfritt')}</label>
-        <textarea
-          value={internalNote}
-          onChange={e => setInternalNote(e.target.value)}
-          placeholder={tr('ui.t_ex_anledning_till_bokning_referens_till_mejl_e')}
-          rows={2}
-          style={{ ...inp, resize: 'vertical', minHeight: '54px', fontFamily: 'inherit' }}
-        />
-      </div>
+      {showNote ? (
+        <div style={{ marginBottom: '18px' }}>
+          <label style={fieldLabel}>{tr('ui.intern_anteckning_valfritt')}</label>
+          <textarea
+            value={internalNote}
+            onChange={e => setInternalNote(e.target.value)}
+            placeholder={tr('ui.t_ex_anledning_till_bokning_referens_till_mejl_e')}
+            rows={2}
+            autoFocus={!initial?.internalNote}
+            style={{ ...inp, resize: 'vertical', minHeight: '54px', fontFamily: 'inherit' }}
+          />
+        </div>
+      ) : (
+        <button type="button" className="ver-add-note" onClick={() => setShowNote(true)}>
+          <Plus size={13} /> Lägg till anteckning
+        </button>
+      )}
 
       <div className="ver-form-row" style={{ marginBottom: '6px' }}>
         <div style={{ flex: 1 }}>
           <label style={fieldLabel}>{tr('ui.kostnadsstalle')}</label>
           <input value={costCenter} onChange={e => setCostCenter(e.target.value)} placeholder={tr('ui.ange_kostnadsstalle')} style={inp} />
         </div>
-        <div style={{ flex: 1 }}>
-          <label style={fieldLabel}>{tr('ui.projekt')}</label>
-          <ProjectSearch value={projectId} onChange={setProjectId} projects={projects} />
-        </div>
+        {/* Projekt bara när företaget använder projekt (Fler funktioner). */}
+        {(projects.length > 0 || projectId) && (
+          <div style={{ flex: 1 }}>
+            <label style={fieldLabel}>{tr('ui.projekt')}</label>
+            <ProjectSearch value={projectId} onChange={setProjectId} projects={projects} />
+          </div>
+        )}
         <div style={{ flex: 1 }}>
           <label style={fieldLabel}>{tr('ui.motpart_2')}</label>
           <PartySearch value={counterpartyId} onChange={setCounterpartyId} contacts={contacts} />
@@ -780,12 +979,6 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         </div>
       )}
 
-      {/* Konteringsraderna + underlaget. Klass i stället för inline
-          `display:flex` (kundfeedback: "gör det bra i halvskärm också") —
-          en inline style kan inte ha en mediafråga, så de två kolumnerna
-          satt kvar sida vid sida även i ett fönster där kontorutan blev för
-          smal för ett kontonummer. Se .ver-form-grid i index.css. */}
-      <div className="ver-form-grid">
         {/* Rows table. Egen vågrät skroll (och en minsta bredd på tabellen)
             i stället för att kolumnerna pressas ihop tills beloppen klipps
             av — kundfeedback om halvskärm: "0,0(" i en 60px bred ruta är
@@ -853,7 +1046,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
             </div>
           )}
           <div role="tablist" aria-label={tr('ui.satt_att_bokfora')} style={{ display: 'inline-flex', padding: '3px', gap: '2px', border: '1px solid var(--border)', borderRadius: '999px', background: 'var(--bg-muted)', marginBottom: '16px' }}>
-            {[['simple', 'Enkelt'], ['advanced', 'Avancerat: debet och kredit']].map(([id, text]) => (
+            {[['simple', 'Enkelt'], ['advanced', 'Debet och kredit']].map(([id, text]) => (
               <button
                 key={id} type="button" role="tab" aria-selected={mode === id} onClick={() => changeMode(id)}
                 style={{ padding: '6px 14px', borderRadius: '999px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, background: mode === id ? 'var(--bg-card)' : 'transparent', color: mode === id ? 'var(--text-main)' : 'var(--text-secondary)', boxShadow: mode === id ? '0 1px 2px rgba(0,0,0,0.08)' : 'none' }}
@@ -1048,172 +1241,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
           )}
         </div>
 
-        {/* Right side: Attachment */}
-        <div className="ver-form-attachment" style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.kvitto_eller_fil')}</div>
-            {ocrStatus === 'scanning' && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                <ScanLine size={12} style={{ animation: 'spin 1s linear infinite' }} /> {ocrMessage || tr('ui.laser')}
-              </span>
-            )}
-          </div>
-          {/* Ett uppladdat underlag visas i SAMMA visare som kvittovyn i
-              Utgifter (shared/DocumentViewer.jsx), inte som en tumnagel i
-              släppytan. Skillnaden var påtaglig: en 140px hög bild av ett
-              kvitto går inte att läsa av, och en PDF fick ingen förhands-
-              visning alls. Panelen har samma höjd som den tomma släppytan,
-              så spalten är lika hög före och efter en uppladdning — sidan
-              hoppar inte när man lägger till eller byter underlag. */}
-          <div
-            onDragOver={e => { e.preventDefault(); if (!dragOver) setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={e => {
-              e.preventDefault(); setDragOver(false);
-              acceptFile(e.dataTransfer.files?.[0]);
-            }}
-            style={{ minWidth: 0, borderRadius: '12px', outline: `2px dashed ${dragOver ? 'var(--text-main)' : 'transparent'}`, outlineOffset: '3px', transition: 'outline-color 0.15s' }}
-          >
-            <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={e => acceptFile(e.target.files[0])} accept=".pdf,.png,.jpg,.jpeg,.webp" />
-            <input type="file" ref={cameraInputRef} style={{ display: 'none' }} onChange={e => acceptFile(e.target.files[0])} accept="image/*" capture="environment" />
-            {hasAttachment ? (
-              <>
-                <div style={{ position: 'relative' }}>
-                  <DocumentPane
-                    className="dv-embed"
-                    url={displayAttachmentUrl}
-                    type={displayAttachmentType}
-                    name={displayAttachmentName}
-                  />
-                  {ocrStatus === 'scanning' && <ScanOverlay flush detail={ocrMessage} />}
-                </div>
-                <div className="ver-doc-actions">
-                  <button type="button" className="ver-doc-btn" disabled={ocrStatus === 'scanning'} onClick={rerunOcr} style={ocrStatus === 'scanning' ? { cursor: 'not-allowed', opacity: 0.6 } : undefined}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><ScanLine size={12} style={{ animation: ocrStatus === 'scanning' ? 'spin 1s linear infinite' : 'none' }} /> {ocrStatus === 'scanning' ? tr('ui.laser') : (Object.keys(revealed).length > 0 ? tr('ui.las_av_igen') : tr('ui.las_av_underlaget'))}</span>
-                  </button>
-                  <button type="button" className="ver-doc-btn" onClick={() => setShowAttachmentLightbox(true)}>{tr('ui.visa_i_fullstorlek')}</button>
-                  <button type="button" className="ver-doc-btn" onClick={() => fileInputRef.current?.click()}>{tr('ui.byt_fil')}</button>
-                  <button type="button" className="ver-doc-btn ver-doc-btn-muted" onClick={() => { setAttachment(null); setExistingAttachment(null); }}>{tr('ui.ta_bort')}</button>
-                </div>
-                {(ocrStatus === 'scanning' || revealing || Object.keys(revealed).length > 0) && (
-                  <OcrChecklist scanning={ocrStatus === 'scanning'} revealed={revealed} items={VER_OCR_ITEMS} />
-                )}
-                {!revealing && accountSuggestion && accountChoices && (
-                  <div className="rc-verify rc-verify-suggest" style={{ flexWrap: 'wrap' }}>
-                    <span>{tr('ui.vad_gallde_kopet')}</span>
-                    {accountChoices.map(c => (
-                      <button key={c.code} type="button" className="rc-chip" onClick={() => applyAccountSuggestion(c.code)} title={accounts.find(a => a.code === c.code)?.name || ''}>
-                        {tr(c.why)} · {c.code}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {!revealing && accountSuggestion && !accountChoices && (
-                  <div className="rc-verify rc-verify-suggest">
-                    <span>{tr('ui.forslag_pa_konto')} <strong>{accountSuggestion} {accounts.find(a => a.code === accountSuggestion)?.name || ''}</strong></span>
-                    <button type="button" className="rc-link" onClick={applyAccountSuggestion}>{tr('ui.anvand')}</button>
-                  </div>
-                )}
-                {!revealing && notReceipt && (
-                  <div className="rc-verify rc-verify-warn">
-                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                    {unreadable ? (
-                      <span>{tr('ui.bilden_gick_inte_att_lasa_av_sa_inget_har_fyllts')} {photoHintText(photoHint) || tr('ui.ta_om_fotot_narmre_rakare_och_med_battre_ljus_el')}</span>
-                    ) : (
-                      <span>{tr('ui.det_har_ser_inte_ut_som_ett_kvitto_eller_en_fakt_2')}</span>
-                    )}
-                  </div>
-                )}
-                {/* Bilden satte gränsen för avläsningen: säg vad som är fel med
-                    den. Visas bara när ett fält faktiskt blev osäkert. */}
-                {!revealing && !notReceipt && photoHint && (
-                  <div className="rc-verify rc-verify-warn">
-                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                    <span>{photoHintText(photoHint)} {tr('ui.las_av_igen_med_den_nya_bilden_eller_fyll_i_rade')}</span>
-                  </div>
-                )}
-                {!revealing && ocrVat && ocrVat.amountVerified && !ocrVat.verified && (
-                  <div className="rc-verify rc-verify-ok">
-                    <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
-                    <span>{tr('ui.beloppet_stammer_netto_plus_moms_pa_fakturan_bli')}</span>
-                  </div>
-                )}
-                {/* Retur eller kreditnota: pengarna går åt andra hållet. */}
-                {!revealing && ocrVat && ocrVat.creditNote && (
-                  <div className="rc-verify rc-verify-warn">
-                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                    <span>{tr('ui.underlaget_ser_ut_som_en_retur_eller_en_kreditno')}</span>
-                  </div>
-                )}
-                {/* Flera momssatser på samma underlag: momsen är avläst men är
-                    inte EN sats. Här går det att lösa — en rad per sats. */}
-                {!revealing && ocrVat && ocrVat.rates && (
-                  <div className="rc-verify rc-verify-warn">
-                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                    <span>{tr('ui.underlaget_har_moms_i_flera_satser')}{ocrVat.rates.map(r => `${r} %`).join(' och ')}{tr('ui.tillsammans')} {fmt(ocrVat.vatAmount)} {tr('ui.kr_momsen_ar_ifylld_med_det_beloppet_sa_den_blir')}</span>
-                  </div>
-                )}
-                {!revealing && ocrVat && ocrVat.verified && (
-                  <div className="rc-verify rc-verify-ok">
-                    <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
-                    <span>{tr('ui.momsen_stammer_mot_beloppen_pa_underlaget')}{fmt(ocrVat.vatAmount)} {tr('ui.kr_moms')}</span>
-                  </div>
-                )}
-                {!revealing && ocrVat && ocrVat.mismatch && (
-                  <div className="rc-verify rc-verify-warn">
-                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                    <span>{tr('ui.momsbeloppet_pa_underlaget')}{fmt(ocrVat.vatAmount)} {tr('ui.kr_stammer_inte_mot_nagon_momssats_for_det_belop')}</span>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div
-                className="ver-drop" onClick={() => fileInputRef.current?.click()}
-                style={{ border: `1px dashed ${dragOver ? 'var(--text-main)' : 'var(--border)'}`, borderRadius: '12px', background: dragOver ? 'var(--bg-muted)' : 'var(--bg-card)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s', height: 'clamp(320px, calc(44vh / var(--app-zoom, 1)), 560px)', boxSizing: 'border-box' }}
-              >
-                <UploadCloud className="ver-drop-desk" size={26} color="var(--text-muted)" style={{ marginBottom: '10px' }} />
-                <span className="ver-drop-desk" style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('ui.dra_och_slapp_kvittot_har')}</span>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', maxWidth: '260px' }}>{tr('ui.pdf_eller_bild_max')} {MAX_ATTACHMENT_MB} {tr('ui.mb_vi_laser_av_datum_belopp_och_konto_automatisk')}</span>
-                {/* Telefon: ingen går att dra något till, så två riktiga knappar. */}
-                <div className="ver-drop-phone" onClick={e => e.stopPropagation()}>
-                  <button type="button" className="ver-drop-cam" onClick={() => cameraInputRef.current?.click()}><Camera size={18} /> {tr('ui.fota_kvitto')}</button>
-                  <button type="button" className="ver-drop-file" onClick={() => fileInputRef.current?.click()}><Paperclip size={16} /> {tr('ui.valj_fil')}</button>
-                </div>
-              </div>
-            )}
-          </div>
-          {fileError && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: 'var(--status-red-text)' }}>
-              <AlertCircle size={13} style={{ flexShrink: 0 }} /> {fileError}
-            </div>
-          )}
-          {ocrStatus === 'error' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: BRAND.amberText, background: BRAND.amberBg, borderRadius: '8px', padding: '6px 10px' }}>
-              <AlertCircle size={13} style={{ flexShrink: 0 }} /> {tr('ui.kunde_inte_lasa_av_kvittot_automatiskt_fyll_i_ra')}
-            </div>
-          )}
-          {attachmentBusy && (
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>{tr('ui.laddar_upp_underlag')}</div>
-          )}
-          {attachmentError && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '12px', color: 'var(--status-red-text)' }}>
-              <AlertCircle size={13} style={{ flexShrink: 0 }} /> {attachmentError}
-            </div>
-          )}
-          {!hasAttachment && (
-            <div style={{ marginTop: '12px' }} onClick={e => e.stopPropagation()}>
-              <label style={labelStyle}>{tr('ui.var_forvaras_originalet')}</label>
-              <input
-                value={originalLocation}
-                onChange={e => setOriginalLocation(e.target.value)}
-                placeholder={tr('ui.t_ex_parm_2026_nr_14_eller_e_post_2026_08_12')}
-                style={inp}
-              />
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>{tr('ui.frivilligt_men_bra_att_fylla_i_nar_inget_underla')}</span>
-            </div>
-          )}
-        </div>
-      </div>
+
 
       <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px' }}>
@@ -1242,6 +1270,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
             </div>
           )}
         </div>
+      </div>
       </div>
       </div>
       </div>

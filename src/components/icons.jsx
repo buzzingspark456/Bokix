@@ -34,7 +34,7 @@ import {
   MdOutlineShowChart, MdOutlineSouthEast, MdOutlineStorage, MdOutlineSupport,
   MdOutlineTableChart, MdOutlineTag, MdOutlineTrendingDown, MdOutlineTrendingUp,
   MdOutlineTune, MdOutlineUndo, MdOutlineVerifiedUser,
-  MdOutlineVideocam, MdOutlineViewColumn, MdOutlineVisibility,
+  MdOutlineVideocam, MdOutlineViewColumn, MdOutlineVisibility, MdOutlineVisibilityOff,
   MdOutlineVpnKey, MdOutlineWarningAmber, MdOutlineWorkOutline, MdOutlineZoomIn,
   MdOutlineZoomOut, MdOutlineCrop,
 } from 'react-icons/md';
@@ -102,6 +102,7 @@ export const Database = make(MdOutlineStorage, 'Database');
 export const Download = make(MdOutlineFileDownload, 'Download');
 export const ExternalLink = make(MdOutlineOpenInNew, 'ExternalLink');
 export const Eye = make(MdOutlineVisibility, 'Eye');
+export const EyeOff = make(MdOutlineVisibilityOff, 'EyeOff');
 export const FileBarChart = make(MdOutlineAssessment, 'FileBarChart');
 export const FileCheck = make(MdOutlineFactCheck, 'FileCheck');
 export const FileClock = make(MdOutlinePendingActions, 'FileClock');

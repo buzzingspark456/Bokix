@@ -4840,13 +4840,76 @@ textarea.form-control {
    En inline style kan inte innehålla en mediafråga, så de MÅSTE ligga här
    för att kunna stapla om sig. */
 
-/* Verifikationsformuläret: konteringsraderna + underlaget (Verifications.jsx) */
-.ver-form-grid {
+/* Ny verifikation (Verifications.jsx): underlaget i ena halvan, fälten i
+   den andra. Utan underlag (Dölj underlag) får fälten hela bredden.
+   Underlaget står kvar (sticky) medan man skrollar i fälten, och bilden
+   fyller höjden så den går att läsa. */
+.ver-split {
   display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  max-width: 1180px;
+  margin: 0 auto;
   align-items: start;
 }
+.ver-split.has-doc {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  max-width: none;
+}
+.ver-split-doc {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  max-height: calc(100vh / var(--app-zoom, 1) - 150px);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+.ver-split-doc .dv-embed,
+.ver-split-doc .ver-drop {
+  height: calc(100vh / var(--app-zoom, 1) - 300px) !important;
+  min-height: 380px;
+}
+.ver-doc-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+  cursor: pointer;
+}
+.ver-doc-toggle:hover { background: var(--bg-muted); }
+.ver-doc-toggle-phone { display: none; }
+@media (max-width: 768px) {
+  .ver-doc-toggle-phone { display: inline-flex; margin: 0 0 12px; }
+}
+.ver-add-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 18px;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.ver-add-note:hover { color: var(--text-main); }
 
 /* Fältrader i verifikationsformuläret (datum/beskrivning/serie,
    kostnadsställe/projekt/motpart) — bryter till flera rader i stället för
@@ -4861,19 +4924,13 @@ textarea.form-control {
   min-width: 190px;
 }
 
+/* Halvskärm och telefon: underlaget överst (man börjar med kvittot),
+   fälten under, inget sticky. */
 @media (max-width: 1080px) {
-  .ver-form-grid {
-    grid-template-columns: 1fr;
-  }
-  /* Kundfeedback: "bilden är literally down" — i en kolumn (halvskärm och
-     mobil) låg underlaget tidigare EFTER hela konteringstabellen i DOM-
-     ordning, så en verifikation med några rader gjorde att man fick skrolla
-     förbi allt innan kvittot ens syntes. Arbetsflödet börjar ändå med
-     kvittot (ladda upp → OCR fyller i raderna), så det ska synas FÖRST här
-     — bara visuell ordning (`order`), tab-ordningen i DOM:en är oförändrad. */
-  .ver-form-attachment {
-    order: -1;
-  }
+  .ver-split.has-doc { grid-template-columns: minmax(0, 1fr); }
+  .ver-split-doc { position: static; max-height: none; overflow: visible; }
+  .ver-split-doc .dv-embed { height: clamp(300px, calc(46vh / var(--app-zoom, 1)), 520px) !important; min-height: 0; }
+  .ver-split-doc .ver-drop { height: clamp(220px, calc(34vh / var(--app-zoom, 1)), 380px) !important; min-height: 0; }
 }
 
 /* ══════════════════════════════════════════════
@@ -6390,8 +6447,6 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
    som sticker ut utanför skärmen. */
 @media (max-width: 1080px) {
   .ver-form-card { display: flex; flex-direction: column; }
-  .ver-form-grid { display: contents; }
-  .ver-form-attachment { order: -1; margin-bottom: 22px; }
   .ver-form-rows { overflow-x: visible !important; }
 }
 @media (max-width: 768px) {
