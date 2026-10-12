@@ -95,7 +95,7 @@ const BankUpload = (
   </Shell>
 );
 
-const COLUMN_FIELDS = [['Datum', 'Bokföringsdag', '2026-09-26', 0.6], ['Beskrivning', 'Transaction text', 'Swish Testkunden AB', 1.1], ['Belopp', 'Amount', '15000,00', 1.6]];
+const COLUMN_FIELDS = [['Datum', 'Bokföringsdag', 0.6], ['Beskrivning', 'Transaction text', 1.1], ['Belopp', 'Amount', 1.6]];
 const BankColumns = (
   <Shell active="bank" review={1}>
     <BankPageTop />
@@ -110,7 +110,7 @@ const BankColumns = (
           </span>
           <div className="dp-gone" style={d(2.7)}>
             <div className="ax-s" style={{ fontSize: 10.5, marginBottom: 8 }}>Bokix har försökt gissa vilka kolumner som är vilka — kontrollera och rätta vid behov innan förhandsgranskning.</div>
-            {COLUMN_FIELDS.map(([label, col, ex, t]) => (
+            {COLUMN_FIELDS.map(([label, col, t]) => (
               <div key={label} style={{ display: 'grid', gridTemplateColumns: '78px 1fr', gap: 8, alignItems: 'center', marginBottom: 6 }}>
                 <span className="ax-label" style={{ margin: 0 }}>{label}</span>
                 <span className="ax-field dp-flash" style={{ ...d(t), justifyContent: 'space-between', minHeight: 24, padding: '3px 8px' }}><b style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 10.5 }}>{col}</b><ChevronDown size={10} /></span>

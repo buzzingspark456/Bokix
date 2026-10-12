@@ -216,7 +216,7 @@ function compile(gl, type, source, checkStatus) {
   if (!shader) return null;
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
-  if (checkStatus && !gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+  if (checkStatus && !gl.isContextLost() && !gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     console.error('CloudShaderBackground: shader compile error', gl.getShaderInfoLog(shader));
     gl.deleteShader(shader);
     return null;
@@ -579,6 +579,10 @@ export default function CloudShaderBackground({
     let stopRun = () => {};
     const whenCompiled = () => {
       if (cancelled) return;
+      // Tappat WebGL-kontext (GPU-återställning, mobilen sparar ström, för
+      // många kontexter): status blir null och loggen tom. Inget att rätta,
+      // gradienten under canvasen syns ändå, så inget fel i konsolen.
+      if (gl.isContextLost()) return;
       if (parallel && !gl.getProgramParameter(program, parallel.COMPLETION_STATUS_KHR)) {
         pollFrame = requestAnimationFrame(whenCompiled);
         return;
