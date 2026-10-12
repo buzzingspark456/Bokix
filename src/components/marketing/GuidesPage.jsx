@@ -4,6 +4,7 @@ import MarketingLayout, { Reveal } from './MarketingLayout';
 import { KitStyles, KitCta, PrimaryButton, GhostLink } from './subpageKit';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 import { GUIDE_GROUPS } from '../../content/marketing/guides';
+import useSiteTheme from '../../utils/useSiteTheme';
 
 // ── Videoguider (/guider) ───────────────────────────────────────────────
 // Riktiga skärminspelningar av appen med berättarröst och klickljud ligger
@@ -28,6 +29,7 @@ const SCHEMA = {
 
 export default function GuidesPage() {
   const navigate = useNavigate();
+  const theme = useSiteTheme();
   return (
     <MarketingLayout>
       <PageMeta
@@ -44,7 +46,7 @@ export default function GuidesPage() {
         .gd-group-title { margin: 0 0 22px; }
         .gd-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px 32px; }
         .gd-card { display: block; color: inherit; text-decoration: none; }
-        .gd-poster { display: block; width: 100%; height: auto; aspect-ratio: 1600 / 880; object-fit: cover; border-radius: 14px; border: 1px solid var(--mkt-border-soft); background: #eef2ef; box-shadow: 0 24px 50px -34px rgba(15, 40, 25, 0.35); }
+        .gd-poster { display: block; width: 100%; height: auto; aspect-ratio: 1600 / 940; object-fit: cover; border-radius: 14px; border: 1px solid var(--mkt-border-soft); background: #eef2ef; box-shadow: 0 24px 50px -34px rgba(15, 40, 25, 0.35); }
         .gd-card:focus-visible .gd-poster { outline: 3px solid var(--mkt-accent-green-fg); outline-offset: 3px; }
         .gd-title { font-size: 17px; font-weight: 700; margin: 16px 0 4px; }
         .gd-lead { font-size: 15px; line-height: 1.55; margin: 0; }
@@ -73,7 +75,7 @@ export default function GuidesPage() {
                   <Reveal key={g.slug}>
                     <article id={g.slug}>
                       <Link className="gd-card" to={`/guider/${g.slug}`} aria-label={`Spela videon: ${g.title}`}>
-                        <img className="gd-poster" src={`/videos/${g.slug}.jpg`} alt={`Videoguide: ${g.title}`} loading="lazy" width="1600" height="880" />
+                        <img className="gd-poster" src={`/videos/${g.slug}${theme === 'dark' ? '-dark' : ''}.jpg`} alt={`Videoguide: ${g.title}`} loading="lazy" width="1600" height="940" />
                       </Link>
                       <h3 className="kx-row-title gd-title">{g.title}</h3>
                       <p className="kx-sub gd-lead">{g.lead}</p>

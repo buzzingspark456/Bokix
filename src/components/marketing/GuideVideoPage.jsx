@@ -1,31 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import MarketingLayout from './MarketingLayout';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 import TRANSCRIPTS from '../../content/marketing/guideTranscripts.json';
 import { GUIDE_GROUPS, GUIDE_UPLOAD_DATE } from '../../content/marketing/guides';
+import useSiteTheme from '../../utils/useSiteTheme';
 
 const GUIDES = GUIDE_GROUPS.flatMap(group => group.guides);
-
-// Förrenderingen (det Google läser) visar alltid den ljusa filmen. Står
-// sajten i mörkt läge byts filmen till namn-dark.mp4 efter montering.
-function useSiteTheme() {
-  const [theme, setTheme] = useState('light');
-  useEffect(() => {
-    const root = document.documentElement;
-    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
-    const read = () => {
-      const attr = root.getAttribute('data-theme');
-      setTheme((attr ? attr === 'dark' : !!mq?.matches) ? 'dark' : 'light');
-    };
-    read();
-    const obs = new MutationObserver(read);
-    obs.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
-    mq?.addEventListener?.('change', read);
-    return () => { obs.disconnect(); mq?.removeEventListener?.('change', read); };
-  }, []);
-  return theme;
-}
 
 export default function GuideVideoPage({ slug }) {
   const guide = GUIDES.find(item => item.slug === slug);
@@ -69,7 +50,7 @@ export default function GuideVideoPage({ slug }) {
       <style>{`
         .gd-watch { max-width: 1040px; margin: 0 auto; }
         .gd-watch-back { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: 8px; color: var(--mkt-accent-green-fg); font-weight: 700; text-decoration: none; }
-        .gd-watch-video { display: block; width: 100%; height: auto; aspect-ratio: 1600 / 880; border-radius: 16px; border: 1px solid var(--mkt-border-soft); background: #101913; }
+        .gd-watch-video { display: block; width: 100%; height: auto; aspect-ratio: 1600 / 940; border-radius: 16px; border: 1px solid var(--mkt-border-soft); background: #101913; }
         .gd-watch-transcript { margin-top: 26px; border-top: 1px solid var(--mkt-border-soft); padding-top: 18px; }
         .gd-watch-transcript summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 700; color: var(--mkt-accent-green-fg); }
         .gd-watch-transcript p { margin: 8px 0 0; max-width: 780px; line-height: 1.75; color: var(--mkt-ink-soft); }
@@ -90,7 +71,7 @@ export default function GuideVideoPage({ slug }) {
             playsInline
             preload="metadata"
             width="1600"
-            height="880"
+            height="940"
             aria-label={`Videoguide: ${guide.title}`}
           />
           <h1 className="kx-h1" style={{ margin: '22px 0 10px' }}>{guide.title}</h1>
