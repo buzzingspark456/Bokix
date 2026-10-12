@@ -68,18 +68,19 @@ export default function GuideVideoPage({ slug }) {
       <JsonLd data={schema} />
       <style>{`
         .gd-watch { max-width: 1040px; margin: 0 auto; }
-        .gd-watch-back { display: inline-flex; align-items: center; min-height: 44px; color: var(--mkt-accent-green-fg); font-weight: 700; text-decoration: none; }
+        .gd-watch-back { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: 8px; color: var(--mkt-accent-green-fg); font-weight: 700; text-decoration: none; }
         .gd-watch-video { display: block; width: 100%; height: auto; aspect-ratio: 1600 / 880; border-radius: 16px; border: 1px solid var(--mkt-border-soft); background: #101913; }
         .gd-watch-transcript { margin-top: 26px; border-top: 1px solid var(--mkt-border-soft); padding-top: 18px; }
         .gd-watch-transcript summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 700; color: var(--mkt-accent-green-fg); }
         .gd-watch-transcript p { margin: 8px 0 0; max-width: 780px; line-height: 1.75; color: var(--mkt-ink-soft); }
         @media (max-width: 700px) { .gd-watch-video { border-radius: 10px; } }
       `}</style>
-      <section style={{ padding: '126px 24px 88px', background: 'var(--mkt-page-bg)' }}>
+      <section style={{ padding: '104px 24px 88px', background: 'var(--mkt-page-bg)' }}>
         <main className="gd-watch">
           <Link className="gd-watch-back" to="/guider">← Alla videoguider</Link>
-          <h1 className="kx-h1" style={{ margin: '16px 0 10px' }}>{guide.title}</h1>
-          <p className="kx-lead" style={{ margin: '0 0 26px' }}>{guide.lead}</p>
+          {/* Videon först och direkt synlig: Google indexerar bara videor på
+              en visningssida, där filmen är det första och största på sidan.
+              Rubriken och ingressen ligger under, som på en videotjänst. */}
           <video
             key={file}
             className="gd-watch-video"
@@ -87,11 +88,13 @@ export default function GuideVideoPage({ slug }) {
             poster={`/videos/${file}.jpg`}
             controls
             playsInline
-            preload="none"
+            preload="metadata"
             width="1600"
             height="880"
             aria-label={`Videoguide: ${guide.title}`}
           />
+          <h1 className="kx-h1" style={{ margin: '22px 0 10px' }}>{guide.title}</h1>
+          <p className="kx-lead" style={{ margin: 0 }}>{guide.lead}</p>
           {transcript && (
             <details className="gd-watch-transcript">
               <summary>Visa texten i videon</summary>

@@ -173,7 +173,8 @@ const SITEMAP_MANIFEST = [
     path: `/guider/${guide.slug}`,
     changefreq: 'monthly',
     priority: '0.6',
-    lastmod: GUIDE_UPLOAD_DATE,
+    // lastmod från sidans innehåll (page-dates.json), inte filmens datum:
+    // ändras visningssidan ska Google se det och läsa om den.
     video: guide,
   }))),
   { path: '/blogg', changefreq: 'weekly', priority: '0.6', lastmod: latest(ALL_ARTICLES.filter(p => p.body && !p.news)) },
