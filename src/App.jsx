@@ -30,7 +30,6 @@ import {
   LogOut,
   Moon,
   AlertTriangle,
-  ShieldCheck,
   Lock,
   Package,
   ClipboardCheck,
@@ -222,14 +221,7 @@ function MfaChallengeScreen({ onVerify, onCancel }) {
   return (
     <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BRAND.greenLight, padding: '24px', fontFamily: "'Inter', sans-serif" }}>
       <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '22px', padding: '36px 32px', boxShadow: '0 12px 40px -8px rgba(15,23,42,0.18)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', boxSizing: 'border-box' }}>
-        <div style={{
-          width: 56, height: 56, borderRadius: '16px', flexShrink: 0,
-          background: `linear-gradient(160deg, ${BRAND.green}, #0e3a2a)`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 8px 20px -6px color-mix(in srgb, var(--accent) 60%, transparent)',
-        }}>
-          <ShieldCheck size={26} color="white" strokeWidth={2.2} />
-        </div>
+        <BokixWordmark height={40} />
 
         <div style={{ textAlign: 'center' }}>
           <h2 style={{ fontSize: '21px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>{tr('ui.tvastegsverifiering')}</h2>

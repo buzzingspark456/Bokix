@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, CheckCircle2, ChevronDown, ChevronRight, CreditCard, Info, Lock, Mail, Plus, Search, Settings2, ShieldCheck, UploadCloud, Download, Upload, X } from '../icons';
+import { Check, CheckCircle2, ChevronDown, ChevronRight, CreditCard, Info, Lock, Mail, Plus, Search, Settings2, UploadCloud, Download, Upload, X } from '../icons';
 import BokixWordmark from '../shared/BokixWordmark';
 import { Shell, Top, Toast, DownloadBar, Doc, Browser, SettingsShell, SetCap, SetRow, ModalSteps, ModalClose, ReviewItem } from './demoApp';
 
@@ -517,10 +517,10 @@ const SecEncrypt = (
   </Browser>
 );
 
-// Inloggningens tvåstegsruta (App.jsx MfaChallenge): grön sköld, sex rutor.
+// Inloggningens tvåstegsruta (App.jsx MfaChallenge): loggan, sex rutor.
 const Sec2fa = (
   <LoginCard>
-    <span style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(160deg, #0b6329, #0e3a2a)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}><ShieldCheck size={20} /></span>
+    <div style={{ marginBottom: 10 }}><BokixWordmark height={30} /></div>
     <div className="ax-b" style={{ fontSize: 15 }}>Tvåstegsverifiering</div>
     <div className="ax-s" style={{ fontSize: 11, margin: '3px 0 14px' }}>Ange den 6-siffriga koden från din autentiseringsapp.</div>
     <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
