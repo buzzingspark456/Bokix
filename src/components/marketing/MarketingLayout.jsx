@@ -1234,6 +1234,7 @@ function ThemeSwitch({ theme, onToggleTheme, labels = false }) {
 
 export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
   const [scrolled, setScrolled] = useState(false);
+  const [inFooter, setInFooter] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [mobileOpenKey, setMobileOpenKey] = useState(null);
@@ -1242,11 +1243,22 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Headern glider undan när sidfoten når upp under den (man är "i"
+  // sidfoten) och kommer tillbaka så fort man scrollar upp ur den.
   useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 20);
+    const handler = () => {
+      setScrolled(window.scrollY > 20);
+      const footer = document.querySelector('.lp-footer');
+      const navHeight = navRef.current?.offsetHeight || 84;
+      setInFooter(Boolean(footer) && footer.getBoundingClientRect().top <= navHeight);
+    };
     handler();
-    window.addEventListener('scroll', handler);
-    return () => window.removeEventListener('scroll', handler);
+    window.addEventListener('scroll', handler, { passive: true });
+    window.addEventListener('resize', handler);
+    return () => {
+      window.removeEventListener('scroll', handler);
+      window.removeEventListener('resize', handler);
+    };
   }, []);
 
   useEffect(() => {
@@ -1290,6 +1302,9 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
   };
 
   const activeMenu = NAV_MENUS.find(m => m.key === openDropdown && m.sections?.length);
+  // Aldrig gömd medan en meny är öppen. visibility (inte bara transform) så
+  // att tabb inte hamnar på länkar man inte ser.
+  const hidden = inFooter && !mobileMenuOpen && !openDropdown;
 
   return (
     <>
@@ -1301,6 +1316,8 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
         borderBottom: scrolled ? '1px solid var(--mkt-border-soft)' : 'none',
         padding: '0 24px', transition: 'all 0.3s',
         boxShadow: scrolled ? '0 1px 20px rgba(0,0,0,0.06)' : 'none',
+        transform: hidden ? 'translateY(-100%)' : 'none',
+        visibility: hidden ? 'hidden' : 'visible',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', height: '84px', gap: '32px' }}>
           <Link to="/" className="lp-logo-glow" style={{ alignItems: 'center', flexShrink: 0 }} aria-label="Till startsidan" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
