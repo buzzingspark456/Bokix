@@ -39,6 +39,7 @@ import {
 } from './components/icons';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { BAS_VERSION, upgradeAccountsToBas } from './utils/basUpgrade';
+import { receiptAttachmentFields, backfillReceiptAttachments } from './utils/receiptAttachment';
 import { getNextInvoiceNumber } from './utils/invoiceNumbering';
 import { createStripeCheckoutSession, createStripeSubscriptionCheckout, cancelStripeSubscription, syncStripeSubscription } from './stripeApi';
 import { createEmailDomain, getEmailDomainStatus, sendInvoiceEmail } from './emailApi';
@@ -918,10 +919,13 @@ function normalizeCompanyData(companyData) {
   // uppgraderas när ägaren loggar in.
   const needsBas = Array.isArray(accounts) && !companyData.__shared && companyData.basVersion !== BAS_VERSION;
   if (needsBas) accounts = upgradeAccountsToBas(accounts, DEFAULT_ACCOUNTS);
-  if (!needsBas && invoices.length === (companyData.invoices || []).length && Array.isArray(companyData.quotes) && accounts === companyData.accounts) {
+  // Bokförda kvitton som saknar underlag i verifikationen får kvittots fil
+  // (utils/receiptAttachment.js). Rör bara underlagsfälten.
+  const verifications = backfillReceiptAttachments(companyData.verifications, companyData.expenses);
+  if (!needsBas && verifications === companyData.verifications && invoices.length === (companyData.invoices || []).length && Array.isArray(companyData.quotes) && accounts === companyData.accounts) {
     return companyData; // redan migrerat, inget att göra
   }
-  return { ...companyData, invoices, quotes, accounts, ...(needsBas ? { basVersion: BAS_VERSION } : {}) };
+  return { ...companyData, invoices, quotes, accounts, ...(verifications !== companyData.verifications ? { verifications } : {}), ...(needsBas ? { basVersion: BAS_VERSION } : {}) };
 }
 
 function normalizeStore(store) {
@@ -4401,6 +4405,7 @@ function App() {
       source: 'expense',
       sourceId: exp.id,
       rows: withReverseChargeRows(verRows),
+      ...receiptAttachmentFields(exp),
     });
   };
 
@@ -4457,6 +4462,7 @@ function App() {
       source: 'supplier_invoice',
       sourceId: inv.id,
       rows: withReverseChargeRows(verRows),
+      ...receiptAttachmentFields(inv),
     });
 
     // Har ägaren redan betalat privat är leverantören redan löst (skulden
@@ -4549,6 +4555,7 @@ function App() {
       source: 'expense_fix',
       sourceId: exp.id,
       rows: withReverseChargeRows(verRows),
+      ...receiptAttachmentFields(exp),
     });
 
     const accountName = accounts.find(a => a.code === accountCode)?.name || accountCode;
@@ -4651,6 +4658,7 @@ function App() {
       source: 'expense',
       sourceId: updated.id,
       rows: withReverseChargeRows(verRows).map(sided),
+      ...receiptAttachmentFields(updated),
     });
   };
 
