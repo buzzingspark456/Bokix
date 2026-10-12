@@ -1243,14 +1243,18 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Headern glider undan när sidfoten når upp under den (man är "i"
-  // sidfoten) och kommer tillbaka så fort man scrollar upp ur den.
+  // Headern glider undan när man är i sidfoten och kommer tillbaka så fort
+  // man scrollar upp ur den. "I sidfoten" = den täcker mer än 60 % av
+  // fönstret, eller man har scrollat ända ner. Inte "överkanten under
+  // headern": på en hög skärm är sidfoten lägre än fönstret och når aldrig dit.
   useEffect(() => {
     const handler = () => {
       setScrolled(window.scrollY > 20);
       const footer = document.querySelector('.lp-footer');
-      const navHeight = navRef.current?.offsetHeight || 84;
-      setInFooter(Boolean(footer) && footer.getBoundingClientRect().top <= navHeight);
+      if (!footer) { setInFooter(false); return; }
+      const { top, bottom } = footer.getBoundingClientRect();
+      const vh = window.innerHeight;
+      setInFooter(top <= vh * 0.4 || (bottom <= vh + 2 && top < vh * 0.75));
     };
     handler();
     window.addEventListener('scroll', handler, { passive: true });
