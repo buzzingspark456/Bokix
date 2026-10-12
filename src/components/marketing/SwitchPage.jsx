@@ -39,7 +39,7 @@ const SWITCH_STEPS = [
   },
   {
     title: 'Ladda upp filen i Bokix',
-    body: 'Inställningar → Avancerat → Importera SIE4-fil. Guiden läser filen och visar vad den hittade: konton, verifikationer och ingående balanser.',
+    body: 'Inställningar → Import och export → Flytta hit bokföringen. Guiden läser filen och visar vad den hittade: konton, verifikationer och ingående balanser.',
   },
   {
     title: 'Granska kontomappningen och bekräfta',
@@ -74,7 +74,7 @@ const NOT_INCLUDED = [
 const FAQ = [
   {
     q: 'Kan jag flytta min bokföring från Fortnox, Visma eller Bokio till Bokix?',
-    a: 'Ja. Exportera en SIE4-fil ur det program du använder idag och läs in den i Bokix under Inställningar → Avancerat. Importen är en generell SIE4-läsare, inte en integration per leverantör, så den fungerar likadant oavsett vilket program som skapade filen.',
+    a: 'Ja. Exportera en SIE4-fil ur det program du använder idag och läs in den i Bokix under Inställningar → Import och export. Importen är en generell SIE4-läsare, inte en integration per leverantör, så den fungerar likadant oavsett vilket program som skapade filen.',
   },
   {
     q: 'Vad händer om ett konto i filen inte finns i Bokix kontoplan?',
