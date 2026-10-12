@@ -335,9 +335,6 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
             bara loggans egna blå/turkos och grönt. */}
 
         <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 24px', textAlign: 'center', position: 'relative' }}>
-          {c.hero.eyebrow && (
-            <p className="lp-fadeinup" style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--mkt-accent-green-fg)', margin: '0 0 18px' }}>{c.hero.eyebrow}</p>
-          )}
           <h1 className="lp-fadeinup" style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 'clamp(36px, 7vw, 84px)', fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em', color: 'var(--mkt-ink)', marginBottom: '26px' }}>
             {/* Mellanslaget före <br />: utan det läses rubriken ihop till
                 "bokföringska" av sökmotorer som ignorerar radbrytningen. */}

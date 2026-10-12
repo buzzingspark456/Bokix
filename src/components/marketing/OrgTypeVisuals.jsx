@@ -235,6 +235,42 @@ function AssociationVisual() {
   );
 }
 
+// ── Om oss: samma köp, två sätt ─────────────────────────────────────────
+// Vänster: så ser ett köp ut i en vanlig konteringstabell. Höger: samma köp
+// i Bokix enkla läge. Beloppen stämmer (499 kr med 25 % moms).
+export function AboutVisual() {
+  const [ref, step] = useStepLoop(4);
+  const rows = [['6110 Kontorsmateriel', '399,20', ''], ['2641 Ingående moms', '99,80', ''], ['1930 Företagskonto', '', '499,00']];
+  return (
+    <>
+      <VisualStyles />
+      <div ref={ref} className="ov" role="img" aria-label="Exempel: ett köp av kontorsmaterial för 499 kronor, först som konton med debet och kredit, sedan som det ser ut i Bokix">
+        <div className="ov-card">
+          <div className="ov-title">Vanlig bokföring <span>Debet · Kredit</span></div>
+          {rows.map(([acc, d, k], i) => (
+            <div key={acc} className={`ov-row ${cls(step >= 0)}`} style={{ transitionDelay: `${i * 120}ms` }}>
+              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{acc}</span>
+              <b>{d || '·'} <span style={{ color: 'var(--mkt-muted)', fontWeight: 500 }}>/</span> {k || '·'}</b>
+            </div>
+          ))}
+          <div className="ov-doc-sub" style={{ marginTop: 8 }}>Du behöver veta kontonummer och vilken sida beloppet ska stå på.</div>
+        </div>
+        <div className={cls(step >= 1)}><Arrow /></div>
+        <div className={`ov-card ${cls(step >= 1)}`}>
+          <div className="ov-title">I Bokix</div>
+          <div className="ov-row">Vad har hänt? <b>Jag har köpt något</b></div>
+          <div className="ov-row">Belopp <b><CountUp value={499} on={step >= 2} /></b></div>
+          <div className="ov-row">Vad köpte du? <b>Kontorsmaterial</b></div>
+          <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span className="ov-doc-sub">Kontona och momsen sköts åt dig.</span>
+            <span className={`ov-chip ${cls(step >= 3)}`}><Check size={12} /> Bokfört</span>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 const VISUALS = {
   'enskild-firma': SoleProprietorVisual,
   aktiebolag: CompanyVisual,

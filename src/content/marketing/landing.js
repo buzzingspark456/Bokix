@@ -19,8 +19,6 @@ export const LANDING_CONTENT = {
       softwareDescription: 'Bokföring, fakturering, lönehantering och momsredovisning för svenska företag i alla bolagsformer.',
     },
     hero: {
-      // Sökordet synligt ovanför rubriken (Google väger text högt upp på sidan).
-      eyebrow: 'Bokföringsprogram för småföretag',
       titlePrefix: 'För att bokföring',
       titleSuffix: 'ska vara ',
       titleEm: 'enkelt',

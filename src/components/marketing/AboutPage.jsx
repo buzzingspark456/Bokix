@@ -1,37 +1,42 @@
 import React from 'react';
-import { BRAND } from '../../utils/brandColors';
-import MarketingLayout, { Reveal, BokixWordmark } from './MarketingLayout';
-import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
+import { Link } from 'react-router-dom';
+import MarketingLayout from './MarketingLayout';
+import { KitStyles, SubHero, KitSection, SpecList, KitFaq, GhostLink } from './subpageKit';
+import { AboutVisual } from './OrgTypeVisuals';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
+import { NEWS_POSTS } from '../../content/marketing/news';
 
 // ── Om oss (/om-oss) ────────────────────────────────────────────────────
-// Tredje versionen, och den kortaste med flit. Sidan ska vara SNYGG och
-// säga vilka vi är. Inget annat.
+// Fjärde versionen (2026-10-12): den förra var en rubrik och en mening, och
+// användaren sa att man "fattar nästan ingenting". Nu i samma uppbyggnad som
+// de godkända undersidorna (/uf, /koppla-bank): en hjälte med en animerad
+// bild som visar idén, korta rader i stället för stycken, tre frågor.
 //
-// Borttaget på uttrycklig begäran — lägg inte tillbaka något av det:
-//   - Nyckeltalskortet som räknade till noll ("betyder inte något").
-//   - Löftesraderna om bindningstid, avgifter, annonser, inlåsning
-//     ("nämner inte något"). De hör hemma på /priser, där de betyder
-//     något för ett köpbeslut.
-//   - "Prova själv"-avslutningen. Om oss ska inte sälja; sidfoten och
-//     varje annan sida har redan sina knappar.
-//   - Funktionskort, principkort, kontaktuppgifter.
-//
-// Kvar: Bokix eget varumärke, en rubrik, två stycken. Sidan är byggd som
-// ett brev, inte som en landningssida — därför den smala spalten och den
-// större brödtexten.
-//
-// UPPDATERAT KUNDÖNSKEMÅL (ersätter det tidigare beslutet nedan): ingen
-// signatur med grundarnas namn längre, ingen mening om det egna priset
-// (129/179 kr — hörde inte hemma i brevet, det står redan på /priser),
-// ingen Ung Företagsamhet-logotyp i hjältesektionen, och ingen mening om
-// varför UF-läget finns i Bokix — bara Bokix eget ordmärke och ETT stycke
-// kvar av brevet. Sätt inte tillbaka något av detta utan att fråga igen.
-//
-// FAKTA (fortfarande sant, bara inte längre uppradat i brevet): Bokix ÄR
-// ett UF-företag, presens. Grundarna heter Abdullah Alwaki och Siem
-// Embaye — namnen finns kvar i git-historiken om de behövs igen, bara
-// inte publicerade på sidan längre.
+// Gäller fortfarande (kundens beslut 2026-09-16, fråga innan något ändras):
+// inga grundarnamn, inget pris (129/179 kr står på /priser), inget om Ung
+// Företagsamhet/UF, ingen säljande avslutning, inga nyckeltal, inga
+// konkurrentnamn. Allt nedan är sådant som står i bokixFacts.js.
+
+const BELIEFS = [
+  { title: 'Du ska inte behöva kunna bokföring', body: 'Du väljer vad som har hänt, som att du har köpt något eller fått betalt. Kontona och momsen sköts åt dig.' },
+  { title: 'Hellre fråga än gissa', body: 'Det som är osäkert bokförs inte i det tysta. Det hamnar i Granskning, med en förklaring av vad som behöver kollas.' },
+  { title: 'Ett pris, allt ingår', body: 'Inga tillägg per funktion och inga avgifter per faktura eller kvitto.' },
+  { title: 'Din bokföring är din', body: 'Du kan exportera allt som SIE4 när du vill, och du lämnar själv in till Skatteverket med BankID.' },
+];
+
+const FACTS = [
+  { title: 'För vem', body: 'Svenska småföretag: enskild firma, aktiebolag, handelsbolag, kommanditbolag och ekonomisk förening.' },
+  { title: 'Vad det är', body: 'Ett bokföringsprogram i webbläsaren, på dator och telefon, med bokföring, fakturor, kvitton, moms, lön och bokslut.' },
+  { title: 'Var datan finns', body: 'Inom EU, i Frankfurt. Bokföringen sparas i sju år, även om du slutar använda Bokix.' },
+  { title: 'Språk', body: 'Appen finns på svenska och engelska.' },
+  { title: 'Support', body: 'Ingår, och svaren kommer från oss som bygger Bokix: support@bokix.se.' },
+];
+
+const FAQ = [
+  { q: 'Vilka står bakom Bokix?', a: 'Två personer i Sverige som bygger och sköter Bokix själva, från koden till supporten. När du mejlar support@bokix.se är det vi som svarar.' },
+  { q: 'Var lagras min bokföring?', a: 'Inom EU, i Frankfurt. Den sparas i sju år, så som bokföringslagen kräver, även om du slutar använda Bokix. Du kan alltid ladda ned den som SIE4.' },
+  { q: 'Varför byggde ni Bokix?', a: 'Vi tyckte att bokföringsprogram var dyra för det man fick och skrivna för folk som redan kan bokföring. Bokix ska gå att förstå utan kurs.' },
+];
 
 const SCHEMA = {
   '@context': 'https://schema.org',
@@ -39,80 +44,72 @@ const SCHEMA = {
   name: 'Om Bokix',
   url: `${SITE_URL}/om-oss`,
   inLanguage: 'sv-SE',
-  description: 'Bokix drivs av två personer. Vi bygger ett bokföringsprogram som ska vara billigt och gå att förstå.',
+  description: 'Bokix är ett svenskt bokföringsprogram för småföretag, byggt av två personer. Bokföring ska gå att förstå utan att man kan debet och kredit.',
   publisher: { '@type': 'Organization', name: 'Bokix', url: SITE_URL },
+};
+const FAQ_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: FAQ.map(({ q, a }) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
 };
 
 export default function AboutPage() {
+  const latest = NEWS_POSTS.filter(p => p.body).slice(0, 5);
   return (
     <MarketingLayout>
       <PageMeta
         title="Om Bokix: svenskt bokföringsprogram för småföretag"
-        description="Bokix drivs av två personer. Vi bygger ett bokföringsprogram för svenska småföretag som ska vara billigt och gå att förstå."
+        description="Bokix är ett svenskt bokföringsprogram för småföretag, byggt av två personer. Bokföring ska gå att förstå, utan debet och kredit och utan tillägg."
         path="/om-oss"
       />
       <JsonLd data={SCHEMA} />
+      <JsonLd data={FAQ_SCHEMA} />
+      <KitStyles />
       <style>{`
-        .bx-ab-pair { display: flex; align-items: center; justify-content: center; gap: clamp(14px, 3vw, 26px); flex-wrap: wrap; }
-        @media (max-width: 480px) { .bx-ab-pair { flex-direction: column; gap: 12px; } }
-
-        /* Brödtexten är större än sajtens vanliga — sidan är ett brev på
-           tre stycken, och då ska de styckena bära sidan. */
-        .bx-ab-letter p { font-size: clamp(16.5px, 2.1vw, 19px); line-height: 1.85; margin: 0 0 20px; }
-
-        /* Ett tunt grönt streck som avslutning på brevet.
-           Växer fram när det kommer i bild — sidans enda rörelse utöver
-           prickarna, och den räcker. */
-        .bx-ab-rule {
-          height: 3px; width: 0; border-radius: 3px; margin: 8px 0 22px;
-          background: ${BRAND.green};
-          transition: width 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.2s;
-        }
-        .lp-in .bx-ab-rule { width: 120px; }
-
-        .bx-ab-dots { display: inline-flex; align-items: center; gap: 7px; }
-        .bx-ab-dot { width: 9px; height: 9px; border-radius: 50%; background: ${BRAND.green}; animation: bx-ab-pulse 2.8s ease-in-out infinite; }
-        .bx-ab-dot:nth-child(2) { background: ${BRAND.green}; opacity: 0.55; animation-delay: 1.4s; }
-        @keyframes bx-ab-pulse { 0%, 100% { transform: scale(1); opacity: 0.85; } 50% { transform: scale(1.35); opacity: 1; } }
-
-        @media (prefers-reduced-motion: reduce) {
-          .bx-ab-dot { animation: none; }
-          .bx-ab-rule { transition: none; width: 120px; }
-        }
+        .ab-news { border-top: 1px solid var(--mkt-border-soft); }
+        .ab-news a { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--mkt-border-soft); text-decoration: none; color: var(--mkt-ink); font-size: 16px; font-weight: 600; transition: color 0.15s ease; }
+        .ab-news a:hover { color: var(--mkt-accent-green-fg); }
+        .ab-news small { font-size: 13px; font-weight: 600; color: var(--mkt-muted); white-space: nowrap; }
       `}</style>
 
-      {/* ── Hjälte: vilka vi är ── */}
-      <section style={{ padding: '140px 24px 20px', background: IVORY }}>
-        <Reveal style={{ maxWidth: '760px', margin: '0 auto', textAlign: 'center' }}>
-          <div className="bx-ab-pair" style={{ marginBottom: '30px' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '14px 20px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '14px', boxShadow: CARD_SHADOW }}>
-              <BokixWordmark height={32} />
-            </span>
+      <SubHero
+        eyebrow="Om Bokix"
+        title="Bokföring som går att förstå"
+        lead="Bokix är ett svenskt bokföringsprogram för småföretag. Vi är två personer som bygger det, för att vi tyckte att bokföringsprogram var dyra för det man fick och skrivna för folk som redan kan bokföring."
+        actions={<GhostLink to="/enkel-bokforing">Så fungerar Bokix</GhostLink>}
+        visual={<AboutVisual />}
+      />
+
+      <KitSection title="Det här tror vi på" lead="Fyra saker som styr hur Bokix byggs.">
+        <SpecList items={BELIEFS} />
+      </KitSection>
+
+      <KitSection title="Bokix i korthet" lead="Fakta, utan säljprat." alt>
+        <SpecList items={FACTS} />
+        <p className="kx-row-body" style={{ marginTop: '18px' }}>
+          Mer fakta på <Link to="/bokix-i-korthet" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>Bokix i korthet</Link>.
+        </p>
+      </KitSection>
+
+      {latest.length > 0 && (
+        <KitSection title="Det senaste vi byggt" lead="Bokix blir bättre hela tiden. Här är några av de senaste nyheterna.">
+          <div className="ab-news">
+            {latest.map(p => (
+              <Link key={p.path} to={p.path}>
+                <span>{p.title}</span>
+                <small>{p.category}</small>
+              </Link>
+            ))}
           </div>
-
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '11px', padding: '8px 17px', borderRadius: '999px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, marginBottom: '24px' }}>
-            <span className="bx-ab-dots" aria-hidden><span className="bx-ab-dot" /><span className="bx-ab-dot" /></span>
-            <span style={{ fontSize: '13.5px', fontWeight: 700, color: INK_SOFT }}>Två personer bakom produkten</span>
-          </div>
-
-          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(31px, 5.2vw, 52px)', fontWeight: 700, letterSpacing: '-0.015em', color: INK, margin: '0 0 16px', lineHeight: 1.1 }}>
-            Vi byggde det vi själva ville ha
-          </h1>
-          <p style={{ fontSize: '17px', color: MUTED, lineHeight: 1.65, margin: '0 auto', maxWidth: '520px' }}>
-            Bokföring ska vara billig och gå att förstå. Det var hela idén, och det är fortfarande hela idén.
+          <p className="kx-row-body" style={{ marginTop: '18px' }}>
+            <Link to="/nyheter" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>Alla nyheter</Link>
           </p>
-        </Reveal>
-      </section>
+        </KitSection>
+      )}
 
-      {/* ── Brevet ── */}
-      <section style={{ padding: '54px 24px 110px', background: IVORY }}>
-        <Reveal className="bx-ab-letter" style={{ maxWidth: '640px', margin: '0 auto' }}>
-          <div className="bx-ab-rule" aria-hidden />
-          <p style={{ color: INK_SOFT }}>
-            Vi är två personer som tyckte att bokföringsprogram var dyra för det man fick, och skrivna som om alla som använder dem redan kan bokföring.
-          </p>
-        </Reveal>
-      </section>
+      <KitSection title="Vanliga frågor om oss" alt>
+        <KitFaq items={FAQ} />
+      </KitSection>
     </MarketingLayout>
   );
 }
