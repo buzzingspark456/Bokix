@@ -4879,12 +4879,12 @@ textarea.form-control {
   align-items: center;
   gap: 8px;
   writing-mode: vertical-rl;
-  padding: 16px 10px;
+  padding: 20px 12px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-main);
   cursor: pointer;
@@ -4895,16 +4895,16 @@ textarea.form-control {
 .ver-doc-hide {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 7px;
   margin-left: auto;
-  padding: 5px 10px;
-  background: none;
+  padding: 9px 16px;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 999px;
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-main);
   cursor: pointer;
 }
 .ver-doc-hide:hover { color: var(--text-main); background: var(--bg-muted); }
@@ -4927,6 +4927,23 @@ textarea.form-control {
 .ver-split-doc .ver-drop {
   height: calc(100vh / var(--app-zoom, 1) - 300px) !important;
   min-height: 380px;
+}
+/* Dator: panelen är exakt så hög som skärmen och allt får plats utan att
+   scrolla i den. Kvittot tar den höjd som blir över när knapparna,
+   avläsningslistan och meddelandena fått sin plats, och Dölj står alltid
+   synligt överst. Avläsningslistan blir tre kolumner för att ta mindre höjd. */
+@media (min-width: 1081px) {
+  .ver-split-doc { height: calc(100vh / var(--app-zoom, 1) - 150px); }
+  .ver-split-doc > .ver-doc-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .ver-split-doc .ver-doc-view { flex: 1 1 auto; min-height: 220px; display: flex; flex-direction: column; }
+  .ver-split-doc .ver-doc-view > .dv-embed { flex: 1 1 auto; height: auto !important; min-height: 0; }
+  .ver-split-doc .ver-drop { flex: 1 1 auto; height: auto !important; min-height: 220px; }
+  .ver-split-doc .ver-doc-actions,
+  .ver-split-doc .rc-ocr-list,
+  .ver-split-doc .rc-verify { flex-shrink: 0; }
+  .ver-split-doc .rc-ocr-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; padding: 10px 12px; margin-bottom: 8px; }
+  .ver-split-doc .rc-ocr-item { font-size: 12px; }
+  .ver-split-doc .rc-verify { margin-bottom: 8px; padding: 8px 12px; }
 }
 .ver-add-note {
   display: inline-flex;

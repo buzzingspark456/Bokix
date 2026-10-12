@@ -86,6 +86,27 @@ await page.locator('.ver-split-doc input[type=file]').first().setInputFiles('scr
 await page.waitForTimeout(2500);
 await shot('med-underlag');
 const zoomLabel = (await page.locator('.ver-split-doc .dv-zoom').first().innerText().catch(() => '')).trim();
+// Läs av och kontrollera att allt i underlaget syns utan att scrolla (dator).
+await page.locator('.ver-doc-btn-scan').click();
+await page.waitForSelector('.ver-split-doc .rc-ocr-list', { timeout: 30000 }).catch(() => {});
+await page.waitForTimeout(6000);
+await shot('avlast');
+const docFit = await page.evaluate(() => {
+  const pane = document.querySelector('.ver-split-doc');
+  const vh = window.innerHeight;
+  const inView = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= vh + 1; };
+  const img = pane.querySelector('.dv-body img');
+  const body = pane.querySelector('.dv-body');
+  return {
+    paneScrolls: pane.scrollHeight > pane.clientHeight + 1,
+    hideVisible: inView(pane.querySelector('.ver-doc-hide')),
+    actionsVisible: [...pane.querySelectorAll('.ver-doc-btn')].every(inView),
+    checklist: Boolean(pane.querySelector('.rc-ocr-list')),
+    checklistVisible: inView(pane.querySelector('.rc-ocr-list')),
+    imageScrolls: body ? body.scrollHeight > body.clientHeight + 1 : null,
+    imgH: img ? Math.round(img.getBoundingClientRect().height) : 0,
+  };
+});
 const docBox = await page.locator('.ver-split-doc').boundingBox();
 const formBox = await page.locator('.ver-split-form').boundingBox();
 await page.locator('[role=tab]', { hasText: 'Debet och kredit' }).click();
@@ -121,8 +142,9 @@ const shownAgain = await page.locator('.ver-split-doc').count() === 1;
 
 const side = WIDTH >= 1100 ? (formBox.x < docBox.x ? 'fält vänster, underlag höger' : 'FEL SIDA') : (docBox.y < formBox.y ? 'underlag överst' : 'FEL ORDNING');
 console.log('rader:', JSON.stringify(align));
+console.log('underlag:', JSON.stringify(docFit));
 console.log('BAS 2026:', hasBas, '|', side, '| bredd', Math.round(formBox.width), '/', Math.round(docBox.width), '| zoom:', zoomLabel, '| rader:', rowsCount, '| knappar på raderna:', trashCount, '| flikar:', tabs, '| dolt:', hidden, '| visa igen:', shownAgain);
-const ok = (WIDTH < 769 || align.every(r => r.spread <= 2)) && hasBas && !side.startsWith('FEL') && zoomLabel === '80%' && rowsCount === 2 && tabs.includes('Debet och kredit') && hidden && shownAgain && !errors.length;
+const ok = (WIDTH < 1081 || (!docFit.paneScrolls && docFit.hideVisible && docFit.actionsVisible && !docFit.imageScrolls)) && (WIDTH < 769 || align.every(r => r.spread <= 2)) && hasBas && !side.startsWith('FEL') && zoomLabel === '80%' && rowsCount === 2 && tabs.includes('Debet och kredit') && hidden && shownAgain && !errors.length;
 console.log(ok ? 'OK' : 'FEL', errors.length ? errors : '');
 await browser.close();
 process.exit(ok ? 0 : 1);

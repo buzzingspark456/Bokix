@@ -1101,7 +1101,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
             <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.kvitto_eller_fil')}</div>
             <button type="button" className="ver-doc-hide" onClick={toggleDoc} title="Dölj underlaget">
-              <EyeOff size={14} /> Dölj
+              <EyeOff size={17} /> Dölj underlag
             </button>
             {ocrStatus === 'scanning' && (
               <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-muted)' }}>
@@ -1123,13 +1123,14 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
               e.preventDefault(); setDragOver(false);
               acceptFile(e.dataTransfer.files?.[0]);
             }}
+            className="ver-doc-body"
             style={{ minWidth: 0, borderRadius: '12px', outline: `2px dashed ${dragOver ? 'var(--text-main)' : 'transparent'}`, outlineOffset: '3px', transition: 'outline-color 0.15s' }}
           >
             <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={e => acceptFile(e.target.files[0])} accept=".pdf,.png,.jpg,.jpeg,.webp" />
             <input type="file" ref={cameraInputRef} style={{ display: 'none' }} onChange={e => acceptFile(e.target.files[0])} accept="image/*" capture="environment" />
             {hasAttachment ? (
               <>
-                <div style={{ position: 'relative' }}>
+                <div className="ver-doc-view" style={{ position: 'relative' }}>
                   <DocumentPane
                     className="dv-embed"
                     initialZoom={0.8}
@@ -1267,7 +1268,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         </div>
         ) : (
           <button type="button" className="ver-doc-rail" onClick={toggleDoc} aria-label="Visa underlag">
-            <Eye size={15} /> <span>Visa underlag</span>
+            <Eye size={17} /> <span>Visa underlag</span>
           </button>
         )}
       </div>

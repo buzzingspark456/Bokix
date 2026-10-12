@@ -59,12 +59,15 @@ function fileNameFromUrl(url, fallback) {
  * där inget går att rita.
  */
 // `initialZoom`: öppna på t.ex. 0.8 (80 % av passad storlek) så att hela
-// underlaget syns med luft runt. Sätts när bilden laddat, eftersom den
-// passade bredden måste mätas först. En PDF får samma zoom via #zoom=.
+// underlaget syns med luft runt. Tills man själv zoomar är det 80 % av
+// YTAN (följer med när ytan ändrar storlek), inte ett fast pixelmått.
+// En PDF får samma zoom via #zoom=.
 export function DocumentPane({ url, type, name, emptyText, className = '', expandable = false, imageTools = null, highlight = null, initialZoom = FIT_ZOOM }) {
   const activeUrl = useSignedUrl(url);
-  const [zoom, setZoom] = useState(FIT_ZOOM);
-  const initialZoomDone = useRef(false);
+  const [zoom, setZoom] = useState(initialZoom);
+  // true = startzoomen gäller fortfarande, räknad som andel av ytan.
+  const [relative, setRelative] = useState(true);
+  const fitLike = relative || zoom === FIT_ZOOM;
   const [imgFailed, setImgFailed] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const imgRef = useRef(null);
@@ -98,13 +101,16 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
     return Math.min(box.width, (box.height * nw) / nh);
   };
   const changeZoom = (dir) => {
-    if (zoom === FIT_ZOOM) fitWidthRef.current = measureFitWidth();
+    // I startläget är bilden ritad i `zoom` av ytan, så den passade
+    // bredden är det man ser delat med zoomen.
+    if (relative) { fitWidthRef.current = measureFitWidth() / (zoom || 1); setRelative(false); }
+    else if (zoom === FIT_ZOOM) fitWidthRef.current = measureFitWidth();
     setZoom(stepZoom(zoom, dir));
   };
 
   // Ny fil i samma panel: börja om från passa-i-rutan och ge en bild som
   // förut misslyckades en ny chans.
-  useEffect(() => { setZoom(FIT_ZOOM); setImgFailed(false); setExpanded(false); initialZoomDone.current = false; }, [url]);
+  useEffect(() => { setZoom(initialZoom); setRelative(true); setImgFailed(false); setExpanded(false); }, [url]); // eslint-disable-line react-hooks/exhaustive-deps
   // Den signerade länken kommer strax efter `url` (se useSignedUrl). Ett
   // fel på en tidigare länk ska inte fastna när den giltiga väl är här.
   useEffect(() => { setImgFailed(false); }, [activeUrl]);
@@ -136,7 +142,7 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
   }, [isImage, activeUrl, zoom]);
   // Inzoomat: skrolla så att den markerade raden syns.
   useEffect(() => {
-    if (highlight && zoom !== FIT_ZOOM) markRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    if (highlight && !fitLike) markRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
   }, [highlight, zoom]);
 
   return (
@@ -179,23 +185,16 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
         ) : isImage ? (
           <img
             ref={imgRef}
-            className={`dv-img${zoom === FIT_ZOOM ? ' dv-img-fit' : ''}`}
+            className={`dv-img${fitLike ? ' dv-img-fit' : ''}`}
             src={activeUrl}
             alt={label}
             onError={() => setImgFailed(true)}
-            onLoad={() => {
-              measureImgRect();
-              if (initialZoom !== FIT_ZOOM && !initialZoomDone.current) {
-                initialZoomDone.current = true;
-                fitWidthRef.current = measureFitWidth();
-                setZoom(initialZoom);
-              }
-            }}
+            onLoad={measureImgRect}
             // På mobil öppnar ett tryck på kvittot helskärmsvyn, där det går
             // att zooma och panorera utan att formuläret ligger i vägen.
-            onClick={expandable && zoom === FIT_ZOOM && isNarrowScreen() ? () => setExpanded(true) : undefined}
-            style={zoom === FIT_ZOOM
-              ? (expandable ? { cursor: 'zoom-in' } : undefined)
+            onClick={expandable && fitLike && isNarrowScreen() ? () => setExpanded(true) : undefined}
+            style={fitLike
+              ? { ...(expandable ? { cursor: 'zoom-in' } : {}), ...(zoom !== FIT_ZOOM ? { width: `${zoom * 100}%`, height: `${zoom * 100}%` } : {}) }
               : { width: fitWidthRef.current ? `${Math.round(fitWidthRef.current * zoom)}px` : `${zoom * 100}%`, maxWidth: 'none', maxHeight: 'none' }}
           />
         ) : kind === 'pdf' ? (
