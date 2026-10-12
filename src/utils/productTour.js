@@ -17,6 +17,7 @@
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import '../styles/productTour.css';
+import { supabase } from '../supabaseClient';
 
 // Ökas om stegen ändras på ett sätt som gör en redan visad rundtur
 // missvisande (t.ex. ett steg pekar på ett element som flyttats/döpts om)
@@ -28,11 +29,20 @@ function storageKey(uid) {
   return `bokix_tour_done_${TOUR_VERSION}_${uid}`;
 }
 
+// Markeringen sparas på två ställen: i webbläsaren (snabbt) och på kontot
+// (user_metadata.bokix_tour_seen), så att rundturen inte kommer tillbaka i
+// en ny webbläsare, på en ny enhet eller när Safari rensat localStorage.
+const META_KEY = 'bokix_tour_seen';
+// Automatiskt bara för nya konton. Befintliga användare startar den själva
+// under Hjälp och support.
+const AUTO_START_MAX_AGE_DAYS = 7;
+
 /** true = redan sedd (eller inget känt konto att komma ihåg det på — visas
  * då hellre INTE automatiskt än att riskera att störa en delad/utloggad
  * session). false = ska visas automatiskt vid nästa tillfälle. */
-export function hasSeenTour(uid) {
+export function hasSeenTour(uid, user = null) {
   if (!uid) return true;
+  if (user?.user_metadata?.[META_KEY]) return true;
   try {
     return localStorage.getItem(storageKey(uid)) === '1';
   } catch {
@@ -47,8 +57,11 @@ function markTourSeen(uid) {
   try {
     localStorage.setItem(storageKey(uid), '1');
   } catch {
-    // Går inte att komma ihåg — ofarligt, rundturen visar sig bara igen.
+    // Går inte att komma ihåg lokalt — kontot kommer ihåg det nedan.
   }
+  // På kontot också, en gång. Misslyckas det gör det inget: localStorage
+  // och åldersgränsen hindrar ändå att rundturen tjatar.
+  supabase.auth.updateUser({ data: { [META_KEY]: TOUR_VERSION } }).catch(() => {});
 }
 
 /** Pollar tills `selector` finns i DOM:et, eller tills `timeout` gått ut
@@ -291,9 +304,12 @@ export function startProductTour({ uid, navigate, hiddenTabs = [] } = {}) {
     onNextClick: nav.onNextClick,
     onPrevClick: nav.onPrevClick,
     onCloseClick: nav.onCloseClick,
-    onDestroyed: () => markTourSeen(uid),
+    onDestroyed: () => { try { localStorage.setItem(storageKey(uid), '1'); } catch { /* privat läge */ } },
   });
 
+  // Markeras som sedd redan när den startar: stängs fliken eller laddas
+  // sidan om mitt i rundturen ska den inte börja om vid nästa inloggning.
+  markTourSeen(uid);
   driverObj.drive();
   return driverObj;
 }
@@ -309,7 +325,10 @@ export async function startProductTourWhenReady({ uid, navigate, hiddenTabs = []
 /** Auto-start vid inloggning — bara om kontot inte redan sett den här
  * versionen. Anropas från App.jsx efter att inloggningen/betalspärrarna
  * släppt igenom till den riktiga app-vyn, se dess egen kommentar. */
-export function maybeAutoStartTour(uid, navigate, hiddenTabs = []) {
-  if (hasSeenTour(uid)) return null;
+export function maybeAutoStartTour(uid, navigate, hiddenTabs = [], user = null) {
+  if (hasSeenTour(uid, user)) return null;
+  // Bara nya konton (eller okänd ålder = hellre inte).
+  const created = user?.created_at ? new Date(user.created_at).getTime() : NaN;
+  if (!Number.isFinite(created) || Date.now() - created > AUTO_START_MAX_AGE_DAYS * 86400000) return null;
   return startProductTourWhenReady({ uid, navigate, hiddenTabs });
 }

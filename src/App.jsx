@@ -3163,7 +3163,7 @@ function App() {
     // handleNavTabChange skickas med så rundturen kan navigera in på
     // varje sektion på riktigt (se productTour.js:s withNavigation).
     // Gömda funktioner (utils/optionalFeatures.js) hoppas över i rundturen.
-    maybeAutoStartTour(user.id, handleNavTabChange, hiddenFeatureNavIds(data.companies?.[data.activeCompanyId]));
+    maybeAutoStartTour(user.id, handleNavTabChange, hiddenFeatureNavIds(data.companies?.[data.activeCompanyId]), user);
   }, [isLoggedIn, showOnboarding, subscriptionGate, user, data.activeCompanyId, data.companies, subscriptionsMap]);
 
   const handleLogin = () => {
