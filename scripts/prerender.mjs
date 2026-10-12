@@ -34,7 +34,13 @@ const SITE_URL = 'https://www.bokix.se';
 const templatePath = path.join(distDir, 'index.html');
 const template = fs.readFileSync(templatePath, 'utf-8');
 
-fs.writeFileSync(path.join(distDir, 'app-shell.html'), template);
+// Appskalet (inloggning, registrering, okända adresser) är tomt tills
+// JavaScriptet körts, och Bings webbplatsgenomsökning läser rå HTML: utan
+// rubrik flaggas "H1 tag missing". En dold h1 i #root ger den en rubrik
+// (även för skärmläsare under laddningen); createRoot ersätter den direkt.
+const APP_SHELL_H1 = '<h1 style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">Bokix: enkel bokföring online för småföretagare</h1>';
+if (!template.includes('<div id="root"></div>')) throw new Error('Hittade inte <div id="root"></div> i dist/index.html för appskalet.');
+fs.writeFileSync(path.join(distDir, 'app-shell.html'), template.replace('<div id="root"></div>', `<div id="root">${APP_SHELL_H1}</div>`));
 
 const HEAD_START = '<!-- BOKIX_SEO_META_START -->';
 const HEAD_END = '<!-- BOKIX_SEO_META_END -->';
