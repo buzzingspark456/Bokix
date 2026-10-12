@@ -38,6 +38,11 @@ export const ORG_TYPE_PAGES = [
       { title: 'Lägg in kvitton och fakturor löpande', body: 'Fota kvittot eller skicka fakturan från Bokix. Det som är osäkert hamnar i Granskning i stället för att gissas.' },
       { title: 'Deklarera moms och gör bokslutet', body: 'Momsen och NE-bilagan räknas fram ur bokföringen. Du laddar ned filerna och lämnar in hos Skatteverket med BankID.' },
     ],
+    facts: [
+      { title: "Du och firman är samma person", body: "En enskild firma är ingen egen juridisk person. Överskottet beskattas hos dig som inkomst av näringsverksamhet, och det redovisas på NE-bilagan i din egen deklaration." },
+      { title: "Egenavgifter i stället för arbetsgivaravgift", body: "Du betalar egenavgifter på överskottet, inte arbetsgivaravgift på en lön. Räkna på vad som blir kvar i egenavgiftskalkylatorn." },
+      { title: "Förenklat årsbokslut räcker oftast", body: "Är omsättningen normalt högst 3 miljoner kr räcker ett förenklat årsbokslut. Det sparas med bokföringen och är underlaget för NE-bilagan." },
+    ],
     faq: [
       { q: 'Behöver jag ett bokföringsprogram för enskild firma?', a: 'Alla enskilda firmor är bokföringsskyldiga. Ett bokföringsprogram är inget krav, men det gör jobbet mycket enklare: momsen och NE-bilagan räknas fram ur det du redan bokfört, och kvitton och fakturor sparas på samma ställe.' },
       { q: 'Fyller Bokix i NE-bilagan?', a: 'Bokix ger förslag på beloppen i NE-bilagan utifrån bokföringen. Du stämmer av dem och lämnar in själv hos Skatteverket. Bokix skickar aldrig in något åt dig.' },
@@ -71,6 +76,11 @@ export const ORG_TYPE_PAGES = [
       { title: 'Skapa kontot med organisationsnumret', body: 'Bokix hämtar bolagets uppgifter från Bolagsverket och väljer räkenskapsår och momsperiod åt dig.' },
       { title: 'Bokför löpande under året', body: 'Kvitton läses av, fakturor bokförs när de skickas och betalas, och lönen bokförs när du kört den.' },
       { title: 'Gör bokslut och årsredovisning', body: 'Bokix räknar fram INK2 och årsredovisningen. Du granskar, skriver under och lämnar in själv.' },
+    ],
+    facts: [
+      { title: "Bolaget är en egen juridisk person", body: "Aktiebolaget betalar bolagsskatt och lämnar en egen inkomstdeklaration, INK2. Du tar ut pengar som lön eller utdelning." },
+      { title: "Årsredovisning inom sju månader", body: "Årsredovisningen ska vara hos Bolagsverket senast sju månader efter räkenskapsårets slut. Bolagsstämman hålls senast sex månader efter." },
+      { title: "Utdelning beslutas på stämman", body: "Utdelningen beslutas på bolagsstämman och bokförs som en skuld tills den betalas ut. Hur mycket som beskattas som kapital avgörs av gränsbeloppet enligt 3:12." },
     ],
     faq: [
       { q: 'Vilket bokföringsprogram passar ett litet aktiebolag?', a: 'Ett som klarar hela året: fakturor, moms, lön och bokslut med INK2 och årsredovisning. Bokix har allt det i samma pris, utan tillägg per funktion.' },
@@ -106,6 +116,11 @@ export const ORG_TYPE_PAGES = [
       { title: 'Bjud in delägaren', body: 'Ni kan arbeta i samma bokföring samtidigt. Tre användare ingår i priset.' },
       { title: 'Gör bokslutet', body: 'Resultatet fördelas på delägarna, som deklarerar sin andel i sin egen inkomstdeklaration.' },
     ],
+    facts: [
+      { title: "Bolaget betalar ingen inkomstskatt", body: "Ett handelsbolag beskattas inte självt. Årets resultat delas på delägarna, som var och en beskattas för sin andel i sin egen deklaration." },
+      { title: "Varje delägare har ett eget kapitalkonto", body: "Insättningar, uttag och andel av resultatet bokförs per delägare. Vid bokslutet förs årets resultat över till delägarnas kapitalkonton." },
+      { title: "Kommanditbolag har två sorters delägare", body: "I ett kommanditbolag finns minst en komplementär med obegränsat ansvar och minst en kommanditdelägare med begränsat ansvar." },
+    ],
     faq: [
       { q: 'Lämnar ett handelsbolag INK2?', a: 'Nej. Ett handels- eller kommanditbolag betalar ingen egen bolagsskatt. Resultatet fördelas på delägarna, som deklarerar sin andel i sin egen deklaration. Därför visar Bokix inte INK2 för handelsbolag.' },
       { q: 'Kan båda delägarna använda Bokix?', a: 'Ja. Upp till tre personer kan arbeta i samma bokföring, och det ingår i priset.' },
@@ -139,6 +154,11 @@ export const ORG_TYPE_PAGES = [
       { title: 'Skapa kontot med organisationsnumret', body: 'Bokix hämtar föreningens uppgifter och väljer räkenskapsår och momsperiod åt dig.' },
       { title: 'Bjud in kassören eller revisorn', body: 'Upp till tre personer kan arbeta i samma bokföring.' },
       { title: 'Gör bokslut och INK2', body: 'Bokix räknar fram INK2 ur bokföringen. Du granskar och lämnar in själv hos Skatteverket.' },
+    ],
+    facts: [
+      { title: "Föreningsstämman beslutar", body: "Medlemmarna fastställer resultat- och balansräkningen på föreningsstämman och beslutar om hur överskottet ska användas." },
+      { title: "Föreningen ska ha en revisor", body: "En ekonomisk förening ska ha minst en revisor. Revisorn kan bjudas in i Bokix och granska samma bokföring som kassören." },
+      { title: "Beskattas som ett aktiebolag", body: "En ekonomisk förening betalar inkomstskatt och lämnar INK2, precis som ett aktiebolag." },
     ],
     faq: [
       { q: 'Passar Bokix en ekonomisk förening?', a: 'Ja, för den löpande bokföringen, moms, lön och bokslut med INK2. Årsredovisningen i Bokix är byggd för aktiebolag, så den behöver föreningen göra på annat sätt.' },
