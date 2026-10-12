@@ -9,7 +9,8 @@
 //  - INK2 (med SRU-fil) för aktiebolag och ekonomisk förening.
 //  - Handels- och kommanditbolag: ingen INK2, delägarna deklarerar sin andel
 //    (N3A). Bokix fyller inte i INK4, så det lovas inte.
-//  - Årsredovisning enligt K2 bara för aktiebolag, som PDF att skriva under.
+//  - Årsredovisning enligt K2 för aktiebolag och ekonomisk förening, som PDF
+//    att skriva under (föreningen med medlemsinsatser och föreningsstämma).
 //    Bokix lämnar inte in något till Bolagsverket eller Skatteverket.
 
 const PRICE = '129 kr/mån utan anställda och 179 kr/mån med anställda. Ingen moms tillkommer och allt ingår.';
@@ -137,23 +138,24 @@ export const ORG_TYPE_PAGES = [
     path: '/bokforingsprogram-ekonomisk-forening',
     short: 'Ekonomisk förening',
     seoTitle: 'Bokföringsprogram för ekonomisk förening | Bokix',
-    seoDescription: 'Bokix är ett enkelt bokföringsprogram för ekonomiska föreningar. Fakturor, kvitton, moms, lön och INK2 i ett verktyg. 30 dagar gratis.',
+    seoDescription: 'Bokix är ett enkelt bokföringsprogram för ekonomiska föreningar. Fakturor, moms, lön, INK2 och årsredovisning enligt K2 i ett verktyg. 30 dagar gratis.',
     eyebrow: 'Bokföringsprogram för ekonomisk förening',
     title: 'Bokföring för ekonomisk förening',
-    lead: 'Fakturor till medlemmar och kunder, kvitton, moms och lön på ett ställe. Vid bokslutet räknar Bokix fram INK2 ur bokföringen. Flera i styrelsen kan arbeta i samma bokföring.',
-    highlights: ['Tre användare ingår', 'INK2 med SRU-fil', 'Moms som fil', 'Rapporter till styrelsen'],
+    lead: 'Fakturor till medlemmar och kunder, kvitton, moms och lön på ett ställe. Vid bokslutet räknar Bokix fram INK2 och gör årsredovisningen enligt K2. Flera i styrelsen kan arbeta i samma bokföring.',
+    highlights: ['Tre användare ingår', 'INK2 med SRU-fil', 'Årsredovisning enligt K2', 'Rapporter till styrelsen'],
     included: [
       'Löpande bokföring med BAS-kontoplanen, med ett enkelt läge utan debet och kredit.',
       'Fakturor och offerter, och kvitton som läses av från ett foto.',
       'Momsdeklarationen per månad, kvartal eller år, som fil att lämna in hos Skatteverket.',
       'Lön med skattetabeller, lönebesked, AGI-fil och betalfil till banken.',
       'Bokslut och INK2 med SRU-fil till inkomstdeklarationen.',
+      'Årsredovisning enligt K2 som PDF att skriva under, med medlemsinsatser och förslag till föreningsstämman.',
       'Resultat- och balansräkning och nyckeltal att visa styrelsen och på stämman.',
     ],
     steps: [
       { title: 'Skapa kontot med organisationsnumret', body: 'Bokix hämtar föreningens uppgifter och väljer räkenskapsår och momsperiod åt dig.' },
       { title: 'Bjud in kassören eller revisorn', body: 'Upp till tre personer kan arbeta i samma bokföring.' },
-      { title: 'Gör bokslut och INK2', body: 'Bokix räknar fram INK2 ur bokföringen. Du granskar och lämnar in själv hos Skatteverket.' },
+      { title: 'Gör bokslut, INK2 och årsredovisning', body: 'Bokix räknar fram INK2 och årsredovisningen ur bokföringen. Styrelsen skriver under och föreningsstämman fastställer den.' },
     ],
     facts: [
       { title: "Föreningsstämman beslutar", body: "Medlemmarna fastställer resultat- och balansräkningen på föreningsstämman och beslutar om hur överskottet ska användas." },
@@ -161,7 +163,8 @@ export const ORG_TYPE_PAGES = [
       { title: "Beskattas som ett aktiebolag", body: "En ekonomisk förening betalar inkomstskatt och lämnar INK2, precis som ett aktiebolag." },
     ],
     faq: [
-      { q: 'Passar Bokix en ekonomisk förening?', a: 'Ja, för den löpande bokföringen, moms, lön och bokslut med INK2. Årsredovisningen i Bokix är byggd för aktiebolag, så den behöver föreningen göra på annat sätt.' },
+      { q: 'Passar Bokix en ekonomisk förening?', a: 'Ja. Den löpande bokföringen, moms, lön, bokslut med INK2 och årsredovisning enligt K2 finns i Bokix. Årsredovisningen använder föreningens egna poster, som medlemsinsatser, och föreningsstämman i stället för årsstämma.' },
+      { q: 'Måste föreningen skicka årsredovisningen till Bolagsverket?', a: 'Det beror på föreningens storlek, till exempel antal anställda och tillgångarnas värde. Kolla vad som gäller för er på bolagsverket.se. Bokix gör årsredovisningen, men skickar inte in den åt er.' },
       { q: 'Kan flera i styrelsen använda Bokix?', a: 'Ja. Upp till tre personer kan arbeta i samma bokföring, och det ingår i priset.' },
       { q: 'Vad kostar Bokix för en ekonomisk förening?', a: PRICE + ' De första 30 dagarna är gratis.' },
       { q: 'Fungerar Bokix för en ideell förening?', a: 'Ideella föreningar och stiftelser lämnar en annan deklaration (INK3) som Bokix inte fyller i. Den löpande bokföringen fungerar, men deklarationen får göras på annat sätt.' },

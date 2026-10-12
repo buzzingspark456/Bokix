@@ -1,5 +1,8 @@
 /**
- * Årsredovisning för ett mindre aktiebolag enligt K2 (BFNAR 2016:10).
+ * Årsredovisning för ett mindre aktiebolag eller en ekonomisk förening
+ * enligt K2 (BFNAR 2016:10). Siffrorna är desamma; det som skiljer är eget
+ * kapital (medlemsinsatser i stället för aktiekapital) och orden i texten
+ * (föreningen, föreningsstämma, medlemmarna), se annualReportTerms.
  *
  * Siffrorna kommer ur samma beräkningar som INK2R (ink2r.js och
  * ink2rResultat.js), eftersom INK2R:s rader följer årsredovisningens
@@ -175,11 +178,33 @@ function buildSections(spec, cur, prev) {
   return out;
 }
 
+// ── Ord per bolagsform ───────────────────────────────────────────────────
+// Används i PDF:en (annualReportPdf.js), som alltid är på svenska.
+const TERMS = {
+  ab: {
+    kind: 'ab', org: 'bolaget', Org: 'Bolaget', orgGen: 'bolagets',
+    capital: 'Aktiekapital', otherRestricted: 'Övrigt bundet eget kapital',
+    dividendTo: 'Utdelas till aktieägarna',
+    meeting: 'årsstämma', Meeting: 'Årsstämman',
+  },
+  association: {
+    kind: 'association', org: 'föreningen', Org: 'Föreningen', orgGen: 'föreningens',
+    capital: 'Medlemsinsatser', otherRestricted: 'Reservfond och övrigt bundet eget kapital',
+    dividendTo: 'Utdelas till medlemmarna',
+    meeting: 'föreningsstämma', Meeting: 'Föreningsstämman',
+  },
+};
+export const isAssociation = (orgType) => orgType === 'Ekonomisk förening';
+export function annualReportTerms(orgType) {
+  return isAssociation(orgType) ? TERMS.association : TERMS.ab;
+}
+
 // ── Eget kapital ─────────────────────────────────────────────────────────
-// Aktiebolagets eget kapital per konto: 2081 aktiekapital, 2082 ej
-// registrerat aktiekapital, 2085 uppskrivningsfond, 2086 reservfond, 2087
-// bunden överkursfond (bundet); 2091-2098 balanserat resultat och 2097
-// överkursfond (fritt); 2099 årets resultat.
+// Eget kapital per konto: 2081 aktiekapital, 2082 ej registrerat
+// aktiekapital, 2083 medlemsinsatser, 2084 förlagsinsatser, 2085
+// uppskrivningsfond, 2086 reservfond (bundet); 2091-2098 balanserat
+// resultat och 2097 överkursfond (fritt); 2099 årets resultat. För en
+// förening visas förlagsinsatserna (2084) som en egen rad.
 function equityAt(verifications, asOf) {
   const bal = new Map();
   for (const v of verifications) {
@@ -193,13 +218,14 @@ function equityAt(verifications, asOf) {
   const sum = (pred) => [...bal.entries()].filter(([c]) => pred(Number(c))).reduce((s, [, v]) => s + v, 0);
   return {
     shareCapital: sum(c => c >= 2081 && c <= 2084),
+    contributions: sum(c => c === 2084),
     restricted: sum(c => c >= 2085 && c <= 2089),
     retained: sum(c => c >= 2090 && c <= 2098),
     resultAccount: sum(c => c === 2099),
   };
 }
 
-function buildEquity(verifications, fy, yearResult) {
+function buildEquity(verifications, fy, yearResult, terms = TERMS.ab) {
   const dayBefore = new Date(`${fy.start}T12:00:00`);
   dayBefore.setDate(dayBefore.getDate() - 1);
   const open = equityAt(verifications, iso(dayBefore));
@@ -217,10 +243,15 @@ function buildEquity(verifications, fy, yearResult) {
   // till balanserat resultat, med eventuell utdelning.
   const openRetained = open.retained;
   const openResult = freeAt(open, iso(dayBefore)) - open.retained;
+  // Förening med förlagsinsatser: de står på en egen rad, inte bland medlemsinsatserna.
+  const splitContrib = terms.kind === 'association' && (Math.abs(open.contributions) >= 0.5 || Math.abs(close.contributions) >= 0.5);
+  const capOpen = open.shareCapital - (splitContrib ? open.contributions : 0);
+  const capClose = close.shareCapital - (splitContrib ? close.contributions : 0);
   const columns = [
-    { key: 'shareCapital', label: 'Aktiekapital', open: open.shareCapital, close: close.shareCapital },
+    { key: 'shareCapital', label: terms.capital, open: capOpen, close: capClose },
+    ...(splitContrib ? [{ key: 'contributions', label: 'Förlagsinsatser', open: open.contributions, close: close.contributions }] : []),
     ...(Math.abs(open.restricted) >= 0.5 || Math.abs(close.restricted) >= 0.5
-      ? [{ key: 'restricted', label: 'Övrigt bundet kapital', open: open.restricted, close: close.restricted }] : []),
+      ? [{ key: 'restricted', label: terms.kind === 'association' ? 'Reservfond m.m.' : 'Övrigt bundet kapital', open: open.restricted, close: close.restricted }] : []),
     { key: 'retained', label: 'Balanserat resultat', open: openRetained, close: closeRetained },
     { key: 'result', label: t('ui.arets_resultat'), open: openResult, close: closeResult },
   ];
@@ -279,7 +310,8 @@ function assetNote(verifications, fy, group) {
  * Hela årsredovisningens innehåll för räkenskapsåret `fy` ({ start, end, label }).
  * `details` är det användaren fyller i (verksamhet, styrelse, utdelning m.m.).
  */
-export function computeAnnualReport({ verifications = [], accounts = [], company, fy, details = {}, employeesAverage }) {
+export function computeAnnualReport({ verifications = [], accounts = [], company, fy, details = {}, employeesAverage, orgType }) {
+  const terms = annualReportTerms(orgType);
   const prevFy = previousFiscalYear(fy, company);
   const hasPrevious = hasBookings(verifications, prevFy);
 
@@ -294,8 +326,8 @@ export function computeAnnualReport({ verifications = [], accounts = [], company
   const cur = rowAmounts(curBr);
   const prev = rowAmounts(prevBr);
   const assets = buildSections(BR_ASSETS, cur, prev);
-  const equity = buildEquity(verifications, fy, yearResult);
-  const prevEquity = hasPrevious ? buildEquity(verifications, prevFy, income.keyFigures['Årets resultat'].previous) : null;
+  const equity = buildEquity(verifications, fy, yearResult, terms);
+  const prevEquity = hasPrevious ? buildEquity(verifications, prevFy, income.keyFigures['Årets resultat'].previous, terms) : null;
   const liabilities = buildSections(BR_LIABILITIES, cur, prev);
   const totalAssets = assets.reduce((s, x) => s + x.current, 0);
   const totalAssetsPrev = assets.reduce((s, x) => s + x.previous, 0);
@@ -315,7 +347,7 @@ export function computeAnnualReport({ verifications = [], accounts = [], company
     const inc = buildIncomeStatement(contrib, new Map());
     const br = computeInk2r(verifications, accounts, endOfDay(y.end));
     const rows = rowAmounts(br);
-    const eqY = buildEquity(verifications, y, inc.keyFigures['Årets resultat'].current);
+    const eqY = buildEquity(verifications, y, inc.keyFigures['Årets resultat'].current, terms);
     const untaxed = (rows.get('2.29') || 0) + (rows.get('2.30') || 0) + (rows.get('2.31') || 0);
     const total = br.totalAssets;
     const solidity = total > 0 ? (eqY.total + untaxed * (1 - CORPORATE_TAX_RATE)) / total * 100 : null;
@@ -333,7 +365,7 @@ export function computeAnnualReport({ verifications = [], accounts = [], company
   if (!details.boardMembers || !String(details.boardMembers).trim()) warnings.push(t('ui.fyll_i_styrelsens_ledamoter_de_skriver_under_ars'));
 
   return {
-    fy, prevFy, hasPrevious,
+    fy, prevFy, hasPrevious, terms,
     income,
     yearResult,
     balance: {

@@ -21,6 +21,8 @@ export function formatKr(v) {
 const fmtDate = (isoDate) => isoDate || '';
 
 export function generateAnnualReportPdf({ company, report, details = {} }) {
+  // Orden för aktiebolag eller ekonomisk förening (utils/annualReport.js).
+  const T = report.terms || { kind: 'ab', org: 'bolaget', Org: 'Bolaget', orgGen: 'bolagets', capital: 'Aktiekapital', otherRestricted: 'Övrigt bundet eget kapital', dividendTo: 'Utdelas till aktieägarna', meeting: 'årsstämma', Meeting: 'Årsstämman' };
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const { fy, prevFy, hasPrevious } = report;
   let y = 0;
@@ -96,10 +98,10 @@ export function generateAnnualReportPdf({ company, report, details = {} }) {
   // ── Förvaltningsberättelse ──
   newPage();
   h1('Förvaltningsberättelse');
-  para(`Styrelsen för ${company?.name || 'bolaget'} avger härmed årsredovisning för räkenskapsåret ${fy.start} – ${fy.end}.`);
+  para(`Styrelsen för ${company?.name || T.org} avger härmed årsredovisning för räkenskapsåret ${fy.start} – ${fy.end}.`);
   h2('Verksamheten');
-  para(details.business || 'Beskriv bolagets verksamhet här.');
-  if (details.seat) para(`Bolaget har sitt säte i ${details.seat}.`);
+  para(details.business || `Beskriv ${T.orgGen} verksamhet här.`);
+  if (details.seat) para(`${T.Org} har sitt säte i ${details.seat}.`);
   if (details.events) { h2('Väsentliga händelser under räkenskapsåret'); para(details.events); }
 
   h2('Flerårsöversikt');
@@ -144,7 +146,7 @@ export function generateAnnualReportPdf({ company, report, details = {} }) {
     y += 13.5;
   };
   eqRow('Belopp vid årets ingång', c => c.open);
-  if (eqCols.some(c => Math.abs(c.other) >= 0.5)) eqRow('Disposition enligt årsstämma och utdelning', c => c.other);
+  if (eqCols.some(c => Math.abs(c.other) >= 0.5)) eqRow(`Disposition enligt ${T.meeting} och utdelning`, c => c.other);
   eqRow('Årets resultat', c => c.yearResult);
   eqRow('Belopp vid årets utgång', c => c.close, true);
   y += 8;
@@ -158,12 +160,12 @@ export function generateAnnualReportPdf({ company, report, details = {} }) {
   dispRow('Summa', d.available, true);
   y += 6;
   para('disponeras enligt följande:');
-  if (d.dividend > 0) dispRow('Utdelas till aktieägarna', d.dividend);
+  if (d.dividend > 0) dispRow(T.dividendTo, d.dividend);
   dispRow('Balanseras i ny räkning', d.carriedForward);
   dispRow('Summa', d.available, true);
   y += 6;
-  if (d.dividend > 0) para('Styrelsen anser att den föreslagna utdelningen är försvarlig med hänsyn till de krav som verksamhetens art, omfattning och risker ställer på storleken av det egna kapitalet, bolagets konsolideringsbehov, likviditet och ställning i övrigt.', 9);
-  para('Bolagets resultat och ställning i övrigt framgår av efterföljande resultat- och balansräkning med noter.');
+  if (d.dividend > 0) para(`Styrelsen anser att den föreslagna utdelningen är försvarlig med hänsyn till de krav som verksamhetens art, omfattning och risker ställer på storleken av det egna kapitalet, ${T.orgGen} konsolideringsbehov, likviditet och ställning i övrigt.`, 9);
+  para(`${T.orgGen.charAt(0).toUpperCase()}${T.orgGen.slice(1)} resultat och ställning i övrigt framgår av efterföljande resultat- och balansräkning med noter.`);
 
   // ── Resultaträkning ──
   newPage();
@@ -214,9 +216,11 @@ export function generateAnnualReportPdf({ company, report, details = {} }) {
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.text('Bundet eget kapital', MARGIN_X + 8, y); y += 13;
   const cap = eq.columns.find(c => c.key === 'shareCapital');
   const pcap = peq?.columns.find(c => c.key === 'shareCapital');
-  amountRow('Aktiekapital', cap.close, pcap?.close ?? 0, { indent: 16 });
+  amountRow(T.capital, cap.close, pcap?.close ?? 0, { indent: 16 });
+  const contrib = eq.columns.find(c => c.key === 'contributions');
+  if (contrib) amountRow('Förlagsinsatser', contrib.close, peq?.columns.find(c => c.key === 'contributions')?.close ?? 0, { indent: 16 });
   const restr = eq.columns.find(c => c.key === 'restricted');
-  if (restr) amountRow('Övrigt bundet eget kapital', restr.close, peq?.columns.find(c => c.key === 'restricted')?.close ?? 0, { indent: 16 });
+  if (restr) amountRow(T.otherRestricted, restr.close, peq?.columns.find(c => c.key === 'restricted')?.close ?? 0, { indent: 16 });
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); ensure(14); doc.text('Fritt eget kapital', MARGIN_X + 8, y); y += 13;
   amountRow('Balanserat resultat', eq.retained, peq?.retained ?? 0, { indent: 16 });
   amountRow('Årets resultat', eq.yearResult, peq?.yearResult ?? 0, { indent: 16 });
@@ -271,7 +275,7 @@ export function generateAnnualReportPdf({ company, report, details = {} }) {
   // ── Fastställelseintyg ──
   newPage();
   h1('Fastställelseintyg');
-  para(`Undertecknad styrelseledamot i ${company?.name || 'bolaget'}${company?.orgNr ? `, org.nr ${company.orgNr},` : ''} intygar att resultaträkningen och balansräkningen har fastställts på årsstämma den ${details.agmDate || '______________'}. Årsstämman beslutade att godkänna styrelsens förslag till disposition av bolagets resultat.`);
+  para(`Undertecknad styrelseledamot i ${company?.name || T.org}${company?.orgNr ? `, org.nr ${company.orgNr},` : ''} intygar att resultaträkningen och balansräkningen har fastställts på ${T.meeting} den ${details.agmDate || '______________'}. ${T.Meeting} beslutade att godkänna styrelsens förslag till disposition av ${T.orgGen} resultat.`);
   para('Jag intygar att innehållet i dessa kopior av årsredovisningen överensstämmer med originalen.');
   y += 30;
   doc.line(MARGIN_X, y, MARGIN_X + 220, y);

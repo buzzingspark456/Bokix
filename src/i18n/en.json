@@ -4330,5 +4330,18 @@
     "todo": "To do on the Home page",
     "markAll": "All read",
     "inboxManySenders": "{{count}} new receipts by email, including from {{from}}"
+  },
+  "arAssoc": {
+    "arDue": "General meeting by {{date}}",
+    "stepAgm": "General meeting",
+    "stepAgmSub": "By {{date}}. The meeting adopts the accounts and decides on the surplus.",
+    "stepSend": "Send to Bolagsverket, if the association has to",
+    "stepSendSub": "It depends on the size of the association, for example the number of employees and the value of its assets. Check what applies to you on bolagsverket.se.",
+    "reportText": "Briefly what the association does and where it is registered.",
+    "agmBy": "The general meeting must be held by {{date}}.",
+    "dividendLabel": "Proposed dividend to members (SEK)",
+    "businessPh": "The association runs ...",
+    "todoSub": "Financial year {{label}}, for the general meeting",
+    "todoStatus": "Download, sign and bring to the general meeting."
   }
 }

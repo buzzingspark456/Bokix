@@ -9,7 +9,7 @@ import Dividend from './Dividend';
 import AnnualReport from './AnnualReport';
 import EcSalesList from './EcSalesList';
 import { computeEcSalesList, ecPeriod, ecDeadline } from '../utils/ecSalesList';
-import { previousFiscalYear, annualReportDeadline } from '../utils/annualReport';
+import { previousFiscalYear, annualReportDeadline, agmDeadline } from '../utils/annualReport';
 import { pendingDepreciation } from '../utils/fixedAssets';
 import { isReconciledThrough } from '../utils/reconciliation';
 import ListPageHeader from './shared/ListPageHeader';
@@ -736,7 +736,7 @@ export default function Taxes({
     ...(company?.vatRegistered !== false && hasEuCustomers ? [{ id: 'ecsales', label: tr('ui.periodisk_sammanstallning') }] : []),
     { id: 'yearend', label: tr('ui.arsbokslut') },
     // Årsredovisning till Bolagsverket, bara aktiebolag.
-    ...(orgType === 'Aktiebolag (AB)' ? [{ id: 'annual', label: tr('ui.arsredovisning') }] : []),
+    ...(orgType === 'Aktiebolag (AB)' || orgType === 'Ekonomisk förening' ? [{ id: 'annual', label: tr('ui.arsredovisning') }] : []),
     // INK2 för aktiebolag och ekonomisk förening. Inte ideell förening eller
     // stiftelse, som lämnar en annan blankett (INK3) som Bokix inte fyller i.
     ...(!filesOwnIncomeDeclaration && orgType !== 'Ideell förening / stiftelse' ? [{ id: 'ink2', label: tr('ui.inkomstdeklaration') }] : []),
@@ -971,7 +971,9 @@ export default function Taxes({
       const today0 = new Date();
       today0.setHours(0, 0, 0, 0);
       const prevFy = previousFiscalYear(fy, company);
-      const dueDate = new Date(`${annualReportDeadline(prevFy.end)}T00:00:00`);
+      // Förening: stämmans frist (alla föreningar ska inte skicka in till Bolagsverket).
+      const assocAr = orgType === 'Ekonomisk förening';
+      const dueDate = new Date(`${assocAr ? agmDeadline(prevFy.end) : annualReportDeadline(prevFy.end)}T00:00:00`);
       const daysLeft = Math.round((dueDate - today0) / 86400000);
       const hasPrevBookings = verifications.some(v => v.date >= prevFy.start && v.date <= prevFy.end);
       if (hasPrevBookings && daysLeft >= -90) {
@@ -979,10 +981,10 @@ export default function Taxes({
         const filedAt = filedDate(filedKey);
         list.push({
           key: 'annual', section: 'annual', title: tr('ui.arsredovisning'),
-          subtitle: tr('ui.rakenskapsar_till_bolagsverket', { label: prevFy.label }),
+          subtitle: assocAr ? tr('arAssoc.todoSub', { label: prevFy.label }) : tr('ui.rakenskapsar_till_bolagsverket', { label: prevFy.label }),
           dueDate, daysLeft,
           done: Boolean(filedAt),
-          status: filedAt ? tr('ui.inlamnad_datum', { filedAt }) : tr('ui.ladda_ner_skriv_under_efter_arsstamman_och_skick'),
+          status: filedAt ? tr('ui.inlamnad_datum', { filedAt }) : (assocAr ? tr('arAssoc.todoStatus') : tr('ui.ladda_ner_skriv_under_efter_arsstamman_och_skick')),
           cta: filedAt ? tr('ui.visa') : tr('ui.gor_arsredovisningen'),
           filedKey, canMark: true,
         });
@@ -1151,8 +1153,8 @@ export default function Taxes({
             <EcSalesList company={company} invoices={invoices} contacts={contacts} setCompanyInfo={setCompanyInfo} />
           )}
 
-          {activeSection === 'annual' && orgType === 'Aktiebolag (AB)' && (
-            <AnnualReport company={company} verifications={verifications} accounts={accounts} payrollRuns={payrollRuns} setCompanyInfo={setCompanyInfo} />
+          {activeSection === 'annual' && (orgType === 'Aktiebolag (AB)' || orgType === 'Ekonomisk förening') && (
+            <AnnualReport company={company} verifications={verifications} accounts={accounts} payrollRuns={payrollRuns} setCompanyInfo={setCompanyInfo} orgType={orgType} />
           )}
 
           {activeSection === 'dividend' && orgType === 'Aktiebolag (AB)' && (

@@ -35,7 +35,7 @@ export const BOKIX_FEATURES = [
   'Kontoutdrag från banken läses in som fil och matchas mot fakturorna.',
   'Momsdeklarationen räknas fram per månad, kvartal eller år, som fil att lämna in hos Skatteverket.',
   'Lön med skattetabeller, arbetsgivaravgift efter ålder, lönebesked, AGI-fil och betalfil till banken.',
-  'Bokslut, SRU-filer till inkomstdeklarationen och årsredovisning enligt K2 för aktiebolag.',
+  'Bokslut, SRU-filer till inkomstdeklarationen och årsredovisning enligt K2 för aktiebolag och ekonomiska föreningar.',
   'Rapporter: resultaträkning, balansräkning, nyckeltal, momsrapport, huvudbok med flera.',
   'SIE4-import och export, så att bokföringen kan flyttas in och ut.',
 ];

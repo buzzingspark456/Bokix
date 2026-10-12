@@ -4330,5 +4330,18 @@
     "todo": "Att göra på Startsidan",
     "markAll": "Allt är läst",
     "inboxManySenders": "{{count}} nya kvitton via e-post, bland annat från {{from}}"
+  },
+  "arAssoc": {
+    "arDue": "Föreningsstämma senast {{date}}",
+    "stepAgm": "Föreningsstämma",
+    "stepAgmSub": "Senast {{date}}. Stämman fastställer räkningarna och beslutar om överskottet.",
+    "stepSend": "Skicka till Bolagsverket, om föreningen ska det",
+    "stepSendSub": "Det beror på föreningens storlek, till exempel antal anställda och tillgångarnas värde. Kolla vad som gäller för er på bolagsverket.se.",
+    "reportText": "Kort om vad föreningen gör och var den har sitt säte.",
+    "agmBy": "Föreningsstämman ska hållas senast {{date}}.",
+    "dividendLabel": "Föreslagen utdelning till medlemmarna (kr)",
+    "businessPh": "Föreningen bedriver ...",
+    "todoSub": "Räkenskapsår {{label}}, till föreningsstämman",
+    "todoStatus": "Ladda ned, skriv under och ta med till föreningsstämman."
   }
 }

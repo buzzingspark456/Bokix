@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Download, AlertTriangle, CheckCircle2 } from './icons';
-import { computeAnnualReport, previousFiscalYear, annualReportDeadline, agmDeadline, averageEmployees } from '../utils/annualReport';
+import { computeAnnualReport, previousFiscalYear, annualReportDeadline, agmDeadline, averageEmployees, isAssociation } from '../utils/annualReport';
 import { formatKr, downloadAnnualReportPdf } from '../utils/annualReportPdf';
 import { activeFiscalYear } from '../utils/fiscalYear';
 import { daysFromToday } from '../utils/declarationDeadlines';
@@ -11,7 +11,10 @@ const fmtDate = (iso) => new Intl.DateTimeFormat(dateLocale(), { day: 'numeric',
 const daysText = (n) => (n < 0 ? t('ui.forsenad') : n === 0 ? t('ui.idag_2') : n === 1 ? t('ui.imorgon') : t('ui.om_dagar', { daysLeft: n }));
 
 /**
- * Årsredovisning för aktiebolag (K2), flik i Skatt och bokslut. Siffrorna
+ * Årsredovisning för aktiebolag och ekonomisk förening (K2), flik i Skatt
+ * och bokslut. För en förening används föreningens ord (föreningsstämma,
+ * medlemsinsatser, utdelning till medlemmarna), och fristen som visas är
+ * stämmans: alla föreningar behöver inte skicka in till Bolagsverket. Siffrorna
  * räknas i utils/annualReport.js, PDF:en byggs i utils/annualReportPdf.js.
  * Det användaren fyller i sparas per räkenskapsår i company.annualReports.
  *
@@ -19,7 +22,8 @@ const daysText = (n) => (n < 0 ? t('ui.forsenad') : n === 0 ? t('ui.idag_2') : n
  * (ÅRL 2 kap. 7 §), årsstämman hålls inom sex månader (ABL 7 kap. 10 §) och
  * årsredovisningen skickas till Bolagsverket inom sju månader (ÅRL 8 kap. 3 §).
  */
-export default function AnnualReport({ company, verifications = [], accounts = [], payrollRuns = [], setCompanyInfo }) {
+export default function AnnualReport({ company, verifications = [], accounts = [], payrollRuns = [], setCompanyInfo, orgType }) {
+  const assoc = isAssociation(orgType);
   // Förvalt: det senast avslutade räkenskapsåret. Det pågående året går att
   // välja för en förhandsvisning.
   const current = useMemo(() => activeFiscalYear(company), [company]);
@@ -42,10 +46,10 @@ export default function AnnualReport({ company, verifications = [], accounts = [
   };
 
   const report = useMemo(
-    () => computeAnnualReport({ verifications, accounts, company, fy, details, employeesAverage: suggestedEmployees }),
+    () => computeAnnualReport({ verifications, accounts, company, fy, details, employeesAverage: suggestedEmployees, orgType }),
     // details byggs om varje rendering; saved är det som faktiskt ändras.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [verifications, accounts, company, fy.key, saved, suggestedEmployees],
+    [verifications, accounts, company, fy.key, saved, suggestedEmployees, orgType],
   );
   const [busy, setBusy] = useState(false);
   // Valt steg i guiden; null = första steget som inte är klart.
@@ -53,7 +57,7 @@ export default function AnnualReport({ company, verifications = [], accounts = [
   const download = async () => {
     setBusy(true);
     try {
-      downloadAnnualReportPdf({ company, report, details }, `Arsredovisning-${(company?.name || 'bolaget').replace(/[^\wåäöÅÄÖ-]+/g, '-')}-${fy.key.replace('/', '-')}.pdf`);
+      downloadAnnualReportPdf({ company, report, details }, `Arsredovisning-${(company?.name || (assoc ? 'foreningen' : 'bolaget')).replace(/[^\wåäöÅÄÖ-]+/g, '-')}-${fy.key.replace('/', '-')}.pdf`);
     } finally {
       setBusy(false);
     }
@@ -68,8 +72,9 @@ export default function AnnualReport({ company, verifications = [], accounts = [
     return { ...prev, taxFilings: next };
   });
 
-  const deadline = annualReportDeadline(fy.end);
   const agmBy = agmDeadline(fy.end);
+  // Förening: stämmans datum är fristen som visas (inte alla ska skicka in).
+  const deadline = assoc ? agmBy : annualReportDeadline(fy.end);
   const ended = fy.end < new Date().toISOString().slice(0, 10);
   const locked = Boolean(company?.lockedFiscalYears?.[fy.key]);
   const daysLeft = daysFromToday(new Date(`${deadline}T00:00:00`));
@@ -107,7 +112,7 @@ export default function AnnualReport({ company, verifications = [], accounts = [
               ? t('yearEndUi.arFiled', { date: new Date(filedAt).toLocaleDateString('sv-SE') })
               : !ended
                 ? t('yearEndUi.arPreview')
-                : <>{t('yearEndUi.arDue', { date: fmtDate(deadline) })} · <strong>{daysText(daysLeft)}</strong></>}
+                : <>{t(assoc ? 'arAssoc.arDue' : 'yearEndUi.arDue', { date: fmtDate(deadline) })} · <strong>{daysText(daysLeft)}</strong></>}
           </div>
         </div>
         <div className="fp-actions">
@@ -149,11 +154,11 @@ export default function AnnualReport({ company, verifications = [], accounts = [
         {step.id === 'report' && (
           <>
             <h3 className="stepflow-h">{t('yearEndUi.report')}</h3>
-            <p className="stepflow-text">{t('arWizard.reportText')}</p>
+            <p className="stepflow-text">{t(assoc ? 'arAssoc.reportText' : 'arWizard.reportText')}</p>
             <div className="fp-fields">
               <div>
                 <label className="fp-label">{t('ui.verksamheten')}</label>
-                <textarea rows={3} className="fp-input" style={{ resize: 'vertical' }} value={details.business || ''} onChange={e => setField('business', e.target.value)} placeholder={t('ui.bolaget_bedriver_konsultverksamhet_inom_it')} />
+                <textarea rows={3} className="fp-input" style={{ resize: 'vertical' }} value={details.business || ''} onChange={e => setField('business', e.target.value)} placeholder={assoc ? t('arAssoc.businessPh') : t('ui.bolaget_bedriver_konsultverksamhet_inom_it')} />
               </div>
               <div className="fp-grid-2">
                 <div>
@@ -181,7 +186,7 @@ export default function AnnualReport({ company, verifications = [], accounts = [
             <p className="stepflow-text">{t('yearEndUi.available', { amount: formatKr(report.disposition.available) })}</p>
             <div className="fp-fields" style={{ maxWidth: '420px' }}>
               <div>
-                <label className="fp-label">{t('ui.foreslagen_utdelning_kr')}</label>
+                <label className="fp-label">{assoc ? t('arAssoc.dividendLabel') : t('ui.foreslagen_utdelning_kr')}</label>
                 <input type="number" min="0" className="fp-input" value={details.dividend ?? ''} onChange={e => setField('dividend', e.target.value === '' ? '' : Number(e.target.value))} placeholder="0" />
                 {/* ABL 17 kap. 3 §: bara fritt eget kapital får delas ut. */}
                 <div className={`fp-hint${overLimit ? ' bad' : ''}`}>
@@ -213,7 +218,7 @@ export default function AnnualReport({ company, verifications = [], accounts = [
                 <div>
                   <label className="fp-label">{t('ui.arsstammans_datum')}</label>
                   <input type="date" className="fp-input" value={details.agmDate || ''} onChange={e => setField('agmDate', e.target.value)} />
-                  <div className="fp-hint">{t('arWizard.agmBy', { date: fmtDate(agmBy) })}</div>
+                  <div className="fp-hint">{t(assoc ? 'arAssoc.agmBy' : 'arWizard.agmBy', { date: fmtDate(agmBy) })}</div>
                 </div>
               </div>
             </div>
@@ -236,11 +241,11 @@ export default function AnnualReport({ company, verifications = [], accounts = [
               </li>
               <li>
                 <span className="fp-step-mark">3</span>
-                <div>{t('yearEndUi.stepAgm')}<small>{t('yearEndUi.stepAgmSub', { date: fmtDate(agmBy) })}</small></div>
+                <div>{t(assoc ? 'arAssoc.stepAgm' : 'yearEndUi.stepAgm')}<small>{t(assoc ? 'arAssoc.stepAgmSub' : 'yearEndUi.stepAgmSub', { date: fmtDate(agmBy) })}</small></div>
               </li>
               <li className={filedAt ? 'done' : ''}>
                 <span className="fp-step-mark">{filedAt ? <CheckCircle2 size={14} /> : 4}</span>
-                <div>{t('yearEndUi.stepSend')}<small>{t('yearEndUi.stepSendSub', { date: fmtDate(deadline) })}</small></div>
+                <div>{t(assoc ? 'arAssoc.stepSend' : 'yearEndUi.stepSend')}<small>{assoc ? t('arAssoc.stepSendSub') : t('yearEndUi.stepSendSub', { date: fmtDate(deadline) })}</small></div>
               </li>
             </ol>
             <div className="fp-actions">
