@@ -1070,7 +1070,7 @@ function MarketingStyles() {
       /* ── Sidfoten. Samma mörka botten i båda teman, en färg (elfenben)
          i tre styrkor: rubriker dämpade, länkar mellan, hover vit. Ingen
          gradientlist eller färgade fläckar. */
-      .lp-footer { background: #0e2018; color: rgba(255,255,255,0.62); padding: 64px 24px 0; position: relative; overflow: hidden; border-top: 1px solid rgba(255,255,255,0.06); }
+      .lp-footer { background: #0e2018; color: rgba(255,255,255,0.62); padding: 64px 24px 28px; position: relative; overflow: hidden; border-top: 1px solid rgba(255,255,255,0.06); }
       .lp-footer-inner { max-width: 1120px; margin: 0 auto; position: relative; }
       .lp-footer-grid { display: grid; grid-template-columns: 1.4fr repeat(4, minmax(0, 1fr)); gap: 40px 32px; }
       .lp-footer-grid > * { min-width: 0; }
@@ -1084,7 +1084,7 @@ function MarketingStyles() {
       /* Ordmärket: hela texten syns, dämpad. En tänd bokstav tonar över
          till loggans färg. Hela bokstavens yta (bounding box) är klickbar
          via pointer-events: bounding-box, så man träffar även i o:s hål. */
-      .lp-footer-mark { max-width: 1120px; margin: 36px auto 0; padding-bottom: 20px; line-height: 0; }
+      .lp-footer-mark { margin-top: 56px; padding: 40px 0 32px; border-top: 1px solid rgba(255,255,255,0.1); line-height: 0; }
       .lp-footer-mark svg { display: block; width: 100%; height: auto; overflow: visible; }
       .lp-mark-letter { cursor: pointer; pointer-events: bounding-box; -webkit-tap-highlight-color: transparent; }
       .lp-mark-base { fill: rgba(255,255,255,0.07); transition: fill 0.35s ease; }
@@ -1097,7 +1097,7 @@ function MarketingStyles() {
         .lp-mark-base, .lp-mark-color { transition: none; }
       }
       .lp-footer-book { font-size: 13px; color: rgba(255,255,255,0.78); }
-      .lp-footer-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px 28px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 22px; margin-top: 56px; }
+      .lp-footer-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px 28px; }
       .lp-footer-copy { margin: 0; font-size: 13px; color: rgba(255,255,255,0.55); }
       .lp-footer-legal { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; }
       .lp-footer-legal .lp-footer-link { font-size: 13px; color: rgba(255,255,255,0.55); }
@@ -1109,11 +1109,10 @@ function MarketingStyles() {
       }
       /* Telefon: två jämna kolumner (2 + 2), centrerad bottenrad. */
       @media (max-width: 720px) {
-        .lp-footer { padding: 48px 20px 0; }
+        .lp-footer { padding: 48px 20px 28px; }
         .lp-footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 16px; }
         .lp-footer-brand { padding-bottom: 28px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .lp-footer-bottom { margin-top: 40px; }
-        .lp-footer-mark { margin-top: 28px; padding-bottom: 16px; }
+        .lp-footer-mark { margin-top: 40px; padding: 28px 0 24px; }
         .lp-footer-bottom { flex-direction: column-reverse; align-items: center; text-align: center; gap: 14px; }
         .lp-footer-legal { justify-content: center; gap: 10px 18px; }
       }
@@ -1643,6 +1642,8 @@ export function MarketingFooter() {
           ))}
         </div>
 
+        <FooterWordmark />
+
         <div className="lp-footer-bottom">
           <p className="lp-footer-copy">
             © {year} Bokix
@@ -1665,7 +1666,6 @@ export function MarketingFooter() {
           </div>
         </div>
       </div>
-      <FooterWordmark />
     </footer>
   );
 }
