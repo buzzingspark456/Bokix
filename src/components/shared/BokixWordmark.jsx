@@ -93,3 +93,14 @@ export function BokixMark({ height = 30, style, className }) {
     </svg>
   );
 }
+
+/**
+ * Ordmärket bokstav för bokstav (B, o, k, i, x), för sidfotens stora
+ * ordmärke där varje bokstav kan tändas för sig. Delvägarna i PATH_D hålls
+ * ihop per bokstav så hålen (B:s och o:s inre former) fortfarande blir hål.
+ */
+const LETTER_GROUPS = [['B', [0, 1, 2]], ['o', [3, 4]], ['k', [5]], ['i', [6, 7]], ['x', [8]]];
+const SUBPATHS = PATH_D.split(/(?=M)/);
+export const WORDMARK_LETTERS = LETTER_GROUPS.map(([letter, idx]) => ({ letter, d: idx.map(i => SUBPATHS[i]).join('') }));
+export const WORDMARK_VIEWBOX = `0 0 ${VB_WIDTH} ${VB_HEIGHT}`;
+export const WORDMARK_GRADIENT = ['#0ea5e9', '#14b8a6', '#84cc16'];
