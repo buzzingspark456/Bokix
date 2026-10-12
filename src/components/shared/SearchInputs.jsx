@@ -379,6 +379,8 @@ export function AccountSearch({ value, onChange, accounts, placeholder = 'Konto.
         onFocus={e => { setOpen(true); e.target.select(); }}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
+        // Hela kontonamnet vid hovring, när fältet är för smalt för det.
+        title={selected ? accountLabel(selected) : undefined}
         style={inputStyle}
       />
       {/* Knappen finns i VARJE kontofält, inte bara i något enstaka

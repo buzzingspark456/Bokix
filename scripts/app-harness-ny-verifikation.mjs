@@ -93,6 +93,23 @@ await page.waitForTimeout(400);
 const rowsCount = await page.locator('.ver-adv-row').count();
 const trashCount = await page.locator('.ver-adv-row .ver-adv-actions button:has(svg)').count();
 const tabs = await page.locator('[role=tab]').allInnerTexts();
+// Fyll i två rader och mät att fälten står på samma linje och att kontot syns.
+const pickAccount = async (i, code) => {
+  const input = page.locator('.ver-adv-row').nth(i).locator('.ver-adv-account input').first();
+  await input.click(); await input.fill(code); await page.waitForTimeout(250); await input.press('Enter'); await page.waitForTimeout(250);
+};
+await pickAccount(0, process.env.KONTO || '5410');
+await page.locator('.ver-adv-row').nth(0).locator('.ver-adv-debet input').fill('719.20');
+await pickAccount(1, '1930');
+await page.locator('.ver-adv-row').nth(1).locator('.ver-adv-kredit input').fill('719.20');
+await page.locator('.ver-adv-row').nth(1).locator('.ver-adv-desc input').click();
+await page.waitForTimeout(400);
+const align = await page.evaluate(() => [...document.querySelectorAll('.ver-adv-row')].slice(0, 2).map(r => {
+  const tops = ['.ver-adv-account input', '.ver-adv-desc input', '.ver-adv-debet input', '.ver-adv-kredit input'].map(sel => Math.round(r.querySelector(sel).getBoundingClientRect().top));
+  const k = r.querySelector('.ver-adv-account input');
+  return { spread: Math.max(...tops) - Math.min(...tops), kontoFits: k.scrollWidth <= k.clientWidth + 1, konto: k.value };
+}));
+await shot('ifylld');
 await shot('debet-kredit');
 await page.locator('.ver-doc-hide').click();
 await page.waitForTimeout(400);
@@ -103,8 +120,9 @@ await page.waitForTimeout(400);
 const shownAgain = await page.locator('.ver-split-doc').count() === 1;
 
 const side = WIDTH >= 1100 ? (formBox.x < docBox.x ? 'fält vänster, underlag höger' : 'FEL SIDA') : (docBox.y < formBox.y ? 'underlag överst' : 'FEL ORDNING');
+console.log('rader:', JSON.stringify(align));
 console.log('BAS 2026:', hasBas, '|', side, '| bredd', Math.round(formBox.width), '/', Math.round(docBox.width), '| zoom:', zoomLabel, '| rader:', rowsCount, '| knappar på raderna:', trashCount, '| flikar:', tabs, '| dolt:', hidden, '| visa igen:', shownAgain);
-const ok = hasBas && !side.startsWith('FEL') && zoomLabel === '80%' && rowsCount === 2 && tabs.includes('Debet och kredit') && hidden && shownAgain && !errors.length;
+const ok = (WIDTH < 769 || align.every(r => r.spread <= 2)) && hasBas && !side.startsWith('FEL') && zoomLabel === '80%' && rowsCount === 2 && tabs.includes('Debet och kredit') && hidden && shownAgain && !errors.length;
 console.log(ok ? 'OK' : 'FEL', errors.length ? errors : '');
 await browser.close();
 process.exit(ok ? 0 : 1);

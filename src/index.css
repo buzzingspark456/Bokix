@@ -4959,6 +4959,14 @@ textarea.form-control {
   .ver-split-form .ver-adv-table { font-size: 14px !important; }
   .ver-split-form .ver-adv-table th { font-size: 12px !important; padding-bottom: 10px !important; }
   .ver-split-form .ver-adv-row td { padding-top: 8px !important; padding-bottom: 8px !important; }
+  /* Alla fält på en rad mot överkanten, så Konto, Beskrivning, Debet och
+     Kredit står på samma linje även när hjälptexten under kontot gör raden
+     hög. Ikonerna längst till höger centreras mot fälten. */
+  .ver-split-form .ver-adv-row > td { vertical-align: top; }
+  .ver-split-form .ver-adv-row > td.ver-adv-actions { padding-top: 19px !important; }
+  /* Beloppen: mindre luft till höger så hela summan syns. */
+  .ver-split-form :is(.ver-adv-debet, .ver-adv-kredit) input { padding-left: 10px !important; padding-right: 10px !important; }
+  .ver-split-form .ver-adv-desc { min-width: 140px; }
   .ver-split-form .ver-adv-sum td { font-size: 14.5px !important; }
   .ver-split-form [role="tablist"] button { font-size: 13.5px !important; padding: 8px 16px !important; }
   .ver-split-form .ver-add-note { font-size: 13.5px; }

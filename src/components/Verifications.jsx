@@ -886,10 +886,10 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
           <table className="ver-adv-table" style={{ width: '100%', minWidth: '620px', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
               <tr>
-                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 140 }}>{tr('ui.konto_3')}</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: '40%' }}>{tr('ui.konto_3')}</th>
                 <th style={{ padding: '0 8px 8px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)' }}>{tr('ui.beskrivning_2')}</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 110 }} title={tr('ui.har_okar_tillgangar_och_kostnader_pengar_in_pa_b')}>{tr('ui.debet_2')}</th>
-                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 110 }} title={tr('ui.har_okar_skulder_eget_kapital_och_intakter_penga')}>{tr('ui.kredit_2')}</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 122 }} title={tr('ui.har_okar_tillgangar_och_kostnader_pengar_in_pa_b')}>{tr('ui.debet_2')}</th>
+                <th style={{ padding: '0 8px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.03em', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)', width: 122 }} title={tr('ui.har_okar_skulder_eget_kapital_och_intakter_penga')}>{tr('ui.kredit_2')}</th>
                 {/* Ingen SALDO-kolumn. Kontots hela saldo stod tidigare här,
                     i en sifferkolumn intill Debet och Kredit, och lästes
                     därför som radens eget belopp — först trodde en kund att
