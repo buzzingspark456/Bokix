@@ -36,7 +36,7 @@ export const OG_PAGES = {
   '/verktyg/arsredovisning': { file: 'arsredovisning', eyebrow: 'Gratis verktyg', title: 'Sista dag för årsredovisningen', items: ['Räkna ut din deadline', 'Utifrån räkenskapsåret', 'Sju månader efter årets slut'] },
   '/bokforingsprogram-enskild-firma': { file: 'bokforingsprogram-enskild-firma', eyebrow: 'Bokföringsprogram för enskild firma', title: 'Bokföring för enskild firma, utan krångel', items: ['Kvitton läses av från ett foto', 'Momsdeklaration som fil', 'Förslag till NE-bilagan'] },
   '/bokforingsprogram-aktiebolag': { file: 'bokforingsprogram-aktiebolag', eyebrow: 'Bokföringsprogram för aktiebolag', title: 'Från kvitto till årsredovisning', items: ['Lön med AGI-fil', 'INK2 med SRU-fil', 'Årsredovisning enligt K2'] },
-  '/bokforingsprogram-handelsbolag': { file: 'bokforingsprogram-handelsbolag', eyebrow: 'Bokföringsprogram för handelsbolag', title: 'Bokföring för handelsbolag och KB', items: ['Tre användare ingår', 'Moms som fil', 'Bokslut per delägare'] },
+  '/bokforingsprogram-handelsbolag': { file: 'bokforingsprogram-handelsbolag', eyebrow: 'Bokföringsprogram för handelsbolag', title: 'Bokföring för handelsbolag och KB', items: ['Tre användare ingår', 'INK4 som SRU-fil', 'Bokslut per delägare'] },
   '/bokforingsprogram-ekonomisk-forening': { file: 'bokforingsprogram-ekonomisk-forening', eyebrow: 'Bokföringsprogram för ekonomisk förening', title: 'Bokföring för ekonomisk förening', items: ['Tre användare ingår', 'INK2 med SRU-fil', 'Årsredovisning enligt K2'] },
 };
 

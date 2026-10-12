@@ -22,6 +22,7 @@ import { downloadAgiPdf } from '../utils/agiExport';
 import AgiYearView from './AgiYearView';
 import YearEndWizard from './YearEndWizard';
 import Ink2View from './Ink2View';
+import Ink4View from './Ink4View';
 import { downloadNePdf } from '../utils/neExport';
 import { computeEmployeePayroll } from '../utils/payrollCalculation';
 import { preloadSkattetabell } from '../utils/skattetabell';
@@ -384,8 +385,9 @@ export default function Taxes({
     const fallback = company?.vatRegistered === false ? 'dates' : 'vat';
     if (filesOwnIncomeDeclaration && activeSection === 'ink2') setActiveSection(fallback);
     if (!isSoleProp && activeSection === 'ne') setActiveSection(fallback);
+    if (!isTradingPartnership && activeSection === 'ink4') setActiveSection(fallback);
     if (company?.vatRegistered === false && activeSection === 'vat') setActiveSection('dates');
-  }, [filesOwnIncomeDeclaration, isSoleProp, activeSection, company?.vatRegistered]);
+  }, [filesOwnIncomeDeclaration, isSoleProp, isTradingPartnership, activeSection, company?.vatRegistered]);
 
   // Kontrolluppgifter (KU) — förvalt till föregående inkomstår FRAM TILL
   // deadline (31 januari), eftersom det är vad man normalt lämnar in då.
@@ -747,6 +749,8 @@ export default function Taxes({
     // Bolagsformsspecifika flikar: delägare/resultatfördelning för HB/KB,
     // utdelning för AB. Enskild firma har varken eller.
     ...(isTradingPartnership ? [{ id: 'partners', label: tr('ui.delagare') }] : []),
+    // Inkomstdeklaration 4 (bilagorna INK4R/INK4S/INK4DU), bara HB/KB.
+    ...(isTradingPartnership ? [{ id: 'ink4', label: tr('ink4.tab') }] : []),
     ...(orgType === 'Aktiebolag (AB)' ? [{ id: 'dividend', label: tr('ui.utdelning') }] : []),
   ].filter(tab => !isUfCompany(company) || UF_TAX_SECTION_IDS.includes(tab.id));
 
@@ -758,7 +762,7 @@ export default function Taxes({
     { id: 'g_overview', label: tr('ui.oversikt'), sections: ['dates'] },
     { id: 'g_vat', label: tr('ui.moms'), sections: ['vat', 'ecsales'] },
     { id: 'g_payroll', label: tr('ui.skatt_lon'), sections: ['agi', 'ku'] },
-    { id: 'g_yearend', label: tr('ui.arsavslut'), sections: ['yearend', 'annual', 'ink2', 'ne', 'partners', 'dividend'], numbered: true },
+    { id: 'g_yearend', label: tr('ui.arsavslut'), sections: ['yearend', 'annual', 'ink2', 'ne', 'partners', 'ink4', 'dividend'], numbered: true },
   ];
   const groupTabs = TAX_GROUPS
     .map(g => ({ ...g, sections: g.sections.filter(id => sectionTabs.some(t => t.id === id)) }))
@@ -1145,6 +1149,10 @@ export default function Taxes({
           )}
 
           {/* Kontrolluppgifter (KU) */}
+          {activeSection === 'ink4' && isTradingPartnership && (
+            <Ink4View company={company} fy={fy} verifications={verifications} accounts={accounts} setCompanyInfo={setCompanyInfo} sruMissing={sruMissing} onOpenPartners={() => setActiveSection('partners')} />
+          )}
+
           {activeSection === 'partners' && isTradingPartnership && (
             <Partners company={company} verifications={verifications} year={fyKey} period={{ start: fy.start, end: fy.end }} yearResult={yearResult} onAddVerification={onAddVerification} setCompanyInfo={setCompanyInfo} />
           )}

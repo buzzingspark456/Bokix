@@ -7,8 +7,9 @@
 // Bara sådant Bokix faktiskt gör (se bokixFacts.js och Taxes.jsx):
 //  - NE-bilagan finns bara för enskild firma, med förslag ur bokföringen.
 //  - INK2 (med SRU-fil) för aktiebolag och ekonomisk förening.
-//  - Handels- och kommanditbolag: ingen INK2, delägarna deklarerar sin andel
-//    (N3A). Bokix fyller inte i INK4, så det lovas inte.
+//  - Handels- och kommanditbolag: ingen INK2. Bilagorna till INK4 (INK4R,
+//    INK4S och INK4DU per delägare) som SRU-fil; delägarna deklarerar sin
+//    andel själva (N3A). Själva INK4 fylls i Skatteverkets e-tjänst.
 //  - Årsredovisning enligt K2 för aktiebolag och ekonomisk förening, som PDF
 //    att skriva under (föreningen med medlemsinsatser och föreningsstämma).
 //    Bokix lämnar inte in något till Bolagsverket eller Skatteverket.
@@ -99,23 +100,24 @@ export const ORG_TYPE_PAGES = [
     path: '/bokforingsprogram-handelsbolag',
     short: 'Handelsbolag och KB',
     seoTitle: 'Bokföringsprogram för handelsbolag och KB | Bokix',
-    seoDescription: 'Bokix är ett enkelt bokföringsprogram för handelsbolag och kommanditbolag. Fakturor, kvitton, moms och lön i ett verktyg. 30 dagar gratis.',
+    seoDescription: 'Bokix är ett enkelt bokföringsprogram för handelsbolag och kommanditbolag. Fakturor, moms, lön och INK4 med delägaruppgifter i ett verktyg. 30 dagar gratis.',
     eyebrow: 'Bokföringsprogram för handelsbolag',
     title: 'Bokföring för handelsbolag och kommanditbolag',
     lead: 'Fakturor, kvitton, moms och lön på ett ställe, och ett bokslut som tar hänsyn till att resultatet fördelas på delägarna. Upp till tre personer kan arbeta i samma bokföring.',
-    highlights: ['Tre användare ingår', 'Moms som fil', 'Bokslut per delägare', 'Lön med AGI-fil'],
+    highlights: ['Tre användare ingår', 'INK4 som SRU-fil', 'Bokslut per delägare', 'Lön med AGI-fil'],
     included: [
       'Löpande bokföring med BAS-kontoplanen, med ett enkelt läge utan debet och kredit.',
       'Kvitton läses av från ett foto, och fakturor och offerter skickas från Bokix.',
       'Momsdeklarationen per månad, kvartal eller år, som fil att lämna in hos Skatteverket.',
       'Lön med skattetabeller, lönebesked, AGI-fil och betalfil till banken.',
       'Bokslut där årets resultat förs över till delägarnas kapitalkonton.',
+      'Bilagorna till inkomstdeklaration 4 som SRU-fil: räkenskapsschema (INK4R), skattemässiga justeringar (INK4S) och delägaruppgifter (INK4DU) för varje delägare.',
       'Upp till tre personer i samma bokföring, till exempel båda delägarna och er revisor.',
     ],
     steps: [
       { title: 'Skapa kontot med organisationsnumret', body: 'Bokix känner igen att det är ett handels- eller kommanditbolag och anpassar skatt och bokslut efter det.' },
       { title: 'Bjud in delägaren', body: 'Ni kan arbeta i samma bokföring samtidigt. Tre användare ingår i priset.' },
-      { title: 'Gör bokslutet', body: 'Resultatet fördelas på delägarna, som deklarerar sin andel i sin egen inkomstdeklaration.' },
+      { title: 'Gör bokslut och INK4', body: 'Resultatet fördelas på delägarna. Bokix tar fram bilagorna till INK4 som fil, och varje delägare deklarerar sin andel i sin egen deklaration.' },
     ],
     facts: [
       { title: "Bolaget betalar ingen inkomstskatt", body: "Ett handelsbolag beskattas inte självt. Årets resultat delas på delägarna, som var och en beskattas för sin andel i sin egen deklaration." },
@@ -123,7 +125,8 @@ export const ORG_TYPE_PAGES = [
       { title: "Kommanditbolag har två sorters delägare", body: "I ett kommanditbolag finns minst en komplementär med obegränsat ansvar och minst en kommanditdelägare med begränsat ansvar." },
     ],
     faq: [
-      { q: 'Lämnar ett handelsbolag INK2?', a: 'Nej. Ett handels- eller kommanditbolag betalar ingen egen bolagsskatt. Resultatet fördelas på delägarna, som deklarerar sin andel i sin egen deklaration. Därför visar Bokix inte INK2 för handelsbolag.' },
+      { q: 'Lämnar ett handelsbolag INK2?', a: 'Nej. Ett handels- eller kommanditbolag betalar ingen egen bolagsskatt och lämnar inkomstdeklaration 4 (INK4) i stället. Resultatet fördelas på delägarna, som deklarerar sin andel i sin egen deklaration.' },
+      { q: 'Gör Bokix INK4?', a: 'Bokix tar fram bilagorna till INK4 som SRU-fil: räkenskapsschemat (INK4R), de skattemässiga justeringarna (INK4S) och delägaruppgifterna (INK4DU) med varje delägares andel, tillskott och uttag. Själva INK4 fyller du i Skatteverkets e-tjänst, där du också laddar upp filen.' },
       { q: 'Kan båda delägarna använda Bokix?', a: 'Ja. Upp till tre personer kan arbeta i samma bokföring, och det ingår i priset.' },
       { q: 'Vad kostar Bokix för ett handelsbolag?', a: PRICE + ' De första 30 dagarna är gratis.' },
       { q: 'Kan jag ta med bokföringen från ett annat program?', a: 'Ja. Exportera en SIE4-fil ur ditt nuvarande program och läs in den i Bokix, så följer konton, verifikationer och ingående balanser med.' },

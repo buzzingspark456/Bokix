@@ -37,7 +37,7 @@ export const BLOG_POSTS = [
       { t: 'table', caption: 'Vad bolagsformen kräver vid årets slut', head: ['Bolagsform', 'Deklaration', 'Bokslut'], rows: [
         ['Enskild firma', 'NE-bilagan i din egen deklaration', 'Förenklat årsbokslut (K1) om omsättningen normalt är högst 3 miljoner kr'],
         ['Aktiebolag', 'Inkomstdeklaration 2 (INK2)', 'Årsredovisning (K2 eller K3) till Bolagsverket inom sju månader'],
-        ['Handelsbolag och KB', 'Delägarna deklarerar sin andel (N3A)', 'Årsbokslut, årsredovisning bara för större bolag'],
+        ['Handelsbolag och KB', 'Inkomstdeklaration 4 (INK4), och delägarna deklarerar sin andel (N3A)', 'Årsbokslut, årsredovisning bara för större bolag'],
         ['Ekonomisk förening', 'Inkomstdeklaration 2 (INK2)', 'Årsredovisning'],
       ] },
       { t: 'p', x: 'Läs mer om vad Bokix gör för din bolagsform: [enskild firma](/bokforingsprogram-enskild-firma), [aktiebolag](/bokforingsprogram-aktiebolag), [handelsbolag](/bokforingsprogram-handelsbolag) och [ekonomisk förening](/bokforingsprogram-ekonomisk-forening).' },

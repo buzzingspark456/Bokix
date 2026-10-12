@@ -24,6 +24,7 @@
  */
 import { createZip } from './zipStore';
 import { ink2sSruRows, INK2_MAIN_SRU } from './ink2s';
+import { ink4sSruRows, ink4duSruRows } from './ink4';
 
 const pad = (n, len = 2) => String(n).padStart(len, '0');
 const ymd = (iso) => String(iso || '').replace(/-/g, '');
@@ -64,7 +65,9 @@ const clean = (s) => String(s || '').replace(/[\r\n]+/g, ' ').trim();
  * @param period   { start: 'ÅÅÅÅ-MM-DD', end: 'ÅÅÅÅ-MM-DD' } eller bara slutdatumet
  * @param now      framställningstidpunkt (för tester)
  */
-export function generateInk2rSru(company, ink2r, resultRows, period, now = new Date(), ink2s = null) {
+// Gemensamt för INK2 och INK4: räkenskapsårets början, tidsstämpel,
+// INFO.SRU och blankettblocken.
+function sruContext(company, period, now) {
   const end = typeof period === 'string' ? period : period?.end;
   const start = typeof period === 'string' || !period?.start
     ? (() => { const d = new Date(`${end}T12:00:00`); d.setFullYear(d.getFullYear() - 1); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })()
@@ -92,18 +95,32 @@ export function generateInk2rSru(company, ink2r, resultRows, period, now = new D
   infoSru += `#MEDIELEV_SLUT${L}`;
 
   const block = (form, uppgifter) => {
-    let s = `#BLANKETT ${form}-${sruP}${L}`;
-    s += `#IDENTITET ${orgId} ${date} ${time}${L}`;
-    s += `#NAMN ${name}${L}`;
-    for (const [code, value] of uppgifter) s += `#UPPGIFT ${code} ${value}${L}`;
-    s += `#BLANKETTSLUT${L}`;
-    return s;
+    let b = `#BLANKETT ${form}-${sruP}${L}`;
+    b += `#IDENTITET ${orgId} ${date} ${time}${L}`;
+    b += `#NAMN ${name}${L}`;
+    for (const [code, value] of uppgifter) b += `#UPPGIFT ${code} ${value}${L}`;
+    b += `#BLANKETTSLUT${L}`;
+    return b;
   };
-  const period7011 = [['7011', ymd(start)], ['7012', ymd(end)]];
+  return { start, end, L, infoSru, block, period7011: [['7011', ymd(start)], ['7012', ymd(end)]] };
+}
 
-  const amountRows = [...(ink2r?.rows || []), ...(resultRows || [])]
-    .filter(r => r.fieldCode && Math.round(r.amount) !== 0)
-    .map(r => [r.fieldCode, Math.round(r.fieldCodePlus || r.fieldCodeMinus ? Math.abs(r.amount) : r.amount)]);
+// Belopp för räkenskapsschemats rader: en rad med plus- och minuskod skrivs
+// alltid positiv på den kod tecknet pekar ut.
+const schemaRows = (rows) => (rows || [])
+  .filter(r => r.fieldCode && Math.round(r.amount) !== 0)
+  .map(r => [r.fieldCode, Math.round(r.fieldCodePlus || r.fieldCodeMinus ? Math.abs(r.amount) : r.amount)]);
+
+/**
+ * @param company  { orgNr, name, address, postalCode, city }
+ * @param ink2r    computeInk2r-resultatet (balansräkningen)
+ * @param resultRows computeInk2rResultat().rows (resultaträkningen)
+ * @param period   { start: 'ÅÅÅÅ-MM-DD', end: 'ÅÅÅÅ-MM-DD' } eller bara slutdatumet
+ * @param now      framställningstidpunkt (för tester)
+ */
+export function generateInk2rSru(company, ink2r, resultRows, period, now = new Date(), ink2s = null) {
+  const { L, infoSru, block, period7011 } = sruContext(company, period, now);
+  const amountRows = schemaRows([...(ink2r?.rows || []), ...(resultRows || [])]);
 
   const result = (resultRows || []).find(r => r.row === '3.26' || r.row === '3.27');
   const ink2sRows = ink2s
@@ -119,6 +136,25 @@ export function generateInk2rSru(company, ink2r, resultRows, period, now = new D
   blankettSru += block('INK2S', [...period7011, ...ink2sRows]);
   blankettSru += `#FIL_SLUT${L}`;
 
+  return { infoSru, blankettSru };
+}
+
+/**
+ * SRU-filer för bilagorna till Inkomstdeklaration 4 (handelsbolag):
+ * INK4R (räkenskapsschema), INK4S (skattemässiga justeringar) och ett
+ * INK4DU per delägare. Fältkoderna i ink4.js. Själva INK4 fylls i
+ * Skatteverkets e-tjänst.
+ */
+export function generateInk4Sru(company, { ink4r, ink4rResultat, ink4s, info = {}, answers = {}, delagare = [] }, period, now = new Date()) {
+  const { L, infoSru, block, period7011 } = sruContext(company, period, now);
+  let blankettSru = '';
+  blankettSru += block('INK4R', [...period7011, ...schemaRows([...(ink4r?.rows || []), ...(ink4rResultat?.rows || [])])]);
+  // 8022 (4.16 Pensionskostnader) finns först i blankettutgåvan för 2026P4.
+  const sruP = sruPeriod(typeof period === 'string' ? period : period?.end);
+  const ink4sRows = ink4sSruRows(ink4s, info, answers).filter(([code]) => code !== '8022' || sruP >= '2026P4');
+  blankettSru += block('INK4S', [...period7011, ...ink4sRows]);
+  for (const du of delagare) blankettSru += block('INK4DU', [...period7011, ...ink4duSruRows(du)]);
+  blankettSru += `#FIL_SLUT${L}`;
   return { infoSru, blankettSru };
 }
 
@@ -152,6 +188,25 @@ export function downloadInk2rSru(company, ink2r, resultRows, period, ink2s = nul
   const a = document.createElement('a');
   a.href = url;
   a.download = `INK2-SRU-${String(end || '').slice(0, 4)}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** INK4-bilagorna som zip med INFO.SRU och BLANKETTER.SRU. */
+export function downloadInk4Sru(company, data, period) {
+  const { infoSru, blankettSru } = generateInk4Sru(company, data, period, new Date());
+  const end = typeof period === 'string' ? period : period?.end;
+  const zip = createZip([
+    { name: 'INFO.SRU', data: encodeWindows1252(infoSru) },
+    { name: 'BLANKETTER.SRU', data: encodeWindows1252(blankettSru) },
+  ]);
+  const blob = new Blob([zip], { type: 'application/zip' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `INK4-SRU-${String(end || '').slice(0, 4)}.zip`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
