@@ -12,6 +12,76 @@
 // inte en ny mapp inläggen bor i.
 export const BLOG_POSTS = [
   {
+    slug: 'valja-bokforingsprogram',
+    path: '/blogg/valja-bokforingsprogram',
+    category: 'Kom igång',
+    title: 'Bokföringsprogram för småföretag: så väljer du rätt 2026',
+    seoTitle: 'Bokföringsprogram för småföretag: så väljer du rätt',
+    seoDescription: 'Vad ska ett bokföringsprogram klara för just ditt företag? Nio saker att jämföra, vad varje bolagsform behöver och när ett program inte passar.',
+    excerpt: 'Det finns många bokföringsprogram, och de flesta klarar grunderna. Skillnaden sitter i det som gäller just ditt företag: bolagsform, moms, lön, bokslut och vad som faktiskt ingår i priset. Här är nio saker att jämföra innan du väljer.',
+    image: '/blog/valja-bokforingsprogram-hero.jpg',
+    imageAlt: 'Illustration: en checklista med nio saker att jämföra när man väljer bokföringsprogram, från bolagsform till pris',
+    datePublished: '2026-10-12',
+    dateModified: '2026-10-12',
+    readTime: '~7 min läsning',
+    tldr: [
+      'Börja med din bolagsform. Enskild firma behöver NE-bilagan, aktiebolag behöver INK2 och årsredovisning.',
+      'Jämför vad som ingår i priset, inte bara grundpriset. Lön, fakturor och kvitton kostar extra i en del program.',
+      'Se till att du kan ta med bokföringen ut igen. SIE4 är standardformatet som alla svenska program kan läsa.',
+    ],
+    body: [
+      { t: 'p', x: 'Alla bokföringsprogram i Sverige bokför enligt samma lag och samma kontoplan, BAS. Det som skiljer dem åt är vad de gör åt dig: hur mycket du själv behöver kunna, vad som ingår i priset och om programmet klarar det din bolagsform behöver vid bokslutet. Välj efter det, inte efter vem som syns mest.' },
+
+      { t: 'h2', x: 'Börja med din bolagsform' },
+      { t: 'p', x: 'Bolagsformen avgör vad programmet måste klara när året är slut. Den löpande bokföringen är lik för alla, men deklarationen och bokslutet skiljer sig.' },
+      { t: 'table', caption: 'Vad bolagsformen kräver vid årets slut', head: ['Bolagsform', 'Deklaration', 'Bokslut'], rows: [
+        ['Enskild firma', 'NE-bilagan i din egen deklaration', 'Förenklat årsbokslut (K1) om omsättningen normalt är högst 3 miljoner kr'],
+        ['Aktiebolag', 'Inkomstdeklaration 2 (INK2)', 'Årsredovisning (K2 eller K3) till Bolagsverket inom sju månader'],
+        ['Handelsbolag och KB', 'Delägarna deklarerar sin andel (N3A)', 'Årsbokslut, årsredovisning bara för större bolag'],
+        ['Ekonomisk förening', 'Inkomstdeklaration 2 (INK2)', 'Årsredovisning'],
+      ] },
+      { t: 'p', x: 'Läs mer om vad Bokix gör för din bolagsform: [enskild firma](/bokforingsprogram-enskild-firma), [aktiebolag](/bokforingsprogram-aktiebolag), [handelsbolag](/bokforingsprogram-handelsbolag) och [ekonomisk förening](/bokforingsprogram-ekonomisk-forening).' },
+
+      { t: 'h2', x: 'Nio saker att jämföra' },
+      { t: 'checklist', x: [
+        'Behöver du kunna debet och kredit, eller finns det ett enkelt läge där du väljer vad som hänt?',
+        'Kan kvitton läsas av från ett foto, så att du slipper skriva in belopp och moms själv?',
+        'Klarar fakturorna det du behöver: egen logga, ROT och RUT, kortbetalning?',
+        'Räknas momsdeklarationen fram ur bokföringen, för din period (månad, kvartal eller år)?',
+        'Ingår lön med skattetabeller, arbetsgivardeklaration (AGI) och lönebesked, eller kostar det extra?',
+        'Klarar programmet bokslutet för din bolagsform: NE-bilaga, INK2 eller årsredovisning?',
+        'Hur kommer banken in i bokföringen: direkt bankkoppling eller kontoutdrag som fil?',
+        'Kan du flytta in din gamla bokföring, och ta med den ut igen, med en SIE4-fil?',
+        'Vad ingår i priset? Räkna på hela året med det du faktiskt använder.',
+      ] },
+      { t: 'callout', kind: 'tips', title: 'Prova med ditt eget underlag', x: 'De flesta program har en gratis provperiod. Lägg in några riktiga kvitton och en faktura under provperioden i stället för att bara titta runt. Då märker du snabbt vad som går smidigt och vad som skaver.' },
+
+      { t: 'h2', x: 'Vad ett bokföringsprogram kostar' },
+      { t: 'p', x: 'Priserna ligger ofta mellan ett hundratal och några hundra kronor i månaden, men grundpriset säger lite. I en del program är lön, fler användare, fakturor eller kvittohantering tillägg. Jämför därför vad det kostar för det du faktiskt kommer att använda, och kolla om priset är med eller utan moms.' },
+      { t: 'p', x: 'Bokix kostar 129 kr/mån utan anställda och 179 kr/mån med anställda, med årsplan 109 respektive 149 kr/mån. Ingen moms tillkommer och allt ingår. Se [priser](/priser).' },
+
+      { t: 'h2', x: 'Att byta program är enklare än det låter' },
+      { t: 'p', x: 'Alla svenska bokföringsprogram kan exportera bokföringen som en SIE4-fil: kontoplan, verifikationer och ingående balanser. Den läser du in i det nya programmet. Kund- och leverantörsregister och bilder på kvitton följer oftast inte med, så spara dem från det gamla programmet. Läs mer i [SIE4: så flyttar du bokföringen](/blogg/sie4-flytta-bokforing) och om att [byta bokföringsprogram](/byt-bokforingsprogram).' },
+
+      { t: 'h2', x: 'När Bokix inte passar' },
+      { t: 'p', x: 'Ett bra val är ett program som passar ditt företag, inte det som har flest funktioner. Bokix är byggt för småföretag som vill ha det enkelt, och passar sämre om du behöver något av det här:' },
+      { t: 'ul', x: [
+        'Direkt bankkoppling. Bokix läser in kontoutdrag som fil.',
+        'E-faktura via Peppol, som Bokix inte har.',
+        'Att programmet lämnar in deklarationer automatiskt. I Bokix laddar du ned filen och lämnar in själv med BankID.',
+        'Fler än tre personer som ska arbeta i bokföringen.',
+      ] },
+      { t: 'p', x: 'Känner du igen ditt företag i de nio punkterna ovan och inte i listan här, är Bokix värt att prova. De första 30 dagarna är gratis.' },
+    ],
+    faq: [
+      { q: 'Vilket bokföringsprogram är bäst för småföretag?', a: 'Det som klarar din bolagsform hela året, som du förstår utan att kunna bokföring och där det du använder ingår i priset. Jämför de nio punkterna i guiden och prova med ditt eget underlag under provperioden.' },
+      { q: 'Behöver jag ett bokföringsprogram?', a: 'Lagen kräver att du bokför, inte att du använder ett program. Men ett program räknar fram momsen och bokslutet ur det du redan bokfört och sparar underlagen på samma ställe, vilket sparar mycket tid och minskar risken för fel.' },
+      { q: 'Vad kostar ett bokföringsprogram?', a: 'Ofta mellan ett hundratal och några hundra kronor i månaden. Jämför vad som ingår, eftersom lön, fler användare och kvittohantering är tillägg i en del program.' },
+      { q: 'Kan jag byta bokföringsprogram mitt i året?', a: 'Ja. Exportera en SIE4-fil ur det gamla programmet och läs in den i det nya. Många byter vid ett periodskifte, till exempel vid ett nytt kvartal, för att det blir enklast att stämma av.' },
+      { q: 'Vilket bokföringsprogram passar en enskild firma?', a: 'Ett som ger dig NE-bilagan ur bokföringen och klarar moms och fakturor utan att du behöver kunna debet och kredit. Läs mer om Bokix för enskild firma.' },
+    ],
+  },
+  {
     slug: 'enkel-bokforing',
     path: '/enkel-bokforing',
     category: 'Så funkar Bokix',

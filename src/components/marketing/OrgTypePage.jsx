@@ -55,7 +55,7 @@ export default function OrgTypePage({ path }) {
 
   return (
     <MarketingLayout>
-      <PageMeta title={page.seoTitle} description={page.seoDescription} path={page.path} image={`${SITE_URL}/og/${page.path.slice(1)}.png`} />
+      <PageMeta title={page.seoTitle} description={page.seoDescription} path={page.path} />
       <JsonLd data={productSchema} />
       <JsonLd data={faqSchema} />
       <KitStyles />

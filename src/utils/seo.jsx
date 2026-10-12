@@ -11,6 +11,7 @@
 // första routen hunnit rendera klart.
 import React from 'react';
 import { DEFAULT_LOCALE, LOCALE_META, availableLocalesFor, localizedPath } from '../content/marketing/routes';
+import { ogImageFor } from '../content/marketing/ogImages';
 
 export const SITE_URL = 'https://www.bokix.se';
 export const SITE_NAME = 'Bokix';
@@ -73,10 +74,14 @@ function breadcrumbData(path) {
   };
 }
 
-export function PageMeta({ title, description, path = '/', basePath, locale = DEFAULT_LOCALE, image = DEFAULT_OG_IMAGE, type = 'website', publishedTime, modifiedTime }) {
+export function PageMeta({ title, description, path = '/', basePath, locale = DEFAULT_LOCALE, image: imageProp, type = 'website', publishedTime, modifiedTime }) {
   const url = `${SITE_URL}${path}`;
   const crumbs = breadcrumbData(path);
   const base = basePath || path;
+  // Sidans egen delningsbild (content/marketing/ogImages.js) om sidan inte
+  // skickar en egen, annars standardbilden.
+  const ownImage = ogImageFor(base);
+  const image = imageProp || (ownImage ? `${SITE_URL}${ownImage}` : DEFAULT_OG_IMAGE);
   const siblings = availableLocalesFor(base);
   const ogLocale = LOCALE_META[locale]?.og || LOCALE_META[DEFAULT_LOCALE].og;
   return (

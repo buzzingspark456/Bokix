@@ -64,7 +64,7 @@
     "date": "2026-10-12"
   },
   "/blogg": {
-    "hash": "bc9d471279121a32",
+    "hash": "be5f45924c60e446",
     "date": "2026-10-12"
   },
   "/nyheter": {
@@ -112,35 +112,35 @@
     "date": "2026-10-12"
   },
   "/enkel-bokforing": {
-    "hash": "50e82a69b2f71cb6",
+    "hash": "05431e4d709355cd",
     "date": "2026-10-12"
   },
   "/blogg/sie4-flytta-bokforing": {
-    "hash": "2eb6b9f4cfd02c9b",
+    "hash": "ab79f60ee500c8cd",
     "date": "2026-10-12"
   },
   "/blogg/bokforing-uf-foretag": {
-    "hash": "81cd3e1a9fa2512b",
+    "hash": "fd325cb231bec376",
     "date": "2026-10-12"
   },
   "/blogg/moms-deklaration-steg-for-steg": {
-    "hash": "f0833de40253cfd8",
+    "hash": "7c60d533b0f39893",
     "date": "2026-10-12"
   },
   "/blogg/spara-kvitton-bokforingslagen": {
-    "hash": "8a93b1cd14ec007e",
+    "hash": "5dbce4d2fe3220ee",
     "date": "2026-10-12"
   },
   "/blogg/bokslut-checklista": {
-    "hash": "13f6509de03d6949",
+    "hash": "f94ab97fec65c59f",
     "date": "2026-10-12"
   },
   "/blogg/lon-eller-utdelning-ab": {
-    "hash": "54fbd727538a6746",
+    "hash": "822426d48335db1b",
     "date": "2026-10-12"
   },
   "/blogg/enskild-firma-bokforing-ne": {
-    "hash": "9767c8ab4a1c8e14",
+    "hash": "72d75f149c99da18",
     "date": "2026-10-12"
   },
   "/nyheter/agi-fil-och-arbetsgivaravgift-efter-alder": {
@@ -229,6 +229,10 @@
   },
   "/bokforingsprogram-ekonomisk-forening": {
     "hash": "544b0351d4bc9063",
+    "date": "2026-10-12"
+  },
+  "/blogg/valja-bokforingsprogram": {
+    "hash": "aedf8e86ce3d108d",
     "date": "2026-10-12"
   }
 }

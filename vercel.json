@@ -112,6 +112,10 @@
       "destination": "/blogg/index.html"
     },
     {
+      "source": "/blogg/valja-bokforingsprogram",
+      "destination": "/blogg/valja-bokforingsprogram/index.html"
+    },
+    {
       "source": "/blogg/sie4-flytta-bokforing",
       "destination": "/blogg/sie4-flytta-bokforing/index.html"
     },
