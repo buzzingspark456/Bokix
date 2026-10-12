@@ -1096,12 +1096,19 @@ function MarketingStyles() {
       @media (prefers-reduced-motion: reduce) {
         .lp-mark-base, .lp-mark-color { transition: none; }
       }
-      .lp-footer-book { font-size: 13px; color: rgba(255,255,255,0.78); }
       .lp-footer-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px 28px; }
+      .lp-footer-start { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
       .lp-footer-copy { margin: 0; font-size: 13px; color: rgba(255,255,255,0.55); }
-      .lp-footer-legal { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; }
-      .lp-footer-legal .lp-footer-link { font-size: 13px; color: rgba(255,255,255,0.55); }
-      .lp-footer-legal .lp-footer-link:hover { color: #ffffff; }
+      .lp-footer-book { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.16); color: #ffffff; font-size: 13px; font-weight: 500; text-decoration: none; transition: background 0.15s ease, border-color 0.15s ease; }
+      .lp-footer-book svg { transition: transform 0.15s ease; }
+      .lp-footer-book:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.28); }
+      .lp-footer-book:hover svg { transform: translateX(2px); }
+      /* Policyerna: jämna mellanrum och en liten punkt mellan varje, ritad
+         med ::before så punkten aldrig blir en egen klickyta. */
+      .lp-footer-legal { display: flex; flex-wrap: wrap; align-items: center; row-gap: 8px; }
+      .lp-footer-legal > * { font-size: 13px; color: rgba(255,255,255,0.55); display: inline-flex; align-items: center; }
+      .lp-footer-legal > * + *::before { content: ''; width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,0.25); margin: 0 12px; }
+      .lp-footer-legal > *:hover { color: #ffffff; }
       /* Halvbrett: loggan på egen rad, fyra kolumner under. */
       @media (max-width: 1000px) {
         .lp-footer-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px 24px; }
@@ -1113,8 +1120,13 @@ function MarketingStyles() {
         .lp-footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 16px; }
         .lp-footer-brand { padding-bottom: 28px; border-bottom: 1px solid rgba(255,255,255,0.1); }
         .lp-footer-mark { margin-top: 40px; padding: 28px 0 24px; }
-        .lp-footer-bottom { flex-direction: column-reverse; align-items: center; text-align: center; gap: 14px; }
-        .lp-footer-legal { justify-content: center; gap: 10px 18px; }
+        .lp-footer-bottom { flex-direction: column; align-items: center; text-align: center; gap: 18px; }
+        .lp-footer-start { display: contents; }
+        .lp-footer-book { order: 1; }
+        .lp-footer-legal { order: 2; }
+        .lp-footer-copy { order: 3; }
+        .lp-footer-legal { justify-content: center; gap: 12px 20px; }
+        .lp-footer-legal > * + *::before { display: none; }
       }
       .lp-mobile-menu.lp-open {
         display: flex; position: fixed; inset: 0; background: white; z-index: 2000;
@@ -1645,11 +1657,13 @@ export function MarketingFooter() {
         <FooterWordmark />
 
         <div className="lp-footer-bottom">
-          <p className="lp-footer-copy">
-            © {year} Bokix
-            <span aria-hidden="true"> · </span>
-            <Link to="/boka-genomgang" className="lp-footer-link lp-footer-book">Boka en genomgång</Link>
-          </p>
+          <div className="lp-footer-start">
+            <p className="lp-footer-copy">© {year} Bokix</p>
+            <Link to="/boka-genomgang" className="lp-footer-book">
+              Boka en genomgång
+              <ArrowRight size={14} aria-hidden />
+            </Link>
+          </div>
           <div className="lp-footer-legal">
             {FOOTER_LEGAL.map(link => (
               <Link key={link.to} to={link.to} className="lp-footer-link">{link.label}</Link>
