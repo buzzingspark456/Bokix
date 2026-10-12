@@ -202,7 +202,7 @@ export const SKATTEKONTO_ACCOUNT_NAMES = {
   2518: 'Betald F-skatt',
   2650: 'Redovisningskonto för moms',
   2710: 'Personalskatt',
-  2731: 'Avräkning socialavgifter',
+  2731: 'Avräkning lagstadgade sociala avgifter',
   6992: 'Övriga externa kostnader, ej avdragsgilla',
   8314: 'Skattefria ränteintäkter',
   8423: 'Räntekostnader för skatter och avgifter',

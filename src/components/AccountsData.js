@@ -1,21 +1,16 @@
 import { OUTPUT_VAT_ACCOUNT_BY_RATE } from '../utils/vatConfig';
 
-// BAS 2023 – Standardkontoplan för svenska företag
+// BAS 2026 – Standardkontoplan för svenska företag
 //
-// Källa: kontonummer/benämningar här är hämtade kontoexakt ur
-// BAS-intressenternas Förenings kostnadsfria kontoplansöversikt (samma
-// nummer+namn som återkommer identiskt i i stort sett alla fritt
-// tillgängliga svenska kontoplansöversikter). Det är INTE bas.se:s
-// fullständiga, betalda 1 283-kontokatalog (som även har SRU-koder,
-// motkonton/relaterade konton och K2/K3-flaggor per konto) — den kräver
-// licens från BAS-intressenternas Förening och har inte kopierats hit.
-//
-// Klass 1 (tillgångar), 3 (intäkter) och 4–8 (kostnader) är kompletta
-// 1000–1999/3000–3999/4000–8999-serier, verifierade mot källan ovan.
-// Klass 2 (eget kapital & skulder) är komplett 2010–2430; från och med
-// 2440 är listan fortfarande den tidigare, tunnare urvalslistan (kunde
-// inte verifieras kontoexakt vid det här tillfället) — komplettera vid
-// behov snarare än att lita blint på en gissning här.
+// Källa: BAS egen "Kontoplan BAS 2026" (pdf, v2 april 2026) för vilka
+// konton som finns, och BAS Excelfil med 2026 års ändringar för
+// benämningarna. Alla konton i BAS 2026 finns med, utom de fyra
+// platshållarna "Fritt konto" (1230, 1240, 1250, 1260). Avvikelser med
+// flit: 1317 stavas rätt här (BAS har "koncernförertag"), och appen har
+// några egna konton som inte finns i BAS (t.ex. 1400/1500/1600/1700 som
+// gruppkonton, 1941, 2617/2627/2637, 4549). 1580 togs bort i BAS 2026
+// (flyttat till 1686) men ligger kvar eftersom appen bokför kortbetalningar
+// (Zettle, Stripe) mot det. Uppdaterat 2026-10-12.
 //
 // Underindelad efter BAS egna hundratalsgrupper (samma indelning som
 // källan), rent för läsbarhetens skull — påverkar inte type/kod.
@@ -281,8 +276,7 @@ export const DEFAULT_ACCOUNTS = [
 
   // ═══════════════════════════════════════════
   // KLASS 2 – EGET KAPITAL & SKULDER
-  // 2010–2430 komplett/verifierad; 2440 och uppåt är den äldre,
-  // tunnare urvalslistan (se filkommentaren överst).
+  // Komplett enligt BAS 2026.
   // ═══════════════════════════════════════════
 
   // 2010 – Eget kapital, enskild firma (delägare 1–4)
@@ -366,9 +360,9 @@ export const DEFAULT_ACCOUNTS = [
   { code: "2132", name: "Periodiseringsfond 2022 – nr 2", type: "skuld_kapital" },
   { code: "2133", name: "Periodiseringsfond 2023 – nr 2", type: "skuld_kapital" },
   { code: "2134", name: "Periodiseringsfond 2024 – nr 2", type: "skuld_kapital" },
-  { code: "2135", name: "Periodiseringsfond 2025 – nr 2", type: "skuld_kapital" },
+  { code: "2135", name: "Periodiseringsfond 2025 - nr 2", type: "skuld_kapital" },
   { code: "2136", name: "Periodiseringsfond 2026 – nr 2", type: "skuld_kapital" },
-  { code: "2137", name: "Periodiseringsfond 2027 – nr 2", type: "skuld_kapital" },
+  { code: "2137", name: "Periodiseringsfond 2027 - nr 2", type: "skuld_kapital" },
   { code: "2139", name: "Periodiseringsfond 2019 – nr 2", type: "skuld_kapital" },
 
   // 2150 – Ackumulerade överavskrivningar
@@ -445,46 +439,155 @@ export const DEFAULT_ACCOUNTS = [
   { code: "2421", name: "Ej inlösta presentkort", type: "skuld_kapital" },
   { code: "2429", name: "Övriga förskott från kunder", type: "skuld_kapital" },
   { code: "2430", name: "Pågående arbeten", type: "skuld_kapital" },
+  { code: "2431", name: "Pågående arbeten, fakturering", type: "skuld_kapital" },
+  { code: "2438", name: "Pågående arbeten, nedlagda kostnader", type: "skuld_kapital" },
+  { code: "2439", name: "Beräknad förändring av pågående arbeten", type: "skuld_kapital" },
 
-  // 2440 och uppåt – äldre urvalslista, ej ännu kontoexakt verifierad
-  // (fortfarande sant för namnen/urvalet i stort — men kundens egen,
-  // verifierade kontoplansdata avslöjade att 2612/2613 nedan var RIKTIGT
-  // fel, inte bara overifierat: BAS-kontona för 12/6 % utgående moms är
-  // 2621/2631, aldrig 2612/2613 — se vatConfig.js för hela historien och
-  // App.jsx: handleBookVatPeriod, den enda platsen som faktiskt bokför
-  // mot dem. `active: true` nedan = kundens egen "de här används mest"-
-  // lista (skärmdump ur ett kontoplansverktyg) — de föreslagna kontona i
-  // sök/OCR ska defaulta till DEM, inte till alla ~700 konton på en gång.
+  // `active: true` = kundens egen "de här används mest"-lista: de
+  // föreslagna kontona i sök/OCR ska defaulta till DEM, inte till alla
+  // konton på en gång. 2612/2613 är INTE moms 12/6 % (det är 2621/2631),
+  // se vatConfig.js och App.jsx: handleBookVatPeriod.
   { code: "2440", name: "Leverantörsskulder", type: "skuld_kapital", active: true, system: true },
+  { code: "2441", name: "Leverantörsskulder", type: "skuld_kapital" },
+  { code: "2443", name: "Konsignationsskulder", type: "skuld_kapital" },
+  { code: "2445", name: "Tvistiga leverantörsskulder", type: "skuld_kapital" },
+  { code: "2448", name: "Ej reskontraförda leverantörsskulder", type: "skuld_kapital" },
+  { code: "2450", name: "Fakturerad men ej upparbetad intäkt", type: "skuld_kapital" },
+  { code: "2460", name: "Leverantörsskulder till koncernföretag", type: "skuld_kapital" },
+  { code: "2461", name: "Leverantörsskulder till moderföretag", type: "skuld_kapital" },
+  { code: "2462", name: "Leverantörsskulder till dotterföretag", type: "skuld_kapital" },
+  { code: "2463", name: "Leverantörsskulder till andra koncernföretag", type: "skuld_kapital" },
+  { code: "2470", name: "Leverantörsskulder till intresseföretag, gemensamt styrda företag och övriga företag som det finns ett ägarintresse i", type: "skuld_kapital" },
+  { code: "2471", name: "Leverantörsskulder till intresseföretag", type: "skuld_kapital" },
+  { code: "2472", name: "Leverantörsskulder till gemensamt styrda företag", type: "skuld_kapital" },
+  { code: "2473", name: "Leverantörsskulder till övriga företag som det finns ett ägarintresse i", type: "skuld_kapital" },
+  { code: "2480", name: "Kontokredit, kortfristig", type: "skuld_kapital" },
+  { code: "2490", name: "Övriga kortfristiga skulder till kreditinstitut, kunder och leverantörer", type: "skuld_kapital" },
+  { code: "2491", name: "Avräkning spelarrangörer", type: "skuld_kapital" },
+  { code: "2492", name: "Växelskulder", type: "skuld_kapital" },
+  { code: "2499", name: "Andra övriga kortfristiga skulder", type: "skuld_kapital" },
   { code: "2510", name: "Skatteskulder", type: "skuld_kapital" },
+  { code: "2512", name: "Beräknad inkomstskatt", type: "skuld_kapital" },
+  { code: "2513", name: "Beräknad fastighetsskatt/fastighetsavgift", type: "skuld_kapital" },
   { code: "2514", name: "Beräknad särskild löneskatt på pensionskostnader", type: "skuld_kapital", active: true },
-  { code: "2611", name: "Utgående moms, 25%", type: "skuld_kapital", active: true, system: true },
-  { code: "2621", name: "Utgående moms, 12%", type: "skuld_kapital", active: true, system: true },
-  { code: "2631", name: "Utgående moms, 6%", type: "skuld_kapital", active: true, system: true },
-  { code: "2614", name: "Utgående moms omvänd skattskyldighet, 25%", type: "skuld_kapital", system: true },
-  { code: "2624", name: "Utgående moms omvänd skattskyldighet, 12%", type: "skuld_kapital", system: true },
-  { code: "2634", name: "Utgående moms omvänd skattskyldighet, 6%", type: "skuld_kapital", system: true },
+  { code: "2515", name: "Beräknad avkastningsskatt", type: "skuld_kapital" },
+  { code: "2517", name: "Beräknad utländsk skatt", type: "skuld_kapital" },
+  { code: "2518", name: "Betald F-skatt", type: "skuld_kapital" },
+  { code: "2610", name: "Utgående moms, 25 %", type: "skuld_kapital" },
+  { code: "2611", name: "Utgående moms på försäljning inom Sverige, 25 %", type: "skuld_kapital", active: true, system: true },
+  { code: "2612", name: "Utgående moms på egna uttag, 25 %", type: "skuld_kapital" },
+  { code: "2613", name: "Utgående moms för uthyrning, 25 %", type: "skuld_kapital" },
+  { code: "2614", name: "Utgående moms omvänd betalskyldighet, 25 %", type: "skuld_kapital", system: true },
   // Import av varor (ruta 60-62) och omvänd skattskyldighet inom Sverige,
   // t.ex. byggtjänster (ruta 30-32 via 2617/2627/2637, ingående på 2647).
-  { code: "2615", name: "Utgående moms import av varor, 25%", type: "skuld_kapital", system: true },
-  { code: "2625", name: "Utgående moms import av varor, 12%", type: "skuld_kapital", system: true },
-  { code: "2635", name: "Utgående moms import av varor, 6%", type: "skuld_kapital", system: true },
+  { code: "2615", name: "Utgående moms import av varor, 25 %", type: "skuld_kapital", system: true },
+  { code: "2616", name: "Utgående moms VMB 25 %", type: "skuld_kapital" },
   { code: "2617", name: "Utgående moms omvänd skattskyldighet varor och tjänster i Sverige, 25%", type: "skuld_kapital", system: true },
+  { code: "2618", name: "Vilande utgående moms, 25 %", type: "skuld_kapital" },
+  { code: "2620", name: "Utgående moms, 12 %", type: "skuld_kapital" },
+  { code: "2621", name: "Utgående moms på försäljning inom Sverige, 12 %", type: "skuld_kapital", active: true, system: true },
+  { code: "2622", name: "Utgående moms på egna uttag, 12 %", type: "skuld_kapital" },
+  { code: "2623", name: "Utgående moms för uthyrning, 12 %", type: "skuld_kapital" },
+  { code: "2624", name: "Utgående moms omvänd betalningsskyldighet 12 %", type: "skuld_kapital", system: true },
+  { code: "2625", name: "Utgående moms import av varor, 12 %", type: "skuld_kapital", system: true },
+  { code: "2626", name: "Utgående moms VMB 12 %", type: "skuld_kapital" },
   { code: "2627", name: "Utgående moms omvänd skattskyldighet varor och tjänster i Sverige, 12%", type: "skuld_kapital", system: true },
+  { code: "2628", name: "Vilande utgående moms, 12 %", type: "skuld_kapital" },
+  { code: "2630", name: "Utgående moms, 6 %", type: "skuld_kapital" },
+  { code: "2631", name: "Utgående moms på försäljning inom Sverige, 6 %", type: "skuld_kapital", active: true, system: true },
+  { code: "2632", name: "Utgående moms på egna uttag, 6 %", type: "skuld_kapital" },
+  { code: "2633", name: "Utgående moms för uthyrning, 6 %", type: "skuld_kapital" },
+  { code: "2634", name: "Utgående moms omvänd betalningsskyldighet, 6 %", type: "skuld_kapital", system: true },
+  { code: "2635", name: "Utgående moms import av varor, 6 %", type: "skuld_kapital", system: true },
+  { code: "2636", name: "Utgående moms VMB 6 %", type: "skuld_kapital" },
   { code: "2637", name: "Utgående moms omvänd skattskyldighet varor och tjänster i Sverige, 6%", type: "skuld_kapital", system: true },
-  { code: "2641", name: "Ingående moms", type: "skuld_kapital", active: true, system: true },
+  { code: "2638", name: "Vilande utgående moms, 6 %", type: "skuld_kapital" },
+  { code: "2640", name: "Ingående moms", type: "skuld_kapital" },
+  { code: "2641", name: "Debiterad ingående moms", type: "skuld_kapital", active: true, system: true },
+  { code: "2642", name: "Debiterad ingående moms i anslutning till frivillig betalningsskyldighet", type: "skuld_kapital" },
   { code: "2645", name: "Beräknad ingående moms på förvärv från utlandet", type: "skuld_kapital", system: true },
-  { code: "2647", name: "Ingående moms omvänd skattskyldighet varor och tjänster i Sverige", type: "skuld_kapital", system: true },
+  { code: "2646", name: "Ingående moms på uthyrning", type: "skuld_kapital" },
+  { code: "2647", name: "Ingående moms omvänd betalningsskyldighet varor och tjänster i Sverige", type: "skuld_kapital", system: true },
+  { code: "2648", name: "Vilande ingående moms", type: "skuld_kapital" },
+  { code: "2649", name: "Ingående moms, blandad verksamhet", type: "skuld_kapital" },
   { code: "2650", name: "Redovisningskonto för moms", type: "skuld_kapital", active: true, system: true },
+  { code: "2660", name: "Punktskatter", type: "skuld_kapital" },
+  { code: "2670", name: "Utgående moms på försäljning inom EU, OSS", type: "skuld_kapital" },
   { code: "2710", name: "Personalskatt", type: "skuld_kapital", active: true, system: true },
-  { code: "2731", name: "Avräkning socialavgifter", type: "skuld_kapital", active: true, system: true },
+  { code: "2730", name: "Lagstadgade sociala avgifter och särskild löneskatt", type: "skuld_kapital" },
+  { code: "2731", name: "Avräkning lagstadgade sociala avgifter", type: "skuld_kapital", active: true, system: true },
+  { code: "2732", name: "Avräkning särskild löneskatt", type: "skuld_kapital" },
   { code: "2740", name: "Avtalade sociala avgifter", type: "skuld_kapital", active: true },
+  { code: "2750", name: "Utmätning i lön m.m.", type: "skuld_kapital" },
+  { code: "2760", name: "Semestermedel", type: "skuld_kapital" },
+  { code: "2761", name: "Avräkning semesterlöner", type: "skuld_kapital" },
+  { code: "2762", name: "Semesterlönekassa", type: "skuld_kapital" },
+  { code: "2790", name: "Övriga löneavdrag", type: "skuld_kapital" },
+  { code: "2791", name: "Personalens intressekonto", type: "skuld_kapital" },
+  { code: "2792", name: "Lönsparande", type: "skuld_kapital" },
+  { code: "2793", name: "Gruppförsäkringspremier", type: "skuld_kapital" },
+  { code: "2794", name: "Fackföreningsavgifter", type: "skuld_kapital" },
+  { code: "2795", name: "Mätnings- och granskningsarvoden", type: "skuld_kapital" },
+  { code: "2799", name: "Övriga löneavdrag", type: "skuld_kapital" },
+  { code: "2810", name: "Avräkning för factoring och belånade kontraktsfordringar", type: "skuld_kapital" },
+  { code: "2811", name: "Avräkning för factoring", type: "skuld_kapital" },
+  { code: "2812", name: "Avräkning för belånade kontraktsfordringar", type: "skuld_kapital" },
+  { code: "2820", name: "Kortfristiga skulder till anställda", type: "skuld_kapital" },
+  { code: "2821", name: "Löneskulder", type: "skuld_kapital" },
+  { code: "2822", name: "Reseräkningar", type: "skuld_kapital" },
+  { code: "2823", name: "Tantiem, gratifikationer", type: "skuld_kapital" },
+  { code: "2829", name: "Övriga kortfristiga skulder till anställda", type: "skuld_kapital" },
+  { code: "2830", name: "Avräkning för annans räkning", type: "skuld_kapital" },
+  { code: "2840", name: "Kortfristiga låneskulder", type: "skuld_kapital" },
+  { code: "2841", name: "Kortfristig del av långfristiga skulder", type: "skuld_kapital" },
+  { code: "2849", name: "Övriga kortfristiga låneskulder", type: "skuld_kapital" },
+  { code: "2850", name: "Avräkning för skatter och avgifter (skattekonto)", type: "skuld_kapital" },
+  { code: "2852", name: "Anståndsbelopp för moms, arbetsgivaravgifter och personalskatt", type: "skuld_kapital" },
+  { code: "2860", name: "Kortfristiga skulder till koncernföretag", type: "skuld_kapital" },
+  { code: "2861", name: "Kortfristiga skulder till moderföretag", type: "skuld_kapital" },
+  { code: "2862", name: "Kortfristiga skulder till dotterföretag", type: "skuld_kapital" },
+  { code: "2863", name: "Kortfristiga skulder till andra koncernföretag", type: "skuld_kapital" },
+  { code: "2870", name: "Kortfristiga skulder till intresseföretag, gemensamt styrda företag och övriga företag som det finns ett ägarintresse i", type: "skuld_kapital" },
+  { code: "2871", name: "Kortfristiga skulder till intresseföretag", type: "skuld_kapital" },
+  { code: "2872", name: "Kortfristiga skulder till gemensamt styrda företag", type: "skuld_kapital" },
+  { code: "2873", name: "Kortfristiga skulder till övriga företag som det finns ett ägarintresse i", type: "skuld_kapital" },
+  { code: "2880", name: "Skuld erhållna bidrag", type: "skuld_kapital" },
   { code: "2890", name: "Övriga kortfristiga skulder", type: "skuld_kapital" },
-  { code: "2898", name: "Outtagen utdelning", type: "skuld_kapital" },
+  { code: "2891", name: "Skulder under indrivning", type: "skuld_kapital" },
+  { code: "2892", name: "Inre reparationsfond/underhållsfond", type: "skuld_kapital" },
+  { code: "2893", name: "Skulder till närstående personer, kortfristig del", type: "skuld_kapital" },
+  { code: "2895", name: "Derivat (kortfristiga skulder)", type: "skuld_kapital" },
+  { code: "2897", name: "Mottagna depositioner, kortfristiga", type: "skuld_kapital" },
+  { code: "2898", name: "Outtagen vinstutdelning", type: "skuld_kapital" },
+  { code: "2899", name: "Övriga kortfristiga skulder", type: "skuld_kapital" },
   { code: "2910", name: "Upplupna löner", type: "skuld_kapital" },
+  { code: "2911", name: "Löneskulder", type: "skuld_kapital" },
+  { code: "2912", name: "Ackordsöverskott", type: "skuld_kapital" },
+  { code: "2919", name: "Övriga upplupna löner", type: "skuld_kapital" },
   { code: "2920", name: "Upplupna semesterlöner", type: "skuld_kapital", active: true },
-  { code: "2940", name: "Upplupna lagstadgade sociala avgifter", type: "skuld_kapital", active: true },
+  { code: "2930", name: "Upplupna pensionskostnader", type: "skuld_kapital" },
+  { code: "2931", name: "Upplupna pensionsutbetalningar", type: "skuld_kapital" },
+  { code: "2940", name: "Upplupna lagstadgade sociala och andra avgifter", type: "skuld_kapital", active: true },
+  { code: "2941", name: "Beräknade upplupna lagstadgade sociala avgifter", type: "skuld_kapital" },
+  { code: "2942", name: "Beräknad upplupen särskild löneskatt", type: "skuld_kapital" },
+  { code: "2943", name: "Beräknad upplupen särskild löneskatt på pensionskostnader, deklarationspost", type: "skuld_kapital" },
+  { code: "2944", name: "Beräknad upplupen avkastningsskatt på pensionskostnader", type: "skuld_kapital" },
+  { code: "2950", name: "Upplupna avtalade sociala avgifter", type: "skuld_kapital" },
+  { code: "2951", name: "Upplupna avtalade arbetsmarknadsförsäkringar", type: "skuld_kapital" },
+  { code: "2959", name: "Upplupna avtalade pensionsförsäkringsavgifter, deklarationspost", type: "skuld_kapital" },
+  { code: "2960", name: "Upplupna räntekostnader", type: "skuld_kapital" },
+  { code: "2970", name: "Förutbetalda intäkter", type: "skuld_kapital" },
+  { code: "2971", name: "Förutbetalda hyresintäkter", type: "skuld_kapital" },
+  { code: "2972", name: "Förutbetalda medlemsavgifter", type: "skuld_kapital" },
+  { code: "2979", name: "Övriga förutbetalda intäkter", type: "skuld_kapital" },
+  { code: "2980", name: "Upplupna avtalskostnader", type: "skuld_kapital" },
   { code: "2990", name: "Övriga upplupna kostnader och förutbetalda intäkter", type: "skuld_kapital" },
+  { code: "2991", name: "Beräknat arvode för bokslut", type: "skuld_kapital" },
+  { code: "2992", name: "Beräknat arvode för revision", type: "skuld_kapital" },
+  { code: "2993", name: "Ospecificerad skuld till leverantörer", type: "skuld_kapital" },
+  { code: "2995", name: "Ej ankomna leverantörsfakturor", type: "skuld_kapital" },
+  { code: "2998", name: "Övriga upplupna kostnader och förutbetalda intäkter", type: "skuld_kapital" },
+  { code: "2999", name: "OBS-konto", type: "skuld_kapital" },
 
   // ═══════════════════════════════════════════
   // KLASS 3 – INTÄKTER
@@ -493,9 +596,9 @@ export const DEFAULT_ACCOUNTS = [
 
   // 3000 – Försäljning inom Sverige
   { code: "3000", name: "Försäljning inom Sverige", type: "intakt" },
-  { code: "3001", name: "Försäljning inom Sverige, 25% moms", type: "intakt", active: true, system: true },
-  { code: "3002", name: "Försäljning inom Sverige, 12% moms", type: "intakt", active: true, system: true },
-  { code: "3003", name: "Försäljning inom Sverige, 6% moms", type: "intakt", active: true },
+  { code: "3001", name: "Försäljning inom Sverige, 25 % moms", type: "intakt", active: true, system: true },
+  { code: "3002", name: "Försäljning inom Sverige, 12 % moms", type: "intakt", active: true, system: true },
+  { code: "3003", name: "Försäljning inom Sverige, 6 % moms", type: "intakt", active: true },
   { code: "3004", name: "Försäljning inom Sverige, momsfri", type: "intakt" },
 
   // 3100 – Försäljning av varor utanför Sverige
@@ -506,8 +609,8 @@ export const DEFAULT_ACCOUNTS = [
 
   // 3200 – Försäljning VMB och omvänd moms
   { code: "3200", name: "Försäljning VMB och omvänd moms", type: "intakt" },
-  { code: "3211", name: "Försäljning positiv VMB 25%", type: "intakt" },
-  { code: "3212", name: "Försäljning negativ VMB 25%", type: "intakt" },
+  { code: "3211", name: "Försäljning positiv VMB 25 %", type: "intakt" },
+  { code: "3212", name: "Försäljning negativ VMB 25 %", type: "intakt" },
   { code: "3231", name: "Försäljning inom byggsektorn, omvänd betalningsskyldighet moms", type: "intakt" },
 
   // 3300 – Försäljning av tjänster utanför Sverige
@@ -517,9 +620,9 @@ export const DEFAULT_ACCOUNTS = [
 
   // 3400 – Försäljning, egna uttag
   { code: "3400", name: "Försäljning, egna uttag", type: "intakt" },
-  { code: "3401", name: "Egna uttag momspliktiga, 25%", type: "intakt" },
-  { code: "3402", name: "Egna uttag momspliktiga, 12%", type: "intakt" },
-  { code: "3403", name: "Egna uttag momspliktiga, 6%", type: "intakt" },
+  { code: "3401", name: "Egna uttag momspliktiga, 25 %", type: "intakt" },
+  { code: "3402", name: "Egna uttag momspliktiga, 12 %", type: "intakt" },
+  { code: "3403", name: "Egna uttag momspliktiga, 6 %", type: "intakt" },
   { code: "3404", name: "Egna uttag, momsfria", type: "intakt" },
 
   // 3500 – Fakturerade kostnader
@@ -622,18 +725,18 @@ export const DEFAULT_ACCOUNTS = [
   { code: "4000", name: "Inköp av handelsvaror (gruppkonto)", type: "kostnad", active: true, system: true },
   { code: "4010", name: "Inköp av handelsvaror i Sverige", type: "kostnad" },
   { code: "4060", name: "Inköp av handelsvaror i Sverige, omvänd betalningsskyldighet", type: "kostnad" },
-  { code: "4065", name: "Inköp av handelsvaror i Sverige, omvänd betalningsskyldighet, 25% moms", type: "kostnad" },
-  { code: "4066", name: "Inköp av handelsvaror i Sverige, omvänd betalningsskyldighet, 12% moms", type: "kostnad" },
-  { code: "4067", name: "Inköp av handelsvaror i Sverige, omvänd betalningsskyldighet, 6% moms", type: "kostnad" },
+  { code: "4065", name: "Inköp av handelsvaror i Sverige, omvänd betalningsskyldighet, 25 % moms", type: "kostnad" },
+  { code: "4066", name: "Inköp av handelsvaror i Sverige, omvänd betalningsskyldighet, 12 % moms", type: "kostnad" },
+  { code: "4067", name: "Inköp av handelsvaror i Sverige, omvänd betalningsskyldighet, 6 % moms", type: "kostnad" },
   { code: "4070", name: "Inköp av handelsvaror från annat EU-land", type: "kostnad" },
-  { code: "4075", name: "Inköp av handelsvaror från annat EU-land, 25% moms", type: "kostnad" },
-  { code: "4076", name: "Inköp av handelsvaror från annat EU-land, 12% moms", type: "kostnad" },
-  { code: "4077", name: "Inköp av handelsvaror från annat EU-land, 6% moms", type: "kostnad" },
+  { code: "4075", name: "Inköp av handelsvaror från annat EU-land, 25 % moms", type: "kostnad" },
+  { code: "4076", name: "Inköp av handelsvaror från annat EU-land, 12 % moms", type: "kostnad" },
+  { code: "4077", name: "Inköp av handelsvaror från annat EU-land, 6 % moms", type: "kostnad" },
   { code: "4078", name: "Inköp av handelsvaror från annat EU-land, momsfri", type: "kostnad" },
   { code: "4080", name: "Import av handelsvaror", type: "kostnad" },
-  { code: "4085", name: "Import av handelsvaror, 25% moms", type: "kostnad" },
-  { code: "4086", name: "Import av handelsvaror, 12% moms", type: "kostnad" },
-  { code: "4087", name: "Import av handelsvaror, 6% moms", type: "kostnad" },
+  { code: "4085", name: "Import av handelsvaror, 25 % moms", type: "kostnad" },
+  { code: "4086", name: "Import av handelsvaror, 12 % moms", type: "kostnad" },
+  { code: "4087", name: "Import av handelsvaror, 6 % moms", type: "kostnad" },
   { code: "4090", name: "Erhållna rabatter (Handelsvaror)", type: "kostnad" },
   { code: "4091", name: "Erhållna kassarabatter (Handelsvaror)", type: "kostnad" },
   { code: "4092", name: "Erhållna mängdrabatter (inkl. bonus) (Handelsvaror)", type: "kostnad" },
@@ -642,8 +745,8 @@ export const DEFAULT_ACCOUNTS = [
   // 4200 – Sålda handelsvaror VMB
   { code: "4200", name: "Sålda handelsvaror VMB (gruppkonto)", type: "kostnad" },
   { code: "4210", name: "Sålda handelsvaror VMB", type: "kostnad" },
-  { code: "4211", name: "Sålda handelsvaror positiv VMB 25%", type: "kostnad" },
-  { code: "4212", name: "Sålda handelsvaror negativ VMB 25%", type: "kostnad" },
+  { code: "4211", name: "Sålda handelsvaror positiv VMB 25 %", type: "kostnad" },
+  { code: "4212", name: "Sålda handelsvaror negativ VMB 25 %", type: "kostnad" },
 
   // 4300 – Inköp av råvaror och material i Sverige
   { code: "4300", name: "Inköp av råvaror och material i Sverige (gruppkonto)", type: "kostnad" },
@@ -652,33 +755,33 @@ export const DEFAULT_ACCOUNTS = [
   // 4400 – Inköp i Sverige, omvänd betalningsskyldighet
   { code: "4400", name: "Inköp av råvaror och material, tjänster m.m. i Sverige, omvänd betalningsskyldighet (gruppkonto)", type: "kostnad" },
   { code: "4410", name: "Inköp av råvaror och material i Sverige, omvänd betalningsskyldighet", type: "kostnad" },
-  { code: "4415", name: "Inköp av råvaror och material i Sverige, omvänd betalningsskyldighet, 25% moms", type: "kostnad" },
-  { code: "4416", name: "Inköp av råvaror och material i Sverige, omvänd betalningsskyldighet, 12% moms", type: "kostnad" },
-  { code: "4417", name: "Inköp av råvaror och material i Sverige, omvänd betalningsskyldighet, 6% moms", type: "kostnad" },
+  { code: "4415", name: "Inköp av råvaror och material i Sverige, omvänd betalningsskyldighet, 25 % moms", type: "kostnad" },
+  { code: "4416", name: "Inköp av råvaror och material i Sverige, omvänd betalningsskyldighet, 12 % moms", type: "kostnad" },
+  { code: "4417", name: "Inköp av råvaror och material i Sverige, omvänd betalningsskyldighet, 6 % moms", type: "kostnad" },
   { code: "4420", name: "Inköp av tjänster i Sverige, omvänd betalningsskyldighet", type: "kostnad" },
-  { code: "4425", name: "Inköp av tjänster i Sverige, omvänd betalningsskyldighet, 25% moms", type: "kostnad" },
-  { code: "4426", name: "Inköp av tjänster i Sverige, omvänd betalningsskyldighet, 12% moms", type: "kostnad" },
-  { code: "4427", name: "Inköp av tjänster i Sverige, omvänd betalningsskyldighet, 6% moms", type: "kostnad" },
+  { code: "4425", name: "Inköp av tjänster i Sverige, omvänd betalningsskyldighet, 25 % moms", type: "kostnad" },
+  { code: "4426", name: "Inköp av tjänster i Sverige, omvänd betalningsskyldighet, 12 % moms", type: "kostnad" },
+  { code: "4427", name: "Inköp av tjänster i Sverige, omvänd betalningsskyldighet, 6 % moms", type: "kostnad" },
 
   // 4500 – Inköp från utlandet
   { code: "4500", name: "Inköp av råvaror och material, tjänster m.m. från utlandet (gruppkonto)", type: "kostnad" },
   { code: "4510", name: "Inköp av råvaror och material från annat EU-land", type: "kostnad" },
-  { code: "4515", name: "Inköp av råvaror och material från annat EU-land, 25%", type: "kostnad" },
-  { code: "4516", name: "Inköp av råvaror och material från annat EU-land, 12%", type: "kostnad" },
-  { code: "4517", name: "Inköp av råvaror och material från annat EU-land, 6%", type: "kostnad" },
+  { code: "4515", name: "Inköp av råvaror och material från annat EU-land, 25 %", type: "kostnad" },
+  { code: "4516", name: "Inköp av råvaror och material från annat EU-land, 12 %", type: "kostnad" },
+  { code: "4517", name: "Inköp av råvaror och material från annat EU-land, 6 %", type: "kostnad" },
   { code: "4518", name: "Inköp av råvaror och material från annat EU-land, momsfri", type: "kostnad" },
   { code: "4530", name: "Inköp av tjänster m.m. från utlandet", type: "kostnad" },
-  { code: "4531", name: "Inköp av tjänster från ett land utanför EU, 25% moms", type: "kostnad" },
-  { code: "4532", name: "Inköp av tjänster från ett land utanför EU, 12% moms", type: "kostnad" },
-  { code: "4533", name: "Inköp av tjänster från ett land utanför EU, 6% moms", type: "kostnad" },
-  { code: "4535", name: "Inköp av tjänster från annat EU-land, 25%", type: "kostnad" },
-  { code: "4536", name: "Inköp av tjänster från annat EU-land, 12%", type: "kostnad" },
-  { code: "4537", name: "Inköp av tjänster från annat EU-land, 6%", type: "kostnad" },
+  { code: "4531", name: "Inköp av tjänster från ett land utanför EU, 25 % moms", type: "kostnad" },
+  { code: "4532", name: "Inköp av tjänster från ett land utanför EU, 12 % moms", type: "kostnad" },
+  { code: "4533", name: "Inköp av tjänster från ett land utanför EU, 6 % moms", type: "kostnad" },
+  { code: "4535", name: "Inköp av tjänster från annat EU-land, 25 %", type: "kostnad" },
+  { code: "4536", name: "Inköp av tjänster från annat EU-land, 12 %", type: "kostnad" },
+  { code: "4537", name: "Inköp av tjänster från annat EU-land, 6 %", type: "kostnad" },
   { code: "4538", name: "Inköp av tjänster från annat EU-land, momsfri", type: "kostnad" },
   { code: "4540", name: "Import av råvaror och material", type: "kostnad" },
-  { code: "4545", name: "Import av råvaror och material, 25% moms", type: "kostnad" },
-  { code: "4546", name: "Import av råvaror och material, 12% moms", type: "kostnad" },
-  { code: "4547", name: "Import av råvaror och material, 6% moms", type: "kostnad" },
+  { code: "4545", name: "Import av råvaror och material, 25 % moms", type: "kostnad" },
+  { code: "4546", name: "Import av råvaror och material, 12 % moms", type: "kostnad" },
+  { code: "4547", name: "Import av råvaror och material, 6 % moms", type: "kostnad" },
   // Motkonto när beskattningsunderlaget för importmomsen (ruta 50) bokförs
   // på 4545-4547 separat från själva varukostnaden.
   { code: "4549", name: "Motkonto beskattningsunderlag import", type: "kostnad", system: true },
@@ -1034,7 +1137,7 @@ export const DEFAULT_ACCOUNTS = [
   { code: "7010", name: "Löner till kollektivanställda", type: "kostnad" },
   { code: "7011", name: "Löner till kollektivanställda", type: "kostnad" },
   { code: "7012", name: "Vinstandelar till kollektivanställda", type: "kostnad" },
-  { code: "7013", name: "Lön växa-stöd kollektivanställda 10,21%", type: "kostnad" },
+  { code: "7013", name: "Lön växa-stöd kollektivanställda 10,21 %", type: "kostnad" },
   { code: "7017", name: "Avgångsvederlag till kollektivanställda", type: "kostnad" },
   { code: "7018", name: "Bruttolöneavdrag, kollektivanställda", type: "kostnad" },
   { code: "7019", name: "Upplupna löner och vinstandelar till kollektivanställda", type: "kostnad" },
@@ -1056,7 +1159,7 @@ export const DEFAULT_ACCOUNTS = [
   { code: "7210", name: "Löner till tjänstemän", type: "kostnad", active: true },
   { code: "7211", name: "Löner till tjänstemän", type: "kostnad" },
   { code: "7212", name: "Vinstandelar till tjänstemän", type: "kostnad" },
-  { code: "7213", name: "Lön växa-stöd tjänstemän 10,21%", type: "kostnad" },
+  { code: "7213", name: "Lön växa-stöd tjänstemän 10,21 %", type: "kostnad" },
   { code: "7217", name: "Avgångsvederlag till tjänstemän", type: "kostnad" },
   { code: "7218", name: "Bruttolöneavdrag, tjänstemän", type: "kostnad" },
   { code: "7219", name: "Upplupna löner och vinstandelar till tjänstemän", type: "kostnad" },
@@ -1142,7 +1245,7 @@ export const DEFAULT_ACCOUNTS = [
 
   // 7500 – Sociala och andra avgifter enligt lag och avtal
   { code: "7500", name: "Sociala och andra avgifter enligt lag och avtal (gruppkonto)", type: "kostnad" },
-  { code: "7510", name: "Arbetsgivaravgifter 31,42%", type: "kostnad", active: true },
+  { code: "7510", name: "Arbetsgivaravgifter 31,42 %", type: "kostnad", active: true },
   { code: "7511", name: "Arbetsgivaravgifter för löner och ersättningar", type: "kostnad" },
   { code: "7512", name: "Arbetsgivaravgifter för förmånsvärden", type: "kostnad" },
   { code: "7515", name: "Arbetsgivaravgifter på skattepliktiga kostnadsersättningar", type: "kostnad" },
@@ -1154,10 +1257,10 @@ export const DEFAULT_ACCOUNTS = [
   { code: "7532", name: "Särskild löneskatt pensionskostnader, deklarationspost", type: "kostnad" },
   { code: "7533", name: "Särskild löneskatt för pensionskostnader", type: "kostnad", active: true },
   { code: "7550", name: "Avkastningsskatt på pensionsmedel", type: "kostnad" },
-  { code: "7551", name: "Avkastningsskatt 15% försäkringsföretag m.fl. samt avsatt till pensioner", type: "kostnad" },
-  { code: "7552", name: "Avkastningsskatt 15% utländska pensionsförsäkringar", type: "kostnad" },
-  { code: "7553", name: "Avkastningsskatt 30% utländska försäkringsföretag m.fl.", type: "kostnad" },
-  { code: "7554", name: "Avkastningsskatt 30% utländska kapitalförsäkringar", type: "kostnad" },
+  { code: "7551", name: "Avkastningsskatt 15 % försäkringsföretag m.fl. samt avsatt till pensioner", type: "kostnad" },
+  { code: "7552", name: "Avkastningsskatt 15 % utländska pensionsförsäkringar", type: "kostnad" },
+  { code: "7553", name: "Avkastningsskatt 30 % utländska försäkringsföretag m.fl.", type: "kostnad" },
+  { code: "7554", name: "Avkastningsskatt 30 % utländska kapitalförsäkringar", type: "kostnad" },
   { code: "7570", name: "Premier för arbetsmarknadsförsäkringar", type: "kostnad" },
   { code: "7571", name: "Arbetsmarknadsförsäkringar", type: "kostnad" },
   { code: "7572", name: "Arbetsmarknadsförsäkringar pensionsförsäkringspremier, deklarationspost", type: "kostnad" },

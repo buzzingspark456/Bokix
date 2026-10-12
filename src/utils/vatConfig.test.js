@@ -23,15 +23,20 @@ describe('utgående moms — kontokoppling', () => {
 
   it('varje konto i OUTPUT_VAT_ACCOUNT_BY_RATE finns i kontoplanen, aktivt och med rätt namn', () => {
     const byCode = Object.fromEntries(DEFAULT_ACCOUNTS.map(a => [a.code, a]))
-    expect(byCode['2611']).toMatchObject({ name: 'Utgående moms, 25%', active: true })
-    expect(byCode['2621']).toMatchObject({ name: 'Utgående moms, 12%', active: true })
-    expect(byCode['2631']).toMatchObject({ name: 'Utgående moms, 6%', active: true })
+    expect(byCode['2611']).toMatchObject({ name: 'Utgående moms på försäljning inom Sverige, 25 %', active: true })
+    expect(byCode['2621']).toMatchObject({ name: 'Utgående moms på försäljning inom Sverige, 12 %', active: true })
+    expect(byCode['2631']).toMatchObject({ name: 'Utgående moms på försäljning inom Sverige, 6 %', active: true })
   })
 
-  it('de gamla, felaktiga kontona 2612/2613 finns inte kvar i kontoplanen', () => {
-    const codes = new Set(DEFAULT_ACCOUNTS.map(a => a.code))
-    expect(codes.has('2612')).toBe(false)
-    expect(codes.has('2613')).toBe(false)
+  // 2612/2613 användes en gång felaktigt för 12/6 % moms. I BAS 2026 är de
+  // riktiga konton (moms på egna uttag och vid uthyrning, 25 %), så de får
+  // finnas, men momsen på försäljning får aldrig bokas mot dem.
+  it('2612/2613 används aldrig för 12/6 % moms och har BAS-namnen', () => {
+    expect(Object.values(OUTPUT_VAT_ACCOUNT_BY_RATE)).not.toContain('2612')
+    expect(Object.values(OUTPUT_VAT_ACCOUNT_BY_RATE)).not.toContain('2613')
+    const byCode = Object.fromEntries(DEFAULT_ACCOUNTS.map(a => [a.code, a]))
+    expect(byCode['2612']?.name).toBe('Utgående moms på egna uttag, 25 %')
+    expect(byCode['2613']?.name).toBe('Utgående moms för uthyrning, 25 %')
   })
 
   it('försäljningskontona (3001-3004) och ingående moms (2641) är oförändrade', () => {

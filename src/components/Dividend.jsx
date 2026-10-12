@@ -55,7 +55,7 @@ export default function Dividend({ company, accounts = [], verifications = [], o
 
   const ensureLiabilityAccount = () => {
     if (setAccounts && !accounts.some(a => a.code === DIVIDEND_LIABILITY_ACCOUNT)) {
-      setAccounts(prev => (prev.some(a => a.code === DIVIDEND_LIABILITY_ACCOUNT) ? prev : [...prev, { code: DIVIDEND_LIABILITY_ACCOUNT, name: 'Outtagen utdelning', type: 'skuld_kapital' }].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))));
+      setAccounts(prev => (prev.some(a => a.code === DIVIDEND_LIABILITY_ACCOUNT) ? prev : [...prev, { code: DIVIDEND_LIABILITY_ACCOUNT, name: 'Outtagen vinstutdelning', type: 'skuld_kapital' }].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))));
     }
   };
 
