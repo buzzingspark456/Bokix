@@ -3,6 +3,9 @@ import { Search, ChevronDown, ChevronRight, Lock, X } from '../icons';
 import { accountMatches } from '../../utils/accountSearch';
 import ListTable from './ListTable';
 import { t } from '../../i18n';
+import { BAS_ACCOUNT_GROUPS } from '../AccountsData';
+
+const byCode = (a, b) => String(a.code).localeCompare(String(b.code), undefined, { numeric: true });
 
 // Kontoplanen — bruten ut ur Bokforing (Verifications.jsx), där den låg som
 // en egen flik ("Kontoplan"). Flyttad hit så EXAKT samma vy (sök, "Mina
@@ -58,7 +61,8 @@ export default function AccountsPanel({ accounts = [], balances = {}, verificati
       const g = BAS_GROUPS.find(g => g.code === groupCode);
       return g && n >= g.range[0] && n <= g.range[1];
     }).filter(a => accountMatches(a, accountSearch))
-      .filter(a => accountView === 'all' || a.active || a.system);
+      .filter(a => accountView === 'all' || a.active || a.system)
+      .sort(byCode);
   };
 
   const getGroupBalance = (groupCode) => {
@@ -142,6 +146,14 @@ export default function AccountsPanel({ accounts = [], balances = {}, verificati
               {isOpen && (
                 <ListTable
                   rowKey={a => a.code}
+                  groupBy={a => String(a.code).slice(0, 2)}
+                  renderGroupHeader={(key, rows) => (
+                    <span style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                      <span style={{ fontWeight: 700, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums' }}>{key}</span>
+                      <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{BAS_ACCOUNT_GROUPS[key] || ''}</span>
+                      <span style={{ marginLeft: 'auto', fontWeight: 500, color: 'var(--text-muted)' }}>{rows.length}</span>
+                    </span>
+                  )}
                   emptyMessage={t('ui.inga_matchande_konton')}
                   rows={groupAccs}
                   columns={[

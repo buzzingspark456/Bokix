@@ -38,6 +38,7 @@ import {
   Banknote, Mail, CalendarClock,
 } from './components/icons';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
+import { BAS_VERSION, upgradeAccountsToBas } from './utils/basUpgrade';
 import { getNextInvoiceNumber } from './utils/invoiceNumbering';
 import { createStripeCheckoutSession, createStripeSubscriptionCheckout, cancelStripeSubscription, syncStripeSubscription } from './stripeApi';
 import { createEmailDomain, getEmailDomainStatus, sendInvoiceEmail } from './emailApi';
@@ -786,6 +787,7 @@ function createEmptyCompanyData(companyInfo) {
       },
     },
     accounts: [...DEFAULT_ACCOUNTS],
+    basVersion: BAS_VERSION,
     verifications: [],
     invoices: [],
     // Egen lista, inte samma array som `invoices` med ett `type`-fält som
@@ -910,11 +912,16 @@ function normalizeCompanyData(companyData) {
   const quotes = Array.isArray(companyData.quotes)
     ? [...companyData.quotes, ...strayQuotes]
     : strayQuotes;
-  const accounts = migrateAccountActiveFlags(companyData.accounts);
-  if (invoices.length === (companyData.invoices || []).length && Array.isArray(companyData.quotes) && accounts === companyData.accounts) {
+  let accounts = migrateAccountActiveFlags(companyData.accounts);
+  // En gång per företag: alla konton i BAS 2026, nya namn, sorterat
+  // (utils/basUpgrade.js). Delade företag (__shared) ägs av någon annan och
+  // uppgraderas när ägaren loggar in.
+  const needsBas = Array.isArray(accounts) && !companyData.__shared && companyData.basVersion !== BAS_VERSION;
+  if (needsBas) accounts = upgradeAccountsToBas(accounts, DEFAULT_ACCOUNTS);
+  if (!needsBas && invoices.length === (companyData.invoices || []).length && Array.isArray(companyData.quotes) && accounts === companyData.accounts) {
     return companyData; // redan migrerat, inget att göra
   }
-  return { ...companyData, invoices, quotes, accounts };
+  return { ...companyData, invoices, quotes, accounts, ...(needsBas ? { basVersion: BAS_VERSION } : {}) };
 }
 
 function normalizeStore(store) {
