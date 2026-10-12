@@ -10,6 +10,7 @@
 
 import { ALL_ARTICLES } from './news.js';
 import { GUIDE_GROUPS } from './guides.js';
+import { ORG_TYPE_PAGES } from './orgTypes.js';
 
 export const DEFAULT_LOCALE = 'sv';
 
@@ -31,6 +32,8 @@ export const LOCALES = Object.keys(LOCALE_META);
 export const MARKETING_ROUTES = [
   '/', '/funktioner', '/priser', '/om-oss', '/kontakt',
   '/byt-bokforingsprogram', '/koppla-bank', '/uf',
+  // Bokföringsprogram per bolagsform (orgTypes.js).
+  ...ORG_TYPE_PAGES.map(p => p.path),
   '/integrationer', '/sakerhet', '/lon', '/ordlista', '/guider', '/bokix-i-korthet', '/lagg-till-pa-hemskarmen', '/vanliga-fragor', '/blogg', '/nyheter',
   ...GUIDE_GROUPS.flatMap(group => group.guides.map(guide => `/guider/${guide.slug}`)),
   '/verktyg', '/verktyg/skanna-kvitto', '/verktyg/momskalkylator', '/verktyg/lonekalkylator', '/verktyg/egenavgifter',

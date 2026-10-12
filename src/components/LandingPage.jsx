@@ -335,8 +335,13 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
             bara loggans egna blå/turkos och grönt. */}
 
         <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 24px', textAlign: 'center', position: 'relative' }}>
+          {c.hero.eyebrow && (
+            <p className="lp-fadeinup" style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--mkt-accent-green-fg)', margin: '0 0 18px' }}>{c.hero.eyebrow}</p>
+          )}
           <h1 className="lp-fadeinup" style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 'clamp(36px, 7vw, 84px)', fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em', color: 'var(--mkt-ink)', marginBottom: '26px' }}>
-            {c.hero.titlePrefix}<br />{c.hero.titleSuffix}
+            {/* Mellanslaget före <br />: utan det läses rubriken ihop till
+                "bokföringska" av sökmotorer som ignorerar radbrytningen. */}
+            {c.hero.titlePrefix}{' '}<br />{c.hero.titleSuffix}
             <em className="lp-gradient-text" style={{ fontStyle: 'italic', backgroundImage: 'linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16, #0ea5e9)' }}>{c.hero.titleEm}</em>
           </h1>
 
@@ -464,14 +469,18 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
             {[0, 1, 2, 3].map((copy) => (
               c.companyTypes.map((label, i) => {
                 const accent = ACCENT_CYCLE[i % 3];
+                // Bolagsformer med egen sida blir länkar (bara första kopian
+                // av raden är nåbar med tabb, resten är dekor för rullningen).
+                const to = c.companyTypeLinks?.[label];
+                const Badge = to ? Link : 'div';
                 return (
-                  <div key={`${label}-${copy}`} aria-hidden={copy > 0} className="lp-lux-card lp-marquee-badge" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 20px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '100px', whiteSpace: 'nowrap' }}>
+                  <Badge key={`${label}-${copy}`} {...(to ? { to, tabIndex: copy > 0 ? -1 : undefined } : {})} aria-hidden={copy > 0} className="lp-lux-card lp-marquee-badge" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 20px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '100px', whiteSpace: 'nowrap', textDecoration: 'none' }}>
                     {/* En liten prick i accentfärgen i stället för en ikon:
                         den håller kvar färgrytmen i raden utan att påstå att
                         en symbol betyder "handelsbolag". */}
                     <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: accent.fg, flexShrink: 0 }} />
                     <span className="lp-marquee-badge-label" style={{ fontSize: '14px', fontWeight: 600, color: INK_SOFT }}>{label}</span>
-                  </div>
+                  </Badge>
                 );
               })
             ))}

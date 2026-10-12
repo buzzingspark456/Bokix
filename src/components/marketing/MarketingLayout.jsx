@@ -13,6 +13,7 @@ import { JsonLd, SITE_URL } from '../../utils/seo';
 import { TOOLS, TOOLS_HUB_PATH } from './tools/toolsConfig';
 import BokixWordmark, { WORDMARK_LETTERS, WORDMARK_VIEWBOX, WORDMARK_GRADIENT } from '../shared/BokixWordmark';
 import { BOKIX_SUMMARY, BOKIX_PROFILES } from '../../content/marketing/bokixFacts';
+import { ORG_TYPE_PAGES } from '../../content/marketing/orgTypes';
 export { BokixWordmark };
 
 // Organization-schema (schema.org) — samma på VARJE marknadssida (den här
@@ -1072,7 +1073,7 @@ function MarketingStyles() {
          gradientlist eller färgade fläckar. */
       .lp-footer { background: #0e2018; color: rgba(255,255,255,0.62); padding: 64px 24px 28px; position: relative; overflow: hidden; border-top: 1px solid rgba(255,255,255,0.06); }
       .lp-footer-inner { max-width: 1120px; margin: 0 auto; position: relative; }
-      .lp-footer-grid { display: grid; grid-template-columns: 1.4fr repeat(4, minmax(0, 1fr)); gap: 40px 32px; }
+      .lp-footer-grid { display: grid; grid-template-columns: 1.2fr repeat(5, minmax(0, 1fr)); gap: 40px 28px; }
       .lp-footer-grid > * { min-width: 0; }
       .lp-footer-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 18px; }
       .lp-footer-heading { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: #ffffff; margin: 0 0 16px; }
@@ -1111,7 +1112,7 @@ function MarketingStyles() {
       .lp-footer-legal > *:hover { color: #ffffff; }
       /* Halvbrett: loggan på egen rad, fyra kolumner under. */
       @media (max-width: 1000px) {
-        .lp-footer-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px 24px; }
+        .lp-footer-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px 24px; }
         .lp-footer-brand { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: space-between; }
       }
       /* Telefon: två jämna kolumner (2 + 2), centrerad bottenrad. */
@@ -1565,6 +1566,12 @@ const FOOTER_COLUMNS = [
       { label: 'Bokix på mobilen', to: '/lagg-till-pa-hemskarmen' },
       { label: 'Säkerhet', to: '/sakerhet' },
     ],
+  },
+  {
+    // En sida per bolagsform (content/marketing/orgTypes.js): interna länkar
+    // från varje sida till de sidor som ska synas på "bokföringsprogram".
+    heading: 'Bokföringsprogram för',
+    links: ORG_TYPE_PAGES.map(p => ({ label: p.short, to: p.path })),
   },
   {
     // Bara de fyra mest sökta verktygen + "Alla verktyg", inte alla nio,

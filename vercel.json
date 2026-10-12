@@ -48,6 +48,22 @@
       "destination": "/byt-bokforingsprogram/index.html"
     },
     {
+      "source": "/bokforingsprogram-enskild-firma",
+      "destination": "/bokforingsprogram-enskild-firma/index.html"
+    },
+    {
+      "source": "/bokforingsprogram-aktiebolag",
+      "destination": "/bokforingsprogram-aktiebolag/index.html"
+    },
+    {
+      "source": "/bokforingsprogram-handelsbolag",
+      "destination": "/bokforingsprogram-handelsbolag/index.html"
+    },
+    {
+      "source": "/bokforingsprogram-ekonomisk-forening",
+      "destination": "/bokforingsprogram-ekonomisk-forening/index.html"
+    },
+    {
       "source": "/koppla-bank",
       "destination": "/koppla-bank/index.html"
     },

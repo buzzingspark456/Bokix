@@ -23,6 +23,7 @@ import { ALL_ARTICLES } from '../src/content/marketing/news.js';
 import { FAQ_GROUPS } from '../src/components/marketing/faqData.js';
 import { BOKIX_SUMMARY, BOKIX_FACTS, BOKIX_FEATURES, BOKIX_DIFFERENT, BOKIX_NOT_FOR } from '../src/content/marketing/bokixFacts.js';
 import { GUIDE_GROUPS, GUIDE_UPLOAD_DATE } from '../src/content/marketing/guides.js';
+import { ORG_TYPE_PAGES } from '../src/content/marketing/orgTypes.js';
 import { MARKETING_ROUTES, DEFAULT_LOCALE, LOCALE_META, availableLocalesFor, localizedPath } from '../src/content/marketing/routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -148,6 +149,7 @@ const SITEMAP_MANIFEST = [
   { path: '/funktioner', changefreq: 'monthly', priority: '0.8' },
   { path: '/priser', changefreq: 'monthly', priority: '0.8' },
   { path: '/byt-bokforingsprogram', changefreq: 'monthly', priority: '0.8' },
+  ...ORG_TYPE_PAGES.map(p => ({ path: p.path, changefreq: 'monthly', priority: '0.8' })),
   { path: '/koppla-bank', changefreq: 'monthly', priority: '0.8' },
   { path: '/uf', changefreq: 'monthly', priority: '0.8' },
   { path: '/lon', changefreq: 'monthly', priority: '0.7' },

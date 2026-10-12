@@ -5,6 +5,7 @@ import CookieBanner from './components/CookieBanner';
 import { allLocalizedRoutes } from './content/marketing/routes';
 import { ALL_ARTICLES } from './content/marketing/news';
 import { GUIDE_GROUPS } from './content/marketing/guides';
+import { ORG_TYPE_PAGES } from './content/marketing/orgTypes';
 import { capturePosthogPageview } from './utils/posthog.js';
 import { getAuthStorage, isStandaloneApp } from './utils/authStorage';
 
@@ -28,6 +29,8 @@ const GmailConnectCallback = lazy(() => import('./components/GmailConnectCallbac
 // marknadssida: här, i PRERENDER_ROUTES/PAGES (entry-server.jsx), i
 // vercel.json:s rewrites och i public/sitemap.xml.
 const SwitchPage = lazy(() => import('./components/marketing/SwitchPage'));
+// Bokföringsprogram per bolagsform, innehållet i content/marketing/orgTypes.js.
+const OrgTypePage = lazy(() => import('./components/marketing/OrgTypePage'));
 // "Koppla banken" — systersidan till SwitchPage: samma sorts HUR-sida, fast
 // för kontoutdraget i stället för bokföringshistoriken. Står på samma fyra
 // ställen som varje annan statisk marknadssida: här, i PRERENDER_ROUTES/
@@ -302,6 +305,9 @@ export default function AppRouter() {
             bara ett mellansteg, inte något att hitta i en sökmotor. */}
         <Route path="/koppla-mejl" element={<Suspense fallback={<AppLoadingFallback />}><GmailConnectCallback /></Suspense>} />
         <Route path="/byt-bokforingsprogram" element={<Suspense fallback={<AppLoadingFallback />}><SwitchPage /></Suspense>} />
+        {ORG_TYPE_PAGES.map(p => (
+          <Route key={p.path} path={p.path} element={<Suspense fallback={<AppLoadingFallback />}><OrgTypePage path={p.path} /></Suspense>} />
+        ))}
         <Route path="/koppla-bank" element={<Suspense fallback={<AppLoadingFallback />}><BankPage /></Suspense>} />
         <Route path="/uf" element={<Suspense fallback={<AppLoadingFallback />}><UfPage /></Suspense>} />
         <Route path="/integrationer" element={<Suspense fallback={<AppLoadingFallback />}><IntegrationsPage /></Suspense>} />

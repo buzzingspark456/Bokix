@@ -19,15 +19,24 @@ export const LANDING_CONTENT = {
       softwareDescription: 'Bokföring, fakturering, lönehantering och momsredovisning för svenska företag i alla bolagsformer.',
     },
     hero: {
+      // Sökordet synligt ovanför rubriken (Google väger text högt upp på sidan).
+      eyebrow: 'Bokföringsprogram för småföretag',
       titlePrefix: 'För att bokföring',
       titleSuffix: 'ska vara ',
       titleEm: 'enkelt',
-      subtitle: 'Fakturor, löner, moms och bokslut i ett enda verktyg. Byggt för svenska småföretagare som hellre fokuserar på sin verksamhet än sin bokföring.',
+      subtitle: 'Bokix är ett bokföringsprogram med fakturor, löner, moms och bokslut i ett enda verktyg. Byggt för svenska småföretagare som hellre fokuserar på sin verksamhet än sin bokföring.',
       ctaPrimary: 'Prova gratis',
       ctaSecondary: 'Se demo',
     },
     companyTypes: ['Enskild firma', 'Aktiebolag (AB)', 'Handelsbolag / KB', 'Ekonomisk förening', 'Ideell förening / stiftelse'],
-    companyTypesHeading: 'Oavsett vad Bolagsverket kallar dig',
+    companyTypesHeading: 'Ett bokföringsprogram för alla bolagsformer',
+    // Bolagsformer med en egen sida (content/marketing/orgTypes.js).
+    companyTypeLinks: {
+      'Enskild firma': '/bokforingsprogram-enskild-firma',
+      'Aktiebolag (AB)': '/bokforingsprogram-aktiebolag',
+      'Handelsbolag / KB': '/bokforingsprogram-handelsbolag',
+      'Ekonomisk förening': '/bokforingsprogram-ekonomisk-forening',
+    },
     features: {
       heading: 'Automatiskt, från kvitto till bokslut',
       subheading: 'Du lägger in underlaget. Bokix bokför, räknar moms och skatt, och håller koll på vad som behöver din uppmärksamhet. Resten sköts i bakgrunden.',
