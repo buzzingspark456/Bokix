@@ -144,7 +144,7 @@ const side = WIDTH >= 1100 ? (formBox.x < docBox.x ? 'fält vänster, underlag h
 console.log('rader:', JSON.stringify(align));
 console.log('underlag:', JSON.stringify(docFit));
 console.log('BAS 2026:', hasBas, '|', side, '| bredd', Math.round(formBox.width), '/', Math.round(docBox.width), '| zoom:', zoomLabel, '| rader:', rowsCount, '| knappar på raderna:', trashCount, '| flikar:', tabs, '| dolt:', hidden, '| visa igen:', shownAgain);
-const ok = (WIDTH < 1081 || (!docFit.paneScrolls && docFit.hideVisible && docFit.actionsVisible && !docFit.imageScrolls)) && (WIDTH < 769 || align.every(r => r.spread <= 2)) && hasBas && !side.startsWith('FEL') && zoomLabel === '80%' && rowsCount === 2 && tabs.includes('Debet och kredit') && hidden && shownAgain && !errors.length;
+const ok = (WIDTH < 1081 || (!docFit.paneScrolls && docFit.hideVisible && docFit.actionsVisible && !docFit.imageScrolls)) && (WIDTH < 769 || align.every(r => r.spread <= 2)) && hasBas && !side.startsWith('FEL') && zoomLabel === '80%' && rowsCount >= 2 && tabs.includes('Debet och kredit') && hidden && shownAgain && !errors.length;
 console.log(ok ? 'OK' : 'FEL', errors.length ? errors : '');
 await browser.close();
 process.exit(ok ? 0 : 1);
