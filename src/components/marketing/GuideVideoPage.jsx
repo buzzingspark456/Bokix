@@ -60,7 +60,7 @@ export default function GuideVideoPage({ slug }) {
   return (
     <MarketingLayout>
       <PageMeta
-        title={`${guide.title} – videoguide | Bokix`}
+        title={`Videoguide: ${guide.title.charAt(0).toLowerCase()}${guide.title.slice(1)} | Bokix`}
         description={description}
         path={`/guider/${guide.slug}`}
         image={thumbnailUrl}

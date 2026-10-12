@@ -130,7 +130,7 @@ export default function UfPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Bokix för UF-företag | Gratis bokföring under UF-året"
+        title="Bokföring för UF-företag: gratis under UF-året | Bokix"
         description={`Fakturor, kvitton, bokföring och bokslut för ert UF-företag. Gratis i ${UF_FREE_MONTHS} månader, inget organisationsnummer och inga betaluppgifter.`}
         path="/uf"
         type="article"

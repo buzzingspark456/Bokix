@@ -11,7 +11,7 @@
 export const PRICING_CONTENT = {
   sv: {
     meta: {
-      title: 'Priser: från 129 kr/mån | Bokix',
+      title: 'Priser: bokföringsprogram från 129 kr/mån | Bokix',
       description: 'Två priser: 129 kr/mån utan anställda och 179 kr/mån med. Ingen moms tillkommer, inga dolda avgifter och inga funktioner att köpa till.',
     },
     hero: {

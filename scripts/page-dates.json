@@ -8,11 +8,11 @@
     "date": "2026-10-12"
   },
   "/priser": {
-    "hash": "3eb29688af67edc2",
+    "hash": "2aa515245865bda3",
     "date": "2026-10-12"
   },
   "/om-oss": {
-    "hash": "adb6a915c5ea7278",
+    "hash": "3092c1dff677902a",
     "date": "2026-10-12"
   },
   "/kontakt": {
@@ -28,7 +28,7 @@
     "date": "2026-10-12"
   },
   "/uf": {
-    "hash": "66965f713ff60753",
+    "hash": "d2b73cffbd028165",
     "date": "2026-10-12"
   },
   "/integrationer": {
@@ -36,11 +36,11 @@
     "date": "2026-10-12"
   },
   "/sakerhet": {
-    "hash": "aea22c833b81a7fc",
+    "hash": "c40d6bdb9ea344b0",
     "date": "2026-10-12"
   },
   "/lon": {
-    "hash": "bedc7baecf7ee7dc",
+    "hash": "99396a96a1325a97",
     "date": "2026-10-12"
   },
   "/ordlista": {
@@ -56,7 +56,7 @@
     "date": "2026-10-12"
   },
   "/lagg-till-pa-hemskarmen": {
-    "hash": "b290eace25300550",
+    "hash": "8fd3dbd38800246e",
     "date": "2026-10-12"
   },
   "/vanliga-fragor": {
@@ -96,7 +96,7 @@
     "date": "2026-10-12"
   },
   "/verktyg/drojsmalsranta": {
-    "hash": "a2837261970b7b3a",
+    "hash": "e0f3da139c4884fb",
     "date": "2026-10-12"
   },
   "/verktyg/utdelning": {
@@ -108,11 +108,11 @@
     "date": "2026-10-12"
   },
   "/verktyg/arsredovisning": {
-    "hash": "8a20670b7ebbe281",
+    "hash": "04c7865ed1de4cf2",
     "date": "2026-10-12"
   },
   "/enkel-bokforing": {
-    "hash": "aa95c95d7b0405ba",
+    "hash": "fc4769486325917f",
     "date": "2026-10-12"
   },
   "/blogg/sie4-flytta-bokforing": {
@@ -140,11 +140,11 @@
     "date": "2026-10-12"
   },
   "/blogg/enskild-firma-bokforing-ne": {
-    "hash": "baf3a7ba36971315",
+    "hash": "6a8d35e1bd3538c7",
     "date": "2026-10-12"
   },
   "/nyheter/agi-fil-och-arbetsgivaravgift-efter-alder": {
-    "hash": "866ab77d29fb1290",
+    "hash": "adca378507a655c7",
     "date": "2026-10-12"
   },
   "/nyheter/bokforingen-sparas-i-sju-ar": {
@@ -156,11 +156,11 @@
     "date": "2026-10-12"
   },
   "/nyheter/ta-betalt-med-kort-och-stripe": {
-    "hash": "e44a3fa686c45f18",
+    "hash": "d16cab7f6b001dc9",
     "date": "2026-10-12"
   },
   "/nyheter/kassaforsaljning-och-dagsavslut-med-zettle": {
-    "hash": "43a088fddad39069",
+    "hash": "efd231161d853777",
     "date": "2026-10-12"
   },
   "/nyheter/skicka-fakturor-fran-din-egen-gmail": {
@@ -168,51 +168,51 @@
     "date": "2026-10-12"
   },
   "/guider/lagg-upp-kund": {
-    "hash": "f048b3272760315f",
+    "hash": "b276dba994e21e5f",
     "date": "2026-10-12"
   },
   "/guider/skapa-faktura": {
-    "hash": "44c2bc002b9b449a",
+    "hash": "b49de205283de4d0",
     "date": "2026-10-12"
   },
   "/guider/skicka-faktura": {
-    "hash": "05e4bffcb640101f",
+    "hash": "761faa51aa004909",
     "date": "2026-10-12"
   },
   "/guider/registrera-betalning": {
-    "hash": "5642cf21f41b7ed9",
+    "hash": "5f44f44b344a57ac",
     "date": "2026-10-12"
   },
   "/guider/skapa-offert": {
-    "hash": "6e66e3abfafe5c6f",
+    "hash": "947bd7875c610794",
     "date": "2026-10-12"
   },
   "/guider/ny-artikel": {
-    "hash": "7f9038e0e8eb75ad",
+    "hash": "9d10f26b819b3d35",
     "date": "2026-10-12"
   },
   "/guider/ladda-upp-kvitto": {
-    "hash": "fe8a5efa9ddb8009",
+    "hash": "73e09d9388f93ce1",
     "date": "2026-10-12"
   },
   "/guider/ny-verifikation": {
-    "hash": "50589f9537d0b217",
+    "hash": "90b160001939eeb2",
     "date": "2026-10-12"
   },
   "/guider/ny-anstalld": {
-    "hash": "8a2c0cd96cfe852b",
+    "hash": "6c614bc005d116b4",
     "date": "2026-10-12"
   },
   "/guider/nytt-projekt": {
-    "hash": "b5d3a5c1b8162080",
+    "hash": "5cb0e83e29360c76",
     "date": "2026-10-12"
   },
   "/guider/momsdeklaration": {
-    "hash": "03fa6e647464a820",
+    "hash": "322f4d9a11e5297c",
     "date": "2026-10-12"
   },
   "/guider/rapporter": {
-    "hash": "0ed414c74b81916b",
+    "hash": "61aeac12fe60679a",
     "date": "2026-10-12"
   }
 }

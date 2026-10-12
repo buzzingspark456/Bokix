@@ -66,7 +66,7 @@ const PRACTICES = [
 const SCHEMA = {
   '@context': 'https://schema.org',
   '@type': 'WebPage',
-  name: 'Säkerhet och datahantering — Bokix',
+  name: 'Säkerhet: så skyddar vi din bokföring | Bokix',
   url: `${SITE_URL}/sakerhet`,
   inLanguage: 'sv-SE',
   description: 'Hur Bokix skyddar din bokföring: åtkomstkontroll på databasnivå, kryptering, tvåfaktorsautentisering, automatisk gallring och dataportabilitet.',
@@ -80,7 +80,7 @@ export default function SecurityPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Säkerhet och datahantering | Bokix"
+        title="Säkerhet: så skyddar vi din bokföring | Bokix"
         description="Hur Bokix skyddar din bokföring: åtkomstkontroll i själva databasen, kryptering, tvåfaktorsautentisering, automatisk gallring och hur du får ut allt du lagt in."
         path="/sakerhet"
       />

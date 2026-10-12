@@ -377,7 +377,7 @@ export default function HomeScreenPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Lägg till Bokix på hemskärmen | iPhone och Android"
+        title="Lägg till Bokix på hemskärmen i iPhone och Android"
         description="Så lägger du Bokix som en app på telefonens hemskärm, på iPhone och Android. Tar tio sekunder, inget att ladda ner, öppnas i helskärm."
         path="/lagg-till-pa-hemskarmen"
       />
