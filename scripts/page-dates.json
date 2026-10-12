@@ -1,218 +1,218 @@
 {
   "/": {
-    "hash": "3842118e5928bdf6",
-    "date": "2026-09-29"
+    "hash": "6fe428ef0bc22573",
+    "date": "2026-10-12"
   },
   "/funktioner": {
-    "hash": "d4021d7ca7b0d907",
-    "date": "2026-09-29"
+    "hash": "342f70a769a86dd9",
+    "date": "2026-10-12"
   },
   "/priser": {
-    "hash": "ca46dbf6364b7d32",
-    "date": "2026-09-29"
+    "hash": "fbf13700d0e1b9a1",
+    "date": "2026-10-12"
   },
   "/om-oss": {
-    "hash": "657eed51582dca42",
-    "date": "2026-09-29"
+    "hash": "38968055daab3c4a",
+    "date": "2026-10-12"
   },
   "/kontakt": {
-    "hash": "7c8b01d24a2d0f6d",
-    "date": "2026-09-29"
+    "hash": "bd5e41765371d7fd",
+    "date": "2026-10-12"
   },
   "/byt-bokforingsprogram": {
-    "hash": "d6598a26e4b430bb",
-    "date": "2026-09-29"
+    "hash": "38d845a68b9cfdb4",
+    "date": "2026-10-12"
   },
   "/koppla-bank": {
-    "hash": "2467fd256ae8f0fa",
-    "date": "2026-09-29"
+    "hash": "a2b6d3ab5f536f99",
+    "date": "2026-10-12"
   },
   "/uf": {
-    "hash": "3e9d16b54c54105b",
-    "date": "2026-09-29"
+    "hash": "fe5b6c9309d63cbd",
+    "date": "2026-10-12"
   },
   "/integrationer": {
-    "hash": "7fadbc7ef12ee0bf",
-    "date": "2026-09-29"
+    "hash": "e1344002f82c0733",
+    "date": "2026-10-12"
   },
   "/sakerhet": {
-    "hash": "f1bfc4f4ba2bf2a6",
-    "date": "2026-09-29"
+    "hash": "6dd35a786baa561e",
+    "date": "2026-10-12"
   },
   "/lon": {
-    "hash": "9fac178cdaf7fa1e",
-    "date": "2026-09-29"
+    "hash": "95ee628f51d1e9dc",
+    "date": "2026-10-12"
   },
   "/ordlista": {
-    "hash": "646aa096fe6fb4ec",
-    "date": "2026-09-29"
+    "hash": "f093182dab8e0ca9",
+    "date": "2026-10-12"
   },
   "/guider": {
-    "hash": "27041c8ddd3a27cb",
-    "date": "2026-10-11"
+    "hash": "709f158db5638d63",
+    "date": "2026-10-12"
   },
   "/bokix-i-korthet": {
-    "hash": "fc4c2e6d442d4dd8",
-    "date": "2026-09-29"
+    "hash": "fdf5b4ecd60af7a9",
+    "date": "2026-10-12"
   },
   "/lagg-till-pa-hemskarmen": {
-    "hash": "06f57ecceede812d",
-    "date": "2026-09-29"
+    "hash": "5bea995c2c7b39ee",
+    "date": "2026-10-12"
   },
   "/vanliga-fragor": {
-    "hash": "56066594b4545abe",
-    "date": "2026-09-29"
+    "hash": "69f048d30feb8365",
+    "date": "2026-10-12"
   },
   "/blogg": {
-    "hash": "37da12ec94da248c",
-    "date": "2026-09-29"
+    "hash": "de585e71346c897d",
+    "date": "2026-10-12"
   },
   "/nyheter": {
-    "hash": "207ad8b553007a69",
-    "date": "2026-09-29"
+    "hash": "e8a106d05c186383",
+    "date": "2026-10-12"
   },
   "/verktyg": {
-    "hash": "4d287dea53621c85",
-    "date": "2026-09-29"
+    "hash": "21283fddd736c6cb",
+    "date": "2026-10-12"
   },
   "/verktyg/skanna-kvitto": {
-    "hash": "4756183ab67c9d98",
-    "date": "2026-09-29"
+    "hash": "11924699868e2e5a",
+    "date": "2026-10-12"
   },
   "/verktyg/momskalkylator": {
-    "hash": "ce2eca3d443fbb66",
-    "date": "2026-09-29"
+    "hash": "643a06b462ec37af",
+    "date": "2026-10-12"
   },
   "/verktyg/lonekalkylator": {
-    "hash": "1f651df813d42f0b",
-    "date": "2026-09-29"
+    "hash": "3dbd3d4a2e9a4f64",
+    "date": "2026-10-12"
   },
   "/verktyg/egenavgifter": {
-    "hash": "f9979d2b5b5991a9",
-    "date": "2026-09-29"
+    "hash": "2957c23c4dac8f84",
+    "date": "2026-10-12"
   },
   "/verktyg/rot-rut": {
-    "hash": "7f55b3fb60de9eda",
-    "date": "2026-09-29"
+    "hash": "2d3c48c554a45fdb",
+    "date": "2026-10-12"
   },
   "/verktyg/drojsmalsranta": {
-    "hash": "a03aa2a213674448",
-    "date": "2026-09-29"
+    "hash": "267cd07b17a0e877",
+    "date": "2026-10-12"
   },
   "/verktyg/utdelning": {
-    "hash": "a8f24cba9a69c77f",
-    "date": "2026-09-29"
+    "hash": "b446a8f5d76bf887",
+    "date": "2026-10-12"
   },
   "/verktyg/momsdatum": {
-    "hash": "fa411d60074c2981",
+    "hash": "e275208130595a8b",
     "date": "2026-10-12"
   },
   "/verktyg/arsredovisning": {
-    "hash": "3a477daee48d99e2",
+    "hash": "10d183b69d359855",
     "date": "2026-10-12"
   },
   "/enkel-bokforing": {
-    "hash": "87d1fc7dfe0a1b39",
-    "date": "2026-09-29"
+    "hash": "c36d605d6ed2e316",
+    "date": "2026-10-12"
   },
   "/blogg/sie4-flytta-bokforing": {
-    "hash": "4360735f9fa7bf6a",
-    "date": "2026-09-29"
+    "hash": "fec407183d72fbb1",
+    "date": "2026-10-12"
   },
   "/blogg/bokforing-uf-foretag": {
-    "hash": "938c907075d8365f",
-    "date": "2026-09-29"
+    "hash": "50b472c2931aa583",
+    "date": "2026-10-12"
   },
   "/blogg/moms-deklaration-steg-for-steg": {
-    "hash": "7b5a95791701d568",
-    "date": "2026-09-29"
+    "hash": "abf93895c52a4055",
+    "date": "2026-10-12"
   },
   "/blogg/spara-kvitton-bokforingslagen": {
-    "hash": "a6c337951f6fa1a7",
-    "date": "2026-09-29"
+    "hash": "bad9b2c30752d102",
+    "date": "2026-10-12"
   },
   "/blogg/bokslut-checklista": {
-    "hash": "21860c334c9a5849",
-    "date": "2026-09-29"
+    "hash": "a2f3ad3900614658",
+    "date": "2026-10-12"
   },
   "/blogg/lon-eller-utdelning-ab": {
-    "hash": "f43cc47248d8dc99",
-    "date": "2026-09-29"
+    "hash": "e6e71a38777c0db0",
+    "date": "2026-10-12"
   },
   "/blogg/enskild-firma-bokforing-ne": {
-    "hash": "33c8769a9e26e2cb",
-    "date": "2026-09-29"
+    "hash": "915d2e6b290a39f9",
+    "date": "2026-10-12"
   },
   "/nyheter/agi-fil-och-arbetsgivaravgift-efter-alder": {
-    "hash": "43787689be6ea6f8",
-    "date": "2026-09-29"
+    "hash": "782e560480dc0ec5",
+    "date": "2026-10-12"
   },
   "/nyheter/bokforingen-sparas-i-sju-ar": {
-    "hash": "822f2f96c67141d2",
-    "date": "2026-09-29"
+    "hash": "d6bdf9f6153ab725",
+    "date": "2026-10-12"
   },
   "/nyheter/kvittoavlasning-flera-momssatser-och-returer": {
-    "hash": "88c64bf5585847f7",
-    "date": "2026-09-29"
+    "hash": "1c074658e26167dd",
+    "date": "2026-10-12"
   },
   "/nyheter/ta-betalt-med-kort-och-stripe": {
-    "hash": "cdef3cc9ed8d4e1b",
-    "date": "2026-09-29"
+    "hash": "81e4e53fa2294eb5",
+    "date": "2026-10-12"
   },
   "/nyheter/kassaforsaljning-och-dagsavslut-med-zettle": {
-    "hash": "aa866e7f0479542d",
-    "date": "2026-09-29"
+    "hash": "cceaf21347d0a538",
+    "date": "2026-10-12"
   },
   "/nyheter/skicka-fakturor-fran-din-egen-gmail": {
-    "hash": "8947b620b8a40a4a",
-    "date": "2026-09-29"
+    "hash": "7a93b12635029545",
+    "date": "2026-10-12"
   },
   "/guider/lagg-upp-kund": {
-    "hash": "16a4749f7127716c",
-    "date": "2026-10-11"
+    "hash": "019a6aa6708409b8",
+    "date": "2026-10-12"
   },
   "/guider/skapa-faktura": {
-    "hash": "bcf65b1b45a5bc49",
-    "date": "2026-10-11"
+    "hash": "108da6927379cd7e",
+    "date": "2026-10-12"
   },
   "/guider/skicka-faktura": {
-    "hash": "30bb12f0541bc548",
-    "date": "2026-10-11"
+    "hash": "c98c17b669c43945",
+    "date": "2026-10-12"
   },
   "/guider/registrera-betalning": {
-    "hash": "fb3d89d320664db4",
-    "date": "2026-10-11"
+    "hash": "4f735dc27633dbc9",
+    "date": "2026-10-12"
   },
   "/guider/skapa-offert": {
-    "hash": "69d4d7fae611bde2",
-    "date": "2026-10-11"
+    "hash": "0c8a51b7a5e47646",
+    "date": "2026-10-12"
   },
   "/guider/ny-artikel": {
-    "hash": "bfa41ab0ab106dab",
-    "date": "2026-10-11"
+    "hash": "b592a30ff93b0928",
+    "date": "2026-10-12"
   },
   "/guider/ladda-upp-kvitto": {
-    "hash": "2292e080bfd48552",
-    "date": "2026-10-11"
+    "hash": "63bb4591b8f3b2ca",
+    "date": "2026-10-12"
   },
   "/guider/ny-verifikation": {
-    "hash": "3377fb3886a0bdc0",
-    "date": "2026-10-11"
+    "hash": "d9bb9512834e9d0c",
+    "date": "2026-10-12"
   },
   "/guider/ny-anstalld": {
-    "hash": "7764188a18c80d18",
-    "date": "2026-10-11"
+    "hash": "1355895483af5bdd",
+    "date": "2026-10-12"
   },
   "/guider/nytt-projekt": {
-    "hash": "ecc49d075f2cfadc",
-    "date": "2026-10-11"
+    "hash": "ade9f35dac988d97",
+    "date": "2026-10-12"
   },
   "/guider/momsdeklaration": {
-    "hash": "a86a020d41c6841a",
-    "date": "2026-10-11"
+    "hash": "1e4e03e62c631b43",
+    "date": "2026-10-12"
   },
   "/guider/rapporter": {
-    "hash": "92de6070cb4a925c",
-    "date": "2026-10-11"
+    "hash": "6aa6592870ecbdf3",
+    "date": "2026-10-12"
   }
 }

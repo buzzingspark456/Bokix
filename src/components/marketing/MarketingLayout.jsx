@@ -580,8 +580,6 @@ function MarketingStyles() {
         --mkt-accent-teal-fg: var(--mkt-accent-green-fg);
         --mkt-accent-teal-soft: var(--mkt-accent-green-soft);
       }
-      #lp-root.lp-sub .lp-footer-rule { background-image: none !important; background-color: var(--mkt-border-soft); height: 1px !important; }
-      .lp-footer-link:hover { color: white !important; }
       .lp-card-hover { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease; }
       .lp-card-hover:hover { transform: translateY(-3px); }
 
@@ -913,42 +911,13 @@ function MarketingStyles() {
         .lp-marquee-badge-label { font-size: 16px !important; }
       }
 
-      /* Varumärkesblocket + FYRA länkkolumner (FOOTER_COLUMNS nedan).
-         Kundfeedback: kolumnerna stod för glest isär. Länktexterna är
-         korta (ett till två ord), så fyra lika breda 1fr-kolumner över
-         hela sidbredden gav en tom remsa efter varje länk. Kolumnerna tar
-         nu sin EGNA bredd (max-content) och fördelas jämnt med
-         space-between i stället — texten står tätt, mellanrummet hamnar
-         mellan kolumnerna där det hör hemma. minmax(0, max-content) håller
-         kvar skyddet mot att en ovanligt lång etikett trycker ut raden. */
-      .lp-footer-grid { display: grid; grid-template-columns: repeat(5, minmax(0, max-content)); gap: 32px 40px; justify-content: space-between; }
-      .lp-footer-legal { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
-      .lp-footer-grid > *, .lp-bento-grid > * { min-width: 0; }
+      .lp-bento-grid > * { min-width: 0; }
 
       /* Vanliga frågor: två spalter först när det finns plats. Under
          1100px är det en läslista som förut — en accordion i två smala
          spalter är sämre än en i en bred. */
       .lp-faq-grid { display: grid; grid-template-columns: 1fr; gap: 0 32px; align-items: start; }
       @media (min-width: 1100px) { .lp-faq-grid { grid-template-columns: 1fr 1fr; } }
-      .lp-footer-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px 28px; }
-
-      /* Kolumnrubrikerna: versaler, spärrad, dämpad — de ska LÄSAS som
-         etiketter över sina länkar, inte konkurrera med dem. Länkarna är
-         det man faktiskt klickar på och får därför vara ljusast. */
-      /* 0.42 gav otillräcklig kontrast mot footerns mörka botten (Lighthouse
-         Tillgänglighet: color-contrast). 0.62 klarar 4.5:1 utan att rubriken
-         sticker ut mer än den ska — den är fortfarande synligt tonad ner
-         mot de vanliga länkarna under. */
-      .lp-footer-heading { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(255,255,255,0.62); margin: 0 0 14px; }
-
-      /* Det stora ordmärket längst ner. Ligger som en dämpad vattenstämpel
-         i sidfotens egen gradient (avmättad + uppljusad till elfenben, se
-         MarketingFooter) — inte ett andra, skrikande varumärkesblock
-         ovanpå det lilla högst upp i sidfoten. Klippt på höjden mot
-         underkanten så det känns som en yta man ser en bit av, inte en
-         logotyp som råkat bli för stor. */
-      .lp-footer-mark { max-width: 1120px; margin: 8px auto 20px; position: relative; line-height: 0; }
-      .lp-footer-mark svg { display: block; width: 100%; height: auto; }
 
       /* Brytpunkten mättes om (headern gick från fem länkar ner till tre,
          se MARKETING_PAGES ovan) i stället för att gissas: knapparna
@@ -1098,29 +1067,40 @@ function MarketingStyles() {
         .lp-bento-grid { grid-template-columns: repeat(2, 1fr); }
         .lp-bento-grid > *:last-child { grid-column: 1 / -1; }
       }
-      /* Sidfotens egna brytpunkter. Halvbred skrivbordsyta: fyra kolumner
-         på en rad (fem gav 3 + 2 med ett tomrum bredvid den sista), med
-         varumärkesblocket på en egen rad ovanför så fort det inte ryms
-         bredvid. Här får kolumnerna tillbaka lika bredd (1fr) — utrymmet
-         är begränsat, då ska de fylla ut raden, inte klumpa ihop sig till
-         vänster. */
-      @media (max-width: 1080px) {
-        .lp-footer-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 30px 20px; }
-        .lp-footer-brand { grid-column: 1 / -1; }
+      /* ── Sidfoten. Samma mörka botten i båda teman, en färg (elfenben)
+         i tre styrkor: rubriker dämpade, länkar mellan, hover vit. Ingen
+         gradientlist eller färgade fläckar. */
+      .lp-footer { background: #0e2018; color: rgba(255,255,255,0.62); padding: 64px 24px 28px; position: relative; overflow: hidden; border-top: 1px solid rgba(255,255,255,0.06); }
+      .lp-footer-inner { max-width: 1120px; margin: 0 auto; position: relative; }
+      .lp-footer-grid { display: grid; grid-template-columns: 1.4fr repeat(4, minmax(0, 1fr)); gap: 40px 32px; }
+      .lp-footer-grid > * { min-width: 0; }
+      .lp-footer-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 18px; }
+      .lp-footer-heading { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: #ffffff; margin: 0 0 16px; }
+      .lp-footer-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 11px; }
+      .lp-footer-link { font-size: 14px; line-height: 1.4; color: rgba(255,255,255,0.62); text-decoration: none; transition: color 0.15s ease; }
+      .lp-footer-link:hover, .lp-footer-link:focus-visible { color: #ffffff; }
+      .lp-footer-mail { font-weight: 500; color: rgba(255,255,255,0.78); }
+      .lp-footer-btn { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; }
+      .lp-footer-mark { margin: 56px 0 24px; line-height: 0; }
+      .lp-footer-mark svg { display: block; width: 100%; height: auto; }
+      .lp-footer-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px 28px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 22px; }
+      .lp-footer-copy { margin: 0; font-size: 13px; color: rgba(255,255,255,0.55); }
+      .lp-footer-legal { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; }
+      .lp-footer-legal .lp-footer-link { font-size: 13px; color: rgba(255,255,255,0.55); }
+      .lp-footer-legal .lp-footer-link:hover { color: #ffffff; }
+      /* Halvbrett: loggan på egen rad, fyra kolumner under. */
+      @media (max-width: 1000px) {
+        .lp-footer-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px 24px; }
+        .lp-footer-brand { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: space-between; }
       }
-      /* Mobil: två jämna kolumner (2 + 2, aldrig en halvtom rad), tätare
-         radavstånd och en centrerad bottenrad. Varumärkesblocket får en
-         tunn avskiljare under sig i stället för mer luft — det som
-         tidigare kändes rörigt var att logga, löfte, adress och rubriker
-         låg i en enda oavbruten spalt utan någon synlig gruppering. */
+      /* Telefon: två jämna kolumner (2 + 2), centrerad bottenrad. */
       @media (max-width: 720px) {
-        .lp-footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 16px; }
-        .lp-footer-brand { padding-bottom: 22px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-        .lp-footer-bottom { flex-direction: column; text-align: center; gap: 12px; }
-        .lp-footer-legal { justify-content: center; gap: 8px 14px; }
-      }
-      @media (max-width: 400px) {
-        .lp-footer-grid { gap: 24px 12px; }
+        .lp-footer { padding: 48px 20px 28px; }
+        .lp-footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 16px; }
+        .lp-footer-brand { padding-bottom: 28px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .lp-footer-mark { margin: 40px 0 20px; }
+        .lp-footer-bottom { flex-direction: column-reverse; align-items: center; text-align: center; gap: 14px; }
+        .lp-footer-legal { justify-content: center; gap: 10px 18px; }
       }
       .lp-mobile-menu.lp-open {
         display: flex; position: fixed; inset: 0; background: white; z-index: 2000;
@@ -1532,20 +1512,16 @@ const FOOTER_COLUMNS = [
     links: [
       { label: 'Funktioner', to: '/funktioner' },
       { label: 'Priser', to: '/priser' },
-      { label: 'Lön & Arbetsgivare', to: '/lon' },
+      { label: 'Lön och arbetsgivare', to: '/lon' },
       { label: 'Integrationer', to: '/integrationer' },
       { label: 'Koppla banken', to: '/koppla-bank' },
+      { label: 'Bokix på mobilen', to: '/lagg-till-pa-hemskarmen' },
       { label: 'Säkerhet', to: '/sakerhet' },
     ],
   },
   {
-    // Bara de fyra mest sökta verktygen + "Alla verktyg", inte alla nio.
-    // Kundfeedback ("sidfoten är rörig, saker på fel plats"): den här
-    // kolumnen var dubbelt så lång som sina grannar (alla nio TOOLS +
-    // länken), vilket gjorde att raden bredvid (särskilt mobilens 2-
-    // kolumnsgrid, se @media 720px nedan) fick ett stort, obalanserat
-    // tomrum under sig — resten av verktygen är fortfarande en klick bort
-    // via "Alla verktyg" (TOOLS_HUB_PATH).
+    // Bara de fyra mest sökta verktygen + "Alla verktyg", inte alla nio,
+    // så kolumnen blir lika lång som sina grannar.
     heading: 'Gratis verktyg',
     links: [
       ...TOOLS.filter(t => ['skanna-kvitto', 'momskalkylator', 'lonekalkylator', 'rot-rut'].includes(t.slug)).map(t => ({ label: t.footerLabel || t.title, to: t.path })),
@@ -1553,23 +1529,23 @@ const FOOTER_COLUMNS = [
     ],
   },
   {
-    heading: 'Lär dig',
+    // UF-sidan finns kvar men länkas inte härifrån (inte i fokus just nu).
+    heading: 'Resurser',
     links: [
       { label: 'Blogg', to: '/blogg' },
+      { label: 'Videoguider', to: '/guider' },
+      { label: 'Vanliga frågor', to: '/vanliga-fragor' },
       { label: 'Bokföringsordlista', to: '/ordlista' },
       { label: 'Byt till Bokix', to: '/byt-bokforingsprogram' },
-      { label: 'För UF-företag', to: '/uf' },
-      { label: 'Vanliga frågor', to: '/vanliga-fragor' },
-      { label: 'Videoguider', to: '/guider' },
-      { label: 'Bokix på mobilen', to: '/lagg-till-pa-hemskarmen' },
     ],
   },
   {
     heading: 'Företag',
     links: [
       { label: 'Om oss', to: '/om-oss' },
-      { label: 'Bokix i korthet', to: '/bokix-i-korthet' },
       { label: 'Nyheter', to: '/nyheter' },
+      { label: 'Bokix i korthet', to: '/bokix-i-korthet' },
+      { label: 'Boka en genomgång', to: '/boka-genomgang' },
       { label: 'Kontakt', to: '/kontakt' },
     ],
   },
@@ -1589,101 +1565,59 @@ export const FOOTER_LEGAL = [
   { label: 'PUB-avtal', to: '/pub' },
 ];
 
-const footerLinkStyle = { fontSize: '13.5px', color: 'rgba(255,255,255,0.6)', textDecoration: 'none', transition: 'color 0.2s', lineHeight: 1.4 };
-const footerLegalStyle = { ...footerLinkStyle, fontSize: '12.5px' };
-
 export function MarketingFooter() {
   const year = new Date().getFullYear();
   return (
-    <footer style={{ background: '#0e2018', padding: '52px 24px 26px', color: 'rgba(255,255,255,0.6)', position: 'relative', overflow: 'hidden' }}>
-      <div aria-hidden className="lp-footer-rule" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', backgroundImage: 'linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16)' }} />
-      <div aria-hidden className="lp-blob lp-blob-slower" style={{ position: 'absolute', bottom: '-200px', left: '50%', transform: 'translateX(-50%)', width: '600px', height: '400px', borderRadius: '50%', background: 'linear-gradient(135deg, #0ea5e9, #14b8a6)', opacity: 0.06, filter: 'blur(100px)', pointerEvents: 'none' }} />
-
-      {/* Varumärkesblocket är tre rader totalt — logga, löfte,
-          supportadress — och inget mer. Allt utöver det (produkt-
-          beskrivning, "byggt i Sverige"-rad) hör hemma på sidorna det
-          handlar om, inte i sidfoten.
-          OMVÄND KUNDÖNSKAN: här stod tidigare "inget stort ordmärke längst
-          ner" (ett uttryckligt önskemål då). Kunden har sedan bett om
-          motsatsen, med en referenssidfot som förebild — det stora
-          ordmärket finns därför längre ner igen, men som dämpad
-          vattenstämpel, inte som ett andra varumärkesblock. Noterat här
-          så ingen "återställer" det till det gamla önskemålet. */}
-      <div className="lp-footer-grid" style={{ maxWidth: '1120px', margin: '0 auto', marginBottom: '34px', position: 'relative' }}>
-        <div className="lp-footer-brand">
-          <Link to="/" className="lp-logo-glow" aria-label="Till startsidan" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} style={{ display: 'inline-block', marginBottom: '14px' }}>
-            <BokixWordmark height={32} />
-          </Link>
-          <p style={{ fontFamily: SERIF, fontSize: '18px', lineHeight: 1.35, color: 'white', margin: '0 0 14px', letterSpacing: '-0.01em' }}>
-            Bokföring utan gissningar.
-          </p>
-          {/* Supportadressen direkt i sidfoten, inte bara bakom /kontakt —
-              den vanligaste anledningen att skrolla hit är att man vill nå
-              en människa, och ett extra klick dit hjälper ingen. */}
-          <a href="mailto:support@bokix.se" className="lp-footer-link" style={{ ...footerLinkStyle, display: 'inline-block', fontWeight: 600, color: 'rgba(255,255,255,0.72)' }}>
-            support@bokix.se
-          </a>
-        </div>
-
-        {/* Sidans sista rubrik före footern är alltid en <h2>
-            (CTA-sektionen) — footerns kolumnrubriker är <h3>, samma
-            nivå sidans övriga <h2>-till-<h3>-underrubriker redan använder. */}
-        {FOOTER_COLUMNS.map(column => (
-          <div key={column.heading}>
-            <h3 className="lp-footer-heading">{column.heading}</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
-              {column.links.map(link => (
-                <Link key={link.to} to={link.to} className="lp-footer-link" style={footerLinkStyle}>
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Ordmärket som vattenstämpel (se .lp-footer-mark). Ordmärket är en
-          gradient-SVG (blå→turkos→lime) och blir grumligt om man bara
-          sänker opaciteten mot den mörkgröna bottnen — avmättat och
-          uppljusat blir det i stället elfenben, samma ton som resten av
-          sidfotens text. aria-hidden: ren dekor, "Bokix" står redan i
-          varumärkesblocket ovanför. */}
-      <div className="lp-footer-mark" aria-hidden>
-        <BokixWordmark height="auto" style={{ width: '100%', height: 'auto', filter: 'saturate(0) brightness(2.4)', opacity: 0.13 }} />
-      </div>
-
-      <div className="lp-footer-bottom" style={{ maxWidth: '1120px', margin: '0 auto', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px', position: 'relative' }}>
-        {/* 0.55 opacity ≈ 5.9:1 against #0e2018 — meets WCAG AA. */}
-        <div style={{ fontSize: '12.5px', color: 'rgba(255,255,255,0.55)' }}>
-          © {year} Bokix. Alla rättigheter förbehållna.
-          {' · '}
-          {/* Den enda "handlingen" i bottenraden: en riktig, bokningsbar tid
-              (/boka-genomgang). Längden är sidans egen uppgift (20–30
-              minuter), inte en påhittad siffra. */}
-          <Link to="/boka-genomgang" className="lp-footer-link" style={{ ...footerLegalStyle, display: 'inline', textDecoration: 'underline' }}>
-            Boka en genomgång · 20–30 min
-          </Link>
-        </div>
-        <div className="lp-footer-legal">
-          {FOOTER_LEGAL.map(link => (
-            <Link key={link.to} to={link.to} className="lp-footer-link" style={footerLegalStyle}>
-              {link.label}
+    <footer className="lp-footer">
+      <div className="lp-footer-inner">
+        <div className="lp-footer-grid">
+          {/* Varumärkesblocket: logga och supportadress, inget mer. Adressen
+              står här eftersom den vanligaste anledningen att skrolla hit är
+              att man vill nå en människa. */}
+          <div className="lp-footer-brand">
+            <Link to="/" className="lp-logo-glow" aria-label="Till startsidan" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+              <BokixWordmark height={30} />
             </Link>
+            <a href="mailto:support@bokix.se" className="lp-footer-link lp-footer-mail">support@bokix.se</a>
+          </div>
+
+          {/* Sidans sista rubrik före footern är alltid en <h2> (CTA-
+              sektionen), så kolumnrubrikerna är <h3>. */}
+          {FOOTER_COLUMNS.map(column => (
+            <nav key={column.heading} aria-label={column.heading}>
+              <h3 className="lp-footer-heading">{column.heading}</h3>
+              <ul className="lp-footer-list">
+                {column.links.map(link => (
+                  <li key={link.to}><Link to={link.to} className="lp-footer-link">{link.label}</Link></li>
+                ))}
+              </ul>
+            </nav>
           ))}
-          {/* Öppnar CookieBanner.jsx igen (monterad globalt i AppRouter.jsx)
-              via ett DOM-event — enda vägen att dela state utan en gemensam
-              komponentförälder. Ligger sist bland juridiklänkarna här nere
-              (kundönskemål) i stället för i en egen kolumn ovanför: det är
-              en inställning man söker upp när man behöver den, inte något
-              att bli erbjuden mitt i navigeringen. */}
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new Event('bokix-open-cookie-prefs'))}
-            className="lp-footer-link"
-            style={{ ...footerLegalStyle, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
-          >
-            Cookieinställningar
-          </button>
+        </div>
+
+        {/* Det stora ordmärket som dämpad vattenstämpel (kundönskan, se
+            .lp-footer-mark). Avmättat så gradienten inte blir grumlig mot
+            den mörka botten. aria-hidden: "Bokix" står redan ovanför. */}
+        <div className="lp-footer-mark" aria-hidden>
+          <BokixWordmark height="auto" style={{ width: '100%', height: 'auto', filter: 'saturate(0) brightness(2.4)', opacity: 0.08 }} />
+        </div>
+
+        <div className="lp-footer-bottom">
+          <p className="lp-footer-copy">© {year} Bokix</p>
+          <div className="lp-footer-legal">
+            {FOOTER_LEGAL.map(link => (
+              <Link key={link.to} to={link.to} className="lp-footer-link">{link.label}</Link>
+            ))}
+            {/* Öppnar CookieBanner.jsx igen (monterad globalt i AppRouter.jsx)
+                via ett DOM-event. */}
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event('bokix-open-cookie-prefs'))}
+              className="lp-footer-link lp-footer-btn"
+            >
+              Cookieinställningar
+            </button>
+          </div>
         </div>
       </div>
     </footer>
