@@ -6,7 +6,7 @@ import { checkRateLimit, getClientIp } from './_rateLimit.js';
 import { hasRecaptchaSecretKey, verifyRecaptcha } from './_recaptcha.js';
 import { hasTurnstileSecretKey, verifyTurnstile } from './_turnstile.js';
 import {
-  BOOKING_TOPIC, BOOKING_MODES, isValidSlot, formatSlot, bookingMessage,
+  BOOKING_TOPIC, BOOKING_MINUTES, BOOKING_MODES, isValidSlot, formatSlot, bookingMessage,
   slotFromMessage, bookingIcs, stockholmToday,
 } from '../src/utils/demoBooking.js';
 
@@ -145,7 +145,7 @@ function buildBookerHtml({ name, slot, mode }) {
   return `
     <div style="font-family: Arial, sans-serif; font-size: 15px; color: #0f172a; line-height: 1.6;">
       <p>Hej ${esc(name.split(' ')[0])},</p>
-      <p>Tack för din bokning. Vi ses <strong>${esc(formatSlot(slot))}</strong> för en genomgång av Bokix, cirka 30 minuter. ${how}</p>
+      <p>Tack för din bokning. Vi ses <strong>${esc(formatSlot(slot))}</strong> för en genomgång av Bokix, cirka ${BOOKING_MINUTES} minuter. ${how}</p>
       <p>Passar tiden inte längre? Svara på det här mejlet så hittar vi en ny.</p>
       <p>Hälsningar<br/>Bokix</p>
     </div>

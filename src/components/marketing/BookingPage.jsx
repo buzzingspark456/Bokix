@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BRAND } from '../../utils/brandColors';
+import { Check, ArrowRight } from '../icons';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
 import { PageMeta } from '../../utils/seo';
@@ -124,10 +125,18 @@ export default function BookingPage() {
     <MarketingLayout>
       <PageMeta
         title="Boka en genomgång | Bokix"
-        description="Boka en kostnadsfri genomgång av Bokix, 30 minuter via video eller telefon. Välj dag och tid direkt på sidan."
+        description={`Osäker på om Bokix passar dig? Boka en kostnadsfri genomgång, ${BOOKING_MINUTES} minuter via video eller telefon. Välj dag och tid direkt på sidan.`}
         path="/boka-genomgang"
       />
       <style>{`
+        .bk-facts { list-style: none; margin: 26px 0 30px; padding: 0; display: flex; justify-content: center; flex-wrap: wrap; gap: 10px 28px; }
+        .bk-facts li { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: ${INK}; }
+        .bk-facts svg { color: var(--mkt-accent-green-fg); flex-shrink: 0; }
+        .bk-cta { display: inline-flex; align-items: center; gap: 8px; padding: 14px 26px; border-radius: 12px; background: ${BRAND.green}; color: #fff; font-size: 15.5px; font-weight: 600; text-decoration: none; transition: transform .15s ease, box-shadow .15s ease; box-shadow: 0 6px 18px rgba(11, 99, 41, .22); }
+        .bk-cta:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(11, 99, 41, .28); }
+        .bk-cta svg { transition: transform .15s ease; }
+        .bk-cta:hover svg { transform: translateX(3px); }
+        #boka { scroll-margin-top: 96px; }
         .bk-card { display: grid; grid-template-columns: 290px 1fr; background: var(--mkt-card-bg); border: 1px solid ${CARD_BORDER}; border-radius: 22px; box-shadow: ${CARD_SHADOW}; overflow: hidden; }
         .bk-side { padding: 30px 28px; border-right: 1px solid var(--mkt-border-soft); }
         .bk-main { padding: 30px 32px 32px; min-height: 440px; }
@@ -166,18 +175,29 @@ export default function BookingPage() {
         }
       `}</style>
 
-      <section style={{ padding: '140px 24px 40px', background: 'var(--mkt-page-bg)' }}>
-        <Reveal style={{ maxWidth: '640px', margin: '0 auto', textAlign: 'center' }}>
-          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(34px, 5vw, 50px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, margin: '0 0 14px', lineHeight: 1.12 }}>
-            Boka en genomgång
+      {/* Toppen svarar på varför man ska boka innan kalendern kommer: en
+          fråga, ett kort löfte, tre fakta och en knapp ner till tiderna. */}
+      <section style={{ padding: '140px 24px 48px', background: 'var(--mkt-page-bg)' }}>
+        <Reveal style={{ maxWidth: '660px', margin: '0 auto', textAlign: 'center' }}>
+          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(34px, 5.4vw, 54px)', fontWeight: 700, letterSpacing: '-0.015em', color: INK, margin: '0 0 18px', lineHeight: 1.1 }}>
+            Osäker på om Bokix passar dig?
           </h1>
-          <p style={{ fontSize: '16.5px', color: INK_SOFT, lineHeight: 1.65, margin: 0 }}>
-            {BOOKING_MINUTES} minuter med oss, via video eller telefon. Vi visar Bokix och svarar på det du undrar över. Kostnadsfritt.
+          <p style={{ fontSize: '17px', color: INK_SOFT, lineHeight: 1.65, margin: '0 auto', maxWidth: '560px' }}>
+            Boka {BOOKING_MINUTES} minuter med någon av oss som bygger Bokix. Du får raka svar på dina frågor och ser hur Bokix fungerar för just ditt företag.
           </p>
+          <ul className="bk-facts">
+            {[`${BOOKING_MINUTES} minuter`, 'Kostnadsfritt', 'Inget att förbereda'].map(fact => (
+              <li key={fact}><Check size={18} aria-hidden />{fact}</li>
+            ))}
+          </ul>
+          <a href="#boka" className="bk-cta" onClick={(e) => { e.preventDefault(); document.getElementById('boka')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
+            Välj en tid
+            <ArrowRight size={17} aria-hidden />
+          </a>
         </Reveal>
       </section>
 
-      <section style={{ padding: '16px 16px 110px', background: 'var(--mkt-page-bg)' }}>
+      <section id="boka" style={{ padding: '16px 16px 110px', background: 'var(--mkt-page-bg)' }}>
         <Reveal scale style={{ maxWidth: '940px', margin: '0 auto' }}>
           {step === 'done' ? (
             <div className="bk-card bk-fade" style={{ gridTemplateColumns: '1fr' }}>

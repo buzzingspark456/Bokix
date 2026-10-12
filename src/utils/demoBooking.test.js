@@ -45,6 +45,6 @@ describe('demoBooking', () => {
   it('bygger en kalenderfil', () => {
     const ics = bookingIcs({ slot: '2026-10-05 10:00', mode: 'video', now: NOW });
     expect(ics).toContain('DTSTART:20261005T080000Z');
-    expect(ics).toContain('DTEND:20261005T083000Z');
+    expect(ics).toContain('DTEND:20261005T082500Z');
   });
 });

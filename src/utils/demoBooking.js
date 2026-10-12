@@ -3,7 +3,7 @@
 // och tiderna som godtas alltid är samma. Alla tider är svensk tid.
 
 export const BOOKING_TOPIC = 'Genomgång';
-export const BOOKING_MINUTES = 30;
+export const BOOKING_MINUTES = 25;
 export const BOOKING_DAYS_AHEAD = 21;
 export const BOOKING_TIMES = ['09:00', '09:30', '10:00', '10:30', '11:00', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00'];
 export const BOOKING_MODES = { video: 'Videomöte', phone: 'Telefonsamtal' };
