@@ -192,7 +192,7 @@
       "destination": "/verktyg/arsredovisning/index.html"
     },
     {
-      "source": "/((?!api|assets/).*)",
+      "source": "/((?!api|assets/)(?!.*[.][a-zA-Z0-9]+$).*)",
       "destination": "/app-shell.html"
     }
   ],

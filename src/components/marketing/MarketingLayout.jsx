@@ -234,12 +234,20 @@ export const NAV_MENUS = [
   },
 ];
 
+// Inter laddas redan asynkront i index.html; ett @import här laddade den en
+// gång till och blockerade renderingen. Stilblocket krymps (kommentarer och
+// blanksteg bort) eftersom det skickas med i varje förrenderad sida.
+const minifyCss = (css) => css
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/\s+/g, ' ')
+  .replace(/\s*([{};,])\s*/g, '$1')
+  .trim();
+
 /** Globala stilar + animationer, delade av ALLA marknadssidor — en enda
  * källa så knappar/kort/skroll-reveal aldrig kan divergera mellan sidorna. */
 function MarketingStyles() {
   return (
-    <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    <style>{minifyCss(`
       #lp-root, #lp-root *, #lp-root *::before, #lp-root *::after { box-sizing: border-box; }
       /* Rubriker bryter jämnt i stället för att lämna ett ensamt ord
          på sista raden ("...varje / månad"). Stöds brett; webbläsare utan
@@ -1118,7 +1126,7 @@ function MarketingStyles() {
         display: flex; position: fixed; inset: 0; background: white; z-index: 2000;
         flex-direction: column; padding: 20px 24px 32px;
       }
-    `}</style>
+    `)}</style>
   );
 }
 

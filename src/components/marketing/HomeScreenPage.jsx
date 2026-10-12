@@ -94,7 +94,7 @@ const HomeGrid = ({ android }) => (
     <div className="hs-home-grid">
       {TILE_COLORS.map((c, i) => <span key={i} className="hs-tile" style={{ background: c }} />)}
       <span className="hs-app-new">
-        <img src={android ? '/icon-maskable-512.png' : '/icon-192.png'} alt="" className="hs-app-icon" />
+        <img src={android ? '/icon-maskable-512.png' : '/icon-192.png'} alt="Bokix-appens ikon" className="hs-app-icon" />
         <small>Bokix</small>
       </span>
     </div>
@@ -129,7 +129,7 @@ function IphoneScreen({ step }) {
           </div>
         </div>
         <div className={`hs-sheet${step === 2 ? ' up' : ''}`}>
-          <div className="hs-sheet-head"><img src="/icon-192.png" alt="" /><div><b>Bokix</b><small>bokix.se</small></div></div>
+          <div className="hs-sheet-head"><img src="/icon-192.png" alt="Bokix-appens ikon" /><div><b>Bokix</b><small>bokix.se</small></div></div>
           <div className="hs-sheet-list">
             <div>Kopiera</div>
             <div>Lägg till bokmärke</div>
@@ -142,7 +142,7 @@ function IphoneScreen({ step }) {
       {/* 3: Lägg till-dialogen */}
       <div className={`hs-scene hs-ios-add${step === 3 ? ' on' : ''}`}>
         <div className="hs-ios-add-bar"><span>Avbryt</span><b>Lägg till på hemskärmen</b><span className={`hs-ios-add-btn${step === 3 ? ' hs-tap' : ''}`}>Lägg till</span></div>
-        <div className="hs-ios-add-row"><img src="/icon-192.png" alt="" /><div><div className="hs-ios-add-name">Bokix</div><small>https://www.bokix.se</small></div></div>
+        <div className="hs-ios-add-row"><img src="/icon-192.png" alt="Bokix-appens ikon" /><div><div className="hs-ios-add-name">Bokix</div><small>https://www.bokix.se</small></div></div>
         <div className="hs-ios-add-hint">En symbol läggs till på hemskärmen så att du snabbt kommer åt webbplatsen.</div>
       </div>
       {/* 4: hemskärmen, sedan appen */}
@@ -180,7 +180,7 @@ function AndroidScreen({ step }) {
         <div className="hs-dim-all" />
         <div className="hs-and-dialog">
           <b>Installera app</b>
-          <div className="hs-and-dialog-row"><img src="/icon-maskable-512.png" alt="" /><div><div>Bokix</div><small>www.bokix.se</small></div></div>
+          <div className="hs-and-dialog-row"><img src="/icon-maskable-512.png" alt="Bokix-appens ikon" /><div><div>Bokix</div><small>www.bokix.se</small></div></div>
           <div className="hs-and-dialog-btns"><span>Avbryt</span><span className={`hs-and-install${step === 3 ? ' hs-tap' : ''}`}>Installera</span></div>
         </div>
       </div>

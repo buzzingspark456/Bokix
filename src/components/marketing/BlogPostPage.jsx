@@ -526,7 +526,7 @@ export default function BlogPostPage({ slug }) {
           <h1 className="bxp-h1">{post.title}</h1>
           <p className="bxp-lede">{post.excerpt}</p>
           <div className="bxp-meta">
-            <img src="/icon-192.png" alt="" width="34" height="34" />
+            <img src="/icon-192.png" alt="Bokix logotyp" width="34" height="34" />
             <strong>Bokix-teamet</strong>
             <span className="dot" aria-hidden="true" />
             <span>Publicerad {formatDate(post.datePublished)}</span>
