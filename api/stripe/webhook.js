@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { recordStripePaymentEvent } from './_paymentEvents.js';
 import { upsertSubscription } from './_subscriptions.js';
 import { enforceCardTrialLimit } from './_trialGuard.js';
+import { notifyAdminsAboutEvent } from './_adminNotify.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   // apiVersion removed to use Stripe account default
@@ -200,6 +201,10 @@ export default async function handler(req, res) {
     res.status(500).json({ error: 'Webhook processing failed' });
     return;
   }
+
+  // Mejl till grundarna om ny provperiod eller betalning (_adminNotify.js).
+  // Efter sparningen, så att ett misslyckat mejl aldrig hindrar den.
+  await notifyAdminsAboutEvent(stripe, event);
 
   res.status(200).json({ received: true, type: event.type });
 }
