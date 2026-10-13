@@ -1,62 +1,22 @@
-<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="shared.css"><style>
-.bg { position: absolute; inset: 0; background: #f4f6f3; }
-.grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(28,36,32,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(28,36,32,0.045) 1px, transparent 1px); background-size: 40px 40px; mask-image: radial-gradient(ellipse at center, #000 30%, transparent 78%); }
-.label { position: absolute; top: 66px; font-size: 15px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5d6b60; display: flex; align-items: center; gap: 10px; }
-.label b { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: #0e2018; color: #fff; font-size: 13px; align-items: center; justify-content: center; letter-spacing: 0; }
-
-.del { position: absolute; left: 60px; top: 118px; width: 290px; height: 332px; padding: 28px 26px; }
-.del h3 { font-size: 17px; font-weight: 800; color: #1c2420; }
-.del p { font-size: 13.5px; color: #6b7568; margin: 8px 0 22px; line-height: 1.5; }
-.btn { font-size: 15px; font-weight: 700; color: #b42318; background: #fdecea; border-radius: 11px; padding: 13px 14px; text-align: center; }
-.step { margin-top: 18px; font-size: 13.5px; font-weight: 600; color: #33423a; display: flex; align-items: center; gap: 10px; }
-.step i { width: 22px; height: 22px; border-radius: 50%; background: #dcf3e3 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6.5 12.5l3.6 3.6 7.4-8' fill='none' stroke='%2314663a' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat; flex: none; }
-
-.vault { position: absolute; left: 446px; top: 118px; width: 330px; height: 332px; padding: 26px 28px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.vault .big { font-family: Georgia, serif; font-size: 96px; font-weight: 700; color: #1c2420; line-height: 1; }
-.vault .lbl { font-size: 17px; font-weight: 700; color: #33423a; margin-top: 8px; }
-.vault .s { font-size: 13px; color: #6b7568; margin-top: 14px; line-height: 1.55; }
-.lock { width: 52px; height: 52px; border-radius: 50%; background: #0e2018; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
-
-.out { position: absolute; left: 872px; top: 118px; width: 268px; height: 332px; padding: 26px 26px; }
-.out h3 { font-size: 15px; font-weight: 800; color: #1c2420; margin-bottom: 16px; }
-.out ul { list-style: none; display: grid; gap: 13px; }
-.out li { display: flex; align-items: center; gap: 11px; font-size: 14px; font-weight: 600; color: #2d3a31; }
-.out li::before { content: ''; width: 22px; height: 22px; border-radius: 50%; background: #dcf3e3 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6.5 12.5l3.6 3.6 7.4-8' fill='none' stroke='%2314663a' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat; flex: none; }
-.out .pill { margin-top: 22px; font-size: 12.5px; font-weight: 700; color: #14663a; background: #dcf3e3; border-radius: 10px; padding: 10px 12px; text-align: center; }
-
-svg.arrow { position: absolute; top: 262px; }
-.foot { position: absolute; left: 0; right: 0; bottom: 38px; text-align: center; font-size: 25px; font-weight: 600; color: #22302a; }
-.foot em { font-style: normal; color: #14663a; }
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="cover.css"><style>
+.art { background: #3d4a57; }
+.safe { left: 330px; top: 90px; width: 440px; height: 450px; background: #9aa7b3; border-radius: 22px; box-shadow: 0 40px 60px -30px rgba(0,0,0,0.6); }
+.safe .in { position: absolute; left: 34px; top: 34px; right: 34px; bottom: 34px; background: #26303a; border-radius: 10px; }
+.binder { position: absolute; bottom: 24px; width: 70px; height: 300px; border-radius: 6px; }
+.binder::after { content: ''; position: absolute; left: 14px; right: 14px; top: 40px; height: 90px; background: #fffdf8; border-radius: 3px; }
+.door { left: 760px; top: 90px; width: 230px; height: 450px; background: #b9c4ce; border-radius: 0 22px 22px 0; transform: perspective(900px) rotateY(-38deg); transform-origin: left center; box-shadow: 0 40px 60px -30px rgba(0,0,0,0.6); }
+.door .wheel { position: absolute; left: 70px; top: 170px; width: 100px; height: 100px; border-radius: 50%; border: 10px solid #7d8a96; }
+.door .wheel::before, .door .wheel::after { content: ''; position: absolute; left: 35px; top: -10px; width: 10px; height: 100px; background: #7d8a96; }
+.door .wheel::after { transform: rotate(90deg); }
+.tag { left: 150px; top: 330px; width: 150px; height: 150px; background: #f6d36b; transform: rotate(-7deg); display: flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-size: 50px; font-weight: 700; color: #3d4a57; box-shadow: 0 22px 30px -20px rgba(0,0,0,0.5); }
 </style></head><body><div class="art">
-<div class="bg"></div><div class="grid"></div>
-
-<div class="label" style="left:60px"><b>1</b>Du raderar</div>
-<div class="del card">
-  <h3>Radera företag</h3>
-  <p>Företaget försvinner från ditt konto.</p>
-  <div class="btn">Radera</div>
-  <div class="step"><i></i>Arkivkopia sparas först</div>
-  <div class="step"><i></i>Annars stoppas raderingen</div>
-</div>
-
-<svg class="arrow" style="left:364px" width="72" height="50" viewBox="0 0 72 50"><path d="M4 25h54" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M52 12l14 13-14 13" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-
-<div class="label" style="left:446px"><b>2</b>Arkivet</div>
-<div class="vault card">
-  <div class="lock"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="5" y="10.5" width="14" height="10" rx="2.2" stroke="#fff" stroke-width="2"/><path d="M8.5 10.5V8a3.5 3.5 0 017 0v2.5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></div>
-  <div class="big">7 år</div>
-  <div class="lbl">sparas bokföringen</div>
-  <div class="s">Privat lagring inom EU</div>
-</div>
-
-<svg class="arrow" style="left:790px" width="72" height="50" viewBox="0 0 72 50"><path d="M4 25h54" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M52 12l14 13-14 13" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-
-<div class="label" style="left:872px"><b>3</b>Det som sparas</div>
-<div class="out card">
-  <h3>Det bokförda</h3>
-  <ul><li>Verifikationer</li><li>Fakturor</li><li>Kvitton och löner</li><li>Deklarationer</li></ul>
-  <div class="pill">Utkast sparas inte</div>
-</div>
-
-<div class="foot">Din bokföring finns kvar, <em>även när du slutar</em></div>
+<div class="abs safe"><div class="in">
+  <div class="binder" style="left:40px;background:#e07a5f"></div>
+  <div class="binder" style="left:120px;background:#6fa58b"></div>
+  <div class="binder" style="left:200px;background:#5f87c6"></div>
+  <div class="binder" style="left:280px;background:#d9a441;transform:rotate(8deg);transform-origin:bottom left"></div>
+</div></div>
+<div class="abs door"><div class="wheel"></div></div>
+<div class="abs tag hand">7 år</div>
+<div class="grain"></div>
 </div></body></html>

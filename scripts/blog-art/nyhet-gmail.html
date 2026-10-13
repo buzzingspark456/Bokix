@@ -1,95 +1,22 @@
-<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="shared.css"><style>
-/* Ljus bakgrund med Bokix färger till vänster, Googles till höger, vitt ljus i mitten */
-.bg { position: absolute; inset: 0; background:
-  radial-gradient(460px 360px at 210px 220px, rgba(20, 184, 166, 0.30), transparent 70%),
-  radial-gradient(380px 300px at 120px 470px, rgba(132, 204, 22, 0.16), transparent 70%),
-  radial-gradient(460px 360px at 1000px 200px, rgba(66, 133, 244, 0.26), transparent 70%),
-  radial-gradient(340px 260px at 1110px 420px, rgba(234, 67, 53, 0.13), transparent 70%),
-  radial-gradient(300px 220px at 880px 60px, rgba(251, 188, 4, 0.13), transparent 70%),
-  radial-gradient(520px 300px at 600px 250px, rgba(255, 255, 255, 0.95), transparent 70%),
-  #f3f6f5; }
-.grain { position: absolute; inset: 0; opacity: 0.06; mix-blend-mode: multiply; }
-
-.halo { position: absolute; top: 150px; width: 250px; height: 230px; border-radius: 50%; filter: blur(46px); opacity: 0.55; }
-.halo.bokix { left: 80px; background: linear-gradient(120deg, #0ea5e9, #14b8a6 50%, #84cc16); }
-.halo.gmail { right: 80px; background: conic-gradient(from 200deg, #4285f4, #34a853, #fbbc04, #ea4335, #4285f4); }
-
-.tile { position: absolute; top: 104px; width: 264px; height: 264px; border-radius: 64px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbfa 100%);
-  border: 1px solid rgba(255, 255, 255, 0.95);
-  box-shadow: inset 0 1px 0 #fff, 0 0 0 1px rgba(20, 40, 30, 0.05), 0 50px 80px -44px rgba(15, 55, 40, 0.5), 0 10px 24px -12px rgba(15, 55, 40, 0.18);
-  display: grid; place-items: center; }
-.tile.bokix { left: 76px; }
-.tile.gmail { right: 76px; }
-.tile.bokix svg { width: 198px; height: auto; }
-.tile.gmail svg { width: 148px; height: auto; }
-
-svg.flow { position: absolute; left: 0; top: 0; }
-
-.ghost { position: absolute; left: 50%; top: 116px; width: 330px; height: 196px; transform: translateX(-44%) rotate(5deg); background: rgba(255, 255, 255, 0.72); border-radius: 22px; border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: 0 30px 50px -30px rgba(20, 50, 40, 0.35); }
-.ghost i { position: absolute; left: 24px; height: 10px; border-radius: 6px; background: #e3ebe6; }
-
-.mail { position: absolute; left: 50%; top: 120px; width: 356px; transform: translateX(-54%) rotate(-2deg); padding: 20px 22px 20px; border-radius: 22px;
-  box-shadow: 0 1px 0 #fff inset, 0 0 0 1px rgba(20, 40, 30, 0.05), 0 46px 70px -36px rgba(15, 50, 38, 0.55), 0 8px 20px -10px rgba(15, 50, 38, 0.18); }
-.mail .from { display: flex; align-items: center; gap: 12px; }
-.mail .av { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #0ea5e9, #14b8a6 55%, #84cc16); color: #fff; font-weight: 800; font-size: 16px; display: grid; place-items: center; flex: none; }
-.mail .who { font-size: 15.5px; font-weight: 700; color: #111a15; line-height: 1.25; }
-.mail .addr { font-size: 13.5px; color: #6b7568; font-weight: 500; }
-.mail h4 { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; color: #111a15; margin: 16px 0 5px; }
-.mail p { font-size: 14px; color: #5d6b60; line-height: 1.45; }
-.mail .att { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; padding: 11px 13px; background: #f6f9f7; border: 1px solid #e3eae5; border-radius: 13px; }
-.mail .file { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: #33423a; }
-.mail .pdf { font-size: 10.5px; font-weight: 800; color: #fff; background: #e0443a; border-radius: 6px; padding: 5px 6px; letter-spacing: 0.03em; }
-.mail .amt { font-size: 15.5px; font-weight: 800; color: #111a15; }
-.sent { position: absolute; right: -16px; top: -16px; display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 800; color: #fff; background: #15803d; border: 3px solid #fff; padding: 6px 13px 6px 9px; border-radius: 999px; box-shadow: 0 10px 20px -8px rgba(15, 110, 55, 0.65); }
-
-.title { position: absolute; left: 0; right: 0; top: 448px; text-align: center; font-size: 64px; font-weight: 800; letter-spacing: -0.035em; color: #0f1913; }
-.title em { font-style: normal; background: linear-gradient(90deg, #0ea5e9, #14b8a6 45%, #4caf50 75%, #65a30d); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.bar { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: linear-gradient(90deg, #0ea5e9, #14b8a6 35%, #84cc16 55%, #fbbc04 70%, #ea4335 84%, #4285f4); }
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="cover.css"><style>
+.art { background: #bfe6d2; }
+.env { left: 300px; top: 210px; width: 520px; height: 330px; background: #fffdf8; border-radius: 10px; box-shadow: 0 40px 60px -30px rgba(20,60,40,0.45); transform: rotate(-4deg); }
+.env::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 0; border-left: 260px solid transparent; border-right: 260px solid transparent; border-top: 180px solid #efe8da; }
+.env .to { position: absolute; left: 60px; bottom: 50px; font-size: 21px; color: #23372d; line-height: 1.5; }
+.env .to b { display: block; font-size: 15px; color: #6b7f74; font-weight: 600; }
+.env .stamp { position: absolute; right: 36px; top: 30px; width: 76px; height: 92px; background: #e2553f; border: 5px dotted #fffdf8; outline: 3px solid #e2553f; }
+.pdf { left: 470px; top: 60px; width: 230px; height: 290px; padding: 26px; transform: rotate(6deg); color: #23372d; }
+.pdf b { font-family: Georgia, serif; font-size: 26px; }
+.pdf .ln { margin-top: 18px; display: grid; gap: 12px; color: #23372d; }
+.pdf .tag { position: absolute; right: 18px; bottom: 18px; background: #e2553f; color: #fff; font-weight: 800; font-size: 14px; border-radius: 5px; padding: 3px 8px; }
+.trail { left: 840px; top: 200px; }
+.trail i { position: absolute; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.75); }
 </style></head><body><div class="art">
-<div class="bg"></div>
-<svg class="grain" width="1200" height="630"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>
-
-<div class="halo bokix"></div>
-<div class="halo gmail"></div>
-
-<!-- Tre ljusband från Bokix till Gmail, bakom mejlet -->
-<svg class="flow" width="1200" height="630" viewBox="0 0 1200 630">
-  <defs>
-    <linearGradient id="fg" x1="330" x2="870" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#14b8a6"/><stop offset="0.5" stop-color="#5b9cf0"/><stop offset="1" stop-color="#4285f4"/></linearGradient>
-    <filter id="glow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
-  </defs>
-  <g fill="none" stroke="url(#fg)" stroke-linecap="round">
-    <g filter="url(#glow)" opacity="0.45">
-      <path d="M330 236 C 450 236, 470 300, 600 300 S 760 236, 870 236" stroke-width="10"/>
-    </g>
-    <path d="M330 236 C 450 236, 470 300, 600 300 S 760 236, 870 236" stroke-width="3.5"/>
-    <path d="M330 222 C 440 200, 500 250, 600 262 S 770 214, 870 222" stroke-width="2" opacity="0.5"/>
-    <path d="M330 252 C 450 290, 500 350, 600 338 S 760 262, 870 252" stroke-width="2" opacity="0.35"/>
-  </g>
-</svg>
-
-<div class="tile bokix">
-  <svg viewBox="0 0 125 40"><defs><linearGradient id="wmgrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#0ea5e9"/><stop offset="50%" stop-color="#14b8a6"/><stop offset="100%" stop-color="#84cc16"/></linearGradient></defs><path d="{{WORDMARK_PATH}}" fill="url(#wmgrad)"/></svg>
+<div class="abs pdf paper"><b>Faktura</b><div class="ln"><div class="line" style="width:150px"></div><div class="line" style="width:110px"></div><div class="line" style="width:130px"></div></div><span class="tag">PDF</span></div>
+<div class="abs env">
+  <div class="stamp"></div>
+  <div class="to"><b>Från</b>info@dittforetag.se</div>
 </div>
-
-<div class="ghost"><i style="top:30px;width:120px"></i><i style="top:54px;width:200px"></i><i style="top:78px;width:160px"></i></div>
-
-<div class="mail card">
-  <div class="sent"><svg width="15" height="15" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Skickad</div>
-  <div class="from">
-    <div class="av">T</div>
-    <div><div class="who">Testdesign AB</div><div class="addr">faktura@testdesign.se</div></div>
-  </div>
-  <h4>Faktura 1012</h4>
-  <p>Hej! Här kommer fakturan för september.</p>
-  <div class="att"><span class="file"><span class="pdf">PDF</span>faktura-1012.pdf</span><span class="amt">23 750 kr</span></div>
-</div>
-
-<div class="tile gmail">
-  <svg viewBox="52 42 88 66"><path fill="#4285f4" d="M58 108h14V74L52 59v43c0 3.32 2.69 6 6 6"/><path fill="#34a853" d="M120 108h14c3.32 0 6-2.69 6-6V59l-20 15"/><path fill="#fbbc04" d="M120 48v26l20-15v-8c0-7.42-8.47-11.65-14.4-7.2"/><path fill="#ea4335" d="M72 74V48l24 18 24-18v26L96 92"/><path fill="#c5221f" d="M52 51v8l20 15V48l-5.6-4.2c-5.94-4.45-14.4-.22-14.4 7.2"/></svg>
-</div>
-
-<div class="title">Fakturor från <em>din Gmail</em></div>
-<div class="bar"></div>
+<div class="abs trail"><i style="left:0;top:60px;width:120px"></i><i style="left:30px;top:100px;width:160px"></i><i style="left:10px;top:140px;width:90px"></i></div>
+<div class="grain"></div>
 </div></body></html>
