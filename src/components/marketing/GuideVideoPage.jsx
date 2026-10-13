@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import MarketingLayout from './MarketingLayout';
-import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
+import { PageMeta, JsonLd, SITE_URL, schemaDate } from '../../utils/seo';
 import TRANSCRIPTS from '../../content/marketing/guideTranscripts.json';
 import { GUIDE_GROUPS, GUIDE_UPLOAD_DATE } from '../../content/marketing/guides';
 import useSiteTheme from '../../utils/useSiteTheme';
@@ -24,7 +24,7 @@ export default function GuideVideoPage({ slug }) {
     name: guide.title,
     description,
     thumbnailUrl: [thumbnailUrl],
-    uploadDate: GUIDE_UPLOAD_DATE,
+    uploadDate: schemaDate(GUIDE_UPLOAD_DATE),
     duration: guide.duration,
     contentUrl: videoUrl,
     inLanguage: 'sv-SE',

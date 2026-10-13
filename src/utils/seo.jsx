@@ -13,6 +13,9 @@ import React from 'react';
 import { DEFAULT_LOCALE, LOCALE_META, availableLocalesFor, localizedPath } from '../content/marketing/routes';
 import { ogImageFor } from '../content/marketing/ogImages';
 
+import { schemaDate } from './schemaDate.js';
+export { schemaDate };
+
 export const SITE_URL = 'https://www.bokix.se';
 export const SITE_NAME = 'Bokix';
 // 1200×630 (2x, 2400×1260, för skärpa på Retina-förhandsvisningar) —
@@ -117,8 +120,8 @@ export function PageMeta({ title, description, path = '/', basePath, locale = DE
       <meta property="og:image" content={image} />
       <meta property="og:locale" content={ogLocale} />
       {/* Artiklar: publicerings- och ändringsdatum, som Google och delningskort läser. */}
-      {publishedTime && <meta property="article:published_time" content={publishedTime} />}
-      {modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
+      {publishedTime && <meta property="article:published_time" content={schemaDate(publishedTime)} />}
+      {modifiedTime && <meta property="article:modified_time" content={schemaDate(modifiedTime)} />}
       {siblings.filter((l) => l !== locale).map((l) => (
         <meta key={l} property="og:locale:alternate" content={LOCALE_META[l].og} />
       ))}

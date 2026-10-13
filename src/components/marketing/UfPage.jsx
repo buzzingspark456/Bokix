@@ -7,7 +7,7 @@ import {
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal, BokixWordmark } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from './marketingTokens';
-import { PageMeta, JsonLd, SITE_URL, DEFAULT_OG_IMAGE } from '../../utils/seo';
+import { PageMeta, JsonLd, SITE_URL, DEFAULT_OG_IMAGE, schemaDate } from '../../utils/seo';
 import UfYearFlow from './UfYearFlow';
 import { UF_BLOCKED_PAGES, UF_FREE_MONTHS, UF_INVOICE_LIMIT_PER_DAY } from '../../utils/ufMode';
 
@@ -124,7 +124,7 @@ export default function UfPage() {
     publisher: { '@type': 'Organization', name: 'Bokix', url: SITE_URL, logo: { '@type': 'ImageObject', url: `${SITE_URL}/icon-512.png` } },
     mainEntityOfPage: `${SITE_URL}/uf`,
     image: DEFAULT_OG_IMAGE,
-    datePublished: '2026-09-09',
+    datePublished: schemaDate('2026-09-09'),
   };
 
   return (

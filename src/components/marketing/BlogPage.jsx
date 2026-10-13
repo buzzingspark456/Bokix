@@ -4,7 +4,7 @@ import { ArrowRight } from '../icons';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
 import { blogThumb } from '../../utils/blogThumb';
-import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
+import { PageMeta, JsonLd, SITE_URL, schemaDate } from '../../utils/seo';
 import { BLOG_POSTS } from '../../content/marketing/blog';
 
 // ── Bokix-bloggen (/blogg) — den riktiga listan ─────────────────────────
@@ -31,8 +31,8 @@ const SCHEMA = {
     headline: p.title,
     url: `${SITE_URL}${p.path}`,
     image: `${SITE_URL}${p.image}`,
-    datePublished: p.datePublished,
-    dateModified: p.dateModified,
+    datePublished: schemaDate(p.datePublished),
+    dateModified: schemaDate(p.dateModified),
     description: p.excerpt,
     // Samma författare som på själva artikelsidan (BlogPostPage.jsx).
     author: { '@type': 'Organization', name: 'Bokix', url: SITE_URL },

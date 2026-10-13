@@ -4,7 +4,7 @@ import { BRAND } from '../../utils/brandColors';
 import MarketingLayout from './MarketingLayout';
 import { INK_SOFT, MUTED, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
 import { KitStyles, SubHero, KitSection, CenterSection, KitFaq, KitCta, PrimaryButton, GhostLink } from './subpageKit';
-import { PageMeta, JsonLd, SITE_URL, DEFAULT_OG_IMAGE } from '../../utils/seo';
+import { PageMeta, JsonLd, SITE_URL, DEFAULT_OG_IMAGE, schemaDate } from '../../utils/seo';
 import MigrationFlow from './MigrationFlow';
 import DemoPlayer, { DemoStyles, PlayOnView } from './DemoPlayer';
 import { makeSwitchDemo } from './demoScenesOther';
@@ -153,7 +153,7 @@ export default function SwitchPage() {
     publisher: { '@type': 'Organization', name: 'Bokix', url: SITE_URL, logo: { '@type': 'ImageObject', url: `${SITE_URL}/icon-512.png` } },
     mainEntityOfPage: `${SITE_URL}/byt-bokforingsprogram`,
     image: DEFAULT_OG_IMAGE,
-    datePublished: '2026-09-08',
+    datePublished: schemaDate('2026-09-08'),
   };
 
   const pickerButton = (on) => ({

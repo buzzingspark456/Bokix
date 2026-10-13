@@ -23,6 +23,7 @@ import { ALL_ARTICLES } from '../src/content/marketing/news.js';
 import { FAQ_GROUPS } from '../src/components/marketing/faqData.js';
 import { BOKIX_SUMMARY, BOKIX_FACTS, BOKIX_FEATURES, BOKIX_DIFFERENT, BOKIX_NOT_FOR } from '../src/content/marketing/bokixFacts.js';
 import { GUIDE_GROUPS, GUIDE_UPLOAD_DATE } from '../src/content/marketing/guides.js';
+import { schemaDate } from '../src/utils/schemaDate.js';
 import { ORG_TYPE_PAGES } from '../src/content/marketing/orgTypes.js';
 import { MARKETING_ROUTES, DEFAULT_LOCALE, LOCALE_META, availableLocalesFor, localizedPath } from '../src/content/marketing/routes.js';
 
@@ -229,7 +230,7 @@ function generateSitemap() {
       const videoUrl = `${SITE_URL}/videos/${u.video.slug}.mp4`;
       const thumbnailUrl = `${SITE_URL}/videos/${u.video.slug}.jpg`;
       const description = `${u.video.lead} Se videon och läs hela instruktionen.`;
-      return `\n    <video:video>\n      <video:thumbnail_loc>${xmlEscape(thumbnailUrl)}</video:thumbnail_loc>\n      <video:title>${xmlEscape(u.video.title)}</video:title>\n      <video:description>${xmlEscape(description)}</video:description>\n      <video:content_loc>${xmlEscape(videoUrl)}</video:content_loc>\n      <video:duration>${duration}</video:duration>\n      <video:publication_date>${GUIDE_UPLOAD_DATE}</video:publication_date>\n    </video:video>`;
+      return `\n    <video:video>\n      <video:thumbnail_loc>${xmlEscape(thumbnailUrl)}</video:thumbnail_loc>\n      <video:title>${xmlEscape(u.video.title)}</video:title>\n      <video:description>${xmlEscape(description)}</video:description>\n      <video:content_loc>${xmlEscape(videoUrl)}</video:content_loc>\n      <video:duration>${duration}</video:duration>\n      <video:publication_date>${schemaDate(GUIDE_UPLOAD_DATE)}</video:publication_date>\n    </video:video>`;
     })() : '';
     return `  <url>\n    <loc>${xmlEscape(u.loc)}</loc>${alternateTags}${lastmod}${imageTags}${videoTags}\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`;
   }).join('\n');

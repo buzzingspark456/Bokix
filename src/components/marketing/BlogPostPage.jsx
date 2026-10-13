@@ -6,7 +6,7 @@ import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import BlogDiagram from './BlogDiagrams';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
-import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
+import { PageMeta, JsonLd, SITE_URL, schemaDate } from '../../utils/seo';
 import { ALL_ARTICLES } from '../../content/marketing/news';
 import { MIGRATION_SOURCES } from '../../utils/migrationSources';
 
@@ -474,8 +474,8 @@ export default function BlogPostPage({ slug }) {
       url: `${SITE_URL}${post.path}`,
       inLanguage: 'sv-SE',
       image: `${SITE_URL}${post.image}`,
-      datePublished: post.datePublished,
-      dateModified: post.dateModified,
+      datePublished: schemaDate(post.datePublished),
+      dateModified: schemaDate(post.dateModified),
       articleSection: post.category,
       wordCount: countWords(post),
       author: { '@type': 'Organization', name: 'Bokix', url: SITE_URL },
