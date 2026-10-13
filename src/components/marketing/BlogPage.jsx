@@ -46,10 +46,9 @@ const SCHEMA = {
 };
 
 const CSS = `
-  .bxb-wrap { max-width: 1120px; margin: 0 auto; }
-  .bxb-head { padding: 132px 24px 8px; }
-  .bxb-h1 { font-family: ${SERIF}; font-size: clamp(38px, 6vw, 60px); font-weight: 700; letter-spacing: -0.02em; color: ${INK}; line-height: 1.05; margin: 0 0 12px; }
-  .bxb-sub { font-size: 17px; color: ${MUTED}; margin: 0; }
+  .bxb-wrap { max-width: 1200px; margin: 0 auto; }
+  .bxb-head { padding: 116px 24px 0; }
+  .bxb-h1 { font-family: ${SERIF}; font-size: clamp(38px, 6vw, 60px); font-weight: 700; letter-spacing: -0.02em; color: ${INK}; line-height: 1.05; margin: 0; }
   .bxb-link { display: block; text-decoration: none; color: inherit; }
   .bxb-img { width: 100%; height: auto; aspect-ratio: 1200 / 630; object-fit: cover; display: block; border-radius: 14px; background: var(--mkt-ivory); transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
   .bxb-imgbox { overflow: hidden; border-radius: 14px; }
@@ -59,11 +58,11 @@ const CSS = `
   .bxb-cat { font-weight: 700; color: var(--mkt-accent-green-fg); }
   .bxb-title { font-family: ${SERIF}; color: ${INK}; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; margin: 0; }
 
-  .bxb-feat { display: grid; grid-template-columns: 1.35fr 1fr; gap: 44px; align-items: center; padding: 40px 0 56px; border-bottom: 1px solid var(--mkt-border-soft); }
+  .bxb-feat { display: grid; grid-template-columns: 1.35fr 1fr; gap: 44px; align-items: center; padding: 28px 0 40px; border-bottom: 1px solid var(--mkt-border-soft); }
   .bxb-feat .bxb-title { font-size: clamp(28px, 3.4vw, 40px); margin: 14px 0 12px; }
   .bxb-feat p { font-size: 17px; line-height: 1.55; color: var(--mkt-ink-soft); margin: 0; }
 
-  .bxb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px 32px; padding: 52px 0 110px; }
+  .bxb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px 32px; padding: 40px 0 80px; }
   .bxb-grid .bxb-meta { margin-top: 16px; }
   .bxb-grid .bxb-title { font-size: 21px; margin-top: 8px; }
 
@@ -72,7 +71,7 @@ const CSS = `
     .bxb-grid { grid-template-columns: repeat(2, 1fr); }
   }
   @media (max-width: 600px) {
-    .bxb-head { padding-top: 108px; }
+    .bxb-head { padding-top: 100px; }
     .bxb-grid { grid-template-columns: 1fr; gap: 38px; }
   }
 `;
@@ -101,7 +100,6 @@ export default function BlogPage() {
       <header className="bxb-head">
         <div className="bxb-wrap">
           <h1 className="bxb-h1">Blogg</h1>
-          <p className="bxb-sub">Bokföring, moms och skatt för småföretag.</p>
         </div>
       </header>
 

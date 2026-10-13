@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Check, ChevronDown, Copy, Info, Sparkles, AlertTriangle } from '../icons';
+import { ArrowRight, Check, Copy, Info, Sparkles, AlertTriangle } from '../icons';
 import { ProgramLogo } from '../shared/BrandLogos';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
@@ -210,21 +210,6 @@ function Block({ block, id }) {
   }
 }
 
-function useActiveHeading(ids) {
-  const [active, setActive] = useState(ids[0] || '');
-  useEffect(() => {
-    const els = ids.map(id => document.getElementById(id)).filter(Boolean);
-    if (!els.length) return undefined;
-    const obs = new IntersectionObserver(entries => {
-      const visible = entries.filter(e => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-      if (visible[0]) setActive(visible[0].target.id);
-    }, { rootMargin: '-96px 0px -68% 0px', threshold: 0 });
-    els.forEach(el => obs.observe(el));
-    return () => obs.disconnect();
-  }, [ids.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
-  return active;
-}
-
 // Läsprogress som RIDER PÅ linjen i stället för att flyta som en egen
 // bricka uppe i hörnet — kundfeedback: den gamla brickan låg rakt ovanpå
 // "Kom igång"-knappen i headern. Linjen ligger nu direkt UNDER headern
@@ -318,7 +303,8 @@ const CSS = `
   @media (max-width: 560px) { .bxp-progress-pct { font-size: 11px; padding: 3.5px 8px; } }
   @media (prefers-reduced-motion: reduce) { .bxp-progress-puck { animation: none; } }
 
-  .bxp-head { max-width: 800px; margin: 0 auto; }
+  .bxp-head { max-width: 992px; margin: 0 auto; }
+  .bxp-h1, .bxp-lede { max-width: 760px; }
   .bxp-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; font-size: 13.5px; color: ${MUTED}; margin-bottom: 22px; }
   .bxp-crumbs a { color: ${MUTED}; text-decoration: none; font-weight: 600; }
   .bxp-crumbs a:hover { color: ${INK}; text-decoration: underline; }
@@ -334,40 +320,10 @@ const CSS = `
   .bxp-hero { max-width: 1040px; margin: 0 auto; padding: 36px 24px 0; }
   .bxp-hero img { width: 100%; height: auto; aspect-ratio: 1200 / 630; display: block; border-radius: 20px; border: 1px solid ${CARD_BORDER}; box-shadow: ${CARD_SHADOW}; background: var(--mkt-card-bg); }
 
-  .bxp-layout { max-width: 1040px; margin: 0 auto; padding: 44px 24px 24px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 48px; }
-  .bxp-main { max-width: 700px; width: 100%; margin: 0 auto; min-width: 0; }
-  .bxp-aside { display: none; }
-  @media (min-width: 1080px) {
-    .bxp-layout { grid-template-columns: minmax(0, 700px) 268px; justify-content: space-between; }
-    .bxp-main { margin: 0; }
-    .bxp-aside { display: block; }
-    .bxp-toc-m { display: none; }
-  }
-  .bxp-aside-in { position: sticky; top: 108px; }
-  .bxp-toc-t { font-size: 12px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: ${MUTED}; margin-bottom: 12px; }
-  .bxp-toc { list-style: none; margin: 0; padding: 0 0 0 1px; border-left: 2px solid ${CARD_BORDER}; }
-  .bxp-toc a { display: block; padding: 7px 0 7px 16px; margin-left: -2px; border-left: 2px solid transparent; font-size: 14px; line-height: 1.4; color: ${MUTED}; text-decoration: none; font-weight: 500; transition: color 0.15s, border-color 0.15s; }
-  .bxp-toc a:hover { color: ${INK}; }
-  .bxp-toc a.on { color: ${INK}; border-left-color: #14b8a6; font-weight: 700; }
-  .bxp-side-cta { margin-top: 26px; padding: 18px; border-radius: 16px; background: var(--mkt-card-bg); border: 1px solid ${CARD_BORDER}; box-shadow: var(--mkt-card-shadow-sm); }
-  .bxp-side-cta b { display: block; font-family: ${SERIF}; font-size: 17px; color: ${INK}; margin-bottom: 6px; line-height: 1.3; }
-  .bxp-side-cta p { font-size: 13.5px; line-height: 1.55; color: ${MUTED}; margin: 0 0 14px; }
-  .bxp-side-cta button { width: 100%; padding: 11px 14px; border: none; border-radius: 11px; background: ${BRAND.green}; color: #fff; font-weight: 700; font-size: 14px; cursor: pointer; font-family: inherit; }
+  .bxp-layout { max-width: 1040px; margin: 0 auto; padding: 40px 24px 24px; }
+  .bxp-main { max-width: 720px; min-width: 0; }
 
-  .bxp-tldr { border-radius: 18px; padding: 20px 22px 18px; background: var(--mkt-accent-green-soft); margin-bottom: 26px; }
-  .bxp-tldr-t { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--mkt-accent-green-fg); margin-bottom: 10px; }
-  .bxp-tldr ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
-  .bxp-tldr li { position: relative; padding-left: 24px; font-size: 16px; line-height: 1.6; color: ${INK}; }
-  .bxp-tldr li::before { content: ''; position: absolute; left: 3px; top: 0.62em; width: 8px; height: 8px; border-radius: 50%; background: var(--mkt-accent-green-fg); }
 
-  .bxp-toc-m { border: 1px solid ${CARD_BORDER}; border-radius: 14px; margin-bottom: 30px; background: var(--mkt-card-bg); }
-  .bxp-toc-m summary { list-style: none; cursor: pointer; padding: 14px 18px; font-weight: 700; font-size: 15px; color: ${INK}; display: flex; align-items: center; justify-content: space-between; }
-  .bxp-toc-m summary::-webkit-details-marker { display: none; }
-  .bxp-toc-m[open] summary .bxp-chev { transform: rotate(180deg); }
-  .bxp-chev { transition: transform 0.2s; display: inline-flex; color: ${MUTED}; }
-  .bxp-toc-m ol { margin: 0; padding: 0 18px 14px 36px; }
-  .bxp-toc-m li { margin: 0 0 8px; font-size: 15px; }
-  .bxp-toc-m a { color: ${INK_SOFT}; text-decoration: none; font-weight: 500; }
 
   .bxp-main > p, .bxp-main li, .bxp-main dd { font-size: clamp(16.5px, 2vw, 18px); line-height: 1.8; color: ${INK_SOFT}; }
   .bxp-main > p { margin: 0 0 20px; }
@@ -429,13 +385,6 @@ const CSS = `
   .bxg-card ol { margin: 0; padding-left: 1.2em; }
   .bxg-card li { font-size: 14.5px !important; line-height: 1.55 !important; margin: 0 0 9px; }
 
-  .bxf { margin-top: 12px; border: 1px solid ${CARD_BORDER}; border-radius: 16px; background: var(--mkt-card-bg); overflow: hidden; }
-  .bxf details { border-bottom: 1px solid ${CARD_BORDER}; }
-  .bxf details:last-child { border-bottom: 0; }
-  .bxf summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 17px 20px; font-weight: 700; font-size: 16.5px; color: ${INK}; line-height: 1.4; }
-  .bxf summary::-webkit-details-marker { display: none; }
-  .bxf details[open] summary .bxp-chev { transform: rotate(180deg); }
-  .bxf p { margin: 0; padding: 0 20px 18px; font-size: 16px; line-height: 1.7; color: ${INK_SOFT}; }
 
   .bxp-rel { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
   .bxp-rel a { display: block; text-decoration: none; border: 1px solid ${CARD_BORDER}; border-radius: 16px; overflow: hidden; background: var(--mkt-card-bg); box-shadow: var(--mkt-card-shadow-sm); }
@@ -451,11 +400,6 @@ export default function BlogPostPage({ slug }) {
   const post = ALL_ARTICLES.find(p => p.slug === slug && p.body);
 
   const h2Ids = post ? post.body.filter(b => b.t === 'h2').map(b => slugify(b.x)) : [];
-  const tocItems = post ? [
-    ...post.body.filter(b => b.t === 'h2').map((b, i) => ({ id: h2Ids[i], label: b.x })),
-    ...(post.faq && post.faq.length ? [{ id: 'vanliga-fragor', label: 'Vanliga frågor' }] : []),
-  ] : [];
-  const active = useActiveHeading(tocItems.map(t => t.id));
 
   if (!post) return null;
   const isNews = Boolean(post.news);
@@ -493,11 +437,6 @@ export default function BlogPostPage({ slug }) {
         { '@type': 'ListItem', position: 3, name: post.title, item: `${SITE_URL}${post.path}` },
       ],
     },
-    ...(post.faq && post.faq.length ? [{
-      '@context': 'https://schema.org',
-      '@type': 'FAQPage',
-      mainEntity: post.faq.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
-    }] : []),
   ];
 
   return (
@@ -544,54 +483,10 @@ export default function BlogPostPage({ slug }) {
 
         <div className="bxp-layout">
           <article className="bxp-main" ref={articleRef}>
-            {post.tldr ? (
-              <section className="bxp-tldr" aria-label={isNews ? 'I korthet' : 'Kort svar'}>
-                <div className="bxp-tldr-t"><Sparkles size={15} /> {isNews ? 'I korthet' : 'Kort svar'}</div>
-                <ul>{post.tldr.map((t, i) => <li key={i}>{t}</li>)}</ul>
-              </section>
-            ) : null}
-
-            {tocItems.length > 2 ? (
-              <details className="bxp-toc-m">
-                <summary>Innehåll i artikeln <span className="bxp-chev"><ChevronDown size={18} /></span></summary>
-                <ol>{tocItems.map(t => <li key={t.id}><a href={`#${t.id}`}>{t.label}</a></li>)}</ol>
-              </details>
-            ) : null}
-
             {post.body.map((block, i) => (
               <Block key={i} block={block} id={block.t === 'h2' ? h2Ids[h2i++] : undefined} />
             ))}
-
-            {post.faq && post.faq.length ? (
-              <>
-                <h2 id="vanliga-fragor">Vanliga frågor</h2>
-                <div className="bxf">
-                  {post.faq.map((f, i) => (
-                    <details key={i}>
-                      <summary>{f.q}<span className="bxp-chev"><ChevronDown size={18} /></span></summary>
-                      <p>{f.a}</p>
-                    </details>
-                  ))}
-                </div>
-              </>
-            ) : null}
           </article>
-
-          <aside className="bxp-aside" aria-label="Innehåll">
-            <div className="bxp-aside-in">
-              <div className="bxp-toc-t">I den här artikeln</div>
-              <ul className="bxp-toc">
-                {tocItems.map(t => (
-                  <li key={t.id}><a href={`#${t.id}`} className={active === t.id ? 'on' : undefined}>{t.label}</a></li>
-                ))}
-              </ul>
-              <div className="bxp-side-cta">
-                <b>Prova Bokix gratis</b>
-                <p>30 dagar gratis, inga kortuppgifter som debiteras i förväg.</p>
-                <button type="button" onClick={startSignup}>Kom igång</button>
-              </div>
-            </div>
-          </aside>
         </div>
       </div>
 

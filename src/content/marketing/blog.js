@@ -30,7 +30,8 @@ export const BLOG_POSTS = [
       'Se till att du kan ta med bokföringen ut igen. SIE4 är standardformatet som alla svenska program kan läsa.',
     ],
     body: [
-      { t: 'p', x: 'Alla bokföringsprogram i Sverige bokför enligt samma lag och samma kontoplan, BAS. Det som skiljer dem åt är vad de gör åt dig: hur mycket du själv behöver kunna, vad som ingår i priset och om programmet klarar det din bolagsform behöver vid bokslutet. Välj efter det, inte efter vem som syns mest.' },
+      { t: 'p', x: 'Alla bokföringsprogram i Sverige följer samma lag och samma kontoplan, BAS. Skillnaden är vad programmet gör åt dig och vad som ingår i priset.' },
+      { t: 'p', x: 'Välj efter ditt företag, inte efter vem som syns mest.' },
 
       { t: 'h2', x: 'Börja med din bolagsform' },
       { t: 'p', x: 'Bolagsformen avgör vad programmet måste klara när året är slut. Den löpande bokföringen är lik för alla, men deklarationen och bokslutet skiljer sig.' },
@@ -57,21 +58,23 @@ export const BLOG_POSTS = [
       { t: 'callout', kind: 'tips', title: 'Prova med ditt eget underlag', x: 'De flesta program har en gratis provperiod. Lägg in några riktiga kvitton och en faktura under provperioden i stället för att bara titta runt. Då märker du snabbt vad som går smidigt och vad som skaver.' },
 
       { t: 'h2', x: 'Vad ett bokföringsprogram kostar' },
-      { t: 'p', x: 'Priserna ligger ofta mellan ett hundratal och några hundra kronor i månaden, men grundpriset säger lite. I en del program är lön, fler användare, fakturor eller kvittohantering tillägg. Jämför därför vad det kostar för det du faktiskt kommer att använda, och kolla om priset är med eller utan moms.' },
+      { t: 'p', x: 'Priserna ligger ofta mellan ett hundratal och några hundra kronor i månaden. Men grundpriset säger lite, eftersom lön, fler användare eller kvitton kan kosta extra.' },
+      { t: 'p', x: 'Räkna på det du faktiskt kommer att använda, och kolla om priset är med eller utan moms.' },
       { t: 'p', x: 'Bokix kostar 129 kr/mån utan anställda och 179 kr/mån med anställda, med årsplan 109 respektive 149 kr/mån. Ingen moms tillkommer och allt ingår. Se [priser](/priser).' },
 
       { t: 'h2', x: 'Att byta program är enklare än det låter' },
-      { t: 'p', x: 'Alla svenska bokföringsprogram kan exportera bokföringen som en SIE4-fil: kontoplan, verifikationer och ingående balanser. Den läser du in i det nya programmet. Kund- och leverantörsregister och bilder på kvitton följer oftast inte med, så spara dem från det gamla programmet. Läs mer i [SIE4: så flyttar du bokföringen](/blogg/sie4-flytta-bokforing) och om att [byta bokföringsprogram](/byt-bokforingsprogram).' },
+      { t: 'p', x: 'Alla svenska bokföringsprogram kan spara bokföringen som en SIE4-fil. Den läser du in i det nya programmet, och då följer kontoplan, verifikationer och balanser med.' },
+      { t: 'p', x: 'Kundregister och kvittobilder följer oftast inte med, så spara dem från det gamla programmet. Läs mer i [Flytta bokföringen med SIE4](/blogg/sie4-flytta-bokforing).' },
 
       { t: 'h2', x: 'När Bokix inte passar' },
-      { t: 'p', x: 'Ett bra val är ett program som passar ditt företag, inte det som har flest funktioner. Bokix är byggt för småföretag som vill ha det enkelt, och passar sämre om du behöver något av det här:' },
+      { t: 'p', x: 'Bokix är byggt för småföretag som vill ha det enkelt. Det passar sämre om du behöver något av det här:' },
       { t: 'ul', x: [
         'Direkt bankkoppling. Bokix läser in kontoutdrag som fil.',
         'E-faktura via Peppol, som Bokix inte har.',
         'Att programmet lämnar in deklarationer automatiskt. I Bokix laddar du ned filen och lämnar in själv med BankID.',
         'Fler än tre personer som ska arbeta i bokföringen.',
       ] },
-      { t: 'p', x: 'Känner du igen ditt företag i de nio punkterna ovan och inte i listan här, är Bokix värt att prova. De första 30 dagarna är gratis.' },
+      { t: 'p', x: 'Passar inget av det in på dig är Bokix värt att prova. De första 30 dagarna är gratis.' },
     ],
     faq: [
       { q: 'Vilket bokföringsprogram är bäst för småföretag?', a: 'Det som klarar din bolagsform hela året, som du förstår utan att kunna bokföring och där det du använder ingår i priset. Jämför de nio punkterna i guiden och prova med ditt eget underlag under provperioden.' },
@@ -100,8 +103,8 @@ export const BLOG_POSTS = [
       'Moms ingår i båda prisnivåerna, lön i nivån med personal, och hela bokföringen går alltid att exportera som SIE4.',
     ],
     body: [
-      { t: 'p', x: 'De flesta som startar företag är bra på det de faktiskt gör, inte på dubbel bokföring, kontoplaner eller momsrutor. Ändå är bokföring i grunden bara en lång rad små händelser: ett kvitto, en faktura, en betalning. Varje händelse ska bli en verifikation med rätt konto och rätt moms. Det är där tiden går, och där det blir fel.' },
-      { t: 'p', x: 'Bokix bygger på en enda regel: **det du inte kan gör vi åt dig, och det som är osäkert gissas aldrig fram i tysthet.** Den här artikeln går igenom hur det fungerar i praktiken, från första kvittot till momsdeklarationen.' },
+      { t: 'p', x: 'Bokföring är en lång rad små händelser: ett kvitto, en faktura, en betalning. Varje händelse ska bli en verifikation med rätt konto och rätt moms. Det är där tiden går.' },
+      { t: 'p', x: 'Bokix har en enkel regel: **det du inte kan gör Bokix åt dig, och det som är osäkert gissas aldrig fram.** Så här fungerar det, från kvitto till moms.' },
 
       { t: 'h2', x: 'Så delas jobbet mellan dig och Bokix' },
       { t: 'p', x: 'Din del är den som bara du kan göra: fota kvittot, skriva fakturan och avgöra det som är oklart. Resten sköter Bokix.' },
@@ -115,7 +118,7 @@ export const BLOG_POSTS = [
       { t: 'diagram', id: 'enkel-flow', caption: 'Varje händelse tar en av två vägar. Det säkra blir en verifikation, det osäkra stannar i Granskning tills du har avgjort det.' },
 
       { t: 'h2', x: 'Kvitton: fota, så läser Bokix' },
-      { t: 'p', x: 'Att sitta med en kvittohög och knappa in datum och belopp är det som gör bokföring tråkig. Så här ser det ut i Bokix:' },
+      { t: 'p', x: 'Du behöver inte skriva in datum och belopp själv:' },
       { t: 'steps', x: [
         { h: 'Fota eller ladda upp', p: 'Ta en bild med mobilen, eller ladda upp en bild eller pdf. Texten läses direkt i webbläsaren.' },
         { h: 'Bokix föreslår', p: 'Datum, belopp och momssats fylls i. Känner Bokix igen handlaren, till exempel en bensinmack, en matbutik eller ett molntjänstabonnemang, föreslås även rätt bokföringskonto.' },
@@ -124,7 +127,7 @@ export const BLOG_POSTS = [
       { t: 'callout', kind: 'tips', title: 'Varför ett förslag och inte en automatik?', x: 'En avläsning kan ha fel: en fläck, ett vikt hörn eller en handlare som skriver ut momsen på ett ovanligt sätt. Genom att alltid visa avläsningen som något du kan ändra fångar du felet innan det hamnar i bokföringen. Vill du se hur avläsningen fungerar utan att skapa konto kan du prova det gratis: [Skanna kvitto](/verktyg/skanna-kvitto).' },
 
       { t: 'h2', x: 'Fakturor: skriv, skicka, bocka av' },
-      { t: 'p', x: 'Kund- och leverantörsfakturor ligger i samma flöde. Du väljer bland fyra fakturamallar (Klassisk, Kraftfull, Minimal och Rutnät) och lägger till din egen logotyp och accentfärg, så att fakturan ser ut som ditt företag och inte som en mall.' },
+      { t: 'p', x: 'Du väljer bland fyra fakturamallar och lägger till din egen logotyp.' },
       { t: 'ul', x: [
         '**Kortbetalning på fakturan.** Kunden kan betala direkt på fakturan via Stripe. Betalningen matchas mot rätt faktura och blir en färdig verifikation, utan att du behöver stämma av något i efterhand.',
         '**Påminnelser.** När en faktura passerat förfallodatum skickas en betalningspåminnelse automatiskt.',
@@ -134,9 +137,9 @@ export const BLOG_POSTS = [
       ] },
 
       { t: 'h2', x: 'Granskning: det osäkra stannar hos dig' },
-      { t: 'p', x: 'Det här är den viktigaste delen. Det är lätt att bygga ett program som bokför allt automatiskt. Det svåra är att veta när det inte ska göra det. En Swish-betalning utan tydlig avsändare, ett suddigt kvitto eller en summa som inte går ihop är just de fallen där en gissning blir dyr.' },
+      { t: 'p', x: 'Ett suddigt kvitto, en Swish utan tydlig avsändare eller en summa som inte går ihop. Där blir en gissning dyr.' },
       { t: 'diagram', id: 'review-queue', caption: 'Så kan Granskning se ut. Varje rad har en tydlig anledning till att Bokix stannade.' },
-      { t: 'p', x: 'I stället för att bokföra fel i tysthet hamnar sådana poster i Granskning. Där står anledningen utskriven, och du bokför posten själv med underlaget framför dig. Bokix föreslår konto ur dina egna tidigare bokföringar men bestämmer inget åt dig. Du upptäcker inte felet tre månader senare, utan samma dag.' },
+      { t: 'p', x: 'Därför hamnar sådant i Granskning, med anledningen utskriven. Bokix föreslår konto utifrån det du bokfört förut, men du bestämmer. Du ser felet samma dag, inte tre månader senare.' },
       { t: 'callout', kind: 'info', title: 'Tyst gissning är det som blir dyrt', x: 'Ett fel som bokförts i tysthet syns först vid bokslut eller när revisorn frågar. Ett fel som Bokix stannar på syns direkt, med orsaken bredvid. Därför är Granskning en funktion och inte ett undantag.' },
 
       { t: 'h2', x: 'Kontoutdrag: läs in filen, ingen bankinloggning' },
@@ -151,21 +154,28 @@ export const BLOG_POSTS = [
       { t: 'h3', x: 'Momsdeklarationen' },
       { t: 'p', x: 'Bokix sammanställer momsdeklarationen ruta för ruta, som pdf och som eSKD-fil som du laddar upp hos Skatteverket. Satserna 25, 12 och 6 % stöds. Du får en påminnelse i god tid före varje deadline.' },
       { t: 'h3', x: 'Lön och personal' },
-      { t: 'p', x: 'Har du anställda räknar lönekörningen skatteavdrag enligt Skatteverkets skattetabeller, ger lönebesked som pdf per anställd, beräknar semesteravsättning och arbetsgivaravgifter efter varje anställds ålder, och ger en AGI-fil att ladda upp hos Skatteverket samt en betalfil till banken. Lön ingår i nivån med personal.' },
+      { t: 'p', x: 'Har du anställda gör lönekörningen det här åt dig:' },
+      { t: 'ul', x: [
+        'Skatteavdrag enligt Skatteverkets skattetabeller.',
+        'Lönebesked som pdf till varje anställd.',
+        'Arbetsgivaravgifter efter ålder och semesteravsättning.',
+        'En AGI-fil till Skatteverket och en betalfil till banken.',
+      ] },
+      { t: 'p', x: 'Lön ingår i nivån med personal.' },
       { t: 'h3', x: 'Bokslut' },
       { t: 'p', x: 'Ett bokslutsflöde stämmer av och låser räkenskapsåret. För aktiebolag förbereds också inkomstdeklaration 2 med räkenskapsschema (INK2R) och SRU-filer.' },
       { t: 'callout', kind: 'tips', title: 'Aldrig skickat utan din signatur', x: 'Allt som ska in hos Skatteverket förbereds åt dig, men skickas aldrig automatiskt. Du kontrollerar och lämnar in själv.' },
 
       { t: 'h2', x: 'För vilka passar Bokix?' },
-      { t: 'p', x: 'Bokix känner av rätt bolagsform utifrån ditt organisationsnummer när du skapar konto: enskild firma, aktiebolag, handelsbolag och kommanditbolag, ekonomisk förening samt ideell förening och stiftelse. Du kan ha flera företag under samma konto och upp till tre användare.' },
+      { t: 'p', x: 'Enskild firma, aktiebolag, handelsbolag, kommanditbolag, ekonomisk och ideell förening samt stiftelse. Bokix känner av bolagsformen från organisationsnumret. Du kan ha flera företag och upp till tre användare.' },
       { t: 'p', x: 'Är du med i Ung Företagsamhet finns ett eget UF-konto med en kortare meny, gratis i tre månader. Läs mer i [Bokföring för UF-företag](/blogg/bokforing-uf-foretag) eller på sidan [Bokix för UF-företag](/uf).' },
 
       { t: 'h2', x: 'Ingen inlåsning' },
-      { t: 'p', x: 'Vill du någon gång gå vidare till ett annat system går hela bokföringen att exportera som en SIE4-fil. Det är branschstandarden som svenska bokföringsprogram och redovisningskonsulter använder för att flytta data, och du behöver inte fråga oss om lov. Så fungerar formatet: [SIE4 förklarat](/blogg/sie4-flytta-bokforing). Kommer du från ett annat program finns en guide här: [Byt bokföringsprogram till Bokix](/byt-bokforingsprogram).' },
+      { t: 'p', x: 'Hela bokföringen går att spara som en SIE4-fil, standarden alla svenska program kan läsa. Du behöver inte fråga oss om lov. Läs mer i [Flytta bokföringen med SIE4](/blogg/sie4-flytta-bokforing).' },
 
       { t: 'h2', x: 'Vad kostar det?' },
-      { t: 'p', x: 'Två priser, beroende på om du har personal: **129 kr/mån** utan anställda och **179 kr/mån** med. Obegränsat med kund- och leverantörsfakturor, fyra fakturamallar, löpande bokföring och kortbetalningar via Stripe ingår i båda, och det finns ingen bindningstid på månadsplanen. Bokix är inte momsregistrerat, så priserna är slutbelopp.' },
-      { t: 'p', x: 'De första 30 dagarna är gratis. Du lägger in betaluppgifter hos Stripe när du skapar konto men debiteras ingenting, och avslutar du innan dess har det inte kostat dig något. Alla detaljer finns på sidan [Priser](/priser).' },
+      { t: 'p', x: '**129 kr/mån** utan anställda och **179 kr/mån** med anställda. Fakturor, bokföring och moms ingår i båda, och månadsplanen har ingen bindningstid. Priserna är slutbelopp.' },
+      { t: 'p', x: 'De första 30 dagarna är gratis. Avslutar du innan dess kostar det ingenting. Se [Priser](/priser).' },
     ],
     faq: [
       { q: 'Behöver jag kunna bokföring sedan innan?', a: 'Nej. Verifikationer skapas automatiskt utifrån dina kvitton och fakturor. Det enda som kräver din uppmärksamhet hamnar i Granskning, med tydlig anledning till varför. Resten sköts av Bokix.' },
@@ -182,11 +192,12 @@ export const BLOG_POSTS = [
   // entry-server.jsx, AppRouter.jsx och prerender.mjs läser alla den här
   // listan). Enda manuella steget är en rewrite-rad i vercel.json.
   //
-  // Fält utöver de vanliga: category (etikett), tldr (kort svar, lista),
-  // faq ([{ q, a }], blir både synlig FAQ och FAQPage-schema).
+  // Fält utöver de vanliga: category (etikett). tldr och faq finns kvar i
+  // en del inlägg men visas inte sedan 2026-10-13 (användaren ville ha en
+  // vanlig blogg utan Kort svar och frågelista). Skriv in det i texten.
   //
   // Blocktyper (t):
-  //   h2 (får ankare och hamnar i innehållsförteckningen), h3, p, ul, ol,
+  //   h2 (får ankare), h3, p, ul, ol,
   //   steps  { x: [{ h, p }] }            numrerade stegkort
   //   checklist { x: [text] }             bockad lista
   //   callout { kind: info|tips|warn, title, x, logo?, logoAlt? }
@@ -218,10 +229,10 @@ export const BLOG_POSTS = [
       'Spara originalfilen. Räkenskapsinformation ska bevaras i sju år.',
     ],
     body: [
-      { t: 'p', x: 'Att byta bokföringsprogram betyder inte att du behöver skriva in något på nytt. Nästan alla svenska bokföringsprogram kan både skapa och läsa in samma filformat, SIE, och det är därför ett byte tar en eftermiddag i stället för en vecka. Här går vi igenom vad filen är, hur den ser ut inuti, hur du gör bytet steg för steg och hur du kontrollerar att allt kom med.' },
+      { t: 'p', x: 'Byter du bokföringsprogram behöver du inte skriva in något på nytt. Nästan alla svenska program kan spara och läsa samma fil, SIE. Därför tar ett byte en eftermiddag, inte en vecka.' },
 
       { t: 'h2', x: 'Vad är SIE?' },
-      { t: 'p', x: 'SIE står för **Standard Import Export**. Det är ett filformat som den svenska branschen tagit fram just för att bokföringsdata ska gå att flytta mellan olika program och lämnas över till revisorn. Filen är oberoende av vilket program som skrev den, så en fil från Fortnox går att läsa in i Bokix, och tvärtom.' },
+      { t: 'p', x: 'SIE står för **Standard Import Export**. Det är ett svenskt filformat för att flytta bokföring mellan program, eller lämna den till revisorn. En fil från Fortnox går att läsa in i Bokix, och tvärtom.' },
       { t: 'callout', kind: 'info', title: 'Det är bara text', x: 'En SIE-fil är vanlig textfil, oftast med filändelsen .se. Du kan öppna den i ett textprogram och läsa den. Det är bra för att förstå vad som flyttas, men redigera den inte för hand.' },
 
       { t: 'h2', x: 'SIE 1 till 4: vilken typ ska du välja?' },
@@ -284,12 +295,16 @@ export const BLOG_POSTS = [
         ['2611', 'Utgående moms på försäljning', '', '2 500'],
         ['**Summa**', '', '**12 500**', '**12 500**'],
       ] },
-      { t: 'p', x: 'Två saker att lägga märke till. För det första står debet som positivt belopp och kredit som negativt, och **varje verifikation summerar till noll**. Det är själva grundregeln i dubbel bokföring. För det andra ligger balanskonton i #IB och #UB, medan resultatkonton ligger i #RES.' },
+      { t: 'p', x: 'Två saker att lägga märke till:' },
+      { t: 'ul', x: [
+        'Debet är positivt och kredit negativt. **Varje verifikation blir noll** när du summerar den.',
+        'Balanskonton ligger i #IB och #UB. Resultatkonton ligger i #RES.',
+      ] },
       { t: 'diagram', id: 'sie-balance', caption: 'Samma kontroll gör du efter bytet: ingående balans plus årets verifikationer ska ge utgående balans.' },
       { t: 'callout', kind: 'warn', title: 'Ser å, ä och ö konstiga ut?', x: 'SIE-filer sparas traditionellt i teckentabellen PC8. Öppnar du filen i ett program som antar en annan tabell blir å, ä och ö fel. Det är bara visningen som blir fel, inte filen, och programmet som läser in den känner igen #FORMAT-raden. Spara alltså inte om filen från ett textprogram.' },
 
       { t: 'h2', x: 'Steg 1: exportera SIE4 ur ditt nuvarande program' },
-      { t: 'p', x: 'Välj **SIE typ 4** och de räkenskapsår du vill ta med. Exakt var exporten ligger skiljer sig mellan programmen, och leverantörerna flyttar runt sina menyer, så se det här som riktning och inte som en exakt vägbeskrivning:' },
+      { t: 'p', x: 'Välj **SIE typ 4** och de räkenskapsår du vill ta med. Menyerna ändras ibland, så se det här som en riktning:' },
       { t: 'programs' },
       { t: 'callout', kind: 'tips', title: 'Hittar du ingen SIE-export?', x: 'Sök efter "SIE" eller "Exportera bokföring" i programmets hjälpcenter. Finns ingen export i ditt paket kan supporten ofta ta fram filen åt dig. Bokföringen är din, oavsett vem som skött den. Vill du se en guide per program finns den här: [Byt bokföringsprogram till Bokix](/byt-bokforingsprogram).' },
 
@@ -302,7 +317,7 @@ export const BLOG_POSTS = [
       ] },
 
       { t: 'h2', x: 'Steg 3: kontrollera att allt stämmer' },
-      { t: 'p', x: 'Lägg tio minuter på att stämma av innan du litar på den nya bokföringen och säger upp det gamla programmet:' },
+      { t: 'p', x: 'Lägg tio minuter på det här innan du säger upp det gamla programmet:' },
       { t: 'checklist', x: [
         'Jämför resultat- och balansräkningen för det senaste avslutade räkenskapsåret i det gamla och det nya programmet. Summorna ska vara identiska.',
         'Kontrollera att ingående balanser för innevarande år stämmer med utgående balanser föregående år.',
@@ -322,10 +337,10 @@ export const BLOG_POSTS = [
       { t: 'p', x: 'Be supporten om en SIE4-fil för räkenskapsåret. Som fallback kan du spara resultat- och balansräkning och huvudbok som pdf, men då följer inte verifikationerna med som data och du får bygga ingående balanser för hand.' },
 
       { t: 'h2', x: 'Spara originalet i sju år' },
-      { t: 'p', x: 'Enligt bokföringslagen ska räkenskapsinformation, alltså verifikationer, bokföringen och årsredovisningen, bevaras i sju år efter utgången av det kalenderår då räkenskapsåret avslutades. Spara därför SIE-filen och gärna en pdf-kopia av bokföringen innan du säger upp det gamla programmet. Är du osäker på vad som gäller för just ditt företag, fråga din revisor.' },
+      { t: 'p', x: 'Bokföringen ska sparas i sju år efter utgången av det kalenderår då räkenskapsåret slutade. Spara SIE-filen, och gärna en pdf av bokföringen, innan du säger upp det gamla programmet.' },
 
       { t: 'h2', x: 'Ingen inlåsning åt andra hållet heller' },
-      { t: 'p', x: 'Samma format fungerar åt båda hållen. I Bokix kan du när som helst exportera hela bokföringen som en SIE4-fil om du vill vidare, utan att fråga oss om lov. Läs mer om vilka filformat Bokix hanterar under [integrationer och filformat](/integrationer).' },
+      { t: 'p', x: 'Samma fil fungerar åt andra hållet. Från Bokix kan du när som helst spara hela bokföringen som SIE4, utan att fråga oss om lov.' },
     ],
     faq: [
       { q: 'Vad betyder SIE?', a: 'SIE står för Standard Import Export. Det är ett svenskt filformat för att flytta bokföringsdata mellan bokföringsprogram och lämna över den till en revisor.' },
@@ -355,15 +370,16 @@ export const BLOG_POSTS = [
       'Bokix har ett eget UF-konto med bara de delar ett UF-företag använder. Det är gratis i tre månader och kräver inget organisationsnummer.',
     ],
     body: [
-      { t: 'p', x: 'Ett UF-företag drivs under ett läsår, men bokföringen ska ändå vara i ordning från första kvittot till sista bokslutet. Det som gör skillnad är inte att kunna mycket om bokföring, utan att ha en vana: att aldrig låta något ligga. Här är hur ni gör det utan att det tar över hela UF-året.' },
+      { t: 'p', x: 'Ett UF-företag finns i ett läsår, men bokföringen ska vara i ordning hela vägen. Ni behöver inte kunna mycket. Det viktiga är en vana: låt inget ligga.' },
       { t: 'diagram', id: 'uf-year', caption: 'UF-året i fyra faser. Bokföringen följer med hela vägen, den är inget som görs först i slutet.' },
 
       { t: 'h2', x: 'Vad behöver ett UF-företag bokföra?' },
-      { t: 'p', x: 'Allt som rör pengar i företaget: försäljning, inköp, kostnader och betalningar. Varje händelse ska ha ett **underlag**, alltså något som visar vad som hänt. Det kan vara en faktura, ett kvitto eller en rad på kontoutdraget. En händelse utan underlag går inte att bokföra ordentligt, så det är underlagen ni ska vara noga med redan från början.' },
+      { t: 'p', x: 'Allt som rör pengar: försäljning, inköp, kostnader och betalningar.' },
+      { t: 'p', x: 'Varje händelse ska ha ett **underlag** som visar vad som hänt, till exempel en faktura, ett kvitto eller en rad på kontoutdraget. Var noga med underlagen från början.' },
       { t: 'callout', kind: 'info', title: 'Följ alltid UF:s egna riktlinjer', logo: '/logos/uf-logo.svg', logoAlt: 'Ung Företagsamhet', x: 'Ung Företagsamhet har egna riktlinjer och material för bokföring och bokslut. Följ alltid dem och fråga er UF-rådgivare om något är oklart. Den här artikeln är en allmän guide, inte en ersättning. Bokix är ett fristående bokföringsprogram och drivs inte av, och är inte i samarbete med, Ung Företagsamhet.' },
 
       { t: 'h2', x: 'Vanliga händelser i ett UF-företag' },
-      { t: 'p', x: 'De flesta UF-företag har samma handfull händelser hela året. Så här kan underlag och att-tänka-på se ut för dem:' },
+      { t: 'p', x: 'De flesta UF-företag har samma händelser hela året:' },
       { t: 'table', caption: 'Händelser, underlag och vad ni ska tänka på', head: ['Händelse', 'Underlag', 'Att tänka på'], rows: [
         ['Startkapital från de som går in i företaget', 'Lista över vem som betalat in vad, och kontoutdraget', 'Bokför insättningen på företagskontot så att startpengarna syns från dag ett.'],
         ['Försäljning på mässa eller via Swish', 'Kvitto, kassalista eller Swish-rader på kontoutdraget', 'Skriv ner vad ni sålde och för hur mycket samma dag, inte veckor senare.'],
@@ -433,38 +449,39 @@ export const BLOG_POSTS = [
       'Fyra steg varje gång: kontrollera att allt är bokfört, granska rutorna, låt momsen bokföras, och lämna in. Ingenting skickas automatiskt — du signerar alltid själv.',
     ],
     body: [
-      { t: 'p', x: 'Momsdeklarationen känns ofta krångligare än den är, mest för att den bara dyker upp några gånger om året och för att rutnumren inte säger något i sig själva. I grunden är det en enkel uträkning: moms du tagit ut av dina kunder, minus moms du själv betalat till dina leverantörer. Den här artikeln går igenom vem som ska redovisa, exakt vilka datum som gäller, vilka rutor som fylls i och hur du gör det steg för steg.' },
+      { t: 'p', x: 'Momsdeklarationen är enklare än den ser ut. Det är momsen du tagit ut av dina kunder, minus momsen du själv betalat på inköp.' },
+      { t: 'p', x: 'Här är datumen, rutorna och de fyra stegen.' },
       { t: 'diagram', id: 'moms-steps', caption: 'Samma fyra steg varje kvartal. Bokix håller reda på datumen och räknar ut rutorna, men signaturen är alltid din.' },
 
       { t: 'h2', x: 'Vem ska redovisa moms, och hur ofta?' },
-      { t: 'p', x: 'De flesta som säljer momspliktiga varor eller tjänster i Sverige ska registrera sig för moms och lämna en momsdeklaration. Hur ofta beror på företagets omsättning, och det är Skatteverket som beslutar vilken period just ditt företag har — beslutet står i ditt registreringsbevis.' },
+      { t: 'p', x: 'Säljer du momspliktiga varor eller tjänster ska du vara momsregistrerad och lämna momsdeklaration. Hur ofta beror på omsättningen. Skatteverket bestämmer, och perioden står i ditt registreringsbevis.' },
       { t: 'table', caption: 'Redovisningsperioder', head: ['Period', 'Kräver', 'Deklareras'], rows: [
         ['Årsvis', 'Beskattningsbar omsättning på högst 1 miljon kr, vanligast bland enskilda firmor', 'I samma deklaration som inkomstskatten'],
         ['Kvartalsvis', 'Beskattningsbar omsättning på högst 40 miljoner kr — vanligast för aktiebolag och enskilda firmor', 'Fyra gånger per år, en period i taget'],
         ['Månadsvis', 'Krävs över 40 miljoner kr i omsättning, eller väljs själv av ett mindre företag', 'Tolv gånger per år'],
       ] },
-      { t: 'callout', kind: 'info', title: 'Osäker på din period?', x: 'Perioden står i beslutet du fick när du momsregistrerade dig, och syns även i Skatteverkets e-tjänst. Den här artikeln fokuserar på kvartalsvis redovisning, eftersom det är vanligast bland Bokix kunder.' },
+      { t: 'callout', kind: 'info', title: 'Osäker på din period?', x: 'Perioden står i beslutet från momsregistreringen och i Skatteverkets e-tjänst. Resten av texten utgår från kvartal, det vanligaste.' },
 
       { t: 'h2', x: 'När ska deklarationen vara inne?' },
-      { t: 'p', x: 'Vid kvartalsvis redovisning ska både deklarationen och betalningen vara hos Skatteverket senast **den 12:e i andra månaden efter kvartalets slut**. Undantaget är när den månaden är januari eller augusti — Skatteverkets egna uppehåll kring jul och sommar flyttar då gränsen till **den 17:e** i stället. Landar datumet på en helg flyttas det till nästa vardag.' },
+      { t: 'p', x: 'Deklaration och betalning ska vara hos Skatteverket senast **den 12:e i andra månaden efter kvartalet**. I januari och augusti gäller **den 17:e** i stället. Är det helg flyttas datumet till nästa vardag.' },
       { t: 'table', caption: 'Kvartalsvisa deadlines 2026 (helgframflyttning inräknad)', head: ['Period', 'Avser', 'Senast'], rows: [
         ['Kvartal 1', 'Januari–mars', '12 maj 2026'],
         ['Kvartal 2', 'April–juni', '17 augusti 2026'],
         ['Kvartal 3', 'Juli–september', '12 november 2026'],
         ['Kvartal 4', 'Oktober–december', '12 februari 2027'],
       ] },
-      { t: 'p', x: 'Vill du se nästa deadline räknat på dagens datum, för din egen redovisningsperiod, finns ett gratis verktyg: [Momsdatum](/verktyg/momsdatum).' },
+      { t: 'p', x: 'Se ditt nästa datum i verktyget [Momsdatum](/verktyg/momsdatum).' },
       { t: 'callout', kind: 'warn', title: 'För sent inlämnad eller betald', x: 'Missar du datumet riskerar du en förseningsavgift, och en obetald moms räntebeläggs. Är du osäker på om du hinner, lämna en så korrekt deklaration du kan i tid hellre än en perfekt en för sent — du kan begära omprövning i efterhand om något visar sig fel.' },
 
       { t: 'h2', x: 'Vad räknas in i deklarationen?' },
-      { t: 'p', x: 'Deklarationen ställer upp din **utgående moms** (den du tagit ut av dina kunder) mot din **ingående moms** (den du själv betalat på inköp till verksamheten). Mellanskillnaden är vad du ska betala, eller få tillbaka.' },
+      { t: 'p', x: '**Utgående moms** är den du tagit ut av kunderna. **Ingående moms** är den du betalat på inköp. Skillnaden betalar du in, eller får tillbaka.' },
       { t: 'table', caption: 'De vanligaste rutorna (SKV 4700)', head: ['Ruta', 'Vad den visar'], rows: [
         ['05', 'Momspliktig försäljning för perioden, exklusive moms'],
         ['10 / 11 / 12', 'Utgående moms på försäljningen: 25 %, 12 % respektive 6 %'],
         ['48', 'Ingående moms du har rätt att dra av på periodens inköp'],
         ['49', '**Moms att betala eller få tillbaka** — 10+11+12 minus 48'],
       ] },
-      { t: 'p', x: 'Köper du tjänster från utlandet kan omvänd skattskyldighet göra att du själv ska redovisa både köparens och säljarens del av momsen, i egna rutor (21, 22 och 30–32). Det är ett eget ämne för sig — märker du att ett kvitto eller en faktura är från ett utländskt företag utan svensk moms, kontrollera hur den ska bokföras innan perioden stängs.' },
+      { t: 'p', x: 'Köper du tjänster från ett utländskt företag utan svensk moms redovisar du ofta momsen själv, i rutorna 21, 22 och 30–32. Kontrollera sådana inköp innan perioden stängs.' },
 
       { t: 'h2', x: 'Så gör du i fyra steg' },
       { t: 'steps', x: [
@@ -473,18 +490,19 @@ export const BLOG_POSTS = [
         { h: '3. Låt momsen bokföras', p: 'När du är klar bokförs momsskulden (eller momsfordran, om du ska få tillbaka) automatiskt mot rätt konto, så att bokföringen och deklarationen stämmer mot varandra.' },
         { h: '4. Lämna in hos Skatteverket', p: 'Ladda upp filen i Skatteverkets e-tjänst, eller fyll i rutorna för hand efter pdf:en om du föredrar det. Du loggar in och signerar med BankID hos Skatteverket — det är alltid du som lämnar in, aldrig Bokix.' },
       ] },
-      { t: 'callout', kind: 'tips', title: 'Se hela flödet innan du börjar', x: 'Så här ser momsflödet ut i Bokix, från bokförda verifikationer till en färdig deklaration: sidan [Skatt och bokslut](/funktioner) visar Översikten där kvartalets status samlas, och du markerar själv en period som inlämnad när du gjort det hos Skatteverket.' },
+      { t: 'callout', kind: 'tips', title: 'Se hela flödet innan du börjar', x: 'I Bokix samlas kvartalets status under Skatt och bokslut. Där markerar du perioden som inlämnad när du är klar. Läs mer under [Funktioner](/funktioner).' },
 
-      { t: 'h2', x: 'Vanliga frågor om hur momsen räknas' },
-      { t: 'h3', x: 'Vad händer om jag har mer ingående än utgående moms?' },
-      { t: 'p', x: 'Då blir ruta 49 negativ: du har betalat mer moms på inköp än du tagit ut på försäljning, och får mellanskillnaden tillbaka från Skatteverket i stället för att betala in.' },
-      { t: 'h3', x: 'Kan jag ändra en deklaration jag redan lämnat in?' },
-      { t: 'p', x: 'Ja, det heter att begära omprövning och görs hos Skatteverket, inte i Bokix. Rätta först bokföringen om felet satt sig där, så att nästa period blir korrekt.' },
-      { t: 'h3', x: 'Redovisar jag moms månadsvis eller kvartalsvis?' },
-      { t: 'p', x: 'Det avgörs av Skatteverket utifrån din omsättning, inte av vad du väljer i Bokix. Perioden står i ditt registreringsbevis, och Bokix följer den perioden när deklarationen sammanställs.' },
+      { t: 'h2', x: 'Bra att veta' },
+      { t: 'h3', x: 'Mer ingående än utgående moms' },
+      { t: 'p', x: 'Då blir ruta 49 negativ och du får tillbaka skillnaden från Skatteverket.' },
+      { t: 'h3', x: 'Fel i en inlämnad deklaration' },
+      { t: 'p', x: 'Du begär omprövning hos Skatteverket. Rätta också bokföringen, så att nästa period blir rätt.' },
+      { t: 'h3', x: 'Månad, kvartal eller år' },
+      { t: 'p', x: 'Det bestämmer Skatteverket utifrån omsättningen. Bokix följer perioden i ditt registreringsbevis.' },
 
       { t: 'h2', x: 'Ingen gissning, ingen automatisk inlämning' },
-      { t: 'p', x: 'Två saker håller ihop hela det här flödet. Rutorna räknas ur din faktiska bokföring, aldrig ur en uppskattning — är något osäkert hamnar det i Granskning innan det når deklarationen. Och ingenting skickas till Skatteverket åt dig: du kontrollerar, laddar upp eller fyller i, och signerar själv med BankID. Bokix förbereder, du lämnar in.' },
+      { t: 'p', x: 'Rutorna räknas ur din bokföring, aldrig ur en uppskattning. Det som är osäkert stannar i Granskning.' },
+      { t: 'p', x: 'Ingenting skickas till Skatteverket åt dig. Bokix förbereder, du lämnar in med BankID.' },
     ],
     faq: [
       { q: 'Vem ska lämna momsdeklaration?', a: 'De flesta som säljer momspliktiga varor eller tjänster i Sverige och är momsregistrerade. Hur ofta du ska deklarera, månadsvis, kvartalsvis eller årsvis, beslutar Skatteverket utifrån din omsättning.' },
@@ -514,32 +532,35 @@ export const BLOG_POSTS = [
       'Sedan en lagändring 1 juli 2024 får du slänga pappersoriginalet direkt efter att du fotat eller skannat det, så länge kopian är hel, läsbar och oförändrad.',
     ],
     body: [
-      { t: 'p', x: 'Kvittohögen är för de flesta det mest konkreta med bokföring: ett fysiskt bevis som ska sparas, men ingen är riktigt säker på hur länge eller om originalet måste finnas kvar. Här är vad som faktiskt gäller, kort och konkret.' },
+      { t: 'p', x: 'Här är vad lagen säger om kvitton: vad som ska sparas, hur länge, och när du får slänga papperet.' },
       { t: 'diagram', id: 'receipt-archive', caption: 'Kvittot fotas, kopian sparas i sju år, och sedan 2024 behöver du inte spara papperet också.' },
 
-      { t: 'h2', x: 'Vad är en verifikation, och vad ska den visa?' },
-      { t: 'p', x: 'Varje händelse som bokförs, en försäljning, ett inköp eller en betalning, ska ha en **verifikation**: ett underlag som visar att händelsen faktiskt skett. Det kan vara ett kvitto, en faktura eller en rad på kontoutdraget. En verifikation ska gå att koppla till händelsen den avser och innehålla vad som hänt, när det hände och hur mycket det gällde.' },
-      { t: 'callout', kind: 'info', title: 'Ingen verifikation, ingen bokföring', x: 'En händelse utan underlag går inte att bokföra korrekt. Sakna du kvittot, notera i alla fall vad köpet gällde och när, så att du har något att utgå från — men leta efter underlaget i första hand, till exempel som kvitto på mejl eller i en app.' },
+      { t: 'h2', x: 'Vad är en verifikation?' },
+      { t: 'p', x: 'Allt du bokför ska ha en **verifikation**, ett underlag som visar att det hänt. Det kan vara ett kvitto, en faktura eller en rad på kontoutdraget.' },
+      { t: 'p', x: 'Verifikationen ska visa vad som hänt, när och hur mycket.' },
+      { t: 'callout', kind: 'info', title: 'Ingen verifikation, ingen bokföring', x: 'Utan underlag går det inte att bokföra rätt. Leta först efter kvittot, till exempel på mejl eller i en app.' },
 
-      { t: 'h2', x: 'Hur länge ska du spara det?' },
-      { t: 'p', x: 'Enligt bokföringslagen (7 kap.) ska räkenskapsinformation, alltså verifikationer, bokföringen och årsredovisningen, sparas i **sju år** efter utgången av det kalenderår då räkenskapsåret avslutades. Ett räkenskapsår som slutar 31 december 2026 ska alltså sparas till och med 2033.' },
-      { t: 'p', x: 'Sjuårsregeln gäller oavsett om underlaget är i papper eller digitalt. Det som skiljer är vad som gäller för själva pappersoriginalet.' },
+      { t: 'h2', x: 'Spara i sju år' },
+      { t: 'p', x: 'Verifikationer, bokföring och årsredovisning ska sparas i **sju år** efter utgången av det kalenderår då räkenskapsåret slutade (bokföringslagen 7 kap.).' },
+      { t: 'p', x: 'Ett räkenskapsår som slutar 31 december 2026 sparas alltså till och med 2033.' },
+      { t: 'p', x: 'Det gäller både papper och digitalt.' },
 
-      { t: 'h2', x: 'Får du slänga originalet efter att ha fotat det?' },
-      { t: 'p', x: 'Ja, sedan en lagändring som trädde i kraft **1 juli 2024**. Innan dess fanns strängare krav på när ett pappersoriginal fick kastas. Nu gäller i stället två villkor, oavsett hur gammalt underlaget är:' },
+      { t: 'h2', x: 'Papperet får slängas efter foto' },
+      { t: 'p', x: 'Sedan **1 juli 2024** får du slänga papperskvittot när du fotat eller skannat det, om två villkor uppfylls:' },
       { t: 'ul', x: [
         '**Informationen är överförd till en annan form** — ett foto, en skanning eller ett digitalt kvitto.',
         '**Överföringen får inte riskera att informationen ändras eller går förlorad.** Bilden ska vara hel, läsbar och stämma med originalet.',
       ] },
-      { t: 'p', x: 'Ett vanligt mobilfoto duger, så länge det är komplett och går att läsa. Är kvittot redan digitalt, ett kvitto på mejl eller i en app, räknas det digitala kvittot som originalet, och det finns inget pappersoriginal att ta ställning till.' },
+      { t: 'p', x: 'Ett vanligt mobilfoto duger om det är helt och går att läsa. Ett kvitto på mejl eller i en app är redan originalet.' },
       { t: 'callout', kind: 'tips', title: 'Fota direkt, inte i efterhand', x: 'Kvitton från kassaremsa bleknar ofta inom några månader. Fota eller ladda upp kvittot samma dag du får det, innan det blir oläsligt. Med [Skanna kvitto](/verktyg/skanna-kvitto) kan du testa hur avläsningen fungerar utan att skapa konto.' },
 
       { t: 'h2', x: 'Bygg en vana, inte en kvittohög' },
-      { t: 'p', x: 'Den enklaste lösningen är att aldrig samla på hög. Fota kvittot direkt när du får det, innan det hamnar i fickan och glöms bort. I Bokix blir ett fotat kvitto automatiskt avläst med datum, belopp och moms som förslag, sparat i sju år utan att du behöver hålla reda på det själv.' },
-      { t: 'p', x: 'Har du redan en hög med gamla kvitton? Gå igenom dem i omgångar, fota det som fortfarande går att läsa, och notera för hand det som redan är oläsligt.' },
+      { t: 'p', x: 'Fota kvittot direkt när du får det. I Bokix läses datum, belopp och moms av, och kvittot sparas i sju år.' },
+      { t: 'p', x: 'Har du redan en hög? Fota det som går att läsa och skriv ner det som har bleknat.' },
 
       { t: 'h2', x: 'Om ett kvitto saknas helt' },
-      { t: 'p', x: 'Det händer. Be leverantören om ett kvittokopia eller en kopia av fakturan, många butiker och tjänster kan skicka en digital kopia i efterhand. Går det inte, notera vad köpet gällde, datum och belopp så gott du kan, och bokför med den informationen — en ofullständig anteckning är bättre än ingenting, men sikta på att aldrig hamna där genom att fota direkt.' },
+      { t: 'p', x: 'Be butiken om en kopia. Många kan skicka en i efterhand.' },
+      { t: 'p', x: 'Går det inte, skriv ner vad du köpte, datum och belopp. En anteckning är bättre än ingenting.' },
     ],
     faq: [
       { q: 'Kan jag slänga originalet efter att jag skannat eller fotat det?', a: 'Ja, sedan en lagändring 1 juli 2024. Villkoren är att informationen är överförd till en annan form (foto, skanning, digitalt kvitto) och att överföringen inte riskerar att ändra eller förlora informationen — bilden ska vara hel och läsbar.' },
@@ -568,7 +589,7 @@ export const BLOG_POSTS = [
       'Aktiebolagets årsredovisning ska vara hos Bolagsverket senast sju månader efter räkenskapsårets slut, annars väntar förseningsavgifter.',
     ],
     body: [
-      { t: 'p', x: 'Bokslutet är inte ett eget bokföringssystem, det är en avstämning av det du redan bokfört under året, plus några poster som bara hör hemma i slutet: avskrivningar, periodiseringar och årets resultat. Gör du det i rätt ordning är det en checklista att beta av, inte ett mysterium.' },
+      { t: 'p', x: 'Bokslutet är en avstämning av det du redan bokfört, plus några poster som hör till årets slut. Gör stegen i ordning så är det bara en checklista.' },
 
       { t: 'h2', x: 'De nio stegen' },
       { t: 'checklist', x: [
@@ -586,9 +607,9 @@ export const BLOG_POSTS = [
 
       { t: 'h2', x: 'Två nyckelbegrepp' },
       { t: 'h3', x: 'Avskrivning' },
-      { t: 'p', x: 'En anläggningstillgång, till exempel en dator eller en maskin, kostnadsförs inte hela beloppet direkt. I stället fördelas kostnaden över tillgångens beräknade livslängd, en bit varje år. Den årliga biten är avskrivningen.' },
+      { t: 'p', x: 'En dator eller maskin dras inte av direkt. Kostnaden delas upp över flera år, och varje års del är avskrivningen.' },
       { t: 'h3', x: 'Periodisering' },
-      { t: 'p', x: 'En kostnad eller intäkt ska bokföras det år den faktiskt hör till, inte nödvändigtvis det år fakturan kom. Betalar du en försäkring i december som gäller hela nästa år, hör den kostnaden till nästa år och periodiseras dit.' },
+      { t: 'p', x: 'En kostnad hör till det år den gäller, inte året fakturan kom. Betalar du i december en försäkring för nästa år, flyttas kostnaden till nästa år.' },
 
       { t: 'h2', x: 'Förenklat årsbokslut eller fullständig årsredovisning?' },
       { t: 'p', x: 'Vilken typ av bokslut som krävs beror på bolagsform och storlek.' },
@@ -597,11 +618,13 @@ export const BLOG_POSTS = [
         ['Enskild firma, större omsättning', 'Fullständigt årsbokslut', 'Inför deklarationen'],
         ['Aktiebolag (alla storlekar)', 'Fullständig årsredovisning (K2 eller K3)', 'Senast 7 månader efter räkenskapsårets slut, hos Bolagsverket'],
       ] },
-      { t: 'p', x: 'Ett förenklat årsbokslut lämnas inte in till Skatteverket, det sparas tillsammans med bokföringen och ligger till grund för NE-bilagan i din deklaration. En överskriden omsättningsgräns ett enstaka år tvingar dig inte automatiskt över till fullständigt bokslut, det är vad som **normalt** gäller som räknas.' },
+      { t: 'p', x: 'Ett förenklat årsbokslut lämnas inte in. Du sparar det med bokföringen och använder det till NE-bilagan.' },
+      { t: 'p', x: 'Gränsen gäller omsättningen du **normalt** har. Ett enstaka år över gränsen ändrar inte det.' },
       { t: 'callout', kind: 'warn', title: 'Aktiebolagets deadline är sträng', x: 'Missar ett aktiebolag 7-månadersgränsen till Bolagsverket väntar förseningsavgifter, och fortsätter dröjsmålet kan Bolagsverket besluta om tvångslikvidation. Bolagsstämman ska hållas senast 6 månader efter räkenskapsårets slut, så att årsredovisningen hinner lämnas in inom den sjunde.' },
 
       { t: 'h2', x: 'Vad händer efter bokslutet?' },
-      { t: 'p', x: 'För en enskild firma används det förenklade årsbokslutet som grund för NE-bilagan i din inkomstdeklaration. För ett aktiebolag skickas årsredovisningen till Bolagsverket, och bolaget lämnar dessutom inkomstdeklaration 2 till Skatteverket med räkenskapsschema (INK2R) och skattemässiga justeringar (INK2S).' },
+      { t: 'p', x: '**Enskild firma:** bokslutet blir underlag för NE-bilagan i din deklaration.' },
+      { t: 'p', x: '**Aktiebolag:** årsredovisningen går till Bolagsverket, och bolaget lämnar INK2 med INK2R och INK2S till Skatteverket.' },
       { t: 'p', x: 'Läs mer om vad som gäller vid deklarationen i [Skatt och bokslut](/funktioner), eller om din bolagsform i [ordlistan](/ordlista) under K2 och K3.' },
     ],
     faq: [
@@ -631,25 +654,29 @@ export const BLOG_POSTS = [
       'Reglerna (särskilt 3:12) och beloppen ändras år till år. Den här artikeln förklarar principerna, inte siffrorna — räkna på ditt eget läge i verktygen.',
     ],
     body: [
-      { t: 'p', x: 'Äger du ett aktiebolag är lön och utdelning de två sätten att få ut pengar för egen del. De fungerar helt olika: olika skatt, olika krav och olika följd för din pension. Den här artikeln går igenom principerna. Exakta belopp (skiktgränser, gränsbelopp, procentsatser) ändras varje år, så de räknar du fram i verktygen i stället för att lita på ett tal i en text som blir gammal.' },
+      { t: 'p', x: 'Äger du ett aktiebolag kan du ta ut pengar som lön eller som utdelning. De har olika skatt, olika krav och olika betydelse för din pension.' },
+      { t: 'p', x: 'Beloppen ändras varje år, så här förklaras bara principerna. Siffrorna räknar du fram i verktygen.' },
       { t: 'diagram', id: 'pay-or-dividend', caption: 'Samma bolag, två olika vägar ut. Ingenting hindrar dig från att kombinera dem.' },
-      { t: 'callout', kind: 'warn', title: 'Inte personlig skatterådgivning', x: 'Reglerna kring ägarbeskattning i fåmansföretag (de så kallade 3:12-reglerna) är detaljerade och ändras återkommande. Den här artikeln beskriver hur det fungerar i stort. Rådgör med en revisor eller skatterådgivare inför beslut som gäller stora belopp eller ett enskilt räkenskapsår.' },
+      { t: 'callout', kind: 'warn', title: 'Inte personlig skatterådgivning', x: 'Reglerna för fåmansföretag (3:12-reglerna) är detaljerade och ändras ofta. Prata med en revisor inför stora beslut.' },
 
       { t: 'h2', x: 'Lön: enklare, och den ger pensionsrätt' },
-      { t: 'p', x: 'Lön bokförs varje månad som en vanlig lönekostnad. Bolaget betalar bruttolönen plus arbetsgivaravgifter, och du beskattas för lönen direkt som inkomst av tjänst, enligt din preliminärskatt.' },
-      { t: 'p', x: 'Fördelen med lön är att den ger **pensionsgrundande och sjukpenninggrundande inkomst**. Tar du aldrig ut lön ur ditt bolag byggs ingen allmän pension eller sjukpenninggrundande inkomst upp från den verksamheten.' },
+      { t: 'p', x: 'Bolaget betalar lönen plus arbetsgivaravgifter. Du betalar skatt på lönen varje månad, som på vilken lön som helst.' },
+      { t: 'p', x: 'Fördelen är att lön ger **pension och sjukpenning**. Utan lön byggs ingen allmän pension upp från bolaget.' },
 
       { t: 'h2', x: 'Utdelning: kräver ett beslut och utdelningsbara medel' },
-      { t: 'p', x: 'Utdelning beslutas på bolagsstämman, normalt en gång per år i samband med att årsredovisningen fastställs, och kräver att bolaget faktiskt har **utdelningsbara medel**, det vill säga fritt eget kapital efter att lagstadgade reserver räknats bort.' },
-      { t: 'p', x: 'Skatten på utdelning skiljer sig beroende på om den ryms inom ditt **gränsbelopp** eller inte. Gränsbeloppet räknas fram per ägare och år enligt 3:12-reglerna, och just den uträkningen är den del av regelverket som ändras oftast. Utdelning ger ingen pensions- eller sjukpenninggrundande inkomst.' },
+      { t: 'p', x: 'Utdelning beslutas på bolagsstämman, oftast en gång om året. Bolaget måste ha **utdelningsbara medel**, alltså fritt eget kapital.' },
+      { t: 'p', x: 'Utdelning inom ditt **gränsbelopp** beskattas lägre än den del som går över. Gränsbeloppet räknas fram för varje ägare och år.' },
+      { t: 'p', x: 'Utdelning ger ingen pension eller sjukpenning.' },
       { t: 'callout', kind: 'tips', title: 'Räkna på ditt eget läge', x: 'Gränsbelopp, skiktgränser och arbetsgivaravgifter ändras år till år. Räkna fram aktuella belopp i [Utdelning](/verktyg/utdelning) och [Lönekalkylator](/verktyg/lonekalkylator) i stället för att utgå från förra årets siffror.' },
 
-      { t: 'h2', x: 'Kan du ta både lön och utdelning?' },
-      { t: 'p', x: 'Ja, de utesluter inte varandra. Många ägare av fåmansföretag tar en lön som täcker ett rimligt löneuttag, delvis för att kvalificera för ett högre gränsbelopp, och kompletterar med utdelning. Vad som är rätt balans beror på bolagets resultat, ditt behov av pensionsgrundande inkomst och din totala skattesituation, och är precis den typen av fråga en revisor kan hjälpa till att räkna på för ditt specifika bolag.' },
+      { t: 'h2', x: 'Både lön och utdelning' },
+      { t: 'p', x: 'Ja. Många tar en lön och fyller på med utdelning. Lönen kan också göra gränsbeloppet större.' },
+      { t: 'p', x: 'Du måste inte ta lön för att få ta utdelning. Rätt balans beror på bolagets resultat och din situation.' },
 
       { t: 'h2', x: 'Så syns det i bokföringen' },
-      { t: 'p', x: 'En lönekörning bokförs som lönekostnad, skatteavdrag och arbetsgivaravgifter, med utbetalningen till dig som en separat rad. En beslutad utdelning bokförs som en skuld till dig som ägare fram till att den betalas ut, och minskar bolagets fria egna kapital.' },
-      { t: 'p', x: 'I Bokix hanteras båda flödena under Skatt och bokslut: lönekörningen ger lönebesked, skatteavdrag enligt Skatteverkets skattetabeller och en betalfil till banken, medan utdelningsflödet hjälper dig hålla koll på beslut och gränsbelopp. Läs mer om vad som ingår i [Skatt och bokslut](/funktioner).' },
+      { t: 'p', x: '**Lön** bokförs som lönekostnad, skatteavdrag och arbetsgivaravgifter.' },
+      { t: 'p', x: '**Utdelning** bokförs som en skuld till dig tills den betalas ut, och minskar bolagets fria egna kapital.' },
+      { t: 'p', x: 'I Bokix ger lönekörningen lönebesked, skatteavdrag och betalfil. Utdelningen hjälper dig hålla koll på beslut och gränsbelopp. Läs mer under [Funktioner](/funktioner).' },
     ],
     faq: [
       { q: 'Kan jag ta både lön och utdelning?', a: 'Ja. Många ägare av fåmansföretag kombinerar ett löneuttag med utdelning. Vad som är rätt balans beror på bolagets resultat och din egen situation — rådgör med en revisor för ditt specifika läge.' },
@@ -678,33 +705,36 @@ export const BLOG_POSTS = [
       'NE-bilagan byggs på din bokföring och lämnas med din inkomstdeklaration. Bokix förbereder den som pdf, men den lämnas i Skatteverkets e-tjänst eller på blankett, inte som SRU-fil.',
     ],
     body: [
-      { t: 'p', x: 'En enskild firma är den enklaste bolagsformen att starta, och också den som skiljer sig mest från ett aktiebolag rent bokföringsmässigt: det finns ingen gräns mellan din privata ekonomi och firmans, bara en bokföringsmässig uppdelning av samma pengar.' },
+      { t: 'p', x: 'En enskild firma är enkel att starta. Men bokföringen skiljer sig från ett aktiebolag, eftersom firman och du är samma person.' },
       { t: 'diagram', id: 'enskild-firma-flow', caption: 'Firman och du är samma person. Pengarna rör sig mellan er, men beskattas hos dig en gång om året.' },
 
       { t: 'h2', x: 'Firman och du är juridiskt samma person' },
-      { t: 'p', x: 'Till skillnad från ett aktiebolag är en enskild firma inte en egen juridisk person. Du driver verksamheten i eget namn, och du är personligt ansvarig för firmans avtal och skulder. Bokföringsmässigt hålls firmans pengar och din privata ekonomi ändå isär, via **eget uttag** och **egen insättning**, så att det går att se vad som är firmans resultat.' },
+      { t: 'p', x: 'En enskild firma är ingen egen juridisk person. Du driver den i eget namn och ansvarar själv för avtal och skulder.' },
+      { t: 'p', x: 'I bokföringen hålls pengarna ändå isär med **eget uttag** och **egen insättning**. Då syns firmans resultat.' },
 
       { t: 'h2', x: 'Eget uttag och egen insättning' },
-      { t: 'p', x: 'Tar du ut pengar ur firman för privat bruk är det ett **eget uttag**, inte en lön. Det bokförs mot konto **2013 Övriga egna uttag** och beskattas inte i sig, eftersom firman och du är samma skattesubjekt: det som beskattas är firmans överskott, oavsett hur mycket du faktiskt tagit ut under året.' },
-      { t: 'p', x: 'Sätter du in privata pengar i firman, till exempel för att täcka en utgift eller skjuta till kapital, bokförs det som en **egen insättning** mot konto **2018 Övriga egna insättningar**.' },
+      { t: 'p', x: 'Tar du pengar ur firman till dig själv är det ett **eget uttag**, inte lön. Det bokförs på konto **2013 Övriga egna uttag**.' },
+      { t: 'p', x: 'Uttaget beskattas inte i sig. Du betalar skatt på firmans överskott, oavsett hur mycket du tagit ut.' },
+      { t: 'p', x: 'Sätter du in egna pengar i firman är det en **egen insättning**, konto **2018 Övriga egna insättningar**.' },
       { t: 'callout', kind: 'info', title: 'Inget lönebesked, ingen preliminärskatt på uttaget', x: 'Ett eget uttag ger dig ingen lönespecifikation och drar ingen skatt vid uttaget. Skatten på firmans resultat betalas i stället som preliminärskatt och stäms av i deklarationen.' },
 
       { t: 'h2', x: 'Egenavgifter i stället för arbetsgivaravgifter' },
-      { t: 'p', x: 'Ett aktiebolag betalar arbetsgivaravgifter på anställdas löner. I en enskild firma betalar du i stället **egenavgifter** på ditt eget överskott, en avgift som ungefär motsvarar arbetsgivaravgifter men beräknas på annat sätt och har egna regler för till exempel unga och äldre företagare. Har du F-skatt sköts den preliminära inbetalningen löpande, och den slutliga avstämningen sker i deklarationen.' },
-      { t: 'p', x: 'Exakt procentsats ändras år till år och beror på din ålder, så räkna fram din egen i [Egenavgifter](/verktyg/egenavgifter) i stället för att utgå från ett gammalt tal.' },
+      { t: 'p', x: 'I en enskild firma betalar du **egenavgifter** på överskottet. De liknar arbetsgivaravgifter men räknas på annat sätt.' },
+      { t: 'p', x: 'Med F-skatt betalar du preliminärt varje månad. I deklarationen stäms det av mot det riktiga resultatet.' },
+      { t: 'p', x: 'Procentsatsen beror på din ålder och ändras ibland. Räkna fram din i [Egenavgifter](/verktyg/egenavgifter).' },
 
-      { t: 'h2', x: 'NE-bilagan: bokföringen blir en deklarationsblankett' },
-      { t: 'p', x: 'NE-bilagan är den blankett där resultatet av din näringsverksamhet redovisas i din privata inkomstdeklaration. Den byggs på ditt förenklade årsbokslut, alltså samma siffror som redan finns i bokföringen, omflyttade till NE-bilagans egna rader.' },
-      { t: 'p', x: 'I Bokix förbereds NE-bilagan som en ifylld **pdf** utifrån din bokföring, som du kontrollerar och för in i Skatteverkets e-tjänst eller på blanketten. Till skillnad från ett aktiebolags INK2R finns i dagsläget ingen SRU-fil för NE, så uppgifterna skrivs eller klistras in för hand i deklarationen.' },
+      { t: 'h2', x: 'NE-bilagan' },
+      { t: 'p', x: 'NE-bilagan är blanketten där firmans resultat redovisas i din deklaration. Siffrorna kommer från bokslutet.' },
+      { t: 'p', x: 'Bokix fyller i NE-bilagan som en **pdf**. Du kontrollerar den och för in siffrorna i Skatteverkets e-tjänst.' },
       { t: 'callout', kind: 'tips', title: 'Bokslutet kommer innan bilagan', x: 'NE-bilagan är bara så bra som bokslutet den bygger på. Har du en omsättning på högst 3 miljoner kr räcker ett förenklat årsbokslut (K1) — se [Bokslut för småföretag](/blogg/bokslut-checklista) för hela checklistan innan du fyller i NE.' },
 
-      { t: 'h2', x: 'Vanliga frågor i vardagen' },
-      { t: 'h3', x: 'Måste jag ha ett eget bankkonto för firman?' },
-      { t: 'p', x: 'Det finns inget lagkrav på ett separat konto för en enskild firma, men det gör bokföringen betydligt enklare: varje transaktion på kontot hör då till firman, i stället för att behöva sorteras ut ur ditt privata konto.' },
-      { t: 'h3', x: 'Hur bokför jag ett eget uttag?' },
-      { t: 'p', x: 'Som en överföring från företagskontot mot konto 2013, utan moms och utan att det påverkar resultaträkningen. Det är en flytt av redan beskattat (eller ännu inte beskattat, det avgörs i deklarationen) kapital, inte en kostnad.' },
-      { t: 'h3', x: 'När betalar jag egenavgifter?' },
-      { t: 'p', x: 'Preliminärt löpande under året via F-skatten, baserat på en uppskattning du lämnat till Skatteverket, och sedan slutligt avstämt mot det faktiska resultatet i din inkomstdeklaration.' },
+      { t: 'h2', x: 'Bra att veta' },
+      { t: 'h3', x: 'Eget bankkonto för firman' },
+      { t: 'p', x: 'Det är inget krav, men det gör bokföringen mycket enklare. Då hör allt på kontot till firman.' },
+      { t: 'h3', x: 'Så bokförs ett eget uttag' },
+      { t: 'p', x: 'Från företagskontot mot konto 2013, utan moms. Det är ingen kostnad och påverkar inte resultatet.' },
+      { t: 'h3', x: 'När egenavgifterna betalas' },
+      { t: 'p', x: 'Varje månad via F-skatten, utifrån din uppskattning. Sedan stäms det av i deklarationen.' },
     ],
     faq: [
       { q: 'Måste jag ha ett eget bankkonto för firman?', a: 'Det är inget lagkrav, men starkt rekommenderat. Ett separat konto gör det mycket enklare att hålla isär firmans transaktioner från din privata ekonomi.' },
