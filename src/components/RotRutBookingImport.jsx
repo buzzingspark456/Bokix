@@ -6,6 +6,7 @@ import { buildRotRutXml, casesBatchErrors, priorClaims, splitIntoFiles, workType
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { BRAND } from '../utils/brandColors';
 import { t as tr } from '../i18n';
+import { numberFormat } from '../utils/intlCache';
 
 // Fliken "Från annan app" i ROT/RUT-fönstret: läser en export med uppdrag
 // från en annan app (bookingImport.js), bokför en verifikation per betaldag
@@ -13,7 +14,7 @@ import { t as tr } from '../i18n';
 // XML-filerna laddas upp som underlag, så att de finns kvar i sju år och kan
 // laddas ner igen under Väntar på utbetalning.
 
-const fmt = (n) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 0 }).format(n || 0);
+const fmt = (n) => numberFormat('sv-SE', { maximumFractionDigits: 0 }).format(n || 0);
 const btn = { padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px' };
 const primaryBtn = (enabled) => ({ padding: '9px 18px', background: enabled ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: enabled ? 'pointer' : 'not-allowed', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px' });
 const inp = { padding: '8px 10px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit' };

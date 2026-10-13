@@ -12,6 +12,7 @@
 import { nextVatDeadline, nextAgiDeadline, vatContextFor } from './declarationDeadlines';
 import { invoiceCustomerRemaining } from './rotRutConfig';
 import { activeFiscalYear } from './fiscalYear';
+import { numberFormat } from './intlCache';
 
 // Försenat först, sedan det som närmar sig, sist det som är mindre bråttom.
 export const SEV_RANK = { danger: 0, warning: 1, success: 2 };
@@ -43,7 +44,7 @@ function daysUntil(dueDate, today) {
 
 const fmtKr = (val) => {
   const rounded = Math.round(val || 0);
-  return new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(rounded === 0 ? 0 : rounded);
+  return numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(rounded === 0 ? 0 : rounded);
 };
 
 /**

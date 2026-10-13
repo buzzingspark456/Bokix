@@ -21,9 +21,10 @@ import { downloadSalaryPaymentFile, getDebtorAccountError } from '../utils/salar
 import { t as tr } from '../i18n';
 import { summarizeVacation } from '../utils/vacation';
 import { SKV_AGI_URL } from './AgiReportDetails';
+import { numberFormat } from '../utils/intlCache';
 
-const fmt = (v) => new Intl.NumberFormat('sv-SE').format(Math.round(v || 0));
-const fmtSigned = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${new Intl.NumberFormat('sv-SE').format(Math.round(Math.abs(v || 0)))} kr`;
+const fmt = (v) => numberFormat('sv-SE').format(Math.round(v || 0));
+const fmtSigned = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${numberFormat('sv-SE').format(Math.round(Math.abs(v || 0)))} kr`;
 const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-xs)' };
 
 function StatusBadge({ status }) {

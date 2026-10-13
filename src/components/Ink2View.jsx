@@ -9,9 +9,10 @@ import { previousFiscalYear } from '../utils/annualReport';
 import { incomeDeclarationDueDate, daysFromToday } from '../utils/declarationDeadlines';
 import { detectOrgType } from '../utils/orgType';
 import { t, dateLocale } from '../i18n';
+import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 
 const SKV_EFILE = 'https://sso.skatteverket.se/fv_ext/fv_web/login.do';
-const kr = (v) => `${new Intl.NumberFormat('sv-SE').format(Math.round(v || 0))} kr`;
+const kr = (v) => `${numberFormat('sv-SE').format(Math.round(v || 0))} kr`;
 const daysText = (n) => (n < 0 ? t('ui.forsenad') : n === 0 ? t('ui.idag_2') : n === 1 ? t('ui.imorgon') : t('ui.om_dagar', { daysLeft: n }));
 
 // Inkomstdeklaration 2 som ett arbetsflöde: överst status och knappar,
@@ -64,7 +65,7 @@ export default function Ink2View({
 
   const due = incomeDeclarationDueDate({ orgType: detectOrgType(company?.orgNr), fyEnd: fy.end });
   const daysLeft = due ? daysFromToday(due) : null;
-  const fmtDue = due ? new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(due) : '';
+  const fmtDue = due ? dateTimeFormat(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(due) : '';
 
   const status = filedAt ? t('ink2Ui.stFiled', { date: new Date(filedAt).toLocaleDateString('sv-SE') })
     : !isLocked ? t('ink2Ui.stLock')

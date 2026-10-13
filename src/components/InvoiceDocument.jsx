@@ -3,13 +3,14 @@ import { formatCompanyAddress } from '../utils/companyAddress';
 import { ROT_RUT_RATES } from '../utils/rotRutConfig';
 import { isVatExempt } from '../utils/vatRegistration';
 import { foreignSaleNote } from '../utils/foreignSales';
+import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 
 const fmt = (val) =>
-  new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
+  numberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
 
 const formatDate = (d) => {
   if (!d) return '—';
-  try { return new Intl.DateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; }
+  try { return dateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; }
 };
 
 // ── Fakturamallar (Sida 24) ──────────────────────────────────────────────

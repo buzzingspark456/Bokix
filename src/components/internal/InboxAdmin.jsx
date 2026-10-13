@@ -3,13 +3,14 @@ import { Mail, Check, AlertTriangle } from '../icons';
 import { adminPost } from './adminApi';
 import { useAdminData } from './useAdminData';
 import RefreshBar from './RefreshBar';
+import { dateTimeFormat } from '../../utils/intlCache';
 
 const cardStyle = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '22px' };
 const muted = 'rgba(232,236,233,0.5)';
 
 function formatDateTime(iso) {
   if (!iso) return '';
-  return new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+  return dateTimeFormat('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 }
 
 /** Kontaktformulären från bokix.se och appens Rapportera fel (api/contact.js). */

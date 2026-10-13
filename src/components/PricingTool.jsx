@@ -5,9 +5,10 @@ import {
   maxDiscountForMargin, breakEvenUnits, hourlyRate, pricingStatus,
 } from '../utils/pricing';
 import { t } from '../i18n';
+import { numberFormat } from '../utils/intlCache';
 
-const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
-const fmtPctVal = (v) => (v == null ? '—' : `${new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 1 }).format(v)} %`);
+const fmt = (v) => numberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+const fmtPctVal = (v) => (v == null ? '—' : `${numberFormat('sv-SE', { maximumFractionDigits: 1 }).format(v)} %`);
 
 const inp = {
   width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '9px',

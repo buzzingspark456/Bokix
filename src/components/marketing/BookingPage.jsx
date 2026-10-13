@@ -8,6 +8,7 @@ import Turnstile from '../Turnstile';
 import {
   BOOKING_TIMES, BOOKING_MINUTES, BOOKING_MODES, bookableDays, slotKey, formatSlot, bookingIcs,
 } from '../../utils/demoBooking';
+import { dateTimeFormat } from '../../utils/intlCache';
 
 // Egen bokning av en genomgång, i stället för Googles inbäddade
 // bokningskalender. Tre steg i samma kort: välj dag och tid, fyll i
@@ -21,7 +22,7 @@ function monthKey(date) { return date.slice(0, 7); }
 
 function monthLabel(key) {
   const [y, m] = key.split('-').map(Number);
-  const s = new Intl.DateTimeFormat('sv-SE', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, 1)));
+  const s = dateTimeFormat('sv-SE', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, 1)));
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
@@ -38,7 +39,7 @@ function monthCells(key) {
 
 function dayLabel(date) {
   const [y, m, d] = date.split('-').map(Number);
-  const s = new Intl.DateTimeFormat('sv-SE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
+  const s = dateTimeFormat('sv-SE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 

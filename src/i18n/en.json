@@ -3411,6 +3411,7 @@
     "vinstmarginal_kassalikviditet_och_soliditet": "Net margin, quick ratio and equity ratio.",
     "visa": "Show",
     "visa_alla_konton": "Show all accounts",
+    "visa_fler_kvitton": "Show {{n}} more ({{left}} left)",
     "visa_bankgiro_plusgiro_iban_pa_fakturan": "Show bankgiro/plusgiro/IBAN on the invoice",
     "visa_bara_vanliga": "Show only common",
     "visa_bokslutet": "Show the year-end closing",

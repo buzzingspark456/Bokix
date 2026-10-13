@@ -35,8 +35,9 @@ import { nextVatDeadline, nextAgiDeadline, nextKuDeadline, vatDueDate, yearlyVat
 import { confirmDialog } from './shared/ConfirmDialog';
 import { activeFiscalYear, inPeriod } from '../utils/fiscalYear';
 import { t as tr, dateLocale } from '../i18n';
+import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 
-const fmt = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
+const fmt = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 
 // 'YYYY-MM' → "September 2026"/"September" — Intl i stället för en egen
 // hårdkodad månadslista, så den alltid böjs och stavas exakt som resten
@@ -795,7 +796,7 @@ export default function Taxes({
   // alltid ligger där ute. Samma "bara om det finns löneunderlag"-villkor
   // som AGI ovan — ingen anställd, ingen KU att lämna in.
   const kuDeadlineInfo = useMemo(() => (payrollRuns.length > 0 ? nextKuDeadline() : null), [payrollRuns.length]);
-  const fmtDeadlineDate = (d) => new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }).format(d);
+  const fmtDeadlineDate = (d) => dateTimeFormat(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }).format(d);
   const daysLeftLabel = (daysLeft) => {
     if (daysLeft < 0) return tr('ui.forsenad');
     if (daysLeft === 0) return tr('ui.idag_2');

@@ -5,8 +5,9 @@ import { computeEmployeePayroll, summarizePayrollRun } from '../utils/payrollCal
 import { agiDueDate, daysFromToday } from '../utils/declarationDeadlines';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { t, dateLocale } from '../i18n';
+import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 
-const fmt = (v) => new Intl.NumberFormat('sv-SE').format(Math.round(v || 0));
+const fmt = (v) => numberFormat('sv-SE').format(Math.round(v || 0));
 const pad = (n) => String(n).padStart(2, '0');
 
 // Arbetsgivardeklarationen som ett år: en rad per månad med lön, skatt,
@@ -91,10 +92,10 @@ export default function AgiYearView({ agiReports = [], payrollRuns = [], company
   const missingZero = allActionable.filter(r => r.state === 'missing');
 
   const monthName = (period, withYear = false) => {
-    const s = new Intl.DateTimeFormat(dateLocale(), withYear ? { month: 'long', year: 'numeric' } : { month: 'long' }).format(new Date(`${period}-01T12:00:00`));
+    const s = dateTimeFormat(dateLocale(), withYear ? { month: 'long', year: 'numeric' } : { month: 'long' }).format(new Date(`${period}-01T12:00:00`));
     return s.charAt(0).toUpperCase() + s.slice(1);
   };
-  const fmtDue = (d) => new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(d);
+  const fmtDue = (d) => dateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(d);
   const daysText = (n) => (n < 0 ? t('ui.forsenad') : n === 0 ? t('ui.idag_2') : n === 1 ? t('ui.imorgon') : t('ui.om_dagar', { daysLeft: n }));
 
   const create = (period) => {

@@ -9,6 +9,7 @@ import {
 } from '../utils/rotRutRequest';
 import { BRAND } from '../utils/brandColors';
 import { t as tr } from '../i18n';
+import { numberFormat } from '../utils/intlCache';
 
 // Begäran om utbetalning av ROT/RUT till Skatteverket. Två flikar:
 //   Att begära  betalda fakturor med avdrag som inte begärts än. Ger en
@@ -17,7 +18,7 @@ import { t as tr } from '../i18n';
 //               (1630), avslag flyttar avdraget till kunden (App.jsx).
 // Bokix lämnar aldrig in något själv, användaren laddar upp filen.
 
-const fmt = (n) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 0 }).format(n || 0);
+const fmt = (n) => numberFormat('sv-SE', { maximumFractionDigits: 0 }).format(n || 0);
 const today = () => new Date().toISOString().slice(0, 10);
 const btn = { padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit' };
 const primaryBtn = (enabled) => ({ padding: '9px 18px', background: enabled ? BRAND.green : 'var(--gray-300)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: enabled ? 'pointer' : 'not-allowed', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '6px' });

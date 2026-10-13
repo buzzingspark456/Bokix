@@ -11,8 +11,9 @@ import {
 import { summarizeVacationLiability } from '../utils/vacation';
 import { computeVacationAdjustment, buildVacationLiabilityVerification, isVacationAdjustmentBooked } from '../utils/vacationLiability';
 import { t } from '../i18n';
+import { numberFormat } from '../utils/intlCache';
 
-const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+const fmt = (v) => numberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
 const pad = (n) => String(n).padStart(2, '0');
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const yearEnd = () => `${new Date().getFullYear()}-12-31`;

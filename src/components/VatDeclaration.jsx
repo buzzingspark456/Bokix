@@ -18,8 +18,9 @@ const ACCOUNT_NAME = Object.fromEntries(DEFAULT_ACCOUNTS.map(a => [a.code, a.nam
 const VERIFIED_RUTOR = new Set(['05', '10', '11', '12', '48', '49']);
 import { downloadVatDeclarationPdf, downloadVatDeclarationXml } from '../utils/vatDeclarationExport';
 import { REVERSE_CHARGE_ESKD_VERIFIED } from '../utils/featureFlags';
+import { numberFormat } from '../utils/intlCache';
 
-const fmt = (v) => new Intl.NumberFormat('sv-SE').format(v || 0);
+const fmt = (v) => numberFormat('sv-SE').format(v || 0);
 
 // Kundfeedback ("du ska förklara va det ä, asså datum"): "Kvartal 1/2/3/4"
 // själva siffran säger ingenting om man inte redan har kalendern i huvudet

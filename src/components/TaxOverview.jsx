@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle2, ChevronRight, ExternalLink } from './icons';
 import { t, dateLocale } from '../i18n';
+import { dateTimeFormat } from '../utils/intlCache';
 
 // Översikten i Skatt och bokslut: allt man behöver göra, i den ordning det brådskar, med en
 // tydlig knapp för varje sak. Bokix har ingen koppling till Skatteverket, så varje rad leder
@@ -15,7 +16,7 @@ function DateTile({ item }) {
   if (item.done) return <span className="tax-date done" aria-hidden="true"><CheckCircle2 size={22} /></span>;
   if (!item.dueDate) return <span className="tax-date none" aria-label={t('taxOverview.noDate')}>–</span>;
   const d = new Date(item.dueDate);
-  const month = new Intl.DateTimeFormat(dateLocale(), { month: 'short' }).format(d).replace('.', '');
+  const month = dateTimeFormat(dateLocale(), { month: 'short' }).format(d).replace('.', '');
   return (
     <span className={`tax-date${item.urgency ? ` ${item.urgency}` : ''}`} aria-hidden="true">
       <span className="tax-date-day">{d.getDate()}</span>

@@ -5,8 +5,9 @@ import {
   VAT_RATES, simpleKindsFor, paymentAccounts, transferAccounts, describeVerification,
 } from '../../utils/plainBooking';
 import { t } from '../../i18n';
+import { numberFormat } from '../../utils/intlCache';
 
-const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+const fmt = (v) => numberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
 
 const inp = {
   padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13.5px', fontFamily: 'inherit',

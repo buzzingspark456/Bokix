@@ -12,8 +12,9 @@ import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import { BRAND } from '../utils/brandColors';
 import { t as tr, dateLocale } from '../i18n';
 import { layoutRect, layoutViewport } from '../utils/dropdownPlacement';
+import { numberFormat } from '../utils/intlCache';
 
-const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
+const formatSEK = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 
 // ── Veckohjälpare (måndag–söndag) ──
 function getStartOfWeek(date) {

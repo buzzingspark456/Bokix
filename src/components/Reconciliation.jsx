@@ -4,8 +4,9 @@ import ListTable from './shared/ListTable';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { reconcileBank, reconcileCash, latestReconciliations } from '../utils/reconciliation';
 import { t as tr } from '../i18n';
+import { numberFormat } from '../utils/intlCache';
 
-const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+const fmt = (v) => numberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
 const pad = (n) => String(n).padStart(2, '0');
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const newId = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `rec_${Date.now()}_${Math.random().toString(36).slice(2)}`);

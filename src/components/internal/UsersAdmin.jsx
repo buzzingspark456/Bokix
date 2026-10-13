@@ -3,6 +3,7 @@ import { GraduationCap, Users, UserX, ShieldOff, RotateCcw, Search } from '../ic
 import { adminPost } from './adminApi';
 import { useAdminData } from './useAdminData';
 import RefreshBar from './RefreshBar';
+import { dateTimeFormat } from '../../utils/intlCache';
 
 const cardStyle = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '22px' };
 
@@ -19,7 +20,7 @@ function statusColor(status) {
 
 function formatDate(iso) {
   if (!iso) return '—';
-  return new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso));
+  return dateTimeFormat('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso));
 }
 
 function StatTile({ icon: Icon, label, value, color }) {

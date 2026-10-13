@@ -24,6 +24,7 @@ import { useIsDarkTheme } from '../../hooks/useIsDarkTheme';
 import '../../tremor.css';
 import { useReportDisplay, PeriodHeading, fmtDateRange } from './reportDisplay';
 import { t, dateLocale } from '../../i18n';
+import { numberFormat, dateTimeFormat } from '../../utils/intlCache';
 
 // Delade presentationsdelar för Rapport och analys — flyttade hit oförändrade
 // från Reports.jsx (Sida 14c) när sidan byggdes om till en rapportportal
@@ -233,14 +234,14 @@ export function DisplaySettingsMenu({ colors, unit, onChange }) {
 export function formatTkr(val, { minTkr = 100000 } = {}) {
   const n = Math.round(val || 0);
   if (Math.abs(n) < minTkr) return formatSEK(n);
-  return `${new Intl.NumberFormat('sv-SE').format(Math.round(n / 1000))} tkr`;
+  return `${numberFormat('sv-SE').format(Math.round(n / 1000))} tkr`;
 }
 
 /** Y-axelns tick, alltid i tusental MED enhet ("500 tkr") som i utkastet.
  * Till skillnad från formatTkr växlar den aldrig enhet efter storlek — en
  * axel vars streck stod i olika enheter ("0 kr", "150 tkr", "300 tkr") vore
  * oläsbar. Exaktheten finns i tooltipen, som behåller hela kronbeloppet. */
-export const fmtAxisTkrUnit = (v) => `${new Intl.NumberFormat('sv-SE').format(Math.round((v || 0) / 1000))} tkr`;
+export const fmtAxisTkrUnit = (v) => `${numberFormat('sv-SE').format(Math.round((v || 0) / 1000))} tkr`;
 
 /** Delta som en liten pillerbricka (↗ +14,2 %) i stället för en bar färgad
  * textrad — hämtat rakt ur utkastet. Brickan ger siffran en egen tyngd utan
@@ -416,7 +417,7 @@ export function thinLabels(labels, isMobile) {
   return labels.map((l, i) => (i % interval === 0 ? l : ''));
 }
 
-export const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
+export const formatSEK = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 
 /**
  * Procenttal på svenska: decimalKOMMA och hårt mellanslag före %-tecknet
@@ -431,10 +432,10 @@ export const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'curre
 export const formatPct = (val, decimals = 1) => (
   val == null || !Number.isFinite(Number(val))
     ? '—'
-    : `${new Intl.NumberFormat('sv-SE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(Number(val))} %`
+    : `${numberFormat('sv-SE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(Number(val))} %`
 );
-export const fmtDate = (d) => new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(d instanceof Date ? d : new Date(d));
-export const fmtMonthYear = (d) => new Intl.DateTimeFormat(dateLocale(), { month: 'long', year: 'numeric' }).format(d);
+export const fmtDate = (d) => dateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(d instanceof Date ? d : new Date(d));
+export const fmtMonthYear = (d) => dateTimeFormat(dateLocale(), { month: 'long', year: 'numeric' }).format(d);
 // Kundfeedback: "det måste visa datumet — om det är den här månaden ska
 // den visa från den första till den sista". PeriodTabs (Företagsöversikten/
 // Dashboard.jsx) bytte tidigare bara en ordetikett ("Denna månad"), utan
@@ -997,8 +998,8 @@ export function RevenueExpenseChart({ data, isMobile, granularity = 'month', hei
     // ögat, och "240 000 kr" tog en sjättedel av bredden. Exakta belopp
     // finns i rutorna ovanför och i tooltipen.
     const axisFmt = (v) => (v === 0 ? '0' : Math.abs(v) >= 1e6
-      ? `${new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 1 }).format(v / 1e6)} mkr`
-      : Math.abs(v) >= 1000 ? `${new Intl.NumberFormat('sv-SE').format(Math.round(v / 1000))} tkr` : `${v} kr`);
+      ? `${numberFormat('sv-SE', { maximumFractionDigits: 1 }).format(v / 1e6)} mkr`
+      : Math.abs(v) >= 1000 ? `${numberFormat('sv-SE').format(Math.round(v / 1000))} tkr` : `${v} kr`);
     // Bred nog för "−160 tkr" på en rad; smalare bröt Recharts etiketten i två.
     const axisW = 58;
     return (

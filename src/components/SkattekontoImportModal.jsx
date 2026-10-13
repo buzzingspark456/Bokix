@@ -9,6 +9,7 @@ import {
   taxAccountBalance, SKATTEKONTO_ACCOUNT_NAMES,
 } from '../utils/skattekontoImport';
 import { t } from '../i18n';
+import { numberFormat } from '../utils/intlCache';
 
 // Skattekontoutdrag → verifikationer mot 1630. Samma tre steg och samma
 // grundregel som SIE-importen: ingenting skrivs förrän användaren trycker
@@ -16,7 +17,7 @@ import { t } from '../i18n';
 // utils/skattekontoImport.js.
 const STEPS = [t('ui.steg_ladda_upp'), t('ui.steg_forhandsgranskning'), t('ui.resultat')];
 
-const fmt = (n) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2 }).format(n || 0) + ' kr';
+const fmt = (n) => numberFormat('sv-SE', { maximumFractionDigits: 2 }).format(n || 0) + ' kr';
 const normalizeOrgNr = (s) => String(s || '').replace(/\D/g, '').slice(-10);
 
 const STATUS = {

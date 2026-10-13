@@ -22,6 +22,7 @@ import { bankHeaderLabel } from '../utils/bankHeaderLabels';
 import { t as tr } from '../i18n';
 import { invoiceCustomerRemaining } from '../utils/rotRutConfig';
 import { reconcileImportedSales } from '../utils/importedSalesReconcile';
+import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 
 // Bank – CSV/Excel-import. `bankImport.js` (parsning/normalisering/
 // matchningsförslag, statisk import av papaparse+xlsx) laddas BARA lazy
@@ -29,10 +30,10 @@ import { reconcileImportedSales } from '../utils/importedSalesReconcile';
 // biblioteken bunta in i huvudladdningen för ALLA sidor, inte bara Bank.
 // Se filkommentaren i bankImport.js.
 
-const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+const fmt = (v) => numberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
 const formatDate = (d) => {
   if (!d) return '—';
-  try { return new Intl.DateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; }
+  try { return dateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; }
 };
 const daysAgoIso = (n) => new Date(Date.now() - n * 86400000).toISOString().split('T')[0];
 

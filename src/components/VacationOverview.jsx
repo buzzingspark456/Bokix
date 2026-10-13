@@ -4,6 +4,7 @@ import { BRAND } from '../utils/brandColors';
 import { summarizeVacationLiability, VACATION_MODEL_NOTES, VACATION_DAYS_BEFORE_SAVING } from '../utils/vacation';
 import { EMPLOYER_FEE_CATEGORIES } from '../utils/payrollConfig';
 import { t } from '../i18n';
+import { numberFormat } from '../utils/intlCache';
 
 // Semesteröversikten (Anställda och lön → Semester): hur många dagar varje
 // anställd har kvar och vad de kostar. Allt är härlett, inget är en sparad
@@ -17,7 +18,7 @@ import { t } from '../i18n';
 // slut om dagar som kan sparas. Semester TAS UT i lönekörningen (där lönen
 // betalas), därför leder raden dit.
 
-const fmt = (v) => new Intl.NumberFormat('sv-SE').format(Math.round(v || 0));
+const fmt = (v) => numberFormat('sv-SE').format(Math.round(v || 0));
 
 // Vad regeln betyder, inte vilken anställningsform den brukar höra till (en
 // månadsavlönad kan ha procentregeln, då stod det fel 'Timlön' förut).

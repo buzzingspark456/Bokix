@@ -1,3 +1,4 @@
+import { numberFormat } from './intlCache';
 // Notisklockan i toppen: saker som HÄNT, inte saker att göra (det är
 // Startsidans Att göra, utils/todoItems.js). Byggs ur det Bokix redan har
 // i webbläsaren, så klockan fylls när appen är öppen.
@@ -28,7 +29,7 @@ export function writeSeenKeys(companyId, seen, keys) {
 }
 
 const isoDay = (at) => String(at || '').slice(0, 10);
-const sek = (n) => `${new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 0 }).format(Math.round(n || 0))} kr`;
+const sek = (n) => `${numberFormat('sv-SE', { maximumFractionDigits: 0 }).format(Math.round(n || 0))} kr`;
 
 /**
  * @param invoices        kundfakturor; en betalning via Betala nu har paidVia 'stripe'

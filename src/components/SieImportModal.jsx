@@ -8,6 +8,7 @@ import { t } from '../i18n';
 import { checkSieImport, applySieFixes } from '../utils/sieImportCheck';
 import { fileFiscalYear, sortFilesByYear, closableImportedYears } from '../utils/sieImportYears';
 import { fiscalYearLabel } from '../utils/sieAttachments';
+import { numberFormat } from '../utils/intlCache';
 
 // ── SIE4-import — ladda upp fil → kontomappning → förhandsgranskning →
 // commit. Samma fyrstegsstruktur (modal-overlay/-content/-footer, steg-
@@ -499,7 +500,7 @@ function AccountMappingStep({ rows, setRows, existingAccounts }) {
   );
 }
 
-const fmtKr = (v) => `${new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(Number(v) || 0))} kr`;
+const fmtKr = (v) => `${numberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(Number(v) || 0))} kr`;
 
 // Ett problem i filen: vad, varför, siffrorna, vad man gör, och knapparna.
 function ProblemCard({ tone = 'red', title, children, steps, actions }) {

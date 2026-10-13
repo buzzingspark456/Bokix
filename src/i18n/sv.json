@@ -3411,6 +3411,7 @@
     "vinstmarginal_kassalikviditet_och_soliditet": "Vinstmarginal, kassalikviditet och soliditet.",
     "visa": "Visa",
     "visa_alla_konton": "Visa alla konton",
+    "visa_fler_kvitton": "Visa {{n}} till ({{left}} kvar)",
     "visa_bankgiro_plusgiro_iban_pa_fakturan": "Visa bankgiro/plusgiro/IBAN på fakturan",
     "visa_bara_vanliga": "Visa bara vanliga",
     "visa_bokslutet": "Visa bokslutet",

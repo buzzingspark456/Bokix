@@ -7,16 +7,17 @@ import { supabase } from '../supabaseClient';
 import { VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './AccountsData';
 import { t } from '../i18n';
 import { StripeIconLogo, ZettleLogo } from './shared/BrandLogos';
+import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 
-const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
-const formatMoney = (val, currency) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: (currency || 'sek').toUpperCase(), maximumFractionDigits: 2 }).format(val || 0);
+const formatSEK = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
+const formatMoney = (val, currency) => numberFormat('sv-SE', { style: 'currency', currency: (currency || 'sek').toUpperCase(), maximumFractionDigits: 2 }).format(val || 0);
 const formatDate = (d) => {
   if (!d) return '—';
-  try { return new Intl.DateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; }
+  try { return dateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; }
 };
 const formatDateTime = (iso) => {
   if (!iso) return '—';
-  try { return new Intl.DateTimeFormat('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso)); } catch { return iso; }
+  try { return dateTimeFormat('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso)); } catch { return iso; }
 };
 
 const KIND_LABEL = { receipt: t('ui.kvitto_2'), supplier_invoice: t('ui.leverantorsfaktura_liten') };

@@ -1,3 +1,4 @@
+import { numberFormat } from './intlCache';
 // ─────────────────────────────────────────────────────────────────────────
 // Diagramfärger och beloppsenhet som ett VAL, inte en hårdkodning.
 //
@@ -357,7 +358,7 @@ export function lighten(hex, amount = 0.5) {
   return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
 }
 
-const nf = (min, max) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: min, maximumFractionDigits: max });
+const nf = (min, max) => numberFormat('sv-SE', { minimumFractionDigits: min, maximumFractionDigits: max });
 
 /**
  * Formaterare för belopp, givet vald enhet.

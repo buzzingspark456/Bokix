@@ -75,7 +75,7 @@ export default function TermsPolicy() {
 
       <PolicySection n={6} title="Drift och tillgänglighet">
         <p style={policyP}>
-          Vi strävar efter hög tillgänglighet men garanterar inte att tjänsten är felfri eller tillgänglig utan avbrott. Planerat underhåll meddelas när det är praktiskt möjligt. Vi rekommenderar att du regelbundet exporterar din data (Inställningar → Avancerat → Exportera) som en egen säkerhetskopia.
+          Vi strävar efter hög tillgänglighet men garanterar inte att tjänsten är felfri eller tillgänglig utan avbrott. Planerat underhåll meddelas när det är praktiskt möjligt. Vi rekommenderar att du regelbundet exporterar din data (Inställningar → Import och export) som en egen säkerhetskopia.
         </p>
         <p style={policyP}>
           Bokix är byggt på och beroende av tredjepartsleverantörer (bland annat Supabase, Stripe, Resend och Vercel — se <Link to="/privacy" style={link}>Integritetspolicyn</Link>, avsnitt 4). Driftstörningar hos en sådan leverantör kan påverka tjänstens tillgänglighet, och vi ansvarar inte för avbrott som orsakas utanför vår egen kontroll.

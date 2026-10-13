@@ -7,12 +7,13 @@ import { downloadAgiXml } from '../utils/agiXml';
 import { AGI_XML_ENABLED } from '../utils/featureFlags';
 import { dueDayForMonth, rollForwardPastWeekend } from '../utils/declarationDeadlines';
 import { t as tr } from '../i18n';
+import { numberFormat } from '../utils/intlCache';
 
 // Skatteverkets sida för att lämna arbetsgivardeklarationen (e-tjänsten med
 // "Deklarera via fil" och "Deklarera noll").
 export const SKV_AGI_URL = 'https://www.skatteverket.se/foretag/arbetsgivare/lamnaarbetsgivardeklaration.4.41f1c61d16193087d7fcaeb.html';
 
-const fmt = (v) => new Intl.NumberFormat('sv-SE').format(Math.round(v || 0));
+const fmt = (v) => numberFormat('sv-SE').format(Math.round(v || 0));
 
 /** Sista dag att lämna och betala: den 12:e månaden efter (17:e i januari och augusti). */
 function agiDueDate(period) {

@@ -4,13 +4,14 @@ import { BRAND } from '../utils/brandColors';
 import { getSignedStorageUrl } from '../utils/signedUrls';
 import { downloadText } from '../utils/rotRutRequest';
 import { t as tr } from '../i18n';
+import { numberFormat } from '../utils/intlCache';
 
 // En import av ROT/RUT-uppdrag från en annan app (RotRutBookingImport) som
 // väntar på Skatteverket: filerna kan laddas ner igen, markeras som
 // inskickade och få sin utbetalning registrerad. Betalar Skatteverket
 // mindre än begärt bokförs resten som en fordran på kunderna (App.jsx).
 
-const fmt = (n) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 0 }).format(n || 0);
+const fmt = (n) => numberFormat('sv-SE', { maximumFractionDigits: 0 }).format(n || 0);
 const today = () => new Date().toISOString().slice(0, 10);
 const inp = { padding: '7px 9px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit' };
 const small = { padding: '7px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '5px', textDecoration: 'none' };

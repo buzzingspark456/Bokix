@@ -6,8 +6,9 @@ import {
   MAX_PARTNERS, validatePartners, buildAllocationVerification, isAllocationBooked, computePartnerStatement,
 } from '../utils/partners';
 import { t } from '../i18n';
+import { numberFormat } from '../utils/intlCache';
 
-const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+const fmt = (v) => numberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
 const newId = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `partner_${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
 const inp = {

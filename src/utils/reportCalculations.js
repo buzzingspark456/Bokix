@@ -1,5 +1,6 @@
 import { getDebet, getKredit } from './verificationAmounts';
 import { t, dateLocale } from '../i18n';
+import { dateTimeFormat } from './intlCache';
 
 /**
  * Rapport och analys (Sida 14) ska ALDRIG visa påhittad eller hårdkodad
@@ -49,6 +50,22 @@ export function isCashAccount(account) {
 function toDate(d) {
   if (d instanceof Date) return d;
   return new Date(`${d}T00:00:00`);
+}
+
+// Verifikationernas datum i genomgångarna nedan: samma datumsträng tolkas
+// en gång. Startsidan går igenom alla verifikationer flera gånger per månad
+// i diagrammet, och ett nytt Date för varje rad varje gång var den största
+// kostnaden vid start hos ett företag med några tusen verifikationer.
+// Datumen här läses bara, de ändras aldrig.
+const parsedDates = new Map();
+function verDate(s) {
+  let d = parsedDates.get(s);
+  if (!d) {
+    if (parsedDates.size > 20000) parsedDates.clear();
+    d = toDate(s);
+    parsedDates.set(s, d);
+  }
+  return d;
 }
 // Bugkritiskt: INTE d.toISOString().slice(0, 10) — toISOString() konverterar
 // till UTC, och alla datum i den här filen är lokal midnatt (t.ex.
@@ -150,7 +167,7 @@ function earliestBookedDate(verifications) {
   let min = null;
   for (const ver of (verifications || [])) {
     if (!isBooked(ver) || !ver.date) continue;
-    const d = toDate(ver.date);
+    const d = verDate(ver.date);
     if (!min || d < min) min = d;
   }
   return min;
@@ -256,7 +273,7 @@ export function sumFlowByType(verifications, accounts, type, start, end) {
   let total = 0;
   for (const ver of verifications) {
     if (!isBooked(ver) || isClosingEntry(ver) || !ver.date) continue;
-    const d = toDate(ver.date);
+    const d = verDate(ver.date);
     if (d < start || d > end) continue;
     for (const row of ver.rows || []) {
       const acc = byCode.get(row.account);
@@ -274,7 +291,7 @@ export function groupCostsByAccount(verifications, accounts, start, end) {
   const sums = new Map();
   for (const ver of verifications) {
     if (!isBooked(ver) || isClosingEntry(ver) || !ver.date) continue;
-    const d = toDate(ver.date);
+    const d = verDate(ver.date);
     if (d < start || d > end) continue;
     for (const row of ver.rows || []) {
       const acc = byCode.get(row.account);
@@ -345,12 +362,13 @@ export function groupCostsByCategory(verifications, accounts, start, end) {
  * kronologiskt från samtliga bokförda verifikationer fram till och med
  * det datumet — inte ett separat, potentiellt inaktuellt sparat fält. */
 export function computeCashBalanceAt(verifications, accounts, uptoDate) {
+  const byCode = new Map(accounts.map(a => [a.code, a]));
   let total = 0;
   for (const ver of verifications) {
     if (!isBooked(ver) || !ver.date) continue;
-    if (toDate(ver.date) > uptoDate) continue;
+    if (verDate(ver.date) > uptoDate) continue;
     for (const row of ver.rows || []) {
-      const acc = accounts.find(a => a.code === row.account);
+      const acc = byCode.get(row.account);
       if (!isCashAccount(acc)) continue;
       total += getDebet(row) - getKredit(row);
     }
@@ -368,26 +386,51 @@ export function computeCashBalanceAt(verifications, accounts, uptoDate) {
  * till skillnad från kvartals-/årsvyn där en punkt per månad räcker.
  * Standardvärdet 'month' bevarar exakt tidigare beteende/signatur. */
 export function buildCashflowSeries(verifications, accounts, start, end, granularity = 'month') {
+  const dates = [];
   if (granularity === 'day') {
-    const points = [];
     let cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
     while (cursor <= end) {
-      points.push({ date: fmtISO(cursor), balance: computeCashBalanceAt(verifications, accounts, cursor) });
+      dates.push(cursor);
       cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
     }
-    return points;
+  } else {
+    let cursor = startOfMonth(start);
+    while (cursor <= end) {
+      dates.push(cursor < start ? start : cursor);
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    }
+    if (dates.length === 0 || fmtISO(dates[dates.length - 1]) !== fmtISO(end)) dates.push(end);
   }
-  const points = [];
-  let cursor = startOfMonth(start);
-  while (cursor <= end) {
-    const pointDate = cursor < start ? start : cursor;
-    points.push({ date: fmtISO(pointDate), balance: computeCashBalanceAt(verifications, accounts, pointDate) });
-    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+  const balances = cashBalancesAt(verifications, accounts, dates);
+  return dates.map((d, i) => ({ date: fmtISO(d), balance: balances[i] }));
+}
+
+// Samma som computeCashBalanceAt för flera datum, med en genomgång av
+// verifikationerna i stället för en per datum (en per dag i månadsvyn).
+function cashBalancesAt(verifications, accounts, dates) {
+  const byCode = new Map(accounts.map(a => [a.code, a]));
+  const deltas = [];
+  for (const ver of verifications) {
+    if (!isBooked(ver) || !ver.date) continue;
+    let sum = 0;
+    let any = false;
+    for (const row of ver.rows || []) {
+      if (!isCashAccount(byCode.get(row.account))) continue;
+      sum += getDebet(row) - getKredit(row);
+      any = true;
+    }
+    if (any) deltas.push([verDate(ver.date).getTime(), sum]);
   }
-  if (points.length === 0 || points[points.length - 1].date !== fmtISO(end)) {
-    points.push({ date: fmtISO(end), balance: computeCashBalanceAt(verifications, accounts, end) });
+  deltas.sort((a, b) => a[0] - b[0]);
+  const order = dates.map((d, i) => [d.getTime(), i]).sort((a, b) => a[0] - b[0]);
+  const out = new Array(dates.length);
+  let j = 0;
+  let total = 0;
+  for (const [t, i] of order) {
+    while (j < deltas.length && deltas[j][0] <= t) total += deltas[j++][1];
+    out[i] = total;
   }
-  return points;
+  return out;
 }
 
 /** Serie av {label, intakt, kostnad}-punkter, en per kalendermånad inom
@@ -403,13 +446,12 @@ export function buildResultSeries(verifications, accounts, start, end, granulari
     while (cursor <= end) {
       days.push({
         label: String(cursor.getDate()),
-        title: new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(cursor),
-        intakt: sumFlowByType(verifications, accounts, 'intakt', cursor, cursor),
-        kostnad: sumFlowByType(verifications, accounts, 'kostnad', cursor, cursor),
+        title: dateTimeFormat(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(cursor),
+        range: [cursor, cursor],
       });
       cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
     }
-    return days;
+    return withFlows(days, verifications, accounts);
   }
   const months = [];
   let cursor = startOfMonth(start);
@@ -417,15 +459,45 @@ export function buildResultSeries(verifications, accounts, start, end, granulari
     const monthStart = cursor < start ? start : cursor;
     const monthEnd = endOfMonth(cursor) > end ? end : endOfMonth(cursor);
     months.push({
-      label: new Intl.DateTimeFormat(dateLocale(), { month: 'short' }).format(cursor),
+      label: dateTimeFormat(dateLocale(), { month: 'short' }).format(cursor),
       // Hela namnet med år, för diagrammens tooltip ("juli 2026").
-      title: new Intl.DateTimeFormat(dateLocale(), { month: 'long', year: 'numeric' }).format(cursor),
-      intakt: sumFlowByType(verifications, accounts, 'intakt', monthStart, monthEnd),
-      kostnad: sumFlowByType(verifications, accounts, 'kostnad', monthStart, monthEnd),
+      title: dateTimeFormat(dateLocale(), { month: 'long', year: 'numeric' }).format(cursor),
+      range: [monthStart, monthEnd],
     });
     cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
   }
-  return months;
+  return withFlows(months, verifications, accounts);
+}
+
+// Intäkter och kostnader per hink (samma regler som sumFlowByType) med en
+// genomgång av verifikationerna, i stället för två per månad eller dag.
+// Hinkarna ligger i datumordning och överlappar inte.
+function withFlows(buckets, verifications, accounts) {
+  const byCode = new Map(accounts.map(a => [a.code, a]));
+  const sums = buckets.map(() => ({ intakt: 0, kostnad: 0 }));
+  const first = buckets[0]?.range[0];
+  const last = buckets[buckets.length - 1]?.range[1];
+  if (first) {
+    for (const ver of verifications) {
+      if (!isBooked(ver) || isClosingEntry(ver) || !ver.date) continue;
+      const d = verDate(ver.date);
+      if (d < first || d > last) continue;
+      let lo = 0;
+      let hi = buckets.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (buckets[mid].range[1] < d) lo = mid + 1; else hi = mid;
+      }
+      if (d < buckets[lo].range[0]) continue;
+      const s = sums[lo];
+      for (const row of ver.rows || []) {
+        const type = classifyAccount(byCode.get(row.account));
+        if (type === 'intakt') s.intakt += getKredit(row) - getDebet(row);
+        else if (type === 'kostnad') s.kostnad += getDebet(row) - getKredit(row);
+      }
+    }
+  }
+  return buckets.map(({ range, ...b }, i) => ({ ...b, ...sums[i] }));
 }
 
 /**
@@ -476,7 +548,7 @@ export function buildMarginSeries(verifications, accounts, start, end, granulari
   } else {
     let cursor = startOfMonth(start);
     while (cursor <= end) {
-      pushBucket(cursor, new Intl.DateTimeFormat(dateLocale(), { month: 'short' }).format(cursor));
+      pushBucket(cursor, dateTimeFormat(dateLocale(), { month: 'short' }).format(cursor));
       cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
     }
   }
@@ -487,7 +559,7 @@ export function buildMarginSeries(verifications, accounts, start, end, granulari
   // blivit onödigt dyrt på dagsupplösning.
   for (const ver of verifications) {
     if (!isBooked(ver) || isClosingEntry(ver) || !ver.date) continue;
-    const d = toDate(ver.date);
+    const d = verDate(ver.date);
     if (d < start || d > end) continue;
     const idx = indexByKey.get(keyFor(d));
     if (idx === undefined) continue;
@@ -531,7 +603,7 @@ export function computeBalanceSheet(verifications, accounts, asOfDate) {
   const balances = new Map();
   for (const ver of verifications) {
     if (!isBooked(ver) || !ver.date) continue;
-    if (toDate(ver.date) > asOfDate) continue;
+    if (verDate(ver.date) > asOfDate) continue;
     for (const row of ver.rows || []) {
       balances.set(row.account, (balances.get(row.account) || 0) + getDebet(row) - getKredit(row));
     }
@@ -581,7 +653,7 @@ export function computeLedger(verifications, accounts, start, end) {
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
   for (const ver of sorted) {
-    const d = toDate(ver.date);
+    const d = verDate(ver.date);
     for (const row of ver.rows || []) {
       const debet = getDebet(row) || 0;
       const kredit = getKredit(row) || 0;
@@ -638,7 +710,7 @@ export function computeInvoiceReport(invoices, contacts, start, end) {
     if ((inv.type || 'invoice') === 'quote') return false;
     if (inv.status === 'draft') return false;
     if (!inv.date) return false;
-    const d = toDate(inv.date);
+    const d = verDate(inv.date);
     return d >= start && d <= end;
   });
 

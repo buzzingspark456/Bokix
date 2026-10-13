@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { resolveChartPalette, makeAmountFormatters } from '../../utils/chartPalette';
 import { useIsDarkTheme } from '../../hooks/useIsDarkTheme';
 import { dateLocale } from '../../i18n';
+import { dateTimeFormat } from '../../utils/intlCache';
 
 // Det lilla ur ReportUI.jsx som Startsidan behöver direkt, i en egen fil
 // utan diagrambiblioteket (recharts, ca 350 kB). Startsidan visar då sina
@@ -34,7 +35,7 @@ export function useReportDisplay() {
   return React.useContext(ReportDisplayContext);
 }
 
-export const fmtDateRange = (start, end) => new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }).formatRange(start, end);
+export const fmtDateRange = (start, end) => dateTimeFormat(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }).formatRange(start, end);
 
 /** Periodens namn och dess första och sista dag i klartext. Används av
  * både Företagsöversikten och Startsidan. */

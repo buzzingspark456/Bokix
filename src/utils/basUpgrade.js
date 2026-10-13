@@ -11,6 +11,8 @@
 //  - sorterar listan på kontonummer.
 // Inget konto tas bort: ett konto kan ha bokföring, och egna konton ska vara kvar.
 
+import { compareNumeric } from './intlCache';
+
 export const BAS_VERSION = 2026;
 
 // Appens standardnamn före BAS 2026-uppdateringen (2026-10-12), för de
@@ -78,7 +80,7 @@ export const PREVIOUS_DEFAULT_NAMES = {
   7554: "Avkastningsskatt 30% utländska kapitalförsäkringar",
 };
 
-const byCode = (a, b) => String(a.code).localeCompare(String(b.code), undefined, { numeric: true });
+const byCode = (a, b) => compareNumeric(String(a.code), String(b.code));
 
 export function upgradeAccountsToBas(accounts, defaults) {
   if (!Array.isArray(accounts)) return accounts;

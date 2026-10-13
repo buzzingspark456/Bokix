@@ -1,3 +1,4 @@
+import { dateTimeFormat } from './intlCache';
 // Bokning av en genomgång (/boka-genomgang). Delas av sidan
 // (BookingPage.jsx) och servern (api/contact.js), så att tiderna som visas
 // och tiderna som godtas alltid är samma. Alla tider är svensk tid.
@@ -13,7 +14,7 @@ const SLOT_RE = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/;
 
 // "2026-10-04" i svensk tid.
 export function stockholmToday(now = new Date()) {
-  return new Intl.DateTimeFormat('sv-SE', { timeZone: TZ }).format(now);
+  return dateTimeFormat('sv-SE', { timeZone: TZ }).format(now);
 }
 
 export function addDays(dateStr, days) {
@@ -55,7 +56,7 @@ export function stockholmToUtc(slot) {
   const [, y, mo, d, h, mi] = SLOT_RE.exec(slot).map(Number);
   const guess = Date.UTC(y, mo - 1, d, h, mi);
   const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+    dateTimeFormat('en-GB', { timeZone: TZ, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
       .formatToParts(new Date(guess)).map(p => [p.type, p.value]),
   );
   const shown = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute);
@@ -66,7 +67,7 @@ export function stockholmToUtc(slot) {
 export function formatSlot(slot) {
   const [date, time] = slot.split(' ');
   const [y, m, d] = date.split('-').map(Number);
-  const label = new Intl.DateTimeFormat('sv-SE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
+  const label = dateTimeFormat('sv-SE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
   return `${label} kl. ${time}`;
 }
 

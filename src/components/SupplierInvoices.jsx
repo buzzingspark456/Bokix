@@ -15,16 +15,17 @@ import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { t } from '../i18n';
+import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 
-const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
+const formatSEK = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 const formatDate = (d) => {
   if (!d) return '—';
-  try { return new Intl.DateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; }
+  try { return dateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; }
 };
 // Öre-precision för konteringsradernas belopp/moms (till skillnad från
 // formatSEK ovan, som avrundar till hel krona och lägger till "kr" — de
 // visar summeringens FÄRDIGA, avrundade totalsumma, inte enskilda rader).
-const fmtNum = (n) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
+const fmtNum = (n) => numberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
 
 function SupplierInvoiceAttachment({ url, name, isImage, isPdf }) {
   const activeUrl = useSignedUrl(url);

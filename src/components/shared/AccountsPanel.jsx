@@ -3,8 +3,9 @@ import { Search, ChevronDown, ChevronRight, Lock, X } from '../icons';
 import { accountMatches } from '../../utils/accountSearch';
 import { t } from '../../i18n';
 import { BAS_ACCOUNT_GROUPS } from '../AccountsData';
+import { compareNumeric } from '../../utils/intlCache';
 
-const byCode = (a, b) => String(a.code).localeCompare(String(b.code), undefined, { numeric: true });
+const byCode = (a, b) => compareNumeric(String(a.code), String(b.code));
 
 // Kontoplanen — bruten ut ur Bokforing (Verifications.jsx), där den låg som
 // en egen flik ("Kontoplan"). Flyttad hit så EXAKT samma vy (sök, "Mina

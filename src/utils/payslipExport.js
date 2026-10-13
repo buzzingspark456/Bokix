@@ -1,8 +1,9 @@
 import jsPDF from 'jspdf';
 import { activeTaxAdjustment } from './payrollCalculation';
+import { numberFormat } from './intlCache';
 
 // jsPDF:s standardtypsnitt saknar Unicodes minustecken (U+2212), som sv-SE ger.
-const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(v) || 0).replace(/−/g, '-');
+const fmt = (v) => numberFormat('sv-SE', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(v) || 0).replace(/−/g, '-');
 const fmtKr = (v) => `${fmt(Math.round((Number(v) || 0) * 100) / 100)} kr`;
 
 /**

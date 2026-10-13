@@ -15,6 +15,7 @@
  */
 import { invoiceLineNet } from './invoiceBooking';
 import { t, dateLocale } from '../i18n';
+import { dateTimeFormat } from './intlCache';
 
 export const EC_GOODS_ACCOUNT = '3108';
 export const EC_SERVICES_ACCOUNT = '3308';
@@ -33,7 +34,7 @@ export function ecPeriod(year, part) {
   }
   const m = Number(part);
   const endDay = new Date(year, m, 0).getDate();
-  const name = new Intl.DateTimeFormat(dateLocale(), { month: 'long' }).format(new Date(year, m - 1, 1));
+  const name = dateTimeFormat(dateLocale(), { month: 'long' }).format(new Date(year, m - 1, 1));
   return { start: `${year}-${pad(m)}-01`, end: `${year}-${pad(m)}-${pad(endDay)}`, code: `${yy}${pad(m)}`, label: `${name.charAt(0).toUpperCase()}${name.slice(1)} ${year}`, kind: 'month' };
 }
 

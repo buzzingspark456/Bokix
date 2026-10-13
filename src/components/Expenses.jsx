@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
 import { isVatExempt } from '../utils/vatRegistration';
 import {
   UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop, Mail, SlidersHorizontal,
@@ -25,6 +25,7 @@ import { historyForSupplier, historyFromVerifications } from '../utils/receiptHi
 import { reverseChargePurchaseInfo, describeReverseCharge } from '../utils/reverseCharge';
 import { CURRENCIES, parseNumber, sekFrom, impliedRate, rateToInput, amountToInput, foreignForSave } from '../utils/foreignCurrency';
 import { t as tr, dateLocale } from '../i18n';
+import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 
 // ── Formatting ──
 // Hela kronor utan decimaler, allt annat med ören: 1,50 kr visas som 1,50 kr och
@@ -33,17 +34,17 @@ const formatSEK = (val) => {
   const n = Number(val) || 0;
   const whole = Math.abs(n - Math.round(n)) < 0.005;
   const digits = whole ? 0 : 2;
-  return new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', minimumFractionDigits: digits, maximumFractionDigits: digits }).format(n);
+  return numberFormat('sv-SE', { style: 'currency', currency: 'SEK', minimumFractionDigits: digits, maximumFractionDigits: digits }).format(n);
 };
 const formatDate = (d) => {
   if (!d) return '—';
-  try { return new Intl.DateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; }
+  try { return dateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; }
 };
 // Månadsrubrik för listgrupperingen nedan ("September 2026") — sv-SE ger
 // gemener ("september 2026"), så första bokstaven versaliseras för hand.
 const formatMonthLabel = (yearMonth) => {
   const [y, m] = yearMonth.split('-').map(Number);
-  const label = new Intl.DateTimeFormat(dateLocale(), { month: 'long', year: 'numeric' }).format(new Date(y, (m || 1) - 1, 1));
+  const label = dateTimeFormat(dateLocale(), { month: 'long', year: 'numeric' }).format(new Date(y, (m || 1) - 1, 1));
   return label.charAt(0).toUpperCase() + label.slice(1);
 };
 // Kalendermånaderna för månadsväljaren i verktygsraden ('01'-'12' som
@@ -114,14 +115,29 @@ const errSt = { fontSize: '12px', color: 'var(--status-red-text)', marginTop: '4
 // ett rättat kvitto har fortfarande ett costAccount och en bokförd
 // originalverifikation, så utan den här kontrollen skulle det felaktigt
 // visas som "Bokförd" igen.
-function getReceiptStatus(receipt, verifications) {
-  const reversed = verifications.some(v => v.source === 'expense_reversal' && v.sourceId === receipt.id);
-  if (reversed) return 'reversed';
+// Kvittonas verifikationer slås upp en gång per lista: att leta i alla
+// verifikationer för varje kvitto låste sökningen i flera sekunder hos ett
+// företag med några tusen av varje.
+function receiptVerificationIndex(verifications) {
+  const reversed = new Set();
+  const booked = new Map();
+  for (const v of verifications) {
+    if (v.source === 'expense_reversal') reversed.add(v.sourceId);
+    else if ((v.source === 'expense' || v.source === 'expense_fix') && !booked.has(v.sourceId)) booked.set(v.sourceId, v);
+  }
+  return { reversed, booked };
+}
+
+function getReceiptStatus(receipt, index) {
+  if (index.reversed.has(receipt.id)) return 'reversed';
   if (!receipt.costAccount) return 'unhandled';
-  const ver = verifications.find(v => (v.source === 'expense' || v.source === 'expense_fix') && v.sourceId === receipt.id);
+  const ver = index.booked.get(receipt.id);
   if (ver && (ver.status || 'booked') === 'draft') return 'pending';
   return 'booked';
 }
+
+// Så många kvitton visas åt gången (knappen längst ned visar fler).
+const RECEIPTS_PAGE = 100;
 
 const STATUS_META = {
   unhandled: { label: tr('ui.ej_hanterade'), bg: BRAND.amberBg, color: BRAND.amberText },
@@ -200,7 +216,7 @@ function EmptyReceiptsState({ text, isFilteredEmpty }) {
 
 // Belopp med ören — momsuppdelningen är det enda stället på sidan där
 // decimalerna faktiskt betyder något (25% av 842,50 är inte ett jämnt tal).
-const formatSEK2 = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', minimumFractionDigits: 2 }).format(val || 0);
+const formatSEK2 = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', minimumFractionDigits: 2 }).format(val || 0);
 
 // Statusetiketterna i STATUS_META är plural (de sitter på filterpillren som
 // räknar flera kvitton). Här handlar det om ETT kvitto.
@@ -1231,10 +1247,14 @@ export default function Expenses({
 
   // Sökningen går på det man faktiskt minns av ett kvitto: var man handlade,
   // vad det gällde, vilket konto det hamnade på eller ungefär vad det kostade.
-  const q = query.trim().toLowerCase();
+  const verIndex = useMemo(() => receiptVerificationIndex(verifications), [verifications]);
+  const accountNames = useMemo(() => new Map(accounts.map(a => [a.code, a.name])), [accounts]);
+  // Sökfältet uppdateras direkt, listan när webbläsaren hinner.
+  const deferredQuery = useDeferredValue(query);
+  const q = deferredQuery.trim().toLowerCase();
   const searched = q
     ? tabFiltered.filter(r => {
-      const accName = accounts.find(a => a.code === r.costAccount)?.name;
+      const accName = accountNames.get(r.costAccount);
       return [r.supplier, r.description, r.notes, r.costAccount, accName, r.date, r.amount]
         .filter(v => v !== undefined && v !== null && v !== '')
         .some(v => String(v).toLowerCase().includes(q));
@@ -1245,13 +1265,9 @@ export default function Expenses({
   // ("Ej hanterade 3" osv) alltid räknar rätt mot det som faktiskt syns.
   const monthMatched = monthFilter === 'all' ? searched : searched.filter(r => (r.date || '').slice(5, 7) === monthFilter);
 
-  const statusCounts = {
-    unhandled: monthMatched.filter(r => getReceiptStatus(r, verifications) === 'unhandled').length,
-    pending: monthMatched.filter(r => getReceiptStatus(r, verifications) === 'pending').length,
-    booked: monthMatched.filter(r => getReceiptStatus(r, verifications) === 'booked').length,
-    reversed: monthMatched.filter(r => getReceiptStatus(r, verifications) === 'reversed').length,
-  };
-  const statusMatched = statusFilter ? monthMatched.filter(r => getReceiptStatus(r, verifications) === statusFilter) : monthMatched;
+  const statusCounts = { unhandled: 0, pending: 0, booked: 0, reversed: 0 };
+  monthMatched.forEach(r => { statusCounts[getReceiptStatus(r, verIndex)]++; });
+  const statusMatched = statusFilter ? monthMatched.filter(r => getReceiptStatus(r, verIndex) === statusFilter) : monthMatched;
 
   // Mapp-id för ett kvitto, '__unfiled__' om det inte lagts i någon mapp än.
   const folderIdOf = (r) => r.folderId || '__unfiled__';
@@ -1261,6 +1277,11 @@ export default function Expenses({
     folderCounts.set(id, (folderCounts.get(id) || 0) + 1);
   });
   const receiptsList = folderFilter ? statusMatched.filter(r => folderIdOf(r) === folderFilter) : statusMatched;
+  // Ett företag med flera års kvitton ritade förut alla rader på en gång,
+  // och om igen vid varje tangenttryck i sökningen. Nu visas de första och
+  // resten med en knapp; ett nytt urval börjar om från början.
+  const [shownCount, setShownCount] = useState(RECEIPTS_PAGE);
+  useEffect(() => { setShownCount(RECEIPTS_PAGE); }, [q, effectiveTab, monthFilter, statusFilter, folderFilter]);
   const detailReceipt = detailReceiptId ? allReceipts.find(r => r.id === detailReceiptId) : null;
 
   // ── Drag & drop / filhantering ──
@@ -1706,8 +1727,17 @@ export default function Expenses({
               const showGroups = !flatView && groups.size > 1;
               const sections = showGroups ? [...groups.entries()] : [[null, receiptsList]];
               const groupLabel = (key) => key === 'okänt' ? tr('ui.utan_datum') : (groupByYear ? key : formatMonthLabel(key));
+              // Rubrikerna räknar hela månaden, raderna slutar vid shownCount.
+              let budget = shownCount;
+              const visibleSections = [];
+              for (const [monthKey, items] of sections) {
+                if (budget <= 0) break;
+                visibleSections.push([monthKey, items, items.slice(0, budget)]);
+                budget -= items.length;
+              }
+              const left = receiptsList.length - shownCount;
 
-              return sections.map(([monthKey, items], i) => (
+              return (<>{visibleSections.map(([monthKey, items, rows], i) => (
                 <div key={monthKey || 'flat'}>
                   {monthKey && (
                     <div className={`rc-month-head${i === 0 ? ' rc-month-head--first' : ''}`}>
@@ -1718,9 +1748,9 @@ export default function Expenses({
                     </div>
                   )}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: showGroups ? '16px' : 0 }}>
-                    {items.map(r => {
-                      const status = getReceiptStatus(r, verifications);
-                      const categoryName = accounts.find(a => a.code === r.costAccount)?.name;
+                    {rows.map(r => {
+                      const status = getReceiptStatus(r, verIndex);
+                      const categoryName = accountNames.get(r.costAccount);
                       const folderName = r.folderId ? folders.find(f => f.id === r.folderId)?.name : null;
                       // Vem som laddade upp är bara intressant när det finns fler
                       // än en person att skilja på (samma resonemang som ovan).
@@ -1796,7 +1826,15 @@ export default function Expenses({
                     })}
                   </div>
                 </div>
-              ));
+              ))}
+              {left > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '6px' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setShownCount(c => c + RECEIPTS_PAGE)}>
+                    {tr('ui.visa_fler_kvitton', { n: Math.min(RECEIPTS_PAGE, left), left })}
+                  </button>
+                </div>
+              )}
+              </>);
             })()}
           </div>
         )}
@@ -1813,7 +1851,7 @@ export default function Expenses({
           folders={folders}
           allReceipts={allReceipts}
           verifications={verifications}
-          status={getReceiptStatus(detailReceipt, verifications)}
+          status={getReceiptStatus(detailReceipt, verIndex)}
           onSave={(id, values) => onSaveReceiptDetails?.(id, values)}
           onSaveOcrDraft={(id, draft) => onSaveOcrDraft?.(id, draft)}
           onDelete={(id) => onDeleteExpense?.(id)}

@@ -6,8 +6,9 @@ import { activeFiscalYear } from '../utils/fiscalYear';
 import { daysFromToday } from '../utils/declarationDeadlines';
 import { t, dateLocale } from '../i18n';
 import StepFlow, { StepNav } from './shared/StepFlow';
+import { dateTimeFormat } from '../utils/intlCache';
 
-const fmtDate = (iso) => new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${iso}T12:00:00`));
+const fmtDate = (iso) => dateTimeFormat(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${iso}T12:00:00`));
 const daysText = (n) => (n < 0 ? t('ui.forsenad') : n === 0 ? t('ui.idag_2') : n === 1 ? t('ui.imorgon') : t('ui.om_dagar', { daysLeft: n }));
 
 /**

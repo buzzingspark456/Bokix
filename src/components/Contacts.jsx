@@ -11,6 +11,7 @@ import { confirmDialog } from './shared/ConfirmDialog';
 import { showUndo, restoreAt } from './shared/undoToast';
 import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { t, useTranslation, getLanguage } from '../i18n';
+import { numberFormat } from '../utils/intlCache';
 
 // Texterna finns under contacts.* i src/i18n/sv.json och en.json.
 const c = (key, vars) => t(`contacts.${key}`, vars);
@@ -739,7 +740,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                     dot: ct.active !== false ? 'var(--status-green-text)' : 'var(--text-muted)',
                     primary: ct.name || c('list.unnamed'),
                     amount: ct.totalInvoicedThisYear
-                      ? new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(ct.totalInvoicedThisYear)
+                      ? numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(ct.totalInvoicedThisYear)
                       : undefined,
                     // Kundfeedback (uppföljning): fälten fanns redan här, men
                     // utan etiketter — "556677-8899 · Anna Andersson · senast
@@ -794,7 +795,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                       key: 'totalInvoicedThisYear', label: c(isCustomerTab ? 'list.invoicedThisYear' : 'list.purchasedThisYear'),
                       color: 'var(--text-main)', fontWeight: 500,
                       render: ct => ct.totalInvoicedThisYear
-                        ? new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(ct.totalInvoicedThisYear)
+                        ? numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(ct.totalInvoicedThisYear)
                         : '0 kr',
                     },
                     {

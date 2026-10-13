@@ -127,7 +127,7 @@ export default function PrivacyPolicy() {
       <PolicySection n={8} title="Dina rättigheter">
         <p style={policyP}>Enligt GDPR har du rätt att:</p>
         <ul style={policyUl}>
-          <li style={policyLi}>Få ett utdrag av vilka uppgifter vi har om dig (du kan även exportera all din data direkt i appen under Inställningar → Avancerat → Exportera).</li>
+          <li style={policyLi}>Få ett utdrag av vilka uppgifter vi har om dig (du kan även exportera all din data direkt i appen under Inställningar → Import och export).</li>
           <li style={policyLi}>Få felaktiga uppgifter rättade.</li>
           <li style={policyLi}>Begära radering av dina uppgifter, med undantag för sådant vi är skyldiga att bevara enligt bokföringslagen.</li>
           <li style={policyLi}>Invända mot eller begära begränsning av viss behandling.</li>

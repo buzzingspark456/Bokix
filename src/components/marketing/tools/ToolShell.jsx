@@ -7,6 +7,7 @@ import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, CARD_SHAD
 import { AuroraLayer } from '../aurora';
 import { PageMeta, JsonLd, SITE_URL } from '../../../utils/seo';
 import { TOOLS, TOOLS_HUB_PATH } from './toolsConfig';
+import { dateTimeFormat } from '../../../utils/intlCache';
 
 // ── Gemensamt skal för alla fria verktyg (/verktyg/*) ───────────────────
 // Samma roll som PolicyLayout.jsx har för de fyra juridiska sidorna: ett
@@ -35,7 +36,7 @@ export function formatKr(value, decimals = 0) {
  * att varje sida formaterar datum för sig. */
 export function formatDateSv(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '—';
-  return new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+  return dateTimeFormat('sv-SE', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 }
 
 /** Stilar som behöver mediafrågor (kan inte uttryckas som inline-style) —

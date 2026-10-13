@@ -7,6 +7,7 @@ import { getPeriodBounds, companyFiscalYearSetting } from '../utils/reportCalcul
 import { visibleReportSections } from '../utils/reportDefinitions';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import { t, dateLocale } from '../i18n';
+import { dateTimeFormat } from '../utils/intlCache';
 
 // Stabil referens som förval: en ny [] per render hade gjort useMemo:n
 // nedan meningslös (nytt beroende varje gång).
@@ -34,7 +35,7 @@ function relativeOpenedLabel(iso) {
   if (days === 1) return t('ui.igar');
   if (days < 7) return t('ui.dagar_sedan', { days });
   if (days < 31) return `${Math.floor(days / 7)} ${Math.floor(days / 7) === 1 ? 'vecka' : 'veckor'} sedan`;
-  return new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(then);
+  return dateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(then);
 }
 
 export default function Reports({

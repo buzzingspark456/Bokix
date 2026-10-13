@@ -28,6 +28,7 @@ import { useTranslation, dateLocale } from '../i18n';
 import { overviewPeriodBounds, buildResultSeries, companyFiscalYearSetting } from '../utils/reportCalculations';
 import { layoutRect, layoutViewport } from '../utils/dropdownPlacement';
 import { invoiceCustomerRemaining } from '../utils/rotRutConfig';
+import { numberFormat } from '../utils/intlCache';
 
 // Intäkter-vs-Utgifter-grafens färger kommer numera från paletten
 // (utils/chartPalette.js, se `chart` i komponenten): förvalet är samma
@@ -377,7 +378,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // i beräkningskedjan ovan.
   const fmt = (val) => {
     const rounded = Math.round(val || 0);
-    return new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(rounded === 0 ? 0 : rounded);
+    return numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(rounded === 0 ? 0 : rounded);
   };
 
   // tkr eller kr för nyckeltalen, "Vad ingår i resultatet?" och diagrammet.
@@ -396,8 +397,8 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   const fmtTkr = (v) => {
     const n = Math.abs(v || 0);
     if (n < 10000) return fmt(v || 0);
-    if (n >= 1e6) return `${new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 1 }).format((v || 0) / 1e6)} mkr`;
-    return `${new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 0 }).format((v || 0) / 1000)} tkr`;
+    if (n >= 1e6) return `${numberFormat('sv-SE', { maximumFractionDigits: 1 }).format((v || 0) / 1e6)} mkr`;
+    return `${numberFormat('sv-SE', { maximumFractionDigits: 0 }).format((v || 0) / 1000)} tkr`;
   };
   const fmtKpi = amountUnit === 'tkr' ? fmtTkr : fmt;
 
@@ -609,7 +610,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // förändringen som ett märke ("+12 %") följt av "mot i fjol"; annars
   // marginal, snitt per månad och andel av intäkterna. Likviditeten är det
   // faktiska saldot på bank och kassa i dag, ur bokföringen.
-  const pctFmt = (n, signed = false) => new Intl.NumberFormat(dateLocale(), { style: 'percent', maximumFractionDigits: 0, ...(signed ? { signDisplay: 'exceptZero' } : {}) }).format(n);
+  const pctFmt = (n, signed = false) => numberFormat(dateLocale(), { style: 'percent', maximumFractionDigits: 0, ...(signed ? { signDisplay: 'exceptZero' } : {}) }).format(n);
   const prevOmsattning = chartData.reduce((sum, d) => sum + d.PrevIntäkter, 0);
   const prevResultat = chartData.reduce((sum, d) => sum + d.PrevResultat, 0);
   const deltaOf = (now, before) => (hasPrevYearData && before ? (now - before) / Math.abs(before) : null);

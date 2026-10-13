@@ -39,17 +39,18 @@ import { ROT_RUT_RATES, ROT_RUT_COMBINED_CAP, calcRotRutDeduction, invoiceCustom
 import { workTypesFor, RUT_FLAT_RATE_TYPES } from '../utils/rotRutRequest';
 import RotRutRequestModal from './RotRutRequestModal';
 import { t as tr, dateLocale } from '../i18n';
+import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 
 const newRowId = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `row_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const withRowIds = (rows) => rows.map(r => ({ id: r.id || newRowId(), ...r }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (val) =>
-  new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
+  numberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
 
 const formatDate = (d) => {
   if (!d) return '—';
-  try { return new Intl.DateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; }
+  try { return dateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; }
 };
 
 const isOverdue = (inv) =>
@@ -1062,7 +1063,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                       </p>
                     )}
                     <p style={{ margin: 0 }}>
-                      {tr('ui.avdraget_raknas_bara_pa_rader_markta_arbete_neda')} {ROT_RUT_RATES[rotRutType].label} {tr('ui.och_eventuellt_andra_husavdrag_delar_samma_tak_p')} {new Intl.NumberFormat('sv-SE').format(ROT_RUT_COMBINED_CAP)} {tr('rotRut.capNote')}
+                      {tr('ui.avdraget_raknas_bara_pa_rader_markta_arbete_neda')} {ROT_RUT_RATES[rotRutType].label} {tr('ui.och_eventuellt_andra_husavdrag_delar_samma_tak_p')} {numberFormat('sv-SE').format(ROT_RUT_COMBINED_CAP)} {tr('rotRut.capNote')}
                     </p>
                   </div>
                 )}
@@ -2501,7 +2502,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
   // Kort dag+månad ("24 sep"), samma Intl-mönster som redan används i
   // Reports.jsx — bara för listradens metatext (rad 2), inte för själva
   // fakturadatafälten (som fortfarande visar hela ISO-datumet på desktop).
-  const shortDate = (d) => { try { return new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(new Date(d)); } catch { return d; } };
+  const shortDate = (d) => { try { return dateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(new Date(d)); } catch { return d; } };
 
   // Listradsläget (ListTable `mobileList`, se dess JSDoc) för kundfakturor
   // under 900px — kund som identitet, förfallo-/betaldatum och fakturanr

@@ -3,6 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Users, GraduationCap, CreditCard, TrendingUp, Info, Eye, Globe2, AlertTriangle, Calendar } from '../icons';
 import { useAdminData } from './useAdminData';
 import RefreshBar from './RefreshBar';
+import { dateTimeFormat } from '../../utils/intlCache';
 
 // GA4:s egna kanalnamn (engelska, tekniska) → svenska etiketter en admin
 // faktiskt begriper utan att slå upp vad "Organic Search" betyder.
@@ -44,7 +45,7 @@ function StatTile({ icon: Icon, label, value, sub, color = '#84cc16' }) {
 }
 
 function formatDayLabel(iso) {
-  return new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short' }).format(new Date(iso));
+  return dateTimeFormat('sv-SE', { day: 'numeric', month: 'short' }).format(new Date(iso));
 }
 
 // Färre synliga X-axel-ticks ju längre intervallet är — annars blir 365

@@ -10,8 +10,9 @@ import Inventory from './Inventory';
 import PricingTool from './PricingTool';
 import { t } from '../i18n';
 import { MobileFormMode, MobileFormBar } from './shared/MobileForm';
+import { numberFormat } from '../utils/intlCache';
 
-const fmt = (val) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
+const fmt = (val) => numberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
 
 const inp = {
   width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '9px',

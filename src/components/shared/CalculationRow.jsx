@@ -1,7 +1,8 @@
 import React from 'react';
 import { t } from '../../i18n';
+import { numberFormat } from '../../utils/intlCache';
 
-const fmt = (v) => new Intl.NumberFormat('sv-SE').format(v || 0);
+const fmt = (v) => numberFormat('sv-SE').format(v || 0);
 
 /**
  * Generisk beräkningsrad (label, formel, resultat) — samma mönster

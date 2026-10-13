@@ -1,3 +1,4 @@
+import { numberFormat } from './intlCache';
 /**
  * Kvitton i utländsk valuta. Bokföringen sker i kronor, men det ursprungliga
  * beloppet, valutan och kursen sparas på kvittot så att omräkningen går att
@@ -48,12 +49,12 @@ export function amountToInput(value) {
   return Number.isFinite(n) && n >= 0 ? round2(n).toFixed(2).replace('.', ',') : '';
 }
 
-const fmtAmount = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+const fmtAmount = (v) => numberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
 /** "25,00 USD × kurs 10,4123", till en verifikationsrad. Tom sträng om något saknas. */
 export function describeForeign(fx) {
   if (!fx || !(fx.amount > 0) || !(fx.rate > 0) || !fx.code) return '';
-  const rate = new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 4, maximumFractionDigits: 6 }).format(fx.rate);
+  const rate = numberFormat('sv-SE', { minimumFractionDigits: 4, maximumFractionDigits: 6 }).format(fx.rate);
   return `${fmtAmount(fx.amount)} ${fx.code} × kurs ${rate}`;
 }
 

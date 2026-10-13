@@ -25,6 +25,7 @@ import { computeEmployeePayroll } from '../../utils/payrollCalculation';
 import { neededTaxTableKeysForYear } from '../../utils/kuExport';
 import { preloadSkattetabell } from '../../utils/skattetabell';
 import { t, dateLocale } from '../../i18n';
+import { numberFormat, dateTimeFormat } from '../../utils/intlCache';
 
 // Procent går genom ReportUI:s formatPct (svensk decimalkomma + hårt
 // mellanslag) — samma format i varje panel, se dess kommentar.
@@ -818,7 +819,7 @@ function LedgerReport({ verifications, accounts, start, end }) {
 // ── Arbetsblad ──────────────────────────────────────────────────────────
 // Sex kolumnpar (debet/kredit): råbalans, justeringar, justerad råbalans,
 // resultaträkning, balansräkning. Räkningen ligger i utils/worksheet.js.
-const wsNum = (v) => (v ? new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 0 }).format(v) : '');
+const wsNum = (v) => (v ? numberFormat('sv-SE', { maximumFractionDigits: 0 }).format(v) : '');
 const WS_GROUPS = [
   { key: 'raw', label: t('ui.rabalans') },
   { key: 'adjustments', label: t('ui.justeringar') },
@@ -1209,7 +1210,7 @@ function MonthlyReport({ verifications, accounts }) {
       const mEnd = mNaturalEnd < now ? mNaturalEnd : now;
       const omsattning = sumFlowByType(verifications, accounts, 'intakt', mStart, mEnd);
       const kostnader = sumFlowByType(verifications, accounts, 'kostnad', mStart, mEnd);
-      list.push({ label: new Intl.DateTimeFormat(dateLocale(), { month: 'short', year: '2-digit' }).format(d), start: mStart, end: mEnd, omsattning, kostnader, resultat: omsattning - kostnader });
+      list.push({ label: dateTimeFormat(dateLocale(), { month: 'short', year: '2-digit' }).format(d), start: mStart, end: mEnd, omsattning, kostnader, resultat: omsattning - kostnader });
     }
     return list;
   }, [verifications, accounts]);

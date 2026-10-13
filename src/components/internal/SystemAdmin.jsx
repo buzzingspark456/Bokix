@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertTriangle, CheckCircle2, XCircle, Database, Mail, CreditCard, SlidersHorizontal } from '../icons';
 import { useAdminData } from './useAdminData';
 import RefreshBar from './RefreshBar';
+import { dateTimeFormat } from '../../utils/intlCache';
 
 const cardStyle = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '22px' };
 const muted = 'rgba(232,236,233,0.5)';
@@ -14,7 +15,7 @@ const EVENT_LABELS = {
 };
 
 const mb = (bytes) => `${(bytes / 1024 / 1024).toLocaleString('sv-SE', { maximumFractionDigits: 1 })} MB`;
-const formatDateTime = (iso) => new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+const formatDateTime = (iso) => dateTimeFormat('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 
 function Meter({ label, used, limit }) {
   const pct = Math.min(100, Math.round((used / limit) * 100));

@@ -3,6 +3,7 @@ import { Clock, Plus, Trash2, Check, X, Briefcase, User, FileText } from './icon
 import { PartySearch, EntitySearch, ProjectSearch } from './shared/SearchInputs';
 import { BRAND } from '../utils/brandColors';
 import { t } from '../i18n';
+import { numberFormat } from '../utils/intlCache';
 
 const emptyForm = () => ({
   type: 'kund', // 'kund' (fakturerbart) | 'anstalld' (löneunderlag)
@@ -32,7 +33,7 @@ export default function TimeTracking({
     }
   }, [globalAction, clearGlobalAction]);
 
-  const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
+  const formatSEK = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 
   const calcTotal = (f) => {
     const h = parseFloat(f.hours) || 0;

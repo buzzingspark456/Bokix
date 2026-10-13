@@ -29,6 +29,7 @@ import AccountsPanel from './shared/AccountsPanel';
 import SimpleBookingPanel from './shared/SimpleBookingPanel';
 import { buildSimpleBooking, describeRow, describeVerification, paymentAccounts, VAT_RATES } from '../utils/plainBooking';
 import { t as tr, dateLocale } from '../i18n';
+import { numberFormat, dateTimeFormat, compareNumeric } from '../utils/intlCache';
 
 // Bara för att skriva ut valutavarningen lite snyggare — ingen omräkning
 // görs här, det är enbart kosmetiskt.
@@ -54,10 +55,10 @@ function OcrBadge() {
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
-const fmt = (v) => new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+const fmt = (v) => numberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
 // Beloppslös variant (heltal, ingen valuta) — grupprubrikernas summor, se
 // renderVerGroupHeader nedan. Samma format som Kvittons formatSEK.
-const fmtSEK = (v) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(v || 0);
+const fmtSEK = (v) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(v || 0);
 // Kundönskemål ("samma som i Kvitton, jag älskar det"): kronologisk
 // gruppering av listan per månad, med samma väljare (Alla månader/en
 // specifik kalendermånad från alla år/Grupperat-Lista) som Expenses.jsx
@@ -66,7 +67,7 @@ const fmtSEK = (v) => new Intl.NumberFormat('sv-SE', { style: 'currency', curren
 // för Kvittons egna platta kort.
 const formatMonthLabel = (yearMonth) => {
   const [y, m] = yearMonth.split('-').map(Number);
-  const label = new Intl.DateTimeFormat(dateLocale(), { month: 'long', year: 'numeric' }).format(new Date(y, (m || 1) - 1, 1));
+  const label = dateTimeFormat(dateLocale(), { month: 'long', year: 'numeric' }).format(new Date(y, (m || 1) - 1, 1));
   return label.charAt(0).toUpperCase() + label.slice(1);
 };
 const MONTH_NAMES = [
@@ -1429,7 +1430,7 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
     // samma dag som originalet) håller då ändå en stabil, förutsägbar
     // ordning i stället för att hoppa om vid varje omrendering.
     .slice()
-    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || String(b.number ?? '').localeCompare(String(a.number ?? ''), undefined, { numeric: true }));
+    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || compareNumeric(String(b.number ?? ''), String(a.number ?? '')));
 
   const visibleVers = pageSize === 'all' ? filteredVers : filteredVers.slice(0, pageSize);
 
@@ -1672,7 +1673,7 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
                 <div style={{ padding: '10px 8px 12px 32px' }}>
                   <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '4px', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
                     <span>{tr('ui.motpart')} <strong style={{ color: 'var(--text-main)' }}>{contacts.find(c => c.id === v.counterpartyId)?.name || '—'}</strong></span>
-                    <span>{tr('ui.upprattad')} <strong style={{ color: 'var(--text-main)' }}>{v.createdAt ? new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(v.createdAt)) : '—'}</strong></span>
+                    <span>{tr('ui.upprattad')} <strong style={{ color: 'var(--text-main)' }}>{v.createdAt ? dateTimeFormat('sv-SE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(v.createdAt)) : '—'}</strong></span>
                     {v.originalLocation && <span>{tr('ui.original_forvaras')} <strong style={{ color: 'var(--text-main)' }}>{v.originalLocation}</strong></span>}
                   </div>
                   {/* Underlaget syntes tidigare bara inne i formuläret, så en

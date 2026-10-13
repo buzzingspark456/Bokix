@@ -14,8 +14,9 @@ import { t, dateLocale } from '../i18n';
 import { computeEmployeePayroll, summarizePayrollRun } from '../utils/payrollCalculation';
 import { agiDueDate, daysFromToday } from '../utils/declarationDeadlines';
 import { MobileFormMode } from './shared/MobileForm';
+import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 
-const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
+const formatSEK = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 const inputSt = { width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' };
 const labelSt = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' };
 const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-xs)', overflow: 'hidden' };
@@ -70,7 +71,7 @@ export default function Payroll({
       return summarizePayrollRun(run.rows.map(row => computeEmployeePayroll(row.employeeSnapshot || {}, row))).gross;
     } catch { return null; }
   };
-  const fmtShortDate = (d) => new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(d);
+  const fmtShortDate = (d) => dateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(d);
   const agiInfo = (row) => {
     const due = agiDueDate(row.period);
     const report = agiReports.find(r => r.period === row.period);
@@ -79,7 +80,7 @@ export default function Payroll({
     return { due, submitted, daysLeft: daysFromToday(due) };
   };
   const monthName = (period) => {
-    const name = new Intl.DateTimeFormat(dateLocale(), { month: 'long' }).format(new Date(`${period}-01T12:00:00`));
+    const name = dateTimeFormat(dateLocale(), { month: 'long' }).format(new Date(`${period}-01T12:00:00`));
     return name.charAt(0).toUpperCase() + name.slice(1);
   };
   const runStatus = (r) => r.completedSteps.includes('booked') ? t('ui.bokford') : (r.completedSteps.includes('calculated') ? t('ui.bokforda_status_berakn') : t('ui.utkast'));
@@ -359,7 +360,7 @@ export default function Payroll({
                   </div>
                   {activeEmployeesForPeriod.map(e => {
                     const hourly = e.salaryForm === 'timlon';
-                    const pay = hourly ? `${new Intl.NumberFormat('sv-SE').format(Number(e.hourlyRate) || 0)} kr/tim` : `${new Intl.NumberFormat('sv-SE').format(Number(e.monthlySalary) || 0)} kr/mån`;
+                    const pay = hourly ? `${numberFormat('sv-SE').format(Number(e.hourlyRate) || 0)} kr/tim` : `${numberFormat('sv-SE').format(Number(e.monthlySalary) || 0)} kr/mån`;
                     const missingTax = !e.secondaryIncome && !e.taxTable?.tabellnr;
                     return (
                       <div key={e.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 14px', borderTop: '1px solid var(--border-light)', fontSize: '13.5px' }}>

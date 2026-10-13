@@ -10,8 +10,9 @@ import { summarizeVacation } from '../utils/vacation';
 import { BRAND } from '../utils/brandColors';
 import { MobileFormBar } from './shared/MobileForm';
 import { t as tr } from '../i18n';
+import { numberFormat } from '../utils/intlCache';
 
-const formatSEK = (val) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
+const formatSEK = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 
 const sectionStyle = { background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px', marginBottom: '16px' };
 const sectionTitleStyle = { fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.03em' };

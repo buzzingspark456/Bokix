@@ -41,6 +41,7 @@ import { DATE_FORMATS, getDateFormatPreference, setDateFormatPreference } from '
 import { logAuditEvent } from '../utils/auditLog';
 import { detectDevice } from '../utils/deviceInfo';
 import { t as tr, useTranslation, getLanguage, dateLocale } from '../i18n';
+import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 
 // Visas istället för att faktiskt anropa Supabase när `readOnly` (Sida
 // landningssidans demo, se DemoWorkspace.jsx) — samma text överallt i den
@@ -1453,7 +1454,7 @@ function AuditLogCard({ company, readOnly = false }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {events.map((e, i) => (
-            <SettingRow key={e.id} label={e.description} description={`${e.actor_email} · ${new Intl.DateTimeFormat('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(e.created_at))}`} last={i === events.length - 1} />
+            <SettingRow key={e.id} label={e.description} description={`${e.actor_email} · ${dateTimeFormat('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(e.created_at))}`} last={i === events.length - 1} />
           ))}
         </div>
       )}
@@ -2085,7 +2086,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
 
 const fmtDateSv = (d) => {
   if (!d) return '—';
-  try { return new Intl.DateTimeFormat(dateLocale(), { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(d)); } catch { return d; }
+  try { return dateTimeFormat(dateLocale(), { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(d)); } catch { return d; }
 };
 
 const SUBSCRIPTION_STATUS_LABELS = {
@@ -2137,7 +2138,7 @@ function BillingPortalButton({ companyId, label, showInvoices = false }) {
               {invoices.map((invoice, index) => {
                 const amount = invoice.status === 'paid' ? invoice.amount_paid : invoice.amount_due;
                 const currency = (invoice.currency || 'sek').toUpperCase();
-                const formattedAmount = new Intl.NumberFormat(getLanguage(), { style: 'currency', currency }).format((amount || 0) / 100);
+                const formattedAmount = numberFormat(getLanguage(), { style: 'currency', currency }).format((amount || 0) / 100);
                 const statusLabel = invoice.status === 'paid'
                   ? tr('ui.betald')
                   : invoice.status === 'draft'
@@ -2235,7 +2236,7 @@ function UfSubscriptionCard({ company, canClose = true }) {
     }
   };
   const endsLabel = period.endsAt
-    ? new Intl.DateTimeFormat(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(period.endsAt)
+    ? dateTimeFormat(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(period.endsAt)
     : null;
   const daysLabel = typeof period.daysLeft === 'number' ? ' (' + period.daysLeft + ' dagar kvar)' : '';
   return (
