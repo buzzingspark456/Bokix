@@ -49,7 +49,8 @@ for (const theme of ['light', 'dark']) {
     const file = theme === 'dark' ? `${g.slug}-dark` : g.slug;
     const mp4 = path.join(VIDEO_DIR, `${file}.mp4`);
     const len = seconds(g.duration);
-    const img = frame(mp4, Math.max(1, Math.round(len * 0.62)));
+    // Kundguiden: 62 % hamnar mitt i ett tomt fält, 84 % visar ifylld adress och org.nr.
+    const img = frame(mp4, Math.max(1, Math.round(len * (g.slug === 'lagg-upp-kund' ? 0.84 : 0.62))));
     await page.goto(`${BASE}/guider`, { waitUntil: 'networkidle' });
     await page.evaluate(({ g, img, theme, clockText }) => {
       const mark = document.querySelector('svg[aria-label="Bokix"]')?.outerHTML || '';

@@ -8,7 +8,7 @@ export const GUIDE_GROUPS = [
   {
     title: 'Sälja och fakturera',
     guides: [
-      { slug: 'lagg-upp-kund', title: 'Lägg upp en kund', lead: 'Namn, e-post och organisationsnummer.', duration: 'PT34S' },
+      { slug: 'lagg-upp-kund', title: 'Lägg upp en kund', lead: 'Namn, kontaktperson, adress och organisationsnummer.', duration: 'PT50S' },
       { slug: 'skapa-faktura', title: 'Skapa en faktura', lead: 'Välj kund, skriv vad du sålt. Momsen räknas ut.', duration: 'PT40S' },
       { slug: 'skicka-faktura', title: 'Skicka en faktura', lead: 'Välj mall, skicka med e-post och en Betala nu-knapp via Stripe.', duration: 'PT53S' },
       { slug: 'registrera-betalning', title: 'Registrera en betalning', lead: 'Markera som betald med ett klick, eller registrera en delbetalning.', duration: 'PT37S' },

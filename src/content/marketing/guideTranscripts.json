@@ -3,7 +3,9 @@
     "Så här lägger du upp en ny kund i Bokix.",
     "Börja med att gå till Kunder, i menyn till vänster.",
     "Tryck sedan på Ny kund.",
-    "Skriv in företagets namn, och vilken e-postadress fakturorna ska gå till.",
+    "Skriv in företagets namn. Använder du kundnummer, fyll i det också.",
+    "Fyll i vem du har kontakt med, vilken e-post fakturorna ska gå till, och ett telefonnummer.",
+    "Skriv adressen, postnumret och orten. Den visas på fakturan.",
     "Lägg till organisationsnumret också. Det behövs på fakturan.",
     "Och sen trycker du på Spara.",
     "Klart! Nu finns kunden i listan, och du kan välja den direkt när du gör en faktura."

@@ -420,12 +420,23 @@ const GUIDES = {
     await d.click(nav('Kunder'));
     await d.caption(2, 'Tryck på Ny kund', 'Tryck sedan på Ny kund.');
     await d.click(btn('Ny kund'));
-    await d.caption(3, 'Fyll i namn och e-post', 'Skriv in företagets namn, och vilken e-postadress fakturorna ska gå till.');
-    await d.type(panel.getByPlaceholder('Exempelföretag AB'), 'Exempelkaféet AB');
-    await d.type(panel.getByPlaceholder('epost@foretag.se'), 'info@exempelkafeet.se');
-    await d.caption(4, 'Lägg till organisationsnummer', 'Lägg till organisationsnumret också. Det behövs på fakturan.');
-    await d.type(panel.getByPlaceholder('XXXXXX-XXXX'), '559999-0008');
-    await d.caption(5, 'Spara', 'Och sen trycker du på Spara.');
+    // Alla vanliga fält fylls i (användarens önskemål 2026-10-13), annars
+    // tror tittaren att adress, kontaktperson och kundnummer kan hoppas över.
+    const field = (label) => panel.locator('label', { hasText: new RegExp(`^${label}`) }).locator('xpath=following-sibling::input[1]').first();
+    await d.caption(3, 'Företagets namn och kundnummer', 'Skriv in företagets namn. Använder du kundnummer, fyll i det också.');
+    await d.type(field('Namn'), 'Exempelkaféet AB');
+    await d.type(field('Kundnummer'), '1024');
+    await d.caption(4, 'Kontaktperson, e-post och telefon', 'Fyll i vem du har kontakt med, vilken e-post fakturorna ska gå till, och ett telefonnummer.');
+    await d.type(field('Kontaktperson'), 'Sara Exempelsson');
+    await d.type(field('E-post'), 'faktura@exempelkafeet.se');
+    await d.type(field('Telefon'), '070-000 00 00');
+    await d.caption(5, 'Adress, postnummer och ort', 'Skriv adressen, postnumret och orten. Den visas på fakturan.');
+    await d.type(field('Gatuadress'), 'Exempelgatan 12');
+    await d.type(field('Postnummer'), '123 45');
+    await d.type(field('Ort'), 'Exempelstad');
+    await d.caption(6, 'Organisationsnummer', 'Lägg till organisationsnumret också. Det behövs på fakturan.');
+    await d.type(field('Organisationsnummer'), '559999-0008');
+    await d.caption(7, 'Spara', 'Och sen trycker du på Spara.');
     await d.click(btn('Spara kund'));
     await d.done('Klart! Kunden finns i listan.', 'Klart! Nu finns kunden i listan, och du kan välja den direkt när du gör en faktura.');
   },
