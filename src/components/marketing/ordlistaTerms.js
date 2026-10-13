@@ -17,7 +17,7 @@
 export const TERMS = [
   {
     term: '3:12-reglerna',
-    def: 'Reglerna som styr hur utdelning och kapitalvinst beskattas för dig som äger och arbetar i ett fåmansföretag. De avgör hur mycket du kan ta ut till 20 procents skatt i stället för som lön. Från och med 2026 gäller en enda regel: ett grundbelopp på fyra inkomstbasbelopp plus ett lönebaserat utrymme.',
+    def: 'Reglerna för hur du beskattas när du äger och jobbar i ett litet aktiebolag. De avgör hur mycket du kan ta ut som utdelning till 20 procents skatt i stället för som lön. Sedan 2026 är gränsen fyra inkomstbasbelopp plus en del som beror på lönerna i bolaget.',
     tool: '/verktyg/utdelning',
   },
   {

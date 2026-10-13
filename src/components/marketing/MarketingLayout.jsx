@@ -250,6 +250,12 @@ function MarketingStyles() {
   return (
     <style>{minifyCss(`
       #lp-root, #lp-root *, #lp-root *::before, #lp-root *::after { box-sizing: border-box; }
+      /* overflow-x: hidden (inline-stilen på #lp-root) gör roten till en
+         scrollcontainer, och då slutar position: sticky att fungera på
+         hela marknadssajten (ordlistans bokstavsrad, FAQ-menyn,
+         pristabellens rubrik). clip skär av lika bra men skapar ingen
+         scrollcontainer. Äldre webbläsare behåller hidden. */
+      @supports (overflow: clip) { #lp-root { overflow-x: clip !important; } }
       /* Rubriker bryter jämnt i stället för att lämna ett ensamt ord
          på sista raden ("...varje / månad"). Stöds brett; webbläsare utan
          stöd bryter som förut. */
