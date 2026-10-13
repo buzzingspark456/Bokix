@@ -1,62 +1,28 @@
-<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="shared.css"><style>
-.bg { position: absolute; inset: 0; background: #f4f6f3; }
-.grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(28,36,32,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(28,36,32,0.045) 1px, transparent 1px); background-size: 40px 40px; mask-image: radial-gradient(ellipse at center, #000 30%, transparent 78%); }
-.label { position: absolute; font-size: 15px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5d6b60; display: flex; align-items: center; gap: 10px; }
-.label b { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: #0e2018; color: #fff; font-size: 13px; align-items: center; justify-content: center; letter-spacing: 0; }
-.chip { position: absolute; width: 132px; height: 116px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; border-radius: 20px; }
-.chip img { width: 54px; height: 54px; object-fit: contain; display: block; }
-.chip span { font-size: 14.5px; font-weight: 700; color: #2d3a31; }
-.file { position: absolute; left: 424px; top: 118px; width: 352px; height: 392px; padding: 28px 30px; border-radius: 20px; }
-.file::before { content: ''; position: absolute; top: 0; right: 0; width: 60px; height: 60px; background: linear-gradient(225deg, #eef5ee 50%, #d5e2d6 50%); border-bottom-left-radius: 16px; box-shadow: -3px 3px 8px rgba(20,40,30,0.08); }
-.badge { display: inline-block; font-size: 15px; font-weight: 800; color: #14663a; background: #dcf3e3; padding: 5px 12px; border-radius: 999px; }
-.file h2 { font-size: 66px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; margin: 18px 0 6px; }
-.file p { font-size: 15.5px; color: #5d6b60; margin-bottom: 20px; }
-.code { font-size: 13.4px; line-height: 1.75; color: #33423a; background: #f4f8f3; border-radius: 12px; padding: 14px 16px; white-space: pre; }
-.code i { font-style: normal; color: #0b7fb8; font-weight: 700; }
-.code s { text-decoration: none; color: #6b7d6c; }
-.bokix { position: absolute; left: 872px; top: 190px; width: 268px; height: 246px; padding: 28px 28px; }
-.bokix ul { list-style: none; margin-top: 22px; display: grid; gap: 13px; }
-.bokix li { display: flex; align-items: center; gap: 11px; font-size: 16.5px; font-weight: 600; color: #2d3a31; }
-.bokix li::before { content: ''; width: 22px; height: 22px; border-radius: 50%; background: #dcf3e3 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6.5 12.5l3.6 3.6 7.4-8' fill='none' stroke='%2314663a' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat; flex: none; }
-.pill { position: absolute; left: 872px; top: 456px; width: 268px; text-align: center; font-size: 15px; font-weight: 700; color: #14663a; }
-svg.arrow { position: absolute; }
-.foot { position: absolute; left: 0; right: 0; bottom: 34px; text-align: center; font-size: 25px; font-weight: 600; color: #22302a; }
-.foot em { font-style: normal; color: #14663a; }
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="cover.css"><style>
+.art { background: #1c2b4b; }
+.box { width: 270px; height: 200px; top: 300px; }
+.box .back { position: absolute; left: 0; right: 0; top: 0; height: 200px; background: #c9935a; border-radius: 6px; }
+.box .lid { position: absolute; left: -14px; right: -14px; top: -26px; height: 40px; background: #b07a44; border-radius: 6px; }
+.box .label { position: absolute; left: 55px; top: 62px; width: 160px; height: 76px; background: #fffdf8; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; color: #1c2b4b; }
+.file { left: 445px; top: 70px; width: 310px; height: 390px; padding: 40px 30px; transform: rotate(4deg); color: #1c2b4b; }
+.file::before { content: ''; position: absolute; right: 0; top: 0; width: 60px; height: 60px; background: linear-gradient(225deg, #1c2b4b 50%, #e6dfcf 50%); border-bottom-left-radius: 6px; }
+.file .ext { display: inline-block; background: #ef7d57; color: #fff; font-weight: 800; font-size: 18px; border-radius: 6px; padding: 4px 12px; margin-bottom: 22px; }
+.file .c { font-size: 16px; line-height: 2; white-space: nowrap; }
+.file .c b { color: #b2442a; font-weight: 700; }
+.dash { top: 395px; height: 0; border-top: 4px dashed rgba(255,253,248,0.55); }
 </style></head><body><div class="art">
-<svg style="position:absolute;width:0;height:0"><defs><linearGradient id="wmgrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#0ea5e9"/><stop offset="50%" stop-color="#14b8a6"/><stop offset="100%" stop-color="#84cc16"/></linearGradient></defs></svg>
-<div class="bg"></div><div class="grid"></div>
-
-<div class="label" style="left:60px;top:66px"><b>1</b>Ditt nuvarande program</div>
-<div class="chip card" style="left:60px;top:132px"><img src="../../public/logos/fortnox.svg"><span>Fortnox</span></div>
-<div class="chip card" style="left:206px;top:132px"><img src="../../public/logos/spiris.png"><span>Spiris</span></div>
-<div class="chip card" style="left:60px;top:264px"><img src="../../public/logos/bokio.png"><span>Bokio</span></div>
-<div class="chip card" style="left:206px;top:264px"><img src="../../public/logos/bjornlunden.png"><span>Björn Lundén</span></div>
-<div class="chip card" style="left:60px;top:396px;width:278px;height:64px;flex-direction:row;gap:12px"><img src="../../public/logos/speedledger.png" style="width:34px;height:34px"><span>SpeedLedger m.fl.</span></div>
-
-<svg class="arrow" style="left:346px;top:262px" width="72" height="50" viewBox="0 0 72 50"><path d="M4 25h54" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M52 12l14 13-14 13" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-
-<div class="label" style="left:424px;top:66px"><b>2</b>SIE4-filen</div>
-<div class="file card">
-  <span class="badge mono">.se</span>
-  <h2 class="serif">SIE4</h2>
-  <p>Svensk standardfil för bokföring</p>
-  <div class="code mono"><i>#SIETYP</i> 4
-<i>#FNAMN</i> "Exempelbolaget AB"
-<i>#KONTO</i> 1930 "Företagskonto"
-<i>#IB</i> 0 1930 25000.00
-<i>#VER</i> "A" "1" 20260105
-<s>{</s> <i>#TRANS</i> 1510 {} 12500.00
-  <i>#TRANS</i> 3001 {} -10000.00 <s>}</s></div>
+<div class="abs dash" style="left:330px;width:110px"></div>
+<div class="abs dash" style="left:770px;width:110px"></div>
+<div class="abs box" style="left:60px"><div class="back"></div><div class="lid"></div><div class="label">Gamla</div></div>
+<div class="abs box" style="left:870px"><div class="back" style="background:#7fb59a"></div><div class="lid" style="background:#5f9a7d"></div><div class="label">Nya</div></div>
+<div class="abs file paper mono">
+  <span class="ext">.se</span>
+  <div class="c"><b>#FLAGGA</b> 0</div>
+  <div class="c"><b>#SIETYP</b> 4</div>
+  <div class="c"><b>#KONTO</b> 1930 "Bank"</div>
+  <div class="c"><b>#IB</b> 0 1930 25000</div>
+  <div class="c"><b>#VER</b> A 1 20260105</div>
+  <div class="c">{ <b>#TRANS</b> 1930 1250 }</div>
 </div>
-
-<svg class="arrow" style="left:788px;top:262px" width="72" height="50" viewBox="0 0 72 50"><path d="M4 25h54" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M52 12l14 13-14 13" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-
-<div class="label" style="left:872px;top:66px"><b>3</b>Bokix</div>
-<div class="bokix card">
-  <svg class="wm" viewBox="0 0 125 40" style="height:46px"><path d="{{WORDMARK_PATH}}" fill="url(#wmgrad)"/></svg>
-  <ul><li>Konton</li><li>Ingående balanser</li><li>Alla verifikationer</li></ul>
-</div>
-<div class="pill">Historiken följer med</div>
-
-<div class="foot">SIE4: flytta bokföringen <em>utan att tappa historiken</em></div>
+<div class="grain"></div>
 </div></body></html>

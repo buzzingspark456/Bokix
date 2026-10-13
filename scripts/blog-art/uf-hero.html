@@ -1,47 +1,28 @@
-<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="shared.css"><style>
-.bg { position: absolute; inset: 0; background: #f4f6f3; }
-.dots { position: absolute; inset: 0; background-image: radial-gradient(rgba(28,36,32,0.11) 1.2px, transparent 1.4px); background-size: 26px 26px; mask-image: radial-gradient(ellipse at 70% 40%, #000 20%, transparent 75%); }
-.ufchip { position: absolute; left: 60px; top: 56px; padding: 14px 22px; border-radius: 18px; }
-.ufchip img { height: 62px; width: auto; display: block; }
-h1 { position: absolute; left: 60px; top: 176px; font-size: 68px; line-height: 1.04; letter-spacing: -0.02em; font-weight: 700; color: #16241c; width: 600px; }
-h1 em { font-style: italic; color: #14663a; }
-.sub { position: absolute; left: 62px; top: 342px; font-size: 24px; color: #4b5a4f; font-weight: 500; width: 560px; line-height: 1.4; }
-.ledger { position: absolute; left: 706px; top: 92px; width: 436px; padding: 22px 24px 20px; border-radius: 22px; }
-.lh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.lh b { font-size: 17px; font-weight: 800; color: #1c2420; }
-.tag { font-size: 12.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #6b5a10; background: #fbeeb8; padding: 4px 10px; border-radius: 999px; }
-.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 13px 0; border-top: 1px solid #e9eee7; align-items: center; }
-.row strong { font-size: 16.5px; font-weight: 700; color: #1f2c25; }
-.row small { font-size: 13.5px; color: #6b7568; }
-.row .amt { grid-row: 1; grid-column: 2; font-size: 17px; font-weight: 800; text-align: right; }
-.row .st { grid-row: 2; grid-column: 2; justify-self: end; font-size: 12px; font-weight: 800; padding: 3px 9px; border-radius: 999px; }
-.pos { color: #14663a; } .neg { color: #b4321f; }
-.ok { background: #dcf3e3; color: #14663a; } .chk { background: #fbeeb8; color: #7a5b00; }
-.tl { position: absolute; left: 60px; right: 60px; top: 484px; height: 100px; }
-.tl .line { position: absolute; left: 12px; right: 12px; top: 13px; height: 4px; border-radius: 4px; background: linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16); opacity: 0.9; }
-.node { position: absolute; top: 0; width: 240px; }
-.node i { display: block; width: 30px; height: 30px; border-radius: 50%; background: #fff; border: 5px solid #14b8a6; box-shadow: 0 4px 10px rgba(20,40,30,0.18); }
-.node b { display: block; margin-top: 14px; font-size: 20px; font-weight: 800; color: #1c2420; }
-.node span { display: block; margin-top: 3px; font-size: 15px; color: #5d6b60; font-weight: 500; }
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="cover.css"><style>
+.art { background: #ee6a4d; }
+.book { left: 300px; top: 80px; width: 600px; height: 600px; background: #fffdf8; border-radius: 10px; transform: rotate(-3deg); box-shadow: 0 30px 50px -26px rgba(0,0,0,0.45); padding: 70px 56px 0 92px; color: #23324f;
+  background-image: repeating-linear-gradient(180deg, transparent 0 47px, #c9d9ec 47px 49px); background-position: 0 104px; }
+.book::before { content: ''; position: absolute; left: 66px; top: 0; bottom: 0; width: 2px; background: #f19c8a; }
+.rings { position: absolute; left: 14px; top: 40px; display: grid; gap: 32px; }
+.rings i { display: block; width: 36px; height: 16px; border-radius: 10px; border: 4px solid #8b94a3; background: #ee6a4d; }
+.h { font-size: 34px; margin-bottom: 18px; }
+.r { display: flex; justify-content: space-between; height: 49px; align-items: flex-end; padding-bottom: 6px; font-size: 25px; }
+.plus { color: #1d7a46; } .minus { color: #c0392b; }
+.coins { left: 940px; top: 360px; }
+.coin { position: absolute; width: 130px; height: 34px; border-radius: 50%; background: #f6c445; border: 3px solid #c7951f; }
 </style></head><body><div class="art">
-<svg style="position:absolute;width:0;height:0"><defs><linearGradient id="wmgrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#0ea5e9"/><stop offset="50%" stop-color="#14b8a6"/><stop offset="100%" stop-color="#84cc16"/></linearGradient></defs></svg>
-<div class="bg"></div><div class="dots"></div>
-<div class="ufchip card"><img src="../../public/logos/uf-logo.svg" alt=""></div>
-<h1 class="serif">Bokföring under <em>UF-året</em></h1>
-<div class="sub">Fem vanor som gör bokslutet enkelt, från första kvittot till sista bokslutet.</div>
-
-<div class="ledger card">
-  <div class="lh"><svg viewBox="0 0 125 40" style="height:30px;width:auto"><path d="{{WORDMARK_PATH}}" fill="url(#wmgrad)"/></svg><span class="tag">Exempel</span></div>
-  <div class="row"><strong>Kvitto: material</strong><span class="amt neg">−1 200 kr</span><small>Foto uppladdat samma dag</small><span class="st ok">Bokförd</span></div>
-  <div class="row"><strong>Faktura 3: kund</strong><span class="amt pos">+2 400 kr</span><small>Skickad på mejl</small><span class="st ok">Betald</span></div>
-  <div class="row"><strong>Swish: mässan</strong><span class="amt pos">+950 kr</span><small>Rad på kontoutdraget</small><span class="st ok">Bokförd</span></div>
-  <div class="row"><strong>Kontoavgift</strong><span class="amt neg">−29 kr</span><small>Saknar underlag</small><span class="st chk">Kontrollera</span></div>
+<div class="abs book">
+  <div class="rings"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="h hand">Vårt UF-år</div>
+  <div class="r hand"><span>Startkapital</span><span class="plus">+3 000</span></div>
+  <div class="r hand"><span>Material</span><span class="minus">−1 200</span></div>
+  <div class="r hand"><span>Julmarknaden</span><span class="plus">+2 400</span></div>
+  <div class="r hand"><span>Swish-avgift</span><span class="minus">−29</span></div>
+  <div class="r hand"><span>Kvitto sparat ✓</span><span></span></div>
 </div>
-
-<div class="tl"><div class="line"></div>
-  <div class="node" style="left:0"><i></i><b>Starta</b><span>Bankkonto och startkapital</span></div>
-  <div class="node" style="left:300px"><i></i><b>Sälja</b><span>Fakturor, kvitton, mässor</span></div>
-  <div class="node" style="left:600px"><i></i><b>Bokföra löpande</b><span>En gång i veckan</span></div>
-  <div class="node" style="left:900px"><i></i><b>Avsluta</b><span>Bokslut på våren</span></div>
+<div class="abs coins">
+  <div class="coin" style="top:120px"></div><div class="coin" style="top:96px"></div><div class="coin" style="top:72px"></div><div class="coin" style="top:48px"></div><div class="coin" style="top:24px"></div>
+  <div class="coin" style="top:150px;left:-80px"></div><div class="coin" style="top:126px;left:-80px"></div>
 </div>
+<div class="grain"></div>
 </div></body></html>

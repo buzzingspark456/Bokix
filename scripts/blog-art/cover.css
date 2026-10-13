@@ -1,0 +1,16 @@
+/* Bloggens omslag sedan 2026-10-13: en egen bakgrundsfärg och ett eget
+   föremål per inlägg, platt tecknat, ingen text som upprepar rubriken.
+   Kornet (.grain) gör ytan mer tryckt och mindre datorblank. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1200px; height: 630px; overflow: hidden; }
+body { font-family: 'Inter', 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
+.art { position: relative; width: 1200px; height: 630px; overflow: hidden; }
+.abs { position: absolute; }
+.serif { font-family: Georgia, 'Times New Roman', serif; }
+.mono { font-family: 'Cascadia Mono', Consolas, Menlo, monospace; }
+.hand { font-family: 'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive; }
+.paper { background: #fffdf8; border-radius: 6px; box-shadow: 0 2px 0 rgba(0,0,0,0.05), 0 28px 40px -22px rgba(0,0,0,0.38); }
+.grain { position: absolute; inset: 0; pointer-events: none; opacity: 0.16; mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.line { height: 9px; border-radius: 5px; background: currentColor; opacity: 0.18; }

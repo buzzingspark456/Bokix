@@ -1,56 +1,23 @@
-<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="shared.css"><style>
-.bg { position: absolute; inset: 0; background: #f4f6f3; }
-.grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(28,36,32,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(28,36,32,0.045) 1px, transparent 1px); background-size: 40px 40px; mask-image: radial-gradient(ellipse at center, #000 30%, transparent 78%); }
-
-.bolag { position: absolute; left: 60px; top: 224px; width: 168px; height: 150px; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-.bolag .ic { width: 44px; height: 44px; border-radius: 12px; background: #eef1ec; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
-.bolag b { font-size: 15px; color: #1c2420; }
-.bolag span { font-size: 11.5px; color: #6b7568; margin-top: 3px; }
-
-.path { position: absolute; width: 320px; }
-.path .hd { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 800; color: #1c2420; margin-bottom: 12px; }
-.path .hd i { width: 10px; height: 10px; border-radius: 50%; display: block; }
-.path .row { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-top: 1px solid #eef1ec; font-size: 12.5px; color: #33423a; }
-.path .row:first-of-type { border-top: 0; }
-.path .row b { color: #1c2420; font-weight: 700; text-align: right; }
-
-svg.arrow { position: absolute; }
-.foot { position: absolute; left: 0; right: 0; bottom: 34px; text-align: center; font-size: 25px; font-weight: 600; color: #22302a; }
-.foot em { font-style: normal; color: #14663a; }
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="cover.css"><style>
+.art { background: linear-gradient(90deg, #b9cdb0 50%, #f0d6c0 50%); }
+.slip { left: 150px; top: 130px; width: 330px; height: 400px; padding: 34px 30px; transform: rotate(-5deg); color: #24362b; }
+.slip h4 { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
+.slip .s { font-size: 15px; color: #7a857c; margin-bottom: 24px; }
+.slip .l { display: flex; justify-content: space-between; font-size: 18px; padding: 11px 0; border-top: 1.5px solid #ece5d6; }
+.slip .t { font-weight: 800; font-size: 21px; }
+.pie { left: 720px; top: 140px; width: 340px; height: 340px; border-radius: 50%; background: conic-gradient(#c8553d 0 38%, #2f4858 38% 100%); box-shadow: 0 30px 50px -26px rgba(0,0,0,0.45); }
+.slice { left: 760px; top: 110px; width: 340px; height: 340px; border-radius: 50%; background: conic-gradient(#c8553d 0 38%, transparent 38% 100%); transform: translate(26px,-22px); }
+.or { left: 560px; top: 270px; width: 80px; height: 80px; border-radius: 50%; background: #fffdf8; display: flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-style: italic; font-size: 28px; color: #333; box-shadow: 0 12px 24px -12px rgba(0,0,0,0.35); }
 </style></head><body><div class="art">
-<div class="bg"></div><div class="grid"></div>
-
-<div class="bolag card">
-  <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2" stroke="#33423a" stroke-width="2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="#33423a" stroke-width="2" stroke-linecap="round"/></svg></div>
-  <b>Ditt AB</b>
-  <span>Ett fåmansföretag</span>
+<div class="abs slip paper">
+  <h4>Lönebesked</h4>
+  <div class="s">Oktober 2026</div>
+  <div class="l"><span>Bruttolön</span><span>35 000</span></div>
+  <div class="l"><span>Skatt</span><span>−8 900</span></div>
+  <div class="l t"><span>Att betala</span><span>26 100</span></div>
 </div>
-
-<svg class="arrow" style="left:246px;top:210px" width="90" height="90" viewBox="0 0 90 90"><path d="M6 45q30 -46 78 -30" fill="none" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M74 6l10 9-9 10" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-<svg class="arrow" style="left:246px;top:340px" width="90" height="90" viewBox="0 0 90 90"><path d="M6 45q30 46 78 30" fill="none" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M74 84l10 -9-9 -10" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-
-<div class="path card" style="left:360px;top:76px;padding:24px 26px">
-  <div class="hd"><i style="background:#0ea5e9"></i>Lön</div>
-  <div class="row"><span>Bokförs</span><b>Varje månad</b></div>
-  <div class="row"><span>Kostar bolaget</span><b>Lön + avgifter</b></div>
-  <div class="row"><span>Ger</span><b>Pensionsgrundande</b></div>
-</div>
-
-<div class="path card" style="left:360px;top:364px;padding:24px 26px">
-  <div class="hd"><i style="background:#84cc16"></i>Utdelning</div>
-  <div class="row"><span>Beslutas</span><b>På bolagsstämman</b></div>
-  <div class="row"><span>Kräver</span><b>Utdelningsbara medel</b></div>
-  <div class="row"><span>Ger</span><b>Ingen pensionsrätt</b></div>
-</div>
-
-<svg class="arrow" style="left:704px;top:210px" width="90" height="90" viewBox="0 0 90 90"><path d="M6 15q40 15 12 60" fill="none" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M8 62l8 13 13 -8" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-<svg class="arrow" style="left:704px;top:340px" width="90" height="90" viewBox="0 0 90 90"><path d="M6 75q40 -15 12 -60" fill="none" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M8 28l8 -13 13 8" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-
-<div class="bolag card" style="left:872px;width:268px">
-  <div class="ic" style="background:#dcf3e3"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M6 8a3 3 0 013-3h4.5a3 3 0 010 6H9a3 3 0 000 6h6" stroke="#14663a" stroke-width="2" stroke-linecap="round"/></svg></div>
-  <b>Pengarna ur bolaget</b>
-  <span>Två vägar, olika skatt och olika villkor</span>
-</div>
-
-<div class="foot">Lön eller utdelning: <em>två vägar ur bolaget</em></div>
+<div class="abs pie" style="background:conic-gradient(transparent 0 38%, #2f4858 38% 100%)"></div>
+<div class="abs slice" style="left:720px;top:140px"></div>
+<div class="abs or">eller</div>
+<div class="grain"></div>
 </div></body></html>

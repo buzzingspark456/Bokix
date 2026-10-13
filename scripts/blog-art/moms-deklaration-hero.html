@@ -1,76 +1,28 @@
-<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="shared.css"><style>
-.bg { position: absolute; inset: 0; background: #f4f6f3; }
-.grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(28,36,32,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(28,36,32,0.045) 1px, transparent 1px); background-size: 40px 40px; mask-image: radial-gradient(ellipse at center, #000 30%, transparent 78%); }
-.label { position: absolute; top: 66px; font-size: 15px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5d6b60; display: flex; align-items: center; gap: 10px; }
-.label b { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; background: #0e2018; color: #fff; font-size: 13px; align-items: center; justify-content: center; letter-spacing: 0; }
-
-.receipts { position: absolute; left: 60px; top: 132px; width: 272px; padding: 22px 22px; height: 356px; }
-.receipts h3 { font-size: 15px; font-weight: 800; color: #1c2420; margin-bottom: 14px; }
-.rline { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-top: 1px solid #eef1ec; font-size: 13.5px; color: #33423a; }
-.rline:first-of-type { border-top: 0; }
-.rline b { color: #1c2420; }
-.rtag { font-size: 10.5px; font-weight: 800; letter-spacing: 0.04em; padding: 3px 8px; border-radius: 999px; background: #dcf3e3; color: #14663a; white-space: nowrap; }
-
-.rutor { position: absolute; left: 424px; top: 132px; width: 352px; height: 356px; padding: 26px 28px; }
-.rutor h3 { font-size: 15px; font-weight: 800; color: #1c2420; margin-bottom: 4px; }
-.rutor .sub { font-size: 13px; color: #5d6b60; margin-bottom: 16px; }
-.rrow { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid #eef1ec; }
-.rrow:first-of-type { border-top: 0; }
-.rnum { font-family: 'Cascadia Mono', Consolas, monospace; font-size: 12.5px; font-weight: 800; color: #0b5d99; background: #dbeafb; border-radius: 7px; padding: 3px 8px; flex: none; width: 30px; text-align: center; }
-.rrow span { font-size: 13.5px; color: #33423a; flex: 1; }
-.rrow b { font-size: 14.5px; color: #1c2420; }
-.rrow.net { border-top: 1.5px dashed #ccd6cd; margin-top: 4px; padding-top: 13px; }
-.rrow.net .rnum { background: #dcf3e3; color: #14663a; }
-
-.out { position: absolute; left: 872px; top: 132px; width: 268px; height: 356px; padding: 26px 26px; }
-.out h3 { font-size: 15px; font-weight: 800; color: #1c2420; margin-bottom: 16px; }
-.out ul { list-style: none; display: grid; gap: 13px; }
-.out li { display: flex; align-items: center; gap: 11px; font-size: 14.5px; font-weight: 600; color: #2d3a31; }
-.out li::before { content: ''; width: 22px; height: 22px; border-radius: 50%; background: #dcf3e3 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6.5 12.5l3.6 3.6 7.4-8' fill='none' stroke='%2314663a' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat; flex: none; }
-.out .pill { margin-top: 20px; font-size: 13px; font-weight: 700; color: #14663a; background: #dcf3e3; border-radius: 10px; padding: 10px 12px; text-align: center; }
-
-svg.arrow { position: absolute; top: 296px; }
-.foot { position: absolute; left: 0; right: 0; bottom: 34px; text-align: center; font-size: 25px; font-weight: 600; color: #22302a; }
-.foot em { font-style: normal; color: #14663a; }
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="cover.css"><style>
+.art { background: #cfe2f3; }
+.cal { left: 170px; top: 110px; width: 380px; height: 420px; border-radius: 16px; overflow: hidden; transform: rotate(-5deg); box-shadow: 0 30px 50px -26px rgba(20,40,80,0.45); background: #fffdf8; text-align: center; color: #1d2b44; }
+.cal .top { height: 110px; background: #d8473a; color: #fff; font-size: 40px; font-weight: 800; letter-spacing: 0.14em; display: flex; align-items: center; justify-content: center; }
+.cal .rings { position: absolute; top: -14px; left: 0; right: 0; display: flex; justify-content: space-around; padding: 0 70px; }
+.cal .rings i { width: 18px; height: 44px; border-radius: 9px; background: #44516b; }
+.cal .num { font-family: Georgia, serif; font-size: 190px; font-weight: 700; line-height: 1; margin-top: 30px; }
+.cal .day { font-size: 24px; font-weight: 600; color: #6b7891; margin-top: 8px; }
+.form { left: 640px; top: 90px; width: 400px; height: 470px; padding: 36px 34px; transform: rotate(3deg); color: #1d2b44; }
+.form h4 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+.form .sub { font-size: 15px; color: #6b7891; margin-bottom: 22px; }
+.rr { display: flex; align-items: center; gap: 14px; height: 54px; border-top: 1.5px solid #e6e0d2; }
+.rr .n { width: 46px; height: 34px; border: 2px solid #1d2b44; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; }
+.rr .bar { flex: 1; height: 10px; border-radius: 5px; background: #dde6f1; }
+.rr .v { font-size: 21px; color: #1f4fb5; width: 96px; text-align: right; }
 </style></head><body><div class="art">
-<svg style="position:absolute;width:0;height:0"><defs><linearGradient id="wmgrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#0ea5e9"/><stop offset="50%" stop-color="#14b8a6"/><stop offset="100%" stop-color="#84cc16"/></linearGradient></defs></svg>
-<div class="bg"></div><div class="grid"></div>
-
-<div class="label" style="left:60px"><b>1</b>Kvartalets underlag</div>
-<div class="receipts card">
-  <h3>Kvitton &amp; fakturor</h3>
-  <div class="rline"><span>Kundfaktura 1082</span><b>18 750</b></div>
-  <div class="rline"><span>Drivmedel, kvitto</span><b>612</b></div>
-  <div class="rline"><span>Kontorsmaterial</span><b>1 240</b></div>
-  <div class="rline"><span>Molntjänst, EU</span><b>349</b></div>
-  <div class="rline"><span>Kundfaktura 1083</span><b>9 400</b></div>
-  <div class="rline" style="border-top:1.5px dashed #ccd6cd;margin-top:6px;padding-top:14px"><span style="font-weight:700;color:#1c2420">Redan bokförda</span><span class="rtag">KLART</span></div>
+<div class="abs cal"><div class="top">FEB</div><div class="num">12</div><div class="day">torsdag</div></div>
+<div class="abs cal" style="background:none;box-shadow:none;overflow:visible"><div class="rings"><i></i><i></i></div></div>
+<div class="abs form paper">
+  <h4>Momsdeklaration</h4>
+  <div class="sub">Okt – dec 2025</div>
+  <div class="rr"><span class="n">05</span><span class="bar"></span><span class="v hand">48 000</span></div>
+  <div class="rr"><span class="n">10</span><span class="bar"></span><span class="v hand">12 000</span></div>
+  <div class="rr"><span class="n">48</span><span class="bar"></span><span class="v hand">3 150</span></div>
+  <div class="rr"><span class="n">49</span><span class="bar"></span><span class="v hand">8 850</span></div>
 </div>
-
-<svg class="arrow" style="left:346px" width="72" height="50" viewBox="0 0 72 50"><path d="M4 25h54" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M52 12l14 13-14 13" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-
-<div class="label" style="left:424px"><b>2</b>Momsdeklarationen</div>
-<div class="rutor card">
-  <h3>Bokix fyller i rutorna</h3>
-  <div class="sub">SKV 4700, ruta för ruta</div>
-  <div class="rrow"><span class="rnum">05</span><span>Momspliktig försäljning</span></div>
-  <div class="rrow"><span class="rnum">10</span><span>Utgående moms 25 %</span><b>7 038</b></div>
-  <div class="rrow"><span class="rnum">48</span><span>Ingående moms</span><b>441</b></div>
-  <div class="rrow net"><span class="rnum">49</span><span style="font-weight:700;color:#1c2420">Att betala</span><b>6 597</b></div>
-</div>
-
-<svg class="arrow" style="left:788px" width="72" height="50" viewBox="0 0 72 50"><path d="M4 25h54" stroke="#0e2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/><path d="M52 12l14 13-14 13" fill="none" stroke="#0e2018" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-
-<div class="label" style="left:872px"><b>3</b>Du lämnar in</div>
-<div class="out card">
-  <h3>Redo för Skatteverket</h3>
-  <ul>
-    <li>PDF att kontrollera</li>
-    <li>eSKD-fil att ladda upp</li>
-    <li>Påminnelse i god tid</li>
-  </ul>
-  <div class="pill">Du signerar, aldrig Bokix</div>
-</div>
-
-<div class="foot">Momsdeklarationen: <em>rätt rutor, ingen gissning</em></div>
+<div class="grain"></div>
 </div></body></html>
