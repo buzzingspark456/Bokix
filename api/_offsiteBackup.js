@@ -41,7 +41,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const TABLES = [
   'user_data', 'subscriptions', 'company_members', 'email_senders',
   'stripe_payment_events', 'stripe_ledger_events', 'zettle_ledger_events',
-  'audit_log', 'blog_posts', 'contact_messages', 'cron_progress',
+  'audit_log', 'contact_messages', 'cron_progress',
   'inbox_addresses', 'inbox_items', 'login_events', 'security_events',
 ];
 

@@ -1,7 +1,8 @@
 // Hälsokoll för en extern upptidsövervakare (t.ex. UptimeRobot eller Better
 // Stack): GET /api/health svarar 200 när funktionerna kör och databasen
-// svarar, annars 503. Läser bara antalet publicerade blogginlägg (en
-// publik tabell), så svaret avslöjar ingenting.
+// svarar, annars 503. Frågar contact_messages som anonym: RLS ger alltid
+// noll rader, så svaret avslöjar ingenting. (Tidigare blog_posts, som är
+// borttagen ur databasen sedan oktober 2026.)
 import { createClient } from '@supabase/supabase-js';
 import { applySecurityHeaders } from './_security.js';
 
@@ -24,7 +25,7 @@ export default async function handler(req, res) {
   const started = Date.now();
   try {
     const query = createClient(url, anonKey, { auth: { persistSession: false } })
-      .from('blog_posts').select('id', { count: 'exact', head: true });
+      .from('contact_messages').select('id', { count: 'exact', head: true });
     // Timern rensas efteråt, annars håller den funktionen vid liv i onödan.
     let timer;
     const timeout = new Promise(resolve => { timer = setTimeout(() => resolve({ error: new Error('timeout') }), 5000); });
