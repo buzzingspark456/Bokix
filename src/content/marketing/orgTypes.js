@@ -24,8 +24,8 @@ export const ORG_TYPE_PAGES = [
     seoTitle: 'Bokföringsprogram för enskild firma, från 129 kr/mån | Bokix',
     seoDescription: 'Bokix är ett enkelt bokföringsprogram för enskild firma. Kvitton, fakturor, moms och NE-bilaga i ett verktyg. 30 dagar gratis, sedan 129 kr/mån.',
     eyebrow: 'Bokföringsprogram för enskild firma',
-    title: 'Bokföring för enskild firma, utan krångel',
-    lead: 'Fota kvittot, skicka fakturan och låt Bokix räkna momsen. När året är slut får du förslag till NE-bilagan direkt ur bokföringen. Du behöver inte kunna debet och kredit.',
+    title: 'Bokföringsprogram för enskild firma',
+    lead: 'Fota kvittot och skicka fakturan. När året är slut får du förslag till NE-bilagan.',
     highlights: ['Kvitton läses av från ett foto', 'Fakturor med egen logga', 'Momsdeklaration som fil', 'Förslag till NE-bilagan'],
     included: [
       'Löpande bokföring i ett enkelt läge, där du väljer vad som hänt i stället för konton.',
@@ -63,8 +63,8 @@ export const ORG_TYPE_PAGES = [
     seoTitle: 'Bokföringsprogram för aktiebolag, från 129 kr/mån | Bokix',
     seoDescription: 'Bokix är ett enkelt bokföringsprogram för aktiebolag. Fakturor, moms, lön, INK2 och årsredovisning enligt K2 i ett verktyg. 30 dagar gratis.',
     eyebrow: 'Bokföringsprogram för aktiebolag',
-    title: 'Bokföring för aktiebolag, från kvitto till årsredovisning',
-    lead: 'Fakturor, kvitton, moms och lön under året. Vid bokslutet räknar Bokix fram INK2 och gör årsredovisningen enligt K2 som en PDF att skriva under. Allt i samma verktyg.',
+    title: 'Bokföringsprogram för aktiebolag',
+    lead: 'Fakturor, lön och moms under året. INK2 och årsredovisning när året är slut.',
     highlights: ['Lön med AGI-fil', 'INK2 med SRU-fil', 'Årsredovisning enligt K2', 'Utdelning bokförd rätt'],
     included: [
       'Löpande bokföring med BAS-kontoplanen, med ett enkelt läge för dig som inte kan debet och kredit.',
@@ -102,8 +102,8 @@ export const ORG_TYPE_PAGES = [
     seoTitle: 'Bokföringsprogram för handelsbolag och KB | Bokix',
     seoDescription: 'Bokix är ett enkelt bokföringsprogram för handelsbolag och kommanditbolag. Fakturor, moms, lön och INK4 med delägaruppgifter i ett verktyg. 30 dagar gratis.',
     eyebrow: 'Bokföringsprogram för handelsbolag',
-    title: 'Bokföring för handelsbolag och kommanditbolag',
-    lead: 'Fakturor, kvitton, moms och lön på ett ställe, och ett bokslut som tar hänsyn till att resultatet fördelas på delägarna. Upp till tre personer kan arbeta i samma bokföring.',
+    title: 'Bokföringsprogram för handelsbolag',
+    lead: 'Bokföringen för hela bolaget, och underlaget till varje delägares deklaration.',
     highlights: ['Tre användare ingår', 'INK4 som SRU-fil', 'Bokslut per delägare', 'Lön med AGI-fil'],
     included: [
       'Löpande bokföring med BAS-kontoplanen, med ett enkelt läge utan debet och kredit.',
@@ -143,8 +143,8 @@ export const ORG_TYPE_PAGES = [
     seoTitle: 'Bokföringsprogram för ekonomisk förening | Bokix',
     seoDescription: 'Bokix är ett enkelt bokföringsprogram för ekonomiska föreningar. Fakturor, moms, lön, INK2 och årsredovisning enligt K2 i ett verktyg. 30 dagar gratis.',
     eyebrow: 'Bokföringsprogram för ekonomisk förening',
-    title: 'Bokföring för ekonomisk förening',
-    lead: 'Fakturor till medlemmar och kunder, kvitton, moms och lön på ett ställe. Vid bokslutet räknar Bokix fram INK2 och gör årsredovisningen enligt K2. Flera i styrelsen kan arbeta i samma bokföring.',
+    title: 'Bokföringsprogram för ekonomisk förening',
+    lead: 'Kassör, styrelse och revisor i samma bokföring, ända fram till årsredovisningen.',
     highlights: ['Tre användare ingår', 'INK2 med SRU-fil', 'Årsredovisning enligt K2', 'Rapporter till styrelsen'],
     included: [
       'Löpande bokföring med BAS-kontoplanen, med ett enkelt läge utan debet och kredit.',

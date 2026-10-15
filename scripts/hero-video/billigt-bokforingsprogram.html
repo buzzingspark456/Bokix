@@ -1,0 +1,32 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="scene.css"><style>
+/* Billigt: prislappen gungar in på sitt snöre medan det som ingår bockas av ett i taget. */
+.stage { background: #e6efb5; }
+.swing { left: 0; top: 0; width: 520px; height: 800px; transform-origin: 270px 0; animation: swing 10s both; animation-delay: 0.2s; }
+@keyframes swing { 0% { transform: rotate(-22deg); animation-timing-function: ease-in-out; } 5% { transform: rotate(13deg); animation-timing-function: ease-in-out; } 10% { transform: rotate(-8deg); animation-timing-function: ease-in-out; } 15% { transform: rotate(4.5deg); animation-timing-function: ease-in-out; } 20% { transform: rotate(-2deg); animation-timing-function: ease-in-out; } 25% { transform: rotate(0.6deg); } 30%, 100% { transform: rotate(0deg); } }
+.tag { left: 80px; top: 250px; width: 380px; height: 290px; border-radius: 30px; padding: 54px 44px 40px; }
+.hole { position: absolute; left: 50%; top: 22px; width: 26px; height: 26px; margin-left: -13px; border-radius: 50%; background: #e6efb5; box-shadow: inset 0 3px 5px rgba(0,0,0,0.25); }
+.list { left: 560px; top: 150px; width: 330px; padding: 22px 26px; }
+.it { display: flex; align-items: center; justify-content: space-between; padding: 13px 0; border-top: 2px solid #efe8da; font-size: 20px; font-weight: 600; }
+.it:first-of-type { border-top: 0; }
+.tick { width: 30px; height: 30px; border-radius: 50%; background: #1f7a4a; display: flex; align-items: center; justify-content: center; }
+</style></head><body><div class="stage"><div class="scene">
+<div class="abs swing">
+  <svg class="abs" style="left: 0; top: 0" width="520" height="300"><path d="M270 0 L270 262" stroke="#7a8a4a" stroke-width="4" stroke-linecap="round"/></svg>
+  <div class="abs paper tag">
+    <span class="hole"></span>
+    <div class="label" style="text-align: center">Med anställda</div>
+    <div class="serif" style="font-size: 112px; font-weight: 700; text-align: center; line-height: 1.05; margin-top: 10px; letter-spacing: -0.03em">179<span style="font-size: 40px"> kr</span></div>
+    <div class="muted" style="text-align: center; font-size: 21px; font-weight: 600; margin-top: 6px">i månaden, lön ingår</div>
+  </div>
+</div>
+<div class="abs paper list a" style="animation-name: slide; animation-delay: 0.6s">
+  <div class="label" style="margin-bottom: 8px">Ingår</div>
+  <div class="it">Fakturor <span class="tick a" style="animation-name: pop; animation-delay: 2.2s"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+  <div class="it">Lön <span class="tick a" style="animation-name: pop; animation-delay: 2.7s"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+  <div class="it">Moms <span class="tick a" style="animation-name: pop; animation-delay: 3.2s"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+  <div class="it">Bokslut <span class="tick a" style="animation-name: pop; animation-delay: 3.7s"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+  <div class="it">Lager <span class="tick a" style="animation-name: pop; animation-delay: 4.2s"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+  <div class="it">Support <span class="tick a" style="animation-name: pop; animation-delay: 4.7s"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+</div>
+<div class="abs a" style="left: 120px; top: 600px; animation-name: pop; animation-delay: 5.6s"><span class="chip" style="background: #4d7c0f">129 kr utan anställda</span></div>
+</div><div class="grain"></div></div></body></html>

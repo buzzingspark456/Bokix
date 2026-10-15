@@ -266,7 +266,7 @@ export default function SwitchPage() {
       <KitSection title="Vanliga frågor om att byta" alt>
         <KitFaq items={FAQ} />
         <p className="kx-row-body" style={{ marginTop: '20px', fontSize: '14px', color: MUTED }}>
-          Osäker på vad SIE4 är? Läs <Link to="/blogg/sie4-flytta-bokforing" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>SIE4 förklarat: så flyttar du bokföringen</Link>.
+          Osäker på vad SIE4 är? Läs <Link to="/blogg/sie4-flytta-bokforing" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>SIE4 förklarat: så flyttar du bokföringen</Link>. Kommer du från Fortnox? Se <Link to="/alternativ-till-fortnox" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>Bokix som alternativ till Fortnox</Link>.
         </p>
       </KitSection>
 

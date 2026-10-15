@@ -25,6 +25,7 @@ import { BOKIX_SUMMARY, BOKIX_FACTS, BOKIX_FEATURES, BOKIX_DIFFERENT, BOKIX_NOT_
 import { GUIDE_GROUPS, GUIDE_UPLOAD_DATE } from '../src/content/marketing/guides.js';
 import { schemaDate } from '../src/utils/schemaDate.js';
 import { ORG_TYPE_PAGES } from '../src/content/marketing/orgTypes.js';
+import { FEATURE_PAGES, HERO_VIDEO_DATE, HERO_VIDEO_DURATION, heroVideoFile } from '../src/content/marketing/featurePages.js';
 import { MARKETING_ROUTES, DEFAULT_LOCALE, LOCALE_META, availableLocalesFor, localizedPath } from '../src/content/marketing/routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -151,6 +152,10 @@ const SITEMAP_MANIFEST = [
   { path: '/priser', changefreq: 'monthly', priority: '0.8' },
   { path: '/byt-bokforingsprogram', changefreq: 'monthly', priority: '0.8' },
   ...ORG_TYPE_PAGES.map(p => ({ path: p.path, changefreq: 'monthly', priority: '0.8' })),
+  ...FEATURE_PAGES.map(p => ({
+    path: p.path, changefreq: 'monthly', priority: '0.8',
+    video: p.video ? { url: `${SITE_URL}/videos/hero/${heroVideoFile(p)}.mp4`, thumbnail: `${SITE_URL}/videos/hero/${heroVideoFile(p)}.jpg`, title: p.video.title, description: p.video.description, duration: HERO_VIDEO_DURATION, date: HERO_VIDEO_DATE } : null,
+  })),
   { path: '/koppla-bank', changefreq: 'monthly', priority: '0.8' },
   { path: '/uf', changefreq: 'monthly', priority: '0.8' },
   { path: '/lon', changefreq: 'monthly', priority: '0.7' },
@@ -227,10 +232,11 @@ function generateSitemap() {
       const duration = durationParts
         ? Number(durationParts[1] || 0) * 3600 + Number(durationParts[2] || 0) * 60 + Number(durationParts[3] || 0)
         : 0;
-      const videoUrl = `${SITE_URL}/videos/${u.video.slug}.mp4`;
-      const thumbnailUrl = `${SITE_URL}/videos/${u.video.slug}.jpg`;
-      const description = `${u.video.lead} Se videon och läs hela instruktionen.`;
-      return `\n    <video:video>\n      <video:thumbnail_loc>${xmlEscape(thumbnailUrl)}</video:thumbnail_loc>\n      <video:title>${xmlEscape(u.video.title)}</video:title>\n      <video:description>${xmlEscape(description)}</video:description>\n      <video:content_loc>${xmlEscape(videoUrl)}</video:content_loc>\n      <video:duration>${duration}</video:duration>\n      <video:publication_date>${schemaDate(GUIDE_UPLOAD_DATE)}</video:publication_date>\n    </video:video>`;
+      // Videoguider har slug/lead; filmerna på funktionssidorna har färdiga url:er.
+      const videoUrl = u.video.url || `${SITE_URL}/videos/${u.video.slug}.mp4`;
+      const thumbnailUrl = u.video.thumbnail || `${SITE_URL}/videos/${u.video.slug}.jpg`;
+      const description = u.video.url ? u.video.description : `${u.video.lead} Se videon och läs hela instruktionen.`;
+      return `\n    <video:video>\n      <video:thumbnail_loc>${xmlEscape(thumbnailUrl)}</video:thumbnail_loc>\n      <video:title>${xmlEscape(u.video.title)}</video:title>\n      <video:description>${xmlEscape(description)}</video:description>\n      <video:content_loc>${xmlEscape(videoUrl)}</video:content_loc>\n      <video:duration>${duration}</video:duration>\n      <video:publication_date>${schemaDate(u.video.date || GUIDE_UPLOAD_DATE)}</video:publication_date>\n    </video:video>`;
     })() : '';
     return `  <url>\n    <loc>${xmlEscape(u.loc)}</loc>${alternateTags}${lastmod}${imageTags}${videoTags}\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`;
   }).join('\n');

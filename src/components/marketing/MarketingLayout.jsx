@@ -156,7 +156,9 @@ export const NAV_MENUS = [
         title: 'Produkten',
         items: [
           { title: 'Bokföring & fakturering', desc: 'Kvitton, fakturor, moms och bokslut', to: '/funktioner' },
+          { title: 'Faktureringsprogram', desc: 'Egen logga, kortbetalning, ROT och RUT', to: '/faktureringsprogram' },
           { title: 'Lön & arbetsgivare', desc: 'Lönebesked, skatteavdrag och AGI-fil', to: '/lon' },
+          { title: 'Lager & artiklar', desc: 'Lagervärde, FIFO och marginal', to: '/bokforingsprogram-med-lager' },
           { title: 'Koppla banken', desc: 'Läs in kontoutdraget från din bank', to: '/koppla-bank' },
           { title: 'Integrationer', desc: 'Stripe, Zettle och filformat', to: '/integrationer' },
         ],
@@ -164,6 +166,7 @@ export const NAV_MENUS = [
       {
         title: 'Kom igång',
         items: [
+          { title: 'Nystartat företag', desc: 'Bokför rätt från dag ett', to: '/bokforingsprogram-nystartat-foretag' },
           { title: 'Byt till Bokix', desc: 'Flytta bokföringen med en SIE4-fil', to: '/byt-bokforingsprogram' },
           { title: 'Säkerhet', desc: 'Så skyddas din bokföring', to: '/sakerhet' },
         ],
@@ -1566,18 +1569,17 @@ const FOOTER_COLUMNS = [
     links: [
       { label: 'Funktioner', to: '/funktioner' },
       { label: 'Priser', to: '/priser' },
+      { label: 'Fakturering', to: '/faktureringsprogram' },
       { label: 'Lön och arbetsgivare', to: '/lon' },
+      { label: 'Lager och artiklar', to: '/bokforingsprogram-med-lager' },
       { label: 'Integrationer', to: '/integrationer' },
-      { label: 'Koppla banken', to: '/koppla-bank' },
-      { label: 'Bokix på mobilen', to: '/lagg-till-pa-hemskarmen' },
-      { label: 'Säkerhet', to: '/sakerhet' },
     ],
   },
   {
     // En sida per bolagsform (content/marketing/orgTypes.js): interna länkar
     // från varje sida till de sidor som ska synas på "bokföringsprogram".
     heading: 'Bokföringsprogram för',
-    links: ORG_TYPE_PAGES.map(p => ({ label: p.short, to: p.path })),
+    links: [...ORG_TYPE_PAGES.map(p => ({ label: p.short, to: p.path })), { label: 'Nystartade företag', to: '/bokforingsprogram-nystartat-foretag' }],
   },
   {
     // Bara de fyra mest sökta verktygen + "Alla verktyg", inte alla nio,
@@ -1597,6 +1599,7 @@ const FOOTER_COLUMNS = [
       { label: 'Vanliga frågor', to: '/vanliga-fragor' },
       { label: 'Bokföringsordlista', to: '/ordlista' },
       { label: 'Byt till Bokix', to: '/byt-bokforingsprogram' },
+      { label: 'Bokix på mobilen', to: '/lagg-till-pa-hemskarmen' },
     ],
   },
   {
@@ -1605,6 +1608,7 @@ const FOOTER_COLUMNS = [
       { label: 'Om oss', to: '/om-oss' },
       { label: 'Nyheter', to: '/nyheter' },
       { label: 'Bokix i korthet', to: '/bokix-i-korthet' },
+      { label: 'Säkerhet', to: '/sakerhet' },
       { label: 'Kontakt', to: '/kontakt' },
     ],
   },

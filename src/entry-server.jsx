@@ -49,6 +49,7 @@ import SecurityPage from './components/marketing/SecurityPage.jsx';
 import PayrollPage from './components/marketing/PayrollPage.jsx';
 import OrgTypePage from './components/marketing/OrgTypePage.jsx';
 import { ORG_TYPE_PAGES } from './content/marketing/orgTypes.js';
+import { FEATURE_PAGES } from './content/marketing/featurePages.js';
 import BlogPage from './components/marketing/BlogPage.jsx';
 import NewsPage from './components/marketing/NewsPage.jsx';
 import { BLOG_ARTICLE_PAGES } from './components/marketing/BlogPostPage.jsx';
@@ -70,7 +71,7 @@ const BASE_PAGES = {
   '/om-oss': AboutPage,
   '/kontakt': ContactPage,
   '/byt-bokforingsprogram': SwitchPage,
-  ...Object.fromEntries(ORG_TYPE_PAGES.map(p => [p.path, () => <OrgTypePage path={p.path} />])),
+  ...Object.fromEntries([...ORG_TYPE_PAGES, ...FEATURE_PAGES].map(p => [p.path, () => <OrgTypePage path={p.path} />])),
   '/koppla-bank': BankPage,
   '/uf': UfPage,
   '/integrationer': IntegrationsPage,

@@ -6,6 +6,7 @@ import { allLocalizedRoutes } from './content/marketing/routes';
 import { ALL_ARTICLES } from './content/marketing/news';
 import { GUIDE_GROUPS } from './content/marketing/guides';
 import { ORG_TYPE_PAGES } from './content/marketing/orgTypes';
+import { FEATURE_PAGES } from './content/marketing/featurePages';
 import { capturePosthogPageview } from './utils/posthog.js';
 import { getAuthStorage, isStandaloneApp } from './utils/authStorage';
 
@@ -305,7 +306,7 @@ export default function AppRouter() {
             bara ett mellansteg, inte något att hitta i en sökmotor. */}
         <Route path="/koppla-mejl" element={<Suspense fallback={<AppLoadingFallback />}><GmailConnectCallback /></Suspense>} />
         <Route path="/byt-bokforingsprogram" element={<Suspense fallback={<AppLoadingFallback />}><SwitchPage /></Suspense>} />
-        {ORG_TYPE_PAGES.map(p => (
+        {[...ORG_TYPE_PAGES, ...FEATURE_PAGES].map(p => (
           <Route key={p.path} path={p.path} element={<Suspense fallback={<AppLoadingFallback />}><OrgTypePage path={p.path} /></Suspense>} />
         ))}
         <Route path="/koppla-bank" element={<Suspense fallback={<AppLoadingFallback />}><BankPage /></Suspense>} />

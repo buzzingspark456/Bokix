@@ -32,6 +32,8 @@ export const BOKIX_FEATURES = [
   'Kortbetalning på fakturan via Stripe, med betalningen bokförd automatiskt.',
   'Fakturor skickas från din egen Gmail eller e-postadress.',
   'Kassaförsäljning via Zettle blir färdiga dagsavslut.',
+  'Artikelregister och lager med lagervärdering enligt FIFO eller vägt genomsnitt, och påslag och marginal per vara.',
+  'Anläggningsregister där avskrivningarna räknas och bokförs varje månad.',
   'Kontoutdrag från banken läses in som fil och matchas mot fakturorna.',
   'Momsdeklarationen räknas fram per månad, kvartal eller år, som fil att lämna in hos Skatteverket.',
   'Lön med skattetabeller, arbetsgivaravgift efter ålder, lönebesked, AGI-fil och betalfil till banken.',

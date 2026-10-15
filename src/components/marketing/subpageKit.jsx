@@ -17,6 +17,8 @@ export function KitStyles() {
     <style>{`
       .kx-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 64px; align-items: center; max-width: 1120px; margin: 0 auto; }
       .kx-eyebrow { font-size: 12.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${MUTED}; margin-bottom: 16px; }
+      .kx-fit { container-type: inline-size; }
+      .kx-fit .kx-h1 { font-size: clamp(26px, 9cqi, 52px); }
       .kx-h1 { font-family: ${SERIF}; font-size: clamp(32px, 4.8vw, 52px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; color: ${INK}; margin: 0 0 18px; }
       .kx-lead { font-size: 17.5px; line-height: 1.65; color: ${MUTED}; margin: 0 0 30px; max-width: 520px; }
       .kx-actions { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -64,11 +66,14 @@ export function KitStyles() {
   );
 }
 
-export function SubHero({ eyebrow, title, lead, actions, visual }) {
+// fitTitle: rubriken krymper efter textkolumnens bredd (container query), så
+// att långa ord som "Faktureringsprogram" aldrig går ut över bilden bredvid,
+// t.ex. i halv skärm. Används av sökordssidorna (OrgTypePage).
+export function SubHero({ eyebrow, title, lead, actions, visual, fitTitle = false }) {
   return (
     <section style={{ padding: '140px 24px 80px', background: 'var(--mkt-page-bg)' }}>
       <div className="kx-hero">
-        <Reveal>
+        <Reveal className={fitTitle ? 'kx-fit' : undefined} style={fitTitle ? { minWidth: 0 } : undefined}>
           {eyebrow && <div className="kx-eyebrow">{eyebrow}</div>}
           <h1 className="kx-h1">{title}</h1>
           {lead && <p className="kx-lead">{lead}</p>}

@@ -60,6 +60,14 @@ const CRUMB_NAMES = {
   '/verktyg/egenavgifter': 'Egenavgifter', '/verktyg/rot-rut': 'ROT och RUT',
   '/verktyg/drojsmalsranta': 'Dröjsmålsränta', '/verktyg/utdelning': 'Utdelning',
   '/verktyg/momsdatum': 'Momsdatum', '/verktyg/arsredovisning': 'Årsredovisning',
+  '/bokforingsprogram-enskild-firma': 'Bokföringsprogram för enskild firma',
+  '/bokforingsprogram-aktiebolag': 'Bokföringsprogram för aktiebolag',
+  '/bokforingsprogram-handelsbolag': 'Bokföringsprogram för handelsbolag',
+  '/bokforingsprogram-ekonomisk-forening': 'Bokföringsprogram för ekonomisk förening',
+  '/faktureringsprogram': 'Faktureringsprogram', '/bokforingsprogram-med-lager': 'Bokföringsprogram med lager',
+  '/anlaggningsregister': 'Anläggningsregister', '/billigt-bokforingsprogram': 'Billigt bokföringsprogram',
+  '/bokforingsprogram-nystartat-foretag': 'Bokföringsprogram för nystartade företag',
+  '/alternativ-till-fortnox': 'Alternativ till Fortnox',
 };
 
 function breadcrumbData(path) {

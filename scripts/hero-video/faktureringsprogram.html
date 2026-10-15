@@ -1,0 +1,34 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="scene.css"><style>
+/* Fakturering: fakturan fylls i, skickas till Gmail, kunden betalar med kort och den stämplas Betald. */
+.stage { background: #cfe3f5; }
+.inv-wrap { left: 120px; top: 110px; transform: rotate(-3deg); }
+.inv { width: 410px; padding: 40px 38px 34px; }
+.inv h4 { font-family: Georgia, serif; font-size: 40px; font-weight: 700; }
+.row { display: flex; justify-content: space-between; font-size: 19px; padding: 13px 0; border-top: 2px solid #efe8da; }
+.tot { font-size: 23px; font-weight: 800; border-top: 3px solid #1d2b23; }
+.btn { margin-top: 26px; height: 62px; border-radius: 14px; background: #1d2b23; color: #fff; font-size: 21px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.gmail { left: 700px; top: 150px; width: 190px; height: 190px; border-radius: 42px; background: #fffdf8; display: flex; align-items: center; justify-content: center; box-shadow: 0 30px 44px -24px rgba(20,40,60,0.5); transform: rotate(5deg); }
+.env { left: 330px; top: 600px; width: 70px; height: 48px; border-radius: 7px; background: #fffdf8; box-shadow: 0 10px 18px -8px rgba(0,0,0,0.4); overflow: hidden; }
+.env::before { content: ''; position: absolute; left: 0; top: 0; border-left: 35px solid transparent; border-right: 35px solid transparent; border-top: 26px solid #e7dfcf; }
+@keyframes fly { 0% { opacity: 0; transform: translate(0, 0) scale(0.7); } 1% { opacity: 1; } 5% { transform: translate(190px, -330px) scale(0.9) rotate(-8deg); } 9% { opacity: 1; transform: translate(410px, -380px) scale(0.6) rotate(6deg); } 10% { opacity: 0; transform: translate(410px, -380px) scale(0.4); } 100% { opacity: 0; } }
+.cursor { left: 640px; top: 760px; }
+@keyframes cur { 0% { opacity: 0; transform: none; } 2% { opacity: 1; } 8% { transform: translate(-300px, -98px); } 9% { transform: translate(-300px, -98px) scale(0.82); } 10.5% { transform: translate(-300px, -98px); } 14% { opacity: 1; transform: translate(-300px, -98px); } 16% { opacity: 0; transform: translate(-300px, -98px); } 100% { opacity: 0; } }
+.card { left: 600px; top: 470px; width: 300px; height: 188px; border-radius: 22px; background: linear-gradient(135deg, #1e40af, #0ea5e9); box-shadow: 0 34px 44px -22px rgba(10,30,70,0.6); padding: 28px; transform: rotate(9deg); }
+.card .chipc { width: 54px; height: 40px; border-radius: 8px; background: #e8c46a; }
+.card .num { color: #fff; font-size: 23px; letter-spacing: 0.14em; margin-top: 34px; }
+</style></head><body><div class="stage"><div class="scene">
+<div class="abs inv-wrap"><div class="paper inv a" style="animation-name: rise; animation-delay: 0.2s">
+  <h4>Faktura 1012</h4>
+  <div class="muted" style="font-size: 17px; margin: 6px 0 26px">Testdesign AB</div>
+  <div class="row a" style="animation-name: fadein; animation-delay: 0.9s"><span>Konsulttimmar, 8 h</span><b>7 600 kr</b></div>
+  <div class="row a" style="animation-name: fadein; animation-delay: 1.3s"><span>Moms 25 %</span><b>1 900 kr</b></div>
+  <div class="row tot a" style="animation-name: fadein; animation-delay: 1.7s"><span>Att betala</span><span>9 500 kr</span></div>
+  <div class="btn a" style="animation-name: press; animation-delay: 3.1s">Skicka faktura</div>
+</div></div>
+<div class="abs gmail a" style="animation-name: pulse; animation-delay: 4.1s"><svg viewBox="52 42 88 66" style="width: 112px"><path fill="#4285f4" d="M58 108h14V74L52 59v43c0 3.32 2.69 6 6 6"/><path fill="#34a853" d="M120 108h14c3.32 0 6-2.69 6-6V59l-20 15"/><path fill="#fbbc04" d="M120 48v26l20-15v-8c0-7.42-8.47-11.65-14.4-7.2"/><path fill="#ea4335" d="M72 74V48l24 18 24-18v26L96 92"/><path fill="#c5221f" d="M52 51v8l20 15V48l-5.6-4.2c-5.94-4.45-14.4-.22-14.4 7.2"/></svg></div>
+<div class="abs env a" style="animation-name: fly; animation-delay: 3.2s"></div>
+<div class="abs a" style="left: 720px; top: 360px; animation-name: pop; animation-delay: 4.3s"><span class="chip"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Skickad</span></div>
+<div class="abs a" style="left: 0; top: 0; width: 960px; height: 800px; animation-name: slide; animation-delay: 5.2s"><div class="abs card"><div class="chipc"></div><div class="num mono">•••• 4242</div></div></div>
+<div class="abs a" style="left: 290px; top: 470px; animation-name: stamp; animation-delay: 6.5s"><div style="border: 6px solid #1f7a4a; color: #1f7a4a; border-radius: 14px; padding: 8px 26px; font-size: 54px; font-weight: 800; letter-spacing: 0.06em; background: rgba(255,253,248,0.85)">BETALD</div></div>
+<div class="abs cursor a" style="animation-name: cur; animation-delay: 1.9s"><svg width="44" height="52" viewBox="0 0 24 28"><path d="M3 2 L3 22 L8.5 17 L12 25.5 L15.5 24 L12 15.8 L19.5 15.8 Z" fill="#1d2b23" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+</div><div class="grain"></div></div></body></html>

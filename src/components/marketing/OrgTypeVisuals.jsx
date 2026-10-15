@@ -235,6 +235,135 @@ function AssociationVisual() {
   );
 }
 
+// ── Funktionssidorna (content/marketing/featurePages.js) ────────────────
+
+// Fakturering: faktura → skickad → betald med kort → bokförd
+function InvoicingVisual() {
+  const [ref, step] = useStepLoop(3);
+  return (
+    <div ref={ref} className="ov" role="img" aria-label="Exempel: en faktura på 9 500 kr skickas, betalas med kort och bokförs mot företagskontot">
+      <div className="ov-card">
+        <div className="ov-title">Faktura 1012 <span style={{ display: 'flex', gap: 6 }}><span className={`ov-chip ${cls(step >= 1)}`}><Check size={12} /> Skickad</span></span></div>
+        <div className="ov-row">Konsulttimmar, 8 h <b>7 600 kr</b></div>
+        <div className="ov-row">Moms 25 % <b>1 900 kr</b></div>
+        <div className="ov-total"><span>Att betala</span><strong>9 500 kr</strong></div>
+      </div>
+      <div className={cls(step >= 2)}><Arrow /></div>
+      <div className={`ov-card ${cls(step >= 2)}`}>
+        <div className="ov-title">Betalning <span className="ov-chip"><Check size={12} /> Betald med kort</span></div>
+        <div className="ov-row">1930 Företagskonto <b><CountUp value={9500} on={step >= 2} /></b></div>
+        <div className="ov-row">1510 Kundfordringar <b>−<CountUp value={9500} on={step >= 2} /></b></div>
+      </div>
+      <div className={`ov-note ${cls(step >= 3)}`}>Bokfört av sig självt, utan att du för över något.</div>
+    </div>
+  );
+}
+
+// Lager: artiklar med saldo → lagervärde → lagerförändring vid bokslutet
+function InventoryVisual() {
+  const [ref, step] = useStepLoop(3);
+  const items = [
+    { name: 'Kaffebönor 1 kg', qty: 120, value: 10200 },
+    { name: 'Filterhållare', qty: 34, value: 4760 },
+    { name: 'Kaffekvarn', qty: 12, value: 7440 },
+  ];
+  return (
+    <div ref={ref} className="ov" role="img" aria-label="Exempel: tre artiklar i lager är värda 22 400 kr, och lagerförändringen på 3 150 kr bokförs vid bokslutet">
+      <div className="ov-card">
+        <div className="ov-title">Lager <span className="ov-chip">FIFO</span></div>
+        {items.map(it => (
+          <div key={it.name} className="ov-row">{it.name} <span style={{ color: 'var(--mkt-muted)', marginLeft: 'auto', fontSize: 13 }}>{it.qty} st</span><b><CountUp value={it.value} on={step >= 0} /></b></div>
+        ))}
+        <div className={`ov-total ${cls(step >= 1)}`}><span>Lagervärde</span><strong><CountUp value={22400} on={step >= 1} /></strong></div>
+      </div>
+      <div className={cls(step >= 2)}><Arrow /></div>
+      <div className={`ov-card ${cls(step >= 2)}`}>
+        <div className="ov-title">Bokslut: lagerförändring</div>
+        <div className="ov-row">1460 Lager av handelsvaror <b><CountUp value={3150} on={step >= 2} /></b></div>
+        <div className="ov-row">4960 Förändring av lager <b>−<CountUp value={3150} on={step >= 2} /></b></div>
+      </div>
+      <div className={`ov-note ${cls(step >= 3)}`}>Lägsta värdets princip tillämpas per artikel.</div>
+    </div>
+  );
+}
+
+// Anläggningsregister: dator → månadsavskrivning → bokfört värde sjunker
+function FixedAssetVisual() {
+  const [ref, step] = useStepLoop(3);
+  return (
+    <div ref={ref} className="ov" role="img" aria-label="Exempel: en dator för 24 000 kr skrivs av på 36 månader, 667 kr i månaden, och är efter ett år bokförd till 16 000 kr">
+      <div className="ov-card">
+        <div className="ov-title">Dator <span>Inventarie</span></div>
+        <div className="ov-row">Anskaffning <b>24 000 kr</b></div>
+        <div className="ov-row">Avskrivningstid <b>36 månader</b></div>
+        <div className="ov-row">Per månad <b>667 kr</b></div>
+      </div>
+      <div className={cls(step >= 1)}><Arrow /></div>
+      <div className={`ov-card ${cls(step >= 1)}`}>
+        <div className="ov-title">Avskrivning oktober <span className={`ov-chip ${cls(step >= 2)}`}><Check size={12} /> Bokförd</span></div>
+        <div className="ov-row">7832 Avskrivningar på inventarier <b>667 kr</b></div>
+        <div className="ov-row">1229 Ackumulerade avskrivningar <b>−667 kr</b></div>
+      </div>
+      <div className={`ov-card ${cls(step >= 3)}`}>
+        <div className="ov-title">Bokfört värde efter ett år</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--mkt-ink)', fontVariantNumeric: 'tabular-nums' }}><CountUp value={16000} on={step >= 3} /></div>
+        <div className="ov-bar"><i style={{ width: step >= 3 ? '67%' : '100%' }} /></div>
+      </div>
+    </div>
+  );
+}
+
+// Billigt: ett pris, allt ingår
+function PriceVisual() {
+  const [ref, step] = useStepLoop(3);
+  const items = ['Bokföring och kvitton', 'Fakturor och offerter', 'Moms och deklarationer', 'Bokslut och årsredovisning', 'Lager och anläggningsregister'];
+  return (
+    <div ref={ref} className="ov" role="img" aria-label="Exempel: för 129 kr i månaden ingår bokföring, fakturor, moms, bokslut, lager och anläggningsregister">
+      <div className="ov-card">
+        <div className="ov-title">Bokix <span>Utan anställda</span></div>
+        <div style={{ fontFamily: SERIF, fontSize: 40, fontWeight: 700, color: 'var(--mkt-ink)', lineHeight: 1.1 }}><CountUp value={129} on={step >= 0} /><span style={{ fontSize: 16, fontWeight: 600, color: 'var(--mkt-muted)' }}> /mån</span></div>
+        <div className="ov-doc-sub" style={{ marginBottom: 8 }}>Ingen moms tillkommer</div>
+        {items.map((it, i) => (
+          <div key={it} className={`ov-row ${cls(step >= 1 || i < 2)}`}><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span className="ov-tick"><Check size={12} /></span>{it}</span><b>Ingår</b></div>
+        ))}
+      </div>
+      <div className={`ov-card ${cls(step >= 2)}`}>
+        <div className="ov-row">Med anställda, lön ingår <b>179 kr/mån</b></div>
+      </div>
+      <div className={`ov-note ${cls(step >= 3)}`}>Inga avgifter per faktura och ingen bindningstid på månadsplanen.</div>
+    </div>
+  );
+}
+
+// Nystartat: organisationsnummer → uppgifterna hämtas → första verifikationen
+function StartupVisual() {
+  const [ref, step] = useStepLoop(4);
+  const rows = [
+    ['Bolagsform', 'Aktiebolag'],
+    ['Räkenskapsår', 'Kalenderår'],
+    ['Momsperiod', 'Kvartal'],
+  ];
+  return (
+    <div ref={ref} className="ov" role="img" aria-label="Exempel: organisationsnumret skrivs in, bolagsform, räkenskapsår och momsperiod fylls i och det första kvittot bokförs">
+      <div className="ov-card">
+        <div className="ov-title">Organisationsnummer</div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--mkt-ink)', fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em' }}>559123-4567</div>
+      </div>
+      <div className={cls(step >= 1)}><Arrow /></div>
+      <div className={`ov-card ${cls(step >= 1)}`}>
+        <div className="ov-title">Exempelbygg AB <span className="ov-chip"><Check size={12} /> Hämtat</span></div>
+        {rows.map(([k, v], i) => (
+          <div key={k} className={`ov-row ${cls(step >= 1 + Math.min(i, 1))}`}>{k} <b>{v}</b></div>
+        ))}
+      </div>
+      <div className={`ov-card ${cls(step >= 3)}`}>
+        <div className="ov-title">Första verifikationen <span className={`ov-chip ${cls(step >= 4)}`}><Check size={12} /> Bokförd</span></div>
+        <div className="ov-row">Insatt aktiekapital <b>25 000 kr</b></div>
+      </div>
+    </div>
+  );
+}
+
 // ── Om oss: samma köp, två sätt ─────────────────────────────────────────
 // Vänster: så ser ett köp ut i en vanlig konteringstabell. Höger: samma köp
 // i Bokix enkla läge. Beloppen stämmer (499 kr med 25 % moms).
@@ -276,6 +405,11 @@ const VISUALS = {
   aktiebolag: CompanyVisual,
   handelsbolag: PartnershipVisual,
   'ekonomisk-forening': AssociationVisual,
+  fakturering: InvoicingVisual,
+  lager: InventoryVisual,
+  anlaggningsregister: FixedAssetVisual,
+  billigt: PriceVisual,
+  nystartat: StartupVisual,
 };
 
 export default function OrgTypeVisual({ slug }) {
@@ -286,5 +420,39 @@ export default function OrgTypeVisual({ slug }) {
       <VisualStyles />
       <Visual />
     </>
+  );
+}
+
+// ── Film i stället för animation (funktionssidorna) ─────────────────────
+// Loopar utan ljud och utan kontroller. Ingen nedladdningsknapp, ingen
+// bild-i-bild och ingen högerklicksmeny. Helt skydd går inte att få: filen
+// måste ligga öppet för att Google ska kunna visa filmen i sökresultaten.
+// Med reducerad rörelse visas bara omslaget.
+export function HeroVideo({ file, label }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    if (prefersReducedMotion()) { v.pause(); v.removeAttribute('autoplay'); }
+  }, []);
+  return (
+    <video
+      ref={ref}
+      src={`/videos/hero/${file}.mp4`}
+      poster={`/videos/hero/${file}.jpg`}
+      width={960}
+      height={800}
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="metadata"
+      controlsList="nodownload noplaybackrate noremoteplayback"
+      disablePictureInPicture
+      disableRemotePlayback
+      onContextMenu={e => e.preventDefault()}
+      aria-label={label}
+      style={{ display: 'block', width: '100%', height: 'auto', aspectRatio: '960 / 800', borderRadius: '22px', boxShadow: 'var(--mkt-card-shadow)', background: 'var(--mkt-card-bg)', pointerEvents: 'none', userSelect: 'none' }}
+    />
   );
 }

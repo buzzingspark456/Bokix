@@ -1,0 +1,39 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="scene.css"><style>
+/* Anläggningsregister: en dator vars värde sjunker månad för månad, och avskrivningen bokförs. */
+.stage { background: #c9ece0; }
+.screen { left: 110px; top: 120px; width: 560px; height: 360px; border-radius: 22px 22px 8px 8px; background: #1c2a24; border: 16px solid #2c3b34; box-shadow: 0 34px 50px -26px rgba(10,40,30,0.6); }
+.base { left: 60px; top: 478px; width: 660px; height: 28px; border-radius: 6px 6px 22px 22px; background: #3a4a42; box-shadow: 0 24px 30px -16px rgba(10,40,30,0.5); }
+.line { stroke-dasharray: 520; stroke-dashoffset: 520; animation: draw 10s linear both; animation-delay: 1s; }
+@keyframes draw { 0% { stroke-dashoffset: 520; } 45% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 0; } }
+.val { left: 640px; top: 70px; width: 270px; padding: 24px 26px; transform: rotate(4deg); height: 150px; }
+.v { position: absolute; left: 26px; top: 58px; font-family: Georgia, serif; font-size: 44px; font-weight: 700; opacity: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@keyframes v0 { 0%, 19.9% { opacity: 1; } 20%, 100% { opacity: 0; } }
+@keyframes v1 { 0%, 19.9% { opacity: 0; } 20%, 34.9% { opacity: 1; } 35%, 100% { opacity: 0; } }
+@keyframes v2 { 0%, 34.9% { opacity: 0; } 35%, 49.9% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes v3 { 0%, 49.9% { opacity: 0; } 50%, 100% { opacity: 1; } }
+.v0 { animation: v0 10s linear both; } .v1 { animation: v1 10s linear both; } .v2 { animation: v2 10s linear both; } .v3 { animation: v3 10s linear both; }
+.mon { font-size: 15px; font-weight: 600; fill: rgba(255,255,255,0.5); font-family: Inter, sans-serif; }
+.booked { left: 170px; top: 570px; width: 520px; padding: 22px 26px; transform: rotate(-2deg); display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+</style></head><body><div class="stage"><div class="scene">
+<div class="abs a" style="left: 0; top: 0; animation-name: rise; animation-delay: 0.1s; width: 960px; height: 800px">
+  <div class="abs screen"><svg viewBox="0 0 528 328" style="position: absolute; inset: 0; width: 100%; height: 100%">
+    <g stroke="rgba(255,255,255,0.08)" stroke-width="2"><line x1="40" x2="500" y1="70" y2="70"/><line x1="40" x2="500" y1="140" y2="140"/><line x1="40" x2="500" y1="210" y2="210"/><line x1="40" x2="500" y1="280" y2="280"/></g>
+    <defs><linearGradient id="dg" x1="0" x2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#84cc16"/></linearGradient></defs>
+    <path class="line" d="M50 60 L190 120 L330 180 L480 240" stroke="url(#dg)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <circle class="a" style="animation-name: pop; animation-delay: 1s; transform-origin: 50px 60px" cx="50" cy="60" r="12" fill="#2dd4bf"/>
+    <circle class="a" style="animation-name: pop; animation-delay: 2.5s; transform-origin: 190px 120px" cx="190" cy="120" r="12" fill="#45d3b0"/>
+    <circle class="a" style="animation-name: pop; animation-delay: 4s; transform-origin: 330px 180px" cx="330" cy="180" r="12" fill="#62d08a"/>
+    <circle class="a" style="animation-name: pop; animation-delay: 5.5s; transform-origin: 480px 240px" cx="480" cy="240" r="12" fill="#84cc16"/>
+    <text class="mon" x="34" y="314">jan</text><text class="mon" x="174" y="314">apr</text><text class="mon" x="316" y="314">jul</text><text class="mon" x="466" y="314">okt</text>
+  </svg></div>
+  <div class="abs base"></div>
+</div>
+<div class="abs paper val a" style="animation-name: slide; animation-delay: 0.4s">
+  <div class="label">Datorns värde</div>
+  <div class="v v0">24 000 kr</div><div class="v v1">21 333 kr</div><div class="v v2">18 667 kr</div><div class="v v3">16 000 kr</div>
+</div>
+<div class="abs paper booked a" style="animation-name: rise; animation-delay: 6s">
+  <div><div class="label">Avskrivning oktober</div><div class="serif" style="font-size: 32px; font-weight: 700; margin-top: 4px">667 kr</div></div>
+  <span class="chip a" style="animation-name: pop; animation-delay: 6.6s"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Bokförd</span>
+</div>
+</div><div class="grain"></div></div></body></html>

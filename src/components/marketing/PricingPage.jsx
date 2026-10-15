@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
@@ -330,6 +330,7 @@ export default function PricingPage({ locale = 'sv' }) {
           </Reveal>
           <Reveal delay={80} className="bx-pr-faq">
             <KitFaq items={c.faq} />
+            <Link to="/billigt-bokforingsprogram" style={{ display: 'inline-block', marginTop: '24px', color: 'var(--mkt-accent-green-fg)', fontWeight: 600, fontSize: '15px' }}>Så jämför du priset på bokföringsprogram</Link>
           </Reveal>
         </div>
       </section>

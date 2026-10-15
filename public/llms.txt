@@ -28,13 +28,15 @@ Fakta på en sida: https://www.bokix.se/bokix-i-korthet
 ## Funktioner
 
 - Löpande bokföring med full svensk BAS-kontoplan, och en granskningsvy så inget bokförs fel utan att användaren ser det först
-- Kund- och leverantörsfakturor, obegränsat antal, med flera fakturamallar, egen logotyp och accentfärg
+- Kund- och leverantörsfakturor, obegränsat antal, med flera fakturamallar och egen logotyp
 - Lönekörningar för hela personalen, med rätt skatteavdrag
 - Moms-, AGI- och kontrolluppgiftssammanställningar
 - Kortbetalningar via Stripe och kassaförsäljning via Zettle, bokförda automatiskt
 - Fakturor, offerter och påminnelser skickas från användarens egen Gmail eller egna e-postadress (Bokix får bara skicka, aldrig läsa)
 - Kvitton läses av automatiskt: datum, belopp och moms, även flera momssatser på samma kvitto
 - Årsredovisning K2 för aktiebolag, SRU-filer och bokslut
+- Artiklar och lager med lagervärdering enligt FIFO eller vägt genomsnitt, påslag och marginal per vara
+- Anläggningsregister där avskrivningarna räknas och bokförs varje månad
 - PDF-export av fakturor, lönebesked och deklarationsunderlag
 - SIE4-import och -export, samt import av kontoutdrag från bank som CSV eller Excel
 - Skatteverkets egna filformat: eSKD för momsdeklarationen och SRU för räkenskapsscheman
@@ -49,6 +51,16 @@ Fakta på en sida: https://www.bokix.se/bokix-i-korthet
 - [Byt bokföringsprogram till Bokix](https://www.bokix.se/byt-bokforingsprogram): flytta bokföringen från ditt nuvarande program via en SIE4-fil
 - [Bokix för UF-företag](https://www.bokix.se/uf): gratis bokföring under UF-året — fakturering, kvitton, bokföring och årsbokslut, utan organisationsnummer och utan betaluppgifter
 - [Koppla banken till bokföringen](https://www.bokix.se/koppla-bank): exportera kontoutdraget ur internetbanken (Nordea, SEB, Swedbank, Handelsbanken, Länsförsäkringar, ICA Banken, Skandia, Lunar, Northmill m.fl.) och läs in det i Bokix — filimport, ingen direktkoppling mot banken
+- [Bokföringsprogram för enskild firma](https://www.bokix.se/bokforingsprogram-enskild-firma): kvitton, fakturor, moms och förslag till NE-bilagan
+- [Bokföringsprogram för aktiebolag](https://www.bokix.se/bokforingsprogram-aktiebolag): fakturor, lön, moms, INK2 och årsredovisning enligt K2
+- [Bokföringsprogram för handelsbolag](https://www.bokix.se/bokforingsprogram-handelsbolag): bokslut per delägare och bilagorna till INK4 som SRU-fil
+- [Bokföringsprogram för ekonomisk förening](https://www.bokix.se/bokforingsprogram-ekonomisk-forening): kassör, styrelse och revisor i samma bokföring, INK2 och årsredovisning
+- [Bokföringsprogram för nya företag](https://www.bokix.se/bokforingsprogram-nystartat-foretag): uppgifterna hämtas från organisationsnumret, ingen förkunskap behövs
+- [Billigt bokföringsprogram](https://www.bokix.se/billigt-bokforingsprogram): 129 kr/mån, 179 kr/mån med anställda, allt ingår och inga tillägg
+- [Faktureringsprogram](https://www.bokix.se/faktureringsprogram): fakturor med egen logga, kortbetalning via Stripe, skickas från egen Gmail och bokförs av sig själva
+- [Bokföringsprogram med lager](https://www.bokix.se/bokforingsprogram-med-lager): artikelregister, lagersaldo och lagervärdering med FIFO eller genomsnitt
+- [Anläggningsregister](https://www.bokix.se/anlaggningsregister): avskrivningar som räknas och bokförs varje månad
+- [Alternativ till Fortnox](https://www.bokix.se/alternativ-till-fortnox): ärlig jämförelse, när Bokix passar och när Fortnox passar bättre, och hur man flyttar med SIE4
 - [Lön](https://www.bokix.se/lon): lönekörning med skatteavdrag, AGI-fil till Skatteverket, lönebesked och betalfil
 - [Gratis verktyg](https://www.bokix.se/verktyg): nio kostnadsfria verktyg, inget konto krävs
 - [Skanna kvitto](https://www.bokix.se/verktyg/skanna-kvitto): läs av datum, belopp och moms från ett kvittofoto
