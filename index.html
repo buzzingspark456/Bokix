@@ -30,8 +30,11 @@
          kan omcrawlningen ta veckor på egen hand. -->
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48-v2.png" />
     <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96-v2.png" />
-    <link rel="icon" type="image/x-icon" href="/favicon-v2.ico" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Bing och Edge: .ico med 16, 32 och 48 px (scripts/make-favicon-ico.mjs),
+         samma fil ligger även som /favicon.ico i roten, som Bing hämtar.
+         Ingen SVG-länk: den ritade B:et som text i Georgia, och på datorer
+         utan Georgia blev bokstaven fel i Edge. PNG-ikonerna räcker. -->
+    <link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="/favicon-v3.ico" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
