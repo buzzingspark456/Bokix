@@ -1,22 +1,49 @@
 <!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="cover.css"><style>
+/* Tecknad stil som övriga omslag, med upplägget från första versionen:
+   Bokix till vänster, Gmail till höger och fakturamejlet på väg emellan. */
 .art { background: #bfe6d2; }
-.env { left: 300px; top: 210px; width: 520px; height: 330px; background: #fffdf8; border-radius: 10px; box-shadow: 0 40px 60px -30px rgba(20,60,40,0.45); transform: rotate(-4deg); }
-.env::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 0; border-left: 260px solid transparent; border-right: 260px solid transparent; border-top: 180px solid #efe8da; }
-.env .to { position: absolute; left: 60px; bottom: 50px; font-size: 21px; color: #23372d; line-height: 1.5; }
-.env .to b { display: block; font-size: 15px; color: #6b7f74; font-weight: 600; }
-.env .stamp { position: absolute; right: 36px; top: 30px; width: 76px; height: 92px; background: #e2553f; border: 5px dotted #fffdf8; outline: 3px solid #e2553f; }
-.pdf { left: 470px; top: 60px; width: 230px; height: 290px; padding: 26px; transform: rotate(6deg); color: #23372d; }
-.pdf b { font-family: Georgia, serif; font-size: 26px; }
-.pdf .ln { margin-top: 18px; display: grid; gap: 12px; color: #23372d; }
-.pdf .tag { position: absolute; right: 18px; bottom: 18px; background: #e2553f; color: #fff; font-weight: 800; font-size: 14px; border-radius: 5px; padding: 3px 8px; }
-.trail { left: 840px; top: 200px; }
-.trail i { position: absolute; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.75); }
+.tile { top: 236px; width: 206px; height: 206px; background: #fffdf8; border-radius: 46px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 0 rgba(0,0,0,0.04), 0 34px 48px -26px rgba(20,60,40,0.5); }
+.tile.bokix { left: 92px; transform: rotate(-5deg); }
+.tile.bokix svg { width: 150px; height: auto; }
+.tile.gmail { left: 902px; transform: rotate(5deg); }
+.tile.gmail svg { width: 116px; height: auto; }
+
+.back { left: 418px; top: 176px; width: 384px; height: 268px; transform: rotate(4deg); background: #f3eee3; }
+.mail { left: 396px; top: 154px; width: 408px; padding: 30px 32px 30px; transform: rotate(-2.5deg); color: #23372d; }
+.mail .from { display: flex; align-items: center; gap: 14px; }
+.mail .av { width: 46px; height: 46px; border-radius: 50%; background: #23372d; color: #fffdf8; font-weight: 800; font-size: 17px; display: flex; align-items: center; justify-content: center; flex: none; }
+.mail .who { font-size: 17px; font-weight: 700; line-height: 1.25; }
+.mail .addr { font-size: 15px; color: #6b7f74; font-weight: 500; }
+.mail h4 { font-family: Georgia, serif; font-size: 34px; font-weight: 700; margin: 24px 0 14px; }
+.mail .ln { display: grid; gap: 11px; }
+.mail .att { display: flex; align-items: center; justify-content: space-between; margin-top: 24px; padding: 13px 15px; border: 2px solid #ece5d6; border-radius: 12px; }
+.mail .file { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; color: #3c5046; }
+.mail .tag { background: #e2553f; color: #fff; font-weight: 800; font-size: 12px; border-radius: 5px; padding: 4px 7px; letter-spacing: 0.03em; }
+.mail .amt { font-size: 18px; font-weight: 800; }
+.sent { right: -26px; top: -22px; display: flex; align-items: center; gap: 7px; font-size: 17px; font-weight: 800; color: #fff; background: #1f7a4a; border: 4px solid #fffdf8; padding: 7px 16px 7px 11px; border-radius: 999px; transform: rotate(4deg); box-shadow: 0 14px 22px -10px rgba(20,60,40,0.6); }
 </style></head><body><div class="art">
-<div class="abs pdf paper"><b>Faktura</b><div class="ln"><div class="line" style="width:150px"></div><div class="line" style="width:110px"></div><div class="line" style="width:130px"></div></div><span class="tag">PDF</span></div>
-<div class="abs env">
-  <div class="stamp"></div>
-  <div class="to"><b>Från</b>info@dittforetag.se</div>
+
+<!-- Streckad väg från Bokix till Gmail, bakom mejlet -->
+<svg class="abs" style="left:0;top:26px" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs><marker id="arr" viewBox="0 0 12 12" refX="7" refY="6" markerWidth="4.2" markerHeight="4.2" orient="auto"><path d="M2 1.5 L8 6 L2 10.5" fill="none" stroke="#fffdf8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+  <circle cx="318" cy="318" r="10" fill="#fffdf8"/>
+  <path d="M318 318 C 380 318, 420 392, 600 392 S 820 318, 880 318" fill="none" stroke="#fffdf8" stroke-width="7.5" stroke-linecap="round" stroke-dasharray="14 15" marker-end="url(#arr)"/>
+</svg>
+
+<div class="abs tile bokix">
+  <svg viewBox="0 0 125 40"><defs><linearGradient id="wmgrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#0ea5e9"/><stop offset="50%" stop-color="#14b8a6"/><stop offset="100%" stop-color="#84cc16"/></linearGradient></defs><path d="{{WORDMARK_PATH}}" fill="url(#wmgrad)"/></svg>
 </div>
-<div class="abs" style="left:880px;top:110px;width:190px;height:190px;transform:rotate(6deg);background:#fff;border-radius:28px;display:flex;align-items:center;justify-content:center;box-shadow:0 30px 44px -24px rgba(0,0,0,0.45)"><svg viewBox="52 42 88 66" style="width:120px;height:auto"><path fill="#4285f4" d="M58 108h14V74L52 59v43c0 3.32 2.69 6 6 6"/><path fill="#34a853" d="M120 108h14c3.32 0 6-2.69 6-6V59l-20 15"/><path fill="#fbbc04" d="M120 48v26l20-15v-8c0-7.42-8.47-11.65-14.4-7.2"/><path fill="#ea4335" d="M72 74V48l24 18 24-18v26L96 92"/><path fill="#c5221f" d="M52 51v8l20 15V48l-5.6-4.2c-5.94-4.45-14.4-.22-14.4 7.2"/></svg></div>
+
+<div class="abs back paper"></div>
+<div class="abs mail paper">
+  <div class="abs sent"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Skickad</div>
+  <div class="from"><div class="av">DF</div><div><div class="who">Ditt Företag AB</div><div class="addr">info@dittforetag.se</div></div></div>
+  <h4>Faktura 1012</h4>
+  <div class="ln"><div class="line" style="width:290px"></div><div class="line" style="width:210px"></div></div>
+  <div class="att"><span class="file"><span class="tag">PDF</span>faktura-1012.pdf</span><span class="amt">23 750 kr</span></div>
+</div>
+
+<div class="abs tile gmail"><svg viewBox="52 42 88 66"><path fill="#4285f4" d="M58 108h14V74L52 59v43c0 3.32 2.69 6 6 6"/><path fill="#34a853" d="M120 108h14c3.32 0 6-2.69 6-6V59l-20 15"/><path fill="#fbbc04" d="M120 48v26l20-15v-8c0-7.42-8.47-11.65-14.4-7.2"/><path fill="#ea4335" d="M72 74V48l24 18 24-18v26L96 92"/><path fill="#c5221f" d="M52 51v8l20 15V48l-5.6-4.2c-5.94-4.45-14.4-.22-14.4 7.2"/></svg></div>
+
 <div class="grain"></div>
 </div></body></html>
