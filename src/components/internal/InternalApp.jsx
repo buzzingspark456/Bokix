@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart3, CreditCard, ShieldAlert, Users, LogOut, ShieldCheck, Server, Inbox } from '../icons';
+import { BarChart3, CreditCard, ShieldAlert, Users, LogOut, Server, Inbox } from '../icons';
+import BokixWordmark from '../shared/BokixWordmark';
 import { supabase } from '../../supabaseClient';
 import InternalAuth from './InternalAuth';
 import AnalyticsAdmin from './AnalyticsAdmin';
@@ -44,13 +45,22 @@ export default function InternalApp() {
 
   useEffect(() => { checkAccess(); }, []);
 
+  // Samma tema som appen (Inställningar → Utseende): ljust, mörkt eller
+  // systemets. Panelen använder appens färgvariabler, så det räcker att
+  // sätta attributet på <html>.
+  useEffect(() => {
+    let pref = null;
+    try { pref = localStorage.getItem('bokix_theme_pref'); } catch { /* privat läge */ }
+    if (pref === 'light' || pref === 'dark') document.documentElement.setAttribute('data-theme', pref);
+  }, []);
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setStatus('needs-login');
   };
 
   if (status === 'checking') {
-    return <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', background: '#0a0f0c' }} />;
+    return <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', background: 'var(--bg-page)' }} />;
   }
 
   if (status === 'needs-login') {
@@ -59,14 +69,14 @@ export default function InternalApp() {
 
   if (status === 'unauthorized') {
     return (
-      <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0f0c', padding: '24px', textAlign: 'center' }}>
+      <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-page)', padding: '24px', textAlign: 'center' }}>
         <div>
-          <ShieldAlert size={32} color="#f87171" style={{ marginBottom: '14px' }} />
-          <div style={{ fontSize: '16px', fontWeight: 700, color: '#e8ece9', marginBottom: '8px' }}>Ingen åtkomst</div>
-          <div style={{ fontSize: '13.5px', color: 'rgba(232,236,233,0.55)', marginBottom: '20px' }}>
+          <ShieldAlert size={32} color="var(--status-red-text)" style={{ marginBottom: '14px' }} />
+          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>Ingen åtkomst</div>
+          <div style={{ fontSize: '13.5px', color: 'var(--text-muted)', marginBottom: '20px' }}>
             {adminEmail} har inte behörighet till admin-panelen.
           </div>
-          <button onClick={handleSignOut} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(232,236,233,0.8)', borderRadius: '9px', padding: '9px 18px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <button onClick={handleSignOut} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text-secondary)', borderRadius: '9px', padding: '9px 18px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
             Logga ut
           </button>
         </div>
@@ -76,7 +86,7 @@ export default function InternalApp() {
 
   if (status === 'error') {
     return (
-      <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0f0c', color: '#f87171', fontSize: '14px', padding: '24px', textAlign: 'center' }}>
+      <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-page)', color: 'var(--status-red-text)', fontSize: '14px', padding: '24px', textAlign: 'center' }}>
         {errorMsg || 'Något gick fel.'}
       </div>
     );
@@ -91,50 +101,94 @@ export default function InternalApp() {
     { id: 'system', label: 'Systemstatus', icon: Server, live: true },
   ];
 
+  // Dator: grön sidomeny som i appen. Telefon: loggan och utloggning
+  // överst, flikarna som en rad att svepa i, och sidornas luft minskad.
+  const css = `
+    .ix { min-height: calc(100vh / var(--app-zoom, 1)); display: flex; background: var(--bg-page); color: var(--text-main); font-family: 'Inter', sans-serif; }
+    .ix-side { width: 236px; flex-shrink: 0; padding: 22px 12px 18px; display: flex; flex-direction: column; position: sticky; top: 0; height: calc(100vh / var(--app-zoom, 1)); box-sizing: border-box;
+      background: linear-gradient(rgba(0,0,0,0.22), rgba(0,0,0,0.22)), #0b6329; color: #fff; }
+    .ix-brand { display: flex; align-items: baseline; gap: 8px; padding: 0 10px 18px; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.14); }
+    .ix-brand-tag { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.6); }
+    .ix-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .ix-nav button { display: flex; align-items: center; gap: 11px; padding: 9px 12px; border-radius: 8px; font-size: 14px; font-weight: 600; border: none; width: 100%; text-align: left; font-family: inherit; cursor: pointer; background: transparent; color: rgba(255,255,255,0.82); position: relative; }
+    .ix-nav button:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .ix-nav button.on { background: rgba(255,255,255,0.2); color: #fff; }
+    .ix-nav button.on::before { content: ''; position: absolute; left: -12px; top: 6px; bottom: 6px; width: 3px; border-radius: 0 3px 3px 0; background: #ffd23f; }
+    .ix-nav button.on svg { color: #ffd23f; }
+    .ix-foot { border-top: 1px solid rgba(255,255,255,0.14); padding-top: 14px; margin-top: 14px; }
+    .ix-email { font-size: 11.5px; color: rgba(255,255,255,0.6); margin: 0 10px 10px; word-break: break-all; }
+    .ix-out { display: flex; align-items: center; gap: 8px; background: none; border: none; color: #ffb4a8; font-size: 13.5px; font-weight: 600; cursor: pointer; font-family: inherit; padding: 4px 10px; }
+    .ix-top, .ix-tabs { display: none; }
+    .ix-main { flex: 1; min-width: 0; }
+    @media (max-width: 760px) {
+      .ix { flex-direction: column; }
+      .ix-side { display: none; }
+      .ix-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px; background: var(--bg-card); }
+      .ix-top .ix-brand-tag { color: var(--text-muted); }
+      .ix-top .ix-out { color: var(--status-red-text); padding: 6px 0; }
+      .ix-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 4px 16px 12px; background: var(--bg-card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5; scrollbar-width: none; }
+      .ix-tabs::-webkit-scrollbar { display: none; }
+      .ix-tabs button { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); font-size: 13.5px; font-weight: 600; font-family: inherit; cursor: pointer; }
+      .ix-tabs button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+      /* Sidorna har 32px 36px luft för dator; på telefon räcker 16px. */
+      .ix-main > div { padding: 18px 16px calc(env(safe-area-inset-bottom, 0px) + 32px) !important; max-width: none !important; }
+      .ix-main [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+      .ix-main [style*="minmax(190px"], .ix-main [style*="minmax(180px"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+      .ix-main [style*="border-radius: 16px"] { border-radius: 14px !important; }
+      .ix-main [style*="font-size: 26px"] { font-size: 22px !important; }
+      /* Tabellerna (Användare, Betalningar) blir en lista med en post per rad. */
+      .ix-main table, .ix-main tbody, .ix-main tr, .ix-main td { display: block; width: auto; }
+      .ix-main thead { display: none; }
+      .ix-main tr { padding: 12px 16px; border-top: 1px solid var(--border-light); }
+      .ix-main tr:first-child { border-top: none; }
+      .ix-main td { padding: 1px 0 !important; border: none !important; white-space: normal !important; font-size: 13px !important; }
+      .ix-main td:first-child { font-size: 14px !important; }
+      .ix-main td:empty { display: none; }
+      .ix-main td button { margin-top: 8px; }
+      .ix-users td:nth-child(5)::before { content: 'Skapad '; }
+      .ix-users td:nth-child(6)::before { content: 'Senast inloggad '; }
+    }
+  `;
+
   return (
-    <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', background: '#0a0f0c', color: '#e8ece9', fontFamily: "'Inter', sans-serif" }}>
-      <aside style={{ width: 236, flexShrink: 0, borderRight: '1px solid rgba(255,255,255,0.08)', padding: '22px 14px', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 8px', marginBottom: '30px' }}>
-          <div style={{ width: 32, height: 32, borderRadius: '9px', background: 'rgba(11,99,41,0.25)', border: '1px solid rgba(132,204,22,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <ShieldCheck size={15} color="#84cc16" />
-          </div>
-          <div style={{ fontSize: '14.5px', fontWeight: 800, letterSpacing: '-0.01em' }}>Bokix Internal</div>
+    <div className="ix">
+      <style>{css}</style>
+      <aside className="ix-side">
+        <div className="ix-brand">
+          <BokixWordmark height={30} />
+          <span className="ix-brand-tag">Internt</span>
         </div>
-
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
-          {navItems.map(item => {
-            const on = item.live && activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                title={item.live ? undefined : 'Kommer snart'}
-                onClick={() => item.live && setActiveTab(item.id)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '11px', padding: '10px 11px', borderRadius: '9px',
-                  fontSize: '14px', fontWeight: 600, border: 'none', width: '100%', textAlign: 'left', fontFamily: 'inherit',
-                  background: on ? 'rgba(132,204,22,0.14)' : 'transparent',
-                  color: item.live ? (on ? '#e8ece9' : 'rgba(232,236,233,0.6)') : 'rgba(232,236,233,0.32)',
-                  cursor: item.live ? 'pointer' : 'not-allowed',
-                }}
-              >
-                <item.icon size={15} />
-                {item.label}
-                {!item.live && <span style={{ marginLeft: 'auto', fontSize: '9.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'rgba(232,236,233,0.3)' }}>Snart</span>}
-              </button>
-            );
-          })}
+        <nav className="ix-nav">
+          {navItems.map(item => (
+            <button key={item.id} type="button" className={activeTab === item.id ? 'on' : undefined} onClick={() => setActiveTab(item.id)}>
+              <item.icon size={17} />
+              {item.label}
+            </button>
+          ))}
         </nav>
-
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px', marginTop: '14px' }}>
-          <div style={{ fontSize: '11.5px', color: 'rgba(232,236,233,0.4)', marginBottom: '10px', wordBreak: 'break-all' }}>{adminEmail}</div>
-          <button onClick={handleSignOut} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: 'rgba(232,236,233,0.5)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
-            <LogOut size={14} /> Logga ut
-          </button>
+        <div className="ix-foot">
+          <div className="ix-email">{adminEmail}</div>
+          <button className="ix-out" onClick={handleSignOut}><LogOut size={15} /> Logga ut</button>
         </div>
       </aside>
 
-      <main style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+      <header className="ix-top">
+        <div className="ix-brand" style={{ padding: 0, margin: 0, border: 'none' }}>
+          <BokixWordmark height={26} />
+          <span className="ix-brand-tag">Internt</span>
+        </div>
+        <button className="ix-out" onClick={handleSignOut} aria-label="Logga ut"><LogOut size={16} /> Logga ut</button>
+      </header>
+      <nav className="ix-tabs">
+        {navItems.map(item => (
+          <button key={item.id} type="button" className={activeTab === item.id ? 'on' : undefined} onClick={() => { setActiveTab(item.id); window.scrollTo(0, 0); }}>
+            <item.icon size={15} />
+            {item.label}
+          </button>
+        ))}
+      </nav>
+
+      <main className="ix-main">
         {activeTab === 'analytics' && <AnalyticsAdmin />}
         {activeTab === 'payments' && <PaymentsAdmin />}
         {activeTab === 'security' && <SecurityAdmin />}

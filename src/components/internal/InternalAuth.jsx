@@ -65,44 +65,44 @@ export default function InternalAuth({ onAuthenticated }) {
 
   const inputStyle = {
     width: '100%', padding: '13px 14px 13px 42px', fontSize: '14.5px', fontWeight: 500,
-    color: '#e8ece9', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+    color: 'var(--text-main)', background: 'var(--bg-card)', border: '1px solid var(--border)',
     borderRadius: '10px', fontFamily: 'inherit', outline: 'none',
   };
 
   return (
-    <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0f0c', padding: '24px' }}>
+    <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-page)', padding: '24px' }}>
       <div style={{ width: '100%', maxWidth: '380px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center', marginBottom: '32px' }}>
-          <div style={{ width: 38, height: 38, borderRadius: '10px', background: 'rgba(11,99,41,0.25)', border: '1px solid rgba(132,204,22,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ShieldCheck size={18} color="#84cc16" />
+          <div style={{ width: 38, height: 38, borderRadius: '10px', background: 'var(--status-green-bg)', border: '1px solid var(--status-green-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ShieldCheck size={18} color="var(--accent-text)" />
           </div>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: 700, color: '#e8ece9', letterSpacing: '-0.01em' }}>Bokix Internal</div>
-            <div style={{ fontSize: '11px', color: 'rgba(232,236,233,0.45)' }}>Endast behörig personal</div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>Bokix Internal</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Endast behörig personal</div>
           </div>
         </div>
 
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '28px' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '28px' }}>
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'rgba(232,236,233,0.6)', marginBottom: '6px' }}>E-post</label>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>E-post</label>
               <div style={{ position: 'relative' }}>
-                <ShieldCheck size={15} color="rgba(232,236,233,0.35)" style={{ position: 'absolute', left: 14, top: 14 }} />
+                <ShieldCheck size={15} color="var(--text-muted)" style={{ position: 'absolute', left: 14, top: 14 }} />
                 <input type="email" required autoFocus value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} autoComplete="username" />
               </div>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'rgba(232,236,233,0.6)', marginBottom: '6px' }}>Lösenord</label>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>Lösenord</label>
               <div style={{ position: 'relative' }}>
-                <Lock size={15} color="rgba(232,236,233,0.35)" style={{ position: 'absolute', left: 14, top: 14 }} />
+                <Lock size={15} color="var(--text-muted)" style={{ position: 'absolute', left: 14, top: 14 }} />
                 <input type="password" required value={password} onChange={e => setPassword(e.target.value)} style={inputStyle} autoComplete="current-password" />
               </div>
             </div>
             <Turnstile key={captchaRound} ref={captchaRef} onDemand />
-            {error && <div style={{ fontSize: '12.5px', color: '#f87171', lineHeight: 1.5 }}>{error}</div>}
+            {error && <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', lineHeight: 1.5 }}>{error}</div>}
             <button type="submit" disabled={loading} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
-              padding: '13px', background: '#0b6329', border: 'none', borderRadius: '10px',
+              padding: '13px', background: 'var(--accent)', border: 'none', borderRadius: '10px',
               color: 'white', fontWeight: 700, fontSize: '14px', cursor: loading ? 'wait' : 'pointer',
               fontFamily: 'inherit', opacity: loading ? 0.7 : 1, marginTop: '4px',
             }}>
@@ -111,8 +111,8 @@ export default function InternalAuth({ onAuthenticated }) {
             {passkeysAvailable() && (
               <button type="button" onClick={handlePasskeyLogin} disabled={loading} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                padding: '12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.14)', borderRadius: '10px',
-                color: '#e8ece9', fontWeight: 600, fontSize: '14px', cursor: loading ? 'wait' : 'pointer',
+                padding: '12px', background: 'transparent', border: '1px solid var(--border)', borderRadius: '10px',
+                color: 'var(--text-main)', fontWeight: 600, fontSize: '14px', cursor: loading ? 'wait' : 'pointer',
                 fontFamily: 'inherit', opacity: loading ? 0.7 : 1,
               }}>
                 <Fingerprint size={16} /> Logga in med Face ID

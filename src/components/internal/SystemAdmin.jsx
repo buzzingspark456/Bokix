@@ -4,8 +4,8 @@ import { useAdminData } from './useAdminData';
 import RefreshBar from './RefreshBar';
 import { dateTimeFormat } from '../../utils/intlCache';
 
-const cardStyle = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '22px' };
-const muted = 'rgba(232,236,233,0.5)';
+const cardStyle = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '22px' };
+const muted = 'var(--text-muted)';
 const h2 = { fontSize: '15px', fontWeight: 700, marginBottom: '14px' };
 
 const EVENT_LABELS = {
@@ -19,13 +19,13 @@ const formatDateTime = (iso) => dateTimeFormat('sv-SE', { day: 'numeric', month:
 
 function Meter({ label, used, limit }) {
   const pct = Math.min(100, Math.round((used / limit) * 100));
-  const color = pct >= 90 ? '#f87171' : pct >= 70 ? '#f59e0b' : '#84cc16';
+  const color = pct >= 90 ? 'var(--status-red-text)' : pct >= 70 ? 'var(--status-amber-text)' : 'var(--accent-text)';
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
         <span>{label}</span><span style={{ color: muted }}>{mb(used)} av {mb(limit)} ({pct} %)</span>
       </div>
-      <div style={{ height: 8, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+      <div style={{ height: 8, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}>
         <div style={{ width: `${pct}%`, height: '100%', background: color }} />
       </div>
     </div>
@@ -54,14 +54,14 @@ export default function SystemAdmin({ onOpenTab }) {
       <div style={{ fontSize: '13.5px', color: muted, marginBottom: '24px' }}>Det som behöver åtgärdas, samlat på ett ställe.</div>
       <RefreshBar updatedAt={updatedAt} refreshing={refreshing} onRefresh={reload} />
 
-      {error && <div style={{ fontSize: '13px', color: '#f87171', marginBottom: '18px' }}>{error}</div>}
+      {error && <div style={{ fontSize: '13px', color: 'var(--status-red-text)', marginBottom: '18px' }}>{error}</div>}
       {!data && !error && <div style={{ color: muted, fontSize: '13.5px' }}>Laddar…</div>}
 
       {data && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {data.setupMissing && (
-            <div style={{ display: 'flex', gap: '10px', padding: '14px 18px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '13px', fontSize: '13px', lineHeight: 1.6, color: 'rgba(232,236,233,0.85)' }}>
-              <AlertTriangle size={16} color="#f59e0b" style={{ flexShrink: 0, marginTop: 2 }} />
+            <div style={{ display: 'flex', gap: '10px', padding: '14px 18px', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '13px', fontSize: '13px', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+              <AlertTriangle size={16} color="var(--status-amber-text)" style={{ flexShrink: 0, marginTop: 2 }} />
               <span>Mejlloggen, inkorgen och lagringsmätningen är inte påslagna än. Kör <strong>supabase-2026-09-27-admin.sql</strong> i Supabase → SQL Editor.</span>
             </div>
           )}
@@ -69,13 +69,13 @@ export default function SystemAdmin({ onOpenTab }) {
           <div style={cardStyle}>
             <div style={h2}>Att åtgärda</div>
             {attention.length === 0 ? (
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '13.5px', color: '#84cc16' }}><CheckCircle2 size={16} /> Allt ser bra ut.</div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '13.5px', color: 'var(--accent-text)' }}><CheckCircle2 size={16} /> Allt ser bra ut.</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {attention.map(a => (
                   <div key={a.text} style={{ display: 'flex', gap: '9px', fontSize: '13.5px', lineHeight: 1.5 }}>
-                    <AlertTriangle size={15} color="#f59e0b" style={{ flexShrink: 0, marginTop: 2 }} />
-                    <span>{a.text}{a.tab && onOpenTab && <> <button type="button" onClick={() => onOpenTab(a.tab)} style={{ background: 'none', border: 'none', color: '#7cc4f0', cursor: 'pointer', padding: 0, font: 'inherit' }}>Visa</button></>}</span>
+                    <AlertTriangle size={15} color="var(--status-amber-text)" style={{ flexShrink: 0, marginTop: 2 }} />
+                    <span>{a.text}{a.tab && onOpenTab && <> <button type="button" onClick={() => onOpenTab(a.tab)} style={{ background: 'none', border: 'none', color: 'var(--status-blue-text)', cursor: 'pointer', padding: 0, font: 'inherit' }}>Visa</button></>}</span>
                   </div>
                 ))}
               </div>
@@ -88,7 +88,7 @@ export default function SystemAdmin({ onOpenTab }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {data.config.map(c => (
                   <div key={c.key} style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '13px' }}>
-                    {c.ok ? <CheckCircle2 size={14} color="#84cc16" /> : <XCircle size={14} color="#f87171" />}
+                    {c.ok ? <CheckCircle2 size={14} color="var(--accent-text)" /> : <XCircle size={14} color="var(--status-red-text)" />}
                     <span>{c.label}</span>
                     <span style={{ marginLeft: 'auto', color: muted, fontSize: '11.5px' }}>{c.key}</span>
                   </div>
@@ -115,9 +115,9 @@ export default function SystemAdmin({ onOpenTab }) {
               : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {emailProblems.map((e, i) => (
-                    <div key={i} style={{ fontSize: '13px', lineHeight: 1.5, borderTop: i ? '1px solid rgba(255,255,255,0.06)' : 'none', paddingTop: i ? '10px' : 0 }}>
+                    <div key={i} style={{ fontSize: '13px', lineHeight: 1.5, borderTop: i ? '1px solid var(--border-light)' : 'none', paddingTop: i ? '10px' : 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><strong>{EVENT_LABELS[e.kind] || e.kind}</strong><span style={{ color: muted }}>{formatDateTime(e.created_at)}</span></div>
-                      {e.detail && <div style={{ color: 'rgba(232,236,233,0.7)' }}>{e.detail}</div>}
+                      {e.detail && <div style={{ color: 'var(--text-secondary)' }}>{e.detail}</div>}
                     </div>
                   ))}
                 </div>
@@ -130,7 +130,7 @@ export default function SystemAdmin({ onOpenTab }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {data.featureFlags.map(f => (
                 <div key={f.name} style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '13px' }}>
-                  {f.value ? <CheckCircle2 size={14} color="#84cc16" /> : <XCircle size={14} color="rgba(232,236,233,0.4)" />}
+                  {f.value ? <CheckCircle2 size={14} color="var(--accent-text)" /> : <XCircle size={14} color="var(--text-muted)" />}
                   <code style={{ fontSize: '12.5px' }}>{f.name}</code>
                   <span style={{ marginLeft: 'auto', color: muted }}>{f.value ? 'På' : 'Av'}</span>
                 </div>

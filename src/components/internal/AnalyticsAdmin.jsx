@@ -13,7 +13,7 @@ const CHANNEL_LABELS = {
   'Paid Social': 'Betald social', 'Display': 'Display', 'Unassigned': 'Okänd',
 };
 
-const cardStyle = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '22px' };
+const cardStyle = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '22px' };
 
 const STATUS_LABELS = {
   trialing: 'Provperiod', active: 'Aktiv', past_due: 'Betalning misslyckad',
@@ -29,17 +29,17 @@ const RANGE_PRESETS = [
   { id: 'year', label: 'Helt år' },
 ];
 
-function StatTile({ icon: Icon, label, value, sub, color = '#84cc16' }) {
+function StatTile({ icon: Icon, label, value, sub, color = 'var(--accent-text)' }) {
   return (
     <div style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '12px' }}>
         <span style={{ width: 30, height: 30, borderRadius: '8px', background: `${color}1f`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Icon size={15} color={color} />
         </span>
-        <span style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(232,236,233,0.5)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
       </div>
-      <div style={{ fontSize: '30px', fontWeight: 800, color: '#e8ece9', letterSpacing: '-0.02em' }}>{value}</div>
-      {sub && <div style={{ fontSize: '12.5px', color: 'rgba(232,236,233,0.45)', marginTop: '4px' }}>{sub}</div>}
+      <div style={{ fontSize: '30px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>{value}</div>
+      {sub && <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '4px' }}>{sub}</div>}
     </div>
   );
 }
@@ -76,7 +76,7 @@ export default function AnalyticsAdmin() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginBottom: '20px' }}>
         <div>
           <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '6px' }}>Analys</div>
-          <div style={{ fontSize: '13.5px', color: 'rgba(232,236,233,0.5)' }}>Konton, prenumerationer och besökstrafik.</div>
+          <div style={{ fontSize: '13.5px', color: 'var(--text-muted)' }}>Konton, prenumerationer och besökstrafik.</div>
           <RefreshBar updatedAt={updatedAt} refreshing={refreshing} onRefresh={reload} style={{ marginTop: '10px', marginBottom: 0 }} />
         </div>
 
@@ -87,9 +87,9 @@ export default function AnalyticsAdmin() {
               onClick={() => { setRange(p.id); setShowCustom(false); }}
               style={{
                 padding: '7px 13px', borderRadius: '8px', fontSize: '12.5px', fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
-                border: `1px solid ${range === p.id ? 'rgba(132,204,22,0.4)' : 'rgba(255,255,255,0.12)'}`,
-                background: range === p.id ? 'rgba(132,204,22,0.14)' : 'transparent',
-                color: range === p.id ? '#84cc16' : 'rgba(232,236,233,0.65)',
+                border: `1px solid ${range === p.id ? 'var(--status-green-bg)' : 'var(--border)'}`,
+                background: range === p.id ? 'var(--status-green-bg)' : 'transparent',
+                color: range === p.id ? 'var(--accent-text)' : 'var(--text-secondary)',
               }}
             >
               {p.label}
@@ -99,9 +99,9 @@ export default function AnalyticsAdmin() {
             onClick={() => { setShowCustom(s => !s); if (!showCustom) setRange('custom'); }}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '7px 13px', borderRadius: '8px', fontSize: '12.5px', fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
-              border: `1px solid ${range === 'custom' ? 'rgba(132,204,22,0.4)' : 'rgba(255,255,255,0.12)'}`,
-              background: range === 'custom' ? 'rgba(132,204,22,0.14)' : 'transparent',
-              color: range === 'custom' ? '#84cc16' : 'rgba(232,236,233,0.65)',
+              border: `1px solid ${range === 'custom' ? 'var(--status-green-bg)' : 'var(--border)'}`,
+              background: range === 'custom' ? 'var(--status-green-bg)' : 'transparent',
+              color: range === 'custom' ? 'var(--accent-text)' : 'var(--text-secondary)',
             }}
           >
             <Calendar size={12} /> Anpassat
@@ -111,45 +111,45 @@ export default function AnalyticsAdmin() {
 
       {showCustom && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
-          <label style={{ fontSize: '12.5px', color: 'rgba(232,236,233,0.6)' }}>Från</label>
-          <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={{ padding: '7px 10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#e8ece9', fontFamily: 'inherit', fontSize: '12.5px' }} />
-          <label style={{ fontSize: '12.5px', color: 'rgba(232,236,233,0.6)' }}>Till</label>
-          <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={{ padding: '7px 10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#e8ece9', fontFamily: 'inherit', fontSize: '12.5px' }} />
+          <label style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>Från</label>
+          <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={{ padding: '7px 10px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-main)', fontFamily: 'inherit', fontSize: '12.5px' }} />
+          <label style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>Till</label>
+          <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={{ padding: '7px 10px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-main)', fontFamily: 'inherit', fontSize: '12.5px' }} />
         </div>
       )}
 
       {data && !data.ga && (
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '12px 16px', background: 'rgba(58,143,193,0.1)', border: '1px solid rgba(58,143,193,0.25)', borderRadius: '11px', marginBottom: '24px' }}>
-          <Info size={15} color="#7cc4f0" style={{ flexShrink: 0, marginTop: 1 }} />
-          <div style={{ fontSize: '12.5px', color: 'rgba(232,236,233,0.7)', lineHeight: 1.6 }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '12px 16px', background: 'var(--status-blue-bg)', border: '1px solid var(--status-blue-bg)', borderRadius: '11px', marginBottom: '24px' }}>
+          <Info size={15} color="var(--status-blue-text)" style={{ flexShrink: 0, marginTop: 1 }} />
+          <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
             Riktig besöksstatistik (sidvisningar, varifrån trafiken kommer) kräver en Google Analytics-koppling som inte är påslagen än.
           </div>
         </div>
       )}
 
       {data?.ga?.error && (
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '12px 16px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '11px', marginBottom: '24px' }}>
-          <AlertTriangle size={15} color="#f87171" style={{ flexShrink: 0, marginTop: 1 }} />
-          <div style={{ fontSize: '12.5px', color: 'rgba(232,236,233,0.7)', lineHeight: 1.6 }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '12px 16px', background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '11px', marginBottom: '24px' }}>
+          <AlertTriangle size={15} color="var(--status-red-text)" style={{ flexShrink: 0, marginTop: 1 }} />
+          <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
             Google Analytics-kopplingen är på men svarar med fel: {data.ga.error}
           </div>
         </div>
       )}
 
-      {error && <div style={{ fontSize: '13px', color: '#f87171', marginBottom: '18px' }}>{error}</div>}
-      {!data && !error && <div style={{ color: 'rgba(232,236,233,0.5)', fontSize: '13.5px' }}>Laddar…</div>}
+      {error && <div style={{ fontSize: '13px', color: 'var(--status-red-text)', marginBottom: '18px' }}>{error}</div>}
+      {!data && !error && <div style={{ color: 'var(--text-muted)', fontSize: '13.5px' }}>Laddar…</div>}
 
       {data && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '14px', marginBottom: '20px' }}>
-            <StatTile icon={Users} label="Konton totalt" value={data.totalUsers} color="#7cc4f0" />
-            <StatTile icon={TrendingUp} label="Nya i perioden" value={data.signupsInRange} color="#84cc16" />
+            <StatTile icon={Users} label="Konton totalt" value={data.totalUsers} color="var(--status-blue-text)" />
+            <StatTile icon={TrendingUp} label="Nya i perioden" value={data.signupsInRange} color="var(--accent-text)" />
             <StatTile icon={GraduationCap} label="UF-konton" value={data.ufUsers} sub={`${data.regularUsers} vanliga företag`} />
             <StatTile icon={CreditCard} label="Betalande" value={data.subscriptions.byStatus.active || 0} sub={`${data.subscriptions.byStatus.trialing || 0} i provperiod`} />
             {data.ga?.totals && (
               <>
-                <StatTile icon={Eye} label="Sidvisningar" value={data.ga.totals.pageViews.toLocaleString('sv-SE')} color="#7cc4f0" />
-                <StatTile icon={Globe2} label="Sessioner" value={data.ga.totals.sessions.toLocaleString('sv-SE')} color="#7cc4f0" />
+                <StatTile icon={Eye} label="Sidvisningar" value={data.ga.totals.pageViews.toLocaleString('sv-SE')} color="var(--status-blue-text)" />
+                <StatTile icon={Globe2} label="Sessioner" value={data.ga.totals.sessions.toLocaleString('sv-SE')} color="var(--status-blue-text)" />
               </>
             )}
           </div>
@@ -161,20 +161,20 @@ export default function AnalyticsAdmin() {
                 <AreaChart data={data.signupsByDay} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="signupsFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#84cc16" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="#84cc16" stopOpacity={0} />
+                      <stop offset="0%" stopColor="#16a34a" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="#16a34a" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                  <XAxis dataKey="date" tickFormatter={formatDayLabel} tick={{ fill: 'rgba(232,236,233,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} interval={tickInterval} />
-                  <YAxis allowDecimals={false} tick={{ fill: 'rgba(232,236,233,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} width={28} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" vertical={false} />
+                  <XAxis dataKey="date" tickFormatter={formatDayLabel} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} interval={tickInterval} />
+                  <YAxis allowDecimals={false} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} width={28} />
                   <Tooltip
                     labelFormatter={formatDayLabel}
-                    contentStyle={{ background: '#0e2018', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '12px' }}
-                    labelStyle={{ color: 'rgba(232,236,233,0.6)' }}
-                    itemStyle={{ color: '#e8ece9' }}
+                    contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }}
+                    labelStyle={{ color: 'var(--text-muted)' }}
+                    itemStyle={{ color: 'var(--text-main)' }}
                   />
-                  <Area type="monotone" dataKey="count" name="Nya konton" stroke="#84cc16" strokeWidth={2} fill="url(#signupsFill)" />
+                  <Area type="monotone" dataKey="count" name="Nya konton" stroke="#16a34a" strokeWidth={2} fill="url(#signupsFill)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -188,20 +188,20 @@ export default function AnalyticsAdmin() {
                   <AreaChart data={data.ga.byDay} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="pageViewsFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#7cc4f0" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="#7cc4f0" stopOpacity={0} />
+                        <stop offset="0%" stopColor="#3a8fc1" stopOpacity={0.35} />
+                        <stop offset="100%" stopColor="#3a8fc1" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                    <XAxis dataKey="date" tickFormatter={formatDayLabel} tick={{ fill: 'rgba(232,236,233,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} interval={tickInterval} />
-                    <YAxis allowDecimals={false} tick={{ fill: 'rgba(232,236,233,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} width={28} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" vertical={false} />
+                    <XAxis dataKey="date" tickFormatter={formatDayLabel} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} interval={tickInterval} />
+                    <YAxis allowDecimals={false} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} width={28} />
                     <Tooltip
                       labelFormatter={formatDayLabel}
-                      contentStyle={{ background: '#0e2018', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '12px' }}
-                      labelStyle={{ color: 'rgba(232,236,233,0.6)' }}
-                      itemStyle={{ color: '#e8ece9' }}
+                      contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }}
+                      labelStyle={{ color: 'var(--text-muted)' }}
+                      itemStyle={{ color: 'var(--text-main)' }}
                     />
-                    <Area type="monotone" dataKey="pageViews" name="Sidvisningar" stroke="#7cc4f0" strokeWidth={2} fill="url(#pageViewsFill)" />
+                    <Area type="monotone" dataKey="pageViews" name="Sidvisningar" stroke="#3a8fc1" strokeWidth={2} fill="url(#pageViewsFill)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -214,11 +214,11 @@ export default function AnalyticsAdmin() {
               <div style={{ display: 'grid', gap: '9px' }}>
                 {data.ga.channels.map(c => (
                   <div key={c.channel} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13.5px' }}>
-                    <span style={{ color: 'rgba(232,236,233,0.7)' }}>{CHANNEL_LABELS[c.channel] || c.channel}</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>{CHANNEL_LABELS[c.channel] || c.channel}</span>
                     <span style={{ fontWeight: 700 }}>{c.sessions.toLocaleString('sv-SE')}</span>
                   </div>
                 ))}
-                {data.ga.channels.length === 0 && <div style={{ fontSize: '13px', color: 'rgba(232,236,233,0.4)' }}>Ingen trafik registrerad ännu.</div>}
+                {data.ga.channels.length === 0 && <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Ingen trafik registrerad ännu.</div>}
               </div>
             </div>
           )}
@@ -229,11 +229,11 @@ export default function AnalyticsAdmin() {
               <div style={{ display: 'grid', gap: '9px' }}>
                 {Object.entries(data.subscriptions.byStatus).map(([status, count]) => (
                   <div key={status} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13.5px' }}>
-                    <span style={{ color: 'rgba(232,236,233,0.7)' }}>{STATUS_LABELS[status] || status}</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>{STATUS_LABELS[status] || status}</span>
                     <span style={{ fontWeight: 700 }}>{count}</span>
                   </div>
                 ))}
-                {data.subscriptions.total === 0 && <div style={{ fontSize: '13px', color: 'rgba(232,236,233,0.4)' }}>Inga prenumerationer registrerade än.</div>}
+                {data.subscriptions.total === 0 && <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Inga prenumerationer registrerade än.</div>}
               </div>
             </div>
 
@@ -242,11 +242,11 @@ export default function AnalyticsAdmin() {
                 <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '14px' }}>Nivåer</div>
                 <div style={{ display: 'grid', gap: '9px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13.5px' }}>
-                    <span style={{ color: 'rgba(232,236,233,0.7)' }}>129 kr — Utan personal</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>129 kr — Utan personal</span>
                     <span style={{ fontWeight: 700 }}>{data.subscriptions.byTier.solo || 0}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13.5px' }}>
-                    <span style={{ color: 'rgba(232,236,233,0.7)' }}>179 kr — Med personal</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>179 kr — Med personal</span>
                     <span style={{ fontWeight: 700 }}>{data.subscriptions.byTier.employer || 0}</span>
                   </div>
                 </div>
