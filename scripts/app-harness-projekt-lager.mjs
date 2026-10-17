@@ -35,14 +35,16 @@ async function run(dark, steps) {
   // Två varor med inleveranser och uttag, så att lagret och FIFO-partierna syns.
   company.articles = [...(company.articles || []),
     { id: 'kaffe', type: 'vara', description: 'Kaffebönor 1 kg', articleNumber: 'K-100', unitPrice: 189, purchasePrice: 95, unit: 'st', vatRate: 12, account: '3001' },
-    { id: 'mugg', type: 'vara', description: 'Termosmugg', articleNumber: 'M-200', unitPrice: 249, purchasePrice: 120, unit: 'st', vatRate: 25, account: '3001' }];
+    { id: 'mugg', type: 'vara', description: 'Termosmugg', articleNumber: 'M-200', unitPrice: 249, purchasePrice: 120, unit: 'st', vatRate: 25, account: '3001' },
+    { id: 'test', type: 'vara', description: 'test', unitPrice: 0, unit: 'st', vatRate: 25, account: '3001' }];
   company.company.inventorySettings = { method: 'fifo', accountKind: 'handelsvaror', lowestValue: true, reorderPoints: { kaffe: 20, mugg: 10 } };
   company.company.stockMovements = [
     { id: 'm1', articleId: 'kaffe', type: 'in', date: '2026-08-04', qty: 40, unitCost: 92 },
     { id: 'm2', articleId: 'kaffe', type: 'in', date: '2026-09-15', qty: 30, unitCost: 98 },
     { id: 'm3', articleId: 'kaffe', type: 'out', date: '2026-10-02', qty: 52 },
     { id: 'm4', articleId: 'mugg', type: 'in', date: '2026-09-01', qty: 24, unitCost: 120 },
-    { id: 'm5', articleId: 'mugg', type: 'out', date: '2026-10-10', qty: 6 }];
+    { id: 'm5', articleId: 'mugg', type: 'out', date: '2026-10-10', qty: 6 },
+    { id: 'm6', articleId: 'test', type: 'out', date: '2026-10-12', qty: 2 }];
   const id = company.company.id;
   const server = { row: { id: 'r1', user_id: UID, state: { activeCompanyId: id, companies: { [id]: company } }, updated_at: newTs(), onboarding_completed: true, onboarding_skipped: false, company_name: company.company.name } };
 
@@ -113,7 +115,7 @@ for (const dark of [false, true]) {
     if (!ONLY || ONLY === 'lager') {
       await go('articles'); await shot('artiklar');
       await tab('Lager'); await shot('lager');
-      await page.locator('button.lg-row:visible').first().click().catch(() => {}); await shot('lager-detalj', false); await page.locator('.modal-close:visible').first().click().catch(() => {});
+      await page.locator('button.lg-row:visible').first().click().catch(() => {}); await shot('lager-detalj', false); await page.locator('.modal-close:visible').first().click().catch(() => {}); await page.locator('button.lg-row:visible', { hasText: 'test' }).first().scrollIntoViewIfNeeded(); await shot('lager-rader', false); await page.locator('button.lg-row:visible', { hasText: 'test' }).first().click(); await shot('lager-test', false); await page.locator('.modal-close:visible').first().click().catch(() => {});
       await page.locator('button:visible', { hasText: 'Inleverans' }).last().click().catch(() => {}); await shot('lager-handelse', false); await page.keyboard.press('Escape'); await page.locator('.modal-close:visible').first().click().catch(() => {});
       await tab('Prissättning'); await shot('pris');
     }

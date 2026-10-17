@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { lockedPeriodFor } from '../utils/fiscalYear';
-import { Plus, Trash2, X, Search, Truck } from './icons';
-import { ListFilterBar } from './shared/ListPageHeader';
+import { Plus, Trash2, X, Search, Truck, AlertTriangle } from './icons';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
 import {
@@ -154,6 +153,7 @@ export default function Inventory({ articles = [], invoices = [], company, verif
     .sort((a, b) => order[a.status] - order[b.status] || a.description.localeCompare(b.description, 'sv'));
   const count = (s) => allRows.filter(r => r.status === s).length;
   const lowRows = allRows.filter(r => r.status === 'low');
+  const issueRows = allRows.filter(r => r.shortfall > 0);
   const inStock = allRows.filter(r => r.qty > 0);
   const totalUnits = inStock.reduce((s, r) => s + r.qty, 0);
   const detail = detailId ? allRows.find(r => r.articleId === detailId) : null;
@@ -199,7 +199,7 @@ export default function Inventory({ articles = [], invoices = [], company, verif
 
   const methodName = settings.method === 'fifo' ? tr('lager.methodFifo') : tr('lager.methodAvg');
   const statusPill = (r) => (r.shortfall > 0
-    ? <span className="agi-pill late" title={tr('ui.fler_uttag_an_inleveranser_registrerade')}>{tr('ui.saknar')} {fmtQty(r.shortfall)} {tr('ui.inleverans')}</span>
+    ? <span className="agi-pill warn" title={tr('ui.fler_uttag_an_inleveranser_registrerade')}>{tr('lager.check')}</span>
     : r.status === 'out' ? <span className="agi-pill late">{tr('lager.outOfStock')}</span>
     : r.status === 'low' ? <span className="agi-pill warn">{tr('lager.low')}</span>
     : <span className="agi-pill ok">{tr('lager.inStockPill')}</span>);
@@ -214,19 +214,6 @@ export default function Inventory({ articles = [], invoices = [], company, verif
 
   return (
     <>
-      {goods.length > 0 && (
-        <ListFilterBar>
-          <div className="ws-seg">
-            {[['all', tr('ui.alla'), allRows.length], ['ok', tr('lager.inStockPill'), count('ok')], ['low', tr('lager.low'), count('low')], ['out', tr('lager.outOfStock'), count('out')]].map(([id, label, n]) => (
-              <button key={id} type="button" className={filter === id ? 'on' : ''} onClick={() => setFilter(id)}>{label} <span className="lg-count">{n}</span></button>
-            ))}
-          </div>
-          <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '180px', maxWidth: '320px' }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input type="text" className="ws-input" style={{ height: '34px', paddingLeft: '32px', fontSize: '13px' }} placeholder={tr('lager.search')} value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
-        </ListFilterBar>
-      )}
 
       <div className="ws-page">
         <Panel title={tr('ui.lager')} sub={tr('lager.overviewSub', { date: closingDate, method: methodName, account: kind.stockAccount })}
@@ -268,9 +255,19 @@ export default function Inventory({ articles = [], invoices = [], company, verif
             </div>
           </div>
 
-          {(lowRows.length > 0 || (valuation.lines.length > 0 && closing && !alreadyBooked)) && (
+          {(lowRows.length > 0 || issueRows.length > 0 || (valuation.lines.length > 0 && closing && !alreadyBooked)) && (
             <div className="lg-todo">
               <div className="lg-todo-title">{tr('lager.todo')}</div>
+              {issueRows.map(r => (
+                <button key={`issue-${r.articleId}`} type="button" className="dash-today-btn dash-today-btn--warn lg-todo-row" onClick={() => setDetailId(r.articleId)}>
+                  <span className="dash-today-lines">
+                    <span className="dash-today-kicker">{tr('lager.check')}</span>
+                    <span className="dash-today-title">{r.description}</span>
+                    <span className="dash-today-detail">{tr('lager.shortfall', { n: fmtQty(r.shortfall) })}</span>
+                  </span>
+                  <span className="dash-today-ic" aria-hidden="true"><AlertTriangle size={20} /></span>
+                </button>
+              ))}
               {lowRows.map(r => (
                 <button key={r.articleId} type="button" className="dash-today-btn dash-today-btn--warn lg-todo-row" onClick={() => startMovement('in', r.articleId)}>
                   <span className="dash-today-lines">
@@ -300,8 +297,16 @@ export default function Inventory({ articles = [], invoices = [], company, verif
 
         <Panel
           title={tr('lager.goods')}
-          sub={goods.length > 0 ? tr('lager.goodsSub') : null}
+          sub={goods.length === 0 ? null : filter !== 'all'
+            ? <span className="lg-filter-chip">{tr('lager.showing', { what: ({ ok: tr('lager.inStockPill'), low: tr('lager.lowStock'), out: tr('lager.outOfStock') })[filter] })}<button type="button" onClick={() => setFilter('all')} aria-label={tr('lager.showAll')}><X size={13} /></button></span>
+            : tr('lager.goodsSub')}
           actions={goods.length > 0 && <>
+            {goods.length > 5 && (
+              <div className="lg-search">
+                <Search size={14} aria-hidden="true" />
+                <input type="text" className="ws-input" placeholder={tr('lager.search')} value={search} onChange={e => setSearch(e.target.value)} />
+              </div>
+            )}
             <button type="button" className="agi-btn" onClick={() => startMovement('count')}>{tr('lager.typeCount')}</button>
             <button type="button" className="agi-btn" onClick={() => startMovement('out')}>{tr('lager.typeOut')}</button>
             <button type="button" className="agi-btn primary" onClick={() => startMovement('in')}><Plus size={14} /> {tr('lager.typeIn')}</button>
@@ -325,13 +330,15 @@ export default function Inventory({ articles = [], invoices = [], company, verif
                 <button key={r.articleId} type="button" className={`lg-row is-${r.status}`} style={{ '--pj': barColor(r) }} onClick={() => setDetailId(r.articleId)}>
                   <span className="lg-row-name">
                     <strong>{r.description}</strong>
-                    <small>{[r.articleNumber, r.layers.length > 1 ? tr('lager.batchCount', { n: r.layers.length }) : null].filter(Boolean).join(' · ') || tr('ui.vara')}</small>
+                    {r.shortfall > 0
+                      ? <small className="lg-issue">{tr('lager.shortfall', { n: fmtQty(r.shortfall) })}</small>
+                      : (r.articleNumber || r.layers.length > 1) && <small>{[r.articleNumber, r.layers.length > 1 ? tr('lager.batchCount', { n: r.layers.length }) : null].filter(Boolean).join(' · ')}</small>}
                   </span>
                   <span className="lg-row-stock">
                     <span className="lg-row-qty"><b>{fmtQty(r.qty)}</b> {r.unit}{r.min > 0 && <small>{tr('lager.minShort', { n: fmtQty(r.min) })}</small>}</span>
                     <span className="pz-track"><span style={{ width: `${barPct(r)}%` }} />{r.min > 0 && <em style={{ left: '50%' }} />}</span>
                   </span>
-                  <span className="r lg-row-num">{fmt(r.unitCost)} kr</span>
+                  <span className="r lg-row-num">{r.unitCost > 0 ? `${fmt(r.unitCost)} kr` : '–'}</span>
                   <span className="r lg-row-num strong">{fmtKr(r.bookValue)}</span>
                   <span className="r">{statusPill(r)}</span>
                 </button>
@@ -368,6 +375,12 @@ export default function Inventory({ articles = [], invoices = [], company, verif
               </div>
 
               <div className="lg-drawer-body">
+                {detail.shortfall > 0 && (
+                  <div className="ws-notice warn">
+                    <div><strong>{tr('lager.shortfall', { n: fmtQty(detail.shortfall) })}</strong><p>{tr('lager.shortfallHint')}</p></div>
+                    <button type="button" className="agi-btn primary" onClick={() => startMovement('in', detail.articleId)}>{tr('lager.addReceipt')}</button>
+                  </div>
+                )}
                 <div className="ws-card-actions">
                   <button type="button" className="agi-btn primary" onClick={() => startMovement('in', detail.articleId)}><Plus size={14} /> {tr('lager.typeIn')}</button>
                   <button type="button" className="agi-btn" onClick={() => startMovement('out', detail.articleId)}>{tr('lager.typeOut')}</button>

@@ -4547,7 +4547,13 @@
     "bookKicker": "Bokföring",
     "book": "Bokför",
     "others": "{{n}} till",
-    "unitsIn": "{{n}} st i {{items}} varor"
+    "unitsIn": "{{n}} st i {{items}} varor",
+    "check": "Kontrollera",
+    "shortfall": "{{n}} st uttagna utan inleverans",
+    "shortfallHint": "Det har gått ut fler än som kommit in. Lägg till inleveransen så blir saldot och värdet rätt.",
+    "addReceipt": "Lägg till inleverans",
+    "showing": "Visar: {{what}}",
+    "showAll": "Visa alla"
   },
   "pris": {
     "toolPrice": "Pris",

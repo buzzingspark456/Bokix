@@ -4547,7 +4547,13 @@
     "bookKicker": "Bookkeeping",
     "book": "Book",
     "others": "{{n}} more",
-    "unitsIn": "{{n}} units in {{items}} items"
+    "unitsIn": "{{n}} units in {{items}} items",
+    "check": "Check",
+    "shortfall": "{{n}} issued without a receipt",
+    "shortfallHint": "More has gone out than came in. Add the receipt so the stock and value are correct.",
+    "addReceipt": "Add receipt",
+    "showing": "Showing: {{what}}",
+    "showAll": "Show all"
   },
   "pris": {
     "toolPrice": "Price",
