@@ -31,7 +31,8 @@ Fakta på en sida: https://www.bokix.se/bokix-i-korthet
 - Kund- och leverantörsfakturor, obegränsat antal, med flera fakturamallar och egen logotyp
 - Lönekörningar för hela personalen, med rätt skatteavdrag
 - Moms-, AGI- och kontrolluppgiftssammanställningar
-- Kortbetalningar via Stripe och kassaförsäljning via Zettle, bokförda automatiskt
+- Kortbetalning på fakturan via Stripe, och alla Stripe-transaktioner (webbshop, betallänkar, avgifter, utbetalningar) hämtade varje morgon
+- Kassaförsäljning via Zettle, bokförd från Granskning
 - Fakturor, offerter och påminnelser skickas från användarens egen Gmail eller egna e-postadress (Bokix får bara skicka, aldrig läsa)
 - Kvitton läses av automatiskt: datum, belopp och moms, även flera momssatser på samma kvitto
 - Årsredovisning K2 för aktiebolag, SRU-filer och bokslut

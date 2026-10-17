@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+import { syncStripeLedger } from '../stripe/_ledgerSync.js';
 import { applySecurityHeaders } from '../_security.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { trySendFromOwnAddress } from '../_smtp.js';
@@ -501,100 +502,14 @@ export default async function handler(req, res) {
           const stripe = getStripeClient();
           if (stripe && stripeAccountId) {
             try {
-              // Samma överlappande fönster-princip som trial-påminnelsen
-              // ovan (robust mot ett missat cron-pass) — UNIQUE(stripe_
-              // balance_transaction_id) + ignoreDuplicates gör en omkörning
-              // av samma dagar ofarlig.
-              const lookbackSeconds = 4 * 86400;
-              const createdAfter = Math.floor(Date.now() / 1000) - lookbackSeconds;
-              const balanceTxns = await stripe.balanceTransactions.list(
-                { limit: 100, created: { gte: createdAfter } },
-                { stripeAccount: stripeAccountId }
-              );
-
-              if (balanceTxns.data.length > 0) {
-                // Kandidater att matcha CHARGE-poster (en kunds
-                // fakturabetalning som landar direkt på kundens eget
-                // Stripe-saldo, se create-checkout-session.js:s "direct
-                // charge"-kommentar) mot Bokix EGNA loggade
-                // fakturabetalningar, samma fönster. Bästa-försök-matchning
-                // på tidsnärhet (±15 min), INTE en garanterad metadata-
-                // koppling: balanceTransactions.list() bär inte igenom
-                // Checkout-sessionens egen metadata (invoice_id). Ofarligt
-                // att gissa fel här — raden hamnar bara som ett FÖRSLAG i
-                // ReviewQueue.jsx, aldrig auto-bokfört.
-                //
-                // Var tidigare bt.type === 'transfer' (destination-charge-
-                // modellen, se git-historiken) — en direct charge dyker
-                // istället upp som 'charge' på det ANSLUTNA kontots eget
-                // saldo, med bt.fee redan satt till summan av Stripes EGEN
-                // avgift + Bokix application_fee (inget att gissa fram via
-                // en belopps-mellanskillnad längre). Bokix egen andel bryts
-                // ut separat ur fee_details (type 'application_fee') istället
-                // för hela bt.fee, så platform_fee_amount fortsätter betyda
-                // "bara Bokix andel", inte Stripes också.
-                const { data: paymentEvents } = await admin
-                  .from('stripe_payment_events')
-                  .select('invoice_id, amount_total, paid_at')
-                  .eq('user_id', row.user_id)
-                  .eq('company_id', companyId)
-                  .gte('paid_at', new Date(createdAfter * 1000).toISOString());
-                const unmatchedEvents = [...(paymentEvents || [])];
-                const MATCH_WINDOW_MS = 15 * 60 * 1000;
-
-                const toInsert = balanceTxns.data.map(bt => {
-                  let matchedInvoiceId = null;
-                  let platformFeeAmount = null;
-                  if (bt.type === 'charge' && bt.currency === 'sek') {
-                    const btCreatedMs = bt.created * 1000;
-                    let bestIdx = -1, bestDiff = Infinity;
-                    unmatchedEvents.forEach((ev, idx) => {
-                      const diff = Math.abs(new Date(ev.paid_at).getTime() - btCreatedMs);
-                      if (diff < MATCH_WINDOW_MS && diff < bestDiff) { bestDiff = diff; bestIdx = idx; }
-                    });
-                    if (bestIdx !== -1) {
-                      const ev = unmatchedEvents.splice(bestIdx, 1)[0];
-                      matchedInvoiceId = ev.invoice_id;
-                      // Bokix egen andel, direkt ur Stripes fee_details —
-                      // se filkommentaren i supabase-setup.sql. Bara sparad
-                      // om positiv (annars inget att bokföra).
-                      const applicationFeeEntry = (bt.fee_details || []).find(fd => fd.type === 'application_fee');
-                      const feeAmount = applicationFeeEntry ? applicationFeeEntry.amount / 100 : 0;
-                      if (feeAmount > 0) platformFeeAmount = feeAmount;
-                    }
-                  }
-
-                  return {
-                    user_id: row.user_id,
-                    company_id: companyId,
-                    stripe_account_id: stripeAccountId,
-                    stripe_balance_transaction_id: bt.id,
-                    type: bt.type,
-                    amount: bt.amount / 100,
-                    fee: bt.fee / 100,
-                    currency: bt.currency,
-                    description: bt.description || null,
-                    source_id: typeof bt.source === 'string' ? bt.source : (bt.source?.id || null),
-                    created_at_stripe: new Date(bt.created * 1000).toISOString(),
-                    matched_invoice_id: matchedInvoiceId,
-                    platform_fee_amount: platformFeeAmount,
-                  };
-                });
-
-                if (dryRun) {
-                  summary.wouldSend.push({ type: 'stripe_ledger', companyId, count: toInsert.length });
-                  summary.stripeLedgerEvents += toInsert.length;
-                } else {
-                  // ignoreDuplicates → INSERT ... ON CONFLICT DO NOTHING: en
-                  // redan loggad (och kanske redan granskad/bokförd) rad ska
-                  // ALDRIG skrivas över av en omkörning av samma dagar.
-                  const { error: insertError } = await admin
-                    .from('stripe_ledger_events')
-                    .upsert(toInsert, { onConflict: 'stripe_balance_transaction_id', ignoreDuplicates: true });
-                  if (insertError) throw insertError;
-                  summary.stripeLedgerEvents += toInsert.length;
-                }
-              }
+              // Överlappande fönster (robust mot ett missat cron-pass), se
+              // api/stripe/_ledgerSync.js.
+              const { count } = await syncStripeLedger({
+                admin, stripe, userId: row.user_id, companyId, stripeAccountId,
+                sinceSeconds: 4 * 86400, dryRun,
+              });
+              if (dryRun && count) summary.wouldSend.push({ type: 'stripe_ledger', companyId, count });
+              summary.stripeLedgerEvents += count;
             } catch (err) {
               summary.errors.push(`stripe ledger ${companyId}: ${err.message}`);
             }

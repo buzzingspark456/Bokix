@@ -3685,7 +3685,27 @@
     "skriv_ditt_meddelande": "Skriv vad du behöver hjälp med.",
     "tack_meddelandet_ar_skickat": "Tack! Vi har fått ditt meddelande och svarar via mejl.",
     "skickas_fran_din_e_post": "Skickas från din e-post",
-    "vi_svarar_till_den_har_adressen": "Vi svarar till den här adressen. Du får också en kopia."
+    "vi_svarar_till_den_har_adressen": "Vi svarar till den här adressen. Du får också en kopia.",
+    "stripe_rq_avgift_note": "avgiften kommer från Stripe",
+    "stripe_rq_avgift_title": "Bokför Stripes avgift {{v0}} för kortbetalningen av fakturan",
+    "stripe_rq_betald_note": "fakturan är redan bokförd som betald",
+    "stripe_rq_betald_title": "Kortbetalning {{v0}} på fakturan, inget mer att bokföra",
+    "stripe_rq_utbetalning_note": "från Stripe-saldot (1686) till banken (1930)",
+    "stripe_rq_utbetalning_title": "Bokför utbetalningen {{v0}} från Stripe till bankkontot",
+    "stripe_rq_avgift_fristaende_title": "Bokför Stripe-avgift {{v0}} mot 6570 Bankkostnader",
+    "stripe_rq_aterbetalning_title": "Bokför återbetalning {{v0}}, välj momssats och intäktskonto",
+    "stripe_rq_med_avgift": "Stripes avgift {{v0}} bokförs samtidigt",
+    "stripe_rq_bokfor": "Bokför",
+    "stripe_rq_bokfor_aterbetalning": "Bokför återbetalning",
+    "stripe_rq_redan_i_banken": "Redan bokförd från banken",
+    "stripe_rq_bokfor_alla_sakra": "Bokför alla säkra ({{n}})",
+    "stripe_rq_bokfor_alla_sakra_fraga": "Bokföra {{n}} Stripe-poster? Det gäller avgifter och utbetalningar där allt kommer direkt från Stripe. Försäljning och återbetalningar väljer du själv.",
+    "stripe_rq_hamta_nu": "Hämta från Stripe",
+    "stripe_rq_hamtar": "Hämtar…",
+    "stripe_rq_hamtade": "Klart. {{n}} transaktioner från de senaste 90 dagarna är kontrollerade.",
+    "stripe_rq_hamta_fel": "Kunde inte hämta från Stripe: {{v0}}",
+    "stripe_rq_kontrollera": "Kontrollera",
+    "stripe_rq_fristaende_note": "kan ha moms med omvänd skattskyldighet, jämför med Stripes faktura"
   },
   "glossary": {
     "g01": {

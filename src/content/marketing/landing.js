@@ -61,7 +61,7 @@ export const LANDING_CONTENT = {
     connections: {
       heading: 'Kopplat till tjänsterna du redan använder',
       subheading: 'Betalningar, kassa och myndigheter: Bokix pratar med rätt system istället för att du ska hålla ordning själv.',
-      labels: { stripe: 'Kortbetalningar', zettle: 'Kassaförsäljning', bolagsverket: 'Företagsuppslag', skatteverket: 'Rätt filformat' },
+      labels: { stripe: 'Kortbetalning och försäljning', zettle: 'Kassaförsäljning', bolagsverket: 'Företagsuppslag', skatteverket: 'Rätt filformat' },
       groups: { Betalningar: 'Betalningar', Myndigheter: 'Myndigheter' },
     },
     trustPoints: ['Byggt efter svensk bokföringslag', 'GDPR', 'BAS-kontoplan'],

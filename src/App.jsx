@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import useFitLevel from './utils/useFitLevel';
 import { visiblePages, accessForPage } from './utils/pageAccess';
+import { STRIPE_BALANCE_ACCOUNT } from './utils/stripeLedger';
 import { isUfCompany, ufPageState, ufInvoiceQuota, ufFreePeriod, UF_NAV_IDS, UF_HIDDEN_REPORT_IDS } from './utils/ufMode';
 import { t as tr, useTranslation } from './i18n';
 import {
@@ -2728,7 +2729,7 @@ function App() {
     if (!status) return;
 
     const messages = {
-      connected: 'Stripe är nu anslutet till Bokix. Nya betalningar, utbetalningar och avgifter hämtas hit en gång om dagen.',
+      connected: 'Stripe är nu anslutet. Kunder kan betala fakturor med kort, och de senaste 90 dagarnas betalningar, avgifter och utbetalningar finns i Granskning. Nya hämtas varje morgon.',
       cancelled: 'Anslutningen avbröts, du kan försöka igen när du vill.',
       error: tr('ui.nagot_gick_fel_vid_stripe_anslutningen_forsok_ig'),
       not_configured: 'Stripe-anslutning är inte konfigurerad ännu. Kontakta support.',
@@ -2967,7 +2968,10 @@ function App() {
         // inget återstår) — kvitteras ändå som applicerad, den ska inte
         // dyka upp och försöka appliceras om och om igen.
         if (invoiceExists && event.amount_total) {
-          handleRegisterInvoicePayment(event.invoice_id, event.amount_total, event.paid_at?.split('T')[0]);
+          // Pengarna landar på Stripe-saldot (1686), inte på banken. Stripes
+          // avgift och utbetalningen till 1930 bokförs från Granskning
+          // (utils/stripeLedger.js).
+          handleRegisterInvoicePayment(event.invoice_id, event.amount_total, event.paid_at?.split('T')[0], STRIPE_BALANCE_ACCOUNT);
           // Notisklockan visar bara betalningar via Betala nu (utils/notificationFeed.js).
           setInvoices(prev => prev.map(i => (i.id === event.invoice_id ? { ...i, paidVia: 'stripe' } : i)));
         }
@@ -5396,6 +5400,8 @@ function App() {
           <Projects
             key={company?.id || data.activeCompanyId}
             projects={projects}
+            invoices={invoices}
+            expenses={expenses}
             setProjects={setProjects}
             contacts={contacts}
             setContacts={setContacts}

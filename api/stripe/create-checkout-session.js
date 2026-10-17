@@ -72,6 +72,9 @@ export default async function handler(req, res) {
       line_items: lineItems,
       payment_intent_data: {
         application_fee_amount: applicationFeeAmount,
+        // Följer med kortbetalningen till saldotransaktionen, så
+        // api/stripe/_ledgerSync.js kan koppla den exakt till fakturan.
+        metadata: { company_id: companyId, invoice_id: invoiceId },
       },
       metadata: {
         user_id: userId,

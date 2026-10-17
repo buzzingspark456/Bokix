@@ -294,7 +294,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
           />
         );
       case 'contacts':
-        return <Contacts contacts={demoContacts} setContacts={setDemoContacts} accounts={seed.accounts} globalAction={globalAction} clearGlobalAction={clearGlobalAction} />;
+        return <Contacts contacts={demoContacts} setContacts={setDemoContacts} accounts={seed.accounts} invoices={demoInvoices} expenses={demoExpenses} globalAction={globalAction} clearGlobalAction={clearGlobalAction} />;
       case 'articles':
         return <Articles articles={demoArticles} setArticles={setDemoArticles} accounts={seed.accounts} />;
       case 'quotes':
@@ -342,6 +342,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
         return (
           <Projects
             projects={demoProjects} setProjects={setDemoProjects} contacts={demoContacts} setContacts={noop}
+            invoices={demoInvoices} expenses={demoExpenses}
             timeEntries={demoTimeEntries} setTimeEntries={setDemoTimeEntries} globalAction={globalAction} clearGlobalAction={clearGlobalAction}
           />
         );

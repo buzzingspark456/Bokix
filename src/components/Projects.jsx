@@ -10,6 +10,7 @@ import ListPageHeader, { ListFilterBar } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import { BRAND } from '../utils/brandColors';
+import { invoiceNetSek } from '../utils/contactTotals';
 import { t as tr, dateLocale } from '../i18n';
 import { layoutRect, layoutViewport } from '../utils/dropdownPlacement';
 import { numberFormat } from '../utils/intlCache';
@@ -1099,8 +1100,20 @@ function ProjectsListTable({ list, contacts, timeEntries, expandedProjectId, set
   );
 }
 
-export default function Projects({ projects = [], setProjects, contacts = [], setContacts, timeEntries = [], setTimeEntries, employees = [], timeReportStatuses = [], setTimeReportStatuses, globalAction, clearGlobalAction }) {
+export default function Projects({ projects: storedProjects = [], invoices = [], expenses = [], setProjects, contacts = [], setContacts, timeEntries = [], setTimeEntries, employees = [], timeReportStatuses = [], setTimeReportStatuses, globalAction, clearGlobalAction }) {
   const [activeTab, setActiveTab] = useState('projects');
+  // Intäkt och kostnad räknas ur fakturor och kostnader som är kopplade till
+  // projektet (projectId), exklusive moms. De sparade fälten revenue/cost
+  // sattes till 0 när projektet skapades och uppdaterades aldrig.
+  const projects = useMemo(() => storedProjects.map(p => {
+    const revenue = invoices
+      .filter(inv => inv.projectId === p.id && (!inv.type || inv.type === 'invoice') && inv.status !== 'draft')
+      .reduce((sum, inv) => sum + invoiceNetSek(inv), 0);
+    const cost = expenses
+      .filter(e => e.projectId === p.id)
+      .reduce((sum, e) => sum + (Number(e.netAmount) || 0), 0);
+    return { ...p, revenue: Math.round(revenue), cost: Math.round(cost) };
+  }), [storedProjects, invoices, expenses]);
 
   useEffect(() => {
     const handleHash = () => {

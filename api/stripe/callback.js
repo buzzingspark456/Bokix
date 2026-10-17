@@ -10,6 +10,7 @@ import { createClient } from '@supabase/supabase-js';
 import { verifySignedState } from './_oauthState.js';
 import { parseCookies, STRIPE_OAUTH_COOKIE, clearStripeOauthStateCookie } from './_cookies.js';
 import { checkRateLimit } from '../_rateLimit.js';
+import { syncStripeLedger } from './_ledgerSync.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_') ? new Stripe(stripeSecretKey, {}) : null;
@@ -102,6 +103,21 @@ export default async function handler(req, res) {
       companyId: payload.company_id,
       stripeAccountId: connectedAccountId,
     });
+
+    // De senaste 90 dagarna direkt, så Granskning inte är tom till nästa
+    // morgon. Bästa försök: misslyckas det tar nattens cron över.
+    try {
+      await syncStripeLedger({
+        admin: createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY),
+        stripe,
+        userId: payload.user_id,
+        companyId: payload.company_id,
+        stripeAccountId: connectedAccountId,
+        sinceSeconds: 90 * 86400,
+      });
+    } catch (syncErr) {
+      console.warn('Stripe-hämtning direkt efter anslutning misslyckades:', syncErr.message);
+    }
 
     redirectWithStatus(res, 'connected');
   } catch (err) {

@@ -290,7 +290,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
-        title={t('ui.artikel')}
+        title={t('ui.artiklar')}
         tabs={setCompanyInfo ? {
           items: [{ id: 'articles', label: t('ui.artiklar') }, { id: 'inventory', label: t('ui.lager') }, { id: 'pricing', label: t('ui.prissattning') }],
           activeId: tab, onChange: setTab,

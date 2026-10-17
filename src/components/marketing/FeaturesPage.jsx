@@ -5,7 +5,8 @@ import FeatureChainFlow from './FeatureChainFlow';
 import InvoiceFlow from './InvoiceFlow';
 import DemoPlayer, { DemoStyles } from './DemoPlayer';
 import { BOKFORING_DEMO, FAKTURERING_DEMO, SKATT_DEMO, LON_DEMO } from './demoScenesFeatures';
-import { KitStyles, SubHero, KitSection, SpecList, PointList, KitCta, PrimaryButton, GhostLink } from './subpageKit';
+import { KitStyles, SubHero, KitSection, SpecList, PointList, KitCta, PrimaryButton, GhostLink, ProductShots } from './subpageKit';
+import { shotsFor } from '../../content/marketing/screenshots';
 import { PageMeta, JsonLd } from '../../utils/seo';
 
 // Bokföring & fakturering (/funktioner). Omgjord 2026-09-26 (kundönskemål:
@@ -33,6 +34,7 @@ const SECTIONS = [
       'Fyra fakturamallar (Klassisk, Kraftfull, Minimal, Rutnät) med egen logotyp och accentfärg',
       'Leverantörsfakturor registreras snabbt och bokförs automatiskt när konto är valt',
       'Kortbetalningar direkt på fakturan via Stripe',
+      'Stripe-försäljning, avgifter och utbetalningar hämtas in varje morgon',
       'ROT- och RUT-avdrag räknas på arbetskostnaden och visas både på fakturan och i underlaget till Skatteverket',
       'Automatiska betalningspåminnelser till kunden när en faktura passerat förfallodatum',
       'Utskick från din egen e-postdomän, inte en delad avsändaradress',
@@ -43,7 +45,7 @@ const SECTIONS = [
     id: 'skatt', demo: SKATT_DEMO, title: 'Skatt och bokslut',
     desc: 'Det som faktiskt ska in rätt hos Skatteverket, förberett åt dig men aldrig skickat automatiskt utan din signatur.',
     points: [
-      'Momsdeklaration ruta för ruta — som PDF, och som eSKD-fil att ladda upp hos Skatteverket',
+      'Momsdeklaration ruta för ruta, som PDF, och som eSKD-fil att ladda upp hos Skatteverket',
       'AGI-fil per lönekörning att ladda upp hos Skatteverket, med arbetsgivaravgift efter ålder',
       'Kontrolluppgifter (KU) sammanställda per anställd och år',
       'Inkomstdeklaration 2: räkenskapsschema (INK2R) ifyllt ur bokföringen, med SRU-filer',
@@ -74,17 +76,6 @@ const SECTIONS = [
 //
 // Varje rad nedan motsvarar en RIKTIG sida eller funktion i appen
 // (App.jsx:s meny) — inget som "planeras".
-// Riktiga skärmbilder ur appen (public/screenshots/, tagna med
-// scripts/capture-marketing-screenshots.mjs ur startsidans demo med
-// exempeldata). Demona ovan visar hur det fungerar; bilderna här är sidans
-// riktiga <img> med alt-text, så att Googles bildsök har något att visa.
-const SCREENSHOTS = [
-  { src: '/screenshots/bokix-bokforing-verifikationer.png', title: 'Bokföring', alt: 'Skärmbild av Bokföring i Bokix: verifikationer grupperade per månad, med belopp och status' },
-  { src: '/screenshots/bokix-fakturering-kundfakturor.png', title: 'Kundfakturor', alt: 'Skärmbild av Kundfakturor i Bokix: fakturor med förfallodatum, belopp och status betald, obetald eller förfallen' },
-  { src: '/screenshots/bokix-skatt-momsdeklaration.png', title: 'Momsdeklaration', alt: 'Skärmbild av momsdeklarationen i Bokix: kontrollera, granska, bokför och lämna in, steg för steg' },
-  { src: '/screenshots/bokix-personal-anstallda.png', title: 'Anställda och lön', alt: 'Skärmbild av Anställda och lön i Bokix: anställda med anställningsdatum, lön och status' },
-];
-
 const MORE = [
   { motif: 'bank', title: 'Bank', body: 'Läs in kontoutdraget, matcha raderna, bokför.' },
   { motif: 'kvitton', title: 'Utgifter och kvitton', body: 'Underlaget sitter kvar på verifikationen.' },
@@ -128,10 +119,6 @@ export default function FeaturesPage() {
       <KitStyles />
       <DemoStyles />
       <style>{`
-        .bx-ft-shots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; max-width: 1080px; margin: 0 auto; }
-        .bx-ft-shot img { width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid var(--mkt-card-border); box-shadow: var(--mkt-card-shadow); }
-        .bx-ft-shot figcaption { font-size: 14px; font-weight: 600; color: var(--mkt-muted); margin-top: 10px; }
-        @media (max-width: 700px) { .bx-ft-shots { grid-template-columns: 1fr; } }
         .bx-ft-points { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 40px; max-width: 820px; margin: 44px auto 0; }
         @media (max-width: 700px) { .bx-ft-points { grid-template-columns: 1fr; } .bx-ft-points .kx-list + .kx-list { border-top: none; } }
       `}</style>
@@ -191,16 +178,7 @@ export default function FeaturesPage() {
         </p>
       </KitSection>
 
-      <section className="kx-section" style={{ background: 'var(--mkt-page-bg)' }}>
-        <div className="bx-ft-shots">
-          {SCREENSHOTS.map((shot, i) => (
-            <Reveal key={shot.src} delay={i * 60} as="figure" className="bx-ft-shot" style={{ margin: 0 }}>
-              <img src={shot.src} alt={shot.alt} loading="lazy" width="1382" height="813" />
-              <figcaption>{shot.title}</figcaption>
-            </Reveal>
-          ))}
-        </div>
-      </section>
+      <ProductShots shots={shotsFor('/funktioner')} lead="Riktiga bilder ur appen, med exempeldata." />
 
       <KitCta title="Allt ovan ingår" lead="Inga tillägg per funktion. Två priser, beroende på om du har personal på lönelistan.">
         <PrimaryButton onClick={enterApp}>Prova gratis</PrimaryButton>

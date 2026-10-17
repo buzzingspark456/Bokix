@@ -6,7 +6,8 @@ import SecurityFlow from './SecurityFlow';
 import SecurityCheck from './SecurityCheck';
 import DemoPlayer, { DemoStyles, PlayOnView } from './DemoPlayer';
 import { makeSecurityDemo } from './demoScenesOther';
-import { KitStyles, SubHero, KitSection, CenterSection, PointList, KitCta, PrimaryButton, GhostLink } from './subpageKit';
+import { KitStyles, SubHero, KitSection, CenterSection, PointList, KitCta, PrimaryButton, GhostLink, ProductShots } from './subpageKit';
+import { shotsFor } from '../../content/marketing/screenshots';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 
 // ── Säkerhet och datahantering (/sakerhet) ──────────────────────────────
@@ -50,7 +51,7 @@ const SECURITY_DEMO = makeSecurityDemo(FACTS);
 const CLOCKS = [
   { n: '7', unit: 'dagar', body: 'Uppladdade filer som ingen post längre pekar på städas bort av ett nattligt jobb.' },
   { n: '30', unit: 'dagar', body: 'Ett konto som skapades men aldrig aktiverades raderas, med alla uppgifter som hunnit fyllas i.' },
-  { n: '7', unit: 'år', body: 'Bokföringen sparas, för det kräver lagen — även om du säger upp abonnemanget.' },
+  { n: '7', unit: 'år', body: 'Bokföringen sparas, för det kräver lagen, även om du säger upp abonnemanget.' },
 ];
 
 // Rutinerna: korta rader med bock, inte fyra stycken brödtext.
@@ -108,6 +109,8 @@ export default function SecurityPage() {
         </>}
         visual={<SecurityCheck />}
       />
+
+      <ProductShots shots={shotsFor('/sakerhet')} title="Säkerhetsinställningarna i Bokix" />
 
       {/* ── Mekanismen, inte adjektiven ── */}
       <section className="kx-section" style={{ background: 'var(--mkt-ivory)' }}>

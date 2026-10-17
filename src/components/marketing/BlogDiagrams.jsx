@@ -194,7 +194,7 @@ const MOMS_STEPS = [
   { n: 1, h: 'Kontrollera', when: 'Innan du lämnar in', items: ['Alla kvitton och fakturor för perioden är bokförda', 'Inget ligger kvar i Granskning'] },
   { n: 2, h: 'Granska', when: 'Rutorna', items: ['Utgående och ingående moms stämmer mot verifikationerna', 'Ovanliga rader (omvänd moms, EU-inköp) ser rimliga ut'] },
   { n: 3, h: 'Bokför', when: 'Momsen själv', items: ['Bokix bokför momsskulden eller -fordran automatiskt', 'Kontot stäms av mot ruta 49'] },
-  { n: 4, h: 'Lämna in', when: 'Hos Skatteverket', items: ['Ladda upp eSKD-filen eller fyll i e-tjänsten för hand', 'Signera med BankID — betalningen ska vara framme samma dag'] },
+  { n: 4, h: 'Lämna in', when: 'Hos Skatteverket', items: ['Ladda upp eSKD-filen eller fyll i e-tjänsten för hand', 'Signera med BankID, betalningen ska vara framme samma dag'] },
 ];
 
 function MomsSteps() {
@@ -221,13 +221,13 @@ function ReceiptArchive() {
         <div className="bxd-fb">
           <div className="bxd-fb-k">Kvittot eller fakturan</div>
           <div className="bxd-fb-t">Fotas eller skannas</div>
-          <div className="bxd-fb-s">Hela, läsbar och oförändrad — det är kravet, inte vilken app du använder.</div>
+          <div className="bxd-fb-s">Hela, läsbar och oförändrad, det är kravet, inte vilken app du använder.</div>
         </div>
         <div className="bxd-arrow" aria-hidden="true">→</div>
         <div className="bxd-fb ok">
           <div className="bxd-fb-k">Originalet i papper</div>
           <div className="bxd-fb-t">Kan slängas direkt</div>
-          <div className="bxd-fb-s">Sedan lagändringen 1 juli 2024 — så fort överföringen är gjord.</div>
+          <div className="bxd-fb-s">Sedan lagändringen 1 juli 2024, så fort överföringen är gjord.</div>
         </div>
         <div className="bxd-arrow" aria-hidden="true">→</div>
         <div className="bxd-fb">
@@ -286,7 +286,7 @@ function EnskildFirmaFlow() {
         <div className="bxd-fb">
           <div className="bxd-fb-k">Eget uttag</div>
           <div className="bxd-fb-t">Konto 2013, inget lönebesked</div>
-          <div className="bxd-fb-s">Ingen skatt just då — firman och du är samma person.</div>
+          <div className="bxd-fb-s">Ingen skatt just då, firman och du är samma person.</div>
         </div>
         <div className="bxd-arrow" aria-hidden="true">→</div>
         <div className="bxd-fb ok">

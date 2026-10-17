@@ -302,7 +302,7 @@ export default function BankFlow({ note = true, ledger = true, otherTile = true 
 
       {note && (
         <p style={{ fontSize: '13.5px', color: MUTED, textAlign: 'center', margin: 0, maxWidth: '470px', lineHeight: 1.6 }}>
-          Har du en annan bank? Bokix läser filen ändå — importen är en generell CSV/Excel-läsare där du kopplar kolumnerna själv, inte en integration mot varje enskild bank.
+          Har du en annan bank? Bokix läser filen ändå, eftersom importen är en generell CSV/Excel-läsare där du kopplar kolumnerna själv, inte en integration mot varje enskild bank.
         </p>
       )}
     </div>

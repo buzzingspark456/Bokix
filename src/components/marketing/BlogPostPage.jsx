@@ -9,6 +9,7 @@ import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW } from './
 import { PageMeta, JsonLd, SITE_URL, schemaDate } from '../../utils/seo';
 import { ALL_ARTICLES } from '../../content/marketing/news';
 import { MIGRATION_SOURCES } from '../../utils/migrationSources';
+import { SHOTS, SHOT_WIDTH, SHOT_HEIGHT } from '../../content/marketing/screenshots';
 
 // ── En bloggartikel (/blogg/<slug>) ─────────────────────────────────────
 // Renderar ett inlägg ur BLOG_POSTS (content/marketing/blog.js) som har ett
@@ -206,6 +207,17 @@ function Block({ block, id }) {
     case 'table': return <DataTable block={block} />;
     case 'diagram': return <BlogDiagram id={block.id} caption={block.caption} />;
     case 'programs': return <Programs />;
+    // Skärmbild ur appen (content/marketing/screenshots.js): { t: 'image', shot: 'stripe' }.
+    case 'image': {
+      const shot = SHOTS[block.shot];
+      if (!shot) return null;
+      return (
+        <figure className="bp-shot" style={{ margin: '28px 0' }}>
+          <img src={shot.src} alt={shot.alt} width={SHOT_WIDTH} height={SHOT_HEIGHT} loading="lazy" decoding="async" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '10px', border: '1px solid var(--mkt-card-border)' }} />
+          <figcaption style={{ fontSize: '14px', color: 'var(--mkt-muted)', marginTop: '10px' }}>{block.caption || shot.caption}</figcaption>
+        </figure>
+      );
+    }
     default: return null;
   }
 }
@@ -417,7 +429,8 @@ export default function BlogPostPage({ slug }) {
       headline: post.title,
       url: `${SITE_URL}${post.path}`,
       inLanguage: 'sv-SE',
-      image: `${SITE_URL}${post.image}`,
+      // Omslaget först, sedan skärmbilderna i texten: alla är bilder som hör till artikeln.
+      image: [post.image, ...post.body.filter(b => b.t === 'image' && SHOTS[b.shot]).map(b => SHOTS[b.shot].src)].map(src => `${SITE_URL}${src}`),
       datePublished: schemaDate(post.datePublished),
       dateModified: schemaDate(post.dateModified),
       articleSection: post.category,

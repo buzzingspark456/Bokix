@@ -3685,7 +3685,27 @@
     "skriv_ditt_meddelande": "Tell us what you need help with.",
     "tack_meddelandet_ar_skickat": "Thank you! We have received your message and will reply by email.",
     "skickas_fran_din_e_post": "Sent from your email",
-    "vi_svarar_till_den_har_adressen": "We reply to this address. You also get a copy."
+    "vi_svarar_till_den_har_adressen": "We reply to this address. You also get a copy.",
+    "stripe_rq_avgift_note": "fee straight from Stripe",
+    "stripe_rq_avgift_title": "Book Stripe's fee {{v0}} for the card payment of the invoice",
+    "stripe_rq_betald_note": "the invoice is already booked as paid",
+    "stripe_rq_betald_title": "Card payment {{v0}} on the invoice, nothing more to book",
+    "stripe_rq_utbetalning_note": "from the Stripe balance (1686) to the bank (1930)",
+    "stripe_rq_utbetalning_title": "Book the payout {{v0}} from Stripe to the bank account",
+    "stripe_rq_avgift_fristaende_title": "Book Stripe fee {{v0}} against 6570 Bank charges",
+    "stripe_rq_aterbetalning_title": "Book refund {{v0}}, choose VAT rate and revenue account",
+    "stripe_rq_med_avgift": "Stripe's fee {{v0}} is booked at the same time",
+    "stripe_rq_bokfor": "Book",
+    "stripe_rq_bokfor_aterbetalning": "Book refund",
+    "stripe_rq_redan_i_banken": "Already booked from the bank",
+    "stripe_rq_bokfor_alla_sakra": "Book all confident ({{n}})",
+    "stripe_rq_bokfor_alla_sakra_fraga": "Book {{n}} Stripe items? This covers fees and payouts where everything comes straight from Stripe. You choose sales and refunds yourself.",
+    "stripe_rq_hamta_nu": "Fetch from Stripe",
+    "stripe_rq_hamtar": "Fetching…",
+    "stripe_rq_hamtade": "Done. {{n}} transactions from the last 90 days checked.",
+    "stripe_rq_hamta_fel": "Could not fetch from Stripe: {{v0}}",
+    "stripe_rq_kontrollera": "Check",
+    "stripe_rq_fristaende_note": "may carry reverse-charge VAT, compare with the Stripe invoice"
   },
   "glossary": {
     "g01": {

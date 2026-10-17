@@ -12,6 +12,80 @@
 // inte en ny mapp inläggen bor i.
 export const BLOG_POSTS = [
   {
+    slug: 'bokfora-stripe',
+    path: '/blogg/bokfora-stripe',
+    category: 'Bokföring',
+    title: 'Så bokför du Stripe',
+    seoTitle: 'Bokföra Stripe: kortbetalningar, avgifter och utbetalningar',
+    seoDescription: 'Så bokför du Stripe rätt: kortbetalning på fakturan, försäljning i webbshop, Stripes avgift, återbetalningar och utbetalningen till banken. Med konton och exempel.',
+    excerpt: 'Kortbetalningar, avgifter och utbetalningen till banken.',
+    image: '/blog/bokfora-stripe-hero.jpg',
+    imageAlt: 'Tecknad utbetalningsspecifikation från Stripe med en fakturabetalning, webbshopsköp, Stripes avgift och en återbetalning, bredvid en stapel mynt',
+    datePublished: '2026-10-17',
+    dateModified: '2026-10-17',
+    readTime: '~5 min läsning',
+    tldr: [
+      'Pengarna landar först på ditt Stripe-saldo. Bokför saldot på ett eget konto, till exempel 1686, och flytta det till 1930 när Stripe betalar ut.',
+      'Stripes avgift bokförs på 6570 Bankkostnader. Själva kortavgiften är utan moms.',
+      'Bokför varje betalning för sig, inte bara utbetalningen. Annars blir momsen och försäljningen fel.',
+    ],
+    body: [
+      { t: 'p', x: 'Stripe används på två sätt i ett litet företag. Kunden betalar **fakturan med kort**, eller så säljer du direkt via Stripe i en webbshop, en betallänk eller en prenumeration.' },
+      { t: 'p', x: 'Båda ska bokföras. Och i båda fallen kommer pengarna till banken senare, efter att Stripe dragit sin avgift.' },
+
+      { t: 'h2', x: 'Pengarna stannar först hos Stripe' },
+      { t: 'p', x: 'När kunden betalar hamnar pengarna på ditt **Stripe-saldo**. Stripe drar sin avgift direkt.' },
+      { t: 'p', x: 'Några dagar senare betalar Stripe ut till ditt bankkonto. En utbetalning innehåller ofta flera betalningar, minus avgifter och återbetalningar.' },
+      { t: 'p', x: 'Därför går det inte att bokföra bara utbetalningen. Då försvinner avgiften, momsen blir fel och ingen faktura blir betald.' },
+
+      { t: 'h2', x: 'Stripe-saldot får ett eget konto' },
+      { t: 'p', x: 'Behandla saldot som ett eget litet konto. I BAS 2026 passar **1686 Fordringar för kontokort och kuponger**. Tidigare användes ofta 1580.' },
+      { t: 'p', x: 'Allt som händer i Stripe går via det kontot. När utbetalningen kommer flyttas pengarna till **1930 Företagskonto**, och 1686 går ner till noll igen.' },
+      { t: 'table', caption: 'Kunden betalar en faktura på 1 250 kr med kort', head: ['Händelse', 'Debet', 'Kredit'], rows: [
+        ['Kunden betalar fakturan', '1686 Stripe-saldo 1 250', '1510 Kundfordringar 1 250'],
+        ['Stripes avgift', '6570 Bankkostnader 22', '1686 Stripe-saldo 22'],
+        ['Stripe betalar ut', '1930 Företagskonto 1 228', '1686 Stripe-saldo 1 228'],
+      ] },
+      { t: 'p', x: 'Momsen på fakturan bokfördes redan när du skickade den. Betalningen nollar bara kundfordran.' },
+
+      { t: 'h2', x: 'Försäljning utan faktura bokförs med moms' },
+      { t: 'p', x: 'Säljer du i en webbshop eller via en betallänk finns ingen faktura. Då är betalningen själva försäljningen, och momsen bokförs samtidigt.' },
+      { t: 'table', caption: 'Webbshopsköp på 500 kr med 25 % moms', head: ['Konto', 'Debet', 'Kredit'], rows: [
+        ['1686 Stripe-saldo', '500', ''],
+        ['3001 Försäljning 25 % moms', '', '400'],
+        ['2611 Utgående moms 25 %', '', '100'],
+      ] },
+      { t: 'p', x: 'Säljer du böcker eller livsmedel gäller 6 eller 12 %. Säljer du till företag i andra EU-länder kan det vara omvänd moms. Läs mer i [momsdeklaration steg för steg](/blogg/moms-deklaration-steg-for-steg).' },
+
+      { t: 'h2', x: 'Stripes kortavgift är utan moms' },
+      { t: 'p', x: 'Avgiften för att ta emot en kortbetalning är en finansiell tjänst. Den har ingen moms, varken att dra av eller att redovisa som omvänd moms.' },
+      { t: 'p', x: 'Andra Stripe-tjänster, som Billing eller Radar, kan ha moms. Stripe skickar en månadsfaktura för avgifterna. Spara den som underlag.' },
+
+      { t: 'h2', x: 'Återbetalningar vänder försäljningen' },
+      { t: 'p', x: 'När du betalar tillbaka till en kund bokförs försäljningen och momsen i omvänd riktning. Pengarna går ut från Stripe-saldot, 1686.' },
+
+      { t: 'h2', x: 'Utbetalningen bokförs en gång' },
+      { t: 'p', x: 'Utbetalningen syns både i Stripe och på ditt bankkontoutdrag. Bokför den bara på ett av ställena. Annars hamnar pengarna två gånger på 1930.' },
+      { t: 'callout', kind: 'tips', title: 'Stäm av 1686 varje månad', x: 'Saldot på 1686 ska vara samma som ditt saldo i Stripe. Skiljer det sig har en betalning, avgift eller utbetalning inte bokförts.' },
+
+      { t: 'h2', x: 'Så gör Bokix det åt dig' },
+      { t: 'p', x: 'Kopplar du Stripe till Bokix får fakturan en **Betala nu**-knapp. Kunden betalar med kort, Apple Pay eller Google Pay, och fakturan bokförs som betald mot 1686.' },
+      { t: 'p', x: 'Varje morgon hämtar Bokix alla nya transaktioner från Stripe: betalningar, avgifter, återbetalningar och utbetalningar. När du kopplar Stripe kommer de senaste 90 dagarna direkt.' },
+      { t: 'image', shot: 'stripe' },
+      { t: 'steps', x: [
+        { h: 'Avgifter och utbetalningar', p: 'Allt kommer från Stripe, så de bokförs med ett klick. Med Bokför alla säkra tar du alla på en gång.' },
+        { h: 'Försäljning utan faktura', p: 'Du väljer momssats och intäktskonto. Bokix föreslår det du valde förra gången, men gissar aldrig.' },
+        { h: 'Återbetalningar', p: 'Bokförs på samma sätt, i omvänd riktning.' },
+      ] },
+      { t: 'p', x: 'Läs mer om kopplingen på [Integrationer](/integrationer), eller hur fakturan fungerar i [faktureringsprogrammet](/faktureringsprogram).' },
+    ],
+    faq: [
+      { q: 'Vilket konto ska Stripe-saldot bokföras på?', a: '1686 Fordringar för kontokort och kuponger i BAS 2026. Tidigare användes 1580. Kontot går ner till noll när Stripe betalar ut till banken.' },
+      { q: 'Har Stripes avgift moms?', a: 'Avgiften för kortbetalningar är en momsfri finansiell tjänst. Andra tjänster, som Stripe Billing eller Radar, kan ha moms med omvänd skattskyldighet.' },
+      { q: 'Räcker det att bokföra utbetalningen från Stripe?', a: 'Nej. Utbetalningen är flera betalningar minus avgifter. Varje försäljning och avgift behöver bokföras för sig, så att moms och resultat blir rätt.' },
+    ],
+  },
+  {
     slug: 'valja-bokforingsprogram',
     path: '/blogg/valja-bokforingsprogram',
     category: 'Kom igång',
@@ -42,6 +116,7 @@ export const BLOG_POSTS = [
         ['Ekonomisk förening', 'Inkomstdeklaration 2 (INK2)', 'Årsredovisning'],
       ] },
       { t: 'p', x: 'Läs mer om vad Bokix gör för din bolagsform: [enskild firma](/bokforingsprogram-enskild-firma), [aktiebolag](/bokforingsprogram-aktiebolag), [handelsbolag](/bokforingsprogram-handelsbolag) och [ekonomisk förening](/bokforingsprogram-ekonomisk-forening).' },
+      { t: 'image', shot: 'startsida', caption: 'Så ser startsidan ut i Bokix: resultatet hittills i år och det som ska göras.' },
 
       { t: 'h2', x: 'Nio saker att jämföra' },
       { t: 'checklist', x: [
@@ -444,9 +519,9 @@ export const BLOG_POSTS = [
     dateModified: '2026-09-22',
     readTime: '~7 min läsning',
     tldr: [
-      'De flesta mindre företag redovisar moms kvartalsvis. Förfallodagen är den 12:e i andra månaden efter kvartalet, utom när den månaden är januari eller augusti — då är det den 17:e.',
+      'De flesta mindre företag redovisar moms kvartalsvis. Förfallodagen är den 12:e i andra månaden efter kvartalet, utom när den månaden är januari eller augusti, då är det den 17:e.',
       'Deklarationen är utgående moms minus ingående moms, ruta för ruta enligt SKV 4700. Betalningen ska vara hos Skatteverket samma dag som deklarationen.',
-      'Fyra steg varje gång: kontrollera att allt är bokfört, granska rutorna, låt momsen bokföras, och lämna in. Ingenting skickas automatiskt — du signerar alltid själv.',
+      'Fyra steg varje gång: kontrollera att allt är bokfört, granska rutorna, låt momsen bokföras, och lämna in. Ingenting skickas automatiskt, du signerar alltid själv.',
     ],
     body: [
       { t: 'p', x: 'Momsdeklarationen är enklare än den ser ut. Det är momsen du tagit ut av dina kunder, minus momsen du själv betalat på inköp.' },
@@ -457,7 +532,7 @@ export const BLOG_POSTS = [
       { t: 'p', x: 'Säljer du momspliktiga varor eller tjänster ska du vara momsregistrerad och lämna momsdeklaration. Hur ofta beror på omsättningen. Skatteverket bestämmer, och perioden står i ditt registreringsbevis.' },
       { t: 'table', caption: 'Redovisningsperioder', head: ['Period', 'Kräver', 'Deklareras'], rows: [
         ['Årsvis', 'Beskattningsbar omsättning på högst 1 miljon kr, vanligast bland enskilda firmor', 'I samma deklaration som inkomstskatten'],
-        ['Kvartalsvis', 'Beskattningsbar omsättning på högst 40 miljoner kr — vanligast för aktiebolag och enskilda firmor', 'Fyra gånger per år, en period i taget'],
+        ['Kvartalsvis', 'Beskattningsbar omsättning på högst 40 miljoner kr, vanligast för aktiebolag och enskilda firmor', 'Fyra gånger per år, en period i taget'],
         ['Månadsvis', 'Krävs över 40 miljoner kr i omsättning, eller väljs själv av ett mindre företag', 'Tolv gånger per år'],
       ] },
       { t: 'callout', kind: 'info', title: 'Osäker på din period?', x: 'Perioden står i beslutet från momsregistreringen och i Skatteverkets e-tjänst. Resten av texten utgår från kvartal, det vanligaste.' },
@@ -471,7 +546,7 @@ export const BLOG_POSTS = [
         ['Kvartal 4', 'Oktober–december', '12 februari 2027'],
       ] },
       { t: 'p', x: 'Se ditt nästa datum i verktyget [Momsdatum](/verktyg/momsdatum).' },
-      { t: 'callout', kind: 'warn', title: 'För sent inlämnad eller betald', x: 'Missar du datumet riskerar du en förseningsavgift, och en obetald moms räntebeläggs. Är du osäker på om du hinner, lämna en så korrekt deklaration du kan i tid hellre än en perfekt en för sent — du kan begära omprövning i efterhand om något visar sig fel.' },
+      { t: 'callout', kind: 'warn', title: 'För sent inlämnad eller betald', x: 'Missar du datumet riskerar du en förseningsavgift, och en obetald moms räntebeläggs. Är du osäker på om du hinner, lämna en så korrekt deklaration du kan i tid hellre än en perfekt en för sent, du kan begära omprövning i efterhand om något visar sig fel.' },
 
       { t: 'h2', x: 'Vad räknas in i deklarationen?' },
       { t: 'p', x: '**Utgående moms** är den du tagit ut av kunderna. **Ingående moms** är den du betalat på inköp. Skillnaden betalar du in, eller får tillbaka.' },
@@ -479,18 +554,19 @@ export const BLOG_POSTS = [
         ['05', 'Momspliktig försäljning för perioden, exklusive moms'],
         ['10 / 11 / 12', 'Utgående moms på försäljningen: 25 %, 12 % respektive 6 %'],
         ['48', 'Ingående moms du har rätt att dra av på periodens inköp'],
-        ['49', '**Moms att betala eller få tillbaka** — 10+11+12 minus 48'],
+        ['49', '**Moms att betala eller få tillbaka**, 10+11+12 minus 48'],
       ] },
       { t: 'p', x: 'Köper du tjänster från ett utländskt företag utan svensk moms redovisar du ofta momsen själv, i rutorna 21, 22 och 30–32. Kontrollera sådana inköp innan perioden stängs.' },
 
       { t: 'h2', x: 'Så gör du i fyra steg' },
       { t: 'steps', x: [
-        { h: '1. Kontrollera att allt är bokfört', p: 'Gå igenom att kvartalets kvitton, fakturor och kontoutdrag faktiskt kommit in i bokföringen. Ligger något kvar i Granskning ska det avgöras innan deklarationen sammanställs — annars saknas det i uträkningen.' },
+        { h: '1. Kontrollera att allt är bokfört', p: 'Gå igenom att kvartalets kvitton, fakturor och kontoutdrag faktiskt kommit in i bokföringen. Ligger något kvar i Granskning ska det avgöras innan deklarationen sammanställs, annars saknas det i uträkningen.' },
         { h: '2. Granska rutorna', p: 'Bokix räknar ihop utgående och ingående moms ur verifikationerna och sammanställer dem ruta för ruta. Stäm av att beloppen ser rimliga ut mot vad du minns av kvartalet, särskilt om något ovanligt hänt: en stor engångsförsäljning, ett dyrare inköp eller en tjänst köpt från utlandet.' },
         { h: '3. Låt momsen bokföras', p: 'När du är klar bokförs momsskulden (eller momsfordran, om du ska få tillbaka) automatiskt mot rätt konto, så att bokföringen och deklarationen stämmer mot varandra.' },
-        { h: '4. Lämna in hos Skatteverket', p: 'Ladda upp filen i Skatteverkets e-tjänst, eller fyll i rutorna för hand efter pdf:en om du föredrar det. Du loggar in och signerar med BankID hos Skatteverket — det är alltid du som lämnar in, aldrig Bokix.' },
+        { h: '4. Lämna in hos Skatteverket', p: 'Ladda upp filen i Skatteverkets e-tjänst, eller fyll i rutorna för hand efter pdf:en om du föredrar det. Du loggar in och signerar med BankID hos Skatteverket, det är alltid du som lämnar in, aldrig Bokix.' },
       ] },
       { t: 'callout', kind: 'tips', title: 'Se hela flödet innan du börjar', x: 'I Bokix samlas kvartalets status under Skatt och bokslut. Där markerar du perioden som inlämnad när du är klar. Läs mer under [Funktioner](/funktioner).' },
+      { t: 'image', shot: 'moms' },
 
       { t: 'h2', x: 'Bra att veta' },
       { t: 'h3', x: 'Mer ingående än utgående moms' },
@@ -508,7 +584,7 @@ export const BLOG_POSTS = [
       { q: 'Vem ska lämna momsdeklaration?', a: 'De flesta som säljer momspliktiga varor eller tjänster i Sverige och är momsregistrerade. Hur ofta du ska deklarera, månadsvis, kvartalsvis eller årsvis, beslutar Skatteverket utifrån din omsättning.' },
       { q: 'När ska momsdeklarationen vara inne 2026?', a: 'Vid kvartalsvis redovisning: kvartal 1 senast 12 maj, kvartal 2 senast 17 augusti, kvartal 3 senast 12 november och kvartal 4 senast 12 februari 2027. Landar datumet på en helg flyttas det till nästa vardag.' },
       { q: 'Varför är förfallodagen den 17:e i augusti och januari, men den 12:e annars?', a: 'Skatteverkets egna uppehåll kring sommaren och nyåret flyttar fram gränsen just de månaderna. Alla andra månader gäller den 12:e.' },
-      { q: 'Vilka rutor är viktigast i momsdeklarationen?', a: 'Ruta 05 visar den momspliktiga försäljningen, 10–12 den utgående momsen per skattesats, 48 den ingående momsen du får dra av, och 49 mellanskillnaden — det du ska betala eller få tillbaka.' },
+      { q: 'Vilka rutor är viktigast i momsdeklarationen?', a: 'Ruta 05 visar den momspliktiga försäljningen, 10–12 den utgående momsen per skattesats, 48 den ingående momsen du får dra av, och 49 mellanskillnaden, det du ska betala eller få tillbaka.' },
       { q: 'Bokför och skickar Bokix momsen automatiskt?', a: 'Bokix sammanställer deklarationen ur din bokföring och bokför momsskulden eller -fordran, men skickar aldrig in något hos Skatteverket åt dig. Du laddar upp filen eller fyller i uppgifterna och signerar alltid själv med BankID.' },
       { q: 'Vad händer om jag missar deadlinen?', a: 'En försenad deklaration kan ge en förseningsavgift, och en försenad betalning räntebeläggs. Lämna in så snart du kan även om du är sen, i stället för att vänta till en senare period.' },
     ],
@@ -527,7 +603,7 @@ export const BLOG_POSTS = [
     dateModified: '2026-09-23',
     readTime: '~5 min läsning',
     tldr: [
-      'Varje bokförd händelse ska ha en verifikation, alltså ett underlag som visar vad som hänt — ett kvitto, en faktura eller en rad på kontoutdraget.',
+      'Varje bokförd händelse ska ha en verifikation, alltså ett underlag som visar vad som hänt, ett kvitto, en faktura eller en rad på kontoutdraget.',
       'Räkenskapsinformation ska enligt bokföringslagen sparas i sju år, räknat från utgången av det kalenderår räkenskapsåret avslutades.',
       'Sedan en lagändring 1 juli 2024 får du slänga pappersoriginalet direkt efter att du fotat eller skannat det, så länge kopian är hel, läsbar och oförändrad.',
     ],
@@ -548,7 +624,7 @@ export const BLOG_POSTS = [
       { t: 'h2', x: 'Papperet får slängas efter foto' },
       { t: 'p', x: 'Sedan **1 juli 2024** får du slänga papperskvittot när du fotat eller skannat det, om två villkor uppfylls:' },
       { t: 'ul', x: [
-        '**Informationen är överförd till en annan form** — ett foto, en skanning eller ett digitalt kvitto.',
+        '**Informationen är överförd till en annan form**, ett foto, en skanning eller ett digitalt kvitto.',
         '**Överföringen får inte riskera att informationen ändras eller går förlorad.** Bilden ska vara hel, läsbar och stämma med originalet.',
       ] },
       { t: 'p', x: 'Ett vanligt mobilfoto duger om det är helt och går att läsa. Ett kvitto på mejl eller i en app är redan originalet.' },
@@ -556,6 +632,7 @@ export const BLOG_POSTS = [
 
       { t: 'h2', x: 'Bygg en vana, inte en kvittohög' },
       { t: 'p', x: 'Fota kvittot direkt när du får det. I Bokix läses datum, belopp och moms av, och kvittot sparas i sju år.' },
+      { t: 'image', shot: 'kvitton' },
       { t: 'p', x: 'Har du redan en hög? Fota det som går att läsa och skriv ner det som har bleknat.' },
 
       { t: 'h2', x: 'Om ett kvitto saknas helt' },
@@ -563,7 +640,7 @@ export const BLOG_POSTS = [
       { t: 'p', x: 'Går det inte, skriv ner vad du köpte, datum och belopp. En anteckning är bättre än ingenting.' },
     ],
     faq: [
-      { q: 'Kan jag slänga originalet efter att jag skannat eller fotat det?', a: 'Ja, sedan en lagändring 1 juli 2024. Villkoren är att informationen är överförd till en annan form (foto, skanning, digitalt kvitto) och att överföringen inte riskerar att ändra eller förlora informationen — bilden ska vara hel och läsbar.' },
+      { q: 'Kan jag slänga originalet efter att jag skannat eller fotat det?', a: 'Ja, sedan en lagändring 1 juli 2024. Villkoren är att informationen är överförd till en annan form (foto, skanning, digitalt kvitto) och att överföringen inte riskerar att ändra eller förlora informationen, bilden ska vara hel och läsbar.' },
       { q: 'Hur länge sparar jag underlag?', a: 'Sju år, räknat från utgången av det kalenderår då räkenskapsåret avslutades. Det gäller kvitton, fakturor och all annan räkenskapsinformation.' },
       { q: 'Vad gör jag om ett kvitto saknas?', a: 'Be om en kopia från leverantören om möjligt. Går inte det, notera vad köpet gällde, datum och belopp så noggrant du kan. Bäst är att fota kvittot direkt när du får det, så uppstår problemet aldrig.' },
       { q: 'Räknas ett kvitto på mejl eller i en app som ett original?', a: 'Ja. Ett digitalt kvitto är redan i digital form, och det finns inget pappersoriginal att ta ställning till. Spara det digitala kvittot i sju år på samma sätt.' },
@@ -650,8 +727,8 @@ export const BLOG_POSTS = [
     readTime: '~6 min läsning',
     tldr: [
       'Lön kostar bolaget arbetsgivaravgifter men ger dig pensionsgrundande och sjukpenninggrundande inkomst, direkt beskattad varje månad.',
-      'Utdelning beslutas på bolagsstämman, kräver utdelningsbara medel i bolaget och beskattas olika inom och utanför gränsbeloppet — men ger ingen pensionsrätt.',
-      'Reglerna (särskilt 3:12) och beloppen ändras år till år. Den här artikeln förklarar principerna, inte siffrorna — räkna på ditt eget läge i verktygen.',
+      'Utdelning beslutas på bolagsstämman, kräver utdelningsbara medel i bolaget och beskattas olika inom och utanför gränsbeloppet, men ger ingen pensionsrätt.',
+      'Reglerna (särskilt 3:12) och beloppen ändras år till år. Den här artikeln förklarar principerna, inte siffrorna. Räkna på ditt eget läge i verktygen.',
     ],
     body: [
       { t: 'p', x: 'Äger du ett aktiebolag kan du ta ut pengar som lön eller som utdelning. De har olika skatt, olika krav och olika betydelse för din pension.' },
@@ -679,11 +756,11 @@ export const BLOG_POSTS = [
       { t: 'p', x: 'I Bokix ger lönekörningen lönebesked, skatteavdrag och betalfil. Utdelningen hjälper dig hålla koll på beslut och gränsbelopp. Läs mer under [Funktioner](/funktioner).' },
     ],
     faq: [
-      { q: 'Kan jag ta både lön och utdelning?', a: 'Ja. Många ägare av fåmansföretag kombinerar ett löneuttag med utdelning. Vad som är rätt balans beror på bolagets resultat och din egen situation — rådgör med en revisor för ditt specifika läge.' },
+      { q: 'Kan jag ta både lön och utdelning?', a: 'Ja. Många ägare av fåmansföretag kombinerar ett löneuttag med utdelning. Vad som är rätt balans beror på bolagets resultat och din egen situation. Rådgör med en revisor för ditt specifika läge.' },
       { q: 'Måste jag ha lön för att ta utdelning?', a: 'Nej, det finns ingen generell plikt att ta lön för att få ta utdelning. Löneuttag kan däremot påverka hur stort ditt gränsbelopp blir enligt 3:12-reglerna, beroende på vilken beräkningsmodell som används.' },
-      { q: 'Vad är gränsbelopp?', a: 'Den del av utdelningen som beskattas till den lägre skattesatsen för kvalificerade andelar i ett fåmansföretag. Det räknas fram per ägare och år och ändras med reglerna — se [Utdelning](/verktyg/utdelning) för aktuell uträkning.' },
+      { q: 'Vad är gränsbelopp?', a: 'Den del av utdelningen som beskattas till den lägre skattesatsen för kvalificerade andelar i ett fåmansföretag. Det räknas fram per ägare och år och ändras med reglerna, se [Utdelning](/verktyg/utdelning) för aktuell uträkning.' },
       { q: 'Ger utdelning pensionsrätt?', a: 'Nej. Bara lön räknas som pensionsgrundande och sjukpenninggrundande inkomst. Tar du enbart utdelning byggs ingen allmän pension upp från den inkomsten.' },
-      { q: 'Ändras reglerna ofta?', a: 'Ja, särskilt 3:12-reglerna och de belopp som styr gränsbeloppet ändras återkommande. Den här artikeln beskriver principerna — räkna fram aktuella belopp i verktygen eller fråga en rådgivare inför ett enskilt beslut.' },
+      { q: 'Ändras reglerna ofta?', a: 'Ja, särskilt 3:12-reglerna och de belopp som styr gränsbeloppet ändras återkommande. Den här artikeln beskriver principerna, räkna fram aktuella belopp i verktygen eller fråga en rådgivare inför ett enskilt beslut.' },
     ],
   },
   {
@@ -726,7 +803,7 @@ export const BLOG_POSTS = [
       { t: 'h2', x: 'NE-bilagan' },
       { t: 'p', x: 'NE-bilagan är blanketten där firmans resultat redovisas i din deklaration. Siffrorna kommer från bokslutet.' },
       { t: 'p', x: 'Bokix fyller i NE-bilagan som en **pdf**. Du kontrollerar den och för in siffrorna i Skatteverkets e-tjänst.' },
-      { t: 'callout', kind: 'tips', title: 'Bokslutet kommer innan bilagan', x: 'NE-bilagan är bara så bra som bokslutet den bygger på. Har du en omsättning på högst 3 miljoner kr räcker ett förenklat årsbokslut (K1) — se [Bokslut för småföretag](/blogg/bokslut-checklista) för hela checklistan innan du fyller i NE.' },
+      { t: 'callout', kind: 'tips', title: 'Bokslutet kommer innan bilagan', x: 'NE-bilagan är bara så bra som bokslutet den bygger på. Har du en omsättning på högst 3 miljoner kr räcker ett förenklat årsbokslut (K1), se [Bokslut för småföretag](/blogg/bokslut-checklista) för hela checklistan innan du fyller i NE.' },
 
       { t: 'h2', x: 'Bra att veta' },
       { t: 'h3', x: 'Eget bankkonto för firman' },
@@ -738,10 +815,10 @@ export const BLOG_POSTS = [
     ],
     faq: [
       { q: 'Måste jag ha ett eget bankkonto för firman?', a: 'Det är inget lagkrav, men starkt rekommenderat. Ett separat konto gör det mycket enklare att hålla isär firmans transaktioner från din privata ekonomi.' },
-      { q: 'Hur bokför jag eget uttag?', a: 'Som en överföring mot konto 2013 Övriga egna uttag. Det egna uttaget är inte en kostnad och beskattas inte i sig — det är firmans totala resultat som beskattas.' },
+      { q: 'Hur bokför jag eget uttag?', a: 'Som en överföring mot konto 2013 Övriga egna uttag. Det egna uttaget är inte en kostnad och beskattas inte i sig, det är firmans totala resultat som beskattas.' },
       { q: 'När betalar jag egenavgifter?', a: 'Preliminärt löpande via F-skatten under året, och slutligt avstämt mot det faktiska resultatet i din inkomstdeklaration. Aktuell procentsats finns i verktyget Egenavgifter.' },
       { q: 'Vad är NE-bilagan?', a: 'Blanketten där resultatet av din enskilda näringsverksamhet redovisas i din inkomstdeklaration. Den bygger på ditt förenklade årsbokslut, alltså din bokföring omflyttad till NE-bilagans rader.' },
-      { q: 'Kan Bokix skicka in NE-bilagan åt mig?', a: 'Nej. Bokix förbereder NE-bilagan som en ifylld pdf utifrån din bokföring, men du för själv in uppgifterna i Skatteverkets e-tjänst eller på blanketten — det finns i dagsläget ingen SRU-fil för NE.' },
+      { q: 'Kan Bokix skicka in NE-bilagan åt mig?', a: 'Nej. Bokix förbereder NE-bilagan som en ifylld pdf utifrån din bokföring, men du för själv in uppgifterna i Skatteverkets e-tjänst eller på blanketten, det finns i dagsläget ingen SRU-fil för NE.' },
     ],
   },
 ];

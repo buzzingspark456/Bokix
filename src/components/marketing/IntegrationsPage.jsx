@@ -1,7 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import MarketingLayout, { Reveal } from './MarketingLayout';
-import { KitStyles, SubHero, KitSection, CenterSection, SpecList, KitCta, PrimaryButton, GhostLink } from './subpageKit';
+import { KitStyles, SubHero, KitSection, CenterSection, SpecList, KitCta, PrimaryButton, GhostLink, ProductShots } from './subpageKit';
+import { shotsFor } from '../../content/marketing/screenshots';
 import IntegrationFeed from './IntegrationFeed';
 import DemoPlayer, { DemoStyles } from './DemoPlayer';
 import { makeIntegrationDemo } from './demoScenesOther';
@@ -29,8 +30,8 @@ const CONNECTIONS = [
     Logo: StripeIconLogo,
     logoHeight: 26,
     name: 'Stripe',
-    kind: 'Betalningar',
-    body: 'Anslut ditt Stripe-konto och låt kunden betala fakturan med kort direkt från fakturalänken. Betalningen matchas mot rätt faktura och bokförs, med Stripes avgift som en egen kostnadspost i stället för en oförklarad differens.',
+    kind: 'Kortbetalning och transaktioner',
+    body: 'Kunden betalar fakturan med kort, Apple Pay eller Google Pay direkt från fakturalänken, och fakturan bokförs som betald. Säljer du också via Stripe, i en webbshop, med betallänkar eller prenumerationer, hämtas alla transaktioner in varje morgon: betalningar, Stripes avgifter, återbetalningar och utbetalningar till banken. Avgifter och utbetalningar bokförs med ett klick, och för försäljningen väljer du momssats.',
   },
   {
     key: 'zettle',
@@ -54,7 +55,7 @@ const CONNECTIONS = [
     logoHeight: 34,
     name: 'Bolagsverket',
     kind: 'Företagsuppgifter',
-    body: 'Företagsnamn, bolagsform, adress och registreringsuppgifter hämtas automatiskt från organisationsnumret när du skapar ditt konto. Bolagsformen avgör i sin tur vilka bokföringsregler som gäller — du slipper välja regelverk själv.',
+    body: 'Företagsnamn, bolagsform, adress och registreringsuppgifter hämtas automatiskt från organisationsnumret när du skapar ditt konto. Bolagsformen avgör i sin tur vilka bokföringsregler som gäller, du slipper välja regelverk själv.',
   },
   {
     key: 'skatteverket',
@@ -62,7 +63,7 @@ const CONNECTIONS = [
     logoHeight: 34,
     name: 'Skatteverket',
     kind: 'Deklarationsunderlag',
-    body: 'Bokix bygger Skatteverkets egna filformat: eSKD för momsdeklarationen och SRU för inkomstdeklarationens räkenskapsscheman. Filerna laddar du själv upp och signerar hos Skatteverket — ingenting skickas i ditt namn automatiskt.',
+    body: 'Bokix bygger Skatteverkets egna filformat: eSKD för momsdeklarationen och SRU för inkomstdeklarationens räkenskapsscheman. Filerna laddar du själv upp och signerar hos Skatteverket, ingenting skickas i ditt namn automatiskt.',
   },
   {
     key: 'bas',
@@ -80,7 +81,7 @@ const IMPORTS = [
   {
     label: 'SIE4-fil',
     title: 'SIE4-fil från ditt gamla program',
-    body: 'Kontoplan, verifikationer och ingående saldon läses in ur filen. SIE4 är en svensk standard, så Bokix läser filen — inte programmet den kom ur.',
+    body: 'Kontoplan, verifikationer och ingående saldon läses in ur filen. SIE4 är en svensk standard, så Bokix läser filen, inte programmet den kom ur.',
     meta: 'SIE4I och SIE4E · .se-fil',
   },
   {
@@ -150,7 +151,7 @@ const NOT_YET = [
   },
   {
     title: 'Automatisk inlämning till Skatteverket',
-    body: 'Bokix bygger filerna, men skickar dem aldrig i ditt namn. Uppladdning och signering gör du själv i Skatteverkets e-tjänst — en deklaration ska aldrig lämnas in utan att någon faktiskt tittat på den.',
+    body: 'Bokix bygger filerna, men skickar dem aldrig i ditt namn. Uppladdning och signering gör du själv i Skatteverkets e-tjänst, en deklaration ska aldrig lämnas in utan att någon faktiskt tittat på den.',
   },
   {
     title: 'Öppet API',
@@ -199,6 +200,12 @@ export default function IntegrationsPage() {
       <CenterSection title="Kopplingar" lead="Fem saker Bokix pratar med. Så här ser det ut när de gör sitt jobb.">
         <DemoPlayer steps={INTEGRATION_DEMO} label="Demo: Bokix kopplingar" />
       </CenterSection>
+
+      <ProductShots
+        shots={shotsFor('/integrationer')}
+        title="Stripe och Zettle i Granskning"
+        lead="Kortbetalningar, avgifter, utbetalningar och kassaköp hämtas in varje morgon och väntar på dig här."
+      />
 
       <section className="kx-section" style={{ background: 'var(--mkt-ivory)' }}>
         <div style={{ maxWidth: '940px', margin: '0 auto' }}>

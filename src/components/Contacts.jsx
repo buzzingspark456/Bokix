@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, CheckCircle2, XCircle, Users, Truck, ChevronDown, AlertTriangle, Download, Upload, Check, Search, Trash2, Power } from './icons';
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
@@ -12,6 +12,7 @@ import { showUndo, restoreAt } from './shared/undoToast';
 import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { t, useTranslation, getLanguage } from '../i18n';
 import { numberFormat } from '../utils/intlCache';
+import { contactTotals } from '../utils/contactTotals';
 
 // Texterna finns under contacts.* i src/i18n/sv.json och en.json.
 const c = (key, vars) => t(`contacts.${key}`, vars);
@@ -584,7 +585,10 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
     setViewState('list');
   };
 
-  const filtered = contacts.filter(c => c.type === activeTab).filter(c => {
+  // Senaste faktura och Fakturerat i år räknas ur fakturorna, se utils/contactTotals.js.
+  const totalsById = useMemo(() => contactTotals({ invoices, expenses }), [invoices, expenses]);
+  const withTotals = (ct) => ({ ...ct, ...(totalsById.get(ct.id) || { lastInvoiceDate: null, totalInvoicedThisYear: 0 }) });
+  const filtered = contacts.filter(c => c.type === activeTab).map(withTotals).filter(c => {
     if (!searchTerm) return true;
     const s = searchTerm.toLowerCase();
     return (

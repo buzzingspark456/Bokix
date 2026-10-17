@@ -23,6 +23,7 @@ import { parseJsonBody } from './_parseBody.js';
 import { requireAuthedUser, loadOwnedOrMemberCompany, requireActiveSubscription } from '../_auth.js';
 import { checkRateLimit } from '../_rateLimit.js';
 import { verifyReauthGrant } from '../_signedToken.js';
+import { syncStripeLedger } from './_ledgerSync.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_') ? new Stripe(stripeSecretKey, {}) : null;
@@ -132,6 +133,44 @@ async function handleDisconnect(res, user, body) {
   res.status(200).json({ ok: true });
 }
 
+// "Hämta nu" i Granskning, och direkt efter att kontot kopplats: samma
+// hämtning som den dagliga cronen men med valfritt längre fönster (högst ett
+// år), så att man inte behöver vänta till nästa morgon.
+async function handleSync(res, user, body) {
+  if (!stripe) {
+    res.status(503).json({ error: 'Stripe är inte konfigurerat.' });
+    return;
+  }
+  const { company_id: companyId } = body || {};
+  if (!companyId) {
+    res.status(400).json({ error: 'company_id krävs.' });
+    return;
+  }
+  const owned = await loadOwnedOrMemberCompany(user.id, companyId, res, { requireEditor: true });
+  if (!owned) return;
+  const stripeAccountId = owned.companyData.company?.stripeAccountId;
+  if (!stripeAccountId) {
+    res.status(400).json({ error: 'Inget Stripe-konto är anslutet för det här företaget.' });
+    return;
+  }
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    res.status(503).json({ error: 'SUPABASE_SERVICE_ROLE_KEY saknas.' });
+    return;
+  }
+  const days = Math.min(365, Math.max(1, Number(body?.days) || 90));
+  const { count } = await syncStripeLedger({
+    admin: createClient(supabaseUrl, serviceRoleKey),
+    stripe,
+    userId: owned.ownerUserId,
+    companyId,
+    stripeAccountId,
+    sinceSeconds: days * 86400,
+  });
+  res.status(200).json({ ok: true, count });
+}
+
 export default async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'POST') {
@@ -168,6 +207,8 @@ export default async function handler(req, res) {
         return;
       }
       await handleDisconnect(res, user, body);
+    } else if (body?.action === 'sync') {
+      await handleSync(res, user, body);
     } else {
       // Förval 'start' — client skickar alltid action explicit (se
       // App.jsx), men en okänd/saknad action tolkas som start snarare än

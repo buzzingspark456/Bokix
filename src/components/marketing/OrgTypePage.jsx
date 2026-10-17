@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import MarketingLayout from './MarketingLayout';
-import { KitStyles, SubHero, KitSection, SpecList, PointList, StepList, KitFaq, KitCta, PrimaryButton, GhostLink } from './subpageKit';
+import { KitStyles, SubHero, KitSection, SpecList, PointList, StepList, KitFaq, KitCta, PrimaryButton, GhostLink, ProductShots } from './subpageKit';
+import { shotsFor } from '../../content/marketing/screenshots';
 import OrgTypeVisual, { HeroVideo } from './OrgTypeVisuals';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 import { ORG_TYPE_BY_PATH, ORG_TYPE_PAGES } from '../../content/marketing/orgTypes';
@@ -104,6 +105,8 @@ export default function OrgTypePage({ path }) {
         </>}
         visual={page.video ? <HeroVideo file={heroVideoFile(page)} label={page.video.description} /> : <OrgTypeVisual slug={page.slug} />}
       />
+
+      <ProductShots shots={shotsFor(page.path)} />
 
       {page.compare && (
         <KitSection title={page.compare.title} lead={page.compare.lead}>

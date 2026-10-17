@@ -175,21 +175,23 @@ export function createDemoSeed() {
       dueDate: daysFromToday(-(s.n * 30 - 30)),
       status: 'paid',
       paidAmount: Math.round(s.unitPrice * 1.25),
-      paidDate: daysFromToday(-(s.n * 30 - 35)),
+      // Betald fem dagar före förfallodagen. Var fem dagar efter, vilket gav
+      // den senaste fakturan ett betaldatum (och en bankrad) i framtiden.
+      paidDate: daysFromToday(-(s.n * 30 - 25)),
       ourRef: '', theirRef: '', ourOrderNr: '', internalNote: '',
       rows: [{ description: s.desc, qty: 1, unitPrice: s.unitPrice, vatRate: 25 }],
     };
   });
   // Förfallen — visar den röda "förfallit"-flaggan i Dashboard/Fakturering på riktigt.
   invoices.push({
-    id: 'demo_inv_overdue', type: 'invoice', invoiceNumber: '1009', customerId: 'demo_c1',
+    id: 'demo_inv_overdue', type: 'invoice', invoiceNumber: '1009', customerId: 'demo_c1', projectId: 'demo_p1',
     date: daysFromToday(-30), dueDate: daysFromToday(-6), status: 'sent', paidAmount: 0,
     ourRef: '', theirRef: '', ourOrderNr: '', internalNote: '',
     rows: [{ description: 'Konsulttimmar', qty: 1, unitPrice: 38000, vatRate: 25 }],
   });
   // Skickad, förfaller om några dagar — inte brådskande än.
   invoices.push({
-    id: 'demo_inv_upcoming', type: 'invoice', invoiceNumber: '1010', customerId: 'demo_c2',
+    id: 'demo_inv_upcoming', type: 'invoice', invoiceNumber: '1010', customerId: 'demo_c2', projectId: 'demo_p2',
     date: daysFromToday(-3), dueDate: daysFromToday(27), status: 'sent', paidAmount: 0,
     ourRef: '', theirRef: '', ourOrderNr: '', internalNote: '',
     rows: [{ description: 'Webbdesign, fas 2', qty: 1, unitPrice: 55200, vatRate: 25 }],
@@ -230,7 +232,7 @@ export function createDemoSeed() {
     // läggs till) — annars faller kostnaden ur både grafen och rapporterna,
     // vilket är precis vad som hände när juli stod utan kostnadsstapel.
     { n: 2, desc: 'Annonsering', amount: 42000, account: '5910' },
-    { n: 1, desc: 'Programvarulicenser', amount: 40000, account: '6212' },
+    { n: 1, desc: 'Programvarulicenser', amount: 40000, account: '5420' },
   ];
   const expenses = expenseSeeds.map((s, i) => {
     const vatAmount = Math.round(s.amount * 0.2);
@@ -432,23 +434,23 @@ export function createDemoSeed() {
   // Supabase, i demon skickas de in som en prop i stället (se
   // `demoStripeItems` i ReviewQueue.jsx). Tre rader = de tre fall kortet
   // faktiskt kan hantera olika:
-  //   transfer med plattformsavgift → "bokför avgiften mot 6570"
-  //   payout                        → "jämför mot bankkontoutdraget"
-  //   charge utan matchad faktura   → "välj momssats och intäktskonto"
+  //   kortbetalning av faktura → "bokför Stripes avgift" (säker)
+  //   payout                   → "bokför utbetalningen till banken" (säker)
+  //   charge utan faktura      → "välj momssats och intäktskonto"
   const stripeLedgerEvents = [
     {
-      id: 'demo_stripe_1', type: 'transfer', currency: 'sek',
-      amount: 137500, platform_fee_amount: 340, matched_invoice_id: '1006',
+      id: 'demo_stripe_1', type: 'charge', currency: 'sek',
+      amount: 13750, fee: 214.13, platform_fee_amount: 0, matched_invoice_id: '1006',
       created_at_stripe: `${daysFromToday(-3)}T09:12:00Z`, reviewed_at: null,
     },
     {
       id: 'demo_stripe_2', type: 'payout', currency: 'sek',
-      amount: 24300, platform_fee_amount: 0, matched_invoice_id: null,
+      amount: -24300, fee: 0, platform_fee_amount: 0, matched_invoice_id: null,
       created_at_stripe: `${daysFromToday(-14)}T04:30:00Z`, reviewed_at: null,
     },
     {
       id: 'demo_stripe_3', type: 'charge', currency: 'sek',
-      amount: 2490, platform_fee_amount: 0, matched_invoice_id: null,
+      amount: 2490, fee: 46.86, platform_fee_amount: 0, matched_invoice_id: null, description: 'Betallänk: Workshop',
       created_at_stripe: `${daysFromToday(-5)}T16:47:00Z`, reviewed_at: null,
     },
   ];

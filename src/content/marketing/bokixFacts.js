@@ -30,6 +30,7 @@ export const BOKIX_FEATURES = [
   'Kvitton läses av från ett foto: datum, belopp och moms, även flera momssatser på samma kvitto.',
   'Kund- och leverantörsfakturor, offerter, ROT- och RUT-avdrag och fyra fakturamallar med egen logga.',
   'Kortbetalning på fakturan via Stripe, med betalningen bokförd automatiskt.',
+  'Alla Stripe-transaktioner (betalningar, avgifter, återbetalningar och utbetalningar) hämtas in varje morgon och bokförs från Granskning. Stripe-saldot bokförs på 1686.',
   'Fakturor skickas från din egen Gmail eller e-postadress.',
   'Kassaförsäljning via Zettle blir färdiga dagsavslut.',
   'Artikelregister och lager med lagervärdering enligt FIFO eller vägt genomsnitt, och påslag och marginal per vara.',

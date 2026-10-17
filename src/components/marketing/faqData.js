@@ -52,7 +52,7 @@ export const FAQ_GROUPS = [
     id: 'fakturor',
     title: 'Fakturor och betalningar',
     items: [
-      { top: true, q: 'Kan kunden betala fakturan med kort?', short: 'Ja, via Stripe. Betalningen bokförs automatiskt.', a: 'Ja. Kopplar du Stripe får fakturan en Betala nu-knapp, och kunden betalar med kort, Apple Pay eller Google Pay. Betalningen prickas av mot fakturan och bokförs, med Stripes avgift som en egen kostnad.' },
+      { top: true, q: 'Kan kunden betala fakturan med kort?', short: 'Ja, via Stripe. Betalningen bokförs automatiskt.', a: 'Ja. Kopplar du Stripe får fakturan en Betala nu-knapp, och kunden betalar med kort, Apple Pay eller Google Pay. Betalningen prickas av mot fakturan och bokförs. Säljer du också via Stripe på annat sätt, som i en webbshop, hämtas de transaktionerna in varje morgon, med Stripes avgifter och utbetalningar.' },
       { q: 'Kan fakturorna skickas från min egen e-post?', a: 'Ja. Koppla ditt Gmail-konto eller din egen e-postadress, så går fakturor, offerter och påminnelser från din adress och svaren hamnar i din inkorg. Bokix får bara skicka e-post, aldrig läsa den.' },
       { q: 'Fungerar ROT- och RUT-avdrag?', a: 'Ja. Avdraget räknas på arbetskostnaden och visas både på fakturan och i underlaget till Skatteverket.' },
       { q: 'Kan Bokix skicka e-faktura via Peppol?', a: 'Inte än. Fakturor skickas som PDF via e-post, från din egen adress om du vill.' },

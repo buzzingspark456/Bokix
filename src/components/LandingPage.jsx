@@ -89,7 +89,7 @@ const FEATURE_COLUMNS = [
 // (Stripe/Zettle) och smalare märken (Bolagsverket/Skatteverket) bevarad —
 // höjdtalen är avvägda mot varandra, inte satta till samma tal.
 const CONNECTIONS = [
-  { key: 'stripe', kind: 'logo', Logo: StripeLogo, logoHeight: '34px', label: 'Kortbetalningar', group: 'Betalningar' },
+  { key: 'stripe', kind: 'logo', Logo: StripeLogo, logoHeight: '34px', label: 'Kortbetalning och försäljning', group: 'Betalningar' },
   { key: 'zettle', kind: 'logo', Logo: ZettleLogo, logoHeight: '38px', label: 'Kassaförsäljning', group: 'Betalningar' },
   { key: 'bolagsverket', kind: 'logo', Logo: BolagsverketLogo, logoHeight: '48px', label: 'Företagsuppslag', group: 'Myndigheter' },
   { key: 'skatteverket', kind: 'logo', Logo: SkatteverketLogo, logoHeight: '48px', label: 'Rätt filformat', group: 'Myndigheter' },

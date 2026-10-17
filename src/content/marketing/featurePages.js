@@ -55,12 +55,13 @@ export const FEATURE_PAGES = [
     ],
     faq: [
       { q: 'Är Bokix ett faktureringsprogram eller ett bokföringsprogram?', a: 'Båda. Faktureringen är en del av bokföringsprogrammet, så varje faktura och betalning bokförs utan att du behöver föra över något.' },
-      { q: 'Kan kunden betala fakturan med kort?', a: 'Ja, om du kopplar Stripe. Då får fakturan en betalknapp, och betalningen bokförs när den kommer in. Stripe tar en egen avgift per betalning.' },
+      { q: 'Kan kunden betala fakturan med kort?', a: 'Ja, om du kopplar Stripe. Då får fakturan en betalknapp, och betalningen bokförs när den kommer in. Stripes avgift och utbetalningen till banken hämtas in och bokförs med ett klick.' },
       { q: 'Kan jag skicka fakturor från min egen e-postadress?', a: 'Ja. Koppla din Gmail eller en annan e-post via SMTP under Inställningar, så skickas fakturan från din adress.' },
       { q: 'Kan Bokix skicka e-faktura via Peppol?', a: 'Inte än. Fakturorna skickas som PDF via e-post. Ska du fakturera en myndighet som kräver e-faktura behövs en annan lösning för just de fakturorna.' },
       { q: 'Vad kostar faktureringen?', a: PRICE + ' Inga avgifter per faktura. De första 30 dagarna är gratis.' },
     ],
     related: [
+      { label: 'Så bokför du Stripe', to: '/blogg/bokfora-stripe' },
       { label: 'Skicka fakturor från din egen Gmail', to: '/nyheter/skicka-fakturor-fran-din-egen-gmail' },
       { label: 'Videoguide: skapa en faktura', to: '/guider/skapa-faktura' },
       { label: 'Dröjsmålsräntekalkylator', to: '/verktyg/drojsmalsranta' },

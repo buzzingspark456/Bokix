@@ -83,6 +83,22 @@ const xmlEscape = (value) => String(value).replace(/[<>&'"]/g, (char) => ({
   '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;',
 })[char]);
 
+// Loggor (vår egen ikon, partners, banker, andra program) är inte bilder vi
+// vill synas med i bildsök, och de står på många sidor.
+const NOT_CONTENT_IMAGE = /^\/(?:icon-|favicon|apple-touch|logos\/|flags\/)|logo|wordmark|stripe-icon|zettle-|gmail-icon/i;
+
+// Ett omslag hör till sitt eget inlägg (och listorna /blogg och /nyheter),
+// inte till alla sidor där det syns som ett litet relaterat kort. Annars står
+// samma bild under tio adresser och Google väljer själv vilken sida den
+// visas för.
+const COVER_OWNER = new Map(ALL_ARTICLES.map(a => [`${SITE_URL}${a.image}`, a.path]));
+const COVER_LISTS = new Set(['/blogg', '/nyheter']);
+function keepImageOn(route, image) {
+  // Listorna visar WebP-miniatyren (utils/blogThumb.js), som hör till samma inlägg.
+  const owner = COVER_OWNER.get(image.replace(/\/blog\/thumb\/(.+)\.webp$/, '/blog/$1.jpg'));
+  return !owner || owner === route || COVER_LISTS.has(route);
+}
+
 function imagesFromHtml(html) {
   const images = new Set();
   const addImage = (src) => {
@@ -90,6 +106,7 @@ function imagesFromHtml(html) {
     const imageUrl = new URL(src, SITE_URL);
     if (!['www.bokix.se', 'bokix.se'].includes(imageUrl.hostname)) return;
     if (!/\.(?:avif|gif|jpe?g|png|webp)$/i.test(imageUrl.pathname)) return;
+    if (NOT_CONTENT_IMAGE.test(imageUrl.pathname)) return;
     images.add(imageUrl.href);
   };
   for (const [, attributes] of html.matchAll(/<img\b([^>]*)>/gi)) {
@@ -320,7 +337,9 @@ async function main() {
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(outPath, html);
     recordPageDate(route, html);
-    pageImages.set(route, imagesFromHtml(html));
+    // Miniatyren i listorna ersätts av originalet: samma bild, större.
+    const fullSize = imagesFromHtml(html).map(image => image.replace(/\/blog\/thumb\/(.+)\.webp$/, '/blog/$1.jpg'));
+    pageImages.set(route, [...new Set(fullSize)].filter(image => keepImageOn(route, image)));
     console.log(`✓ Förrenderade ${route} -> ${path.relative(distDir, outPath) || 'index.html'} (${(html.length / 1024).toFixed(1)} kB)`);
   }
 

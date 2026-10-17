@@ -56,7 +56,7 @@ const INCLUDED = [
 const FAQ = [
   {
     q: 'Vad händer när de tre månaderna är slut?',
-    a: 'Ingenting dras. Vi har inga kortuppgifter, så det finns inget att debitera — kontot slutar helt enkelt släppa in er, och bokföringen ligger kvar. Vill ni fortsätta hör ni av er så löser vi det.',
+    a: 'Ingenting dras. Vi har inga kortuppgifter, så det finns inget att debitera. Kontot slutar helt enkelt släppa in er, och bokföringen ligger kvar. Vill ni fortsätta hör ni av er så löser vi det.',
   },
   {
     q: 'Vi har inget organisationsnummer.',
@@ -64,7 +64,7 @@ const FAQ = [
   },
   {
     q: 'Får vi med oss bokföringen efteråt?',
-    a: 'Ja. Exportera hela året som en SIE4-fil — standardformatet varje bokföringsprogram kan läsa. Spara den: räkenskapsinformation ska bevaras till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades, även för ett UF-företag.',
+    a: 'Ja. Exportera hela året som en SIE4-fil, standardformatet varje bokföringsprogram kan läsa. Spara den: räkenskapsinformation ska bevaras till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades, även för ett UF-företag.',
   },
 ];
 
@@ -162,7 +162,7 @@ export default function UfPage() {
             Ert UF-år, bokfört
           </h1>
           <p style={{ fontSize: '17.5px', color: MUTED, lineHeight: 1.65, margin: '0 auto 30px', maxWidth: '520px' }}>
-            Gratis i {UF_FREE_MONTHS} månader. Inget organisationsnummer, inga betaluppgifter — och bara de delar av Bokix ni faktiskt kommer använda.
+            Gratis i {UF_FREE_MONTHS} månader. Inget organisationsnummer, inga betaluppgifter, och bara de delar av Bokix ni faktiskt kommer använda.
           </p>
 
           <button onClick={startUfSignup} style={{ display: 'inline-flex', alignItems: 'center', gap: '9px', padding: '16px 32px', background: BRAND.green, border: 'none', borderRadius: '13px', color: 'white', fontWeight: 700, fontSize: '16.5px', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 10px 26px -8px rgba(11,99,41,0.5)' }}>
@@ -235,7 +235,7 @@ export default function UfPage() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '11px', textAlign: 'left', marginBottom: '26px' }}>
             {[
-              'Inga kortuppgifter — det finns inget att debitera',
+              'Inga kortuppgifter, det finns inget att debitera',
               'Inget organisationsnummer',
               `Upp till ${UF_INVOICE_LIMIT_PER_DAY} fakturor per dygn`,
             ].map(row => (
@@ -269,7 +269,7 @@ export default function UfPage() {
               <h3 style={{ fontSize: '15px', fontWeight: 700, color: INK, margin: 0 }}>Få in banken</h3>
             </div>
             <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.65, margin: 0 }}>
-              Exportera kontoutdraget och läs in det — raderna matchas mot era fakturor. <Link to="/koppla-bank" style={{ color: BRAND.greenDark, fontWeight: 600 }}>Så funkar det</Link>.
+              Exportera kontoutdraget och läs in det, raderna matchas mot era fakturor. <Link to="/koppla-bank" style={{ color: BRAND.greenDark, fontWeight: 600 }}>Så funkar det</Link>.
             </p>
           </Reveal>
         </div>
@@ -293,7 +293,7 @@ export default function UfPage() {
       <section style={{ padding: '24px 24px 96px', background: IVORY, textAlign: 'center' }}>
         <Reveal style={{ maxWidth: '520px', margin: '0 auto' }}>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'center', marginBottom: '18px', fontSize: '13.5px', color: MUTED }}>
-            <ShieldCheck size={16} color={BRAND.greenDark} /> Bokföringen är er — exportera när ni vill
+            <ShieldCheck size={16} color={BRAND.greenDark} /> Bokföringen är er, exportera när ni vill
           </div>
           <button onClick={startUfSignup} style={{ display: 'inline-flex', alignItems: 'center', gap: '9px', padding: '16px 32px', background: BRAND.green, border: 'none', borderRadius: '13px', color: 'white', fontWeight: 700, fontSize: '16.5px', cursor: 'pointer', fontFamily: 'inherit' }}>
             Starta gratis <ArrowRight size={17} />

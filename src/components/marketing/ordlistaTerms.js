@@ -30,7 +30,7 @@ export const TERMS = [
   },
   {
     term: 'Arbetsgivaravgift',
-    def: 'Den avgift du som arbetsgivare betalar ovanpå den anställdas bruttolön. Standardsatsen är 31,42 procent och betalas in tillsammans med den anställdas preliminärskatt varje månad. Den dras inte från lönen — den är en kostnad utöver.',
+    def: 'Den avgift du som arbetsgivare betalar ovanpå den anställdas bruttolön. Standardsatsen är 31,42 procent och betalas in tillsammans med den anställdas preliminärskatt varje månad. Den dras inte från lönen, den är en kostnad utöver.',
     tool: '/verktyg/lonekalkylator',
   },
   {
@@ -39,7 +39,7 @@ export const TERMS = [
   },
   {
     term: 'Avdragsgill',
-    def: 'En kostnad som får dras av i verksamheten och därmed sänker det skattemässiga resultatet. Kostnaden måste vara till nytta för verksamheten — privata utgifter är aldrig avdragsgilla, även om de betalas från företagskontot.',
+    def: 'En kostnad som får dras av i verksamheten och därmed sänker det skattemässiga resultatet. Kostnaden måste vara till nytta för verksamheten, privata utgifter är aldrig avdragsgilla, även om de betalas från företagskontot.',
   },
   {
     term: 'Avskrivning',
@@ -51,7 +51,7 @@ export const TERMS = [
   },
   {
     term: 'Balansräkning',
-    def: 'En ögonblicksbild av vad företaget äger och är skyldigt en viss dag. Tillgångar på ena sidan, skulder och eget kapital på den andra — och de två sidorna är alltid lika stora.',
+    def: 'En ögonblicksbild av vad företaget äger och är skyldigt en viss dag. Tillgångar på ena sidan, skulder och eget kapital på den andra, och de två sidorna är alltid lika stora.',
   },
   {
     term: 'BAS-kontoplan',
@@ -59,7 +59,7 @@ export const TERMS = [
   },
   {
     term: 'Bokföringsskyldighet',
-    def: 'Skyldigheten enligt bokföringslagen att löpande bokföra alla affärshändelser och spara underlagen. Den gäller alla företag, oavsett storlek och bolagsform — även en enskild firma utan omsättning.',
+    def: 'Skyldigheten enligt bokföringslagen att löpande bokföra alla affärshändelser och spara underlagen. Den gäller alla företag, oavsett storlek och bolagsform, även en enskild firma utan omsättning.',
   },
   {
     term: 'Bokslut',
@@ -72,7 +72,7 @@ export const TERMS = [
   },
   {
     term: 'Debet och kredit',
-    def: 'De två sidorna varje bokföringspost har. Debet ökar tillgångar och kostnader, kredit ökar skulder, eget kapital och intäkter. Summan av debet och kredit måste alltid vara lika stor i en verifikation — det är själva kontrollmekanismen i dubbel bokföring.',
+    def: 'De två sidorna varje bokföringspost har. Debet ökar tillgångar och kostnader, kredit ökar skulder, eget kapital och intäkter. Summan av debet och kredit måste alltid vara lika stor i en verifikation, det är själva kontrollmekanismen i dubbel bokföring.',
   },
   {
     term: 'Dröjsmålsränta',
@@ -86,11 +86,11 @@ export const TERMS = [
   },
   {
     term: 'Eget kapital',
-    def: 'Skillnaden mellan vad företaget äger och vad det är skyldigt — alltså ägarnas andel av företaget. I en enskild firma ökar det med insättningar och vinst, och minskar med uttag och förlust.',
+    def: 'Skillnaden mellan vad företaget äger och vad det är skyldigt, alltså ägarnas andel av företaget. I en enskild firma ökar det med insättningar och vinst, och minskar med uttag och förlust.',
   },
   {
     term: 'Eget uttag',
-    def: 'När du som driver enskild firma tar ut pengar eller varor ur verksamheten för privat bruk. Det är ingen kostnad och ingen lön, utan en minskning av det egna kapitalet — och det påverkar därför inte resultatet.',
+    def: 'När du som driver enskild firma tar ut pengar eller varor ur verksamheten för privat bruk. Det är ingen kostnad och ingen lön, utan en minskning av det egna kapitalet, och det påverkar därför inte resultatet.',
   },
   {
     term: 'Ekonomisk förening',
@@ -115,11 +115,11 @@ export const TERMS = [
   },
   {
     term: 'Förmånsbeskattning',
-    def: 'När en anställd får något annat än pengar av arbetsgivaren — tjänstebil, fri kost, friskvård utöver skattefri nivå — och värdet beskattas som lön. Förmånen läggs till underlaget för både skatteavdrag och arbetsgivaravgifter.',
+    def: 'När en anställd får något annat än pengar av arbetsgivaren, tjänstebil, fri kost, friskvård utöver skattefri nivå, och värdet beskattas som lön. Förmånen läggs till underlaget för både skatteavdrag och arbetsgivaravgifter.',
   },
   {
     term: 'Grundbok och huvudbok',
-    def: 'Två vyer av samma bokföring. Grundboken visar affärshändelserna i den ordning de inträffade, huvudboken visar dem sorterade per konto. Bokföringslagen kräver båda — i ett bokföringsprogram skapas de automatiskt ur samma verifikationer.',
+    def: 'Två vyer av samma bokföring. Grundboken visar affärshändelserna i den ordning de inträffade, huvudboken visar dem sorterade per konto. Bokföringslagen kräver båda, i ett bokföringsprogram skapas de automatiskt ur samma verifikationer.',
   },
   {
     term: 'Gränsbelopp',
@@ -145,7 +145,7 @@ export const TERMS = [
   },
   {
     term: 'Kontering',
-    def: 'Att bestämma vilka konton en affärshändelse ska bokföras på, och med vilka belopp i debet respektive kredit. Det är det moment ett bokföringsprogram automatiserar — och det som måste bli rätt för att allt annat ska bli rätt.',
+    def: 'Att bestämma vilka konton en affärshändelse ska bokföras på, och med vilka belopp i debet respektive kredit. Det är det moment ett bokföringsprogram automatiserar, och det som måste bli rätt för att allt annat ska bli rätt.',
   },
   {
     term: 'Kontrolluppgift (KU)',
@@ -153,11 +153,11 @@ export const TERMS = [
   },
   {
     term: 'Kundfordran',
-    def: 'Pengar du har rätt att få in men ännu inte fått — alltså skickade fakturor som inte är betalda. Bokförs som en tillgång tills betalningen kommer.',
+    def: 'Pengar du har rätt att få in men ännu inte fått, alltså skickade fakturor som inte är betalda. Bokförs som en tillgång tills betalningen kommer.',
   },
   {
     term: 'K10 (blankett)',
-    def: 'Bilagan till din privata inkomstdeklaration där du redovisar utdelning och försäljning av aktier i ditt fåmansföretag, och räknar fram årets gränsbelopp. Lämna den varje år även om du inte tagit någon utdelning — annars tappar du det sparade utdelningsutrymmet.',
+    def: 'Bilagan till din privata inkomstdeklaration där du redovisar utdelning och försäljning av aktier i ditt fåmansföretag, och räknar fram årets gränsbelopp. Lämna den varje år även om du inte tagit någon utdelning, annars tappar du det sparade utdelningsutrymmet.',
     tool: '/verktyg/utdelning',
   },
   {
@@ -170,7 +170,7 @@ export const TERMS = [
   },
   {
     term: 'Likviditet',
-    def: 'Företagets förmåga att betala det som förfaller närmaste tiden. Ett lönsamt företag kan ha usel likviditet om kunderna betalar sent — resultat och kassa är två olika saker.',
+    def: 'Företagets förmåga att betala det som förfaller närmaste tiden. Ett lönsamt företag kan ha usel likviditet om kunderna betalar sent, resultat och kassa är två olika saker.',
   },
   {
     term: 'Milersättning',
@@ -178,7 +178,7 @@ export const TERMS = [
   },
   {
     term: 'Moms (mervärdesskatt)',
-    def: 'En skatt på konsumtion som företaget tar ut av kunden och betalar vidare till Skatteverket. De svenska satserna är 25, 12 och 6 procent. Momsen är aldrig företagets pengar — den passerar bara igenom.',
+    def: 'En skatt på konsumtion som företaget tar ut av kunden och betalar vidare till Skatteverket. De svenska satserna är 25, 12 och 6 procent. Momsen är aldrig företagets pengar, den passerar bara igenom.',
     tool: '/verktyg/momskalkylator',
   },
   {
@@ -196,7 +196,7 @@ export const TERMS = [
   },
   {
     term: 'Periodisering',
-    def: 'Att bokföra en intäkt eller kostnad i den period den hör hemma, inte när betalningen sker. En årsförsäkring betald i december men som gäller nästa år periodiseras till nästa år — annars blir båda årens resultat missvisande.',
+    def: 'Att bokföra en intäkt eller kostnad i den period den hör hemma, inte när betalningen sker. En årsförsäkring betald i december men som gäller nästa år periodiseras till nästa år, annars blir båda årens resultat missvisande.',
   },
   {
     term: 'Periodiseringsfond',
@@ -204,7 +204,7 @@ export const TERMS = [
   },
   {
     term: 'Preliminärskatt',
-    def: 'Skatt som betalas löpande under året i stället för i efterhand. Företag betalar debiterad preliminärskatt varje månad utifrån en uppskattad vinst — blir uppskattningen fel justeras det i slutskatten året efter.',
+    def: 'Skatt som betalas löpande under året i stället för i efterhand. Företag betalar debiterad preliminärskatt varje månad utifrån en uppskattad vinst, blir uppskattningen fel justeras det i slutskatten året efter.',
   },
   {
     term: 'Representation',
@@ -212,7 +212,7 @@ export const TERMS = [
   },
   {
     term: 'Resultaträkning',
-    def: 'Sammanställningen av intäkter minus kostnader under en period. Visar om verksamheten gick med vinst eller förlust — till skillnad från balansräkningen, som visar läget en viss dag.',
+    def: 'Sammanställningen av intäkter minus kostnader under en period. Visar om verksamheten gick med vinst eller förlust, till skillnad från balansräkningen, som visar läget en viss dag.',
   },
   {
     term: 'ROT- och RUT-avdrag',
@@ -234,7 +234,7 @@ export const TERMS = [
   },
   {
     term: 'Skattekonto',
-    def: 'Ditt företags konto hos Skatteverket där moms, arbetsgivaravgifter, avdragen skatt och preliminärskatt bokas in och betalas. Ett underskott på kontot ger kostnadsränta, och betalningen ska vara bokförd hos Skatteverket på förfallodagen — inte skickad då.',
+    def: 'Ditt företags konto hos Skatteverket där moms, arbetsgivaravgifter, avdragen skatt och preliminärskatt bokas in och betalas. Ett underskott på kontot ger kostnadsränta, och betalningen ska vara bokförd hos Skatteverket på förfallodagen, inte skickad då.',
   },
   {
     term: 'Traktamente',
@@ -242,7 +242,7 @@ export const TERMS = [
   },
   {
     term: 'Utdelning',
-    def: 'Pengar som ett aktiebolag delar ut till sina ägare av vinsten. Beslutas på bolagsstämman och får bara tas ur fritt eget kapital enligt senast fastställda balansräkning. Inom gränsbeloppet beskattas den med 20 procent, därutöver som tjänsteinkomst — och till skillnad från lön ger den varken pension eller sjukpenning.',
+    def: 'Pengar som ett aktiebolag delar ut till sina ägare av vinsten. Beslutas på bolagsstämman och får bara tas ur fritt eget kapital enligt senast fastställda balansräkning. Inom gränsbeloppet beskattas den med 20 procent, därutöver som tjänsteinkomst, och till skillnad från lön ger den varken pension eller sjukpenning.',
     tool: '/verktyg/utdelning',
   },
   {

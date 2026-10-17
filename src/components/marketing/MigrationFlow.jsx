@@ -183,7 +183,7 @@ export default function MigrationFlow({ note = true }) {
         {MIGRATION_SOURCES.map((p, idx) => (
           <span
             key={p.id}
-            title={p.note ? `${p.name} — ${p.note}` : p.name}
+            title={p.note ? `${p.name}, ${p.note}` : p.name}
             onMouseEnter={() => setHeld(idx)}
             onMouseLeave={() => { setHeld(null); setI(idx); }}
             className={`bx-mf-tile bx-mf-chip${idx === activeIndex ? ' bx-mf-chip-on' : ''}`}
@@ -195,7 +195,7 @@ export default function MigrationFlow({ note = true }) {
 
       {note && (
         <p style={{ fontSize: '13.5px', color: MUTED, textAlign: 'center', margin: 0, maxWidth: '440px', lineHeight: 1.6 }}>
-          Något annat program? SIE4 är en branschstandard — Bokix läser filen oavsett vilket program som skapade den.
+          Något annat program? SIE4 är en branschstandard, så Bokix läser filen oavsett vilket program som skapade den.
         </p>
       )}
     </div>

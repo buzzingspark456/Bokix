@@ -3,10 +3,12 @@ import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ShieldCheck, CreditCard
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
+import { confirmDialog } from './shared/ConfirmDialog';
 import { supabase } from '../supabaseClient';
 import { VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './AccountsData';
 import { t } from '../i18n';
 import { StripeIconLogo, ZettleLogo } from './shared/BrandLogos';
+import { categorizeStripeItem, buildStripeVerification, isSafeStripeItem } from '../utils/stripeLedger';
 import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 
 const formatSEK = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
@@ -200,20 +202,6 @@ const STRIPE_TYPE_LABEL = {
   refund: t('ui.stripe_aterbetalning'), adjustment: t('ui.stripe_justering'), stripe_fee: t('ui.stripe_avgift'),
 };
 
-/** Avgör vilket av de tre kortlägena en Stripe-ledgerrad ska visas som —
- * se den långa kommentaren i supabase-setup.sql (stripe_ledger_events) för
- * VARFÖR "avgift" här betyder Bokix egen plattformsavgift (skillnaden
- * mellan fakturans bokförda belopp och vad som faktiskt landade i
- * Stripe-saldot), inte Stripes egen korttjänstavgift. */
-function categorizeStripeItem(item) {
-  if (item.type === 'transfer' && item.matched_invoice_id && Number(item.platform_fee_amount) > 0 && item.currency === 'sek') {
-    return 'platform_fee';
-  }
-  if (item.type === 'payout') return 'payout';
-  if (item.currency === 'sek' && (item.type === 'charge' || item.type === 'payment')) return 'unmatched_sale';
-  return 'manual';
-}
-
 /**
  * Föreslår ett konto baserat på tidigare, redan konterade poster från samma
  * leverantör/inköpsställe — en riktig, uträknad heuristik (inte en fejkad
@@ -252,7 +240,10 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting, selected, on
   const isSupplierInvoice = item.type === 'supplier_invoice';
   const kindLabel = KIND_LABEL[item.type] || t('ui.post_liten');
   const suggestedAccountObj = accounts.find(a => a.code === item.account);
-  const who = item.supplier || item.description || t('ui.okant_inkopsstalle');
+  // Ett mejlat underlag har ofta varken leverantör eller belopp ännu: visa
+  // mejlets ämne i stället för 'okänt inköpsställe 0 kr'.
+  const who = item.supplier || item.description || item.inbox?.subject || t('ui.okant_inkopsstalle');
+  const amountText = Number(item.amount) ? formatSEK(item.amount) : '';
 
   // "Föreslaget ur tidigare konteringar" är ordagrant vad suggestAccount
   // gör (samma leverantör, samma konto förra gången) — aldrig "föreslaget
@@ -265,7 +256,7 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting, selected, on
 
   const title = item.account
     ? `Kontera ${who} ${formatSEK(item.amount)} som ${item.account} ${suggestedAccountObj?.name || ''}`.trim()
-    : t('ui.ange_konto_for', { who, v1: formatSEK(item.amount) });
+    : t('ui.ange_konto_for', { who, v1: amountText }).trim();
 
   const badge = item.account
     ? (item.confident ? { label: t('ui.sakert_forslag'), tone: 'green' } : { label: t('ui.osakert_forslag'), tone: 'amber' })
@@ -340,50 +331,75 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting, selected, on
 }
 const VAT_RATES = [25, 12, 6, 0];
 
-/** Ett kort för en Stripe-ledgerrad (public.stripe_ledger_events) — samma
- * visuella mönster som ReviewCard ovan, men tre olika lägen istället för
- * ett enda "föreslå konto":
- *  - 'platform_fee': säkert förslag (mellanskillnaden är räknad, inte
- *    gissad), en Godkänn-knapp precis som ett säkert kvittoförslag.
- *  - 'payout': rent informativt — inget att bokföra HÄR (se filkommentaren
- *    i supabase-setup.sql: att bokföra utbetalningen separat hade krävt
- *    att även fakturabetalningens befintliga bokföring skrevs om), bara en
- *    avstämningshjälp mot bankkontoutdraget.
- *  - 'unmatched_sale': en SEK-betalning som inte kunde kopplas till en
- *    känd Bokix-faktura — momssats/konto måste väljas manuellt, ingen
- *    gissning.
- *  - allt annat (utländsk valuta, ovanliga typer): "kräver manuell
- *    hantering", bara en kvittera-knapp, ingen automatisk kontering.
+/** Ett kort för en Stripe-ledgerrad (public.stripe_ledger_events). Läget
+ * avgörs av categorizeStripeItem (utils/stripeLedger.js):
+ *  - säkra lägen (avgift, utbetalning, fakturabetalning): allt kommer från
+ *    Stripe, en knapp bokför.
+ *  - 'sale'/'refund': momssats och intäktskonto väljs av användaren, ingen
+ *    gissning. Senaste valet föreslås igen.
+ *  - 'manual' (utländsk valuta, ovanliga typer): bara kvittera.
  */
-function StripeLedgerCard({ item, accounts, onBookPlatformFee, onBookSale, onMarkHandled, exiting, onOpenInvoice }) {
+function StripeLedgerCard({ item, accounts, onBook, onMarkHandled, exiting, onOpenInvoice, lastChoice }) {
   const [expanded, setExpanded] = useState(false);
-  const [vatRate, setVatRate] = useState(25);
-  const [saleAccount, setSaleAccount] = useState(REVENUE_ACCOUNTS[25]);
+  const [vatRate, setVatRate] = useState(lastChoice?.vatRate ?? 25);
+  const [saleAccount, setSaleAccount] = useState(lastChoice?.account || REVENUE_ACCOUNTS[25]);
 
   const category = categorizeStripeItem(item);
   const typeLabel = STRIPE_TYPE_LABEL[item.type] || item.type;
   const isForeign = item.currency !== 'sek';
+  const fee = Number(item.fee) || 0;
+  const absAmount = Math.abs(Number(item.amount) || 0);
+  const needsChoice = category === 'sale' || category === 'refund';
+  const safeBadge = { label: t('ui.sakert_forslag'), tone: 'green' };
 
-  // Samma tre delar som utgiftsraden: metarad, åtgärdsmening, etikett.
-  // Meningen säger vad knappen gör — inte bara vad raden är.
   const view = {
     platform_fee: {
       icon: ShieldCheck, tone: 'green',
       note: t('ui.beraknad_ur_fakturans_bokforda_belopp'),
       title: t('ui.bokfor_bokix_plattformsavgift_mot_6570_bankkostn', { v0: formatSEK(item.platform_fee_amount) }),
       badge: { label: t('ui.beraknad_avgift'), tone: 'green' },
+      button: t('ui.bokfor_avgift'),
+    },
+    invoice_fee: {
+      icon: ShieldCheck, tone: 'green',
+      note: t('ui.stripe_rq_avgift_note'),
+      title: t('ui.stripe_rq_avgift_title', { v0: formatSEK(fee) }),
+      badge: safeBadge,
+      button: t('ui.bokfor_avgift'),
+    },
+    invoice_paid: {
+      icon: CheckCircle2, tone: 'green',
+      note: t('ui.stripe_rq_betald_note'),
+      title: t('ui.stripe_rq_betald_title', { v0: formatSEK(absAmount) }),
+      badge: safeBadge,
     },
     payout: {
-      icon: Landmark, tone: 'blue',
-      note: t('ui.inget_att_bokfora_har'),
-      title: t('ui.utbetalning_till_bank_jamfor_mot_ditt_bankkontou', { v0: formatMoney(item.amount, item.currency) }),
-      badge: { label: t('ui.avstamning'), tone: 'blue' },
+      icon: Landmark, tone: 'green',
+      note: t('ui.stripe_rq_utbetalning_note'),
+      title: t('ui.stripe_rq_utbetalning_title', { v0: formatSEK(absAmount) }),
+      badge: safeBadge,
+      button: t('ui.stripe_rq_bokfor'),
     },
-    unmatched_sale: {
+    fee: {
+      icon: HelpCircle, tone: 'amber',
+      note: t('ui.stripe_rq_fristaende_note'),
+      title: t('ui.stripe_rq_avgift_fristaende_title', { v0: formatSEK(absAmount) }),
+      badge: { label: t('ui.stripe_rq_kontrollera'), tone: 'amber' },
+      button: t('ui.bokfor_avgift'),
+    },
+    sale: {
       icon: CreditCard, tone: 'amber',
       note: t('ui.ingen_matchande_faktura'),
-      title: t('ui.bokfor_betalning_valj_momssats_och_intaktskonto', { v0: formatSEK(item.amount) }),
+      title: t('ui.bokfor_betalning_valj_momssats_och_intaktskonto', { v0: formatSEK(absAmount) }),
       badge: { label: t('ui.kraver_val'), tone: 'amber' },
+      button: t('ui.bokfor_forsaljning'),
+    },
+    refund: {
+      icon: RotateCcw, tone: 'amber',
+      note: typeLabel,
+      title: t('ui.stripe_rq_aterbetalning_title', { v0: formatSEK(absAmount) }),
+      badge: { label: t('ui.kraver_val'), tone: 'amber' },
+      button: t('ui.stripe_rq_bokfor_aterbetalning'),
     },
     manual: {
       icon: HelpCircle, tone: 'neutral',
@@ -392,6 +408,9 @@ function StripeLedgerCard({ item, accounts, onBookPlatformFee, onBookSale, onMar
       badge: { label: t('ui.manuell'), tone: 'neutral' },
     },
   }[category];
+
+  const canBook = !needsChoice || Boolean(saleAccount);
+  const book = () => onBook(item, needsChoice ? { account: saleAccount, vatRate, vatAccount: VAT_ACCOUNTS[vatRate] } : undefined);
 
   return (
     <ReviewRowShell
@@ -402,34 +421,37 @@ function StripeLedgerCard({ item, accounts, onBookPlatformFee, onBookSale, onMar
       title={view.title}
       badge={view.badge}
       exiting={exiting}
-      extra={category === 'unmatched_sale' && (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
-          <select value={vatRate} onChange={e => { const r = Number(e.target.value); setVatRate(r); setSaleAccount(REVENUE_ACCOUNTS[r]); }} style={{ height: '32px', padding: '0 10px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12.5px', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit' }}>
-            {VAT_RATES.map(r => <option key={r} value={r}>{r}{t('ui.moms_6')}</option>)}
-          </select>
-          <div style={{ minWidth: '220px', flex: '1 1 220px' }}>
-            <AccountSearch value={saleAccount} onChange={setSaleAccount} accounts={accounts} placeholder={t('ui.intaktskonto')} />
+      extra={needsChoice && (
+        <div style={{ marginTop: '12px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <select value={vatRate} onChange={e => { const r = Number(e.target.value); setVatRate(r); setSaleAccount(REVENUE_ACCOUNTS[r]); }} style={{ height: '32px', padding: '0 10px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12.5px', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit' }}>
+              {VAT_RATES.map(r => <option key={r} value={r}>{r}{t('ui.moms_6')}</option>)}
+            </select>
+            <div style={{ minWidth: '220px', flex: '1 1 220px' }}>
+              <AccountSearch value={saleAccount} onChange={setSaleAccount} accounts={accounts} placeholder={t('ui.intaktskonto')} />
+            </div>
           </div>
+          {fee > 0 && <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '8px 0 0' }}>{t('ui.stripe_rq_med_avgift', { v0: formatSEK(fee) })}</p>}
         </div>
       )}
       actions={
         <>
-          {category === 'platform_fee' && (
-            <button onClick={() => onBookPlatformFee(item)} style={rowButtonStyle('primary')}>
-              <Check size={14} /> {t('ui.bokfor_avgift')}
-            </button>
-          )}
-          {category === 'unmatched_sale' && (
+          {view.button && (
             <button
-              disabled={!saleAccount}
-              onClick={() => onBookSale(item, saleAccount, vatRate)}
-              style={{ ...rowButtonStyle(saleAccount ? 'primary' : 'secondary'), opacity: saleAccount ? 1 : 0.6, cursor: saleAccount ? 'pointer' : 'not-allowed' }}
+              disabled={!canBook}
+              onClick={book}
+              style={{ ...rowButtonStyle(canBook ? 'primary' : 'secondary'), opacity: canBook ? 1 : 0.6, cursor: canBook ? 'pointer' : 'not-allowed' }}
             >
-              <Check size={14} /> {t('ui.bokfor_forsaljning')}
+              <Check size={14} /> {view.button}
             </button>
           )}
-          {(category === 'payout' || category === 'manual') && (
+          {category === 'payout' && (
             <button onClick={() => onMarkHandled(item)} style={rowButtonStyle('secondary')}>
+              {t('ui.stripe_rq_redan_i_banken')}
+            </button>
+          )}
+          {(category === 'invoice_paid' || category === 'manual') && (
+            <button onClick={() => onMarkHandled(item)} style={rowButtonStyle(category === 'invoice_paid' ? 'primary' : 'secondary')}>
               {t('ui.markera_som_hanterad')}
             </button>
           )}
@@ -775,42 +797,24 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
     markZettleReviewed(item);
   };
 
-  const handleBookPlatformFee = (item) => {
-    const feeAmount = Math.round(Number(item.platform_fee_amount) || 0);
-    if (feeAmount <= 0) return;
-    onAddVerification?.({
-      date: (item.created_at_stripe || '').split('T')[0],
-      description: `Stripe plattformsavgift${item.matched_invoice_id ? ` — faktura ${item.matched_invoice_id}` : ''}`,
-      source: 'stripe_ledger', sourceId: item.id,
-      rows: [
-        { account: '6570', debet: feeAmount, kredit: 0 },
-        { account: '1930', debet: 0, kredit: feeAmount },
-      ],
-    });
-    finishResolveStripe(item);
-    markStripeReviewed(item);
-  };
+  // Senaste momssats/intäktskonto för Stripe-försäljning föreslås igen på
+  // nästa rad (bara ett startvärde, märkt Kräver val). Per företag, i
+  // webbläsaren; försvinner det börjar man om på 25 %.
+  const stripeChoiceKey = `bokix_stripe_sale_choice_${company?.id || 'demo'}`;
+  const [lastStripeChoice, setLastStripeChoice] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(stripeChoiceKey) || 'null'); } catch { return null; }
+  });
 
-  // Ny, tidigare obokförd intäkt (till skillnad från handleBookPlatformFee
-  // ovan, som bara RÄTTAR en redan bokförd fakturabetalning) — momsen
-  // bryts därför ut precis som en riktig kontantförsäljning skulle, inte
-  // en enda odelad rad.
-  const handleBookSale = (item, account, vatRate) => {
-    if (!account) return;
-    const gross = Math.round(Number(item.amount) || 0);
-    const net = vatRate > 0 ? Math.round(gross / (1 + vatRate / 100)) : gross;
-    const vat = gross - net;
-    const rows = [
-      { account: '1930', debet: gross, kredit: 0 },
-      { account, debet: 0, kredit: net },
-    ];
-    if (vat > 0 && VAT_ACCOUNTS[vatRate]) rows.push({ account: VAT_ACCOUNTS[vatRate], debet: 0, kredit: vat });
-    onAddVerification?.({
-      date: (item.created_at_stripe || '').split('T')[0],
-      description: 'Stripe-betalning utan kopplad faktura',
-      source: 'stripe_ledger', sourceId: item.id,
-      rows,
-    });
+  // Allt Stripe-bokförande går genom utils/stripeLedger.js, så konteringen
+  // (1686 Stripe-saldo, 6570 avgift, 1930 vid utbetalning) finns på ett ställe.
+  const handleBookStripe = (item, choice) => {
+    const verification = buildStripeVerification(item, choice);
+    if (verification?.rows?.length) onAddVerification?.(verification);
+    if (choice?.account) {
+      const next = { account: choice.account, vatRate: choice.vatRate };
+      setLastStripeChoice(next);
+      try { localStorage.setItem(stripeChoiceKey, JSON.stringify(next)); } catch { /* bara en bekvämlighet */ }
+    }
     finishResolveStripe(item);
     markStripeReviewed(item);
   };
@@ -820,6 +824,57 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
     markStripeReviewed(item);
   };
 
+  const safeStripeItems = visibleStripeItems.filter(isSafeStripeItem);
+  const handleBookAllSafeStripe = async () => {
+    if (safeStripeItems.length === 0) return;
+    if (!(await confirmDialog(t('ui.stripe_rq_bokfor_alla_sakra_fraga', { n: safeStripeItems.length })))) return;
+    safeStripeItems.forEach(item => handleBookStripe(item));
+  };
+
+  // "Hämta från Stripe": samma hämtning som nattens cron, men nu och 90
+  // dagar bakåt (api/stripe/connect.js, action 'sync').
+  const [stripeSync, setStripeSync] = useState({ running: false, message: '' });
+  const handleSyncStripe = async () => {
+    if (isDemo || stripeSync.running || !company?.id) return;
+    setStripeSync({ running: true, message: '' });
+    try {
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      const response = await fetch('/api/stripe/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ company_id: company.id, action: 'sync', days: 90 }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || String(response.status));
+      await loadStripeItems();
+      setStripeSync({ running: false, message: t('ui.stripe_rq_hamtade', { n: payload.count || 0 }) });
+    } catch (error) {
+      setStripeSync({ running: false, message: t('ui.stripe_rq_hamta_fel', { v0: error.message || error }) });
+    }
+  };
+
+  const headerActions = tab === 'pending' && bulkTargets.length > 0 ? [
+    {
+      key: 'bulk-approve',
+      label: t(bulkIsSelection ? 'ui.godkann_markerade_n' : 'ui.godkann_alla_n', { n: bulkTargets.length }),
+      icon: CheckCircle2, onClick: () => setShowBulkConfirm(true), variant: 'primary',
+    },
+  ] : tab === 'stripe' && company?.stripeAccountId ? [
+    ...(isDemo ? [] : [{
+      key: 'stripe-sync',
+      label: stripeSync.running ? t('ui.stripe_rq_hamtar') : t('ui.stripe_rq_hamta_nu'),
+      icon: RotateCcw, onClick: handleSyncStripe, disabled: stripeSync.running, variant: safeStripeItems.length > 0 ? 'secondary' : 'primary',
+    }]),
+    ...(safeStripeItems.length > 0 ? [{
+      key: 'stripe-bulk',
+      label: t('ui.stripe_rq_bokfor_alla_sakra', { n: safeStripeItems.length }),
+      icon: CheckCircle2, onClick: handleBookAllSafeStripe, variant: 'primary',
+    }] : []),
+  ] : [];
+
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <style>{REVIEW_LIST_CSS}</style>
@@ -828,13 +883,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
         title={t('ui.granskning')}
         // Antalet står i knappen, inte bara i bekräftelserutan: hur många
         // poster ett klick omfattar ska gå att se INNAN man klickar.
-        actions={tab === 'pending' && bulkTargets.length > 0 ? [
-          {
-            key: 'bulk-approve',
-            label: t(bulkIsSelection ? 'ui.godkann_markerade_n' : 'ui.godkann_alla_n', { n: bulkTargets.length }),
-            icon: CheckCircle2, onClick: () => setShowBulkConfirm(true), variant: 'primary',
-          },
-        ] : []}
+        actions={headerActions}
         tabs={{
           items: [
             { id: 'pending', label: t('ui.vantar'), badge: pendingItems.length },
@@ -884,6 +933,9 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
         )
       )}
 
+      {tab === 'stripe' && stripeSync.message && (
+        <div role="status" style={{ margin: '16px 24px 0', fontSize: '13px', color: 'var(--text-secondary)' }}>{stripeSync.message}</div>
+      )}
       {tab === 'stripe' && (
         !company?.stripeAccountId ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(50vh / var(--app-zoom, 1))', padding: '40px', textAlign: 'center' }}>
@@ -909,9 +961,9 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
               {visibleStripeItems.map(item => (
                 <StripeLedgerCard
                   key={item.id} item={item} accounts={accounts}
-                  onBookPlatformFee={handleBookPlatformFee}
-                  onBookSale={handleBookSale}
+                  onBook={handleBookStripe}
                   onMarkHandled={handleMarkStripeHandled}
+                  lastChoice={lastStripeChoice}
                   exiting={exitingIds.has(item.id)}
                   onOpenInvoice={handleGlobalAction && (id => handleGlobalAction({ type: 'open_invoice', payload: { id } }, 'invoices'))}
                 />

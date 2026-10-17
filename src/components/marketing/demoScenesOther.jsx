@@ -81,7 +81,7 @@ const BankUpload = (
             <span style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--ax-g-bg)', color: 'var(--ax-g-tx)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><UploadCloud size={15} /></span>
             <div className="ax-b" style={{ marginTop: 6 }}>Ladda upp kontoutdrag</div>
             <div style={{ fontSize: 10.5 }}>Dra och släpp filen här, eller klicka för att välja</div>
-            <div className="ax-m" style={{ fontSize: 9.5 }}>CSV, TXT, XLSX eller XLS (max 10 MB) — exporterat från er internetbank</div>
+            <div className="ax-m" style={{ fontSize: 9.5 }}>CSV, TXT, XLSX eller XLS (max 10 MB), exporterat från er internetbank</div>
             <div className="dp-slide" style={{ ...d(1.6), marginTop: 9, display: 'inline-flex' }}><span className="ax-dl-file"><Doc />kontoutdrag-2026-09.csv</span></div>
           </div>
           <div className="dp-in" style={{ ...d(2.2), marginTop: 12 }}>
@@ -109,7 +109,7 @@ const BankColumns = (
             <span className="dp-in" style={d(2.8)}><ModalSteps steps={IMPORT_STEPS} on={2} /></span>
           </span>
           <div className="dp-gone" style={d(2.7)}>
-            <div className="ax-s" style={{ fontSize: 10.5, marginBottom: 8 }}>Bokix har försökt gissa vilka kolumner som är vilka — kontrollera och rätta vid behov innan förhandsgranskning.</div>
+            <div className="ax-s" style={{ fontSize: 10.5, marginBottom: 8 }}>Bokix har försökt gissa vilka kolumner som är vilka. Kontrollera och rätta vid behov innan förhandsgranskning.</div>
             {COLUMN_FIELDS.map(([label, col, t]) => (
               <div key={label} style={{ display: 'grid', gridTemplateColumns: '78px 1fr', gap: 8, alignItems: 'center', marginBottom: 6 }}>
                 <span className="ax-label" style={{ margin: 0 }}>{label}</span>
@@ -224,8 +224,8 @@ const ZettleScene = (
       <div className="dp-collapse" style={{ ...d(2.6), '--h': '160px' }}>
         <ReviewItem
           icon={CreditCard}
-          meta="Kortbetalning · ingen kopplad faktura — all Zettle-försäljning är kontantförsäljning · idag"
-          title="Bokför försäljning 3 240 kr — kvitto 1482"
+          meta="Kortbetalning · ingen kopplad faktura, all Zettle-försäljning är kontantförsäljning · idag"
+          title="Bokför försäljning 3 240 kr, kvitto 1482"
           badge={<Pill kind="warn">Kräver val</Pill>}
           extra={
             <div className="dp-in" style={{ ...d(0.6), display: 'flex', gap: 7, margin: '-2px 0 9px', flexWrap: 'wrap' }}>
@@ -241,8 +241,8 @@ const ZettleScene = (
       </div>
       <ReviewItem
         icon={CreditCard}
-        meta="Kortbetalning · ingen kopplad faktura — all Zettle-försäljning är kontantförsäljning · idag"
-        title="Bokför försäljning 480 kr — kvitto 1483"
+        meta="Kortbetalning · ingen kopplad faktura, all Zettle-försäljning är kontantförsäljning · idag"
+        title="Bokför försäljning 480 kr, kvitto 1483"
         badge={<Pill kind="warn">Kräver val</Pill>}
         actions={<span className="ax-btn"><Check size={11} strokeWidth={3} /> Bokför försäljning</span>}
       />
@@ -596,10 +596,10 @@ const SecEu = (
         <div className="ax-m ax-b" style={{ fontSize: 9.5, letterSpacing: '0.06em' }}>INTEGRITETSPOLICY</div>
         <div className="ax-b" style={{ fontSize: 15, margin: '6px 0 6px' }}>4. Vilka vi delar uppgifter med</div>
         <div className="ax-s" style={{ fontSize: 11, lineHeight: 1.6 }}>
-          <b style={{ color: 'var(--ax-text)' }}>Supabase</b> — databas- och autentiseringsleverantör. All bokförings- och kontodata, inklusive de kvitton och underlag du laddar upp, lagras hos Supabase på våra vägnar <span className="ax-receipt-hl" style={{ ...d(0.9), color: 'var(--ax-text)', fontWeight: 600 }}>i ett datacenter inom EU (Frankfurt, Tyskland)</span>.
+          <b style={{ color: 'var(--ax-text)' }}>Supabase</b>, databas- och autentiseringsleverantör. All bokförings- och kontodata, inklusive de kvitton och underlag du laddar upp, lagras hos Supabase på våra vägnar <span className="ax-receipt-hl" style={{ ...d(0.9), color: 'var(--ax-text)', fontWeight: 600 }}>i ett datacenter inom EU (Frankfurt, Tyskland)</span>.
         </div>
         <div className="ax-b dp-in" style={{ ...d(1.6), fontSize: 15, margin: '14px 0 6px' }}>6. Överföring utanför EU/EES</div>
-        <div className="ax-s dp-in" style={{ ...d(1.8), fontSize: 11, lineHeight: 1.6 }}>Själva lagringen av din bokföring — databasen och de filer du laddar upp — sker <span className="ax-receipt-hl" style={{ ...d(2.3), color: 'var(--ax-text)', fontWeight: 600 }}>inom EU, i Frankfurt, Tyskland</span>.</div>
+        <div className="ax-s dp-in" style={{ ...d(1.8), fontSize: 11, lineHeight: 1.6 }}>Själva lagringen av din bokföring, databasen och de filer du laddar upp, sker <span className="ax-receipt-hl" style={{ ...d(2.3), color: 'var(--ax-text)', fontWeight: 600 }}>inom EU, i Frankfurt, Tyskland</span>.</div>
       </div>
     </div>
   </Browser>

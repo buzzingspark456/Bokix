@@ -21,7 +21,7 @@ export const BASE_FEATURES = [
   'Momsdeklaration varje kvartal',
   'Bokslutsflöde som låser räkenskapsåret',
   'Kortbetalningar direkt på fakturan via Stripe',
-  'SIE4-export — din bokföring är alltid din',
+  'SIE4-export, din bokföring är alltid din',
 ];
 
 // Det som faktiskt skiljer nivåerna åt — bara lön/personal-modulen.
@@ -56,7 +56,7 @@ export const PRICING_TIERS = [
     // grundat i den enda faktiska skillnaden (personal eller inte), inte
     // en påhittad regel om bolagsform. Enskild firma/konsult är bara det
     // vanligaste exemplet på "ingen anställd", inte ett krav.
-    recommend: 'Passar dig utan anställda — t.ex. enskild firma eller konsult som fakturerar själv.',
+    recommend: 'Passar dig utan anställda, t.ex. enskild firma eller konsult som fakturerar själv.',
     features: BASE_FEATURES,
     // Kundönskemål ("med den billigare vill man känna att man missar
     // något") — samma tre lönerelaterade rader som "Med personal" har,
@@ -72,7 +72,7 @@ export const PRICING_TIERS = [
     gradient: GRAD.tealLime,
     accent: ACCENT.green,
     featured: true,
-    recommend: 'Passar dig med anställda — t.ex. ett aktiebolag som kör egen lön.',
+    recommend: 'Passar dig med anställda, t.ex. ett aktiebolag som kör egen lön.',
     // Kundönskemål ("ha allt i båda, och det extra på den dyrare med") —
     // hela listan (bas + lön) rakt av, inte en förkortad "Allt i Utan
     // personal, plus:"-rad.

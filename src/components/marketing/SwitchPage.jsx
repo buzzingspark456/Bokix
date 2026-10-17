@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout from './MarketingLayout';
 import { INK_SOFT, MUTED, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
-import { KitStyles, SubHero, KitSection, CenterSection, KitFaq, KitCta, PrimaryButton, GhostLink } from './subpageKit';
+import { KitStyles, SubHero, KitSection, CenterSection, KitFaq, KitCta, PrimaryButton, GhostLink, ProductShots } from './subpageKit';
+import { shotsFor } from '../../content/marketing/screenshots';
 import { PageMeta, JsonLd, SITE_URL, DEFAULT_OG_IMAGE, schemaDate } from '../../utils/seo';
 import MigrationFlow from './MigrationFlow';
 import DemoPlayer, { DemoStyles, PlayOnView } from './DemoPlayer';
@@ -35,7 +36,7 @@ import { MIGRATION_SOURCES, OTHER_PROGRAM_HINT, MENU_MOVED_HINT } from '../../ut
 const SWITCH_STEPS = [
   {
     title: 'Exportera en SIE4-fil ur ditt nuvarande program',
-    body: 'Alla svenska bokföringsprogram kan exportera SIE — det är branschstandarden och din data är din. Välj ditt program ovan så visar vi var exporten brukar ligga.',
+    body: 'Alla svenska bokföringsprogram kan exportera SIE, det är branschstandarden och din data är din. Välj ditt program ovan så visar vi var exporten brukar ligga.',
   },
   {
     title: 'Ladda upp filen i Bokix',
@@ -47,7 +48,7 @@ const SWITCH_STEPS = [
   },
   {
     title: 'Bokför vidare i Bokix',
-    body: 'Historiken ligger inne, du fortsätter löpande härifrån. Och du kan när som helst exportera allt till SIE4 igen om du vill vidare — samma öppna format, ingen inlåsning.',
+    body: 'Historiken ligger inne, du fortsätter löpande härifrån. Och du kan när som helst exportera allt till SIE4 igen om du vill vidare, samma öppna format, ingen inlåsning.',
   },
 ];
 
@@ -90,7 +91,7 @@ const FAQ = [
   },
   {
     q: 'Måste jag säga upp det gamla programmet direkt?',
-    a: 'Nej, och det kan vara klokt att låta bli tills du sett att allt kom med. Tänk också på att bokföringslagen kräver att räkenskapsinformationen bevaras till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades — spara SIE-filen och det gamla systemets underlag oavsett vilket program du bokför i.',
+    a: 'Nej, och det kan vara klokt att låta bli tills du sett att allt kom med. Tänk också på att bokföringslagen kräver att räkenskapsinformationen bevaras till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades, spara SIE-filen och det gamla systemets underlag oavsett vilket program du bokför i.',
   },
   {
     q: 'Kostar bytet något?',
@@ -195,6 +196,8 @@ export default function SwitchPage() {
         visual={<MigrationFlow note={false} />}
       />
 
+      <ProductShots shots={shotsFor('/byt-bokforingsprogram')} title="Här läser du in SIE4-filen" />
+
       <KitSection title="Vad bokför du i dag?" lead="Välj ditt program så visar vi var SIE-exporten brukar ligga. Själva importen fungerar likadant oavsett program.">
         <div className="bx-switch-picker" style={{ marginBottom: '24px' }}>
           {MIGRATION_SOURCES.map(p => (
@@ -224,7 +227,7 @@ export default function SwitchPage() {
             <>
               <div className="kx-row-title" style={{ marginBottom: '10px' }}>Ditt program står inte i listan</div>
               <p className="kx-row-body">
-                {OTHER_PROGRAM_HINT} Bokix läser SIE4-filen oavsett vilket program som skapade den — importen är en generell läsare av filstandarden, inte en integration mot varje enskild leverantör.
+                {OTHER_PROGRAM_HINT} Bokix läser SIE4-filen oavsett vilket program som skapade den, eftersom importen är en generell läsare av filstandarden, inte en integration mot varje enskild leverantör.
               </p>
             </>
           )}

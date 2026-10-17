@@ -8,6 +8,8 @@ import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
 import { PageMeta, JsonLd, SITE_URL, DEFAULT_OG_IMAGE, schemaDate } from '../../utils/seo';
 import BankFlow from './BankFlow';
+import { ProductShots } from './subpageKit';
+import { shotsFor } from '../../content/marketing/screenshots';
 import DemoPlayer, { DemoStyles } from './DemoPlayer';
 import { makeBankDemo } from './demoScenesOther';
 import { BankLogo } from '../shared/BrandLogos';
@@ -40,7 +42,7 @@ import { BANK_SOURCES, OTHER_BANK_HINT, MAX_BANK_FILE_MB, splitBankPath } from '
 const STEPS = [
   {
     icon: FileDown, title: 'Exportera kontoutdraget ur din internetbank',
-    body: 'Alla svenska internetbanker kan spara transaktionslistan som en fil. Välj din bank nedan så visar vi var knappen brukar sitta. Du laddar ner filen precis som vanligt — Bokix är inte inblandat i det steget.',
+    body: 'Alla svenska internetbanker kan spara transaktionslistan som en fil. Välj din bank nedan så visar vi var knappen brukar sitta. Du laddar ner filen precis som vanligt, Bokix är inte inblandat i det steget.',
   },
   {
     icon: UploadCloud, title: 'Ladda upp filen i Bokix',
@@ -48,7 +50,7 @@ const STEPS = [
   },
   {
     icon: Columns3, title: 'Bekräfta kolumnerna',
-    body: 'Bokix gissar vilken kolumn som är datum, text och belopp — även när rubrikerna är på engelska, och även när uttag och insättning ligger i två skilda kolumner. Gissningen visas för dig att rätta innan något läses in.',
+    body: 'Bokix gissar vilken kolumn som är datum, text och belopp, även när rubrikerna är på engelska, och även när uttag och insättning ligger i två skilda kolumner. Gissningen visas för dig att rätta innan något läses in.',
   },
   {
     icon: CheckCircle2, title: 'Matcha och bokför',
@@ -61,11 +63,11 @@ const BANK_DEMO = makeBankDemo(STEPS);
 const FAQ = [
   {
     q: 'Kopplar Bokix till min bank direkt?',
-    a: 'Nej. Bokix läser kontoutdraget som en fil du själv exporterar från din internetbank. Det betyder att du aldrig lämnar ut dina bankinloggningsuppgifter till oss, och att inget system utanför banken har löpande läsrättigheter på ditt företagskonto. Nackdelen är att du hämtar filen själv i stället för att den kommer automatiskt — en gång i veckan eller en gång i månaden räcker för de flesta.',
+    a: 'Nej. Bokix läser kontoutdraget som en fil du själv exporterar från din internetbank. Det betyder att du aldrig lämnar ut dina bankinloggningsuppgifter till oss, och att inget system utanför banken har löpande läsrättigheter på ditt företagskonto. Nackdelen är att du hämtar filen själv i stället för att den kommer automatiskt, en gång i veckan eller en gång i månaden räcker för de flesta.',
   },
   {
     q: 'Vilka banker fungerar?',
-    a: 'Alla. Vi har färdiga klickvägar för Nordea, SEB, Swedbank, Handelsbanken, Länsförsäkringar, ICA Banken, Danske Bank, Lunar och Northmill, men importen är en generell CSV- och Excel-läsare där du kopplar kolumnerna själv. Har du en bank som inte står i listan — eller ett utländskt konto — läses filen på precis samma sätt.',
+    a: 'Alla. Vi har färdiga klickvägar för Nordea, SEB, Swedbank, Handelsbanken, Länsförsäkringar, ICA Banken, Danske Bank, Lunar och Northmill, men importen är en generell CSV- och Excel-läsare där du kopplar kolumnerna själv. Har du en bank som inte står i listan, eller ett utländskt konto, läses filen på precis samma sätt.',
   },
   {
     q: 'Min bank exporterar med engelska rubriker, spelar det roll?',
@@ -205,7 +207,7 @@ export default function BankPage() {
             Få in banken i bokföringen
           </h1>
           <p style={{ fontSize: '17px', color: MUTED, lineHeight: 1.7, margin: '0 0 34px' }}>
-            Exportera kontoutdraget ur din internetbank och läs in det i Bokix. Transaktionerna matchas mot dina fakturor och blir färdiga verifikationer — utan att du lämnar ut en enda bankinloggning.
+            Exportera kontoutdraget ur din internetbank och läs in det i Bokix. Transaktionerna matchas mot dina fakturor och blir färdiga verifikationer, utan att du lämnar ut en enda bankinloggning.
           </p>
 
           {/* Samma animerade flöde som startsidans banksektion — en
@@ -216,6 +218,8 @@ export default function BankPage() {
         </Reveal>
       </section>
 
+      <ProductShots shots={shotsFor('/koppla-bank')} title="Kontoutdraget i Bokix" />
+
       {/* ── Välj bank → var ligger exporten där? ── */}
       <section style={{ padding: '56px 24px 20px', background: 'var(--mkt-page-bg)' }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
@@ -224,7 +228,7 @@ export default function BankPage() {
               Var ligger exporten i din bank?
             </h2>
             <p style={{ fontSize: '14.5px', color: MUTED, maxWidth: '580px', margin: '0 auto', lineHeight: 1.65 }}>
-              Välj din bank så visar vi klickvägen. Själva importen fungerar likadant oavsett bank — filen är bara rader med datum, text och belopp.
+              Välj din bank så visar vi klickvägen. Själva importen fungerar likadant oavsett bank, filen är bara rader med datum, text och belopp.
             </p>
           </Reveal>
 
@@ -291,14 +295,14 @@ export default function BankPage() {
                   ))}
                 </div>
                 <p style={{ margin: '16px 0 0', fontSize: '12.5px', color: MUTED, lineHeight: 1.6 }}>
-                  Hittar du inte knappen? Menyplaceringen kan ha ändrats sedan guiden skrevs — sök på "exportera" eller "kontoutdrag" i bankens egen hjälp. {OTHER_BANK_HINT}
+                  Hittar du inte knappen? Menyplaceringen kan ha ändrats sedan guiden skrevs. Sök på "exportera" eller "kontoutdrag" i bankens egen hjälp. {OTHER_BANK_HINT}
                 </p>
               </>
             ) : (
               <>
                 <h3 style={{ fontSize: '16px', fontWeight: 700, color: INK, margin: '0 0 10px', letterSpacing: '-0.01em' }}>Din bank står inte i listan</h3>
                 <p style={{ fontSize: '14px', color: INK_SOFT, lineHeight: 1.7, margin: 0 }}>
-                  {OTHER_BANK_HINT} Bokix läser filen oavsett vilken bank som skapade den — importen är en generell CSV- och Excel-läsare, inte en integration mot varje enskild bank. Det gäller även utländska konton.
+                  {OTHER_BANK_HINT} Bokix läser filen oavsett vilken bank som skapade den, eftersom importen är en generell CSV- och Excel-läsare, inte en integration mot varje enskild bank. Det gäller även utländska konton.
                 </p>
               </>
             )}

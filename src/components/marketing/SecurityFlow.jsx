@@ -34,7 +34,7 @@ const STEPS = [
   {
     id: 'login', icon: User, label: 'Du loggar in',
     title: 'Frågan bär din identitet',
-    body: 'Varje anrop till databasen är signerat med vem du är. Det är inte något appen påstår — det är något databasen kan kontrollera själv.',
+    body: 'Varje anrop till databasen är signerat med vem du är. Det är inte något appen påstår, det är något databasen kan kontrollera själv.',
     query: 'select * from fakturor',
   },
   {
@@ -51,7 +51,7 @@ const STEPS = [
   },
   {
     id: 'bug', icon: Lock, label: 'Även vid bugg',
-    title: 'Appen kan be om allt — och får ändå bara ditt',
+    title: 'Appen kan be om allt, och får ändå bara ditt',
     body: 'Det är hela poängen med att lägga regeln i databasen. En bugg i webbläsarkoden kan inte be sig förbi den, för det är inte koden som avgör.',
     query: 'select * from fakturor  -- utan filter',
   },
