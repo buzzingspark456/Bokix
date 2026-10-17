@@ -1506,6 +1506,8 @@ ALTER TABLE public.inbox_addresses ADD COLUMN IF NOT EXISTS last_blocked_at time
 --       lista med poster som har id: ersätt ändrade på plats, ta bort,
 --       lägg nya sist (eller först med prepend), som applyRecordPatch i
 --       src/utils/stateMerge.js.
+--   {"op":"patch_by", "key":"code", ...}          samma, men posterna
+--       identifieras av ett annat fält (kontoplanen: kontonumret).
 -- Saknas föräldern till en path avbryts allt (exception) och appen sparar
 -- hela kontot i stället, så att inget tyst försvinner.
 --
@@ -1513,7 +1515,8 @@ ALTER TABLE public.inbox_addresses ADD COLUMN IF NOT EXISTS last_blocked_at time
 -- den är körd (den sparar då hela kontot).
 
 -- Lista med poster: samma resultat som applyRecordPatch i stateMerge.js.
-CREATE OR REPLACE FUNCTION private.apply_record_patch(p_current jsonb, p_upsert jsonb, p_remove jsonb, p_prepend boolean)
+-- p_key är fältet som identifierar posten (id, eller code i kontoplanen).
+CREATE OR REPLACE FUNCTION private.apply_keyed_patch(p_current jsonb, p_upsert jsonb, p_remove jsonb, p_prepend boolean, p_key text)
 RETURNS jsonb
 LANGUAGE sql
 IMMUTABLE
@@ -1533,20 +1536,22 @@ AS $$
   kept AS (
     SELECT coalesce(u.elem, c.elem) AS elem, 1 AS grp, c.ord AS ord
     FROM cur c
-    LEFT JOIN up u ON u.elem ->> 'id' = c.elem ->> 'id'
-    WHERE NOT EXISTS (SELECT 1 FROM removed r WHERE r.id = c.elem ->> 'id')
+    LEFT JOIN up u ON u.elem ->> p_key = c.elem ->> p_key
+    WHERE NOT EXISTS (SELECT 1 FROM removed r WHERE r.id = c.elem ->> p_key)
   ),
   added AS (
     SELECT u.elem, CASE WHEN p_prepend THEN 0 ELSE 2 END AS grp, u.ord
     FROM up u
-    WHERE NOT EXISTS (SELECT 1 FROM cur c WHERE c.elem ->> 'id' = u.elem ->> 'id')
+    WHERE NOT EXISTS (SELECT 1 FROM cur c WHERE c.elem ->> p_key = u.elem ->> p_key)
   )
   SELECT coalesce(jsonb_agg(elem ORDER BY grp, ord), '[]'::jsonb)
   FROM (SELECT * FROM kept UNION ALL SELECT * FROM added) s;
 $$;
 
-REVOKE ALL ON FUNCTION private.apply_record_patch(jsonb, jsonb, jsonb, boolean) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION private.apply_record_patch(jsonb, jsonb, jsonb, boolean) TO authenticated;
+REVOKE ALL ON FUNCTION private.apply_keyed_patch(jsonb, jsonb, jsonb, boolean, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION private.apply_keyed_patch(jsonb, jsonb, jsonb, boolean, text) TO authenticated;
+-- Första versionen av filen hette private.apply_record_patch (bara id).
+DROP FUNCTION IF EXISTS private.apply_record_patch(jsonb, jsonb, jsonb, boolean);
 
 CREATE OR REPLACE FUNCTION public.apply_user_data_delta(p_expected_updated_at timestamptz, p_ops jsonb)
 RETURNS timestamptz
@@ -1590,10 +1595,14 @@ BEGIN
         v_state := jsonb_set(v_state, v_path, coalesce(v_op -> 'value', 'null'::jsonb), true);
       WHEN 'unset' THEN
         v_state := v_state #- v_path;
-      WHEN 'patch' THEN
+      WHEN 'patch', 'patch_by' THEN
         v_state := jsonb_set(
           v_state, v_path,
-          private.apply_record_patch(v_state #> v_path, v_op -> 'upsert', v_op -> 'remove', coalesce((v_op ->> 'prepend')::boolean, false)),
+          private.apply_keyed_patch(
+            v_state #> v_path, v_op -> 'upsert', v_op -> 'remove',
+            coalesce((v_op ->> 'prepend')::boolean, false),
+            CASE WHEN v_op ->> 'op' = 'patch_by' THEN coalesce(v_op ->> 'key', 'id') ELSE 'id' END
+          ),
           true
         );
       ELSE

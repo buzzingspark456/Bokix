@@ -77,22 +77,24 @@ export function mergeCompanies(baseCompanies = {}, localCompanies = {}, serverCo
 // (api/company-access.js), inte hela listan: med åren blir t.ex. alla
 // verifikationer för stora för ett anrop. Jämförelsen är på referens, eftersom
 // appen alltid byter ut en ändrad post i stället för att ändra den på plats.
-export function makeRecordPatch(before, after) {
-  if (!isRecordList(before) || !isRecordList(after)) return null;
-  const old = new Map(before.map(x => [String(x.id), x]));
-  const upsert = after.filter(x => old.get(String(x.id)) !== x);
-  const keep = new Set(after.map(x => String(x.id)));
-  const remove = before.filter(x => !keep.has(String(x.id))).map(x => x.id);
+// `key`: vilket fält som identifierar posten, id (de flesta listor) eller
+// code (kontoplanen, där kontonumret är nyckeln).
+export function makeRecordPatch(before, after, key = 'id') {
+  if (key === 'id' && (!isRecordList(before) || !isRecordList(after))) return null;
+  const old = new Map(before.map(x => [String(x[key]), x]));
+  const upsert = after.filter(x => old.get(String(x[key])) !== x);
+  const keep = new Set(after.map(x => String(x[key])));
+  const remove = before.filter(x => !keep.has(String(x[key]))).map(x => x[key]);
   return { upsert, remove };
 }
 
-export function applyRecordPatch(current, { upsert = [], remove = [], prepend = false }) {
+export function applyRecordPatch(current, { upsert = [], remove = [], prepend = false }, key = 'id') {
   const list = Array.isArray(current) ? current : [];
   const removed = new Set(remove.map(String));
-  const changed = new Map(upsert.map(x => [String(x.id), x]));
+  const changed = new Map(upsert.map(x => [String(x[key]), x]));
   const out = [];
   for (const x of list) {
-    const id = String(x?.id);
+    const id = String(x?.[key]);
     if (removed.has(id)) continue;
     if (changed.has(id)) { out.push(changed.get(id)); changed.delete(id); } else out.push(x);
   }
@@ -110,36 +112,48 @@ export function applyRecordPatch(current, { upsert = [], remove = [], prepend = 
 // lagd på base, ger samma poster i samma ordning som här (nya poster först
 // eller sist). Annars skickas hela listan. Saker som inte går att uttrycka
 // (base saknas, ett värde som inte är ett objekt) ger null: spara allt.
-const sameIdOrder = (a, b) => a.length === b.length && a.every((x, i) => String(x?.id) === String(b[i]?.id));
+const sameIdOrder = (a, b, key = 'id') => a.length === b.length && a.every((x, i) => String(x?.[key]) === String(b[i]?.[key]));
+// Kontoplanen: poster utan id men med ett unikt kontonummer.
+const isCodeList = (v) => Array.isArray(v) && v.length > 0 && v.every(x => x && typeof x === 'object' && !Array.isArray(x) && x.id == null && x.code != null)
+  && new Set(v.map(x => String(x.code))).size === v.length;
 
 // Efter inloggningen är serverns kopia och appens olika objekt med samma
 // innehåll. Då jämförs posterna på innehåll i stället, en gång, så att den
 // första sparningen inte skickar allt.
-function contentPatch(before, after) {
-  const old = new Map(before.map(x => [String(x.id), JSON.stringify(x)]));
-  const upsert = after.filter(x => old.get(String(x.id)) !== JSON.stringify(x));
-  const keep = new Set(after.map(x => String(x.id)));
-  const remove = before.filter(x => !keep.has(String(x.id))).map(x => x.id);
+function contentPatch(before, after, key = 'id') {
+  const old = new Map(before.map(x => [String(x[key]), JSON.stringify(x)]));
+  const upsert = after.filter(x => old.get(String(x[key])) !== JSON.stringify(x));
+  const keep = new Set(after.map(x => String(x[key])));
+  const remove = before.filter(x => !keep.has(String(x[key]))).map(x => x[key]);
   return { upsert, remove };
+}
+
+// Patch för en lista med nyckeln key, eller null om den inte går att
+// uttrycka exakt (då skickas hela listan).
+function listPatch(base, local, key) {
+  let patch = makeRecordPatch(base, local, key);
+  if (patch.upsert.length > local.length / 2) patch = contentPatch(base, local, key);
+  if (!patch.upsert.length && !patch.remove.length) return sameIdOrder(base, local, key) ? 'same' : null;
+  for (const prepend of [false, true]) {
+    if (sameIdOrder(applyRecordPatch(base, { ...patch, prepend }, key), local, key)) {
+      return patch.upsert.length > local.length / 2 ? null : { ...patch, prepend };
+    }
+  }
+  return null;
 }
 
 function fieldOps(path, base, local) {
   if (base === local) return [];
   if (local === undefined) return [{ op: 'unset', path }];
+  // Mer än halva listan ändrad, eller en ny ordning: hela listan.
   if (isRecordList(base) && isRecordList(local) && base.length > 0) {
-    let patch = makeRecordPatch(base, local);
-    if (patch.upsert.length > local.length / 2) patch = contentPatch(base, local);
-    if (!patch.upsert.length && !patch.remove.length) {
-      // Samma poster, ny ordning (t.ex. sorterad): hela listan.
-      return sameIdOrder(base, local) ? [] : [{ op: 'set', path, value: local }];
-    }
-    for (const prepend of [false, true]) {
-      if (sameIdOrder(applyRecordPatch(base, { ...patch, prepend }), local)) {
-        // Mer än halva listan ändrad: hela listan är lika litet och enklare.
-        if (patch.upsert.length > local.length / 2) break;
-        return [{ op: 'patch', path, upsert: patch.upsert, remove: patch.remove, prepend }];
-      }
-    }
+    const p = listPatch(base, local, 'id');
+    if (p === 'same') return [];
+    if (p) return [{ op: 'patch', path, upsert: p.upsert, remove: p.remove, prepend: p.prepend }];
+  } else if (isCodeList(base) && isCodeList(local)) {
+    const p = listPatch(base, local, 'code');
+    if (p === 'same') return [];
+    if (p) return [{ op: 'patch_by', key: 'code', path, upsert: p.upsert, remove: p.remove, prepend: p.prepend }];
   }
   // Inte en lista med poster (inställningar, kontoplanen …): oftast små.
   if (!Array.isArray(local) || local.length < 2000) {

@@ -1007,7 +1007,40 @@ function saveData(data, ownerId) {
   }
 }
 
+// Kopian skrevs förut vid VARJE ändring i appen: hela kontot som text,
+// synkront, flera MB i ett stort företag. Nu skrivs den när webbläsaren är
+// ledig (högst en gång i taget, den senaste versionen) och direkt när fliken
+// göms eller stängs, så att inget går förlorat.
+let pendingLocalSave = null;
+let localSaveHandle = null;
+function cancelLocalSaveTimer() {
+  if (!localSaveHandle) return;
+  if (localSaveHandle.idle != null && typeof cancelIdleCallback === 'function') cancelIdleCallback(localSaveHandle.idle);
+  if (localSaveHandle.timer != null) clearTimeout(localSaveHandle.timer);
+  localSaveHandle = null;
+}
+function flushLocalSave() {
+  cancelLocalSaveTimer();
+  const pending = pendingLocalSave;
+  pendingLocalSave = null;
+  if (pending) saveData(pending.data, pending.ownerId);
+}
+function scheduleLocalSave(data, ownerId) {
+  pendingLocalSave = { data, ownerId };
+  if (localSaveHandle) return;
+  localSaveHandle = typeof requestIdleCallback === 'function'
+    ? { idle: requestIdleCallback(flushLocalSave, { timeout: 3000 }) }
+    : { timer: setTimeout(flushLocalSave, 1500) };
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', flushLocalSave);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushLocalSave(); });
+}
+
 function clearLocalData() {
+  // En väntande skrivning får aldrig lägga tillbaka kopian efter utloggning.
+  pendingLocalSave = null;
+  cancelLocalSaveTimer();
   clearActive();
   setAppLock(null);
   try {
@@ -2875,8 +2908,8 @@ function App() {
   useEffect(() => {
     // Taggar cachen med den inloggade användaren (se loadDataForUser/
     // STORAGE_OWNER_KEY-kommentaren ovan) — utan user (mock-/demo-läge)
-    // sparas den precis som förut, otaggad.
-    saveData(data, user?.id);
+    // sparas den precis som förut, otaggad. Skrivs när webbläsaren är ledig.
+    scheduleLocalSave(data, user?.id);
 
     const timeoutIds = [];
 

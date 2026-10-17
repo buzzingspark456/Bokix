@@ -89,7 +89,7 @@ function applyDelta(state, ops) {
     const key = op.path.at(-1);
     if (op.op === 'set') parent[key] = JSON.parse(JSON.stringify(op.value));
     else if (op.op === 'unset') delete parent[key];
-    else if (op.op === 'patch') parent[key] = JSON.parse(JSON.stringify(applyRecordPatch(parent[key], op)));
+    else if (op.op === 'patch' || op.op === 'patch_by') parent[key] = JSON.parse(JSON.stringify(applyRecordPatch(parent[key], op, op.op === 'patch_by' ? op.key : 'id')));
   }
   return out;
 }
@@ -162,5 +162,17 @@ describe('buildStateDelta efter inloggningen', () => {
       { op: 'set', path: ['activeCompanyId'], value: 'c1' },
       { op: 'patch', path: ['companies', 'c1', 'verifications'], upsert: [{ id: 'ny', amount: 1 }], remove: [], prepend: false },
     ]);
+  });
+});
+
+describe('buildStateDelta för kontoplanen', () => {
+  it('skickar bara det ändrade kontot, identifierat med kontonumret', () => {
+    const accounts = Array.from({ length: 40 }, (_, i) => ({ code: String(1000 + i), name: `Konto ${i}`, active: true }));
+    const baseCompanies = { c1: { accounts } };
+    const changed = { ...accounts[5], active: false };
+    const local = { c1: { accounts: accounts.map((a, i) => (i === 5 ? changed : a)) } };
+    const ops = buildStateDelta({}, baseCompanies, {}, local);
+    expect(ops).toEqual([{ op: 'patch_by', key: 'code', path: ['companies', 'c1', 'accounts'], upsert: [changed], remove: [], prepend: false }]);
+    expect(applyDelta({ companies: baseCompanies }, ops)).toEqual(JSON.parse(JSON.stringify({ companies: local })));
   });
 });

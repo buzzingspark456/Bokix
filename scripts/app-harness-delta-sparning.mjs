@@ -47,7 +47,7 @@ const applyOps = (state, ops) => {
     const key = op.path.at(-1);
     if (op.op === 'set') parent[key] = op.value;
     else if (op.op === 'unset') delete parent[key];
-    else if (op.op === 'patch') parent[key] = applyRecordPatch(parent[key], op);
+    else if (op.op === 'patch' || op.op === 'patch_by') parent[key] = applyRecordPatch(parent[key], op, op.op === 'patch_by' ? op.key : 'id');
   }
   return out;
 };
