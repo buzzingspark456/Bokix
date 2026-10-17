@@ -36,7 +36,7 @@ async function run(dark, steps) {
   company.articles = [...(company.articles || []),
     { id: 'kaffe', type: 'vara', description: 'Kaffebönor 1 kg', articleNumber: 'K-100', unitPrice: 189, purchasePrice: 95, unit: 'st', vatRate: 12, account: '3001' },
     { id: 'mugg', type: 'vara', description: 'Termosmugg', articleNumber: 'M-200', unitPrice: 249, purchasePrice: 120, unit: 'st', vatRate: 25, account: '3001' }];
-  company.company.inventorySettings = { method: 'fifo', accountKind: 'handelsvaror', lowestValue: true };
+  company.company.inventorySettings = { method: 'fifo', accountKind: 'handelsvaror', lowestValue: true, reorderPoints: { kaffe: 20, mugg: 10 } };
   company.company.stockMovements = [
     { id: 'm1', articleId: 'kaffe', type: 'in', date: '2026-08-04', qty: 40, unitCost: 92 },
     { id: 'm2', articleId: 'kaffe', type: 'in', date: '2026-09-15', qty: 30, unitCost: 98 },
