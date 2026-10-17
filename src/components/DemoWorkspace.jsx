@@ -29,6 +29,8 @@ import Payroll from './Payroll';
 import Taxes from './Taxes';
 import Reports from './Reports';
 import Settings from './Settings';
+import { ConfirmDialogHost } from './shared/ConfirmDialog';
+import { useNavigate } from 'react-router-dom';
 
 // ── Interaktiv demo — samma RIKTIGA komponenter som inloggade användare ser.
 //
@@ -266,8 +268,12 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   // för alla flikar utom Startsida — gör ingenting utom att förklara varför,
   // istället för att antingen krascha (saknad handler) eller tyst låtsas
   // lyckas.
+  // En ruta i appens stil, inte en webbläsarruta per anrop: "Bokför alla
+  // säkra" anropar blocked() en gång per rad, och då kom fyra rutor i rad.
+  const [demoNoticeOpen, setDemoNoticeOpen] = useState(false);
+  const navigate = useNavigate();
   const blocked = () => {
-    window.alert('Det här är bara en demo — inget sparas. Skapa ett gratis konto för att göra det här på riktigt.');
+    setDemoNoticeOpen(true);
     return null;
   };
   const noop = () => {};
@@ -739,6 +745,27 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
         </div>
       </div>
       </div>
+      {/* Appens bekräftelseruta (confirmDialog), som annars bara finns i
+          den inloggade appen: utan den blev det webbläsarens confirm(). */}
+      <ConfirmDialogHost />
+      {demoNoticeOpen && (
+        <div className="modal-overlay" onClick={() => setDemoNoticeOpen(false)}>
+          <div className="modal-content" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="demo-notice-title">
+            <div className="modal-header">
+              <h2 className="modal-title" id="demo-notice-title">Det här är en demo</h2>
+            </div>
+            <div style={{ padding: '18px 24px 22px' }}>
+              <p style={{ margin: '0 0 18px', fontSize: '14px', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+                Inget sparas här. Skapa ett gratis konto, så gör Bokix det här på riktigt med din egen bokföring.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
+                <button type="button" onClick={() => setDemoNoticeOpen(false)} style={{ padding: '9px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'var(--text-main)', fontFamily: 'inherit' }}>Fortsätt titta</button>
+                <button type="button" onClick={() => navigate('/priser')} style={{ padding: '9px 16px', background: 'var(--accent)', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', color: '#fff', fontFamily: 'inherit' }}>Skapa gratis konto</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

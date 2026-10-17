@@ -73,10 +73,11 @@ const hasTab = await tab.count() > 0;
 if (hasTab) { await tab.click(); await page.waitForTimeout(1200); }
 await shot('flik');
 const step1 = await page.evaluate(() => document.body.innerText);
-await page.locator('text="Skriv under och skicka" >> visible=true').first().click().catch(() => {});
-await page.waitForTimeout(800);
+let all = step1;
+const dots = page.locator('.stepflow-steps button');
+for (let i = 0; i < await dots.count(); i++) { await dots.nth(i).click(); await page.waitForTimeout(500); all += await page.evaluate(() => document.body.innerText); }
 await shot('skicka');
-const text = await page.evaluate(() => document.body.innerText);
+const text = all;
 const ok = hasTab && /föreningen gör/.test(step1) && /Föreningsstämma/.test(text) && /om föreningen ska det/.test(text) && !/Till Bolagsverket senast/.test(text);
 console.log('flik:', hasTab, '| föreningsstämma:', /Föreningsstämma/.test(text), '| bolagsverket-frist:', /Till Bolagsverket senast/.test(text), errors.length ? errors : '');
 await browser.close();
