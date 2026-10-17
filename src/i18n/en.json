@@ -3722,7 +3722,13 @@
     "rq_zettle_moms_enligt": "{{rate}}% VAT according to Zettle",
     "rq_andra": "Change",
     "rq_zettle_bokfor_alla_fraga": "Book {{n}} Zettle purchases? The VAT comes from Zettle and matches the VAT rate exactly. You choose refunds and purchases where the VAT does not match yourself.",
-    "rq_stat_manuell": "{{n}} manual"
+    "rq_stat_manuell": "{{n}} manual",
+    "rq_kostnadskonto": "Expense account",
+    "rq_bankkonto": "Bank account",
+    "rq_lagg_till_underlag": "Add attachment",
+    "rq_ta_bort_underlag": "Remove the attachment",
+    "rq_visa_fler": "Show {{n}} more",
+    "rq_underlag_fel": "Could not upload the attachment: {{v0}}"
   },
   "glossary": {
     "g01": {

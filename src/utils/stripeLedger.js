@@ -55,7 +55,8 @@ function splitVat(gross, vatRate) {
 /**
  * Verifikationen för en rad, eller null om det inte finns något att bokföra
  * (t.ex. en fakturabetalning utan avgift, som redan bokförts via fakturan).
- * `choice` = { account, vatRate, vatAccount } för försäljning/återbetalning.
+ * `choice` = { account, vatRate, vatAccount } för försäljning/återbetalning,
+ * och { feeAccount, bankAccount } om användaren bytt avgifts- eller bankkonto.
  */
 export function buildStripeVerification(item, choice = {}) {
   const category = categorizeStripeItem(item);
@@ -63,8 +64,10 @@ export function buildStripeVerification(item, choice = {}) {
   const base = { date, source: 'stripe_ledger', sourceId: item.id };
   const fee = round2(item.fee);
   const amount = round2(item.amount);
+  const feeAccount = choice.feeAccount || STRIPE_FEE_ACCOUNT;
+  const bankAccount = choice.bankAccount || BANK_ACCOUNT;
   const feeRows = fee > 0
-    ? [{ account: STRIPE_FEE_ACCOUNT, debet: fee, kredit: 0 }, { account: STRIPE_BALANCE_ACCOUNT, debet: 0, kredit: fee }]
+    ? [{ account: feeAccount, debet: fee, kredit: 0 }, { account: STRIPE_BALANCE_ACCOUNT, debet: 0, kredit: fee }]
     : [];
 
   switch (category) {
@@ -73,7 +76,7 @@ export function buildStripeVerification(item, choice = {}) {
       return {
         ...base,
         description: `Stripe plattformsavgift${item.matched_invoice_id ? ` faktura ${item.matched_invoice_id}` : ''}`,
-        rows: [{ account: STRIPE_FEE_ACCOUNT, debet: platformFee, kredit: 0 }, { account: BANK_ACCOUNT, debet: 0, kredit: platformFee }],
+        rows: [{ account: feeAccount, debet: platformFee, kredit: 0 }, { account: bankAccount, debet: 0, kredit: platformFee }],
       };
     }
     case 'invoice_fee':
@@ -83,7 +86,7 @@ export function buildStripeVerification(item, choice = {}) {
       return {
         ...base,
         description: 'Stripe-utbetalning till bankkontot',
-        rows: [{ account: BANK_ACCOUNT, debet: out, kredit: 0 }, { account: STRIPE_BALANCE_ACCOUNT, debet: 0, kredit: out }],
+        rows: [{ account: bankAccount, debet: out, kredit: 0 }, { account: STRIPE_BALANCE_ACCOUNT, debet: 0, kredit: out }],
       };
     }
     case 'fee': {
@@ -91,7 +94,7 @@ export function buildStripeVerification(item, choice = {}) {
       return {
         ...base,
         description: `Stripe-avgift${item.description ? ` ${item.description}` : ''}`,
-        rows: [{ account: STRIPE_FEE_ACCOUNT, debet: out, kredit: 0 }, { account: STRIPE_BALANCE_ACCOUNT, debet: 0, kredit: out }],
+        rows: [{ account: feeAccount, debet: out, kredit: 0 }, { account: STRIPE_BALANCE_ACCOUNT, debet: 0, kredit: out }],
       };
     }
     case 'sale':

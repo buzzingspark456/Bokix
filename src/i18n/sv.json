@@ -3722,7 +3722,13 @@
     "rq_zettle_moms_enligt": "{{rate}} % moms enligt Zettle",
     "rq_andra": "Ändra",
     "rq_zettle_bokfor_alla_fraga": "Bokföra {{n}} Zettle-köp? Momsen kommer från Zettle och stämmer exakt med momssatsen. Återbetalningar och köp där momsen inte stämmer väljer du själv.",
-    "rq_stat_manuell": "{{n}} manuell"
+    "rq_stat_manuell": "{{n}} manuell",
+    "rq_kostnadskonto": "Kostnadskonto",
+    "rq_bankkonto": "Bankkonto",
+    "rq_lagg_till_underlag": "Lägg till underlag",
+    "rq_ta_bort_underlag": "Ta bort underlaget",
+    "rq_visa_fler": "Visa {{n}} till",
+    "rq_underlag_fel": "Kunde inte ladda upp underlaget: {{v0}}"
   },
   "glossary": {
     "g01": {

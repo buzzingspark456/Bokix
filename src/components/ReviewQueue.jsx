@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ShieldCheck, CreditCard, Landmark, HelpCircle, FileText, Receipt, Info, RotateCcw } from './icons';
+import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ShieldCheck, CreditCard, Landmark, HelpCircle, FileText, Receipt, Info, RotateCcw, Paperclip } from './icons';
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -7,8 +7,9 @@ import { confirmDialog } from './shared/ConfirmDialog';
 import { supabase } from '../supabaseClient';
 import { VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './AccountsData';
 import { t } from '../i18n';
-import { StripeIconLogo, ZettleLogo } from './shared/BrandLogos';
-import { categorizeStripeItem, buildStripeVerification, isSafeStripeItem } from '../utils/stripeLedger';
+import { StripeLogo, ZettleLogo } from './shared/BrandLogos';
+import { categorizeStripeItem, buildStripeVerification, isSafeStripeItem, STRIPE_FEE_ACCOUNT, BANK_ACCOUNT } from '../utils/stripeLedger';
+import { uploadFileToStorage } from '../utils/fileUpload';
 import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 
 const formatSEK = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
@@ -70,8 +71,14 @@ const REVIEW_LIST_CSS = `
   .rq-src-text { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-top: 2px; }
   .rq-src-stats { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; flex-shrink: 0; }
   .rq-stat { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
-  .rq-section { padding: 9px 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.055em; text-transform: uppercase; color: var(--text-muted); background: var(--bg-muted); border-bottom: 1px solid var(--border-light); }
+  .rq-src-wordmark { display: flex; align-items: center; height: 28px; margin-bottom: 4px; }
+  .rq-section { position: sticky; top: 0; z-index: 2; padding: 9px 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.055em; text-transform: uppercase; color: var(--text-muted); background: var(--bg-muted); border-bottom: 1px solid var(--border-light); }
   .rq-row + .rq-section { border-top: 1px solid var(--border-light); }
+  .rq-more { display: block; width: 100%; padding: 12px; border: none; border-top: 1px solid var(--border-light); background: var(--bg-card); color: var(--accent-text); font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; }
+  .rq-booking { display: flex; gap: 6px 12px; align-items: center; flex-wrap: wrap; margin-top: 8px; font-size: 13px; color: var(--text-secondary); }
+  .rq-link { border: 0; background: none; padding: 0; color: var(--accent-text); font-weight: 700; cursor: pointer; font-size: inherit; font-family: inherit; display: inline-flex; align-items: center; gap: 4px; }
+  .rq-file { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; background: var(--bg-muted); color: var(--text-main); font-size: 12px; font-weight: 600; max-width: 240px; }
+  .rq-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* Loggor med en ljus och en mörk variant (ThemedLogo i BrandLogos.jsx):
      webbplatsen döljer den ena, i appen måste det göras här. */
   .rq-src .lp-logo-dark { display: none; }
@@ -204,12 +211,13 @@ function ReviewRowShell({
  * gång, i egen ruta, i stället för liten på varje rad), vad Bokix gör med
  * dem och hur många som är klara, behöver ett val eller är manuella.
  */
-function SourcePanel({ logo, title, text, stats }) {
+function SourcePanel({ logo, wordmark, title, text, stats }) {
   return (
     <div className="rq-src">
-      <span className="rq-src-logo">{logo}</span>
+      {/* Stripe och Zettle: tjänstens eget ordmärke som rubrik, utan ruta. */}
+      {!wordmark && <span className="rq-src-logo">{logo}</span>}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="rq-src-title">{title}</div>
+        {wordmark ? <div className="rq-src-wordmark" role="heading" aria-level={2} aria-label={title}>{wordmark}</div> : <div className="rq-src-title">{title}</div>}
         <div className="rq-src-text">{text}</div>
       </div>
       <div className="rq-src-stats">
@@ -222,14 +230,47 @@ function SourcePanel({ logo, title, text, stats }) {
   );
 }
 
-/** Raderna i grupper (Klart att bokföra, Behöver ditt val, ...); tomma grupper hoppas över. */
+/** Raderna i grupper (Klart att bokföra, Behöver ditt val, ...); tomma
+ * grupper hoppas över. Långa grupper visar 20 rader åt gången, så 50 eller
+ * 200 Stripe-transaktioner inte blir en vägg; gruppetiketten följer med när
+ * man scrollar. */
+const GROUP_PAGE = 20;
 function GroupedRows({ groups }) {
-  return groups.filter(group => group.items.length > 0).map(group => (
-    <React.Fragment key={group.label}>
-      <div className="rq-section">{group.label} · {group.items.length}</div>
-      {group.items.map(group.render)}
-    </React.Fragment>
-  ));
+  const [shown, setShown] = useState({});
+  return groups.filter(group => group.items.length > 0).map(group => {
+    const limit = shown[group.label] || GROUP_PAGE;
+    const rest = group.items.length - limit;
+    return (
+      <React.Fragment key={group.label}>
+        <div className="rq-section">{group.label} · {group.items.length}</div>
+        {group.items.slice(0, limit).map(group.render)}
+        {rest > 0 && (
+          <button type="button" className="rq-more" onClick={() => setShown(prev => ({ ...prev, [group.label]: limit + GROUP_PAGE }))}>
+            {t('ui.rq_visa_fler', { n: Math.min(rest, GROUP_PAGE), total: rest })}
+          </button>
+        )}
+      </React.Fragment>
+    );
+  });
+}
+
+/** Underlag till en verifikation: en fil som laddas upp när raden bokförs. */
+function AttachmentPicker({ file, onChange }) {
+  const inputRef = React.useRef(null);
+  if (file) {
+    return (
+      <span className="rq-file">
+        <Paperclip size={12} /><span>{file.name}</span>
+        <button type="button" className="rq-link" onClick={() => onChange(null)} aria-label={t('ui.rq_ta_bort_underlag')} title={t('ui.rq_ta_bort_underlag')}><X size={12} /></button>
+      </span>
+    );
+  }
+  return (
+    <>
+      <input ref={inputRef} type="file" accept="image/*,application/pdf" style={{ display: 'none' }} onChange={e => { onChange(e.target.files?.[0] || null); e.target.value = ''; }} />
+      <button type="button" className="rq-link" onClick={() => inputRef.current?.click()}><Paperclip size={13} /> {t('ui.rq_lagg_till_underlag')}</button>
+    </>
+  );
 }
 
 /** Hur en post i historiken hanterades: godkänt förslag, i klump eller manuellt. */
@@ -412,6 +453,12 @@ function StripeLedgerCard({ item, accounts, onBook, onMarkHandled, exiting, onOp
   const [expanded, setExpanded] = useState(false);
   const [vatRate, setVatRate] = useState(lastChoice?.vatRate ?? 25);
   const [saleAccount, setSaleAccount] = useState(lastChoice?.account || REVENUE_ACCOUNTS[25]);
+  // Avgifts- och bankkontot är förifyllda (6570 och 1930, eller det du valde
+  // förra gången) och står som en rad text; Ändra visar kontosökningen.
+  const [feeAccount, setFeeAccount] = useState(lastChoice?.feeAccount || STRIPE_FEE_ACCOUNT);
+  const [bankAccount, setBankAccount] = useState(lastChoice?.bankAccount || BANK_ACCOUNT);
+  const [editingAccount, setEditingAccount] = useState(false);
+  const [file, setFile] = useState(null);
 
   const category = categorizeStripeItem(item);
   const typeLabel = STRIPE_TYPE_LABEL[item.type] || item.type;
@@ -479,7 +526,31 @@ function StripeLedgerCard({ item, accounts, onBook, onMarkHandled, exiting, onOp
   }[category];
 
   const canBook = !needsChoice || Boolean(saleAccount);
-  const book = () => onBook(item, needsChoice ? { account: saleAccount, vatRate, vatAccount: VAT_ACCOUNTS[vatRate] } : undefined);
+  const book = () => onBook(item, {
+    ...(needsChoice ? { account: saleAccount, vatRate, vatAccount: VAT_ACCOUNTS[vatRate] } : {}),
+    feeAccount, bankAccount, file,
+  });
+  // Kontot som raden bokförs mot och som går att byta: banken för en
+  // utbetalning, annars avgiftskontot (försäljning väljer intäktskonto ovan).
+  const accountKind = category === 'payout' ? 'bank' : ['platform_fee', 'invoice_fee', 'fee'].includes(category) ? 'fee' : null;
+  const mainAccount = accountKind === 'bank' ? bankAccount : feeAccount;
+  const setMainAccount = accountKind === 'bank' ? setBankAccount : setFeeAccount;
+  const accountName = (code) => accounts.find(a => a.code === code)?.name || '';
+  const bookingLine = view.button && (
+    <div className="rq-booking">
+      {accountKind && (editingAccount ? (
+        <div style={{ minWidth: '220px', flex: '1 1 260px' }}>
+          <AccountSearch value={mainAccount} onChange={v => { setMainAccount(v); if (v) setEditingAccount(false); }} accounts={accounts} placeholder={t('ui.sok_konto_2')} />
+        </div>
+      ) : (
+        <span>
+          {t(accountKind === 'bank' ? 'ui.rq_bankkonto' : 'ui.rq_kostnadskonto')}: {mainAccount} {accountName(mainAccount)}
+          {' '}<button type="button" className="rq-link" onClick={() => setEditingAccount(true)}>{t('ui.rq_andra')}</button>
+        </span>
+      ))}
+      <AttachmentPicker file={file} onChange={setFile} />
+    </div>
+  );
 
   return (
     <ReviewRowShell
@@ -500,8 +571,9 @@ function StripeLedgerCard({ item, accounts, onBook, onMarkHandled, exiting, onOp
             </div>
           </div>
           {fee > 0 && <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '8px 0 0' }}>{t('ui.stripe_rq_med_avgift', { v0: formatSEK(fee) })}</p>}
+          {bookingLine}
         </div>
-      )}
+      ) || bookingLine}
       actions={
         <>
           {view.button && (
@@ -611,6 +683,7 @@ function ZettleLedgerCard({ item, accounts, onBookSale, onMarkHandled, exiting }
   const certain = isCertainZettleVat(item);
   // Säkert förslag: valen visas som en rad text, väljarna först på Ändra.
   const [editing, setEditing] = useState(!certain);
+  const [file, setFile] = useState(null);
 
   const category = item.is_refund ? 'refund' : 'sale';
   const paymentLabel = ZETTLE_PAYMENT_LABEL[item.payment_type] || item.payment_type || t('ui.okand_betalmetod');
@@ -639,7 +712,8 @@ function ZettleLedgerCard({ item, accounts, onBookSale, onMarkHandled, exiting }
       extra={category === 'sale' && !editing && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
           <span>{t('ui.rq_zettle_moms_enligt', { rate: vatRate })} · {saleAccount} {accounts.find(a => a.code === saleAccount)?.name || ''}</span>
-          <button type="button" onClick={() => setEditing(true)} style={{ border: 0, background: 'none', padding: 0, color: 'var(--accent-text)', fontWeight: 700, cursor: 'pointer', fontSize: 'inherit', fontFamily: 'inherit' }}>{t('ui.rq_andra')}</button>
+          <button type="button" className="rq-link" onClick={() => setEditing(true)}>{t('ui.rq_andra')}</button>
+          <AttachmentPicker file={file} onChange={setFile} />
         </div>
       ) || category === 'sale' && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
@@ -649,6 +723,7 @@ function ZettleLedgerCard({ item, accounts, onBookSale, onMarkHandled, exiting }
           <div style={{ minWidth: '220px', flex: '1 1 220px' }}>
             <AccountSearch value={saleAccount} onChange={setSaleAccount} accounts={accounts} placeholder={t('ui.intaktskonto')} />
           </div>
+          <div className="rq-booking" style={{ width: '100%', marginTop: 0 }}><AttachmentPicker file={file} onChange={setFile} /></div>
         </div>
       )}
       actions={
@@ -656,7 +731,7 @@ function ZettleLedgerCard({ item, accounts, onBookSale, onMarkHandled, exiting }
           {category === 'sale' && (
             <button
               disabled={!saleAccount}
-              onClick={() => onBookSale(item, saleAccount, vatRate)}
+              onClick={() => onBookSale(item, saleAccount, vatRate, file)}
               style={{ ...rowButtonStyle(saleAccount ? 'primary' : 'secondary'), opacity: saleAccount ? 1 : 0.6, cursor: saleAccount ? 'pointer' : 'not-allowed' }}
             >
               <Check size={14} /> {t('ui.bokfor_forsaljning')}
@@ -867,8 +942,21 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
   // Ingen fakturamatchning att falla tillbaka på (till skillnad från
   // handleBookSale/Stripe) — varje Zettle-försäljning bokförs alltid som en
   // NY intäkt: bank i debet, moms + intäktskonto i kredit.
-  const handleBookZettleSale = (item, account, vatRate) => {
+  // Underlaget laddas upp när raden bokförs, samma som på Stripe-raderna.
+  const uploadAttachment = async (file) => {
+    if (!file) return {};
+    if (isDemo || isZettleDemo || !user?.id) return { attachmentName: file.name };
+    const attachmentUrl = await uploadFileToStorage(user.id, file, 'verifications');
+    return { attachmentUrl, attachmentName: file.name, attachmentType: file.type };
+  };
+
+  const handleBookZettleSale = async (item, account, vatRate, file) => {
     if (!account) return;
+    let attachment = {};
+    try { attachment = await uploadAttachment(file); } catch (error) {
+      setStripeSync({ running: false, message: t('ui.rq_underlag_fel', { v0: error.message || error }) });
+      return;
+    }
     const gross = Math.round(Number(item.amount) || 0);
     const net = vatRate > 0 ? Math.round(gross / (1 + vatRate / 100)) : gross;
     const vat = gross - net;
@@ -882,6 +970,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
       description: `Zettle-försäljning${item.purchase_number ? ` — kvitto ${item.purchase_number}` : ''}`,
       source: 'zettle_ledger', sourceId: item.id,
       rows,
+      ...attachment,
     });
     finishResolveZettle(item);
     markZettleReviewed(item);
@@ -902,14 +991,23 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
 
   // Allt Stripe-bokförande går genom utils/stripeLedger.js, så konteringen
   // (1686 Stripe-saldo, 6570 avgift, 1930 vid utbetalning) finns på ett ställe.
-  const handleBookStripe = (item, choice) => {
-    const verification = buildStripeVerification(item, choice);
-    if (verification?.rows?.length) onAddVerification?.(verification);
-    if (choice?.account) {
-      const next = { account: choice.account, vatRate: choice.vatRate };
-      setLastStripeChoice(next);
-      try { localStorage.setItem(stripeChoiceKey, JSON.stringify(next)); } catch { /* bara en bekvämlighet */ }
+  const handleBookStripe = async (item, choice = {}) => {
+    const { file, ...picked } = choice;
+    const verification = buildStripeVerification(item, { ...lastStripeChoice, ...picked });
+    if (verification && file) {
+      try { Object.assign(verification, await uploadAttachment(file)); } catch (error) {
+        setStripeSync({ running: false, message: t('ui.rq_underlag_fel', { v0: error.message || error }) });
+        return;
+      }
     }
+    if (verification?.rows?.length) onAddVerification?.(verification);
+    // Valen sparas och föreslås nästa gång (momssats, intäkts-, avgifts- och bankkonto).
+    const next = { ...lastStripeChoice };
+    if (picked.account) { next.account = picked.account; next.vatRate = picked.vatRate; }
+    if (picked.feeAccount) next.feeAccount = picked.feeAccount;
+    if (picked.bankAccount) next.bankAccount = picked.bankAccount;
+    setLastStripeChoice(next);
+    try { localStorage.setItem(stripeChoiceKey, JSON.stringify(next)); } catch { /* bara en bekvämlighet */ }
     finishResolveStripe(item);
     markStripeReviewed(item);
   };
@@ -923,7 +1021,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
   const handleBookAllSafeStripe = async () => {
     if (safeStripeItems.length === 0) return;
     if (!(await confirmDialog(t('ui.stripe_rq_bokfor_alla_sakra_fraga', { n: safeStripeItems.length })))) return;
-    safeStripeItems.forEach(item => handleBookStripe(item));
+    safeStripeItems.forEach(item => handleBookStripe(item, {}));
   };
 
   // "Hämta från Stripe": samma hämtning som nattens cron, men nu och 90
@@ -1078,7 +1176,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
         )
       )}
 
-      {tab === 'stripe' && stripeSync.message && (
+      {(tab === 'stripe' || tab === 'zettle') && stripeSync.message && (
         <div role="status" style={{ margin: '16px 24px 0', fontSize: '13px', color: 'var(--text-secondary)' }}>{stripeSync.message}</div>
       )}
       {tab === 'stripe' && (
@@ -1104,7 +1202,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
           <div className="rq-list">
             <div className="rq-card">
               <SourcePanel
-                logo={<StripeIconLogo height={44} />}
+                wordmark={<StripeLogo height={26} />}
                 title="Stripe"
                 text={t('ui.rq_src_stripe_text')}
                 stats={[
@@ -1146,7 +1244,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
           <div className="rq-list">
             <div className="rq-card">
               <SourcePanel
-                logo={<ZettleLogo height={16} />}
+                wordmark={<ZettleLogo height={28} />}
                 title="Zettle"
                 text={t('ui.rq_src_zettle_text')}
                 stats={[
