@@ -39,7 +39,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // Testet i _offsiteBackup.test.js jämför listan med tabellerna i SQL-filerna.
 // system_events (driftloggar) hoppas medvetet över.
 export const TABLES = [
-  'user_data', 'subscriptions', 'company_members', 'email_senders',
+  'user_data', 'user_data_history', 'subscriptions', 'company_members', 'email_senders',
   'stripe_payment_events', 'stripe_ledger_events', 'zettle_ledger_events',
   'audit_log', 'contact_messages', 'cron_progress',
   'inbox_addresses', 'inbox_items', 'login_events', 'security_events',
