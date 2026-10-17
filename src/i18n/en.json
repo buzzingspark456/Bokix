@@ -4567,6 +4567,10 @@
     "internal": "Internal",
     "editProject": "Edit project",
     "noCustomer": "No customer (internal)",
-    "createCustomer": "Create new customer"
+    "createCustomer": "Create new customer",
+    "toInvoice": "To invoice",
+    "toInvoiceSub": "{{h}} h not invoiced yet",
+    "viewCards": "Cards",
+    "viewList": "List"
   }
 }

@@ -4567,6 +4567,10 @@
     "internal": "Internt",
     "editProject": "Ändra projekt",
     "noCustomer": "Ingen kund (internt)",
-    "createCustomer": "Skapa ny kund"
+    "createCustomer": "Skapa ny kund",
+    "toInvoice": "Att fakturera",
+    "toInvoiceSub": "{{h}} h som inte är fakturerade än",
+    "viewCards": "Kort",
+    "viewList": "Lista"
   }
 }

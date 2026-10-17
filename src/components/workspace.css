@@ -165,3 +165,64 @@ textarea.ws-input { height: auto; padding: 9px 12px; resize: vertical; min-heigh
   .tt-days button.on small, .tt-days button.on em { color: rgba(255, 255, 255, 0.85); }
   .tt-grid td.tt-proj { min-width: 0; padding: 10px 16px; }
 }
+
+/* ── Projektkort (2026-10-17, andra vändan) ──
+   Ett kort per projekt i stället för en tabell: projektets färg som en kant
+   överst och som tidsstapel, timmar mot budget, fakturerat och resultat, och
+   ej fakturerad tid längst ner. Överblicken ovanför lyfter "att fakturera". */
+.pj-overview { display: grid; grid-template-columns: minmax(220px, 0.9fr) 2fr; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 14px; box-shadow: var(--shadow-xs); overflow: hidden; }
+.pj-ov-main { padding: 20px 24px; display: flex; flex-direction: column; gap: 2px; background: color-mix(in srgb, var(--accent) 7%, var(--bg-card)); border-right: 1px solid var(--border-light); }
+.pj-ov-label { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+.pj-ov-value { font-size: 30px; font-weight: 750; letter-spacing: -0.02em; color: var(--text-main); font-variant-numeric: tabular-nums; }
+.pj-ov-sub { font-size: 12.5px; color: var(--text-secondary); }
+.pj-ov-list { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pj-ov-list > div { padding: 20px; border-left: 1px solid var(--border-light); display: flex; flex-direction: column; justify-content: center; gap: 4px; min-width: 0; }
+.pj-ov-list > div:first-child { border-left: none; }
+.pj-ov-list dt { font-size: 12.5px; color: var(--text-secondary); }
+.pj-ov-list dd { margin: 0; font-size: 19px; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pj-ov-list dd small { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+.pj-ov-list dd.neg { color: var(--status-red-text); }
+
+.pj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; }
+.pj-card { --pj: var(--accent); position: relative; text-align: left; font: inherit; color: inherit; cursor: pointer; display: flex; flex-direction: column; padding: 20px 20px 18px; border-radius: 14px; border: 1px solid var(--border-light); background: var(--bg-card); box-shadow: var(--shadow-xs); overflow: hidden; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; min-height: 220px; }
+.pj-card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--pj); }
+.pj-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--border); }
+.pj-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pj-card.done { opacity: 0.7; }
+.pj-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 22px; }
+.pj-card-num { font-size: 12px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.pj-card-name { margin: 10px 0 2px; font-size: 18px; font-weight: 700; letter-spacing: -0.015em; color: var(--text-main); line-height: 1.25; }
+.pj-card-customer { margin: 0; font-size: 13px; color: var(--text-secondary); }
+.pj-card-hours { margin-top: 18px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+.pj-card-hours b { font-size: 22px; font-weight: 750; color: var(--text-main); font-variant-numeric: tabular-nums; }
+.pj-card-pct { font-size: 12.5px; font-weight: 700; color: var(--text-secondary); }
+.pj-card-pct.warn { color: var(--status-amber-text); }
+.pj-card-pct.over { color: var(--status-red-text); }
+.pj-card-track { margin-top: 8px; height: 8px; border-radius: 999px; background: var(--border-light); overflow: hidden; }
+.pj-card-track > span { display: block; height: 100%; border-radius: 999px; background: var(--pj); }
+.pj-card-money { margin-top: auto; padding-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pj-card-money > div { display: flex; flex-direction: column; gap: 2px; padding-top: 14px; border-top: 1px solid var(--border-light); }
+.pj-card-money span { font-size: 12px; color: var(--text-secondary); }
+.pj-card-money b { font-size: 15px; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; }
+.pj-card-money b.neg { color: var(--status-red-text); }
+.pj-card-unbilled { margin: 14px -20px -18px; padding: 10px 20px; font-size: 12.5px; font-weight: 600; color: var(--status-amber-text); background: color-mix(in srgb, var(--status-amber-bg) 60%, var(--bg-card)); border-top: 1px solid var(--border-light); }
+.pj-card-new { align-items: center; justify-content: center; gap: 8px; border: 1.5px dashed var(--border); background: transparent; box-shadow: none; color: var(--text-secondary); font-weight: 600; font-size: 14px; }
+.pj-card-new::before { display: none; }
+.pj-card-new:hover { color: var(--text-main); border-color: var(--accent); box-shadow: none; }
+
+@media (max-width: 900px) {
+  .pj-overview { grid-template-columns: 1fr; }
+  .pj-ov-main { border-right: none; border-bottom: 1px solid var(--border-light); }
+}
+@media (max-width: 640px) {
+  .pj-ov-list { grid-template-columns: 1fr 1fr; }
+  .pj-ov-list > div { padding: 14px 16px; }
+  .pj-ov-list > div:nth-child(odd) { border-left: none; }
+  .pj-ov-list > div:nth-child(n+3) { border-top: 1px solid var(--border-light); }
+  .pj-ov-list dd { font-size: 17px; }
+  .pj-ov-main { padding: 16px; }
+  .pj-ov-value { font-size: 26px; }
+  .pj-grid { grid-template-columns: 1fr; gap: 12px; }
+  .pj-card { min-height: 0; }
+  .pj-card-new { min-height: 64px; flex-direction: row; }
+}

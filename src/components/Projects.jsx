@@ -641,7 +641,12 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
     const own = timeEntries.filter(t => t.projectId === p.id);
     const hours = own.length ? sumHours(own) : (Number(p.timeSpent) || 0);
     const customerName = contacts.find(c => c.id === p.customerId)?.name || '';
-    return { ...p, revenue: Math.round(revenue), cost: Math.round(cost), hours, budgetHours: Number(p.budgetHours) || 0, customerName };
+    // Ej fakturerad tid: allt efter senaste (ej utkast) fakturans datum.
+    const lastInvoiced = invoices
+      .filter(inv => inv.projectId === p.id && (!inv.type || inv.type === 'invoice') && inv.status !== 'draft')
+      .map(inv => inv.date).filter(Boolean).sort().pop() || '';
+    const unbilledHours = sumHours(own.filter(t => !lastInvoiced || t.date > lastInvoiced));
+    return { ...p, revenue: Math.round(revenue), cost: Math.round(cost), hours, budgetHours: Number(p.budgetHours) || 0, customerName, unbilledHours };
   }), [storedProjects, invoices, expenses, timeEntries, contacts]);
 
   useEffect(() => {
@@ -664,6 +669,9 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
   const [statusFilter, setStatusFilter] = useState('active'); // 'active' | 'archived' | 'all'
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [openProjectId, setOpenProjectId] = useState(null);
+  // Kort eller lista. Kort är förvalet; listan passar när projekten är många.
+  const [view, setViewState] = useState(() => { try { return localStorage.getItem('bokix_projects_view') || 'cards'; } catch { return 'cards'; } });
+  const setView = (v) => { setViewState(v); try { localStorage.setItem('bokix_projects_view', v); } catch { /* privat läge */ } };
 
   const [timeSubTab, setTimeSubTab] = useState('week');
   const [timePersonId, setTimePersonId] = useState(SELF_PERSON_ID);
@@ -760,6 +768,8 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
     budget: sum(activeProjects, p => p.budgetHours),
     revenue: sum(activeProjects, p => p.revenue),
     cost: sum(activeProjects, p => p.cost),
+    unbilledHours: sum(activeProjects, p => p.unbilledHours),
+    unbilledValue: sum(activeProjects, p => p.unbilledHours * (Number(p.hourlyRate) || 0)),
   };
   const openProject = openProjectId ? projects.find(p => p.id === openProjectId) : null;
 
@@ -787,6 +797,10 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
           <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '180px', maxWidth: '320px' }}>
             <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input type="text" className="ws-input" style={{ height: '34px', paddingLeft: '32px', fontSize: '13px' }} placeholder={tr('ui.sok_projekt_eller_kund')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          </div>
+          <div className="ws-seg" style={{ marginLeft: 'auto' }}>
+            <button type="button" className={view === 'cards' ? 'on' : ''} onClick={() => setView('cards')}>{tr('proj.viewCards')}</button>
+            <button type="button" className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>{tr('proj.viewList')}</button>
           </div>
         </ListFilterBar>
       )}
@@ -826,15 +840,19 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
           </div>
         ) : (
           <div className="ws-page">
-            <div className="ws-stats">
-              <div className="ws-stat"><div className="ws-stat-label">{tr('proj.ongoingProjects')}</div><div className="ws-stat-value">{activeProjects.length}</div><div className="ws-stat-sub">{tr('proj.finishedCount', { n: projects.length - activeProjects.length })}</div></div>
-              <div className="ws-stat">
-                <div className="ws-stat-label">{tr('ui.nedlagd_tid')}</div>
-                <div className="ws-stat-value">{formatHours(totals.hours)} {tr('ui.h')}</div>
-                <div className="ws-stat-sub">{totals.budget ? tr('proj.ofBudget', { h: formatHours(totals.budget) }) : tr('ui.ingen_budget_satt')}</div>
+            {/* Överblick i en rad: det viktigaste först, att fakturera. */}
+            <div className="pj-overview">
+              <div className="pj-ov-main">
+                <span className="pj-ov-label">{tr('proj.toInvoice')}</span>
+                <span className="pj-ov-value">{formatSEK(totals.unbilledValue)}</span>
+                <span className="pj-ov-sub">{totals.unbilledHours > 0 ? tr('proj.toInvoiceSub', { h: formatHours(totals.unbilledHours) }) : tr('proj.allBilled')}</span>
               </div>
-              <div className="ws-stat"><div className="ws-stat-label">{tr('ui.fakturerat')}</div><div className="ws-stat-value">{formatSEK(totals.revenue)}</div><div className="ws-stat-sub">{tr('proj.exVat')}</div></div>
-              <div className="ws-stat"><div className="ws-stat-label">{tr('proj.result')}</div><div className={`ws-stat-value${totals.revenue - totals.cost < 0 ? ' neg' : ''}`}>{formatSEK(totals.revenue - totals.cost)}</div><div className="ws-stat-sub">{tr('proj.costs', { kr: formatSEK(totals.cost) })}</div></div>
+              <dl className="pj-ov-list">
+                <div><dt>{tr('proj.ongoingProjects')}</dt><dd>{activeProjects.length}</dd></div>
+                <div><dt>{tr('ui.nedlagd_tid')}</dt><dd>{formatHours(totals.hours)} {tr('ui.h')}{totals.budget ? <small> / {formatHours(totals.budget)}</small> : null}</dd></div>
+                <div><dt>{tr('ui.fakturerat')}</dt><dd>{formatSEK(totals.revenue)}</dd></div>
+                <div><dt>{tr('proj.result')}</dt><dd className={totals.revenue - totals.cost < 0 ? 'neg' : ''}>{formatSEK(totals.revenue - totals.cost)}</dd></div>
+              </dl>
             </div>
 
             {atRisk.length > 0 && (
@@ -843,6 +861,46 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
               </div>
             )}
 
+            {view === 'cards' ? (
+              <div className="pj-grid">
+                {visibleProjects.map(p => {
+                  const color = p.status === 'finished' ? 'var(--text-muted)' : (p.color || BRAND.green);
+                  const pct = p.budgetHours ? (p.hours / p.budgetHours) * 100 : null;
+                  const profit = p.revenue - p.cost;
+                  return (
+                    <button key={p.id} type="button" className={`pj-card${p.status === 'finished' ? ' done' : ''}`} style={{ '--pj': color }} onClick={() => setOpenProjectId(p.id)}>
+                      <div className="pj-card-top">
+                        <span className="pj-card-num">{p.projectNumber}</span>
+                        {statusPill(p)}
+                      </div>
+                      <h3 className="pj-card-name">{p.name}</h3>
+                      <p className="pj-card-customer">{p.customerName || tr('proj.internal')}{p.department ? ` · ${p.department}` : ''}</p>
+                      <div className="pj-card-hours">
+                        <span><b>{formatHours(p.hours)}</b> {pct != null ? `${tr('ui.av')} ${formatHours(p.budgetHours)} ${tr('ui.h')}` : tr('ui.h')}</span>
+                        {pct != null && <span className={`pj-card-pct${pct > 100 ? ' over' : pct >= 80 ? ' warn' : ''}`}>{Math.round(pct)} %</span>}
+                      </div>
+                      <div className="pj-card-track"><span style={{ width: `${pct != null ? Math.min(pct, 100) : 0}%` }} /></div>
+                      <div className="pj-card-money">
+                        <div><span>{tr('ui.fakturerat')}</span><b>{formatSEK(p.revenue)}</b></div>
+                        <div><span>{tr('proj.result')}</span><b className={profit < 0 ? 'neg' : ''}>{formatSEK(profit)}</b></div>
+                      </div>
+                      {p.unbilledHours > 0 && p.status !== 'finished' && (
+                        <div className="pj-card-unbilled">{tr('proj.unbilled', { h: formatHours(p.unbilledHours) })}{Number(p.hourlyRate) > 0 ? ` · ${formatSEK(p.unbilledHours * Number(p.hourlyRate))}` : ''}</div>
+                      )}
+                    </button>
+                  );
+                })}
+                {statusFilter !== 'archived' && !searchTerm && (
+                  <button type="button" className="pj-card pj-card-new" onClick={openNewProjectForm}>
+                    <Plus size={20} />
+                    <span>{tr('ui.nytt_projekt')}</span>
+                  </button>
+                )}
+                {visibleProjects.length === 0 && (searchTerm || statusFilter === 'archived') && (
+                  <p className="ws-hint">{searchTerm || departmentFilter ? tr('ui.inga_projekt_hittades_med_de_filtren') : tr('ui.inga_arkiverade_projekt_annu')}</p>
+                )}
+              </div>
+            ) : (
             <div className="ws-card">
               <ListTable
                 bordered={false}
@@ -883,6 +941,7 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
                 ]}
               />
             </div>
+            )}
           </div>
         )
       )}
