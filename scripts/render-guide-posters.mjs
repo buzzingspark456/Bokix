@@ -1,7 +1,8 @@
 // Omslagsbilder till videoguiderna (public/videos/<slug>.jpg och -dark.jpg).
 // Förut var omslaget filmens sista bildruta: hårt komprimerad, med muspekare
-// och notis, och därför suddig. Nu en egen bild per film: titel, grupp och
-// längd i skarp text, och en bildruta ur filmen i ett appfönster bredvid.
+// och notis, och därför suddig. Nu en egen bild per film: stor Bokix-logga
+// och stor titel, inget ovanför eller under (2026-10-17, användarens önskemål),
+// och en bildruta ur filmen i ett appfönster bredvid.
 // Samma fil används som affisch på /guider/<slug>, som miniatyr på /guider,
 // som delningsbild och i sitemapens video:thumbnail_loc.
 //
@@ -58,11 +59,11 @@ for (const theme of ['light', 'dark']) {
       document.body.innerHTML = `
         <style>
           html, body { margin: 0; }
-          .gp { width: 1600px; height: 940px; box-sizing: border-box; position: relative; overflow: hidden; display: grid; grid-template-columns: 560px 1fr; align-items: center; gap: 56px; padding: 0 0 0 96px;
+          .gp { width: 1600px; height: 940px; box-sizing: border-box; position: relative; overflow: hidden; display: grid; grid-template-columns: 600px 1fr; align-items: center; gap: 48px; padding: 0 0 0 96px;
             background: ${dark ? 'radial-gradient(1200px 700px at 85% 10%, #1d3a24 0%, #0f1a13 60%)' : 'radial-gradient(1200px 700px at 85% 10%, #e3f2df 0%, #ffffff 62%)'}; color: ${dark ? '#eef3ea' : '#1c2420'}; }
-          .gp-mark svg { height: 54px; width: auto; display: block; }
+          .gp-mark svg { height: 96px; width: auto; display: block; }
           .gp-group { margin-top: 64px; font-size: 21px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: ${dark ? '#8fd67a' : '#0b6329'}; }
-          .gp-title { margin: 14px 0 0; font-size: 72px; max-width: 560px; line-height: 1.04; font-weight: 800; letter-spacing: -0.035em; }
+          .gp-title { margin: 56px 0 0; font-size: 104px; max-width: 600px; line-height: 1.0; font-weight: 800; letter-spacing: -0.04em; }
           .gp-lead { margin: 22px 0 0; font-size: 28px; line-height: 1.4; color: ${dark ? '#c7d3c4' : '#475049'}; }
           .gp-meta { margin-top: 44px; display: flex; align-items: center; gap: 18px; font-size: 24px; font-weight: 700; }
           .gp-play { width: 76px; height: 76px; border-radius: 50%; background: #0b6329; display: grid; place-items: center; box-shadow: 0 14px 30px -12px rgba(11,99,41,0.7); }
@@ -76,21 +77,15 @@ for (const theme of ['light', 'dark']) {
         <div class="gp">
           <div>
             <div class="gp-mark">${mark}</div>
-            <div class="gp-group">Videoguide · ${g.group}</div>
             <h1 class="gp-title">${g.title}</h1>
-            <p class="gp-lead">${g.lead}</p>
-            <div class="gp-meta">
-              <span class="gp-play"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z" fill="#fff"/></svg></span>
-              <span>${clockText}</span>
-            </div>
           </div>
           <div class="gp-shot"><div class="gp-bar"><i></i><i></i><i></i></div><img src="${img}" alt=""></div>
         </div>`;
     }, { g, img, theme, clockText: clock(len) });
     await page.evaluate(() => {
       const t = document.querySelector('.gp-title');
-      let size = 72;
-      while (size > 44 && (t.scrollWidth > t.clientWidth || t.getBoundingClientRect().height > size * 1.04 * 3 + 2)) { size -= 2; t.style.fontSize = size + 'px'; }
+      let size = 104;
+      while (size > 56 && (t.scrollWidth > t.clientWidth || t.getBoundingClientRect().height > size * 1.0 * 3 + 2)) { size -= 2; t.style.fontSize = size + 'px'; }
     });
     await page.waitForFunction(() => [...document.images].every(i => i.complete));
     await page.waitForTimeout(150);
