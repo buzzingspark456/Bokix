@@ -122,7 +122,6 @@ export const PAGE_SHOTS = {
   '/koppla-bank': ['bank'],
   '/lon': ['lon'],
   '/byt-bokforingsprogram': ['installningar'],
-  '/sakerhet': ['sakerhet'],
 };
 
 export function shotsFor(path) {
