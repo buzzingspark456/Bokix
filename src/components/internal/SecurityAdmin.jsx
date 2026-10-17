@@ -31,7 +31,7 @@ function StatTile({ icon: Icon, label, value, color }) {
   return (
     <div style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '12px' }}>
-        <span style={{ width: 30, height: 30, borderRadius: '8px', background: `${color}1f`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ width: 30, height: 30, borderRadius: '8px', background: `color-mix(in srgb, ${color} 14%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Icon size={15} color={color} />
         </span>
         <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
@@ -83,7 +83,7 @@ export default function SecurityAdmin() {
                   const Icon = meta.icon;
                   return (
                     <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '11px 4px', borderTop: i > 0 ? '1px solid var(--border-light)' : 'none' }}>
-                      <span style={{ width: 28, height: 28, borderRadius: '7px', background: `${meta.color}1f`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                      <span style={{ width: 28, height: 28, borderRadius: '7px', background: `color-mix(in srgb, ${meta.color} 14%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
                         <Icon size={13} color={meta.color} />
                       </span>
                       <div style={{ flex: 1, minWidth: 0 }}>

@@ -3,20 +3,11 @@ import { GraduationCap, Users, UserX, ShieldOff, RotateCcw, Search } from '../ic
 import { adminPost } from './adminApi';
 import { useAdminData } from './useAdminData';
 import RefreshBar from './RefreshBar';
+import { AdminList, AdminRow, Pill, SUBSCRIPTION_STATUS } from './AdminList';
 import { dateTimeFormat } from '../../utils/intlCache';
 
 const cardStyle = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '22px' };
 
-const STATUS_LABELS = {
-  trialing: 'Provperiod', active: 'Aktiv', past_due: 'Betalning misslyckad',
-  canceled: 'Uppsagd', unpaid: 'Obetald', incomplete: 'Ofullständig', incomplete_expired: 'Utgången',
-};
-
-function statusColor(status) {
-  if (status === 'active' || status === 'trialing') return 'var(--accent-text)';
-  if (status === 'past_due' || status === 'unpaid' || status === 'incomplete') return 'var(--status-amber-text)';
-  return 'var(--text-muted)';
-}
 
 function formatDate(iso) {
   if (!iso) return '—';
@@ -27,7 +18,7 @@ function StatTile({ icon: Icon, label, value, color }) {
   return (
     <div style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '12px' }}>
-        <span style={{ width: 30, height: 30, borderRadius: '8px', background: `${color}1f`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ width: 30, height: 30, borderRadius: '8px', background: `color-mix(in srgb, ${color} 14%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Icon size={15} color={color} />
         </span>
         <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
@@ -37,8 +28,6 @@ function StatTile({ icon: Icon, label, value, color }) {
   );
 }
 
-const th = { textAlign: 'left', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', padding: '0 14px 12px', whiteSpace: 'nowrap' };
-const td = { padding: '13px 14px', fontSize: '13.5px', borderTop: '1px solid var(--border-light)', whiteSpace: 'nowrap' };
 
 export default function UsersAdmin() {
   const { data: users, error: loadError, updatedAt, refreshing, reload } = useAdminData({ resource: 'users' }, { map: d => d.users });
@@ -104,66 +93,40 @@ export default function UsersAdmin() {
             />
           </div>
 
-          <div style={{ ...cardStyle, padding: 0, overflowX: 'auto' }}>
-            <table className="ix-users" style={{ borderCollapse: 'collapse', width: '100%' }}>
-              <thead>
-                <tr>
-                  <th style={{ ...th, paddingLeft: '22px' }}>E-post</th>
-                  <th style={th}>Företag</th>
-                  <th style={th}>UF</th>
-                  <th style={th}>Prenumeration</th>
-                  <th style={th}>Skapad</th>
-                  <th style={th}>Senast inloggad</th>
-                  <th style={{ ...th, paddingRight: '22px' }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(u => (
-                  <tr key={u.id} style={{ opacity: u.suspended ? 0.55 : 1 }}>
-                    <td style={{ ...td, paddingLeft: '22px', color: 'var(--text-main)', fontWeight: 600 }}>
-                      {u.email}
-                      {u.suspended && <span style={{ marginLeft: '8px', fontSize: '10.5px', fontWeight: 700, color: 'var(--status-red-text)', textTransform: 'uppercase' }}>Avstängd</span>}
-                      {!u.emailConfirmed && <span style={{ marginLeft: '8px', fontSize: '10.5px', color: 'var(--status-amber-text)' }}>obekräftad</span>}
-                    </td>
-                    <td style={{ ...td, color: 'var(--text-secondary)' }}>{u.companyName || '—'}</td>
-                    <td style={td}>{u.uf && <GraduationCap size={14} color="var(--accent-text)" />}</td>
-                    <td style={td}>
-                      {u.subscriptionStatus ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor(u.subscriptionStatus) }} />
-                          {STATUS_LABELS[u.subscriptionStatus] || u.subscriptionStatus}
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td style={{ ...td, color: 'var(--text-muted)' }}>{formatDate(u.createdAt)}</td>
-                    <td style={{ ...td, color: 'var(--text-muted)' }}>{formatDate(u.lastSignInAt)}</td>
-                    <td style={{ ...td, paddingRight: '22px' }}>
-                      {!u.isAdmin && (
-                        <button
-                          onClick={() => toggleSuspend(u)}
-                          disabled={busyId === u.id}
-                          title={u.suspended ? 'Återaktivera konto' : 'Stäng av konto'}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 11px', borderRadius: '7px',
-                            border: `1px solid ${u.suspended ? 'var(--status-green-bg)' : 'var(--status-red-bg)'}`,
-                            background: 'none', color: u.suspended ? 'var(--accent-text)' : 'var(--status-red-text)',
-                            fontSize: '11.5px', fontWeight: 700, cursor: busyId === u.id ? 'wait' : 'pointer', fontFamily: 'inherit',
-                            opacity: busyId === u.id ? 0.6 : 1,
-                          }}
-                        >
-                          {u.suspended ? <RotateCcw size={12} /> : <ShieldOff size={12} />}
-                          {u.suspended ? 'Återaktivera' : 'Stäng av'}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {filtered.length === 0 && (
-                  <tr><td colSpan={7} style={{ ...td, textAlign: 'center', color: 'var(--text-muted)' }}>Inga träffar.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <AdminList title="Konton" count={filter.trim() ? `${filtered.length} av ${users.length}` : `${users.length} st`} empty="Inga träffar.">
+            {filtered.map(u => {
+              const status = u.subscriptionStatus ? (SUBSCRIPTION_STATUS[u.subscriptionStatus] || { label: u.subscriptionStatus, tone: 'gray' }) : null;
+              return (
+                <AdminRow
+                  key={u.id}
+                  initial={u.email?.[0]}
+                  primary={u.email}
+                  secondary={u.companyName || 'Inget företag upplagt'}
+                  pills={<>
+                    {status ? <Pill tone={status.tone}>{status.label}</Pill> : <Pill>Ingen prenumeration</Pill>}
+                    {u.uf && <Pill tone="green">UF</Pill>}
+                    {u.isAdmin && <Pill tone="blue">Admin</Pill>}
+                    {u.suspended && <Pill tone="red">Avstängd</Pill>}
+                    {!u.emailConfirmed && <Pill tone="amber">E-post obekräftad</Pill>}
+                  </>}
+                  meta={[['Skapad', formatDate(u.createdAt)], ['Senast inloggad', formatDate(u.lastSignInAt)]]}
+                  muted={u.suspended}
+                  action={!u.isAdmin && (
+                    <button
+                      type="button"
+                      className={`ixl-btn ${u.suspended ? 'ok' : 'danger'}`}
+                      onClick={() => toggleSuspend(u)}
+                      disabled={busyId === u.id}
+                      style={{ opacity: busyId === u.id ? 0.6 : 1, cursor: busyId === u.id ? 'wait' : 'pointer' }}
+                    >
+                      {u.suspended ? <RotateCcw size={13} /> : <ShieldOff size={13} />}
+                      {u.suspended ? 'Återaktivera' : 'Stäng av'}
+                    </button>
+                  )}
+                />
+              );
+            })}
+          </AdminList>
         </>
       )}
     </div>

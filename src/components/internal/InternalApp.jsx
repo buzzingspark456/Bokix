@@ -136,17 +136,6 @@ export default function InternalApp() {
       .ix-main [style*="minmax(190px"], .ix-main [style*="minmax(180px"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
       .ix-main [style*="border-radius: 16px"] { border-radius: 14px !important; }
       .ix-main [style*="font-size: 26px"] { font-size: 22px !important; }
-      /* Tabellerna (Användare, Betalningar) blir en lista med en post per rad. */
-      .ix-main table, .ix-main tbody, .ix-main tr, .ix-main td { display: block; width: auto; }
-      .ix-main thead { display: none; }
-      .ix-main tr { padding: 12px 16px; border-top: 1px solid var(--border-light); }
-      .ix-main tr:first-child { border-top: none; }
-      .ix-main td { padding: 1px 0 !important; border: none !important; white-space: normal !important; font-size: 13px !important; }
-      .ix-main td:first-child { font-size: 14px !important; }
-      .ix-main td:empty { display: none; }
-      .ix-main td button { margin-top: 8px; }
-      .ix-users td:nth-child(5)::before { content: 'Skapad '; }
-      .ix-users td:nth-child(6)::before { content: 'Senast inloggad '; }
     }
   `;
 

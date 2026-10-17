@@ -2,21 +2,13 @@ import React from 'react';
 import { Wallet, AlertTriangle, TrendingUp, Users, PiggyBank } from '../icons';
 import { useAdminData } from './useAdminData';
 import RefreshBar from './RefreshBar';
+import { AdminList, AdminRow, Pill, SUBSCRIPTION_STATUS } from './AdminList';
 import { dateTimeFormat } from '../../utils/intlCache';
 
 const cardStyle = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '22px' };
 
-const STATUS_LABELS = {
-  trialing: 'Provperiod', active: 'Aktiv', past_due: 'Betalning misslyckad',
-  canceled: 'Uppsagd', unpaid: 'Obetald', incomplete: 'Ofullständig', incomplete_expired: 'Utgången',
-};
-
-function statusColor(status) {
-  if (status === 'active') return 'var(--accent-text)';
-  if (status === 'trialing') return 'var(--status-blue-text)';
-  if (status === 'past_due' || status === 'unpaid' || status === 'incomplete') return 'var(--status-amber-text)';
-  return 'var(--text-muted)';
-}
+// Aktiva först, sedan provperiod och problem, uppsagda sist.
+const STATUS_ORDER = ['active', 'past_due', 'unpaid', 'incomplete', 'trialing', 'incomplete_expired', 'canceled'];
 
 function formatDate(iso) {
   if (!iso) return '—';
@@ -27,7 +19,7 @@ function StatTile({ icon: Icon, label, value, sub, color }) {
   return (
     <div style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '12px' }}>
-        <span style={{ width: 30, height: 30, borderRadius: '8px', background: `${color}1f`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ width: 30, height: 30, borderRadius: '8px', background: `color-mix(in srgb, ${color} 14%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Icon size={15} color={color} />
         </span>
         <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
@@ -38,8 +30,6 @@ function StatTile({ icon: Icon, label, value, sub, color }) {
   );
 }
 
-const th = { textAlign: 'left', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', padding: '0 14px 12px', whiteSpace: 'nowrap' };
-const td = { padding: '13px 14px', fontSize: '13.5px', borderTop: '1px solid var(--border-light)', whiteSpace: 'nowrap' };
 
 export default function PaymentsAdmin() {
   const { data, error, updatedAt, refreshing, reload } = useAdminData({ resource: 'payments' });
@@ -74,38 +64,27 @@ export default function PaymentsAdmin() {
             </div>
           )}
 
-          <div style={{ ...cardStyle, padding: 0, overflowX: 'auto' }}>
-            <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-              <thead>
-                <tr>
-                  <th style={{ ...th, paddingLeft: '22px' }}>E-post</th>
-                  <th style={th}>Nivå</th>
-                  <th style={th}>Status</th>
-                  <th style={th}>Nästa fakturadag</th>
-                  <th style={{ ...th, paddingRight: '22px' }}>Avslutas</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.subscriptions.map(s => (
-                  <tr key={s.userId}>
-                    <td style={{ ...td, paddingLeft: '22px', color: 'var(--text-main)', fontWeight: 600 }}>{s.email || '—'}</td>
-                    <td style={{ ...td, color: 'var(--text-secondary)' }}>{s.planName} ({s.planPrice} kr)</td>
-                    <td style={td}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor(s.status) }} />
-                        {STATUS_LABELS[s.status] || s.status}
-                      </span>
-                    </td>
-                    <td style={{ ...td, color: 'var(--text-muted)' }}>{formatDate(s.currentPeriodEnd)}</td>
-                    <td style={{ ...td, paddingRight: '22px', color: 'var(--text-muted)' }}>{s.cancelAtPeriodEnd ? 'Ja' : 'Nej'}</td>
-                  </tr>
-                ))}
-                {data.subscriptions.length === 0 && (
-                  <tr><td colSpan={5} style={{ ...td, textAlign: 'center', color: 'var(--text-muted)' }}>Inga prenumerationer registrerade än.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <AdminList title="Prenumerationer" count={`${data.subscriptions.length} st`} empty="Inga prenumerationer registrerade än.">
+            {[...data.subscriptions]
+              .sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status))
+              .map(s => {
+                const status = SUBSCRIPTION_STATUS[s.status] || { label: s.status, tone: 'gray' };
+                return (
+                  <AdminRow
+                    key={s.userId}
+                    initial={s.email?.[0]}
+                    primary={s.email || 'Konto utan e-post'}
+                    secondary={`${s.planName} · ${s.planPrice} kr/mån`}
+                    pills={<>
+                      <Pill tone={status.tone}>{status.label}</Pill>
+                      {s.cancelAtPeriodEnd && <Pill tone="amber">Avslutas vid periodens slut</Pill>}
+                    </>}
+                    meta={[s.currentPeriodEnd && ['Nästa faktura', formatDate(s.currentPeriodEnd)]]}
+                    muted={s.status === 'canceled'}
+                  />
+                );
+              })}
+          </AdminList>
         </>
       )}
     </div>
