@@ -235,6 +235,27 @@ function AssociationVisual() {
   );
 }
 
+// ── Ideell förening: föreningens år fram till årsmötet ──────────────────
+// 48 600 + 25 000 − 61 300 = 12 300.
+function NonProfitVisual() {
+  const [ref, step] = useStepLoop(3);
+  return (
+    <div ref={ref} className="ov" role="img" aria-label="Exempel: en ideell förenings år med medlemsavgifter, bidrag och kostnader, ett resultat på 12 300 kr, granskat av revisorn och klart till årsmötet">
+      <div className="ov-card">
+        <div className="ov-title">Föreningens år 2026</div>
+        <div className="ov-row">Medlemsavgifter <b><CountUp value={48600} on={step >= 0} /></b></div>
+        <div className={`ov-row ${cls(step >= 1)}`}>Bidrag från kommunen <b><CountUp value={25000} on={step >= 1} /></b></div>
+        <div className={`ov-row ${cls(step >= 1)}`}>Hyra, material och resor <b>−<CountUp value={61300} on={step >= 1} /></b></div>
+        <div className={`ov-total ${cls(step >= 2)}`}><span>Årets resultat</span><strong><CountUp value={12300} on={step >= 2} /></strong></div>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span className={`ov-chip ${cls(step >= 2)}`}><Check size={12} /> Revisorn har granskat</span>
+        <span className={`ov-chip ${cls(step >= 3)}`}><Check size={12} /> Klart till årsmötet</span>
+      </div>
+    </div>
+  );
+}
+
 // ── Funktionssidorna (content/marketing/featurePages.js) ────────────────
 
 // Fakturering: faktura → skickad → betald med kort → bokförd
@@ -405,6 +426,7 @@ const VISUALS = {
   aktiebolag: CompanyVisual,
   handelsbolag: PartnershipVisual,
   'ekonomisk-forening': AssociationVisual,
+  'ideell-forening': NonProfitVisual,
   fakturering: InvoicingVisual,
   lager: InventoryVisual,
   anlaggningsregister: FixedAssetVisual,

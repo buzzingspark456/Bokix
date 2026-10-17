@@ -64,6 +64,10 @@
       "destination": "/bokforingsprogram-ekonomisk-forening/index.html"
     },
     {
+      "source": "/bokforingsprogram-ideell-forening",
+      "destination": "/bokforingsprogram-ideell-forening/index.html"
+    },
+    {
       "source": "/koppla-bank",
       "destination": "/koppla-bank/index.html"
     },

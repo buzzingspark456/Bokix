@@ -13,6 +13,8 @@
 //  - Årsredovisning enligt K2 för aktiebolag och ekonomisk förening, som PDF
 //    att skriva under (föreningen med medlemsinsatser och föreningsstämma).
 //    Bokix lämnar inte in något till Bolagsverket eller Skatteverket.
+//  - Ideell förening och stiftelse: bokföring, moms, lön och årsbokslut.
+//    Deklarationen (INK3) fyller Bokix inte i, och det står på sidan.
 
 const PRICE = '129 kr/mån utan anställda och 179 kr/mån med anställda. Ingen moms tillkommer och allt ingår.';
 
@@ -170,7 +172,7 @@ export const ORG_TYPE_PAGES = [
       { q: 'Måste föreningen skicka årsredovisningen till Bolagsverket?', a: 'Det beror på föreningens storlek, till exempel antal anställda och tillgångarnas värde. Kolla vad som gäller för er på bolagsverket.se. Bokix gör årsredovisningen, men skickar inte in den åt er.' },
       { q: 'Kan flera i styrelsen använda Bokix?', a: 'Ja. Upp till tre personer kan arbeta i samma bokföring, och det ingår i priset.' },
       { q: 'Vad kostar Bokix för en ekonomisk förening?', a: PRICE + ' De första 30 dagarna är gratis.' },
-      { q: 'Fungerar Bokix för en ideell förening?', a: 'Ideella föreningar och stiftelser lämnar en annan deklaration (INK3) som Bokix inte fyller i. Den löpande bokföringen fungerar, men deklarationen får göras på annat sätt.' },
+      { q: 'Fungerar Bokix för en ideell förening?', a: 'Ja, för bokföring, moms, lön och årsbokslut. Deklarationen (INK3) fyller Bokix inte i. Läs mer på sidan för ideella föreningar: bokix.se/bokforingsprogram-ideell-forening.' },
     ],
     related: [
       { label: 'Momsdeklaration steg för steg', to: '/blogg/moms-deklaration-steg-for-steg' },
@@ -178,5 +180,46 @@ export const ORG_TYPE_PAGES = [
     ],
   },
 ];
+
+ORG_TYPE_PAGES.push({
+  slug: 'ideell-forening',
+  path: '/bokforingsprogram-ideell-forening',
+  short: 'Ideell förening',
+  seoTitle: 'Bokföringsprogram för ideell förening och stiftelse | Bokix',
+  seoDescription: 'Bokix är ett enkelt bokföringsprogram för ideella föreningar och stiftelser. Kvitton, fakturor, moms, lön och årsbokslut i ett verktyg. 30 dagar gratis.',
+  eyebrow: 'Bokföringsprogram för ideell förening',
+  title: 'Bokföringsprogram för ideell förening',
+  lead: 'Kassören bokför, styrelsen ser hur det går och revisorn granskar samma bokföring.',
+  highlights: ['Tre användare ingår', 'Enkelt läge utan debet och kredit', 'Med eller utan moms', 'Årsbokslut'],
+  included: [
+    'Löpande bokföring med BAS-kontoplanen, med ett enkelt läge där du väljer vad som hänt i stället för konton.',
+    'Kvitton läses av från ett foto, och underlaget sparas med verifikationen i sju år.',
+    'Fakturor för medlemsavgifter, sponsring och uthyrning, med kortbetalning via Stripe om ni vill.',
+    'Momsdeklaration om föreningen är momsregistrerad. Är den inte det bokförs allt utan moms.',
+    'Lön till anställda med skattetabeller, lönebesked, AGI-fil och betalfil till banken.',
+    'Årsbokslut med resultat- och balansräkning att visa styrelsen och på årsmötet.',
+  ],
+  steps: [
+    { title: 'Skapa kontot med organisationsnumret', body: 'Bokix känner igen att det är en ideell förening eller stiftelse och väljer räkenskapsår åt dig.' },
+    { title: 'Bjud in kassören eller revisorn', body: 'Upp till tre personer kan arbeta i samma bokföring.' },
+    { title: 'Gör årsbokslutet', body: 'Resultat- och balansräkningen räknas fram ur bokföringen. Deklarationen lämnar ni själva hos Skatteverket.' },
+  ],
+  facts: [
+    { title: 'Alla föreningar behöver inte bokföra', body: 'En ideell förening är bokföringsskyldig om den bedriver näringsverksamhet eller har tillgångar på mer än 1,5 miljoner kr. Många bokför ändå, för att ha ordning inför årsmötet.' },
+    { title: 'Förenklat årsbokslut räcker ofta', body: 'Är nettoomsättningen normalt högst 3 miljoner kr får föreningen göra ett förenklat årsbokslut.' },
+    { title: 'Deklarationen heter INK3', body: 'Ideella föreningar och stiftelser lämnar Inkomstdeklaration 3. Bokix fyller inte i den, men bokföringen och bokslutet är underlaget ni behöver.' },
+  ],
+  faq: [
+    { q: 'Passar Bokix en ideell förening?', a: 'Ja, för den löpande bokföringen, fakturor, moms, lön och årsbokslutet. Det Bokix inte gör är inkomstdeklarationen (INK3), som ni lämnar själva.' },
+    { q: 'Vår förening är inte momsregistrerad. Fungerar det?', a: 'Ja. Du väljer det när kontot skapas, och då bokförs kvitton och fakturor utan moms.' },
+    { q: 'Kan kassören och revisorn använda samma konto?', a: 'Ja. Upp till tre personer kan arbeta i samma bokföring, och det ingår i priset.' },
+    { q: 'Fungerar Bokix för en stiftelse?', a: 'Ja, på samma sätt som för en ideell förening: bokföring, moms, lön och årsbokslut. Deklarationen lämnar stiftelsen själv.' },
+    { q: 'Vad kostar Bokix för en ideell förening?', a: PRICE + ' De första 30 dagarna är gratis.' },
+  ],
+  related: [
+    { label: 'Bokslut för småföretag: checklista', to: '/blogg/bokslut-checklista' },
+    { label: 'Momsdeklaration steg för steg', to: '/blogg/moms-deklaration-steg-for-steg' },
+  ],
+});
 
 export const ORG_TYPE_BY_PATH = Object.fromEntries(ORG_TYPE_PAGES.map(p => [p.path, p]));

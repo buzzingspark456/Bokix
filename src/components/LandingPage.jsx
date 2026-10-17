@@ -6,9 +6,8 @@ import {
 } from './icons';
 import { BRAND } from '../utils/brandColors';
 import MarketingLayout, { Reveal } from './marketing/MarketingLayout';
-import ToolMotif, { ToolMotifStyles } from './marketing/toolMotifs';
-import { FeatureDemoStyles, DemoBokforing, DemoFakturering, DemoSkatt, DemoPersonal } from './marketing/featureDemos';
-import { SERIF, INK, INK_SOFT, MUTED, CARD_BORDER, ACCENT, ACCENT_CYCLE } from './marketing/marketingTokens';
+import LandingFeatureGrid, { OrgTypeCards } from './marketing/LandingFeatureGrid';
+import { SERIF, INK, INK_SOFT, MUTED, CARD_BORDER, ACCENT } from './marketing/marketingTokens';
 import CloudShaderBackground from './marketing/CloudShaderBackground';
 import { GRAD, grad } from './marketing/aurora';
 import { StripeLogo, ZettleLogo, BolagsverketLogo, SkatteverketLogo } from './shared/BrandLogos';
@@ -34,34 +33,6 @@ const DemoWorkspace = lazy(() => import('./DemoWorkspace'));
 // engelska/norska/danska/finska sidorna beskriver dem med den officiella
 // svenska termen i parentes (t.ex. "Limited company (aktiebolag, AB)")
 // snarare än en 1:1-översättning — se filkommentaren där. ──
-
-// Funktionskorten glider in efter rubriken: första kortet så här många ms
-// efter att sektionen syns, sedan ett i taget med kort mellanrum.
-const CARD_DELAY_MS = 320;
-const CARD_STAGGER_MS = 110;
-
-// ── Fyra kolumner, matchat mot appens faktiska huvudsektioner (se globala
-// sidomenyn i App.jsx) — varje kort får en egen handritad illustration
-// istället för samma enfärgade gröna chip fyra gånger. ──
-const FEATURE_COLUMNS = [
-  {
-    demo: DemoBokforing, title: 'Bokföring', g: ACCENT.green,
-    desc: 'Kvitton och fakturor blir verifikationer av sig själva. Det osäkra hamnar i Granskning i stället för att gissas.',
-  },
-  {
-    demo: DemoFakturering, title: 'Fakturering', g: ACCENT.blue,
-    desc: 'Fyra mallar, din logotyp, kortbetalning via Stripe.',
-  },
-  {
-    demo: DemoSkatt, title: 'Skatt och bokslut', g: ACCENT.red,
-    desc: 'Moms, AGI och ett bokslut som låser året.',
-  },
-  {
-    demo: DemoPersonal, title: 'Personal', g: ACCENT.green,
-    desc: 'Rätt skatteavdrag, lönebesked och betalfil till banken.',
-  },
-];
-
 
 // Prisdata delad med PricingPage.jsx (se pricingTiers.js för resonemanget
 // kring axeln/priset/den korrigerade "ingen bankkoppling"-texten) — en
@@ -102,28 +73,6 @@ const CONNECTION_GROUPS = ['Betalningar', 'Myndigheter'];
 // BasLogo-komponenterna finns kvar i BrandLogos.jsx om de behövs där.
 
 
-// ── Sex delar av verktyget, med var sin rörelse ─────────────────────────
-// Här stod tidigare sex LÖFTEN: "Mindre fel, mer tid", "Full insyn, i
-// realtid", "Byggt för att alltid bli rätt". Kundens invändning i sak: de
-// säger ingenting. Och det sista påstod dessutom "Sveriges mest robusta
-// bokföringslogik" — ett superlativ vi inte kan belägga, alltså precis
-// den sorts mening sajten i övrigt vägrar skriva.
-//
-// Nu är det sex namngivna delar av appen i stället, var och en med samma
-// motiv som /funktioner använder (toolMotifs.jsx) — en rörelse som visar
-// vad delen gör, och en rad text. Delade motiv betyder också att sidorna
-// inte kan glida isär: ändrar man bilden ändras den på båda ställena.
-//
-// Banken har en egen sektion längre ner på sidan och är därför inte med
-// här — den skulle bli en dubblett två skärmar isär.
-const TOOL_ITEMS = [
-  { motif: 'kvitton', title: 'Utgifter och kvitton', desc: 'Fota eller ladda upp kvittot, så läser OCR:en av datum, belopp och moms åt dig. Underlaget sitter kvar på verifikationen.' },
-  { motif: 'offerter', title: 'Offerter', desc: 'Blir faktura med ett klick när kunden tackat ja.' },
-  { motif: 'projekt', title: 'Projekt', desc: 'Se vilket uppdrag som faktiskt bär sig.' },
-  { motif: 'kunder', title: 'Kunder och kontakter', desc: 'Fylls i från organisationsnumret.' },
-  { motif: 'rapporter', title: 'Rapport och analys', desc: 'Resultat, balans, kassaflöde, huvudbok, nyckeltal.' },
-  { motif: 'konto', title: 'Konto och behörighet', desc: 'Tvåfaktor, tre användare, flera företag.' },
-];;
 
 // Kundönskemål ("en färg, inte olika") — FAQ-raderna cyklade tidigare
 // grönt/blått/turkos/rött (g-fältet per rad). En enda genomgående accent
@@ -314,8 +263,6 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           innehåller svenska frågor vore fel signal till Google/AI-
           svarsmotorer, värre än att bara utelämna det. */}
       {locale === 'sv' && <JsonLd data={FAQ_SCHEMA} />}
-      <ToolMotifStyles />
-      <FeatureDemoStyles />
 
       {/* ── HERO — levande gradientklot i loggans/Startsidans egna färger
           bakom en fetstilt rubrik, inget stillastående platt fält. ── */}
@@ -379,152 +326,30 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
             </p>
           </Reveal>
 
-          {/* Bento-layout — Bokföring (kärnan i produkten) som ett brett
-              flaggskeppskort ovanför, de tre andra som jämnstora kort
-              under. Samma lp-lux-card-hover (lyft+skugga) som resten av
-              sidan, ingen färgad muspekar-glöd (borttagen på
-              kundönskemål). */}
-          {/* Rubriken kommer först, korten strax efter och ett i taget
-              (kundönskemål 2026-09-29). Kort väntan: ingen ska behöva sitta
-              och vänta på att innehållet dyker upp. */}
-          <div className="lp-bento-grid">
-            {FEATURE_COLUMNS.map((f, i) => (
-              i === 0 ? (
-                <Reveal
-                  key={f.title} delay={CARD_DELAY_MS}
-                  className="lp-lux-card lp-bento-feature-full lp-bento-feature-row"
-                  style={{ background: 'var(--mkt-card-bg)', border: '1px solid var(--mkt-card-border)', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 14px 30px -20px rgba(28,36,32,0.26)', display: 'flex', alignItems: 'stretch' }}
-                >
-                  {/* Illustrationsspalten och texten storleksökta (kund-
-                      önskemål: flaggskeppskortet såg glest ut på breda
-                      skärmar — en 300px-bred bild i ett 1600px-brett kort
-                      lämnade orimligt mycket tom yta runt en kort
-                      textrad).
-                      Kundfeedback (mobil, skärmdump): samma rad-layout
-                      kvarstod rakt av på mobilen — bilden klämdes in i en
-                      42%-bred remsa (drygt 160px) bredvid texten, för smalt
-                      för att demots egna rader (ikon + etikett + tagg) ska
-                      få plats, så de klipptes/syntes inte alls. Klassen
-                      lp-bento-feature-row byter till kolumn under 640px
-                      (se @media i MarketingLayout.jsx) — bilden får då HELA
-                      kortets bredd i stället, samma bredd som texten under. */}
-                  <div className="lp-bento-feature-media" style={{ background: f.g.soft, width: 'min(420px, 42%)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(20px, 3vw, 32px)' }}>
-                    <f.demo />
-                  </div>
-                  <div style={{ padding: '36px 40px 36px 34px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <h3 style={{ fontSize: '25px', fontWeight: 700, color: 'var(--mkt-ink)', marginBottom: '10px' }}>{c.features.items[i]?.title || f.title}</h3>
-                    <p style={{ fontSize: '16px', color: 'var(--mkt-muted)', lineHeight: 1.65, maxWidth: '560px' }}>{c.features.items[i]?.desc || f.desc}</p>
-                  </div>
-                </Reveal>
-              ) : (
-                <Reveal
-                  key={f.title} delay={CARD_DELAY_MS + i * CARD_STAGGER_MS}
-                  className="lp-lux-card"
-                  style={{ background: 'var(--mkt-card-bg)', border: '1px solid var(--mkt-card-border)', borderRadius: '18px', overflow: 'hidden', boxShadow: '0 14px 30px -20px rgba(28,36,32,0.26)' }}
-                >
-                  {/* Fast höjd, inte minHeight: de tre demona är olika
-                      höga (fyra momsrutor mot tre lönerader), och utan ett
-                      tak hamnade rubrikerna på olika nivå i de tre korten. */}
-                  <div style={{ background: f.g.soft, height: '218px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '22px' }}>
-                    <f.demo />
-                  </div>
-                  <div style={{ padding: '26px 26px 30px' }}>
-                    <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--mkt-ink)', marginBottom: '9px' }}>{c.features.items[i]?.title || f.title}</h3>
-                    <p style={{ fontSize: '14.5px', color: 'var(--mkt-muted)', lineHeight: 1.6 }}>{c.features.items[i]?.desc || f.desc}</p>
-                  </div>
-                </Reveal>
-              )
-            ))}
-          </div>
+          {/* Ett rutnät med utsnitt ur appen, se LandingFeatureGrid.jsx. */}
+          <LandingFeatureGrid items={c.features.items} />
 
           <Reveal style={{ textAlign: 'center', marginTop: '40px' }}>
-            <Link to="/funktioner" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '14.5px', fontWeight: 700, color: BRAND.green, textDecoration: 'none' }}>
+            <Link to="/funktioner" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '14.5px', fontWeight: 700, color: 'var(--mkt-accent-green-fg)', textDecoration: 'none' }}>
               {c.features.allLink} <ArrowRight size={15} />
             </Link>
           </Reveal>
         </div>
       </section>
 
-      {/* ── BOLAGSFORMER — oändligt rullande rad istället för en statisk
-          radbruten lista (se .lp-marquee/.lp-marquee-track i
-          MarketingLayout.jsx). Listan dubblerad exakt en gång (inte fler)
-          — -50% translateX landar prickar på var kopia 2 börjar, sömlöst.
-          Pausar vid hover/tangentbordsfokus så den går att läsa. ── */}
-      {/* Ren vit yta: här låg tidigare två tonade aurora-klot OCH en 160px
-          hög blå vågdelare direkt under. Två färgeffekter i rad kring en rad
-          som bara räknar upp bolagsformer — raden är innehållet, resten var
-          dekor som konkurrerade med den. Hårfina linjer skiljer sektionerna
-          åt i stället. */}
-      <section style={{ padding: '64px 24px 72px', background: 'var(--mkt-section-mint)', borderBottom: `1px solid var(--mkt-border-soft)`, position: 'relative', overflow: 'hidden' }}>
+      {/* ── BOLAGSFORMER — fem kort, se OrgTypeCards. ── */}
+      {/* Sidans egen bakgrund: vit i ljust läge, mörkgrön i mörkt. */}
+      <section style={{ padding: '72px 24px 84px', background: 'var(--mkt-page-bg)', borderBottom: `1px solid var(--mkt-border-soft)`, position: 'relative', overflow: 'hidden' }}>
         <Reveal style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '28px' }}>
+          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.4vw, 34px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '32px' }}>
             {c.companyTypesHeading}
           </h2>
         </Reveal>
-        <Reveal scale className="lp-marquee" tabIndex={0} aria-label="Bolagsformer Bokix stödjer" style={{ position: 'relative' }}>
-          <div className="lp-marquee-track">
-            {[0, 1, 2, 3].map((copy) => (
-              c.companyTypes.map((label, i) => {
-                const accent = ACCENT_CYCLE[i % 3];
-                // Bolagsformer med egen sida blir länkar (bara första kopian
-                // av raden är nåbar med tabb, resten är dekor för rullningen).
-                const to = c.companyTypeLinks?.[label];
-                const Badge = to ? Link : 'div';
-                return (
-                  <Badge key={`${label}-${copy}`} {...(to ? { to, tabIndex: copy > 0 ? -1 : undefined } : {})} aria-hidden={copy > 0} className="lp-lux-card lp-marquee-badge" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 20px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '100px', whiteSpace: 'nowrap', textDecoration: 'none' }}>
-                    {/* En liten prick i accentfärgen i stället för en ikon:
-                        den håller kvar färgrytmen i raden utan att påstå att
-                        en symbol betyder "handelsbolag". */}
-                    <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: accent.fg, flexShrink: 0 }} />
-                    <span className="lp-marquee-badge-label" style={{ fontSize: '14px', fontWeight: 600, color: INK_SOFT }}>{label}</span>
-                  </Badge>
-                );
-              })
-            ))}
-          </div>
-        </Reveal>
+        {/* Fem kort i samma stil som rutnätet ovan, i stället för en rullande
+            rad med färgade prickar. Se OrgTypeCards i LandingFeatureGrid.jsx. */}
+        <OrgTypeCards links={c.companyTypeLinks} />
       </section>
 
-      {/* ── VAD DU FAKTISKT GÖR — kundönskemål: sluta jämföra mot konkurrenter,
-          förklara vad man FÅR istället (se BENEFIT_ITEMS-kommentaren högst
-          upp för resonemanget). Sex kort i samma lp-lux-card-språk som
-          resten av sidan, ingen "vi vs dem"-tabell längre.
-          Rubriken bytt (2026-09-22, andra passet) från "Det här får du med
-          Bokix / Sex delar av verktyget" — kundens invändning: numrerings-
-          känslan ("sex delar") och den sälj-vinklade rubriken. Nu en rakare
-          rubrik på vad man FAKTISKT gör i verktyget, samma "hur ser
-          produkten faktiskt ut"-ton som resten av sidan.
-          Bakgrund: --mkt-section-mint, se tokenkommentaren i
-          MarketingLayout.jsx för varför (kort: ersätter en varm beige/
-          elfenbenston som varken matchade det kalla blå/turkos/lime-
-          varumärket eller läste som annat än ett generiskt AI-sidmönster). */}
-      <section style={{ padding: '84px 24px 92px', background: 'var(--mkt-section-mint)', position: 'relative', overflow: 'hidden' }}>
-        {/* Solid bakgrund, utan räkenskapslinjer och färgad kantlist
-            (kundönskemål 2026-09-29). */}
-        <div style={{ maxWidth: 'min(92vw, 1600px)', margin: '0 auto', position: 'relative' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.5vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>
-              {c.benefits.heading}
-            </h2>
-            <p style={{ fontSize: '17px', color: MUTED, maxWidth: '600px', margin: '0 auto', lineHeight: 1.6 }}>
-              {c.benefits.subheading}
-            </p>
-          </Reveal>
-
-          {/* minmax-golvet höjt (300→400px) i takt med den bredare
-              behållaren ovan — annars bryter auto-fit till 4-5 kolumner på
-              breda skärmar och lämnar sex kort som 4+2 istället för 3+3. */}
-          <div className="bx-tool-grid bx-tool-grid-3" style={{ maxWidth: 'min(92vw, 1320px)', margin: '0 auto' }}>
-            {TOOL_ITEMS.map((b, i) => (
-              <Reveal key={b.title} delay={CARD_DELAY_MS + i * CARD_STAGGER_MS} className="lp-lux-card" style={{ background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '18px', padding: '20px 22px 24px', boxShadow: '0 18px 38px -26px rgba(28,36,32,0.4)' }}>
-                <ToolMotif kind={b.motif} />
-                <h3 style={{ fontSize: '16.5px', fontWeight: 700, color: INK, marginBottom: '7px' }}>{c.benefits.items[i]?.title || b.title}</h3>
-                <p style={{ fontSize: '14px', color: MUTED, lineHeight: 1.6, margin: 0 }}>{c.benefits.items[i]?.desc || b.desc}</p>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* ── TROVÄRDIGHETSRADEN TOGS BORT HÄRIFRÅN (2026-09-22, tredje passet)
           — kundönskemål: "bygg efter svensk bokföringslag / GDPR / BAS-

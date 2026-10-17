@@ -11,7 +11,7 @@ import { JsonLd, SITE_URL } from '../../utils/seo';
 // de sex ställen som redan gör `import { BokixWordmark } from
 // './marketing/MarketingLayout'` fortsätta oförändrade.
 import { TOOLS, TOOLS_HUB_PATH } from './tools/toolsConfig';
-import BokixWordmark, { WORDMARK_LETTERS, WORDMARK_VIEWBOX, WORDMARK_GRADIENT } from '../shared/BokixWordmark';
+import BokixWordmark from '../shared/BokixWordmark';
 import { BOKIX_SUMMARY, BOKIX_PROFILES } from '../../content/marketing/bokixFacts';
 import { ORG_TYPE_PAGES } from '../../content/marketing/orgTypes';
 export { BokixWordmark };
@@ -1091,22 +1091,7 @@ function MarketingStyles() {
       .lp-footer-link:hover, .lp-footer-link:focus-visible { color: #ffffff; }
       .lp-footer-mail { font-weight: 500; color: rgba(255,255,255,0.78); }
       .lp-footer-btn { background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; }
-      /* Ordmärket: hela texten syns, dämpad. En tänd bokstav tonar över
-         till loggans färg. Hela bokstavens yta (bounding box) är klickbar
-         via pointer-events: bounding-box, så man träffar även i o:s hål. */
-      .lp-footer-mark { margin-top: 56px; padding: 40px 0 32px; border-top: 1px solid rgba(255,255,255,0.1); line-height: 0; }
-      .lp-footer-mark svg { display: block; width: 100%; height: auto; overflow: visible; }
-      .lp-mark-letter { cursor: pointer; pointer-events: bounding-box; -webkit-tap-highlight-color: transparent; }
-      .lp-mark-base { fill: rgba(255,255,255,0.07); transition: fill 0.35s ease; }
-      .lp-mark-color { opacity: 0; transition: opacity 0.35s ease; }
-      .lp-mark-letter.is-lit .lp-mark-color { opacity: 1; }
-      @media (hover: hover) {
-        .lp-mark-letter:hover .lp-mark-color { opacity: 1; }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .lp-mark-base, .lp-mark-color { transition: none; }
-      }
-      .lp-footer-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px 28px; }
+      .lp-footer-bottom { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px 28px; margin-top: 56px; padding-top: 28px; border-top: 1px solid rgba(255,255,255,0.1); }
       .lp-footer-start { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
       .lp-footer-copy { margin: 0; font-size: 13px; color: rgba(255,255,255,0.55); }
       .lp-footer-book { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.16); color: #ffffff; font-size: 13px; font-weight: 500; text-decoration: none; transition: background 0.15s ease, border-color 0.15s ease; }
@@ -1129,7 +1114,7 @@ function MarketingStyles() {
         .lp-footer { padding: 48px 20px 28px; }
         .lp-footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 16px; }
         .lp-footer-brand { padding-bottom: 28px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .lp-footer-mark { margin-top: 40px; padding: 28px 0 24px; }
+        .lp-footer-bottom { margin-top: 40px; }
         .lp-footer-bottom { flex-direction: column; align-items: center; text-align: center; gap: 18px; }
         .lp-footer-start { display: contents; }
         .lp-footer-book { order: 1; }
@@ -1628,40 +1613,6 @@ export const FOOTER_LEGAL = [
   { label: 'PUB-avtal', to: '/pub' },
 ];
 
-/** Sidfotens stora ordmärke. Dämpat i vila; en bokstav som man håller över
- * (dator) eller trycker på (telefon) tänds i exakt den färg den har i loggan.
- * Gradienten ligger i ordmärkets egna koordinater (userSpaceOnUse), så varje
- * bokstav får sin bit av loggans blå, turkos och lime, inte hela skalan.
- * aria-hidden: ren dekor, "Bokix" står redan i varumärkesblocket. */
-function FooterWordmark() {
-  const [lit, setLit] = useState(() => new Set());
-  const gradId = `lpFooterMark-${React.useId()}`;
-  const toggle = (letter) => setLit(prev => {
-    const next = new Set(prev);
-    if (next.has(letter)) next.delete(letter); else next.add(letter);
-    return next;
-  });
-  return (
-    <div className="lp-footer-mark" aria-hidden>
-      <svg viewBox={WORDMARK_VIEWBOX} xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id={gradId} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="125" y2="0">
-            <stop offset="0%" stopColor={WORDMARK_GRADIENT[0]} />
-            <stop offset="50%" stopColor={WORDMARK_GRADIENT[1]} />
-            <stop offset="100%" stopColor={WORDMARK_GRADIENT[2]} />
-          </linearGradient>
-        </defs>
-        {WORDMARK_LETTERS.map(({ letter, d }) => (
-          <g key={letter} className={`lp-mark-letter${lit.has(letter) ? ' is-lit' : ''}`} onClick={() => toggle(letter)}>
-            <path d={d} className="lp-mark-base" />
-            <path d={d} className="lp-mark-color" fill={`url(#${gradId})`} />
-          </g>
-        ))}
-      </svg>
-    </div>
-  );
-}
-
 export function MarketingFooter() {
   const year = new Date().getFullYear();
   return (
@@ -1691,8 +1642,6 @@ export function MarketingFooter() {
             </nav>
           ))}
         </div>
-
-        <FooterWordmark />
 
         <div className="lp-footer-bottom">
           <div className="lp-footer-start">
