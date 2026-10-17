@@ -4089,7 +4089,11 @@
     "sending": "Skickar {{done}} av {{total}}…",
     "noEmail": "Saknar e-post, ladda ner och lämna över själv: {{names}}. Lägg till e-post under Anställda så går det automatiskt nästa gång.",
     "result": "{{sent}} lönebesked skickade.",
-    "failed": "Gick inte att skicka: {{list}}. Kontrollera deras e-postadresser under Anställda och skicka igen."
+    "failed": "Gick inte att skicka: {{list}}. Kontrollera deras e-postadresser under Anställda och skicka igen.",
+    "messageLabel": "Meddelande på lönebeskeden (valfritt)",
+    "messagePlaceholder": "T.ex. Lönen betalas ut dagen före midsommar i år.",
+    "messageHint": "Står på alla lönebesked i den här körningen.",
+    "passwordNote": "Mejlade lönebesked är skyddade med lösenord: de fyra sista siffrorna i den anställdas personnummer. Det står i mejlet."
   },
   "bankReconcile": {
     "button": "Stäm av importerad försäljning",

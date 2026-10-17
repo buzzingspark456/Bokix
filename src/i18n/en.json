@@ -4089,7 +4089,11 @@
     "sending": "Sending {{done}} of {{total}}…",
     "noEmail": "No email address, download and hand over yourself: {{names}}. Add an email under Employees and it goes automatically next time.",
     "result": "{{sent}} payslips sent.",
-    "failed": "Could not send: {{list}}. Check their email addresses under Employees and send again."
+    "failed": "Could not send: {{list}}. Check their email addresses under Employees and send again.",
+    "messageLabel": "Message on the payslips (optional)",
+    "messagePlaceholder": "E.g. Salary is paid the day before Midsummer this year.",
+    "messageHint": "Shown on every payslip in this run.",
+    "passwordNote": "Emailed payslips are password protected: the last four digits of the employee’s personal identity number. The email says so."
   },
   "bankReconcile": {
     "button": "Reconcile imported sales",

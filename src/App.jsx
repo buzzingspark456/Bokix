@@ -4895,6 +4895,11 @@ function App() {
     setAgiReports(prev => prev.filter(r => r.id !== reportId));
   };
 
+  // Fält på själva körningen, t.ex. meddelandet på lönebeskeden.
+  const handleUpdateRun = (runId, patch) => {
+    setPayrollRuns(prev => prev.map(r => (r.id === runId ? { ...r, ...patch } : r)));
+  };
+
   const handleUpdateRunRow = (runId, employeeId, patch) => {
     setPayrollRuns(prev => prev.map(r => r.id !== runId ? r : {
       ...r,
@@ -5343,6 +5348,7 @@ function App() {
             payrollRuns={payrollRuns}
             onCreateRun={handleCreateRun}
             onUpdateRunRow={handleUpdateRunRow}
+            onUpdateRun={handleUpdateRun}
             onAdvanceRunStep={handleAdvanceRunStep}
             onBookRun={handleBookRun}
             onMarkRunPaid={handleMarkRunPaid}

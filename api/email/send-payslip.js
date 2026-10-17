@@ -34,7 +34,7 @@ export default async function handler(req, res) {
 
   try {
     const body = await parseJsonBody(req);
-    const { company_id: companyId, employee_id: employeeId, period, attachmentBase64 } = body || {};
+    const { company_id: companyId, employee_id: employeeId, period, attachmentBase64, passwordProtected } = body || {};
     if (!companyId || !employeeId || !/^\d{4}-\d{2}$/.test(String(period || '')) || !attachmentBase64) {
       res.status(400).json({ error: 'company_id, employee_id, period och attachmentBase64 krävs.' });
       return;
@@ -59,6 +59,7 @@ export default async function handler(req, res) {
     const html = `
       <p style="margin:0 0 14px;">Hej ${esc(employee.firstName || '')}!</p>
       <p style="margin:0 0 14px;">Här är ditt lönebesked för ${esc(period)} från ${esc(companyName)}. Det ligger som PDF i mejlet.</p>
+      ${passwordProtected ? '<p style="margin:0 0 14px;">PDF:en är skyddad med lösenord. Lösenordet är de fyra sista siffrorna i ditt personnummer.</p>' : ''}
       <p style="margin:0 0 14px;">Har du frågor om lönen, svara på det här mejlet eller kontakta din arbetsgivare.</p>
     `;
     const attachmentFilename = `lonebesked-${period}.pdf`;

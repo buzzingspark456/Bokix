@@ -85,7 +85,14 @@ for (let i = 0; i < 8; i++) {
   if (h === 'Lön och timmar') await click(/Beräkna lönerna/);
   else if (h === 'Granska') await click(/Godkänn lönerna/);
   else if (h === 'Betala') await click(/^Markera som betald$/);
-  else if (h === 'Lönebesked') await click(/Klart, vidare till bokföring/);
+  else if (h === 'Lönebesked') {
+    const msg = page.locator('#payslip-message');
+    if (await msg.count()) { await msg.fill('Lönen betalas ut dagen före midsommar i år.'); await msg.blur(); }
+    await page.waitForTimeout(3500);
+    const img = page.locator('.payslip-browser img').first();
+    if (await img.count()) await img.screenshot({ path: `test-results/lon-besked${tag}.png` });
+    await click(/Klart, vidare till bokföring/);
+  }
   else if (h === 'Bokför') await click(/Bokför lönen/);
   else if (h === 'AGI och skatt') { await page.locator('input[type="checkbox"]').last().check(); await page.waitForTimeout(800); }
   else break;

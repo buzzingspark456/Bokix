@@ -11,7 +11,7 @@ import { BRAND } from '../utils/brandColors';
 import { computeEmployeePayroll, summarizePayrollRun, FEE_RULES_VERSION } from '../utils/payrollCalculation';
 import { PAY_TYPE_GROUPS, PAY_LINE_KINDS, getPayType, defaultRateFor } from '../utils/payTypes';
 import { PAYROLL_RUN_STEPS, PAYROLL_ACCOUNTS } from '../utils/payrollConfig';
-import { generatePayslipPdf, generateAllPayslipsPdf, yearToDate } from '../utils/payslipExport';
+import { generatePayslipPdf, generateAllPayslipsPdf, yearToDate, loadLogoForPdf, payslipPassword } from '../utils/payslipExport';
 import { describeRow } from '../utils/plainBooking';
 import { downloadAgiPdf } from '../utils/agiExport';
 import { downloadAgiXml } from '../utils/agiXml';
@@ -379,7 +379,7 @@ function EmployeeSummaryTable({ computedRows, onDownload }) {
 
 // Lönebeskedet som det ser ut, för en anställd i taget (samma PDF som
 // laddas ner och mejlas).
-function PayslipPreview({ computedRows, payslipArgs, period }) {
+function PayslipPreview({ computedRows, payslipArgs, period, refreshKey = '' }) {
   const [employeeId, setEmployeeId] = useState(computedRows[0]?.row.employeeId);
   const current = computedRows.find(r => r.row.employeeId === employeeId) || computedRows[0];
   // Med många anställda: sök på namn.
@@ -425,7 +425,7 @@ function PayslipPreview({ computedRows, payslipArgs, period }) {
       })();
     } catch { setUrl(null); }
     return () => { cancelled = true; if (made) URL.revokeObjectURL(String(made)); };
-  }, [current?.row.employeeId, current?.computed.net]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [current?.row.employeeId, current?.computed.net, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!current) return null;
   const toneColor = { green: 'var(--status-green-text)', amber: 'var(--status-amber-text)', muted: 'var(--text-muted)' };
   return (
@@ -529,7 +529,16 @@ export function VerificationBlock({ title, rows, accounts }) {
   );
 }
 
-export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyncBeforeServerCall, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onUpdateRow, onRefreshSnapshots }) {
+export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyncBeforeServerCall, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onUpdateRow, onUpdateRun, onRefreshSnapshots }) {
+  // Fakturans logga på lönebeskeden, hämtad en gång som PNG.
+  const [payslipLogo, setPayslipLogo] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    loadLogoForPdf(company?.logoUrl).then(l => { if (alive) setPayslipLogo(l); });
+    return () => { alive = false; };
+  }, [company?.logoUrl]);
+  const [messageDraft, setMessageDraft] = useState(run.payslipMessage || '');
+  useEffect(() => { setMessageDraft(run.payslipMessage || ''); }, [run.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [agiConfirmed, setAgiConfirmed] = useState(run.completedSteps.includes('agi'));
   // Timmar från fil (utils/payrollHoursImport.js), i stället för en rad i taget.
   const hoursFileRef = useRef(null);
@@ -599,6 +608,13 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
   const sentCount = run.rows.filter(r => r.payslipSentAt).length;
   const payslipArgs = ({ row, computed }) => ({
     employee: row.employeeSnapshot, computed, period: row.period || run.period, company, payDate: run.payDate,
+    logo: payslipLogo, message: run.payslipMessage || '',
+    vacation: (() => {
+      try {
+        const asOf = run.payDate ? new Date(run.payDate) : new Date(`${run.period}-28`);
+        return summarizeVacation({ employee: row.employeeSnapshot, payrollRuns: allRuns, asOf });
+      } catch { return null; }
+    })(),
     ytd: yearToDate({
       employeeId: row.employeeId, period: run.period, runs: allRuns, current: computed,
       computeRow: (r) => computeEmployeePayroll(r.employeeSnapshot, r),
@@ -618,8 +634,11 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
     for (const r of withEmail) {
       const name = `${r.row.employeeSnapshot.firstName} ${r.row.employeeSnapshot.lastName}`;
       try {
-        const base64 = generatePayslipPdf(payslipArgs(r)).output('datauristring').split(',')[1];
-        await sendPayslipEmail({ companyId: company?.id, employeeId: r.row.employeeId, period: run.period, attachmentBase64: base64 });
+        // Mejlat lönebesked är lösenordsskyddat (de fyra sista siffrorna i
+        // personnumret), eftersom det innehåller personnummer och lön.
+        const password = payslipPassword(r.row.employeeSnapshot);
+        const base64 = generatePayslipPdf(payslipArgs(r), { password }).output('datauristring').split(',')[1];
+        await sendPayslipEmail({ companyId: company?.id, employeeId: r.row.employeeId, period: run.period, attachmentBase64: base64, passwordProtected: Boolean(password) });
         onUpdateRow(r.row.employeeId, { payslipSentAt: new Date().toISOString() });
         sent++;
       } catch (err) {
@@ -1004,6 +1023,17 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
             {tr('payslips.intro', { n: computedRows.length, withEmail: withEmail.length, sent: sentCount })}
           </p>
+          <div style={{ marginBottom: '14px' }}>
+            <label htmlFor="payslip-message" style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>{tr('payslips.messageLabel')}</label>
+            <textarea
+              id="payslip-message" rows={2} value={messageDraft} maxLength={600}
+              placeholder={tr('payslips.messagePlaceholder')}
+              onChange={e => setMessageDraft(e.target.value)}
+              onBlur={() => { if ((run.payslipMessage || '') !== messageDraft) onUpdateRun?.({ payslipMessage: messageDraft.trim() }); }}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '9px', fontSize: '14px', fontFamily: 'inherit', color: 'var(--text-main)', background: 'var(--bg-card)', resize: 'vertical' }}
+            />
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>{tr('payslips.messageHint')}</div>
+          </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button type="button" onClick={handleDownloadAllPayslips} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
               <Download size={14} /> {tr('payslips.downloadAll')}
@@ -1012,6 +1042,9 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
               <Send size={14} /> {mailState.busy ? tr('payslips.sending', { done: mailState.done, total: mailState.total }) : tr('payslips.emailAll', { n: withEmail.length })}
             </button>
           </div>
+          {withEmail.length > 0 && (
+            <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>{tr('payslips.passwordNote')}</div>
+          )}
           {withoutEmail.length > 0 && (
             <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
               {tr('payslips.noEmail', { names: withoutEmail.map(r => `${r.row.employeeSnapshot.firstName} ${r.row.employeeSnapshot.lastName}`).join(', ') })}
@@ -1026,7 +1059,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
         </div>
       )}
       {stage === 'payslips' && computedRows.length > 0 && (
-        <PayslipPreview computedRows={computedRows} payslipArgs={payslipArgs} period={run.period} />
+        <PayslipPreview computedRows={computedRows} payslipArgs={payslipArgs} period={run.period} refreshKey={`${run.payslipMessage || ''}|${payslipLogo ? 1 : 0}`} />
       )}
 
       {/* Bugfix (kundrapport: "funkar inte som den ska"): gated tidigare på
