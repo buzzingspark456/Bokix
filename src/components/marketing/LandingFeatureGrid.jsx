@@ -45,6 +45,12 @@ const CSS = `
   .fg-logo { width: 26px; height: 26px; border-radius: 7px; background: #0b6329; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; }
   .fg-paper-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee; }
   .fg-paper-total { display: flex; justify-content: space-between; align-items: center; padding: 10px 0 12px; font-weight: 800; font-size: 14px; }
+  .fg-paper-sub { color: #6b7280; }
+  /* Mörkt läge: fakturan i kortets egna mörka färger i stället för ett lysande vitt papper. */
+  html[data-theme="dark"] #lp-root .fg-paper { background: #1d2f23; color: #eef3ea; border: 1px solid rgba(255,255,255,0.08); border-bottom: none; box-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.7); }
+  html[data-theme="dark"] #lp-root .fg-paper-row { border-color: rgba(255,255,255,0.08); }
+  html[data-theme="dark"] #lp-root .fg-paper-sub { color: #a9baa9; }
+  html[data-theme="dark"] #lp-root .fg-logo { background: #2f9e4f; }
   .fg-paybtn { display: inline-flex; align-items: center; justify-content: center; width: 100%; padding: 8px; border-radius: 8px; background: #635bff; color: #fff; font-weight: 700; font-size: 12px; margin-bottom: 12px; }
 
   .fg-box { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 12px; background: var(--mkt-card-bg); border: 1px solid var(--mkt-border-soft); border-radius: 10px; margin-bottom: 6px; font-size: 13px; color: var(--mkt-ink); }
@@ -133,9 +139,9 @@ export default function LandingFeatureGrid({ items }) {
             <div className="fg-paper-head">
               <div style={{ display: 'flex', gap: '9px', alignItems: 'center' }}>
                 <span className="fg-logo">D</span>
-                <div><div style={{ fontWeight: 800 }}>Ditt Företag AB</div><div style={{ color: '#6b7280' }}>Faktura 1042</div></div>
+                <div><div style={{ fontWeight: 800 }}>Ditt Företag AB</div><div className="fg-paper-sub">Faktura 1042</div></div>
               </div>
-              <span className="fg-pill fg-ok" style={{ background: '#e3f4e4', color: '#1d6b2c' }}>Betald</span>
+              <span className="fg-pill fg-ok">Betald</span>
             </div>
             <div className="fg-paper-row"><span>Konsulttimmar, 20 h</span><span>14 800,00</span></div>
             <div className="fg-paper-row"><span>Moms 25 %</span><span>3 700,00</span></div>
