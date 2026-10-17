@@ -3705,7 +3705,24 @@
     "stripe_rq_hamtade": "Done. {{n}} transactions from the last 90 days checked.",
     "stripe_rq_hamta_fel": "Could not fetch from Stripe: {{v0}}",
     "stripe_rq_kontrollera": "Check",
-    "stripe_rq_fristaende_note": "may carry reverse-charge VAT, compare with the Stripe invoice"
+    "stripe_rq_fristaende_note": "may carry reverse-charge VAT, compare with the Stripe invoice",
+    "rq_sec_klart": "Ready to book",
+    "rq_sec_val": "Needs your choice",
+    "rq_sec_kontrollera": "Check the suggestion",
+    "rq_sec_saknar_konto": "Missing account",
+    "rq_sec_manuellt": "Handled manually",
+    "rq_src_vantar_titel": "Receipts and supplier invoices",
+    "rq_src_vantar_text": "Bokix suggests an account based on how you booked the same supplier before. Confident suggestions are approved with one click.",
+    "rq_src_stripe_text": "Payments, fees and payouts are fetched every morning and booked against the Stripe balance (1686).",
+    "rq_src_zettle_text": "Till purchases are fetched every morning. The VAT comes from Zettle, so most purchases can be booked right away.",
+    "rq_stat_klara": "{{n}} ready",
+    "rq_stat_val": "{{n}} need your choice",
+    "rq_stat_manuella": "{{n}} manual",
+    "rq_stat_saknar_konto": "{{n}} missing an account",
+    "rq_zettle_moms_enligt": "{{rate}}% VAT according to Zettle",
+    "rq_andra": "Change",
+    "rq_zettle_bokfor_alla_fraga": "Book {{n}} Zettle purchases? The VAT comes from Zettle and matches the VAT rate exactly. You choose refunds and purchases where the VAT does not match yourself.",
+    "rq_stat_manuell": "{{n}} manual"
   },
   "glossary": {
     "g01": {

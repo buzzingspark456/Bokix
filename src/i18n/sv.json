@@ -3705,7 +3705,24 @@
     "stripe_rq_hamtade": "Klart. {{n}} transaktioner från de senaste 90 dagarna är kontrollerade.",
     "stripe_rq_hamta_fel": "Kunde inte hämta från Stripe: {{v0}}",
     "stripe_rq_kontrollera": "Kontrollera",
-    "stripe_rq_fristaende_note": "kan ha moms med omvänd skattskyldighet, jämför med Stripes faktura"
+    "stripe_rq_fristaende_note": "kan ha moms med omvänd skattskyldighet, jämför med Stripes faktura",
+    "rq_sec_klart": "Klart att bokföra",
+    "rq_sec_val": "Behöver ditt val",
+    "rq_sec_kontrollera": "Kontrollera förslaget",
+    "rq_sec_saknar_konto": "Saknar konto",
+    "rq_sec_manuellt": "Hanteras manuellt",
+    "rq_src_vantar_titel": "Kvitton och leverantörsfakturor",
+    "rq_src_vantar_text": "Bokix föreslår konto utifrån hur du konterat samma leverantör tidigare. Säkra förslag godkänner du med ett klick.",
+    "rq_src_stripe_text": "Betalningar, avgifter och utbetalningar hämtas varje morgon och bokförs mot Stripe-saldot (1686).",
+    "rq_src_zettle_text": "Kassaköpen hämtas varje morgon. Momsen kommer från Zettle, så de flesta köp kan bokföras direkt.",
+    "rq_stat_klara": "{{n}} klara",
+    "rq_stat_val": "{{n}} behöver ditt val",
+    "rq_stat_manuella": "{{n}} manuella",
+    "rq_stat_saknar_konto": "{{n}} saknar konto",
+    "rq_zettle_moms_enligt": "{{rate}} % moms enligt Zettle",
+    "rq_andra": "Ändra",
+    "rq_zettle_bokfor_alla_fraga": "Bokföra {{n}} Zettle-köp? Momsen kommer från Zettle och stämmer exakt med momssatsen. Återbetalningar och köp där momsen inte stämmer väljer du själv.",
+    "rq_stat_manuell": "{{n}} manuell"
   },
   "glossary": {
     "g01": {
