@@ -86,7 +86,7 @@ export function makeRecordPatch(before, after) {
   return { upsert, remove };
 }
 
-export function applyRecordPatch(current, { upsert = [], remove = [] }) {
+export function applyRecordPatch(current, { upsert = [], remove = [], prepend = false }) {
   const list = Array.isArray(current) ? current : [];
   const removed = new Set(remove.map(String));
   const changed = new Map(upsert.map(x => [String(x.id), x]));
@@ -96,5 +96,85 @@ export function applyRecordPatch(current, { upsert = [], remove = [] }) {
     if (removed.has(id)) continue;
     if (changed.has(id)) { out.push(changed.get(id)); changed.delete(id); } else out.push(x);
   }
-  return [...out, ...changed.values()];
+  return prepend ? [...changed.values(), ...out] : [...out, ...changed.values()];
+}
+
+// ── Spara bara det som ändrats (ägarens sparning) ──────────────────────
+// Ändringarna mellan det servern har (base) och det appen visar (local),
+// som operationer till databasfunktionen apply_user_data_delta
+// (supabase-2026-10-17-delta-sparning.sql). Jämförelsen är på referens,
+// eftersom appen alltid byter ut det som ändras.
+//
+// Garanti: servern ska få EXAKT samma innehåll som appen, annars blir nästa
+// sparnings bas fel. En lista skickas därför som patch bara om patchen,
+// lagd på base, ger samma poster i samma ordning som här (nya poster först
+// eller sist). Annars skickas hela listan. Saker som inte går att uttrycka
+// (base saknas, ett värde som inte är ett objekt) ger null: spara allt.
+const sameIdOrder = (a, b) => a.length === b.length && a.every((x, i) => String(x?.id) === String(b[i]?.id));
+
+// Efter inloggningen är serverns kopia och appens olika objekt med samma
+// innehåll. Då jämförs posterna på innehåll i stället, en gång, så att den
+// första sparningen inte skickar allt.
+function contentPatch(before, after) {
+  const old = new Map(before.map(x => [String(x.id), JSON.stringify(x)]));
+  const upsert = after.filter(x => old.get(String(x.id)) !== JSON.stringify(x));
+  const keep = new Set(after.map(x => String(x.id)));
+  const remove = before.filter(x => !keep.has(String(x.id))).map(x => x.id);
+  return { upsert, remove };
+}
+
+function fieldOps(path, base, local) {
+  if (base === local) return [];
+  if (local === undefined) return [{ op: 'unset', path }];
+  if (isRecordList(base) && isRecordList(local) && base.length > 0) {
+    let patch = makeRecordPatch(base, local);
+    if (patch.upsert.length > local.length / 2) patch = contentPatch(base, local);
+    if (!patch.upsert.length && !patch.remove.length) {
+      // Samma poster, ny ordning (t.ex. sorterad): hela listan.
+      return sameIdOrder(base, local) ? [] : [{ op: 'set', path, value: local }];
+    }
+    for (const prepend of [false, true]) {
+      if (sameIdOrder(applyRecordPatch(base, { ...patch, prepend }), local)) {
+        // Mer än halva listan ändrad: hela listan är lika litet och enklare.
+        if (patch.upsert.length > local.length / 2) break;
+        return [{ op: 'patch', path, upsert: patch.upsert, remove: patch.remove, prepend }];
+      }
+    }
+  }
+  // Inte en lista med poster (inställningar, kontoplanen …): oftast små.
+  if (!Array.isArray(local) || local.length < 2000) {
+    if (JSON.stringify(base) === JSON.stringify(local)) return [];
+  }
+  return [{ op: 'set', path, value: local }];
+}
+
+const isPlainObject = (v) => v && typeof v === 'object' && !Array.isArray(v);
+
+export function buildStateDelta(baseSnapshot, baseCompanies, snapshot, companies) {
+  if (!isPlainObject(baseCompanies) || !isPlainObject(companies)) return null;
+  const ops = [];
+  // Allt utom företagen (aktivt företag, inställningar …): byts ut helt om ändrat.
+  for (const key of Object.keys(snapshot || {})) {
+    if (key === 'companies') continue;
+    if (baseSnapshot && baseSnapshot[key] === snapshot[key]) continue;
+    if (snapshot[key] === undefined) continue;
+    ops.push({ op: 'set', path: [key], value: snapshot[key] });
+  }
+  if (baseSnapshot) {
+    for (const key of Object.keys(baseSnapshot)) {
+      if (key !== 'companies' && !(key in (snapshot || {}))) ops.push({ op: 'unset', path: [key] });
+    }
+  }
+  for (const [id, local] of Object.entries(companies)) {
+    const base = baseCompanies[id];
+    if (base === local) continue;
+    if (!isPlainObject(base) || !isPlainObject(local)) { ops.push({ op: 'set', path: ['companies', id], value: local }); continue; }
+    for (const key of new Set([...Object.keys(base), ...Object.keys(local)])) {
+      ops.push(...fieldOps(['companies', id, key], base[key], local[key]));
+    }
+  }
+  for (const id of Object.keys(baseCompanies)) {
+    if (!(id in companies)) ops.push({ op: 'unset', path: ['companies', id] });
+  }
+  return ops;
 }

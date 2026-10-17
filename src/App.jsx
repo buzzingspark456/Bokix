@@ -434,7 +434,7 @@ import UfLockedPage from './components/UfLockedPage';
 import AddCompanyModal from './components/AddCompanyModal';
 import { maybeAutoStartTour, startProductTourWhenReady } from './utils/productTour';
 import { startInvoiceTourWhenReady } from './utils/invoiceTour';
-import { mergeCompanies, mergeCompany, makeRecordPatch } from './utils/stateMerge';
+import { mergeCompanies, mergeCompany, makeRecordPatch, buildStateDelta } from './utils/stateMerge';
 
 // Fallback under den enda <Suspense> som omsluter App-komponentens JSX (se
 // return-satsen längre ner) — visas bara under den korta stund en lazy-flik
@@ -2023,8 +2023,32 @@ function App() {
   // annan skrivit emellan (annan enhet, en inbjuden konsult via
   // set_company_field, påminnelse-cronen) hämtas raden och slås ihop post
   // för post (utils/stateMerge.js) i stället för att skrivas över.
-  const serverSyncRef = useRef({ updatedAt: null, baseCompanies: null });
+  const serverSyncRef = useRef({ updatedAt: null, baseCompanies: null, baseSnapshot: null });
   const syncInFlightRef = useRef(null);
+  // Finns databasfunktionen apply_user_data_delta (supabase-2026-10-17-
+  // delta-sparning.sql)? Saknas den sparas hela kontot som förut.
+  const deltaSupportedRef = useRef(true);
+  // Skickar bara ändringarna sedan förra synken. true = sparat, null = någon
+  // annan har skrivit emellan (slå ihop), false = gick inte (spara allt).
+  const saveDelta = async (ref, snapshot, companies) => {
+    if (!deltaSupportedRef.current || !ref.updatedAt || !ref.baseCompanies) return false;
+    let ops;
+    try { ops = buildStateDelta(ref.baseSnapshot, ref.baseCompanies, snapshot, companies); } catch { return false; }
+    if (!ops) return false;
+    if (ops.length === 0) return true;
+    const { data: newUpdatedAt, error } = await supabase.rpc('apply_user_data_delta', { p_expected_updated_at: ref.updatedAt, p_ops: ops });
+    if (error) {
+      // PGRST202 = funktionen finns inte (SQL:en är inte körd än).
+      if (error.code === 'PGRST202' || /apply_user_data_delta/i.test(error.message || '')) deltaSupportedRef.current = false;
+      else console.warn('Sparning av ändringar misslyckades, sparar allt:', error.message || error);
+      return false;
+    }
+    if (newUpdatedAt === null) return null;
+    // Bara en tidsstämpel betyder sparat. Allt annat: spara hela kontot.
+    if (typeof newUpdatedAt !== 'string') return false;
+    ref.updatedAt = newUpdatedAt;
+    return true;
+  };
   const lastSavedOwnRef = useRef(null);
   const saveOwnCompaniesMerged = async (snapshot, ownCompanies) => {
     // En sparning i taget, annars jämför två samtidiga mot samma bas.
@@ -2044,6 +2068,7 @@ function App() {
       const done = (savedCompanies) => {
         lastSavedOwnRef.current = { companies: ownCompanies, snapshot };
         ref.baseCompanies = savedCompanies;
+        ref.baseSnapshot = snapshot;
         if (savedCompanies === ownCompanies) return;
         // Visa det andra ändrat, utan att tappa det som skrivits här
         // medan sparningen pågick.
@@ -2056,6 +2081,23 @@ function App() {
       };
       if (ref.updatedAt && ref.baseCompanies) {
         for (let attempt = 0; attempt < 3; attempt++) {
+          // Först bara ändringarna (några kB i stället för hela kontot).
+          const delta = await saveDelta(ref, snapshot, companies);
+          if (delta === true) { done(companies); return; }
+          if (delta === null) {
+            const { data: fresh, error: freshError } = await supabase
+              .from('user_data')
+              .select('state, updated_at')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            if (freshError || !fresh) break;
+            const serverCompanies = fresh.state?.companies || {};
+            companies = mergeCompanies(ref.baseCompanies, companies, serverCompanies);
+            ref.baseCompanies = serverCompanies;
+            ref.baseSnapshot = fresh.state || null;
+            ref.updatedAt = fresh.updated_at;
+            continue;
+          }
           const { data: rows, error } = await supabase
             .from('user_data')
             .update({ state: { ...snapshot, companies } })
@@ -2078,6 +2120,7 @@ function App() {
           const serverCompanies = fresh.state?.companies || {};
           companies = mergeCompanies(ref.baseCompanies, companies, serverCompanies);
           ref.baseCompanies = serverCompanies;
+          ref.baseSnapshot = fresh.state || null;
           ref.updatedAt = fresh.updated_at;
         }
       }
@@ -2542,6 +2585,7 @@ function App() {
         serverSyncRef.current = {
           updatedAt: resultData.updated_at || null,
           baseCompanies: resultData.updated_at ? structuredClone(resultData.state.companies || {}) : null,
+          baseSnapshot: resultData.updated_at ? resultData.state : null,
         };
         // normalizeStore: samma engångsmigrering av offerter/fakturor som
         // loadData() kör för localStorage-vägen — måste köras här också,

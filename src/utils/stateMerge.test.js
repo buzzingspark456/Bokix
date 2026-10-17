@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mergeField, mergeCompany, mergeCompanies } from './stateMerge.js';
+import { mergeField, mergeCompany, mergeCompanies, applyRecordPatch, buildStateDelta } from './stateMerge.js';
 
 const v = (id, extra = {}) => ({ id, ...extra });
 
@@ -76,5 +76,91 @@ describe('makeRecordPatch / applyRecordPatch', () => {
   it('ger null för fält som inte är listor med id', async () => {
     const { makeRecordPatch } = await import('./stateMerge.js');
     expect(makeRecordPatch({ a: 1 }, { a: 2 })).toBeNull();
+  });
+});
+
+// Samma regler som apply_user_data_delta i supabase-2026-10-17-delta-sparning.sql.
+function applyDelta(state, ops) {
+  const out = JSON.parse(JSON.stringify(state));
+  const parentOf = (path) => path.slice(0, -1).reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), out);
+  for (const op of ops) {
+    const parent = op.path.length > 1 ? parentOf(op.path) : out;
+    if (!parent || typeof parent !== 'object' || Array.isArray(parent)) throw new Error('missing parent');
+    const key = op.path.at(-1);
+    if (op.op === 'set') parent[key] = JSON.parse(JSON.stringify(op.value));
+    else if (op.op === 'unset') delete parent[key];
+    else if (op.op === 'patch') parent[key] = JSON.parse(JSON.stringify(applyRecordPatch(parent[key], op)));
+  }
+  return out;
+}
+
+describe('buildStateDelta', () => {
+  const v = (id, extra = {}) => ({ id, date: '2026-01-01', ...extra });
+  const makeBase = () => {
+    const company = { company: { name: 'AB' }, verifications: [v('a'), v('b'), v('c')], invoices: [v('i1')], accounts: [{ code: '1930' }] };
+    return { snapshot: { activeCompanyId: 'c1', companies: {} }, companies: { c1: company } };
+  };
+  const check = (base, snapshot, companies) => {
+    const ops = buildStateDelta(base.snapshot, base.companies, snapshot, companies);
+    const server = applyDelta({ ...base.snapshot, companies: base.companies }, ops);
+    expect(server).toEqual(JSON.parse(JSON.stringify({ ...snapshot, companies })));
+    return ops;
+  };
+
+  it('skickar bara den nya och den ändrade posten, inte hela listan', () => {
+    const base = makeBase();
+    const c = base.companies.c1;
+    const next = { ...c, verifications: [...c.verifications.slice(0, 2).map((x, i) => (i === 1 ? { ...x, date: '2026-02-02' } : x)), c.verifications[2], v('d')] };
+    const ops = check(base, base.snapshot, { c1: next });
+    expect(ops).toEqual([{ op: 'patch', path: ['companies', 'c1', 'verifications'], upsert: [next.verifications[1], next.verifications[3]], remove: [], prepend: false }]);
+  });
+
+  it('klarar en ny post först i listan och en borttagen post', () => {
+    const base = makeBase();
+    const c = base.companies.c1;
+    const next = { ...c, verifications: [v('z'), c.verifications[0], c.verifications[2]] };
+    const ops = check(base, base.snapshot, { c1: next });
+    expect(ops[0]).toMatchObject({ op: 'patch', prepend: true, remove: ['b'] });
+  });
+
+  it('skickar hela listan när ordningen ändrats', () => {
+    const base = makeBase();
+    const c = base.companies.c1;
+    const next = { ...c, verifications: [c.verifications[2], c.verifications[0], c.verifications[1]] };
+    const ops = check(base, base.snapshot, { c1: next });
+    expect(ops[0].op).toBe('set');
+  });
+
+  it('byter ut fält som inte är listor, tar bort fält och företag och lägger till nya', () => {
+    const base = makeBase();
+    base.companies.c2 = { company: { name: 'Gammalt' } };
+    const c = base.companies.c1;
+    const { invoices, ...rest } = c;
+    const next = { ...rest, company: { name: 'AB nytt' } };
+    const ops = check(base, { activeCompanyId: 'c3', companies: {} }, { c1: next, c3: { company: { name: 'Nytt' }, verifications: [] } });
+    expect(ops.map(o => o.op).sort()).toEqual(['set', 'set', 'set', 'unset', 'unset']);
+  });
+
+  it('skickar ingenting när inget ändrats', () => {
+    const base = makeBase();
+    expect(buildStateDelta(base.snapshot, base.companies, base.snapshot, base.companies)).toEqual([]);
+  });
+
+  it('ger null utan bas', () => {
+    expect(buildStateDelta(null, null, {}, {})).toBeNull();
+  });
+});
+
+describe('buildStateDelta efter inloggningen', () => {
+  it('skickar bara ändringen fast servern och appen har olika objekt med samma innehåll', () => {
+    const list = Array.from({ length: 50 }, (_, i) => ({ id: `v${i}`, amount: i }));
+    const baseCompanies = { c1: { company: { name: 'AB' }, verifications: list } };
+    const local = JSON.parse(JSON.stringify(baseCompanies));
+    local.c1.verifications = [...local.c1.verifications, { id: 'ny', amount: 1 }];
+    const ops = buildStateDelta(null, baseCompanies, { activeCompanyId: 'c1' }, local);
+    expect(ops).toEqual([
+      { op: 'set', path: ['activeCompanyId'], value: 'c1' },
+      { op: 'patch', path: ['companies', 'c1', 'verifications'], upsert: [{ id: 'ny', amount: 1 }], remove: [], prepend: false },
+    ]);
   });
 });
