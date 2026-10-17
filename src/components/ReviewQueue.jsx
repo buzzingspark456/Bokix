@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ShieldCheck, CreditCard, Landmark, HelpCircle, FileText, Receipt, Info, RotateCcw, Paperclip } from './icons';
+import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ShieldCheck, CreditCard, Landmark, HelpCircle, FileText, Receipt, Info, RotateCcw, Paperclip, Pencil } from './icons';
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -75,7 +75,13 @@ const REVIEW_LIST_CSS = `
   .rq-section { position: sticky; top: 0; z-index: 2; padding: 9px 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.055em; text-transform: uppercase; color: var(--text-muted); background: var(--bg-muted); border-bottom: 1px solid var(--border-light); }
   .rq-row + .rq-section { border-top: 1px solid var(--border-light); }
   .rq-more { display: block; width: 100%; padding: 12px; border: none; border-top: 1px solid var(--border-light); background: var(--bg-card); color: var(--accent-text); font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; }
-  .rq-booking { display: flex; gap: 6px 12px; align-items: center; flex-wrap: wrap; margin-top: 8px; font-size: 13px; color: var(--text-secondary); }
+  .rq-booking { display: flex; gap: 8px 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: var(--text-secondary); }
+  /* Ändra konto och Lägg till underlag: små knappar med ram, lätta att träffa. */
+  .rq-chip-btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); font-size: 12.5px; font-weight: 600; font-family: inherit; cursor: pointer; white-space: nowrap; }
+  .rq-chip-btn:hover { border-color: var(--accent); color: var(--accent-text); }
+  .rq-chip-btn svg { color: var(--accent-text); }
+  .rq-booking-account { font-weight: 600; color: var(--text-main); }
+  @media (max-width: 640px) { .rq-chip-btn { height: 36px; } }
   .rq-link { border: 0; background: none; padding: 0; color: var(--accent-text); font-weight: 700; cursor: pointer; font-size: inherit; font-family: inherit; display: inline-flex; align-items: center; gap: 4px; }
   .rq-file { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; background: var(--bg-muted); color: var(--text-main); font-size: 12px; font-weight: 600; max-width: 240px; }
   .rq-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -268,7 +274,7 @@ function AttachmentPicker({ file, onChange }) {
   return (
     <>
       <input ref={inputRef} type="file" accept="image/*,application/pdf" style={{ display: 'none' }} onChange={e => { onChange(e.target.files?.[0] || null); e.target.value = ''; }} />
-      <button type="button" className="rq-link" onClick={() => inputRef.current?.click()}><Paperclip size={13} /> {t('ui.rq_lagg_till_underlag')}</button>
+      <button type="button" className="rq-chip-btn" onClick={() => inputRef.current?.click()}><Paperclip size={14} /> {t('ui.rq_lagg_till_underlag')}</button>
     </>
   );
 }
@@ -543,10 +549,10 @@ function StripeLedgerCard({ item, accounts, onBook, onMarkHandled, exiting, onOp
           <AccountSearch value={mainAccount} onChange={v => { setMainAccount(v); if (v) setEditingAccount(false); }} accounts={accounts} placeholder={t('ui.sok_konto_2')} />
         </div>
       ) : (
-        <span>
-          {t(accountKind === 'bank' ? 'ui.rq_bankkonto' : 'ui.rq_kostnadskonto')}: {mainAccount} {accountName(mainAccount)}
-          {' '}<button type="button" className="rq-link" onClick={() => setEditingAccount(true)}>{t('ui.rq_andra')}</button>
-        </span>
+        <>
+          <span>{t(accountKind === 'bank' ? 'ui.rq_bankkonto' : 'ui.rq_kostnadskonto')}: <span className="rq-booking-account">{mainAccount} {accountName(mainAccount)}</span></span>
+          <button type="button" className="rq-chip-btn" onClick={() => setEditingAccount(true)}><Pencil size={14} /> {t('ui.rq_andra_konto')}</button>
+        </>
       ))}
       <AttachmentPicker file={file} onChange={setFile} />
     </div>
@@ -712,7 +718,7 @@ function ZettleLedgerCard({ item, accounts, onBookSale, onMarkHandled, exiting }
       extra={category === 'sale' && !editing && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
           <span>{t('ui.rq_zettle_moms_enligt', { rate: vatRate })} · {saleAccount} {accounts.find(a => a.code === saleAccount)?.name || ''}</span>
-          <button type="button" className="rq-link" onClick={() => setEditing(true)}>{t('ui.rq_andra')}</button>
+          <button type="button" className="rq-chip-btn" onClick={() => setEditing(true)}><Pencil size={14} /> {t('ui.rq_andra_konto')}</button>
           <AttachmentPicker file={file} onChange={setFile} />
         </div>
       ) || category === 'sale' && (

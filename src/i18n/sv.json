@@ -3728,7 +3728,8 @@
     "rq_lagg_till_underlag": "Lägg till underlag",
     "rq_ta_bort_underlag": "Ta bort underlaget",
     "rq_visa_fler": "Visa {{n}} till",
-    "rq_underlag_fel": "Kunde inte ladda upp underlaget: {{v0}}"
+    "rq_underlag_fel": "Kunde inte ladda upp underlaget: {{v0}}",
+    "rq_andra_konto": "Ändra konto"
   },
   "glossary": {
     "g01": {

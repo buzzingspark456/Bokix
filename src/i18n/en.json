@@ -3728,7 +3728,8 @@
     "rq_lagg_till_underlag": "Add attachment",
     "rq_ta_bort_underlag": "Remove the attachment",
     "rq_visa_fler": "Show {{n}} more",
-    "rq_underlag_fel": "Could not upload the attachment: {{v0}}"
+    "rq_underlag_fel": "Could not upload the attachment: {{v0}}",
+    "rq_andra_konto": "Change account"
   },
   "glossary": {
     "g01": {
