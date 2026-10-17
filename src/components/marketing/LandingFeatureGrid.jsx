@@ -119,9 +119,9 @@ const Row = ({ title, sub, amount, pill, wait }) => (
 );
 
 /** `items` från content/marketing/landing.js (features.items), i ordning:
- * bokföring, fakturor, moms, lön, offerter, projekt, kunder, rapporter. */
+ * bokföring, fakturor, moms, lön, offerter, projekt, lager, rapporter. */
 export default function LandingFeatureGrid({ items }) {
-  const [bok, fak, moms, lon, off, proj, kund, rap] = items;
+  const [bok, fak, moms, lon, off, proj, lager, rap] = items;
   return (
     <>
       <style>{CSS}</style>
@@ -188,8 +188,11 @@ export default function LandingFeatureGrid({ items }) {
             <div className="fg-bar"><span style={{ width: '68%' }} /></div>
           </div>
         </Tile>
-        <Tile size="w3" title={kund.title} desc={kund.desc} delay={120}>
-          <div className="fg-mini"><span style={{ fontFamily: 'ui-monospace, monospace' }}>556677-8899</span><span style={{ fontWeight: 700 }}>Nordvik Bygg AB</span></div>
+        <Tile size="w3" title={lager.title} desc={lager.desc} delay={120}>
+          <div className="fg-mini" style={{ display: 'block' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Kaffebönor 1 kg</span><span className="fg-num" style={{ fontSize: '12.5px' }}>18 st</span></div>
+            <div className="fg-bar"><span style={{ width: '36%' }} /></div>
+          </div>
         </Tile>
         <Tile size="w3" title={rap.title} desc={rap.desc} delay={180}>
           <div className="fg-mini" style={{ display: 'block' }}>
