@@ -8,13 +8,18 @@ const HOST = 'https://x.supabase.co/storage/v1/object/public'
 function makeAdmin({ rows = [], files = {} } = {}) {
   const buckets = { [ARCHIVE_BUCKET]: new Map(), 'bokix-uploads': new Map(Object.entries(files)) }
   let created = false
+  const reads = []
   const blob = (buf) => ({ type: 'application/octet-stream', arrayBuffer: async () => buf })
   return {
     buckets,
+    reads,
     get created() { return created },
     from(table) {
       if (table !== 'user_data') throw new Error(table)
-      const q = { select: () => q, order: () => q, range: (a, b) => Promise.resolve({ data: rows.slice(a, b + 1), error: null }) }
+      const q = {
+        select: () => q, order: () => q, range: (a, b) => Promise.resolve({ data: rows.slice(a, b + 1), error: null }),
+        eq: (col, val) => ({ maybeSingle: async () => { reads.push(val); return { data: rows.find(r => r[col] === val) || null, error: null } } }),
+      }
       return q
     },
     storage: {
@@ -141,6 +146,22 @@ describe('snapshotAllUsers', () => {
     const keys = [...admin.buckets[ARCHIVE_BUCKET].keys()]
     expect(keys).toEqual(expect.arrayContaining(['u1/_kopior/dag-2026-09-24.json.gz', 'u1/_kopior/man-2026-09.json.gz', 'u1/_kopior/index.json']))
     expect(keys.some(k => k.startsWith('u2/'))).toBe(false)
+  })
+
+  it('hämtar inte bokföringen för konton som inte ändrats sedan förra kopian', async () => {
+    const rows = [{ user_id: 'u1', updated_at: '2026-09-23T10:00:00Z', state: withBooks }]
+    const admin = makeAdmin({ rows })
+    await snapshotAllUsers(admin, { now: new Date('2026-09-24T06:00:00Z') })
+    expect(admin.reads).toEqual(['u1'])
+    const again = await snapshotAllUsers(admin, { now: new Date('2026-09-25T06:00:00Z') })
+    expect(admin.reads).toEqual(['u1'])
+    expect(again).toMatchObject({ users: 0, written: 0, unchanged: 1 })
+    rows[0] = { ...rows[0], updated_at: '2026-09-25T09:00:00Z' }
+    await snapshotAllUsers(admin, { now: new Date('2026-09-26T06:00:00Z') })
+    expect(admin.reads).toEqual(['u1', 'u1'])
+    // Nytt år: läses igen, så att arkivtiden följer med.
+    await snapshotAllUsers(admin, { now: new Date('2027-01-02T06:00:00Z') })
+    expect(admin.reads).toEqual(['u1', 'u1', 'u1'])
   })
 
   it('skriver inget nytt när inget ändrats', async () => {

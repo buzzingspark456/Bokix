@@ -277,21 +277,36 @@ export default async function handler(req, res) {
     if (inboxError) summary.errors.push(`inbox_items läsning: ${inboxError.message}`);
     const inboxGroups = groupInboxItems(inboxRows || []);
 
+    // Smal läsning (supabase-2026-10-17-smalare-nattjobb.sql): bara de
+    // delar av varje företag som jobbet läser, inte hela kontot. Saknas
+    // funktionen läses hela konton som förut.
+    let slimPages = true;
+    let after = cursor;
     pageLoop:
     for (let from = 0; ; from += PAGE_SIZE) {
       if (Date.now() - startTime > TIME_BUDGET_MS) { completedFullPass = false; break; }
 
-      let pageQuery = admin
-        .from('user_data')
-        .select('user_id, state')
-        .not('state', 'is', null)
-        .order('user_id', { ascending: true })
-        .range(from, from + PAGE_SIZE - 1);
-      if (cursor) pageQuery = pageQuery.gt('user_id', cursor);
-
-      const { data: page, error: pageError } = await pageQuery;
-      if (pageError) throw pageError;
+      let page = null;
+      if (slimPages) {
+        const { data, error } = await admin.rpc('cron_reminder_page', { p_after: after, p_limit: PAGE_SIZE });
+        if (error && (error.code === 'PGRST202' || /cron_reminder_page/.test(error.message || ''))) slimPages = false;
+        else if (error) throw error;
+        else page = data;
+      }
+      if (!slimPages) {
+        let pageQuery = admin
+          .from('user_data')
+          .select('user_id, state')
+          .not('state', 'is', null)
+          .order('user_id', { ascending: true })
+          .limit(PAGE_SIZE);
+        if (after) pageQuery = pageQuery.gt('user_id', after);
+        const { data, error: pageError } = await pageQuery;
+        if (pageError) throw pageError;
+        page = data;
+      }
       if (!page || page.length === 0) break;
+      after = page[page.length - 1].user_id;
 
       for (const row of page) {
         if (Date.now() - startTime > TIME_BUDGET_MS) { completedFullPass = false; break pageLoop; }
@@ -522,7 +537,11 @@ export default async function handler(req, res) {
           const zettleRefreshToken = companyData.company?.zettleRefreshToken;
           const zettleClientId = process.env.ZETTLE_CLIENT_ID;
           const zettleClientSecret = process.env.ZETTLE_CLIENT_SECRET;
-          if (zettleRefreshToken && zettleClientId && zettleClientSecret) {
+          // Provläget (dryRun) hoppar över Zettle helt: varje förnyelse gör den
+          // gamla refresh-token ogiltig, och provläget sparar inte den nya, så
+          // en provkörning hade kopplat bort kundens Zettle.
+          if (dryRun && zettleRefreshToken) summary.wouldSend.push({ type: 'zettle_skipped_in_dry_run', companyId });
+          if (!dryRun && zettleRefreshToken && zettleClientId && zettleClientSecret) {
             try {
               // Zettles access-token lever bara 2 timmar (se _client.js) —
               // cronen kör en gång om dagen, så en sparad access-token är

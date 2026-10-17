@@ -241,23 +241,46 @@ export async function snapshotAllUsers(admin, { now = new Date(), dryRun = false
   const month = today.slice(0, 7);
   const summary = { users: 0, written: 0, monthly: 0, pruned: 0, bytes: 0, errors: [] };
 
-  // 50 åt gången (varje rad är ett helt företags bokföring). Vid
-  // tidsgränsen returneras resumeFrom, så nästa natt fortsätter därifrån.
-  const PAGE = 50;
+  // Listan läses utan själva bokföringen (bara user_id och updated_at).
+  // Hela kontot hämtas bara för konton som ändrats sedan förra kopian, och
+  // en gång per år (arkivtiden räknas från innevarande år). Övriga nätter
+  // gallras bara gamla dagskopior. Vid tidsgränsen returneras resumeFrom.
+  const PAGE = 200;
+  const year = now.getUTCFullYear();
   let last = startAfter;
   for (let from = 0; ; from += PAGE) {
-    let q = admin.from('user_data').select('user_id, state').order('user_id');
+    let q = admin.from('user_data').select('user_id, updated_at').order('user_id');
     if (startAfter) q = q.gt('user_id', startAfter);
     const { data: rows, error } = await q.range(from, from + PAGE - 1);
     if (error) throw error;
-    for (const row of rows || []) {
+    for (const listed of rows || []) {
       if (Date.now() > deadline) return { ...summary, resumeFrom: last };
-      last = row.user_id;
-      if (!hasBookkeeping(row.state)) continue;
-      summary.users += 1;
+      last = listed.user_id;
+      const dir = `${listed.user_id}/_kopior`;
       try {
-        const dir = `${row.user_id}/_kopior`;
         const index = (await readJson(admin, `${dir}/index.json`)) || { hash: null, daily: [], monthly: [] };
+        if (listed.updated_at && index.updatedAt === listed.updated_at && index.keepYear === year) {
+          // Oförändrat sedan förra kopian: bara gallring.
+          const toRemove = [];
+          const cutoff = new Date(now.getTime() - DAILY_KEEP_DAYS * DAY_MS).toISOString().slice(0, 10);
+          const today0 = now.toISOString().slice(0, 10);
+          index.daily = (index.daily || []).filter(d => (dailyDate(d) < cutoff ? (toRemove.push(`${dir}/${dailyFile(d)}`), false) : true));
+          index.monthly = (index.monthly || []).filter(m => (m.keepUntil < today0 ? (toRemove.push(`${dir}/${monthlyFile(m)}`), false) : true));
+          if (toRemove.length && !dryRun) {
+            await admin.storage.from(ARCHIVE_BUCKET).remove(toRemove);
+            await uploadIndex(admin, `${dir}/index.json`, index);
+          }
+          summary.pruned += toRemove.length;
+          summary.unchanged = (summary.unchanged || 0) + 1;
+          continue;
+        }
+        const { data: full, error: fullError } = await admin.from('user_data').select('state').eq('user_id', listed.user_id).maybeSingle();
+        if (fullError) throw fullError;
+        const row = { user_id: listed.user_id, state: full?.state };
+        if (!hasBookkeeping(row.state)) continue;
+        summary.users += 1;
+        index.updatedAt = listed.updated_at || null;
+        index.keepYear = year;
         const hash = sha(row.state);
         const keepUntil = archiveKeepUntil(row.state, now);
         const toRemove = [];
@@ -298,7 +321,7 @@ export async function snapshotAllUsers(admin, { now = new Date(), dryRun = false
         }
         summary.pruned += toRemove.length;
       } catch (err) {
-        summary.errors.push(`${row.user_id}: ${err.message}`);
+        summary.errors.push(`${listed.user_id}: ${err.message}`);
       }
     }
     if (!rows || rows.length < PAGE) break;
