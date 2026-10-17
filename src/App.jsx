@@ -5504,6 +5504,7 @@ function App() {
             setTimeReportStatuses={setTimeReportStatuses}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
+            onAction={handleGlobalAction}
           />
         );
       case 'contacts':

@@ -312,7 +312,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
 
       {tab === 'inventory' && setCompanyInfo && (
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          <Inventory articles={articles} invoices={invoices} company={company} verifications={verifications} onAddVerification={onAddVerification} setCompanyInfo={setCompanyInfo} />
+          <Inventory articles={articles} invoices={invoices} company={company} verifications={verifications} onAddVerification={onAddVerification} setCompanyInfo={setCompanyInfo} onAddArticle={() => { setTab('articles'); setEditing({ ...emptyArticle(), type: 'vara' }); setEditingOriginal(null); setMoreOpen(true); }} />
         </div>
       )}
       {tab === 'pricing' && setCompanyInfo && (

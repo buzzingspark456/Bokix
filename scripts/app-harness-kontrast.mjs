@@ -14,7 +14,7 @@ const user = { id: UID, email: 'test@example.se', aud: 'authenticated', role: 'a
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 const jwt = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: UID, role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 36000 })}.c2lnbmF0dXJl`;
 const session = { access_token: jwt, token_type: 'bearer', expires_in: 36000, expires_at: Math.floor(Date.now() / 1000) + 36000, refresh_token: 'r', user };
-const PAGES = ['dashboard', 'contacts', 'quotes', 'invoices', 'expenses', 'supplier_invoices', 'bank', 'verifications', 'review', 'reports', 'taxes', 'payroll', 'settings'];
+const PAGES = ['dashboard', 'contacts', 'quotes', 'invoices', 'expenses', 'supplier_invoices', 'bank', 'verifications', 'review', 'reports', 'taxes', 'payroll', 'settings', 'projects', 'articles'];
 const LIMIT = 3;
 
 const browser = await chromium.launch();

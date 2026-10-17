@@ -41,16 +41,16 @@ export function valuateArticle(article, movements, method = 'avg', asOf = null) 
     .slice()
     .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.id).localeCompare(String(b.id)));
 
-  let layers = []; // FIFO-lager: [{ qty, cost }]
+  let layers = []; // FIFO-lager (partier): [{ qty, cost, date }]
   let qty = 0;
   let avgCost = num(article.purchasePrice);
   let shortfall = 0;
   let lastCost = num(article.purchasePrice);
 
-  const receive = (q, cost) => {
+  const receive = (q, cost, date) => {
     if (q <= 0) return;
     if (method === 'avg') avgCost = qty + q > 0 ? (qty * avgCost + q * cost) / (qty + q) : cost;
-    layers.push({ qty: q, cost });
+    layers.push({ qty: q, cost, date });
     qty += q;
     lastCost = cost;
   };
@@ -71,14 +71,14 @@ export function valuateArticle(article, movements, method = 'avg', asOf = null) 
 
   list.forEach(m => {
     const q = num(m.qty);
-    if (m.type === 'in') receive(q, m.unitCost != null && m.unitCost !== '' ? num(m.unitCost) : lastCost);
+    if (m.type === 'in') receive(q, m.unitCost != null && m.unitCost !== '' ? num(m.unitCost) : lastCost, m.date);
     else if (m.type === 'out') issue(q);
     else if (m.type === 'count') {
       // Inventering: differensen mot bokfört saldo blir svinn (utgående) eller
       // överskott (inleverans till senast kända kostnad).
       const delta = q - qty;
       if (delta < 0) issue(-delta);
-      else if (delta > 0) receive(delta, method === 'avg' ? avgCost : lastCost);
+      else if (delta > 0) receive(delta, method === 'avg' ? avgCost : lastCost, m.date);
     }
   });
 
@@ -91,6 +91,8 @@ export function valuateArticle(article, movements, method = 'avg', asOf = null) 
     costValue: value,
     unitCost: qty > 0 ? round2(value / qty) : (method === 'avg' ? round2(avgCost) : round2(lastCost)),
     shortfall: round2(shortfall),
+    // Kvarvarande partier, äldst först (det som säljs först med FIFO).
+    layers: layers.filter(l => l.qty > 1e-9).map(l => ({ qty: round2(l.qty), cost: round2(l.cost), date: l.date })),
   };
 }
 
@@ -125,6 +127,7 @@ export function valuateInventory({ articles, movements, method = 'avg', asOf = n
         bookValue,
         writeDown: round2(v.costValue - bookValue),
         shortfall: v.shortfall,
+        layers: v.layers,
       };
     })
     .sort((a, b) => a.description.localeCompare(b.description, 'sv'));

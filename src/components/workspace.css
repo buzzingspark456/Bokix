@@ -1,0 +1,167 @@
+/* ── Arbetsytor: Projekt, Tidrapportering, Lager och Prissättning (2026-10-17) ──
+   Gemensam, lugn stil för de fyra sidorna: en siffrerad överst utan ikoner,
+   innehållet i kort med en rubrikrad, och samma knappar/piller som resten av
+   appen (.agi-btn, .agi-pill). Allt färgas via temats variabler, så ljust och
+   mörkt läge följer med utan egna regler. */
+
+.ws-page { flex: 1; min-height: 0; overflow-y: auto; padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 18px; box-sizing: border-box; }
+.ws-page > * { flex-shrink: 0; }
+
+/* Siffrerad: etikett, stort tal, liten rad under. */
+.ws-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-xs); }
+.ws-stat { padding: 16px 20px; min-width: 0; border-left: 1px solid var(--border-light); }
+.ws-stat:first-child { border-left: none; }
+.ws-stat-label { font-size: 12.5px; font-weight: 550; color: var(--text-secondary); }
+.ws-stat-value { margin-top: 4px; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-main); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-stat-value.neg { color: var(--status-red-text); }
+.ws-stat-sub { margin-top: 2px; font-size: 12px; color: var(--text-secondary); }
+.ws-stat .ws-bar { margin-top: 8px; }
+
+/* Kort med rubrikrad. */
+.ws-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 12px; box-shadow: var(--shadow-xs); min-width: 0; }
+.ws-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 16px 20px; border-bottom: 1px solid var(--border-light); }
+.ws-card-head.plain { border-bottom: none; padding-bottom: 4px; }
+.ws-card-title { margin: 0; font-size: 15px; font-weight: 700; color: var(--text-main); letter-spacing: -0.01em; }
+.ws-card-sub { margin: 2px 0 0; font-size: 12.5px; color: var(--text-secondary); }
+.ws-card-body { padding: 18px 20px; }
+.ws-card-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ws-card > .list-table-wrap, .ws-card .ws-flush { border-radius: 0 0 12px 12px; overflow: hidden; }
+
+/* Två kolumner som blir en på smal skärm. */
+.ws-cols { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.ws-stack { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+
+/* Segmentväljare. */
+.ws-seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 9px; background: var(--bg-muted); border: 1px solid var(--border-light); flex-shrink: 0; }
+.ws-seg button { border: none; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary); padding: 6px 12px; border-radius: 7px; cursor: pointer; white-space: nowrap; transition: background 0.15s ease, color 0.15s ease; }
+.ws-seg button:hover { color: var(--text-main); }
+.ws-seg button.on { background: var(--bg-card); color: var(--text-main); box-shadow: var(--shadow-xs); }
+
+/* Förloppsstapel. */
+.ws-bar { height: 6px; border-radius: 999px; background: var(--border-light); overflow: hidden; }
+.ws-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--status-green-text); }
+.ws-bar.warn > span { background: var(--status-amber-text); }
+.ws-bar.over > span { background: var(--status-red-text); }
+
+/* Fält. */
+.ws-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 6px; }
+.ws-hint { font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin: 0; }
+.ws-input { width: 100%; height: 38px; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; font: inherit; font-size: 14px; color: var(--text-main); background: var(--bg-card); outline: none; box-sizing: border-box; }
+.ws-input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+.ws-input[type=number]::-webkit-inner-spin-button, .ws-input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+textarea.ws-input { height: auto; padding: 9px 12px; resize: vertical; min-height: 70px; line-height: 1.5; }
+.ws-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+.ws-input-suffix { position: relative; }
+.ws-input-suffix .ws-input { padding-right: 44px; }
+.ws-input-suffix > span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12.5px; color: var(--text-muted); font-weight: 600; pointer-events: none; }
+.ws-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ws-grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.ws-form { display: flex; flex-direction: column; gap: 16px; }
+.ws-check { display: flex; align-items: flex-start; gap: 10px; font-size: 13.5px; color: var(--text-main); cursor: pointer; line-height: 1.45; }
+.ws-check input { margin-top: 3px; accent-color: var(--accent); }
+.ws-check small { display: block; color: var(--text-secondary); font-size: 12.5px; }
+
+/* Val som kort (t.ex. FIFO eller vägt genomsnitt). */
+.ws-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ws-choice button { text-align: left; font: inherit; padding: 12px 14px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--bg-card); color: var(--text-main); cursor: pointer; }
+.ws-choice button strong { display: block; font-size: 13.5px; }
+.ws-choice button span { display: block; margin-top: 3px; font-size: 12.5px; color: var(--text-secondary); line-height: 1.4; }
+.ws-choice button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--bg-card)); }
+
+/* Notis i en rad. */
+.ws-notice { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 14px 18px; border-radius: 12px; border: 1px solid var(--border-light); background: var(--bg-card); font-size: 13.5px; color: var(--text-main); }
+.ws-notice.warn { border-color: color-mix(in srgb, var(--status-amber-text) 40%, var(--border-light)); background: color-mix(in srgb, var(--status-amber-bg) 55%, var(--bg-card)); }
+.ws-notice.ok { color: var(--text-secondary); }
+.ws-notice strong { font-weight: 700; }
+.ws-notice p { margin: 2px 0 0; font-size: 12.5px; color: var(--text-secondary); }
+
+/* Enkel lista med rader (händelser, fakturor, kostnader). */
+.ws-rows { list-style: none; margin: 0; padding: 0; }
+.ws-rows li { display: flex; align-items: center; gap: 12px; padding: 11px 20px; border-top: 1px solid var(--border-light); font-size: 13.5px; color: var(--text-main); min-width: 0; }
+.ws-rows li:first-child { border-top: none; }
+.ws-rows .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-rows .muted { color: var(--text-secondary); font-size: 12.5px; }
+.ws-rows .num { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.ws-rows .date { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; width: 84px; flex-shrink: 0; font-size: 12.5px; }
+.ws-rows-empty { padding: 22px 20px; font-size: 13px; color: var(--text-secondary); }
+.ws-icon-btn { border: none; background: none; padding: 5px; border-radius: 6px; color: var(--text-muted); cursor: pointer; display: inline-flex; }
+.ws-icon-btn:hover { background: var(--bg-muted); color: var(--status-red-text); }
+
+/* Tomt läge. */
+.ws-empty { text-align: center; padding: 56px 24px; }
+.ws-empty h3 { margin: 0 0 6px; font-size: 16px; font-weight: 700; color: var(--text-main); }
+.ws-empty p { margin: 0 auto 18px; max-width: 380px; font-size: 13.5px; line-height: 1.55; color: var(--text-secondary); }
+
+/* Liten färgprick (projekt). */
+.ws-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+.ws-name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ws-name-text { min-width: 0; }
+.ws-name-text strong { display: block; font-size: 14px; font-weight: 600; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-name-text small { display: block; font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Projektets egen sida. */
+.pj-back { align-self: flex-start; border: none; background: none; padding: 0; font: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.pj-back:hover { color: var(--text-main); }
+.pj-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.pj-title { margin: 0; font-size: 24px; font-weight: 750; letter-spacing: -0.02em; color: var(--text-main); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pj-title .ws-dot { width: 14px; height: 14px; }
+.pj-meta { margin: 6px 0 0; font-size: 13.5px; color: var(--text-secondary); }
+.pj-facts { display: grid; grid-template-columns: auto 1fr; gap: 8px 18px; font-size: 13.5px; margin: 0; }
+.pj-facts dt { color: var(--text-secondary); }
+.pj-facts dd { margin: 0; color: var(--text-main); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.pj-log { display: grid; grid-template-columns: 140px 100px 1fr auto; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--border-light); background: var(--bg-muted); align-items: center; }
+.pj-colors { display: flex; gap: 8px; flex-wrap: wrap; }
+.pj-colors button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; padding: 0; cursor: pointer; }
+.pj-colors button.on { box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--text-main); }
+
+/* Veckorutnätet i Tidrapportering. */
+.tt-wrap { overflow-x: auto; }
+.tt-grid { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 760px; }
+.tt-grid th, .tt-grid td { border-bottom: 1px solid var(--border-light); }
+.tt-grid thead th { padding: 12px 6px; font-size: 12px; font-weight: 600; color: var(--text-secondary); text-align: center; white-space: nowrap; }
+.tt-grid thead th.tt-proj { text-align: left; padding-left: 20px; }
+.tt-grid thead th.tt-sum { text-align: right; padding-right: 20px; }
+.tt-day-name { display: block; text-transform: capitalize; }
+.tt-day-num { display: block; margin-top: 2px; font-size: 15px; font-weight: 700; color: var(--text-main); }
+.tt-grid th.today .tt-day-num { color: #fff; background: var(--accent); border-radius: 999px; width: 26px; height: 26px; line-height: 26px; margin: 2px auto 0; }
+.tt-grid .weekend { background: color-mix(in srgb, var(--bg-muted) 60%, transparent); }
+.tt-grid td { padding: 8px 6px; text-align: center; }
+.tt-grid td.tt-proj { text-align: left; padding: 10px 20px; min-width: 200px; }
+.tt-grid td.tt-sum { text-align: right; padding-right: 20px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tt-grid input.tt-cell { width: 64px; height: 38px; text-align: center; border: 1px solid transparent; border-radius: 8px; background: transparent; font: inherit; font-size: 15px; font-weight: 600; color: var(--text-main); font-variant-numeric: tabular-nums; outline: none; box-sizing: border-box; transition: border-color 0.12s ease, background 0.12s ease; }
+.tt-grid input.tt-cell::placeholder { color: var(--text-muted); font-weight: 400; }
+.tt-grid input.tt-cell:hover { border-color: var(--border); background: var(--bg-card); }
+.tt-grid input.tt-cell:focus { border-color: var(--accent); background: var(--bg-card); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+.tt-grid input.tt-cell.has { background: color-mix(in srgb, var(--status-green-text) 10%, transparent); }
+.tt-grid tfoot td { border-bottom: none; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; padding: 12px 6px; }
+.tt-grid tfoot td.tt-proj { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.tt-add { display: flex; align-items: center; gap: 10px; padding: 14px 20px; }
+.tt-days { display: none; }
+
+@media (max-width: 900px) {
+  .ws-cols { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .ws-page { padding: 16px 12px 32px; gap: 14px; }
+  .ws-stats { grid-template-columns: 1fr 1fr; }
+  .ws-stat { padding: 12px 14px; }
+  .ws-stat:nth-child(odd) { border-left: none; }
+  .ws-stat:nth-child(n+3) { border-top: 1px solid var(--border-light); }
+  .ws-stat-value { font-size: 18px; }
+  .ws-card-head { padding: 14px 16px; }
+  .ws-card-body { padding: 16px; }
+  .ws-rows li { padding: 11px 16px; }
+  .ws-grid2, .ws-grid3, .ws-choice { grid-template-columns: 1fr; }
+  .pj-title { font-size: 20px; }
+  .pj-log { grid-template-columns: 1fr 1fr; }
+  .pj-log > :nth-child(3), .pj-log > :nth-child(4) { grid-column: 1 / -1; }
+  .tt-grid { min-width: 0; }
+  .tt-days { display: flex; gap: 6px; padding: 12px 16px; overflow-x: auto; border-bottom: 1px solid var(--border-light); }
+  .tt-days button { flex: 1 0 auto; min-width: 42px; padding: 6px 4px; border-radius: 10px; border: 1px solid var(--border-light); background: var(--bg-card); color: var(--text-main); font: inherit; cursor: pointer; line-height: 1.25; text-align: center; }
+  .tt-days button small { display: block; font-size: 10.5px; color: var(--text-secondary); text-transform: capitalize; }
+  .tt-days button b { display: block; font-size: 15px; }
+  .tt-days button em { display: block; font-style: normal; font-size: 10.5px; color: var(--text-secondary); }
+  .tt-days button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tt-days button.on small, .tt-days button.on em { color: rgba(255, 255, 255, 0.85); }
+  .tt-grid td.tt-proj { min-width: 0; padding: 10px 16px; }
+}

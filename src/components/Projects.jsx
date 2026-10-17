@@ -1,19 +1,17 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Briefcase, Plus, Search, ChevronDown, ChevronLeft, ChevronRight,
-  Clock, TrendingUp, TrendingDown, FileText, X,
-  Zap, AlertTriangle,
-  User, Users, Send, ClipboardCheck, CheckCircle2, Undo2, ListChecks,
+  Plus, Search, ChevronLeft, ChevronRight, X, Send, ClipboardCheck, CheckCircle2, Undo2, Trash2, Pencil,
 } from './icons';
 import { ProjectSearch, EntitySearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
+import { confirmDialog } from './shared/ConfirmDialog';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import { BRAND } from '../utils/brandColors';
 import { invoiceNetSek } from '../utils/contactTotals';
 import { t as tr, dateLocale } from '../i18n';
-import { layoutRect, layoutViewport } from '../utils/dropdownPlacement';
 import { numberFormat } from '../utils/intlCache';
+import './workspace.css';
 
 const formatSEK = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 
@@ -31,8 +29,19 @@ function getDatesOfWeek(startDate) {
   });
 }
 function getISODate(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }
-function sumHours(entries) { return entries.reduce((s, t) => s + t.hours, 0); }
+function sumHours(entries) { return entries.reduce((s, t) => s + (Number(t.hours) || 0), 0); }
 function formatHours(h) { return (Math.round(h * 4) / 4).toString().replace('.', ','); }
+function parseHours(text) {
+  const v = Number(String(text).trim().replace(',', '.'));
+  return Number.isFinite(v) && v > 0 ? Math.round(v * 100) / 100 : 0;
+}
+function isoWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+}
 
 function formatWeekRange(weekDates) {
   const start = weekDates[0], end = weekDates[6];
@@ -42,47 +51,44 @@ function formatWeekRange(weekDates) {
   }
   return `${start.getDate()} ${monthName(start)} – ${end.getDate()} ${monthName(end)} ${end.getFullYear()}`;
 }
+function formatDay(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' });
+}
 
-const cardBase = { background: 'var(--bg-card)', border: '0.5px solid var(--border)', borderRadius: '12px' };
-
-// Färgval per projekt (avatar-cirkeln i listan) — en ren
-// projekt-särskiljande egenskap, inte en temafärg. Bokix grönt är
-// förvalet (första svatchen), resten är alternativ.
+// Färgval per projekt (pricken framför namnet). Bokix grönt är förvalet.
 const PROJECT_COLORS = [BRAND.green, '#1e293b', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
-// Projektnummer (P-001, P-002, ...) — tilldelas vid FAKTISKT sparande, inte
-// vid formuläröppning, samma princip som offert-/fakturanummer redan följer
-// (Quotes.jsx/Invoices.jsx).
+// Projektnummer (P-001, P-002, ...) — tilldelas vid sparande, samma princip
+// som offert- och fakturanummer.
 const getNextProjectNumber = (list) => {
   const nums = list.map(p => Number(String(p.projectNumber || '').replace('P-', ''))).filter(n => !isNaN(n));
   return `P-${String((nums.length > 0 ? Math.max(...nums) : 0) + 1).padStart(3, '0')}`;
 };
 
 // ══════════════════════════════════════════════════════════════════════
-// Tidrapporter — godkännande-flöde per person och månad. Bokix har ingen
-// användarroll-modell (vem FÅR attestera/godkänna) och inte heller något
-// separat "anställd loggar in själv"-koncept — samma person som loggar tid
-// kan här också driva flödet framåt. Personer = "Jag" (kontoinnehavaren,
-// alltid tillgänglig) plus registrerade Anställda (Anställda och lön).
+// Tidrapporter — godkännande per person och månad. Personer = "Jag"
+// (kontoinnehavaren) plus registrerade anställda.
 // ══════════════════════════════════════════════════════════════════════
 const SELF_PERSON_ID = '__self__';
 
 function getPersonList(employees) {
   return [
-    { id: SELF_PERSON_ID, name: 'Jag' },
+    { id: SELF_PERSON_ID, name: tr('proj.me') },
     ...employees.map(e => ({ id: e.id, name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || tr('ui.namnlos') })),
   ];
 }
 
 const TIME_REPORT_STAGES = ['pending', 'submitted', 'attested', 'approved'];
 const TIME_REPORT_STATUS = {
-  pending: { label: tr('ui.pagaende'), bg: 'var(--gray-200)', color: 'var(--text-main)' },
-  submitted: { label: tr('ui.inskickad'), bg: 'var(--status-amber-bg)', color: 'var(--status-amber-text)' },
-  attested: { label: tr('ui.attesterad'), bg: BRAND.blueBg, color: BRAND.blueText },
-  approved: { label: tr('ui.godkand'), bg: BRAND.greenLight, color: BRAND.greenDark },
+  pending: { label: tr('ui.pagaende'), cls: 'mute' },
+  submitted: { label: tr('ui.inskickad'), cls: 'warn' },
+  attested: { label: tr('ui.attesterad'), cls: 'warn' },
+  approved: { label: tr('ui.godkand'), cls: 'ok' },
 };
 
-function getMonthKey(dateStr) { return (dateStr || '').slice(0, 7); } // 'YYYY-MM'
+function getMonthKey(dateStr) { return (dateStr || '').slice(0, 7); }
 function formatMonthLabel(monthKey) {
   const [y, m] = (monthKey || '').split('-').map(Number);
   if (!y || !m) return monthKey || '—';
@@ -94,653 +100,257 @@ function shiftMonthKey(monthKey, delta) {
   const d = new Date(y, m - 1 + delta, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
-// Frånvaro av en post = "Pågående" (se kommentar i App.jsx: createEmptyCompanyData)
-// — statusraden skapas först när någon faktiskt flyttar rapporten framåt.
 function getReportStatus(timeReportStatuses, personId, monthKey, customerId) {
   const key = reportKey(personId, monthKey, customerId);
   const found = (timeReportStatuses || []).find(s => reportKey(s.personId, s.monthKey, s.customerId) === key);
   return found?.status || 'pending';
 }
 
-// ── KPI-remsa för Översikt — kundfeedback ("kant i kant istället än
-// under varandra", "asså designen"): en första mobilfix gjorde varje kort
-// kompakt men lämnade dem som TRE separata rundade kort som staplades
-// under varandra (.form-row-stack tvingar 1 kolumn på mobil) — inte den
-// flush/sammanslagna kant-i-kant-look resten av appen redan använder
-// (Kunder/Bokföring: en enda ram, inga enskilt inramade kort). Samma
-// mönster här nu: EN gemensam ram (cardBase) med tre kolumner som delar
-// tunna innerlinjer istället för tre egna kort med mellanrum — gäller på
-// både mobil och desktop, aldrig staplat. ──
-// Kundfeedback: "aktiva projekt, nedlagd tid och lönsamhet — det är så
-// mycket luft mellan dem, slå ihop dem och gör dem mycket bättre."
-// Remsan var tre höga kort där ikonen låg ovanför etiketten och värdet:
-// tre korta tal fick nästan 100 px höjd och en tredjedel av sidan var tom
-// innan projektlistan ens började.
-//
-// Nu: EN tät rad. Ikonen ligger bredvid texten i stället för ovanför (halva
-// höjden), och kolumnerna är `auto-fit` med en minsta bredd — på halvskärm
-// blir det två plus en i stället för tre ihopklämda (kundfeedbacken om
-// halvskärm gäller den här sidan också). `isMobileViewport` behövs inte
-// längre: samma täta rad fungerar i alla bredder, det är vad auto-fit gör.
-// `flush`: kundönskemål ("slå ihop KPI-remsan med headern och under") —
-// Projekt-flikens egen remsa stod tidigare i en egen padding-inramad ö
-// (18px topp, 20px sidor) med ett synligt mellanrum upp mot filterraden och
-// ner mot tabellen, samma "svävande kort"-problem som redan lösts på andra
-// sidor (Bokföring/Verifikationer: filterrad→tabell, 0 gap). `flush` gör
-// remsan kantlös (ingen radie) och full bredd i stället för ett eget avrundat
-// kort — anroparen slutar ge den egen padding/marginal, så den sluter an
-// direkt mot filterraden ovanför och tabellen under, en enda sammanhängande
-// yta. Tidrapporternas egen remsa (TimeReportsView) berörs inte — den
-// behåller sin fristående kort-look, `flush` är opt-in.
-function ProjectKpiStrip({ items, flush = false }) {
+const expenseNet = (e) => Number(e.netAmount) || ((Number(e.amount) || 0) - (Number(e.vatAmount) || 0)) || 0;
+
+/** Tid mot budget som stapel; gul från 80 %, röd över 100 %. */
+function TimeBar({ spent, budget, wide = false }) {
+  if (!budget) return <span style={{ fontSize: '13px', color: 'var(--text-main)' }}>{formatHours(spent)} {tr('ui.h')}</span>;
+  const pct = (spent / budget) * 100;
+  const cls = pct > 100 ? 'over' : pct >= 80 ? 'warn' : '';
   return (
-    <div className="proj-kpi" style={{
-      ...cardBase,
-      ...(flush ? { borderRadius: 0 } : {}),
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-      overflow: 'hidden',
-    }}>
-      {items.map((item, i) => {
-        const { icon: Icon, label, value, sub, tone = 'neutral' } = item;
-        const badge = tone === 'negative'
-          ? { bg: BRAND.redBg, color: BRAND.redText }
-          : { bg: BRAND.greenLight, color: BRAND.greenDark };
-        return (
-          <div
-            key={label}
-            style={{
-              padding: '13px 16px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              minWidth: 0,
-              // Skiljelinjen ritas som en vänsterkant på alla utom den
-              // första — med auto-fit vet en cell inte längre om den är
-              // sist på sin rad, och en högerkant hade då kunnat hamna
-              // mot kortets egen ytterkant.
-              borderLeft: i === 0 ? 'none' : '1px solid var(--border)',
-            }}
-          >
-            <div style={{ width: 30, height: 30, borderRadius: '9px', background: badge.bg, color: badge.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Icon size={15} />
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '7px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '19px', fontWeight: 700, color: tone === 'negative' ? BRAND.redText : 'var(--text-main)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>{value}</span>
-                {sub && <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{sub}</span>}
-              </div>
-            </div>
-          </div>
-        );
-      })}
+    <div style={{ minWidth: wide ? 0 : '130px' }}>
+      <div style={{ fontSize: '12.5px', color: 'var(--text-main)', marginBottom: '5px', fontVariantNumeric: 'tabular-nums' }}>
+        {formatHours(spent)} {tr('ui.av')} {formatHours(budget)} {tr('ui.h')}
+      </div>
+      <div className={`ws-bar ${cls}`}><span style={{ width: `${Math.min(pct, 100)}%` }} /></div>
     </div>
   );
 }
 
-// ── Vänligt tomläge för en enskild flik/grupp (t.ex. "inga träffar vid
-// sökning" eller "inga avdelningar än") — samma ikon-i-cirkel-mönster som
-// EmptyProjectsState nedan. Kundfeedback ("tidrapporten känns som en halv
-// sida"): fyllde tidigare bara en liten, fast-höjd box högst upp — på en
-// i övrigt full-höjds flik (Tidrapportering/Rapporter) lämnade det en stor
-// tom yta under, vilket lästes som att sidan var trasigt liten/halvfärdig.
-// Samma flex:1+centrerad-i-den-lediga-ytan-behandling som EmptyProjectsState
-// nedan/Quotes.jsx:s tomma-läge nu istället — kräver att anroparens EGEN
-// flex-kedja (se TimeReportsView/TimeTrackingTab) faktiskt ger den utrymme
-// att växa i, annars är flex:1 ett no-op. ──
-function SectionEmptyState({ icon: Icon = Search, title }) {
-  return (
-    <div style={{
-      flex: 1, minHeight: '280px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)',
-    }}>
-      <div style={{ width: 44, height: 44, borderRadius: '999px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-        <Icon size={19} color="var(--text-muted)" />
-      </div>
-      <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>{title}</div>
-    </div>
-  );
-}
+const statusPill = (p) => (p.status === 'finished'
+  ? <span className="agi-pill" style={{ background: 'var(--bg-muted)', color: 'var(--text-secondary)' }}>{tr('ui.avslutat')}</span>
+  : <span className="agi-pill ok">{tr('ui.pagar')}</span>);
 
-// ── Sida 16: tomt läge — säljande, inte bara en rubrik och en knapp ──
-function EmptyProjectsState({ onCreate }) {
-  const valueProps = [
-    { icon: Clock, title: tr('ui.tidrapportering'), text: tr('ui.logga_timmar_per_projekt') },
-    { icon: TrendingUp, title: tr('ui.lonsamhet'), text: tr('ui.se_intakt_mot_kostnad_live') },
-    { icon: FileText, title: tr('ui.fakturera'), text: tr('ui.fakturera_direkt_fran_tidrapport') },
-  ];
-  return (
-    // Kundönskemål ("Fakturor är det som ser bra ut"): ingen egen
-    // marginal/kant/gråbakgrund längre — fyller ytan flush precis under
-    // filterraden, samma gröna kort-bakgrund som övriga tomma lägen.
-    <div style={{ flex: 1, minHeight: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-card)', padding: '56px 32px', textAlign: 'center' }}>
-      <div style={{ width: '52px', height: '52px', borderRadius: '999px', background: BRAND.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
-        <Briefcase size={22} color={BRAND.greenDark} />
-      </div>
-      <h3 style={{ fontSize: '16px', fontWeight: 500, margin: '0 0 8px', color: 'var(--text-main)' }}>{tr('ui.skapa_ditt_forsta_projekt')}</h3>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: '0 auto 22px', maxWidth: '360px', lineHeight: 1.5 }}>
-        {tr('ui.folj_upp_tid_och_lonsamhet_genom_att_skapa_ditt')}
-      </p>
-      <button onClick={onCreate} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>
-        <Plus size={16} /> {tr('ui.nytt_projekt')}
-      </button>
-
-      <div style={{ borderTop: '0.5px solid var(--border)', marginTop: '32px', paddingTop: '24px', display: 'flex', justifyContent: 'center', gap: '28px', flexWrap: 'wrap' }}>
-        {valueProps.map(v => (
-          <div key={v.title} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', maxWidth: '190px', textAlign: 'left' }}>
-            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: BRAND.greenLight, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <v.icon size={14} color={BRAND.greenDark} />
-            </div>
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{v.title}</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{v.text}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Kompakt popover för att sätta/redigera timmar i EN cell (ett projekt,
-// en dag) — ersätter den gamla dagkort-varianten som bar projekt- OCH
-// personval i sig själv. I rutnätet nedan är rad och kolumn redan
-// projekt+dag, så popovern behöver bara fråga om timmar/beskrivning.
-// Stänger sig själv både på Escape och klick utanför (samma mönster som
-// EntitySearch/AccountSearch i shared/SearchInputs.jsx). ──
-function TimeCellPopover({ hours: initialHours, description: initialDescription, dayTotal, anchorRect, onSave, onDelete, onClose }) {
-  const [hours, setHours] = useState(initialHours != null ? String(initialHours) : '');
-  const [description, setDescription] = useState(initialDescription || '');
-  const [error, setError] = useState('');
-  const ref = useRef();
-  const isEditing = initialHours != null;
-
-  useEffect(() => {
-    const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
-    const handleClickOutside = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
-    // Rutan är `position: fixed` med en position uträknad ur cellens läge
-    // när den öppnades (se kommentaren längre ner). Scrollar rutnätet under
-    // tiden står den alltså kvar där cellen VAR — den stängs därför vid
-    // scroll, i stället för att peka på fel dag. `true` fångar även scroll i
-    // rutnätets egen behållare, inte bara i fönstret.
-    const handleScroll = () => onClose();
-    window.addEventListener('keydown', handleEsc);
-    document.addEventListener('mousedown', handleClickOutside);
-    window.addEventListener('scroll', handleScroll, true);
-    return () => {
-      window.removeEventListener('keydown', handleEsc);
-      document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('scroll', handleScroll, true);
-    };
-  }, [onClose]);
-
-  const projectedTotal = (dayTotal - (initialHours || 0)) + (Number(hours) || 0);
-  const showOverageWarning = projectedTotal > 12;
-
-  const handleSave = () => {
-    const h = Number(hours);
-    if (!h || h <= 0) { setError(tr('ui.ange_fler_an_0_timmar')); return; }
-    onSave({ hours: h, description });
+// ── En timruta i veckorutnätet: man skriver timmarna direkt, som i
+// Harvest och Fortnox tidredovisning. Sparas när man lämnar rutan eller
+// trycker Enter; en tömd ruta tar bort registreringen. ──
+function HourCell({ hours, onCommit, label }) {
+  const initial = hours ? formatHours(hours) : '';
+  const [text, setText] = useState(initial);
+  useEffect(() => { setText(initial); }, [initial]);
+  const commit = () => {
+    const next = parseHours(text);
+    if (next === (hours || 0)) { setText(initial); return; }
+    onCommit(next);
   };
-
-  // Kundfeedback ("smooth, easy för kunder"): Enter sparade tidigare
-  // ingenting — man var tvungen att flytta musen ner till Spara-knappen för
-  // VARJE ruta, tungrott när man loggar en hel vecka i följd. Enter i
-  // endera fältet sparar nu direkt, samma snabbflöde som kalkylark/Toggl.
-  const handleKeyDown = (e) => { if (e.key === 'Enter') { e.preventDefault(); handleSave(); } };
-
-  const inputStyle = { width: '100%', padding: '7px 10px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box', fontFamily: 'inherit', color: 'var(--text-main)', background: 'var(--bg-card)' };
-  const labelStyle = { display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' };
-
-  // `position: fixed` beräknat från cellens egen skärmposition (inte
-  // `absolute` mot en förälder) — tabellen sitter i en `overflowX: 'auto'`-
-  // wrapper för att kunna scrolla sidledes på smala skärmar, och CSS'
-  // overflow-kvirk gör att en `overflow-x` som INTE är 'visible' automatiskt
-  // tvingar `overflow-y` till 'auto' också även om den aldrig sattes
-  // explicit — vilket klippte popoverns nedre del mot wrapperns kant.
-  // `fixed` + egen beräknad position kringgår det helt, oavsett vilka
-  // förfäder som råkar klippa/scrolla. Clampad mot fönstrets bredd så den
-  // aldrig hamnar utanför skärmen för lördag/söndag-kolumnerna.
-  const width = 210;
-  const left = anchorRect ? Math.min(Math.max(anchorRect.left + anchorRect.width / 2 - width / 2, 8), layoutViewport().width - width - 8) : 0;
-  const top = anchorRect ? anchorRect.bottom + 4 : 0;
-
   return (
-    <div
-      ref={ref}
-      style={{ position: 'fixed', zIndex: 50, top, left, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', padding: '12px', width: `${width}px`, textAlign: 'left', fontWeight: 400 }}
-      onClick={e => e.stopPropagation()}
-    >
-      <div style={{ marginBottom: '8px' }}>
-        <label style={labelStyle}>{tr('ui.timmar')}</label>
-        <input
-          type="number" step="0.25" min="0" autoFocus value={hours} onChange={e => { setHours(e.target.value); setError(''); }}
-          onKeyDown={handleKeyDown}
-          style={inputStyle}
-        />
-      </div>
-      <div style={{ marginBottom: '8px' }}>
-        <label style={labelStyle}>{tr('ui.beskrivning')}</label>
-        <input
-          type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder={tr('ui.vad_jobbade_du_med')}
-          onKeyDown={handleKeyDown}
-          style={inputStyle}
-        />
-      </div>
-      {showOverageWarning && (
-        <div style={{ color: 'var(--status-amber-text)', fontSize: '11px', marginBottom: '8px', lineHeight: 1.4 }}>{tr('ui.ovanligt_mycket_tid_registrerad_denna_dag_stamme')}</div>
-      )}
-      {error && <div style={{ color: 'var(--status-red-text)', fontSize: '11px', marginBottom: '8px' }}>{error}</div>}
-      <div style={{ display: 'flex', gap: '6px' }}>
-        <button onClick={handleSave} style={{ flex: 1, padding: '7px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}>{tr('ui.spara')}</button>
-        {isEditing && (
-          <button onClick={onDelete} title={tr('ui.ta_bort')} style={{ padding: '7px 9px', background: BRAND.redBg, color: BRAND.redText, border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex' }}>
-            <X size={13} />
-          </button>
-        )}
-        <button onClick={onClose} style={{ padding: '7px 10px', background: 'var(--gray-100)', color: 'var(--text-secondary)', border: 'none', borderRadius: '6px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}>{tr('ui.avbryt')}</button>
-      </div>
-      <div style={{ marginTop: '8px', fontSize: '10.5px', color: 'var(--text-muted)' }}>{tr('ui.enter_for_att_spara_esc_for_att_stanga')}</div>
-    </div>
-  );
-}
-
-// ── En dagcell i veckorutnätet. Kundfeedback ("smooth, easy för kunder"):
-// en tom cell visade bara ett statiskt "–" utan någon hover-reaktion alls
-// — inget signalerade att den GÅR att klicka på förrän man redan klickat.
-// Ett grönt "+" tonar nu in vid hover över en tom cell (samma "lägg
-// till"-ikon som resten av appens tomma-läge-knappar), och en ifylld cell
-// får en tydlig hover-bakgrund som visar att den går att öppna och ändra
-// — samma affordans-princip som Toggl/Harvest-rutnät redan etablerat. ──
-function DayCell({ entry, isToday, isOpen, onOpen, children }) {
-  const [hover, setHover] = useState(false);
-  const background = isOpen ? BRAND.greenLight : (hover ? (entry ? 'var(--status-green-bg)' : 'var(--gray-100)') : (isToday ? 'var(--gray-50)' : 'transparent'));
-  return (
-    <td
-      onClick={(e) => onOpen(layoutRect(e.currentTarget))}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        // Höjden sätts här, inte på raden: cellen ÄR klickytan, och en
-        // rad på 60 px är skillnaden mellan att pricka rätt dag och att
-        // träffa grannen — särskilt på pekskärm.
-        textAlign: 'center', padding: '20px 8px', height: '60px', cursor: 'pointer', fontSize: '16px',
-        background,
-        fontWeight: entry ? 700 : 400,
-        color: entry ? BRAND.greenDark : 'var(--text-muted)',
-        borderBottom: '1px solid var(--border-light)', borderLeft: '1px solid var(--border-light)',
-        transition: 'background 0.12s',
+    <input
+      className={`tt-cell${hours ? ' has' : ''}`}
+      inputMode="decimal"
+      aria-label={label}
+      value={text}
+      placeholder="–"
+      onChange={e => setText(e.target.value)}
+      onFocus={e => e.target.select()}
+      onBlur={commit}
+      onKeyDown={e => {
+        if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+        if (e.key === 'Escape') { setText(initial); e.currentTarget.blur(); }
       }}
-    >
-      {entry ? formatHours(entry.hours) : (hover ? <Plus size={18} color={BRAND.green} style={{ verticalAlign: 'middle' }} /> : '–')}
-      {children}
-    </td>
+    />
   );
 }
 
-// ── Sida 17: veckans tidrapportering — ett riktigt tidrapport-RUTNÄT
-// (rader = projekt, kolumner = veckans dagar, cell = timmar), samma
-// grundmönster som etablerade tidrapporteringsverktyg (Toggl/Harvest/
-// Fortnox). Ersätter den tidigare varianten med sju separata dagkort, som
-// inte skalade: en person med tre projekt samma vecka fick tre lösryckta
-// "kort" per dag istället för en läsbar tabell, och flera personer gick
-// bara att skilja åt med en liten namntext under varje post. Rutnätet är nu
-// alltid EN persons vecka (växlas med personväljaren till vänster om den
-// finns) — det är också vad ett riktigt tidrapportsblad är: din vecka, inte
-// allas blandat på en gång. ──
-function TimeTrackingTab({ projects, timeEntries, setTimeEntries, setProjects, personId, currentWeekStart }) {
-  const [openCell, setOpenCell] = useState(null); // { projectId, dateStr }
+// ── Veckans tidrapport: rader = projekt, kolumner = dagar. På telefon en
+// dag i taget med en dagrad överst. ──
+function WeekSheet({ projects, timeEntries, setTimeEntries, setProjects, personId, weekStart, onPrevWeek, onNextWeek, onThisWeek, prevWeekTotal }) {
   const [extraProjectIds, setExtraProjectIds] = useState([]);
   const [showAddRow, setShowAddRow] = useState(false);
-  // Kundfeedback: tidrapporteringen "ska vara bra på mobil". Rutnätet är sju
-  // dagkolumner à 104 px plus en projektkolumn — på en telefon syntes två
-  // dagar, resten låg utanför kanten (den vågräta skrollen fanns, men inget
-  // sa att den fanns). Under 640 px visas därför EN dag i taget, vald med
-  // en dagrad ovanför rutnätet. Samma tabell, samma celler, samma
-  // popover — bara en kolumn i stället för sju, vilket också är hur man
-  // faktiskt rapporterar tid på en telefon: en dag, nu.
   const isNarrow = useIsMobileViewport(640);
   const [selectedDayIdx, setSelectedDayIdx] = useState(null);
-
-  // personId/currentWeekStart ägs numera av Projects (se dess kommentar
-  // "på projekt headern") — personväljaren/veckonavigeringen renderas där,
-  // i den fasta ListFilterBar:en, inte här längre. Byte av person ska
-  // fortfarande nollställa manuellt tillagda tomma rader (annars släpar de
-  // med sig mellan personer man bara tittade på) — samma effekt som förut,
-  // bara utlöst av en prop-ändring istället för den lokala select-handlern.
   useEffect(() => { setExtraProjectIds([]); }, [personId]);
 
-  const weekDates = getDatesOfWeek(currentWeekStart);
+  const weekDates = getDatesOfWeek(weekStart);
   const weekStartStr = getISODate(weekDates[0]);
   const weekEndStr = getISODate(weekDates[6]);
   const todayStr = getISODate(new Date());
-
-  // Vilken dag mobilvyn står på. Förvalet räknas fram vid varje rendering
-  // (inte en gång vid mount) så veckobyte alltid landar på en dag i DEN
-  // veckan: dagens datum om det ligger i veckan, annars måndagen.
-  const todayIdxInWeek = weekDates.findIndex(d => getISODate(d) === todayStr);
-  const activeDayIdx = selectedDayIdx ?? (todayIdxInWeek >= 0 ? todayIdxInWeek : 0);
-  // Nollställ dagvalet när veckan byts, annars ligger "onsdag" kvar och
-  // pekar på fel vecka efter en framåtpil.
+  const todayIdx = weekDates.findIndex(d => getISODate(d) === todayStr);
+  const activeDayIdx = selectedDayIdx ?? (todayIdx >= 0 ? todayIdx : 0);
   useEffect(() => { setSelectedDayIdx(null); }, [weekStartStr]);
-  const visibleDates = isNarrow ? [weekDates[Math.min(activeDayIdx, 6)]] : weekDates;
+  const visibleDates = isNarrow ? [weekDates[activeDayIdx]] : weekDates;
 
-  const personEntries = timeEntries.filter(t => (t.personId || SELF_PERSON_ID) === personId);
-  const weekEntries = personEntries.filter(t => t.date >= weekStartStr && t.date <= weekEndStr);
+  const weekEntries = timeEntries.filter(t => (t.personId || SELF_PERSON_ID) === personId && t.date >= weekStartStr && t.date <= weekEndStr);
   const weekTotal = sumHours(weekEntries);
 
-  // Rader = projekt med minst en registrering denna vecka + projekt som
-  // just lagts till manuellt via "+ Lägg till projekt" men ännu saknar
-  // timmar. Byte av person/vecka nollställer de manuellt tillagda — annars
-  // släpar tomma rader med sig mellan personer man bara tittade på.
-  const rowProjectIds = useMemo(() => {
-    const ids = [];
-    weekEntries.forEach(t => { if (!ids.includes(t.projectId)) ids.push(t.projectId); });
-    extraProjectIds.forEach(id => { if (!ids.includes(id)) ids.push(id); });
-    return ids;
-  }, [weekEntries, extraProjectIds]);
+  const rowIds = [];
+  weekEntries.forEach(t => { if (t.projectId && !rowIds.includes(t.projectId)) rowIds.push(t.projectId); });
+  extraProjectIds.forEach(id => { if (!rowIds.includes(id)) rowIds.push(id); });
+  const rows = rowIds.map(id => projects.find(p => p.id === id)).filter(Boolean);
+  const addable = projects.filter(p => p.status !== 'finished' && !rowIds.includes(p.id));
 
-  const rows = rowProjectIds.map(id => projects.find(p => p.id === id)).filter(Boolean);
-  const addableProjects = projects.filter(p => p.status !== 'finished' && !rowProjectIds.includes(p.id));
-
-  const getEntry = (projectId, dateStr) => weekEntries.find(t => t.projectId === projectId && t.date === dateStr);
+  const entriesFor = (projectId, dateStr) => weekEntries.filter(t => t.projectId === projectId && t.date === dateStr);
   const dayTotal = (dateStr) => sumHours(weekEntries.filter(t => t.date === dateStr));
-  // Kundönskemål ("gör Tidrapportering finare"): samma korta, färgade
-  // sammanfattningsremsa (ProjectKpiStrip, redan etablerad på Projekt-fliken
-  // och Rapporter-fliken) ovanför rutnätet — snittet räknas bara på dagar
-  // som FAKTISKT har loggad tid, inte alla sju kalenderdagar, annars ser en
-  // vecka med bara tre arbetsdagar ut att ha ovanligt lite tid per dag.
-  const loggedDayCount = weekDates.filter(d => dayTotal(getISODate(d)) > 0).length;
-  const avgPerLoggedDay = loggedDayCount > 0 ? weekTotal / loggedDayCount : 0;
 
-  const handleSaveCell = (projectId, dateStr, { hours, description }) => {
-    const existing = getEntry(projectId, dateStr);
-    if (existing) {
-      setTimeEntries(prev => prev.map(t => t.id === existing.id ? { ...t, hours, description } : t));
-      setProjects(prev => prev.map(p => p.id === projectId ? { ...p, timeSpent: Math.max(0, (p.timeSpent || 0) - existing.hours + hours) } : p));
-    } else {
-      const newEntry = { id: `time_${Date.now()}`, date: dateStr, projectId, personId, hours, description };
-      setTimeEntries(prev => [...prev, newEntry]);
-      setProjects(prev => prev.map(p => p.id === projectId ? { ...p, timeSpent: (p.timeSpent || 0) + hours } : p));
-    }
-    setOpenCell(null);
+  // En ruta = summan av dagens registreringar på projektet. Ändras den
+  // skrivs den första om och eventuella fler slås ihop, så att rutan och
+  // det sparade alltid stämmer.
+  const commitCell = (projectId, dateStr, hours) => {
+    const existing = entriesFor(projectId, dateStr);
+    const before = sumHours(existing);
+    const ids = new Set(existing.map(e => e.id));
+    setTimeEntries(prev => {
+      const rest = prev.filter(e => !ids.has(e.id));
+      if (!hours) return rest;
+      const first = existing[0];
+      const description = existing.map(e => e.description).filter(Boolean).join(' · ');
+      return [...rest, first
+        ? { ...first, hours, description }
+        : { id: `time_${Date.now()}`, date: dateStr, projectId, personId, hours, description: '' }];
+    });
+    setProjects(prev => prev.map(p => (p.id === projectId ? { ...p, timeSpent: Math.max(0, (p.timeSpent || 0) - before + hours) } : p)));
   };
 
-  const handleDeleteCell = (projectId, dateStr) => {
-    const existing = getEntry(projectId, dateStr);
-    if (existing) {
-      setTimeEntries(prev => prev.filter(t => t.id !== existing.id));
-      setProjects(prev => prev.map(p => p.id === projectId ? { ...p, timeSpent: Math.max(0, (p.timeSpent || 0) - existing.hours) } : p));
-    }
-    setOpenCell(null);
-  };
+  const diff = weekTotal - prevWeekTotal;
+  const weekNo = isoWeekNumber(weekDates[0]);
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-      {rows.length === 0 ? (
-        // Kundfeedback ("smooth, easy för kunder"): tomläget pekade tidigare
-        // ner mot en liten, lös knapp en bra bit under boxen — två separata
-        // block för samma handling. Samma "+ Lägg till projekt"-flöde (samma
-        // showAddRow/ProjectSearch som blocket under tabellen) sitter nu
-        // DIREKT i tomläget, en enda tydlig call-to-action istället för två.
-        //
-        // Kundfeedback (uppföljning, "tidrapporten känns som en halv sida"):
-        // en liten fast-höjd box högst upp på en i övrigt full-höjds flik
-        // lämnade en stor tom yta under den — samma flex:1-behandling som
-        // EmptyProjectsState/SectionEmptyState ovan nu istället, centrerad
-        // i HELA den lediga ytan snarare än att flyta i toppen.
-        <div style={{
-          flex: 1, minHeight: '280px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          margin: '0 20px', padding: '44px 24px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)',
-        }}>
-          <div style={{ width: 44, height: 44, borderRadius: '999px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-            <Clock size={19} color="var(--text-muted)" />
-          </div>
-          <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '16px' }}>{tr('ui.ingen_tid_registrerad_annu_denna_vecka')}</div>
-          {showAddRow ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '280px', margin: '0 auto' }}>
-              <div style={{ flex: 1 }}>
-                <ProjectSearch
-                  value=""
-                  onChange={(id) => { if (id) { setExtraProjectIds(prev => [...prev, id]); setShowAddRow(false); } }}
-                  projects={addableProjects}
-                />
-              </div>
-              <button onClick={() => setShowAddRow(false)} title={tr('ui.avbryt')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', display: 'flex' }}>
-                <X size={16} />
+    <div className="ws-card">
+      <div className="ws-card-head">
+        <div>
+          <h3 className="ws-card-title">{tr('proj.week', { n: weekNo })} <span style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>· {formatWeekRange(weekDates)}</span></h3>
+          <p className="ws-card-sub">
+            {formatHours(weekTotal)} {tr('ui.h')}
+            {(weekTotal > 0 || prevWeekTotal > 0) && diff !== 0 && ` · ${tr(diff > 0 ? 'proj.moreThanLast' : 'proj.lessThanLast', { h: formatHours(Math.abs(diff)) })}`}
+          </p>
+        </div>
+        <div className="ws-card-actions">
+          <button type="button" className="agi-btn" style={{ padding: '0 8px' }} onClick={onPrevWeek} aria-label={tr('proj.prevWeek')}><ChevronLeft size={16} /></button>
+          <button type="button" className="agi-btn" onClick={onThisWeek}>{tr('proj.thisWeek')}</button>
+          <button type="button" className="agi-btn" style={{ padding: '0 8px' }} onClick={onNextWeek} aria-label={tr('proj.nextWeek')}><ChevronRight size={16} /></button>
+        </div>
+      </div>
+
+      {isNarrow && (
+        <div className="tt-days">
+          {weekDates.map((date, i) => {
+            const dateStr = getISODate(date);
+            const total = dayTotal(dateStr);
+            return (
+              <button key={dateStr} type="button" className={i === activeDayIdx ? 'on' : ''} onClick={() => setSelectedDayIdx(i)}>
+                <small>{date.toLocaleDateString(dateLocale(), { weekday: 'short' })}</small>
+                <b>{date.getDate()}</b>
+                <em>{total > 0 ? `${formatHours(total)} h` : '–'}</em>
               </button>
-            </div>
-          ) : (
-            addableProjects.length > 0 && (
-              <button
-                onClick={() => setShowAddRow(true)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', padding: '9px 18px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
-              >
-                <Plus size={14} /> {tr('ui.lagg_till_projekt')}
-              </button>
-            )
-          )}
+            );
+          })}
         </div>
-      ) : (
-        // Kundfeedback ("gör denna större ... täcka sidorna förutom lite
-        // space mellan menyn"): flush utan sidomarginal nu (samma edge-to-
-        // edge-princip som ProjektsListTable/Kunder — det enda mellanrummet
-        // som blir kvar är appens egna avstånd mot sidomenyn, rört ingenstans
-        // här), plus större celler/typsnitt genomgående (14px bastext,
-        // rymligare padding, bredare dagkolumner) — kändes tidigare klämt
-        // ihop och svårläst.
-        // Kundfeedback, andra vändan ("gör tidrapporteringen större"):
-        // rutnätet var fortfarande en låg box högst upp på en full-höjds
-        // flik, med små celler att pricka. Tre ändringar:
-        //  - Kortet är flex:1 och fyller den lediga höjden i stället för att
-        //    sluta efter ett par rader.
-        //  - Raderna är rejält högre (≈60 px) och texten större — en timcell
-        //    är en klickyta, inte en tabellsiffra att kisa på.
-        //  - Dagrubrikerna sitter kvar överst vid scroll (sticky), och
-        //    projektkolumnen sitter kvar till vänster när dagarna scrollas i
-        //    sidled på en smal skärm — annars vet man inte vilken rad man
-        //    fyller i.
-        //
-        // Kundönskemål ("gör Tidrapportering finare"): en kort KPI-remsa
-        // (samma ProjectKpiStrip som Projekt-/Rapporter-flikarna) ovanför
-        // rutnätet — vecko-/persontotalen stod redan i filterraden ovanför
-        // som ren text, men gav ingen känsla av hur veckan faktiskt
-        // fördelade sig (hur många projekt, snitt per arbetsdag).
-        <>
-        <div style={{ marginBottom: '14px', flexShrink: 0 }}>
-          <ProjectKpiStrip items={[
-            { icon: Clock, label: tr('ui.timmar_denna_vecka'), value: `${formatHours(weekTotal)} h` },
-            { icon: Zap, label: tr('ui.projekt'), value: String(rows.length) },
-            { icon: TrendingUp, label: tr('ui.snitt_per_arbetsdag'), value: loggedDayCount > 0 ? `${formatHours(avgPerLoggedDay)} h` : '–', sub: loggedDayCount > 0 ? `${loggedDayCount} ${loggedDayCount === 1 ? 'dag' : 'dagar'} loggade` : tr('ui.ingen_tid_loggad_an') },
-          ]} />
-        </div>
-        <div style={{ ...cardBase, border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', flex: 1, minHeight: 0, overflow: 'auto' }}>
-          {/* Dagväljaren — bara på smal skärm, där rutnätet visar en dag i
-              taget. Varje chip bär dagens summa, så man ser var timmarna
-              ligger i veckan utan att bläddra igenom sju dagar. */}
-          {isNarrow && (
-            <div style={{ display: 'flex', gap: '6px', padding: '12px', overflowX: 'auto', borderBottom: '1px solid var(--border)' }}>
-              {weekDates.map((date, i) => {
-                const dateStr = getISODate(date);
-                const isToday = dateStr === todayStr;
-                const isActive = i === Math.min(activeDayIdx, 6);
-                const total = dayTotal(dateStr);
-                return (
-                  <button
-                    key={dateStr}
-                    type="button"
-                    onClick={() => setSelectedDayIdx(i)}
-                    style={{
-                      flex: '1 0 auto', minWidth: '44px', padding: '7px 4px', borderRadius: '10px', cursor: 'pointer',
-                      fontFamily: 'inherit', textAlign: 'center', lineHeight: 1.25,
-                      background: isActive ? BRAND.green : (isToday ? 'var(--status-green-bg)' : 'var(--bg-muted)'),
-                      color: isActive ? 'white' : 'var(--text-main)',
-                      border: `1px solid ${isActive ? BRAND.green : 'var(--border)'}`,
-                    }}
-                  >
-                    <div style={{ fontSize: '10.5px', fontWeight: 600, textTransform: 'capitalize', opacity: 0.85 }}>{date.toLocaleDateString(dateLocale(), { weekday: 'short' })}</div>
-                    <div style={{ fontSize: '15px', fontWeight: 700 }}>{date.getDate()}</div>
-                    <div style={{ fontSize: '10px', fontWeight: 600, opacity: total > 0 ? 0.95 : 0.5 }}>{total > 0 ? `${formatHours(total)} h` : '–'}</div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px', minWidth: isNarrow ? 0 : '860px' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left', padding: '16px 20px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, left: 0, zIndex: 3, background: 'var(--bg-card)', minWidth: isNarrow ? '120px' : '200px' }}>
-                  {tr('ui.projekt')}
-                </th>
-                {visibleDates.map((date) => {
-                  const dateStr = getISODate(date);
-                  const isToday = dateStr === todayStr;
-                  return (
-                    <th key={dateStr} style={{ padding: '14px 8px', textAlign: 'center', width: '104px', borderBottom: `1px solid ${isToday ? BRAND.green : 'var(--border)'}`, borderLeft: '1px solid var(--border-light)', background: isToday ? BRAND.greenLight : 'var(--bg-card)', position: 'sticky', top: 0, zIndex: 2 }}>
-                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: isToday ? BRAND.greenDark : 'var(--text-secondary)', textTransform: 'capitalize' }}>{date.toLocaleDateString(dateLocale(), { weekday: 'short' })}</div>
-                      <div style={{ fontSize: '20px', fontWeight: 700, color: isToday ? BRAND.greenDark : 'var(--text-main)', marginTop: '4px' }}>{date.getDate()}</div>
-                    </th>
-                  );
-                })}
-                <th style={{ padding: '16px 20px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border-light)', position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg-card)' }}>
-                  {tr('ui.totalt')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(project => {
-                const rowTotal = sumHours(weekEntries.filter(t => t.projectId === project.id));
-                return (
-                  <tr key={project.id}>
-                    <td style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-light)', position: 'sticky', left: 0, zIndex: 1, background: 'var(--bg-card)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: isNarrow ? 0 : '180px' }}>
-                        <span style={{ width: 10, height: 10, borderRadius: '999px', background: project.color || BRAND.green, flexShrink: 0 }} />
-                        <span style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
-                      </div>
-                    </td>
-                    {visibleDates.map((date) => {
-                      const dateStr = getISODate(date);
-                      const isToday = dateStr === todayStr;
-                      const entry = getEntry(project.id, dateStr);
-                      const isOpen = openCell?.projectId === project.id && openCell?.dateStr === dateStr;
-                      return (
-                        <DayCell
-                          key={dateStr}
-                          entry={entry} isToday={isToday} isOpen={isOpen}
-                          onOpen={(rect) => setOpenCell(isOpen ? null : { projectId: project.id, dateStr, rect })}
-                        >
-                          {isOpen && (
-                            <TimeCellPopover
-                              hours={entry?.hours ?? null}
-                              description={entry?.description || ''}
-                              dayTotal={dayTotal(dateStr)}
-                              anchorRect={openCell.rect}
-                              onSave={(vals) => handleSaveCell(project.id, dateStr, vals)}
-                              onDelete={() => handleDeleteCell(project.id, dateStr)}
-                              onClose={() => setOpenCell(null)}
-                            />
-                          )}
-                        </DayCell>
-                      );
-                    })}
-                    <td style={{ padding: '16px 20px', textAlign: 'right', fontWeight: 700, fontSize: '15px', color: rowTotal > 0 ? 'var(--text-main)' : 'var(--text-muted)', borderBottom: '1px solid var(--border-light)', borderLeft: '1px solid var(--border-light)' }}>
-                      {rowTotal > 0 ? `${formatHours(rowTotal)} h` : '–'}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td style={{ padding: '16px 20px', fontWeight: 700, fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', borderTop: '1px solid var(--border)', position: 'sticky', left: 0, zIndex: 1, background: 'var(--bg-card)' }}>{tr('ui.totalt')}</td>
-                {visibleDates.map(date => {
-                  const dateStr = getISODate(date);
-                  const total = dayTotal(dateStr);
-                  return (
-                    <td key={dateStr} style={{ padding: '16px 8px', textAlign: 'center', fontWeight: 700, fontSize: '15px', color: total > 0 ? BRAND.greenDark : 'var(--text-muted)', borderLeft: '1px solid var(--border-light)', borderTop: '1px solid var(--border)' }}>
-                      {total > 0 ? formatHours(total) : '–'}
-                    </td>
-                  );
-                })}
-                <td style={{ padding: '16px 20px', textAlign: 'right', fontWeight: 700, fontSize: '16px', color: BRAND.greenDark, borderLeft: '1px solid var(--border-light)', borderTop: '1px solid var(--border)' }}>
-                  {formatHours(weekTotal)} {tr('ui.h')}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-        </>
       )}
 
-      {/* Lägg till ytterligare en projektrad — sökbar combobox (samma
-          ProjectSearch som resten av appen), inte en förifylld tom rad, så
-          listan bara växer med projekt man faktiskt tänker logga på. Bara
-          synlig när det redan finns minst en rad — det helt tomma läget har
-          sin EGEN, redan synliga version av precis samma knapp ovan. */}
-      {rows.length > 0 && (
-        <div style={{ marginTop: '12px', padding: '0 20px 18px', flexShrink: 0 }}>
-          {showAddRow ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '280px' }}>
-              <div style={{ flex: 1 }}>
-                <ProjectSearch
-                  value=""
-                  onChange={(id) => { if (id) { setExtraProjectIds(prev => [...prev, id]); setShowAddRow(false); } }}
-                  projects={addableProjects}
-                />
-              </div>
-              <button onClick={() => setShowAddRow(false)} title={tr('ui.avbryt')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', display: 'flex' }}>
-                <X size={16} />
-              </button>
+      {rows.length === 0 ? (
+        <div className="ws-empty" style={{ padding: '40px 24px' }}>
+          <h3>{tr('ui.ingen_tid_registrerad_annu_denna_vecka')}</h3>
+          <p>{addable.length > 0 ? tr('proj.addRowHint') : tr('proj.noProjectsForTime')}</p>
+          {addable.length > 0 && (showAddRow ? (
+            <div style={{ maxWidth: '300px', margin: '0 auto' }}>
+              <ProjectSearch value="" onChange={(id) => { if (id) { setExtraProjectIds(prev => [...prev, id]); setShowAddRow(false); } }} projects={addable} />
             </div>
           ) : (
-            addableProjects.length > 0 && (
-              <button
-                onClick={() => setShowAddRow(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: '1px dashed var(--gray-300)', borderRadius: '8px', padding: '8px 14px', fontSize: '12.5px', color: 'var(--text-secondary)', cursor: 'pointer' }}
-              >
-                <Plus size={13} /> {tr('ui.lagg_till_projekt')}
-              </button>
-            )
-          )}
+            <button type="button" className="agi-btn primary" onClick={() => setShowAddRow(true)}><Plus size={14} /> {tr('ui.lagg_till_projekt')}</button>
+          ))}
         </div>
+      ) : (
+        <>
+          <div className="tt-wrap">
+            <table className="tt-grid">
+              <thead>
+                <tr>
+                  <th className="tt-proj">{tr('ui.projekt')}</th>
+                  {visibleDates.map(date => {
+                    const dateStr = getISODate(date);
+                    const weekend = date.getDay() === 0 || date.getDay() === 6;
+                    return (
+                      <th key={dateStr} className={`${dateStr === todayStr ? 'today' : ''}${weekend ? ' weekend' : ''}`}>
+                        <span className="tt-day-name">{date.toLocaleDateString(dateLocale(), { weekday: 'short' })}</span>
+                        <span className="tt-day-num">{date.getDate()}</span>
+                      </th>
+                    );
+                  })}
+                  <th className="tt-sum">{tr('ui.totalt')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(project => {
+                  const rowTotal = sumHours(weekEntries.filter(t => t.projectId === project.id));
+                  return (
+                    <tr key={project.id}>
+                      <td className="tt-proj">
+                        <div className="ws-name">
+                          <span className="ws-dot" style={{ background: project.color || BRAND.green }} />
+                          <div className="ws-name-text">
+                            <strong>{project.name}</strong>
+                            {project.customerName && <small>{project.customerName}</small>}
+                          </div>
+                        </div>
+                      </td>
+                      {visibleDates.map(date => {
+                        const dateStr = getISODate(date);
+                        const weekend = date.getDay() === 0 || date.getDay() === 6;
+                        return (
+                          <td key={dateStr} className={weekend ? 'weekend' : ''}>
+                            <HourCell
+                              hours={sumHours(entriesFor(project.id, dateStr))}
+                              label={`${project.name}, ${formatDay(dateStr)}`}
+                              onCommit={(h) => commitCell(project.id, dateStr, h)}
+                            />
+                          </td>
+                        );
+                      })}
+                      <td className="tt-sum" style={{ color: rowTotal > 0 ? 'var(--text-main)' : 'var(--text-muted)' }}>{rowTotal > 0 ? `${formatHours(rowTotal)} h` : '–'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td className="tt-proj">{tr('ui.totalt')}</td>
+                  {visibleDates.map(date => {
+                    const total = dayTotal(getISODate(date));
+                    return <td key={getISODate(date)} style={{ color: total > 0 ? 'var(--text-main)' : 'var(--text-muted)' }}>{total > 0 ? formatHours(total) : '–'}</td>;
+                  })}
+                  <td className="tt-sum">{formatHours(weekTotal)} {tr('ui.h')}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          {addable.length > 0 && (
+            <div className="tt-add" style={{ borderTop: '1px solid var(--border-light)' }}>
+              {showAddRow ? (
+                <>
+                  <div style={{ flex: '0 1 300px' }}>
+                    <ProjectSearch value="" onChange={(id) => { if (id) { setExtraProjectIds(prev => [...prev, id]); setShowAddRow(false); } }} projects={addable} />
+                  </div>
+                  <button type="button" className="ws-icon-btn" onClick={() => setShowAddRow(false)} title={tr('ui.avbryt')}><X size={16} /></button>
+                </>
+              ) : (
+                <button type="button" className="agi-btn" onClick={() => setShowAddRow(true)}><Plus size={14} /> {tr('ui.lagg_till_projekt')}</button>
+              )}
+              <span className="ws-hint" style={{ marginLeft: 'auto' }}>{tr('proj.typeHint')}</span>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-// ── Tidrapporter — godkännande-flöde per person och månad. Skild från
-// TimeTrackingTab ovan: den fliken handlar om att LOGGA tid, den här om att
-// GODKÄNNA redan loggad tid. Delar samma `timeEntries` men ställer en annan
-// fråga, så den lever som en egen underflik istället för att klämmas in i
-// veckovyn. UX-layouten (status-pill + ett steg-framåt-per-klick) är
-// inspirerad av flerpersons-attesteringsflöden (Pågående→Inskickad→
-// Attesterad→Godkänd) — Bokix har ingen användarroll-modell (vem FÅR
-// attestera) så samma person som loggar tid kan här också driva flödet
-// framåt själv. ──
-function TimeReportsView({ timeEntries, employees, timeReportStatuses, setTimeReportStatuses, month }) {
+// ── Månadens tidrapporter: godkännande per person. ──
+function TimeReportsView({ timeEntries, employees, timeReportStatuses, setTimeReportStatuses, month, onPrevMonth, onNextMonth, onThisMonth }) {
   const [openReport, setOpenReport] = useState(null);
   const people = useMemo(() => getPersonList(employees), [employees]);
 
-  // Memoiserad: räknas om per (person, timeEntries, månad, statusar) istället
-  // för vid varje omritning — listan kan bli stor när flera anställda loggar
-  // tid över många månader.
   const reports = useMemo(() => {
     const monthEntries = timeEntries.filter(t => getMonthKey(t.date) === month);
     return people
       .map(p => {
         const entries = monthEntries.filter(t => (t.personId || SELF_PERSON_ID) === p.id);
-        return {
-          person: p,
-          monthKey: month,
-          entries,
-          hours: sumHours(entries),
-          status: getReportStatus(timeReportStatuses, p.id, month),
-        };
+        return { person: p, monthKey: month, entries, hours: sumHours(entries), status: getReportStatus(timeReportStatuses, p.id, month) };
       })
-      // En rapport syns bara om det faktiskt finns något att ta ställning
-      // till — antingen loggad tid, eller ett flöde som redan påbörjats
-      // (annars skulle t.ex. "Godkänd" från en tidigare, nu tom, månad synas).
       .filter(r => r.hours > 0 || r.status !== 'pending');
   }, [people, timeEntries, month, timeReportStatuses]);
 
@@ -754,20 +364,13 @@ function TimeReportsView({ timeEntries, employees, timeReportStatuses, setTimeRe
       return next;
     });
   };
-
   const advance = (r) => setStatus(r.person.id, r.monthKey, TIME_REPORT_STAGES[Math.min(TIME_REPORT_STAGES.indexOf(r.status) + 1, TIME_REPORT_STAGES.length - 1)]);
   const revert = (r) => setStatus(r.person.id, r.monthKey, TIME_REPORT_STAGES[Math.max(TIME_REPORT_STAGES.indexOf(r.status) - 1, 0)]);
 
   const ACTION_LABEL = { pending: tr('ui.skicka_in'), submitted: tr('ui.attestera'), attested: tr('ui.godkann_slutligt') };
   const ACTION_ICON = { pending: Send, submitted: ClipboardCheck, attested: CheckCircle2 };
 
-  // ── Bulk-attestera/godkänn — kundönskemål ("automation based... det
-  // behöver fungera som ett workflow"): utan det här måste varje persons
-  // rapport klickas fram individuellt, en i taget, även när HELA teamet
-  // redan är klart att gå vidare samtidigt (typiskt runt månadsskiftet).
-  // Ett enda anrop bygger nästa state i EN omgång (i stället för en
-  // `setStatus`-loop, som annars skulle kunna kollidera på samma
-  // Date.now()-millisekund för `id` när flera rader flyttas i samma klick).
+  // Flytta alla i samma steg på en gång, i ett enda anrop.
   const bulkAdvance = (fromStatus) => {
     const toStatus = TIME_REPORT_STAGES[TIME_REPORT_STAGES.indexOf(fromStatus) + 1];
     const targets = reports.filter(r => r.status === fromStatus);
@@ -778,342 +381,268 @@ function TimeReportsView({ timeEntries, employees, timeReportStatuses, setTimeRe
         const key = reportKey(r.person.id, r.monthKey);
         const idx = next.findIndex(s => reportKey(s.personId, s.monthKey, s.customerId) === key);
         if (idx === -1) next = [...next, { id: `trs_${Date.now()}_${r.person.id}`, personId: r.person.id, monthKey: r.monthKey, customerId: null, status: toStatus }];
-        else next = next.map((s, i) => i === idx ? { ...s, status: toStatus } : s);
+        else next = next.map((s, i) => (i === idx ? { ...s, status: toStatus } : s));
       });
       return next;
     });
   };
 
-  const submittedReports = reports.filter(r => r.status === 'submitted');
-  const attestedReports = reports.filter(r => r.status === 'attested');
-  const monthTotalHours = reports.reduce((sum, r) => sum + r.hours, 0);
+  const submitted = reports.filter(r => r.status === 'submitted');
+  const attested = reports.filter(r => r.status === 'attested');
+  const monthTotal = reports.reduce((sum, r) => sum + r.hours, 0);
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-      {reports.length === 0 ? (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', margin: '0 20px' }}><SectionEmptyState icon={ListChecks} title={tr('ui.ingen_tid_loggad_denna_manad_annu')} /></div>
-      ) : (
-        <>
-          {/* Samma merge-med-headern-princip som Projekt-fliken (ProjectKpiStrip)
-              — Rapporter kändes tidigare bart i jämförelse: bara en tabell,
-              ingen sammanfattning. Bulk-knapparna (kundönskemål: "automation
-              based... workflow") gör hela teamets rapporter klara i EN klick
-              i stället för en rad i taget, och syns bara när det faktiskt
-              finns något att driva framåt. */}
-          <div style={{ padding: '18px 20px 14px' }}>
-            <ProjectKpiStrip items={[
-              { icon: Users, label: tr('ui.personer'), value: String(reports.length) },
-              { icon: Clock, label: tr('ui.totalt_loggat'), value: `${formatHours(monthTotalHours)} h` },
-              { icon: Send, label: tr('ui.vantar_attest'), value: String(submittedReports.length), tone: submittedReports.length > 0 ? 'negative' : 'neutral' },
-              { icon: ClipboardCheck, label: tr('ui.vantar_godkannande'), value: String(attestedReports.length), tone: attestedReports.length > 0 ? 'negative' : 'neutral' },
-            ]} />
-            {(submittedReports.length > 0 || attestedReports.length > 0) && (
-              <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
-                {submittedReports.length > 0 && (
-                  <button onClick={() => bulkAdvance('submitted')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>
-                    <ClipboardCheck size={14} /> {tr('ui.attestera_alla_inskickade')}{submittedReports.length})
-                  </button>
-                )}
-                {attestedReports.length > 0 && (
-                  <button onClick={() => bulkAdvance('attested')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: BRAND.green, border: 'none', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>
-                    <CheckCircle2 size={14} /> {tr('ui.godkann_alla_attesterade')}{attestedReports.length})
-                  </button>
-                )}
-              </div>
-            )}
+    <>
+      <div className="ws-stats">
+        <div className="ws-stat"><div className="ws-stat-label">{tr('ui.totalt_loggat')}</div><div className="ws-stat-value">{formatHours(monthTotal)} {tr('ui.h')}</div><div className="ws-stat-sub">{tr('proj.people', { n: reports.length })}</div></div>
+        <div className="ws-stat"><div className="ws-stat-label">{tr('ui.vantar_attest')}</div><div className="ws-stat-value">{submitted.length}</div></div>
+        <div className="ws-stat"><div className="ws-stat-label">{tr('ui.vantar_godkannande')}</div><div className="ws-stat-value">{attested.length}</div></div>
+      </div>
+
+      <div className="ws-card">
+        <div className="ws-card-head">
+          <div>
+            <h3 className="ws-card-title" style={{ textTransform: 'capitalize' }}>{formatMonthLabel(month)}</h3>
+            <p className="ws-card-sub">{tr('proj.reportsSub')}</p>
           </div>
-        </>
-      )}
-      {reports.length > 0 && (
-        // Riktig tabell (samma delade ListTable-komponent som Fakturor/
-        // Kontakter/Kontoplan) istället för fristående kortrader — en
-        // rubrikrad ger flödet en riktig kolumnstruktur att läsa mot, och på
-        // mobil kollapsar varje rad automatiskt till ett etikett/värde-kort.
+          <div className="ws-card-actions">
+            {submitted.length > 0 && <button type="button" className="agi-btn" onClick={() => bulkAdvance('submitted')}><ClipboardCheck size={14} /> {tr('ui.attestera_alla_inskickade')}{submitted.length})</button>}
+            {attested.length > 0 && <button type="button" className="agi-btn primary" onClick={() => bulkAdvance('attested')}><CheckCircle2 size={14} /> {tr('ui.godkann_alla_attesterade')}{attested.length})</button>}
+            <button type="button" className="agi-btn" style={{ padding: '0 8px' }} onClick={onPrevMonth} aria-label={tr('proj.prevMonth')}><ChevronLeft size={16} /></button>
+            <button type="button" className="agi-btn" onClick={onThisMonth}>{tr('ui.denna_manad')}</button>
+            <button type="button" className="agi-btn" style={{ padding: '0 8px' }} onClick={onNextMonth} aria-label={tr('proj.nextMonth')}><ChevronRight size={16} /></button>
+          </div>
+        </div>
         <ListTable
+          bordered={false}
           rowKey={r => r.person.id}
           onRowClick={r => setOpenReport(r)}
           rows={reports}
+          emptyMessage={tr('ui.ingen_tid_loggad_denna_manad_annu')}
+          mobileList={r => ({ primary: r.person.name, amount: `${formatHours(r.hours)} h`, meta: tr('proj.entries', { n: r.entries.length }), pill: <span className={`agi-pill ${TIME_REPORT_STATUS[r.status].cls}`}>{TIME_REPORT_STATUS[r.status].label}</span> })}
           columns={[
-            {
-              key: 'person', label: tr('ui.person'), render: r => (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: 30, height: 30, borderRadius: '999px', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', flexShrink: 0 }}>
-                    {r.person.id === SELF_PERSON_ID ? <User size={14} /> : <Users size={14} />}
-                  </div>
-                  <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{r.person.name}</span>
-                </div>
-              ),
-            },
+            { key: 'person', label: tr('ui.person'), fontWeight: 600, color: 'var(--text-main)', render: r => r.person.name },
             { key: 'entries', label: tr('ui.registreringar'), align: 'right', render: r => r.entries.length },
             { key: 'hours', label: tr('ui.timmar'), align: 'right', fontWeight: 700, color: 'var(--text-main)', render: r => `${formatHours(r.hours)} h` },
-            {
-              key: 'status', label: tr('ui.status'), render: r => {
-                const statusMeta = TIME_REPORT_STATUS[r.status];
-                return <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', fontWeight: 600, background: statusMeta.bg, color: statusMeta.color, whiteSpace: 'nowrap' }}>{statusMeta.label}</span>;
-              },
-            },
+            { key: 'status', label: tr('ui.status'), render: r => <span className={`agi-pill ${TIME_REPORT_STATUS[r.status].cls}`}>{TIME_REPORT_STATUS[r.status].label}</span> },
             {
               key: 'actions', label: '', align: 'right', render: r => {
                 const ActionIcon = ACTION_ICON[r.status];
                 return (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                    {r.status !== 'pending' && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); revert(r); }} title={tr('ui.skicka_tillbaka_ett_steg')}
-                        style={{ background: 'none', border: 'none', padding: '7px', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', flexShrink: 0 }}
-                      >
-                        <Undo2 size={14} />
-                      </button>
-                    )}
-                    {ActionIcon && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); advance(r); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
-                      >
-                        <ActionIcon size={13} /> {ACTION_LABEL[r.status]}
-                      </button>
-                    )}
+                    {r.status !== 'pending' && <button type="button" className="ws-icon-btn" title={tr('ui.skicka_tillbaka_ett_steg')} onClick={(e) => { e.stopPropagation(); revert(r); }}><Undo2 size={14} /></button>}
+                    {ActionIcon && <button type="button" className="agi-btn primary" style={{ height: '32px' }} onClick={(e) => { e.stopPropagation(); advance(r); }}><ActionIcon size={13} /> {ACTION_LABEL[r.status]}</button>}
                   </div>
                 );
               },
             },
           ]}
         />
-      )}
+      </div>
 
-      {openReport && (
-        <TimeReportDetailModal
-          report={openReport}
-          onClose={() => setOpenReport(null)}
-          onAdvance={() => { advance(openReport); setOpenReport(null); }}
-          onRevert={() => { revert(openReport); setOpenReport(null); }}
-          actionLabel={ACTION_LABEL[openReport.status]}
-          ActionIcon={ACTION_ICON[openReport.status]}
-        />
-      )}
-    </div>
+      {openReport && (() => {
+        const sorted = [...openReport.entries].sort((a, b) => a.date.localeCompare(b.date));
+        const meta = TIME_REPORT_STATUS[openReport.status];
+        const ActionIcon = ACTION_ICON[openReport.status];
+        return (
+          <div className="modal-overlay" onClick={() => setOpenReport(null)}>
+            <div className="modal-content" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2 className="modal-title">{openReport.person.name} · <span style={{ textTransform: 'capitalize', fontWeight: 500 }}>{formatMonthLabel(openReport.monthKey)}</span></h2>
+                <button type="button" className="modal-close" onClick={() => setOpenReport(null)}><X size={18} /></button>
+              </div>
+              <div style={{ marginBottom: '12px' }}><span className={`agi-pill ${meta.cls}`}>{meta.label}</span></div>
+              {sorted.length === 0 ? <p className="ws-hint">{tr('ui.ingen_tid_registrerad')}</p> : (
+                <ul className="ws-rows" style={{ maxHeight: '320px', overflowY: 'auto', margin: '0 -20px' }}>
+                  {sorted.map(entry => (
+                    <li key={entry.id}>
+                      <span className="date">{formatDay(entry.date)}</span>
+                      <span className="grow">{entry.description || <span className="muted">—</span>}</span>
+                      <span className="num">{formatHours(entry.hours)} {tr('ui.h')}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="modal-footer">
+                <span style={{ marginRight: 'auto', fontWeight: 700 }}>{tr('ui.totalt')} {formatHours(openReport.hours)} {tr('ui.h')}</span>
+                {openReport.status !== 'pending' && <button type="button" className="agi-btn" onClick={() => { revert(openReport); setOpenReport(null); }}>{tr('ui.skicka_tillbaka')}</button>}
+                {ActionIcon && <button type="button" className="agi-btn primary" onClick={() => { advance(openReport); setOpenReport(null); }}><ActionIcon size={14} /> {ACTION_LABEL[openReport.status]}</button>}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+    </>
   );
 }
 
-// ── Detaljmodal för en enskild persons månadsrapport — samma vita
-// .modal-overlay/.modal-content som resten av appens modaler (Nytt
-// projekt nedan, offertens förhandsgranskning m.fl.). ──
-function TimeReportDetailModal({ report, onClose, onAdvance, onRevert, actionLabel, ActionIcon }) {
-  const sorted = [...report.entries].sort((a, b) => a.date.localeCompare(b.date));
-  const statusMeta = TIME_REPORT_STATUS[report.status];
+// ── Projektets egen sida: siffror överst, tiden till vänster, fakturor
+// och kostnader till höger, och knappar för att logga tid, fakturera,
+// redigera och avsluta. ──
+function ProjectDetail({ project, timeEntries, setTimeEntries, setProjects, invoices, expenses, people, onBack, onEdit, onDelete, onInvoice }) {
+  const entries = timeEntries.filter(t => t.projectId === project.id).sort((a, b) => b.date.localeCompare(a.date) || String(b.id).localeCompare(String(a.id)));
+  const projInvoices = invoices
+    .filter(inv => inv.projectId === project.id && (!inv.type || inv.type === 'invoice'))
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  const projExpenses = expenses.filter(e => e.projectId === project.id).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  const lastInvoiced = projInvoices.filter(i => i.status !== 'draft').map(i => i.date).filter(Boolean).sort().pop() || '';
+  const unbilled = entries.filter(e => !lastInvoiced || e.date > lastInvoiced);
+  const unbilledHours = sumHours(unbilled);
+  const rate = Number(project.hourlyRate) || 0;
+  const profit = project.revenue - project.cost;
+  const budgetValue = (Number(project.budgetHours) || 0) * rate;
+  const personName = (id) => people.find(p => p.id === (id || SELF_PERSON_ID))?.name || '';
+
+  const [log, setLog] = useState({ date: getISODate(new Date()), hours: '', description: '' });
+  const addTime = (e) => {
+    e.preventDefault();
+    const hours = parseHours(log.hours);
+    if (!hours) return;
+    setTimeEntries(prev => [...prev, { id: `time_${Date.now()}`, date: log.date, projectId: project.id, personId: SELF_PERSON_ID, hours, description: log.description.trim() }]);
+    setProjects(prev => prev.map(p => (p.id === project.id ? { ...p, timeSpent: (p.timeSpent || 0) + hours } : p)));
+    setLog(l => ({ ...l, hours: '', description: '' }));
+  };
+  const removeTime = (entry) => {
+    setTimeEntries(prev => prev.filter(t => t.id !== entry.id));
+    setProjects(prev => prev.map(p => (p.id === project.id ? { ...p, timeSpent: Math.max(0, (p.timeSpent || 0) - entry.hours) } : p)));
+  };
+  const toggleFinished = () => setProjects(prev => prev.map(p => (p.id === project.id ? { ...p, status: p.status === 'finished' ? 'active' : 'finished' } : p)));
+
+  const dates = [project.startDate, project.endDate].filter(Boolean).map(formatDay).join(' – ');
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2 className="modal-title">{report.person.name}</h2>
-          <button className="modal-close" onClick={onClose}><X size={18} /></button>
+    <div className="ws-page">
+      <button type="button" className="pj-back" onClick={onBack}><ChevronLeft size={16} /> {tr('proj.allProjects')}</button>
+      <div className="pj-head">
+        <div style={{ minWidth: 0 }}>
+          <h2 className="pj-title"><span className="ws-dot" style={{ background: project.color || BRAND.green }} />{project.name} {statusPill(project)}</h2>
+          <p className="pj-meta">{[project.projectNumber, project.customerName, dates].filter(Boolean).join(' · ')}</p>
         </div>
-        <div style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div style={{ fontSize: '13.5px', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{formatMonthLabel(report.monthKey)}</div>
-            <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '999px', fontWeight: 600, background: statusMeta.bg, color: statusMeta.color }}>{statusMeta.label}</span>
-          </div>
+        <div className="ws-card-actions">
+          <button type="button" className="agi-btn" onClick={onEdit}><Pencil size={14} /> {tr('ui.andra')}</button>
+          <button type="button" className="agi-btn" onClick={toggleFinished}>{project.status === 'finished' ? tr('proj.reopen') : tr('proj.finish')}</button>
+          {onInvoice && project.customerId && unbilledHours > 0 && rate > 0 && (
+            <button type="button" className="agi-btn primary" onClick={() => onInvoice(project, unbilledHours)}>{tr('proj.invoiceTime', { h: formatHours(unbilledHours) })}</button>
+          )}
+        </div>
+      </div>
 
-          {sorted.length === 0 ? (
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('ui.ingen_tid_registrerad')}</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '320px', overflowY: 'auto' }}>
-              {sorted.map(entry => (
-                <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', fontSize: '13px', padding: '6px 0', borderBottom: '1px solid var(--border-light)' }}>
-                  <span style={{ color: 'var(--text-main)' }}>{entry.date} {entry.description ? `— ${entry.description}` : ''}</span>
-                  <span style={{ fontWeight: 600, color: 'var(--text-main)', flexShrink: 0 }}>{formatHours(entry.hours)} {tr('ui.h')}</span>
-                </div>
-              ))}
+      <div className="ws-stats">
+        <div className="ws-stat">
+          <div className="ws-stat-label">{tr('ui.nedlagd_tid')}</div>
+          <div className="ws-stat-value">{formatHours(project.hours)} {tr('ui.h')}</div>
+          {project.budgetHours > 0
+            ? <><div className="ws-stat-sub">{tr('proj.ofBudget', { h: formatHours(project.budgetHours) })}</div><div className={`ws-bar ${project.hours > project.budgetHours ? 'over' : project.hours >= project.budgetHours * 0.8 ? 'warn' : ''}`}><span style={{ width: `${Math.min(100, (project.hours / project.budgetHours) * 100)}%` }} /></div></>
+            : <div className="ws-stat-sub">{tr('ui.ingen_budget_satt')}</div>}
+        </div>
+        <div className="ws-stat">
+          <div className="ws-stat-label">{tr('ui.fakturerat')}</div>
+          <div className="ws-stat-value">{formatSEK(project.revenue)}</div>
+          <div className="ws-stat-sub">{unbilledHours > 0 ? tr('proj.unbilled', { h: formatHours(unbilledHours) }) : tr('proj.allBilled')}</div>
+        </div>
+        <div className="ws-stat">
+          <div className="ws-stat-label">{tr('ui.kostnader')}</div>
+          <div className="ws-stat-value">{formatSEK(project.cost)}</div>
+          <div className="ws-stat-sub">{tr('proj.exVat')}</div>
+        </div>
+        <div className="ws-stat">
+          <div className="ws-stat-label">{tr('proj.result')}</div>
+          <div className={`ws-stat-value${profit < 0 ? ' neg' : ''}`}>{formatSEK(profit)}</div>
+          <div className="ws-stat-sub">{tr('proj.resultSub')}</div>
+        </div>
+      </div>
+
+      <div className="ws-cols">
+        <div className="ws-card">
+          <div className="ws-card-head">
+            <div>
+              <h3 className="ws-card-title">{tr('ui.tid')}</h3>
+              <p className="ws-card-sub">{tr('proj.entries', { n: entries.length })}</p>
             </div>
-          )}
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', marginTop: '14px', paddingTop: '14px' }}>
-            <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('ui.totalt')}</span>
-            <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>{formatHours(report.hours)} {tr('ui.h')}</span>
           </div>
+          <form className="pj-log" onSubmit={addTime}>
+            <input type="date" className="ws-input" value={log.date} onChange={e => setLog(l => ({ ...l, date: e.target.value }))} aria-label={tr('ui.datum')} />
+            <div className="ws-input-suffix"><input className="ws-input" inputMode="decimal" placeholder="0" value={log.hours} onChange={e => setLog(l => ({ ...l, hours: e.target.value }))} aria-label={tr('ui.timmar')} /><span>h</span></div>
+            <input className="ws-input" placeholder={tr('ui.vad_jobbade_du_med')} value={log.description} onChange={e => setLog(l => ({ ...l, description: e.target.value }))} aria-label={tr('ui.beskrivning')} />
+            <button type="submit" className="agi-btn primary" disabled={!parseHours(log.hours)}><Plus size={14} /> {tr('ui.logga_tid')}</button>
+          </form>
+          {entries.length === 0 ? <div className="ws-rows-empty">{tr('ui.ingen_tid_registrerad_pa_projektet_annu')}</div> : (
+            <ul className="ws-rows">
+              {entries.slice(0, 60).map(entry => (
+                <li key={entry.id}>
+                  <span className="date">{formatDay(entry.date)}</span>
+                  <span className="grow">{entry.description || <span className="muted">{tr('proj.noNote')}</span>}{people.length > 1 && <span className="muted"> · {personName(entry.personId)}</span>}</span>
+                  <span className="num">{formatHours(entry.hours)} {tr('ui.h')}</span>
+                  <button type="button" className="ws-icon-btn" title={tr('ui.ta_bort')} onClick={() => removeTime(entry)}><Trash2 size={14} /></button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '0 20px 20px' }}>
-          {report.status !== 'pending' && (
-            <button onClick={onRevert} style={{ padding: '9px 14px', background: 'var(--gray-100)', color: 'var(--text-secondary)', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-              {tr('ui.skicka_tillbaka')}
-            </button>
-          )}
-          {ActionIcon && (
-            <button onClick={onAdvance} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-              <ActionIcon size={14} /> {actionLabel}
-            </button>
-          )}
+
+        <div className="ws-stack">
+          <div className="ws-card">
+            <div className="ws-card-head"><h3 className="ws-card-title">{tr('proj.invoices')}</h3></div>
+            {projInvoices.length === 0 ? <div className="ws-rows-empty">{tr('ui.inget_fakturerat_pa_detta_projekt_annu')}</div> : (
+              <ul className="ws-rows">
+                {projInvoices.slice(0, 20).map(inv => (
+                  <li key={inv.id}>
+                    <span className="date">{formatDay(inv.date)}</span>
+                    <span className="grow">{inv.invoiceNumber ? `#${inv.invoiceNumber}` : tr('proj.draft')}</span>
+                    <span className="num">{formatSEK(invoiceNetSek(inv))}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="ws-card">
+            <div className="ws-card-head"><h3 className="ws-card-title">{tr('ui.kostnader')}</h3></div>
+            {projExpenses.length === 0 ? <div className="ws-rows-empty">{tr('proj.noCosts')}</div> : (
+              <ul className="ws-rows">
+                {projExpenses.slice(0, 20).map(e => (
+                  <li key={e.id}>
+                    <span className="date">{formatDay(e.date)}</span>
+                    <span className="grow">{e.supplier || e.supplierName || e.description || '—'}</span>
+                    <span className="num">{formatSEK(expenseNet(e))}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="ws-card">
+            <div className="ws-card-head"><h3 className="ws-card-title">{tr('proj.about')}</h3></div>
+            <div className="ws-card-body">
+              {project.description && <p className="ws-hint" style={{ marginBottom: '14px', color: 'var(--text-main)' }}>{project.description}</p>}
+              <dl className="pj-facts">
+                <dt>{tr('ui.timpris_kr')}</dt><dd>{rate ? formatSEK(rate) : '—'}</dd>
+                <dt>{tr('proj.budgetHours')}</dt><dd>{project.budgetHours ? `${formatHours(project.budgetHours)} h` : '—'}</dd>
+                <dt>{tr('ui.budgeterat_varde')}</dt><dd>{budgetValue ? formatSEK(budgetValue) : '—'}</dd>
+                {project.department && <><dt>{tr('ui.avdelning')}</dt><dd>{project.department}</dd></>}
+              </dl>
+              <button type="button" className="agi-btn danger" style={{ marginTop: '16px' }} onClick={onDelete}><Trash2 size={14} /> {tr('proj.delete')}</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Projektlistan — en enda flush ListTable (samma delade komponent som
-// Kunder/Leverantörer och Bokförings verifikationslista) istället för
-// individuellt kantade "kort" med mellanrum. Kundfeedback: Projekt skulle
-// se ut som "resten av sidorna" — se Contacts.jsx-kommentaren vid dess
-// ListTable ("tabellen ska sitta flush ... exakt samma facit-mönster som
-// Bokföring/Verifikationer") och samma princip som redan drivit
-// Lönekörningar-listan flush (payrollConfig.js-historiken). En rad fälls ut
-// till detaljvyn (Tidrapporter/Kostnader/Fakturerat) precis som
-// Verifications.jsx redan gör med `isExpanded`/`renderExpanded`, istället
-// för att navigera bort. ──
-function ProjectsListTable({ list, contacts, timeEntries, expandedProjectId, setExpandedProjectId, detailTab, setDetailTab, emptyMessage }) {
-  return (
-    <ListTable
-      rowKey={p => p.id}
-      onRowClick={p => setExpandedProjectId(expandedProjectId === p.id ? null : p.id)}
-      isExpanded={p => expandedProjectId === p.id}
-      emptyMessage={emptyMessage}
-      rows={list}
-      rowStyle={p => (p.status === 'finished' ? { opacity: 0.7 } : {})}
-      // Telefon och smalt fönster: en ren rad per projekt som i övriga listor
-      // (namn, kund och tid, lönsamhet till höger, status som pill).
-      mobileList={p => {
-        const isFinished = p.status === 'finished';
-        const profit = (p.revenue || 0) - (p.cost || 0);
-        const customer = contacts.find(c => c.id === p.customerId)?.name || tr('ui.okand_kund');
-        return {
-          dot: isFinished ? 'var(--text-muted)' : (p.color || BRAND.green),
-          primary: [p.projectNumber, p.name].filter(Boolean).join(' · '),
-          amount: <span style={{ color: profit >= 0 ? 'var(--text-main)' : 'var(--status-red-text)' }}>{formatSEK(profit)}</span>,
-          meta: `${customer} · ${formatHours(p.timeSpent || 0)} ${tr('ui.av')} ${p.budgetHours || 0} ${tr('ui.h')}`,
-          pill: isFinished
-            ? <span style={{ fontSize: '11px', padding: '2px 8px', background: 'var(--gray-100)', color: 'var(--text-secondary)', borderRadius: '999px', fontWeight: 600 }}>{tr('ui.avslutat')}</span>
-            : <span style={{ fontSize: '11px', padding: '2px 8px', background: BRAND.greenLight, color: BRAND.greenDark, borderRadius: '999px', fontWeight: 600 }}>{tr('ui.pagar')}</span>,
-        };
-      }}
-      columns={[
-        {
-          key: 'project', label: tr('ui.projekt'), render: p => {
-            const isFinished = p.status === 'finished';
-            const isExpanded = expandedProjectId === p.id;
-            return (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                {isExpanded ? <ChevronDown size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} /> : <ChevronRight size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />}
-                {/* Liten avatar — projektets EGEN färg (vald i "Nytt projekt")
-                    om satt, annars Bokix grönt som förval, samma 34px/8px-
-                    recept som Kunder-avatarerna (Contacts.jsx). */}
-                <div style={{
-                  width: 34, height: 34, borderRadius: '8px', flexShrink: 0,
-                  background: isFinished ? 'var(--gray-100)' : (p.color || BRAND.green),
-                  color: isFinished ? 'var(--text-secondary)' : 'white',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '14px', fontWeight: 700,
-                }}>
-                  {p.name?.[0]?.toUpperCase() || <Briefcase size={15} />}
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexWrap: 'wrap' }}>
-                    {p.projectNumber && (
-                      <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 600 }}>{p.projectNumber}</span>
-                    )}
-                    <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-main)' }}>{p.name}</span>
-                    {isFinished ? (
-                      <span style={{ fontSize: '11px', padding: '2px 8px', background: 'var(--gray-100)', color: 'var(--text-secondary)', borderRadius: '999px', fontWeight: 600 }}>{tr('ui.avslutat')}</span>
-                    ) : (
-                      <span style={{ fontSize: '11px', padding: '2px 8px', background: BRAND.greenLight, color: BRAND.greenDark, borderRadius: '999px', fontWeight: 600 }}>{tr('ui.pagar')}</span>
-                    )}
-                    {p.department && (
-                      <span style={{ fontSize: '11px', padding: '2px 8px', background: 'var(--gray-100)', color: 'var(--text-secondary)', borderRadius: '999px', fontWeight: 500 }}>{p.department}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          },
-        },
-        { key: 'customer', label: tr('ui.kund'), render: p => contacts.find(c => c.id === p.customerId)?.name || tr('ui.okand_kund') },
-        {
-          key: 'time', label: tr('ui.tid'), width: 150, render: p => {
-            const pct = p.budgetHours ? Math.min((p.timeSpent / p.budgetHours) * 100, 100) : 0;
-            let barColor = '#16a34a';
-            if (pct > 100) barColor = '#ef4444';
-            else if (pct >= 80) barColor = '#f59e0b';
-            return (
-              <div>
-                <div style={{ fontSize: '12.5px', color: 'var(--text-main)', marginBottom: '4px' }}>{formatHours(p.timeSpent || 0)} {tr('ui.av')} {p.budgetHours || 0} {tr('ui.h')}</div>
-                <div style={{ height: '6px', background: 'var(--gray-200)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: barColor }} />
-                </div>
-              </div>
-            );
-          },
-        },
-        {
-          key: 'profit', label: tr('ui.lonsamhet'), align: 'right', fontWeight: 700, render: p => {
-            const profit = (p.revenue || 0) - (p.cost || 0);
-            return <span style={{ color: profit >= 0 ? 'var(--text-main)' : 'var(--status-red-text)' }}>{formatSEK(profit)}</span>;
-          },
-        },
-      ]}
-      renderExpanded={p => {
-        const projectEntries = timeEntries.filter(t => t.projectId === p.id).sort((a, b) => b.date.localeCompare(a.date));
-        return (
-          <div style={{ background: 'var(--status-green-bg)' }}>
-            <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', padding: '0 20px 0 44px' }}>
-              {[{ id: 'time', label: tr('ui.tidrapporter') }, { id: 'costs', label: tr('ui.kostnader') }, { id: 'invoiced', label: tr('ui.fakturerat') }].map(t => (
-                <button
-                  key={t.id}
-                  onClick={(e) => { e.stopPropagation(); setDetailTab(t.id); }}
-                  style={{
-                    padding: '10px 16px', border: 'none', cursor: 'pointer', fontSize: '13px',
-                    fontWeight: detailTab === t.id ? 600 : 500,
-                    color: detailTab === t.id ? BRAND.greenDark : 'var(--text-secondary)',
-                    background: 'none',
-                    borderBottom: detailTab === t.id ? `2px solid ${BRAND.green}` : '2px solid transparent',
-                    marginBottom: '-1px',
-                  }}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-            {/* Kundfeedback ("lite space, annars förstår man inget"): 16px
-                top-padding kändes hopklämt direkt under flikraden — texten
-                satt nästan fast i understrykningen. 22px ger meddelandet
-                riktigt andrum innan det, samma känsla som Bokförings egen
-                utfällda detaljrad. */}
-            <div style={{ padding: '22px 20px 22px 44px' }}>
-              {detailTab === 'time' && (
-                projectEntries.length === 0 ? (
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('ui.ingen_tid_registrerad_pa_projektet_annu')}</div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {projectEntries.slice(0, 8).map(entry => (
-                      <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '6px 0', borderBottom: '1px solid var(--border-light)' }}>
-                        <span style={{ color: 'var(--text-main)' }}>{entry.date} {entry.description ? `— ${entry.description}` : ''}</span>
-                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatHours(entry.hours)} {tr('ui.h')}</span>
-                      </div>
-                    ))}
-                  </div>
-                )
-              )}
-              {detailTab === 'costs' && <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('ui.inga_registrerade_kostnader_utlagg_leverantorsfa')}</div>}
-              {detailTab === 'invoiced' && <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{tr('ui.inget_fakturerat_pa_detta_projekt_annu')}</div>}
-            </div>
-          </div>
-        );
-      }}
-    />
-  );
-}
-
-export default function Projects({ projects: storedProjects = [], invoices = [], expenses = [], setProjects, contacts = [], setContacts, timeEntries = [], setTimeEntries, employees = [], timeReportStatuses = [], setTimeReportStatuses, globalAction, clearGlobalAction }) {
+export default function Projects({ projects: storedProjects = [], invoices = [], expenses = [], setProjects, contacts = [], setContacts, timeEntries = [], setTimeEntries, employees = [], timeReportStatuses = [], setTimeReportStatuses, globalAction, clearGlobalAction, onAction }) {
   const [activeTab, setActiveTab] = useState('projects');
   // Intäkt och kostnad räknas ur fakturor och kostnader som är kopplade till
-  // projektet (projectId), exklusive moms. De sparade fälten revenue/cost
-  // sattes till 0 när projektet skapades och uppdaterades aldrig.
+  // projektet (projectId), exklusive moms. Tiden räknas ur tidrapporterna;
+  // det sparade timeSpent används bara för gamla projekt utan registreringar.
   const projects = useMemo(() => storedProjects.map(p => {
     const revenue = invoices
       .filter(inv => inv.projectId === p.id && (!inv.type || inv.type === 'invoice') && inv.status !== 'draft')
       .reduce((sum, inv) => sum + invoiceNetSek(inv), 0);
-    const cost = expenses
-      .filter(e => e.projectId === p.id)
-      .reduce((sum, e) => sum + (Number(e.netAmount) || 0), 0);
-    return { ...p, revenue: Math.round(revenue), cost: Math.round(cost) };
-  }), [storedProjects, invoices, expenses]);
+    const cost = expenses.filter(e => e.projectId === p.id).reduce((sum, e) => sum + expenseNet(e), 0);
+    const own = timeEntries.filter(t => t.projectId === p.id);
+    const hours = own.length ? sumHours(own) : (Number(p.timeSpent) || 0);
+    const customerName = contacts.find(c => c.id === p.customerId)?.name || '';
+    return { ...p, revenue: Math.round(revenue), cost: Math.round(cost), hours, budgetHours: Number(p.budgetHours) || 0, customerName };
+  }), [storedProjects, invoices, expenses, timeEntries, contacts]);
 
   useEffect(() => {
     const handleHash = () => {
@@ -1127,76 +656,42 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
 
   const handleSetTab = (tab) => {
     setActiveTab(tab);
+    setOpenProjectId(null);
     if (typeof window !== 'undefined') window.history.replaceState(null, '', `#${tab}`);
   };
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedProjectId, setExpandedProjectId] = useState(null);
-  const [detailTab, setDetailTab] = useState('time');
-  // Underflik inuti "Tidrapportering": Vecka (logga tid) vs Rapporter
-  // (godkänn redan loggad tid) — se TimeReportsView-kommentaren för varför
-  // de är skilda vyer istället för en gemensam.
+  const [statusFilter, setStatusFilter] = useState('active'); // 'active' | 'archived' | 'all'
+  const [departmentFilter, setDepartmentFilter] = useState('');
+  const [openProjectId, setOpenProjectId] = useState(null);
+
   const [timeSubTab, setTimeSubTab] = useState('week');
-  // Kundfeedback ("på projekt headern, men de ska se bra ut"): person-
-  // väljaren, vecko-/månadsnavigeringen och totalsumman låg tidigare inuti
-  // TimeTrackingTab/TimeReportsView — där rullar de bort med sidans
-  // scrollyta, till skillnad från headern/filterraden ovanför som alltid
-  // står still. Lyfts hit så de kan renderas i SAMMA fasta ListFilterBar
-  // som Vecka/Rapporter-växlaren, riktigt sammanslagna med headern istället
-  // för att bara se ut så tills man scrollar. TimeTrackingTab/TimeReportsView
-  // läser dem nu som props, äger dem inte längre själva.
   const [timePersonId, setTimePersonId] = useState(SELF_PERSON_ID);
   const [timeWeekStart, setTimeWeekStart] = useState(() => getStartOfWeek(new Date()));
   const [timeMonth, setTimeMonth] = useState(() => getMonthKey(getISODate(new Date())));
-  const timePeople = useMemo(() => getPersonList(employees), [employees]);
-  const timeWeekDates = useMemo(() => getDatesOfWeek(timeWeekStart), [timeWeekStart]);
-  const timePersonEntries = useMemo(() => timeEntries.filter(t => (t.personId || SELF_PERSON_ID) === timePersonId), [timeEntries, timePersonId]);
-  const timeWeekTotal = useMemo(() => {
-    const s = getISODate(timeWeekDates[0]), e = getISODate(timeWeekDates[6]);
-    return sumHours(timePersonEntries.filter(t => t.date >= s && t.date <= e));
-  }, [timePersonEntries, timeWeekDates]);
-  const timePrevWeekTotal = useMemo(() => {
-    const prevDates = getDatesOfWeek(new Date(timeWeekStart.getFullYear(), timeWeekStart.getMonth(), timeWeekStart.getDate() - 7));
-    const s = getISODate(prevDates[0]), e = getISODate(prevDates[6]);
-    return sumHours(timePersonEntries.filter(t => t.date >= s && t.date <= e));
-  }, [timePersonEntries, timeWeekStart]);
-  const timeDiff = timeWeekTotal - timePrevWeekTotal;
-  const timeShowComparison = timeWeekTotal > 0 || timePrevWeekTotal > 0;
-  const timeMonthTotal = useMemo(() => sumHours(timeEntries.filter(t => getMonthKey(t.date) === timeMonth)), [timeEntries, timeMonth]);
-  const timeNavBtnStyle = { background: 'none', border: 'none', padding: '6px', borderRadius: '999px', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex' };
-  const [showNewProjectForm, setShowNewProjectForm] = useState(false);
-  const [showMoreProjectOptions, setShowMoreProjectOptions] = useState(false);
-  const [isSavingProject, setIsSavingProject] = useState(false);
-  // Avdelning-dropdownen väljer bland befintliga namn men kan växla om till
-  // ett textfält för att skapa den allra första/en ny avdelning inline.
-  const [isAddingDepartment, setIsAddingDepartment] = useState(false);
-  const blankProjectForm = { name: '', customerId: '', department: '', color: PROJECT_COLORS[0], description: '', budgetHours: '', hourlyRate: '', startDate: '', endDate: '', status: 'active', autoInvoiceFromTime: false };
-  const [projectForm, setProjectForm] = useState(blankProjectForm);
-  // Enklare navigering: EN sida, EN lista, filtrerad live — istället för att
-  // tvinga fram klick mellan fem separata flik-"sidor" för att jämföra
-  // aktiva/arkiverade/en viss avdelning. Översikten (KPI:er + "behöver
-  // uppmärksamhet") ligger alltid synlig överst; Aktiva/Arkiverade/Alla och
-  // Avdelningar är nu filter på samma lista, inte egna destinationer.
-  const [statusFilter, setStatusFilter] = useState('active'); // 'active' | 'archived' | 'all'
-  const [departmentFilter, setDepartmentFilter] = useState(''); // '' = alla avdelningar
+  const people = useMemo(() => getPersonList(employees), [employees]);
+  const prevWeekTotal = useMemo(() => {
+    const prev = getDatesOfWeek(new Date(timeWeekStart.getFullYear(), timeWeekStart.getMonth(), timeWeekStart.getDate() - 7));
+    const s = getISODate(prev[0]), e = getISODate(prev[6]);
+    return sumHours(timeEntries.filter(t => (t.personId || SELF_PERSON_ID) === timePersonId && t.date >= s && t.date <= e));
+  }, [timeEntries, timePersonId, timeWeekStart]);
 
-  const openNewProjectForm = () => {
-    setProjectForm(blankProjectForm);
-    setShowMoreProjectOptions(false);
-    setIsSavingProject(false);
+  // ── Projektformuläret (nytt och ändra) ──
+  const blankProjectForm = { name: '', customerId: '', department: '', color: PROJECT_COLORS[0], description: '', budgetHours: '', hourlyRate: '', startDate: '', endDate: '', status: 'active' };
+  const [projectForm, setProjectForm] = useState(null); // null = stängt
+  const [editingId, setEditingId] = useState(null);
+  const [isAddingDepartment, setIsAddingDepartment] = useState(false);
+
+  const openNewProjectForm = () => { setProjectForm(blankProjectForm); setEditingId(null); setIsAddingDepartment(false); };
+  const openEditForm = (p) => {
+    const stored = storedProjects.find(x => x.id === p.id) || p;
+    setProjectForm({ ...blankProjectForm, ...stored, budgetHours: stored.budgetHours || '', hourlyRate: stored.hourlyRate || '' });
+    setEditingId(p.id);
     setIsAddingDepartment(false);
-    setShowNewProjectForm(true);
   };
 
-  // Snabbskapande av kund direkt från "Kund"-fältet i projektformuläret —
-  // samma mönster ska återanvändas för leverantörsfältet i
-  // leverantörsfaktura-formuläret. Bara namnet krävs; resten (org.nr m.m.)
-  // fylls i senare under Kunder om det behövs.
   const handleCreateCustomerInline = (name) => {
-    const newContact = {
-      id: `contact_${Date.now()}`, type: 'customer', customerType: 'se_company',
-      name, orgNr: '', balance: 0, lastInvoiceDate: null, totalInvoicedThisYear: 0,
-    };
+    const newContact = { id: `contact_${Date.now()}`, type: 'customer', customerType: 'se_company', name, orgNr: '', balance: 0, lastInvoiceDate: null, totalInvoicedThisYear: 0 };
     setContacts(prev => [...prev, newContact]);
     setProjectForm(f => ({ ...f, customerId: newContact.id }));
   };
@@ -1207,339 +702,268 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
       openNewProjectForm();
       clearGlobalAction?.();
     }
-  }, [globalAction, clearGlobalAction]);
+  }, [globalAction, clearGlobalAction]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSaveProject = (e) => {
+    e.preventDefault();
+    const name = (projectForm?.name || '').trim();
+    if (!name) return;
+    const values = { ...projectForm, name, budgetHours: Number(projectForm.budgetHours) || 0, hourlyRate: Number(projectForm.hourlyRate) || 0 };
+    if (editingId) {
+      setProjects(prev => prev.map(p => (p.id === editingId ? { ...p, ...values } : p)));
+    } else {
+      setProjects(prev => [{ id: `proj_${Date.now()}`, projectNumber: getNextProjectNumber(storedProjects), ...values, timeSpent: 0, revenue: 0, cost: 0 }, ...prev]);
+    }
+    setProjectForm(null);
+  };
+
+  const deleteProject = async (p) => {
+    const hasTime = timeEntries.some(t => t.projectId === p.id);
+    const ok = await confirmDialog(hasTime ? tr('proj.deleteConfirmTime', { name: p.name }) : tr('proj.deleteConfirm', { name: p.name }));
+    if (!ok) return;
+    setProjects(prev => prev.filter(x => x.id !== p.id));
+    if (hasTime) setTimeEntries(prev => prev.filter(t => t.projectId !== p.id));
+    setOpenProjectId(null);
+  };
+
+  // Fakturan öppnas förifylld med kunden, projektet och tiden sedan förra
+  // fakturan (projektets timpris). Inget markeras som fakturerat förrän
+  // fakturan finns: "ej fakturerat" räknas från senaste fakturans datum.
+  const invoiceTime = (p, hours) => {
+    onAction?.({
+      type: 'new_invoice',
+      payload: {
+        sourceKey: `project_${p.id}_${Date.now()}`,
+        customerId: p.customerId,
+        projectId: p.id,
+        rows: [{ description: `${p.name}, ${formatHours(hours)} ${tr('ui.h')}`, qty: hours, unitPrice: Number(p.hourlyRate) || 0, vatRate: 25, discount: 0, account: '3001' }],
+      },
+    }, 'invoices');
+  };
 
   const activeProjects = projects.filter(p => p.status !== 'finished');
-  const finishedProjects = projects.filter(p => p.status === 'finished');
-  const allProjectsOrdered = [...activeProjects, ...finishedProjects];
-
-  // Avdelningar — ett fritt, valfritt taggfält per projekt, inte en egen
-  // registeransvarig entitet. Bara namnen behövs här (för filter-dropdownen);
-  // grupperingen görs inte längre som en egen vy.
   const departmentNames = Array.from(new Set(projects.map(p => p.department).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'sv'));
-
-  // EN filtrerad lista, byggd av tre oberoende filter (status, avdelning,
-  // fritext) istället för fem separata käll-listor för fem separata flikar.
-  const visibleProjects = allProjectsOrdered.filter(p => {
+  const visibleProjects = [...activeProjects, ...projects.filter(p => p.status === 'finished')].filter(p => {
     if (statusFilter === 'active' && p.status === 'finished') return false;
     if (statusFilter === 'archived' && p.status !== 'finished') return false;
     if (departmentFilter && p.department !== departmentFilter) return false;
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
-      const custName = contacts.find(c => c.id === p.customerId)?.name || '';
-      if (!p.name.toLowerCase().includes(s) && !custName.toLowerCase().includes(s) && !(p.department || '').toLowerCase().includes(s)) return false;
+      if (!p.name.toLowerCase().includes(s) && !p.customerName.toLowerCase().includes(s) && !(p.department || '').toLowerCase().includes(s) && !(p.projectNumber || '').toLowerCase().includes(s)) return false;
     }
     return true;
   });
-
-  // Alltid synligt överst: vad som faktiskt behöver ett beslut (nära/över
-  // budget), oavsett vilket filter som råkar vara valt just nu.
-  const atRiskProjects = activeProjects.filter(p => p.budgetHours && (p.timeSpent / p.budgetHours) >= 0.8);
-  const totalActiveTimeSpent = activeProjects.reduce((sum, p) => sum + (p.timeSpent || 0), 0);
-  const totalActiveBudgetHours = activeProjects.reduce((sum, p) => sum + (p.budgetHours || 0), 0);
-  const totalActiveProfit = activeProjects.reduce((sum, p) => sum + ((p.revenue || 0) - (p.cost || 0)), 0);
-
-  const budgetedValue = (Number(projectForm.budgetHours) || 0) * (Number(projectForm.hourlyRate) || 0);
-
-  const handleSaveProject = (e) => {
-    e.preventDefault();
-    // Kund är inte längre obligatoriskt (skissen har ingen asterisk på
-    // Kund, bara på Namn) — ett internt projekt utan extern kund är giltigt.
-    if (!projectForm.name || isSavingProject) return;
-    // Disablas direkt vid klick så ett dubbelklick inte skapar två projekt —
-    // formuläret stängs och avmonteras när det är klart, men skulle
-    // sparandet någon gång bli asynkront (t.ex. mot ett API) står knappen
-    // redan i "disabled" tills dess.
-    setIsSavingProject(true);
-    const newProject = {
-      id: `proj_${Date.now()}`, projectNumber: getNextProjectNumber(projects), ...projectForm,
-      budgetHours: Number(projectForm.budgetHours) || 0,
-      hourlyRate: Number(projectForm.hourlyRate) || 0,
-      timeSpent: 0, revenue: 0, cost: 0,
-    };
-    setProjects(prev => [newProject, ...prev]);
-    setShowNewProjectForm(false);
-    setProjectForm(blankProjectForm);
+  const atRisk = activeProjects.filter(p => p.budgetHours && p.hours / p.budgetHours >= 0.8);
+  const sum = (list, f) => list.reduce((s, p) => s + f(p), 0);
+  const totals = {
+    hours: sum(activeProjects, p => p.hours),
+    budget: sum(activeProjects, p => p.budgetHours),
+    revenue: sum(activeProjects, p => p.revenue),
+    cost: sum(activeProjects, p => p.cost),
   };
-
-  const inputSt = { width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--text-main)' };
-  const labelSt = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' };
+  const openProject = openProjectId ? projects.find(p => p.id === openProjectId) : null;
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
-      {/* Header i samma mönster som Kunder/Anställda och lön/Bokföring —
-          kort-bakgrund + kantlinje, inte flytande text på sidbakgrunden. */}
       <ListPageHeader
         title={tr('ui.projekt')}
-        actions={[
-          { key: 'new', label: tr('ui.nytt_projekt'), icon: Plus, onClick: () => openNewProjectForm(), variant: 'primary', dataTour: 'page-projects-cta' },
-        ]}
-        tabs={{
-          items: [{ id: 'projects', label: tr('ui.projekt') }, { id: 'time', label: tr('ui.tidrapportering') }],
-          activeId: activeTab,
-          onChange: handleSetTab,
-        }}
+        actions={[{ key: 'new', label: tr('ui.nytt_projekt'), icon: Plus, onClick: openNewProjectForm, variant: 'primary', dataTour: 'page-projects-cta' }]}
+        tabs={{ items: [{ id: 'projects', label: tr('ui.projekt') }, { id: 'time', label: tr('ui.tidrapportering') }], activeId: activeTab, onChange: handleSetTab }}
       />
 
-      {/* Kundfeedback ("emerge dem med headern ... täcker hela sidorna"):
-          filterraden ligger nu direkt (0 gap) under ListPageHeader, samma
-          bg-card+kantlinje-"kort" som headern själv (ListFilterBar, se dess
-          kommentar i ListPageHeader.jsx) — de smälter ihop till EN yta
-          istället för att filterraden float:ade löst en bit ner på
-          sidbakgrunden. Tabellen längre ner är sedan helt opaddad
-          (samma "flush" princip som Kunder/Bokföring), så den täcker hela
-          bredden ut mot huvudytans egna kanter — det lilla mellanrummet mot
-          sidomenyn kommer redan från appens layout runt huvudytan, orört här. */}
-      {activeTab === 'projects' && projects.length > 0 && (
+      {activeTab === 'projects' && !openProject && projects.length > 0 && (
         <ListFilterBar>
-          <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: '999px', padding: '2px', background: 'var(--bg-page)', flexShrink: 0 }}>
-            {[{ id: 'active', label: tr('ui.aktiva') }, { id: 'all', label: tr('ui.alla') }, { id: 'archived', label: tr('ui.arkiverade') }].map(f => (
-              <button key={f.id} onClick={() => setStatusFilter(f.id)} style={{
-                padding: '6px 14px', border: 'none', borderRadius: '999px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 600,
-                background: statusFilter === f.id ? BRAND.green : 'transparent',
-                color: statusFilter === f.id ? 'white' : 'var(--text-secondary)',
-                transition: 'background 0.15s, color 0.15s',
-              }}>{f.label}</button>
+          <div className="ws-seg">
+            {[{ id: 'active', label: tr('proj.ongoing') }, { id: 'archived', label: tr('proj.finished') }, { id: 'all', label: tr('ui.alla') }].map(f => (
+              <button key={f.id} type="button" className={statusFilter === f.id ? 'on' : ''} onClick={() => setStatusFilter(f.id)}>{f.label}</button>
             ))}
           </div>
-
           {departmentNames.length > 0 && (
-            <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} style={{ padding: '7px 12px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)', flexShrink: 0 }}>
+            <select className="ws-input" style={{ width: 'auto', height: '34px' }} value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)}>
               <option value="">{tr('ui.alla_avdelningar')}</option>
               {departmentNames.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           )}
-
           <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '180px', maxWidth: '320px' }}>
             <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input
-              type="text" placeholder={tr('ui.sok_projekt_eller_kund')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-              style={{ width: '100%', padding: '7px 10px 7px 32px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', outline: 'none', background: 'var(--bg-card)', boxSizing: 'border-box' }}
-            />
+            <input type="text" className="ws-input" style={{ height: '34px', paddingLeft: '32px', fontSize: '13px' }} placeholder={tr('ui.sok_projekt_eller_kund')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
         </ListFilterBar>
       )}
 
-      {/* Samma merge-med-headern-princip för Tidrapportering-fliken —
-          Vecka/Rapporter-växlaren satt tidigare löst en bit ner i en
-          24px-paddad ö, omärkbart skild från headern ovanför. Samma
-          ListFilterBar + samma piller-recept (kapsel med solid grön
-          aktiv-knapp) som Aktiva/Alla/Arkiverade ovan, så de två flikarna
-          känns som EN produkt, inte två olika skärmar.
-          Kundfeedback ("på projekt headern, men de ska se bra ut"):
-          personväljaren/vecko- (eller månads-)navigeringen/totalsumman
-          sitter nu HÄR också, i samma fasta rad — inte längre nere i den
-          scrollande ytan där de skulle rulla bort från headern så fort man
-          scrollade i tabellen. */}
       {activeTab === 'time' && (
         <ListFilterBar>
-          <div style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: '999px', padding: '2px', background: 'var(--bg-page)', flexShrink: 0 }}>
-            {[{ id: 'week', label: tr('ui.vecka') }, { id: 'reports', label: tr('ui.rapporter') }].map(t => (
-              <button key={t.id} onClick={() => setTimeSubTab(t.id)} style={{
-                padding: '6px 14px', border: 'none', borderRadius: '999px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 600,
-                background: timeSubTab === t.id ? BRAND.green : 'transparent',
-                color: timeSubTab === t.id ? 'white' : 'var(--text-secondary)',
-                transition: 'background 0.15s, color 0.15s',
-              }}>{t.label}</button>
+          <div className="ws-seg">
+            {[{ id: 'week', label: tr('ui.vecka') }, { id: 'reports', label: tr('proj.monthReports') }].map(x => (
+              <button key={x.id} type="button" className={timeSubTab === x.id ? 'on' : ''} onClick={() => setTimeSubTab(x.id)}>{x.label}</button>
             ))}
           </div>
-
-          {timeSubTab === 'week' ? (
-            <>
-              {timePeople.length > 1 && (
-                <select
-                  value={timePersonId}
-                  onChange={e => setTimePersonId(e.target.value)}
-                  style={{ padding: '7px 10px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, background: 'var(--bg-card)', color: 'var(--text-main)', flexShrink: 0 }}
-                >
-                  {timePeople.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-              )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '999px', padding: '4px 6px 4px 4px', flexWrap: 'wrap' }}>
-                <button onClick={() => setTimeWeekStart(d => new Date(d.getFullYear(), d.getMonth(), d.getDate() - 7))} style={timeNavBtnStyle}>
-                  <ChevronLeft size={16} />
-                </button>
-                <span style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--text-main)', minWidth: '176px', textAlign: 'center' }}>{formatWeekRange(timeWeekDates)}</span>
-                <button onClick={() => setTimeWeekStart(d => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7))} style={timeNavBtnStyle}>
-                  <ChevronRight size={16} />
-                </button>
-                <span style={{ width: '1px', height: '16px', background: 'var(--border)', margin: '0 2px' }} />
-                <button onClick={() => setTimeWeekStart(getStartOfWeek(new Date()))} style={{ ...timeNavBtnStyle, padding: '6px 10px', fontSize: '12.5px', color: BRAND.green, fontWeight: 700 }}>
-                  {tr('ui.idag')}
-                </button>
-                <span style={{ width: '1px', height: '16px', background: 'var(--border)', margin: '0 2px' }} />
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px 6px 4px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  <Clock size={14} color="var(--text-muted)" />
-                  {tr('ui.denna_vecka')} <strong style={{ color: 'var(--text-main)', fontWeight: 700 }}>{formatHours(timeWeekTotal)} {tr('ui.h')}</strong>
-                  {timeShowComparison && timeDiff !== 0 && (
-                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>({timeDiff > 0 ? '+' : '−'}{formatHours(Math.abs(timeDiff))} {tr('ui.h_mot_forra_veckan')}</span>
-                  )}
-                </span>
-              </div>
-            </>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: '999px', padding: '4px 6px 4px 4px', flexWrap: 'wrap' }}>
-              <button onClick={() => setTimeMonth(m => shiftMonthKey(m, -1))} style={timeNavBtnStyle}>
-                <ChevronLeft size={16} />
-              </button>
-              <span style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--text-main)', minWidth: '150px', textAlign: 'center', textTransform: 'capitalize' }}>{formatMonthLabel(timeMonth)}</span>
-              <button onClick={() => setTimeMonth(m => shiftMonthKey(m, 1))} style={timeNavBtnStyle}>
-                <ChevronRight size={16} />
-              </button>
-              <span style={{ width: '1px', height: '16px', background: 'var(--border)', margin: '0 2px' }} />
-              <button onClick={() => setTimeMonth(getMonthKey(getISODate(new Date())))} style={{ ...timeNavBtnStyle, padding: '6px 10px', fontSize: '12.5px', color: BRAND.green, fontWeight: 700 }}>
-                {tr('ui.denna_manad')}
-              </button>
-              <span style={{ width: '1px', height: '16px', background: 'var(--border)', margin: '0 2px' }} />
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px 6px 4px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                <Clock size={14} color="var(--text-muted)" />
-                {tr('ui.totalt')} <strong style={{ color: 'var(--text-main)', fontWeight: 700 }}>{formatHours(timeMonthTotal)} {tr('ui.h')}</strong>
-              </span>
-            </div>
+          {timeSubTab === 'week' && people.length > 1 && (
+            <select className="ws-input" style={{ width: 'auto', height: '34px', fontWeight: 600 }} value={timePersonId} onChange={e => setTimePersonId(e.target.value)} aria-label={tr('ui.person')}>
+              {people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
           )}
         </ListFilterBar>
       )}
 
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      {activeTab === 'projects' && openProject && (
+        <ProjectDetail
+          project={openProject} timeEntries={timeEntries} setTimeEntries={setTimeEntries} setProjects={setProjects}
+          invoices={invoices} expenses={expenses} people={people}
+          onBack={() => setOpenProjectId(null)} onEdit={() => openEditForm(openProject)} onDelete={() => deleteProject(openProject)}
+          onInvoice={onAction ? invoiceTime : null}
+        />
+      )}
 
-      {activeTab === 'projects' && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {projects.length === 0 ? (
-            <EmptyProjectsState onCreate={() => openNewProjectForm()} />
-          ) : (
-            <>
-              {/* EN sida, EN lista — Översikt/Aktiva/Avdelningar/Arkiverade/
-                  Alla är nu synliga samtidigt (KPI-remsa + filter) istället
-                  för fem flikar man måste klicka sig mellan för att jämföra
-                  saker. Enklare mental modell: scrolla och filtrera, inte
-                  navigera.
-                  Kundönskemål ("slå ihop KPI-remsan med headern och under"):
-                  ingen egen padding längre — `flush` (se ProjectKpiStrip)
-                  gör remsan kantlös och full bredd, samma "facit"-princip
-                  som filterrad→tabell redan har på Bokföring/Verifikationer,
-                  så den sluter direkt an mot filterraden ovanför OCH
-                  tabellen under (ingen varningsrad emellan) i stället för
-                  att sväva som ett eget avrundat kort med luft runt om. */}
-              <ProjectKpiStrip flush items={[
-                { icon: Zap, label: tr('ui.aktiva_projekt'), value: String(activeProjects.length) },
-                {
-                  icon: Clock, label: tr('ui.nedlagd_tid'),
-                  value: `${formatHours(totalActiveTimeSpent)} h`,
-                  sub: totalActiveBudgetHours ? tr('ui.av_h_budgeterat', { totalActiveBudgetHours }) : tr('ui.ingen_budget_satt'),
-                },
-                {
-                  icon: totalActiveProfit >= 0 ? TrendingUp : TrendingDown, label: tr('ui.lonsamhet'),
-                  value: formatSEK(totalActiveProfit), tone: totalActiveProfit < 0 ? 'negative' : 'neutral',
-                },
-              ]} />
-
-              {/* Kompakt varningsrad istället för en hel inbäddad sektion —
-                  syns bara när den faktiskt behövs, försvinner annars helt
-                  (ingen "allt bra"-text som bara tar plats). Egen inset
-                  (inte flush) med flit — en varning ska läsas som en egen,
-                  avgränsad notis, inte smälta in i den sammanhängande
-                  KPI-remsa→tabell-ytan. */}
-              {atRiskProjects.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: BRAND.redBg, color: BRAND.redText, borderRadius: '8px', fontSize: '13px', margin: '18px 20px 0' }}>
-                  <AlertTriangle size={15} style={{ flexShrink: 0 }} />
-                  <span><strong>{atRiskProjects.length} {atRiskProjects.length === 1 ? tr('ui.projekt_2') : tr('ui.projekt_2')}</strong> {tr('ui.nara_eller_over_budgeterad_tid')} {atRiskProjects.map(p => p.name).join(', ')}</span>
-                </div>
-              )}
-
-              <div style={{ marginTop: atRiskProjects.length > 0 ? '18px' : 0 }}>
-                <ProjectsListTable
-                  list={visibleProjects} contacts={contacts} timeEntries={timeEntries}
-                  expandedProjectId={expandedProjectId} setExpandedProjectId={setExpandedProjectId}
-                  detailTab={detailTab} setDetailTab={setDetailTab}
-                  emptyMessage={
-                    searchTerm || departmentFilter ? tr('ui.inga_projekt_hittades_med_de_filtren')
-                      : statusFilter === 'archived' ? tr('ui.inga_arkiverade_projekt_annu')
-                        : statusFilter === 'active' ? tr('ui.inga_aktiva_projekt_just_nu')
-                          : tr('ui.inga_projekt_annu')
-                  }
-                />
+      {activeTab === 'projects' && !openProject && (
+        projects.length === 0 ? (
+          <div className="ws-page">
+            <div className="ws-card ws-empty">
+              <h3>{tr('ui.skapa_ditt_forsta_projekt')}</h3>
+              <p>{tr('ui.folj_upp_tid_och_lonsamhet_genom_att_skapa_ditt')}</p>
+              <button type="button" className="agi-btn primary" onClick={openNewProjectForm}><Plus size={14} /> {tr('ui.nytt_projekt')}</button>
+            </div>
+          </div>
+        ) : (
+          <div className="ws-page">
+            <div className="ws-stats">
+              <div className="ws-stat"><div className="ws-stat-label">{tr('proj.ongoingProjects')}</div><div className="ws-stat-value">{activeProjects.length}</div><div className="ws-stat-sub">{tr('proj.finishedCount', { n: projects.length - activeProjects.length })}</div></div>
+              <div className="ws-stat">
+                <div className="ws-stat-label">{tr('ui.nedlagd_tid')}</div>
+                <div className="ws-stat-value">{formatHours(totals.hours)} {tr('ui.h')}</div>
+                <div className="ws-stat-sub">{totals.budget ? tr('proj.ofBudget', { h: formatHours(totals.budget) }) : tr('ui.ingen_budget_satt')}</div>
               </div>
-            </>
-          )}
-        </div>
+              <div className="ws-stat"><div className="ws-stat-label">{tr('ui.fakturerat')}</div><div className="ws-stat-value">{formatSEK(totals.revenue)}</div><div className="ws-stat-sub">{tr('proj.exVat')}</div></div>
+              <div className="ws-stat"><div className="ws-stat-label">{tr('proj.result')}</div><div className={`ws-stat-value${totals.revenue - totals.cost < 0 ? ' neg' : ''}`}>{formatSEK(totals.revenue - totals.cost)}</div><div className="ws-stat-sub">{tr('proj.costs', { kr: formatSEK(totals.cost) })}</div></div>
+            </div>
+
+            {atRisk.length > 0 && (
+              <div className="ws-notice warn">
+                <div><strong>{tr('proj.atRisk', { n: atRisk.length })}</strong><p>{atRisk.map(p => p.name).join(', ')}</p></div>
+              </div>
+            )}
+
+            <div className="ws-card">
+              <ListTable
+                bordered={false}
+                rowKey={p => p.id}
+                rows={visibleProjects}
+                onRowClick={p => setOpenProjectId(p.id)}
+                rowStyle={p => (p.status === 'finished' ? { opacity: 0.65 } : {})}
+                emptyMessage={
+                  searchTerm || departmentFilter ? tr('ui.inga_projekt_hittades_med_de_filtren')
+                    : statusFilter === 'archived' ? tr('ui.inga_arkiverade_projekt_annu')
+                      : statusFilter === 'active' ? tr('ui.inga_aktiva_projekt_just_nu')
+                        : tr('ui.inga_projekt_annu')
+                }
+                mobileList={p => ({
+                  dot: p.status === 'finished' ? 'var(--text-muted)' : (p.color || BRAND.green),
+                  primary: p.name,
+                  amount: <span style={{ color: p.revenue - p.cost >= 0 ? 'var(--text-main)' : 'var(--status-red-text)' }}>{formatSEK(p.revenue - p.cost)}</span>,
+                  meta: [p.customerName, p.budgetHours ? `${formatHours(p.hours)} ${tr('ui.av')} ${formatHours(p.budgetHours)} h` : `${formatHours(p.hours)} h`].filter(Boolean).join(' · '),
+                  pill: statusPill(p),
+                })}
+                columns={[
+                  {
+                    key: 'project', label: tr('ui.projekt'), render: p => (
+                      <div className="ws-name">
+                        <span className="ws-dot" style={{ background: p.status === 'finished' ? 'var(--text-muted)' : (p.color || BRAND.green) }} />
+                        <div className="ws-name-text">
+                          <strong>{p.name}</strong>
+                          <small>{[p.projectNumber, p.customerName || tr('proj.internal'), p.department].filter(Boolean).join(' · ')}</small>
+                        </div>
+                      </div>
+                    ),
+                  },
+                  { key: 'time', label: tr('ui.tid'), width: 170, render: p => <TimeBar spent={p.hours} budget={p.budgetHours} /> },
+                  { key: 'revenue', label: tr('ui.fakturerat'), align: 'right', render: p => formatSEK(p.revenue) },
+                  { key: 'cost', label: tr('ui.kostnader'), align: 'right', render: p => formatSEK(p.cost) },
+                  { key: 'profit', label: tr('proj.result'), align: 'right', fontWeight: 700, render: p => <span style={{ color: p.revenue - p.cost >= 0 ? 'var(--text-main)' : 'var(--status-red-text)' }}>{formatSEK(p.revenue - p.cost)}</span> },
+                  { key: 'status', label: '', align: 'right', render: p => statusPill(p) },
+                ]}
+              />
+            </div>
+          </div>
+        )
       )}
 
       {activeTab === 'time' && (
-        // minHeight: 0 hela vägen ner — utan det växer rutnätet förbi den
-        // lediga höjden i stället för att scrolla inuti sig självt, och då
-        // fastnar varken dagrubrikerna eller projektkolumnen där de ska.
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', paddingTop: '18px' }}>
+        <div className="ws-page">
           {timeSubTab === 'week' ? (
-            <TimeTrackingTab
+            <WeekSheet
               projects={projects} timeEntries={timeEntries} setTimeEntries={setTimeEntries} setProjects={setProjects}
-              personId={timePersonId} currentWeekStart={timeWeekStart}
+              personId={timePersonId} weekStart={timeWeekStart} prevWeekTotal={prevWeekTotal}
+              onPrevWeek={() => setTimeWeekStart(d => new Date(d.getFullYear(), d.getMonth(), d.getDate() - 7))}
+              onNextWeek={() => setTimeWeekStart(d => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7))}
+              onThisWeek={() => setTimeWeekStart(getStartOfWeek(new Date()))}
             />
           ) : (
-            <TimeReportsView timeEntries={timeEntries} employees={employees} timeReportStatuses={timeReportStatuses} setTimeReportStatuses={setTimeReportStatuses} month={timeMonth} />
+            <TimeReportsView
+              timeEntries={timeEntries} employees={employees} timeReportStatuses={timeReportStatuses} setTimeReportStatuses={setTimeReportStatuses} month={timeMonth}
+              onPrevMonth={() => setTimeMonth(m => shiftMonthKey(m, -1))}
+              onNextMonth={() => setTimeMonth(m => shiftMonthKey(m, 1))}
+              onThisMonth={() => setTimeMonth(getMonthKey(getISODate(new Date())))}
+            />
           )}
         </div>
       )}
 
-      {/* ── "Nytt projekt" — modal, appens vanliga vita
-             .modal-overlay/.modal-content (index.css) helt utan
-             färgöverskrivningar, samma utseende som varje annan modal i
-             appen (t.ex. offertens förhandsgranskning). ── */}
-      {showNewProjectForm && (
-        <div className="modal-overlay" onClick={() => setShowNewProjectForm(false)}>
-          <div className="modal-content" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
+      {projectForm && (
+        <div className="modal-overlay" onClick={() => setProjectForm(null)}>
+          <div className="modal-content" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">{tr('ui.nytt_projekt')}</h2>
-              <button className="modal-close" data-tour="page-projects-cancel" onClick={() => setShowNewProjectForm(false)}><X size={18} /></button>
+              <h2 className="modal-title">{editingId ? tr('proj.editProject') : tr('ui.nytt_projekt')}</h2>
+              <button type="button" className="modal-close" data-tour="page-projects-cancel" onClick={() => setProjectForm(null)}><X size={18} /></button>
             </div>
-
-            <form onSubmit={handleSaveProject} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form className="ws-form" onSubmit={handleSaveProject}>
               <div>
-                <label style={labelSt}>{tr('ui.namn_2')}</label>
-                <input data-tour="page-projects-field" type="text" value={projectForm.name} onChange={e => setProjectForm({ ...projectForm, name: e.target.value })} style={inputSt} placeholder={tr('ui.t_ex_kontorsrenovering_2026')} required autoFocus />
-                <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '4px' }}>{tr('ui.projektnumret_tilldelas_automatiskt_p_001_p_002')}</div>
+                <label className="ws-label">{tr('ui.namn_2')}</label>
+                <input data-tour="page-projects-field" className="ws-input" value={projectForm.name} onChange={e => setProjectForm(f => ({ ...f, name: e.target.value }))} placeholder={tr('ui.t_ex_kontorsrenovering_2026')} required autoFocus />
               </div>
-
-              <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
+              <div>
+                <label className="ws-label">{tr('ui.kund')}</label>
+                <EntitySearch
+                  value={projectForm.customerId}
+                  onChange={id => setProjectForm(f => ({ ...f, customerId: id }))}
+                  items={contacts.filter(c => c.type === 'customer' || !c.type)}
+                  placeholder={tr('proj.noCustomer')}
+                  onCreateNew={handleCreateCustomerInline}
+                  createLabel={tr('proj.createCustomer')}
+                />
+              </div>
+              <div className="ws-grid2">
                 <div>
-                  <label style={labelSt}>{tr('ui.status')}</label>
-                  <select value={projectForm.status} onChange={e => setProjectForm({ ...projectForm, status: e.target.value })} style={inputSt}>
-                    <option value="active">{tr('ui.aktivt')}</option>
-                    <option value="finished">{tr('ui.avslutat')}</option>
-                  </select>
+                  <label className="ws-label">{tr('ui.timpris_kr')}</label>
+                  <div className="ws-input-suffix"><input type="number" min="0" className="ws-input" value={projectForm.hourlyRate} onChange={e => setProjectForm(f => ({ ...f, hourlyRate: e.target.value }))} /><span>kr</span></div>
                 </div>
                 <div>
-                  <label style={labelSt}>{tr('ui.kund')}</label>
-                  <EntitySearch
-                    value={projectForm.customerId}
-                    onChange={id => setProjectForm({ ...projectForm, customerId: id })}
-                    items={contacts.filter(c => c.type === 'customer' || !c.type)}
-                    placeholder={tr('ui.ingen_2')}
-                    onCreateNew={handleCreateCustomerInline}
-                    createLabel="Skapa ny kund"
-                    inputStyle={inputSt}
-                  />
+                  <label className="ws-label">{tr('proj.budgetHours')}</label>
+                  <div className="ws-input-suffix"><input type="number" min="0" className="ws-input" value={projectForm.budgetHours} onChange={e => setProjectForm(f => ({ ...f, budgetHours: e.target.value }))} /><span>h</span></div>
                 </div>
               </div>
-
-              <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
+              {Number(projectForm.budgetHours) > 0 && Number(projectForm.hourlyRate) > 0 && (
+                <p className="ws-hint" style={{ marginTop: '-6px' }}>{tr('ui.budgeterat_varde')}: <strong style={{ color: 'var(--text-main)' }}>{formatSEK(Number(projectForm.budgetHours) * Number(projectForm.hourlyRate))}</strong></p>
+              )}
+              <div className="ws-grid2">
+                <div><label className="ws-label">{tr('ui.startdatum')}</label><input type="date" className="ws-input" value={projectForm.startDate} onChange={e => setProjectForm(f => ({ ...f, startDate: e.target.value }))} /></div>
+                <div><label className="ws-label">{tr('ui.slutdatum')}</label><input type="date" className="ws-input" value={projectForm.endDate} onChange={e => setProjectForm(f => ({ ...f, endDate: e.target.value }))} /></div>
+              </div>
+              <div>
+                <label className="ws-label">{tr('ui.beskrivning')}</label>
+                <textarea className="ws-input" value={projectForm.description} onChange={e => setProjectForm(f => ({ ...f, description: e.target.value }))} placeholder={tr('ui.kort_om_vad_projektet_handlar_om_valfritt')} />
+              </div>
+              <div className="ws-grid2">
                 <div>
-                  <label style={labelSt}>{tr('ui.avdelning')}</label>
+                  <label className="ws-label">{tr('ui.avdelning')}</label>
                   {isAddingDepartment ? (
-                    <input
-                      type="text" autoFocus value={projectForm.department}
-                      onChange={e => setProjectForm({ ...projectForm, department: e.target.value })}
-                      onBlur={() => { if (!projectForm.department) setIsAddingDepartment(false); }}
-                      style={inputSt} placeholder={tr('ui.namnge_avdelningen')}
-                    />
+                    <input className="ws-input" autoFocus value={projectForm.department} placeholder={tr('ui.namnge_avdelningen')}
+                      onChange={e => setProjectForm(f => ({ ...f, department: e.target.value }))}
+                      onBlur={() => { if (!projectForm.department) setIsAddingDepartment(false); }} />
                   ) : (
-                    <select
-                      value={projectForm.department}
-                      onChange={e => {
-                        if (e.target.value === '__new__') { setIsAddingDepartment(true); setProjectForm({ ...projectForm, department: '' }); }
-                        else setProjectForm({ ...projectForm, department: e.target.value });
-                      }}
-                      style={inputSt}
-                    >
+                    <select className="ws-input" value={projectForm.department} onChange={e => {
+                      if (e.target.value === '__new__') { setIsAddingDepartment(true); setProjectForm(f => ({ ...f, department: '' })); }
+                      else setProjectForm(f => ({ ...f, department: e.target.value }));
+                    }}>
                       <option value="">{tr('ui.ingen_2')}</option>
                       {departmentNames.map(d => <option key={d} value={d}>{d}</option>)}
                       <option value="__new__">{tr('ui.ny_avdelning')}</option>
@@ -1547,110 +971,22 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
                   )}
                 </div>
                 <div>
-                  <label style={labelSt}>{tr('ui.startdatum')}</label>
-                  <input type="date" value={projectForm.startDate} onChange={e => setProjectForm({ ...projectForm, startDate: e.target.value })} style={inputSt} />
-                </div>
-              </div>
-
-              <div>
-                <label style={labelSt}>{tr('ui.slutdatum')}</label>
-                <input type="date" value={projectForm.endDate} onChange={e => setProjectForm({ ...projectForm, endDate: e.target.value })} style={{ ...inputSt, maxWidth: '220px' }} />
-              </div>
-
-              <div>
-                <label style={labelSt}>{tr('ui.beskrivning')}</label>
-                <textarea
-                  value={projectForm.description} onChange={e => setProjectForm({ ...projectForm, description: e.target.value })}
-                  style={{ ...inputSt, resize: 'vertical', minHeight: '70px', lineHeight: 1.5 }}
-                  placeholder={tr('ui.kort_om_vad_projektet_handlar_om_valfritt')}
-                />
-              </div>
-
-              <div>
-                <label style={labelSt}>{tr('ui.farg')}</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {PROJECT_COLORS.map(c => (
-                    <button
-                      key={c} type="button" onClick={() => setProjectForm({ ...projectForm, color: c })}
-                      aria-label={tr('ui.valj_fargen', { c })} title={c}
-                      style={{
-                        width: 28, height: 28, borderRadius: '999px', background: c, cursor: 'pointer', padding: 0,
-                        border: projectForm.color === c ? '2px solid white' : '2px solid transparent',
-                        boxShadow: projectForm.color === c ? `0 0 0 2px ${BRAND.greenDark}` : 'none',
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Fler alternativ — budget/prissättning och fakturering, döljs
-                  tills man faktiskt vill ha dem, samma princip som resten av
-                  formulären. Inte med i skissen, men budget/lönsamhet är
-                  redan en central del av Projekt-sidan (KPI-remsan, "nära
-                  budget"-varningen) — att ta bort möjligheten att sätta en
-                  budget hade tyst brutit den funktionen. */}
-              <button
-                type="button"
-                onClick={() => setShowMoreProjectOptions(v => !v)}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', color: BRAND.greenDark, fontSize: '13px', fontWeight: 600, alignSelf: 'flex-start' }}
-              >
-                <ChevronDown size={14} style={{ transform: showMoreProjectOptions ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-                {tr('ui.fler_alternativ_budget_fakturering')}
-              </button>
-
-              {showMoreProjectOptions && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '14px', background: 'var(--gray-50)', border: '1px solid var(--border)', borderRadius: '10px' }}>
-                  <div className="form-row-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
-                    <div>
-                      <label style={labelSt}>{tr('ui.budgeterad_tid_h')}</label>
-                      <input type="number" min="0" value={projectForm.budgetHours} onChange={e => setProjectForm({ ...projectForm, budgetHours: e.target.value })} style={inputSt} />
-                    </div>
-                    <div>
-                      <label style={labelSt}>{tr('ui.timpris_kr')}</label>
-                      <input type="number" min="0" value={projectForm.hourlyRate} onChange={e => setProjectForm({ ...projectForm, hourlyRate: e.target.value })} style={inputSt} />
-                    </div>
-                    <div>
-                      <label style={labelSt}>{tr('ui.budgeterat_varde')}</label>
-                      <div style={{ ...inputSt, background: 'var(--gray-50)', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                        {formatSEK(budgetedValue)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <button
-                      type="button" role="switch" aria-checked={projectForm.autoInvoiceFromTime}
-                      onClick={() => setProjectForm(f => ({ ...f, autoInvoiceFromTime: !f.autoInvoiceFromTime }))}
-                      style={{
-                        width: '38px', height: '22px', borderRadius: '999px', border: 'none', cursor: 'pointer', flexShrink: 0,
-                        background: projectForm.autoInvoiceFromTime ? BRAND.green : 'var(--gray-300)', position: 'relative', transition: 'background 0.15s',
-                      }}
-                    >
-                      <span style={{
-                        position: 'absolute', top: '2px', left: projectForm.autoInvoiceFromTime ? '18px' : '2px',
-                        width: '18px', height: '18px', borderRadius: '999px', background: 'var(--bg-card)', transition: 'left 0.15s',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
-                      }} />
-                    </button>
-                    <div>
-                      <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('ui.fakturera_automatiskt_utifran_tidrapporter')}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{tr('ui.kopplar_projektets_tidrapporter_direkt_till_fakt')}</div>
-                    </div>
+                  <label className="ws-label">{tr('ui.farg')}</label>
+                  <div className="pj-colors" style={{ paddingTop: '6px' }}>
+                    {PROJECT_COLORS.map(c => (
+                      <button key={c} type="button" className={projectForm.color === c ? 'on' : ''} style={{ background: c }} aria-label={tr('ui.valj_fargen', { c })} onClick={() => setProjectForm(f => ({ ...f, color: c }))} />
+                    ))}
                   </div>
                 </div>
-              )}
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '18px', marginTop: '4px' }}>
-                <button type="button" onClick={() => setShowNewProjectForm(false)} style={{ background: 'none', border: 'none', padding: 0, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '14px' }}>{tr('ui.avbryt')}</button>
-                <button type="submit" disabled={isSavingProject} style={{ padding: '10px 22px', background: BRAND.green, border: 'none', borderRadius: '999px', fontWeight: 700, color: 'white', cursor: isSavingProject ? 'default' : 'pointer', opacity: isSavingProject ? 0.6 : 1, fontSize: '14px' }}>
-                  {isSavingProject ? tr('ui.sparar') : tr('ui.skapa_projekt')}
-                </button>
+              </div>
+              <div className="modal-footer" style={{ marginTop: 0 }}>
+                <button type="button" className="agi-btn" onClick={() => setProjectForm(null)}>{tr('ui.avbryt')}</button>
+                <button type="submit" className="agi-btn primary" disabled={!projectForm.name.trim()}>{editingId ? tr('ui.spara') : tr('ui.skapa_projekt')}</button>
               </div>
             </form>
           </div>
         </div>
       )}
-      </div>
     </div>
   );
 }
