@@ -658,17 +658,38 @@ function guessVatRate(item) {
   return best;
 }
 
+/** Vad en Zettle-rad är: köp (sale), återbetalning (refund), köp med flera
+ * betalsätt (split), dagens avgifter (fee) eller utbetalning till banken
+ * (payout). Avgifter och utbetalningar hämtas från Zettles Finance API
+ * sedan 2026-10-17 (kind i zettle_ledger_events). */
+function zettleCategory(item) {
+  if (item.kind === 'fee') return 'fee';
+  if (item.kind === 'payout') return 'payout';
+  if (item.is_refund) return 'refund';
+  if (item.payment_type === 'SPLIT') return 'split';
+  return 'sale';
+}
+
+// Kontanter ligger i kassan. Kortpengar är en fordran på Zettle (1686) tills
+// Zettle betalar ut dem till banken, med avgiften avdragen.
+const ZETTLE_BALANCE_ACCOUNT = '1686';
+const zettlePayAccount = (item) => (item.payment_type === 'CASH' ? '1910' : ZETTLE_BALANCE_ACCOUNT);
+const round2 = (v) => Math.round((Number(v) || 0) * 100) / 100;
+
 /** Zettle skickar momsbeloppet. Stämmer det på kronan med en momssats
  * (25, 12 eller 6 %) är förslaget säkert; 0 kr moms räknas inte som säkert,
  * det kan lika gärna betyda att momsen saknas i Zettle. */
 function isCertainZettleVat(item) {
-  if (item.is_refund) return false;
+  if (zettleCategory(item) !== 'sale') return false;
   const gross = Number(item.amount) || 0;
   const vat = Number(item.vat_amount) || 0;
   if (gross <= 0 || vat <= 0) return false;
   const rate = guessVatRate(item);
   return rate > 0 && Math.abs(vat - gross * rate / (100 + rate)) <= 1;
 }
+
+/** Klart att bokföra utan val: säkra köp, avgifter och utbetalningar. */
+const isSafeZettleItem = (item) => ['fee', 'payout'].includes(zettleCategory(item)) || isCertainZettleVat(item);
 
 /** Ett kort för en Zettle-ledgerrad (public.zettle_ledger_events) — samma
  * visuella mönster som StripeLedgerCard ovan, men bara TVÅ lägen: Zettle
@@ -681,7 +702,7 @@ function isCertainZettleVat(item) {
  *    den rätt betyder att hitta och reversera EN specifik tidigare
  *    försäljning, inget den här vyn kan gissa sig till säkert).
  */
-function ZettleLedgerCard({ item, accounts, onBookSale, onMarkHandled, exiting }) {
+function ZettleLedgerCard({ item, accounts, onBookSale, onBookFinance, onMarkHandled, exiting }) {
   const [expanded, setExpanded] = useState(false);
   const initialVat = guessVatRate(item);
   const [vatRate, setVatRate] = useState(initialVat);
@@ -691,18 +712,35 @@ function ZettleLedgerCard({ item, accounts, onBookSale, onMarkHandled, exiting }
   const [editing, setEditing] = useState(!certain);
   const [file, setFile] = useState(null);
 
-  const category = item.is_refund ? 'refund' : 'sale';
-  const paymentLabel = ZETTLE_PAYMENT_LABEL[item.payment_type] || item.payment_type || t('ui.okand_betalmetod');
+  const category = zettleCategory(item);
+  const paymentLabel = category === 'fee' ? t('ui.rq_zettle_avgifter') : category === 'payout' ? t('ui.rq_zettle_utbetalning')
+    : (ZETTLE_PAYMENT_LABEL[item.payment_type] || item.payment_type || t('ui.okand_betalmetod'));
+  const safeBadge = { label: t('ui.sakert_forslag'), tone: 'green' };
 
   const view = {
+    fee: {
+      icon: ShieldCheck, tone: 'green',
+      title: t('ui.rq_zettle_avgift_title', { date: formatDate(item.created_at_zettle), v0: formatMoney(item.amount, item.currency) }),
+      badge: safeBadge,
+    },
+    payout: {
+      icon: Landmark, tone: 'green',
+      title: t('ui.rq_zettle_utbetalning_title', { v0: formatMoney(item.amount, item.currency) }),
+      badge: safeBadge,
+    },
+    split: {
+      icon: HelpCircle, tone: 'neutral',
+      title: t('ui.rq_zettle_delad_title', { v0: formatMoney(item.amount, item.currency), v1: item.purchase_number ? ` — kvitto ${item.purchase_number}` : '' }),
+      badge: { label: t('ui.manuell'), tone: 'neutral' },
+    },
     sale: {
       icon: certain ? ShieldCheck : CreditCard, tone: certain ? 'green' : 'amber',
-      title: t('ui.bokfor_forsaljning_2', { v0: formatSEK(item.amount), v1: item.purchase_number ? ` — kvitto ${item.purchase_number}` : '' }),
+      title: t('ui.bokfor_forsaljning_2', { v0: formatMoney(item.amount, item.currency), v1: item.purchase_number ? ` — kvitto ${item.purchase_number}` : '' }),
       badge: certain ? { label: t('ui.sakert_forslag'), tone: 'green' } : { label: t('ui.kraver_val'), tone: 'amber' },
     },
     refund: {
       icon: RotateCcw, tone: 'neutral',
-      title: t('ui.aterbetalning', { v0: formatSEK(item.amount), v1: item.purchase_number ? ` — kvitto ${item.purchase_number}` : '' }),
+      title: t('ui.aterbetalning', { v0: formatMoney(item.amount, item.currency), v1: item.purchase_number ? ` — kvitto ${item.purchase_number}` : '' }),
       badge: { label: t('ui.manuell'), tone: 'neutral' },
     },
   }[category];
@@ -717,7 +755,7 @@ function ZettleLedgerCard({ item, accounts, onBookSale, onMarkHandled, exiting }
       exiting={exiting}
       extra={category === 'sale' && !editing && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-          <span>{t('ui.rq_zettle_moms_enligt', { rate: vatRate })} · {saleAccount} {accounts.find(a => a.code === saleAccount)?.name || ''}</span>
+          <span>{t('ui.rq_zettle_moms_enligt', { rate: vatRate })} · {saleAccount} {accounts.find(a => a.code === saleAccount)?.name || ''} · {t(item.payment_type === 'CASH' ? 'ui.rq_zettle_till_kassan' : 'ui.rq_zettle_till_fordran')}</span>
           <button type="button" className="rq-chip-btn" onClick={() => setEditing(true)}><Pencil size={14} /> {t('ui.rq_andra_konto')}</button>
           <AttachmentPicker file={file} onChange={setFile} />
         </div>
@@ -743,7 +781,17 @@ function ZettleLedgerCard({ item, accounts, onBookSale, onMarkHandled, exiting }
               <Check size={14} /> {t('ui.bokfor_forsaljning')}
             </button>
           )}
-          {category === 'refund' && (
+          {(category === 'fee' || category === 'payout') && (
+            <button onClick={() => onBookFinance(item)} style={rowButtonStyle('primary')}>
+              <Check size={14} /> {category === 'fee' ? t('ui.bokfor_avgift') : t('ui.stripe_rq_bokfor')}
+            </button>
+          )}
+          {category === 'payout' && (
+            <button onClick={() => onMarkHandled(item)} style={rowButtonStyle('secondary')}>
+              {t('ui.stripe_rq_redan_i_banken')}
+            </button>
+          )}
+          {(category === 'refund' || category === 'split') && (
             <button onClick={() => onMarkHandled(item)} style={rowButtonStyle('secondary')}>
               {t('ui.markera_som_hanterad')}
             </button>
@@ -754,6 +802,11 @@ function ZettleLedgerCard({ item, accounts, onBookSale, onMarkHandled, exiting }
         </>
       }
     >
+      {(category === 'fee' || category === 'payout') && (
+        <div className="rq-booking">
+          {category === 'fee' ? t('ui.rq_zettle_avgift_kontering') : t('ui.rq_zettle_utbetalning_kontering')}
+        </div>
+      )}
       {expanded && (
         <div className="form-row-2" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-light)', display: 'grid', gap: '10px', fontSize: '13px' }}>
           <div><span style={{ color: 'var(--text-muted)' }}>{t('ui.datum_2')}</span> {formatDate(item.created_at_zettle)}</div>
@@ -931,11 +984,12 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
     }, 220);
   };
 
-  const safeZettleItems = visibleZettleItems.filter(isCertainZettleVat);
+  const safeZettleItems = visibleZettleItems.filter(isSafeZettleItem);
   const handleBookAllSafeZettle = async () => {
     if (safeZettleItems.length === 0) return;
     if (!(await confirmDialog(t('ui.rq_zettle_bokfor_alla_fraga', { n: safeZettleItems.length })))) return;
     safeZettleItems.forEach(item => {
+      if (zettleCategory(item) !== 'sale') { handleBookZettleFinance(item); return; }
       const rate = guessVatRate(item);
       handleBookZettleSale(item, REVENUE_ACCOUNTS[rate], rate);
     });
@@ -963,11 +1017,15 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
       setStripeSync({ running: false, message: t('ui.rq_underlag_fel', { v0: error.message || error }) });
       return;
     }
-    const gross = Math.round(Number(item.amount) || 0);
-    const net = vatRate > 0 ? Math.round(gross / (1 + vatRate / 100)) : gross;
-    const vat = gross - net;
+    // Öresbelopp (Zettle skickar ören), inte avrundat till hela kronor. Momsen
+    // tas från Zettle när den stämmer med momssatsen, annars räknas den fram.
+    const gross = round2(item.amount);
+    const vat = vatRate > 0
+      ? (isCertainZettleVat(item) && guessVatRate(item) === vatRate ? round2(item.vat_amount) : round2(gross - gross / (1 + vatRate / 100)))
+      : 0;
+    const net = round2(gross - vat);
     const rows = [
-      { account: '1930', debet: gross, kredit: 0 },
+      { account: zettlePayAccount(item), debet: gross, kredit: 0 },
       { account, debet: 0, kredit: net },
     ];
     if (vat > 0 && VAT_ACCOUNTS[vatRate]) rows.push({ account: VAT_ACCOUNTS[vatRate], debet: 0, kredit: vat });
@@ -977,6 +1035,24 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
       source: 'zettle_ledger', sourceId: item.id,
       rows,
       ...attachment,
+    });
+    finishResolveZettle(item);
+    markZettleReviewed(item);
+  };
+
+  // Avgifter: 6570 mot fordran på Zettle. Utbetalning: banken mot fordran.
+  const handleBookZettleFinance = (item) => {
+    const amount = round2(item.amount);
+    const isFee = zettleCategory(item) === 'fee';
+    const date = (item.created_at_zettle || '').split('T')[0];
+    onAddVerification?.({
+      date,
+      description: isFee ? `Zettle-avgifter ${date}` : 'Zettle-utbetalning till bankkontot',
+      source: 'zettle_ledger', sourceId: item.id,
+      rows: [
+        { account: isFee ? '6570' : '1930', debet: amount, kredit: 0 },
+        { account: ZETTLE_BALANCE_ACCOUNT, debet: 0, kredit: amount },
+      ],
     });
     finishResolveZettle(item);
     markZettleReviewed(item);
@@ -1086,9 +1162,9 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
   const stripeSafe = visibleStripeItems.filter(isSafeStripeItem);
   const stripeManual = visibleStripeItems.filter(i => categorizeStripeItem(i) === 'manual');
   const stripeChoice = visibleStripeItems.filter(i => !isSafeStripeItem(i) && categorizeStripeItem(i) !== 'manual');
-  const zettleSafe = visibleZettleItems.filter(isCertainZettleVat);
-  const zettleRefunds = visibleZettleItems.filter(i => i.is_refund);
-  const zettleChoice = visibleZettleItems.filter(i => !i.is_refund && !isCertainZettleVat(i));
+  const zettleSafe = visibleZettleItems.filter(isSafeZettleItem);
+  const zettleRefunds = visibleZettleItems.filter(i => ['refund', 'split'].includes(zettleCategory(i)));
+  const zettleChoice = visibleZettleItems.filter(i => zettleCategory(i) === 'sale' && !isCertainZettleVat(i));
 
   const renderPending = item => (
     <ReviewCard
@@ -1113,6 +1189,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
     <ZettleLedgerCard
       key={item.id} item={item} accounts={accounts}
       onBookSale={handleBookZettleSale}
+      onBookFinance={handleBookZettleFinance}
       onMarkHandled={handleMarkZettleHandled}
       exiting={exitingIds.has(item.id)}
     />

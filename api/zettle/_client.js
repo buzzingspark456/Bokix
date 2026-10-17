@@ -78,3 +78,72 @@ export async function fetchZettlePurchases({ accessToken, startDate, endDate, li
   const data = await res.json().catch(() => ({}));
   return Array.isArray(data?.purchases) ? data.purchases : [];
 }
+
+const ZETTLE_FINANCE_URL = 'https://finance.izettle.com/v2/accounts/LIQUID/transactions';
+
+/**
+ * Transaktioner på Zettle-kontots likvida saldo (Finance API v2,
+ * github.com/iZettle/api-documentation: finance-api/api-reference-v2.yaml):
+ * avgifter (PAYMENT_FEE) och utbetalningar till banken (PAYOUT). `start`
+ * inklusive, `end` exklusive, båda UTC 'YYYY-MM-DDThh:mm:ss'. Belopp i ören,
+ * negativa när pengar lämnar saldot. Kräver behörigheten READ:FINANCE, som
+ * kopplingen redan ber om (callback.js).
+ */
+export async function fetchZettleFinanceTransactions({ accessToken, start, end, types = ['PAYMENT_FEE', 'PAYOUT'], pageSize = 1000 }) {
+  const all = [];
+  for (let offset = 0; offset < 20000; offset += pageSize) {
+    const url = new URL(ZETTLE_FINANCE_URL);
+    url.searchParams.set('start', start);
+    url.searchParams.set('end', end);
+    for (const t of types) url.searchParams.append('includeTransactionType', t);
+    url.searchParams.set('limit', String(pageSize));
+    url.searchParams.set('offset', String(offset));
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`Zettle Finance API svarade ${res.status}${body ? `: ${body.slice(0, 200)}` : ''}`);
+    }
+    const page = await res.json().catch(() => []);
+    const rows = Array.isArray(page) ? page : (Array.isArray(page?.data) ? page.data : []);
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+  }
+  return all;
+}
+
+/**
+ * Gör om Finance-transaktionerna till rader i zettle_ledger_events:
+ *  - en rad per UTC-dag med dagens avgifter (summa, återbetalda avgifter
+ *    dras av), kind 'fee', nyckel 'fee-<datum>'. Dagar utan avgift hoppas över.
+ *  - en rad per utbetalning till banken, kind 'payout', nyckel 'payout-<uuid>'.
+ * Beloppen blir positiva kronor (bokföringen vet riktningen av kind).
+ */
+export function zettleFinanceRows(transactions, { userId, companyId, currency = 'SEK' }) {
+  const feesByDay = new Map();
+  const payouts = [];
+  for (const t of transactions || []) {
+    const ore = Number(t?.amount) || 0;
+    const ts = String(t?.timestamp || '');
+    if (!ts) continue;
+    if (t.originatorTransactionType === 'PAYMENT_FEE') {
+      const day = ts.slice(0, 10);
+      feesByDay.set(day, (feesByDay.get(day) || 0) - ore);
+    } else if (t.originatorTransactionType === 'PAYOUT' && ore < 0 && t.originatorTransactionUuid) {
+      payouts.push({
+        user_id: userId, company_id: companyId, kind: 'payout',
+        zettle_purchase_uuid: `payout-${t.originatorTransactionUuid}`,
+        amount: -ore / 100, vat_amount: 0, currency, is_refund: false, payment_type: null,
+        created_at_zettle: ts.endsWith('Z') ? ts : `${ts}Z`,
+      });
+    }
+  }
+  const fees = [...feesByDay.entries()]
+    .filter(([, ore]) => ore > 0)
+    .map(([day, ore]) => ({
+      user_id: userId, company_id: companyId, kind: 'fee',
+      zettle_purchase_uuid: `fee-${day}`,
+      amount: Math.round(ore) / 100, vat_amount: 0, currency, is_refund: false, payment_type: null,
+      created_at_zettle: `${day}T12:00:00Z`,
+    }));
+  return [...fees, ...payouts];
+}

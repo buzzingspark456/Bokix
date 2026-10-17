@@ -475,6 +475,18 @@ export function createDemoSeed() {
       amount: 299, vat_amount: 60, currency: 'SEK', is_refund: true, payment_type: 'IZETTLE_CARD',
       created_at_zettle: `${daysFromToday(-9)}T15:22:00Z`, reviewed_at: null,
     },
+    // Avgifter och utbetalning från Zettles Finance API: kortköpet på 450 kr
+    // minus avgiften 12,40 kr betalas ut som 437,60 kr.
+    {
+      id: 'demo_zettle_4', kind: 'fee', zettle_purchase_uuid: 'fee-demo', purchase_number: null,
+      amount: 12.4, vat_amount: 0, currency: 'SEK', is_refund: false, payment_type: null,
+      created_at_zettle: `${daysFromToday(-2)}T12:00:00Z`, reviewed_at: null,
+    },
+    {
+      id: 'demo_zettle_5', kind: 'payout', zettle_purchase_uuid: 'payout-demo', purchase_number: null,
+      amount: 437.6, vat_amount: 0, currency: 'SEK', is_refund: false, payment_type: null,
+      created_at_zettle: `${daysFromToday(-1)}T06:00:00Z`, reviewed_at: null,
+    },
   ];
 
   // ── Offerter — egen flik i appen (Quotes.jsx), saknades helt i demon

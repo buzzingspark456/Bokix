@@ -3721,7 +3721,7 @@
     "rq_stat_saknar_konto": "{{n}} missing an account",
     "rq_zettle_moms_enligt": "{{rate}}% VAT according to Zettle",
     "rq_andra": "Change",
-    "rq_zettle_bokfor_alla_fraga": "Book {{n}} Zettle purchases? The VAT comes from Zettle and matches the VAT rate exactly. You choose refunds and purchases where the VAT does not match yourself.",
+    "rq_zettle_bokfor_alla_fraga": "Book {{n}} Zettle rows? This covers purchases where the VAT from Zettle matches exactly, fees and payouts. You choose refunds and purchases where the VAT does not match yourself.",
     "rq_stat_manuell": "{{n}} manual",
     "rq_kostnadskonto": "Expense account",
     "rq_bankkonto": "Bank account",
@@ -3729,7 +3729,16 @@
     "rq_ta_bort_underlag": "Remove the attachment",
     "rq_visa_fler": "Show {{n}} more",
     "rq_underlag_fel": "Could not upload the attachment: {{v0}}",
-    "rq_andra_konto": "Change account"
+    "rq_andra_konto": "Change account",
+    "rq_zettle_avgifter": "Fees",
+    "rq_zettle_utbetalning": "Payout to the bank",
+    "rq_zettle_avgift_title": "Book Zettle fees {{date}}: {{v0}}",
+    "rq_zettle_utbetalning_title": "Book the payout {{v0}} from Zettle to the bank account",
+    "rq_zettle_delad_title": "Split payment {{v0}}{{v1}}: split it between card and cash yourself",
+    "rq_zettle_till_kassan": "cash to the till (1910)",
+    "rq_zettle_till_fordran": "card to the Zettle receivable (1686)",
+    "rq_zettle_avgift_kontering": "Expense account 6570 Bank charges, against the Zettle receivable (1686)",
+    "rq_zettle_utbetalning_kontering": "Bank account 1930, from the Zettle receivable (1686)"
   },
   "glossary": {
     "g01": {

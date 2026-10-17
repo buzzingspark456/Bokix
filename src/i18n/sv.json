@@ -3721,7 +3721,7 @@
     "rq_stat_saknar_konto": "{{n}} saknar konto",
     "rq_zettle_moms_enligt": "{{rate}} % moms enligt Zettle",
     "rq_andra": "Ändra",
-    "rq_zettle_bokfor_alla_fraga": "Bokföra {{n}} Zettle-köp? Momsen kommer från Zettle och stämmer exakt med momssatsen. Återbetalningar och köp där momsen inte stämmer väljer du själv.",
+    "rq_zettle_bokfor_alla_fraga": "Bokföra {{n}} Zettle-rader? Det gäller köp där Zettles moms stämmer exakt, avgifter och utbetalningar. Återbetalningar och köp där momsen inte stämmer väljer du själv.",
     "rq_stat_manuell": "{{n}} manuell",
     "rq_kostnadskonto": "Kostnadskonto",
     "rq_bankkonto": "Bankkonto",
@@ -3729,7 +3729,16 @@
     "rq_ta_bort_underlag": "Ta bort underlaget",
     "rq_visa_fler": "Visa {{n}} till",
     "rq_underlag_fel": "Kunde inte ladda upp underlaget: {{v0}}",
-    "rq_andra_konto": "Ändra konto"
+    "rq_andra_konto": "Ändra konto",
+    "rq_zettle_avgifter": "Avgifter",
+    "rq_zettle_utbetalning": "Utbetalning till banken",
+    "rq_zettle_avgift_title": "Bokför Zettles avgifter {{date}}: {{v0}}",
+    "rq_zettle_utbetalning_title": "Bokför utbetalningen {{v0}} från Zettle till bankkontot",
+    "rq_zettle_delad_title": "Delad betalning {{v0}}{{v1}}: dela upp på kort och kontant själv",
+    "rq_zettle_till_kassan": "kontant till kassan (1910)",
+    "rq_zettle_till_fordran": "kort till fordran på Zettle (1686)",
+    "rq_zettle_avgift_kontering": "Kostnadskonto 6570 Bankkostnader, mot fordran på Zettle (1686)",
+    "rq_zettle_utbetalning_kontering": "Bankkonto 1930, från fordran på Zettle (1686)"
   },
   "glossary": {
     "g01": {

@@ -11,7 +11,7 @@ import { planFromId } from '../../src/utils/plans.js';
 import { runDataRetention } from './_dataRetention.js';
 import { logSystemEvent } from '../_systemEvents.js';
 import { hasPaidAccess } from '../_auth.js';
-import { refreshZettleToken, fetchZettlePurchases } from '../zettle/_client.js';
+import { refreshZettleToken, fetchZettlePurchases, fetchZettleFinanceTransactions, zettleFinanceRows } from '../zettle/_client.js';
 import { invoiceCustomerRemaining } from '../../src/utils/rotRutConfig.js';
 import { groupInboxItems, buildInboxDigestHtml, inboxDigestSubject } from './_inboxDigest.js';
 
@@ -592,6 +592,33 @@ export default async function handler(req, res) {
                   if (insertError) throw insertError;
                   summary.zettleLedgerEvents += toInsert.length;
                 }
+              }
+
+              // Avgifter och utbetalningar (Finance API), bara hela dagar
+              // (slutar vid dagens början, UTC) så att en dags avgiftssumma
+              // aldrig sparas halvfärdig. Egen felhantering: saknas kolumnen
+              // kind (supabase-2026-10-17-zettle-avgifter.sql inte körd)
+              // hämtas köpen ändå som förut.
+              try {
+                const dayStart = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()));
+                const fmt = (d) => d.toISOString().slice(0, 19);
+                const finance = await fetchZettleFinanceTransactions({
+                  accessToken: refreshed.accessToken,
+                  start: fmt(new Date(dayStart.getTime() - lookbackDays * 86400000)),
+                  end: fmt(dayStart),
+                });
+                const financeRows = zettleFinanceRows(finance, { userId: row.user_id, companyId });
+                if (financeRows.length && dryRun) {
+                  summary.wouldSend.push({ type: 'zettle_finance', companyId, count: financeRows.length });
+                } else if (financeRows.length) {
+                  const { error: financeError } = await admin
+                    .from('zettle_ledger_events')
+                    .upsert(financeRows, { onConflict: 'zettle_purchase_uuid', ignoreDuplicates: true });
+                  if (financeError) throw financeError;
+                  summary.zettleLedgerEvents += financeRows.length;
+                }
+              } catch (err) {
+                summary.errors.push(`zettle avgifter/utbetalningar ${companyId}: ${err.message}`);
               }
             } catch (err) {
               summary.errors.push(`zettle ledger ${companyId}: ${err.message}`);
