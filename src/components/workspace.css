@@ -357,3 +357,23 @@ textarea.ws-input { height: auto; padding: 9px 12px; resize: vertical; min-heigh
   .lg-min { flex-direction: column; align-items: stretch; }
   .lg-min .ws-input-suffix { width: 100% !important; }
 }
+
+/* Godkännande i Månadsrapporter: en grå ruta per person med stegrad. */
+.tr-approvals { display: flex; flex-direction: column; gap: 10px; }
+.tr-approval { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(0, 1.6fr) auto; align-items: center; gap: 18px; padding: 14px 16px; border-radius: 12px; background: var(--bg-muted); }
+.tr-approval-who { display: flex; align-items: center; gap: 12px; min-width: 0; border: none; background: none; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.tr-approval-who:hover strong { text-decoration: underline; }
+.tr-approval-actions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.tr-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.tr-steps li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); text-align: center; }
+.tr-steps li + li::before { content: ""; position: absolute; top: 10px; right: calc(50% + 13px); left: calc(-50% + 13px); height: 2px; border-radius: 2px; background: var(--border); }
+.tr-steps li.past + li::before, .tr-steps li.past + li.now::before { background: var(--status-green-text); }
+.tr-steps i { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--bg-card); border: 1.5px solid var(--border); color: #fff; box-sizing: border-box; }
+.tr-steps li.past i { background: var(--status-green-text); border-color: var(--status-green-text); }
+.tr-steps li.now i { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); background: var(--accent); }
+.tr-steps li.now span { color: var(--text-main); font-weight: 700; }
+.tr-steps li.past span { color: var(--text-secondary); }
+@media (max-width: 900px) {
+  .tr-approval { grid-template-columns: 1fr; gap: 14px; }
+  .tr-approval-actions { justify-content: flex-start; }
+}

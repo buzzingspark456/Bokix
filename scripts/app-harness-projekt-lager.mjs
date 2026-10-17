@@ -49,6 +49,7 @@ async function run(dark, steps) {
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(String(e).slice(0, 300)));
+  page.on('console', m => { if (m.type() === 'error' && process.env.CONSOLE) Promise.all(m.args().map(a => a.evaluate(v => (v && v.stack) || String(v)).catch(() => '?'))).then(xs => console.log('console:', xs.join(' | ').slice(0, 700))); });
   await page.addInitScript(([key, val, theme]) => {
     sessionStorage.setItem(key, val);
     localStorage.setItem('bokix_tour_done_v3_11111111-1111-4111-8111-111111111111', '1');
@@ -107,7 +108,7 @@ for (const dark of [false, true]) {
         if (!ok.includes('42')) failed = true;
       }
       await page.locator('.ws-seg button:visible', { hasText: 'Månadsrapporter' }).first().click(); await page.waitForTimeout(600); await shot('manad');
-      await page.locator('.tr-cal-day.has').first().click(); await shot('manad-dag');
+      await page.locator('.tr-cal-day.has').first().click(); await shot('manad-dag'); await page.locator('h2', { hasText: 'Godkännande' }).first().scrollIntoViewIfNeeded().catch(() => {}); await shot('godkann', false); await page.locator('.tr-approval .agi-btn.primary').first().click(); await page.waitForTimeout(300); await shot('godkann-steg', false);
     }
     if (!ONLY || ONLY === 'lager') {
       await go('articles'); await shot('artiklar');

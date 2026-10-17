@@ -4628,6 +4628,8 @@
     "approvedCount": "{{n}} approved",
     "everyone": "Everyone",
     "approval": "Approval",
-    "personOne": "1 person"
+    "personOne": "1 person",
+    "back": "Back",
+    "allDone": "Done"
   }
 }

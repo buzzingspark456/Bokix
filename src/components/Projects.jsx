@@ -384,7 +384,8 @@ function TimeReportsView({ timeEntries, employees, projects = [], timeReportStat
   }, [people, timeEntries, month, timeReportStatuses]);
 
   const setStatus = (personId, monthKey, status) => {
-    setTimeReportStatuses(prev => {
+    setTimeReportStatuses(prevList => {
+      const prev = prevList || [];
       const key = reportKey(personId, monthKey);
       const idx = prev.findIndex(s => reportKey(s.personId, s.monthKey, s.customerId) === key);
       if (idx === -1) return [...prev, { id: `trs_${Date.now()}`, personId, monthKey, customerId: null, status }];
@@ -405,7 +406,7 @@ function TimeReportsView({ timeEntries, employees, projects = [], timeReportStat
     const targets = reports.filter(r => r.status === fromStatus);
     if (targets.length === 0 || !toStatus) return;
     setTimeReportStatuses(prev => {
-      let next = [...prev];
+      let next = [...(prev || [])];
       targets.forEach(r => {
         const key = reportKey(r.person.id, r.monthKey);
         const idx = next.findIndex(s => reportKey(s.personId, s.monthKey, s.customerId) === key);
@@ -496,43 +497,49 @@ function TimeReportsView({ timeEntries, employees, projects = [], timeReportStat
         )}
       </Panel>
 
-      <div className="ws-card">
-        <div className="ws-card-head">
-          <div>
-            <h3 className="ws-card-title">{tr('proj.approval')}</h3>
-            <p className="ws-card-sub">{tr('proj.reportsSub')}</p>
-          </div>
-          <div className="ws-card-actions">
-            {submitted.length > 0 && <button type="button" className="agi-btn" onClick={() => bulkAdvance('submitted')}><ClipboardCheck size={14} /> {tr('ui.attestera_alla_inskickade')}{submitted.length})</button>}
-            {attested.length > 0 && <button type="button" className="agi-btn primary" onClick={() => bulkAdvance('attested')}><CheckCircle2 size={14} /> {tr('ui.godkann_alla_attesterade')}{attested.length})</button>}
-          </div>
-        </div>
-        <ListTable
-          bordered={false}
-          rowKey={r => r.person.id}
-          onRowClick={r => setOpenReport(r)}
-          rows={reports}
-          emptyMessage={tr('ui.ingen_tid_loggad_denna_manad_annu')}
-          mobileList={r => ({ primary: r.person.name, amount: `${formatHours(r.hours)} h`, meta: tr('proj.entries', { n: r.entries.length }), pill: <span className={`agi-pill ${TIME_REPORT_STATUS[r.status].cls}`}>{TIME_REPORT_STATUS[r.status].label}</span> })}
-          columns={[
-            { key: 'person', label: tr('ui.person'), fontWeight: 600, color: 'var(--text-main)', render: r => r.person.name },
-            { key: 'entries', label: tr('ui.registreringar'), align: 'right', render: r => r.entries.length },
-            { key: 'hours', label: tr('ui.timmar'), align: 'right', fontWeight: 700, color: 'var(--text-main)', render: r => `${formatHours(r.hours)} h` },
-            { key: 'status', label: tr('ui.status'), render: r => <span className={`agi-pill ${TIME_REPORT_STATUS[r.status].cls}`}>{TIME_REPORT_STATUS[r.status].label}</span> },
-            {
-              key: 'actions', label: '', align: 'right', render: r => {
-                const ActionIcon = ACTION_ICON[r.status];
-                return (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                    {r.status !== 'pending' && <button type="button" className="ws-icon-btn" title={tr('ui.skicka_tillbaka_ett_steg')} onClick={(e) => { e.stopPropagation(); revert(r); }}><Undo2 size={14} /></button>}
-                    {ActionIcon && <button type="button" className="agi-btn primary" style={{ height: '32px' }} onClick={(e) => { e.stopPropagation(); advance(r); }}><ActionIcon size={13} /> {ACTION_LABEL[r.status]}</button>}
+      <Panel
+        title={tr('proj.approval')}
+        sub={tr('proj.reportsSub')}
+        actions={<>
+          {submitted.length > 0 && <button type="button" className="agi-btn" onClick={() => bulkAdvance('submitted')}><ClipboardCheck size={14} /> {tr('ui.attestera_alla_inskickade')}{submitted.length})</button>}
+          {attested.length > 0 && <button type="button" className="agi-btn primary" onClick={() => bulkAdvance('attested')}><CheckCircle2 size={14} /> {tr('ui.godkann_alla_attesterade')}{attested.length})</button>}
+        </>}>
+        {reports.length === 0 ? (
+          <p className="ws-hint">{tr('ui.ingen_tid_loggad_denna_manad_annu')}</p>
+        ) : (
+          <div className="tr-approvals">
+            {reports.map(r => {
+              const stage = TIME_REPORT_STAGES.indexOf(r.status);
+              const ActionIcon = ACTION_ICON[r.status];
+              return (
+                <div key={r.person.id} className={`tr-approval${r.status === 'approved' ? ' done' : ''}`}>
+                  <button type="button" className="tr-approval-who" onClick={() => setOpenReport(r)}>
+                    <span className="lg-avatar" aria-hidden="true">{(r.person.name || '?').charAt(0).toUpperCase()}</span>
+                    <span className="ws-name-text">
+                      <strong>{r.person.name}</strong>
+                      <small>{tr('proj.entries', { n: r.entries.length })} · {formatHours(r.hours)} {tr('ui.h')}</small>
+                    </span>
+                  </button>
+                  <ol className="tr-steps" aria-label={tr('ui.status')}>
+                    {TIME_REPORT_STAGES.map((st, i) => (
+                      <li key={st} className={`${i < stage ? 'past' : ''}${i === stage ? ' now' : ''}`}>
+                        <i aria-hidden="true">{i < stage || st === 'approved' && i === stage ? <CheckCircle2 size={14} /> : null}</i>
+                        <span>{TIME_REPORT_STATUS[st].label}</span>
+                      </li>
+                    ))}
+                  </ol>
+                  <div className="tr-approval-actions">
+                    {r.status !== 'pending' && <button type="button" className="agi-btn" onClick={() => revert(r)} title={tr('ui.skicka_tillbaka_ett_steg')}><Undo2 size={14} /> {tr('proj.back')}</button>}
+                    {ActionIcon
+                      ? <button type="button" className="agi-btn primary" onClick={() => advance(r)}><ActionIcon size={14} /> {ACTION_LABEL[r.status]}</button>
+                      : <span className="agi-pill ok">{tr('proj.allDone')}</span>}
                   </div>
-                );
-              },
-            },
-          ]}
-        />
-      </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Panel>
 
       {openReport && (() => {
         const sorted = [...openReport.entries].sort((a, b) => a.date.localeCompare(b.date));
