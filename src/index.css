@@ -8447,38 +8447,42 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 }
 
 /* ── Stegguide (StepFlow.jsx): Årsbokslut och Årsredovisning ── */
-.stepflow { min-height: 360px; padding: 8px 16px 24px; box-sizing: border-box; }
-.stepflow-panel { margin: 0 auto; width: 100%; max-width: 760px; padding: 28px 0 8px; display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 360px; box-sizing: border-box; }
-.stepflow-top { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 10px; }
-.stepflow-count { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--text-secondary); }
-.stepflow-steps { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; }
-.stepflow-step { display: flex; align-items: center; }
-.stepflow-step + .stepflow-step::before { content: ""; display: block; width: 44px; height: 2px; margin: 0 6px; border-radius: 2px; background: var(--border); transition: background 0.25s ease; }
-.stepflow-step.passed + .stepflow-step::before, .stepflow-step.passed + .stepflow-step.active::before { background: var(--accent); }
-.stepflow-dot { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--bg-card, transparent); color: var(--text-secondary); font: inherit; font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease; }
-.stepflow-dot:hover { border-color: var(--accent); color: var(--text-main); }
-.stepflow-step.done .stepflow-dot { border-color: var(--status-green-text); color: var(--status-green-text); }
-.stepflow-panel > .stepflow-text + .fp-actions, .stepflow-panel > .stepflow-h + .fp-actions { justify-content: center; }
+.stepflow { padding: 28px 24px 32px; display: flex; flex-direction: column; align-items: center; gap: 22px; box-sizing: border-box; }
+/* Stegraden: punkter med korta namn under, streck emellan. */
+.stepflow-steps { list-style: none; margin: 0; padding: 0; display: flex; justify-content: center; width: 100%; max-width: 760px; }
+.stepflow-step { flex: 1 1 0; min-width: 0; position: relative; display: flex; justify-content: center; }
+.stepflow-step + .stepflow-step::before { content: ""; position: absolute; top: 15px; right: calc(50% + 22px); left: calc(-50% + 22px); height: 2px; border-radius: 2px; background: var(--border); transition: background 0.25s ease; }
+.stepflow-step.passed + .stepflow-step::before { background: var(--status-green-text); }
+.stepflow-stepbtn { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; max-width: 100%; padding: 0 4px; border: none; background: none; font: inherit; color: inherit; cursor: pointer; }
+.stepflow-dot { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--bg-card); color: var(--text-secondary); font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease; }
+.stepflow-label { font-size: 12.5px; font-weight: 550; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; transition: color 0.2s ease; }
+.stepflow-stepbtn:hover .stepflow-dot { border-color: var(--status-green-text); }
+.stepflow-stepbtn:hover .stepflow-label { color: var(--text-main); }
+.stepflow-step.done .stepflow-dot { background: color-mix(in srgb, var(--status-green-text) 14%, var(--bg-card)); border-color: transparent; color: var(--status-green-text); }
 .stepflow-step.active .stepflow-dot { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
-.stepflow-dot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.stepflow-panel > .stepflow-h { justify-content: center; text-align: center; font-size: 22px; }
-.stepflow-panel > .stepflow-text { text-align: center; margin-left: auto; margin-right: auto; margin-top: -6px; }
-.stepflow-panel > .stepflow-h + .stepflow-text { margin-bottom: 6px; }
-.stepflow-h { margin: 0; font-size: 20px; font-weight: 750; color: var(--text-main); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.stepflow-text { margin: 0; font-size: 14px; line-height: 1.55; color: var(--text-secondary); max-width: 620px; }
-.stepflow-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border-light); }
+.stepflow-step.active .stepflow-label { color: var(--text-main); font-weight: 700; }
+.stepflow-stepbtn:focus-visible { outline: none; }
+.stepflow-stepbtn:focus-visible .stepflow-dot { outline: 2px solid var(--accent); outline-offset: 3px; }
+/* Kortet med stegets innehåll. */
+.stepflow-panel { width: 100%; max-width: 760px; padding: 28px 32px 0; display: flex; flex-direction: column; gap: 14px; min-width: 0; box-sizing: border-box; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 14px; box-shadow: var(--shadow-sm); }
+.stepflow-count { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: -8px; }
+.stepflow-h { margin: 0; font-size: 22px; font-weight: 750; letter-spacing: -0.01em; color: var(--text-main); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.stepflow-text { margin: 0 0 4px; font-size: 14.5px; line-height: 1.55; color: var(--text-secondary); max-width: 620px; }
+.stepflow-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 10px -32px 0; padding: 16px 32px; border-top: 1px solid var(--border-light); background: var(--bg-muted); border-radius: 0 0 14px 14px; }
 .stepflow-result { display: flex; align-items: baseline; gap: 10px; padding: 14px 16px; border-radius: 10px; background: var(--bg-muted); font-size: 14px; color: var(--text-secondary); }
 .stepflow-result strong { font-size: 20px; color: var(--text-main); font-variant-numeric: tabular-nums; }
 .stepflow-left { display: flex; flex-direction: column; gap: 6px; }
 .stepflow-left button { justify-content: flex-start; }
 @media (max-width: 760px) {
-  .stepflow, .stepflow-panel { min-height: 0; }
-  .stepflow { padding: 4px 16px 16px; }
-  .stepflow-panel { padding: 18px 0 4px; }
-  .stepflow-h { font-size: 18px; }
-  .stepflow-step + .stepflow-step::before { width: 18px; margin: 0 4px; }
-  .stepflow-dot { width: 26px; height: 26px; font-size: 12px; }
-  .stepflow-panel > .stepflow-h { font-size: 19px; }
+  .stepflow { padding: 18px 12px 20px; gap: 16px; }
+  .stepflow-panel { padding: 20px 16px 0; border-radius: 12px; }
+  .stepflow-nav { margin: 8px -16px 0; padding: 14px 16px; border-radius: 0 0 12px 12px; }
+  .stepflow-h { font-size: 19px; }
+  .stepflow-dot { width: 28px; height: 28px; font-size: 12px; }
+  .stepflow-step + .stepflow-step::before { top: 13px; right: calc(50% + 18px); left: calc(-50% + 18px); }
+  /* På telefon får bara det valda steget sitt namn, annars blir raden trång. */
+  .stepflow-step:not(.active) .stepflow-label { visibility: hidden; }
+  .stepflow-step.active .stepflow-label { overflow: visible; }
   .stepflow-nav .agi-btn { flex: 1 1 auto; justify-content: center; }
 }
 .ye-progress { margin-top: 10px; height: 6px; max-width: 360px; border-radius: 999px; background: var(--border-light); overflow: hidden; }

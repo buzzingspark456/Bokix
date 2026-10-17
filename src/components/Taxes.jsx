@@ -597,7 +597,7 @@ export default function Taxes({
 
   const allSteps = [
     {
-      id: 1, kind: 'manual', key: 'bankRecon', title: tr('ui.avstamning_bankkonto'),
+      id: 1, short: tr('stepFlow.short.bank'), kind: 'manual', key: 'bankRecon', title: tr('ui.avstamning_bankkonto'),
       // Klar antingen manuellt, eller automatiskt när en avstämning utan
       // differens är sparad per bokslutsdagen (Bank > Avstämning).
       status: (checklist.bankRecon || isReconciledThrough(company?.reconciliations, fy.end)) ? 'Klar' : tr('ui.ej_paborjad'),
@@ -605,25 +605,25 @@ export default function Taxes({
       tab: 'bank',
     },
     {
-      id: 2, kind: 'auto', title: tr('ui.bokfor_arets_sista_kundfakturor'),
+      id: 2, short: tr('stepFlow.short.invoices'), kind: 'auto', title: tr('ui.bokfor_arets_sista_kundfakturor'),
       status: draftCustomerInvoices.length === 0 ? 'Klar' : 'Pågår',
       hint: draftCustomerInvoices.length > 0 ? tr('ui.obokford_kundfaktura_kvar', { length: draftCustomerInvoices.length, v1: draftCustomerInvoices.length === 1 ? '' : 'a', v2: draftCustomerInvoices.length === 1 ? '' : 'r' }) : tr('ui.inga_obokforda_kundfakturor_i_ar'),
       tab: 'invoices',
     },
     {
-      id: 3, kind: 'auto', title: tr('ui.bokfor_arets_sista_leverantorsfakturor'),
+      id: 3, short: tr('stepFlow.short.supplier'), kind: 'auto', title: tr('ui.bokfor_arets_sista_leverantorsfakturor'),
       status: draftSupplierInvoices.length === 0 ? 'Klar' : 'Pågår',
       hint: draftSupplierInvoices.length > 0 ? tr('ui.obokford_leverantorsfaktura_kvar', { length: draftSupplierInvoices.length, v1: draftSupplierInvoices.length === 1 ? '' : 'a', v2: draftSupplierInvoices.length === 1 ? '' : 'r' }) : tr('ui.inga_obokforda_leverantorsfakturor_i_ar'),
       tab: 'expenses',
     },
     {
-      id: 4, kind: 'auto', title: tr('ui.gor_arets_sista_lonekorning'),
+      id: 4, short: tr('stepFlow.short.payroll'), kind: 'auto', title: tr('ui.gor_arets_sista_lonekorning'),
       status: decemberRunBooked ? 'Klar' : (anyRunBookedThisYear || runsThisYear.length > 0) ? 'Pågår' : tr('ui.ej_paborjad'),
       hint: decemberRunBooked ? tr('ui.lonen_ar_bokford', { v0: monthLabel(fy.end.slice(0, 7), { withYear: false }) }) : tr('ui.kor_och_bokfor_lonekorningen_for_rakenskapsarets', { v0: monthLabel(fy.end.slice(0, 7), { withYear: false }).toLowerCase() }),
       tab: 'payroll',
     },
     {
-      id: 5, kind: 'auto', title: tr('ui.bokfor_arets_avskrivningar'),
+      id: 5, short: tr('stepFlow.short.depreciation'), kind: 'auto', title: tr('ui.bokfor_arets_avskrivningar'),
       status: depreciationPending.months.length === 0 ? 'Klar' : 'Pågår',
       hint: depreciationPending.months.length === 0
         ? ((company?.fixedAssets || []).length === 0 ? tr('ui.inga_anlaggningstillgangar_i_registret') : tr('ui.alla_avskrivningar_for_aret_ar_bokforda'))
@@ -631,24 +631,24 @@ export default function Taxes({
       tab: 'fixed_assets',
     },
     {
-      id: 6, kind: 'manual', key: 'accruals', title: tr('ui.periodisera_upplupna_och_forutbetalda_poster'),
+      id: 6, short: tr('stepFlow.short.accruals'), kind: 'manual', key: 'accruals', title: tr('ui.periodisera_upplupna_och_forutbetalda_poster'),
       status: checklist.accruals ? 'Klar' : tr('ui.ej_paborjad'),
       hint: tr('ui.hyra_forsakringar_el_och_annat_som_hor_till_en_a'),
       tab: 'accruals',
     },
     {
-      id: 7, kind: 'manual', key: 'inventory', title: tr('ui.inventering_och_lager_om_tillampligt'),
+      id: 7, short: tr('stepFlow.short.inventory'), kind: 'manual', key: 'inventory', title: tr('ui.inventering_och_lager_om_tillampligt'),
       status: checklist.inventory ? 'Klar' : tr('ui.ej_paborjad'),
       hint: tr('ui.rakna_och_vardera_varulagret_per_bokslutsdagen_u'),
       tab: 'articles',
     },
     {
-      id: 8, kind: 'auto', title: tr('ui.berakna_och_bokfor_arets_resultat'),
+      id: 8, short: tr('stepFlow.short.result'), kind: 'auto', title: tr('ui.berakna_och_bokfor_arets_resultat'),
       status: isLocked ? 'Klar' : tr('ui.ej_paborjad'),
       hint: tr('ui.bokfors_automatiskt_som_en_bokslutstransaktion_n'),
     },
     {
-      id: 9, kind: 'auto', title: tr('ui.las_rakenskapsaret'),
+      id: 9, short: tr('stepFlow.short.lock'), kind: 'auto', title: tr('ui.las_rakenskapsaret'),
       status: isLocked ? 'Klar' : tr('ui.ej_paborjad'),
       hint: isLocked ? tr('ui.last', { v0: new Date(closing.lockedAt).toLocaleDateString('sv-SE') }) : tr('ui.blir_tillganglig_nar_alla_steg_ovan_ar_klara'),
     },

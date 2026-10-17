@@ -4347,7 +4347,26 @@
     "steps": "Steg",
     "stepOf": "Steg {{n}} av {{total}}",
     "back": "Tillbaka",
-    "next": "Nästa steg"
+    "next": "Nästa steg",
+    "short": {
+      "bank": "Bank",
+      "invoices": "Kundfakturor",
+      "supplier": "Leverantörer",
+      "payroll": "Lön",
+      "depreciation": "Avskrivningar",
+      "accruals": "Periodisering",
+      "inventory": "Lager",
+      "result": "Resultat",
+      "lock": "Lås året",
+      "report": "Förvaltning",
+      "disposition": "Vinsten",
+      "dispositionAssoc": "Överskottet",
+      "sign": "Underskrifter",
+      "send": "Skicka",
+      "schema": "Räkenskaper",
+      "adjust": "Justeringar",
+      "partners": "Delägare"
+    }
   },
   "yearEndWizard": {
     "progress": "{{done}} av {{total}} steg klara",

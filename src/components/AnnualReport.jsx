@@ -89,10 +89,10 @@ export default function AnnualReport({ company, verifications = [], accounts = [
   // visas inte överst längre: de syns som ett steg som inte är klart.
   const filled = (v) => Boolean(v && String(v).trim());
   const flow = [
-    { id: 'report', title: t('yearEndUi.report'), done: filled(details.business) && filled(details.seat) },
-    { id: 'disposition', title: t('yearEndUi.disposition'), done: !overLimit },
-    { id: 'sign', title: t('yearEndUi.signatures'), done: filled(details.boardMembers) && filled(details.signPlace) },
-    { id: 'send', title: t('arWizard.sendTitle'), done: Boolean(filedAt) },
+    { id: 'report', title: t('yearEndUi.report'), short: t('stepFlow.short.report'), done: filled(details.business) && filled(details.seat) },
+    { id: 'disposition', title: t('yearEndUi.disposition'), short: t(assoc ? 'stepFlow.short.dispositionAssoc' : 'stepFlow.short.disposition'), done: !overLimit },
+    { id: 'sign', title: t('yearEndUi.signatures'), short: t('stepFlow.short.sign'), done: filled(details.boardMembers) && filled(details.signPlace) },
+    { id: 'send', title: t('arWizard.sendTitle'), short: t('stepFlow.short.send'), done: Boolean(filedAt) },
   ];
   // Första steget som inte är klart väljs en gång när sidan öppnas, sedan
   // byter bara användaren steg (annars hoppade guiden vidare mitt i skrivandet).

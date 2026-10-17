@@ -66,10 +66,10 @@ export default function Ink4View({ company, fy, verifications = [], accounts = [
   };
 
   const flow = [
-    { id: 'schema', title: t('ink4.stepSchema'), done: ink4r.balanced },
-    { id: 'adjust', title: t('ink4.stepAdjust'), done: answers.consultant !== undefined && answers.audited !== undefined },
-    { id: 'partners', title: t('ink4.stepPartners'), done: partnerErrors.length === 0 && missingPnr.length === 0 },
-    { id: 'send', title: t('ink4.stepSend'), done: Boolean(filedAt) },
+    { id: 'schema', title: t('ink4.stepSchema'), short: t('stepFlow.short.schema'), done: ink4r.balanced },
+    { id: 'adjust', title: t('ink4.stepAdjust'), short: t('stepFlow.short.adjust'), done: answers.consultant !== undefined && answers.audited !== undefined },
+    { id: 'partners', title: t('ink4.stepPartners'), short: t('stepFlow.short.partners'), done: partnerErrors.length === 0 && missingPnr.length === 0 },
+    { id: 'send', title: t('ink4.stepSend'), short: t('stepFlow.short.send'), done: Boolean(filedAt) },
   ];
   const [step, setStep] = useState(() => flow.find(s => !s.done)?.id || 'send');
   const groups = [...new Set(INK4S_ROWS.map(r => r.group))];

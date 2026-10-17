@@ -14,7 +14,7 @@ export default function YearEndWizard({
 }) {
   const flow = [
     ...steps.map(s => ({ ...s, done: s.status === 'Klar' })),
-    { id: 'lock', title: t('yearEndWizard.lockTitle'), done: isLocked },
+    { id: 'lock', title: t('yearEndWizard.lockTitle'), short: t('stepFlow.short.lock'), done: isLocked },
   ];
   const firstOpen = flow.find(s => !s.done)?.id ?? 'lock';
   const [current, setCurrent] = useState(firstOpen);

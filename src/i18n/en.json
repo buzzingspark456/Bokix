@@ -4347,7 +4347,26 @@
     "steps": "Steps",
     "stepOf": "Step {{n}} of {{total}}",
     "back": "Back",
-    "next": "Next step"
+    "next": "Next step",
+    "short": {
+      "bank": "Bank",
+      "invoices": "Invoices",
+      "supplier": "Suppliers",
+      "payroll": "Payroll",
+      "depreciation": "Depreciation",
+      "accruals": "Accruals",
+      "inventory": "Inventory",
+      "result": "Result",
+      "lock": "Lock year",
+      "report": "Directors",
+      "disposition": "Profit",
+      "dispositionAssoc": "Surplus",
+      "sign": "Signatures",
+      "send": "Send",
+      "schema": "Accounts",
+      "adjust": "Adjustments",
+      "partners": "Partners"
+    }
   },
   "yearEndWizard": {
     "progress": "{{done}} of {{total}} steps done",

@@ -74,7 +74,7 @@ if (hasTab) { await tab.click(); await page.waitForTimeout(1200); }
 await shot('flik');
 const step1 = await page.evaluate(() => document.body.innerText);
 let all = step1;
-const dots = page.locator('.stepflow-steps button');
+const dots = page.locator('.stepflow-stepbtn');
 for (let i = 0; i < await dots.count(); i++) { await dots.nth(i).click(); await page.waitForTimeout(500); all += await page.evaluate(() => document.body.innerText); }
 await shot('skicka');
 const text = all;
