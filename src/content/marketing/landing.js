@@ -22,7 +22,7 @@ export const LANDING_CONTENT = {
       titlePrefix: 'För att bokföring',
       titleSuffix: 'ska vara ',
       titleEm: 'enkelt',
-      subtitle: 'Bokix är ett bokföringsprogram med fakturor, löner, moms och bokslut i ett enda verktyg. Byggt för svenska småföretagare som hellre fokuserar på sin verksamhet än sin bokföring.',
+      subtitle: 'Bokföringsprogrammet för svenska småföretag, med fakturor, lön, moms och bokslut i ett verktyg.',
       ctaPrimary: 'Prova gratis',
       ctaSecondary: 'Se demo',
     },
