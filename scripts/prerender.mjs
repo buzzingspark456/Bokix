@@ -85,7 +85,8 @@ const xmlEscape = (value) => String(value).replace(/[<>&'"]/g, (char) => ({
 
 // Loggor (vår egen ikon, partners, banker, andra program) är inte bilder vi
 // vill synas med i bildsök, och de står på många sidor.
-const NOT_CONTENT_IMAGE = /^\/(?:icon-|favicon|apple-touch|logos\/|flags\/)|logo|wordmark|stripe-icon|zettle-|gmail-icon/i;
+// -mork.jpg: mörka varianten av en bloggbild, samma bild som den ljusa.
+const NOT_CONTENT_IMAGE = /^\/(?:icon-|favicon|apple-touch|logos\/|flags\/)|-mork\.jpg$|logo|wordmark|stripe-icon|zettle-|gmail-icon/i;
 
 // Ett omslag hör till sitt eget inlägg (och listorna /blogg och /nyheter),
 // inte till alla sidor där det syns som ett litet relaterat kort. Annars står

@@ -9,6 +9,7 @@ import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW } from './
 import { PageMeta, JsonLd, SITE_URL, schemaDate } from '../../utils/seo';
 import { ALL_ARTICLES } from '../../content/marketing/news';
 import { MIGRATION_SOURCES } from '../../utils/migrationSources';
+import { BLOG_SHOTS, BLOG_SHOT_WIDTH, BLOG_SHOT_HEIGHT, blogShotSrc } from '../../content/marketing/blogShots';
 
 // ── En bloggartikel (/blogg/<slug>) ─────────────────────────────────────
 // Renderar ett inlägg ur BLOG_POSTS (content/marketing/blog.js) som har ett
@@ -206,6 +207,21 @@ function Block({ block, id }) {
     case 'table': return <DataTable block={block} />;
     case 'diagram': return <BlogDiagram id={block.id} caption={block.caption} />;
     case 'programs': return <Programs />;
+    // Bild ur appen i ram (content/marketing/blogShots.js): { t: 'image', shot: 'stripe' }.
+    // Den mörka varianten visas i mörkt läge; förrenderingen har bara den ljusa synlig.
+    case 'image': {
+      const shot = BLOG_SHOTS[block.shot];
+      if (!shot) return null;
+      const imgStyle = { width: '100%', height: 'auto', borderRadius: '12px' };
+      return (
+        <figure className="bp-shot" style={{ margin: '32px 0' }}>
+          <style>{'.bp-shot-dark{display:none} html[data-theme="dark"] .bp-shot-dark{display:block} html[data-theme="dark"] .bp-shot-light{display:none}'}</style>
+          <img className="bp-shot-light" src={blogShotSrc(block.shot)} alt={shot.alt} width={BLOG_SHOT_WIDTH} height={BLOG_SHOT_HEIGHT} loading="lazy" decoding="async" style={{ ...imgStyle, display: 'block' }} />
+          <img className="bp-shot-dark" src={blogShotSrc(block.shot, true)} alt={shot.alt} width={BLOG_SHOT_WIDTH} height={BLOG_SHOT_HEIGHT} loading="lazy" decoding="async" style={imgStyle} />
+          <figcaption style={{ fontSize: '14px', color: 'var(--mkt-muted)', marginTop: '10px' }}>{block.caption || shot.caption}</figcaption>
+        </figure>
+      );
+    }
     default: return null;
   }
 }
@@ -418,7 +434,7 @@ export default function BlogPostPage({ slug }) {
       url: `${SITE_URL}${post.path}`,
       inLanguage: 'sv-SE',
       // Omslaget först, sedan skärmbilderna i texten: alla är bilder som hör till artikeln.
-      image: [`${SITE_URL}${post.image}`],
+      image: [post.image, ...post.body.filter(b => b.t === 'image' && BLOG_SHOTS[b.shot]).map(b => blogShotSrc(b.shot))].map(src => `${SITE_URL}${src}`),
       datePublished: schemaDate(post.datePublished),
       dateModified: schemaDate(post.dateModified),
       articleSection: post.category,

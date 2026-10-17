@@ -71,6 +71,7 @@ export const BLOG_POSTS = [
       { t: 'h2', x: 'Så gör Bokix det åt dig' },
       { t: 'p', x: 'Kopplar du Stripe till Bokix får fakturan en **Betala nu**-knapp. Kunden betalar med kort, Apple Pay eller Google Pay, och fakturan bokförs som betald mot 1686.' },
       { t: 'p', x: 'Varje morgon hämtar Bokix alla nya transaktioner från Stripe: betalningar, avgifter, återbetalningar och utbetalningar. När du kopplar Stripe kommer de senaste 90 dagarna direkt.' },
+      { t: 'image', shot: 'stripe' },
       { t: 'steps', x: [
         { h: 'Avgifter och utbetalningar', p: 'Allt kommer från Stripe, så de bokförs med ett klick. Med Bokför alla säkra tar du alla på en gång.' },
         { h: 'Försäljning utan faktura', p: 'Du väljer momssats och intäktskonto. Bokix föreslår det du valde förra gången, men gissar aldrig.' },
@@ -115,6 +116,7 @@ export const BLOG_POSTS = [
         ['Ekonomisk förening', 'Inkomstdeklaration 2 (INK2)', 'Årsredovisning'],
       ] },
       { t: 'p', x: 'Läs mer om vad Bokix gör för din bolagsform: [enskild firma](/bokforingsprogram-enskild-firma), [aktiebolag](/bokforingsprogram-aktiebolag), [handelsbolag](/bokforingsprogram-handelsbolag) och [ekonomisk förening](/bokforingsprogram-ekonomisk-forening).' },
+      { t: 'image', shot: 'startsida', caption: 'Så ser startsidan ut i Bokix: resultatet hittills i år och det som ska göras.' },
 
       { t: 'h2', x: 'Nio saker att jämföra' },
       { t: 'checklist', x: [
@@ -564,6 +566,7 @@ export const BLOG_POSTS = [
         { h: '4. Lämna in hos Skatteverket', p: 'Ladda upp filen i Skatteverkets e-tjänst, eller fyll i rutorna för hand efter pdf:en om du föredrar det. Du loggar in och signerar med BankID hos Skatteverket, det är alltid du som lämnar in, aldrig Bokix.' },
       ] },
       { t: 'callout', kind: 'tips', title: 'Se hela flödet innan du börjar', x: 'I Bokix samlas kvartalets status under Skatt och bokslut. Där markerar du perioden som inlämnad när du är klar. Läs mer under [Funktioner](/funktioner).' },
+      { t: 'image', shot: 'moms' },
 
       { t: 'h2', x: 'Bra att veta' },
       { t: 'h3', x: 'Mer ingående än utgående moms' },
@@ -629,6 +632,7 @@ export const BLOG_POSTS = [
 
       { t: 'h2', x: 'Bygg en vana, inte en kvittohög' },
       { t: 'p', x: 'Fota kvittot direkt när du får det. I Bokix läses datum, belopp och moms av, och kvittot sparas i sju år.' },
+      { t: 'image', shot: 'kvitton' },
       { t: 'p', x: 'Har du redan en hög? Fota det som går att läsa och skriv ner det som har bleknat.' },
 
       { t: 'h2', x: 'Om ett kvitto saknas helt' },
