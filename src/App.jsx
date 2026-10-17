@@ -2372,7 +2372,22 @@ function App() {
     };
   }, []);
 
-  const fetchUserData = async (authUser) => {
+  // Sessionen vid uppstart (getSession) och inloggningshändelsen
+  // (SIGNED_IN) startar båda en laddning, nästan samtidigt. Ett andra anrop
+  // för samma användare medan det första pågår väntar in det i stället för
+  // att hämta allt igen (förut gick bl.a. listan över delade företag två gånger).
+  const fetchInFlightRef = useRef(null);
+  const fetchUserData = (authUser) => {
+    const current = fetchInFlightRef.current;
+    if (current && current.userId === authUser.id) return current.promise;
+    const promise = fetchUserDataOnce(authUser).finally(() => {
+      if (fetchInFlightRef.current?.promise === promise) fetchInFlightRef.current = null;
+    });
+    fetchInFlightRef.current = { userId: authUser.id, promise };
+    return promise;
+  };
+
+  const fetchUserDataOnce = async (authUser) => {
     // Se loadedUserIdRef-kommentaren vid subscriptionGate ovan — satt HÄR,
     // innan något asynkront ens hinner starta, så en cross-tab SIGNED_IN
     // för ett annat konto som hinner före upptäcks av nästa jämförelse.
