@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { lockedPeriodFor } from '../utils/fiscalYear';
-import { Plus, Trash2, X, Search } from './icons';
-import ListTable from './shared/ListTable';
+import { Plus, Trash2, X, Search, Truck } from './icons';
 import { ListFilterBar } from './shared/ListPageHeader';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
@@ -18,6 +17,8 @@ const fmtQty = (v) => numberFormat('sv-SE', { maximumFractionDigits: 2 }).format
 const pad = (n) => String(n).padStart(2, '0');
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const newId = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `mv_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+// Klara färger för staplar och prickar (statusfärgernas textvarianter blir bruna i ljust läge).
+const AMBER = '#f0a830';
 const formatShort = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' }); };
 
 const MOVEMENT_TYPES = [
@@ -68,7 +69,7 @@ function Sparkline({ points, color, min }) {
     <svg className="lg-spark" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden="true">
       <polygon points={`0,${h} ${line} ${w},${h}`} style={{ fill: color, opacity: 0.12 }} />
       <polyline points={line} style={{ fill: 'none', stroke: color, strokeWidth: 1.6, vectorEffect: 'non-scaling-stroke' }} />
-      {min > 0 && <line x1="0" x2={w} y1={h - (min / max) * (h - 4) - 2} y2={h - (min / max) * (h - 4) - 2} style={{ stroke: 'var(--status-amber-text)', strokeDasharray: '3 3', strokeWidth: 1, vectorEffect: 'non-scaling-stroke' }} />}
+      {min > 0 && <line x1="0" x2={w} y1={h - (min / max) * (h - 4) - 2} y2={h - (min / max) * (h - 4) - 2} style={{ stroke: AMBER, strokeDasharray: '3 3', strokeWidth: 1, vectorEffect: 'non-scaling-stroke' }} />}
     </svg>
   );
 }
@@ -106,8 +107,6 @@ export default function Inventory({ articles = [], invoices = [], company, verif
   const [detailId, setDetailId] = useState(null);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [view, setViewState] = useState(() => { try { return localStorage.getItem('bokix_stock_view') || 'cards'; } catch { return 'cards'; } });
-  const setView = (v) => { setViewState(v); try { localStorage.setItem('bokix_stock_view', v); } catch { /* privat läge */ } };
 
   useEffect(() => {
     if (!detailId) return undefined;
@@ -158,6 +157,11 @@ export default function Inventory({ articles = [], invoices = [], company, verif
   const inStock = allRows.filter(r => r.qty > 0);
   const totalUnits = inStock.reduce((s, r) => s + r.qty, 0);
   const detail = detailId ? allRows.find(r => r.articleId === detailId) : null;
+  // Värdet per vara för fördelningsstapeln: de fyra största, resten som Övriga.
+  const byValue = allRows.filter(r => r.bookValue > 0).sort((x, y) => y.bookValue - x.bookValue);
+  const partColors = [palette.profit, palette.income, palette.costBar, '#a78bfa'];
+  const valueParts = byValue.slice(0, 4).map((r, i) => ({ id: r.articleId, name: r.description, value: r.bookValue, color: partColors[i] }));
+  if (byValue.length > 4) valueParts.push({ id: '__rest', name: tr('lager.others', { n: byValue.length - 4 }), value: byValue.slice(4).reduce((sum, r) => sum + r.bookValue, 0), color: 'var(--text-muted)' });
 
   const startMovement = (type, articleId) => {
     const id = articleId || goods[0]?.id || '';
@@ -199,7 +203,7 @@ export default function Inventory({ articles = [], invoices = [], company, verif
     : r.status === 'out' ? <span className="agi-pill late">{tr('lager.outOfStock')}</span>
     : r.status === 'low' ? <span className="agi-pill warn">{tr('lager.low')}</span>
     : <span className="agi-pill ok">{tr('lager.inStockPill')}</span>);
-  const barColor = (r) => (r.status === 'out' ? 'var(--status-red-text)' : r.status === 'low' ? 'var(--status-amber-text)' : palette.profit);
+  const barColor = (r) => (r.status === 'out' ? palette.loss : r.status === 'low' ? AMBER : palette.profit);
   // Stapeln: saldot mot beställningspunkten (två gånger den = full stapel).
   // Utan beställningspunkt mot det högsta saldot varan haft.
   const barPct = (r) => {
@@ -227,33 +231,67 @@ export default function Inventory({ articles = [], invoices = [], company, verif
       <div className="ws-page">
         <Panel title={tr('ui.lager')} sub={tr('lager.overviewSub', { date: closingDate, method: methodName, account: kind.stockAccount })}
           actions={<button type="button" className="agi-btn" onClick={() => setShowSettings(true)}>{tr('lager.settings')}</button>}>
-          <KpiGrid>
-            <Kpi dot={palette.profit} label={tr('lager.stockValue')} value={fmtKr(valuation.bookValue)} sub={valuation.writeDown > 0 ? tr('lager.afterWriteDown', { kr: fmtKr(valuation.writeDown) }) : tr('lager.perDate', { date: closingDate })} />
-            <Kpi dot={palette.income} label={tr('lager.itemsInStock')} value={inStock.length} sub={tr('lager.units', { n: fmtQty(totalUnits) })} />
-            <Kpi dot="var(--status-amber-text)" label={tr('lager.lowStock')} value={count('low')} sub={tr('lager.lowSub')} />
-            <Kpi dot="var(--status-red-text)" label={tr('lager.outOfStock')} value={count('out')} sub={tr('lager.outSub')} />
-          </KpiGrid>
-
-          {lowRows.length > 0 && (
-            <div className="ws-notice warn" style={{ marginTop: '12px' }}>
-              <div>
-                <strong>{(lowRows.length === 1 ? tr('lager.reorderNoticeOne') : tr('lager.reorderNotice', { n: lowRows.length }))}</strong>
-                <p>{lowRows.map(r => `${r.description} (${fmtQty(r.qty)} ${tr('ui.st')})`).join(', ')}</p>
-              </div>
-              <button type="button" className="agi-btn" onClick={() => setFilter('low')}>{tr('lager.showLow')}</button>
+          <div className="lg-hero">
+            {/* Lagervärdet stort, och hur det fördelar sig på varorna. */}
+            <div className="lg-hero-value">
+              <span className="dash-kpi-card-label"><i className="dash-kpi-dot" style={{ background: palette.profit }} aria-hidden="true" />{tr('lager.stockValue')}</span>
+              <span className="lg-hero-amount">{fmtKr(valuation.bookValue)}</span>
+              <span className="dash-kpi-card-sub">{valuation.writeDown > 0 ? tr('lager.afterWriteDown', { kr: fmtKr(valuation.writeDown) }) : tr('lager.unitsIn', { n: fmtQty(totalUnits), items: inStock.length })}</span>
+              {valueParts.length > 0 && <>
+                <div className="lg-split" aria-hidden="true">
+                  {valueParts.map(v => <span key={v.id} style={{ flexGrow: v.value, background: v.color }} title={`${v.name}: ${fmtKr(v.value)}`} />)}
+                </div>
+                <ul className="lg-legend">
+                  {valueParts.map(v => (
+                    <li key={v.id}><i style={{ background: v.color }} aria-hidden="true" /><span>{v.name}</span><b>{fmtKr(v.value)}</b></li>
+                  ))}
+                </ul>
+              </>}
             </div>
-          )}
+            {/* Lagerhälsa: hur många varor som finns, är låga eller slut. */}
+            <div className="lg-hero-health">
+              <span className="dash-kpi-card-label">{tr('lager.health')}</span>
+              <div className="lg-health-bar" aria-hidden="true">
+                {count('ok') > 0 && <span style={{ flexGrow: count('ok'), background: palette.profit }} />}
+                {count('low') > 0 && <span style={{ flexGrow: count('low'), background: AMBER }} />}
+                {count('out') > 0 && <span style={{ flexGrow: count('out'), background: palette.loss }} />}
+              </div>
+              <ul className="lg-health-list">
+                {[['ok', tr('lager.inStockPill'), palette.profit], ['low', tr('lager.lowStock'), AMBER], ['out', tr('lager.outOfStock'), palette.loss]].map(([id, label, color]) => (
+                  <li key={id}>
+                    <button type="button" className={filter === id ? 'on' : ''} onClick={() => setFilter(filter === id ? 'all' : id)}>
+                      <i style={{ background: color }} aria-hidden="true" /><span>{label}</span><b>{count(id)}</b>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
 
-          {valuation.lines.length > 0 && closing && !alreadyBooked && (
-            <div className="ws-notice" style={{ marginTop: '12px' }}>
-              <div>
-                <strong>{tr('ui.lagret_behover_justeras_med_kr', { v0: diff > 0 ? '+' : '−', v1: fmt(Math.abs(diff)) })}</strong>
-                <p>{tr('lager.ledgerVsStock', { account: kind.stockAccount, ledger: fmtKr(ledgerBalance), stock: fmtKr(valuation.bookValue) })}</p>
-              </div>
-              <div className="ws-card-actions">
-                <input type="date" className="ws-input" style={{ width: 'auto', height: '36px' }} value={closingDate} aria-label={tr('ui.vardering_per_datum')} onChange={e => e.target.value && setClosingDate(e.target.value)} />
-                <button type="button" className="agi-btn primary" onClick={bookClosing}>{tr('ui.bokfor_lagerjustering')}</button>
-              </div>
+          {(lowRows.length > 0 || (valuation.lines.length > 0 && closing && !alreadyBooked)) && (
+            <div className="lg-todo">
+              <div className="lg-todo-title">{tr('lager.todo')}</div>
+              {lowRows.map(r => (
+                <button key={r.articleId} type="button" className="dash-today-btn dash-today-btn--warn lg-todo-row" onClick={() => startMovement('in', r.articleId)}>
+                  <span className="dash-today-lines">
+                    <span className="dash-today-kicker">{tr('lager.reorder')}</span>
+                    <span className="dash-today-title">{r.description}</span>
+                    <span className="dash-today-detail">{tr('lager.reorderDetail', { qty: fmtQty(r.qty), min: fmtQty(r.min) })}</span>
+                  </span>
+                  <span className="dash-today-ic" aria-hidden="true"><Truck size={20} /></span>
+                </button>
+              ))}
+              {valuation.lines.length > 0 && closing && !alreadyBooked && (
+                <div className="dash-today-btn dash-today-btn--brand lg-todo-row" style={{ cursor: 'default' }}>
+                  <span className="dash-today-lines">
+                    <span className="dash-today-kicker">{tr('lager.bookKicker')}</span>
+                    <span className="dash-today-title">{tr('ui.lagret_behover_justeras_med_kr', { v0: diff > 0 ? '+' : '−', v1: fmt(Math.abs(diff)) })}</span>
+                    <span className="dash-today-detail">{tr('lager.ledgerVsStock', { account: kind.stockAccount, ledger: fmtKr(ledgerBalance), stock: fmtKr(valuation.bookValue) })}</span>
+                  </span>
+                  <input type="date" className="ws-input" style={{ width: 'auto', height: '36px' }} value={closingDate} aria-label={tr('ui.vardering_per_datum')} onChange={e => e.target.value && setClosingDate(e.target.value)} />
+                  <button type="button" className="agi-btn primary" onClick={bookClosing}>{tr('lager.book')}</button>
+                </div>
+              )}
             </div>
           )}
           {alreadyBooked && <p className="ws-hint" style={{ marginTop: '12px' }}>{tr('ui.lagerjusteringen_per_ar_bokford', { closingDate })}</p>}
@@ -264,10 +302,6 @@ export default function Inventory({ articles = [], invoices = [], company, verif
           title={tr('lager.goods')}
           sub={goods.length > 0 ? tr('lager.goodsSub') : null}
           actions={goods.length > 0 && <>
-            <div className="ws-seg">
-              <button type="button" className={view === 'cards' ? 'on' : ''} onClick={() => setView('cards')}>{tr('proj.viewCards')}</button>
-              <button type="button" className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>{tr('proj.viewList')}</button>
-            </div>
             <button type="button" className="agi-btn" onClick={() => startMovement('count')}>{tr('lager.typeCount')}</button>
             <button type="button" className="agi-btn" onClick={() => startMovement('out')}>{tr('lager.typeOut')}</button>
             <button type="button" className="agi-btn primary" onClick={() => startMovement('in')}><Plus size={14} /> {tr('lager.typeIn')}</button>
@@ -282,58 +316,26 @@ export default function Inventory({ articles = [], invoices = [], company, verif
             </div>
           ) : rows.length === 0 ? (
             <p className="ws-hint" style={{ padding: '12px 0' }}>{tr('lager.noMatch')}</p>
-          ) : view === 'cards' ? (
-            <div className="pj-grid">
+          ) : (
+            <div className="lg-rows">
+              <div className="lg-row lg-row-head" aria-hidden="true">
+                <span>{tr('ui.vara')}</span><span>{tr('lager.inStock')}</span><span className="r">{tr('lager.unitCost')}</span><span className="r">{tr('ui.varde')}</span><span />
+              </div>
               {rows.map(r => (
-                <button key={r.articleId} type="button" className="pj-card lg-card" style={{ '--pj': barColor(r) }} onClick={() => setDetailId(r.articleId)}>
-                  <div className="lg-card-head">
-                    <span className="lg-avatar" aria-hidden="true">{initial(r.description)}</span>
-                    <div className="ws-name-text">
-                      <strong>{r.description}</strong>
-                      <small>{r.articleNumber || tr('ui.vara')}</small>
-                    </div>
-                    {statusPill(r)}
-                  </div>
-                  <div className="pj-card-hours">
-                    <span><b>{fmtQty(r.qty)}</b> {r.unit} {tr('lager.inStockLower')}</span>
-                    {r.min > 0 && <span className="pj-card-pct">{tr('lager.minShort', { n: fmtQty(r.min) })}</span>}
-                  </div>
-                  <div className="pz-track">
-                    <span style={{ width: `${barPct(r)}%` }} />
-                    {r.min > 0 && <em style={{ left: '50%' }} />}
-                  </div>
-                  <div className="pj-card-money">
-                    <div><span>{tr('ui.varde')}</span><b>{fmtKr(r.bookValue)}</b></div>
-                    <div><span>{tr('lager.unitCost')}</span><b>{fmt(r.unitCost)} kr</b></div>
-                  </div>
+                <button key={r.articleId} type="button" className={`lg-row is-${r.status}`} style={{ '--pj': barColor(r) }} onClick={() => setDetailId(r.articleId)}>
+                  <span className="lg-row-name">
+                    <strong>{r.description}</strong>
+                    <small>{[r.articleNumber, r.layers.length > 1 ? tr('lager.batchCount', { n: r.layers.length }) : null].filter(Boolean).join(' · ') || tr('ui.vara')}</small>
+                  </span>
+                  <span className="lg-row-stock">
+                    <span className="lg-row-qty"><b>{fmtQty(r.qty)}</b> {r.unit}{r.min > 0 && <small>{tr('lager.minShort', { n: fmtQty(r.min) })}</small>}</span>
+                    <span className="pz-track"><span style={{ width: `${barPct(r)}%` }} />{r.min > 0 && <em style={{ left: '50%' }} />}</span>
+                  </span>
+                  <span className="r lg-row-num">{fmt(r.unitCost)} kr</span>
+                  <span className="r lg-row-num strong">{fmtKr(r.bookValue)}</span>
+                  <span className="r">{statusPill(r)}</span>
                 </button>
               ))}
-            </div>
-          ) : (
-            <div className="wsp-flush">
-              <ListTable
-                bordered={false}
-                rowKey={r => r.articleId}
-                rows={rows}
-                onRowClick={r => setDetailId(r.articleId)}
-                emptyMessage={tr('lager.noMatch')}
-                mobileList={r => ({ primary: r.description, amount: fmtKr(r.bookValue), meta: tr('ui.st_kr', { v0: fmtQty(r.qty), v1: fmt(r.unitCost) }), pill: statusPill(r) })}
-                columns={[
-                  {
-                    key: 'description', label: tr('ui.vara'), render: r => (
-                      <div className="ws-name">
-                        <span className="lg-avatar sm" aria-hidden="true">{initial(r.description)}</span>
-                        <div className="ws-name-text"><strong>{r.description}</strong>{r.articleNumber && <small>{r.articleNumber}</small>}</div>
-                      </div>
-                    ),
-                  },
-                  { key: 'qty', label: tr('lager.inStock'), align: 'right', fontWeight: 600, color: 'var(--text-main)', render: r => `${fmtQty(r.qty)} ${r.unit}` },
-                  { key: 'min', label: tr('lager.reorderPoint'), align: 'right', render: r => (r.min ? fmtQty(r.min) : '—') },
-                  { key: 'unitCost', label: tr('lager.unitCost'), align: 'right', render: r => `${fmt(r.unitCost)} kr` },
-                  { key: 'bookValue', label: tr('ui.varde'), align: 'right', fontWeight: 600, color: 'var(--text-main)', render: r => fmtKr(r.bookValue) },
-                  { key: 'status', label: '', align: 'right', render: r => statusPill(r) },
-                ]}
-              />
             </div>
           )}
         </Panel>

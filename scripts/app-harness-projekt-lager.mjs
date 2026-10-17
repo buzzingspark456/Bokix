@@ -113,7 +113,7 @@ for (const dark of [false, true]) {
     if (!ONLY || ONLY === 'lager') {
       await go('articles'); await shot('artiklar');
       await tab('Lager'); await shot('lager');
-      await page.locator('.pj-card:visible').first().click().catch(() => {}); await shot('lager-detalj', false); await page.locator('.modal-close:visible').first().click().catch(() => {});
+      await page.locator('button.lg-row:visible').first().click().catch(() => {}); await shot('lager-detalj', false); await page.locator('.modal-close:visible').first().click().catch(() => {});
       await page.locator('button:visible', { hasText: 'Inleverans' }).last().click().catch(() => {}); await shot('lager-handelse', false); await page.keyboard.press('Escape'); await page.locator('.modal-close:visible').first().click().catch(() => {});
       await tab('Prissättning'); await shot('pris');
     }

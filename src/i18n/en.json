@@ -4539,7 +4539,15 @@
     "note": "Note (optional)",
     "notePlaceholder": "E.g. order 1042 or broken packaging",
     "costEach": "Cost {{price}} kr each",
-    "reorderNoticeOne": "1 item needs reordering"
+    "reorderNoticeOne": "1 item needs reordering",
+    "health": "Stock health",
+    "todo": "To do",
+    "reorder": "Reorder",
+    "reorderDetail": "{{qty}} left, reorder at {{min}}. Tap to receive.",
+    "bookKicker": "Bookkeeping",
+    "book": "Book",
+    "others": "{{n}} more",
+    "unitsIn": "{{n}} units in {{items}} items"
   },
   "pris": {
     "toolPrice": "Price",

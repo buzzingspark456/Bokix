@@ -4539,7 +4539,15 @@
     "note": "Anteckning (valfritt)",
     "notePlaceholder": "T.ex. order 1042 eller trasig förpackning",
     "costEach": "Inköpspris {{price}} kr/st",
-    "reorderNoticeOne": "1 vara behöver beställas"
+    "reorderNoticeOne": "1 vara behöver beställas",
+    "health": "Lagerhälsa",
+    "todo": "Att göra",
+    "reorder": "Beställ",
+    "reorderDetail": "{{qty}} st kvar, beställ vid {{min}}. Tryck för inleverans.",
+    "bookKicker": "Bokföring",
+    "book": "Bokför",
+    "others": "{{n}} till",
+    "unitsIn": "{{n}} st i {{items}} varor"
   },
   "pris": {
     "toolPrice": "Pris",
