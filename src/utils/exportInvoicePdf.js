@@ -112,7 +112,7 @@ export async function exportInvoicePdf(node, filename = 'faktura.pdf') {
 // hittar. Webbläsaren kan neka om renderingen tog för lång tid efter
 // trycket (NotAllowedError); då laddas filen ner som förut. Avbryter man
 // själv delningen (AbortError) händer ingenting.
-async function sharePdf(pdf, filename) {
+export async function sharePdf(pdf, filename) {
   if (typeof navigator === 'undefined' || !navigator.share || !navigator.canShare) return false;
   if (!window.matchMedia?.('(pointer: coarse)').matches) return false;
   const file = new File([pdf.output('blob')], filename, { type: 'application/pdf' });

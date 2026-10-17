@@ -223,3 +223,49 @@ export function deriveInvoiceMovements({ invoices, articles, movements, since = 
   });
   return out;
 }
+
+// Konton där inköp av varor bokförs: 40xx (varuinköp), 4515/4516 (varor från
+// EU) och lagerkontona 1400–1469.
+const PURCHASE_ACCOUNT = /^(40\d\d|451[56]|14[0-6]\d)$/;
+
+/**
+ * Inköp av varor som inte finns i lagret än, ur leverantörsfakturor och
+ * kvitton (company.expenses). Raderna saknar antal, så de läggs inte in
+ * automatiskt: Lager visar dem som "Inköp att lägga in", man väljer vara och
+ * antal och styckpriset blir nettobeloppet delat med antalet.
+ *
+ * En rad är redan inlagd när en lagerhändelse har dess `purchaseKey`, och
+ * hoppas över när nyckeln finns i `ignored`. Bara inköp från och med `since`.
+ * `suggestedArticleId` är varan vars benämning eller artikelnummer står i
+ * radens text, om det är entydigt.
+ */
+export function findPurchaseLines({ expenses, articles, movements, ignored = [], since = null }) {
+  const done = new Set((movements || []).map(m => m.purchaseKey).filter(Boolean));
+  const skip = new Set(ignored || []);
+  const goods = (articles || []).filter(a => a.id && a.type === 'vara');
+  const suggest = (text) => {
+    const t = norm(text);
+    if (!t) return null;
+    const hits = goods.filter(a => (norm(a.description) && t.includes(norm(a.description))) || (norm(a.articleNumber) && t.includes(norm(a.articleNumber))));
+    return hits.length === 1 ? hits[0].id : null;
+  };
+  const out = [];
+  (expenses || []).forEach(e => {
+    if (!e || !e.id || !e.date || e.status === 'draft') return;
+    if (since && String(e.date) < since) return;
+    const rows = Array.isArray(e.rows) && e.rows.length
+      ? e.rows.map((r, i) => ({ i, account: String(r.account || ''), net: num(r.netAmount), text: r.description || '' }))
+      : [{ i: 0, account: String(e.costAccount || ''), net: num(e.netAmount) || (num(e.amount) - num(e.vatAmount)), text: e.notes || '' }];
+    rows.forEach(r => {
+      if (!PURCHASE_ACCOUNT.test(r.account) || !(r.net > 0)) return;
+      const key = `${e.id}:${r.i}`;
+      if (done.has(key) || skip.has(key)) return;
+      const label = [r.text, e.description, e.supplier].filter(Boolean).join(' ');
+      out.push({
+        key, expenseId: e.id, date: e.date, supplier: e.supplier || '', reference: e.invoiceNumber || e.receiptNumber || '',
+        text: r.text, account: r.account, net: round2(r.net), suggestedArticleId: suggest(label),
+      });
+    });
+  });
+  return out.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}

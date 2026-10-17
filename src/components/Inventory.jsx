@@ -1,11 +1,12 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { lockedPeriodFor } from '../utils/fiscalYear';
-import { Plus, Trash2, X, Search, Truck, AlertTriangle } from './icons';
+import { Plus, Trash2, X, Search, Truck, AlertTriangle, Inbox, Download } from './icons';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
 import {
-  STOCK_ACCOUNT_KINDS, valuateInventory, ledgerBalanceAt, buildInventoryVerification, deriveInvoiceMovements,
+  STOCK_ACCOUNT_KINDS, valuateInventory, ledgerBalanceAt, buildInventoryVerification, deriveInvoiceMovements, findPurchaseLines,
 } from '../utils/inventory';
+import { downloadInventoryListPdf, downloadInventoryListCsv } from '../utils/inventoryListPdf';
 import { t as tr } from '../i18n';
 import { numberFormat } from '../utils/intlCache';
 import './workspace.css';
@@ -84,7 +85,7 @@ function Sparkline({ points, color, min }) {
  * Beställningspunkterna sparas i inventorySettings.reorderPoints. Räkningen
  * (FIFO/vägt genomsnitt, lägsta värdets princip) ligger i utils/inventory.js.
  */
-export default function Inventory({ articles = [], invoices = [], company, verifications = [], onAddVerification, setCompanyInfo, onAddArticle }) {
+export default function Inventory({ articles = [], invoices = [], expenses = [], company, verifications = [], onAddVerification, setCompanyInfo, onAddArticle }) {
   const manualMovements = useMemo(() => company?.stockMovements || [], [company?.stockMovements]);
   const settings = { method: 'avg', accountKind: 'handelsvaror', lowestValue: true, stockFromInvoices: false, stockFromInvoicesSince: '', reorderPoints: {}, ...(company?.inventorySettings || {}) };
   // Lagerutgångar ur fakturor räknas fram här och sparas aldrig, så en ändrad
@@ -104,6 +105,10 @@ export default function Inventory({ articles = [], invoices = [], company, verif
   const [message, setMessage] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [detailId, setDetailId] = useState(null);
+  const [purchaseOpen, setPurchaseOpen] = useState(false);
+  const [purchaseDraft, setPurchaseDraft] = useState({});
+  const [countSheet, setCountSheet] = useState(null);
+  const [listOpen, setListOpen] = useState(false);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -154,6 +159,47 @@ export default function Inventory({ articles = [], invoices = [], company, verif
   const count = (s) => allRows.filter(r => r.status === s).length;
   const lowRows = allRows.filter(r => r.status === 'low');
   const issueRows = allRows.filter(r => r.shortfall > 0);
+  // Inköp av varor ur leverantörsfakturor och kvitton som inte finns i lagret
+  // än: från första lagerhändelsen, eller årets början om lagret är nytt.
+  const firstMovement = manualMovements.map(m => m.date).filter(Boolean).sort()[0];
+  const purchasesSince = settings.purchasesSince || firstMovement || `${new Date().getFullYear()}-01-01`;
+  const purchases = useMemo(
+    () => (goods.length ? findPurchaseLines({ expenses, articles, movements: manualMovements, ignored: settings.ignoredPurchases || [], since: purchasesSince }) : []),
+    [expenses, articles, manualMovements, settings.ignoredPurchases, purchasesSince, goods.length],
+  );
+  const draftFor = (line) => purchaseDraft[line.key] || { articleId: line.suggestedArticleId || '', qty: '' };
+  const setDraft = (line, patch) => setPurchaseDraft(d => ({ ...d, [line.key]: { ...draftFor(line), ...patch } }));
+  const receivePurchase = (line) => {
+    const d = draftFor(line);
+    const qty = Number(String(d.qty).replace(',', '.'));
+    if (!d.articleId || !(qty > 0)) return;
+    saveMovements([...manualMovements, {
+      id: newId(), articleId: d.articleId, type: 'in', date: line.date, qty,
+      unitCost: Math.round((line.net / qty) * 100) / 100, purchaseKey: line.key,
+      note: [line.supplier, line.reference].filter(Boolean).join(' ') || undefined,
+    }]);
+  };
+  const ignorePurchase = (line) => setSetting({ ignoredPurchases: [...(settings.ignoredPurchases || []), line.key] });
+
+  // Inventering av alla varor på en gång: räknat antal per vara blir en
+  // inventeringshändelse där det skiljer sig från saldot.
+  const openCountSheet = () => setCountSheet({ date: todayIso(), counts: {} });
+  const saveCountSheet = () => {
+    const added = [];
+    allRows.forEach(r => {
+      const raw = countSheet.counts[r.articleId];
+      if (raw === undefined || raw === '') return;
+      const counted = Number(String(raw).replace(',', '.'));
+      if (!(counted >= 0) || counted === r.qty) return;
+      added.push({ id: newId(), articleId: r.articleId, type: 'count', date: countSheet.date, qty: counted, note: tr('lager.countSheetNote') });
+    });
+    if (added.length) saveMovements([...manualMovements, ...added]);
+    setCountSheet(null);
+    setMessage(added.length ? tr('lager.countSaved', { n: added.length }) : tr('lager.countNoChange'));
+  };
+
+  const exportLines = valuation.lines.filter(l => l.qty > 0).map(l => ({ ...l, unit: goods.find(g => g.id === l.articleId)?.unit || 'st' }));
+  const exportArgs = { company, date: closingDate, methodName: settings.method === 'fifo' ? 'FIFO' : tr('lager.methodAvg'), account: kind.stockAccount, lines: exportLines, total: valuation.bookValue, writeDown: valuation.writeDown };
   const inStock = allRows.filter(r => r.qty > 0);
   const totalUnits = inStock.reduce((s, r) => s + r.qty, 0);
   const detail = detailId ? allRows.find(r => r.articleId === detailId) : null;
@@ -217,13 +263,16 @@ export default function Inventory({ articles = [], invoices = [], company, verif
 
       <div className="ws-page">
         <Panel title={tr('ui.lager')} sub={tr('lager.overviewSub', { date: closingDate, method: methodName, account: kind.stockAccount })}
-          actions={<button type="button" className="agi-btn" onClick={() => setShowSettings(true)}>{tr('lager.settings')}</button>}>
+          actions={<>
+            {goods.length > 0 && <button type="button" className="agi-btn" onClick={() => setListOpen(true)}><Download size={14} /> {tr('lager.countList')}</button>}
+            <button type="button" className="agi-btn" onClick={() => setShowSettings(true)}>{tr('lager.settings')}</button>
+          </>}>
           <div className="lg-hero">
             {/* Lagervärdet stort, och hur det fördelar sig på varorna. */}
             <div className="lg-hero-value">
               <span className="dash-kpi-card-label"><i className="dash-kpi-dot" style={{ background: palette.profit }} aria-hidden="true" />{tr('lager.stockValue')}</span>
               <span className="lg-hero-amount">{fmtKr(valuation.bookValue)}</span>
-              <span className="dash-kpi-card-sub">{valuation.writeDown > 0 ? tr('lager.afterWriteDown', { kr: fmtKr(valuation.writeDown) }) : tr('lager.unitsIn', { n: fmtQty(totalUnits), items: inStock.length })}</span>
+              <span className="dash-kpi-card-sub">{valuation.writeDown >= 1 ? tr('lager.afterWriteDown', { kr: fmtKr(valuation.writeDown) }) : tr('lager.unitsIn', { n: fmtQty(totalUnits), items: inStock.length })}</span>
               {valueParts.length > 0 && <>
                 <div className="lg-split" aria-hidden="true">
                   {valueParts.map(v => <span key={v.id} style={{ flexGrow: v.value, background: v.color }} title={`${v.name}: ${fmtKr(v.value)}`} />)}
@@ -255,9 +304,19 @@ export default function Inventory({ articles = [], invoices = [], company, verif
             </div>
           </div>
 
-          {(lowRows.length > 0 || issueRows.length > 0 || (valuation.lines.length > 0 && closing && !alreadyBooked)) && (
+          {(purchases.length > 0 || lowRows.length > 0 || issueRows.length > 0 || (valuation.lines.length > 0 && closing && !alreadyBooked)) && (
             <div className="lg-todo">
               <div className="lg-todo-title">{tr('lager.todo')}</div>
+              {purchases.length > 0 && (
+                <button type="button" className="dash-today-btn dash-today-btn--brand lg-todo-row" onClick={() => setPurchaseOpen(true)}>
+                  <span className="dash-today-lines">
+                    <span className="dash-today-kicker">{tr('lager.purchasesKicker')}</span>
+                    <span className="dash-today-title">{purchases.length === 1 ? tr('lager.purchasesOne') : tr('lager.purchasesMany', { n: purchases.length })}</span>
+                    <span className="dash-today-detail">{tr('lager.purchasesDetail')}</span>
+                  </span>
+                  <span className="dash-today-ic" aria-hidden="true"><Inbox size={20} /></span>
+                </button>
+              )}
               {issueRows.map(r => (
                 <button key={`issue-${r.articleId}`} type="button" className="dash-today-btn dash-today-btn--warn lg-todo-row" onClick={() => setDetailId(r.articleId)}>
                   <span className="dash-today-lines">
@@ -307,7 +366,7 @@ export default function Inventory({ articles = [], invoices = [], company, verif
                 <input type="text" className="ws-input" placeholder={tr('lager.search')} value={search} onChange={e => setSearch(e.target.value)} />
               </div>
             )}
-            <button type="button" className="agi-btn" onClick={() => startMovement('count')}>{tr('lager.typeCount')}</button>
+            <button type="button" className="agi-btn" onClick={openCountSheet}>{tr('lager.typeCount')}</button>
             <button type="button" className="agi-btn" onClick={() => startMovement('out')}>{tr('lager.typeOut')}</button>
             <button type="button" className="agi-btn primary" onClick={() => startMovement('in')}><Plus size={14} /> {tr('lager.typeIn')}</button>
           </>}
@@ -460,6 +519,114 @@ export default function Inventory({ articles = [], invoices = [], company, verif
           </div>
         );
       })()}
+
+      {/* Inköp att lägga in: välj vara och antal, styckpriset räknas ut. */}
+      {purchaseOpen && (
+        <div className="modal-overlay" onClick={() => setPurchaseOpen(false)}>
+          <div className="modal-content" style={{ maxWidth: '640px' }} onClick={ev => ev.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2 className="modal-title">{tr('lager.purchasesTitle')}</h2>
+                <p className="wsp-sub">{tr('lager.purchasesSub')}</p>
+              </div>
+              <button type="button" className="modal-close" onClick={() => setPurchaseOpen(false)}><X size={18} /></button>
+            </div>
+            {purchases.length === 0 ? <p className="ws-hint">{tr('lager.purchasesNone')}</p> : (
+              <div className="lg-purchases">
+                {purchases.map(line => {
+                  const d = draftFor(line);
+                  const q = Number(String(d.qty).replace(',', '.'));
+                  return (
+                    <div key={line.key} className="lg-purchase">
+                      <div className="lg-purchase-top">
+                        <div style={{ minWidth: 0 }}>
+                          <strong>{line.supplier || tr('lager.unknownSupplier')}{line.reference ? ` · ${line.reference}` : ''}</strong>
+                          <small>{formatShort(line.date)} · {tr('lager.account', { account: line.account })}{line.text ? ` · ${line.text}` : ''}</small>
+                        </div>
+                        <b>{fmt(line.net)} kr</b>
+                      </div>
+                      <div className="lg-purchase-form">
+                        <select className="ws-input" value={d.articleId} onChange={ev => setDraft(line, { articleId: ev.target.value })} aria-label={tr('ui.vara')}>
+                          <option value="">{tr('lager.pickGood')}</option>
+                          {goods.map(g => <option key={g.id} value={g.id}>{g.description}</option>)}
+                        </select>
+                        <div className="ws-input-suffix"><input className="ws-input" inputMode="decimal" placeholder={tr('ui.antal')} value={d.qty} onChange={ev => setDraft(line, { qty: ev.target.value })} /><span>{tr('ui.st')}</span></div>
+                        <span className="ws-hint lg-purchase-each">{q > 0 ? tr('lager.eachPrice', { price: fmt(line.net / q) }) : ''}</span>
+                        <button type="button" className="agi-btn primary" disabled={!d.articleId || !(q > 0)} onClick={() => receivePurchase(line)}>{tr('lager.receive')}</button>
+                        <button type="button" className="agi-btn" onClick={() => ignorePurchase(line)}>{tr('lager.notStock')}</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Inventering av alla varor på en gång. */}
+      {countSheet && (
+        <div className="modal-overlay" onClick={() => setCountSheet(null)}>
+          <div className="modal-content" style={{ maxWidth: '620px' }} onClick={ev => ev.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2 className="modal-title">{tr('lager.countSheetTitle')}</h2>
+                <p className="wsp-sub">{tr('lager.countSheetSub')}</p>
+              </div>
+              <button type="button" className="modal-close" onClick={() => setCountSheet(null)}><X size={18} /></button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
+              <label className="ws-label" style={{ margin: 0 }} htmlFor="lg-count-date">{tr('ui.datum')}</label>
+              <input id="lg-count-date" type="date" className="ws-input" style={{ width: 'auto' }} value={countSheet.date} onChange={ev => setCountSheet(c => ({ ...c, date: ev.target.value }))} />
+              <button type="button" className="agi-btn" style={{ marginLeft: 'auto' }} onClick={() => setCountSheet(c => ({ ...c, counts: Object.fromEntries(allRows.map(r => [r.articleId, fmtQty(r.qty).replace(/\s/g, '')])) }))}>{tr('lager.fillBook')}</button>
+            </div>
+            <div className="lg-count-sheet">
+              <div className="lg-count-row head"><span>{tr('ui.vara')}</span><span className="r">{tr('lager.booked')}</span><span className="r">{tr('lager.counted')}</span><span className="r">{tr('lager.diffShort')}</span></div>
+              {allRows.map(r => {
+                const raw = countSheet.counts[r.articleId] ?? '';
+                const counted = raw === '' ? null : Number(String(raw).replace(',', '.'));
+                const dlt = counted == null || Number.isNaN(counted) ? null : counted - r.qty;
+                return (
+                  <div key={r.articleId} className="lg-count-row">
+                    <span className="ws-name-text"><strong>{r.description}</strong>{r.articleNumber && <small>{r.articleNumber}</small>}</span>
+                    <span className="r">{fmtQty(r.qty)}</span>
+                    <span className="r"><input className="ws-input" inputMode="decimal" placeholder="–" value={raw} onChange={ev => setCountSheet(c => ({ ...c, counts: { ...c.counts, [r.articleId]: ev.target.value } }))} aria-label={`${tr('lager.counted')} ${r.description}`} /></span>
+                    <span className={`r lg-diff${dlt > 0 ? ' up' : dlt < 0 ? ' down' : ''}`}>{dlt == null ? '' : dlt === 0 ? '±0' : `${dlt > 0 ? '+' : '−'}${fmtQty(Math.abs(dlt))}`}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="agi-btn" onClick={() => setCountSheet(null)}>{tr('ui.avbryt')}</button>
+              <button type="button" className="agi-btn primary" onClick={saveCountSheet}>{tr('lager.saveCount')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inventeringslistan som PDF eller CSV. */}
+      {listOpen && (
+        <div className="modal-overlay" onClick={() => setListOpen(false)}>
+          <div className="modal-content" style={{ maxWidth: '460px' }} onClick={ev => ev.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{tr('lager.countList')}</h2>
+              <button type="button" className="modal-close" onClick={() => setListOpen(false)}><X size={18} /></button>
+            </div>
+            <div className="ws-form">
+              <p className="ws-hint">{tr('lager.countListHint')}</p>
+              <div>
+                <label className="ws-label" htmlFor="lg-list-date">{tr('ui.vardering_per_datum')}</label>
+                <input id="lg-list-date" type="date" className="ws-input" value={closingDate} onChange={ev => ev.target.value && setClosingDate(ev.target.value)} />
+              </div>
+              <div className="lg-list-sum"><span>{(exportLines.length === 1 ? tr('lager.listSummaryOne') : tr('lager.listSummary', { n: exportLines.length }))}</span><b>{fmtKr(valuation.bookValue)}</b></div>
+              <div className="modal-footer" style={{ marginTop: 0 }}>
+                <button type="button" className="agi-btn" onClick={() => downloadInventoryListCsv(exportArgs)}>CSV</button>
+                <button type="button" className="agi-btn primary" onClick={() => { downloadInventoryListPdf(exportArgs); }}><Download size={14} /> PDF</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lagerhändelse: tre typer som flikar, orsak vid uttag. */}
       {form && (

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  valuateArticle, lowestValue, valuateInventory, ledgerBalanceAt, buildInventoryVerification, deriveInvoiceMovements,
+  valuateArticle, lowestValue, valuateInventory, ledgerBalanceAt, buildInventoryVerification, deriveInvoiceMovements, findPurchaseLines,
 } from './inventory'
 
 const art = { id: 'a1', description: 'Kaffe 500g', unitPrice: 100, purchasePrice: 40 }
@@ -194,5 +194,29 @@ describe('deriveInvoiceMovements', () => {
   it('utgångar som redan är härledda räknas inte som en egen lagerlogg', () => {
     const onlyDerived = [{ id: 'invoice:x:0', articleId: 'a2', type: 'out', date: '2026-02-01', qty: 1, source: 'invoice' }]
     expect(deriveInvoiceMovements({ invoices: [inv({ rows: [{ articleNumber: 'T-1', qty: 1 }] })], articles, movements: onlyDerived })).toEqual([])
+  })
+})
+
+describe('findPurchaseLines', () => {
+  const articles = [{ id: 'a1', type: 'vara', description: 'Kaffe 500g' }, { id: 'a2', type: 'vara', description: 'Mugg' }]
+  const expenses = [
+    { id: 'si1', date: '2026-03-01', supplier: 'Rosteriet', invoiceNumber: '77', rows: [
+      { account: '4010', netAmount: 800, description: 'Kaffe 500g x 20' },
+      { account: '6110', netAmount: 200, description: 'Kontorsmaterial' },
+    ] },
+    { id: 'r1', date: '2026-03-05', supplier: 'Ikea', costAccount: '4010', amount: 125, vatAmount: 25 },
+    { id: 'r2', date: '2025-12-30', supplier: 'Gammal', costAccount: '4010', amount: 100, vatAmount: 20 },
+  ]
+
+  it('tar bara varuinköp, med nettobelopp och förslag på vara', () => {
+    const lines = findPurchaseLines({ expenses, articles, movements: [], since: '2026-01-01' })
+    expect(lines.map(l => l.key)).toEqual(['r1:0', 'si1:0'])
+    expect(lines.find(l => l.key === 'si1:0')).toMatchObject({ net: 800, suggestedArticleId: 'a1', supplier: 'Rosteriet', reference: '77' })
+    expect(lines.find(l => l.key === 'r1:0')).toMatchObject({ net: 100, suggestedArticleId: null })
+  })
+
+  it('hoppar över inlagda och bortvalda inköp', () => {
+    const lines = findPurchaseLines({ expenses, articles, movements: [{ id: 'm', purchaseKey: 'si1:0' }], ignored: ['r1:0'], since: '2026-01-01' })
+    expect(lines).toHaveLength(0)
   })
 })

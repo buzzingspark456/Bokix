@@ -45,6 +45,7 @@ async function run(dark, steps) {
     { id: 'm4', articleId: 'mugg', type: 'in', date: '2026-09-01', qty: 24, unitCost: 120 },
     { id: 'm5', articleId: 'mugg', type: 'out', date: '2026-10-10', qty: 6 },
     { id: 'm6', articleId: 'test', type: 'out', date: '2026-10-12', qty: 2 }];
+  company.expenses = [...(company.expenses || []), { id: 'lf-kaffe', date: '2026-10-14', supplier: 'Rosteriet AB', invoiceNumber: '4471', description: 'Leverantörsfaktura 4471', rows: [{ account: '4010', netAmount: 1900, vatRate: 12, description: 'Kaffebönor 1 kg' }], netAmount: 1900, vatAmount: 228, amount: 2128 }];
   const id = company.company.id;
   const server = { row: { id: 'r1', user_id: UID, state: { activeCompanyId: id, companies: { [id]: company } }, updated_at: newTs(), onboarding_completed: true, onboarding_skipped: false, company_name: company.company.name } };
 
@@ -115,7 +116,11 @@ for (const dark of [false, true]) {
     if (!ONLY || ONLY === 'lager') {
       await go('articles'); await shot('artiklar');
       await tab('Lager'); await shot('lager');
-      await page.locator('button.lg-row:visible').first().click().catch(() => {}); await shot('lager-detalj', false); await page.locator('.modal-close:visible').first().click().catch(() => {}); await page.locator('button.lg-row:visible', { hasText: 'test' }).first().scrollIntoViewIfNeeded(); await shot('lager-rader', false); await page.locator('button.lg-row:visible', { hasText: 'test' }).first().click(); await shot('lager-test', false); await page.locator('.modal-close:visible').first().click().catch(() => {});
+      await page.locator('button.lg-row:visible').first().click().catch(() => {}); await shot('lager-detalj', false); await page.locator('.modal-close:visible').first().click().catch(() => {}); await page.locator('button.lg-row:visible', { hasText: 'test' }).first().scrollIntoViewIfNeeded(); await shot('lager-rader', false); await page.locator('button.lg-row:visible', { hasText: 'test' }).first().click(); await shot('lager-test', false); await page.locator('.lg-drawer .modal-close').first().click().catch(() => {});
+      await page.locator('button.lg-todo-row', { hasText: 'inköp' }).first().click(); await shot('lager-inkop', false);
+      await page.locator('.lg-purchase input').first().fill('20'); await shot('lager-inkop-ifyllt', false); await page.locator('.lg-purchase .agi-btn.primary').first().click(); await page.waitForTimeout(300); await page.locator('.modal-close:visible').first().click().catch(() => {});
+      await page.locator('button.agi-btn:visible', { hasText: /^Inventering$/ }).first().click(); await page.locator('.lg-count-row input').first().fill('35'); await shot('lager-inventering', false); await page.locator('.modal-close:visible').first().click().catch(() => {});
+      await page.locator('button.agi-btn:visible', { hasText: 'Inventeringslista' }).first().click(); await shot('lager-lista', false); await page.locator('.modal-close:visible').first().click().catch(() => {}); await page.locator('.modal-close:visible').first().click().catch(() => {});
       await page.locator('button:visible', { hasText: 'Inleverans' }).last().click().catch(() => {}); await shot('lager-handelse', false); await page.keyboard.press('Escape'); await page.locator('.modal-close:visible').first().click().catch(() => {});
       await tab('Prissättning'); await shot('pris');
     }

@@ -77,7 +77,7 @@ const emptyArticle = () => ({
  * anta att id eller artikelnr finns — funkar därför även för gamla poster
  * som sparades innan `id` fanns.
  */
-export default function Articles({ articles = [], setArticles, accounts = [], company, verifications = [], invoices = [], onAddVerification, setCompanyInfo }) {
+export default function Articles({ articles = [], setArticles, accounts = [], company, verifications = [], invoices = [], expenses = [], onAddVerification, setCompanyInfo }) {
   // Flikar: Artiklar (registret), Lager (lagerlogg + värdering) och
   // Prissättning. De två sista behöver företagsdata och bokföring — utan
   // dem (t.ex. demoläget) visas bara registret.
@@ -312,7 +312,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
 
       {tab === 'inventory' && setCompanyInfo && (
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          <Inventory articles={articles} invoices={invoices} company={company} verifications={verifications} onAddVerification={onAddVerification} setCompanyInfo={setCompanyInfo} onAddArticle={() => { setTab('articles'); setEditing({ ...emptyArticle(), type: 'vara' }); setEditingOriginal(null); setMoreOpen(true); }} />
+          <Inventory articles={articles} invoices={invoices} expenses={expenses} company={company} verifications={verifications} onAddVerification={onAddVerification} setCompanyInfo={setCompanyInfo} onAddArticle={() => { setTab('articles'); setEditing({ ...emptyArticle(), type: 'vara' }); setEditingOriginal(null); setMoreOpen(true); }} />
         </div>
       )}
       {tab === 'pricing' && setCompanyInfo && (

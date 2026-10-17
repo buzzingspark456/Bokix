@@ -438,3 +438,35 @@ button.lg-todo-row:hover { border-color: color-mix(in srgb, var(--t-fg) 35%, var
 .lg-search .ws-input { height: 36px; padding-left: 32px; font-size: 13px; }
 .lg-row-name small.lg-issue { color: var(--status-amber-text); font-weight: 600; }
 @media (max-width: 640px) { .lg-search { width: 100%; } }
+
+/* Inköp att lägga in, inventeringslistan och exporten. */
+.lg-purchases { display: flex; flex-direction: column; gap: 10px; max-height: min(60vh, 560px); overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+.lg-purchase { background: var(--bg-muted); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.lg-purchase-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.lg-purchase-top strong { display: block; font-size: 14px; color: var(--text-main); }
+.lg-purchase-top small { display: block; margin-top: 2px; font-size: 12.5px; color: var(--text-secondary); }
+.lg-purchase-top b { font-size: 15px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.lg-purchase-form { display: grid; grid-template-columns: minmax(0, 1.4fr) 110px minmax(90px, auto) auto auto; gap: 8px; align-items: center; }
+.lg-purchase-form .ws-input { height: 36px; background: var(--bg-card); }
+.lg-purchase-each { white-space: nowrap; }
+.lg-count-sheet { display: flex; flex-direction: column; max-height: min(55vh, 520px); overflow-y: auto; border: 1px solid var(--border-light); border-radius: 12px; }
+.lg-count-row { display: grid; grid-template-columns: minmax(0, 1fr) 80px 110px 70px; gap: 12px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--border-light); }
+.lg-count-row:first-child { border-top: none; }
+.lg-count-row.head { position: sticky; top: 0; z-index: 1; background: var(--bg-card); font-size: 12px; font-weight: 600; color: var(--text-muted); padding-top: 9px; padding-bottom: 9px; }
+.lg-count-row .r { text-align: right; justify-self: end; font-variant-numeric: tabular-nums; }
+.lg-count-row .ws-input { height: 34px; width: 100%; text-align: right; }
+.lg-diff { font-weight: 700; font-size: 13px; color: var(--text-muted); }
+.lg-diff.up { color: var(--status-green-text); }
+.lg-diff.down { color: var(--status-red-text); }
+.lg-list-sum { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-radius: 10px; background: var(--bg-muted); font-size: 13.5px; color: var(--text-secondary); }
+.lg-list-sum b { font-size: 17px; color: var(--text-main); }
+@media (max-width: 640px) {
+  .lg-purchase-form { grid-template-columns: 1fr 1fr; }
+  .lg-purchase-form select { grid-column: 1 / -1; }
+  .lg-purchase-each { grid-column: 1 / -1; order: 3; }
+  .lg-count-row { grid-template-columns: minmax(0, 1fr) 54px 84px 48px; gap: 8px; padding: 10px; }
+}
+@media (max-width: 640px) {
+  .lg-todo-row .dash-today-lines { flex-basis: 100%; }
+  .lg-todo-row:has(.dash-today-ic) .dash-today-lines { flex-basis: 0; }
+}
