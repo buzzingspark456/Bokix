@@ -28,6 +28,12 @@ export async function listSubscriptionInvoices(stripe, customerIds) {
       for (const invoice of page.data) {
         if (seen.has(invoice.id)) continue;
         seen.add(invoice.id);
+        // Bara riktiga fakturor till kunden. Stripe skapar en faktura på 0 kr
+        // varje gång en provperiod startar, och utkast och makulerade fakturor
+        // har aldrig skickats; med flera påbörjade abonnemang blev det fyra
+        // "Betald · 0,00 kr" samma dag.
+        if (invoice.status === 'draft' || invoice.status === 'void') continue;
+        if (!invoice.amount_due && !invoice.amount_paid) continue;
         invoices.push({
           id: invoice.id,
           number: invoice.number || null,

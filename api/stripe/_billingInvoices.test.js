@@ -68,6 +68,23 @@ describe('listSubscriptionInvoices', () => {
     });
   });
 
+  it('hides zero-amount trial invoices, drafts and voided invoices', async () => {
+    const list = vi.fn().mockResolvedValueOnce({
+      data: [
+        { id: 'in_trial_1', created: 400, status: 'paid', amount_due: 0, amount_paid: 0, currency: 'sek' },
+        { id: 'in_trial_2', created: 400, status: 'paid', amount_due: 0, amount_paid: 0, currency: 'sek' },
+        { id: 'in_draft', created: 300, status: 'draft', amount_due: 17900, amount_paid: 0, currency: 'sek' },
+        { id: 'in_void', created: 250, status: 'void', amount_due: 17900, amount_paid: 0, currency: 'sek' },
+        { id: 'in_real', created: 200, status: 'paid', amount_due: 17900, amount_paid: 17900, currency: 'sek' },
+        { id: 'in_open', created: 100, status: 'open', amount_due: 17900, amount_paid: 0, currency: 'sek' },
+      ],
+      has_more: false,
+    });
+
+    const invoices = await listSubscriptionInvoices({ invoices: { list } }, ['cus_a']);
+    expect(invoices.map(invoice => invoice.id)).toEqual(['in_real', 'in_open']);
+  });
+
   it('does not silently accept an incomplete page', async () => {
     await expect(listSubscriptionInvoices({
       invoices: { list: vi.fn().mockResolvedValue({ data: [], has_more: true }) },
