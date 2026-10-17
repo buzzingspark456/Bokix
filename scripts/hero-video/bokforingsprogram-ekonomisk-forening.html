@@ -1,0 +1,27 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="scene.css"><style>
+/* Ekonomisk förening: kassör, ordförande och revisor i samma bokföring. Revisorn granskar, och INK2 och årsredovisningen blir klara. */
+.stage { background: #cfe9e3; }
+.person { width: 170px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.av { width: 86px; height: 86px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 34px; font-weight: 800; border: 5px solid #fffdf8; box-shadow: 0 18px 26px -14px rgba(10,40,30,0.55); }
+.pn { font-size: 18px; font-weight: 800; }
+.lines path { stroke-dasharray: 8 9; opacity: 0.45; }
+.ledger { left: 220px; top: 300px; width: 520px; padding: 28px 32px 26px; }
+.ledger h4 { font-family: Georgia, serif; font-size: 30px; font-weight: 700; margin: 4px 0 14px; }
+.row { display: flex; justify-content: space-between; align-items: center; font-size: 18px; padding: 12px 0; border-top: 2px solid #efe8da; }
+.who { display: inline-block; width: 118px; font-size: 13px; font-weight: 800; color: #6b7f74; text-transform: uppercase; letter-spacing: 0.06em; }
+</style></head><body><div class="stage"><div class="scene">
+<svg class="abs lines a" style="left: 0; top: 0; animation-name: fadein; animation-delay: 1s" width="960" height="800"><g fill="none" stroke="#1d2b23" stroke-width="4" stroke-linecap="round"><path d="M215 200 C 215 250, 320 260, 370 300"/><path d="M480 210 V 300"/><path d="M745 200 C 745 250, 640 260, 590 300"/></g></svg>
+<div class="abs person a" style="left: 130px; top: 60px; animation-name: pop; animation-delay: 0.2s"><span class="av" style="background: #0e7490">K</span><span class="pn">Kassör</span></div>
+<div class="abs person a" style="left: 395px; top: 70px; animation-name: pop; animation-delay: 0.5s"><span class="av" style="background: #0f766e">O</span><span class="pn">Ordförande</span></div>
+<div class="abs person a" style="left: 660px; top: 60px; animation-name: pop; animation-delay: 0.8s"><span class="av" style="background: #4d7c0f">R</span><span class="pn">Revisor</span></div>
+<div class="abs paper ledger a" style="animation-name: rise; animation-delay: 1.2s">
+  <div class="label">Samma bokföring för alla tre</div>
+  <h4>Föreningens år</h4>
+  <div class="row a" style="animation-name: fadein; animation-delay: 2s"><span><span class="who">Kassör</span>Kvitton och fakturor</span><b>164 st</b></div>
+  <div class="row a" style="animation-name: fadein; animation-delay: 2.8s"><span><span class="who">Ordförande</span>Resultat till styrelsen</span><b>58 200 kr</b></div>
+  <div class="row a" style="animation-name: fadein; animation-delay: 3.6s"><span><span class="who">Revisor</span>Granskning</span><b>Klar</b></div>
+</div>
+<div class="abs a" style="left: 600px; top: 520px; animation-name: stamp; animation-delay: 4.4s"><div style="border: 6px solid #1f7a4a; color: #1f7a4a; border-radius: 14px; padding: 6px 22px; font-size: 40px; font-weight: 800; letter-spacing: 0.06em; background: rgba(255,253,248,0.92)">GRANSKAD</div></div>
+<div class="abs a" style="left: 230px; top: 670px; animation-name: pop; animation-delay: 5.6s"><span class="chip"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>INK2 klar</span></div>
+<div class="abs a" style="left: 440px; top: 670px; animation-name: pop; animation-delay: 6.1s"><span class="chip"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Årsredovisning klar</span></div>
+</div><div class="grain"></div></div></body></html>

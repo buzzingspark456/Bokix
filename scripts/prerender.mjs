@@ -169,7 +169,10 @@ const SITEMAP_MANIFEST = [
   { path: '/funktioner', changefreq: 'monthly', priority: '0.8' },
   { path: '/priser', changefreq: 'monthly', priority: '0.8' },
   { path: '/byt-bokforingsprogram', changefreq: 'monthly', priority: '0.8' },
-  ...ORG_TYPE_PAGES.map(p => ({ path: p.path, changefreq: 'monthly', priority: '0.8' })),
+  ...ORG_TYPE_PAGES.map(p => ({
+    path: p.path, changefreq: 'monthly', priority: '0.8',
+    video: p.video ? { url: `${SITE_URL}/videos/hero/${heroVideoFile(p)}.mp4`, thumbnail: `${SITE_URL}/videos/hero/${heroVideoFile(p)}.jpg`, title: p.video.title, description: p.video.description, duration: HERO_VIDEO_DURATION, date: p.video.date || HERO_VIDEO_DATE } : null,
+  })),
   ...FEATURE_PAGES.map(p => ({
     path: p.path, changefreq: 'monthly', priority: '0.8',
     video: p.video ? { url: `${SITE_URL}/videos/hero/${heroVideoFile(p)}.mp4`, thumbnail: `${SITE_URL}/videos/hero/${heroVideoFile(p)}.jpg`, title: p.video.title, description: p.video.description, duration: HERO_VIDEO_DURATION, date: HERO_VIDEO_DATE } : null,

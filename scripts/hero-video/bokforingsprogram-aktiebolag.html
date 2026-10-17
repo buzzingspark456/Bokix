@@ -1,0 +1,31 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="scene.css"><style>
+/* Aktiebolag: resultaträkningen blir INK2 och en årsredovisning som skrivs under. */
+.stage { background: #d6e2f3; }
+.rr { left: 90px; top: 110px; width: 400px; padding: 32px 32px 30px; transform: rotate(-3deg); }
+.rr h4 { font-family: Georgia, serif; font-size: 32px; font-weight: 700; margin: 6px 0 16px; }
+.row { display: flex; justify-content: space-between; font-size: 18px; padding: 12px 0; border-top: 2px solid #efe8da; }
+.tot { font-size: 21px; font-weight: 800; border-top: 3px solid #1d2b23; }
+.doc { width: 320px; padding: 22px 24px; display: flex; align-items: center; gap: 18px; }
+.ico { width: 58px; height: 72px; border-radius: 9px; border: 3px solid #cfc6b3; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 9px; font-size: 14px; font-weight: 800; color: #6b7f74; background: #fff; flex: none; }
+.dn { font-size: 21px; font-weight: 800; } .ds { font-size: 15px; color: #6b7f74; margin-top: 3px; }
+.sig { left: 540px; top: 470px; width: 360px; padding: 24px 26px 22px; transform: rotate(2deg); }
+.sig path { stroke-dasharray: 420; stroke-dashoffset: 420; animation: sign 10s linear both; animation-delay: 6.2s; }
+@keyframes sign { 0% { stroke-dashoffset: 420; } 14% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 0; } }
+</style></head><body><div class="stage"><div class="scene">
+<div class="abs paper rr a" style="animation-name: rise; animation-delay: 0.2s">
+  <div class="label">Bolaget AB · 2026</div>
+  <h4>Resultaträkning</h4>
+  <div class="row a" style="animation-name: fadein; animation-delay: 0.8s"><span>Nettoomsättning</span><b>1 240 000</b></div>
+  <div class="row a" style="animation-name: fadein; animation-delay: 1.2s"><span>Personalkostnader</span><b>−512 000</b></div>
+  <div class="row a" style="animation-name: fadein; animation-delay: 1.6s"><span>Övriga kostnader</span><b>−242 000</b></div>
+  <div class="row tot a" style="animation-name: fadein; animation-delay: 2.1s"><span>Resultat före skatt</span><span>486 000</span></div>
+</div>
+<div class="abs paper doc a" style="left: 570px; top: 120px; transform: rotate(3deg); animation-name: slide; animation-delay: 3s"><span class="ico">SRU</span><span><div class="dn">INK2</div><div class="ds">Till Skatteverket</div></span></div>
+<div class="abs paper doc a" style="left: 550px; top: 290px; transform: rotate(-2deg); animation-name: slide; animation-delay: 4s"><span class="ico">PDF</span><span><div class="dn">Årsredovisning K2</div><div class="ds">Att skriva under</div></span></div>
+<div class="abs paper sig a" style="animation-name: rise; animation-delay: 5.4s">
+  <div class="label">Styrelsen skriver under</div>
+  <svg viewBox="0 0 300 80" style="width: 100%; height: 80px; margin-top: 6px"><path d="M14 56 C 40 20, 60 70, 86 40 S 130 10, 150 46 S 200 74, 222 30 S 270 40, 286 52" fill="none" stroke="#1d2b23" stroke-width="5" stroke-linecap="round"/></svg>
+  <div style="border-top: 2px solid #1d2b23; margin-top: 2px; padding-top: 8px; font-size: 15px" class="muted">Styrelseledamot</div>
+</div>
+<div class="abs a" style="left: 160px; top: 560px; animation-name: pop; animation-delay: 7.4s"><span class="chip"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Klar att lämna in</span></div>
+</div><div class="grain"></div></div></body></html>

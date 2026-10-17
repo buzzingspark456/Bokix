@@ -1,0 +1,26 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="scene.css"><style>
+/* Ideell förening: föreningens år räknas fram ur bokföringen och blir klart till årsmötet. */
+.stage { background: #ece0f0; }
+.year { left: 110px; top: 110px; width: 480px; padding: 32px 34px 30px; transform: rotate(-2deg); }
+.year h4 { font-family: Georgia, serif; font-size: 34px; font-weight: 700; margin: 4px 0 16px; }
+.row { display: flex; justify-content: space-between; font-size: 19px; padding: 13px 0; border-top: 2px solid #efe8da; }
+.tot { font-size: 22px; font-weight: 800; border-top: 3px solid #1d2b23; }
+.meet { left: 610px; top: 430px; width: 280px; padding: 26px 28px; transform: rotate(4deg); text-align: center; }
+.meet .d { font-family: Georgia, serif; font-size: 52px; font-weight: 700; line-height: 1; margin-top: 8px; }
+</style></head><body><div class="stage"><div class="scene">
+<div class="abs paper year a" style="animation-name: rise; animation-delay: 0.2s">
+  <div class="label">Föreningens år 2026</div>
+  <h4>Resultaträkning</h4>
+  <div class="row a" style="animation-name: fadein; animation-delay: 0.9s"><span>Medlemsavgifter</span><b>48 600</b></div>
+  <div class="row a" style="animation-name: fadein; animation-delay: 1.4s"><span>Bidrag från kommunen</span><b>25 000</b></div>
+  <div class="row a" style="animation-name: fadein; animation-delay: 1.9s"><span>Hyra, material och resor</span><b>−61 300</b></div>
+  <div class="row tot a" style="animation-name: fadein; animation-delay: 2.5s"><span>Årets resultat</span><span>12 300</span></div>
+</div>
+<div class="abs a" style="left: 160px; top: 590px; animation-name: pop; animation-delay: 3.4s"><span class="chip"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Revisorn har granskat</span></div>
+<div class="abs paper meet a" style="animation-name: slide; animation-delay: 4.2s">
+  <div class="label">Årsmöte</div>
+  <div class="d">14 mars</div>
+  <div class="muted" style="font-size: 16px; margin-top: 8px">Årsbokslut och resultat</div>
+</div>
+<div class="abs a" style="left: 700px; top: 395px; animation-name: stamp; animation-delay: 5.4s"><div style="border: 6px solid #1f7a4a; color: #1f7a4a; border-radius: 14px; padding: 6px 22px; font-size: 38px; font-weight: 800; letter-spacing: 0.05em; background: rgba(255,253,248,0.92)">KLART</div></div>
+</div><div class="grain"></div></div></body></html>

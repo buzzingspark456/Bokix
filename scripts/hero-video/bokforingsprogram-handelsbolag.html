@@ -1,0 +1,33 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="scene.css"><style>
+/* Handelsbolag: årets resultat delas på två delägare, och var och en får sin INK4DU. */
+.stage { background: #dfeccf; }
+.top { left: 250px; top: 80px; width: 460px; padding: 30px 34px; text-align: center; }
+.big { font-family: Georgia, serif; font-size: 58px; font-weight: 700; margin-top: 6px; }
+.split path { stroke-dasharray: 520; stroke-dashoffset: 520; animation: draw 10s linear both; animation-delay: 2s; }
+@keyframes draw { 0% { stroke-dashoffset: 520; } 12% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 0; } }
+.own { width: 330px; padding: 26px 28px 28px; }
+.who { display: flex; align-items: center; gap: 14px; }
+.av { width: 54px; height: 54px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800; }
+.amt { font-family: Georgia, serif; font-size: 40px; font-weight: 700; margin: 18px 0 14px; }
+.bar { height: 14px; border-radius: 8px; background: #ece4d3; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 50%; border-radius: 8px; background: #1f7a4a; transform-origin: left; }
+</style></head><body><div class="stage"><div class="scene">
+<div class="abs paper top a" style="animation-name: rise; animation-delay: 0.2s">
+  <div class="label">Årets resultat i bolaget</div>
+  <div class="big">240 000 kr</div>
+  <div class="muted" style="font-size: 16px; margin-top: 4px">Bolaget betalar ingen egen inkomstskatt</div>
+</div>
+<svg class="abs split" style="left: 0; top: 0" width="960" height="800"><path d="M480 262 V 312 H 275 V 368 M480 312 H 685 V 368" fill="none" stroke="#1d2b23" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/></svg>
+<div class="abs paper own a" style="left: 110px; top: 380px; transform: rotate(-2deg); animation-name: rise; animation-delay: 3.2s">
+  <div class="who"><span class="av" style="background: #0e7490">A</span><span><div style="font-size: 21px; font-weight: 800">Delägare A</div><div class="muted" style="font-size: 15px">50 %</div></span></div>
+  <div class="amt">120 000 kr</div>
+  <div class="bar"><i class="a" style="animation-name: grow; animation-delay: 3.8s"></i></div>
+</div>
+<div class="abs paper own a" style="left: 520px; top: 380px; transform: rotate(2deg); animation-name: rise; animation-delay: 3.6s">
+  <div class="who"><span class="av" style="background: #65a30d">B</span><span><div style="font-size: 21px; font-weight: 800">Delägare B</div><div class="muted" style="font-size: 15px">50 %</div></span></div>
+  <div class="amt">120 000 kr</div>
+  <div class="bar"><i class="a" style="animation-name: grow; animation-delay: 4.2s"></i></div>
+</div>
+<div class="abs a" style="left: 165px; top: 660px; animation-name: pop; animation-delay: 5.6s"><span class="chip"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>INK4DU klar</span></div>
+<div class="abs a" style="left: 580px; top: 660px; animation-name: pop; animation-delay: 6.1s"><span class="chip"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>INK4DU klar</span></div>
+</div><div class="grain"></div></div></body></html>

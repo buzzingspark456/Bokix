@@ -53,7 +53,8 @@ export default function OrgTypePage({ path }) {
   const enterApp = () => navigate('/', { state: { enterApp: true, authMode: 'signup' } });
   if (!page) return null;
   const others = (isFeature ? FEATURE_PAGES : ORG_TYPE_PAGES).filter(p => p.path !== page.path);
-  const subject = page.short.toLowerCase();
+  // Bara första bokstaven gemen: "handelsbolag och KB", inte "kb".
+  const subject = page.short.charAt(0).toLowerCase() + page.short.slice(1);
 
   const faqSchema = {
     '@context': 'https://schema.org',
@@ -78,13 +79,59 @@ export default function OrgTypePage({ path }) {
     name: page.video.title,
     description: page.video.description,
     thumbnailUrl: [`${SITE_URL}/videos/hero/${heroVideoFile(page)}.jpg`],
-    uploadDate: `${HERO_VIDEO_DATE}T08:00:00+02:00`,
+    uploadDate: `${page.video.date || HERO_VIDEO_DATE}T08:00:00+02:00`,
     duration: HERO_VIDEO_DURATION,
     contentUrl: `${SITE_URL}/videos/hero/${heroVideoFile(page)}.mp4`,
     inLanguage: 'sv-SE',
     isFamilyFriendly: true,
     publisher: { '@type': 'Organization', name: 'Bokix', url: SITE_URL, logo: { '@type': 'ImageObject', url: `${SITE_URL}/icon-512.png` } },
   } : null;
+
+  // Bolagsformssidorna (2026-10-17): samma upplägg på alla fem, men egen
+  // animation och eget innehåll. Ingen knapp i hjälten (man vill läsa först), kort text,
+  // "Prova gratis" längst ner. Funktionssidorna har kvar sitt upplägg nedan.
+  if (!isFeature) {
+    return (
+      <MarketingLayout>
+        <PageMeta title={page.seoTitle} description={page.seoDescription} path={page.path} />
+        <JsonLd data={productSchema} />
+        <JsonLd data={faqSchema} />
+        {videoSchema && <JsonLd data={videoSchema} />}
+        <KitStyles />
+        <style>{`
+          .ot-hl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+          .ot-hl-card { background: var(--mkt-card-bg); border: 1px solid var(--mkt-card-border); border-radius: 16px; padding: 18px 18px 20px; }
+          .ot-hl-num { display: block; font-size: 12px; font-weight: 800; color: var(--mkt-accent-green-fg); margin-bottom: 10px; font-variant-numeric: tabular-nums; }
+          .ot-hl-text { font-size: 16px; font-weight: 700; color: var(--mkt-ink); line-height: 1.35; }
+          @media (max-width: 900px) { .ot-hl { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+          @media (max-width: 420px) { .ot-hl { grid-template-columns: 1fr; } }
+        `}</style>
+
+        <SubHero fitTitle title={page.title} lead={page.lead} visual={page.video ? <HeroVideo file={heroVideoFile(page)} label={page.video.description} /> : <OrgTypeVisual slug={page.slug} />} />
+
+        <KitSection title={`Det här gör Bokix för ${subject}`} lead="Allt ingår i samma pris.">
+          <div className="ot-hl">
+            {page.highlights.map((h, i) => (
+              <div key={h} className="ot-hl-card"><span className="ot-hl-num">0{i + 1}</span><span className="ot-hl-text">{h}</span></div>
+            ))}
+          </div>
+        </KitSection>
+
+        <KitSection title={`Bra att veta om ${subject}`} alt>
+          <SpecList items={page.facts} />
+        </KitSection>
+
+        <KitSection title="Vanliga frågor">
+          <KitFaq items={page.faq} />
+        </KitSection>
+
+        <KitCta title={page.ctaTitle || `Kom igång med bokföringen för ${subject}`} lead="30 dagar gratis, sedan från 129 kr/mån. Ingen bindningstid på månadsplanen.">
+          <PrimaryButton onClick={enterApp}>Prova gratis i 30 dagar</PrimaryButton>
+          <GhostLink to="/priser">Se priser</GhostLink>
+        </KitCta>
+      </MarketingLayout>
+    );
+  }
 
   return (
     <MarketingLayout>

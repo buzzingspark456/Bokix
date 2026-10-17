@@ -21,6 +21,7 @@ const PRICE = '129 kr/mån utan anställda och 179 kr/mån med anställda. Ingen
 export const ORG_TYPE_PAGES = [
   {
     slug: 'enskild-firma',
+    video: { title: 'Så fungerar Bokix för enskild firma', description: 'Ett kvitto läses av och bokförs, och NE-bilagan fylls i med förslag ur bokföringen.', date: '2026-10-17' },
     path: '/bokforingsprogram-enskild-firma',
     short: 'Enskild firma',
     seoTitle: 'Bokföringsprogram för enskild firma, från 129 kr/mån | Bokix',
@@ -60,6 +61,7 @@ export const ORG_TYPE_PAGES = [
   },
   {
     slug: 'aktiebolag',
+    video: { title: 'Så fungerar Bokix för aktiebolag', description: 'Resultaträkningen blir INK2 och en årsredovisning enligt K2 som styrelsen skriver under.', date: '2026-10-17' },
     path: '/bokforingsprogram-aktiebolag',
     short: 'Aktiebolag',
     seoTitle: 'Bokföringsprogram för aktiebolag, från 129 kr/mån | Bokix',
@@ -99,6 +101,7 @@ export const ORG_TYPE_PAGES = [
   },
   {
     slug: 'handelsbolag',
+    video: { title: 'Så fungerar Bokix för handelsbolag', description: 'Årets resultat delas på delägarna, och var och en får sin bilaga INK4DU.', date: '2026-10-17' },
     path: '/bokforingsprogram-handelsbolag',
     short: 'Handelsbolag och KB',
     seoTitle: 'Bokföringsprogram för handelsbolag och KB | Bokix',
@@ -140,6 +143,7 @@ export const ORG_TYPE_PAGES = [
   },
   {
     slug: 'ekonomisk-forening',
+    video: { title: 'Så fungerar Bokix för ekonomisk förening', description: 'Kassör, ordförande och revisor arbetar i samma bokföring, revisorn granskar och INK2 och årsredovisningen blir klara.', date: '2026-10-17' },
     path: '/bokforingsprogram-ekonomisk-forening',
     short: 'Ekonomisk förening',
     seoTitle: 'Bokföringsprogram för ekonomisk förening | Bokix',
@@ -183,6 +187,7 @@ export const ORG_TYPE_PAGES = [
 
 ORG_TYPE_PAGES.push({
   slug: 'ideell-forening',
+  video: { title: 'Så fungerar Bokix för ideell förening', description: 'Föreningens år räknas fram ur bokföringen, revisorn granskar och årsbokslutet är klart till årsmötet.', date: '2026-10-17' },
   path: '/bokforingsprogram-ideell-forening',
   short: 'Ideell förening',
   seoTitle: 'Bokföringsprogram för ideell förening och stiftelse | Bokix',

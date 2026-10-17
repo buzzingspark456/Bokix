@@ -8,6 +8,7 @@ import { Check } from '../icons';
 //   aktiebolag      resultaträkning, INK2 och årsredovisning som skrivs under
 //   handelsbolag    årets resultat delas på delägarna
 //   ek. förening    kassör, ordförande och revisor i samma bokföring
+//   ideell förening föreningens år fram till årsmötet
 // Bilderna stegar fram i en loop medan de syns och pausar utanför skärmen.
 // Förrenderat (och med reducerad rörelse) visas slutläget direkt, så att
 // sidan aldrig ser tom ut. Beloppen är exempel, inte riktiga företag.
