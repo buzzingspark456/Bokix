@@ -106,6 +106,8 @@ for (const dark of [false, true]) {
         console.log('vecka efter inmatning:', ok.trim(), ok.includes('42') ? 'OK' : 'FEL');
         if (!ok.includes('42')) failed = true;
       }
+      await page.locator('.ws-seg button:visible', { hasText: 'Månadsrapporter' }).first().click(); await page.waitForTimeout(600); await shot('manad');
+      await page.locator('.tr-cal-day.has').first().click(); await shot('manad-dag');
     }
     if (!ONLY || ONLY === 'lager') {
       await go('articles'); await shot('artiklar');

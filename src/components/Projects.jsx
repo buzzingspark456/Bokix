@@ -52,6 +52,11 @@ function formatWeekRange(weekDates) {
   }
   return `${start.getDate()} ${monthName(start)} – ${end.getDate()} ${monthName(end)} ${end.getFullYear()}`;
 }
+function formatDayLong(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const text = new Date(y, m - 1, d).toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' });
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
 function formatDay(iso) {
   if (!iso) return '';
   const [y, m, d] = iso.split('-').map(Number);
@@ -360,7 +365,11 @@ function WeekSheet({ projects, timeEntries, setTimeEntries, setProjects, personI
 }
 
 // ── Månadens tidrapporter: godkännande per person. ──
-function TimeReportsView({ timeEntries, employees, timeReportStatuses, setTimeReportStatuses, month, onPrevMonth, onNextMonth, onThisMonth }) {
+function TimeReportsView({ timeEntries, employees, projects = [], timeReportStatuses, setTimeReportStatuses, month, onPickMonth, onPrevMonth, onNextMonth, onThisMonth }) {
+  const [calPerson, setCalPerson] = useState('');
+  const [calDay, setCalDay] = useState(null);
+  useEffect(() => { setCalDay(null); }, [month]);
+  const palette = usePalette();
   const [openReport, setOpenReport] = useState(null);
   const people = useMemo(() => getPersonList(employees), [employees]);
 
@@ -409,28 +418,93 @@ function TimeReportsView({ timeEntries, employees, timeReportStatuses, setTimeRe
 
   const submitted = reports.filter(r => r.status === 'submitted');
   const attested = reports.filter(r => r.status === 'attested');
-  const monthTotal = reports.reduce((sum, r) => sum + r.hours, 0);
+
+  // Kalendern: månadens dagar måndag–söndag, timmar per dag (alla eller en person).
+  const calEntries = timeEntries.filter(t => getMonthKey(t.date) === month && (!calPerson || (t.personId || SELF_PERSON_ID) === calPerson));
+  const [cy, cm] = month.split('-').map(Number);
+  const daysInMonth = new Date(cy, cm, 0).getDate();
+  const lead = (new Date(cy, cm - 1, 1).getDay() + 6) % 7;
+  const todayIso = getISODate(new Date());
+  const hoursByDay = {};
+  calEntries.forEach(t => { hoursByDay[t.date] = (hoursByDay[t.date] || 0) + (Number(t.hours) || 0); });
+  const calMax = Math.max(8, ...Object.values(hoursByDay));
+  const weekdayNames = getDatesOfWeek(new Date(2026, 9, 12)).map(d => d.toLocaleDateString(dateLocale(), { weekday: 'short' }).replace('.', ''));
+  const dayEntries = calDay ? calEntries.filter(t => t.date === calDay) : [];
+  const personName = (id) => people.find(x => x.id === (id || SELF_PERSON_ID))?.name || '';
+  const projectName = (id) => projects.find(x => x.id === id)?.name || '';
+  const calTotal = sumHours(calEntries);
+  const calDays = Object.keys(hoursByDay).length;
 
   return (
     <>
-      <div className="ws-stats">
-        <div className="ws-stat"><div className="ws-stat-label">{tr('ui.totalt_loggat')}</div><div className="ws-stat-value">{formatHours(monthTotal)} {tr('ui.h')}</div><div className="ws-stat-sub">{tr('proj.people', { n: reports.length })}</div></div>
-        <div className="ws-stat"><div className="ws-stat-label">{tr('ui.vantar_attest')}</div><div className="ws-stat-value">{submitted.length}</div></div>
-        <div className="ws-stat"><div className="ws-stat-label">{tr('ui.vantar_godkannande')}</div><div className="ws-stat-value">{attested.length}</div></div>
-      </div>
+      <Panel
+        title={<span style={{ textTransform: 'capitalize' }}>{formatMonthLabel(month)}</span>}
+        sub={tr('proj.calendarSub')}
+        actions={<>
+          <button type="button" className="agi-btn" style={{ padding: '0 8px' }} onClick={onPrevMonth} aria-label={tr('proj.prevMonth')}><ChevronLeft size={16} /></button>
+          <input type="month" className="ws-input" style={{ width: 'auto', height: '36px' }} value={month} aria-label={tr('proj.pickMonth')} onChange={e => e.target.value && onPickMonth(e.target.value)} />
+          <button type="button" className="agi-btn" style={{ padding: '0 8px' }} onClick={onNextMonth} aria-label={tr('proj.nextMonth')}><ChevronRight size={16} /></button>
+          <button type="button" className="agi-btn" onClick={onThisMonth}>{tr('ui.denna_manad')}</button>
+        </>}>
+        <KpiGrid>
+          <Kpi dot={palette.income} label={tr('ui.totalt_loggat')} value={`${formatHours(calTotal)} ${tr('ui.h')}`} sub={tr('proj.loggedDays', { n: calDays })} />
+          <Kpi dot={palette.costBar} label={tr('ui.vantar_attest')} value={submitted.length} sub={(reports.length === 1 ? tr('proj.personOne') : tr('proj.people', { n: reports.length }))} />
+          <Kpi dot={palette.profit} label={tr('ui.vantar_godkannande')} value={attested.length} sub={tr('proj.approvedCount', { n: reports.filter(r => r.status === 'approved').length })} />
+        </KpiGrid>
+
+        {people.length > 1 && (
+          <div className="ws-seg" style={{ marginTop: '16px', flexWrap: 'wrap' }}>
+            <button type="button" className={!calPerson ? 'on' : ''} onClick={() => setCalPerson('')}>{tr('proj.everyone')}</button>
+            {people.map(x => <button key={x.id} type="button" className={calPerson === x.id ? 'on' : ''} onClick={() => setCalPerson(x.id)}>{x.name}</button>)}
+          </div>
+        )}
+
+        <div className="tr-cal" style={{ '--pj': palette.income }}>
+          {weekdayNames.map(n => <div key={n} className="tr-cal-wd">{n}</div>)}
+          {Array.from({ length: lead }).map((_, i) => <div key={`l${i}`} className="tr-cal-blank" />)}
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const iso = `${month}-${String(i + 1).padStart(2, '0')}`;
+            const h = hoursByDay[iso] || 0;
+            const weekend = (lead + i) % 7 >= 5;
+            return (
+              <button key={iso} type="button"
+                className={`tr-cal-day${h ? ' has' : ''}${weekend ? ' weekend' : ''}${iso === todayIso ? ' today' : ''}${calDay === iso ? ' on' : ''}`}
+                style={h ? { '--fill': `${Math.round(14 + (h / calMax) * 46)}%` } : undefined}
+                onClick={() => setCalDay(calDay === iso ? null : iso)}>
+                <span className="n">{i + 1}</span>
+                {h > 0 && <span className="h">{formatHours(h)} h</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {calDay && (
+          <div className="ws-card" style={{ marginTop: '14px' }}>
+            <div className="ws-card-head"><h3 className="ws-card-title">{formatDayLong(calDay)}</h3><span className="ws-hint">{formatHours(sumHours(dayEntries))} {tr('ui.h')}</span></div>
+            {dayEntries.length === 0 ? <div className="ws-rows-empty">{tr('ui.ingen_tid_registrerad')}</div> : (
+              <ul className="ws-rows">
+                {dayEntries.map(e => (
+                  <li key={e.id}>
+                    <span className="grow">{projectName(e.projectId) || '—'}{e.description ? <span className="muted"> · {e.description}</span> : null}</span>
+                    {people.length > 1 && <span className="muted">{personName(e.personId)}</span>}
+                    <span className="num">{formatHours(e.hours)} {tr('ui.h')}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </Panel>
 
       <div className="ws-card">
         <div className="ws-card-head">
           <div>
-            <h3 className="ws-card-title" style={{ textTransform: 'capitalize' }}>{formatMonthLabel(month)}</h3>
+            <h3 className="ws-card-title">{tr('proj.approval')}</h3>
             <p className="ws-card-sub">{tr('proj.reportsSub')}</p>
           </div>
           <div className="ws-card-actions">
             {submitted.length > 0 && <button type="button" className="agi-btn" onClick={() => bulkAdvance('submitted')}><ClipboardCheck size={14} /> {tr('ui.attestera_alla_inskickade')}{submitted.length})</button>}
             {attested.length > 0 && <button type="button" className="agi-btn primary" onClick={() => bulkAdvance('attested')}><CheckCircle2 size={14} /> {tr('ui.godkann_alla_attesterade')}{attested.length})</button>}
-            <button type="button" className="agi-btn" style={{ padding: '0 8px' }} onClick={onPrevMonth} aria-label={tr('proj.prevMonth')}><ChevronLeft size={16} /></button>
-            <button type="button" className="agi-btn" onClick={onThisMonth}>{tr('ui.denna_manad')}</button>
-            <button type="button" className="agi-btn" style={{ padding: '0 8px' }} onClick={onNextMonth} aria-label={tr('proj.nextMonth')}><ChevronRight size={16} /></button>
           </div>
         </div>
         <ListTable
@@ -977,7 +1051,8 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
             />
           ) : (
             <TimeReportsView
-              timeEntries={timeEntries} employees={employees} timeReportStatuses={timeReportStatuses} setTimeReportStatuses={setTimeReportStatuses} month={timeMonth}
+              timeEntries={timeEntries} employees={employees} projects={projects} timeReportStatuses={timeReportStatuses} setTimeReportStatuses={setTimeReportStatuses} month={timeMonth}
+              onPickMonth={setTimeMonth}
               onPrevMonth={() => setTimeMonth(m => shiftMonthKey(m, -1))}
               onNextMonth={() => setTimeMonth(m => shiftMonthKey(m, 1))}
               onThisMonth={() => setTimeMonth(getMonthKey(getISODate(new Date())))}

@@ -4595,6 +4595,12 @@
     "overviewSub": "{{n}} pågående projekt",
     "sameAsLast": "Samma som förra veckan",
     "loggedDays": "{{n}} dagar med tid",
-    "timesheet": "Tidrapport"
+    "timesheet": "Tidrapport",
+    "calendarSub": "Timmar per dag. Klicka på en dag för att se vad som loggades.",
+    "pickMonth": "Välj månad",
+    "approvedCount": "{{n}} godkända",
+    "everyone": "Alla",
+    "approval": "Godkännande",
+    "personOne": "1 person"
   }
 }

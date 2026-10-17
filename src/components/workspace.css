@@ -303,3 +303,24 @@ textarea.ws-input { height: auto; padding: 9px 12px; resize: vertical; min-heigh
   .ws-card-head { padding: 14px 16px; }
   .ws-card > .ws-rows li, .ws-card .ws-rows-empty { padding-left: 16px; padding-right: 16px; }
 }
+
+/* Månadskalendern i Månadsrapporter: timmar per dag, starkare färg ju mer tid. */
+.tr-cal { margin-top: 16px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.tr-cal-wd { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-align: center; padding-bottom: 2px; text-transform: capitalize; }
+.tr-cal-day { position: relative; min-height: 64px; border-radius: 10px; border: 1.5px solid transparent; background: var(--bg-muted); font: inherit; color: var(--text-main); cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; padding: 8px 10px; text-align: left; }
+.tr-cal-day .n { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.tr-cal-day .h { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tr-cal-day.weekend { background: color-mix(in srgb, var(--bg-muted) 55%, transparent); }
+.tr-cal-day.has { background: color-mix(in srgb, var(--pj) var(--fill, 20%), var(--bg-card)); }
+.tr-cal-day.has .n { color: var(--text-main); }
+.tr-cal-day.today .n { color: #fff; background: var(--accent); border-radius: 999px; min-width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; margin: -2px 0 0 -4px; }
+.tr-cal-day:hover { border-color: var(--border); }
+.tr-cal-day.on { border-color: var(--text-main); }
+.tr-cal-blank { min-height: 64px; }
+@media (max-width: 640px) {
+  .tr-cal { gap: 4px; }
+  .tr-cal-day, .tr-cal-blank { min-height: 48px; }
+  .tr-cal-day { padding: 5px 6px; border-radius: 8px; }
+  .tr-cal-day .n { font-size: 12px; }
+  .tr-cal-day .h { font-size: 11.5px; }
+}

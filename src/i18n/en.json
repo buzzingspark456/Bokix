@@ -4595,6 +4595,12 @@
     "overviewSub": "{{n}} ongoing projects",
     "sameAsLast": "Same as last week",
     "loggedDays": "{{n}} days with time",
-    "timesheet": "Timesheet"
+    "timesheet": "Timesheet",
+    "calendarSub": "Hours per day. Click a day to see what was logged.",
+    "pickMonth": "Pick month",
+    "approvedCount": "{{n}} approved",
+    "everyone": "Everyone",
+    "approval": "Approval",
+    "personOne": "1 person"
   }
 }
