@@ -116,8 +116,11 @@ export function rowsToObjects(rows, columns) {
   if (rows.length === 0) return [];
   const [headerRow, ...dataRows] = rows;
   const indexByKey = {};
-  columns.forEach(([key, header]) => {
-    const idx = headerRow.findIndex(h => h.trim().toLowerCase() === header.toLowerCase());
+  // En kolumn kan ha andra namn (tredje elementet) som andra system använder,
+  // t.ex. "Anställningsdatum" i stället för "Anställd från".
+  columns.forEach(([key, header, aliases = []]) => {
+    const names = [header, ...aliases].map(n => n.toLowerCase());
+    const idx = headerRow.findIndex(h => names.includes(h.trim().toLowerCase()));
     if (idx !== -1) indexByKey[key] = idx;
   });
   return dataRows

@@ -14,14 +14,14 @@ import { isValidIban } from './salaryPaymentFile';
 import { MIN_VACATION_DAYS } from './payrollConfig';
 
 const EMPLOYEE_COLUMNS = [
-  ['firstName', 'Förnamn'], ['lastName', 'Efternamn'], ['ssn', 'Personnummer'],
+  ['firstName', 'Förnamn'], ['lastName', 'Efternamn'], ['ssn', 'Personnummer', ['Personnr', 'Person-nr']],
   ['email', 'E-post'], ['phone', 'Telefon'], ['address', 'Adress'], ['postalCode', 'Postnummer'], ['city', 'Ort'],
-  ['employmentType', 'Anställningsform'], ['startDate', 'Anställd från'], ['endDate', 'Anställd till'],
+  ['employmentType', 'Anställningsform'], ['startDate', 'Anställd från', ['Anställningsdatum', 'Startdatum', 'Anställd sedan']], ['endDate', 'Anställd till', ['Slutdatum', 'Anställd t.o.m.']],
   ['employmentRate', 'Sysselsättningsgrad (%)'], ['hoursPerWeek', 'Timmar per vecka'],
-  ['salaryForm', 'Löneform'], ['monthlySalary', 'Månadslön'], ['hourlyRate', 'Timlön'],
-  ['taxForm', 'Skatteform'], ['municipality', 'Kommun'], ['churchMember', 'Medlem i Svenska kyrkan'],
+  ['salaryForm', 'Löneform'], ['monthlySalary', 'Månadslön', ['Grundlön', 'Lön per månad']], ['hourlyRate', 'Timlön'],
+  ['taxForm', 'Skatteform'], ['municipality', 'Kommun', ['Hemkommun', 'Folkbokföringskommun']], ['churchMember', 'Medlem i Svenska kyrkan'],
   ['taxTableNr', 'Skattetabell'], ['taxColumn', 'Kolumn'], ['secondaryIncome', 'Sidoinkomst'],
-  ['vacationDays', 'Semesterdagar'], ['clearingNumber', 'Clearingnummer'], ['accountNumber', 'Kontonummer'],
+  ['vacationDays', 'Semesterdagar'], ['clearingNumber', 'Clearingnummer'], ['accountNumber', 'Kontonummer', ['Bankkonto']],
   ['iban', 'IBAN'], ['bic', 'BIC'],
 ];
 

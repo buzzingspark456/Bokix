@@ -76,6 +76,8 @@ await page.getByText('Lönekörningar', { exact: true }).first().click();
 await page.waitForTimeout(500);
 await click(/Ny lönekörning/);
 await click(/Skapa lönekörning/);
+await page.waitForSelector('.payroll-stage-head h2', { timeout: 8000 }).catch(() => {});
+await page.waitForTimeout(500);
 const before = await page.evaluate(() => (document.body.innerText.match(/semester (\d+) d kvar/) || [])[1]);
 await page.getByRole('button', { name: /\+ Semester/ }).first().click();
 await page.waitForTimeout(600);

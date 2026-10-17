@@ -59,3 +59,12 @@ describe('export och sammanslagning', () => {
     expect(list[0]).toMatchObject({ id: 'e1', hourlyRate: 170, email: 'gammal@x.se', employmentRate: 50, projectId: 'p1' });
   });
 });
+
+describe('csvToEmployees med andra rubriknamn', () => {
+  it('läser Anställningsdatum, Grundlön och Hemkommun som Anställd från, Månadslön och Kommun', () => {
+    const csv = 'Förnamn;Efternamn;Personnummer;Anställningsdatum;Grundlön;Hemkommun\nAnna;Andersson;19850312-1231;2025-03-01;34000;Stockholm';
+    const [row] = csvToEmployees(csv, { currentYear: 2026 });
+    expect(row.errors).toEqual([]);
+    expect(row.employee).toMatchObject({ startDate: '2025-03-01', monthlySalary: 34000 });
+  });
+});

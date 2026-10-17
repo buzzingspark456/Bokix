@@ -1,6 +1,7 @@
 // Kör: npx vite --port 5199, sedan node scripts/app-harness-att-gora.mjs
-// Att göra på Startsidan och notisklockan ska visa samma lista, och en rad
-// om en enskild faktura ska öppna just den fakturan.
+// Att göra på Startsidan ska ha rader, notisklockan ska länka dit (klockan
+// visar sedan oktober händelser, inte samma lista), och en rad om en
+// enskild faktura ska öppna just den fakturan.
 import { chromium } from '@playwright/test';
 import fs from 'fs';
 
@@ -80,8 +81,8 @@ const bell = await page.evaluate(() => {
   return [...new Set(btns.map(b => b.innerText.trim()).filter(Boolean))];
 });
 console.log('Klockan:', JSON.stringify(bell));
-const sameCount = bell.length === rows.length;
-console.log('Samma antal rader:', sameCount, `(${rows.length} / ${bell.length})`);
+const sameCount = bell.some(t => t.includes('Att göra på Startsidan'));
+console.log('Klockan länkar till Att göra:', sameCount);
 await page.keyboard.press('Escape');
 await page.mouse.click(700, 600);
 await page.waitForTimeout(300);

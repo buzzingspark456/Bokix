@@ -19,8 +19,8 @@ const newTs = () => new Date(Date.UTC(2026, 9, 10, 12, 0, 0) + (++tick) * 1000).
 const CASES = [
   { name: 'Aktiebolag', orgNr: '556677-8899', payroll: true, tabs: ['Översikt', 'Moms', 'Lön', 'Årsavslut'], steps: ['1. Årsbokslut', '2. Årsredovisning', '3. Inkomstdeklaration', '4. Utdelning'] },
   { name: 'Enskild firma', orgNr: '850315-1234', payroll: false, tabs: ['Översikt', 'Moms', 'Årsavslut'], steps: ['1. Årsbokslut', '2. NE-bilaga'] },
-  { name: 'Handelsbolag', orgNr: '969712-3456', payroll: false, tabs: ['Översikt', 'Moms', 'Årsavslut'], steps: ['1. Årsbokslut', '2. Delägare'] },
-  { name: 'Ekonomisk förening', orgNr: '769612-3456', payroll: false, tabs: ['Översikt', 'Moms', 'Årsavslut'], steps: ['1. Årsbokslut', '2. Inkomstdeklaration'] },
+  { name: 'Handelsbolag', orgNr: '969712-3456', payroll: false, tabs: ['Översikt', 'Moms', 'Årsavslut'], steps: ['1. Årsbokslut', '2. Delägare', '3. Inkomstdeklaration 4'] },
+  { name: 'Ekonomisk förening', orgNr: '769612-3456', payroll: false, tabs: ['Översikt', 'Moms', 'Årsavslut'], steps: ['1. Årsbokslut', '2. Årsredovisning', '3. Inkomstdeklaration'] },
   { name: 'Ideell förening', orgNr: '802412-3456', payroll: false, tabs: ['Översikt', 'Moms', 'Årsavslut'], steps: [] },
 ];
 

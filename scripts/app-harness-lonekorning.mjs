@@ -66,7 +66,7 @@ await page.route('**/api/**', r => r.fulfill({ json: {} }));
 
 const tag = (WIDTH < 600 ? '-telefon' : '') + (process.env.MANY ? '-manga' : '');
 const shot = async (name) => { await page.waitForTimeout(700); await page.screenshot({ path: `test-results/lon-${name}${tag}.png` }); };
-const heading = () => page.evaluate(() => document.querySelector('.payroll-stage-head h2')?.innerText || null);
+const heading = async () => { await page.waitForSelector('.payroll-stage-head h2', { timeout: 8000 }).catch(() => {}); return page.evaluate(() => document.querySelector('.payroll-stage-head h2')?.innerText || null); };
 const click = async (re) => { await page.getByRole('button', { name: re }).first().click(); await page.waitForTimeout(800); };
 
 await page.goto(BASE + '/?app=1#payroll');
