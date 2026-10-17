@@ -1,8 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import MarketingLayout, { Reveal } from './MarketingLayout';
-import { KitStyles, SubHero, KitSection, CenterSection, SpecList, KitCta, PrimaryButton, GhostLink, ProductShots } from './subpageKit';
-import { shotsFor } from '../../content/marketing/screenshots';
+import { KitStyles, SubHero, KitSection, CenterSection, SpecList, KitCta, PrimaryButton, GhostLink } from './subpageKit';
 import IntegrationFeed from './IntegrationFeed';
 import DemoPlayer, { DemoStyles } from './DemoPlayer';
 import { makeIntegrationDemo } from './demoScenesOther';
@@ -200,12 +199,6 @@ export default function IntegrationsPage() {
       <CenterSection title="Kopplingar" lead="Fem saker Bokix pratar med. Så här ser det ut när de gör sitt jobb.">
         <DemoPlayer steps={INTEGRATION_DEMO} label="Demo: Bokix kopplingar" />
       </CenterSection>
-
-      <ProductShots
-        shots={shotsFor('/integrationer')}
-        title="Stripe och Zettle i Granskning"
-        lead="Kortbetalningar, avgifter, utbetalningar och kassaköp hämtas in varje morgon och väntar på dig här."
-      />
 
       <section className="kx-section" style={{ background: 'var(--mkt-ivory)' }}>
         <div style={{ maxWidth: '940px', margin: '0 auto' }}>

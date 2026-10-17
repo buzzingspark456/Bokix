@@ -3,8 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout from './MarketingLayout';
 import { INK_SOFT, MUTED, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
-import { KitStyles, SubHero, KitSection, CenterSection, KitFaq, KitCta, PrimaryButton, GhostLink, ProductShots } from './subpageKit';
-import { shotsFor } from '../../content/marketing/screenshots';
+import { KitStyles, SubHero, KitSection, CenterSection, KitFaq, KitCta, PrimaryButton, GhostLink } from './subpageKit';
 import { PageMeta, JsonLd, SITE_URL, DEFAULT_OG_IMAGE, schemaDate } from '../../utils/seo';
 import MigrationFlow from './MigrationFlow';
 import DemoPlayer, { DemoStyles, PlayOnView } from './DemoPlayer';
@@ -195,8 +194,6 @@ export default function SwitchPage() {
         </>}
         visual={<MigrationFlow note={false} />}
       />
-
-      <ProductShots shots={shotsFor('/byt-bokforingsprogram')} title="Här läser du in SIE4-filen" />
 
       <KitSection title="Vad bokför du i dag?" lead="Välj ditt program så visar vi var SIE-exporten brukar ligga. Själva importen fungerar likadant oavsett program.">
         <div className="bx-switch-picker" style={{ marginBottom: '24px' }}>

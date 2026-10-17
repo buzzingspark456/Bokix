@@ -5,8 +5,7 @@ import FeatureChainFlow from './FeatureChainFlow';
 import InvoiceFlow from './InvoiceFlow';
 import DemoPlayer, { DemoStyles } from './DemoPlayer';
 import { BOKFORING_DEMO, FAKTURERING_DEMO, SKATT_DEMO, LON_DEMO } from './demoScenesFeatures';
-import { KitStyles, SubHero, KitSection, SpecList, PointList, KitCta, PrimaryButton, GhostLink, ProductShots } from './subpageKit';
-import { shotsFor } from '../../content/marketing/screenshots';
+import { KitStyles, SubHero, KitSection, SpecList, PointList, KitCta, PrimaryButton, GhostLink } from './subpageKit';
 import { PageMeta, JsonLd } from '../../utils/seo';
 
 // Bokföring & fakturering (/funktioner). Omgjord 2026-09-26 (kundönskemål:
@@ -177,8 +176,6 @@ export default function FeaturesPage() {
           <Link to="/integrationer" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 700, textDecoration: 'none' }}>Se alla filformat och kopplingar →</Link>
         </p>
       </KitSection>
-
-      <ProductShots shots={shotsFor('/funktioner')} lead="Riktiga bilder ur appen, med exempeldata." />
 
       <KitCta title="Allt ovan ingår" lead="Inga tillägg per funktion. Två priser, beroende på om du har personal på lönelistan.">
         <PrimaryButton onClick={enterApp}>Prova gratis</PrimaryButton>

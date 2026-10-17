@@ -4,7 +4,7 @@
     "date": "2026-10-17"
   },
   "/funktioner": {
-    "hash": "c92fadcf2197544a",
+    "hash": "473d9bfbd0d13df1",
     "date": "2026-10-17"
   },
   "/priser": {
@@ -20,11 +20,11 @@
     "date": "2026-10-15"
   },
   "/byt-bokforingsprogram": {
-    "hash": "7aa99a4e545bb279",
+    "hash": "d99f889e9df49237",
     "date": "2026-10-17"
   },
   "/koppla-bank": {
-    "hash": "bcede9df5a722b07",
+    "hash": "5663574c0eda4314",
     "date": "2026-10-17"
   },
   "/uf": {
@@ -32,15 +32,15 @@
     "date": "2026-10-17"
   },
   "/integrationer": {
-    "hash": "422c403c71d7e392",
+    "hash": "5280123f04631cb8",
     "date": "2026-10-17"
   },
   "/sakerhet": {
-    "hash": "d4856d5dada4caab",
+    "hash": "db0563f58c633d20",
     "date": "2026-10-17"
   },
   "/lon": {
-    "hash": "2c8cd1a169253605",
+    "hash": "fd95a65fd44fab11",
     "date": "2026-10-17"
   },
   "/ordlista": {
@@ -124,11 +124,11 @@
     "date": "2026-10-17"
   },
   "/blogg/moms-deklaration-steg-for-steg": {
-    "hash": "a7820991b50f5b2f",
+    "hash": "103352818a302ada",
     "date": "2026-10-17"
   },
   "/blogg/spara-kvitton-bokforingslagen": {
-    "hash": "55f2a4347085749a",
+    "hash": "42738f46cfd0ad24",
     "date": "2026-10-17"
   },
   "/blogg/bokslut-checklista": {
@@ -216,31 +216,31 @@
     "date": "2026-10-15"
   },
   "/bokforingsprogram-enskild-firma": {
-    "hash": "b0b09662c28bff97",
+    "hash": "d3f17a1d4095f022",
     "date": "2026-10-17"
   },
   "/bokforingsprogram-aktiebolag": {
-    "hash": "2013757e63240c52",
+    "hash": "5b0e7916ba34ed5d",
     "date": "2026-10-17"
   },
   "/bokforingsprogram-handelsbolag": {
-    "hash": "3378d05d78f5df5f",
+    "hash": "c195267e54c14f19",
     "date": "2026-10-17"
   },
   "/bokforingsprogram-ekonomisk-forening": {
-    "hash": "03e23583155c7b74",
+    "hash": "5411f996ccad8182",
     "date": "2026-10-17"
   },
   "/blogg/valja-bokforingsprogram": {
-    "hash": "e14d35f715c6237c",
+    "hash": "ef75114b71266168",
     "date": "2026-10-17"
   },
   "/faktureringsprogram": {
-    "hash": "465ac5a07a3192e7",
+    "hash": "94912eaffe740a73",
     "date": "2026-10-17"
   },
   "/bokforingsprogram-med-lager": {
-    "hash": "b20636212502d16b",
+    "hash": "6a1eda8f6c5fff99",
     "date": "2026-10-17"
   },
   "/anlaggningsregister": {
@@ -248,19 +248,19 @@
     "date": "2026-10-15"
   },
   "/billigt-bokforingsprogram": {
-    "hash": "ec10541306434b50",
+    "hash": "5a5ed22e3e8a1500",
     "date": "2026-10-17"
   },
   "/bokforingsprogram-nystartat-foretag": {
-    "hash": "c25bec19cfdecb9e",
+    "hash": "703fcfd529565617",
     "date": "2026-10-17"
   },
   "/alternativ-till-fortnox": {
-    "hash": "5da6cc9687f5d8a2",
+    "hash": "e044c5c8828896d2",
     "date": "2026-10-17"
   },
   "/blogg/bokfora-stripe": {
-    "hash": "f3e453db288cdd43",
+    "hash": "faaca7e94ca0a01c",
     "date": "2026-10-17"
   }
 }

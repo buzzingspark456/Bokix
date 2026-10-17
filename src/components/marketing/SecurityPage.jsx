@@ -6,8 +6,7 @@ import SecurityFlow from './SecurityFlow';
 import SecurityCheck from './SecurityCheck';
 import DemoPlayer, { DemoStyles, PlayOnView } from './DemoPlayer';
 import { makeSecurityDemo } from './demoScenesOther';
-import { KitStyles, SubHero, KitSection, CenterSection, PointList, KitCta, PrimaryButton, GhostLink, ProductShots } from './subpageKit';
-import { shotsFor } from '../../content/marketing/screenshots';
+import { KitStyles, SubHero, KitSection, CenterSection, PointList, KitCta, PrimaryButton, GhostLink } from './subpageKit';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 
 // ── Säkerhet och datahantering (/sakerhet) ──────────────────────────────
@@ -109,8 +108,6 @@ export default function SecurityPage() {
         </>}
         visual={<SecurityCheck />}
       />
-
-      <ProductShots shots={shotsFor('/sakerhet')} title="Säkerhetsinställningarna i Bokix" />
 
       {/* ── Mekanismen, inte adjektiven ── */}
       <section className="kx-section" style={{ background: 'var(--mkt-ivory)' }}>

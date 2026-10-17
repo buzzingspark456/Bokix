@@ -4,7 +4,6 @@ import { ArrowRight, ChevronDown } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED } from './marketingTokens';
-import { SHOT_WIDTH, SHOT_HEIGHT } from '../../content/marketing/screenshots';
 
 // ── Delade byggstenar för produktundersidorna (Funktioner, Integrationer,
 // Byt till Bokix, Säkerhet). Kundönskemål 2026-09-26: solida ytor, en
@@ -208,36 +207,3 @@ export function KitCta({ title, lead, children }) {
   );
 }
 
-/**
- * Riktiga skärmbilder ur appen som <img> med alt-text och bildtext, så att
- * Google bildsök har något att indexera (de ritade demona går inte att
- * indexera). Bilderna och vilka sidor som visar dem: content/marketing/
- * screenshots.js.
- */
-export function ProductShots({ shots, title = 'Så ser det ut i Bokix', lead, alt = false }) {
-  if (!shots?.length) return null;
-  return (
-    <section className="kx-section" style={{ background: alt ? 'var(--mkt-ivory)' : 'var(--mkt-page-bg)' }}>
-      <style>{`
-        .kx-shots { display: grid; gap: 40px; max-width: 1080px; margin: 0 auto; }
-        .kx-shots.kx-shots-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
-        .kx-shot { margin: 0; }
-        .kx-shot img { width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid var(--mkt-card-border); box-shadow: 0 18px 40px -28px rgba(28,36,32,0.45); background: #fff; }
-        .kx-shot figcaption { font-size: 14.5px; color: var(--mkt-muted); margin-top: 12px; line-height: 1.5; }
-        @media (max-width: 760px) { .kx-shots.kx-shots-2 { grid-template-columns: 1fr; } }
-      `}</style>
-      <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 36px' }}>
-        <h2 className="kx-h2" style={{ fontSize: 'clamp(26px, 3.6vw, 38px)' }}>{title}</h2>
-        {lead && <p className="kx-sub" style={{ fontSize: '17px' }}>{lead}</p>}
-      </div>
-      <div className={`kx-shots${shots.length > 1 ? ' kx-shots-2' : ''}`}>
-        {shots.map(shot => (
-          <figure key={shot.src} className="kx-shot">
-            <img src={shot.src} alt={shot.alt} width={SHOT_WIDTH} height={SHOT_HEIGHT} loading="lazy" decoding="async" />
-            {shot.caption && <figcaption>{shot.caption}</figcaption>}
-          </figure>
-        ))}
-      </div>
-    </section>
-  );
-}

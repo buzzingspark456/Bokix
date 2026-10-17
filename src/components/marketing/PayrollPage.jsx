@@ -5,8 +5,6 @@ import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from './marketingTokens';
 import PayrollFlow from './PayrollFlow';
-import { ProductShots } from './subpageKit';
-import { shotsFor } from '../../content/marketing/screenshots';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 
 // ── Lön & Arbetsgivare (/lon) ──────────────────────────────────────────
@@ -141,8 +139,6 @@ export default function PayrollPage() {
           </Reveal>
         </div>
       </section>
-
-      <ProductShots shots={shotsFor('/lon')} title="Anställda och lön i Bokix" />
 
       {/* ── Interaktiv Löneberäknings-demonstration ── */}
       <section style={{ padding: '60px 24px 80px', background: 'var(--mkt-page-bg)', borderTop: '1px solid var(--mkt-border-soft)' }}>

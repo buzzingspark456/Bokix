@@ -8,8 +8,6 @@ import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW } from './marketingTokens';
 import { PageMeta, JsonLd, SITE_URL, DEFAULT_OG_IMAGE, schemaDate } from '../../utils/seo';
 import BankFlow from './BankFlow';
-import { ProductShots } from './subpageKit';
-import { shotsFor } from '../../content/marketing/screenshots';
 import DemoPlayer, { DemoStyles } from './DemoPlayer';
 import { makeBankDemo } from './demoScenesOther';
 import { BankLogo } from '../shared/BrandLogos';
@@ -217,8 +215,6 @@ export default function BankPage() {
           <BankFlow note={false} />
         </Reveal>
       </section>
-
-      <ProductShots shots={shotsFor('/koppla-bank')} title="Kontoutdraget i Bokix" />
 
       {/* ── Välj bank → var ligger exporten där? ── */}
       <section style={{ padding: '56px 24px 20px', background: 'var(--mkt-page-bg)' }}>
