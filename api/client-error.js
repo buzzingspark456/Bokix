@@ -14,6 +14,9 @@ const NOISE = [
   /ResizeObserver loop/i,
   /^Script error\.?$/i,
   /(chrome|moz|safari(-web)?)-extension:\/\//i,
+  // Safari döljer tilläggens källkod bakom webkit-masked-url (t.ex.
+  // "Cannot destructure property 'tabId'" i setupExtension på iPhone).
+  /webkit-masked-url:\/\//i,
   /Failed to fetch|NetworkError|Load failed|The network connection was lost/i,
   /AbortError/i,
 ];
