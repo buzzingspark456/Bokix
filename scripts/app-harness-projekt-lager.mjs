@@ -93,7 +93,7 @@ for (const dark of [false, true]) {
   await run(dark, async ({ page, shot, go, tab }) => {
     if (!ONLY || ONLY === 'projekt') {
       await go('projects'); await shot('projekt');
-      const open = page.locator('table.responsive-table tbody tr:visible, .lt-mobile-row:visible').first();
+      const open = page.locator('.pj-card:not(.pj-card-new):visible, table.responsive-table tbody tr:visible').first();
       if (await open.count()) { await open.click(); await page.waitForTimeout(1000); await shot('projekt-detalj'); }
     }
     if (!ONLY || ONLY === 'tid') {
@@ -110,7 +110,7 @@ for (const dark of [false, true]) {
     if (!ONLY || ONLY === 'lager') {
       await go('articles'); await shot('artiklar');
       await tab('Lager'); await shot('lager');
-      await page.locator('table.responsive-table tbody tr:visible, .lt-mobile-row:visible').first().click().catch(() => {}); await shot('lager-detalj');
+      await page.locator('.pj-card:visible').first().click().catch(() => {}); await shot('lager-detalj', false); await page.locator('.modal-close:visible').first().click().catch(() => {});
       await page.locator('button:visible', { hasText: 'Inleverans' }).last().click().catch(() => {}); await shot('lager-handelse', false); await page.keyboard.press('Escape'); await page.locator('.modal-close:visible').first().click().catch(() => {});
       await tab('Prissättning'); await shot('pris');
     }

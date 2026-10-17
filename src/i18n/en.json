@@ -4501,7 +4501,18 @@
     "outOfStock": "Out of stock",
     "countedQty": "Counted quantity",
     "fromInvoicesHint": "Invoice rows with the same name as an item count as issues.",
-    "done": "Done"
+    "done": "Done",
+    "overviewSub": "Valued as of {{date}} using {{method}}, account {{account}}",
+    "stockValue": "Stock value",
+    "afterWriteDown": "after write-down {{kr}}",
+    "ledger": "Booked on {{account}}",
+    "diff": "Difference {{kr}} from stock",
+    "unitsInStock": "in stock",
+    "batchCount": "{{n}} batches",
+    "oldestFirst": "Oldest batch sells first, from {{date}}",
+    "salePrice": "Price",
+    "inStockPill": "In stock",
+    "batchOne": "1 batch"
   },
   "pris": {
     "toolPrice": "Price",
@@ -4520,7 +4531,15 @@
     "priceEmpty": "Enter a purchase price and the price is calculated here.",
     "discountEmpty": "Enter price and cost and the margin is calculated here.",
     "breakevenEmpty": "Enter fixed costs and price per unit.",
-    "hourlyEmpty": "Enter your costs or your desired monthly pay."
+    "hourlyEmpty": "Enter your costs or your desired monthly pay.",
+    "avgMargin": "Average margin",
+    "targetIs": "Target is {{n}} %",
+    "below": "Below target",
+    "belowSub": "Items to review",
+    "withCost": "{{n}} with purchase price",
+    "targetShort": "target {{n}} %",
+    "raiseTo": "Raise to {{kr}} kr",
+    "calculator": "Calculate"
   },
   "proj": {
     "me": "Me",
@@ -4571,6 +4590,11 @@
     "toInvoice": "To invoice",
     "toInvoiceSub": "{{h}} h not invoiced yet",
     "viewCards": "Cards",
-    "viewList": "List"
+    "viewList": "List",
+    "overview": "Overview",
+    "overviewSub": "{{n}} ongoing projects",
+    "sameAsLast": "Same as last week",
+    "loggedDays": "{{n}} days with time",
+    "timesheet": "Timesheet"
   }
 }

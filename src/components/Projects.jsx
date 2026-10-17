@@ -6,6 +6,7 @@ import { ProjectSearch, EntitySearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { confirmDialog } from './shared/ConfirmDialog';
+import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import { BRAND } from '../utils/brandColors';
 import { invoiceNetSek } from '../utils/contactTotals';
@@ -208,21 +209,40 @@ function WeekSheet({ projects, timeEntries, setTimeEntries, setProjects, personI
 
   const diff = weekTotal - prevWeekTotal;
   const weekNo = isoWeekNumber(weekDates[0]);
+  const palette = usePalette();
+  const dayTotals = weekDates.map(d => dayTotal(getISODate(d)));
+  const loggedDays = dayTotals.filter(h => h > 0).length;
+  const chartMax = Math.max(8, ...dayTotals);
 
   return (
+    <>
+    <Panel title={tr('proj.week', { n: weekNo })} sub={formatWeekRange(weekDates)}
+      actions={<>
+        <button type="button" className="agi-btn" style={{ padding: '0 8px' }} onClick={onPrevWeek} aria-label={tr('proj.prevWeek')}><ChevronLeft size={16} /></button>
+        <button type="button" className="agi-btn" onClick={onThisWeek}>{tr('proj.thisWeek')}</button>
+        <button type="button" className="agi-btn" style={{ padding: '0 8px' }} onClick={onNextWeek} aria-label={tr('proj.nextWeek')}><ChevronRight size={16} /></button>
+      </>}>
+      <div className="tt-overview">
+        <KpiGrid>
+          <Kpi dot={palette.income} label={tr('ui.denna_vecka')} value={`${formatHours(weekTotal)} ${tr('ui.h')}`}
+            sub={(weekTotal > 0 || prevWeekTotal > 0) && diff !== 0 ? tr(diff > 0 ? 'proj.moreThanLast' : 'proj.lessThanLast', { h: formatHours(Math.abs(diff)) }) : tr('proj.sameAsLast')} />
+          <Kpi dot={palette.profit} label={tr('ui.snitt_per_arbetsdag')} value={loggedDays ? `${formatHours(weekTotal / loggedDays)} ${tr('ui.h')}` : '–'} sub={tr('proj.loggedDays', { n: loggedDays })} />
+        </KpiGrid>
+        <div className="tt-days-chart" style={{ '--pj': palette.income }} aria-hidden="true">
+          {weekDates.map((d, i) => (
+            <div key={i} title={`${formatHours(dayTotals[i])} h`}>
+              <i className={dayTotals[i] > 0 ? '' : 'zero'} style={{ height: `${Math.max(4, (dayTotals[i] / chartMax) * 100)}%` }} />
+              <span className={getISODate(d) === todayStr ? 'today' : ''}>{d.toLocaleDateString(dateLocale(), { weekday: 'short' }).replace('.', '')}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Panel>
     <div className="ws-card">
       <div className="ws-card-head">
         <div>
-          <h3 className="ws-card-title">{tr('proj.week', { n: weekNo })} <span style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>· {formatWeekRange(weekDates)}</span></h3>
-          <p className="ws-card-sub">
-            {formatHours(weekTotal)} {tr('ui.h')}
-            {(weekTotal > 0 || prevWeekTotal > 0) && diff !== 0 && ` · ${tr(diff > 0 ? 'proj.moreThanLast' : 'proj.lessThanLast', { h: formatHours(Math.abs(diff)) })}`}
-          </p>
-        </div>
-        <div className="ws-card-actions">
-          <button type="button" className="agi-btn" style={{ padding: '0 8px' }} onClick={onPrevWeek} aria-label={tr('proj.prevWeek')}><ChevronLeft size={16} /></button>
-          <button type="button" className="agi-btn" onClick={onThisWeek}>{tr('proj.thisWeek')}</button>
-          <button type="button" className="agi-btn" style={{ padding: '0 8px' }} onClick={onNextWeek} aria-label={tr('proj.nextWeek')}><ChevronRight size={16} /></button>
+          <h3 className="ws-card-title">{tr('proj.timesheet')}</h3>
+          <p className="ws-card-sub">{tr('proj.typeHint')}</p>
         </div>
       </div>
 
@@ -330,12 +350,12 @@ function WeekSheet({ projects, timeEntries, setTimeEntries, setProjects, personI
               ) : (
                 <button type="button" className="agi-btn" onClick={() => setShowAddRow(true)}><Plus size={14} /> {tr('ui.lagg_till_projekt')}</button>
               )}
-              <span className="ws-hint" style={{ marginLeft: 'auto' }}>{tr('proj.typeHint')}</span>
             </div>
           )}
         </>
       )}
     </div>
+    </>
   );
 }
 
@@ -772,6 +792,7 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
     unbilledValue: sum(activeProjects, p => p.unbilledHours * (Number(p.hourlyRate) || 0)),
   };
   const openProject = openProjectId ? projects.find(p => p.id === openProjectId) : null;
+  const palette = usePalette();
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
@@ -797,10 +818,6 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
           <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '180px', maxWidth: '320px' }}>
             <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input type="text" className="ws-input" style={{ height: '34px', paddingLeft: '32px', fontSize: '13px' }} placeholder={tr('ui.sok_projekt_eller_kund')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-          </div>
-          <div className="ws-seg" style={{ marginLeft: 'auto' }}>
-            <button type="button" className={view === 'cards' ? 'on' : ''} onClick={() => setView('cards')}>{tr('proj.viewCards')}</button>
-            <button type="button" className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>{tr('proj.viewList')}</button>
           </div>
         </ListFilterBar>
       )}
@@ -840,20 +857,14 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
           </div>
         ) : (
           <div className="ws-page">
-            {/* Överblick i en rad: det viktigaste först, att fakturera. */}
-            <div className="pj-overview">
-              <div className="pj-ov-main">
-                <span className="pj-ov-label">{tr('proj.toInvoice')}</span>
-                <span className="pj-ov-value">{formatSEK(totals.unbilledValue)}</span>
-                <span className="pj-ov-sub">{totals.unbilledHours > 0 ? tr('proj.toInvoiceSub', { h: formatHours(totals.unbilledHours) }) : tr('proj.allBilled')}</span>
-              </div>
-              <dl className="pj-ov-list">
-                <div><dt>{tr('proj.ongoingProjects')}</dt><dd>{activeProjects.length}</dd></div>
-                <div><dt>{tr('ui.nedlagd_tid')}</dt><dd>{formatHours(totals.hours)} {tr('ui.h')}{totals.budget ? <small> / {formatHours(totals.budget)}</small> : null}</dd></div>
-                <div><dt>{tr('ui.fakturerat')}</dt><dd>{formatSEK(totals.revenue)}</dd></div>
-                <div><dt>{tr('proj.result')}</dt><dd className={totals.revenue - totals.cost < 0 ? 'neg' : ''}>{formatSEK(totals.revenue - totals.cost)}</dd></div>
-              </dl>
-            </div>
+            <Panel title={tr('proj.overview')} sub={tr('proj.overviewSub', { n: activeProjects.length })}>
+              <KpiGrid>
+                <Kpi dot={palette.income} label={tr('proj.toInvoice')} value={formatSEK(totals.unbilledValue)} sub={totals.unbilledHours > 0 ? tr('proj.toInvoiceSub', { h: formatHours(totals.unbilledHours) }) : tr('proj.allBilled')} />
+                <Kpi dot={palette.profit} label={tr('ui.nedlagd_tid')} value={`${formatHours(totals.hours)} ${tr('ui.h')}`} sub={totals.budget ? tr('proj.ofBudget', { h: formatHours(totals.budget) }) : tr('ui.ingen_budget_satt')} />
+                <Kpi dot={palette.income} label={tr('ui.fakturerat')} value={formatSEK(totals.revenue)} sub={tr('proj.exVat')} />
+                <Kpi dot={totals.revenue - totals.cost < 0 ? palette.loss : palette.profit} label={tr('proj.result')} value={formatSEK(totals.revenue - totals.cost)} negative={totals.revenue - totals.cost < 0} sub={tr('proj.costs', { kr: formatSEK(totals.cost) })} />
+              </KpiGrid>
+            </Panel>
 
             {atRisk.length > 0 && (
               <div className="ws-notice warn">
@@ -861,6 +872,13 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
               </div>
             )}
 
+            <Panel
+              title={statusFilter === 'archived' ? tr('proj.finished') : statusFilter === 'all' ? tr('proj.allProjects') : tr('proj.ongoingProjects')}
+              actions={<div className="ws-seg">
+                <button type="button" className={view === 'cards' ? 'on' : ''} onClick={() => setView('cards')}>{tr('proj.viewCards')}</button>
+                <button type="button" className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>{tr('proj.viewList')}</button>
+              </div>}
+            >
             {view === 'cards' ? (
               <div className="pj-grid">
                 {visibleProjects.map(p => {
@@ -868,12 +886,12 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
                   const pct = p.budgetHours ? (p.hours / p.budgetHours) * 100 : null;
                   const profit = p.revenue - p.cost;
                   return (
-                    <button key={p.id} type="button" className={`pj-card${p.status === 'finished' ? ' done' : ''}`} style={{ '--pj': color }} onClick={() => setOpenProjectId(p.id)}>
+                    <button key={p.id} type="button" className={`pj-card${p.status === 'finished' ? ' done' : ''}`} style={{ '--pj': pct != null && pct > 100 ? 'var(--status-red-text)' : pct != null && pct >= 80 ? 'var(--status-amber-text)' : palette.profit }} onClick={() => setOpenProjectId(p.id)}>
                       <div className="pj-card-top">
                         <span className="pj-card-num">{p.projectNumber}</span>
                         {statusPill(p)}
                       </div>
-                      <h3 className="pj-card-name">{p.name}</h3>
+                      <h3 className="pj-card-name"><i className="dash-kpi-dot" style={{ background: color }} aria-hidden="true" />{p.name}</h3>
                       <p className="pj-card-customer">{p.customerName || tr('proj.internal')}{p.department ? ` · ${p.department}` : ''}</p>
                       <div className="pj-card-hours">
                         <span><b>{formatHours(p.hours)}</b> {pct != null ? `${tr('ui.av')} ${formatHours(p.budgetHours)} ${tr('ui.h')}` : tr('ui.h')}</span>
@@ -901,7 +919,7 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
                 )}
               </div>
             ) : (
-            <div className="ws-card">
+            <div className="wsp-flush">
               <ListTable
                 bordered={false}
                 rowKey={p => p.id}
@@ -942,6 +960,7 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
               />
             </div>
             )}
+            </Panel>
           </div>
         )
       )}

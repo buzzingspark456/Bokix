@@ -4501,7 +4501,18 @@
     "outOfStock": "Slut",
     "countedQty": "Räknat antal",
     "fromInvoicesHint": "Fakturarader med samma benämning som en vara räknas som uttag.",
-    "done": "Klar"
+    "done": "Klar",
+    "overviewSub": "Värderat per {{date}} med {{method}}, konto {{account}}",
+    "stockValue": "Lagervärde",
+    "afterWriteDown": "efter nedskrivning {{kr}}",
+    "ledger": "Bokfört på {{account}}",
+    "diff": "Skillnad {{kr}} mot lagret",
+    "unitsInStock": "st i lager",
+    "batchCount": "{{n}} partier",
+    "oldestFirst": "Äldsta partiet säljs först, från {{date}}",
+    "salePrice": "Pris",
+    "inStockPill": "I lager",
+    "batchOne": "1 parti"
   },
   "pris": {
     "toolPrice": "Pris",
@@ -4520,7 +4531,15 @@
     "priceEmpty": "Skriv ett inköpspris så räknas priset ut här.",
     "discountEmpty": "Skriv pris och kostnad så räknas marginalen ut här.",
     "breakevenEmpty": "Skriv fasta kostnader och pris per enhet.",
-    "hourlyEmpty": "Skriv dina kostnader eller ditt önskade uttag per månad."
+    "hourlyEmpty": "Skriv dina kostnader eller ditt önskade uttag per månad.",
+    "avgMargin": "Snittmarginal",
+    "targetIs": "Målet är {{n}} %",
+    "below": "Under målet",
+    "belowSub": "Artiklar att se över",
+    "withCost": "{{n}} med inköpspris",
+    "targetShort": "mål {{n}} %",
+    "raiseTo": "Höj till {{kr}} kr",
+    "calculator": "Räkna ut"
   },
   "proj": {
     "me": "Jag",
@@ -4571,6 +4590,11 @@
     "toInvoice": "Att fakturera",
     "toInvoiceSub": "{{h}} h som inte är fakturerade än",
     "viewCards": "Kort",
-    "viewList": "Lista"
+    "viewList": "Lista",
+    "overview": "Översikt",
+    "overviewSub": "{{n}} pågående projekt",
+    "sameAsLast": "Samma som förra veckan",
+    "loggedDays": "{{n}} dagar med tid",
+    "timesheet": "Tidrapport"
   }
 }

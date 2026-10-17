@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { lockedPeriodFor } from '../utils/fiscalYear';
-import { Plus, Trash2, X, ChevronDown, ChevronRight } from './icons';
+import { Plus, Trash2, X } from './icons';
+import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
 import ListTable from './shared/ListTable';
 import { confirmDialog } from './shared/ConfirmDialog';
 import {
@@ -54,7 +55,10 @@ export default function Inventory({ articles = [], invoices = [], company, verif
   const [closingDate, setClosingDate] = useState(`${new Date().getFullYear()}-12-31`);
   const [message, setMessage] = useState('');
   const [showSettings, setShowSettings] = useState(false);
-  const [expanded, setExpanded] = useState(null);
+  const [detailId, setDetailId] = useState(null);
+  const [view, setViewState] = useState(() => { try { return localStorage.getItem('bokix_stock_view') || 'cards'; } catch { return 'cards'; } });
+  const setView = (v) => { setViewState(v); try { localStorage.setItem('bokix_stock_view', v); } catch { /* privat läge */ } };
+  const palette = usePalette(company);
 
   const setSetting = (patch) => setCompanyInfo(prev => ({ ...prev, inventorySettings: { ...settings, ...(prev.inventorySettings || {}), ...patch } }));
   const saveMovements = (next) => setCompanyInfo(prev => ({ ...prev, stockMovements: next }));
@@ -114,13 +118,20 @@ export default function Inventory({ articles = [], invoices = [], company, verif
   };
 
   const methodName = settings.method === 'fifo' ? tr('lager.methodFifo') : tr('lager.methodAvg');
+  const detail = detailId ? rows.find(r => r.articleId === detailId) : null;
+  const formatShort = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' }); };
+  const statusOf = (r) => (r.shortfall > 0
+    ? <span className="agi-pill late" title={tr('ui.fler_uttag_an_inleveranser_registrerade')}>{tr('ui.saknar')} {fmtQty(r.shortfall)} {tr('ui.inleverans')}</span>
+    : r.writeDown > 0 ? <span className="agi-pill warn">{tr('lager.writtenDown')}</span>
+    : r.qty <= 0 ? <span className="agi-pill" style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)' }}>{tr('lager.outOfStock')}</span>
+    : <span className="agi-pill ok">{tr('lager.inStockPill')}</span>);
 
   const renderDetail = (r) => {
     const history = movements
       .filter(m => m.articleId === r.articleId)
       .sort((a, b) => String(b.date).localeCompare(String(a.date)));
     return (
-      <div className="ws-cols" style={{ padding: '16px 20px 20px', background: 'var(--bg-card)', gap: '16px' }} onClick={e => e.stopPropagation()}>
+      <div className="ws-stack" style={{ gap: '14px' }}>
         <div className="ws-card">
           <div className="ws-card-head">
             <div>
@@ -175,105 +186,123 @@ export default function Inventory({ articles = [], invoices = [], company, verif
 
   return (
     <div className="ws-page">
-      <div className="ws-stats">
-        <div className="ws-stat">
-          <div className="ws-stat-label">{tr('ui.lagervarde_att_bokfora')}</div>
-          <div className="ws-stat-value">{fmtKr(valuation.bookValue)}</div>
-          <div className="ws-stat-sub">{tr('lager.perDate', { date: closingDate })}</div>
-        </div>
-        <div className="ws-stat">
-          <div className="ws-stat-label">{tr('lager.itemsInStock')}</div>
-          <div className="ws-stat-value">{inStock.length}</div>
-          <div className="ws-stat-sub">{tr('lager.units', { n: fmtQty(totalUnits) })}</div>
-        </div>
-        <div className="ws-stat">
-          <div className="ws-stat-label">{tr('ui.nedskrivning')}</div>
-          <div className="ws-stat-value">{fmtKr(valuation.writeDown)}</div>
-          <div className="ws-stat-sub">{settings.lowestValue ? tr('lager.lowestOn') : tr('lager.lowestOff')}</div>
-        </div>
-        <div className="ws-stat">
-          <div className="ws-stat-label">{tr('lager.method')}</div>
-          <div className="ws-stat-value" style={{ fontSize: '17px', paddingTop: '4px' }}>{methodName}</div>
-          <div className="ws-stat-sub">{tr('lager.account', { account: kind.stockAccount })}</div>
-        </div>
-      </div>
+      <Panel title={tr('ui.lager')} sub={tr('lager.overviewSub', { date: closingDate, method: methodName, account: kind.stockAccount })}
+        actions={<button type="button" className="agi-btn" onClick={() => setShowSettings(true)}>{tr('lager.settings')}</button>}>
+        <KpiGrid>
+          <Kpi dot={palette.profit} label={tr('lager.stockValue')} value={fmtKr(valuation.bookValue)} sub={valuation.writeDown > 0 ? tr('lager.afterWriteDown', { kr: fmtKr(valuation.writeDown) }) : tr('lager.perDate', { date: closingDate })} />
+          <Kpi dot={palette.income} label={tr('lager.itemsInStock')} value={inStock.length} sub={tr('lager.units', { n: fmtQty(totalUnits) })} />
+          <Kpi dot={palette.costBar} label={tr('lager.ledger', { account: kind.stockAccount })} value={fmtKr(ledgerBalance)} sub={diff === 0 ? tr('ui.bokforingen_stammer_med_lagervardet') : tr('lager.diff', { kr: `${diff > 0 ? '+' : '−'}${fmtKr(Math.abs(diff))}` })} />
+        </KpiGrid>
+        {valuation.lines.length > 0 && closing && !alreadyBooked && (
+          <div className="ws-notice warn" style={{ marginTop: '12px' }}>
+            <div>
+              <strong>{tr('ui.lagret_behover_justeras_med_kr', { v0: diff > 0 ? '+' : '−', v1: fmt(Math.abs(diff)) })}</strong>
+              <p>{diff > 0 ? tr('ui.lagret_pa_okar_och_lagerforandringen_pa_minskar', { stockAccount: kind.stockAccount, changeAccount: kind.changeAccount }) : tr('ui.lagret_pa_minskar_och_lagerforandringen_pa_okar', { stockAccount: kind.stockAccount, changeAccount: kind.changeAccount })}</p>
+            </div>
+            <div className="ws-card-actions">
+              <input type="date" className="ws-input" style={{ width: 'auto', height: '36px' }} value={closingDate} aria-label={tr('ui.vardering_per_datum')} onChange={e => e.target.value && setClosingDate(e.target.value)} />
+              <button type="button" className="agi-btn primary" onClick={bookClosing}>{tr('ui.bokfor_lagerjustering')}</button>
+            </div>
+          </div>
+        )}
+        {alreadyBooked && <p className="ws-hint" style={{ marginTop: '12px' }}>{tr('ui.lagerjusteringen_per_ar_bokford', { closingDate })}</p>}
+        {message && <p className="ws-hint" style={{ marginTop: '12px', color: 'var(--status-green-text)' }}>{message}</p>}
+      </Panel>
 
-      {valuation.lines.length > 0 && (
-        <div className={`ws-notice${closing && !alreadyBooked ? ' warn' : ' ok'}`}>
-          <div>
-            <strong>
-              {alreadyBooked ? tr('ui.lagerjusteringen_per_ar_bokford', { closingDate })
-                : closing ? tr('ui.lagret_behover_justeras_med_kr', { v0: diff > 0 ? '+' : '−', v1: fmt(Math.abs(diff)) })
-                : tr('ui.bokforingen_stammer_med_lagervardet')}
-            </strong>
-            <p>{tr('lager.ledgerVsStock', { account: kind.stockAccount, ledger: fmtKr(ledgerBalance), stock: fmtKr(valuation.bookValue) })}</p>
+      <Panel
+        title={tr('lager.goods')}
+        sub={goods.length > 0 ? tr('lager.goodsSub') : null}
+        actions={goods.length > 0 && <>
+          <div className="ws-seg">
+            <button type="button" className={view === 'cards' ? 'on' : ''} onClick={() => setView('cards')}>{tr('proj.viewCards')}</button>
+            <button type="button" className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>{tr('proj.viewList')}</button>
           </div>
-          <div className="ws-card-actions">
-            <input type="date" className="ws-input" style={{ width: 'auto', height: '36px' }} value={closingDate} aria-label={tr('ui.vardering_per_datum')} onChange={e => e.target.value && setClosingDate(e.target.value)} />
-            {closing && !alreadyBooked && <button type="button" className="agi-btn primary" onClick={bookClosing}>{tr('ui.bokfor_lagerjustering')}</button>}
-          </div>
-        </div>
-      )}
-      {message && <p className="ws-hint" style={{ color: 'var(--status-green-text)' }}>{message}</p>}
-
-      <div className="ws-card">
-        <div className="ws-card-head">
-          <div>
-            <h3 className="ws-card-title">{tr('lager.goods')}</h3>
-            <p className="ws-card-sub">{tr('lager.goodsSub')}</p>
-          </div>
-          <div className="ws-card-actions">
-            <button type="button" className="agi-btn" onClick={() => setShowSettings(true)}>{tr('lager.settings')}</button>
-            {goods.length > 0 && <>
-              <button type="button" className="agi-btn" onClick={() => startMovement('count')}>{tr('lager.typeCount')}</button>
-              <button type="button" className="agi-btn" onClick={() => startMovement('out')}>{tr('lager.typeOut')}</button>
-              <button type="button" className="agi-btn primary" onClick={() => startMovement('in')}><Plus size={14} /> {tr('lager.typeIn')}</button>
-            </>}
-          </div>
-        </div>
+          <button type="button" className="agi-btn" onClick={() => startMovement('count')}>{tr('lager.typeCount')}</button>
+          <button type="button" className="agi-btn" onClick={() => startMovement('out')}>{tr('lager.typeOut')}</button>
+          <button type="button" className="agi-btn primary" onClick={() => startMovement('in')}><Plus size={14} /> {tr('lager.typeIn')}</button>
+        </>}
+      >
         {goods.length === 0 ? (
-          <div className="ws-empty">
+          <div className="ws-empty" style={{ padding: '28px 12px 12px' }}>
             <h3>{tr('lager.emptyTitle')}</h3>
             <p>{tr('ui.lagret_foljer_artiklar_av_typen')} <b>{tr('ui.vara')}</b>{tr('ui.lagg_till_en_vara_under_fliken_artiklar_for_att')}</p>
             <p style={{ marginTop: '-8px' }}>{tr('ui.inget_lager_varderat_annu_registrera_en_inlevera')}</p>
             {onAddArticle && <button type="button" className="agi-btn primary" onClick={onAddArticle}><Plus size={14} /> {tr('lager.addGood')}</button>}
           </div>
+        ) : view === 'cards' ? (
+          <div className="pj-grid">
+            {rows.map(r => {
+              const layerTotal = r.layers.reduce((s, l) => s + l.qty, 0) || 1;
+              const salePrice = articles.find(a => a.id === r.articleId)?.unitPrice || 0;
+              return (
+                <button key={r.articleId} type="button" className={`pj-card${r.qty <= 0 ? ' done' : ''}`} style={{ '--pj': palette.profit }} onClick={() => setDetailId(r.articleId)}>
+                  <div className="pj-card-top">
+                    <span className="pj-card-num">{r.articleNumber || tr('ui.vara')}</span>
+                    {statusOf(r)}
+                  </div>
+                  <h3 className="pj-card-name">{r.description}</h3>
+                  <div className="pj-card-hours">
+                    <span><b>{fmtQty(r.qty)}</b> {tr('lager.unitsInStock')}</span>
+                    {r.layers.length > 0 && <span className="pj-card-pct">{(r.layers.length === 1 ? tr('lager.batchOne') : tr('lager.batchCount', { n: r.layers.length }))}</span>}
+                  </div>
+                  {/* Partierna som en uppdelad stapel, äldst till vänster: den
+                      delen säljs först med FIFO. */}
+                  <div className="lg-batches" aria-hidden="true">
+                    {r.layers.length === 0 ? <span className="empty" /> : r.layers.map((l, i) => (
+                      <span key={`${l.date}-${i}`} title={`${l.date}: ${fmtQty(l.qty)} ${tr('ui.st')} × ${fmt(l.cost)} kr`} style={{ flexGrow: l.qty / layerTotal, opacity: 1 - (i / Math.max(r.layers.length, 1)) * 0.5 }} />
+                    ))}
+                  </div>
+                  {r.layers.length > 0 && <div className="lg-batch-legend">{tr('lager.oldestFirst', { date: formatShort(r.layers[0].date) })}</div>}
+                  <div className="pj-card-money">
+                    <div><span>{tr('ui.varde')}</span><b>{fmtKr(r.bookValue)}</b></div>
+                    <div><span>{tr('lager.unitCost')} / {tr('lager.salePrice').toLowerCase()}</span><b>{fmtKr(r.unitCost)} / {fmtKr(salePrice)}</b></div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         ) : (
-          <ListTable
-            bordered={false}
-            rowKey={r => r.articleId}
-            rows={rows}
-            onRowClick={r => setExpanded(expanded === r.articleId ? null : r.articleId)}
-            isExpanded={r => expanded === r.articleId}
-            renderExpanded={renderDetail}
-            emptyMessage={tr('ui.inget_lager_varderat_annu_registrera_en_inlevera')}
-            mobileList={r => ({ primary: r.description, amount: fmtKr(r.bookValue), meta: tr('ui.st_kr', { v0: fmtQty(r.qty), v1: fmt(r.unitCost) }) })}
-            columns={[
-              {
-                key: 'description', label: tr('ui.vara'), render: r => (
-                  <div className="ws-name">
-                    {expanded === r.articleId ? <ChevronDown size={14} color="var(--text-muted)" /> : <ChevronRight size={14} color="var(--text-muted)" />}
+          <div className="wsp-flush">
+            <ListTable
+              bordered={false}
+              rowKey={r => r.articleId}
+              rows={rows}
+              onRowClick={r => setDetailId(r.articleId)}
+              emptyMessage={tr('ui.inget_lager_varderat_annu_registrera_en_inlevera')}
+              mobileList={r => ({ primary: r.description, amount: fmtKr(r.bookValue), meta: tr('ui.st_kr', { v0: fmtQty(r.qty), v1: fmt(r.unitCost) }) })}
+              columns={[
+                {
+                  key: 'description', label: tr('ui.vara'), render: r => (
                     <div className="ws-name-text">
                       <strong>{r.description}</strong>
                       {r.articleNumber && <small>{r.articleNumber}</small>}
                     </div>
-                  </div>
-                ),
-              },
-              { key: 'qty', label: tr('lager.inStock'), align: 'right', fontWeight: 600, color: 'var(--text-main)', render: r => `${fmtQty(r.qty)} ${tr('ui.st')}` },
-              { key: 'unitCost', label: tr('lager.unitCost'), align: 'right', render: r => `${fmt(r.unitCost)} kr` },
-              { key: 'bookValue', label: tr('ui.varde'), align: 'right', fontWeight: 600, color: 'var(--text-main)', render: r => fmtKr(r.bookValue) },
-              {
-                key: 'status', label: '', align: 'right', render: r => (r.shortfall > 0
-                  ? <span className="agi-pill late" title={tr('ui.fler_uttag_an_inleveranser_registrerade')}>{tr('ui.saknar')} {fmtQty(r.shortfall)} {tr('ui.inleverans')}</span>
-                  : r.writeDown > 0 ? <span className="agi-pill warn">{tr('lager.writtenDown')}</span>
-                  : r.qty <= 0 ? <span className="agi-pill" style={{ background: 'var(--bg-muted)', color: 'var(--text-secondary)' }}>{tr('lager.outOfStock')}</span>
-                  : null),
-              },
-            ]}
-          />
+                  ),
+                },
+                { key: 'qty', label: tr('lager.inStock'), align: 'right', fontWeight: 600, color: 'var(--text-main)', render: r => `${fmtQty(r.qty)} ${tr('ui.st')}` },
+                { key: 'unitCost', label: tr('lager.unitCost'), align: 'right', render: r => `${fmt(r.unitCost)} kr` },
+                { key: 'bookValue', label: tr('ui.varde'), align: 'right', fontWeight: 600, color: 'var(--text-main)', render: r => fmtKr(r.bookValue) },
+                { key: 'status', label: '', align: 'right', render: r => statusOf(r) },
+              ]}
+            />
+          </div>
         )}
-      </div>
+      </Panel>
+
+      {detail && (
+        <div className="modal-overlay" onClick={() => setDetailId(null)}>
+          <div className="modal-content" style={{ maxWidth: '640px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2 className="modal-title">{detail.description}</h2>
+                <p className="wsp-sub">{[detail.articleNumber, `${fmtQty(detail.qty)} ${tr('ui.st')}`, fmtKr(detail.bookValue)].filter(Boolean).join(' · ')}</p>
+              </div>
+              <button type="button" className="modal-close" onClick={() => setDetailId(null)}><X size={18} /></button>
+            </div>
+            {renderDetail(detail)}
+          </div>
+        </div>
+      )}
 
       {/* Lagerhändelse: tre typer som flikar i stället för en lista. */}
       {form && (

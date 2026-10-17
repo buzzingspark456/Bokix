@@ -53,7 +53,7 @@ describe('bokföringsverktygens vyer', () => {
   it('Lager värderar varan och visar lagervärdet', () => {
     const out = html(React.createElement(Inventory, { articles, company, verifications: [], onAddVerification: noop, setCompanyInfo: noop }))
     expect(out).toContain('Kaffe')
-    expect(out).toContain('Lagervärde att bokföra')
+    expect(out).toContain('Lagervärde')
   })
 
   it('Lager ritar utan lagerlogg', () => {

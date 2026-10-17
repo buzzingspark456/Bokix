@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import ListTable from './shared/ListTable';
+import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
 import {
   markupPct, marginPct, priceFromMargin, priceFromMarkup, withVat, roundPrice, marginAfterDiscount,
   maxDiscountForMargin, breakEvenUnits, hourlyRate, pricingStatus,
@@ -124,29 +125,68 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
   const [buffer, setBuffer] = useState(10);
   const rate = hourlyRate({ monthlyCosts, desiredMonthlyPay: pay, billableHoursPerMonth: hours, bufferPct: buffer });
 
-  const current = TOOLS.find(x => x.id === tool);
+  const palette = usePalette(company);
+  const goal = Number(targetMargin) || 0;
+  const withMargin = rows.filter(a => a.info.margin != null);
+  const avgMargin = withMargin.length ? withMargin.reduce((sum, a) => sum + a.info.margin, 0) / withMargin.length : null;
+  const [view, setViewState] = useState(() => { try { return localStorage.getItem('bokix_pricing_view') || 'cards'; } catch { return 'cards'; } });
+  const setView = (v) => { setViewState(v); try { localStorage.setItem('bokix_pricing_view', v); } catch { /* privat läge */ } };
 
   return (
     <div className="ws-page">
-      <div className="ws-card">
-        <div className="ws-card-head">
-          <div>
-            <h3 className="ws-card-title">{t('pris.yourPrices')}</h3>
-            <p className="ws-card-sub">
-              {rows.length === 0 ? t('pris.yourPricesEmpty')
-                : belowCount > 0 ? t('pris.belowCount', { n: belowCount })
-                : t('pris.allOk')}
-            </p>
+      <Panel title={t('pris.yourPrices')}
+        sub={rows.length === 0 ? t('pris.yourPricesEmpty') : belowCount > 0 ? t('pris.belowCount', { n: belowCount }) : t('pris.allOk')}
+        actions={<>
+          <label className="ws-hint" htmlFor="pz-target" style={{ fontWeight: 600, color: 'var(--text-main)' }}>{t('pris.target')}</label>
+          <div className="ws-input-suffix" style={{ width: '92px' }}>
+            <input id="pz-target" type="number" className="ws-input" style={{ height: '36px' }} value={num(targetMargin)} onChange={e => setTarget(e.target.value)} />
+            <span>%</span>
           </div>
-          <div className="ws-card-actions">
-            <label className="ws-hint" htmlFor="pz-target" style={{ fontWeight: 600, color: 'var(--text-main)' }}>{t('pris.target')}</label>
-            <div className="ws-input-suffix" style={{ width: '96px' }}>
-              <input id="pz-target" type="number" className="ws-input" style={{ height: '36px' }} value={num(targetMargin)} onChange={e => setTarget(e.target.value)} />
-              <span>%</span>
-            </div>
+          {rows.length > 0 && <div className="ws-seg">
+            <button type="button" className={view === 'cards' ? 'on' : ''} onClick={() => setView('cards')}>{t('proj.viewCards')}</button>
+            <button type="button" className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>{t('proj.viewList')}</button>
+          </div>}
+        </>}>
+        <KpiGrid>
+          <Kpi dot={palette.profit} label={t('pris.avgMargin')} value={fmtPctVal(avgMargin)} sub={t('pris.targetIs', { n: goal })} />
+          <Kpi dot={palette.costBar} label={t('pris.below')} value={belowCount} sub={t('pris.belowSub')} negative={belowCount > 0 && rows.some(a => a.info.status === 'loss')} />
+          <Kpi dot={palette.income} label={t('ui.artiklar')} value={rows.length} sub={t('pris.withCost', { n: withMargin.length })} />
+        </KpiGrid>
+        {rows.length > 0 && (view === 'cards' ? (
+          <div className="pj-grid" style={{ marginTop: '14px' }}>
+            {rows.map(a => {
+              const st = STATUS[a.info.status];
+              const m = a.info.margin;
+              const color = m == null ? 'var(--border)' : m < 0 ? 'var(--status-red-text)' : m < goal ? 'var(--status-amber-text)' : palette.profit;
+              return (
+                <div key={a.id || a.articleNumber || a.description} className="pj-card" style={{ '--pj': color, cursor: 'default' }}>
+                  <div className="pj-card-top">
+                    <span className="pj-card-num">{a.articleNumber || (a.type === 'vara' ? t('ui.vara') : t('ui.tjanst'))}</span>
+                    <span className={`agi-pill ${st.cls}`}>{st.label}</span>
+                  </div>
+                  <h3 className="pj-card-name">{a.description}</h3>
+                  <div className="pj-card-hours">
+                    <span><b>{fmtPctVal(m)}</b> {t('ui.marginal').toLowerCase()}</span>
+                    <span className="pj-card-pct">{t('pris.targetShort', { n: goal })}</span>
+                  </div>
+                  <div className="pz-track">
+                    <span style={{ width: `${Math.max(0, Math.min(100, m ?? 0))}%` }} />
+                    <em style={{ left: `${Math.max(0, Math.min(100, goal))}%` }} />
+                  </div>
+                  <div className="pj-card-money">
+                    <div><span>{t('ui.inkopspris')}</span><b>{a.purchasePrice ? `${fmt(a.purchasePrice)} kr` : '—'}</b></div>
+                    <div><span>{t('ui.pris_exkl_moms_2')}</span><b>{fmt(a.unitPrice)} kr</b></div>
+                  </div>
+                  {['below', 'loss'].includes(a.info.status) && a.info.suggested && (
+                    <button type="button" className="agi-btn primary" style={{ marginTop: '12px', justifyContent: 'center' }} onClick={() => applySuggestion(a, a.info.suggested)}>{t('pris.raiseTo', { kr: fmt(a.info.suggested) })}</button>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        </div>
-        <ListTable
+        ) : (
+          <div className="wsp-flush" style={{ marginTop: '16px' }}>
+          <ListTable
           bordered={false}
           rowKey={a => a.id || a.articleNumber || a.description}
           rows={rows}
@@ -166,19 +206,19 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
             },
           ]}
         />
-      </div>
+          </div>
+        ))}
+      </Panel>
 
-      <div className="ws-card">
-        <div className="ws-card-head">
-          <div>
-            <h3 className="ws-card-title">{current.title}</h3>
-            <p className="ws-card-sub">{t(`pris.${tool}Intro`)}</p>
-          </div>
-          <div className="ws-seg">
-            {TOOLS.map(x => <button key={x.id} type="button" className={tool === x.id ? 'on' : ''} onClick={() => setTool(x.id)}>{x.label}</button>)}
-          </div>
+      <Panel title={t('pris.calculator')} sub={t(`pris.${tool}Intro`)}>
+        <div className="pz-tools">
+          {TOOLS.map(x => (
+            <button key={x.id} type="button" className={tool === x.id ? 'on' : ''} onClick={() => setTool(x.id)}>
+              <strong>{x.label}</strong><span>{x.title}</span>
+            </button>
+          ))}
         </div>
-        <div className="ws-card-body ws-cols" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
+        <div className="ws-cols" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
           {tool === 'price' && <>
             <div className="ws-form" style={{ gap: '14px' }}>
               <Field label={t('ui.inkopspris_kostnad_kr')} value={cost} onChange={setCost} suffix="kr" />
@@ -277,7 +317,7 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
             />
           </>}
         </div>
-      </div>
+      </Panel>
     </div>
   );
 }
