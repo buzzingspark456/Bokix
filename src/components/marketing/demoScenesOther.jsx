@@ -1,6 +1,7 @@
 import React from 'react';
-import { Check, CheckCircle2, ChevronDown, ChevronRight, CreditCard, Info, Lock, Mail, Plus, Search, Settings2, UploadCloud, Download, Upload, X } from '../icons';
+import { Check, CheckCircle2, ChevronDown, ChevronRight, Info, Lock, ShieldCheck, Mail, Plus, Search, Settings2, UploadCloud, Download, Upload, X } from '../icons';
 import BokixWordmark from '../shared/BokixWordmark';
+import { ZettleLogo } from '../shared/BrandLogos';
 import { Shell, Top, Toast, DownloadBar, Doc, Browser, SettingsShell, SetCap, SetRow, ModalSteps, ModalClose, ReviewItem } from './demoApp';
 
 const INV_COLS2 = { gridTemplateColumns: '72px 1fr 100px 80px 98px' };
@@ -215,23 +216,30 @@ const StripeScene = (
   </div>
 );
 
-// Zettle-fliken i Granskning (ReviewQueue.jsx ZettleLedgerCard): ett kort per
-// köp, momssatsen gissad ur Zettles eget momsbelopp, intäktskontot föreslaget.
+// Zettle-fliken i Granskning (ReviewQueue.jsx): rutan överst med loggan,
+// raderna under "Klart att bokföra". Momsen kommer från Zettle och stämmer
+// exakt, så köpet är ett säkert förslag och bokförs med ett klick.
 const ZettleScene = (
   <Shell active="review" review={1}>
     <Top title="Granskning" tabs={['Väntar · 1', 'Stripe', 'Zettle · 2', 'Historik']} on="Zettle · 2" />
     <div className="ax-body" style={{ padding: 0 }}>
-      <div className="dp-collapse" style={{ ...d(2.6), '--h': '160px' }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '11px 14px', borderBottom: '1px solid var(--ax-border)' }}>
+        <span style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--ax-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><ZettleLogo height={11} /></span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="ax-b" style={{ fontSize: 12 }}>Zettle</div>
+          <div className="ax-m ax-hide-sm" style={{ fontSize: 10.5 }}>Momsen kommer från Zettle, så de flesta köp kan bokföras direkt.</div>
+        </div>
+        <Pill>2 klara</Pill>
+      </div>
+      <div className="ax-m" style={{ padding: '6px 14px', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', background: 'var(--ax-soft)', borderBottom: '1px solid var(--ax-border)' }}>Klart att bokföra · 2</div>
+      <div className="dp-collapse" style={{ ...d(2.6), '--h': '120px' }}>
         <ReviewItem
-          icon={CreditCard}
-          meta="Kortbetalning · ingen kopplad faktura, all Zettle-försäljning är kontantförsäljning · idag"
+          icon={ShieldCheck}
+          meta="Kortbetalning · idag"
           title="Bokför försäljning 3 240 kr, kvitto 1482"
-          badge={<Pill kind="warn">Kräver val</Pill>}
+          badge={<Pill>Säkert förslag</Pill>}
           extra={
-            <div className="dp-in" style={{ ...d(0.6), display: 'flex', gap: 7, margin: '-2px 0 9px', flexWrap: 'wrap' }}>
-              <span className="ax-field" style={{ minHeight: 24, padding: '3px 8px', gap: 6 }}>25% moms <ChevronDown size={10} /></span>
-              <span className="ax-field dp-flash" style={{ ...d(1.1), minHeight: 24, padding: '3px 8px', flex: 1, minWidth: 180 }}><b>3001</b>&nbsp;Försäljning inom Sverige, 25 %</span>
-            </div>
+            <div className="ax-s" style={{ fontSize: 10.5, margin: '-2px 0 9px' }}>25 % moms enligt Zettle · 3001 Försäljning inom Sverige, 25 % moms</div>
           }
           actions={<>
             <span className="ax-btn ax-click" style={c(2.2)}><Check size={11} strokeWidth={3} /> Bokför försäljning</span>
@@ -240,10 +248,10 @@ const ZettleScene = (
         />
       </div>
       <ReviewItem
-        icon={CreditCard}
-        meta="Kortbetalning · ingen kopplad faktura, all Zettle-försäljning är kontantförsäljning · idag"
+        icon={ShieldCheck}
+        meta="Kontant · idag"
         title="Bokför försäljning 480 kr, kvitto 1483"
-        badge={<Pill kind="warn">Kräver val</Pill>}
+        badge={<Pill>Säkert förslag</Pill>}
         actions={<span className="ax-btn"><Check size={11} strokeWidth={3} /> Bokför försäljning</span>}
       />
     </div>
