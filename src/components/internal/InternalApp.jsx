@@ -25,6 +25,9 @@ export default function InternalApp() {
   const [activeTab, setActiveTab] = useState('analytics');
   const [errorMsg, setErrorMsg] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
+  // Inloggad med bara lösenord: panelen kräver Face ID eller tvåfaktor
+  // (api/admin/index.js sessionStrength). Visas på inloggningssidan.
+  const [loginNotice, setLoginNotice] = useState('');
 
   const checkAccess = async () => {
     setStatus('checking');
@@ -38,7 +41,11 @@ export default function InternalApp() {
       setStatus('authorized');
     } catch (err) {
       const message = String(err.message || '');
-      if (message.includes('behörighet')) setStatus('unauthorized');
+      if (message.includes('kräver Face ID')) {
+        await supabase.auth.signOut();
+        setLoginNotice(message);
+        setStatus('needs-login');
+      } else if (message.includes('behörighet')) setStatus('unauthorized');
       else { setErrorMsg(err.message); setStatus('error'); }
     }
   };
@@ -64,7 +71,7 @@ export default function InternalApp() {
   }
 
   if (status === 'needs-login') {
-    return <InternalAuth onAuthenticated={checkAccess} />;
+    return <InternalAuth onAuthenticated={checkAccess} notice={loginNotice} />;
   }
 
   if (status === 'unauthorized') {

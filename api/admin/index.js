@@ -48,9 +48,24 @@ function isAdminEmail(email) {
   return ADMIN_EMAILS.includes(String(email || '').trim().toLowerCase());
 }
 
-// Tvåfaktor krävs inte längre för /internal (ägarens val 2026-10-07):
-// e-post + lösenord eller Face ID (passkey) räcker. Spärren är ADMIN_EMAILS
-// ovan, plus Turnstile på lösenordsinloggningen.
+// Stark inloggning krävs för /internal (ägarens val 2026-10-18, ISO 27001,
+// docs/isms Å3): Face ID (passkey) eller lösenord + kod från en
+// autentiseringsapp. Bara lösenord räcker inte längre, eftersom panelen ser
+// alla kunder. Läses ur sessionens token (aal och amr), som requireAuthedUser
+// redan har verifierat mot Supabase.
+const STRONG_AMR = /webauthn|passkey/i;
+
+export function sessionStrength(token) {
+  try {
+    const payload = JSON.parse(Buffer.from(String(token).split('.')[1], 'base64url').toString('utf8'));
+    const methods = (Array.isArray(payload.amr) ? payload.amr : [])
+      .map(m => (typeof m === 'string' ? m : m?.method))
+      .filter(Boolean);
+    return { strong: payload.aal === 'aal2' || methods.some(m => STRONG_AMR.test(m)), aal: payload.aal || null, methods };
+  } catch {
+    return { strong: false, aal: null, methods: [] };
+  }
+}
 
 function getAdminClient() {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -555,6 +570,19 @@ export default async function handler(req, res) {
     // det ovan) — vem som helst som känner till /internal och försöker.
     await logSecurityEvent(admin, 'admin_denied', user.email);
     res.status(403).json({ error: 'Du har inte behörighet till admin-panelen.' });
+    return;
+  }
+
+  const authHeader = String(req.headers['authorization'] || req.headers['Authorization'] || '');
+  const strength = sessionStrength(authHeader.replace(/^Bearers+/i, ''));
+  if (!strength.strong) {
+    // Metoderna skickas med, så en ny inloggningsmetod som borde räknas syns direkt.
+    await logSecurityEvent(admin, 'admin_weak_login', user.email, `${strength.aal || '?'}: ${strength.methods.join(', ') || 'okänd'}`);
+    res.status(403).json({
+      error: 'Admin-panelen kräver Face ID eller tvåfaktor. Logga in med Face ID, eller med lösenord och kod från din autentiseringsapp.',
+      code: 'strong_auth_required',
+      methods: strength.methods,
+    });
     return;
   }
   try {

@@ -14,14 +14,18 @@ import { passkeysAvailable, isPasskeyCancel, rememberPasskeyOnDevice } from '../
 // api/admin/index.js (ADMIN_EMAILS där), oavsett vem som lyckas logga in
 // här. Den här skärmen är alltså bara vägen in, inte behörighetsgränsen.
 //
-// Två sätt in (2026-10-07, tvåfaktorskoden borttagen): e-post + lösenord,
-// eller Face ID/fingeravtryck med en passkey som lagts till i appen under
-// Inställningar → Min profil.
-export default function InternalAuth({ onAuthenticated }) {
+// Två sätt in: Face ID/fingeravtryck med en passkey (lagts till i appen under
+// Inställningar → Min profil), eller e-post + lösenord + kod från en
+// autentiseringsapp. Bara lösenord räcker inte (2026-10-18, se
+// api/admin/index.js sessionStrength); servern är den riktiga spärren.
+export default function InternalAuth({ onAuthenticated, notice = '' }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(notice);
+  // Efter lösenordet, för konton med tvåfaktor: { factorId } tills koden är rätt.
+  const [totp, setTotp] = useState(null);
+  const [code, setCode] = useState('');
   // Supabase kräver captcha på all lösenordsinloggning när Turnstile är
   // påslaget där, även här. Token gäller ett försök, `captchaRound` ger en ny.
   const captchaRef = useRef(null);
@@ -39,10 +43,31 @@ export default function InternalAuth({ onAuthenticated }) {
         options: captchaToken ? { captchaToken } : undefined,
       });
       if (signInError) throw signInError;
+      // Har kontot tvåfaktor: fråga efter koden innan panelen öppnas.
+      const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal2') {
+        const { data: factors } = await supabase.auth.mfa.listFactors();
+        const factor = factors?.totp?.find(f => f.status === 'verified');
+        if (factor) { setTotp({ factorId: factor.id }); setLoading(false); return; }
+      }
       onAuthenticated();
     } catch (err) {
       setError(err?.message === 'Invalid login credentials' ? 'Fel e-post eller lösenord.' : (err?.message || 'Något gick fel.'));
       setCaptchaRound(n => n + 1);
+      setLoading(false);
+    }
+  };
+
+  const handleCode = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({ factorId: totp.factorId, code: code.trim() });
+      if (verifyError) throw verifyError;
+      onAuthenticated();
+    } catch {
+      setError('Fel kod. Försök igen med koden som visas i appen just nu.');
       setLoading(false);
     }
   };
@@ -83,6 +108,26 @@ export default function InternalAuth({ onAuthenticated }) {
         </div>
 
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '28px' }}>
+          {totp ? (
+            <form onSubmit={handleCode} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>Kod från autentiseringsappen</label>
+                <div style={{ position: 'relative' }}>
+                  <Lock size={15} color="var(--text-muted)" style={{ position: 'absolute', left: 14, top: 14 }} />
+                  <input inputMode="numeric" autoComplete="one-time-code" required autoFocus maxLength={6} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} style={inputStyle} />
+                </div>
+              </div>
+              {error && <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', lineHeight: 1.5 }}>{error}</div>}
+              <button type="submit" disabled={loading || code.length < 6} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+                padding: '13px', background: 'var(--accent)', border: 'none', borderRadius: '10px',
+                color: 'white', fontWeight: 700, fontSize: '14px', cursor: loading ? 'wait' : 'pointer',
+                fontFamily: 'inherit', opacity: loading || code.length < 6 ? 0.7 : 1, marginTop: '4px',
+              }}>
+                {loading ? 'Kontrollerar...' : 'Fortsätt'} <ArrowRight size={15} />
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>E-post</label>
@@ -119,6 +164,7 @@ export default function InternalAuth({ onAuthenticated }) {
               </button>
             )}
           </form>
+          )}
         </div>
       </div>
     </div>

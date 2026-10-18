@@ -65,7 +65,7 @@ Status: Öppen, Pågår, Klar (med datum och bevis i bevisloggen).
 |---|---|---|---|---|---|
 | Å1 | Tvåfaktor med passkey eller app (inte sms) på alla adminkonton: GitHub, Vercel, Supabase, Stripe, Cloudflare, Resend, Google, one.com, FöretagsAPI. Spara skärmdump per tjänst | R1, R4 | Grundarna | 2026-11-15 | Öppen |
 | Å2 | Byt adminkontona i ADMIN_EMAILS från privata Gmail till @bokix.se-adresser (Google Workspace) med tvåfaktor | R1 | Grundarna, sedan kod | 2026-12-31 | Öppen |
-| Å3 | Adminpanelen /internal och api/admin kräver inloggning med tvåfaktor (aal2) eller passkey | R1 | Kod | 2026-11-30 | Öppen |
+| Å3 | Adminpanelen /internal och api/admin kräver inloggning med tvåfaktor (aal2) eller passkey | R1 | Kod | 2026-11-30 | Klar 2026-10-18 (Face ID eller lösenord + appkod) |
 | Å4 | Rulla R2-nyckeln (klistrades i en chatt 2026-10-01) och uppdatera OFFSITE_S3_* i Vercel | R2 | Grundarna | 2026-10-31 | Öppen |
 | Å5 | Slå på secret scanning och push protection i GitHub-repot | R2 | Grundarna | 2026-11-15 | Öppen |
 | Å6 | Återställningsprov: återställ ett företag från nattkopian till ett testkonto (scripts/restore-offsite-backup.mjs), protokollför tid och resultat. Varje kvartal | R3, R5 | Driftansvarig | 2026-11-30, sedan kvartalsvis | Öppen |
