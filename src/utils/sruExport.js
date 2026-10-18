@@ -24,7 +24,7 @@
  */
 import { createZip } from './zipStore';
 import { ink2sSruRows, INK2_MAIN_SRU } from './ink2s';
-import { ink4sSruRows, ink4duSruRows } from './ink4';
+import { ink4sSruRows, ink4duSruRows, sruPersonId } from './ink4';
 
 const pad = (n, len = 2) => String(n).padStart(len, '0');
 const ymd = (iso) => String(iso || '').replace(/-/g, '');
@@ -67,12 +67,12 @@ const clean = (s) => String(s || '').replace(/[\r\n]+/g, ' ').trim();
  */
 // Gemensamt för INK2 och INK4: räkenskapsårets början, tidsstämpel,
 // INFO.SRU och blankettblocken.
-function sruContext(company, period, now) {
+function sruContext(company, period, now, idOverride = null) {
   const end = typeof period === 'string' ? period : period?.end;
   const start = typeof period === 'string' || !period?.start
     ? (() => { const d = new Date(`${end}T12:00:00`); d.setFullYear(d.getFullYear() - 1); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })()
     : period.start;
-  const orgId = sruOrgId(company?.orgNr);
+  const orgId = idOverride || sruOrgId(company?.orgNr);
   const name = clean(company?.name) || 'Okänt företag';
   const date = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
   const time = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
@@ -156,6 +156,73 @@ export function generateInk4Sru(company, { ink4r, ink4rResultat, ink4s, info = {
   for (const du of delagare) blankettSru += block('INK4DU', [...period7011, ...ink4duSruRows(du)]);
   blankettSru += `#FIL_SLUT${L}`;
   return { infoSru, blankettSru };
+}
+
+// ── NE-bilagan (enskild firma) ──────────────────────────────────────────
+// Fältkoderna ur Skatteverkets NE_SKV2161-13-02-25-02.xls (2025P4) och
+// NE_SKV2161-14-02-26-02.xls (2026P4); sida 1 och 2 är lika båda åren.
+// B1–B16, R11 och R12 är Numeriskt_A (får vara negativa), resten
+// Numeriskt_B (bara positiva). Summaraderna R17, R29, R33, R35 och R42
+// finns inte i filen, Skatteverket räknar dem själv.
+export const NE_SRU_CODES = {
+  B1: '7200', B2: '7210', B3: '7211', B4: '7212', B5: '7213', B6: '7240', B7: '7250', B8: '7260', B9: '7280',
+  B10: '7300', B11: '7320', B12: '7330', B13: '7380', B14: '7381', B15: '7382', B16: '7383',
+  R1: '7400', R2: '7401', R3: '7402', R4: '7403', R5: '7500', R6: '7501', R7: '7502', R8: '7503', R9: '7504', R10: '7505',
+  R11: '7440', R12: '7600', R13: '7601', R14: '7700', R15: '7602', R16: '7701', R22: '7704', R23: '7604', R24: '7705',
+  R30: '7708', R31: '7607', R32: '7608', R34: '7709', R36: '7710', R37: '7609', R38: '7711', R39: '7712', R40: '7610',
+  R41: '7713', R43: '7714', R44: '7611', R45: '7612', R46: '7613', R47: '7630', R48: '7730',
+};
+const NE_SIGNED = new Set(['7300', '7440', '7600', ...['7200', '7210', '7211', '7212', '7213', '7240', '7250', '7260', '7280', '7320', '7330', '7380', '7381', '7382', '7383']]);
+
+/** Uppgiftsraderna för NE-blocket. `ne` = { balanceRows, equity, resultRows,
+ * result, tax } som NE-fliken redan räknar fram (ne.js och neTax.js). */
+export function neSruRows({ balanceRows = [], equity = 0, resultRows = [], result = 0, tax = null }) {
+  const out = [];
+  const push = (row, amount) => {
+    const code = NE_SRU_CODES[row];
+    const v = Math.round(Number(amount) || 0);
+    if (!code || v === 0) return;
+    if (!NE_SIGNED.has(code) && v < 0) return;
+    out.push([code, v]);
+  };
+  balanceRows.forEach(r => push(r.row, r.amount));
+  push('B10', equity);
+  resultRows.forEach(r => push(r.row, r.amount));
+  push('R11', result);
+  if (tax) {
+    tax.rows.filter(r => r.sign !== '=' || r.row === 'R12').forEach(r => push(r.row, r.amount));
+    push('R47', tax.r47);
+    push('R48', tax.r48);
+  }
+  return out;
+}
+
+/** NE som SRU-filer, för "Importera NE-bilagan" i Skatteverkets e-tjänst.
+ * Identiteten är ägarens personnummer med sekel (tolv siffror). */
+export function generateNeSru(company, ne, period, now = new Date()) {
+  const personId = sruPersonId(company?.orgNr);
+  const { L, infoSru, block, period7011 } = sruContext(company, period, now, personId.length === 12 ? personId : null);
+  const blankettSru = block('NE', [...period7011, ...neSruRows(ne)]) + `#FIL_SLUT${L}`;
+  return { infoSru, blankettSru };
+}
+
+/** NE-bilagan som zip med INFO.SRU och BLANKETTER.SRU. */
+export function downloadNeSru(company, ne, period) {
+  const { infoSru, blankettSru } = generateNeSru(company, ne, period, new Date());
+  const end = typeof period === 'string' ? period : period?.end;
+  const zip = createZip([
+    { name: 'INFO.SRU', data: encodeWindows1252(infoSru) },
+    { name: 'BLANKETTER.SRU', data: encodeWindows1252(blankettSru) },
+  ]);
+  const blob = new Blob([zip], { type: 'application/zip' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `NE-SRU-${String(end || '').slice(0, 4)}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // Bugkritiskt: `new Blob([sträng], {type: '...charset=windows-1252'})`

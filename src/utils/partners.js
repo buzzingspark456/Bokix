@@ -92,6 +92,8 @@ export function computePartnerStatement(verifications, partners, start, end, yea
     let uttag = 0;
     (verifications || []).forEach(v => {
       if ((v.status || 'booked') === 'draft' || !v.date || v.date < start || v.date > end) return;
+      // Omföringen vid årets början är inget uttag eller tillskott.
+      if (v.source === 'year_open_transfer') return;
       (v.rows || []).forEach(r => {
         const net = getKredit(r) - getDebet(r);
         if (r.account === acc.insattning || r.account === acc.tillskott) insattningar += net;

@@ -121,7 +121,7 @@ function rowSideWarning(row) {
 const MAX_ATTACHMENT_MB = 10;
 const ACCEPTED_ATTACHMENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 
-function VerificationForm({ accounts, contacts, projects = [], verifications = [], balances, templates, onSaveTemplate, onSave, onClose, nextNumber, getNextNumber, initial, vatPeriods, user, orgType, uploadFn = uploadFileToStorage, vatExempt = false, seriesNames }) {
+function VerificationForm({ accounts, contacts, projects = [], verifications = [], balances, templates, onSaveTemplate, onSave, onClose, nextNumber, getNextNumber, initial, vatPeriods, user, orgType, partners, uploadFn = uploadFileToStorage, vatExempt = false, seriesNames }) {
   const [date, setDate] = useState(initial?.date || new Date().toISOString().split('T')[0]);
   const [desc, setDesc] = useState(initial?.description || '');
   const [projectId, setProjectId] = useState(initial?.projectId || '');
@@ -881,7 +881,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
             ))}
           </div>
           {mode === 'simple' ? (
-            <SimpleBookingPanel fields={simple} setFields={updateSimple} accounts={accounts} orgType={orgType} rows={simpleBuilt.rows} errors={simpleBuilt.errors} vatExempt={vatExempt} />
+            <SimpleBookingPanel fields={simple} setFields={updateSimple} accounts={accounts} orgType={orgType} partners={partners || []} rows={simpleBuilt.rows} errors={simpleBuilt.errors} vatExempt={vatExempt} />
           ) : (
           <>
           <table className="ver-adv-table" style={{ width: '100%', minWidth: '620px', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -1321,7 +1321,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
 }
 
 // ─── Main Bokföring Component ──────────────────────────────────────────────────
-export default function Bokforing({ seriesNames, verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, uploadFn = uploadFileToStorage, initialTab, vatExempt = false, extraTabs = [] }) {
+export default function Bokforing({ seriesNames, verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, partners, uploadFn = uploadFileToStorage, initialTab, vatExempt = false, extraTabs = [], onTabChange }) {
   const [activeTab, setActiveTab] = useState(() => (initialTab && ['verifications', 'accounts', ...extraTabs.map(tab => tab.id)].includes(initialTab) ? initialTab : 'verifications'));
   // Samma mönster som Taxes.jsx:s initialSection — App.jsx:s
   // verificationsInitialTab (profilmenyns "Kontoplaner" ska landa på
@@ -1489,6 +1489,7 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
         vatPeriods={vatPeriods}
         user={user}
         orgType={orgType}
+        partners={partners}
         uploadFn={uploadFn}
         vatExempt={vatExempt}
       />
@@ -1496,7 +1497,7 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
   }
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+    <div style={{ flex: 1, minHeight: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
 
       {/* ── Top section: title + tabs ─────────────────────────── */}
       <ListPageHeader
@@ -1512,7 +1513,9 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
         tabs={{
           items: [{ id: 'verifications', label: tr('ui.verifikationer_2') }, { id: 'accounts', label: tr('ui.kontoplan_2') }, ...extraTabs.map(({ id, label }) => ({ id, label }))],
           activeId: activeTab,
-          onChange: setActiveTab,
+          // onTabChange (App.jsx) skriver fliken i adressen, så att en
+          // omladdning (t.ex. när en ny version laddas in) landar på samma flik.
+          onChange: (id) => { setActiveTab(id); onTabChange?.(id); },
         }}
       />
 
@@ -1819,9 +1822,10 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
       )}
 
       {/* Periodiseringar och Anläggningstillgångar (App.jsx:s extraTabs). Låg
-          tidigare under Skatt och bokslut, men hör till den löpande bokföringen. */}
+          tidigare under Skatt och bokslut, men hör till den löpande bokföringen.
+          Flex-kolumn så att flikens arbetsyta (ws-page) fyller hela höjden. */}
       {extraTabs.map(tab => activeTab === tab.id && (
-        <div key={tab.id} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>{tab.content}</div>
+        <div key={tab.id} style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>{tab.content}</div>
       ))}
     </div>
   );

@@ -117,6 +117,21 @@ describe('buildSimpleBooking: flytta pengar och ägare', () => {
     expect(buildSimpleBooking({ kind: 'owner_out', amount: 2000, payAccount: '1930' }, o).rows)
       .toEqual([{ account: '2013', debet: 2000, kredit: 0 }, { account: '1930', debet: 0, kredit: 2000 }])
   })
+  it('handelsbolag: insättning, uttag och privat betalning på rätt delägares konton', () => {
+    const o = { orgType: 'Handelsbolag / Kommanditbolag' }
+    expect(buildSimpleBooking({ kind: 'owner_in', amount: 500, payAccount: '1930' }, o).rows)
+      .toEqual([{ account: '1930', debet: 500, kredit: 0 }, { account: '2018', debet: 0, kredit: 500 }])
+    expect(buildSimpleBooking({ kind: 'owner_out', amount: 500, payAccount: '1930', partnerIndex: 1 }, o).rows)
+      .toEqual([{ account: '2023', debet: 500, kredit: 0 }, { account: '1930', debet: 0, kredit: 500 }])
+    const paid = buildSimpleBooking({ kind: 'expense', amount: 125, vatRate: 25, account: '5410', payPrivate: true, partnerIndex: 2 }, o).rows
+    expect(paid.at(-1)).toEqual({ account: '2038', debet: 0, kredit: 125 })
+    // Utanför delägarlistan: hålls inom de fyra serierna.
+    expect(buildSimpleBooking({ kind: 'owner_out', amount: 1, partnerIndex: 9 }, o).rows[0].account).toBe('2043')
+  })
+  it('privat betalning gäller inte aktiebolag', () => {
+    const rows = buildSimpleBooking({ kind: 'expense', amount: 125, vatRate: 25, account: '5410', payPrivate: true, payAccount: '1930' }, { orgType: 'Aktiebolag (AB)' }).rows
+    expect(rows.at(-1).account).toBe('1930')
+  })
   it('ägarhändelser nekas för aktiebolag', () => {
     expect(buildSimpleBooking({ kind: 'owner_out', amount: 2000 }, { orgType: 'Aktiebolag (AB)' }).rows).toEqual([])
   })
@@ -134,9 +149,13 @@ describe('kontolistor och val', () => {
   it('flytta pengar-listan får skattekontot med', () => {
     expect(transferAccounts(accounts).map(a => a.code)).toEqual(['1910', '1930', '1630'])
   })
-  it('ägarhändelser visas bara för enskild firma', () => {
+  it('ägarhändelser visas för enskild firma och HB/KB, inte AB eller förening', () => {
     expect(simpleKindsFor('Enskild firma').map(k => k.id)).toContain('owner_in')
+    const hb = simpleKindsFor('Handelsbolag / Kommanditbolag')
+    expect(hb.map(k => k.id)).toContain('owner_out')
+    expect(hb.find(k => k.id === 'owner_in').title).toMatch(/delägare/)
     expect(simpleKindsFor('Aktiebolag (AB)').map(k => k.id)).toEqual(['expense', 'income', 'transfer'])
+    expect(simpleKindsFor('Ekonomisk förening').map(k => k.id)).toEqual(['expense', 'income', 'transfer'])
   })
   it('kontotyper efter BAS-nummer', () => {
     expect(['1930', '2013', '2611', '3001', '5460', '8310', '8410'].map(accountKindOf))

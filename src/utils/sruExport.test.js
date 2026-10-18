@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateInk2rSru, encodeWindows1252, sruPeriod, sruOrgId, sruMissingFields } from './sruExport'
+import { generateInk2rSru, generateNeSru, encodeWindows1252, sruPeriod, sruOrgId, sruMissingFields } from './sruExport'
 import { createZip, crc32 } from './zipStore'
 
 describe('encodeWindows1252', () => {
@@ -102,3 +102,35 @@ describe('createZip', () => {
     expect(crc32(new TextEncoder().encode('123456789'))).toBe(0xCBF43926)
   })
 })
+
+describe('NE-bilagan som SRU', () => {
+  const company = { orgNr: '850315-1234', name: 'Anna Andersson', postalCode: '111 51', city: 'Stockholm' };
+  const ne = {
+    balanceRows: [{ row: 'B9', amount: 50000 }, { row: 'B15', amount: 0 }],
+    equity: -2000,
+    resultRows: [{ row: 'R1', amount: 400000 }, { row: 'R6', amount: 100000 }],
+    result: 300000,
+    tax: {
+      rows: [
+        { row: 'R12', sign: '=', amount: 300000 }, { row: 'R13', sign: '+', amount: 1200 },
+        { row: 'R17', sign: '=', amount: 301200 }, { row: 'R43', sign: '-', amount: 75300 },
+      ],
+      r47: 225900, r48: 0,
+    },
+  };
+
+  it('personnummer med sekel som identitet, NE-block med rätt koder', () => {
+    const { infoSru, blankettSru } = generateNeSru(company, ne, { start: '2026-01-01', end: '2026-12-31' }, new Date(2027, 1, 3, 10, 0, 0));
+    expect(infoSru).toContain('#ORGNR 198503151234');
+    expect(blankettSru).toContain('#BLANKETT NE-2026P4');
+    expect(blankettSru).toContain('#IDENTITET 198503151234 20270203 100000');
+    for (const line of ['#UPPGIFT 7011 20260101', '#UPPGIFT 7280 50000', '#UPPGIFT 7300 -2000', '#UPPGIFT 7400 400000',
+      '#UPPGIFT 7501 100000', '#UPPGIFT 7440 300000', '#UPPGIFT 7600 300000', '#UPPGIFT 7601 1200', '#UPPGIFT 7714 75300', '#UPPGIFT 7630 225900']) {
+      expect(blankettSru).toContain(line);
+    }
+    // Summarader och nollor skrivs inte.
+    expect(blankettSru).not.toMatch(/#UPPGIFT 7382 /);
+    expect(blankettSru).not.toMatch(/#UPPGIFT 7730 /);
+    expect(blankettSru.trim().endsWith('#FIL_SLUT')).toBe(true);
+  });
+});

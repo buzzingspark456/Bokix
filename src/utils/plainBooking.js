@@ -1,5 +1,6 @@
 import { round2 } from './fixedAssets';
 import { isReverseChargePurchaseAccount, withReverseChargeRows } from './reverseCharge';
+import { partnerAccounts, MAX_PARTNERS } from './partners';
 
 /**
  * Enkel bokföring: verifikationsrader byggda ur en vanlig händelse ("jag har
@@ -22,12 +23,39 @@ export const SIMPLE_KINDS = [
   { id: 'expense', title: 'Jag har köpt något', hint: 'Material, hyra, programvara, resor och andra kostnader' },
   { id: 'income', title: 'Jag har fått betalt', hint: 'Försäljning som redan är betald, till exempel Swish eller kontant' },
   { id: 'transfer', title: 'Jag har flyttat pengar', hint: 'Mellan bank, kassa och skattekonto' },
-  { id: 'owner_in', title: 'Jag har satt in egna pengar', hint: 'Pengar från dig privat till firman', soleProp: true },
-  { id: 'owner_out', title: 'Jag har tagit ut pengar', hint: 'Uttag till dig själv från firman', soleProp: true },
+  { id: 'owner_in', title: 'Jag har satt in egna pengar', hint: 'Pengar från dig privat till firman', owner: true },
+  { id: 'owner_out', title: 'Jag har tagit ut pengar', hint: 'Uttag till dig själv från firman', owner: true },
 ];
 
+// Handels- och kommanditbolag: samma händelser, men pengarna är en delägares.
+const PARTNERSHIP_TEXTS = {
+  owner_in: { title: 'En delägare har satt in pengar', hint: 'Pengar från en delägare privat till bolaget' },
+  owner_out: { title: 'En delägare har tagit ut pengar', hint: 'Uttag till en delägare från bolaget' },
+};
+
+export const isPartnershipType = (orgType) => orgType === 'Handelsbolag / Kommanditbolag';
+
+/** Har ägarna egna insättningar och uttag (enskild firma, HB och KB)? I ett
+ * aktiebolag eller en förening är bolagets pengar inte ägarens. */
+export function hasOwnerAccounts(orgType) {
+  return orgType === 'Enskild firma' || isPartnershipType(orgType);
+}
+
 export function simpleKindsFor(orgType) {
-  return SIMPLE_KINDS.filter(k => !k.soleProp || orgType === 'Enskild firma');
+  return SIMPLE_KINDS
+    .filter(k => !k.owner || hasOwnerAccounts(orgType))
+    .map(k => (k.owner && isPartnershipType(orgType) ? { ...k, ...PARTNERSHIP_TEXTS[k.id] } : k));
+}
+
+/** Kontona för egen insättning och eget uttag. Enskild firma: 2018/2013.
+ * HB/KB: delägarens egen serie (2018/2013, 2028/2023 ...), se partners.js. */
+export function ownerAccountsFor(orgType, partnerIndex = 0) {
+  if (isPartnershipType(orgType)) {
+    const i = Math.min(Math.max(Math.trunc(Number(partnerIndex)) || 0, 0), MAX_PARTNERS - 1);
+    const a = partnerAccounts(i);
+    return { deposit: a.insattning, withdrawal: a.uttag };
+  }
+  return { deposit: OWNER_DEPOSIT, withdrawal: OWNER_WITHDRAWAL };
 }
 
 /** Delar ett belopp inklusive moms i netto och moms, till hela ören. */
@@ -60,7 +88,8 @@ const num = (v) => round2(Number(String(v ?? '').replace(',', '.')) || 0);
  * `rows` är tom så länge något saknas; `errors` säger vad.
  *
  * fields: kind, amount (inklusive moms), vatRate, account, payAccount,
- * fromAccount, toAccount, payPrivate (enskild firma betalade med egna pengar).
+ * fromAccount, toAccount, payPrivate (ägaren betalade med egna pengar),
+ * partnerIndex (vilken delägare i ett HB/KB, 0 = den första).
  */
 export function buildSimpleBooking(fields, { orgType, vatExempt = false } = {}) {
   // Inte momsregistrerat: ingen moms, varken på köp (momsen blir en del av
@@ -71,11 +100,11 @@ export function buildSimpleBooking(fields, { orgType, vatExempt = false } = {}) 
   const fail = (msg) => { errors.push(msg); return { rows: [], errors }; };
   if (!(amount > 0)) return fail('Fyll i ett belopp.');
 
-  const isSoleProp = orgType === 'Enskild firma';
+  const ownerAccounts = hasOwnerAccounts(orgType) ? ownerAccountsFor(orgType, f.partnerIndex) : null;
 
   if (f.kind === 'expense') {
     const rate = Number(f.vatRate) || 0;
-    const pay = f.payPrivate && isSoleProp ? OWNER_DEPOSIT : (f.payAccount || DEFAULT_BANK);
+    const pay = f.payPrivate && ownerAccounts ? ownerAccounts.deposit : (f.payAccount || DEFAULT_BANK);
     if (!f.account) return fail('Välj vad du har köpt.');
     if (!/^[14-8]/.test(f.account) || /^19/.test(f.account)) return fail('Välj ett konto för kostnaden eller tillgången du köpt.');
     if (f.account === pay) return fail('Kostnaden och betalkontot kan inte vara samma konto.');
@@ -122,11 +151,11 @@ export function buildSimpleBooking(fields, { orgType, vatExempt = false } = {}) 
   }
 
   if (f.kind === 'owner_in' || f.kind === 'owner_out') {
-    if (!isSoleProp) return fail('Egna insättningar och uttag gäller enskild firma.');
+    if (!ownerAccounts) return fail('Egna insättningar och uttag gäller enskild firma, handelsbolag och kommanditbolag.');
     const bank = f.payAccount || DEFAULT_BANK;
     return f.kind === 'owner_in'
-      ? { rows: [{ account: bank, debet: amount, kredit: 0 }, { account: OWNER_DEPOSIT, debet: 0, kredit: amount }], errors }
-      : { rows: [{ account: OWNER_WITHDRAWAL, debet: amount, kredit: 0 }, { account: bank, debet: 0, kredit: amount }], errors };
+      ? { rows: [{ account: bank, debet: amount, kredit: 0 }, { account: ownerAccounts.deposit, debet: 0, kredit: amount }], errors }
+      : { rows: [{ account: ownerAccounts.withdrawal, debet: amount, kredit: 0 }, { account: bank, debet: 0, kredit: amount }], errors };
   }
 
   return fail('Välj vad som har hänt.');

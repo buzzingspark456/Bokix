@@ -34,6 +34,7 @@ const SOURCE_SERIES = {
   accrual: 'H',
   depreciation: 'H',
   year_end_close: 'I',
+  year_open_transfer: 'I',
   equity_reclass: 'I',
   dividend: 'I',
   partner_allocation: 'I',

@@ -94,6 +94,88 @@ export function buildYearEndClosing({ verifications, year, orgType, partners }) 
   };
 }
 
+/** Dagen efter ett datum (ÅÅÅÅ-MM-DD). */
+function dayAfter(date) {
+  const d = new Date(`${date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Vilka eget kapital-konton som förs över till vilket vid årets början.
+ * Aktiebolag, föreningar m.fl.: 2099 Årets resultat → 2098 Vinst eller
+ * förlust från föregående år. Enskild firma: 2011–2019 (uttag, insättningar,
+ * resultat) → 2010 Eget kapital. HB/KB med delägare: samma sak i varje
+ * delägares serie, 20N1–20N9 → 20N0. */
+function openingTransferPlan(orgType, partners) {
+  if (orgType === 'Enskild firma') {
+    return { result: ['2019'], moves: Array.from({ length: 9 }, (_, i) => [String(2011 + i), '2010']) };
+  }
+  if (isTradingPartnershipType(orgType) && validatePartners(partners).length === 0) {
+    const moves = [];
+    const result = [];
+    partners.forEach((_, i) => {
+      const a = partnerAccounts(i);
+      result.push(a.resultat);
+      for (let n = 1; n <= 9; n++) moves.push([String(Number(a.equity) + n), a.equity]);
+    });
+    return { result, moves };
+  }
+  return { result: ['2099'], moves: [['2099', '2098']] };
+}
+
+/**
+ * Omföringen vid nästa års början, efter bokslutet: årets resultat (och för
+ * enskild firma och delägare även årets uttag och insättningar) förs till
+ * eget kapital-kontot som gäller över åren. Dateras dagen efter årets slut.
+ *
+ * `closing` är bokslutsverifikationen som just bokas (finns inte i
+ * `verifications` än). Returnerar null när inget finns att föra över, eller
+ * när resultatkontot redan rörts efter årets slut (omföringen är redan gjord
+ * för hand, t.ex. i ett tidigare program).
+ */
+export function buildOpeningTransfer({ verifications, year, orgType, partners, closing = null }) {
+  const end = periodEnd(year);
+  const label = periodLabel(year);
+  const plan = openingTransferPlan(orgType, partners);
+  const all = [...(verifications || []), ...(closing ? [closing] : [])]
+    .filter(v => (v.status || 'booked') !== 'draft' && v.date);
+  if (all.some(v => v.date > end && v.source !== 'year_end_close' && (v.rows || []).some(r => plan.result.includes(String(r.account))))) return null;
+  if (all.some(v => v.sourceId === `yearopen_${label}`)) return null;
+
+  const balance = new Map(); // kreditsida positiv
+  all.forEach(v => {
+    if (v.date > end) return;
+    (v.rows || []).forEach(r => {
+      const code = String(r.account || '');
+      if (!code.startsWith('20')) return;
+      balance.set(code, round2((balance.get(code) || 0) + getKredit(r) - getDebet(r)));
+    });
+  });
+
+  const rows = [];
+  const toTotals = new Map();
+  plan.moves.forEach(([from, to]) => {
+    const b = balance.get(from) || 0;
+    if (!b) return;
+    rows.push(b > 0 ? { account: from, debet: b, kredit: 0 } : { account: from, debet: 0, kredit: -b });
+    toTotals.set(to, round2((toTotals.get(to) || 0) + b));
+  });
+  toTotals.forEach((b, to) => {
+    if (!b) return;
+    rows.push(b > 0 ? { account: to, debet: 0, kredit: b } : { account: to, debet: -b, kredit: 0 });
+  });
+  if (rows.length === 0) return null;
+  return {
+    date: dayAfter(end),
+    description: orgType === 'Enskild firma' || isTradingPartnershipType(orgType)
+      ? `Omföring av eget kapital ${label}`
+      : `Omföring av föregående års resultat ${label}`,
+    source: 'year_open_transfer',
+    sourceId: `yearopen_${label}`,
+    rows,
+  };
+}
+
 /**
  * Rättelse för ett år som låstes innan bokslutet lärde sig bolagsformen: då
  * bokades årets resultat på 2099 även för en enskild firma, där det ska ligga

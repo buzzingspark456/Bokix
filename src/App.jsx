@@ -390,8 +390,12 @@ const Projects = lazy(() => import('./components/Projects'));
 const TimeTracking = lazy(() => import('./components/TimeTracking'));
 const Payroll = lazy(() => import('./components/Payroll'));
 const Taxes = lazy(() => import('./components/Taxes'));
-const FixedAssets = lazy(() => import('./components/FixedAssets'));
-const Accruals = lazy(() => import('./components/Accruals'));
+// Flikarna under Bokföring hämtas i förväg när sidan öppnas (se useEffect
+// på activeTab nedan), annars stod Verifikationer kvar en stund efter klicket.
+const loadFixedAssets = () => import('./components/FixedAssets');
+const loadAccruals = () => import('./components/Accruals');
+const FixedAssets = lazy(loadFixedAssets);
+const Accruals = lazy(loadAccruals);
 // Alla ANDRA marknads-/juridiksidor (FeaturesPage/PricingPage/AboutPage/
 // ContactPage/PrivacyPolicy/TermsPolicy/
 // CookiesPolicy/PersonuppgiftsBitradesAvtal) flyttade till AppRouter.jsx
@@ -435,6 +439,7 @@ import AddCompanyModal from './components/AddCompanyModal';
 import { maybeAutoStartTour, startProductTourWhenReady } from './utils/productTour';
 import { startInvoiceTourWhenReady } from './utils/invoiceTour';
 import { mergeCompanies, mergeCompany, makeRecordPatch, buildStateDelta } from './utils/stateMerge';
+import { readServerState, rememberServerState, isCacheUsable, noteCachedAt, clearServerState } from './utils/serverStateCache';
 
 // Fallback under den enda <Suspense> som omsluter App-komponentens JSX (se
 // return-satsen längre ner) — visas bara under den korta stund en lazy-flik
@@ -1041,6 +1046,7 @@ function clearLocalData() {
   // En väntande skrivning får aldrig lägga tillbaka kopian efter utloggning.
   pendingLocalSave = null;
   cancelLocalSaveTimer();
+  clearServerState();
   clearActive();
   setAppLock(null);
   try {
@@ -1222,6 +1228,10 @@ function App() {
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'verifications') { loadAccruals().catch(() => {}); loadFixedAssets().catch(() => {}); }
+  }, [activeTab]);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Sidomenyn krymper själv steg för steg (data-fit, index.css) tills hela listan ryms utan
@@ -2102,6 +2112,8 @@ function App() {
         lastSavedOwnRef.current = { companies: ownCompanies, snapshot };
         ref.baseCompanies = savedCompanies;
         ref.baseSnapshot = snapshot;
+        // Det som nu ligger i raden, för nästa start (utils/serverStateCache.js).
+        rememberServerState(user.id, ref.updatedAt, { ...snapshot, companies: savedCompanies });
         if (savedCompanies === ownCompanies) return;
         // Visa det andra ändrat, utan att tappa det som skrivits här
         // medan sparningen pågick.
@@ -2432,12 +2444,16 @@ function App() {
       // Hastighet: de här fyra frågorna hängde förut på varandra, en
       // tur-och-retur till Supabase i taget. Nu startar de samtidigt och
       // väntas in där de behövs. (Supabase-frågor körs först vid .then.)
+      // Först utan själva kontot (state): är raden oförändrad sedan förra
+      // gången används kopian i webbläsaren (utils/serverStateCache.js) och
+      // bara de små kolumnerna går över nätet. Annars hämtas state efteråt.
       const userDataPromise = supabase
         .from('user_data')
-        .select('state,updated_at,onboarding_completed,onboarding_skipped,company_name,company_orgnr,contact_details,company_settings')
+        .select('updated_at,onboarding_completed,onboarding_skipped,company_name,company_orgnr,contact_details,company_settings')
         .eq('user_id', authUser.id)
         .maybeSingle()
         .then(r => r);
+      const cachedServerStatePromise = readServerState(authUser.id).catch(() => null);
       const ownedMembershipsPromise = supabase.from('company_members').select('company_id').eq('owner_user_id', authUser.id).eq('status', 'active').then(r => r);
       const firstSubscriptionsPromise = supabase
         .from('subscriptions')
@@ -2607,8 +2623,10 @@ function App() {
           .eq('user_id', authUser.id)
           .maybeSingle();
 
+        // Ett riktigt fel (nät, tidsgräns) får aldrig tolkas som "ingen rad":
+        // då skapades ett tomt företag och sparades över det riktiga kontot.
         if (fallback.error && fallback.error.code !== 'PGRST116' && !isSupabaseUnavailableError(fallback.error)) {
-          console.error('Error fetching data:', fallback.error);
+          throw fallback.error;
         }
 
         if (isSupabaseUnavailableError(fallback.error)) {
@@ -2623,8 +2641,25 @@ function App() {
         }
 
         resultData = fallback.data;
+        if (resultData?.state && resultData.updated_at) rememberServerState(authUser.id, resultData.updated_at, resultData.state, { fullFetch: true });
       } else {
         setDbSupportsProfileColumns(true);
+        if (resultData) {
+          const cached = await cachedServerStatePromise;
+          if (isCacheUsable(cached, authUser.id, resultData.updated_at)) {
+            resultData = { ...resultData, state: cached.state };
+            noteCachedAt(authUser.id, cached.cachedAt);
+          } else {
+            const { data: full, error: fullError } = await supabase
+              .from('user_data')
+              .select('state,updated_at')
+              .eq('user_id', authUser.id)
+              .maybeSingle();
+            if (fullError) throw fullError;
+            resultData = { ...resultData, state: full?.state ?? null, updated_at: full?.updated_at ?? resultData.updated_at };
+            if (full?.state && full.updated_at) rememberServerState(authUser.id, full.updated_at, full.state, { fullFetch: true });
+          }
+        }
       }
 
       if (resultData && resultData.state) {
@@ -2735,6 +2770,7 @@ function App() {
       }
     } catch (err) {
       console.error(err);
+      setToast({ message: tr('ui.kunde_inte_hamta_kontot'), variant: 'error' });
     } finally {
       setIsLoadingAuth(false);
     }
@@ -3829,7 +3865,7 @@ function App() {
     // importerad historik lämnas som de är.
     const stripVat = isVatExempt(company) && incomingVer?.source
       && !String(incomingVer.source).startsWith('sie_import')
-      && !['year_end_close', 'skattekonto_import', 'equity_reclass'].includes(incomingVer.source);
+      && !['year_end_close', 'year_open_transfer', 'skattekonto_import', 'equity_reclass'].includes(incomingVer.source);
     const newVer = stripVat ? { ...incomingVer, rows: stripVatRows(incomingVer.rows) } : incomingVer;
     setVerifications(prev => {
       // Bugkritiskt: "Fortsätt redigera utkastet" i Verifications.jsx skickar
@@ -5453,6 +5489,7 @@ function App() {
             projects={projects}
             templates={verificationTemplates}
             orgType={detectOrgType(company?.orgNr)}
+            partners={company?.partners}
             vatExempt={isVatExempt(company)}
             onSaveTemplate={handleSaveVerificationTemplate}
             onAdd={handleAddVerification}
@@ -5491,6 +5528,7 @@ function App() {
             projects={projects}
             templates={verificationTemplates}
             orgType={detectOrgType(company?.orgNr)}
+            partners={company?.partners}
             vatExempt={isVatExempt(company)}
             onSaveTemplate={handleSaveVerificationTemplate}
             onAdd={handleAddVerification}
@@ -5500,6 +5538,14 @@ function App() {
             highlightVerificationId={highlightVerificationId}
             onClearHighlight={() => setHighlightVerificationId(null)}
             initialTab={verificationsInitialTab}
+            // Fliken i adressen (#accruals, #fixed_assets, #accounts). Utan den
+            // landade en omladdning på Verifikationer, t.ex. när appen laddar om
+            // sig själv för att en ny version publicerats (utils/staleBuild.js).
+            // replaceState: ingen ny historikpost och ingen hashchange.
+            onTabChange={(id) => {
+              setVerificationsInitialTab(id);
+              try { window.history.replaceState(window.history.state, '', `#${id}`); } catch { /* adressen är bara en bekvämlighet */ }
+            }}
             extraTabs={isUfCompany(company) ? [] : [
               { id: 'accruals', label: tr('ui.periodiseringar'), content: <Accruals company={company} accounts={accounts} verifications={verifications} employees={employees} payrollRuns={payrollRuns} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
               { id: 'fixed_assets', label: tr('ui.anlaggningstillgangar'), content: <FixedAssets company={company} accounts={accounts} verifications={verifications} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },

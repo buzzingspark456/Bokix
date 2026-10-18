@@ -13,7 +13,7 @@ import { previousFiscalYear, annualReportDeadline, agmDeadline } from '../utils/
 import { pendingDepreciation } from '../utils/fixedAssets';
 import { isReconciledThrough } from '../utils/reconciliation';
 import ListPageHeader from './shared/ListPageHeader';
-import { computeYearResult, buildYearEndClosing, buildResultReclassification, legacyLockedYears } from '../utils/yearEnd';
+import { computeYearResult, buildYearEndClosing, buildOpeningTransfer, buildResultReclassification, legacyLockedYears } from '../utils/yearEnd';
 import { validatePartners } from '../utils/partners';
 import { detectOrgType } from '../utils/orgType';
 import { isUfCompany, UF_TAX_SECTION_IDS } from '../utils/ufMode';
@@ -29,7 +29,8 @@ import { preloadSkattetabell } from '../utils/skattetabell';
 import { computeInk2r } from '../utils/ink2r';
 import { computeInk2rResultat } from '../utils/ink2rResultat';
 import { computeNeBalance, computeNeResult, computeNeBalanceSuggestions, computeNeResultSuggestions } from '../utils/ne';
-import { sruMissingFields } from '../utils/sruExport';
+import { computeNeTaxChain, birthYearFromPersonnummer } from '../utils/neTax';
+import { sruMissingFields, downloadNeSru } from '../utils/sruExport';
 import { vatContextFor } from '../utils/declarationDeadlines';
 import { nextVatDeadline, nextAgiDeadline, nextKuDeadline, vatDueDate, yearlyVatDueDate, incomeDeclarationDueDate, daysFromToday } from '../utils/declarationDeadlines';
 import { confirmDialog } from './shared/ConfirmDialog';
@@ -315,6 +316,48 @@ function NeFormColumn({ title, groups, values, onChange, disabled, derived, sugg
   );
 }
 
+/** En räknad rad på NE sidan 2 (R17, R29 ...): ingen inmatning, bara summan. */
+function NeDerivedField({ row, amount, last }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: last ? 'none' : '1px solid var(--border-light)' }}>
+      <span style={{ width: '38px', flexShrink: 0, fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{row.row}</span>
+      <span style={{ flex: 1, fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', lineHeight: 1.4, minWidth: 0 }}>{row.label}</span>
+      <span style={{ width: '116px', textAlign: 'right', fontSize: '13.5px', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: amount < 0 ? 'var(--status-red-text)' : 'var(--text-main)' }}>{fmt(amount)}</span>
+    </div>
+  );
+}
+
+/** NE-bilagans sida 2: inmatning för justeringarna, summor räknas fram. */
+function NeTaxSection({ groups, stored, onChange, disabled, warnings }) {
+  const warnFor = (key) => warnings.find(w => w.key === key)?.text;
+  return (
+    <div>
+      {groups.map(g => (
+        <div key={g.group} style={{ marginBottom: '16px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>{g.group}</div>
+          {g.rows.map((r, i) => (
+            <div key={r.key}>
+              {r.sign === '='
+                ? <NeDerivedField row={r} amount={r.amount} last={i === g.rows.length - 1} />
+                : (
+                  <NeFormField
+                    row={r}
+                    value={stored?.[r.key] !== undefined ? stored[r.key] : (r.amount ? String(r.amount) : '')}
+                    disabled={disabled}
+                    onChange={v => onChange(r.key, v)}
+                    isSuggested={r.suggested}
+                    last={i === g.rows.length - 1}
+                  />
+                )}
+              {warnFor(r.key) && <div className="fp-hint bad" style={{ margin: '0 0 6px 48px' }}>{warnFor(r.key)}</div>}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Taxes({
   company, verifications = [], invoices = [], expenses = [], accounts = [], contacts = [],
   employees = [], payrollRuns = [], agiReports = [],
@@ -556,7 +599,7 @@ export default function Taxes({
       },
     }));
   };
-  const hasAnyNeValue = [...Object.values(neStoredValues.balance || {}), ...Object.values(neStoredValues.result || {})]
+  const hasAnyNeValue = [...Object.values(neStoredValues.balance || {}), ...Object.values(neStoredValues.result || {}), ...Object.values(neStoredValues.tax || {})]
     .some(v => v !== '' && v != null);
   const resetNeValues = async () => {
     if (isLocked || !hasAnyNeValue) return;
@@ -581,6 +624,36 @@ export default function Taxes({
   const neResultByGroup = ['Intäkter', 'Kostnader', 'Avskrivningar'].map(group => ({
     group, rows: neResult.rows.filter(r => r.group === group),
   }));
+  // Sida 2 (R12–R48, utils/neTax.js). Åren räknas i följd så att förra
+  // årets R43/R48 och periodiseringsfonderna följer med. Enskild firma har
+  // kalenderår; för ett annat räkenskapsår räknas bara det här året.
+  const neTaxChain = useMemo(() => {
+    if (!isSoleProp) return null;
+    const currentYear = fy.isCalendar ? Number(fy.key) : null;
+    let years;
+    if (currentYear) {
+      const known = [
+        ...Object.keys(company?.ne || {}).filter(k => /^d{4}$/.test(k)).map(Number),
+        ...verifications.map(v => Number(String(v.date || '').slice(0, 4))).filter(Boolean),
+      ].filter(y => y <= currentYear);
+      const first = Math.max(Math.min(currentYear, ...known), currentYear - 8);
+      years = [];
+      for (let y = first; y <= currentYear; y++) {
+        const key = String(y);
+        const r12 = y === currentYear
+          ? neResult.total
+          : computeNeResult(mergeNeValues(computeNeResultSuggestions(verifications, key).values, company?.ne?.[key]?.result)).total;
+        years.push({ key, start: `${key}-01-01`, end: `${key}-12-31`, r12 });
+      }
+    } else {
+      years = [{ key: fyKey, start: fy.start, end: fy.end, r12: neResult.total }];
+    }
+    return computeNeTaxChain({ years, neByKey: company?.ne, verifications, birthYear: birthYearFromPersonnummer(company?.orgNr) });
+  }, [isSoleProp, fy.key, fy.isCalendar, fy.start, fy.end, fyKey, company?.ne, company?.orgNr, verifications, neResult.total]); // eslint-disable-line react-hooks/exhaustive-deps
+  const neTax = neTaxChain?.[fyKey] || null;
+  const neTaxByGroup = neTax
+    ? [...new Set(neTax.rows.map(r => r.group))].map(group => ({ group, rows: neTax.rows.filter(r => r.group === group) }))
+    : [];
   const neFilledCount = [...neBalance.rows, ...neResult.rows].filter(r => r.amount).length;
   const neTotalFields = neBalance.rows.length + neResult.rows.length;
 
@@ -701,6 +774,10 @@ export default function Taxes({
       verifications, year: fyPeriod, orgType, partners: company?.partners,
     });
     if (verification) onAddVerification(verification);
+    // Omföringen till nästa år (2099 → 2098, enskild firma och delägare till
+    // 20N0), dagen efter årets slut. Görs inte om den redan gjorts för hand.
+    const transfer = buildOpeningTransfer({ verifications, year: fyPeriod, orgType, partners: company?.partners, closing: verification });
+    if (transfer) onAddVerification(transfer);
 
     setCompanyInfo(prev => ({
       ...prev,
@@ -1365,12 +1442,21 @@ export default function Taxes({
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <button
                       disabled={neFilledCount === 0}
-                      onClick={() => downloadNePdf({ company, year: fy.label, balanceRows: neBalance.rows, resultRows: neResult.rows, equity: neBalance.equity, result: neResult.total }, `ne-bilaga-${fyKey.replace('/', '-')}.pdf`)}
+                      onClick={() => downloadNePdf({ company, year: fy.label, balanceRows: neBalance.rows, resultRows: neResult.rows, equity: neBalance.equity, result: neResult.total, tax: neTax }, `ne-bilaga-${fyKey.replace('/', '-')}.pdf`)}
                       style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: neFilledCount === 0 ? 'var(--border)' : 'var(--accent)', color: neFilledCount === 0 ? 'var(--text-muted)' : 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: neFilledCount === 0 ? 'not-allowed' : 'pointer' }}
                     >
                       <Download size={14} /> {tr('ui.ladda_ner_pdf')}
                     </button>
-                    <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>{tr('ui.bara_en_renskrift_av_det_du_fyllt_i_har_inte_sja')}</span>
+                    {/* SRU-fil för "Importera NE-bilagan" i Skatteverkets e-tjänst. */}
+                    <button
+                      disabled={neFilledCount === 0 || sruMissingFields(company).length > 0}
+                      title={sruMissingFields(company).length > 0 ? tr('ui.ne_sru_saknas', { fields: sruMissingFields(company).join(', ') }) : undefined}
+                      onClick={() => downloadNeSru(company, { balanceRows: neBalance.rows, equity: neBalance.equity, resultRows: neResult.rows, result: neResult.total, tax: neTax }, { start: fy.start, end: fy.end })}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: neFilledCount === 0 || sruMissingFields(company).length > 0 ? 'not-allowed' : 'pointer', opacity: neFilledCount === 0 || sruMissingFields(company).length > 0 ? 0.55 : 1 }}
+                    >
+                      <Download size={14} /> {tr('ui.ne_ladda_ner_sru')}
+                    </button>
+                    <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>{tr('ui.ne_sru_forklaring')}</span>
                   </div>
                 </Ink2Step>
                 <Ink2Step n={3} title={tr('ui.fyll_i_ne_bilagan_hos_skatteverket')} last>
@@ -1432,6 +1518,31 @@ export default function Taxes({
                     }
                   />
                 </div>
+
+                {neTax && (
+                  <>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', margin: '24px 0 4px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>{tr('ui.ne_sida_2_skattemassiga_justeringar')}</div>
+                    <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--text-secondary)', maxWidth: '620px', lineHeight: 1.5 }}>
+                      {tr('ui.ne_sida_2_forklaring', { pct: Math.round(neTax.schablonRate * 100) })}
+                      {neTax.fundsAtStart.length > 0 && (' ' + tr('ui.ne_periodiseringsfonder_kvar', { list: neTax.fundsAtStart.map(f => `${f.year}: ${fmt(f.amount)}`).join(', ') }))}
+                    </p>
+                    <div style={{ maxWidth: '620px' }}>
+                      <NeTaxSection
+                        groups={neTaxByGroup}
+                        stored={neStoredValues.tax}
+                        onChange={(key, v) => updateNeValue('tax', key, v)}
+                        disabled={isLocked}
+                        warnings={neTax.warnings}
+                      />
+                      <Ink2sStatTile
+                        label={neTax.r48 > 0 ? tr('ui.ne_r48_underskott') : tr('ui.ne_r47_overskott')}
+                        amount={neTax.r48 > 0 ? -neTax.r48 : neTax.r47}
+                        tone={neTax.r48 > 0 ? 'red' : 'green'}
+                        Icon={neTax.r48 > 0 ? TrendingDown : TrendingUp}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}

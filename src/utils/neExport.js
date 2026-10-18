@@ -13,7 +13,7 @@ const fmtKr = (v) => `${Math.round(v || 0).toLocaleString('sv-SE')} kr`;
  * renderar (row/label/amount), så PDF:en aldrig kan visa andra siffror
  * än vad som redan syns på skärmen.
  */
-export function generateNePdf({ company, year, balanceRows, resultRows, equity, result }) {
+export function generateNePdf({ company, year, balanceRows, resultRows, equity, result, tax = null }) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const marginX = 48;
   let y = 56;
@@ -58,6 +58,28 @@ export function generateNePdf({ company, year, balanceRows, resultRows, equity, 
   doc.text('R11 Bokfört resultat', marginX, y);
   doc.text(fmtKr(result), 548, y, { align: 'right' });
   y += 30;
+
+  // Sida 2 (utils/neTax.js): bara rader med belopp, summorna i fetstil.
+  if (tax) {
+    if (y > 640) { doc.addPage(); y = 56; }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text('Skattemässiga justeringar (sida 2)', marginX, y);
+    y += 20;
+    doc.setFontSize(10.5);
+    tax.rows.filter(r => r.amount || r.sign === '=').forEach(r => {
+      if (y > 760) { doc.addPage(); y = 56; }
+      doc.setFont('helvetica', r.sign === '=' ? 'bold' : 'normal');
+      const sign = r.sign === '=' ? '' : `(${r.sign}) `;
+      doc.text(`${r.row}  ${sign}${r.label}`, marginX, y, { maxWidth: 400 });
+      doc.text(fmtKr(r.amount), 548, y, { align: 'right' });
+      y += 18;
+    });
+    doc.setFont('helvetica', 'bold');
+    doc.text(tax.r48 > 0 ? 'R48 Underskott' : 'R47 Överskott', marginX, y);
+    doc.text(fmtKr(tax.r48 > 0 ? tax.r48 : tax.r47), 548, y, { align: 'right' });
+    y += 30;
+  }
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);

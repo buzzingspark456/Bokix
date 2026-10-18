@@ -2,8 +2,9 @@ import React from 'react';
 import { CheckCircle2 } from '../icons';
 import { AccountSearch } from './SearchInputs';
 import {
-  VAT_RATES, simpleKindsFor, paymentAccounts, transferAccounts, describeVerification,
+  VAT_RATES, simpleKindsFor, paymentAccounts, transferAccounts, describeVerification, hasOwnerAccounts, isPartnershipType,
 } from '../../utils/plainBooking';
+import { MAX_PARTNERS } from '../../utils/partners';
 import { t } from '../../i18n';
 import { numberFormat } from '../../utils/intlCache';
 
@@ -32,12 +33,26 @@ function Field({ title, children }) {
  *
  * `rows` är de byggda raderna (tal), `errors` det som saknas.
  */
-export default function SimpleBookingPanel({ fields, setFields, accounts, orgType, rows, errors, vatExempt = false }) {
+export default function SimpleBookingPanel({ fields, setFields, accounts, orgType, partners = [], rows, errors, vatExempt = false }) {
   const set = (patch) => setFields(prev => ({ ...prev, ...patch }));
   const kinds = simpleKindsFor(orgType);
   const payments = paymentAccounts(accounts);
   const transfers = transferAccounts(accounts);
-  const isSoleProp = orgType === 'Enskild firma';
+  const ownMoney = hasOwnerAccounts(orgType);
+  // HB/KB: vems pengar? Delägarna läggs upp under Skatt och bokslut; finns
+  // inga än väljs bland delägare 1–4 (samma kontoserier, se partners.js).
+  const partnerChoices = isPartnershipType(orgType)
+    ? (partners.length > 0
+      ? partners.slice(0, MAX_PARTNERS).map((p, i) => ({ index: i, name: p.name || t('ui.delagare_nr', { n: i + 1 }) }))
+      : Array.from({ length: MAX_PARTNERS }, (_, i) => ({ index: i, name: t('ui.delagare_nr', { n: i + 1 }) })))
+    : [];
+  const partnerField = partnerChoices.length > 0 && (
+    <Field title={t('ui.vilken_delagare')}>
+      <select value={fields.partnerIndex ?? 0} onChange={e => set({ partnerIndex: Number(e.target.value) })} style={inp}>
+        {partnerChoices.map(p => <option key={p.index} value={p.index}>{p.name}</option>)}
+      </select>
+    </Field>
+  );
   const expenseAccounts = (accounts || []).filter(a => /^[14-8]/.test(a.code) && !/^19/.test(a.code));
   const incomeAccounts = (accounts || []).filter(a => /^[38]/.test(a.code));
   const preview = describeVerification(rows, accounts);
@@ -109,15 +124,16 @@ export default function SimpleBookingPanel({ fields, setFields, accounts, orgTyp
             </Field>
             <Field title={t('ui.hur_betalade_du')}>
               <select
-                value={fields.payPrivate && isSoleProp ? 'private' : fields.payAccount}
+                value={fields.payPrivate && ownMoney ? 'private' : fields.payAccount}
                 onChange={e => (e.target.value === 'private' ? set({ payPrivate: true }) : set({ payPrivate: false, payAccount: e.target.value }))}
                 style={inp}
               >
                 {payments.map(a => <option key={a.code} value={a.code}>{a.name}</option>)}
                 {(accounts || []).some(a => String(a.code) === '2440') && <option value="2440">{t('ui.annu_inte_betalt_leverantorsskuld')}</option>}
-                {isSoleProp && <option value="private">{t('ui.med_egna_pengar_privat')}</option>}
+                {ownMoney && <option value="private">{t('ui.med_egna_pengar_privat')}</option>}
               </select>
             </Field>
+            {fields.payPrivate && partnerField}
           </>
         )}
 
@@ -148,6 +164,7 @@ export default function SimpleBookingPanel({ fields, setFields, accounts, orgTyp
         {(kind === 'owner_in' || kind === 'owner_out') && (
           <>
             {amountField('Belopp (kr)')}
+            {partnerField}
             <Field title={kind === 'owner_in' ? t('ui.vart_satte_du_in_pengarna') : t('ui.fran_vilket_konto_togs_pengarna')}>
               {accountSelect(fields.payAccount, v => set({ payAccount: v }), payments)}
             </Field>

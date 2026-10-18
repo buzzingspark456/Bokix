@@ -26,7 +26,9 @@ export function computeEquityStatement(verifications, accounts, start, end) {
 
   (verifications || []).forEach(v => {
     if (!isBooked(v) || !v.date || v.date > end) return;
-    const inYear = v.date >= start;
+    // Omföringen vid årets början räknas till det ingående kapitalet, så
+    // årets uttag och insättningar inte syns som minskade av den.
+    const inYear = v.date >= start && v.source !== 'year_open_transfer';
     if (v.source === 'year_end_close' && inYear) return;
     (v.rows || []).forEach(r => {
       const net = getKredit(r) - getDebet(r); // kreditsida positiv

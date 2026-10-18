@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient';
+import { compressImageFile } from './imageCompress';
 
 /**
  * Laddar upp en fil till samma Supabase Storage-bucket som profilbild/
@@ -7,7 +8,9 @@ import { supabase } from '../supabaseClient';
  * till en verifikation) — samma bucket, samma felhantering, en plats att
  * underhålla istället för två drivande implementationer.
  */
-export async function uploadFileToStorage(userId, file, folder = 'files') {
+export async function uploadFileToStorage(userId, originalFile, folder = 'files') {
+  // Telefonfoton krymps först (se imageCompress.js); PDF:er och små filer går igenom orörda.
+  const file = await compressImageFile(originalFile);
   // Säkerhetsfix (säkerhetsgranskningen): `file.name` kommer rakt från
   // användarens filväljare, helt fri text. En fil UTAN punkt i namnet
   // (t.ex. "../../evil") gjorde annars hela filnamnet till "ändelsen" och

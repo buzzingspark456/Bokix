@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildYearEndClosing, computeYearResult, resultAccountFor } from './yearEnd'
+import { buildYearEndClosing, buildOpeningTransfer, computeYearResult, resultAccountFor } from './yearEnd'
 import { sumFlowByType, computeBalanceSheet, computeLedger, isClosingEntry } from './reportCalculations'
 import { computeInk2rResultat } from './ink2rResultat'
 import { computeNeResultSuggestions } from './ne'
@@ -158,3 +158,54 @@ describe('rättelse av år som låstes före bolagsformen', () => {
     expect(legacyLockedYears(undefined)).toEqual([])
   })
 })
+
+describe('buildOpeningTransfer', () => {
+  const closingFor = (orgType, partners) => buildYearEndClosing({ verifications: year, year: '2026', orgType, partners }).verification
+  const net = (rows, code) => Math.round(rows.filter(r => r.account === code).reduce((s, r) => s + (r.kredit || 0) - (r.debet || 0), 0) * 100) / 100
+
+  it('aktiebolag: 2099 till 2098 dagen efter årets slut', () => {
+    const closing = closingFor('Aktiebolag (AB)')
+    const t = buildOpeningTransfer({ verifications: year, year: '2026', orgType: 'Aktiebolag (AB)', closing })
+    expect(t.date).toBe('2027-01-01')
+    expect(t.sourceId).toBe('yearopen_2026')
+    expect(net(t.rows, '2099')).toBe(-net(closing.rows, '2099'))
+    expect(net(t.rows, '2098')).toBe(net(closing.rows, '2099'))
+    expect(sum(t.rows, 'debet')).toBe(sum(t.rows, 'kredit'))
+  })
+
+  it('enskild firma: uttag, insättningar och resultat till 2010', () => {
+    const vers = [...year,
+      ver('u1', '2026-08-01', [{ account: '2013', debet: 20000, kredit: 0 }, { account: '1930', debet: 0, kredit: 20000 }]),
+      ver('u2', '2026-09-01', [{ account: '1930', debet: 5000, kredit: 0 }, { account: '2018', debet: 0, kredit: 5000 }]),
+    ]
+    const closing = buildYearEndClosing({ verifications: vers, year: '2026', orgType: 'Enskild firma' }).verification
+    const t = buildOpeningTransfer({ verifications: vers, year: '2026', orgType: 'Enskild firma', closing })
+    expect(net(t.rows, '2013')).toBe(20000)
+    expect(net(t.rows, '2018')).toBe(-5000)
+    expect(net(t.rows, '2010')).toBe(round(net(closing.rows, '2019') - 20000 + 5000))
+    expect(sum(t.rows, 'debet')).toBe(sum(t.rows, 'kredit'))
+  })
+
+  it('handelsbolag: varje delägares konton till 20N0', () => {
+    const partners = [{ id: 'a', name: 'A', sharePct: 50 }, { id: 'b', name: 'B', sharePct: 50 }]
+    const vers = [...year, ver('u1', '2026-08-01', [{ account: '2023', debet: 1000, kredit: 0 }, { account: '1930', debet: 0, kredit: 1000 }])]
+    const closing = buildYearEndClosing({ verifications: vers, year: '2026', orgType: 'Handelsbolag / Kommanditbolag', partners }).verification
+    const t = buildOpeningTransfer({ verifications: vers, year: '2026', orgType: 'Handelsbolag / Kommanditbolag', partners, closing })
+    expect(net(t.rows, '2010')).toBe(net(closing.rows, '2019'))
+    expect(net(t.rows, '2020')).toBe(round(net(closing.rows, '2029') - 1000))
+    expect(t.rows.some(r => r.account === '2099' || r.account === '2098')).toBe(false)
+  })
+
+  it('görs inte två gånger, och inte om resultatet redan förts över för hand', () => {
+    const closing = closingFor('Aktiebolag (AB)')
+    const first = buildOpeningTransfer({ verifications: year, year: '2026', orgType: 'Aktiebolag (AB)', closing })
+    expect(buildOpeningTransfer({ verifications: [...year, closing, first], year: '2026', orgType: 'Aktiebolag (AB)' })).toBeNull()
+    const manual = ver('m', '2027-03-01', [{ account: '2099', debet: 1, kredit: 0 }, { account: '2098', debet: 0, kredit: 1 }])
+    expect(buildOpeningTransfer({ verifications: [...year, manual], year: '2026', orgType: 'Aktiebolag (AB)', closing })).toBeNull()
+  })
+
+  it('inget att föra över ger null', () => {
+    expect(buildOpeningTransfer({ verifications: [], year: '2026', orgType: 'Aktiebolag (AB)' })).toBeNull()
+  })
+})
+const round = (v) => Math.round(v * 100) / 100
