@@ -71,7 +71,7 @@ Status: Öppen, Pågår, Klar (med datum och bevis i bevisloggen).
 | Å6 | Återställningsprov: återställ ett företag från nattkopian till ett testkonto (scripts/restore-offsite-backup.mjs), protokollför tid och resultat. Varje kvartal | R3, R5 | Driftansvarig | 2026-11-30, sedan kvartalsvis | Öppen |
 | Å7 | Uppgradera till Supabase Pro, slå på skydd mot läckta lösenord, kontrollera dagliga säkerhetskopior | R3, R7 | Grundarna | Före 250 kunder | Öppen |
 | Å8 | Automatiskt test i CI som provar radnivåskyddet mot en testdatabas | R6 | Kod | 2027-01-31 | Öppen |
-| Å9 | Dependabot för npm och GitHub Actions, npm audit --audit-level=high i CI | R8 | Kod | 2026-11-15 | Öppen |
+| Å9 | Dependabot för npm och GitHub Actions, npm audit --audit-level=high i CI | R8 | Kod | 2026-11-15 | Klar 2026-10-18 (npm audit fix: 2 kritiska, 1 hög åtgärdade) |
 | Å10 | Diskkryptering (BitLocker/FileVault), skärmlås efter högst 5 minuter, uppdateringar på, Hitta min enhet på telefoner. Notera per enhet i 06-register.md | R9 | Grundarna | 2026-11-15 | Öppen |
 | Å11 | Säkerhetsgranskning (/security-review eller motsvarande) före varje ändring i api/, SQL-filer eller inloggning; notera i commit-meddelandet | R10 | Kod | Från och med nu | Öppen |
 | Å12 | Godkänn och spara personuppgiftsbiträdesavtal med Supabase, Vercel, Stripe, Resend, Cloudflare, Google, PostHog, Microsoft (Clarity) | R11 | Dataskydd | 2026-12-31 | Öppen |
@@ -80,7 +80,7 @@ Status: Öppen, Pågår, Klar (med datum och bevis i bevisloggen).
 | Å15 | Extern upptidsövervakare mot https://www.bokix.se/api/health med larm till båda | R13 | Driftansvarig | 2026-11-15 | Öppen |
 | Å16 | Incidentövning: gå igenom ett påhittat läckage enligt incidentrutinen, notera lärdomar | R15 | Informationssäkerhetsansvarig | 2027-03-31 | Öppen |
 | Å18 | Nattkopian (databas och filer) till en lagringstjänst med datacenter i Sverige, inom 24 timmar, så kunderna slipper anmälan enligt bokföringslagen 7 kap. 3 a §. Stäm av med revisor att krypterad kopia räknas | R21 | Grundarna (val av tjänst), sedan kod | 2027-01-31 | Öppen |
-| Å19 | Kontrollera i Vercel vilken region funktionerna körs i och sätt Frankfurt eller Stockholm i vercel.json | R22 | Kod | 2026-11-15 | Öppen |
+| Å19 | Kontrollera i Vercel vilken region funktionerna körs i och sätt Frankfurt eller Stockholm i vercel.json | R22 | Kod | 2026-11-15 | Klar 2026-10-18 (var iad1 i USA, nu fra1) |
 | Å20 | Systemdokumentation för kunderna (bokföringslagen 5 kap. 11 §): hur verifikationer, serier, rättelser, låsning och arkiv fungerar i Bokix, som hjälpsida | R18 | Kod | 2027-03-31 | Öppen |
 | Å21 | Registerförteckning enligt GDPR art. 30 | R11 | Dataskydd | 2026-12-31 | Öppen |
 | Å17 | Prova NE-SRU-filen i Skatteverkets testtjänst när 2026P4 öppnar | R16 | Grundarna | 2027-01-15 | Öppen |

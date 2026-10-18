@@ -20,6 +20,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # Kända höga och kritiska sårbarheter i beroenden stoppar bygget (docs/isms, Å9).
+      - run: npm audit --audit-level=high
       - run: npm run lint
       - run: npm test
       - run: npm run build

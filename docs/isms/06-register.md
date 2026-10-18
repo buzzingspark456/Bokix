@@ -38,7 +38,7 @@ leverantörs trust center eller avtalssida och fylls i med datum. Kolumnen
 | Leverantör | Används till | Data | Plats | Certifieringar (kontrollerat datum) | Biträdesavtal | Tvåfaktor | Väg ut |
 |---|---|---|---|---|---|---|---|
 | Supabase | Databas, inloggning, filer | Allt konfidentiellt | Frankfurt (EU) | __________ | ☐ | ☐ | Nattkopian, SQL-dump |
-| Vercel | Webbplats, serverfunktioner, nattjobb | Passerar funktionerna | Funktionernas region: kontrollera (Å19) | __________ | ☐ | ☐ | Koden i git, annan värd |
+| Vercel | Webbplats, serverfunktioner, nattjobb | Passerar funktionerna | Funktioner i Frankfurt (fra1) sedan 2026-10-18 | __________ | ☐ | ☐ | Koden i git, annan värd |
 | Cloudflare | R2 (nattkopior), Turnstile | Krypterade kopior | EU | __________ | ☐ | ☐ | Annan S3-lagring |
 | Stripe | Prenumerationer, kundbetalningar av fakturor | Namn, e-post, betalningar | USA/EU | __________ | ☐ | ☐ | Export från Stripe |
 | Resend | Utskick av e-post | E-postadresser, fakturor och lönebesked som bilagor | __________ | __________ | ☐ | ☐ | Annan e-posttjänst |

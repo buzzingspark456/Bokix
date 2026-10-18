@@ -1,0 +1,16 @@
+# Säkerhetsuppdateringar av beroenden (docs/isms/03-riskhantering.md, Å9).
+# Höga och kritiska tas inom 14 dagar (docs/isms/05-rutiner.md).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

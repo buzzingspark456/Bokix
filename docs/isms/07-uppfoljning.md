@@ -98,4 +98,6 @@ mappen (inte i git om de innehåller kunddata eller nycklar).
 | 2026-10-01 | Radnivåskyddet provat med anon-nyckeln, allt stängt | Anteckning i projektets minne | Grundarna |
 | 2026-10-13 | INK4-fil godkänd i Skatteverkets testtjänst | Testfiler i Downloads | Grundarna |
 | 2026-10-18 | Ledningssystemets dokument version 1 | docs/isms/ i git | Grundarna |
+| 2026-10-18 | npm audit: 2 kritiska och 1 hög sårbarhet åtgärdade; Dependabot och audit i CI på | .github/ i git | Kod |
+| 2026-10-18 | Vercels funktioner flyttade från Washington (iad1) till Frankfurt (fra1) | vercel.json, x-vercel-id-huvudet | Kod |
 | | | | |
