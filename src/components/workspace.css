@@ -493,3 +493,42 @@ button.lg-todo-row:hover { border-color: color-mix(in srgb, var(--t-fg) 35%, var
   .ws-edge > .wsp > .responsive-table, .ws-edge > .wsp .wsp-flush { margin: 0 -16px -16px; }
   .ws-edge > .ws-card .ws-card-head, .ws-edge > .ws-card > .ws-rows li { padding-left: 16px; padding-right: 16px; }
 }
+
+/* ── Periodiseringar och Anläggningstillgångar (2026-10-18) ──
+   Samma arbetsyta som Projekt och Lager: kant i kant (ws-edge), panel med
+   startsidans grå rutor, Att göra-rader, tillgången på en egen sida från höger. */
+.accr-date { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+.accr-date .ws-input { width: auto; height: 36px; }
+.accr-status { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13.5px; font-weight: 600; color: var(--status-green-text); }
+.accr-status.warn { color: var(--status-amber-text); }
+.accr-status span { color: var(--text-main); }
+.accr-empty { text-align: center; padding: 28px 16px 12px; }
+.accr-empty p { margin: 0 auto 16px; max-width: 420px; font-size: 13.5px; line-height: 1.55; color: var(--text-secondary); }
+.accr-kind-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
+.accr-preview { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 12px; background: var(--bg-muted); }
+.accr-preview-step { display: flex; gap: 12px; font-size: 13px; color: var(--text-main); line-height: 1.45; }
+.accr-preview-date { flex: 0 0 96px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+.fa-until { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.fa-until input { border: 1px solid var(--border); border-radius: 7px; background: var(--bg-card); color: var(--text-main); font: inherit; font-size: 12.5px; padding: 2px 6px; }
+.fa-progress { display: flex; align-items: center; gap: 10px; }
+.fa-progress .ws-bar { flex: 1; min-width: 60px; }
+.fa-progress small { width: 34px; text-align: right; font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.fa-plan { display: grid; gap: 8px; align-items: end; padding: 4px 2px 0; }
+.fa-plan > div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; }
+.fa-plan i { display: block; width: 100%; max-width: 46px; border-radius: 6px 6px 3px 3px; background: var(--border); }
+.fa-plan b { font-size: 11.5px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fa-plan span { font-size: 12px; color: var(--text-secondary); }
+.fa-plan .now span, .fa-plan .now b { color: var(--text-main); font-weight: 700; }
+.fa-facts { padding: 14px 16px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--border-light); }
+.fa-facts dd { font-weight: 500; }
+.fa-accounts { border: 1px solid var(--border-light); border-radius: 10px; padding: 10px 14px; }
+.fa-accounts summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-main); }
+.ws-form .ws-grid2, .ws-form .ws-grid3 { align-items: end; }
+.fa-dispose { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 12px; background: var(--bg-card); border: 1px solid color-mix(in srgb, var(--status-amber-text) 40%, var(--border-light)); }
+.fa-dispose strong { font-size: 14px; color: var(--text-main); }
+@media (max-width: 640px) {
+  .accr-preview-date { flex-basis: 78px; }
+  .fa-plan b { font-size: 10.5px; }
+  .ws-grid3 { grid-template-columns: 1fr; }
+}

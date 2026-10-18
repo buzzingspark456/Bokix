@@ -6338,7 +6338,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   :root {
     --sb-pad: clamp(5px, calc(calc(1.86vh / var(--app-zoom, 1)) - 6.7px), 13px);
     --sb-font: clamp(13.5px, calc(7px + calc(0.9vh / var(--app-zoom, 1))), 15px);
-    --sb-icon: clamp(16px, calc(8px + calc(1.05vh / var(--app-zoom, 1))), 18px);
+    --sb-icon: clamp(17px, calc(9.5px + calc(1.1vh / var(--app-zoom, 1))), 20px);
     --sb-gap: clamp(3px, calc(0.85vh / var(--app-zoom, 1)), 8px);
     --sb-logo-h: clamp(34px, calc(6.5vh / var(--app-zoom, 1)), 62px);
     --sb-logo-pt: clamp(8px, calc(2.3vh / var(--app-zoom, 1)), 22px);
@@ -7148,9 +7148,9 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
    med luft emellan. Nivå 0 är den vanliga vyn.
 ══════════════════════════════════════════════ */
 @media (min-width: 1101px) {
-  .sidebar[data-fit="1"] { --sb-pad: 3.5px; --sb-font: 13px; --sb-icon: 15px; --sb-gap: 3px; --sb-logo-h: 28px; --sb-logo-pt: 4px; --sb-logo-pb: 3px; }
-  .sidebar[data-fit="2"] { --sb-pad: 2px; --sb-font: 12.5px; --sb-icon: 14px; --sb-gap: 2px; --sb-logo-h: 24px; --sb-logo-pt: 3px; --sb-logo-pb: 2px; }
-  .sidebar[data-fit="3"] { --sb-pad: 0.5px; --sb-font: 12px; --sb-icon: 13px; --sb-gap: 1.5px; --sb-logo-h: 20px; --sb-logo-pt: 2px; --sb-logo-pb: 1px; }
+  .sidebar[data-fit="1"] { --sb-pad: 3.5px; --sb-font: 13px; --sb-icon: 16px; --sb-gap: 3px; --sb-logo-h: 28px; --sb-logo-pt: 4px; --sb-logo-pb: 3px; }
+  .sidebar[data-fit="2"] { --sb-pad: 2px; --sb-font: 12.5px; --sb-icon: 15px; --sb-gap: 2px; --sb-logo-h: 24px; --sb-logo-pt: 3px; --sb-logo-pb: 2px; }
+  .sidebar[data-fit="3"] { --sb-pad: 0.5px; --sb-font: 12px; --sb-icon: 14px; --sb-gap: 1.5px; --sb-logo-h: 20px; --sb-logo-pt: 2px; --sb-logo-pb: 1px; }
   /* Rubrikerna ersätts av tunna linjer så fort menyn behöver krympa. */
   .sidebar:not([data-fit="0"]) .nav-group-title { display: none !important; }
   .sidebar:not([data-fit="0"]) .nav-group-divider { display: block !important; }

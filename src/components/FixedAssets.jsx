@@ -1,35 +1,28 @@
 import React, { useMemo, useState } from 'react';
 import { lockedPeriodFor } from '../utils/fiscalYear';
-import { Plus, Trash2, Pencil, ArrowLeft, CheckCircle2, AlertTriangle, PackageMinus } from './icons';
+import { Plus, Trash2, Pencil, X, CalendarClock, Package, PackageMinus } from './icons';
 import ListTable from './shared/ListTable';
 import { AccountSearch } from './shared/SearchInputs';
 import { confirmDialog } from './shared/ConfirmDialog';
+import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
 import {
   ASSET_CATEGORIES, categoryById, monthlyAmount, accumulatedThrough, bookValueAt, scheduleOf,
   pendingDepreciation, buildDepreciationVerification, buildDisposalVerification,
   bookedDepreciationMap, unregisteredAcquisitions, registerSummary, round2,
 } from '../utils/fixedAssets';
-import { t } from '../i18n';
+import { t, dateLocale } from '../i18n';
 import { numberFormat } from '../utils/intlCache';
+import './workspace.css';
 
 const fmt = (v) => numberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+const fmtKr = (v) => `${numberFormat('sv-SE', { maximumFractionDigits: 0 }).format(Math.round(v || 0))} kr`;
 const pad = (n) => String(n).padStart(2, '0');
 const monthKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
 const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const lastCompletedMonth = () => { const d = new Date(); return monthKey(new Date(d.getFullYear(), d.getMonth() - 1, 1)); };
+const fmtDay = (iso) => (iso ? new Date(`${iso}T00:00:00`).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+const fmtMonth = (ym) => (ym ? new Date(`${ym}-01T00:00:00`).toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' }) : '');
 const newId = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `asset_${Date.now()}_${Math.random().toString(36).slice(2)}`);
-
-const inp = {
-  width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: '9px',
-  fontSize: '14px', color: 'var(--text-main)', background: 'var(--bg-card)', outline: 'none',
-  fontFamily: 'inherit', boxSizing: 'border-box',
-};
-const lbl = { display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' };
-const card = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '20px' };
-const btn = (primary) => ({
-  display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer',
-  border: primary ? 'none' : '1px solid var(--border)', background: primary ? 'var(--accent)' : 'var(--bg-card)', color: primary ? '#fff' : 'var(--text-main)',
-});
 
 const emptyAsset = () => {
   const cat = categoryById('inventarier');
@@ -40,27 +33,49 @@ const emptyAsset = () => {
   };
 };
 
+// Var tillgången står just nu: avskrivs, fullt avskriven eller avyttrad.
+function assetState(asset, ym) {
+  if (asset.disposedDate) return 'disposed';
+  const base = (Number(asset.cost) || 0) - (Number(asset.residualValue) || 0);
+  return accumulatedThrough(asset, ym) >= base - 0.005 ? 'done' : 'active';
+}
+
 /**
- * Anläggningsregister med avskrivningar — flik i Skatt och bokslut.
- * Räkningen ligger i utils/fixedAssets.js; här är bara formulär och listor.
+ * Anläggningsregister med avskrivningar — flik under Bokföring.
+ * Räkningen ligger i utils/fixedAssets.js; här är bara vyerna. Stilen är
+ * arbetsytornas (workspace.css): kant i kant, startsidans grå rutor, och
+ * varje tillgång på en egen sida från höger som en vara i Lager.
  */
 export default function FixedAssets({ company, accounts = [], verifications = [], onAddVerification, setCompanyInfo }) {
+  const palette = usePalette(company);
   const assets = useMemo(() => company?.fixedAssets || [], [company?.fixedAssets]);
   // Vilket låst räkenskapsår datumet ligger i (null om inget), se utils/fiscalYear.js.
   const lockedFor = (date) => lockedPeriodFor(date, company?.lockedFiscalYears);
   const [editing, setEditing] = useState(null);
   const [isNew, setIsNew] = useState(false);
-  const [disposing, setDisposing] = useState(null);
+  const [openId, setOpenId] = useState(null);
+  const [disposing, setDisposing] = useState(false);
   const [untilMonth, setUntilMonth] = useState(lastCompletedMonth());
+  const [filter, setFilter] = useState('inUse');
   const [error, setError] = useState('');
 
   const saveAssets = (next) => setCompanyInfo(prev => ({ ...prev, fixedAssets: next }));
   const bookedMap = useMemo(() => bookedDepreciationMap(verifications), [verifications]);
   const hasBooked = (assetId) => [...bookedMap.values()].some(set => set.has(assetId));
+  const accountName = (code) => accounts.find(a => a.code === code)?.name || '';
 
+  const thisMonth = monthKey(new Date());
   const pending = useMemo(() => pendingDepreciation(assets, verifications, untilMonth, company?.lockedFiscalYears), [assets, verifications, untilMonth, company?.lockedFiscalYears]);
   const suggestions = useMemo(() => unregisteredAcquisitions(verifications, assets), [verifications, assets]);
-  const summary = useMemo(() => registerSummary(assets, monthKey(new Date())), [assets]);
+  const summary = useMemo(() => registerSummary(assets, thisMonth), [assets, thisMonth]);
+  const rows = useMemo(() => assets
+    .map(a => ({ ...a, state: assetState(a, thisMonth), accumulated: accumulatedThrough(a, thisMonth), bookValue: bookValueAt(a, thisMonth) }))
+    .sort((a, b) => String(b.acquisitionDate).localeCompare(String(a.acquisitionDate))), [assets, thisMonth]);
+  const inUse = rows.filter(r => r.state !== 'disposed');
+  const perMonth = round2(inUse.filter(r => r.state === 'active').reduce((s, r) => s + monthlyAmount(r), 0));
+  const shown = rows.filter(r => filter === 'all' || (filter === 'disposed' ? r.state === 'disposed' : r.state !== 'disposed'));
+  const count = (id) => rows.filter(r => id === 'all' || (id === 'disposed' ? r.state === 'disposed' : r.state !== 'disposed')).length;
+  const open = openId ? rows.find(r => r.id === openId) : null;
 
   const startNew = (prefill = {}) => {
     const base = emptyAsset();
@@ -71,6 +86,10 @@ export default function FixedAssets({ company, accounts = [], verifications = []
       accumulatedAccount: cat.accumulatedAccount, expenseAccount: cat.expenseAccount,
     });
     setIsNew(true); setError('');
+  };
+  const startEdit = (asset) => {
+    const { state: _s, accumulated: _a, bookValue: _b, ...clean } = asset;
+    setEditing({ ...clean }); setIsNew(false); setError('');
   };
 
   const changeCategory = (id) => {
@@ -92,13 +111,14 @@ export default function FixedAssets({ company, accounts = [], verifications = []
     if (!editing.acquisitionDate) return setError(t('ui.ange_anskaffningsdatum'));
     const clean = { ...editing, name: editing.name.trim(), cost, usefulLifeMonths: life, residualValue: Number(editing.residualValue) || 0 };
     saveAssets(isNew ? [...assets, clean] : assets.map(a => (a.id === clean.id ? clean : a)));
-    setEditing(null);
+    setEditing(null); setError('');
   };
 
   const handleDelete = async (asset) => {
     if (hasBooked(asset.id)) return;
     if (!(await confirmDialog(t('ui.ta_bort_ur_registret', { name: asset.name })))) return;
     saveAssets(assets.filter(a => a.id !== asset.id));
+    setOpenId(null);
   };
 
   const bookPending = async () => {
@@ -117,213 +137,344 @@ export default function FixedAssets({ company, accounts = [], verifications = []
     const pricing = Number(proceeds) || 0;
     onAddVerification(buildDisposalVerification(asset, { date, proceeds: pricing }));
     saveAssets(assets.map(a => (a.id === asset.id ? { ...a, disposedDate: date, disposalProceeds: pricing } : a)));
-    setDisposing(null); setError('');
+    setDisposing(false); setError('');
   };
 
-  // ── Formulär ──
-  if (editing) {
-    const locked = !isNew && hasBooked(editing.id);
-    const cost = Number(editing.cost) || 0;
-    const preview = { ...editing, cost, usefulLifeMonths: Number(editing.usefulLifeMonths) || 0, residualValue: Number(editing.residualValue) || 0 };
-    const yearly = {};
-    scheduleOf(preview).forEach(r => { const y = r.month.slice(0, 4); yearly[y] = round2((yearly[y] || 0) + r.amount); });
-    return (
-      <div style={{ padding: '24px', maxWidth: '760px' }}>
-        <button type="button" onClick={() => setEditing(null)} style={{ ...btn(false), border: 'none', padding: 0, marginBottom: '16px', color: 'var(--text-secondary)' }}>
-          <ArrowLeft size={14} /> {t('ui.tillbaka_2')}
-        </button>
-        <form onSubmit={handleSave}>
-          <div style={{ ...card, marginBottom: '16px' }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700 }}>{isNew ? t('ui.ny_anlaggningstillgang') : t('ui.andra_tillgang')}</h3>
-            {locked && (
-              <p style={{ margin: '0 0 14px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                {t('ui.avskrivningar_ar_redan_bokforda_sa_varde_datum_o')}
-              </p>
-            )}
-            <div className="form-row-2" style={{ display: 'grid', gap: '16px' }}>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={lbl}>{t('ui.namn_2')}</label>
-                <input style={inp} value={editing.name} onChange={e => setEditing(s => ({ ...s, name: e.target.value }))} placeholder={t('ui.t_ex_macbook_pro_14')} />
-              </div>
-              <div>
-                <label style={lbl}>{t('ui.kategori')}</label>
-                <select style={inp} disabled={locked} value={editing.category} onChange={e => changeCategory(e.target.value)}>
-                  {ASSET_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={lbl}>{t('ui.anskaffningsdatum')}</label>
-                <input type="date" style={inp} disabled={locked} value={editing.acquisitionDate} onChange={e => setEditing(s => ({ ...s, acquisitionDate: e.target.value }))} />
-              </div>
-              <div>
-                <label style={lbl}>{t('ui.anskaffningsvarde_kr_exkl_moms')}</label>
-                <input type="number" step="0.01" style={inp} disabled={locked} value={editing.cost} onChange={e => setEditing(s => ({ ...s, cost: e.target.value }))} />
-              </div>
-              <div>
-                <label style={lbl}>{t('ui.beraknat_restvarde_kr')}</label>
-                <input type="number" step="0.01" style={inp} disabled={locked} value={editing.residualValue} onChange={e => setEditing(s => ({ ...s, residualValue: e.target.value }))} />
-              </div>
-              <div>
-                <label style={lbl}>{t('ui.livslangd_manader')}</label>
-                <input type="number" style={inp} disabled={locked} value={editing.usefulLifeMonths} onChange={e => setEditing(s => ({ ...s, usefulLifeMonths: e.target.value }))} />
-              </div>
-              <div>
-                <label style={lbl}>{t('ui.avskrivning_per_manad')}</label>
-                <div style={{ ...inp, background: 'var(--bg-muted)' }}>{fmt(monthlyAmount(preview))} {t('ui.kr')}</div>
-              </div>
-            </div>
-          </div>
+  const statusPill = (r) => (r.state === 'disposed' ? <span className="agi-pill mute">{t('fa.pillDisposed')}</span>
+    : r.state === 'done' ? <span className="agi-pill ok">{t('fa.pillDone')}</span>
+      : <span className="agi-pill mute">{t('fa.pillActive')}</span>);
+  const depreciatedPct = (r) => {
+    const base = (Number(r.cost) || 0) - (Number(r.residualValue) || 0);
+    return base > 0 ? Math.max(0, Math.min(100, Math.round((r.accumulated / base) * 100))) : 0;
+  };
+  const catColor = (r) => (r.state === 'disposed' ? 'var(--text-muted)' : r.state === 'done' ? palette.profit : palette.income);
+  const hasTodo = (assets.length > 0 && pending.months.length > 0) || suggestions.length > 0;
 
-          <div style={{ ...card, marginBottom: '16px' }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{t('ui.bokforingskonton')}</h3>
-            <div className="form-row-2" style={{ display: 'grid', gap: '16px' }}>
-              <div><label style={lbl}>{t('ui.tillgangskonto')}</label><AccountSearch value={editing.assetAccount} onChange={c => setEditing(s => ({ ...s, assetAccount: c }))} accounts={accounts} placeholder={t('ui.sok_konto')} /></div>
-              <div><label style={lbl}>{t('ui.ackumulerade_avskrivningar')}</label><AccountSearch value={editing.accumulatedAccount} onChange={c => setEditing(s => ({ ...s, accumulatedAccount: c }))} accounts={accounts} placeholder={t('ui.sok_konto')} /></div>
-              <div><label style={lbl}>{t('ui.avskrivningskostnad')}</label><AccountSearch value={editing.expenseAccount} onChange={c => setEditing(s => ({ ...s, expenseAccount: c }))} accounts={accounts} placeholder={t('ui.sok_konto')} /></div>
-            </div>
-          </div>
-
-          {Object.keys(yearly).length > 0 && (
-            <div style={{ ...card, marginBottom: '16px' }}>
-              <h3 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{t('ui.avskrivningsplan_per_ar')}</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '8px' }}>
-                {Object.entries(yearly).map(([y, amount]) => (
-                  <div key={y} style={{ background: 'var(--bg-muted)', borderRadius: '8px', padding: '8px 12px', fontSize: '13px' }}>
-                    <div style={{ color: 'var(--text-secondary)' }}>{y}</div>
-                    <div style={{ fontWeight: 700 }}>{fmt(amount)} {t('ui.kr')}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div style={{ ...card, marginBottom: '16px' }}>
-            <label style={lbl}>{t('ui.anteckning')}</label>
-            <textarea style={{ ...inp, minHeight: '56px', resize: 'vertical' }} value={editing.note || ''} onChange={e => setEditing(s => ({ ...s, note: e.target.value }))} />
-          </div>
-
-          {error && <p style={{ color: 'var(--status-red-text)', fontSize: '13px', margin: '0 0 12px' }}>{error}</p>}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-            <button type="button" style={btn(false)} onClick={() => setEditing(null)}>{t('ui.avbryt')}</button>
-            <button type="submit" style={btn(true)}>{t('ui.spara_tillgang')}</button>
-          </div>
-        </form>
-      </div>
-    );
-  }
-
-  const thisMonth = monthKey(new Date());
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-        {[[t('ui.anskaffningsvarde'), summary.cost], [t('ui.ackumulerade_avskrivningar'), summary.accumulated], [t('ui.bokfort_varde'), summary.bookValue]].map(([label, value]) => (
-          <div key={label} style={card}>
-            <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', fontWeight: 600 }}>{label}</div>
-            <div style={{ fontSize: '22px', fontWeight: 800, marginTop: '4px' }}>{fmt(value)} {t('ui.kr')}</div>
-          </div>
-        ))}
-      </div>
+    <div className="ws-page ws-edge">
+      <Panel
+        title={t('ui.anlaggningstillgangar')}
+        sub={inUse.length === 1 ? t('fa.subOne') : t('fa.subMany', { n: inUse.length })}
+        actions={<button type="button" className="agi-btn primary" onClick={() => startNew()}><Plus size={14} /> {t('ui.ny_tillgang')}</button>}
+      >
+        <KpiGrid>
+          <Kpi dot={palette.income} label={t('ui.anskaffningsvarde')} value={fmtKr(summary.cost)} sub={t('fa.kpiCostSub', { n: inUse.length })} />
+          <Kpi dot={palette.cost} label={t('fa.kpiAccumulated')} value={fmtKr(summary.accumulated)} sub={summary.cost > 0 ? t('fa.kpiAccumulatedSub', { pct: Math.round((summary.accumulated / summary.cost) * 100) }) : '—'} />
+          <Kpi dot={palette.profit} label={t('ui.bokfort_varde')} value={fmtKr(summary.bookValue)} sub={t('fa.kpiBookSub', { month: fmtMonth(thisMonth) })} />
+          <Kpi dot={palette.cost} label={t('fa.kpiMonthly')} value={fmtKr(perMonth)} sub={t('fa.kpiMonthlySub', { kr: fmtKr(perMonth * 12) })} />
+        </KpiGrid>
 
-      {assets.length > 0 && (
-        <div style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', borderColor: pending.months.length ? 'var(--status-amber-text)' : 'var(--border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {pending.months.length ? <AlertTriangle size={18} color="var(--status-amber-text)" /> : <CheckCircle2 size={18} color="var(--status-green-text)" />}
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '14px' }}>
-                {pending.months.length
-                  ? t('ui.med_obokforda_avskrivningar_kr', { length: pending.months.length, v1: pending.months.length === 1 ? 'månad' : 'månader', v2: fmt(pending.total) })
-                  : t('ui.alla_avskrivningar_ar_bokforda')}
-              </div>
-              <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-                {t('ui.fram_till_och_med')}{' '}
-                <input type="month" value={untilMonth} max={`${Number(thisMonth.slice(0, 4)) + 1}-12`} onChange={e => e.target.value && setUntilMonth(e.target.value)} style={{ border: 'none', background: 'none', color: 'inherit', fontFamily: 'inherit', fontSize: 'inherit' }} />
-                {pending.blockedByLock > 0 && t('ui.i_lasta_ar_hoppas_over', { blockedByLock: pending.blockedByLock })}
-              </div>
-            </div>
-          </div>
-          {pending.months.length > 0 && <button type="button" style={btn(true)} onClick={bookPending}>{t('ui.bokfor_avskrivningar')}</button>}
-        </div>
-      )}
-
-      {suggestions.length > 0 && (
-        <div style={card}>
-          <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>{t('ui.inkop_som_kan_vara_anlaggningstillgangar')}</div>
-          <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-            {t('ui.dessa_ar_bokforda_pa_ett_tillgangskonto_men_finn')}
-          </p>
-          {suggestions.slice(0, 6).map(s => (
-            <div key={`${s.verificationId}_${s.account}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: '13.5px' }}>
-              <span>{s.date} · {s.description || t('ui.verifikation')} · {s.account} · <b>{fmt(s.amount)} {t('ui.kr')}</b></span>
-              <button type="button" style={btn(false)} onClick={() => startNew({ name: s.description, acquisitionDate: s.date, cost: s.amount, category: s.category, assetAccount: s.account, sourceVerificationId: s.verificationId })}>
-                {t('ui.lagg_i_registret')}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '560px' }}>
-          {t('ui.inventarier_med_livslangd_over_tre_ar_och_ett_va')}
-        </p>
-        <button type="button" style={btn(true)} onClick={() => startNew()}><Plus size={14} /> {t('ui.ny_tillgang')}</button>
-      </div>
-
-      {error && <p style={{ color: 'var(--status-red-text)', fontSize: '13px', margin: 0 }}>{error}</p>}
-
-      {disposing && (
-        <DisposePanel asset={disposing} onCancel={() => { setDisposing(null); setError(''); }} onConfirm={(v) => handleDispose(disposing, v)} />
-      )}
-
-      <div style={{ border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', background: 'var(--bg-card)' }}>
-        <ListTable
-          rowKey={a => a.id}
-          rows={assets}
-          onRowClick={(a) => { setEditing({ ...a }); setIsNew(false); setError(''); }}
-          emptyMessage={t('ui.inga_anlaggningstillgangar_i_registret_annu_lagg')}
-          mobileList={a => ({ primary: a.name, amount: `${fmt(bookValueAt(a, thisMonth))} kr`, meta: `${categoryById(a.category).label}${a.disposedDate ? ' · avyttrad' : ''}` })}
-          columns={[
-            { key: 'name', label: t('ui.tillgang'), fontWeight: 600, color: 'var(--text-main)', render: a => a.name },
-            { key: 'category', label: t('ui.kategori'), render: a => categoryById(a.category).label },
-            { key: 'acquisitionDate', label: t('ui.anskaffad'), render: a => a.acquisitionDate },
-            { key: 'cost', label: t('ui.anskaffningsvarde'), align: 'right', render: a => `${fmt(a.cost)} kr` },
-            { key: 'acc', label: t('ui.ack_avskrivn'), align: 'right', render: a => `${fmt(accumulatedThrough(a, thisMonth))} kr` },
-            { key: 'bv', label: t('ui.bokfort_varde'), align: 'right', color: 'var(--text-main)', render: a => (a.disposedDate ? 'Avyttrad' : `${fmt(bookValueAt(a, thisMonth))} kr`) },
-            {
-              key: 'actions', label: '', align: 'right', width: 110,
-              render: a => (
-                <span onClick={e => e.stopPropagation()} style={{ display: 'inline-flex', gap: '10px' }}>
-                  {!a.disposedDate && <button type="button" title={t('ui.avyttra_eller_utrangera_2')} onClick={() => { setDisposing(a); setError(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '2px' }}><PackageMinus size={14} /></button>}
-                  <button type="button" title={t('ui.andra')} onClick={() => { setEditing({ ...a }); setIsNew(false); setError(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '2px' }}><Pencil size={14} /></button>
-                  {!hasBooked(a.id) && <button type="button" title={t('ui.ta_bort')} onClick={() => handleDelete(a)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px' }}><Trash2 size={14} /></button>}
+        {hasTodo && (
+          <div className="lg-todo">
+            <div className="lg-todo-title">{t('lager.todo')}</div>
+            {assets.length > 0 && pending.months.length > 0 && (
+              <div className="dash-today-btn dash-today-btn--warn lg-todo-row" style={{ cursor: 'default' }}>
+                <span className="dash-today-lines">
+                  <span className="dash-today-kicker">{t('fa.depKicker')}</span>
+                  <span className="dash-today-title">{pending.months.length === 1 ? t('fa.depOne', { kr: fmtKr(pending.total) }) : t('fa.depMany', { n: pending.months.length, kr: fmtKr(pending.total) })}</span>
+                  <span className="dash-today-detail fa-until">
+                    {t('ui.fram_till_och_med')}
+                    <input type="month" value={untilMonth} max={`${Number(thisMonth.slice(0, 4)) + 1}-12`} onChange={e => e.target.value && setUntilMonth(e.target.value)} aria-label={t('ui.fram_till_och_med')} />
+                    {pending.blockedByLock > 0 && t('ui.i_lasta_ar_hoppas_over', { blockedByLock: pending.blockedByLock })}
+                  </span>
                 </span>
-              ),
-            },
-          ]}
+                <button type="button" className="agi-btn primary" onClick={bookPending}><CalendarClock size={14} /> {t('ui.bokfor_avskrivningar')}</button>
+              </div>
+            )}
+            {suggestions.slice(0, 4).map(s => (
+              <button
+                key={`${s.verificationId}_${s.account}`}
+                type="button"
+                className="dash-today-btn dash-today-btn--brand lg-todo-row"
+                onClick={() => startNew({ name: s.description, acquisitionDate: s.date, cost: s.amount, category: s.category, assetAccount: s.account, sourceVerificationId: s.verificationId })}
+              >
+                <span className="dash-today-lines">
+                  <span className="dash-today-kicker">{t('fa.suggestKicker')}</span>
+                  <span className="dash-today-title">{s.description || t('ui.verifikation')} · {fmtKr(s.amount)}</span>
+                  <span className="dash-today-detail">{t('fa.suggestDetail', { account: s.account, date: fmtDay(s.date) })}</span>
+                </span>
+                <span className="dash-today-ic" aria-hidden="true"><Package size={20} /></span>
+              </button>
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      <Panel
+        title={t('fa.listTitle')}
+        sub={t('ui.inventarier_med_livslangd_over_tre_ar_och_ett_va')}
+        actions={rows.length > 0 && (
+          <div className="ws-seg">
+            {[['inUse', t('fa.filterInUse')], ['disposed', t('fa.filterDisposed')], ['all', t('accr.filterAll')]].map(([id, label]) => (
+              <button key={id} type="button" className={filter === id ? 'on' : ''} onClick={() => setFilter(id)}>{label}<span className="lg-count">{count(id)}</span></button>
+            ))}
+          </div>
+        )}
+      >
+        {rows.length === 0 ? (
+          <div className="accr-empty">
+            <p>{t('ui.inga_anlaggningstillgangar_i_registret_annu_lagg')}</p>
+            <button type="button" className="agi-btn primary" onClick={() => startNew()}><Plus size={14} /> {t('ui.ny_tillgang')}</button>
+          </div>
+        ) : (
+          <div className="wsp-flush">
+            <ListTable
+              bordered={false}
+              rowKey={a => a.id}
+              rows={shown}
+              onRowClick={a => { setOpenId(a.id); setDisposing(false); setError(''); }}
+              rowStyle={a => (a.state === 'disposed' ? { opacity: 0.65 } : {})}
+              emptyMessage={t('fa.emptyFilter')}
+              mobileList={a => ({
+                dot: catColor(a),
+                primary: a.name,
+                amount: a.state === 'disposed' ? t('fa.pillDisposed') : fmtKr(a.bookValue),
+                meta: `${categoryById(a.category).label} · ${fmtDay(a.acquisitionDate)}`,
+                pill: statusPill(a),
+              })}
+              columns={[
+                {
+                  key: 'name', label: t('ui.tillgang'), render: a => (
+                    <div className="ws-name">
+                      <span className="ws-dot" style={{ background: catColor(a) }} />
+                      <div className="ws-name-text">
+                        <strong>{a.name}</strong>
+                        <small>{categoryById(a.category).label}</small>
+                      </div>
+                    </div>
+                  ),
+                },
+                { key: 'acquisitionDate', label: t('ui.anskaffad'), render: a => fmtDay(a.acquisitionDate) },
+                { key: 'cost', label: t('ui.anskaffningsvarde'), align: 'right', render: a => fmtKr(a.cost) },
+                {
+                  key: 'progress', label: t('fa.colDepreciated'), width: 170, render: a => (
+                    <div className="fa-progress">
+                      <div className="ws-bar"><span style={{ width: `${depreciatedPct(a)}%`, background: a.state === 'disposed' ? 'var(--text-muted)' : palette.cost }} /></div>
+                      <small>{depreciatedPct(a)} %</small>
+                    </div>
+                  ),
+                },
+                { key: 'bv', label: t('ui.bokfort_varde'), align: 'right', fontWeight: 700, render: a => (a.state === 'disposed' ? '—' : fmtKr(a.bookValue)) },
+                { key: 'status', label: '', align: 'right', render: a => statusPill(a) },
+              ]}
+            />
+          </div>
+        )}
+      </Panel>
+
+      {open && (
+        <AssetDrawer
+          asset={open}
+          palette={palette}
+          thisMonth={thisMonth}
+          accountName={accountName}
+          statusPill={statusPill}
+          canDelete={!hasBooked(open.id)}
+          disposing={disposing}
+          error={error}
+          onClose={() => { setOpenId(null); setDisposing(false); setError(''); }}
+          onEdit={() => startEdit(open)}
+          onDelete={() => handleDelete(open)}
+          onStartDispose={() => { setDisposing(true); setError(''); }}
+          onCancelDispose={() => { setDisposing(false); setError(''); }}
+          onDispose={(v) => handleDispose(open, v)}
         />
-      </div>
+      )}
+
+      {editing && (
+        <AssetForm
+          editing={editing}
+          setEditing={setEditing}
+          isNew={isNew}
+          locked={!isNew && hasBooked(editing.id)}
+          accounts={accounts}
+          palette={palette}
+          error={error}
+          onCategory={changeCategory}
+          onSubmit={handleSave}
+          onClose={() => { setEditing(null); setError(''); }}
+        />
+      )}
     </div>
   );
 }
 
-function DisposePanel({ asset, onCancel, onConfirm }) {
+// Avskrivningsplanen per år som staplar; innevarande år markerat.
+function YearPlan({ asset, color }) {
+  const yearly = {};
+  scheduleOf(asset).forEach(r => { const y = r.month.slice(0, 4); yearly[y] = round2((yearly[y] || 0) + r.amount); });
+  const entries = Object.entries(yearly);
+  if (entries.length === 0) return null;
+  const max = Math.max(...entries.map(([, v]) => v), 1);
+  const thisYear = String(new Date().getFullYear());
+  return (
+    <div className="fa-plan" style={{ gridTemplateColumns: `repeat(${entries.length}, minmax(0, 1fr))` }}>
+      {entries.map(([y, amount]) => (
+        <div key={y} className={y === thisYear ? 'now' : ''}>
+          <b>{fmtKr(amount)}</b>
+          <i style={{ height: `${Math.max(4, (amount / max) * 72)}px`, background: y === thisYear ? color : undefined }} />
+          <span>{y}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AssetDrawer({ asset, palette, thisMonth, accountName, statusPill, canDelete, disposing, error, onClose, onEdit, onDelete, onStartDispose, onCancelDispose, onDispose }) {
+  const schedule = scheduleOf(asset);
+  const lastMonth = schedule.length ? schedule[schedule.length - 1].month : null;
+  const life = Number(asset.usefulLifeMonths) || 0;
+  const account = (code) => `${code} ${accountName(code)}`.trim();
+  return (
+    <div className="lg-drawer-overlay" onClick={onClose}>
+      <aside className="lg-drawer" onClick={e => e.stopPropagation()} aria-label={asset.name}>
+        <div className="lg-drawer-head">
+          <span className="lg-avatar lg" aria-hidden="true">{(asset.name || '?').trim().charAt(0).toUpperCase()}</span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <h2 className="wsp-title" style={{ fontSize: '19px' }}>{asset.name}</h2>
+            <p className="wsp-sub">{categoryById(asset.category).label} · {fmtDay(asset.acquisitionDate)}</p>
+          </div>
+          {statusPill(asset)}
+          <button type="button" className="modal-close" onClick={onClose} aria-label={t('ui.stang')}><X size={18} /></button>
+        </div>
+
+        <div className="lg-drawer-body">
+          <div className="ws-card-actions">
+            <button type="button" className="agi-btn" onClick={onEdit}><Pencil size={14} /> {t('ui.andra')}</button>
+            {asset.state !== 'disposed' && <button type="button" className="agi-btn" onClick={onStartDispose}><PackageMinus size={14} /> {t('fa.dispose')}</button>}
+            {canDelete && <button type="button" className="agi-btn danger" onClick={onDelete}><Trash2 size={14} /> {t('ui.ta_bort')}</button>}
+          </div>
+
+          {disposing && <DisposePanel asset={asset} error={error} onCancel={onCancelDispose} onConfirm={onDispose} />}
+
+          <KpiGrid>
+            <Kpi dot={palette.income} label={t('ui.anskaffningsvarde')} value={fmtKr(asset.cost)} sub={fmtDay(asset.acquisitionDate)} />
+            <Kpi dot={palette.cost} label={t('fa.kpiAccumulated')} value={fmtKr(asset.accumulated)} sub={t('fa.perMonth', { kr: fmtKr(monthlyAmount(asset)) })} />
+            <Kpi dot={palette.profit} label={t('ui.bokfort_varde')} value={asset.state === 'disposed' ? '—' : fmtKr(asset.bookValue)} sub={asset.state === 'disposed' ? t('fa.disposedOn', { date: fmtDay(asset.disposedDate) }) : t('fa.kpiBookSub', { month: fmtMonth(thisMonth) })} />
+          </KpiGrid>
+
+          <div className="lg-chart">
+            <div className="lg-chart-head"><span>{t('ui.avskrivningsplan_per_ar')}</span>{lastMonth && <span>{t('fa.until', { month: fmtMonth(lastMonth) })}</span>}</div>
+            <YearPlan asset={asset} color={palette.cost} />
+          </div>
+
+          <dl className="pj-facts fa-facts">
+            <dt>{t('fa.life')}</dt><dd>{t('fa.lifeValue', { n: life, y: String(Math.round((life / 12) * 10) / 10).replace('.', ',') })}</dd>
+            <dt>{t('fa.residual')}</dt><dd>{fmtKr(asset.residualValue)}</dd>
+            <dt>{t('ui.tillgangskonto')}</dt><dd>{account(asset.assetAccount)}</dd>
+            <dt>{t('ui.ackumulerade_avskrivningar')}</dt><dd>{account(asset.accumulatedAccount)}</dd>
+            <dt>{t('ui.avskrivningskostnad')}</dt><dd>{account(asset.expenseAccount)}</dd>
+            {asset.state === 'disposed' && <><dt>{t('fa.proceeds')}</dt><dd>{fmtKr(asset.disposalProceeds)}</dd></>}
+          </dl>
+          {asset.note && <p className="ws-hint">{asset.note}</p>}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function AssetForm({ editing, setEditing, isNew, locked, accounts, palette, error, onCategory, onSubmit, onClose }) {
+  const cost = Number(editing.cost) || 0;
+  const preview = { ...editing, cost, usefulLifeMonths: Number(editing.usefulLifeMonths) || 0, residualValue: Number(editing.residualValue) || 0 };
+  const set = (k) => (e) => setEditing(s => ({ ...s, [k]: e.target.value }));
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <form className="modal-content" style={{ maxWidth: '680px' }} onClick={ev => ev.stopPropagation()} onSubmit={onSubmit}>
+        <div className="modal-header">
+          <div>
+            <h2 className="modal-title">{isNew ? t('ui.ny_anlaggningstillgang') : t('ui.andra_tillgang')}</h2>
+            {locked && <p className="wsp-sub">{t('ui.avskrivningar_ar_redan_bokforda_sa_varde_datum_o')}</p>}
+          </div>
+          <button type="button" className="modal-close" onClick={onClose} aria-label={t('ui.stang')}><X size={18} /></button>
+        </div>
+        <div className="ws-form">
+          <div>
+            <label className="ws-label" htmlFor="fa-name">{t('ui.namn_2')}</label>
+            <input id="fa-name" className="ws-input" value={editing.name} onChange={set('name')} placeholder={t('ui.t_ex_macbook_pro_14')} autoFocus={isNew} />
+          </div>
+          <div className="ws-grid2">
+            <div>
+              <label className="ws-label" htmlFor="fa-cat">{t('ui.kategori')}</label>
+              <select id="fa-cat" className="ws-input" disabled={locked} value={editing.category} onChange={e => onCategory(e.target.value)}>
+                {ASSET_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="ws-label" htmlFor="fa-date">{t('ui.anskaffningsdatum')}</label>
+              <input id="fa-date" type="date" className="ws-input" disabled={locked} value={editing.acquisitionDate} onChange={set('acquisitionDate')} />
+            </div>
+          </div>
+          <div className="ws-grid3">
+            <div>
+              <label className="ws-label" htmlFor="fa-cost">{t('ui.anskaffningsvarde_kr_exkl_moms')}</label>
+              <div className="ws-input-suffix"><input id="fa-cost" type="number" step="0.01" min="0" className="ws-input" disabled={locked} value={editing.cost} onChange={set('cost')} /><span>kr</span></div>
+            </div>
+            <div>
+              <label className="ws-label" htmlFor="fa-res">{t('ui.beraknat_restvarde_kr')}</label>
+              <div className="ws-input-suffix"><input id="fa-res" type="number" step="0.01" min="0" className="ws-input" disabled={locked} value={editing.residualValue} onChange={set('residualValue')} /><span>kr</span></div>
+            </div>
+            <div>
+              <label className="ws-label" htmlFor="fa-life">{t('ui.livslangd_manader')}</label>
+              <div className="ws-input-suffix"><input id="fa-life" type="number" min="1" className="ws-input" disabled={locked} value={editing.usefulLifeMonths} onChange={set('usefulLifeMonths')} /><span>{t('fa.monthsShort')}</span></div>
+            </div>
+          </div>
+
+          {cost > 0 && (
+            <div className="lg-chart">
+              <div className="lg-chart-head"><span>{t('ui.avskrivningsplan_per_ar')}</span><span>{t('fa.perMonth', { kr: fmtKr(monthlyAmount(preview)) })}</span></div>
+              <YearPlan asset={preview} color={palette.cost} />
+            </div>
+          )}
+
+          <details className="fa-accounts">
+            <summary>{t('ui.bokforingskonton')}</summary>
+            <div className="ws-form" style={{ marginTop: '12px' }}>
+              <div><label className="ws-label">{t('ui.tillgangskonto')}</label><AccountSearch value={editing.assetAccount} onChange={c => setEditing(s => ({ ...s, assetAccount: c }))} accounts={accounts} placeholder={t('ui.sok_konto')} /></div>
+              <div className="ws-grid2">
+                <div><label className="ws-label">{t('ui.ackumulerade_avskrivningar')}</label><AccountSearch value={editing.accumulatedAccount} onChange={c => setEditing(s => ({ ...s, accumulatedAccount: c }))} accounts={accounts} placeholder={t('ui.sok_konto')} /></div>
+                <div><label className="ws-label">{t('ui.avskrivningskostnad')}</label><AccountSearch value={editing.expenseAccount} onChange={c => setEditing(s => ({ ...s, expenseAccount: c }))} accounts={accounts} placeholder={t('ui.sok_konto')} /></div>
+              </div>
+            </div>
+          </details>
+
+          <div>
+            <label className="ws-label" htmlFor="fa-note">{t('ui.anteckning')}</label>
+            <textarea id="fa-note" className="ws-input" value={editing.note || ''} onChange={set('note')} />
+          </div>
+
+          {error && <p className="ws-hint" style={{ color: 'var(--status-red-text)' }}>{error}</p>}
+          <div className="ws-card-actions" style={{ justifyContent: 'flex-end' }}>
+            <button type="button" className="agi-btn" onClick={onClose}>{t('ui.avbryt')}</button>
+            <button type="submit" className="agi-btn primary">{t('ui.spara_tillgang')}</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function DisposePanel({ asset, error, onCancel, onConfirm }) {
   const [date, setDate] = useState(todayIso());
   const [proceeds, setProceeds] = useState('');
   const preview = buildDisposalVerification(asset, { date, proceeds: Number(proceeds) || 0 });
   const result = preview.rows.find(r => r.account === '3973')?.kredit || -(preview.rows.find(r => r.account === '7970')?.debet || 0);
   return (
-    <div style={card}>
-      <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '12px' }}>{t('ui.avyttra_eller_utrangera')} {asset.name}</div>
-      <div className="form-row-2" style={{ display: 'grid', gap: '16px', maxWidth: '520px' }}>
-        <div><label style={lbl}>{t('ui.datum')}</label><input type="date" style={inp} value={date} onChange={e => setDate(e.target.value)} /></div>
-        <div><label style={lbl}>{t('ui.forsaljningspris_exkl_moms_0_utrangering')}</label><input type="number" step="0.01" style={inp} value={proceeds} onChange={e => setProceeds(e.target.value)} /></div>
+    <div className="fa-dispose">
+      <strong>{t('ui.avyttra_eller_utrangera')} {asset.name}</strong>
+      <div className="ws-grid2">
+        <div><label className="ws-label" htmlFor="fa-dd">{t('ui.datum')}</label><input id="fa-dd" type="date" className="ws-input" value={date} onChange={e => setDate(e.target.value)} /></div>
+        <div>
+          <label className="ws-label" htmlFor="fa-dp">{t('ui.forsaljningspris_exkl_moms_0_utrangering')}</label>
+          <div className="ws-input-suffix"><input id="fa-dp" type="number" step="0.01" min="0" className="ws-input" value={proceeds} onChange={e => setProceeds(e.target.value)} /><span>kr</span></div>
+        </div>
       </div>
-      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '12px 0' }}>
+      <p className="ws-hint">
         {result > 0 ? t('ui.vinst_vid_avyttring_kr', { v0: fmt(result) }) : result < 0 ? t('ui.forlust_vid_avyttring_kr', { v0: fmt(-result) }) : t('ui.ingen_vinst_eller_forlust')} {t('ui.avskrivning_sker_till_och_med_manaden_fore_avytt')}
       </p>
-      <div style={{ display: 'flex', gap: '12px' }}>
-        <button type="button" style={btn(true)} onClick={() => onConfirm({ date, proceeds })}>{t('ui.bokfor_2')}</button>
-        <button type="button" style={btn(false)} onClick={onCancel}>{t('ui.avbryt')}</button>
+      {error && <p className="ws-hint" style={{ color: 'var(--status-red-text)' }}>{error}</p>}
+      <div className="ws-card-actions">
+        <button type="button" className="agi-btn primary" onClick={() => onConfirm({ date, proceeds })}>{t('ui.bokfor_2')}</button>
+        <button type="button" className="agi-btn" onClick={onCancel}>{t('ui.avbryt')}</button>
       </div>
     </div>
   );

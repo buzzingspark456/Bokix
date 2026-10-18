@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   MdCalendarMonth, MdEmail, MdAccountBalance, MdMoreHoriz,
-  MdOutlineEditNote, MdOutlineHome, MdOutlineStorefront, MdMoreTime, MdPayments, MdPersonAddAlt1, MdPostAdd, MdUploadFile,
+  MdOutlineEditNote, MdOutlineTask, MdOutlineHome, MdOutlineStorefront, MdMoreTime, MdPayments, MdPersonAddAlt1, MdPostAdd, MdUploadFile,
   MdOutlineAccessTime, MdOutlineAccountBalance, MdOutlineAccountBalanceWallet, MdOutlineAccountTree,
   MdOutlineAdd, MdOutlineAlarm, MdOutlineApartment,
   MdOutlineAreaChart, MdOutlineArrowBack, MdOutlineArrowCircleDown, MdOutlineArrowCircleUp,
@@ -205,13 +205,19 @@ export const XCircle = make(MdOutlineCancel, 'XCircle');
 // Menyikonerna för Fakturor och Kvitton. De var tidigare varianter av ett
 // dokument (sida med rader, lång kvittorem) och gick knappt att skilja åt i
 // ikonfältet.
-// Försäljning är menygruppen som samlar Offerter, Kundfakturor,
-// Leverantörsfakturor och Artiklar. Ikonerna för de tre dokumenttyperna får
-// vara släkta men har var sin silhuett: en sida med penna för offerten (ett
-// utkast man skriver), ett dollarblad för fakturan (en betalningsbegäran) och
-// ett kvitto med sicksackkant för kvittot.
 export const NavSalesIcon = make(MdOutlineStorefront, 'NavSalesIcon');
-export const NavQuotesIcon = make(MdOutlineEditNote, 'NavQuotesIcon');
+// 2026-10-18: Offerter är ett dokument med vikt hörn och en penna (ett
+// utkast man skriver), Kundfakturor samma dokument med en bock. Pennan finns
+// inte i react-icons/md, så den är Material Symbols "edit_document" (samma
+// linjetjocklek som resten av menyn). Urklippsblocket med penna liknade
+// Granskning (urklippsblock med bock) för mycket.
+export const NavQuotesIcon = ({ size = 24, className, style, color, strokeWidth: _strokeWidth, absoluteStrokeWidth: _absoluteStrokeWidth, ...rest }) => (
+  <svg width={size} height={size} viewBox="0 -960 960 960" fill={color || 'currentColor'} className={className} style={style} aria-hidden="true" {...rest}>
+    <path d="M560-80v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q8 9 12.5 20t4.5 22q0 11-4 22.5T903-300L683-80H560Zm300-263-37-37 37 37ZM620-140h38l121-122-18-19-19-18-122 121v38ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v120h-80v-80H520v-200H240v640h240v80H240Zm280-400Zm241 199-19-18 37 37-18-19Z" />
+  </svg>
+);
+NavQuotesIcon.displayName = 'NavQuotesIcon';
+export const NavInvoicesIcon = make(MdOutlineTask, 'NavInvoicesIcon');
 
 // Att göra på startsidan (2026-10-03): en egen ikon per sorts sak.
 export const TodoOverdueIcon = make(MdOutlineAlarm, 'TodoOverdueIcon');
@@ -220,34 +226,6 @@ export const TodoDraftIcon = make(MdOutlineEditNote, 'TodoDraftIcon');
 export const TodoVatIcon = make(MdOutlinePercent, 'TodoVatIcon');
 export const TodoPayrollIcon = make(MdOutlinePayments, 'TodoPayrollIcon');
 
-// Förhandsvisning bredvid formuläret (faktura/offert).
-// Fakturaikonen är samma teckning som den stora illustrationen när det inte finns några
-// fakturor än (Invoices.jsx, InvoiceDocIllustration): ett dokument med vikt hörn och
-// textrader, och en bock i en ring nere till höger. Ritad med linjer i ikonens färg
-// (currentColor), så den följer menyns aktiva/inaktiva färg som de andra ikonerna.
-export const NavInvoicesIcon = ({ size = 24, className, style, color, strokeWidth: _strokeWidth, absoluteStrokeWidth: _absoluteStrokeWidth, ...rest }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke={color || 'currentColor'}
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    style={style}
-    aria-hidden="true"
-    {...rest}
-  >
-    <path d="M12.5 20H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6l5 5v4" />
-    <path d="M13 3v4a1 1 0 0 0 1 1h4" />
-    <path d="M8.5 12h5M8.5 15.5h3" />
-    <circle cx="17" cy="17" r="4.5" />
-    <path d="M14.9 17.2l1.5 1.5 2.7-2.9" />
-  </svg>
-);
-NavInvoicesIcon.displayName = 'NavInvoicesIcon';
 // Hem på telefonens bottenrad: ett hus. På datorn heter samma sida Start och har rutnätsikonen.
 export const NavHomeIcon = make(MdOutlineHome, 'NavHomeIcon');
 export const NavReceiptsIcon = make(MdOutlineReceipt, 'NavReceiptsIcon');
