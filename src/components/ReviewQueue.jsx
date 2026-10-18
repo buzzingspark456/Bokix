@@ -341,7 +341,7 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting, selected, on
   const suggestedAccountObj = accounts.find(a => a.code === item.account);
   // Ett mejlat underlag har ofta varken leverantör eller belopp ännu: visa
   // mejlets ämne i stället för 'okänt inköpsställe 0 kr'.
-  const who = item.supplier || item.description || item.inbox?.subject || t('ui.okant_inkopsstalle');
+  const who = item.supplier || item.description || t('ui.okant_inkopsstalle');
   const amountText = Number(item.amount) ? formatSEK(item.amount) : '';
 
   // "Föreslaget ur tidigare konteringar" är ordagrant vad suggestAccount

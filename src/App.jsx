@@ -35,7 +35,7 @@ import {
   Package,
   ClipboardCheck,
   Check,
-  Banknote, Mail, CalendarClock,
+  Banknote, CalendarClock,
 } from './components/icons';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { BAS_VERSION, upgradeAccountsToBas } from './utils/basUpgrade';
@@ -3074,91 +3074,6 @@ function App() {
     return () => { cancelled = true; };
   }, [user, supabaseEnabled, data.activeCompanyId]);
 
-  // E-postinkorgen (api/inbox/email.js, supabase-2026-10-04-inkorg.sql):
-  // underlag som mejlats till företagets adress ligger som rader i
-  // inbox_items. Här hämtas nya rader för det aktiva företaget och läggs i
-  // Kvitton som "Ej hanterade", precis som en uppladdning. Varje rad tas med
-  // en villkorad uppdatering (status new → imported) INNAN den läggs till, så
-  // att två öppna flikar aldrig lägger till samma fil två gånger. Körs vid
-  // inloggning och företagsbyte, varannan minut och när fliken får fokus.
-  // Måste stå INNAN `if (isLoadingAuth) return ...` (hooks-ordningen).
-  const activeCompanyIdRef = useRef(data.activeCompanyId);
-  activeCompanyIdRef.current = data.activeCompanyId;
-  const inboxOwnerId = data.companies?.[data.activeCompanyId]?.__shared?.ownerUserId || user?.id || null;
-  useEffect(() => {
-    const companyId = data.activeCompanyId;
-    if (!user?.id || !supabaseEnabled || !companyId || !inboxOwnerId) return undefined;
-    let cancelled = false;
-    let running = false;
-    const pull = async () => {
-      if (running || cancelled) return;
-      running = true;
-      try {
-        const { data: rows, error } = await supabase
-          .from('inbox_items')
-          .select('id, from_email, from_name, subject, file_url, file_name, content_type, received_at')
-          .eq('owner_user_id', inboxOwnerId)
-          .eq('company_id', companyId)
-          .eq('status', 'new')
-          .order('received_at', { ascending: true })
-          .limit(50);
-        if (error || cancelled || !rows?.length) return;
-        const added = [];
-        const claimedIds = [];
-        for (const row of rows) {
-          const { data: claimed, error: claimErr } = await supabase
-            .from('inbox_items')
-            .update({ status: 'imported', imported_at: new Date().toISOString() })
-            .eq('id', row.id)
-            .eq('status', 'new')
-            .select('id');
-          if (claimErr || !claimed?.length) continue;
-          claimedIds.push(row.id);
-          added.push({
-            id: `exp_${Date.now()}_${added.length}_${Math.random().toString(36).slice(2, 6)}`,
-            type: 'receipt',
-            date: String(row.received_at || new Date().toISOString()).slice(0, 10),
-            description: '', supplier: '',
-            amount: 0, netAmount: 0, vatAmount: 0, vatRate: 25, costAccount: '',
-            receiptUrl: row.file_url,
-            receiptType: row.content_type,
-            uploadedBy: { source: 'email', name: row.from_name || '', email: row.from_email || '' },
-            inbox: { source: 'email', from: row.from_email || '', subject: row.subject || '', fileName: row.file_name || '', receivedAt: row.received_at },
-          });
-        }
-        // Bytte man företag under tiden sparas bara det aktiva företaget, så
-        // raderna lämnas tillbaka och hämtas när företaget är aktivt igen.
-        if (added.length && (cancelled || activeCompanyIdRef.current !== companyId)) {
-          await supabase.from('inbox_items').update({ status: 'new', imported_at: null })
-            .in('id', claimedIds);
-          return;
-        }
-        if (added.length) {
-          setData(prev => {
-            const target = prev.companies?.[companyId];
-            if (!target) return prev;
-            return { ...prev, companies: { ...prev.companies, [companyId]: { ...target, expenses: [...(target.expenses || []), ...added] } } };
-          });
-        }
-      } catch {
-        // Inkorgen är en bonus: ett nätverksfel här ska aldrig störa appen.
-      } finally {
-        running = false;
-      }
-    };
-    pull();
-    const timer = setInterval(pull, 2 * 60 * 1000);
-    const onFocus = () => { if (document.visibilityState === 'visible') pull(); };
-    document.addEventListener('visibilitychange', onFocus);
-    window.addEventListener('focus', onFocus);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-      document.removeEventListener('visibilitychange', onFocus);
-      window.removeEventListener('focus', onFocus);
-    };
-  }, [user?.id, supabaseEnabled, data.activeCompanyId, inboxOwnerId]);
-
   // Granskning i sidomenyn visas bara när något väntar. Kvitton utan konto räknas
   // ur company-datat (reviewCount); Stripe- och Zettle-raderna ligger i egna
   // tabeller som bara Granskning-sidan läste, så de räknas här (billig count-fråga,
@@ -5068,7 +4983,7 @@ function App() {
     const submitted = agiReports.some(r => r.period === d.periodKey && r.status === 'submitted');
     return booked && !submitted && d.daysLeft <= 7 ? d : null;
   })();
-  const notifications = buildNotificationFeed({ t, invoices, expenses, integrationEvents, vat: vatSoon, agi: agiSoon });
+  const notifications = buildNotificationFeed({ t, invoices, integrationEvents, vat: vatSoon, agi: agiSoon });
   const notificationCount = notifications.filter(n => isUnread(n, seenNotifKeys)).length;
   const toggleNotifMenu = () => {
     setIsProfileMenuOpen(false);
@@ -5082,7 +4997,7 @@ function App() {
     else handleNavTabChange(n.target?.tab || 'dashboard');
     setIsNotifMenuOpen(false);
   };
-  const NOTIF_ICON = { paid: Banknote, inbox: Mail, integration: Banknote, deadline: CalendarClock };
+  const NOTIF_ICON = { paid: Banknote, integration: Banknote, deadline: CalendarClock };
   const renderNotifPanel = () => (
     <div className="profile-dropdown notif-dropdown">
       <div className="profile-header" style={{ paddingBottom: 4 }}>

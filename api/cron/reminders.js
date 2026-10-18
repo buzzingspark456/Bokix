@@ -13,7 +13,6 @@ import { logSystemEvent } from '../_systemEvents.js';
 import { hasPaidAccess } from '../_auth.js';
 import { refreshZettleToken, fetchZettlePurchases, fetchZettleFinanceTransactions, zettleFinanceRows } from '../zettle/_client.js';
 import { invoiceCustomerRemaining } from '../../src/utils/rotRutConfig.js';
-import { groupInboxItems, buildInboxDigestHtml, inboxDigestSubject } from './_inboxDigest.js';
 
 // Bugkritiskt (lokal utveckling, samma orsak/fix som api/_resend.js): måste
 // vara en LAT, memoiserad getter, inte en toppnivå-konstant. server.js
@@ -155,7 +154,7 @@ export default async function handler(req, res) {
   // skarp körning skulle ha gjort.
   const dryRun = req.query?.dryRun === 'true' || req.query?.dryRun === '1';
 
-  const summary = { dryRun, usersScanned: 0, invoiceReminders: 0, vatReminders: 0, inboxDigests: 0, agiReminders: 0, trialReminders: 0, stripeLedgerEvents: 0, zettleLedgerEvents: 0, skippedUnpaid: 0, errors: [], wouldSend: [] };
+  const summary = { dryRun, usersScanned: 0, invoiceReminders: 0, vatReminders: 0, agiReminders: 0, trialReminders: 0, stripeLedgerEvents: 0, zettleLedgerEvents: 0, skippedUnpaid: 0, errors: [], wouldSend: [] };
 
   try {
     const today = startOfToday();
@@ -266,17 +265,6 @@ export default async function handler(req, res) {
       .in('status', ['trialing', 'active', 'past_due']);
     const paidUserIds = paidError ? null : new Set((paidRows || []).map(r => r.user_id));
 
-    // Gårdagens nya mejl i e-postinkorgarna, i EN fråga (_inboxDigest.js).
-    // 48 timmar bakåt räcker för att täcka gårdagen i svensk tid.
-    const { data: inboxRows, error: inboxError } = await admin
-      .from('inbox_items')
-      .select('id, owner_user_id, company_id, status, received_at, email_id, from_email, from_name, subject')
-      .eq('status', 'new')
-      .gte('received_at', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
-      .limit(5000);
-    if (inboxError) summary.errors.push(`inbox_items läsning: ${inboxError.message}`);
-    const inboxGroups = groupInboxItems(inboxRows || []);
-
     // Smal läsning (supabase-2026-10-17-smalare-nattjobb.sql): bara de
     // delar av varje företag som jobbet läser, inte hela kontot. Saknas
     // funktionen läses hela konton som förut.
@@ -336,30 +324,6 @@ export default async function handler(req, res) {
           const emailNotificationsOn = notif.emailNotificationsEnabled ?? true;
           const invoiceRemindersOn = emailNotificationsOn && (notif.invoiceRemindersEnabled ?? notif.enabled);
           const declarationRemindersOn = emailNotificationsOn && (notif.declarationRemindersEnabled ?? notif.enabled);
-
-          // ── 0) Nytt i e-postinkorgen, till företaget ── en sammanfattning
-          // om dagen, bara när något kom in i går. Inget sparas: gårdagens
-          // datum är markören (_inboxDigest.js). Ligger före spärren nedan
-          // så att den gäller även om påminnelserna är avstängda.
-          const inboxItems = inboxGroups.get(`${row.user_id}|${companyId}`);
-          const inboxRecipient = companyData.company?.email;
-          if (inboxItems?.length && inboxRecipient && emailNotificationsOn && (notif.inboxDigestEnabled ?? true)) {
-            try {
-              if (dryRun) {
-                summary.wouldSend.push({ type: 'inbox', companyId, to: inboxRecipient, items: inboxItems.length });
-              } else {
-                const result = await sendWithFallback({
-                  to: [inboxRecipient],
-                  subject: inboxDigestSubject(inboxItems),
-                  html: buildInboxDigestHtml({ company: companyData.company, items: inboxItems, siteUrl: SITE_URL }),
-                }, companyData.company);
-                if (!result.ok) throw new Error(result.data?.message || 'Resend-fel');
-              }
-              summary.inboxDigests += 1;
-            } catch (err) {
-              summary.errors.push(`inbox ${companyId}: ${err.message}`);
-            }
-          }
 
           if (!invoiceRemindersOn && !declarationRemindersOn) continue;
 

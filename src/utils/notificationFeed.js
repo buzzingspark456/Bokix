@@ -33,12 +33,11 @@ const sek = (n) => `${numberFormat('sv-SE', { maximumFractionDigits: 0 }).format
 
 /**
  * @param invoices        kundfakturor; en betalning via Betala nu har paidVia 'stripe'
- * @param expenses        kvitton; mejlade har inbox.receivedAt
  * @param integrationEvents ogranskade Stripe/Zettle-rader: { id, source, at, amount }
  * @param vat             { key, label, quarter, dueDate, daysLeft } när momsen snart ska in, annars null
  * @param agi             { periodKey, dueDate, daysLeft } när AGI snart ska in, annars null
  */
-export function buildNotificationFeed({ t, invoices = [], expenses = [], integrationEvents = [], vat = null, agi = null, now = new Date() }) {
+export function buildNotificationFeed({ t, invoices = [], integrationEvents = [], vat = null, agi = null, now = new Date() }) {
   const since = new Date(now.getTime() - KEEP_DAYS * DAY).toISOString();
   const items = [];
 
@@ -49,28 +48,6 @@ export function buildNotificationFeed({ t, invoices = [], expenses = [], integra
       keys: [`paid:${inv.id}`], at: `${inv.paidDate}T12:00:00`, kind: 'paid', tone: 'green',
       text: t('notifFeed.invoicePaid', { number: inv.invoiceNumber || '', amount: sek(inv.paidAmount) }),
       target: { tab: 'invoices', action: { type: 'open_invoice', payload: { id: inv.id } } },
-    });
-  }
-
-  // Kvitton som mejlats till e-postinkorgen, en notis per dag.
-  const inboxByDay = new Map();
-  for (const e of expenses) {
-    const at = e.inbox?.receivedAt;
-    if (!at || at < since) continue;
-    const day = isoDay(at);
-    if (!inboxByDay.has(day)) inboxByDay.set(day, []);
-    inboxByDay.get(day).push(e);
-  }
-  for (const [day, list] of inboxByDay) {
-    // Bara domänen ("telia.se"): kort, och säger vem det kommer från.
-    const senders = [...new Set(list.map(e => String(e.inbox.from || '').split('@').pop().replace(/>$/, '').trim()).filter(Boolean))];
-    const latest = list.map(e => e.inbox.receivedAt).sort().at(-1);
-    items.push({
-      keys: list.map(e => `inbox:${e.id}`), at: latest, kind: 'inbox', tone: 'blue',
-      text: list.length === 1
-        ? t('notifFeed.inboxOne', { from: senders[0] || t('notifFeed.unknownSender') })
-        : t(senders.length > 1 ? 'notifFeed.inboxManySenders' : 'notifFeed.inboxMany', { count: list.length, from: senders[0] || t('notifFeed.unknownSender') }),
-      target: { tab: 'expenses' },
     });
   }
 

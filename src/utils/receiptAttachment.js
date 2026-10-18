@@ -16,7 +16,7 @@ export function receiptAttachmentFields(expense) {
   if (!expense?.receiptUrl) return {};
   return {
     attachmentUrl: expense.receiptUrl,
-    attachmentName: expense.inbox?.fileName || fileNameFromUrl(expense.receiptUrl) || 'Kvitto',
+    attachmentName: fileNameFromUrl(expense.receiptUrl) || 'Kvitto',
     attachmentType: expense.receiptType || '',
   };
 }

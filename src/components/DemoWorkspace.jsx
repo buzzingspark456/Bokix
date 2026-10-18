@@ -4,7 +4,7 @@ import useFitLevel from '../utils/useFitLevel';
 import {
   Menu, X, HelpCircle, LogOut, Bell, Sun, Moon, ChevronDown, ChevronRight, FolderTree, FileCheck, Shield, Calculator, AlertTriangle, UsersRound, Receipt, FileText,
   LayoutDashboard, Users, Package, NavHomeIcon, NavQuotesIcon, NavInvoicesIcon, Inbox, NavReceiptsIcon, Briefcase, ClipboardCheck, BookOpen, Landmark, BarChart3,
-  Settings as SettingsIcon, Banknote, Mail, CalendarClock,
+  Settings as SettingsIcon, Banknote, CalendarClock,
 } from './icons';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark, useMarketingTheme } from './marketing/MarketingLayout';
@@ -134,11 +134,11 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   const reviewCount = seed.expenses.filter(e => !e.costAccount).length;
   // Samma notislista som riktiga appen (utils/notificationFeed.js), med
   // demons exempeldata. Sedda notiser sparas bara så länge demon är öppen.
-  const demoNotifications = useMemo(() => buildNotificationFeed({ t: tr, invoices: seed.invoices, expenses: seed.expenses }), [seed]);
+  const demoNotifications = useMemo(() => buildNotificationFeed({ t: tr, invoices: seed.invoices }), [seed]);
   const [demoSeen, setDemoSeen] = useState(() => new Set());
   const [demoOpenedUnread, setDemoOpenedUnread] = useState(() => new Set());
   const notificationCount = demoNotifications.filter(n => isUnread(n, demoSeen)).length;
-  const DEMO_NOTIF_ICON = { paid: Banknote, inbox: Mail, integration: Banknote, deadline: CalendarClock };
+  const DEMO_NOTIF_ICON = { paid: Banknote, integration: Banknote, deadline: CalendarClock };
   const [activeDemoTab, setActiveDemoTab] = useState(initialTab);
   const [globalAction, setGlobalAction] = useState(null);
   // Mobilens "Meny"-bottensheet (Sida 26 i riktiga appen) — ersätter den
