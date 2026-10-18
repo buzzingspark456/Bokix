@@ -876,7 +876,7 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
   const palette = usePalette();
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+    <div style={{ flex: 1, minHeight: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
         title={tr('ui.projekt')}
         actions={[{ key: 'new', label: tr('ui.nytt_projekt'), icon: Plus, onClick: openNewProjectForm, variant: 'primary', dataTour: 'page-projects-cta' }]}
@@ -929,7 +929,7 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
 
       {activeTab === 'projects' && !openProject && (
         projects.length === 0 ? (
-          <div className="ws-page">
+          <div className="ws-page ws-edge">
             <div className="ws-card ws-empty">
               <h3>{tr('ui.skapa_ditt_forsta_projekt')}</h3>
               <p>{tr('ui.folj_upp_tid_och_lonsamhet_genom_att_skapa_ditt')}</p>
@@ -937,7 +937,7 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
             </div>
           </div>
         ) : (
-          <div className="ws-page">
+          <div className="ws-page ws-edge">
             <Panel title={tr('proj.overview')} sub={tr('proj.overviewSub', { n: activeProjects.length })}>
               <KpiGrid>
                 <Kpi dot={palette.income} label={tr('proj.toInvoice')} value={formatSEK(totals.unbilledValue)} sub={totals.unbilledHours > 0 ? tr('proj.toInvoiceSub', { h: formatHours(totals.unbilledHours) }) : tr('proj.allBilled')} />
@@ -1047,7 +1047,7 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
       )}
 
       {activeTab === 'time' && (
-        <div className="ws-page">
+        <div className="ws-page ws-edge">
           {timeSubTab === 'week' ? (
             <WeekSheet
               projects={projects} timeEntries={timeEntries} setTimeEntries={setTimeEntries} setProjects={setProjects}

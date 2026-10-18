@@ -1706,32 +1706,39 @@ body {
 .settings-shell { flex: 1; min-height: 0; display: flex; }
 .settings-shell.has-nav { background: var(--bg-card); }
 .settings-nav {
-  width: 228px; flex-shrink: 0; box-sizing: border-box;
-  padding: 16px 12px 28px; overflow-y: auto;
+  width: 256px; flex-shrink: 0; box-sizing: border-box;
+  padding: 20px 14px 32px; overflow-y: auto;
   border-right: 1px solid var(--border-light);
 }
 .settings-nav-search {
-  display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; margin-bottom: 22px;
   border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); color: var(--text-muted);
 }
 .settings-nav-search:focus-within { border-color: var(--accent); }
 .settings-nav-search input {
   flex: 1; min-width: 0; border: none; outline: none; background: transparent;
-  font: inherit; font-size: 13px; color: var(--text-main);
+  font: inherit; font-size: 14.5px; color: var(--text-main);
 }
-.settings-nav-group + .settings-nav-group { margin-top: 16px; }
+.settings-nav-group + .settings-nav-group { margin-top: 24px; }
 .settings-nav-group-title {
-  padding: 0 10px 5px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em;
-  text-transform: uppercase; color: var(--text-muted);
+  padding: 0 12px 8px; font-size: 13.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-secondary);
 }
 .settings-nav-item {
-  display: block; width: 100%; padding: 7px 10px; border: none; border-radius: 8px;
+  display: block; width: 100%; padding: 10px 12px; border: none; border-radius: 9px;
   background: transparent; text-align: left; cursor: pointer;
-  font: inherit; font-size: 13.5px; color: var(--text-secondary);
+  font: inherit; font-size: 15.5px; color: var(--text-secondary);
 }
 .settings-nav-item:hover { background: var(--bg-muted); color: var(--text-main); }
+.settings-nav-item + .settings-nav-item { margin-top: 2px; }
 .settings-nav-item.is-active { background: var(--bg-muted); color: var(--text-main); font-weight: 600; }
-.settings-nav-empty { padding: 6px 10px; font-size: 13px; color: var(--text-muted); }
+/* Mörkt tema: menyraderna och grupprubrikerna ett steg ljusare, så de syns. */
+:root[data-theme="dark"] .settings-nav-item,
+:root[data-theme="dark"] .settings-nav-group-title,
+:root[data-theme="dark"] .settings-mnav-group-title { color: var(--text-main); }
+:root[data-theme="dark"] .settings-nav-group-title,
+:root[data-theme="dark"] .settings-mnav-group-title { opacity: 0.85; }
+.settings-nav-empty { padding: 8px 12px; font-size: 14.5px; color: var(--text-muted); }
 .settings-shell.has-nav .settings-content { padding: 0; background: var(--bg-card); }
 .settings-body { max-width: 980px; margin: 0 auto; padding: 30px 44px 56px; box-sizing: border-box; }
 .settings-title { margin-bottom: 14px; }
@@ -1833,7 +1840,7 @@ body {
 }
 .settings-back:hover { background: var(--bg-muted); color: var(--text-main); }
 @media (max-width: 1000px) {
-  .settings-nav { width: 196px; }
+  .settings-nav { width: 220px; }
   .settings-body { padding: 24px 24px 48px; }
 }
 
@@ -1853,8 +1860,8 @@ body {
   font: inherit; font-size: 16px; color: var(--text-main);
 }
 .settings-mnav-group-title {
-  margin: 0 4px 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--text-muted);
+  margin: 0 4px 8px; font-size: 13.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-secondary);
 }
 .settings-mnav-list { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
 .settings-mnav-row {

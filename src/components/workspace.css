@@ -470,3 +470,26 @@ button.lg-todo-row:hover { border-color: color-mix(in srgb, var(--t-fg) 35%, var
   .lg-todo-row .dash-today-lines { flex-basis: 100%; }
   .lg-todo-row:has(.dash-today-ic) .dash-today-lines { flex-basis: 0; }
 }
+
+/* ── Kant i kant (Projekt och Tidrapportering, 2026-10-18) ──
+   Som Kundfakturor: avsnitten fyller hela bredden under filterraden och
+   skiljs åt med en hårfin linje, inga fristående lådor med luft runt om.
+   Insidan (grå rutor, kort, tabeller) är oförändrad. */
+.ws-page.ws-edge { padding: 0; gap: 0; background: var(--bg-card); }
+.ws-edge > .wsp,
+.ws-edge > .ws-card,
+.ws-edge > .ws-stats,
+.ws-edge > .ws-notice { border: none; border-bottom: 1px solid var(--border-light); border-radius: 0; box-shadow: none; }
+.ws-edge > .wsp { padding: 22px 28px 24px; }
+.ws-edge > .wsp > .responsive-table, .ws-edge > .wsp .wsp-flush { margin: 0 -28px -24px; border-radius: 0; }
+.ws-edge > .ws-card > .list-table-wrap, .ws-edge > .ws-card .ws-flush { border-radius: 0; }
+.ws-edge > .ws-card .ws-card-head { padding-left: 28px; padding-right: 28px; }
+.ws-edge > .ws-card > .ws-rows li, .ws-edge > .ws-card .ws-rows-empty { padding-left: 28px; padding-right: 28px; }
+.ws-edge .tt-grid thead th.tt-proj, .ws-edge .tt-grid td.tt-proj { padding-left: 28px; }
+.ws-edge .tt-grid thead th.tt-sum, .ws-edge .tt-grid td.tt-sum { padding-right: 28px; }
+.ws-edge > .ws-cols { padding: 0; gap: 0; }
+@media (max-width: 640px) {
+  .ws-edge > .wsp { padding: 16px; }
+  .ws-edge > .wsp > .responsive-table, .ws-edge > .wsp .wsp-flush { margin: 0 -16px -16px; }
+  .ws-edge > .ws-card .ws-card-head, .ws-edge > .ws-card > .ws-rows li { padding-left: 16px; padding-right: 16px; }
+}

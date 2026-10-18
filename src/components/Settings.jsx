@@ -197,7 +197,7 @@ const SECTION_META = {
 
 // Samma grupper i datorns vänstermeny (SettingsNav) och telefonens lista.
 const HUB_GROUPS = [
-  { title: tr('ui.sg_du'), ids: ['profile', 'security', 'appearance', 'notifications'] },
+  { title: null, ids: ['profile', 'security', 'appearance', 'notifications'] },
   { title: tr('ui.sg_foretaget'), ids: ['company', 'users', 'subscription'] },
   { title: tr('ui.sg_bokforing'), ids: ['system', 'advanced'] },
   { title: tr('ui.sg_forsaljning'), ids: ['invoice', 'integrations'] },
@@ -215,12 +215,12 @@ function SettingsNav({ sections, activeId, onPick }) {
   return (
     <nav className="settings-nav" aria-label={tr('ui.installningar')}>
       <div className="settings-nav-search">
-        <Search size={15} />
+        <Search size={17} />
         <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={tr('ui.sok_installning')} aria-label={tr('ui.sok_installning')} />
       </div>
       {groups.map(group => (
-        <div key={group.title} className="settings-nav-group">
-          <div className="settings-nav-group-title">{group.title}</div>
+        <div key={group.title || 'you'} className="settings-nav-group">
+          {group.title && <div className="settings-nav-group-title">{group.title}</div>}
           {group.items.map(s => (
             <button
               key={s.id}
@@ -259,8 +259,8 @@ function SettingsHub({ sections, onPick }) {
         <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={tr('ui.sok_installning')} aria-label={tr('ui.sok_installning')} />
       </label>
       {shown.map(group => (
-        <div key={group.title}>
-          <div className="settings-mnav-group-title">{group.title}</div>
+        <div key={group.title || 'you'}>
+          {group.title && <div className="settings-mnav-group-title">{group.title}</div>}
           <div className="settings-mnav-list">
             {group.items.map(section => (
               <button key={section.id} type="button" className="settings-mnav-row" onClick={() => onPick(section.id)}>
