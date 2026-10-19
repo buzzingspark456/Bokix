@@ -1,4 +1,4 @@
-import { dateTimeFormat } from './intlCache';
+import { dateTimeFormat } from './intlCache.js';
 // Bokning av en genomgång (/boka-genomgang). Delas av sidan
 // (BookingPage.jsx) och servern (api/contact.js), så att tiderna som visas
 // och tiderna som godtas alltid är samma. Alla tider är svensk tid.
@@ -8,6 +8,59 @@ export const BOOKING_MINUTES = 25;
 export const BOOKING_DAYS_AHEAD = 21;
 export const BOOKING_TIMES = ['09:00', '09:30', '10:00', '10:30', '11:00', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00'];
 export const BOOKING_MODES = { video: 'Videomöte', phone: 'Telefonsamtal' };
+
+// Vad genomgången gäller. Länkar hit skickar med ?om=<nyckel> så att
+// rubriken passar sidan man kom från, och så att bokningen i Inkorgen och
+// mejlet visar vad mötet handlar om. Okänd eller saknad nyckel: 'allmant'.
+// Mötena är olika långa; ett långt möte blockerar tiderna det går in i.
+export const BOOKING_REASONS = {
+  allmant: {
+    label: 'Genomgång av Bokix',
+    minutes: 25,
+    title: 'Boka en genomgång av Bokix',
+    lead: 'Boka 25 minuter med någon av oss som bygger Bokix. Vi visar hur Bokix fungerar och svarar på dina frågor.',
+  },
+  passar: {
+    label: 'Passar Bokix mitt företag?',
+    minutes: 25,
+    title: 'Osäker på om Bokix passar dig?',
+    lead: 'Boka 25 minuter med någon av oss som bygger Bokix. Du får raka svar på dina frågor och ser hur Bokix fungerar för just ditt företag.',
+  },
+  byte: {
+    label: 'Hjälp med bytet',
+    minutes: 45,
+    title: 'Få hjälp att byta till Bokix',
+    lead: 'Boka 45 minuter så går vi igenom bytet tillsammans: hur du tar ut SIE4-filen ur ditt gamla program, läser in den i Bokix och ser att allt kom med.',
+  },
+  bank: {
+    label: 'Banken i Bokix',
+    minutes: 15,
+    title: 'Få hjälp att komma igång med banken',
+    lead: 'Boka 15 minuter så visar vi hur du läser in kontoutdraget och hur betalningarna matchas mot dina fakturor och kvitton.',
+  },
+};
+
+export function bookingReason(key) {
+  return Object.hasOwn(BOOKING_REASONS, key) ? key : 'allmant';
+}
+
+export function bookingMinutes(reason) {
+  return BOOKING_REASONS[bookingReason(reason)].minutes;
+}
+
+function slotStart(slot) {
+  const [h, m] = slot.slice(11).split(':').map(Number);
+  return h * 60 + m;
+}
+
+// Är tiden ledig för ett möte på `minutes` minuter? `busy` är bokade möten
+// som [{ slot, minutes }]; två möten krockar om de överlappar samma dag.
+export function isSlotFree(slot, minutes, busy) {
+  const start = slotStart(slot);
+  return !busy.some(b => b.slot.slice(0, 10) === slot.slice(0, 10)
+    && start < slotStart(b.slot) + b.minutes
+    && slotStart(b.slot) < start + minutes);
+}
 
 const TZ = 'Europe/Stockholm';
 const SLOT_RE = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/;
@@ -73,9 +126,11 @@ export function formatSlot(slot) {
 
 // Raden som sparas först i meddelandet i Inkorgen, och som upptagna tider
 // läses tillbaka ur (contact_messages har ingen egen kolumn för tiden).
-export function bookingMessage({ slot, mode, company, phone, note }) {
+export function bookingMessage({ slot, mode, reason, company, phone, note }) {
   return [
     `Tid: ${slot}`,
+    `Gäller: ${BOOKING_REASONS[bookingReason(reason)].label}`,
+    `Längd: ${bookingMinutes(reason)} min`,
     `Form: ${BOOKING_MODES[mode] || BOOKING_MODES.video}`,
     company ? `Företag: ${company}` : null,
     phone ? `Telefon: ${phone}` : null,
@@ -88,6 +143,14 @@ export function slotFromMessage(message) {
   return m ? m[1] : null;
 }
 
+// Bokningar från före olika längder saknar "Längd:" och var BOOKING_MINUTES.
+export function busyFromMessage(message) {
+  const slot = slotFromMessage(message);
+  if (!slot) return null;
+  const m = /^Längd: (\d+) min$/m.exec(message);
+  return { slot, minutes: m ? Number(m[1]) : BOOKING_MINUTES };
+}
+
 function icsStamp(date) {
   return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 }
@@ -96,9 +159,10 @@ function icsText(value) {
   return String(value).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, m => `\\${m}`);
 }
 
-export function bookingIcs({ slot, mode, uid, now = new Date() }) {
+export function bookingIcs({ slot, mode, reason, uid, now = new Date() }) {
+  const minutes = bookingMinutes(reason);
   const start = stockholmToUtc(slot);
-  const end = new Date(start.getTime() + BOOKING_MINUTES * 60000);
+  const end = new Date(start.getTime() + minutes * 60000);
   const how = mode === 'phone' ? 'Vi ringer dig på numret du angav.' : 'Vi mejlar en länk till videomötet innan dess.';
   return [
     'BEGIN:VCALENDAR',
@@ -110,8 +174,8 @@ export function bookingIcs({ slot, mode, uid, now = new Date() }) {
     `DTSTAMP:${icsStamp(now)}`,
     `DTSTART:${icsStamp(start)}`,
     `DTEND:${icsStamp(end)}`,
-    'SUMMARY:Genomgång av Bokix',
-    `DESCRIPTION:${icsText(`${BOOKING_MODES[mode] || BOOKING_MODES.video}, ${BOOKING_MINUTES} minuter. ${how}`)}`,
+    `SUMMARY:${icsText(`Bokix: ${BOOKING_REASONS[bookingReason(reason)].label}`)}`,
+    `DESCRIPTION:${icsText(`${BOOKING_MODES[mode] || BOOKING_MODES.video}, ${minutes} minuter. ${how}`)}`,
     'END:VEVENT',
     'END:VCALENDAR',
     '',

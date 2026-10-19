@@ -27,8 +27,6 @@ import createCheckoutSessionHandler from './api/stripe/create-checkout-session.j
 import contactHandler from './api/contact.js'
 import clientErrorHandler from './api/client-error.js'
 import healthHandler from './api/health.js'
-import inboxHandler from './api/inbox/index.js'
-import inboxEmailHandler from './api/inbox/email.js'
 import sendInvoiceHandler from './api/email/send-invoice.js'
 import sendPayslipHandler from './api/email/send-payslip.js'
 import { requireAuthedUser, loadOwnedOrMemberCompany } from './api/_auth.js'
@@ -234,9 +232,6 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 // 15mb (inte standard-100kb) eftersom fakturamejl bifogar en PDF som
 // base64-sträng i JSON-kroppen — annars avvisas anrop med en bifogad
 // faktura-PDF över ~70kb (base64 är ~33% större än originalfilen).
-// E-postinkorgens webhook (Resend) behöver den råa kroppen för signaturen,
-// precis som Stripes ovan: registreras före express.json().
-app.post('/api/inbox/email', express.raw({ type: '*/*', limit: '2mb' }), (req, res) => inboxEmailHandler(req, res))
 app.use(express.json({ limit: '15mb' }))
 
 app.get('/api/health', (_req, res) => {
@@ -341,7 +336,6 @@ app.all('/api/admin', (req, res) => adminHandler(req, res))
 app.all('/api/contact', (req, res) => contactHandler(req, res))
 app.all('/api/client-error', (req, res) => clientErrorHandler(req, res))
 app.all('/api/health', (req, res) => healthHandler(req, res))
-app.all('/api/inbox', (req, res) => inboxHandler(req, res))
 
 // ── "Glömt lösenord?" OCH registreringens e-postverifieringskod (Auth.jsx)
 // — TILL SKILLNAD från varje annan rutt i den här filen (utom /api/cron/
