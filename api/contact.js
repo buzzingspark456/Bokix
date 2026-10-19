@@ -6,8 +6,8 @@ import { checkRateLimit, getClientIp } from './_rateLimit.js';
 import { hasRecaptchaSecretKey, verifyRecaptcha } from './_recaptcha.js';
 import { hasTurnstileSecretKey, verifyTurnstile } from './_turnstile.js';
 import {
-  BOOKING_TOPIC, BOOKING_MINUTES, BOOKING_MODES, isValidSlot, formatSlot, bookingMessage,
-  slotFromMessage, bookingIcs, stockholmToday,
+  BOOKING_TOPIC, BOOKING_MODES, BOOKING_REASONS, bookingReason, bookingMinutes, isSlotFree, isValidSlot, formatSlot, bookingMessage,
+  busyFromMessage, bookingIcs, stockholmToday,
 } from '../src/utils/demoBooking.js';
 
 // Kontaktformuläret på den publika marknadssajten (ContactPage.jsx) —
@@ -107,8 +107,9 @@ function buildEmailHtml({ name, email, topic, message }) {
 // ── Bokning av genomgång (/boka-genomgang, BookingPage.jsx) ──
 // Samma rutt och samma Inkorg som kontaktformuläret, ämne "Genomgång".
 // Tiden står på första raden i meddelandet ("Tid: 2026-10-06 10:00") och
-// läses tillbaka därifrån för att visa upptagna tider.
-async function takenSlots() {
+// längden på raden "Längd:"; båda läses tillbaka därifrån för att visa
+// upptagna tider. Svarar med [{ slot, minutes }].
+async function busySlots() {
   const client = adminClient();
   if (!client) return [];
   const since = new Date(Date.now() - 45 * 86400000).toISOString();
@@ -120,14 +121,15 @@ async function takenSlots() {
   if (error || !data) return [];
   const today = stockholmToday();
   return data
-    .map(r => slotFromMessage(r.message))
-    .filter(s => s && s.slice(0, 10) > today);
+    .map(r => busyFromMessage(r.message))
+    .filter(b => b && b.slot.slice(0, 10) > today);
 }
 
-function buildBookingHtml({ name, email, slot, mode, company, phone, note }) {
+function buildBookingHtml({ name, email, slot, mode, reason, company, phone, note }) {
   return `
     <div style="font-family: Arial, sans-serif; font-size: 14px; color: #0f172a; line-height: 1.6;">
       <p><strong>Tid:</strong> ${esc(formatSlot(slot))}</p>
+      <p><strong>Gäller:</strong> ${esc(BOOKING_REASONS[reason].label)}</p>
       <p><strong>Form:</strong> ${esc(BOOKING_MODES[mode])}</p>
       <p><strong>Namn:</strong> ${esc(name)}</p>
       <p><strong>E-post:</strong> ${esc(email)}</p>
@@ -138,14 +140,14 @@ function buildBookingHtml({ name, email, slot, mode, company, phone, note }) {
   `;
 }
 
-function buildBookerHtml({ name, slot, mode }) {
+function buildBookerHtml({ name, slot, mode, reason }) {
   const how = mode === 'phone'
     ? 'Vi ringer dig på numret du angav.'
     : 'Vi mejlar en länk till videomötet innan dess.';
   return `
     <div style="font-family: Arial, sans-serif; font-size: 15px; color: #0f172a; line-height: 1.6;">
       <p>Hej ${esc(name.split(' ')[0])},</p>
-      <p>Tack för din bokning. Vi ses <strong>${esc(formatSlot(slot))}</strong> för en genomgång av Bokix, cirka ${BOOKING_MINUTES} minuter. ${how}</p>
+      <p>Tack för din bokning. Vi ses <strong>${esc(formatSlot(slot))}</strong> (${esc(BOOKING_REASONS[reason].label)}), cirka ${bookingMinutes(reason)} minuter. ${how}</p>
       <p>Passar tiden inte längre? Svara på det här mejlet så hittar vi en ny.</p>
       <p>Hälsningar<br/>Bokix</p>
     </div>
@@ -170,6 +172,7 @@ async function handleBooking(req, res, body) {
   const note = typeof body?.note === 'string' ? body.note.trim().slice(0, 2000) : '';
   const mode = body?.mode === 'phone' ? 'phone' : 'video';
   const slot = typeof body?.slot === 'string' ? body.slot : '';
+  const reason = bookingReason(body?.reason);
 
   if (!name || !email) { res.status(400).json({ error: 'Namn och e-post krävs.' }); return; }
   if (!EMAIL_RE.test(email)) { res.status(400).json({ error: 'Ogiltig e-postadress.' }); return; }
@@ -187,14 +190,14 @@ async function handleBooking(req, res, body) {
     }
   }
 
-  if ((await takenSlots()).includes(slot)) {
+  if (!isSlotFree(slot, bookingMinutes(reason), await busySlots())) {
     res.status(409).json({ error: 'Någon hann boka den tiden precis. Välj en annan.', taken: true });
     return;
   }
 
   const saved = await saveContactMessage({
     name, email, topic: BOOKING_TOPIC,
-    message: bookingMessage({ slot, mode, company, phone, note }),
+    message: bookingMessage({ slot, mode, reason, company, phone, note }),
   });
 
   const resendApiKey = getResendApiKey();
@@ -207,8 +210,8 @@ async function handleBooking(req, res, body) {
   const inbox = await sendEmail(resendApiKey, {
     from: getEmailFrom(),
     to: [getContactInbox()],
-    subject: `Ny genomgång ${formatSlot(slot)} — ${name}${company ? `, ${company}` : ''}`,
-    html: buildBookingHtml({ name, email, slot, mode, company, phone, note }),
+    subject: `Ny genomgång ${formatSlot(slot)} (${BOOKING_REASONS[reason].label}) — ${name}${company ? `, ${company}` : ''}`,
+    html: buildBookingHtml({ name, email, slot, mode, reason, company, phone, note }),
     reply_to: email,
   });
   if (!inbox.ok) {
@@ -227,11 +230,11 @@ async function handleBooking(req, res, body) {
     from: getEmailFrom(),
     to: [email],
     subject: `Din genomgång av Bokix, ${formatSlot(slot)}`,
-    html: buildBookerHtml({ name, slot, mode }),
+    html: buildBookerHtml({ name, slot, mode, reason }),
     reply_to: getContactInbox(),
     attachments: [{
       filename: 'genomgang-bokix.ics',
-      content: Buffer.from(bookingIcs({ slot, mode, uid: `${saved || Date.now()}@bokix.se` })).toString('base64'),
+      content: Buffer.from(bookingIcs({ slot, mode, reason, uid: `${saved || Date.now()}@bokix.se` })).toString('base64'),
     }],
   });
   if (!confirm.ok) console.error('Resend API error (booking confirmation):', confirm.data);
@@ -245,7 +248,7 @@ export default async function handler(req, res) {
     // Upptagna tider till bokningssidan. Bara tider, inga namn.
     if (!(await checkRateLimit(req, res, { key: 'booking-slots', max: 60 }))) return;
     res.setHeader('Cache-Control', 'no-store');
-    res.status(200).json({ taken: await takenSlots() });
+    res.status(200).json({ busy: await busySlots() });
     return;
   }
   if (req.method !== 'POST') {

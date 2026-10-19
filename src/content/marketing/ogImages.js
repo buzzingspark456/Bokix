@@ -13,7 +13,7 @@ export const OG_PAGES = {
   '/priser': { file: 'priser', eyebrow: 'Priser', title: 'Ett pris, allt ingår', items: ['129 kr/mån utan anställda', '179 kr/mån med anställda', 'Ingen moms tillkommer', '30 dagar gratis'] },
   '/om-oss': { file: 'om-oss', eyebrow: 'Om Bokix', title: 'Svenskt bokföringsprogram för småföretag', items: ['Byggt i Sverige', 'Data lagras inom EU', 'Support som ingår i priset'] },
   '/kontakt': { file: 'kontakt', eyebrow: 'Kontakt', title: 'Frågor om Bokix? Hör av dig', items: ['support@bokix.se', 'Boka en genomgång på 25 minuter', 'Svar från dem som bygger Bokix'] },
-  '/boka-genomgang': { file: 'boka-genomgang', eyebrow: 'Boka en genomgång', title: 'Osäker på om Bokix passar dig?', items: ['25 minuter', 'Kostnadsfritt', 'Inget att förbereda'] },
+  '/boka-genomgang': { file: 'boka-genomgang', eyebrow: 'Boka en genomgång', title: 'Boka en genomgång av Bokix', items: ['25 minuter', 'Kostnadsfritt', 'Inget att förbereda'] },
   '/byt-bokforingsprogram': { file: 'byt-bokforingsprogram', eyebrow: 'Byt bokföringsprogram', title: 'Ta med dig hela bokföringen', items: ['Exportera en SIE4-fil', 'Läs in den i Bokix', 'Konton och verifikationer följer med'] },
   '/koppla-bank': { file: 'koppla-bank', eyebrow: 'Bank', title: 'Banken in i bokföringen', items: ['Läs in kontoutdraget som fil', 'Betalningar matchas mot fakturor', 'Det osäkra hamnar i Granskning'] },
   '/uf': { file: 'uf', eyebrow: 'UF-företag', title: 'Bokföring för UF-företag', items: ['Gratis under UF-året', 'Enkelt läge utan debet och kredit', 'Kvitton läses av från ett foto'] },

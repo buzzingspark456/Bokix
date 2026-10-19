@@ -1080,7 +1080,7 @@ function MarketingStyles() {
       /* ── Sidfoten. Samma mörka botten i båda teman, en färg (elfenben)
          i tre styrkor: rubriker dämpade, länkar mellan, hover vit. Ingen
          gradientlist eller färgade fläckar. */
-      .lp-footer { background: #0e2018; color: rgba(255,255,255,0.62); padding: 64px 24px 28px; position: relative; overflow: hidden; border-top: 1px solid rgba(255,255,255,0.06); }
+      .lp-footer { background: #1b4332; color: rgba(255,255,255,0.62); padding: 64px 24px 28px; position: relative; overflow: hidden; border-top: 1px solid rgba(255,255,255,0.06); }
       .lp-footer-inner { max-width: 1120px; margin: 0 auto; position: relative; }
       .lp-footer-grid { display: grid; grid-template-columns: 1.2fr repeat(5, minmax(0, 1fr)); gap: 40px 28px; }
       .lp-footer-grid > * { min-width: 0; }

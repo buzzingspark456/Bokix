@@ -147,7 +147,7 @@ export default function OrgTypePage({ path }) {
         lead={page.lead}
         actions={<>
           <PrimaryButton onClick={enterApp}>Prova gratis i 30 dagar</PrimaryButton>
-          <GhostLink to="/boka-genomgang">Boka en genomgång</GhostLink>
+          <GhostLink to="/boka-genomgang?om=passar">Boka en genomgång</GhostLink>
         </>}
         visual={page.video ? <HeroVideo file={heroVideoFile(page)} label={page.video.description} /> : <OrgTypeVisual slug={page.slug} />}
       />

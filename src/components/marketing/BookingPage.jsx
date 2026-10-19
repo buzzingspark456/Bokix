@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { BRAND } from '../../utils/brandColors';
 import { Check, ArrowRight } from '../icons';
 import MarketingLayout, { Reveal } from './MarketingLayout';
@@ -6,7 +7,7 @@ import { SERIF, INK, INK_SOFT, MUTED, CARD_BORDER, CARD_SHADOW } from './marketi
 import { PageMeta } from '../../utils/seo';
 import Turnstile from '../Turnstile';
 import {
-  BOOKING_TIMES, BOOKING_MINUTES, BOOKING_MODES, bookableDays, slotKey, formatSlot, bookingIcs,
+  BOOKING_TIMES, BOOKING_MODES, BOOKING_REASONS, bookingReason, bookingMinutes, isSlotFree, bookableDays, slotKey, formatSlot, bookingIcs,
 } from '../../utils/demoBooking';
 import { dateTimeFormat } from '../../utils/intlCache';
 
@@ -43,8 +44,8 @@ function dayLabel(date) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function downloadIcs(slot, mode) {
-  const blob = new Blob([bookingIcs({ slot, mode })], { type: 'text/calendar;charset=utf-8' });
+function downloadIcs(slot, mode, reason) {
+  const blob = new Blob([bookingIcs({ slot, mode, reason })], { type: 'text/calendar;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -56,10 +57,15 @@ function downloadIcs(slot, mode) {
 }
 
 export default function BookingPage() {
+  // ?om= från länken man kom från (se BOOKING_REASONS). Rubriken följer
+  // länken; valet i formuläret kan ändras och skickas med bokningen.
+  const [searchParams] = useSearchParams();
+  const [reason, setReason] = useState(() => bookingReason(searchParams.get('om')));
+  const intro = BOOKING_REASONS[bookingReason(searchParams.get('om'))];
   const days = useMemo(() => bookableDays(), []);
   const months = useMemo(() => [...new Set(days.map(monthKey))], [days]);
   const [monthIdx, setMonthIdx] = useState(0);
-  const [taken, setTaken] = useState([]);
+  const [busy, setBusy] = useState([]);
   const [mode, setMode] = useState('video');
   const [date, setDate] = useState(null);
   const [time, setTime] = useState(null);
@@ -71,19 +77,30 @@ export default function BookingPage() {
   const captchaRef = useRef(null);
   const [captchaRound, setCaptchaRound] = useState(0);
 
-  const loadTaken = () => fetch('/api/contact', { cache: 'no-store' })
-    .then(r => (r.ok ? r.json() : { taken: [] }))
-    .then(d => setTaken(Array.isArray(d.taken) ? d.taken : []))
+  const loadBusy = () => fetch('/api/contact', { cache: 'no-store' })
+    .then(r => (r.ok ? r.json() : { busy: [] }))
+    .then(d => setBusy(Array.isArray(d.busy) ? d.busy : []))
     .catch(() => {});
 
-  useEffect(() => { loadTaken(); }, []);
+  useEffect(() => { loadBusy(); }, []);
 
-  const freeTimes = (d) => BOOKING_TIMES.filter(t => !taken.includes(slotKey(d, t)));
+  const minutes = bookingMinutes(reason);
+  const freeTimes = (d) => BOOKING_TIMES.filter(t => isSlotFree(slotKey(d, t), minutes, busy));
   const isOpen = (d) => days.includes(d) && freeTimes(d).length > 0;
   const slot = date && time ? slotKey(date, time) : null;
   const update = (field, value) => setForm(f => ({ ...f, [field]: value }));
 
   const pickDate = (d) => { setDate(d); setTime(null); setError(''); };
+
+  // Ett längre möte kan krocka med nästa bokning; då får man välja om.
+  const pickReason = (next) => {
+    setReason(next);
+    if (slot && !isSlotFree(slot, bookingMinutes(next), busy)) {
+      setTime(null);
+      setStep('pick');
+      setError(`Tiden räcker inte för ${bookingMinutes(next)} minuter. Välj en annan.`);
+    }
+  };
 
   async function submit(e) {
     e.preventDefault();
@@ -100,11 +117,11 @@ export default function BookingPage() {
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind: 'booking', slot, mode, ...form, captchaToken: captchaToken || undefined }),
+        body: JSON.stringify({ kind: 'booking', slot, mode, reason, ...form, captchaToken: captchaToken || undefined }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 409 && data.taken) {
-        await loadTaken();
+        await loadBusy();
         setTime(null);
         setStep('pick');
         setError(data.error);
@@ -126,7 +143,7 @@ export default function BookingPage() {
     <MarketingLayout>
       <PageMeta
         title="Boka en genomgång | Bokix"
-        description={`Osäker på om Bokix passar dig? Boka en kostnadsfri genomgång, ${BOOKING_MINUTES} minuter via video eller telefon. Välj dag och tid direkt på sidan.`}
+        description="Boka en kostnadsfri genomgång av Bokix via video eller telefon. Välj dag och tid direkt på sidan."
         path="/boka-genomgang"
       />
       <style>{`
@@ -181,13 +198,13 @@ export default function BookingPage() {
       <section style={{ padding: '140px 24px 48px', background: 'var(--mkt-page-bg)' }}>
         <Reveal style={{ maxWidth: '660px', margin: '0 auto', textAlign: 'center' }}>
           <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(34px, 5.4vw, 54px)', fontWeight: 700, letterSpacing: '-0.015em', color: INK, margin: '0 0 18px', lineHeight: 1.1 }}>
-            Osäker på om Bokix passar dig?
+            {intro.title}
           </h1>
           <p style={{ fontSize: '17px', color: INK_SOFT, lineHeight: 1.65, margin: '0 auto', maxWidth: '560px' }}>
-            Boka {BOOKING_MINUTES} minuter med någon av oss som bygger Bokix. Du får raka svar på dina frågor och ser hur Bokix fungerar för just ditt företag.
+            {intro.lead}
           </p>
           <ul className="bk-facts">
-            {[`${BOOKING_MINUTES} minuter`, 'Kostnadsfritt', 'Inget att förbereda'].map(fact => (
+            {[`${intro.minutes} minuter`, 'Kostnadsfritt', 'Inget att förbereda'].map(fact => (
               <li key={fact}><Check size={18} aria-hidden />{fact}</li>
             ))}
           </ul>
@@ -211,14 +228,19 @@ export default function BookingPage() {
                   {mode === 'phone' ? `Vi ringer dig på ${form.phone}.` : 'Vi mejlar en länk till videomötet innan dess.'}{' '}
                   En bekräftelse är på väg till {form.email}.
                 </p>
-                <button type="button" className="bk-btn" onClick={() => downloadIcs(slot, mode)}>Lägg till i kalendern</button>
+                <button type="button" className="bk-btn" onClick={() => downloadIcs(slot, mode, reason)}>Lägg till i kalendern</button>
               </div>
             </div>
           ) : (
             <div className="bk-card">
               <aside className="bk-side">
-                <h2 style={{ fontFamily: SERIF, fontSize: '23px', fontWeight: 700, color: INK, margin: '0 0 4px', lineHeight: 1.25 }}>Genomgång av Bokix</h2>
-                <div style={{ fontSize: '14.5px', color: INK_SOFT, marginBottom: '24px' }}>{BOOKING_MINUTES} minuter</div>
+                <h2 style={{ fontFamily: SERIF, fontSize: '23px', fontWeight: 700, color: INK, margin: '0 0 4px', lineHeight: 1.25 }}>{BOOKING_REASONS[reason].label}</h2>
+                <div style={{ fontSize: '14.5px', color: INK_SOFT, marginBottom: '24px' }}>{minutes} minuter</div>
+
+                <label className="bk-label" htmlFor="bk-reason">Vad vill du prata om?</label>
+                <select id="bk-reason" className="bk-input" style={{ marginBottom: '20px' }} value={reason} onChange={e => pickReason(e.target.value)}>
+                  {Object.entries(BOOKING_REASONS).map(([key, r]) => <option key={key} value={key}>{r.label} ({r.minutes} min)</option>)}
+                </select>
 
                 <div className="bk-label">Hur vill du ses?</div>
                 <div className="bk-seg" role="group" aria-label="Mötesform">
@@ -231,7 +253,7 @@ export default function BookingPage() {
                   <div className="bk-fade" style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--mkt-border-soft)' }}>
                     <div style={{ fontSize: '13px', fontWeight: 600, color: MUTED, marginBottom: '4px' }}>Vald tid</div>
                     <div style={{ fontSize: '15.5px', fontWeight: 700, color: INK, lineHeight: 1.4 }}>{dayLabel(date)}</div>
-                    <div style={{ fontSize: '15px', color: INK_SOFT }}>kl. {time}–{addMinutes(time, BOOKING_MINUTES)}</div>
+                    <div style={{ fontSize: '15px', color: INK_SOFT }}>kl. {time}–{addMinutes(time, minutes)}</div>
                     {step === 'details' && (
                       <button type="button" className="bk-link" style={{ marginTop: '10px' }} onClick={() => setStep('pick')}>Ändra tid</button>
                     )}

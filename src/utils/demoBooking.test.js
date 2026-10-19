@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { bookableDays, isValidSlot, stockholmToUtc, formatSlot, bookingMessage, slotFromMessage, bookingIcs, stockholmToday } from './demoBooking';
+import { bookableDays, isValidSlot, stockholmToUtc, formatSlot, bookingMessage, bookingReason, bookingMinutes, isSlotFree, busyFromMessage, slotFromMessage, bookingIcs, stockholmToday } from './demoBooking';
 
 // Lördag 4 oktober 2026, 12:00 svensk tid.
 const NOW = new Date('2026-10-04T10:00:00Z');
@@ -36,15 +36,35 @@ describe('demoBooking', () => {
   });
 
   it('läser tillbaka tiden ur meddelandet', () => {
-    const msg = bookingMessage({ slot: '2026-10-06 13:30', mode: 'phone', company: 'Ab', phone: '070', note: 'Hej' });
-    expect(msg.startsWith('Tid: 2026-10-06 13:30\nForm: Telefonsamtal')).toBe(true);
+    const msg = bookingMessage({ slot: '2026-10-06 13:30', mode: 'phone', reason: 'byte', company: 'Ab', phone: '070', note: 'Hej' });
+    expect(msg.startsWith('Tid: 2026-10-06 13:30\nGäller: Hjälp med bytet\nLängd: 45 min\nForm: Telefonsamtal')).toBe(true);
+    expect(busyFromMessage(msg)).toEqual({ slot: '2026-10-06 13:30', minutes: 45 });
+    expect(busyFromMessage('Tid: 2026-10-06 13:30\nForm: Videomöte')).toEqual({ slot: '2026-10-06 13:30', minutes: 25 });
     expect(slotFromMessage(msg)).toBe('2026-10-06 13:30');
     expect(slotFromMessage('Hej')).toBe(null);
+  });
+
+  it('okänd anledning blir en allmän genomgång', () => {
+    expect(bookingReason('byte')).toBe('byte');
+    expect(bookingReason('toString')).toBe('allmant');
+    expect(bookingReason(undefined)).toBe('allmant');
+    expect(bookingMessage({ slot: '2026-10-06 13:30', mode: 'video', reason: 'nej' })).toContain('Gäller: Genomgång av Bokix');
   });
 
   it('bygger en kalenderfil', () => {
     const ics = bookingIcs({ slot: '2026-10-05 10:00', mode: 'video', now: NOW });
     expect(ics).toContain('DTSTART:20261005T080000Z');
     expect(ics).toContain('DTEND:20261005T082500Z');
+    expect(bookingIcs({ slot: '2026-10-05 10:00', mode: 'video', reason: 'byte', now: NOW })).toContain('DTEND:20261005T084500Z');
+  });
+
+  it('ett långt möte blockerar tiderna det går in i', () => {
+    const busy = [{ slot: '2026-10-06 10:00', minutes: 45 }];
+    expect(isSlotFree('2026-10-06 10:30', 25, busy)).toBe(false);
+    expect(isSlotFree('2026-10-06 11:00', 25, busy)).toBe(true);
+    expect(isSlotFree('2026-10-06 09:30', 25, busy)).toBe(true);
+    expect(isSlotFree('2026-10-06 09:30', 45, busy)).toBe(false);
+    expect(isSlotFree('2026-10-07 10:00', 45, busy)).toBe(true);
+    expect(bookingMinutes('bank')).toBe(15);
   });
 });

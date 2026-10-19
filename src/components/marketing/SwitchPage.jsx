@@ -190,7 +190,7 @@ export default function SwitchPage() {
         lead="Bokför du i Fortnox, Visma, Spiris, Bokio, Björn Lundén, Wint eller SpeedLedger i dag? Exportera en SIE4-fil därifrån och läs in den i Bokix. Konton, verifikationer och ingående balanser följer med."
         actions={<>
           <PrimaryButton onClick={enterApp}>Kom igång gratis</PrimaryButton>
-          <GhostLink to="/boka-genomgang">Boka hjälp med bytet</GhostLink>
+          <GhostLink to="/boka-genomgang?om=byte">Boka hjälp med bytet</GhostLink>
         </>}
         visual={<MigrationFlow note={false} />}
       />
@@ -272,7 +272,7 @@ export default function SwitchPage() {
 
       <KitCta title="Ta med dig bokföringen hit" lead="Skapa kontot, importera din SIE4-fil och se hela historiken på plats. 30 dagar kostnadsfritt, ingen bindningstid på månadsplanen.">
         <PrimaryButton onClick={enterApp}>Kom igång gratis</PrimaryButton>
-        <GhostLink to="/boka-genomgang">Boka hjälp med bytet</GhostLink>
+        <GhostLink to="/boka-genomgang?om=byte">Boka hjälp med bytet</GhostLink>
       </KitCta>
     </MarketingLayout>
   );
