@@ -1,6 +1,12 @@
 {
   "trailingSlash": false,
   "regions": ["arn1"],
+  "crons": [
+    {
+      "path": "/api/cron/offsite-backup",
+      "schedule": "0 2 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/stripe/create-subscription-checkout",
