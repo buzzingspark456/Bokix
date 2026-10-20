@@ -57,19 +57,19 @@ describe('_auth betalningsspärr', () => {
 
   it('släpper igenom UF-konton inom tre månader från registreringen', async () => {
     const res = createMockRes();
-    const user = { id: 'uf1', email: 'elev@skola.se', created_at: daysAgo(20), user_metadata: { uf: true } };
+    const user = { id: 'uf1', email: 'elev@skola.se', created_at: daysAgo(20), app_metadata: { uf: true } };
     expect(await requireActiveSubscription(user, res)).toBe(true);
   });
 
   it('räknar UF-perioden från kontots skapelsedatum, inte ett datum i user_metadata', () => {
     // user_metadata kan användaren skriva om själv — ett framflyttat
     // uf_started_at får inte förlänga gratisperioden.
-    const user = { created_at: daysAgo(200), user_metadata: { uf: true, uf_started_at: new Date().toISOString() } };
+    const user = { created_at: daysAgo(200), app_metadata: { uf: true }, user_metadata: { uf_started_at: new Date().toISOString() } };
     expect(isWithinUfFreePeriod(user)).toBe(false);
   });
 
   it('ett avslutat UF-år räknas inte som gratisperiod', () => {
-    const user = { created_at: daysAgo(10), user_metadata: { uf: true }, app_metadata: { uf_closed_at: new Date().toISOString() } };
+    const user = { created_at: daysAgo(10), app_metadata: { uf: true, uf_closed_at: new Date().toISOString() } };
     expect(isWithinUfFreePeriod(user)).toBe(false);
   });
 

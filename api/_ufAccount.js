@@ -71,7 +71,7 @@ export function ufDeleteAfter(now = new Date()) {
  * { status, body } för endpointen att skicka.
  */
 export async function closeUfAccount(admin, user, { now = new Date() } = {}) {
-  if (!user?.user_metadata?.uf) {
+  if (!user?.app_metadata?.uf) {
     return { status: 400, body: { error: 'Bara UF-konton kan avsluta UF-året.' } };
   }
   const existing = user.app_metadata || {};
@@ -205,7 +205,7 @@ export async function deleteClosedUfAccounts(admin, { now = new Date(), dryRun =
     const users = data?.users || [];
 
     for (const u of users) {
-      if (!u.user_metadata?.uf) continue;
+      if (!u.app_metadata?.uf) continue;
       const meta = u.app_metadata || {};
       const closedDue = meta.uf_closed_at && meta.uf_delete_after && meta.uf_delete_after < today;
       const periodEnd = ufPeriodEnd(u);

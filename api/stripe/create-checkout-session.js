@@ -1,7 +1,7 @@
 import { applySecurityHeaders } from '../_security.js';
 import Stripe from 'stripe';
 import { parseJsonBody } from './_parseBody.js';
-import { normalizeAbsoluteUrl } from './_urls.js';
+import { stripeReturnBase } from './_urls.js';
 import { resolveInvoiceLineItems } from './_invoiceLineItems.js';
 import { checkRateLimit } from '../_rateLimit.js';
 import subscriptionCheckoutHandler from './_subscriptionCheckout.js';
@@ -81,8 +81,8 @@ export default async function handler(req, res) {
         company_id: companyId,
         invoice_id: invoiceId,
       },
-      success_url: normalizeAbsoluteUrl(process.env.STRIPE_SUCCESS_URL, 'http://localhost:5173'),
-      cancel_url: normalizeAbsoluteUrl(process.env.STRIPE_CANCEL_URL, 'http://localhost:5173'),
+      success_url: stripeReturnBase(process.env.STRIPE_SUCCESS_URL),
+      cancel_url: stripeReturnBase(process.env.STRIPE_CANCEL_URL),
     }, { stripeAccount: stripeAccountId });
     res.status(200).json({ session });
   } catch (error) {

@@ -46,7 +46,7 @@ export default function PaymentRequiredGate({ user, company, onSignedOut, ownerU
   // fortsätta och betala, eller avsluta. Ett avslutat konto går att läsa i
   // tre månader och stängs sedan; bokföringen sparas i sju år i arkivet (se
   // utils/ufClose.js och api/_ufAccount.js).
-  const isUf = !forCompany && !memberLocked && Boolean(user?.user_metadata?.uf);
+  const isUf = !forCompany && !memberLocked && Boolean(user?.app_metadata?.uf);
   const [ufClosed, setUfClosed] = useState(() => ufClosedInfo(user));
   const [closing, setClosing] = useState(false);
   const handleCloseUf = async () => {

@@ -2572,8 +2572,8 @@ function App() {
       // skriva om själv. Samma regel som servern (api/_auth.js) och
       // databasen (public.has_paid_access i supabase-setup.sql), som är den
       // riktiga spärren — det här är bara så appen och databasen är överens.
-      const ufMeta = authUser.user_metadata || {};
-      const ufFree = ufMeta.uf ? ufFreePeriod(authUser.created_at) : null;
+      // UF-flaggan i app_metadata (bara servern skriver), inte user_metadata.
+      const ufFree = authUser.app_metadata?.uf ? ufFreePeriod(authUser.created_at) : null;
       // Ett avslutat UF-år (app_metadata, se utils/ufClose.js) räknas som slut.
       const withinUfFreePeriod = Boolean(ufFree && !ufFree.expired) && !authUser.app_metadata?.uf_closed_at;
 

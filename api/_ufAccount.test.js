@@ -71,14 +71,14 @@ describe('UF-avslut', () => {
 
   it('ett konto med ett vanligt företag med bokföring kan inte avslutas', async () => {
     const admin = makeAdmin({ rows: { u: { companies: { a: ufCompany, b: realCompany } } } });
-    const r = await closeUfAccount(admin, { id: 'u', user_metadata: { uf: true } });
+    const r = await closeUfAccount(admin, { id: 'u', app_metadata: { uf: true } });
     expect(r.status).toBe(409);
     expect(admin.calls.updated).toHaveLength(0);
   });
 
   it('avslut sparar datumen i app_metadata', async () => {
     const admin = makeAdmin({ rows: { u: { companies: { a: ufCompany } } } });
-    const r = await closeUfAccount(admin, { id: 'u', user_metadata: { uf: true }, app_metadata: { provider: 'email' } }, { now: new Date('2026-09-26T10:00:00Z') });
+    const r = await closeUfAccount(admin, { id: 'u', app_metadata: { uf: true, provider: 'email' } }, { now: new Date('2026-09-26T10:00:00Z') });
     expect(r.status).toBe(200);
     expect(r.body.deleteAfter).toBe('2026-12-26');
     expect(admin.calls.updated[0].attrs.app_metadata).toMatchObject({ provider: 'email', uf_delete_after: '2026-12-26' });
@@ -87,7 +87,7 @@ describe('UF-avslut', () => {
 
 describe('Radering av avslutade UF-konton', () => {
   const now = new Date('2027-01-10T03:00:00Z');
-  const closed = (id, until, extra = {}) => ({ id, user_metadata: { uf: true }, app_metadata: { uf_closed_at: '2026-09-26', uf_delete_after: until }, ...extra });
+  const closed = (id, until, extra = {}) => ({ id, app_metadata: { uf: true, uf_closed_at: '2026-09-26', uf_delete_after: until }, ...extra });
 
   it('arkiverar bokföringen i sju år och stänger sedan kontot', async () => {
     const admin = makeAdmin({ users: [closed('u1', '2026-12-26')], rows: { u1: { companies: { a: ufCompany } } } });
@@ -113,7 +113,7 @@ describe('Radering av avslutade UF-konton', () => {
   });
 
   it('rör inte ett konto vars datum inte passerats, eller som aldrig avslutats', async () => {
-    const admin = makeAdmin({ users: [closed('u2', '2027-03-01'), { id: 'u3', user_metadata: { uf: true }, app_metadata: {} }, { id: 'u4', user_metadata: {}, app_metadata: { uf_closed_at: 'x', uf_delete_after: '2026-01-01' } }] });
+    const admin = makeAdmin({ users: [closed('u2', '2027-03-01'), { id: 'u3', app_metadata: { uf: true } }, { id: 'u4', user_metadata: {}, app_metadata: { uf_closed_at: 'x', uf_delete_after: '2026-01-01' } }] });
     const s = await deleteClosedUfAccounts(admin, { now });
     expect(s.deleted).toBe(0);
     expect(admin.calls.deletedUsers).toHaveLength(0);
@@ -149,7 +149,7 @@ describe('UF-konton som inte valt något', () => {
     const sent = [];
     return { sent, sendMail: async (m) => { sent.push(m); return true; }, buildMail: ({ stage, closeDate }) => ({ subject: stage, html: closeDate }) };
   };
-  const unchosen = (id, createdAt, appMeta = {}) => ({ id, email: `${id}@skola.se`, created_at: createdAt, user_metadata: { uf: true }, app_metadata: appMeta });
+  const unchosen = (id, createdAt, appMeta = {}) => ({ id, email: `${id}@skola.se`, created_at: createdAt, app_metadata: { uf: true, ...appMeta } });
 
   it('stängningsdatumet är sex månader efter gratisperiodens slut', () => {
     expect(ufAutoCloseDate({ created_at: '2026-01-10T09:00:00Z' })).toBe('2026-10-10');

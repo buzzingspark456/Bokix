@@ -226,12 +226,13 @@ export function isFreeEmail(email) {
  *  inloggad användare skriva om själv (supabase.auth.updateUser), så ett
  *  datum därifrån gick att flytta fram för evigt gratis. uf_started_at sätts
  *  ändå vid registreringen (Auth.jsx), så för ett riktigt UF-konto är de två
- *  samma tidpunkt. Flaggan `uf` ligger kvar i user_metadata — den går att
- *  sätta själv, men ger då högst tre månader från registreringen, samma
- *  sak som en provperiod. */
+ *  samma tidpunkt. Flaggan `uf` läses ur app_metadata, som bara servern
+ *  kan skriva: databasen kopierar den dit när kontot skapas och bevarar den
+ *  (supabase-2026-10-20-uf-skyddad-flagga.sql). user_metadata.uf går att
+ *  sätta själv och räknas därför inte. */
 const UF_FREE_MONTHS = 3;
 export function isWithinUfFreePeriod(user) {
-  if (!user?.user_metadata?.uf) return false;
+  if (!user?.app_metadata?.uf) return false;
   // Avslutat UF-år (app_metadata, bara servern kan skriva) = perioden är slut.
   if (user.app_metadata?.uf_closed_at) return false;
   const created = new Date(user.created_at);

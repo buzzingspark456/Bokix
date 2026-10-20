@@ -242,7 +242,7 @@ async function handleAnalytics(admin, res, query) {
   let allUsers;
   try { allUsers = await fetchAllUsers(admin); } catch (err) { res.status(500).json({ error: err.message }); return; }
 
-  const ufUsers = allUsers.filter(u => u.user_metadata?.uf).length;
+  const ufUsers = allUsers.filter(u => u.app_metadata?.uf).length;
 
   const range = resolveRange(query);
 
@@ -321,7 +321,7 @@ async function handleUsers(admin, res) {
     return {
       id: u.id,
       email: u.email,
-      uf: !!u.user_metadata?.uf,
+      uf: !!u.app_metadata?.uf,
       companyName: ud?.company_name || null,
       companyOrgnr: ud?.company_orgnr || null,
       onboardingCompleted: !!ud?.onboarding_completed,

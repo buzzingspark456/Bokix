@@ -29,3 +29,14 @@ export function appendQueryParam(url, key, value) {
   u.searchParams.set(key, value);
   return u.toString();
 }
+
+// Vart Stripe skickar kunden efter betalning (success_url, cancel_url,
+// kundportalens return_url). I produktion alltid www.bokix.se direkt:
+// STRIPE_SUCCESS_URL pekade på bokix.vercel.app, som bara omdirigerar hit,
+// ett onödigt extra hopp precis efter betalningen. Lokalt och i förhands-
+// versioner gäller miljövariabeln som förut.
+export const PRODUCTION_SITE_URL = 'https://www.bokix.se/';
+export function stripeReturnBase(raw, { env = process.env } = {}) {
+  if (env.VERCEL_ENV === 'production') return PRODUCTION_SITE_URL;
+  return normalizeAbsoluteUrl(raw, 'http://localhost:5173');
+}

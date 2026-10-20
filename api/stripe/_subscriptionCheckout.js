@@ -2,7 +2,7 @@ import { applySecurityHeaders } from '../_security.js';
 import { resolvePlan, TRIAL_DAYS, resolveCancellation } from '../../src/utils/plans.js';
 import Stripe from 'stripe';
 import { parseJsonBody } from './_parseBody.js';
-import { normalizeAbsoluteUrl, appendQueryParam } from './_urls.js';
+import { stripeReturnBase, appendQueryParam } from './_urls.js';
 import { checkRateLimit, getClientIp } from '../_rateLimit.js';
 import { createClient } from '@supabase/supabase-js';
 import { trialDecision, trialMetadata } from './_trialGuard.js';
@@ -180,7 +180,7 @@ export default async function handler(req, res) {
         return;
       }
 
-      const returnUrl = normalizeAbsoluteUrl(process.env.STRIPE_SUCCESS_URL, 'http://localhost:5173');
+      const returnUrl = stripeReturnBase(process.env.STRIPE_SUCCESS_URL);
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: stripeCustomerId,
         return_url: returnUrl,
@@ -346,8 +346,8 @@ export default async function handler(req, res) {
       ...(decision.allowTrial ? {} : { bokix_trial_denied: decision.reasons.join(',') }),
     };
 
-    const baseUrl = normalizeAbsoluteUrl(process.env.STRIPE_SUCCESS_URL, 'http://localhost:5173');
-    const cancelBaseUrl = normalizeAbsoluteUrl(process.env.STRIPE_CANCEL_URL, 'http://localhost:5173');
+    const baseUrl = stripeReturnBase(process.env.STRIPE_SUCCESS_URL);
+    const cancelBaseUrl = stripeReturnBase(process.env.STRIPE_CANCEL_URL);
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
