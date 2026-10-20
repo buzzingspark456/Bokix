@@ -5,6 +5,7 @@ import { parseJsonBody } from './stripe/_parseBody.js';
 import { checkRateLimit, getClientIp } from './_rateLimit.js';
 import { hasRecaptchaSecretKey, verifyRecaptcha } from './_recaptcha.js';
 import { hasTurnstileSecretKey, verifyTurnstile } from './_turnstile.js';
+import { brandedEmail } from '../src/utils/brandedEmail.js';
 import {
   BOOKING_TOPIC, BOOKING_MODES, BOOKING_REASONS, bookingReason, bookingMinutes, isSlotFree, isValidSlot, formatSlot, bookingMessage,
   busyFromMessage, bookingIcs, stockholmToday,
@@ -144,14 +145,15 @@ function buildBookerHtml({ name, slot, mode, reason }) {
   const how = mode === 'phone'
     ? 'Vi ringer dig på numret du angav.'
     : 'Vi mejlar en länk till videomötet innan dess.';
-  return `
-    <div style="font-family: Arial, sans-serif; font-size: 15px; color: #0f172a; line-height: 1.6;">
+  return brandedEmail({
+    title: 'Din genomgång är bokad',
+    body: `
       <p>Hej ${esc(name.split(' ')[0])},</p>
       <p>Tack för din bokning. Vi ses <strong>${esc(formatSlot(slot))}</strong> (${esc(BOOKING_REASONS[reason].label)}), cirka ${bookingMinutes(reason)} minuter. ${how}</p>
       <p>Passar tiden inte längre? Svara på det här mejlet så hittar vi en ny.</p>
       <p>Hälsningar<br/>Bokix</p>
-    </div>
-  `;
+    `,
+  });
 }
 
 async function sendEmail(apiKey, payload) {
@@ -342,7 +344,10 @@ export default async function handler(req, res) {
         from: getEmailFrom(),
         to: [user.email],
         subject: `Vi har fått ditt meddelande (${topic})`,
-        html: buildEmailHtml({ name, email, topic, message }),
+        html: brandedEmail({
+          title: 'Vi har fått ditt meddelande',
+          body: `<p>Tack, vi svarar så snart vi kan. Här är en kopia av det du skickade:</p>${buildEmailHtml({ name, email, topic, message })}`,
+        }),
         reply_to: getContactInbox(),
       });
       if (!copy.ok) console.error('Resend API error (contact copy):', copy.data);

@@ -42,6 +42,7 @@ import { logAuditEvent } from '../utils/auditLog';
 import { detectDevice } from '../utils/deviceInfo';
 import { t as tr, useTranslation, getLanguage, dateLocale } from '../i18n';
 import { numberFormat, dateTimeFormat } from '../utils/intlCache';
+import { brandedEmail, emailButton } from '../utils/brandedEmail';
 
 // Visas istället för att faktiskt anropa Supabase när `readOnly` (Sida
 // landningssidans demo, se DemoWorkspace.jsx) — samma text överallt i den
@@ -1670,23 +1671,20 @@ function escHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-// Bygger inbjudningsmejlets HTML — samma "Hej ... Med vänlig hälsning"-ton
-// som fakturautskicket (Invoices.jsx), grönt CTA-knapp i samma märkesfärg.
+// Bygger inbjudningsmejlets HTML i Bokix gemensamma mejlram (brandedEmail).
 function buildInviteEmailHtml({ companyName, inviterName, inviteUrl, role }) {
   const roleLabel = role === 'editor' ? 'redigera' : tr('ui.se_lasbehorighet');
   const safeInviter = escHtml(inviterName) || tr('ui.nagon');
   const safeCompany = escHtml(companyName) || tr('ui.sitt_foretag');
-  return `
-    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
+  return brandedEmail({
+    title: `Du är inbjuden till ${safeCompany}`,
+    body: `
       <p>Hej,</p>
-      <p>${safeInviter} har bjudit in dig till <strong>${safeCompany}</strong> på Bokix — du kommer kunna ${roleLabel} företagets bokföring.</p>
-      <p style="margin: 28px 0;">
-        <a href="${inviteUrl}" style="display: inline-block; padding: 12px 24px; background: #0b6329; color: white; text-decoration: none; border-radius: 8px; font-weight: 700;">Acceptera inbjudan</a>
-      </p>
-      <p style="font-size: 13px; color: #666;">Länken är giltig i 7 dagar. Har du redan ett Bokix-konto loggar du bara in — annars skapar du ett nytt.</p>
-      <p>Med vänlig hälsning<br/>Bokix</p>
-    </div>
-  `;
+      <p>${safeInviter} har bjudit in dig till <strong>${safeCompany}</strong> på Bokix. Du kommer kunna ${roleLabel} företagets bokföring.</p>
+      ${emailButton(inviteUrl, 'Acceptera inbjudan')}
+    `,
+    footnote: 'Länken är giltig i 7 dagar. Har du redan ett Bokix-konto loggar du bara in, annars skapar du ett nytt.',
+  });
 }
 
 const ROLE_LABELS = { editor: tr('ui.kan_redigera'), viewer: tr('ui.kan_bara_lasa') };
