@@ -7,7 +7,7 @@ import {
   Sparkles, CheckCircle2, HelpCircle, LogOut, Search, ChevronRight, Fingerprint, CalendarFilled, MailFilled, BankFilled, Copy,
 } from './icons';
 import { supabase } from '../supabaseClient';
-import { passkeysAvailable, isPasskeyCancel, appLockEnabledFor, setAppLock, rememberPasskeyOnDevice } from '../utils/sessionPolicy';
+import { passkeysAvailable, isPasskeyCancel, isPasskeyAlreadyOnDevice, appLockEnabledFor, setAppLock, rememberPasskeyOnDevice } from '../utils/sessionPolicy';
 import { sendInvoiceEmail } from '../emailApi';
 import { cancelStripeSubscription, reactivateStripeSubscription, openBillingPortal, getSubscriptionInvoices } from '../stripeApi';
 import { BRAND } from '../utils/brandColors';
@@ -1280,7 +1280,15 @@ function PasskeySection() {
       if (userId) { setAppLock(userId); setLockOn(true); }
       load();
     } catch (err) {
-      if (!isPasskeyCancel(err)) setError(tr('ui.passkey_kunde_inte_laggas_till'));
+      if (isPasskeyAlreadyOnDevice(err)) {
+        // Redan inlagt på den här enheten: det är inget fel, spärren kan slås på direkt.
+        if (userId) { setAppLock(userId); setLockOn(true); }
+        rememberPasskeyOnDevice(true);
+        setError(tr('ui.passkey_finns_redan_pa_enheten'));
+      } else if (!isPasskeyCancel(err)) {
+        console.error('registerPasskey:', err?.code || err?.name, err?.message);
+        setError(tr('ui.passkey_kunde_inte_laggas_till'));
+      }
     } finally {
       setBusy(false);
     }

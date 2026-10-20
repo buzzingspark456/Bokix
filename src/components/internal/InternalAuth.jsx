@@ -78,12 +78,16 @@ export default function InternalAuth({ onAuthenticated, notice = '' }) {
     setError('');
     setLoading(true);
     try {
-      const { error: passkeyError } = await supabase.auth.signInWithPasskey();
+      // Supabase kräver captcha även för passkey-inloggning när Turnstile är på.
+      let captchaToken = null;
+      try { captchaToken = await captchaRef.current?.execute(); } catch { throw new Error('Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen.'); }
+      const { error: passkeyError } = await supabase.auth.signInWithPasskey(captchaToken ? { options: { captchaToken } } : undefined);
       if (passkeyError) throw passkeyError;
       rememberPasskeyOnDevice(true);
       onAuthenticated();
     } catch (err) {
-      if (!isPasskeyCancel(err)) setError('Inloggningen med Face ID misslyckades. Har du lagt till en passkey på den här enheten?');
+      if (!isPasskeyCancel(err)) setError(err?.message?.startsWith('Kunde inte verifiera') ? err.message : 'Inloggningen med Face ID misslyckades. Har du lagt till en passkey på den här enheten?');
+      setCaptchaRound(n => n + 1);
       setLoading(false);
     }
   };

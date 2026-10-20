@@ -390,13 +390,20 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     setErrorMsg('');
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPasskey();
+      // Supabase kräver captcha även för passkey-inloggning när Turnstile är på.
+      let captchaToken;
+      try { captchaToken = await runCaptcha(loginCaptchaRef); } catch (captchaErr) { setErrorMsg(captchaErr.message); newCaptchaRound(); return; }
+      const { data, error } = await supabase.auth.signInWithPasskey(captchaToken ? { options: { captchaToken } } : undefined);
       if (error) throw error;
       // Face ID används på den här enheten: appen spärras med det framöver.
       setAppLock(data?.user?.id || data?.session?.user?.id || null);
       rememberPasskeyOnDevice(true);
     } catch (err) {
-      if (!isPasskeyCancel(err)) setErrorMsg(t('ui.passkey_inloggning_misslyckades'));
+      if (!isPasskeyCancel(err)) {
+        console.error('signInWithPasskey:', err?.code || err?.name, err?.message);
+        setErrorMsg(t('ui.passkey_inloggning_misslyckades'));
+      }
+      newCaptchaRound();
     } finally {
       setLoading(false);
     }

@@ -3607,6 +3607,7 @@
     "passkey_ta_bort_fraga": "Remove Face ID or fingerprint sign-in for this device?",
     "passkey_kunde_inte_hamtas": "Couldn’t load your devices. Please try again shortly.",
     "passkey_kunde_inte_laggas_till": "Couldn’t add Face ID or fingerprint. Please try again.",
+    "passkey_finns_redan_pa_enheten": "Face ID or fingerprint is already set up on this device for your account. You can sign in with it right away.",
     "applock_rubrik": "Bokix is locked",
     "applock_hej": "Hi {{firstName}}",
     "applock_text": "Unlock with Face ID or your fingerprint to continue.",

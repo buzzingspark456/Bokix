@@ -3607,6 +3607,7 @@
     "passkey_ta_bort_fraga": "Ta bort inloggningen med Face ID eller fingeravtryck för den här enheten?",
     "passkey_kunde_inte_hamtas": "Kunde inte hämta dina enheter. Försök igen om en stund.",
     "passkey_kunde_inte_laggas_till": "Det gick inte att lägga till Face ID eller fingeravtryck. Försök igen.",
+    "passkey_finns_redan_pa_enheten": "Face ID eller fingeravtryck finns redan på den här enheten för ditt konto. Du kan logga in med det direkt.",
     "applock_rubrik": "Bokix är låst",
     "applock_hej": "Hej {{firstName}}",
     "applock_text": "Lås upp med Face ID eller fingeravtryck för att fortsätta.",

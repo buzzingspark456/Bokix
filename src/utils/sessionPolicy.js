@@ -112,6 +112,14 @@ export async function verifyWithPasskey() {
 }
 
 /** Användaren avbröt Face ID-/fingeravtrycksrutan: inget fel att visa. */
+/** Enheten har redan en passkey för kontot (webbläsarens InvalidStateError,
+ * som supabase-js kallar ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED). */
+export function isPasskeyAlreadyOnDevice(err) {
+  const code = err?.code || err?.cause?.code || '';
+  const name = err?.name || err?.cause?.name || '';
+  return code === 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED' || name === 'InvalidStateError';
+}
+
 export function isPasskeyCancel(err) {
   const name = err?.name || err?.cause?.name || '';
   const msg = String(err?.message || '');
