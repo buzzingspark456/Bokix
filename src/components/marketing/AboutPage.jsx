@@ -27,14 +27,14 @@ const BELIEFS = [
 const FACTS = [
   { title: 'För vem', body: 'Svenska småföretag: enskild firma, aktiebolag, handelsbolag, kommanditbolag och ekonomisk förening.' },
   { title: 'Vad det är', body: 'Ett bokföringsprogram i webbläsaren, på dator och telefon, med bokföring, fakturor, kvitton, moms, lön och bokslut.' },
-  { title: 'Var datan finns', body: 'Inom EU, i Frankfurt. Bokföringen sparas i sju år, även om du slutar använda Bokix.' },
+  { title: 'Var datan finns', body: 'I Sverige, i Stockholm. Bokföringen sparas i sju år, även om du slutar använda Bokix.' },
   { title: 'Språk', body: 'Appen finns på svenska och engelska.' },
   { title: 'Support', body: 'Ingår, och svaren kommer från oss som bygger Bokix: support@bokix.se.' },
 ];
 
 const FAQ = [
   { q: 'Vilka står bakom Bokix?', a: 'Två personer i Sverige som bygger och sköter Bokix själva, från koden till supporten. När du mejlar support@bokix.se är det vi som svarar.' },
-  { q: 'Var lagras min bokföring?', a: 'Inom EU, i Frankfurt. Den sparas i sju år, så som bokföringslagen kräver, även om du slutar använda Bokix. Du kan alltid ladda ned den som SIE4.' },
+  { q: 'Var lagras min bokföring?', a: 'I Sverige, i Stockholm. Den sparas i sju år, så som bokföringslagen kräver, även om du slutar använda Bokix. Du kan alltid ladda ned den som SIE4.' },
   { q: 'Varför byggde ni Bokix?', a: 'Vi tyckte att bokföringsprogram var dyra för det man fick och skrivna för folk som redan kan bokföring. Bokix ska gå att förstå utan kurs.' },
 ];
 

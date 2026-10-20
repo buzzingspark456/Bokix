@@ -39,7 +39,7 @@ const FACTS = [
   { title: 'Inbjudan, inte gissad URL', body: 'Högst tre användare per företag, via engångslänk. Behörigheten kontrolleras i databasen.' },
   // Se PrivacyPolicy avsnitt 4 och 5: LAGRING, inte behandling. Serverfunktionerna
   // hos Vercel kör utanför EU tills vercel.json får en regions-inställning.
-  { title: 'Lagras inom EU', body: 'Databasen och dina kvitton ligger i ett datacenter i Frankfurt, Tyskland.' },
+  { title: 'Lagras i Sverige', body: 'Databasen och dina kvitton ligger i ett datacenter i Stockholm.' },
   { title: 'Ingen inlåsning', body: 'Hela bokföringen ut som SIE4 när du vill. Du behöver inte fråga oss om lov.' },
 ];
 

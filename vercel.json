@@ -1,6 +1,6 @@
 {
   "trailingSlash": false,
-  "regions": ["fra1"],
+  "regions": ["arn1"],
   "crons": [
     {
       "path": "/api/cron/reminders",

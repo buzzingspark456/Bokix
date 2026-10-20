@@ -6,7 +6,7 @@ import { INK, MUTED, CARD_BORDER, CARD_SHADOW, ACCENT } from './marketingTokens'
 // ── Hjälten på /sakerhet: en inloggning som kontrolleras steg för steg.
 // Varje rad motsvarar något som finns i koden (samma regel som
 // SecurityPage): TOTP-tvåfaktor (supabase.auth.mfa), radnivåskydd i
-// databasen (RLS), sessionen i sessionStorage, datacenter i Frankfurt.
+// databasen (RLS), sessionen i sessionStorage, datacenter i Stockholm.
 const STEP_MS = 900;
 const CODE = ['4', '8', '2', '1', '9', '0'];
 
@@ -72,7 +72,7 @@ export default function SecurityCheck() {
         </div>
       ))}
       <div className="bx-sc-foot">
-        <span>Lagras inom EU</span>
+        <span>Lagras i Sverige</span>
         <span className="bx-sc-state" style={{ background: allDone ? ACCENT.green.soft : 'var(--mkt-ivory)', color: allDone ? ACCENT.green.fg : MUTED }}>
           {allDone ? 'Inloggad' : 'Kontrollerar'}
         </span>

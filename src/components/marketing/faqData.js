@@ -72,7 +72,7 @@ export const FAQ_GROUPS = [
     id: 'sakerhet',
     title: 'Säkerhet och data',
     items: [
-      { q: 'Var lagras min bokföring?', a: 'Inom EU, i Frankfurt. Varje företags data är avskild i databasen så att ingen annan kommer åt den, och du kan slå på tvåstegsverifiering.' },
+      { q: 'Var lagras min bokföring?', a: 'I Sverige, i Stockholm. Varje företags data är avskild i databasen så att ingen annan kommer åt den, och du kan slå på tvåstegsverifiering.' },
       { q: 'Kan jag ta med mig bokföringen om jag slutar?', a: 'Ja. Du exporterar allt som en SIE4-fil, som alla svenska bokföringsprogram kan läsa. Slutar du betala kan du fortfarande ladda ner din bokföring, och den sparas i sju år som lagen kräver.' },
     ],
   },

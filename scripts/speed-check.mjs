@@ -41,7 +41,7 @@ async function measureApp() {
   await page.addInitScript(([key, val, uid]) => { sessionStorage.setItem(key, val); localStorage.setItem(`bokix_tour_done_v3_${uid}`, '1'); }, [`sb-${REF}-auth-token`, JSON.stringify(session), UID]);
   const wantsObj = (req) => (req.headers()['accept'] || '').includes('vnd.pgrst.object');
   await page.route(`${SUPA}/**`, async (route) => {
-    // Som en riktig tur-och-retur till Supabase i Frankfurt från en telefon.
+    // Som en riktig tur-och-retur till Supabase i Stockholm från en telefon.
     await new Promise(r => setTimeout(r, Number(process.env.DB_MS || 80)));
     const req = route.request();
     const url = new URL(req.url());

@@ -604,10 +604,10 @@ const SecEu = (
         <div className="ax-m ax-b" style={{ fontSize: 9.5, letterSpacing: '0.06em' }}>INTEGRITETSPOLICY</div>
         <div className="ax-b" style={{ fontSize: 15, margin: '6px 0 6px' }}>4. Vilka vi delar uppgifter med</div>
         <div className="ax-s" style={{ fontSize: 11, lineHeight: 1.6 }}>
-          <b style={{ color: 'var(--ax-text)' }}>Supabase</b>, databas- och autentiseringsleverantör. All bokförings- och kontodata, inklusive de kvitton och underlag du laddar upp, lagras hos Supabase på våra vägnar <span className="ax-receipt-hl" style={{ ...d(0.9), color: 'var(--ax-text)', fontWeight: 600 }}>i ett datacenter inom EU (Frankfurt, Tyskland)</span>.
+          <b style={{ color: 'var(--ax-text)' }}>Supabase</b>, databas- och autentiseringsleverantör. All bokförings- och kontodata, inklusive de kvitton och underlag du laddar upp, lagras hos Supabase på våra vägnar <span className="ax-receipt-hl" style={{ ...d(0.9), color: 'var(--ax-text)', fontWeight: 600 }}>i ett datacenter i Sverige (Stockholm)</span>.
         </div>
         <div className="ax-b dp-in" style={{ ...d(1.6), fontSize: 15, margin: '14px 0 6px' }}>6. Överföring utanför EU/EES</div>
-        <div className="ax-s dp-in" style={{ ...d(1.8), fontSize: 11, lineHeight: 1.6 }}>Själva lagringen av din bokföring, databasen och de filer du laddar upp, sker <span className="ax-receipt-hl" style={{ ...d(2.3), color: 'var(--ax-text)', fontWeight: 600 }}>inom EU, i Frankfurt, Tyskland</span>.</div>
+        <div className="ax-s dp-in" style={{ ...d(1.8), fontSize: 11, lineHeight: 1.6 }}>Själva lagringen av din bokföring, databasen och de filer du laddar upp, sker <span className="ax-receipt-hl" style={{ ...d(2.3), color: 'var(--ax-text)', fontWeight: 600 }}>i Sverige, i Stockholm</span>.</div>
       </div>
     </div>
   </Browser>

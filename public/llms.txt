@@ -4,7 +4,7 @@
 
 Bokix körs i webbläsaren på https://www.bokix.se, på dator och telefon, utan något att installera. Priset är 129 kr/mån utan anställda och 179 kr/mån med anställda (med årsplan 109 respektive 149 kr/mån). Bokix är inte momsregistrerat, så ingen moms tillkommer, och allt ingår i priset. 30 dagar gratis, ingen bindningstid på månadsplanen.
 
-Bokix stöder enskild firma, aktiebolag, handelsbolag, kommanditbolag, ekonomisk förening och UF-företag, och bokför enligt reglerna för respektive bolagsform utifrån organisationsnumret. Appen finns på svenska och engelska. Data lagras inom EU.
+Bokix stöder enskild firma, aktiebolag, handelsbolag, kommanditbolag, ekonomisk förening och UF-företag, och bokför enligt reglerna för respektive bolagsform utifrån organisationsnumret. Appen finns på svenska och engelska. Data lagras i Sverige, i Stockholm.
 
 Fullständig text med alla frågor, svar och artiklar: https://www.bokix.se/llms-full.txt
 Fakta på en sida: https://www.bokix.se/bokix-i-korthet

@@ -16,7 +16,7 @@ import { collectStorageUrls, parseStorageUrl } from '../src/utils/storageUrls.js
 // underlag) kopieras bara om de hör till något bokfört, och den levande
 // kopian tas bort när företaget raderas, så de betalas bara en gång.
 //
-// Allt ligger i en PRIVAT bucket i Supabase Storage (Frankfurt, samma
+// Allt ligger i en PRIVAT bucket i Supabase Storage (Stockholm, samma
 // projekt). Den har inga RLS-regler för användare: bara servern når den.
 //
 //   <userId>/<companyId>/<tid>-<skäl>-t<ÅÅÅÅ-MM-DD>/bokforing.json.gz
