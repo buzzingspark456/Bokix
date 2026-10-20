@@ -16,10 +16,12 @@ träffar därför kunden, men Bokix måste göra det möjligt att följa dem.
 | Räkenskapsinformation bevaras till och med sjunde året efter kalenderåret då räkenskapsåret avslutades (7 kap. 2 §) | Kundens data får inte försvinna när kunden slutar betala eller avslutar | Sjuårsarkivet (api/_archive.js), gallring bara efter arkiv, docs/DATA_RETENTION.md | Införd |
 | Informationen ska bevaras varaktigt, läsbar och i ursprungligt skick | Ändringar ska synas, inte skriva över | Verifikationer rättas med ny verifikation, låsta år, export (SIE, PDF) | Införd |
 | Behandlingshistorik och systemdokumentation (5 kap. 11 §) | Kunden ska kunna visa hur bokföringen gjorts i programmet | Händelselogg (audit_log), verifikationsserier. Systemdokumentation för kunderna saknas | Delvis (Å20) |
-| Förvaring i annat EU/EES-land: anmälan till Skatteverket, omedelbar elektronisk åtkomst och utskrift i Sverige på begäran (7 kap. 3 a §). Utanför EES krävs tillstånd (7 kap. 4 §) | Kundernas data ligger i Supabase i Frankfurt, alltså i ett annat EU-land. Utan åtgärd måste varje kund anmäla förvaringsplatsen | Se nedan | Saknas (Å18) |
+| Förvaring i annat EU/EES-land: anmälan till Skatteverket, omedelbar elektronisk åtkomst och utskrift i Sverige på begäran (7 kap. 3 a §). Utanför EES krävs tillstånd (7 kap. 4 §) | Kundernas data ligger sedan 2026-10-20 i Supabase i Stockholm (eu-north-1), alltså i Sverige. Ingen anmälan behövs | Se nedan | Införd (Å18) |
 | Pappersunderlag får förstöras när det överförts till elektronisk form (sedan 2024-07-01) | Fotograferade kvitton ska vara läsbara | Bildkvaliteten vid krympning (3,5 megapixel) är vald för att texten ska gå att läsa | Införd |
 
-**Förvaring utomlands.** Skatteverkets ställningstagande 2025-05-27 (dnr
+**Förvaring utomlands.** Löst 2026-10-20 genom att hela Supabase-projektet
+flyttades till Stockholm; texten nedan är bakgrunden till beslutet.
+ Skatteverkets ställningstagande 2025-05-27 (dnr
 8-186619-2025): om elektroniska handlingar först förvaras i ett EES-land och
 sedan, inom 24 timmar och i oförändrat skick, även förvaras i Sverige, räknas
 det som synkron replikering till Sverige och någon anmälan enligt 7 kap. 3 a §

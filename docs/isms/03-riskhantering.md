@@ -53,7 +53,7 @@ S = sannolikhet, K = konsekvens, N = nivå. "Efter" är bedömd nivå när
 | R17 | Inbjuden konsult har kvar åtkomst efter att uppdraget slutat | 3 | 3 | 9 | Kunden kan ta bort medlemmar; borttagen inbjudan raderas | Godtas: kundens ansvar enligt villkoren. Ses över årligen | 9 |
 | R18 | Räkenskapsinformation raderas för tidigt eller sparas för länge | 2 | 4 | 8 | Sjuårsarkiv, gallringsjobb (api/cron/data-retention.js), DATA_RETENTION.md | Godtas med befintliga skydd | 8 |
 | R19 | Sessionsinspelning (Clarity) eller analys fångar känsliga uppgifter | 2 | 3 | 6 | Text maskeras, samtycke för analys, PostHog bara sidvisningar | Godtas | 6 |
-| R21 | Kundernas räkenskapsinformation förvaras i Tyskland (Supabase Frankfurt) utan att kunderna anmält det till Skatteverket (bokföringslagen 7 kap. 3 a §) | 4 | 3 | 12 | Data inom EU, nattkopia i EU | Åtgärda: daglig kopia till lagring i Sverige enligt Skatteverkets ställningstagande 2025-05-27 (Å18) | 3 |
+| R21 | Kundernas räkenskapsinformation förvaras i Tyskland (Supabase Frankfurt) utan att kunderna anmält det till Skatteverket (bokföringslagen 7 kap. 3 a §) | 4 | 3 | 12 | Data inom EU, nattkopia i EU | Åtgärdad 2026-10-20: databas, inloggning och filer flyttade till Supabase Stockholm (eu-north-1), funktioner i Vercel arn1 (Å18) | 1 |
 | R22 | Personuppgifter behandlas i USA utan giltig grund (Vercels funktioner, amerikanska leverantörer) | 3 | 3 | 9 | Leverantörerna har DPF eller standardavtalsklausuler (ej kontrollerat) | Åtgärda: kontrollera per leverantör, kör Vercels funktioner i EU (Å12, Å19) | 4 |
 | R20 | Överbelastning eller kostnadsattack mot Vercel | 2 | 3 | 6 | Vercels skydd, kostnadstak 50 dollar som pausar produktionen | Godtas | 6 |
 
@@ -79,8 +79,8 @@ Status: Öppen, Pågår, Klar (med datum och bevis i bevisloggen).
 | Å14 | Versionering eller objektlås på R2-bucketen bokix-backup, så en raderad kopia går att få tillbaka | R12 | Driftansvarig | 2026-12-31 | Öppen |
 | Å15 | Extern upptidsövervakare mot https://www.bokix.se/api/health med larm till båda | R13 | Driftansvarig | 2026-11-15 | Öppen |
 | Å16 | Incidentövning: gå igenom ett påhittat läckage enligt incidentrutinen, notera lärdomar | R15 | Informationssäkerhetsansvarig | 2027-03-31 | Öppen |
-| Å18 | Nattkopian (databas och filer) till en lagringstjänst med datacenter i Sverige, inom 24 timmar, så kunderna slipper anmälan enligt bokföringslagen 7 kap. 3 a §. Stäm av med revisor att krypterad kopia räknas | R21 | Grundarna (val av tjänst), sedan kod | 2027-01-31 | Öppen |
-| Å19 | Kontrollera i Vercel vilken region funktionerna körs i och sätt Frankfurt eller Stockholm i vercel.json | R22 | Kod | 2026-11-15 | Klar 2026-10-18 (var iad1 i USA, nu fra1) |
+| Å18 | Nattkopian (databas och filer) till en lagringstjänst med datacenter i Sverige, inom 24 timmar, så kunderna slipper anmälan enligt bokföringslagen 7 kap. 3 a §. Stäm av med revisor att krypterad kopia räknas | R21 | Grundarna (val av tjänst), sedan kod | 2027-01-31 | Klar 2026-10-20 (hela projektet flyttat till Stockholm i stället för kopia) |
+| Å19 | Kontrollera i Vercel vilken region funktionerna körs i och sätt Frankfurt eller Stockholm i vercel.json | R22 | Kod | 2026-11-15 | Klar 2026-10-18 (var iad1 i USA, sedan fra1, från 2026-10-20 arn1 Stockholm) |
 | Å20 | Systemdokumentation för kunderna (bokföringslagen 5 kap. 11 §): hur verifikationer, serier, rättelser, låsning och arkiv fungerar i Bokix, som hjälpsida | R18 | Kod | 2027-03-31 | Öppen |
 | Å21 | Registerförteckning enligt GDPR art. 30 | R11 | Dataskydd | 2026-12-31 | Öppen |
 | Å17 | Prova NE-SRU-filen i Skatteverkets testtjänst när 2026P4 öppnar | R16 | Grundarna | 2027-01-15 | Öppen |

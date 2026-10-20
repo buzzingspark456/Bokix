@@ -7,8 +7,8 @@ tillsammans med behörigheterna.
 
 | Tillgång | Var den finns | Klass | Ägare | Skydd |
 |---|---|---|---|---|
-| Kundernas bokföring (user_data.state: verifikationer, fakturor, kontakter, löner m.m.) | Supabase Postgres, Frankfurt | Konfidentiell | Driftansvarig | Radnivåskydd, villkorad sparning, kopia vid krympning, nattkopia |
-| Kvitton, underlag, logotyper (bucket bokix-uploads m.fl.) | Supabase Storage, Frankfurt | Konfidentiell | Driftansvarig | Privat bucket, signerade länkar i en timme, mapp per användare |
+| Kundernas bokföring (user_data.state: verifikationer, fakturor, kontakter, löner m.m.) | Supabase Postgres, Stockholm | Konfidentiell | Driftansvarig | Radnivåskydd, villkorad sparning, kopia vid krympning, nattkopia |
+| Kvitton, underlag, logotyper (bucket bokix-uploads m.fl.) | Supabase Storage, Stockholm | Konfidentiell | Driftansvarig | Privat bucket, signerade länkar i en timme, mapp per användare |
 | Sjuårsarkivet (bokix-arkiv) | Supabase Storage | Konfidentiell | Driftansvarig | Bara service role, arkiv före radering |
 | Nattkopior | Cloudflare R2, bucket bokix-backup (EU) | Konfidentiell | Driftansvarig | AES-256-GCM, egen nyckel |
 | Kundkonton och inloggning | Supabase Auth | Konfidentiell | Driftansvarig | Lösenord, passkeys, tvåfaktor, rate limit |
@@ -37,8 +37,8 @@ leverantörs trust center eller avtalssida och fylls i med datum. Kolumnen
 
 | Leverantör | Används till | Data | Plats | Certifieringar (kontrollerat datum) | Biträdesavtal | Tvåfaktor | Väg ut |
 |---|---|---|---|---|---|---|---|
-| Supabase | Databas, inloggning, filer | Allt konfidentiellt | Frankfurt (EU) | __________ | ☐ | ☐ | Nattkopian, SQL-dump |
-| Vercel | Webbplats, serverfunktioner, nattjobb | Passerar funktionerna | Funktioner i Frankfurt (fra1) sedan 2026-10-18 | __________ | ☐ | ☐ | Koden i git, annan värd |
+| Supabase | Databas, inloggning, filer | Allt konfidentiellt | Stockholm (Sverige) sedan 2026-10-20 | __________ | ☐ | ☐ | Nattkopian, SQL-dump |
+| Vercel | Webbplats, serverfunktioner, nattjobb | Passerar funktionerna | Funktioner i Stockholm (arn1) sedan 2026-10-20 | __________ | ☐ | ☐ | Koden i git, annan värd |
 | Cloudflare | R2 (nattkopior), Turnstile | Krypterade kopior | EU | __________ | ☐ | ☐ | Annan S3-lagring |
 | Stripe | Prenumerationer, kundbetalningar av fakturor | Namn, e-post, betalningar | USA/EU | __________ | ☐ | ☐ | Export från Stripe |
 | Resend | Utskick av e-post | E-postadresser, fakturor och lönebesked som bilagor | __________ | __________ | ☐ | ☐ | Annan e-posttjänst |

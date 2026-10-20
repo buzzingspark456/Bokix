@@ -63,7 +63,7 @@ sparning. Det finns alltså ingenting kvar att städa efteråt.
 ## Arkivet (sjuårslöftet)
 
 Kod: `api/_archive.js`, `api/archive.js`. Allt ligger i den privata bucketen
-`bokix-arkiv` i samma Supabase-projekt (Frankfurt). Bucketen har inga
+`bokix-arkiv` i samma Supabase-projekt (Stockholm). Bucketen har inga
 RLS-regler för användare, så bara servern kan läsa och skriva den; en
 användare kan inte radera sitt eget arkiv.
 

@@ -101,4 +101,5 @@ mappen (inte i git om de innehåller kunddata eller nycklar).
 | 2026-10-18 | npm audit: 2 kritiska och 1 hög sårbarhet åtgärdade; Dependabot och audit i CI på | .github/ i git | Kod |
 | 2026-10-18 | Vercels funktioner flyttade från Washington (iad1) till Frankfurt (fra1) | vercel.json, x-vercel-id-huvudet | Kod |
 | 2026-10-18 | Adminpanelen kräver Face ID eller tvåfaktor; nekade försök loggas som admin_weak_login | api/admin/index.js | Kod |
+| 2026-10-20 | Supabase flyttat från Frankfurt till Stockholm (exakt kopia, rad för rad kontrollerad) och funktionerna från fra1 till arn1 | Jämförelseskript, x-vercel-id arn1, inloggning i Stockholm | Grundarna och kod |
 | | | | |

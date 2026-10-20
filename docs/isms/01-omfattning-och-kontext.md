@@ -72,7 +72,7 @@ Tjänsten består av:
 - webbappen (React) som körs i kundens webbläsare
 - serverfunktioner på Vercel (`api/`) för betalningar, e-post, delning med
   konsult, nattjobb och administration
-- databas, inloggning och fillagring i Supabase (Frankfurt, EU)
+- databas, inloggning och fillagring i Supabase (Stockholm, Sverige)
 - en krypterad kopia varje natt till Cloudflare R2 (EU)
 
 Fullständig lista över leverantörer: [06-register.md](06-register.md#leverantörer).
