@@ -318,6 +318,9 @@ function MarketingStyles() {
            färgskillnad. */
         --mkt-section-mint: #ffffff;
         --mkt-section-blue: oklch(96.5% 0.032 242);
+        /* Varannan sektion på startsidan. Neutral ljusgrå, inte grön eller
+           beige (se --mkt-section-mint ovan för varför). */
+        --mkt-section-alt: #f6f7f8;
       }
       /* html[data-theme="dark"] #lp-root (INTE bara #lp-root[data-theme=
          "dark"]) — se kommentaren vid useMarketingTheme() ovan för hela
@@ -360,6 +363,7 @@ function MarketingStyles() {
         --mkt-section-red-tint: oklch(20% 0.03 25);
         --mkt-section-mint: oklch(21% 0.03 165);
         --mkt-section-blue: oklch(21% 0.03 245);
+        --mkt-section-alt: oklch(21% 0.03 165);
       }
       html[data-theme="dark"] #lp-root .lp-btn-secondary:hover { background: var(--mkt-ivory) !important; }
       /* Kundönskemål: Zettle/Bolagsverket/Skatteverkets loggor (BrandLogos.jsx,
@@ -372,6 +376,23 @@ function MarketingStyles() {
       html[data-theme="dark"] #lp-root .lp-mobile-menu.lp-open { background: var(--mkt-page-bg) !important; }
       .lp-btn-primary { transition: all 0.2s !important; }
       .lp-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 25px -5px rgba(11,99,41,0.4) !important; }
+      /* Hjältens knappar (Prova gratis / Se demo): samma höjd, radie och
+         typografi så att de läses som ett par. Huvudknappen fylld, demon
+         lugn och utan ikon. */
+      .lp-hero-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: 54px; padding: 0 26px; border-radius: 12px; font-family: inherit; font-size: 16px; font-weight: 650; letter-spacing: -0.005em; white-space: nowrap; cursor: pointer; transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, border-color 0.18s ease; }
+      .lp-hero-btn svg { flex-shrink: 0; transition: transform 0.18s ease; }
+      .lp-hero-btn:focus-visible { outline: 2px solid var(--mkt-accent-green-fg); outline-offset: 3px; }
+      .lp-hero-btn-primary { min-width: 184px; border: none; color: #fff; background: var(--accent); box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 1px 2px rgba(11,99,41,0.25), 0 8px 20px -8px rgba(11,99,41,0.55); }
+      .lp-hero-btn-primary:hover { background: var(--accent-hover, var(--accent)); transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 4px rgba(11,99,41,0.25), 0 14px 28px -10px rgba(11,99,41,0.6); }
+      .lp-hero-btn-primary:hover svg { transform: translateX(3px); }
+      .lp-hero-btn-primary:active { transform: translateY(0); }
+      .lp-hero-btn-ghost { min-width: 160px; color: var(--mkt-ink); background: var(--mkt-card-bg); border: 1px solid var(--mkt-border-soft); box-shadow: 0 1px 2px rgba(16,24,40,0.05); }
+      .lp-hero-btn-ghost:hover { border-color: var(--mkt-btn-border); transform: translateY(-1px); box-shadow: 0 6px 16px -8px rgba(16,24,40,0.2); }
+      .lp-hero-btn-row { display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; }
+      @media (max-width: 640px) {
+        .lp-hero-btn-row { flex-direction: column; align-items: stretch; }
+        .lp-hero-btn { width: 100%; }
+      }
       .lp-btn-secondary { transition: all 0.2s !important; }
       .lp-btn-secondary:hover { background: #f9fafb !important; border-color: var(--mkt-nav-text) !important; }
       /* ── Sidhuvudets knappar (kundönskemål 2026-09-26: Logga in grön,
@@ -658,6 +679,21 @@ function MarketingStyles() {
          ersatte 2026-09-22 det gamla hub-diagrammet (glödande mittnod,
          böjda linjer ut) — se filkommentaren i LandingPage.jsx för varför.
          Faller själv ihop till en spalt under 680px, ingen JS behövs. ── */
+      /* Startsidans tvådelade sektioner: text på ena sidan, animationen på
+         den andra, och sidorna byter plats (lp-split-rev) så att sidan inte
+         blir samma centrerade mall rakt igenom. Under 960px en spalt,
+         centrerad, som förut. */
+      .lp-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; align-items: center; max-width: min(92vw, 1180px); margin: 0 auto; position: relative; }
+      .lp-split-text { text-align: center; }
+      .lp-split-lead { margin: 0 auto 28px; max-width: 540px; }
+      @media (min-width: 960px) {
+        .lp-split { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 64px; }
+        .lp-split.lp-split-rev { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+        .lp-split.lp-split-rev > .lp-split-text { order: 2; }
+        .lp-split-text { text-align: left; }
+        .lp-split-lead { margin-left: 0; }
+        .lp-split .lp-conn-grid { margin: 0; }
+      }
       .lp-conn-grid { display: grid; grid-template-columns: 1fr; gap: 8px 56px; max-width: 640px; margin: 0 auto; }
       .lp-conn-col { display: flex; flex-direction: column; }
       .lp-conn-col + .lp-conn-col { margin-top: 28px; padding-top: 28px; border-top: 1px solid var(--mkt-border-soft); }

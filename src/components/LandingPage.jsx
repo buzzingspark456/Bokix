@@ -293,21 +293,21 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
             {c.hero.subtitle}
           </p>
 
-          <div className="lp-fadeinup lp-delay-2 lp-cta-group" style={{ display: 'flex', justifyContent: 'center', gap: '14px' }}>
-            <span className="lp-moving-border-wrap">
-              <button className="lp-btn-primary" onClick={() => onEnterApp('signup')} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '18px 34px', background: BRAND.green, border: 'none', borderRadius: '13px', fontSize: '17px', fontWeight: 700, cursor: 'pointer', color: 'white', fontFamily: 'inherit', boxShadow: '0 10px 26px -8px rgba(11,99,41,0.5)', minHeight: '48px' }}>
-                {c.hero.ctaPrimary} <ArrowRight size={18} />
-              </button>
-            </span>
-            <button ref={demoTriggerRef} className="lp-btn-secondary" onClick={() => openDemo()} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '18px 30px', background: 'var(--mkt-card-bg)', border: '1.5px solid var(--mkt-border-soft)', borderRadius: '13px', fontSize: '17px', fontWeight: 600, cursor: 'pointer', color: 'var(--mkt-ink-soft)', fontFamily: 'inherit', minHeight: '48px' }}>
-              {c.hero.ctaSecondary} <ChevronRight size={18} />
+          {/* 2026-10-20: knapparna som ett par (.lp-hero-btn i
+              MarketingLayout) i stället för den roterande gradientramen. */}
+          <div className="lp-fadeinup lp-delay-2 lp-hero-btn-row">
+            <button type="button" className="lp-hero-btn lp-hero-btn-primary" onClick={() => onEnterApp('signup')}>
+              {c.hero.ctaPrimary} <ArrowRight size={18} />
+            </button>
+            <button type="button" ref={demoTriggerRef} className="lp-hero-btn lp-hero-btn-ghost" onClick={() => openDemo()}>
+              {c.hero.ctaSecondary}
             </button>
           </div>
         </div>
       </section>
 
       {/* ── FUNKTIONSÖVERSIKT — direkt efter nyckeltalen. ── */}
-      <section id="funktioner-teaser" style={{ padding: '84px 24px', background: 'var(--mkt-card-bg)', borderTop: '1px solid var(--mkt-border-soft)', borderBottom: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
+      <section id="funktioner-teaser" style={{ padding: '84px 24px', background: 'var(--mkt-page-bg)', position: 'relative', overflow: 'hidden' }}>
         {/* Ren vit bakgrund utan räkenskapslinjer (kundönskemål 2026-09-29).
             Bredden: en FAST maxWidth ("gör den bredare") löser bara
             problemet vid EN specifik fönsterbredd — bredare än det ser det
@@ -338,8 +338,9 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
       </section>
 
       {/* ── BOLAGSFORMER — fem kort, se OrgTypeCards. ── */}
-      {/* Sidans egen bakgrund: vit i ljust läge, mörkgrön i mörkt. */}
-      <section style={{ padding: '72px 24px 84px', background: 'var(--mkt-page-bg)', borderBottom: `1px solid var(--mkt-border-soft)`, position: 'relative', overflow: 'hidden' }}>
+      {/* Varannan sektion har --mkt-section-alt, så att rytmen syns utan
+          linjer mellan sektionerna. */}
+      <section style={{ padding: '80px 24px 88px', background: 'var(--mkt-section-alt)', position: 'relative', overflow: 'hidden' }}>
         <Reveal style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
           <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.4vw, 34px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '32px' }}>
             {c.companyTypesHeading}
@@ -392,13 +393,15 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           mitt i den annars mörkgröna sidan i mörkt läge; page-bg är samma
           vitt i ljust läge (oförändrat resultat där) men matchar sidans
           mörkgröna botten i mörkt läge i stället. ── */}
-      <section style={{ padding: '76px 24px', background: 'var(--mkt-page-bg)', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto', position: 'relative' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '48px' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.5vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '14px' }}>
+      {/* 2026-10-20: tvådelad (lp-split) — rubriken till vänster, spalterna
+          till höger. Kvitton och Byt nedanför växlar sida. */}
+      <section style={{ padding: '96px 24px', background: 'var(--mkt-page-bg)', position: 'relative', overflow: 'hidden' }}>
+        <div className="lp-split">
+          <Reveal className="lp-split-text">
+            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(28px, 3.6vw, 42px)', fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.15, color: INK, marginBottom: '16px' }}>
               {c.connections.heading}
             </h2>
-            <p style={{ fontSize: '17px', color: MUTED, maxWidth: '580px', margin: '0 auto', lineHeight: 1.6 }}>
+            <p className="lp-split-lead" style={{ fontSize: '17px', color: MUTED, lineHeight: 1.6 }}>
               {c.connections.subheading}
             </p>
           </Reveal>
@@ -441,28 +444,25 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           RIKTIGT eget kvitto och får RIKTIGA värden tillbaka, i stället
           för att öppna hela app-demot med exempeldata. Samma
           utils/ocrReceipt.js som Expenses.jsx, ingen egen kopia. ── */}
-      <section style={{ padding: '76px 24px', background: 'var(--mkt-page-bg)', borderTop: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', position: 'relative' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '38px' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
+      <section style={{ padding: '96px 24px', background: 'var(--mkt-section-alt)', position: 'relative', overflow: 'hidden' }}>
+        <div className="lp-split lp-split-rev">
+          <Reveal className="lp-split-text">
+            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(28px, 3.6vw, 42px)', fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.15, color: INK, marginBottom: '16px' }}>
               {c.receipts.heading}
             </h2>
-            <p style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.65, maxWidth: '620px', margin: '0 auto' }}>
+            <p className="lp-split-lead" style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.65 }}>
               {c.receipts.subheading}
             </p>
-          </Reveal>
-
-          <Reveal scale delay={80}>
-            <ReceiptFlow />
-          </Reveal>
-
-          <Reveal delay={140} style={{ textAlign: 'center', marginTop: '30px' }}>
             <Link
               to="/verktyg/skanna-kvitto"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '13px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}
             >
               {c.receipts.cta} <ArrowRight size={15} />
             </Link>
+          </Reveal>
+
+          <Reveal scale delay={80}>
+            <ReceiptFlow />
           </Reveal>
         </div>
       </section>
@@ -478,7 +478,7 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           Ivory mot kortbakgrunden i sektionerna före och efter, så de tre
           flödesanimationerna på sidan inte flyter ihop till ett enda långt
           fält. ── */}
-      <section style={{ padding: '76px 24px', background: 'var(--mkt-section-mint)', borderTop: '1px solid var(--mkt-border-soft)', borderBottom: '1px solid var(--mkt-border-soft)', position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '96px 24px', background: 'var(--mkt-page-bg)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '38px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
@@ -521,22 +521,15 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           vägen vidare. Ivory mot kortbakgrunden i sektionen ovanför, och
           en tunn underkant mot prissektionen (som också är ivory) så
           skarven syns. ── */}
-      <section style={{ padding: '76px 24px', background: 'var(--mkt-card-bg)', borderBottom: `1px solid var(--mkt-border-soft)`, position: 'relative', overflow: 'hidden' }}>
-        <div style={{ maxWidth: 'min(92vw, 1180px)', margin: '0 auto', position: 'relative' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '38px' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
+      <section style={{ padding: '96px 24px', background: 'var(--mkt-section-alt)', position: 'relative', overflow: 'hidden' }}>
+        <div className="lp-split">
+          <Reveal className="lp-split-text">
+            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(28px, 3.6vw, 42px)', fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.15, color: INK, marginBottom: '16px' }}>
               {c.switchProgram.heading}
             </h2>
-            <p style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.65, maxWidth: '600px', margin: '0 auto' }}>
+            <p className="lp-split-lead" style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.65 }}>
               {c.switchProgram.subheading}
             </p>
-          </Reveal>
-
-          <Reveal scale delay={80}>
-            <MigrationFlow />
-          </Reveal>
-
-          <Reveal delay={140} style={{ textAlign: 'center', marginTop: '30px' }}>
             <Link
               to="/byt-bokforingsprogram"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '13px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 700, fontSize: '15px', textDecoration: 'none' }}
@@ -544,13 +537,17 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
               {c.switchProgram.cta} <ArrowRight size={15} />
             </Link>
           </Reveal>
+
+          <Reveal scale delay={80}>
+            <MigrationFlow />
+          </Reveal>
         </div>
       </section>
 
       {/* Prissektionen är borttagen från startsidan (kundönskemål 2026-09-26: priset ska inte synas här). Priserna finns på /priser. */}
 
       {/* ── FAQ ── */}
-      <section style={{ padding: '76px 24px', background: 'var(--mkt-section-mint)', position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '88px 24px', background: 'var(--mkt-page-bg)', position: 'relative', overflow: 'hidden' }}>
         {/* Kundönskemål (uppföljning): den fulla accordionen var tidigare
             bara dold på mobil (.lp-faq-full/.lp-faq-mobile-cta) — kunden
             bad om samma kompakta "gå till FAQ"-kort på desktop också, inte
