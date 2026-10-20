@@ -681,17 +681,16 @@ function MarketingStyles() {
          Faller själv ihop till en spalt under 680px, ingen JS behövs. ── */
       /* Startsidans tvådelade sektioner: text på ena sidan, animationen på
          den andra, och sidorna byter plats (lp-split-rev) så att sidan inte
-         blir samma centrerade mall rakt igenom. Under 960px en spalt,
-         centrerad, som förut. */
+         blir samma centrerade mall rakt igenom. Under 960px en spalt med
+         texten vänsterställd även där (2026-10-20), så att telefonen inte ser
+         ut som den gamla helt centrerade startsidan. */
       .lp-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; align-items: center; max-width: min(92vw, 1180px); margin: 0 auto; position: relative; }
-      .lp-split-text { text-align: center; }
-      .lp-split-lead { margin: 0 auto 28px; max-width: 540px; }
+      .lp-split-text { text-align: left; }
+      .lp-split-lead { margin: 0 0 28px; max-width: 540px; }
       @media (min-width: 960px) {
         .lp-split { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 64px; }
         .lp-split.lp-split-rev { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
         .lp-split.lp-split-rev > .lp-split-text { order: 2; }
-        .lp-split-text { text-align: left; }
-        .lp-split-lead { margin-left: 0; }
         .lp-split .lp-conn-grid { margin: 0; }
       }
       .lp-conn-grid { display: grid; grid-template-columns: 1fr; gap: 8px 56px; max-width: 640px; margin: 0 auto; }
