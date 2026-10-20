@@ -422,7 +422,7 @@ export default function BlogPostPage({ slug }) {
   const section = isNews
     ? { name: 'Nyheter', path: '/nyheter', schema: { '@type': 'CollectionPage', '@id': `${SITE_URL}/nyheter`, name: 'Nyheter från Bokix' } }
     : { name: 'Blogg', path: '/blogg', schema: { '@type': 'Blog', '@id': `${SITE_URL}/blogg`, name: 'Bokix-bloggen' } };
-  const others = ALL_ARTICLES.filter(p => p.slug !== slug && Boolean(p.news) === isNews);
+  const others = ALL_ARTICLES.filter(p => p.slug !== slug && !p.hidden && Boolean(p.news) === isNews);
   const startSignup = () => navigate('/', { state: { enterApp: true, authMode: 'signup' } });
   let h2i = 0;
 
@@ -466,6 +466,7 @@ export default function BlogPostPage({ slug }) {
         type="article"
         publishedTime={post.datePublished}
         modifiedTime={post.dateModified}
+        noindex={Boolean(post.hidden)}
       />
       {schema.map((s, i) => <JsonLd key={i} data={s} />)}
       <style>{CSS}</style>

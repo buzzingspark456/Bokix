@@ -20,7 +20,6 @@ export const FAQ_GROUPS = [
       { q: 'Är Bokix ett alternativ till Fortnox?', a: 'Ja, för de flesta småföretag. Bokix har bokföring, fakturor, moms, lön och bokslut till ett fast pris där allt ingår. Behöver du direkt bankkoppling eller e-faktura via Peppol passar Fortnox bättre i dag.' },
       { q: 'Finns det hjälp för att komma igång?', a: 'Ja. Det finns tolv korta videoguider med berättarröst som visar hur du gör, från första kunden till momsdeklarationen, och support ingår i priset.' },
       { q: 'Finns det en app för mobilen?', a: 'Ja. Bokix fungerar i telefonens webbläsare, och du kan lägga det som en app på hemskärmen på iPhone och Android. Då öppnas det i helskärm med egen ikon, utan något att ladda ner.' },
-      { q: 'Finns det något för UF-företag?', a: 'Ja. UF-företag använder Bokix gratis i tre månader, utan organisationsnummer och utan betaluppgifter, med en meny som bara visar det ett UF-företag behöver.' },
     ],
   },
   {

@@ -178,7 +178,6 @@ const SITEMAP_MANIFEST = [
     video: p.video ? { url: `${SITE_URL}/videos/hero/${heroVideoFile(p)}.mp4`, thumbnail: `${SITE_URL}/videos/hero/${heroVideoFile(p)}.jpg`, title: p.video.title, description: p.video.description, duration: HERO_VIDEO_DURATION, date: HERO_VIDEO_DATE } : null,
   })),
   { path: '/koppla-bank', changefreq: 'monthly', priority: '0.8' },
-  { path: '/uf', changefreq: 'monthly', priority: '0.8' },
   { path: '/lon', changefreq: 'monthly', priority: '0.7' },
   { path: '/om-oss', changefreq: 'monthly', priority: '0.5' },
   { path: '/bokix-i-korthet', changefreq: 'monthly', priority: '0.7' },
@@ -207,7 +206,7 @@ const SITEMAP_MANIFEST = [
   { path: '/blogg', changefreq: 'weekly', priority: '0.6', lastmod: latest(ALL_ARTICLES.filter(p => p.body && !p.news)) },
   { path: '/nyheter', changefreq: 'weekly', priority: '0.6', lastmod: latest(ALL_ARTICLES.filter(p => p.body && p.news)) },
   // Artiklarna härleds ur blog.js och news.js, samma lista som routing/förrendering.
-  ...ALL_ARTICLES.filter(post => post.body).map(post => ({ path: post.path, changefreq: 'monthly', priority: '0.6', lastmod: post.dateModified || post.datePublished })),
+  ...ALL_ARTICLES.filter(post => post.body && !post.hidden).map(post => ({ path: post.path, changefreq: 'monthly', priority: '0.6', lastmod: post.dateModified || post.datePublished })),
   { path: '/vanliga-fragor', changefreq: 'monthly', priority: '0.6' },
   { path: '/integrationer', changefreq: 'monthly', priority: '0.6' },
   { path: '/sakerhet', changefreq: 'yearly', priority: '0.4' },
@@ -292,7 +291,7 @@ function writeLlmsFiles() {
   if (!fs.existsSync(file)) return;
   const line = (p) => `- [${p.title}](${SITE_URL}${p.path}): ${p.seoDescription || p.excerpt}`;
   const byDate = (a, b) => b.datePublished.localeCompare(a.datePublished);
-  const posts = ALL_ARTICLES.filter(p => p.body);
+  const posts = ALL_ARTICLES.filter(p => p.body && !p.hidden);
   const blog = posts.filter(p => !p.news);
   const news = posts.filter(p => p.news).sort(byDate);
   const articles = [

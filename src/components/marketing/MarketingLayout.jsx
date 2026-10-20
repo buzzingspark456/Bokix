@@ -37,7 +37,7 @@ const ORGANIZATION_SCHEMA = {
   sameAs: BOKIX_PROFILES,
   description: BOKIX_SUMMARY,
   areaServed: { '@type': 'Country', name: 'Sverige' },
-  knowsAbout: ['Bokföring', 'Fakturering', 'Moms', 'Momsdeklaration', 'Lön', 'Bokslut', 'Årsredovisning', 'Enskild firma', 'Aktiebolag', 'UF-företag', 'BAS-kontoplanen', 'SIE4'],
+  knowsAbout: ['Bokföring', 'Fakturering', 'Moms', 'Momsdeklaration', 'Lön', 'Bokslut', 'Årsredovisning', 'Enskild firma', 'Aktiebolag', 'BAS-kontoplanen', 'SIE4'],
   email: 'support@bokix.se',
   contactPoint: {
     '@type': 'ContactPoint',

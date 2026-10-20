@@ -14,9 +14,9 @@ export const BOKIX_PROFILES = [
 
 export const BOKIX_FACTS = [
   { title: 'Vad det är', body: 'Ett bokföringsprogram som körs i webbläsaren, på dator och telefon. Kan läggas som en app på hemskärmen på iPhone och Android.' },
-  { title: 'För vem', body: 'Svenska småföretag: enskild firma, aktiebolag, handelsbolag, kommanditbolag, ekonomisk förening och UF-företag.' },
+  { title: 'För vem', body: 'Svenska småföretag: enskild firma, aktiebolag, handelsbolag, kommanditbolag och ekonomisk förening.' },
   { title: 'Pris', body: '129 kr/mån utan anställda och 179 kr/mån med anställda. Med årsplan 109 respektive 149 kr/mån. Ingen moms tillkommer och allt ingår.' },
-  { title: 'Provperiod', body: '30 dagar gratis. UF-företag använder Bokix gratis i tre månader.' },
+  { title: 'Provperiod', body: '30 dagar gratis.' },
   { title: 'Bindningstid', body: 'Ingen på månadsplanen. Årsplanen gäller i minst tre månader.' },
   { title: 'Språk', body: 'Appen finns på svenska och engelska.' },
   { title: 'Data', body: 'Lagras i Sverige, i Stockholm. Bokföringen sparas i sju år och kan alltid exporteras som SIE4.' },

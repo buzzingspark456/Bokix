@@ -85,7 +85,7 @@ function breadcrumbData(path) {
   };
 }
 
-export function PageMeta({ title, description, path = '/', basePath, locale = DEFAULT_LOCALE, image: imageProp, type = 'website', publishedTime, modifiedTime }) {
+export function PageMeta({ title, description, path = '/', basePath, locale = DEFAULT_LOCALE, image: imageProp, type = 'website', publishedTime, modifiedTime, noindex = false }) {
   const url = `${SITE_URL}${path}`;
   const crumbs = breadcrumbData(path);
   const base = basePath || path;
@@ -99,6 +99,8 @@ export function PageMeta({ title, description, path = '/', basePath, locale = DE
     <>
       <title>{title}</title>
       <meta name="description" content={description} />
+      {/* Dolda sidor (t.ex. /uf): nås bara via adressen, ska inte synas i Google. */}
+      {noindex && <meta name="robots" content="noindex, follow" />}
       <link rel="canonical" href={url} />
       {/* React-proppen MÅSTE stavas "hrefLang" (camelCase) — provade
           gemener ("hreflang") för att SSR-strängen (renderToString i

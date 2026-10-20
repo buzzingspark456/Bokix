@@ -134,6 +134,7 @@ export default function UfPage() {
         description={`Fakturor, kvitton, bokföring och bokslut för ert UF-företag. Gratis i ${UF_FREE_MONTHS} månader, inget organisationsnummer och inga betaluppgifter.`}
         path="/uf"
         type="article"
+        noindex
       />
       <JsonLd data={articleSchema} />
       <JsonLd data={FAQ_SCHEMA} />

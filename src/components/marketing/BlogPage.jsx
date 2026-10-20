@@ -14,7 +14,7 @@ import { BLOG_POSTS } from '../../content/marketing/blog';
 // här automatiskt, ingen ändring behövs i den här filen.
 //
 // Själva listan ritas av ArticleIndex.jsx, samma som /nyheter.
-const POSTS = [...BLOG_POSTS].sort((a, b) => b.datePublished.localeCompare(a.datePublished));
+const POSTS = BLOG_POSTS.filter(p => !p.hidden).sort((a, b) => b.datePublished.localeCompare(a.datePublished));
 
 const SCHEMA = {
   '@context': 'https://schema.org',
@@ -23,7 +23,7 @@ const SCHEMA = {
   name: 'Bokix-bloggen',
   url: `${SITE_URL}/blogg`,
   publisher: { '@type': 'Organization', name: 'Bokix', url: SITE_URL, logo: { '@type': 'ImageObject', url: `${SITE_URL}/icon-512.png` } },
-  blogPost: BLOG_POSTS.map(p => ({
+  blogPost: POSTS.map(p => ({
     '@type': 'BlogPosting',
     headline: p.title,
     url: `${SITE_URL}${p.path}`,

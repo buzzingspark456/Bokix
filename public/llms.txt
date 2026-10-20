@@ -4,7 +4,7 @@
 
 Bokix körs i webbläsaren på https://www.bokix.se, på dator och telefon, utan något att installera. Priset är 129 kr/mån utan anställda och 179 kr/mån med anställda (med årsplan 109 respektive 149 kr/mån). Bokix är inte momsregistrerat, så ingen moms tillkommer, och allt ingår i priset. 30 dagar gratis, ingen bindningstid på månadsplanen.
 
-Bokix stöder enskild firma, aktiebolag, handelsbolag, kommanditbolag, ekonomisk förening och UF-företag, och bokför enligt reglerna för respektive bolagsform utifrån organisationsnumret. Appen finns på svenska och engelska. Data lagras i Sverige, i Stockholm.
+Bokix stöder enskild firma, aktiebolag, handelsbolag, kommanditbolag och ekonomisk förening, och bokför enligt reglerna för respektive bolagsform utifrån organisationsnumret. Appen finns på svenska och engelska. Data lagras i Sverige, i Stockholm.
 
 Fullständig text med alla frågor, svar och artiklar: https://www.bokix.se/llms-full.txt
 Fakta på en sida: https://www.bokix.se/bokix-i-korthet
@@ -15,7 +15,6 @@ Fakta på en sida: https://www.bokix.se/bokix-i-korthet
 - Enskilda firmor och små aktiebolag som vill ha fakturering, kvitton, moms och bokslut på samma ställe till ett fast pris
 - Företag med några anställda som vill köra lön med AGI-fil i samma program
 - Den som tar betalt med kort via Stripe eller i butik via Zettle
-- UF-företag (gratis i tre månader)
 - Den som vill byta bokföringsprogram och ta med historiken via SIE4
 
 ## Passar inte för
@@ -50,7 +49,6 @@ Fakta på en sida: https://www.bokix.se/bokix-i-korthet
 - [Funktioner](https://www.bokix.se/funktioner): detaljerad genomgång av vad som ingår
 - [Priser](https://www.bokix.se/priser): pris, vad som ingår och vanliga frågor
 - [Byt bokföringsprogram till Bokix](https://www.bokix.se/byt-bokforingsprogram): flytta bokföringen från ditt nuvarande program via en SIE4-fil
-- [Bokix för UF-företag](https://www.bokix.se/uf): gratis bokföring under UF-året — fakturering, kvitton, bokföring och årsbokslut, utan organisationsnummer och utan betaluppgifter
 - [Koppla banken till bokföringen](https://www.bokix.se/koppla-bank): exportera kontoutdraget ur internetbanken (Nordea, SEB, Swedbank, Handelsbanken, Länsförsäkringar, ICA Banken, Skandia, Lunar, Northmill m.fl.) och läs in det i Bokix — filimport, ingen direktkoppling mot banken
 - [Bokföringsprogram för enskild firma](https://www.bokix.se/bokforingsprogram-enskild-firma): kvitton, fakturor, moms och förslag till NE-bilagan
 - [Bokföringsprogram för aktiebolag](https://www.bokix.se/bokforingsprogram-aktiebolag): fakturor, lön, moms, INK2 och årsredovisning enligt K2

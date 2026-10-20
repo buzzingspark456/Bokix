@@ -243,7 +243,6 @@ export const BLOG_POSTS = [
 
       { t: 'h2', x: 'För vilka passar Bokix?' },
       { t: 'p', x: 'Enskild firma, aktiebolag, handelsbolag, kommanditbolag, ekonomisk och ideell förening samt stiftelse. Bokix känner av bolagsformen från organisationsnumret. Du kan ha flera företag och upp till tre användare.' },
-      { t: 'p', x: 'Är du med i Ung Företagsamhet finns ett eget UF-konto med en kortare meny, gratis i tre månader. Läs mer i [Bokföring för UF-företag](/blogg/bokforing-uf-foretag) eller på sidan [Bokix för UF-företag](/uf).' },
 
       { t: 'h2', x: 'Ingen inlåsning' },
       { t: 'p', x: 'Hela bokföringen går att spara som en SIE4-fil, standarden alla svenska program kan läsa. Du behöver inte fråga oss om lov. Läs mer i [Flytta bokföringen med SIE4](/blogg/sie4-flytta-bokforing).' },
@@ -429,6 +428,9 @@ export const BLOG_POSTS = [
   {
     slug: 'bokforing-uf-foretag',
     path: '/blogg/bokforing-uf-foretag',
+    // Dolt (2026-10-20): UF är inte i fokus. Sidan finns kvar för den som har
+    // länken men listas inte, syns inte i sitemap/llms och har noindex.
+    hidden: true,
     category: 'UF-företag',
     title: 'Bokföring för UF-företag',
     seoTitle: 'Bokföring för UF-företag: så gör ni under året',
