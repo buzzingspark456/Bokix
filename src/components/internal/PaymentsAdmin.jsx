@@ -15,6 +15,13 @@ function formatDate(iso) {
   return dateTimeFormat('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso));
 }
 
+// "50 %" eller "40 kr", och hur länge rabatten gäller.
+function discountLabel(d) {
+  const size = d.percentOff != null ? `${d.percentOff} %` : `${d.amountOff} kr`;
+  const until = d.endsAt ? ` till ${formatDate(d.endsAt)}` : d.duration === 'forever' ? ' för alltid' : '';
+  return `Rabatt ${size}${until}`;
+}
+
 function StatTile({ icon: Icon, label, value, sub, color }) {
   return (
     <div style={cardStyle}>
@@ -34,8 +41,10 @@ function StatTile({ icon: Icon, label, value, sub, color }) {
 export default function PaymentsAdmin() {
   const { data, error, updatedAt, refreshing, reload } = useAdminData({ resource: 'payments' });
 
-  const activeCount = data?.subscriptions.filter(s => s.status === 'active').length || 0;
+  // Grundarnas egna konton räknas inte (servern skickar payingCount).
+  const activeCount = data?.payingCount ?? 0;
   const arpu = data && activeCount ? Math.round(data.mrr / activeCount) : 0;
+  const discounted = data?.subscriptions.filter(s => s.discount && s.status !== 'canceled') || [];
 
   return (
     <div style={{ padding: '32px 36px', maxWidth: '1160px' }}>
@@ -49,8 +58,8 @@ export default function PaymentsAdmin() {
       {data && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '14px', marginBottom: '20px' }}>
-            <StatTile icon={Wallet} label="MRR" value={`${data.mrr.toLocaleString('sv-SE')} kr`} sub="per månad, endast aktiva" color="var(--accent-text)" />
-            <StatTile icon={TrendingUp} label="ARR" value={`${(data.mrr * 12).toLocaleString('sv-SE')} kr`} sub="MRR × 12" color="var(--accent-text)" />
+            <StatTile icon={Wallet} label="MRR" value={`${data.mrr.toLocaleString('sv-SE')} kr`} sub={data.discountPerMonth > 0 ? `per månad efter ${data.discountPerMonth.toLocaleString('sv-SE')} kr rabatt` : 'per månad, endast aktiva'} color="var(--accent-text)" />
+            <StatTile icon={TrendingUp} label="ARR" value={`${(data.mrr * 12).toLocaleString('sv-SE')} kr`} sub="MRR × 12, utan egna konton" color="var(--accent-text)" />
             <StatTile icon={Users} label="Betalande konton" value={activeCount} color="var(--status-blue-text)" />
             <StatTile icon={PiggyBank} label="Snitt per konto" value={`${arpu.toLocaleString('sv-SE')} kr`} sub="ARPU" color="var(--status-blue-text)" />
           </div>
@@ -64,6 +73,12 @@ export default function PaymentsAdmin() {
             </div>
           )}
 
+          {discounted.length > 0 && (
+            <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '14px' }}>
+              {discounted.length} {discounted.length === 1 ? 'konto har' : 'konton har'} rabatt.
+            </div>
+          )}
+
           <AdminList title="Prenumerationer" count={`${data.subscriptions.length} st`} empty="Inga prenumerationer registrerade än.">
             {[...data.subscriptions]
               .sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status))
@@ -74,9 +89,13 @@ export default function PaymentsAdmin() {
                     key={s.userId}
                     initial={s.email?.[0]}
                     primary={s.email || 'Konto utan e-post'}
-                    secondary={`${s.planName} · ${s.planPrice} kr/mån`}
+                    secondary={s.discount && s.planPrice !== s.listPrice
+                      ? `${s.planName} · ${s.planPrice} kr/mån (ordinarie ${s.listPrice} kr)`
+                      : `${s.planName} · ${s.planPrice} kr/mån`}
                     pills={<>
                       <Pill tone={status.tone}>{status.label}</Pill>
+                      {s.isAdmin && <Pill tone="gray">Eget konto, räknas inte</Pill>}
+                      {s.discount && <Pill tone="blue">{discountLabel(s.discount)}</Pill>}
                       {s.cancelAtPeriodEnd && <Pill tone="amber">Avslutas vid periodens slut</Pill>}
                     </>}
                     meta={[s.currentPeriodEnd && ['Nästa faktura', formatDate(s.currentPeriodEnd)]]}

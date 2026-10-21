@@ -5,6 +5,7 @@ import { checkRateLimit } from '../_rateLimit.js';
 import { ADMIN_EMAILS } from '../_systemEvents.js';
 import { parseJsonBody } from '../stripe/_parseBody.js';
 import { createClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
 import { planFromId } from '../../src/utils/plans.js';
 import * as featureFlags from '../../src/utils/featureFlags.js';
 
@@ -372,24 +373,78 @@ async function handleSuspendUser(admin, res, body, adminEmail, suspend) {
 // ihop med stripe_ledger_events/zettle_ledger_events (supabase-setup.sql),
 // som är KUNDERNAS EGNA bokföringsunderlag för DERAS försäljning. Två
 // helt olika Stripe-kopplingar som råkar dela tabellprefix.
+// Rabatten på en prenumeration, läst live från Stripe (kuponger sparas inte
+// i subscriptions-tabellen). null om ingen rabatt eller om Stripe inte svarar.
+export function discountFromStripe(sub) {
+  const list = [...(Array.isArray(sub?.discounts) ? sub.discounts : []), sub?.discount].filter(d => d && typeof d === 'object');
+  const d = list[0];
+  const coupon = d?.coupon || d?.source?.coupon;
+  if (!coupon || typeof coupon !== 'object') return null;
+  return {
+    name: coupon.name || d.promotion_code?.code || null,
+    percentOff: coupon.percent_off ?? null,
+    amountOff: coupon.amount_off != null ? coupon.amount_off / 100 : null,
+    duration: coupon.duration || null,
+    endsAt: d.end ? new Date(d.end * 1000).toISOString() : null,
+  };
+}
+
+// Vad kontot faktiskt betalar per månad efter rabatten. amount_off gäller
+// per faktura, så på en årsplan delas den på tolv.
+export function priceAfterDiscount(monthlyPrice, discount, yearly) {
+  if (!discount) return monthlyPrice;
+  let price = monthlyPrice;
+  if (discount.percentOff != null) price = monthlyPrice * (1 - discount.percentOff / 100);
+  else if (discount.amountOff != null) price = monthlyPrice - (yearly ? discount.amountOff / 12 : discount.amountOff);
+  return Math.max(0, Math.round(price));
+}
+
+async function loadStripeDiscounts(subscriptionIds) {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key || key.startsWith('pk_') || !subscriptionIds.length) return {};
+  const stripe = new Stripe(key, {});
+  const entries = await Promise.all(subscriptionIds.map(async (id) => {
+    try {
+      const sub = await stripe.subscriptions.retrieve(id, { expand: ['discounts'] });
+      // Nyare API-versioner ger kupongen som id under source.coupon.
+      for (const d of [...(sub.discounts || []), sub.discount]) {
+        if (!d || typeof d !== 'object') continue;
+        const couponId = typeof d.coupon === 'string' ? d.coupon : typeof d.source?.coupon === 'string' ? d.source.coupon : null;
+        if (couponId) d.coupon = await stripe.coupons.retrieve(couponId);
+      }
+      return [id, discountFromStripe(sub)];
+    } catch {
+      return [id, null];
+    }
+  }));
+  return Object.fromEntries(entries);
+}
+
 async function handlePayments(admin, res) {
   const { data: subs, error: subsError } = await admin
     .from('subscriptions')
-    .select('user_id, status, plan, trial_ends_at, current_period_end, cancel_at_period_end, created_at');
+    .select('user_id, status, plan, trial_ends_at, current_period_end, cancel_at_period_end, created_at, stripe_subscription_id');
   if (subsError) { res.status(500).json({ error: subsError.message }); return; }
 
   let allUsers;
   try { allUsers = await fetchAllUsers(admin); } catch (err) { res.status(500).json({ error: err.message }); return; }
   const emailById = Object.fromEntries(allUsers.map(u => [u.id, u.email]));
+  const discounts = await loadStripeDiscounts((subs || []).filter(s => s.stripe_subscription_id && s.status !== 'canceled').map(s => s.stripe_subscription_id));
 
   const rows = (subs || []).map(s => {
     const plan = planFromId(s.plan);
+    const listPrice = plan?.price ?? 179;
+    const discount = discounts[s.stripe_subscription_id] || null;
     return {
       userId: s.user_id,
       email: emailById[s.user_id] || null,
+      // Grundarnas egna konton är inga intäkter och räknas inte i MRR/ARR.
+      isAdmin: isAdminEmail(emailById[s.user_id]),
       status: s.status,
       planName: plan?.name || 'Med personal (äldre konto)',
-      planPrice: plan?.price ?? 179,
+      listPrice,
+      planPrice: priceAfterDiscount(listPrice, discount, plan?.intervalId === 'yearly'),
+      discount,
       trialEndsAt: s.trial_ends_at,
       currentPeriodEnd: s.current_period_end,
       cancelAtPeriodEnd: s.cancel_at_period_end,
@@ -400,7 +455,10 @@ async function handlePayments(admin, res) {
   // MRR: bara `active` betalar faktiskt varje månad — `trialing` betalar
   // ingenting förrän provperioden (TRIAL_DAYS, 30 dagar) tar slut. Räknas
   // de med hade siffran sett bättre ut än pengarna som faktiskt kommer in.
-  const mrr = rows.filter(r => r.status === 'active').reduce((sum, r) => sum + r.planPrice, 0);
+  // Pengarna efter rabatt, utan grundarnas egna konton.
+  const paying = rows.filter(r => r.status === 'active' && !r.isAdmin);
+  const mrr = paying.reduce((sum, r) => sum + r.planPrice, 0);
+  const discountPerMonth = paying.reduce((sum, r) => sum + (r.listPrice - r.planPrice), 0);
 
   // "Kräver uppföljning": betalningen har redan fallerat eller kortet är
   // ogiltigt — den enda statusen där någon (kunden eller Bokix) faktiskt
@@ -408,7 +466,7 @@ async function handlePayments(admin, res) {
   // alla sköter sig själva.
   const atRisk = rows.filter(r => ['past_due', 'unpaid', 'incomplete'].includes(r.status));
 
-  res.status(200).json({ subscriptions: rows, mrr, atRisk });
+  res.status(200).json({ subscriptions: rows, mrr, payingCount: paying.length, discountPerMonth, atRisk });
 }
 
 // ── Säkerhet (resource: 'security') ─────────────────────────────────────
