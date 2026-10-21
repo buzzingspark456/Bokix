@@ -93,7 +93,7 @@ leverantörerna och omfattas av deras certifieringar (se 06).
 | 8.2 | Privilegierade åtkomsträttigheter | Ja | Service role-nyckeln bara på servern; adminpanel för två e-postadresser | Delvis | Å2, Å3 |
 | 8.3 | Begränsning av åtkomst till information | Ja | Radnivåskydd, sidbehörighet för inbjudna, signerade länkar till filer (1 timme) | Införd | supabase-setup.sql, src/utils/signedUrls.js |
 | 8.4 | Tillgång till källkod | Ja | Privat GitHub-repo, bara grundarna | Delvis | Å1 |
-| 8.5 | Säker autentisering | Ja | Passkeys, tvåfaktor, utloggning efter 30 dagar, rate limit, Turnstile; adminpanelen kräver Face ID eller tvåfaktor | Delvis | Å7 |
+| 8.5 | Säker autentisering | Ja | Passkeys, tvåfaktor, utloggning efter 30 dagar, rate limit, Turnstile; adminpanelen kräver Face ID eller tvåfaktor (tillfälligt avstängt 2026-10-21) | Delvis | Å7 |
 | 8.6 | Kapacitetshantering | Ja | Mätningar för 250 företag (2026-10-18), Supabase Pro planerat | Delvis | Å7 |
 | 8.7 | Skydd mot skadlig kod | Ja | Inbyggt skydd i operativsystemen; uppladdade filer körs aldrig, bara visas | Delvis | Å10 |
 | 8.8 | Hantering av tekniska sårbarheter | Ja | Supabase Advisor åtgärdad 2026-09-30; Dependabot och npm audit planerat | Delvis | Å9 |

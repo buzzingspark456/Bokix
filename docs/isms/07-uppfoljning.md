@@ -102,4 +102,5 @@ mappen (inte i git om de innehåller kunddata eller nycklar).
 | 2026-10-18 | Vercels funktioner flyttade från Washington (iad1) till Frankfurt (fra1) | vercel.json, x-vercel-id-huvudet | Kod |
 | 2026-10-18 | Adminpanelen kräver Face ID eller tvåfaktor; nekade försök loggas som admin_weak_login | api/admin/index.js | Kod |
 | 2026-10-20 | Supabase flyttat från Frankfurt till Stockholm (exakt kopia, rad för rad kontrollerad) och funktionerna från fra1 till arn1 | Jämförelseskript, x-vercel-id arn1, inloggning i Stockholm | Grundarna och kod |
+| 2026-10-21 | Kravet på Face ID eller tvåfaktor för adminpanelen tillfälligt avstängt (REQUIRE_STRONG_AUTH), lösenord räcker | api/admin/index.js | Grundarna |
 | | | | |

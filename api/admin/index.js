@@ -54,6 +54,9 @@ function isAdminEmail(email) {
 // alla kunder. Läses ur sessionens token (aal och amr), som requireAuthedUser
 // redan har verifierat mot Supabase.
 const STRONG_AMR = /webauthn|passkey/i;
+// Avstängt 2026-10-21 på ägarens begäran: lösenord räcker tills vidare.
+// Sätt till true för att kräva Face ID eller tvåfaktor igen.
+const REQUIRE_STRONG_AUTH = false;
 
 export function sessionStrength(token) {
   try {
@@ -575,7 +578,7 @@ export default async function handler(req, res) {
 
   const authHeader = String(req.headers['authorization'] || req.headers['Authorization'] || '');
   const strength = sessionStrength(authHeader.replace(/^Bearer\s+/i, ''));
-  if (!strength.strong) {
+  if (REQUIRE_STRONG_AUTH && !strength.strong) {
     // Metoderna skickas med, så en ny inloggningsmetod som borde räknas syns direkt.
     await logSecurityEvent(admin, 'admin_weak_login', user.email, `${strength.aal || '?'}: ${strength.methods.join(', ') || 'okänd'}`);
     res.status(403).json({
