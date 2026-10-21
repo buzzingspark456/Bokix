@@ -51,8 +51,12 @@ export async function resolveSenderAddress(company) {
     });
     if (!domainRes.ok) return { from: fallback, usingCustomDomain: false };
     const domainData = await domainRes.json();
-    if (domainData?.status === 'verified') {
-      return { from: `${company.name} <${SENDER_LOCAL_PART}@${company.emailDomain}>`, usingCustomDomain: true };
+    // Adressen byggs av domänen Resend själv har verifierat, aldrig av
+    // emailDomain som kunden sparar själv: annars kunde ett verifierat id
+    // kombineras med vilken domän som helst (säkerhetsgranskningen 2026-10-20).
+    const verifiedName = String(domainData?.name || '').toLowerCase();
+    if (domainData?.status === 'verified' && verifiedName && verifiedName === String(company.emailDomain).trim().toLowerCase()) {
+      return { from: `${company.name} <${SENDER_LOCAL_PART}@${verifiedName}>`, usingCustomDomain: true };
     }
   } catch (error) {
     console.error('Resend domain status check failed, falling back:', error);

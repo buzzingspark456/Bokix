@@ -36,7 +36,27 @@ export async function requireAuthedUser(req, res) {
     res.status(401).json({ error: 'Ogiltig eller utgången inloggning.' });
     return null;
   }
+  // Har kontot tvåfaktor påslaget räcker inte lösenordet: sessionen måste
+  // ha klarat koden (aal2). Appen frågade efter koden, men servern litade
+  // på vilken session som helst (säkerhetsgranskningen 2026-10-20).
+  if (hasVerifiedFactor(data.user) && tokenAal(token) !== 'aal2') {
+    res.status(401).json({ error: 'Ange koden från din autentiseringsapp för att fortsätta.', code: 'mfa_required' });
+    return null;
+  }
   return data.user;
+}
+
+function hasVerifiedFactor(user) {
+  return (user?.factors || []).some(f => f?.status === 'verified');
+}
+
+// Token är redan verifierad av getUser ovan, här läses bara nivån.
+function tokenAal(token) {
+  try {
+    return JSON.parse(Buffer.from(String(token).split('.')[1], 'base64url').toString('utf8')).aal || null;
+  } catch {
+    return null;
+  }
 }
 
 /** Hittar ett företag i state.companies. Nyckeln och företagets eget

@@ -33,7 +33,7 @@ describe('send-payslip', () => {
   beforeEach(() => { sent.length = 0; });
 
   it('skickar till den anställdas sparade adress, inte en adress från klienten', async () => {
-    const res = await call({ company_id: 'c1', employee_id: 'e1', period: '2026-09', attachmentBase64: 'QUJD', to: 'angripare@x.se' });
+    const res = await call({ company_id: 'c1', employee_id: 'e1', period: '2026-09', attachmentBase64: 'JVBERi0x', to: 'angripare@x.se' });
     expect(res.statusCode).toBe(200);
     expect(sent[0].to).toEqual(['bo@exempel.se']);
     expect(sent[0].attachments[0].filename).toBe('lonebesked-2026-09.pdf');
@@ -41,12 +41,20 @@ describe('send-payslip', () => {
   });
 
   it('nekar anställd utan e-post och okänd anställd', async () => {
-    expect((await call({ company_id: 'c1', employee_id: 'e2', period: '2026-09', attachmentBase64: 'QUJD' })).statusCode).toBe(400);
-    expect((await call({ company_id: 'c1', employee_id: 'nope', period: '2026-09', attachmentBase64: 'QUJD' })).statusCode).toBe(400);
+    expect((await call({ company_id: 'c1', employee_id: 'e2', period: '2026-09', attachmentBase64: 'JVBERi0x' })).statusCode).toBe(400);
+    expect((await call({ company_id: 'c1', employee_id: 'nope', period: '2026-09', attachmentBase64: 'JVBERi0x' })).statusCode).toBe(400);
     expect(sent).toHaveLength(0);
   });
 
   it('kräver giltig period', async () => {
-    expect((await call({ company_id: 'c1', employee_id: 'e1', period: 'x', attachmentBase64: 'QUJD' })).statusCode).toBe(400);
+    expect((await call({ company_id: 'c1', employee_id: 'e1', period: 'x', attachmentBase64: 'JVBERi0x' })).statusCode).toBe(400);
+  });
+});
+
+describe('send-payslip bilaga', () => {
+  it('skickar bara PDF', async () => {
+    sent.length = 0;
+    expect((await call({ company_id: 'c1', employee_id: 'e1', period: '2026-08', attachmentBase64: 'PGh0bWw+' })).statusCode).toBe(400);
+    expect(sent).toHaveLength(0);
   });
 });

@@ -34,6 +34,23 @@ export function createSignedToken(payload) {
   return `${json}.${sig}`;
 }
 
+// Token är signerad men INTE krypterad: den som får den kan läsa innehållet.
+// Engångskoder läggs därför aldrig i klartext, bara som en hash med den
+// hemliga nyckeln (utan nyckeln går den inte att räkna fram, inte ens
+// genom att prova alla miljon koder).
+export function hashCode(code) {
+  const secret = getSecret();
+  if (!secret) throw new Error('SIGNED_TOKEN_SECRET är inte konfigurerad.');
+  return base64url(crypto.createHmac('sha256', secret).update(`code:${code}`).digest());
+}
+
+export function codeMatches(payload, code) {
+  if (!payload?.codeHash || !code) return false;
+  const a = Buffer.from(String(payload.codeHash));
+  const b = Buffer.from(hashCode(code));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
 /** Returnerar den avkodade payloaden om signaturen stämmer och token:en
  * inte är för gammal, annars null. */
 export function verifySignedToken(token, maxAgeMs = 10 * 60 * 1000) {

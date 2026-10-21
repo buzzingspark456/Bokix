@@ -3,6 +3,7 @@ import { canWriteField } from '../src/utils/pageAccess.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
 import { requireAuthedUser, loadMemberCompany, requireActiveSubscription, requireOwnerPaidAccess, hasPaidAccess, isFreeEmail, findCompanyEntry } from './_auth.js';
 import { checkRateLimit } from './_rateLimit.js';
+import { memberCompanyView, redactCompany, mergeMemberCompanyWrite } from './_memberView.js';
 import { createClient } from '@supabase/supabase-js';
 import { gzipSync } from 'zlib';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
@@ -386,7 +387,7 @@ export default async function handler(req, res) {
         return {
           company_id: m.company_id,
           owner_user_id: m.owner_user_id,
-          company: entry.data.company || {},
+          company: redactCompany(entry.data.company || {}),
           role: m.role,
           pageAccess: m.page_access || null,
           ownerPaid: ownerPaid.get(m.owner_user_id) !== false,
@@ -414,7 +415,7 @@ export default async function handler(req, res) {
       // Stora företag (flera års bokföring) kan bli större än Vercels gräns
       // för svar (4,5 MB). Över 1 MB skickas svaret komprimerat; webbläsaren
       // packar upp det själv.
-      const body = JSON.stringify({ company: member.companyData, role: member.role, pageAccess: member.pageAccess || null, ownerPaid });
+      const body = JSON.stringify({ company: memberCompanyView(member.companyData, member.pageAccess, member.role), role: member.role, pageAccess: member.pageAccess || null, ownerPaid });
       const acceptsGzip = /gzip/.test(String(req.headers?.['accept-encoding'] || ''));
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');
@@ -456,14 +457,26 @@ export default async function handler(req, res) {
       const isOwner = pathOwnerId === user.id;
       let isAllowed = isOwner || isFreeEmail(user.email);
       if (!isAllowed) {
-        const { data: member } = await admin
+        // Sökvägen säger bara vems filen är, inte vilket företag den hör
+        // till. Medlemmen får därför bara filer som finns i något av de
+        // företag hen är inbjuden till, och då bara på sidor hen får se.
+        const { data: memberships } = await admin
           .from('company_members')
-          .select('id')
+          .select('company_id, role, page_access')
           .eq('member_user_id', user.id)
           .eq('owner_user_id', pathOwnerId)
-          .eq('status', 'active')
-          .maybeSingle();
-        if (member) isAllowed = true;
+          .eq('status', 'active');
+        if (memberships?.length) {
+          const { data: ownerRow } = await admin.from('user_data').select('state').eq('user_id', pathOwnerId).maybeSingle();
+          // Länkarna i datan kan vara URL-kodade (mellanslag som %20).
+          const variants = [path, encodeURI(path), path.split('/').map(encodeURIComponent).join('/')];
+          isAllowed = memberships.some((m) => {
+            const entry = findCompanyEntry(ownerRow?.state?.companies, m.company_id);
+            if (!entry?.data) return false;
+            const text = JSON.stringify(memberCompanyView(entry.data, m.page_access, m.role));
+            return variants.some(v => text.includes(v));
+          });
+        }
       }
       if (!isAllowed) {
         res.status(403).json({ error: 'Åtkomst nekad till denna fil.' });
@@ -578,6 +591,9 @@ export default async function handler(req, res) {
       // i stället för att medlemmens kopia skriver över ägarens nya poster.
       if (isPatch) value = applyRecordPatch(member.companyData?.[field], patch);
       else if (base !== undefined) value = mergeField(base, value, member.companyData?.[field]);
+      // Företagsuppgifterna: bara medlemmens egna ändringar, aldrig nycklar,
+      // kopplingar eller låst namn/org.nr (se api/_memberView.js).
+      if (field === 'company') value = mergeMemberCompanyWrite(member.companyData?.company, value);
     }
     if (isPatch && value === undefined) value = applyRecordPatch(ownerCompanyData?.[field], patch);
 

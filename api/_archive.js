@@ -175,6 +175,15 @@ export async function listAllObjects(admin, bucket, prefix, depth = 0) {
  * filer den pekar på. Kastar vid fel, så att anroparen kan stoppa
  * raderingen. Finns ingenting bokfört skrivs inget arkiv alls.
  */
+const ARCHIVE_SOURCE_BUCKETS = new Set(['bokix-uploads', 'companylogo', 'profile']);
+
+export function isSafeOwnPath(path, userId) {
+  if (typeof path !== 'string' || !userId || path.includes('\\')) return false;
+  const parts = path.split('/');
+  if (parts[0] !== userId || parts.length < 2) return false;
+  return parts.every(p => p !== '' && p !== '.' && p !== '..' && !/[\x00-\x1f]/.test(p));
+}
+
 export async function archiveCompany(admin, { userId, companyId, companyData, reason, now = new Date() }) {
   const subset = legalSubset(companyData);
   const hasBooks = ['verifications', 'invoices', 'expenses', 'payrollRuns', 'bankTransactions', 'vatPeriods', 'agiReports']
@@ -192,7 +201,9 @@ export async function archiveCompany(admin, { userId, companyId, companyData, re
     const parsed = parseStorageUrl(url);
     // Bara användarens egna filer. En sökväg utanför det egna prefixet
     // (felaktig data) ska aldrig kunna användas för att läsa någon annans.
-    if (!parsed || !parsed.path.startsWith(`${userId}/`)) continue;
+    // Bara uppladdningsbuckets, aldrig arkivet självt, och inga '..' eller
+    // tomma steg som kan leda ut ur det egna prefixet.
+    if (!parsed || !ARCHIVE_SOURCE_BUCKETS.has(parsed.bucket) || !isSafeOwnPath(parsed.path, userId)) continue;
     const target = `${base}/filer/${parsed.bucket}/${parsed.path}`;
     const { data: blob, error: dlError } = await admin.storage.from(parsed.bucket).download(parsed.path);
     if (dlError || !blob) { files.push({ url, missing: true }); continue; }

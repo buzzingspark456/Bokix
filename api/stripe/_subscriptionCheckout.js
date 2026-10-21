@@ -88,6 +88,21 @@ async function loadAccountForTrial(userId, companyId) {
   }
 }
 
+function hasAuthHeader(req) {
+  const header = req.headers?.['authorization'] || req.headers?.['Authorization'];
+  return typeof header === 'string' && header.startsWith('Bearer ');
+}
+
+// Kontot skapades nyss (registreringen, innan en session hunnit utfärdas).
+async function isFreshSignup(userId) {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key || !userId) return false;
+  const { data, error } = await createClient(url, key).auth.admin.getUserById(userId);
+  if (error || !data?.user?.created_at) return false;
+  return Date.now() - new Date(data.user.created_at).getTime() < 60 * 60 * 1000;
+}
+
 export default async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'POST') {
@@ -319,13 +334,20 @@ export default async function handler(req, res) {
         res.status(403).json({ error: 'user_id matchar inte den inloggade användaren.' });
         return;
       }
-    } else if (await hasExistingSubscription(body.user_id)) {
+    } else if (hasAuthHeader(req) || await hasExistingSubscription(body.user_id)) {
       const user = await requireAuthedUser(req, res);
       if (!user) return; // requireAuthedUser har redan svarat 401
       if (user.id !== body.user_id) {
         res.status(403).json({ error: 'user_id matchar inte den inloggade användaren.' });
         return;
       }
+    } else if (!await isFreshSignup(body.user_id)) {
+      // Utan inloggning går det bara direkt efter registreringen. Annars
+      // kunde vem som helst koppla en egen prenumeration till ett annat
+      // konto bara genom att känna till dess id (säkerhetsgranskningen
+      // 2026-10-20).
+      res.status(401).json({ error: 'Logga in för att starta prenumerationen.' });
+      return;
     }
 
     // Planen valideras mot katalogen innan något debiteras. En okänd

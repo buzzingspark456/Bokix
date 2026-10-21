@@ -31,12 +31,21 @@ export default async function handler(req, res) {
   const user = await requireAuthedUser(req, res);
   if (!user) return;
   if (!await requireActiveSubscription(user, res)) return;
+  // Den anställdas e-post skrivs av företaget självt, så den höga gränsen
+  // ovan får inte bli ett sätt att mejla vem som helst: per konto räcker
+  // 300 i timmen för en stor lönekörning (säkerhetsgranskningen 2026-10-20).
+  if (!(await checkRateLimit(req, res, { key: 'send-payslip-user', windowMs: 60 * 60 * 1000, max: 300, identifier: user.id }))) return;
 
   try {
     const body = await parseJsonBody(req);
     const { company_id: companyId, employee_id: employeeId, period, attachmentBase64, passwordProtected } = body || {};
     if (!companyId || !employeeId || !/^\d{4}-\d{2}$/.test(String(period || '')) || !attachmentBase64) {
       res.status(400).json({ error: 'company_id, employee_id, period och attachmentBase64 krävs.' });
+      return;
+    }
+    // Bara en PDF får bifogas ("%PDF" blir "JVBER" i base64).
+    if (typeof attachmentBase64 !== 'string' || !attachmentBase64.startsWith('JVBER')) {
+      res.status(400).json({ error: 'Lönebeskedet måste vara en PDF.' });
       return;
     }
     if (attachmentBase64.length > MAX_PDF_BASE64) {
@@ -53,6 +62,9 @@ export default async function handler(req, res) {
       res.status(400).json({ error: 'Den anställda saknar en giltig e-postadress.' });
       return;
     }
+
+    // Samma lönebesked till samma person högst tre gånger per dygn.
+    if (!(await checkRateLimit(req, res, { key: 'send-payslip-once', windowMs: 24 * 60 * 60 * 1000, max: 3, identifier: `${ownerUserId}:${companyId}:${employeeId}:${period}` }))) return;
 
     const companyName = companyData.company?.name || 'Din arbetsgivare';
     const subject = `Lönebesked ${period} från ${companyName}`;

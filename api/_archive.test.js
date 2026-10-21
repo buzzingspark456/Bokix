@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { gunzipSync } from 'node:zlib'
-import { archiveKeepUntil, archiveCompany, snapshotAllUsers, pruneExpiredArchives, legalSubset, ARCHIVE_BUCKET, DAILY_KEEP_DAYS } from './_archive.js'
+import { isSafeOwnPath, archiveKeepUntil, archiveCompany, snapshotAllUsers, pruneExpiredArchives, legalSubset, ARCHIVE_BUCKET, DAILY_KEEP_DAYS } from './_archive.js'
 
 const HOST = 'https://x.supabase.co/storage/v1/object/public'
 
@@ -229,3 +229,13 @@ describe('övergången till komprimerade kopior', () => {
     expect([...b.keys()].sort()).toEqual(['u1/_kopior/dag-2026-09-24.json.gz', 'u1/_kopior/index.json', 'u1/_kopior/man-2026-09.json.gz'])
   })
 })
+
+describe('isSafeOwnPath', () => {
+  it('släpper bara igenom egna sökvägar utan ..', () => {
+    expect(isSafeOwnPath('u1/kvitton/a.pdf', 'u1')).toBe(true);
+    expect(isSafeOwnPath('u1/../u2/a.pdf', 'u1')).toBe(false);
+    expect(isSafeOwnPath('u1//a.pdf', 'u1')).toBe(false);
+    expect(isSafeOwnPath('u2/a.pdf', 'u1')).toBe(false);
+    expect(isSafeOwnPath('u1\\..\\u2', 'u1')).toBe(false);
+  });
+});

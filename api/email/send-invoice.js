@@ -6,6 +6,7 @@ import { checkRateLimit } from '../_rateLimit.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { trySendFromOwnAddress } from '../_smtp.js';
 import { createClient } from '@supabase/supabase-js';
+import { brandedEmail, emailButton } from '../../src/utils/brandedEmail.js';
 
 // Ägarens egen väntande inbjudan, plus företagets data om den finns (för
 // avsändarnamn och egen domän). null om raden inte är ägarens.
@@ -16,14 +17,44 @@ async function loadOwnInvite(userId, inviteId) {
   const admin = createClient(url, key);
   const { data: invite } = await admin
     .from('company_members')
-    .select('invited_email, company_id')
+    .select('invited_email, company_id, invite_token, role, expires_at')
     .eq('id', inviteId)
     .eq('owner_user_id', userId)
     .eq('status', 'pending')
     .maybeSingle();
   if (!invite) return null;
+  if (invite.expires_at && new Date(invite.expires_at) < new Date()) return null;
   const { data: row } = await admin.from('user_data').select('state').eq('user_id', userId).maybeSingle();
   return { ...invite, companyData: findCompanyEntry(row?.state?.companies, invite.company_id)?.data || null };
+}
+
+function escHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Inbjudningsmejlet byggs här, inte i webbläsaren: annars kunde vem som
+// helst med en egen inbjudningsrad skicka valfri text och bilaga från
+// Bokix adress (säkerhetsgranskningen 2026-10-20). Samma text som
+// Settings.jsx buildInviteEmailHtml hade.
+export function buildInviteEmail({ invite, companyName, inviterName, origin }) {
+  const safeCompany = escHtml(companyName) || 'sitt företag';
+  const safeInviter = escHtml(inviterName) || 'Någon';
+  const roleLabel = invite.role === 'editor' ? 'redigera' : 'se';
+  const url = `${origin}/invite?token=${encodeURIComponent(invite.invite_token)}&email=${encodeURIComponent(invite.invited_email)}`;
+  return {
+    subject: `Du är inbjuden till ${companyName || 'ett företag'} på Bokix`,
+    html: brandedEmail({
+      title: `Du är inbjuden till ${safeCompany}`,
+      body: `
+      <p>Hej,</p>
+      <p>${safeInviter} har bjudit in dig till <strong>${safeCompany}</strong> på Bokix. Du kommer kunna ${roleLabel} företagets bokföring.</p>
+      ${emailButton(url, 'Acceptera inbjudan')}
+    `,
+      footnote: 'Länken är giltig i 7 dagar. Har du redan ett Bokix-konto loggar du bara in, annars skapar du ett nytt.',
+    }),
+  };
 }
 
 // Speglar POST /api/email/send-invoice i server.js (lokal dev via
@@ -71,17 +102,19 @@ export default async function handler(req, res) {
 
   try {
     const body = await parseJsonBody(req);
-    const { subject, html, replyTo, attachmentBase64, attachmentFilename, invite_id: inviteId } = body || {};
+    const { invite_id: inviteId } = body || {};
+    let { subject, html, replyTo, attachmentBase64, attachmentFilename } = body || {};
     let { to, company_id: companyId } = body || {};
 
     let companyData;
     let ownerUserId;
     if (inviteId) {
       // Inbjudningsmejl (Settings.jsx). Behörigheten är själva inbjudan:
-      // raden måste vara ägarens egen och väntande, och mottagaren tas från
-      // raden, inte från klienten. Betalspärren kollades redan när raden
-      // skapades (RLS "Ägare skapar inbjudan"). Kräver inte att företaget
-      // hunnit sparas i user_data, som ett nytt konto ibland inte har.
+      // raden måste vara ägarens egen, väntande och inte utgången, och
+      // mottagare, ämne och text byggs här från raden. Inget från klienten
+      // följer med. Kräver inte att företaget hunnit sparas i user_data,
+      // som ett nytt konto ibland inte har.
+      if (!await requireActiveSubscription(user, res)) return;
       const invite = await loadOwnInvite(user.id, inviteId);
       if (!invite) {
         await logSystemEvent('email_failed', `Inbjudan ${inviteId}: hittades inte för avsändaren`);
@@ -92,6 +125,12 @@ export default async function handler(req, res) {
       companyId = invite.company_id;
       ownerUserId = user.id;
       companyData = invite.companyData || {};
+      const inviterName = [user.user_metadata?.first_name, user.user_metadata?.last_name].filter(Boolean).join(' ') || user.email;
+      const origin = /^https:\/\/(www\.)?bokix\.se$|^http:\/\/localhost(:\d+)?$/.test(String(req.headers?.origin || '')) ? req.headers.origin : 'https://www.bokix.se';
+      ({ subject, html } = buildInviteEmail({ invite, companyName: companyData?.company?.name, inviterName, origin }));
+      replyTo = undefined;
+      attachmentBase64 = undefined;
+      attachmentFilename = undefined;
     } else {
       if (!await requireActiveSubscription(user, res)) return;
       if (!to || !companyId) {

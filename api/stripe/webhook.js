@@ -4,6 +4,20 @@ import { recordStripePaymentEvent } from './_paymentEvents.js';
 import { upsertSubscription } from './_subscriptions.js';
 import { enforceCardTrialLimit } from './_trialGuard.js';
 import { notifyAdminsAboutEvent } from './_adminNotify.js';
+import { createClient } from '@supabase/supabase-js';
+import { findCompanyEntry } from '../_auth.js';
+
+// Är det anslutna kontot som skickade händelsen verkligen det konto
+// företaget har kopplat? Metadatan på en checkout-session på ett anslutet
+// konto skrivs av kontots ägare och bevisar ingenting i sig
+// (säkerhetsgranskningen 2026-10-20).
+async function accountBelongsToCompany(account, userId, companyId) {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key || !account) return false;
+  const { data: row } = await createClient(url, key).from('user_data').select('state').eq('user_id', userId).maybeSingle();
+  return findCompanyEntry(row?.state?.companies, companyId)?.data?.company?.stripeAccountId === account;
+}
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   // apiVersion removed to use Stripe account default
@@ -92,6 +106,9 @@ export default async function handler(req, res) {
   }
 
   console.log('Stripe webhook event:', event.type);
+  // Händelser från anslutna konton (kundernas egna Stripe) har event.account.
+  // Bokix egna prenumerationer finns bara på plattformskontot.
+  const fromConnected = Boolean(event.account);
 
   try {
     switch (event.type) {
@@ -107,6 +124,8 @@ export default async function handler(req, res) {
         // faktiskt bekräftade betalningar.
         const session = event.data.object;
         if (session.payment_status !== 'paid') break;
+        // Fakturabetalningar sker på kundens anslutna konto.
+        if (!fromConnected) break;
 
         const { user_id: userId, company_id: companyId, invoice_id: invoiceId } = session.metadata || {};
         if (!userId || !companyId || !invoiceId) {
@@ -114,6 +133,11 @@ export default async function handler(req, res) {
           // koppla till en faktura. Loggas, men är inget att larma om eller
           // låta Stripe försöka igen för (det löser sig aldrig av sig själv).
           console.warn('checkout.session.completed utan user_id/company_id/invoice_id i metadata, hoppar över:', session.id);
+          break;
+        }
+
+        if (!await accountBelongsToCompany(event.account, userId, companyId)) {
+          console.warn('checkout.session.completed från ett konto som inte är företagets, hoppar över:', session.id, event.account);
           break;
         }
 
@@ -143,6 +167,7 @@ export default async function handler(req, res) {
       // samma händelsetyp med olika status, ingen anledning att sära på dem. ──
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
+        if (fromConnected) break;
         const sub = event.data.object;
         await upsertSubscription({
           userId: sub.metadata?.user_id,
@@ -172,6 +197,7 @@ export default async function handler(req, res) {
       case 'customer.subscription.deleted': {
         // Stripe sätter redan status till 'canceled' på själva objektet här
         // — samma upsertSubscription-anrop, ingen särskild "ta bort rad"-väg.
+        if (fromConnected) break;
         const sub = event.data.object;
         await upsertSubscription({
           userId: sub.metadata?.user_id,
@@ -204,7 +230,7 @@ export default async function handler(req, res) {
 
   // Mejl till grundarna om ny provperiod eller betalning (_adminNotify.js).
   // Efter sparningen, så att ett misslyckat mejl aldrig hindrar den.
-  await notifyAdminsAboutEvent(stripe, event);
+  if (!fromConnected) await notifyAdminsAboutEvent(stripe, event);
 
   res.status(200).json({ received: true, type: event.type });
 }

@@ -3,7 +3,7 @@ import { applySecurityHeaders } from '../_security.js';
 import { parseJsonBody } from '../stripe/_parseBody.js';
 import { checkRateLimit } from '../_rateLimit.js';
 import { requireAuthedUser } from '../_auth.js';
-import { createSignedToken, verifySignedToken, verifyReauthGrant } from '../_signedToken.js';
+import { createSignedToken, verifySignedToken, verifyReauthGrant, hashCode, codeMatches } from '../_signedToken.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { buildSignupVerificationHtml, buildReauthCodeHtml } from '../_emailTemplates.js';
 import { translateSupabaseAuthError } from '../../src/utils/translateAuthError.js';
@@ -176,7 +176,7 @@ async function handleSendSignupCode(req, body, res) {
   const code = String(randomInt(100000, 1000000));
   let token;
   try {
-    token = createSignedToken({ email, code });
+    token = createSignedToken({ email, codeHash: hashCode(code) });
   } catch (err) {
     console.error('createSignedToken (signup code) misslyckades:', err.message);
     res.status(503).json({ error: 'E-postverifiering är inte konfigurerad just nu.' });
@@ -223,7 +223,7 @@ async function handleVerifySignupCode(req, body, res) {
   if (!(await checkRateLimit(req, res, { key: 'verify-signup-code-email', windowMs: 10 * 60 * 1000, max: 10, identifier: email }))) return;
 
   const payload = verifySignedToken(token, SIGNUP_CODE_MAX_AGE_MS);
-  if (!payload || payload.email !== email || payload.code !== code) {
+  if (!payload || payload.email !== email || !codeMatches(payload, code)) {
     res.status(400).json({ error: 'Fel kod, eller så har den gått ut. Kontrollera koden eller skicka en ny.' });
     return;
   }
@@ -252,7 +252,7 @@ async function handleConfirmSignupEmail(req, body, res) {
   if (!(await checkRateLimit(req, res, { key: 'confirm-signup-email', windowMs: 60 * 60 * 1000, max: 5, identifier: email }))) return;
 
   const payload = verifySignedToken(token, CONFIRM_SIGNUP_MAX_AGE_MS);
-  if (!payload || payload.email !== email || payload.code !== code) {
+  if (!payload || payload.email !== email || !codeMatches(payload, code)) {
     res.status(400).json({ error: 'Bekräftelsekoden har gått ut. Gå tillbaka och skicka en ny kod.' });
     return;
   }
@@ -307,7 +307,7 @@ async function handleSendReauthCode(req, res) {
   const code = String(randomInt(100000, 1000000));
   let token;
   try {
-    token = createSignedToken({ uid: user.id, code, purpose: 'reauth' });
+    token = createSignedToken({ uid: user.id, codeHash: hashCode(code), purpose: 'reauth' });
   } catch (err) {
     console.error('createSignedToken (reauth code) misslyckades:', err.message);
     res.status(503).json({ error: 'Reauthentication är inte konfigurerad just nu.' });
@@ -359,7 +359,7 @@ async function handleVerifyReauthCode(req, body, res) {
   }
 
   const payload = verifySignedToken(token, REAUTH_CODE_MAX_AGE_MS);
-  if (!payload || payload.purpose !== 'reauth' || payload.uid !== user.id || payload.code !== code) {
+  if (!payload || payload.purpose !== 'reauth' || payload.uid !== user.id || !codeMatches(payload, code)) {
     res.status(400).json({ error: 'Fel kod, eller så har den gått ut. Kontrollera koden eller skicka en ny.' });
     return;
   }
