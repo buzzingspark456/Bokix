@@ -455,8 +455,9 @@ async function handlePayments(admin, res) {
   // MRR: bara `active` betalar faktiskt varje månad — `trialing` betalar
   // ingenting förrän provperioden (TRIAL_DAYS, 30 dagar) tar slut. Räknas
   // de med hade siffran sett bättre ut än pengarna som faktiskt kommer in.
-  // Pengarna efter rabatt, utan grundarnas egna konton.
-  const paying = rows.filter(r => r.status === 'active' && !r.isAdmin);
+  // Pengarna efter rabatt, utan grundarnas egna konton. 100 % rabatt betalar
+  // ingenting och räknas inte som betalande (drar annars ner snittet).
+  const paying = rows.filter(r => r.status === 'active' && !r.isAdmin && r.planPrice > 0);
   const mrr = paying.reduce((sum, r) => sum + r.planPrice, 0);
   const discountPerMonth = paying.reduce((sum, r) => sum + (r.listPrice - r.planPrice), 0);
 
