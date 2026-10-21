@@ -42,7 +42,8 @@ export default function InternalApp() {
     } catch (err) {
       const message = String(err.message || '');
       if (message.includes('kräver Face ID')) {
-        await supabase.auth.signOut();
+        // Ingen utloggning: signOut() loggar som standard ut överallt, även
+        // appen på telefonen. Face ID-inloggningen ersätter sessionen ändå.
         setLoginNotice(message);
         setStatus('needs-login');
       } else if (message.includes('behörighet')) setStatus('unauthorized');

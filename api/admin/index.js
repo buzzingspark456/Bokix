@@ -574,7 +574,7 @@ export default async function handler(req, res) {
   }
 
   const authHeader = String(req.headers['authorization'] || req.headers['Authorization'] || '');
-  const strength = sessionStrength(authHeader.replace(/^Bearers+/i, ''));
+  const strength = sessionStrength(authHeader.replace(/^Bearer\s+/i, ''));
   if (!strength.strong) {
     // Metoderna skickas med, så en ny inloggningsmetod som borde räknas syns direkt.
     await logSecurityEvent(admin, 'admin_weak_login', user.email, `${strength.aal || '?'}: ${strength.methods.join(', ') || 'okänd'}`);
