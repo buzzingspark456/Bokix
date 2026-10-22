@@ -17,6 +17,8 @@
 // nyckeln fanns i .env. Vercel-produktionen påverkas inte (env-variabler
 // finns redan satta innan någon modul evalueras där), men lokalt måste
 // läsningen skjutas upp till anropstillfället.
+import crypto from 'crypto';
+
 const getResendApiKey = () => process.env.RESEND_API_KEY || null;
 const getResendAdminApiKey = () => process.env.RESEND_ADMIN_API_KEY || null;
 const getEmailFrom = () => process.env.EMAIL_FROM || 'Bokix <onboarding@resend.dev>';
@@ -35,6 +37,32 @@ export function fallbackSenderAddress(companyName) {
   return emailFrom;
 }
 
+// Domän-id:t sparas i kundens egen data och går därför att skriva in för
+// hand. Servern signerar id + företag när domänen skapas, och bara ett
+// id med giltig signatur används (säkerhetsgranskningen 2026-10-20: ett
+// annat företags id godtogs om man kände till det). Fältnamnet innehåller
+// "token" så att inbjudna medlemmar varken ser eller skriver det, se
+// api/_memberView.js.
+function domainTokenFor(domainId, companyId) {
+  const secret = process.env.EMAIL_SECRET_KEY;
+  if (!secret || !domainId || !companyId) return null;
+  return crypto.createHmac('sha256', secret).update(`resend-domain:${domainId}:${companyId}`).digest('base64url');
+}
+
+export function signResendDomain(domainId, companyId) {
+  const token = domainTokenFor(domainId, companyId);
+  if (!token) throw new Error('EMAIL_SECRET_KEY saknas.');
+  return token;
+}
+
+/** Stämmer företagets sparade resendDomainToken med id:t och företaget? */
+export function hasValidResendDomainToken(company, companyId = company?.id) {
+  const expected = domainTokenFor(company?.resendDomainId, companyId);
+  const given = String(company?.resendDomainToken || '');
+  if (!expected || given.length !== expected.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected));
+}
+
 /** Bugkritiskt (Sida 33): frågar alltid Resend live om domänens status
  * innan ett utskick — aldrig en cachad flagga. Faller tyst tillbaka till
  * systemadressen om domänen saknas, inte är verifierad, eller om
@@ -42,7 +70,7 @@ export function fallbackSenderAddress(companyName) {
 export async function resolveSenderAddress(company) {
   const resendAdminApiKey = getResendAdminApiKey();
   const fallback = fallbackSenderAddress(company?.name);
-  if (!company?.resendDomainId || !company?.emailDomain || !resendAdminApiKey) {
+  if (!company?.resendDomainId || !company?.emailDomain || !resendAdminApiKey || !hasValidResendDomainToken(company)) {
     return { from: fallback, usingCustomDomain: false };
   }
   try {

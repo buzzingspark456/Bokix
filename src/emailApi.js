@@ -58,11 +58,11 @@ export async function sendPayslipEmail({ companyId, employeeId, period, attachme
 /** Sida 33, Steg 2 — skapar en avsändardomän hos Resend och returnerar de
  * DNS-poster (SPF/DKIM) företaget ska lägga till hos sin egen
  * domänleverantör. */
-export async function createEmailDomain(domain) {
+export async function createEmailDomain(domain, companyId) {
   // api/email/domains/index.js — slog ihop create.js (POST) och status.js
   // (GET) till en enda fil (Vercels 12-funktionsgräns), samma URL som
   // getEmailDomainStatus nedan nu pekar mot, bara olika HTTP-metod.
-  return requestEmailApi('domains', { domain });
+  return requestEmailApi('domains', { domain, company_id: companyId });
 }
 
 /** Live-koll av en domäns verifieringsstatus — samma anrop appen gör

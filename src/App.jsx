@@ -745,6 +745,7 @@ function createEmptyCompanyData(companyInfo) {
       // alltid Resend live innan varje utskick.
       emailDomain: '',
       resendDomainId: '',
+      resendDomainToken: '', // serverns signatur över id + företag, se _resend.js
       emailDomainStatus: '', // '' | 'pending' | 'verified' | 'failed'
       emailDomainRecords: [],
       // Bank – CSV/Excel-import (Bank.jsx): ihågkommen kolumnmappning per
@@ -3774,11 +3775,12 @@ function App() {
   // sin egen busy/fel-state runt dessa anrop så den kan visa felet inline
   // bredvid domänfältet, inte som en global alert().
   const handleConnectEmailDomain = async (domain) => {
-    const result = await createEmailDomain(domain);
+    const result = await createEmailDomain(domain, company.id);
     setCompanyInfo({
       ...company,
       emailDomain: domain,
       resendDomainId: result.id,
+      resendDomainToken: result.token,
       emailDomainStatus: result.status || 'pending',
       emailDomainRecords: result.records || [],
     });
@@ -3801,7 +3803,7 @@ function App() {
 
   const handleDisconnectEmailDomain = async () => {
     if (!(await confirmDialog(tr('ui.koppla_fran_den_har_avsandardomanen_fakturor_ski')))) return;
-    setCompanyInfo({ ...company, emailDomain: '', resendDomainId: '', emailDomainStatus: '', emailDomainRecords: [] });
+    setCompanyInfo({ ...company, emailDomain: '', resendDomainId: '', resendDomainToken: '', emailDomainStatus: '', emailDomainRecords: [] });
   };
 
   // Bygger Checkout-radrar och skapar en Stripe-betalningssession, returnerar

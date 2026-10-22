@@ -7,6 +7,7 @@ import {
   loadSenderRow, saveSenderRow, deleteSenderRow, encryptSecret, verifySmtp,
 } from '../../_smtp.js';
 import { hasGoogleOAuth, buildAuthUrl, exchangeCode, signState, verifyState } from '../../_gmail.js';
+import { signResendDomain, hasValidResendDomainToken } from '../../_resend.js';
 
 // Slog ihop det som tidigare var TVÅ separata filer (create.js POST,
 // status.js GET) till en enda — Vercels 12-funktionsgräns (Hobby-plan):
@@ -27,9 +28,9 @@ const resendAdminApiKey = process.env.RESEND_ADMIN_API_KEY || null;
 // Säkerhetsfix (se säkerhetsgranskningen): hade tidigare ingen
 // inloggningskontroll — vem som helst på internet kunde registrera
 // godtyckliga domäner mot Bokix Resend-konto med den priviligierade
-// nyckeln. Kräver nu en verifierad session. Ingen ägarskaps-koll mot ett
-// specifikt company_id behövs här (till skillnad från status nedan)
-// eftersom det här skapar en NY domän, inte läser ut en befintlig.
+// nyckeln. Kräver nu en verifierad session och ett eget företag: svaret
+// innehåller en signatur över domän-id + company_id som status och
+// utskick kräver, se signResendDomain i _resend.js.
 async function handleCreate(req, res, parsedBody) {
   if (!(await checkRateLimit(req, res, { key: 'email-domain-create', max: 10 }))) return;
 
@@ -51,11 +52,17 @@ async function handleCreate(req, res, parsedBody) {
 
   try {
     const body = parsedBody || {};
-    const { domain } = body;
-    if (!domain || typeof domain !== 'string') {
-      res.status(400).json({ error: 'domain krävs.' });
+    const { domain, company_id: companyId } = body;
+    if (!domain || typeof domain !== 'string' || !companyId) {
+      res.status(400).json({ error: 'domain och company_id krävs.' });
       return;
     }
+    if (!process.env.EMAIL_SECRET_KEY) {
+      res.status(503).json({ error: 'Servern saknar EMAIL_SECRET_KEY och kan därför inte koppla en egen domän.' });
+      return;
+    }
+    const owned = await loadOwnedOrMemberCompany(user.id, companyId, res, { requireEditor: true });
+    if (!owned) return;
 
     const resendRes = await fetch('https://api.resend.com/domains', {
       method: 'POST',
@@ -73,7 +80,7 @@ async function handleCreate(req, res, parsedBody) {
       return;
     }
 
-    res.status(200).json({ id: data.id, status: data.status, records: data.records || [] });
+    res.status(200).json({ id: data.id, token: signResendDomain(data.id, companyId), status: data.status, records: data.records || [] });
   } catch (error) {
     console.error('Domain create error:', error);
     res.status(500).json({ error: error?.message || 'Kunde inte skapa domänen.' });
@@ -107,7 +114,8 @@ async function handleStatus(req, res) {
 
     const owned = await loadOwnedOrMemberCompany(user.id, companyId, res);
     if (!owned) return;
-    if (owned.companyData.company?.resendDomainId !== id) {
+    const company = owned.companyData.company;
+    if (company?.resendDomainId !== id || !hasValidResendDomainToken(company, companyId)) {
       res.status(403).json({ error: 'Domänen tillhör inte det här företaget.' });
       return;
     }
