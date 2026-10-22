@@ -22,7 +22,9 @@ export default function Ink4View({ company, fy, verifications = [], accounts = [
   });
 
   const period = useMemo(() => ({ start: fy.start, end: fy.end }), [fy.start, fy.end]);
-  const ink4r = useMemo(() => computeInk4r(verifications, accounts, fy.end), [verifications, accounts, fy.end]);
+  // Ett Date, inte texten: computeBalanceSheet jämför mot ett datum, och
+  // med texten räknades även senare års verifikationer in.
+  const ink4r = useMemo(() => computeInk4r(verifications, accounts, new Date(`${fy.end}T23:59:59`)), [verifications, accounts, fy.end]);
   const res = useMemo(() => computeInk4rResultat(verifications, period), [verifications, period]);
   // Förslag ur bokföringen: ej avdragsgilla kostnader och skattefria intäkter
   // (samma konton som INK2S, där raderna heter 4.3c och 4.5c).

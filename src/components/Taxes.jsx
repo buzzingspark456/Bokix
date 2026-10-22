@@ -23,6 +23,7 @@ import AgiYearView from './AgiYearView';
 import YearEndWizard from './YearEndWizard';
 import Ink2View from './Ink2View';
 import Ink4View from './Ink4View';
+import Ink3View from './Ink3View';
 import { downloadNePdf } from '../utils/neExport';
 import { computeEmployeePayroll } from '../utils/payrollCalculation';
 import { preloadSkattetabell } from '../utils/skattetabell';
@@ -386,6 +387,7 @@ export default function Taxes({
   // ska alltså döljas för dem precis som för enskild firma, med en egen,
   // korrekt förklaringstext istället för AB:s.
   const isTradingPartnership = orgType === 'Handelsbolag / Kommanditbolag';
+  const isNonProfit = orgType === 'Ideell förening / stiftelse';
   const filesOwnIncomeDeclaration = isSoleProp || isTradingPartnership;
 
   // Kundfeedback ("för mycket att göra, ingen förstår"): sidan var tidigare
@@ -430,8 +432,9 @@ export default function Taxes({
     if (filesOwnIncomeDeclaration && activeSection === 'ink2') setActiveSection(fallback);
     if (!isSoleProp && activeSection === 'ne') setActiveSection(fallback);
     if (!isTradingPartnership && activeSection === 'ink4') setActiveSection(fallback);
+    if (!isNonProfit && activeSection === 'ink3') setActiveSection(fallback);
     if (company?.vatRegistered === false && activeSection === 'vat') setActiveSection('dates');
-  }, [filesOwnIncomeDeclaration, isSoleProp, isTradingPartnership, activeSection, company?.vatRegistered]);
+  }, [filesOwnIncomeDeclaration, isSoleProp, isTradingPartnership, isNonProfit, activeSection, company?.vatRegistered]);
 
   // Kontrolluppgifter (KU) — förvalt till föregående inkomstår FRAM TILL
   // deadline (31 januari), eftersom det är vad man normalt lämnar in då.
@@ -817,9 +820,10 @@ export default function Taxes({
     { id: 'yearend', label: tr('ui.arsbokslut') },
     // Årsredovisning till Bolagsverket, bara aktiebolag.
     ...(orgType === 'Aktiebolag (AB)' || orgType === 'Ekonomisk förening' ? [{ id: 'annual', label: tr('ui.arsredovisning') }] : []),
-    // INK2 för aktiebolag och ekonomisk förening. Inte ideell förening eller
-    // stiftelse, som lämnar en annan blankett (INK3) som Bokix inte fyller i.
-    ...(!filesOwnIncomeDeclaration && orgType !== 'Ideell förening / stiftelse' ? [{ id: 'ink2', label: tr('ui.inkomstdeklaration') }] : []),
+    // INK2 för aktiebolag och ekonomisk förening. Ideell förening och
+    // stiftelse lämnar INK3 i stället (Ink3View).
+    ...(!filesOwnIncomeDeclaration && !isNonProfit ? [{ id: 'ink2', label: tr('ui.inkomstdeklaration') }] : []),
+    ...(isNonProfit ? [{ id: 'ink3', label: tr('ink3.tab') }] : []),
     // NE-bilaga — bara enskild firma. INTE handelsbolag (som också har
     // filesOwnIncomeDeclaration=true men deklarerar sin andel med en N3A/
     // K10-bilaga i stället, se hjälptexten i Årsbokslut-kortet).
@@ -840,7 +844,7 @@ export default function Taxes({
     { id: 'g_overview', label: tr('ui.oversikt'), sections: ['dates'] },
     { id: 'g_vat', label: tr('ui.moms'), sections: ['vat', 'ecsales'] },
     { id: 'g_payroll', label: tr('ui.skatt_lon'), sections: ['agi', 'ku'] },
-    { id: 'g_yearend', label: tr('ui.arsavslut'), sections: ['yearend', 'annual', 'ink2', 'ne', 'partners', 'ink4', 'dividend'], numbered: true },
+    { id: 'g_yearend', label: tr('ui.arsavslut'), sections: ['yearend', 'annual', 'ink2', 'ink3', 'ne', 'partners', 'ink4', 'dividend'], numbered: true },
   ];
   const groupTabs = TAX_GROUPS
     .map(g => ({ ...g, sections: g.sections.filter(id => sectionTabs.some(t => t.id === id)) }))
@@ -1229,6 +1233,10 @@ export default function Taxes({
           {/* Kontrolluppgifter (KU) */}
           {activeSection === 'ink4' && isTradingPartnership && (
             <Ink4View company={company} fy={fy} verifications={verifications} accounts={accounts} setCompanyInfo={setCompanyInfo} sruMissing={sruMissing} onOpenPartners={() => setActiveSection('partners')} />
+          )}
+
+          {activeSection === 'ink3' && isNonProfit && (
+            <Ink3View company={company} fy={fy} verifications={verifications} accounts={accounts} setCompanyInfo={setCompanyInfo} sruMissing={sruMissing} />
           )}
 
           {activeSection === 'partners' && isTradingPartnership && (

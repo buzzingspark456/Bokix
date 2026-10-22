@@ -206,8 +206,7 @@ export default function LandingFeatureGrid({ items }) {
 
 // ── Bolagsformerna: fem kort i samma stil som rutnätet ovan ─────────────
 // Ersätter den rullande raden med färgade prickar. Varje kort säger vad
-// Bokix tar fram just för den bolagsformen; det som inte görs (INK3 för
-// ideella föreningar) står inte med. Kort med egen sida är länkar.
+// Bokix tar fram just för den bolagsformen. Kort med egen sida är länkar.
 const ORG_CSS = `
   .og { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; max-width: 1180px; margin: 0 auto; text-align: left; }
   .og-card { display: flex; flex-direction: column; gap: 10px; padding: 20px 20px 18px; background: var(--mkt-card-bg); border: 1px solid var(--mkt-card-border); border-radius: 18px; text-decoration: none; color: inherit; transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease; }
@@ -230,7 +229,7 @@ export const ORG_TYPE_CARDS = [
   { name: 'Aktiebolag (AB)', docs: ['INK2', 'Årsredovisning K2'] },
   { name: 'Handelsbolag / KB', docs: ['INK4', 'Bilaga per delägare'] },
   { name: 'Ekonomisk förening', docs: ['INK2', 'Årsredovisning'] },
-  { name: 'Ideell förening / stiftelse', docs: ['Moms', 'Årsbokslut'] },
+  { name: 'Ideell förening / stiftelse', docs: ['INK3', 'Årsbokslut'] },
 ];
 
 export function OrgTypeCards({ links = {}, moreLabel = 'Läs mer' }) {
