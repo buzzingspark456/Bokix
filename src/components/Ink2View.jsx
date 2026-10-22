@@ -6,6 +6,7 @@ import { downloadInk2rSru } from '../utils/sruExport';
 import { previewInk2Pdf } from '../utils/ink2Pdf';
 import { downloadFilledSkv2002 } from '../utils/skvBlankett';
 import { previousFiscalYear } from '../utils/annualReport';
+import { refundInk2sAdjustments } from '../utils/patronageRefund';
 import { incomeDeclarationDueDate, daysFromToday } from '../utils/declarationDeadlines';
 import { detectOrgType } from '../utils/orgType';
 import { t, dateLocale } from '../i18n';
@@ -35,11 +36,17 @@ export default function Ink2View({
     const hasPrev = verifications.some(v => v.date >= prev.start && v.date <= prev.end);
     if (!hasPrev) return 0;
     const prevResult = computeInk2rResultat(verifications, { start: prev.start, end: prev.end }).total;
-    const prevSuggest = suggestInk2s({ verifications, fy: prev }).suggestions;
+    const prevAdjustments = refundInk2sAdjustments({ refunds: company?.patronageRefunds, verifications, fy: prev });
+    const prevSuggest = suggestInk2s({ verifications, fy: prev, adjustments: prevAdjustments }).suggestions;
     return computeInk2s(resolveInk2sValues(company?.ink2s?.[prev.key], prevSuggest), prevResult).underskott;
   }, [verifications, fy, company]);
 
-  const suggestion = useMemo(() => suggestInk2s({ verifications, fy, previousUnderskott }), [verifications, fy, previousUnderskott]);
+  // Återbäring i ekonomisk förening (Skatt och bokslut → Återbäring).
+  const refundAdjustments = useMemo(
+    () => refundInk2sAdjustments({ refunds: company?.patronageRefunds, verifications, fy }),
+    [company?.patronageRefunds, verifications, fy],
+  );
+  const suggestion = useMemo(() => suggestInk2s({ verifications, fy, previousUnderskott, adjustments: refundAdjustments }), [verifications, fy, previousUnderskott, refundAdjustments]);
   const saved = company?.ink2s?.[fyKey] || {};
   const values = resolveInk2sValues(saved, suggestion.suggestions);
   const ink2s = computeInk2s(values, ink2rResultat.total);

@@ -164,6 +164,7 @@ export function generateAnnualReportPdf({ company, report, details = {} }) {
   dispRow('Balanseras i ny räkning', d.carriedForward);
   dispRow('Summa', d.available, true);
   y += 6;
+  if (d.refund > 0) para(`Styrelsen föreslår därutöver att ${formatKr(d.refund)} kr lämnas som återbäring till medlemmarna i förhållande till deras ${d.refundBasis === 'sales' ? 'försäljning till' : 'köp från'} föreningen under räkenskapsåret. Återbäringen ingår inte i årets resultat ovan. Styrelsen anser att den är försvarlig med hänsyn till de krav som verksamhetens art, omfattning och risker ställer på storleken av det egna kapitalet, föreningens konsolideringsbehov, likviditet och ställning i övrigt.`, 9);
   if (d.dividend > 0) para(`Styrelsen anser att den föreslagna utdelningen är försvarlig med hänsyn till de krav som verksamhetens art, omfattning och risker ställer på storleken av det egna kapitalet, ${T.orgGen} konsolideringsbehov, likviditet och ställning i övrigt.`, 9);
   para(`${T.orgGen.charAt(0).toUpperCase()}${T.orgGen.slice(1)} resultat och ställning i övrigt framgår av efterföljande resultat- och balansräkning med noter.`);
 

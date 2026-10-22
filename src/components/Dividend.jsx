@@ -169,7 +169,15 @@ export default function Dividend({ company, accounts = [], verifications = [], o
         rowKey={d => d.id}
         rows={dividends}
         emptyMessage={t('yearEndUi.empty')}
-        mobileList={d => ({ primary: d.note || t('ui.utdelning'), amount: `${fmt(d.amount)} kr`, meta: d.date })}
+        mobileList={d => {
+          const s = dividendStatus(d, verifications);
+          return {
+            primary: d.note || t('ui.utdelning'), amount: `${fmt(d.amount)} kr`, meta: d.date,
+            pill: <span className={`agi-pill ${s.paid ? 'ok' : 'warn'}`}>{s.paid ? t('ui.utbetald') : s.decided ? t('ui.beslutad_ej_utbetald') : t('ui.beslut_ej_bokfort')}</span>,
+            // Utbetalningen måste gå att bokföra även på telefon.
+            meta2: s.decided && !s.paid ? <button type="button" className="agi-btn" onClick={e => { e.stopPropagation(); setPaying(d); }}>{t('ui.bokfor_utbetalning')}</button> : null,
+          };
+        }}
         columns={[
           { key: 'date', label: t('yearEndUi.decisions'), render: d => d.date },
           { key: 'note', label: t('ui.avser'), fontWeight: 600, color: 'var(--text-main)', render: d => d.note || t('ui.utdelning') },

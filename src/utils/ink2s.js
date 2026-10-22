@@ -137,7 +137,9 @@ const PERIODISERINGSFOND = /^21[1-4]\d$/;
 // (Riksgälden). Nyckel = året beskattningsåret börjar.
 export const STATSLANERANTA = { 2024: 2.62, 2025: 1.96, 2026: 2.55 };
 
-export function suggestInk2s({ verifications, fy, previousUnderskott = 0 }) {
+// `adjustments` är justeringar som inte syns på kontona, t.ex. återbäring i
+// ekonomisk förening (patronageRefund.js: refundInk2sAdjustments), { '4.4b': kr }.
+export function suggestInk2s({ verifications, fy, previousUnderskott = 0, adjustments = {} }) {
   let tax = 0; let nonDeductible = 0; let taxFree = 0; let fundsAtStart = 0;
   const accounts = new Map();
   const add = (key, account, amount) => {
@@ -168,6 +170,9 @@ export function suggestInk2s({ verifications, fy, previousUnderskott = 0 }) {
   if (round(taxFree) > 0) suggestions['4.5c'] = round(taxFree);
   if (fundsAtStart > 0 && rate != null) suggestions['4.6a'] = round(fundsAtStart * rate / 100);
   if (previousUnderskott > 0) suggestions['4.14a'] = round(previousUnderskott);
+  for (const [key, amount] of Object.entries(adjustments)) {
+    if (round(amount) > 0) suggestions[key] = (suggestions[key] || 0) + round(amount);
+  }
   return {
     suggestions,
     fundsAtStart: round(fundsAtStart),

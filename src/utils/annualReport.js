@@ -17,6 +17,7 @@ import { isBooked } from './reportCalculations';
 import { getDebet, getKredit } from './verificationAmounts';
 import { periodLabel } from './fiscalYear';
 import { t } from '../i18n';
+import { proposedRefundFor } from './patronageRefund';
 
 // Bolagsskatten, för justerat eget kapital i soliditeten (obeskattade
 // reserver räknas in med avdrag för uppskjuten skatt).
@@ -94,6 +95,7 @@ const RR_SECTIONS = [
   { title: 'Bokslutsdispositioner', rows: [
     ['3.19', 'Lämnade koncernbidrag', -1], ['3.20', 'Mottagna koncernbidrag', 1], ['3.21', 'Återföring av periodiseringsfond', 1],
     ['3.22', 'Avsättning till periodiseringsfond', -1], ['3.23', 'Förändring av överavskrivningar', 1], ['3.24', 'Övriga bokslutsdispositioner', 1],
+    ['gottg', 'Lämnad gottgörelse', -1],
   ], sum: 'Summa bokslutsdispositioner' },
   { result: 'Resultat före skatt' },
   { title: 'Skatter', rows: [['3.25', 'Skatt på årets resultat', -1]] },
@@ -108,6 +110,20 @@ function resultContributions(verifications, period) {
   for (const r of rows) {
     if (r.row === '3.26' || r.row === '3.27') continue;
     byRow.set(r.row, r.polarity === 'revenue' ? r.amount : -r.amount);
+  }
+  // Lämnad gottgörelse (8840) är en egen post för ekonomisk förening (K2
+  // 4.14); i INK2R ligger den i 3.24 Övriga bokslutsdispositioner.
+  let refund = 0;
+  for (const v of verifications || []) {
+    if (!isBooked(v) || !v.date || v.date < period.start || v.date > period.end) continue;
+    for (const row of v.rows || []) {
+      const n = Number(row.account);
+      if (n >= 8840 && n <= 8849) refund += getKredit(row) - getDebet(row);
+    }
+  }
+  if (Math.abs(refund) >= 0.5) {
+    byRow.set('3.24', (byRow.get('3.24') || 0) - refund);
+    byRow.set('gottg', refund);
   }
   return byRow;
 }
@@ -355,6 +371,9 @@ export function computeAnnualReport({ verifications = [], accounts = [], company
   });
 
   const dividend = Math.max(0, Number(details.dividend) || 0);
+  // Återbäring som stämman ska besluta om efter årets slut (Skatt och bokslut
+  // → Återbäring). Den ingår inte i årets resultat och står som ett eget förslag.
+  const proposedRefund = terms.kind === 'association' ? proposedRefundFor(company?.patronageRefunds || [], fy) : { total: 0 };
   const available = equity.freeTotal;
   const notes = ASSET_NOTE_GROUPS.map(g => assetNote(verifications, fy, g)).filter(Boolean);
 
@@ -379,6 +398,8 @@ export function computeAnnualReport({ verifications = [], accounts = [], company
       available,
       dividend,
       carriedForward: available - dividend,
+      refund: proposedRefund.total,
+      refundBasis: proposedRefund.basis,
     },
     employeesAverage: Number.isFinite(Number(details.employeesAverage)) && details.employeesAverage !== '' && details.employeesAverage != null
       ? Number(details.employeesAverage) : (employeesAverage ?? 0),

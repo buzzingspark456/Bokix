@@ -197,6 +197,9 @@ export default function AnnualReport({ company, verifications = [], accounts = [
                 </div>
               </div>
             </div>
+            {assoc && report.disposition.refund > 0 && (
+              <p className="stepflow-text" style={{ marginTop: 12 }}>{t('refund.inAnnualReport', { amount: formatKr(report.disposition.refund) })}</p>
+            )}
             <StepNav steps={flow} current={step.id} onSelect={setArStep} />
           </>
         )}

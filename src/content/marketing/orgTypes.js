@@ -160,6 +160,7 @@ export const ORG_TYPE_PAGES = [
       'Lön med skattetabeller, lönebesked, AGI-fil och betalfil till banken.',
       'Bokslut och INK2 med SRU-fil till inkomstdeklarationen.',
       'Årsredovisning enligt K2 som PDF att skriva under, med medlemsinsatser och förslag till föreningsstämman.',
+      'Återbäring till medlemmarna efter hur mycket var och en handlat med föreningen, bokförd och med avdraget i INK2.',
       'Resultat- och balansräkning och nyckeltal att visa styrelsen och på stämman.',
     ],
     steps: [

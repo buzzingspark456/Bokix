@@ -24,6 +24,7 @@ import YearEndWizard from './YearEndWizard';
 import Ink2View from './Ink2View';
 import Ink4View from './Ink4View';
 import Ink3View from './Ink3View';
+import PatronageRefund from './PatronageRefund';
 import { downloadNePdf } from '../utils/neExport';
 import { computeEmployeePayroll } from '../utils/payrollCalculation';
 import { preloadSkattetabell } from '../utils/skattetabell';
@@ -388,6 +389,9 @@ export default function Taxes({
   // korrekt förklaringstext istället för AB:s.
   const isTradingPartnership = orgType === 'Handelsbolag / Kommanditbolag';
   const isNonProfit = orgType === 'Ideell förening / stiftelse';
+  // Fliken för årets deklaration, en per bolagsform. Översikten och
+  // "Förbered deklarationen" efter låst bokslut går hit.
+  const declarationSection = isSoleProp ? 'ne' : isTradingPartnership ? 'ink4' : isNonProfit ? 'ink3' : 'ink2';
   const filesOwnIncomeDeclaration = isSoleProp || isTradingPartnership;
 
   // Kundfeedback ("för mycket att göra, ingen förstår"): sidan var tidigare
@@ -429,12 +433,13 @@ export default function Taxes({
   useEffect(() => {
     // Momsfliken finns inte för ett företag utan momsregistrering; Översikt är då reserven.
     const fallback = company?.vatRegistered === false ? 'dates' : 'vat';
-    if (filesOwnIncomeDeclaration && activeSection === 'ink2') setActiveSection(fallback);
+    if ((filesOwnIncomeDeclaration || isNonProfit) && activeSection === 'ink2') setActiveSection(fallback);
     if (!isSoleProp && activeSection === 'ne') setActiveSection(fallback);
     if (!isTradingPartnership && activeSection === 'ink4') setActiveSection(fallback);
     if (!isNonProfit && activeSection === 'ink3') setActiveSection(fallback);
+    if (orgType !== 'Ekonomisk förening' && activeSection === 'refund') setActiveSection(fallback);
     if (company?.vatRegistered === false && activeSection === 'vat') setActiveSection('dates');
-  }, [filesOwnIncomeDeclaration, isSoleProp, isTradingPartnership, isNonProfit, activeSection, company?.vatRegistered]);
+  }, [filesOwnIncomeDeclaration, isSoleProp, isTradingPartnership, isNonProfit, orgType, activeSection, company?.vatRegistered]);
 
   // Kontrolluppgifter (KU) — förvalt till föregående inkomstår FRAM TILL
   // deadline (31 januari), eftersom det är vad man normalt lämnar in då.
@@ -822,7 +827,7 @@ export default function Taxes({
     ...(orgType === 'Aktiebolag (AB)' || orgType === 'Ekonomisk förening' ? [{ id: 'annual', label: tr('ui.arsredovisning') }] : []),
     // INK2 för aktiebolag och ekonomisk förening. Ideell förening och
     // stiftelse lämnar INK3 i stället (Ink3View).
-    ...(!filesOwnIncomeDeclaration && !isNonProfit ? [{ id: 'ink2', label: tr('ui.inkomstdeklaration') }] : []),
+    ...(!filesOwnIncomeDeclaration && !isNonProfit ? [{ id: 'ink2', label: tr('ui.inkomstdeklaration_2') }] : []),
     ...(isNonProfit ? [{ id: 'ink3', label: tr('ink3.tab') }] : []),
     // NE-bilaga — bara enskild firma. INTE handelsbolag (som också har
     // filesOwnIncomeDeclaration=true men deklarerar sin andel med en N3A/
@@ -834,6 +839,8 @@ export default function Taxes({
     // Inkomstdeklaration 4 (bilagorna INK4R/INK4S/INK4DU), bara HB/KB.
     ...(isTradingPartnership ? [{ id: 'ink4', label: tr('ink4.tab') }] : []),
     ...(orgType === 'Aktiebolag (AB)' ? [{ id: 'dividend', label: tr('ui.utdelning') }] : []),
+    // Återbäring till medlemmarna, bara ekonomisk förening. Före INK2 eftersom avdraget hamnar där.
+    ...(orgType === 'Ekonomisk förening' ? [{ id: 'refund', label: tr('refund.tab') }] : []),
   ].filter(tab => !isUfCompany(company) || UF_TAX_SECTION_IDS.includes(tab.id));
 
   // Fyra flikar i stället för upp till åtta (2026-10-10): det som hör ihop
@@ -844,7 +851,7 @@ export default function Taxes({
     { id: 'g_overview', label: tr('ui.oversikt'), sections: ['dates'] },
     { id: 'g_vat', label: tr('ui.moms'), sections: ['vat', 'ecsales'] },
     { id: 'g_payroll', label: tr('ui.skatt_lon'), sections: ['agi', 'ku'] },
-    { id: 'g_yearend', label: tr('ui.arsavslut'), sections: ['yearend', 'annual', 'ink2', 'ink3', 'ne', 'partners', 'ink4', 'dividend'], numbered: true },
+    { id: 'g_yearend', label: tr('ui.arsavslut'), sections: ['yearend', 'annual', 'partners', 'dividend', 'refund', 'ink2', 'ink3', 'ink4', 'ne'], numbered: true },
   ];
   const groupTabs = TAX_GROUPS
     .map(g => ({ ...g, sections: g.sections.filter(id => sectionTabs.some(t => t.id === id)) }))
@@ -1077,13 +1084,14 @@ export default function Taxes({
       }
     }
 
-    const filingSection = isSoleProp ? 'ne' : (!filesOwnIncomeDeclaration ? 'ink2' : null);
-    if (filingSection && hasTab(filingSection)) {
-      const filedKey = `ink:${fyKey}`;
+    if (hasTab(declarationSection)) {
+      // INK3 och INK4 markeras inlämnade i sina egna flikar, med egna nycklar.
+      const filedKey = declarationSection === 'ink3' || declarationSection === 'ink4' ? `${declarationSection}:${fyKey}` : `ink:${fyKey}`;
       const filedAt = filedDate(filedKey);
+      const titles = { ne: tr('ui.ne_bilaga'), ink2: tr('ui.inkomstdeklaration_2'), ink3: tr('ink3.tab'), ink4: tr('ink4.tab') };
       list.push({
-        key: 'filing', section: filingSection,
-        title: isSoleProp ? tr('ui.ne_bilaga') : tr('ui.inkomstdeklaration_ink2'),
+        key: 'filing', section: declarationSection,
+        title: titles[declarationSection],
         subtitle: tr('ui.rakenskapsar_3', { label: fy.label }),
         dueDate: declarationDue, daysLeft: declarationDue ? daysFromToday(declarationDue) : null,
         done: Boolean(filedAt),
@@ -1111,8 +1119,8 @@ export default function Taxes({
   const overviewSummary = nextOverviewItem
     ? tr('ui.nasta_senast', { v0: nextOverviewItem.title.toLowerCase(), daysLabel: nextOverviewItem.daysLabel, dueLabel: nextOverviewItem.dueLabel })
     : overviewItems.every(i => i.done) ? tr('ui.allt_ar_inlamnat') : tr('ui.inget_har_en_deadline_just_nu');
-  // Efter ett låst bokslut är nästa steg deklarationen (för de bolagsformer som har en).
-  const nextFilingSection = isSoleProp ? 'ne' : (!filesOwnIncomeDeclaration ? 'ink2' : null);
+  // Efter ett låst bokslut är nästa steg deklarationen.
+  const nextFilingSection = declarationSection;
 
   return (
     // Samma "facit"-mönster som Kunder/Anställda/Projekt m.fl. (ListPageHeader
@@ -1253,6 +1261,10 @@ export default function Taxes({
 
           {activeSection === 'dividend' && orgType === 'Aktiebolag (AB)' && (
             <Dividend company={company} accounts={accounts} verifications={verifications} onAddVerification={onAddVerification} setAccounts={setAccounts} setCompanyInfo={setCompanyInfo} />
+          )}
+
+          {activeSection === 'refund' && orgType === 'Ekonomisk förening' && (
+            <PatronageRefund company={company} accounts={accounts} verifications={verifications} invoices={invoices} expenses={expenses} contacts={contacts} onAddVerification={onAddVerification} setAccounts={setAccounts} setCompanyInfo={setCompanyInfo} />
           )}
 
           {activeSection === 'ku' && (
