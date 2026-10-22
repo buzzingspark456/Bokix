@@ -8280,6 +8280,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 .ink2v-sum .res strong { color: var(--chip-active-text); }
 .ink2v-group { margin-top: 18px; }
 .ink2v-group-title { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); padding: 0 0 6px; border-bottom: 1px solid var(--border); }
+.ink2v-coop-q { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 0; font-size: 13.5px; }
 .ink2v-row { display: grid; grid-template-columns: 48px minmax(0, 1fr) 22px 150px; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border-light); font-size: 13.5px; color: var(--text-secondary); }
 .ink2v-row.filled { color: var(--text-main); font-weight: 600; }
 .ink2v-row.total { font-weight: 800; font-size: 15.5px; color: var(--text-main); border-bottom: none; border-top: 2px solid var(--border); margin-top: 14px; padding-top: 12px; }

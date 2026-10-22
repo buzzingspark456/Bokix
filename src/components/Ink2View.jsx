@@ -6,7 +6,7 @@ import { downloadInk2rSru } from '../utils/sruExport';
 import { previewInk2Pdf } from '../utils/ink2Pdf';
 import { downloadFilledSkv2002 } from '../utils/skvBlankett';
 import { previousFiscalYear } from '../utils/annualReport';
-import { refundInk2sAdjustments } from '../utils/patronageRefund';
+import { refundInk2sAdjustments, coopDividendDeduction } from '../utils/patronageRefund';
 import { incomeDeclarationDueDate, daysFromToday } from '../utils/declarationDeadlines';
 import { detectOrgType } from '../utils/orgType';
 import { t, dateLocale } from '../i18n';
@@ -22,6 +22,18 @@ const daysText = (n) => (n < 0 ? t('ui.forsenad') : n === 0 ? t('ui.idag_2') : n
 // med i SRU-filen (sruExport.js). Sparas per räkenskapsår i company.ink2s,
 // "kontrollerad" i company.ink2Checked och "inlämnad" i taxFilings (ink:år),
 // samma nyckel som Översikten.
+// Avdrag som inte syns på kontona för en ekonomisk förening: återbäring
+// (Återbäring-fliken) och utdelning på insatser som föreslås i
+// årsredovisningen (IL 39 kap. 23 §), båda det år beslutet avser.
+function associationAdjustments(company, verifications, year) {
+  const out = { ...refundInk2sAdjustments({ refunds: company?.patronageRefunds, verifications, fy: year }) };
+  if (detectOrgType(company?.orgNr) === 'Ekonomisk förening') {
+    const div = coopDividendDeduction({ dividend: company?.annualReports?.[year.key]?.dividend, ...(company?.coopDividend?.[year.key] || {}) });
+    if (div.deductible > 0) out['4.4b'] = (out['4.4b'] || 0) + div.deductible;
+  }
+  return out;
+}
+
 export default function Ink2View({
   company, fy, verifications = [], ink2r, ink2rResultat, isLocked, sruMissing = [], warnings = [],
   setCompanyInfo, onNavigateToTab, onOpenYearEnd, scheduleDetails,
@@ -36,16 +48,20 @@ export default function Ink2View({
     const hasPrev = verifications.some(v => v.date >= prev.start && v.date <= prev.end);
     if (!hasPrev) return 0;
     const prevResult = computeInk2rResultat(verifications, { start: prev.start, end: prev.end }).total;
-    const prevAdjustments = refundInk2sAdjustments({ refunds: company?.patronageRefunds, verifications, fy: prev });
+    const prevAdjustments = associationAdjustments(company, verifications, prev);
     const prevSuggest = suggestInk2s({ verifications, fy: prev, adjustments: prevAdjustments }).suggestions;
     return computeInk2s(resolveInk2sValues(company?.ink2s?.[prev.key], prevSuggest), prevResult).underskott;
   }, [verifications, fy, company]);
 
-  // Återbäring i ekonomisk förening (Skatt och bokslut → Återbäring).
   const refundAdjustments = useMemo(
-    () => refundInk2sAdjustments({ refunds: company?.patronageRefunds, verifications, fy }),
-    [company?.patronageRefunds, verifications, fy],
+    () => associationAdjustments(company, verifications, fy),
+    [company, verifications, fy],
   );
+  // Utdelning på insatser, föreslagen i årsredovisningen för året.
+  const isAssociation = detectOrgType(company?.orgNr) === 'Ekonomisk förening';
+  const proposedDividend = Number(company?.annualReports?.[fyKey]?.dividend) || 0;
+  const coopAnswers = company?.coopDividend?.[fyKey] || {};
+  const coopDiv = coopDividendDeduction({ dividend: proposedDividend, ...coopAnswers });
   const suggestion = useMemo(() => suggestInk2s({ verifications, fy, previousUnderskott, adjustments: refundAdjustments }), [verifications, fy, previousUnderskott, refundAdjustments]);
   const saved = company?.ink2s?.[fyKey] || {};
   const values = resolveInk2sValues(saved, suggestion.suggestions);
@@ -53,6 +69,7 @@ export default function Ink2View({
 
   const update = (patch) => setCompanyInfo?.(prev => ({ ...prev, ...patch(prev) }));
   const setValue = (key, raw) => update(prev => ({ ink2s: { ...(prev.ink2s || {}), [fyKey]: { ...(prev.ink2s?.[fyKey] || {}), [key]: raw } } }));
+  const setCoop = (key, value) => update(prev => ({ coopDividend: { ...(prev.coopDividend || {}), [fyKey]: { ...(prev.coopDividend?.[fyKey] || {}), [key]: value } } }));
   const taxChecked = Boolean(company?.ink2Checked?.[fyKey]);
   const setChecked = (on) => update(prev => ({ ink2Checked: { ...(prev.ink2Checked || {}), [fyKey]: on ? new Date().toISOString() : undefined } }));
   const filedKey = `ink:${fyKey}`;
@@ -199,6 +216,32 @@ export default function Ink2View({
               <strong>{kr(ink2s.underskott || ink2s.overskott)}</strong>
             </div>
           </div>
+
+          {isAssociation && proposedDividend > 0 && (
+            <div className="ink2v-group">
+              <div className="ink2v-group-title">{t('coopDiv.title')}</div>
+              <div className="fp-hint" style={{ marginTop: 0 }}>{t('coopDiv.text', { amount: kr(proposedDividend) })}</div>
+              <div className="ink2v-coop-q">
+                <span>{t('coopDiv.qCooperative')}</span>
+                <span style={{ display: 'inline-flex', gap: 6 }}>
+                  {[[true, t('ink4.yes')], [false, t('ink4.no')]].map(([val, text]) => (
+                    <button key={text} type="button" className={coopAnswers.cooperative === val ? 'agi-btn primary' : 'agi-btn'} aria-pressed={coopAnswers.cooperative === val} onClick={() => setCoop('cooperative', val)}>{text}</button>
+                  ))}
+                </span>
+              </div>
+              {coopAnswers.cooperative === true && (
+                <label className="ink2v-coop-q">
+                  <span>{t('coopDiv.qCompanies')}</span>
+                  <input type="number" min="0" className="fp-input" style={{ maxWidth: 160 }} value={coopAnswers.toCompanies ?? ''} placeholder="0" onChange={e => setCoop('toCompanies', e.target.value === '' ? '' : Number(e.target.value))} />
+                </label>
+              )}
+              <div className="fp-hint" style={{ marginTop: 4 }}>
+                {coopAnswers.cooperative === false ? t('coopDiv.notCooperative')
+                  : coopAnswers.cooperative === true ? (coopDiv.smallShare ? t('coopDiv.smallShare', { amount: kr(coopDiv.deductible) }) : t('coopDiv.deductible', { amount: kr(coopDiv.deductible) }))
+                  : t('coopDiv.answer')}
+              </div>
+            </div>
+          )}
 
           {groups.map(g => (
             <div key={g.title} className="ink2v-group">

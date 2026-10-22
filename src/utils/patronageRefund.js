@@ -174,3 +174,21 @@ export function proposedRefundFor(refunds = [], fy) {
   const total = list.reduce((s, r) => s + computeRefund(r).total, 0);
   return { total, basis: list[0]?.basis || 'purchases' };
 }
+
+/**
+ * Avdrag för utdelning på insatser i en kooperativ förening (IL 39 kap. 23
+ * och 24 §§), det år beslutet avser. Utdelning på medlemsinsatser som
+ * mottagaren inte beskattas för (aktiebolag och andra företag, där andelen
+ * är näringsbetingad enligt 24 kap. 35 §) dras inte av, utom när den delen
+ * är högst tio procent av utdelningen. Utdelning på förlagsinsatser dras
+ * alltid av och räknas därför inte in i `toCompanies`. Medlemsfrämjande
+ * föreningar och kooperativa hyresrättsföreningar har särskilda regler och
+ * ska svara nej på `cooperative`.
+ */
+export function coopDividendDeduction({ dividend = 0, cooperative, toCompanies = 0 } = {}) {
+  const total = Math.max(0, Math.round(Number(dividend) || 0));
+  if (!total || cooperative !== true) return { dividend: total, deductible: 0, nonTaxed: 0, smallShare: false };
+  const nonTaxed = Math.min(total, Math.max(0, Math.round(Number(toCompanies) || 0)));
+  const smallShare = nonTaxed > 0 && nonTaxed <= total * 0.1;
+  return { dividend: total, nonTaxed, smallShare, deductible: smallShare ? total : total - nonTaxed };
+}

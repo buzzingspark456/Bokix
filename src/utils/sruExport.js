@@ -25,7 +25,7 @@
 import { createZip } from './zipStore';
 import { ink2sSruRows, INK2_MAIN_SRU } from './ink2s';
 import { ink4sSruRows, ink4duSruRows, sruPersonId } from './ink4';
-import { ink3rSruRows, ink3sSruRows, ink3sufSruRows } from './ink3';
+import { ink3rSruRows, ink3sSruRows, ink3sufSruRows, ink3susSruRows } from './ink3';
 
 const pad = (n, len = 2) => String(n).padStart(len, '0');
 const ymd = (iso) => String(iso || '').replace(/-/g, '');
@@ -162,9 +162,10 @@ export function generateInk4Sru(company, { ink4r, ink4rResultat, ink4s, info = {
 /**
  * SRU-filer för bilagorna till Inkomstdeklaration 3 (ideell förening):
  * INK3R och INK3S när det finns skattepliktig verksamhet, INK3SUF när
- * föreningen är allmännyttig (`forms`, se ink3Forms). Fältkoderna i ink3.js.
+ * föreningen är allmännyttig och INK3SUS när stiftelsen är det (`forms`, se
+ * ink3Forms). Fältkoderna i ink3.js.
  */
-export function generateInk3Sru(company, { forms, ink3r, ink3rResultat, taxable, ink3s, info = {}, answers = {}, suf = {} }, period, now = new Date()) {
+export function generateInk3Sru(company, { forms, ink3r, ink3rResultat, taxable, ink3s, info = {}, answers = {}, suf = {}, sus = {} }, period, now = new Date()) {
   const { L, infoSru, block, period7011 } = sruContext(company, period, now);
   const sruP = sruPeriod(typeof period === 'string' ? period : period?.end);
   let blankettSru = '';
@@ -173,6 +174,7 @@ export function generateInk3Sru(company, { forms, ink3r, ink3rResultat, taxable,
     blankettSru += block('INK3S', [...period7011, ...ink3sSruRows(ink3s, info, answers, sruP)]);
   }
   if (forms?.suf) blankettSru += block('INK3SUF', [...period7011, ...ink3sufSruRows(suf)]);
+  if (forms?.sus) blankettSru += block('INK3SUS', [...period7011, ...ink3susSruRows(sus, suf.purposes, suf.otherPurpose)]);
   blankettSru += `#FIL_SLUT${L}`;
   return { infoSru, blankettSru };
 }

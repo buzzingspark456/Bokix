@@ -274,20 +274,22 @@ export function computeInk3s(values = {}, justerat = 0) {
   return { justerat, values, total, overskott: total > 0 ? total : 0, underskott: total < 0 ? -total : 0 };
 }
 
-// ── INK3SUF, särskild uppgift (allmännyttig förening) ───────────────────
+// ── INK3SUF och INK3SUS, särskild uppgift ─────────────────────────────────
+// Samma ändamål för förening (fieldCode, INK3SUF) och stiftelse (susCode,
+// INK3SUS), med olika fältkoder.
 export const INK3SUF_PURPOSES = [
-  { key: 'sport', label: 'Idrott', fieldCode: '8822' },
-  { key: 'culture', label: 'Kultur', fieldCode: '8828' },
-  { key: 'environment', label: 'Miljövård', fieldCode: '8832' },
-  { key: 'youth', label: 'Omsorg om barn och ungdom', fieldCode: '8823' },
-  { key: 'political', label: 'Politisk verksamhet', fieldCode: '8827' },
-  { key: 'religious', label: 'Religiös verksamhet', fieldCode: '8820' },
-  { key: 'health', label: 'Sjukvård', fieldCode: '8833' },
-  { key: 'social', label: 'Social hjälpverksamhet', fieldCode: '8821' },
-  { key: 'defence', label: 'Sveriges försvar och krisberedskap i samverkan med myndighet', fieldCode: '8831' },
-  { key: 'education', label: 'Utbildning', fieldCode: '8829' },
-  { key: 'research', label: 'Vetenskaplig forskning', fieldCode: '8830' },
-  { key: 'other', label: 'Annan likvärdig verksamhet', fieldCode: '8619' },
+  { key: 'sport', label: 'Idrott', fieldCode: '8822', susCode: '8806' },
+  { key: 'culture', label: 'Kultur', fieldCode: '8828', susCode: '8807' },
+  { key: 'environment', label: 'Miljövård', fieldCode: '8832', susCode: '8808' },
+  { key: 'youth', label: 'Omsorg om barn och ungdom', fieldCode: '8823', susCode: '8804' },
+  { key: 'political', label: 'Politisk verksamhet', fieldCode: '8827', susCode: '8809' },
+  { key: 'religious', label: 'Religiös verksamhet', fieldCode: '8820', susCode: '8810' },
+  { key: 'health', label: 'Sjukvård', fieldCode: '8833', susCode: '8811' },
+  { key: 'social', label: 'Social hjälpverksamhet', fieldCode: '8821', susCode: '8801' },
+  { key: 'defence', label: 'Sveriges försvar och krisberedskap i samverkan med myndighet', fieldCode: '8831', susCode: '8805' },
+  { key: 'education', label: 'Utbildning', fieldCode: '8829', susCode: '8800' },
+  { key: 'research', label: 'Vetenskaplig forskning', fieldCode: '8830', susCode: '8803' },
+  { key: 'other', label: 'Annan likvärdig verksamhet', fieldCode: '8619', susCode: '8839' },
 ];
 export const INK3SUF_ROWS = [
   { key: '4.1', label: 'Medlemsavgifter', group: 'income', fieldCode: '8640' },
@@ -407,9 +409,64 @@ export function ink3sufSruRows(suf = {}) {
   return out;
 }
 
+// INK3SUS för allmännyttig stiftelse, bara den skattefria delen.
+// Avkastningsstiftelser fyller i 3.1–3.7, insamlings- och
+// verksamhetsstiftelser 3.8–3.9 (blanketten SKV 2003, utgåva 33).
+export const INK3SUS_ROWS = [
+  { key: '3.1', label: 'Beslutad utdelning av bidrag och stipendier enligt ändamålet', kind: 'yield', fieldCode: '8850' },
+  { key: '3.2', label: 'Bidrag och gåvor', kind: 'yield', fieldCode: '8857' },
+  { key: '3.3', label: 'Kostnader för att få bidrag och gåvor (insamlingskostnader)', kind: 'yield', fieldCode: '8858' },
+  { key: '3.4', label: 'Kapitalavkastning (räntor och utdelning, inte kapitalvinster)', kind: 'yield', fieldCode: '8851' },
+  { key: '3.5', label: 'Kapitalförvaltningskostnader', kind: 'yield', fieldCode: '8852' },
+  { key: '3.6', label: 'Kostnader för att fullfölja stiftelsens ändamål', kind: 'yield', fieldCode: '8853' },
+  { key: '3.8', label: 'Intäkter', kind: 'operating', fieldCode: '8855' },
+  { key: '3.9', label: 'Kostnader', kind: 'operating', fieldCode: '8856' },
+];
+
+/**
+ * Förslag till INK3SUS ur bokföringen, minus det som tagits upp på INK3R.
+ * Insamlings- och kapitalförvaltningskostnader går inte att skilja ut ur
+ * kontona och föreslås inte.
+ */
+export function suggestInk3sus(verifications, period, resultRows = [], taxable = {}) {
+  const booked = (row) => resultRows.find(x => x.row === row)?.amount || 0;
+  const free = (row) => booked(row) - (Number(taxable[row]) || 0);
+  const suf = suggestInk3suf(verifications, period, resultRows, taxable);
+  const revenue = ['6.1', '6.2', '6.3', '6.4', '6.5', '6.13'].reduce((sum, row) => sum + free(row), 0)
+    + Math.max(0, free('6.11')) + Math.max(0, free('6.12'));
+  const costs = ['6.6', '6.7', '6.8', '6.9', '6.10', '6.14', '6.15'].reduce((sum, row) => sum + free(row), 0);
+  const out = {
+    '3.1': suf['4.8'],
+    '3.2': free('6.3'),
+    '3.4': free('6.13'),
+    '3.6': suf['4.7'],
+    '3.8': revenue,
+    '3.9': costs,
+  };
+  for (const key of Object.keys(out)) out[key] = Math.max(0, Math.round(out[key] || 0));
+  return out;
+}
+
+/** INK3SUS: ändamål och, efter stiftelsens sort, rad 3.1–3.7 eller 3.8–3.9. */
+export function ink3susSruRows(sus = {}, purposes = {}, otherPurpose = '') {
+  const out = [];
+  for (const p of INK3SUF_PURPOSES) if (purposes?.[p.key]) out.push([p.susCode, 'X']);
+  const other = String(otherPurpose || '').replace(/\s+/g, ' ').trim().slice(0, 36).trim();
+  if (purposes?.other && other) out.push(['8840', other]);
+  const kind = sus.kind === 'operating' ? 'operating' : 'yield';
+  for (const def of INK3SUS_ROWS) {
+    if (def.kind !== kind) continue;
+    const v = Math.round(Number(sus.values?.[def.key]) || 0);
+    if (v) out.push([def.fieldCode, v]);
+  }
+  if (kind === 'yield' && sus.previousYearDividend) out.push(['8854', 'X']);
+  return out;
+}
+
 /** Vilka bilagor som ska lämnas, ur svaren. */
 export function ink3Forms({ entity = 'association', publicBenefit, taxableActivity } = {}) {
   const suf = entity === 'association' && publicBenefit === true;
+  const sus = entity === 'foundation' && publicBenefit === true;
   const rs = publicBenefit === false || taxableActivity === true;
-  return { suf, rs };
+  return { suf, sus, rs };
 }

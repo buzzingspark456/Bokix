@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeInk3r, computeInk3rResultat, computeInk3Taxable, computeInk3s, suggestInk3suf, fillTaxableFromBooked, ink3Forms, ink3rSruRows, ink3sSruRows, ink3sufSruRows } from './ink3';
+import { computeInk3r, computeInk3rResultat, computeInk3Taxable, computeInk3s, suggestInk3suf, suggestInk3sus, fillTaxableFromBooked, ink3Forms, ink3rSruRows, ink3sSruRows, ink3sufSruRows, ink3susSruRows } from './ink3';
 import { generateInk3Sru } from './sruExport';
 import { DEFAULT_ACCOUNTS } from '../components/AccountsData';
 
@@ -48,7 +48,7 @@ describe('INK3 för ideell förening', () => {
   });
 
   it('allmännyttig utan skattepliktig verksamhet: bara INK3SUF med den skattefria delen', () => {
-    expect(ink3Forms({ publicBenefit: true, taxableActivity: false })).toEqual({ suf: true, rs: false });
+    expect(ink3Forms({ publicBenefit: true, taxableActivity: false })).toEqual({ suf: true, sus: false, rs: false });
     const suf = suggestInk3suf(verifications, period, res.rows, {});
     expect(suf).toMatchObject({ '4.1': 30000, '4.2': 15000, '4.3': 300, '4.5': 8000, '4.7': 12000, '4.8': 5000 });
     const rows = ink3sufSruRows({ purposes: { sport: true }, values: suf });
@@ -75,7 +75,7 @@ describe('INK3 för ideell förening', () => {
   });
 
   it('inte allmännyttig: allt utom medlemsavgifter, gåvor och bidrag föreslås skattepliktigt', () => {
-    expect(ink3Forms({ publicBenefit: false })).toEqual({ suf: false, rs: true });
+    expect(ink3Forms({ publicBenefit: false })).toEqual({ suf: false, sus: false, rs: true });
     const filled = fillTaxableFromBooked(res.rows);
     expect(filled['6.1']).toBeUndefined();
     expect(filled['6.3']).toBeUndefined();
@@ -94,5 +94,19 @@ describe('INK3 för ideell förening', () => {
     expect(all).toContain('#BLANKETT INK3R-2026P4');
     expect(all).toContain('#BLANKETT INK3S-2026P4');
     expect(all).toContain('#IDENTITET 168024000000');
+  });
+
+  it('allmännyttig stiftelse: INK3SUS med stiftelsens fältkoder, avkastnings- eller verksamhetsrader', () => {
+    expect(ink3Forms({ entity: 'foundation', publicBenefit: true, taxableActivity: false })).toEqual({ suf: false, sus: true, rs: false });
+    const sus = suggestInk3sus(verifications, period, res.rows, {});
+    expect(sus).toMatchObject({ '3.1': 5000, '3.2': 15000, '3.4': 300, '3.6': 12000, '3.8': 53300, '3.9': 17000 });
+    const yieldRows = ink3susSruRows({ kind: 'yield', values: sus, previousYearDividend: true }, { research: true });
+    expect(yieldRows).toEqual([['8803', 'X'], ['8850', 5000], ['8857', 15000], ['8851', 300], ['8853', 12000], ['8854', 'X']]);
+    const operating = ink3susSruRows({ kind: 'operating', values: sus, previousYearDividend: true }, { other: true }, 'Museum');
+    expect(operating).toEqual([['8839', 'X'], ['8840', 'Museum'], ['8855', 53300], ['8856', 17000]]);
+    const sru = generateInk3Sru(company, { forms: { sus: true }, suf: { purposes: { research: true } }, sus: { kind: 'yield', values: sus } }, period, new Date('2027-03-01T10:00:00')).blankettSru;
+    expect(sru).toContain('#BLANKETT INK3SUS-2026P4');
+    expect(sru).toContain('#UPPGIFT 8803 X');
+    expect(sru).not.toContain('INK3SUF');
   });
 });

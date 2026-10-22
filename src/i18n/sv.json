@@ -4389,6 +4389,16 @@
     "todoSub": "Räkenskapsår {{label}}, till föreningsstämman",
     "todoStatus": "Ladda ned, skriv under och ta med till föreningsstämman."
   },
+  "coopDiv": {
+    "title": "Utdelning på insatser",
+    "text": "Årsredovisningen föreslår {{amount}} i utdelning till medlemmarna. En kooperativ förening drar av den det år beslutet avser.",
+    "qCooperative": "Är föreningen kooperativ, alltså öppen för nya medlemmar och med lika rösträtt?",
+    "qCompanies": "Hur mycket av utdelningen på medlemsinsatserna går till aktiebolag och andra företag?",
+    "deductible": "Avdrag med {{amount}} i 4.4 b.",
+    "smallShare": "Delen till företag är högst tio procent, så hela utdelningen dras av: {{amount}} i 4.4 b.",
+    "notCooperative": "Ingen avdragsrätt. Det gäller också medlemsfrämjande föreningar och kooperativa hyresrättsföreningar, som har särskilda regler.",
+    "answer": "Svara på frågan, så räknar Bokix ut avdraget."
+  },
   "refund": {
     "tab": "Återbäring",
     "title": "Återbäring till medlemmarna",
@@ -4450,10 +4460,11 @@
   "ink3": {
     "tab": "Inkomstdeklaration 3",
     "title": "Inkomstdeklaration 3 {{label}}",
-    "sub": "Bilagorna INK3R, INK3S och INK3SUF som SRU-fil, de som gäller för föreningen. Första sidan fyller du i Skatteverkets e-tjänst.",
+    "sub": "Bilagorna till inkomstdeklaration 3 som SRU-fil, de som gäller för föreningen eller stiftelsen. Första sidan fyller du i Skatteverkets e-tjänst.",
     "taxableResult": "Skattepliktigt resultat",
     "forms": "Bilagor",
     "stepOrg": "Föreningen",
+    "stepOrgFoundation": "Stiftelsen",
     "shortOrg": "Föreningen",
     "orgText": "Svaren avgör vilka bilagor föreningen ska lämna.",
     "qEntity": "Vad är det för organisation?",
@@ -4464,8 +4475,6 @@
     "qTaxable": "Har den skattepliktig verksamhet?",
     "taxableHelp": "Till exempel en restaurang eller annan rörelse som inte hör till ändamålet, eller uppdrag åt företag och kommuner som är mer än en fjärdedel av intäkterna. Medlemsavgifter, gåvor och bidrag till den ideella verksamheten är skattefria.",
     "formsToFile": "Bilagor att lämna",
-    "foundationSus": "En allmännyttig stiftelse lämnar INK3SUS, som Bokix inte fyller i än. Fyll i den i Skatteverkets e-tjänst.",
-    "foundationNote": "För en stiftelse fyller Bokix i INK3R och INK3S. Om stiftelsen är allmännyttig lämnar ni också INK3SUS i e-tjänsten.",
     "answerFirst": "Svara på frågorna under Föreningen först.",
     "noPurpose": "Välj minst ett ändamål enligt stadgarna i den särskilda uppgiften.",
     "stepSchema": "Räkenskapsschema (INK3R)",
@@ -4503,7 +4512,16 @@
     "send2Surplus": "Fyll i första sidan i e-tjänsten, 1.1 Överskott {{amount}} kr, och ladda upp bilagorna med filöverföringen. Logga in med BankID.",
     "send2Deficit": "Fyll i första sidan i e-tjänsten, 1.2 Underskott {{amount}} kr, och ladda upp bilagorna med filöverföringen. Logga in med BankID.",
     "send2SufOnly": "Första sidan ska alltid lämnas och skrivas under, även utan belopp. Fyll i den i e-tjänsten och ladda upp bilagan med filöverföringen.",
-    "send3Sub": "Skatteverket skickar ett slutskattebesked när deklarationen är granskad."
+    "send3Sub": "Skatteverket skickar ett slutskattebesked när deklarationen är granskad.",
+    "stepSus": "Särskild uppgift (INK3SUS)",
+    "susText": "Här redovisas stiftelsens skattefria verksamhet: ändamålet enligt stadgarna och intäkter och kostnader som inte beskattas.",
+    "qSusKind": "Vad är det för stiftelse?",
+    "susYield": "Avkastningsstiftelse",
+    "susOperating": "Insamlings- eller verksamhetsstiftelse",
+    "susKindHelp": "En avkastningsstiftelse delar ut avkastningen på sitt kapital, till exempel stipendier. En insamlingsstiftelse lever på gåvor och en verksamhetsstiftelse driver egen verksamhet, till exempel en skola eller ett museum.",
+    "freeAll": "Intäkter och kostnader som inte beskattas",
+    "qPreviousYear": "Hör den beslutade utdelningen i 3.1 till förra årets kapitalavkastning?",
+    "susCheck": "Förslagen kommer ur bokföringen minus det skattepliktiga. Insamlings- och kapitalförvaltningskostnader går inte att skilja ut ur kontona, så fyll i dem själv om de finns."
   },
   "ink4": {
     "title": "Inkomstdeklaration 4 {{label}}",

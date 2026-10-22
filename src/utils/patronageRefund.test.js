@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { memberTurnover, computeRefund, refundSummary, refundInk2sAdjustments, buildRefundDecision, proposedRefundFor } from './patronageRefund';
+import { memberTurnover, computeRefund, refundSummary, refundInk2sAdjustments, buildRefundDecision, proposedRefundFor, coopDividendDeduction } from './patronageRefund';
 import { suggestInk2s } from './ink2s';
 import { computeAnnualReport } from './annualReport';
 import { DEFAULT_ACCOUNTS } from '../components/AccountsData';
@@ -82,5 +82,13 @@ describe('återbäring i ekonomisk förening', () => {
     expect(report.yearResult).toBe(98000);
     expect(report.disposition.refund).toBe(5000);
     expect(proposedRefundFor(company.patronageRefunds, fy25).total).toBe(0);
+  });
+
+  it('utdelning på insatser: avdrag i kooperativ förening, utom delen till företag om den är över tio procent', () => {
+    expect(coopDividendDeduction({ dividend: 10000, cooperative: true, toCompanies: 0 }).deductible).toBe(10000);
+    expect(coopDividendDeduction({ dividend: 10000, cooperative: true, toCompanies: 1000 })).toMatchObject({ deductible: 10000, smallShare: true });
+    expect(coopDividendDeduction({ dividend: 10000, cooperative: true, toCompanies: 3000 })).toMatchObject({ deductible: 7000, smallShare: false });
+    expect(coopDividendDeduction({ dividend: 10000, cooperative: false }).deductible).toBe(0);
+    expect(coopDividendDeduction({ dividend: 10000 }).deductible).toBe(0);
   });
 });

@@ -3,7 +3,7 @@ import { Download, AlertTriangle, CheckCircle2 } from './icons';
 import StepFlow, { StepNav } from './shared/StepFlow';
 import {
   computeInk3r, computeInk3rResultat, computeInk3Taxable, computeInk3s, suggestInk3suf, fillTaxableFromBooked, ink3Forms,
-  INK3R_RESULT_ROWS, INK3_INCOME_ROWS, INK3S_ROWS, INK3S_INFO_ROWS, INK3SUF_PURPOSES, INK3SUF_ROWS,
+  INK3R_RESULT_ROWS, INK3_INCOME_ROWS, INK3S_ROWS, INK3S_INFO_ROWS, INK3SUF_PURPOSES, INK3SUF_ROWS, INK3SUS_ROWS, suggestInk3sus,
 } from '../utils/ink3';
 import { downloadInk3Sru, sruPeriod } from '../utils/sruExport';
 import { formatKr } from '../utils/annualReportPdf';
@@ -27,8 +27,8 @@ export default function Ink3View({ company, fy, verifications = [], accounts = [
 
   const org = saved.org || {};
   const forms = ink3Forms(org);
-  const isFoundation = org.entity === 'foundation';
   const orgAnswered = org.entity !== undefined && org.publicBenefit !== undefined && (org.publicBenefit === false || org.taxableActivity !== undefined);
+  const orgLabel = org.entity === 'foundation' ? t('ink3.stepOrgFoundation') : t('ink3.stepOrg');
 
   const period = useMemo(() => ({ start: fy.start, end: fy.end }), [fy.start, fy.end]);
   const asOf = useMemo(() => new Date(`${fy.end}T23:59:59`), [fy.end]);
@@ -51,6 +51,16 @@ export default function Ink3View({ company, fy, verifications = [], accounts = [
     }
     return out;
   }, [saved.suf?.values, sufSuggest]);
+  const susKind = saved.sus?.kind === 'operating' ? 'operating' : 'yield';
+  const susSuggest = useMemo(() => suggestInk3sus(verifications, period, res.rows, taxableInput), [verifications, period, res.rows, taxableInput]);
+  const susValues = useMemo(() => {
+    const out = {};
+    for (const def of INK3SUS_ROWS) {
+      const v = saved.sus?.values?.[def.key];
+      out[def.key] = v !== undefined && v !== null && v !== '' ? Number(v) || 0 : (susSuggest[def.key] || 0);
+    }
+    return out;
+  }, [saved.sus?.values, susSuggest]);
   const answers = saved.answers || {};
   const purposes = saved.suf?.purposes || {};
   const sruP = sruPeriod(fy.end);
@@ -63,12 +73,11 @@ export default function Ink3View({ company, fy, verifications = [], accounts = [
     return { ...prev, taxFilings: next };
   });
 
-  const nothingToFile = orgAnswered && !forms.rs && !forms.suf;
+  const special = forms.suf || forms.sus;
   const blockers = [
     ...(!orgAnswered ? [t('ink3.answerFirst')] : []),
-    ...(nothingToFile ? [t('ink3.foundationSus')] : []),
     ...(forms.rs && !ink3r.balanced ? [t('ink4.notBalanced', { amount: formatKr(Math.abs(ink3r.difference)) })] : []),
-    ...(forms.suf && !INK3SUF_PURPOSES.some(p => purposes[p.key]) ? [t('ink3.noPurpose')] : []),
+    ...(special && !INK3SUF_PURPOSES.some(p => purposes[p.key]) ? [t('ink3.noPurpose')] : []),
     ...(sruMissing.length ? [t('ink4.missingCompany', { fields: sruMissing.join(', ') })] : []),
   ];
   const canDownload = blockers.length === 0;
@@ -77,16 +86,17 @@ export default function Ink3View({ company, fy, verifications = [], accounts = [
     downloadInk3Sru(company, {
       forms, ink3r, ink3rResultat: res, taxable, ink3s, info: saved.info || {}, answers,
       suf: { ...(saved.suf || {}), values: sufValues },
+      sus: { ...(saved.sus || {}), kind: susKind, values: susValues },
     }, period);
   };
 
   const flow = [
-    { id: 'org', title: t('ink3.stepOrg'), short: t('ink3.shortOrg'), done: orgAnswered },
+    { id: 'org', title: orgLabel, short: orgLabel, done: orgAnswered },
     ...(forms.rs ? [
       { id: 'schema', title: t('ink3.stepSchema'), short: t('stepFlow.short.schema'), done: ink3r.balanced },
       { id: 'adjust', title: t('ink3.stepAdjust'), short: t('stepFlow.short.adjust'), done: answers.consultant !== undefined && answers.audited !== undefined },
     ] : []),
-    ...(forms.suf ? [{ id: 'suf', title: t('ink3.stepSuf'), short: t('ink3.shortSuf'), done: INK3SUF_PURPOSES.some(p => purposes[p.key]) }] : []),
+    ...(special ? [{ id: 'suf', title: forms.sus ? t('ink3.stepSus') : t('ink3.stepSuf'), short: t('ink3.shortSuf'), done: INK3SUF_PURPOSES.some(p => purposes[p.key]) }] : []),
     { id: 'send', title: t('ink4.stepSend'), short: t('stepFlow.short.send'), done: Boolean(filedAt) },
   ];
   const [stepState, setStep] = useState(() => flow.find(s => !s.done)?.id || 'send');
@@ -107,7 +117,7 @@ export default function Ink3View({ company, fy, verifications = [], accounts = [
     <input type="number" className="fp-input" aria-label={label} value={value ?? ''} placeholder={placeholder} onChange={e => onChange(e.target.value === '' ? '' : Number(e.target.value))} />
   );
   const bookedRow = (row) => res.rows.find(r => r.row === row);
-  const formsText = [forms.rs && 'INK3R, INK3S', forms.suf && 'INK3SUF'].filter(Boolean).join(' och ');
+  const formsText = [forms.rs && 'INK3R, INK3S', forms.suf && 'INK3SUF', forms.sus && 'INK3SUS'].filter(Boolean).join(' och ');
 
   return (
     <div className="fp-page">
@@ -172,7 +182,7 @@ export default function Ink3View({ company, fy, verifications = [], accounts = [
       <StepFlow steps={flow} current={step} onSelect={setStep}>
         {step === 'org' && (
           <>
-            <h3 className="stepflow-h">{t('ink3.stepOrg')}</h3>
+            <h3 className="stepflow-h">{orgLabel}</h3>
             <p className="stepflow-text">{t('ink3.orgText')}</p>
             <Seg label={t('ink3.qEntity')} value={org.entity} options={[['association', t('ink3.association')], ['foundation', t('ink3.foundation')]]} onChange={v => setPart('org', 'entity', v)} />
             <Seg label={t('ink3.qPublicBenefit')} value={org.publicBenefit} options={yesNo} onChange={v => setPart('org', 'publicBenefit', v)} />
@@ -186,10 +196,6 @@ export default function Ink3View({ company, fy, verifications = [], accounts = [
             {orgAnswered && (
               <div className="ink3-total"><span>{t('ink3.formsToFile')}</span><strong style={{ fontSize: 15 }}>{formsText || '–'}</strong></div>
             )}
-            {nothingToFile && (
-              <div className="fp-warn" role="status"><div><AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 2 }} /> <span>{t('ink3.foundationSus')}</span></div></div>
-            )}
-            {isFoundation && forms.rs && <p className="stepflow-text"><small>{t('ink3.foundationNote')}</small></p>}
             <StepNav steps={flow} current={step} onSelect={setStep} />
           </>
         )}
@@ -283,8 +289,8 @@ export default function Ink3View({ company, fy, verifications = [], accounts = [
 
         {step === 'suf' && (
           <>
-            <h3 className="stepflow-h">{t('ink3.stepSuf')}</h3>
-            <p className="stepflow-text">{t('ink3.sufText')}</p>
+            <h3 className="stepflow-h">{forms.sus ? t('ink3.stepSus') : t('ink3.stepSuf')}</h3>
+            <p className="stepflow-text">{forms.sus ? t('ink3.susText') : t('ink3.sufText')}</p>
             <div className="ink3-h">{t('ink3.purpose')}</div>
             <div className="ink3-checks">
               {INK3SUF_PURPOSES.map(p => (
@@ -300,6 +306,27 @@ export default function Ink3View({ company, fy, verifications = [], accounts = [
                 <input type="text" className="fp-input" maxLength={36} value={saved.suf?.otherPurpose || ''} onChange={e => setSuf('otherPurpose', e.target.value)} />
               </label>
             )}
+            {forms.sus && (
+              <>
+                <Seg label={t('ink3.qSusKind')} value={susKind} options={[['yield', t('ink3.susYield')], ['operating', t('ink3.susOperating')]]} onChange={v => setPart('sus', 'kind', v)} />
+                <p className="stepflow-text" style={{ marginTop: 4 }}><small>{t('ink3.susKindHelp')}</small></p>
+                <div className="ink3-h" style={{ marginTop: 10 }}>{t('ink3.freeAll')}</div>
+                {INK3SUS_ROWS.filter(r => r.kind === susKind).map(def => {
+                  const own = saved.sus?.values?.[def.key];
+                  const suggested = susSuggest[def.key] && (own === undefined || own === '');
+                  return (
+                    <label key={def.key} className="ink3-adj">
+                      <span>{def.key} {def.label}{suggested ? <em className="ink3-muted"> · {t('ink4.suggested')}</em> : null}</span>
+                      {numberInput(own ?? (susSuggest[def.key] || ''), v => setPart('sus', 'values', { ...(saved.sus?.values || {}), [def.key]: v }), def.label)}
+                    </label>
+                  );
+                })}
+                {susKind === 'yield' && (
+                  <Seg label={t('ink3.qPreviousYear')} value={Boolean(saved.sus?.previousYearDividend)} options={yesNo} onChange={v => setPart('sus', 'previousYearDividend', v)} />
+                )}
+              </>
+            )}
+            {forms.suf && (<>
             <div className="ink3-h">{t('ink3.property')}</div>
             <p className="stepflow-text"><small>{t('ink3.propertyText')}</small></p>
             <label className="ink3-adj"><span>{t('ink3.rentedPct')}</span>{numberInput(saved.suf?.rentedPct, v => setSuf('rentedPct', v), t('ink3.rentedPct'))}</label>
@@ -319,7 +346,8 @@ export default function Ink3View({ company, fy, verifications = [], accounts = [
                 })}
               </div>
             ))}
-            <p className="stepflow-text"><small>{t('ink3.sufCheck')}</small></p>
+            </>)}
+            <p className="stepflow-text"><small>{forms.sus ? t('ink3.susCheck') : t('ink3.sufCheck')}</small></p>
             <StepNav steps={flow} current={step} onSelect={setStep} />
           </>
         )}

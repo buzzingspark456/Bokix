@@ -4389,6 +4389,16 @@
     "todoSub": "Financial year {{label}}, for the general meeting",
     "todoStatus": "Download, sign and bring to the general meeting."
   },
+  "coopDiv": {
+    "title": "Dividend on contributions",
+    "text": "The annual report proposes a dividend of {{amount}} to members. A cooperative association deducts it for the year the decision relates to.",
+    "qCooperative": "Is the association cooperative, that is open to new members and with equal voting rights?",
+    "qCompanies": "How much of the dividend on member contributions goes to limited companies and other businesses?",
+    "deductible": "Deduction of {{amount}} in 4.4 b.",
+    "smallShare": "The share to businesses is at most ten percent, so the whole dividend is deducted: {{amount}} in 4.4 b.",
+    "notCooperative": "No deduction. This also applies to member-promoting associations and cooperative rental associations, which have special rules.",
+    "answer": "Answer the question and Bokix calculates the deduction."
+  },
   "refund": {
     "tab": "Patronage refund",
     "title": "Patronage refund to members",
@@ -4450,10 +4460,11 @@
   "ink3": {
     "tab": "Income tax return 3",
     "title": "Income tax return 3 {{label}}",
-    "sub": "The INK3R, INK3S and INK3SUF appendices that apply to the association, as an SRU file. You fill in the first page in the Swedish Tax Agency e-service.",
+    "sub": "The income tax return 3 appendices that apply to the association or foundation, as an SRU file. You fill in the first page in the Swedish Tax Agency e-service.",
     "taxableResult": "Taxable result",
     "forms": "Appendices",
     "stepOrg": "The association",
+    "stepOrgFoundation": "The foundation",
     "shortOrg": "Association",
     "orgText": "Your answers decide which appendices the association files.",
     "qEntity": "What kind of organisation is it?",
@@ -4464,8 +4475,6 @@
     "qTaxable": "Does it have taxable activity?",
     "taxableHelp": "For example a restaurant or other business unrelated to the purpose, or work for companies and municipalities making up more than a quarter of income. Membership fees, gifts and grants for the non-profit activity are tax-free.",
     "formsToFile": "Appendices to file",
-    "foundationSus": "A public-benefit foundation files INK3SUS, which Bokix does not fill in yet. Fill it in using the Swedish Tax Agency e-service.",
-    "foundationNote": "For a foundation, Bokix fills in INK3R and INK3S. If the foundation is public-benefit, also file INK3SUS in the e-service.",
     "answerFirst": "Answer the questions under The association first.",
     "noPurpose": "Choose at least one purpose under the statutes in the special information.",
     "stepSchema": "Accounts schedule (INK3R)",
@@ -4503,7 +4512,16 @@
     "send2Surplus": "Fill in the first page in the e-service, 1.1 Surplus {{amount}} kr, and upload the appendices with the file transfer service. Log in with BankID.",
     "send2Deficit": "Fill in the first page in the e-service, 1.2 Deficit {{amount}} kr, and upload the appendices with the file transfer service. Log in with BankID.",
     "send2SufOnly": "The first page must always be filed and signed, even without amounts. Fill it in in the e-service and upload the appendix with the file transfer service.",
-    "send3Sub": "The Swedish Tax Agency sends a final tax statement once the return has been reviewed."
+    "send3Sub": "The Swedish Tax Agency sends a final tax statement once the return has been reviewed.",
+    "stepSus": "Special information (INK3SUS)",
+    "susText": "This covers the foundation's tax-free activity: the purpose under the statutes, and income and costs that are not taxed.",
+    "qSusKind": "What kind of foundation is it?",
+    "susYield": "Yield foundation",
+    "susOperating": "Fundraising or operating foundation",
+    "susKindHelp": "A yield foundation distributes the return on its capital, for example as grants. A fundraising foundation lives on donations, and an operating foundation runs its own activity, such as a school or museum.",
+    "freeAll": "Income and costs that are not taxed",
+    "qPreviousYear": "Does the distribution decided in 3.1 belong to last year's return on capital?",
+    "susCheck": "The suggestions come from the bookkeeping minus the taxable part. Fundraising and capital management costs cannot be separated from the accounts, so enter them yourself if there are any."
   },
   "ink4": {
     "title": "Income tax return 4 {{label}}",

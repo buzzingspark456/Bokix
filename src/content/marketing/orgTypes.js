@@ -14,8 +14,7 @@
 //    att skriva under (föreningen med medlemsinsatser och föreningsstämma).
 //    Bokix lämnar inte in något till Bolagsverket eller Skatteverket.
 //  - Ideell förening och stiftelse: bokföring, moms, lön, årsbokslut och
-//    bilagorna till INK3 (INK3R, INK3S, INK3SUF) som SRU-fil. INK3SUS för
-//    allmännyttiga stiftelser fylls inte i, och det står på sidan.
+//    bilagorna till INK3 (INK3R, INK3S, INK3SUF och INK3SUS) som SRU-fil.
 
 const PRICE = '129 kr/mån utan anställda och 179 kr/mån med anställda. Ingen moms tillkommer och allt ingår.';
 
@@ -221,7 +220,7 @@ ORG_TYPE_PAGES.push({
     { q: 'Passar Bokix en ideell förening?', a: 'Ja, för den löpande bokföringen, fakturor, moms, lön, årsbokslutet och bilagorna till inkomstdeklarationen (INK3). Första sidan fyller ni i Skatteverkets e-tjänst.' },
     { q: 'Vår förening är inte momsregistrerad. Fungerar det?', a: 'Ja. Du väljer det när kontot skapas, och då bokförs kvitton och fakturor utan moms.' },
     { q: 'Kan kassören och revisorn använda samma konto?', a: 'Ja. Upp till tre personer kan arbeta i samma bokföring, och det ingår i priset.' },
-    { q: 'Fungerar Bokix för en stiftelse?', a: 'Ja, på samma sätt som för en ideell förening: bokföring, moms, lön, årsbokslut och INK3 med räkenskapsschema och justeringar. Den särskilda uppgiften för allmännyttiga stiftelser (INK3SUS) fyller Bokix inte i.' },
+    { q: 'Fungerar Bokix för en stiftelse?', a: 'Ja, på samma sätt som för en ideell förening: bokföring, moms, lön, årsbokslut och bilagorna till INK3, med den särskilda uppgiften för allmännyttiga stiftelser (INK3SUS).' },
     { q: 'Vad kostar Bokix för en ideell förening?', a: PRICE + ' De första 30 dagarna är gratis.' },
   ],
   related: [
