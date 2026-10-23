@@ -111,15 +111,38 @@ export function clearCachedOcrText(key) {
  * tidigare framgångsrik avläsning behandlas som "ingen osäkerhet att ange" i
  * stället för att gissa en siffra.
  */
-export async function readDocumentText(input, onProgress, { force = false, reader, quad = null } = {}) {
+export async function readDocumentText(input, onProgress, { force = false, reader, quad = null, cloud } = {}) {
   const key = ocrCacheKey(input);
   // Egna hörn (Justera kanter) betyder alltid en ny avläsning.
   if (!force && !quad) {
     const hit = getCachedOcrText(key);
     if (hit) return { text: hit, confidence: null, weakTokens: null, quality: null, layout: null, cached: true };
   }
-  const read = reader || (await import('./ocrReceipt')).ocrFile;
-  const { text, confidence, weakTokens, quality, layout } = await (quad ? read(input, onProgress, { quad }) : read(input, onProgress));
+  const ocr = await import('./ocrReceipt');
+  const read = reader || ocr.ocrFile;
+  const local = await (quad ? read(input, onProgress, { quad }) : read(input, onProgress));
+  let { text, confidence, weakTokens, quality, layout } = local;
+
+  // Reservläsningen (ocrCloud.js) bara när den egna läsningen av en BILD inte
+  // räckte. En digital PDF har exakt text (ingen säkerhet och inga mätvärden)
+  // och skickas aldrig. En cachad träff provas inte igen: "Läs av igen" gör det.
+  const isImageReading = (confidence !== null && confidence !== undefined) || Boolean(quality);
+  const cloudRead = cloud === undefined ? (reader ? null : (await import('./ocrCloud')).readWithCloud) : cloud;
+  if (cloudRead && isImageReading) {
+    const { needsCloudReading } = await import('./ocrCloud');
+    if (needsCloudReading(ocr.parseReceiptText(text, { confidence, weakTokens }))) {
+      onProgress?.('Läser kvittot en gång till…');
+      const cloudText = await cloudRead(input);
+      if (cloudText && ocr.readingScore({ text: cloudText, confidence: 100 }) > ocr.readingScore({ text, confidence })) {
+        // Visions text är säker på tecknen; Tesseracts rutor och osäkra ord
+        // hör till den andra läsningen och gäller inte längre.
+        text = cloudText;
+        confidence = null;
+        weakTokens = null;
+        layout = null;
+      }
+    }
+  }
   setCachedOcrText(key, text);
   // `layout` (var på fotot raderna stod) cachas inte: rutorna sparas på
   // kvittots utkast i stället, se Expenses.jsx.

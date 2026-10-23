@@ -1545,7 +1545,7 @@ async function readLogo(source) {
  * blir fel bokföring om det är fel. Tesseracts egen säkerhet får vara
  * tungan på vågen när fälten är lika.
  */
-function readingScore({ text, confidence }) {
+export function readingScore({ text, confidence }) {
   if (isUnreadableText(text)) return -10;
   const parsed = parseReceiptText(text, { confidence });
   if (parsed.notReceipt) return -5 + (confidence || 0) / 1000;
@@ -1831,6 +1831,25 @@ async function readPdfHeaderName(page, inText) {
     return null;
   };
   return (await read(band)) || (await read(invertedGrayCopy(band)));
+}
+
+/**
+ * Dokumentet som en nedskalad JPEG (base64 utan data:-prefix) för
+ * reservläsningen i ocrCloud.js. Hela fotot skickas, inte Tesseracts
+ * förbehandlade bild: Vision läser bäst på originalet. En PDF blir sida 1.
+ * Returnerar null om bilden inte går att läsa i den här webbläsaren.
+ */
+export async function documentImageForCloud(input, maxEdge = 2000) {
+  if (typeof document === 'undefined' || typeof createImageBitmap !== 'function') return null;
+  const { blob, isPdf } = await loadDocumentBlob(input);
+  const source = isPdf ? await renderPdfPageToCanvas(blob) : await createImageBitmap(blob, { imageOrientation: 'from-image' });
+  const scale = Math.min(1, maxEdge / Math.max(source.width, source.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(source.width * scale));
+  canvas.height = Math.max(1, Math.round(source.height * scale));
+  canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
+  source.close?.();
+  return canvas.toDataURL('image/jpeg', 0.85).split(',')[1] || null;
 }
 
 /** Hämtar dokumentet (fil, data-URL eller lagrad URL) och avgör om det är en PDF. */

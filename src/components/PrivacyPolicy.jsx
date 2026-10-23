@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
     <PolicyLayout
       title="Integritetspolicy"
       path="/privacy"
-      updated="2026-10-05"
+      updated="2026-10-23"
       metaTitle="Integritetspolicy | Bokix"
       metaDescription="Vilken personuppgiftsinformation Bokix samlar in, varför, hur länge den sparas och vilka rättigheter du har enligt GDPR."
     >
@@ -68,6 +68,7 @@ export default function PrivacyPolicy() {
           <li style={policyLi}><strong>Vercel</strong> — driftar och hostar hela tjänsten (webbappen och de serverfunktioner som hanterar t.ex. betalningar och e-post). All trafik till Bokix passerar genom Vercels infrastruktur.</li>
           <li style={policyLi}><strong>Vercel BotID</strong> — automatiserad bot-/missbruksdetektering på formulär (t.ex. registrering), en del av Vercel-plattformen ovan.</li>
           <li style={policyLi}><strong>Google reCAPTCHA</strong> — kontrollerar på kontaktformuläret att det är en människa som skickar. Google får då teknisk information om din webbläsare och ditt besök.</li>
+          <li style={policyLi}><strong>Google Cloud Vision</strong> — läser texten på ett kvitto eller underlag när avläsningen i din webbläsare inte räckte. Bara bilden skickas, behandlas inom EU och sparas inte hos Google. Gratisverktyget Skanna kvitto på webbplatsen använder det aldrig.</li>
           <li style={policyLi}><strong>Bolagsverket, FöretagsAPI och VIES</strong> — när du söker upp ett företag (ditt eget, en kund eller en leverantör) skickas organisationsnumret, momsnumret eller det namn du söker på dit för att hämta namn och adress ur offentliga register. Inget annat skickas.</li>
           <li style={policyLi}><strong>Zettle</strong> — <em>endast om du själv kopplar din Zettle-kassa</em>. Bokix hämtar då dina försäljningar därifrån för att bokföra dem. Du kan koppla från när du vill under Inställningar.</li>
           <li style={policyLi}><strong>Analysverktyg, bara med ditt samtycke</strong> — Google Analytics (Google), Microsoft Clarity (Microsoft) och PostHog mäter hur besökare använder Bokix och sätts först efter att du klickat "Acceptera alla" i cookiebannern. PostHog körs i EU-molnet (Frankfurt) och används bara för att räkna sidvisningar. Ingen bokföringsdata, inga kunduppgifter och inga klick eller inmatningar skickas dit. Exakt vilka cookies som sätts står i <a href="/cookies" style={link}>cookiepolicyn</a>.</li>
@@ -141,7 +142,7 @@ export default function PrivacyPolicy() {
           Lösenord lagras aldrig i klartext. Data överförs krypterat (HTTPS/TLS). Åtkomst till din bokföringsdata skyddas av behörighetskontroller på databasnivå (Row Level Security) så att endast du kan läsa och skriva din egen data.
         </p>
         <p style={policyP}>
-          Du kan slå på tvåstegsverifiering för ditt konto under Inställningar → Säkerhet. Lösenord och nycklar till din egen e-post (avsnitt 5) lagras krypterade och kan bara läsas av våra servrar. Texten på kvitton du fotograferar läses av direkt i din webbläsare, så bilden skickas inte till någon extern tjänst för avläsning.
+          Du kan slå på tvåstegsverifiering för ditt konto under Inställningar → Säkerhet. Lösenord och nycklar till din egen e-post (avsnitt 5) lagras krypterade och kan bara läsas av våra servrar. Texten på kvitton du fotograferar läses först av direkt i din webbläsare. Bara när den avläsningen inte räcker (till exempel ett suddigt eller skrynkligt kvitto) skickas en nedskalad kopia av bilden till Google Cloud Vision för att läsas en gång till, se avsnitt 4.
         </p>
       </PolicySection>
 

@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ocrCacheKey, getCachedOcrText, setCachedOcrText, clearCachedOcrText, readDocumentText } from './ocrCache';
 
@@ -64,6 +65,25 @@ describe('ocrCache', () => {
     expect(result.cached).toBe(false);
     expect(reader).toHaveBeenCalledTimes(2);
     expect(reader).toHaveBeenLastCalledWith(file, null, { quad });
+  });
+
+  it('låter reservläsningen ta över när den egna inte gav något belopp', async () => {
+    const good = fs.readFileSync(new URL('./__fixtures__/kvitto-r3.txt', import.meta.url), 'utf8');
+    const reader = vi.fn(async () => ({ text: 'ICA\nTack för besöket\nVälkommen åter', confidence: 41, layout: { lines: [] } }));
+    const cloud = vi.fn(async () => good);
+    const result = await readDocumentText({ name: 'c.jpg', size: 9, lastModified: 4 }, null, { reader, cloud });
+    expect(cloud).toHaveBeenCalledTimes(1);
+    expect(result.text).toBe(good);
+    expect(result.confidence).toBeNull();
+    expect(result.layout).toBeNull();
+  });
+
+  it('frågar inte reservläsningen när den egna räckte, eller för en digital PDF', async () => {
+    const good = fs.readFileSync(new URL('./__fixtures__/kvitto-r3.txt', import.meta.url), 'utf8');
+    const cloud = vi.fn(async () => 'annat');
+    await readDocumentText({ name: 'd.jpg', size: 9, lastModified: 5 }, null, { reader: async () => ({ text: good, confidence: 90 }), cloud });
+    await readDocumentText({ name: 'e.pdf', size: 9, lastModified: 6 }, null, { reader: async () => ({ text: 'Faktura utan belopp', confidence: null, quality: null }), cloud });
+    expect(cloud).not.toHaveBeenCalled();
   });
 
   it('fungerar utan localStorage', async () => {
