@@ -91,6 +91,7 @@ export const KNOWN_SUPPLIERS = [
   { re: /webhallen/i, name: 'Webhallen', account: '5410', vat: 25, choices: EQUIPMENT_CHOICES },
   { re: /dustin/i, name: 'Dustin', account: '5410', vat: 25, choices: EQUIPMENT_CHOICES },
   { re: /elgiganten/i, name: 'Elgiganten', account: '5410', vat: 25, choices: EQUIPMENT_CHOICES },
+  { re: /net\s?on\s?net/i, name: 'NetOnNet', account: '5410', vat: 25, choices: EQUIPMENT_CHOICES },
   { re: /kjell\s*(?:&|och)\s*company/i, name: 'Kjell & Company', account: '5410', vat: 25, choices: EQUIPMENT_CHOICES },
   { re: /ikea/i, name: 'IKEA', account: '5410', vat: 25 },
 

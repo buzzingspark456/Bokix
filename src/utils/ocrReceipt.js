@@ -18,6 +18,7 @@ import { KNOWN_SUPPLIERS, ACCOUNT_KEYWORD_RULES } from './accountCategories';
 import { REVERSE_PURCHASE_ACCOUNTS } from './vatConfig';
 import { getSignedStorageUrl } from './signedUrls';
 import { loadPdfjs } from './pdfjs';
+import { factoringLineIndexes } from './supplierRegistry';
 
 const MONTHS_MAP = {
   jan: '01', feb: '02', mar: '03', apr: '04', maj: '05', may: '05',
@@ -408,6 +409,26 @@ const MAX_SOURCE_DIMENSION = 3000;
 const MAX_UPSCALE = 2;
 
 /** Gråskalan för en canvas som Float32Array (0–255), i läsordning. */
+/**
+ * Kopia i gråskala med omvända färger: ljus text på mörk botten blir mörk på
+ * ljus, som Tesseract läser. Pixel för pixel, inte ctx.filter (som Safari
+ * saknar före version 18).
+ */
+function invertedGrayCopy(canvas) {
+  const out = document.createElement('canvas');
+  out.width = canvas.width; out.height = canvas.height;
+  const ctx = out.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(canvas, 0, 0);
+  const img = ctx.getImageData(0, 0, out.width, out.height);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const v = 255 - (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
+    d[i] = d[i + 1] = d[i + 2] = v;
+  }
+  ctx.putImageData(img, 0, 0);
+  return out;
+}
+
 function grayscaleOf(canvas) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -1492,20 +1513,26 @@ async function readLogo(source) {
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, crop.width, crop.height);
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(source, sx, sy, sw, sh, 0, 0, crop.width, crop.height);
-  try {
+  const readCrop = async (canvas) => {
     const data = await withOcrWorker('eng', async (worker) => {
       ocrLogger = null;
       await worker.setParameters({ tessedit_pageseg_mode: '7' });
-      return (await worker.recognize(crop)).data;
+      return (await worker.recognize(canvas)).data;
     });
-
     const word = String(data.text || '').replace(/[^\p{L}\p{N}&' -]/gu, ' ').replace(/\s+/g, ' ').trim();
     if (!word || word.length < 2 || word.length > 30 || !/\p{L}{2}/u.test(word)) return null;
     if (matchKnownSupplierFuzzy([word], 1)) return word;
     // Ett okänt ord måste vara säkert läst, minst fyra bokstäver och inte ett
     // vanligt kvittoord (en suddig bild gav annars leverantören "Kort").
-    if (/^(?:kort|kvitto|kassa|total\w*|summa|moms|datum|tack|kopia|butik|org|tel|kund\w*)$/i.test(word)) return null;
+    if (/^(?:kort|kvitto\w*|kassa|total\w*|summa|moms|datum|tack|kopia|butik|org|tel|kund\w*|faktura\w*|order\w*|receipt|invoice)$/i.test(word)) return null;
     return (data.confidence >= 85 && /^[\p{L}&' -]{4,}$/u.test(word)) ? word : null;
+  };
+  try {
+    const word = await readCrop(crop);
+    if (word) return word;
+    // Ljus text på mörk platta (vitt namn på färgad botten är vanligt i
+    // logotyper): Tesseract läser mörkt på ljust, så prova med omvända färger.
+    return await readCrop(invertedGrayCopy(crop));
   } catch (err) {
     console.warn('[OCR] Kunde inte läsa logotypen:', err);
     return null;
@@ -1673,7 +1700,7 @@ export async function ocrFile(input, onProgress, { quad = null } = {}) {
     if (!quad) {
       digitalText = await extractTextFromPdf(blob, onProgress);
       if (pdfTextLooksUsable(digitalText)) {
-        return { text: digitalText, confidence: null, quality: null };
+        return { text: await withPdfLogo(blob, digitalText, onProgress), confidence: null, quality: null };
       }
     }
 
@@ -1729,6 +1756,74 @@ export async function prepareCornerEditor(input) {
     height: preview.height,
     quad: quad || [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }],
   };
+}
+
+/**
+ * Företagets namn i en digital PDF står ofta bara i logotypen, som är en
+ * bild, medan resten är text. Textlagret har då inget namn, och leverantören
+ * blev en adressrad eller ingenting. Ger texten ingen känd leverantör läses
+ * logotypen överst på sidan (readLogo, samma som för fotade kvitton) och läggs
+ * först i texten, där namnet hade stått. Står namnet redan i texten händer
+ * inget.
+ */
+async function withPdfLogo(blob, text, onProgress) {
+  if (typeof document === 'undefined') return text;
+  try {
+    // Ett namn ur texten duger: känd leverantör, eller en rad utan siffror.
+    // Siffror betyder en adress- eller kundrad, alltså att namnet saknas.
+    const parsed = parseReceiptText(text);
+    if (parsed.supplierMatched || (parsed.supplier && !/\d/.test(parsed.supplier))) return text;
+    onProgress?.('Läser logotypen…');
+    const canvas = await renderPdfPageToCanvas(blob);
+    const inText = (name) => text.toLowerCase().includes(name.toLowerCase());
+    // Med omvända färger blir en färgad platta ljus och dess vita namn mörkt,
+    // så att logotypens stora tecken hittas där också.
+    const logo = (await readLogo(canvas)) || (await readLogo(invertedGrayCopy(canvas)));
+    if (logo) return inText(logo) ? text : `${logo}\n${text}`;
+    // readLogo letar efter ett kassakvittos stora tecken. En logotyp på en
+    // färgad platta (vitt namn på grön botten) blir för den ett långt, smalt
+    // utsnitt den inte kan läsa, så då läses hela sidhuvudet som text.
+    const name = await readPdfHeaderName(canvas, inText);
+    return name ? `${name}\n${text}` : text;
+  } catch (err) {
+    console.warn('[OCR] Kunde inte läsa logotypen i PDF:en:', err);
+    return text;
+  }
+}
+
+/**
+ * Första namnliknande raden i sidhuvudet (översta fjärdedelen) som inte redan
+ * står i textlagret, läst både som den är och med omvända färger. Bara ett
+ * säkert läst namn används: minst fyra bokstäver, inga siffror, inget
+ * kvittoord. Annars null.
+ */
+async function readPdfHeaderName(page, inText) {
+  const band = document.createElement('canvas');
+  const scale = Math.min(1, 1800 / page.width);
+  band.width = Math.round(page.width * scale);
+  band.height = Math.round(page.height * 0.25 * scale);
+  const bctx = band.getContext('2d');
+  bctx.fillStyle = '#fff';
+  bctx.fillRect(0, 0, band.width, band.height);
+  bctx.drawImage(page, 0, 0, page.width, page.height * 0.25, 0, 0, band.width, band.height);
+  const read = async (image) => {
+    const data = await withOcrWorker(['swe', 'eng'], async (worker) => {
+      ocrLogger = null;
+      await worker.setParameters({ tessedit_pageseg_mode: '11' });
+      return (await worker.recognize(image, {}, { text: true, blocks: true })).data;
+    });
+    const lines = [];
+    (data.blocks || []).forEach(b => (b.paragraphs || []).forEach(p => (p.lines || []).forEach(l => lines.push(l))));
+    for (const line of lines) {
+      const t = String(line.text || '').replace(/[^\p{L}&' -]/gu, ' ').replace(/\s+/g, ' ').trim();
+      if (/\d/.test(line.text || '') || t.length < 4 || line.confidence < 80 || !/^[\p{L}&' -]+$/u.test(t)) continue;
+      if (/^(?:kort|kvitto\w*|kassa|total\w*|summa|moms|datum|tack|kopia|butik|faktura\w*|order\w*|receipt|invoice)$/i.test(t)) continue;
+      if (inText(t)) continue;
+      return t;
+    }
+    return null;
+  };
+  return (await read(band)) || (await read(invertedGrayCopy(band)));
 }
 
 /** Hämtar dokumentet (fil, data-URL eller lagrad URL) och avgör om det är en PDF. */
@@ -3537,8 +3632,12 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   // "S" lästes som "SJ" och gav dessutom tågresans 6 % moms. Pekar resten av
   // dokumentet (e-post/webbadress, juridiskt namn) på någon annan släpps
   // träffen, och listans moms och konto följer med ut.
-  const webSupplier = supplierFromWeb(lines);
-  const legalSupplier = legalNameFromLines(lines);
+  // Rutan om överlåten fordran är finansbolagets, inte säljarens (se
+  // factoringLineIndexes), så dess webbadress och namn räknas inte.
+  const factoring = factoringLineIndexes(lines);
+  const sellerLines = factoring.size ? lines.map((l, i) => (factoring.has(i) ? '' : l)) : lines;
+  const webSupplier = supplierFromWeb(sellerLines);
+  const legalSupplier = legalNameFromLines(sellerLines);
   if (supplier && foldSupplier(supplier).length <= 3) {
     const other = [webSupplier, legalSupplier].filter(Boolean);
     if (other.length > 0 && !other.some(n => foldSupplier(n).includes(foldSupplier(supplier)))) {
@@ -3560,6 +3659,20 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
       accountCode = fuzzy.account;
       accountChoices = fuzzy.choices || null;
       if (fuzzy.vat !== undefined) vatRate = fuzzy.vat;
+      supplierMatched = true;
+    }
+  }
+
+  // En känd kedjas egen webbadress (www.netonnet.se) är lika säker som namnet
+  // i huvudet: på en faktura står logotypen ofta överst som bild, och namnet
+  // syns bara i sidfoten.
+  if (!supplier && webSupplier) {
+    const known = KNOWN_SUPPLIERS.find(s => matchesAtWordStart(s.re, webSupplier));
+    if (known) {
+      supplier = known.name;
+      accountCode = known.account;
+      accountChoices = known.choices || null;
+      if (known.vat !== undefined) vatRate = known.vat;
       supplierMatched = true;
     }
   }
