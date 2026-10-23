@@ -25,6 +25,24 @@ export function companySetupComplete(value) {
   return !fiscalYearFields(value).error && (value?.vatRegistered === true || value?.vatRegistered === false);
 }
 
+/** Det som redan sparats på företaget (vid registreringen) → svaren, så att frågorna visas ifyllda. */
+export function companySetupFromCompany(company, now = new Date()) {
+  const c = company || {};
+  const vat = {
+    vatRegistered: typeof c.vatRegistered === 'boolean' ? c.vatRegistered : null,
+    vatNr: c.vatNr || '',
+    vatSource: typeof c.vatRegistered === 'boolean' ? 'user' : '',
+  };
+  const today = todayIso(now);
+  if (c.firstFiscalYear?.start && c.firstFiscalYear?.end && c.firstFiscalYear.end >= today) {
+    return { ...EMPTY_COMPANY_SETUP, ...vat, mode: 'first', firstStart: c.firstFiscalYear.start, firstEnd: c.firstFiscalYear.end, fySource: 'user' };
+  }
+  const month = Number(String(c.fiscalYear || '').slice(5, 7));
+  if (month === 1) return { ...EMPTY_COMPANY_SETUP, ...vat, mode: 'calendar', fySource: 'user' };
+  if (month >= 2 && month <= 12) return { ...EMPTY_COMPANY_SETUP, ...vat, mode: 'other', startMonth: month, fySource: 'user' };
+  return { ...EMPTY_COMPANY_SETUP, ...vat };
+}
+
 /** Svaren → fälten som sparas på företaget. */
 export function companySetupToCompany(value, orgNr) {
   // En enskild firma har alltid kalenderår, även om ett annat val hann sparas

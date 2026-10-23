@@ -4020,7 +4020,7 @@ export default function Settings({
                         .form-row-stack staplar dem på mobil. */}
                     <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
                       <AutoField
-                        label={tr('ui.f_skattsedel_text_pa_faktura')} value={companyDraft?.fSkatt || 'Innehar F-skattsedel'}
+                        label={tr('ui.f_skattsedel_text_pa_faktura')} value={companyDraft?.fSkatt ?? 'Godkänd för F-skatt'}
                         onChange={(v) => setCompanyDraft({ ...companyDraft, fSkatt: v })}
                         hint={tr('ui.skrivs_ut_pa_fakturor_tom_om_det_inte_stammer')}
                         showSaveState={false}

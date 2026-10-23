@@ -168,7 +168,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
             <div className="a4-company-detail">
               {formatCompanyAddress(company) || 'Adress saknas'}<br />
               {company?.orgNr ? `Org.nr ${company.orgNr}` : ''}{company?.vatNr ? ` · VAT ${company.vatNr}` : ''}<br />
-              {company?.fSkatt || 'Innehar F-skattsedel'}
+              {company?.fSkatt ?? 'Godkänd för F-skatt'}
             </div>
           </div>
           <div className="a4-doc-type-badge">
@@ -189,7 +189,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
             <div style={{ fontSize: 11.5, color: '#52525b', lineHeight: 1.7 }}>
               {formatCompanyAddress(company) || 'Adress saknas'}<br />
               {company?.orgNr ? `Org.nr ${company.orgNr}` : ''}{company?.vatNr ? ` · VAT ${company.vatNr}` : ''}<br />
-              {company?.fSkatt || 'Innehar F-skattsedel'}
+              {company?.fSkatt ?? 'Godkänd för F-skatt'}
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>

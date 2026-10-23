@@ -702,6 +702,10 @@ function createEmptyCompanyData(companyInfo) {
       // läsåret, inte ett läge man slår av och på. Frånvarande/false på
       // varje annat företag, och hela UF-läget är då ett no-op.
       isUf: Boolean(companyInfo.isUf),
+      // Nytt konto: onboardingen (OnboardingFlow.jsx) visas tills den är
+      // klar eller överhoppad. Bara kontots första företag får den, så
+      // befintliga kunder ser den aldrig.
+      ...(companyInfo.needsSetup ? { needsSetup: true } : {}),
       // Skolan UF-företaget hör till. Rent informativt (visas i
       // Inställningar → Företag och på fakturan där ett vanligt företag
       // har sitt organisationsnummer) — ett UF-företag har oftast inget
@@ -732,7 +736,9 @@ function createEmptyCompanyData(companyInfo) {
       email: companyInfo.email || '',
       phone: '',
       logoUrl: companyInfo.logoUrl || '',
-      fSkatt: 'Innehar F-skattsedel',
+      // Den rätta lydelsen sedan 2009 (F-skattsedeln finns inte längre).
+      // Ett nytt konto väljer själv i onboardingen (OnboardingFlow.jsx).
+      fSkatt: 'Godkänd för F-skatt',
       bankgiro: '',
       plusgiro: '',
       iban: '',
@@ -2733,6 +2739,7 @@ function App() {
           postalCode: metadata.company_postal_code || '',
           city: metadata.company_city || '',
           isUf: Boolean(metadata.uf),
+          needsSetup: true,
           ufSchool: metadata.uf_school || '',
           ufStartedAt: metadata.uf_started_at || '',
           // Kundönskemål: e-posten som redan finns (kontots inloggnings-
@@ -3188,9 +3195,22 @@ function App() {
   // säkerställer att den bara triggas EN gång per sidladdning, inte varje
   // gång något av beroendena råkar ändras (t.ex. att öppna/stänga
   // profilmenyn räknas inte, men skulle annars trigga om igen).
+  // Onboardingen för ett nytt konto (OnboardingFlow.jsx): visas när det egna
+  // aktiva företaget har `needsSetup` och är betalt. Rundturen nedan väntar
+  // tills den är klar.
+  const activeNeedsSetup = Boolean(data.companies?.[data.activeCompanyId]?.company?.needsSetup) && !data.companies?.[data.activeCompanyId]?.__shared;
+  useEffect(() => {
+    if (!isLoggedIn || showOnboarding || !activeNeedsSetup || subscriptionGate === 'blocked' || !user?.id) return;
+    const activeCompany = data.companies?.[data.activeCompanyId]?.company;
+    const paid = isFreeAccountEmail(user?.email)
+      || !activeCompany?.requiresOwnPayment
+      || ALLOWED_SUBSCRIPTION_STATUSES.includes(subscriptionsMap[activeCompany?.id]?.status);
+    if (paid) setShowOnboarding(true);
+  }, [isLoggedIn, showOnboarding, activeNeedsSetup, subscriptionGate, user, data.activeCompanyId, data.companies, subscriptionsMap]);
+
   useEffect(() => {
     if (tourAutoStartedRef.current) return;
-    if (!isLoggedIn || showOnboarding || subscriptionGate === 'blocked' || !user?.id) return;
+    if (!isLoggedIn || showOnboarding || activeNeedsSetup || subscriptionGate === 'blocked' || !user?.id) return;
     const activeCompany = data.companies?.[data.activeCompanyId]?.company;
     const paid = isFreeAccountEmail(user?.email)
       || !activeCompany?.requiresOwnPayment
@@ -3204,7 +3224,7 @@ function App() {
     // varje sektion på riktigt (se productTour.js:s withNavigation).
     // Gömda funktioner (utils/optionalFeatures.js) hoppas över i rundturen.
     maybeAutoStartTour(user.id, handleNavTabChange, hiddenFeatureNavIds(data.companies?.[data.activeCompanyId]), user);
-  }, [isLoggedIn, showOnboarding, subscriptionGate, user, data.activeCompanyId, data.companies, subscriptionsMap]);
+  }, [isLoggedIn, showOnboarding, activeNeedsSetup, subscriptionGate, user, data.activeCompanyId, data.companies, subscriptionsMap]);
 
   const handleLogin = () => {
     // Auth component now handles Supabase calls. We just rely on onAuthStateChange.
@@ -3417,6 +3437,10 @@ function App() {
             } : {}),
             vatPeriod: profile.vatPeriod || data.companies[data.activeCompanyId].company.vatPeriod,
             chartPlan: profile.chartPlan || data.companies[data.activeCompanyId].company.chartPlan || 'bas2025',
+            // F-skatten väljs i onboardingen: '' betyder ingen text på fakturan.
+            ...(typeof profile.fSkatt === 'string' ? { fSkatt: profile.fSkatt } : {}),
+            needsSetup: false,
+            setupConfirmedAt: new Date().toISOString(),
           },
         },
       },
@@ -3449,11 +3473,18 @@ function App() {
   };
 
   const handleSkipOnboarding = async () => {
+    // "Gör det senare": onboardingen visas inte igen av sig själv. Allt den
+    // frågar efter finns under Inställningar.
+    const active = data.companies[data.activeCompanyId];
+    const nextState = active?.company?.needsSetup
+      ? { ...data, companies: { ...data.companies, [data.activeCompanyId]: { ...active, company: { ...active.company, needsSetup: false } } } }
+      : data;
+    setData(nextState);
     setShowOnboarding(false);
     setHasSkippedOnboarding(true);
     localStorage.setItem('bokix_onboarding_skipped', 'true');
 
-    await saveUserDataToSupabase(data, {
+    await saveUserDataToSupabase(nextState, {
       onboarding_skipped: true,
       onboarding_completed: false,
     });
@@ -5696,7 +5727,6 @@ function App() {
               <OnboardingFlow
                 onComplete={handleOnboardingComplete}
                 onSkip={handleSkipOnboarding}
-                initialCompanyName={company?.name}
                 initialCompanyData={data.companies[data.activeCompanyId]}
               />
             ) : !isActiveCompanyPaid ? (
