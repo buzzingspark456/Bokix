@@ -299,14 +299,17 @@ function writeLlmsFiles() {
     '### Nyheter', '', ...news.map(line),
   ].join('\n');
   const faq = FAQ_GROUPS.map(g => [`### ${g.title}`, ...g.items.map(i => `**${i.q}** ${i.a}`)].join('\n\n')).join('\n\n');
-  const llms = fs.readFileSync(file, 'utf8').replace('{{FAQ}}', faq).replace('{{ARTIKLAR}}', articles);
+  // Datum för senaste publiceringen, så att AI-tjänster ser att fakta är aktuella.
+  const today = new Date().toISOString().slice(0, 10);
+  const llms = fs.readFileSync(file, 'utf8').replace('{{FAQ}}', faq).replace('{{ARTIKLAR}}', articles).replace('{{DATUM}}', today)
+    .replace('{{SKILLNADER}}', BOKIX_DIFFERENT.map(f => `- ${f.title}: ${f.body}`).join('\n'));
   fs.writeFileSync(file, llms);
 
   const transcripts = JSON.parse(fs.readFileSync(path.join(__dirname, '../src/content/marketing/guideTranscripts.json'), 'utf8'));
   const full = [
     '# Bokix: all text för AI-tjänster', '',
     `> ${BOKIX_SUMMARY}`, '',
-    `Källa: ${SITE_URL}. Den här filen skapas automatiskt från webbplatsens innehåll vid varje publicering.`, '',
+    `Källa: ${SITE_URL}. Den här filen skapas automatiskt från webbplatsens innehåll vid varje publicering. Senast uppdaterad: ${today}.`, '',
     '## Fakta', '', ...BOKIX_FACTS.map(f => `- ${f.title}: ${f.body}`), '',
     '## Det här ingår', '', ...BOKIX_FEATURES.map(f => `- ${f}`), '',
     '## Så skiljer sig Bokix', '', ...BOKIX_DIFFERENT.map(f => `- ${f.title}: ${f.body}`), '',

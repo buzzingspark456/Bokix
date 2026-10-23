@@ -100,7 +100,9 @@ export function PageMeta({ title, description, path = '/', basePath, locale = DE
       <title>{title}</title>
       <meta name="description" content={description} />
       {/* Dolda sidor (t.ex. /uf): nås bara via adressen, ska inte synas i Google. */}
-      {noindex && <meta name="robots" content="noindex, follow" />}
+      {/* Övriga sidor: tillåt stora bilder, hela utdrag och hela videoförhandsvisningar
+          i Google (bildsök, Discover och AI-översikter visar annars bara små bilder). */}
+      <meta name="robots" content={noindex ? 'noindex, follow' : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'} />
       <link rel="canonical" href={url} />
       {/* React-proppen MÅSTE stavas "hrefLang" (camelCase) — provade
           gemener ("hreflang") för att SSR-strängen (renderToString i
@@ -128,6 +130,7 @@ export function PageMeta({ title, description, path = '/', basePath, locale = DE
       <meta property="og:description" content={description} />
       <meta property="og:url" content={url} />
       <meta property="og:image" content={image} />
+      <meta property="og:image:alt" content={title} />
       <meta property="og:locale" content={ogLocale} />
       {/* Artiklar: publicerings- och ändringsdatum, som Google och delningskort läser. */}
       {publishedTime && <meta property="article:published_time" content={schemaDate(publishedTime)} />}
@@ -139,6 +142,7 @@ export function PageMeta({ title, description, path = '/', basePath, locale = DE
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={image} />
+      <meta name="twitter:image:alt" content={title} />
       {crumbs && <JsonLd data={crumbs} />}
     </>
   );

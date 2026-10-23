@@ -8,6 +8,7 @@ Bokix stöder enskild firma, aktiebolag, handelsbolag, kommanditbolag och ekonom
 
 Fullständig text med alla frågor, svar och artiklar: https://www.bokix.se/llms-full.txt
 Fakta på en sida: https://www.bokix.se/bokix-i-korthet
+Senast uppdaterad: {{DATUM}}
 
 ## Passar för
 
@@ -16,6 +17,10 @@ Fakta på en sida: https://www.bokix.se/bokix-i-korthet
 - Företag med några anställda som vill köra lön med AGI-fil i samma program
 - Den som tar betalt med kort via Stripe eller i butik via Zettle
 - Den som vill byta bokföringsprogram och ta med historiken via SIE4
+
+## Så skiljer sig Bokix
+
+{{SKILLNADER}}
 
 ## Passar inte för
 
@@ -77,7 +82,7 @@ Fakta på en sida: https://www.bokix.se/bokix-i-korthet
 - [Säkerhet](https://www.bokix.se/sakerhet): kryptering, åtkomstkontroll, automatisk gallring och dataportabilitet
 - [Bokix på hemskärmen](https://www.bokix.se/lagg-till-pa-hemskarmen): så lägger man Bokix som en app på hemskärmen på iPhone (Safari) och Android (Chrome), steg för steg
 - [Bokix i korthet](https://www.bokix.se/bokix-i-korthet): fakta om Bokix på en sida, vad som ingår och vad det inte passar för
-- [Om oss](https://www.bokix.se/om-oss): varför Bokix finns och principerna produkten byggs efter
+- [Om oss](https://www.bokix.se/om-oss): varför Bokix finns, vad vi bryr oss om, vad Bokix inte gör och kort fakta om företaget
 - [Kontakt](https://www.bokix.se/kontakt): kontaktformulär, support@bokix.se
 - [Boka en genomgång](https://www.bokix.se/boka-genomgang): boka en personlig genomgång av Bokix
 
