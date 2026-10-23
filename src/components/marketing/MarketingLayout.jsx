@@ -1264,7 +1264,7 @@ function ThemeSwitch({ theme, onToggleTheme, labels = false }) {
 
 export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
   const [scrolled, setScrolled] = useState(false);
-  const [inFooter, setInFooter] = useState(false);
+  const [scrollHidden, setScrollHidden] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [mobileOpenKey, setMobileOpenKey] = useState(null);
@@ -1273,18 +1273,20 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Headern glider undan när man är i sidfoten och kommer tillbaka så fort
-  // man scrollar upp ur den. "I sidfoten" = den täcker mer än 60 % av
-  // fönstret, eller man har scrollat ända ner. Inte "överkanten under
-  // headern": på en hög skärm är sidfoten lägre än fönstret och når aldrig dit.
+  // Headern glider undan när man scrollar nedåt och kommer tillbaka så fort
+  // man scrollar uppåt (2026-10-21, ersatte "bara undan i sidfoten").
+  // Alltid synlig högst upp på sidan. En liten tröskel så att
+  // skakningar på pekskärm inte får den att blinka.
   useEffect(() => {
+    let lastY = window.scrollY;
     const handler = () => {
-      setScrolled(window.scrollY > 20);
-      const footer = document.querySelector('.lp-footer');
-      if (!footer) { setInFooter(false); return; }
-      const { top, bottom } = footer.getBoundingClientRect();
-      const vh = window.innerHeight;
-      setInFooter(top <= vh * 0.4 || (bottom <= vh + 2 && top < vh * 0.75));
+      const y = window.scrollY;
+      setScrolled(y > 20);
+      if (y < 80) setScrollHidden(false);
+      else if (y > lastY + 6) setScrollHidden(true);
+      else if (y < lastY - 6) setScrollHidden(false);
+      else return;
+      lastY = y;
     };
     handler();
     window.addEventListener('scroll', handler, { passive: true });
@@ -1338,7 +1340,7 @@ export function MarketingHeader({ onEnterApp, theme, onToggleTheme }) {
   const activeMenu = NAV_MENUS.find(m => m.key === openDropdown && m.sections?.length);
   // Aldrig gömd medan en meny är öppen. visibility (inte bara transform) så
   // att tabb inte hamnar på länkar man inte ser.
-  const hidden = inFooter && !mobileMenuOpen && !openDropdown;
+  const hidden = scrollHidden && !mobileMenuOpen && !openDropdown;
 
   return (
     <>
