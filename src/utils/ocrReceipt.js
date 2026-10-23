@@ -1619,15 +1619,22 @@ async function extractTextFromImage(imageSource, onProgress, { quad = null, rota
   // sekunder; rätt svar är värt dem.
   const first = renderStage(stage, MAX_OCR_DIMENSION);
   const a = await recognizeWith(first.source, onProgress);
-  onProgress?.('Läser av en gång till och jämför…');
-  const second = renderStage(stage, CAREFUL_OCR_DIMENSION);
-  const b = await recognizeWith(second.source, onProgress, { psm: '6', label: 'Läser av noggrant' });
-  let readings = [{ r: a, quality: first.quality }, { r: b, quality: second.quality }];
+  let readings = [{ r: a, quality: first.quality }];
+  // Den andra läsningen behövs bara när den första inte gick ihop: ett belopp
+  // som stämmer mot momsen, en momssats som stämmer och ett datum (poäng 8,
+  // se readingScore) blir inte säkrare av en läsning till, bara långsammare.
+  if (readingScore(a) < 8) {
+    onProgress?.('Läser av en gång till och jämför…');
+    const second = renderStage(stage, CAREFUL_OCR_DIMENSION);
+    const b = await recognizeWith(second.source, onProgress, { psm: '6', label: 'Läser av noggrant' });
+    readings.push({ r: b, quality: second.quality });
+  }
+  const [a1, b1] = [readings[0].r, readings[1]?.r];
   // Gav ingen av läsningarna ett belopp att lita på kan utklippningen ha tagit
   // fel del av bilden (en ljus vägg i stället för kvittot). Då provas andra
   // utklipp: där bilden ser ut som text, och hela bilden. Den som ger ett
   // kvitto vinner, precis som en människa letar tills hon hittar texten.
-  if (!quad && (stage.cropMaybeCutsText || Math.max(readingScore(a), readingScore(b)) < 3)) {
+  if (!quad && (stage.cropMaybeCutsText || Math.max(readingScore(a1), b1 ? readingScore(b1) : -10) < 3)) {
     const alternatives = [];
     try { const t = textRegionBounds(stage.base); if (t) alternatives.push({ ...stage, quad: null, bounds: t }); } catch { /* hoppa över */ }
     alternatives.push({ ...stage, quad: null, bounds: null });
@@ -1647,7 +1654,7 @@ async function extractTextFromImage(imageSource, onProgress, { quad = null, rota
     }
   }
   const best = readings[0].r;
-  const other = readings[1].r;
+  const other = readings[1]?.r || { text: '', layout: [] };
   const quality = readings[0].quality;
   const doubtful = await rereadDate(best);
   let logo = null;
