@@ -1,12 +1,16 @@
-// Reservläsning för svåra kvitton. Den egna avläsningen (Tesseract i
-// webbläsaren) körs alltid först. Bara när den inte gav ett belopp att lita
-// på skickas en nedskalad bild till /api/ocr-vision (Google Cloud Vision, EU).
-// Texten tolkas sedan av samma parseReceiptText, och den läsning som ger
-// bäst resultat vinner. Beslut 2026-10-23: Vision är reserv, inte förstaval,
-// så att så få bilder som möjligt lämnar webbläsaren.
+// Kvittoläsning med Google Cloud Vision (/api/ocr-vision, EU). Beslut
+// 2026-10-23: fotade kvitton läses av Vision FÖRST så länge månadens
+// gratiskvot räcker (800 läsningar, räknas på servern). När kvoten är slut
+// svarar servern 429 och appens egen avläsning (Tesseract i webbläsaren)
+// används resten av månaden. En PDF läses alltid av den egna först (en
+// digital PDF har exakt text gratis) och skickas bara när den inte räckte.
+// Texten tolkas av samma parseReceiptText som den egna läsningens.
 import { supabase } from '../supabaseClient';
 
 const CLOUD_TIMEOUT_MS = 20000;
+// Svarade servern att månadens kvot är slut skickas inget mer under besöket,
+// så att ingen bild laddas upp i onödan.
+let quotaReached = false;
 
 /** Behöver avläsningen hjälp? Oläsbart, inget belopp, gissat belopp eller moms som inte går ihop. */
 export function needsCloudReading(parsed) {
@@ -16,12 +20,17 @@ export function needsCloudReading(parsed) {
   return !parsed.amount || Boolean(parsed.amountGuessed) || Boolean(parsed.vatMismatch);
 }
 
-/** Läser dokumentet med Vision. Returnerar texten, eller null om det inte gick (då gäller den egna läsningen). */
-export async function readWithCloud(input) {
+/**
+ * Läser dokumentet med Vision. Returnerar texten, eller null om det inte gick
+ * eller kvoten är slut (då gäller den egna läsningen). `imagesOnly`: en PDF
+ * skickas inte (Vision först gäller bara foton).
+ */
+export async function readWithCloud(input, { imagesOnly = false } = {}) {
+  if (quotaReached) return null;
   try {
     const { documentForCloud } = await import('./ocrReceipt');
     const doc = await documentForCloud(input);
-    if (!doc) return null;
+    if (!doc || (imagesOnly && doc.kind !== 'image')) return null;
     const { data: { session } = {} } = await supabase.auth.getSession();
     if (!session?.access_token) return null;
     const controller = new AbortController();
@@ -33,8 +42,9 @@ export async function readWithCloud(input) {
         body: JSON.stringify({ [doc.kind]: doc.content }),
         signal: controller.signal,
       });
-      if (!response.ok) return null;
       const payload = await response.json().catch(() => ({}));
+      if (response.status === 429 && payload?.code === 'quota') quotaReached = true;
+      if (!response.ok) return null;
       return typeof payload?.text === 'string' && payload.text.trim() ? payload.text : null;
     } finally {
       clearTimeout(timer);

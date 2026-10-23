@@ -49,7 +49,9 @@ function hitMemory(bucketKey, windowMs, max, now) {
 }
 
 // Svarar null om den delade räknaren inte gick att fråga (då avgör minnet).
-async function hitShared(bucketKey, windowMs, max) {
+// Exporteras för räknare som inte är en rate limit, t.ex. Vision-kvoten per
+// månad i api/ocr-vision.js.
+export async function hitShared(bucketKey, windowMs, max) {
   const admin = getAdmin();
   if (!admin) return null;
   try {

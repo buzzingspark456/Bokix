@@ -78,12 +78,32 @@ describe('ocrCache', () => {
     expect(result.layout).toBeNull();
   });
 
-  it('frågar inte reservläsningen när den egna räckte, eller för en digital PDF', async () => {
+  it('läser ett foto med Vision först, utan den egna läsningen när Vision är säker', async () => {
     const good = fs.readFileSync(new URL('./__fixtures__/kvitto-r3.txt', import.meta.url), 'utf8');
-    const cloud = vi.fn(async () => 'annat');
-    await readDocumentText({ name: 'd.jpg', size: 9, lastModified: 5 }, null, { reader: async () => ({ text: good, confidence: 90 }), cloud });
-    await readDocumentText({ name: 'e.pdf', size: 9, lastModified: 6 }, null, { reader: async () => ({ text: 'Faktura utan belopp', confidence: null, quality: null }), cloud });
-    expect(cloud).not.toHaveBeenCalled();
+    const reader = vi.fn(async () => ({ text: 'skräp', confidence: 30 }));
+    const cloud = vi.fn(async () => good);
+    const result = await readDocumentText({ name: 'd.jpg', size: 9, lastModified: 5 }, null, { reader, cloud });
+    expect(result.text).toBe(good);
+    expect(cloud).toHaveBeenCalledWith(expect.anything(), { imagesOnly: true });
+    expect(reader).not.toHaveBeenCalled();
+  });
+
+  it('använder den egna läsningen när kvoten är slut, och frågar inte Vision en gång till', async () => {
+    const good = fs.readFileSync(new URL('./__fixtures__/kvitto-r3.txt', import.meta.url), 'utf8');
+    const cloud = vi.fn(async () => null);
+    const result = await readDocumentText({ name: 'k.jpg', size: 9, lastModified: 9 }, null, { reader: async () => ({ text: 'ICA\nTack', confidence: 40 }), cloud });
+    expect(result.text).toBe('ICA\nTack');
+    const ok = await readDocumentText({ name: 'l.jpg', size: 9, lastModified: 10 }, null, { reader: async () => ({ text: good, confidence: 90 }), cloud });
+    expect(ok.text).toBe(good);
+  });
+
+  it('skickar aldrig en digital PDF till Vision', async () => {
+    // Vision först gäller bara foton: imagesOnly gör att en PDF inte skickas.
+    const cloud = vi.fn(async (input, { imagesOnly = false } = {}) => (imagesOnly && input.name.endsWith('.pdf') ? null : 'annat'));
+    const result = await readDocumentText({ name: 'e.pdf', size: 9, lastModified: 6 }, null, { reader: async () => ({ text: 'Faktura utan belopp', confidence: null, quality: null }), cloud });
+    expect(result.text).toBe('Faktura utan belopp');
+    expect(cloud).toHaveBeenCalledTimes(1);
+    expect(cloud).toHaveBeenCalledWith(expect.anything(), { imagesOnly: true });
   });
 
   it('låter reservläsningen försöka när den egna läsningen kraschar, och visar felet om den inte heller klarar det', async () => {

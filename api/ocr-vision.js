@@ -1,12 +1,13 @@
-// Reservläsning av svåra kvitton med Google Cloud Vision. Appens egen
-// avläsning (Tesseract i webbläsaren) körs alltid först; bara när den inte
-// gav ett belopp att lita på skickar appen en nedskalad bild hit (se
-// src/utils/ocrCloud.js), eller hela PDF:en när den egna läsningen inte
-// klarade den. Nyckeln (GOOGLE_VISION_API_KEY) finns bara här på servern och
-// skickas aldrig till webbläsaren. EU-ändpunkten används så att filen
-// behandlas inom EU, och Google sparar inte filerna.
+// Kvittoläsning med Google Cloud Vision. Fotade kvitton läses här först så
+// länge månadens gratiskvot räcker (MONTHLY_LIMIT, under Googles 1 000
+// gratis per månad); sedan tar appens egen avläsning (Tesseract i
+// webbläsaren) över resten av månaden. En PDF skickas bara när den egna
+// läsningen inte räckte (se src/utils/ocrCloud.js och ocrCache.js). Nyckeln
+// (GOOGLE_VISION_API_KEY) finns bara här på servern och skickas aldrig till
+// webbläsaren. EU-ändpunkten används så att filen behandlas inom EU, och
+// Google sparar inte filerna.
 import { applySecurityHeaders } from './_security.js';
-import { checkRateLimit } from './_rateLimit.js';
+import { checkRateLimit, hitShared } from './_rateLimit.js';
 import { requireAuthedUser, requireActiveSubscription } from './_auth.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
 
@@ -18,6 +19,10 @@ const VISION_FILE_URL = 'https://eu-vision.googleapis.com/v1/files:annotate';
 // för en request är 4,5 MB, så det här taket ligger klart under den.
 const MAX_BASE64_CHARS = 3_500_000;
 const VISION_TIMEOUT_MS = 15000;
+// Läsningar per kalendermånad för alla konton tillsammans. Beslut
+// 2026-10-23: 800, så att felräkning eller en PDF-sida extra aldrig går över
+// Googles 1 000 gratis. Går att ändra med OCR_VISION_MONTHLY_LIMIT.
+const MONTHLY_LIMIT = Number(process.env.OCR_VISION_MONTHLY_LIMIT) || 800;
 
 export default async function handler(req, res) {
   applySecurityHeaders(res);
@@ -54,6 +59,18 @@ export default async function handler(req, res) {
     res.status(400).json({ error: 'Filen saknas eller är för stor.' });
     return;
   }
+  // Månadens kvot, räknad i databasen så att alla serverinstanser delar den.
+  // Nyckeln har månaden i sig, så räknaren börjar om den 1:a. Går räknaren
+  // inte att nå används inte Vision alls: hellre den egna läsningen en
+  // stund än en räkning från Google.
+  const month = new Date().toISOString().slice(0, 7);
+  const withinQuota = await hitShared(`ocr-vision-month:${month}`, 32 * 24 * 60 * 60 * 1000, MONTHLY_LIMIT);
+  if (withinQuota !== true) {
+    if (withinQuota === null) console.warn('[ocr-vision] Kvoträknaren (hit_rate_limit) gick inte att nå, Vision används inte.');
+    res.status(429).json({ error: 'Månadens kvot är slut, appens egen läsning används.', code: 'quota' });
+    return;
+  }
+
   const features = [{ type: 'DOCUMENT_TEXT_DETECTION' }];
   const imageContext = { languageHints: ['sv', 'en'] };
   const request = isPdf

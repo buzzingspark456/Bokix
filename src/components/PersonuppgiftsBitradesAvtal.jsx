@@ -91,7 +91,7 @@ export default function PersonuppgiftsBitradesAvtal() {
             ['Stripe', 'Betalningar (dina kortbetalningar från kunder, samt Bokix egen fakturering)'],
             ['Resend', 'Utskick av fakturor/offerter du väljer att mejla via Bokix'],
             ['Vercel (inkl. BotID)', 'Drift/hosting av tjänsten samt bot-/missbruksskydd'],
-            ['Google Cloud Vision', 'Läser texten på ett kvitto eller underlag när avläsningen i webbläsaren inte räckte. Bara bilden skickas, behandlas inom EU och sparas inte.'],
+            ['Google Cloud Vision', 'Läser texten på fotade kvitton och underlag, och på en PDF när avläsningen i webbläsaren inte räckte. Bara bilden eller filen skickas, behandlas inom EU och sparas inte.'],
             ['Bolagsverket, FöretagsAPI och VIES', 'Uppslag av namn och adress ur offentliga register när du söker upp en kund eller leverantör. Bara organisationsnumret, momsnumret eller det sökta namnet skickas.'],
             ['Google eller annan e-postleverantör', 'Endast om du själv kopplat din egen e-postadress som avsändare. Utskicket går då genom ditt eget konto. Mot Gmail har Bokix enbart behörighet att skicka, aldrig att läsa.'],
             ['Zettle', 'Endast om du själv kopplat din Zettle-kassa. Bokix hämtar då dina försäljningar för att bokföra dem.'],

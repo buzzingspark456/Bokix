@@ -121,29 +121,47 @@ export async function readDocumentText(input, onProgress, { force = false, reade
   const ocr = await import('./ocrReceipt');
   const read = reader || ocr.ocrFile;
   const cloudRead = cloud === undefined ? (reader ? null : (await import('./ocrCloud')).readWithCloud) : cloud;
+  const { needsCloudReading } = await import('./ocrCloud');
+
+  // 1. Ett foto läses av Vision först, så länge månadens kvot räcker (se
+  // ocrCloud.js). Blev läsningen säker används den direkt. Egna hörn (Justera
+  // kanter) är en beskärning för den egna läsningen och går dit.
+  let firstCloudText = null;
+  let cloudTried = false;
+  if (cloudRead && !quad) {
+    firstCloudText = await cloudRead(input, { imagesOnly: true });
+    cloudTried = Boolean(firstCloudText);
+    if (firstCloudText && !needsCloudReading(ocr.parseReceiptText(firstCloudText))) {
+      setCachedOcrText(key, firstCloudText);
+      return { text: firstCloudText, confidence: null, weakTokens: null, quality: null, layout: null, cached: false };
+    }
+  }
+
+  // 2. Den egna läsningen: en PDF, kvoten slut, Vision svarade inte, eller
+  // Visions läsning var osäker (då vinner den bästa av de två nedan).
   let local;
   try {
     local = await (quad ? read(input, onProgress, { quad }) : read(input, onProgress));
   } catch (err) {
     // Den egna läsningen kraschade (en PDF som pdf.js inte klarar i den här
-    // webbläsaren, en bild som inte går att avkoda): reservläsningen får
-    // försöka innan felet visas. Kundfel 2026-10-23, PDF-kvitto i Verifikationer.
-    const cloudText = cloudRead ? await cloudRead(input) : null;
+    // webbläsaren, en bild som inte går att avkoda): Vision får försöka innan
+    // felet visas. Kundfel 2026-10-23, PDF-kvitto i Verifikationer.
+    const cloudText = firstCloudText || (cloudRead && !cloudTried ? await cloudRead(input) : null);
     if (!cloudText) throw err;
     setCachedOcrText(key, cloudText);
     return { text: cloudText, confidence: null, weakTokens: null, quality: null, layout: null, cached: false };
   }
   let { text, confidence, weakTokens, quality, layout } = local;
 
-  // Reservläsningen (ocrCloud.js) bara när den egna läsningen av en BILD inte
-  // räckte. En digital PDF har exakt text (ingen säkerhet och inga mätvärden)
-  // och skickas aldrig. En cachad träff provas inte igen: "Läs av igen" gör det.
+  // 3. Vision som reserv när den egna läsningen av en BILD inte räckte och
+  // Vision inte redan läst den (en skannad PDF, eller egna hörn). En digital
+  // PDF har exakt text (ingen säkerhet och inga mätvärden) och skickas aldrig.
+  // En cachad träff provas inte igen: "Läs av igen" gör det.
   const isImageReading = (confidence !== null && confidence !== undefined) || Boolean(quality);
   if (cloudRead && isImageReading) {
-    const { needsCloudReading } = await import('./ocrCloud');
-    if (needsCloudReading(ocr.parseReceiptText(text, { confidence, weakTokens }))) {
-      onProgress?.('Läser kvittot en gång till…');
-      const cloudText = await cloudRead(input);
+    if (firstCloudText || (!cloudTried && needsCloudReading(ocr.parseReceiptText(text, { confidence, weakTokens })))) {
+      if (!firstCloudText) onProgress?.('Läser kvittot en gång till…');
+      const cloudText = firstCloudText || await cloudRead(input);
       if (cloudText && ocr.readingScore({ text: cloudText, confidence: 100 }) > ocr.readingScore({ text, confidence })) {
         // Visions text är säker på tecknen; Tesseracts rutor och osäkra ord
         // hör till den andra läsningen och gäller inte längre.
