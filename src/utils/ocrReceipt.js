@@ -17,6 +17,7 @@
 import { KNOWN_SUPPLIERS, ACCOUNT_KEYWORD_RULES } from './accountCategories';
 import { REVERSE_PURCHASE_ACCOUNTS } from './vatConfig';
 import { getSignedStorageUrl } from './signedUrls';
+import { loadPdfjs } from './pdfjs';
 
 const MONTHS_MAP = {
   jan: '01', feb: '02', mar: '03', apr: '04', maj: '05', may: '05',
@@ -216,10 +217,7 @@ export function pdfItemsToText(items) {
 async function extractTextFromPdf(blob, onProgress) {
   try {
     onProgress?.('Läser digital PDF…');
-    const pdfjsLib = await import('pdfjs-dist');
-    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-    }
+    const pdfjsLib = await loadPdfjs();
 
     const arrayBuffer = await blob.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({
@@ -251,12 +249,9 @@ async function extractTextFromPdf(blob, onProgress) {
  * Renderar första sidan av en skannad PDF till en canvas så Tesseract kan läsa den.
  */
 async function renderPdfPageToCanvas(blob) {
-  const pdfjsLib = await import('pdfjs-dist');
-  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-  }
+  const pdfjsLib = await loadPdfjs();
   const arrayBuffer = await blob.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer), isEvalSupported: false }).promise;
   const page = await pdf.getPage(1);
   const viewport = page.getViewport({ scale: 2.0 });
   const canvas = document.createElement('canvas');

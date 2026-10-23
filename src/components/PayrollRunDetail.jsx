@@ -8,6 +8,7 @@ import { parsePayrollHours } from '../utils/payrollHoursImport';
 import CalculationRow from './shared/CalculationRow';
 import ListPageHeader from './shared/ListPageHeader';
 import { BRAND } from '../utils/brandColors';
+import { loadPdfjs } from '../utils/pdfjs';
 import { computeEmployeePayroll, summarizePayrollRun, FEE_RULES_VERSION } from '../utils/payrollCalculation';
 import { PAY_TYPE_GROUPS, PAY_LINE_KINDS, getPayType, defaultRateFor } from '../utils/payTypes';
 import { PAYROLL_RUN_STEPS, PAYROLL_ACCOUNTS } from '../utils/payrollConfig';
@@ -409,11 +410,8 @@ function PayslipPreview({ computedRows, payslipArgs, period, refreshKey = '' }) 
       const data = new Uint8Array(doc.output('arraybuffer'));
       (async () => {
         try {
-          const pdfjsLib = await import('pdfjs-dist');
-          if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-          }
-          const pdf = await pdfjsLib.getDocument({ data }).promise;
+          const pdfjsLib = await loadPdfjs();
+          const pdf = await pdfjsLib.getDocument({ data, isEvalSupported: false }).promise;
           const pdfPage = await pdf.getPage(1);
           const viewport = pdfPage.getViewport({ scale: 2 });
           const canvas = document.createElement('canvas');
