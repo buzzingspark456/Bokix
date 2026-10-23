@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fiscalYearFields, firstYearEndOptions, describeFiscalYear, defaultFirstYearEnd, suggestFiscalYear } from './fiscalYearSetup';
+import { fiscalYearFields, firstYearEndOptions, describeFiscalYear, defaultFirstYearEnd, suggestFiscalYear, isSoleTraderNumber } from './fiscalYearSetup';
 
 const now = new Date(2026, 8, 27); // 27 september 2026
 
@@ -60,5 +60,15 @@ describe('suggestFiscalYear', () => {
   it('vet inget om äldre företag utan årsredovisning', () => {
     expect(suggestFiscalYear({ registrationDate: '2019-03-15' }, now)).toBe(null);
     expect(suggestFiscalYear(null, now)).toBe(null);
+  });
+});
+
+describe('isSoleTraderNumber', () => {
+  it('känner igen ett personnummer som enskild firma, men inte ett organisationsnummer', () => {
+    expect(isSoleTraderNumber('920927-3029')).toBe(true);
+    expect(isSoleTraderNumber('19920927-3029')).toBe(true);
+    expect(isSoleTraderNumber('556036-0793')).toBe(false);
+    expect(isSoleTraderNumber('802520-1234')).toBe(false);
+    expect(isSoleTraderNumber('')).toBe(false);
   });
 });

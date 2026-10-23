@@ -3469,6 +3469,7 @@
     "sum_vinstmarginal": "The profit margin for the year was {{v}}.",
     "sum_soliditet": "The equity ratio (equity relative to total assets) was {{v}}.",
     "kalenderar": "Calendar year",
+    "enskild_firma_har_alltid_kalenderar": "A sole trader always uses the calendar year, 1 January – 31 December. The first year ends on 31 December.",
     "annat_rakenskapsar": "Other financial year",
     "vart_forsta_ar": "This is our first year",
     "fler_atgarder": "More actions",

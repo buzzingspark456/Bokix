@@ -19,9 +19,9 @@ export function needsCloudReading(parsed) {
 /** Läser dokumentet med Vision. Returnerar texten, eller null om det inte gick (då gäller den egna läsningen). */
 export async function readWithCloud(input) {
   try {
-    const { documentImageForCloud } = await import('./ocrReceipt');
-    const image = await documentImageForCloud(input);
-    if (!image) return null;
+    const { documentForCloud } = await import('./ocrReceipt');
+    const doc = await documentForCloud(input);
+    if (!doc) return null;
     const { data: { session } = {} } = await supabase.auth.getSession();
     if (!session?.access_token) return null;
     const controller = new AbortController();
@@ -30,7 +30,7 @@ export async function readWithCloud(input) {
       const response = await fetch('/api/ocr-vision', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ image }),
+        body: JSON.stringify({ [doc.kind]: doc.content }),
         signal: controller.signal,
       });
       if (!response.ok) return null;

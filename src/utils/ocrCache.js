@@ -120,14 +120,25 @@ export async function readDocumentText(input, onProgress, { force = false, reade
   }
   const ocr = await import('./ocrReceipt');
   const read = reader || ocr.ocrFile;
-  const local = await (quad ? read(input, onProgress, { quad }) : read(input, onProgress));
+  const cloudRead = cloud === undefined ? (reader ? null : (await import('./ocrCloud')).readWithCloud) : cloud;
+  let local;
+  try {
+    local = await (quad ? read(input, onProgress, { quad }) : read(input, onProgress));
+  } catch (err) {
+    // Den egna läsningen kraschade (en PDF som pdf.js inte klarar i den här
+    // webbläsaren, en bild som inte går att avkoda): reservläsningen får
+    // försöka innan felet visas. Kundfel 2026-10-23, PDF-kvitto i Verifikationer.
+    const cloudText = cloudRead ? await cloudRead(input) : null;
+    if (!cloudText) throw err;
+    setCachedOcrText(key, cloudText);
+    return { text: cloudText, confidence: null, weakTokens: null, quality: null, layout: null, cached: false };
+  }
   let { text, confidence, weakTokens, quality, layout } = local;
 
   // Reservläsningen (ocrCloud.js) bara när den egna läsningen av en BILD inte
   // räckte. En digital PDF har exakt text (ingen säkerhet och inga mätvärden)
   // och skickas aldrig. En cachad träff provas inte igen: "Läs av igen" gör det.
   const isImageReading = (confidence !== null && confidence !== undefined) || Boolean(quality);
-  const cloudRead = cloud === undefined ? (reader ? null : (await import('./ocrCloud')).readWithCloud) : cloud;
   if (cloudRead && isImageReading) {
     const { needsCloudReading } = await import('./ocrCloud');
     if (needsCloudReading(ocr.parseReceiptText(text, { confidence, weakTokens }))) {

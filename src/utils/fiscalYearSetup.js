@@ -37,6 +37,17 @@ export function firstYearEndOptions(startIso) {
   return out;
 }
 
+/**
+ * Är numret ett personnummer, alltså en enskild firma? Ett organisationsnummer
+ * har alltid minst 20 i tredje och fjärde siffran, ett personnummer har
+ * månaden (01–12) där. En enskild firma måste ha kalenderår (3 kap. 1 § BFL).
+ */
+export function isSoleTraderNumber(orgNr) {
+  const digits = String(orgNr || '').replace(/\D/g, '');
+  if (digits.length !== 10 && digits.length !== 12) return false;
+  return Number(digits.slice(-10)[2]) < 2;
+}
+
 /** Förval för första årets slut: 31 december samma år. */
 export function defaultFirstYearEnd(startIso) {
   const { y } = parse(startIso);

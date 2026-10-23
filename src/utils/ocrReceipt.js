@@ -1834,22 +1834,38 @@ async function readPdfHeaderName(page, inText) {
 }
 
 /**
- * Dokumentet som en nedskalad JPEG (base64 utan data:-prefix) för
- * reservläsningen i ocrCloud.js. Hela fotot skickas, inte Tesseracts
- * förbehandlade bild: Vision läser bäst på originalet. En PDF blir sida 1.
- * Returnerar null om bilden inte går att läsa i den här webbläsaren.
+ * Dokumentet för reservläsningen i ocrCloud.js, som { kind, content } med
+ * base64 utan data:-prefix. En PDF skickas som den är (Vision läser första
+ * sidan själv), så att den går att läsa även när pdf.js inte klarar den i den
+ * här webbläsaren. En bild blir en nedskalad JPEG av hela fotot, inte
+ * Tesseracts förbehandlade bild: Vision läser bäst på originalet.
+ * Returnerar null om dokumentet inte går att skicka.
  */
-export async function documentImageForCloud(input, maxEdge = 2000) {
-  if (typeof document === 'undefined' || typeof createImageBitmap !== 'function') return null;
+export async function documentForCloud(input, maxEdge = 2000) {
+  if (typeof document === 'undefined') return null;
   const { blob, isPdf } = await loadDocumentBlob(input);
-  const source = isPdf ? await renderPdfPageToCanvas(blob) : await createImageBitmap(blob, { imageOrientation: 'from-image' });
+  if (isPdf) {
+    // Serverns tak är 3,5 miljoner tecken base64, ungefär 2,6 MB PDF.
+    if (blob.size > 2_600_000) return null;
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+    const content = dataUrl.split(',')[1];
+    return content ? { kind: 'pdf', content } : null;
+  }
+  if (typeof createImageBitmap !== 'function') return null;
+  const source = await createImageBitmap(blob, { imageOrientation: 'from-image' });
   const scale = Math.min(1, maxEdge / Math.max(source.width, source.height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(source.width * scale));
   canvas.height = Math.max(1, Math.round(source.height * scale));
   canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
   source.close?.();
-  return canvas.toDataURL('image/jpeg', 0.85).split(',')[1] || null;
+  const content = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+  return content ? { kind: 'image', content } : null;
 }
 
 /** Hämtar dokumentet (fil, data-URL eller lagrad URL) och avgör om det är en PDF. */

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Check, Loader2 } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import { checkVatRegistration } from '../../utils/companyLookup';
-import { MONTHS, firstYearEndOptions, defaultFirstYearEnd, formatSvDate, todayIso, fiscalYearFields, suggestFiscalYear } from '../../utils/fiscalYearSetup';
+import { MONTHS, firstYearEndOptions, defaultFirstYearEnd, formatSvDate, todayIso, fiscalYearFields, suggestFiscalYear, isSoleTraderNumber } from '../../utils/fiscalYearSetup';
 import { t } from '../../i18n';
 
 // Två frågor som ställs där ett företag läggs upp (registreringen, Lägg
@@ -27,7 +27,10 @@ export function companySetupComplete(value) {
 
 /** Svaren → fälten som sparas på företaget. */
 export function companySetupToCompany(value, orgNr) {
-  const { fiscalYear, firstFiscalYear } = fiscalYearFields(value);
+  // En enskild firma har alltid kalenderår, även om ett annat val hann sparas
+  // i formuläret innan numret var ifyllt.
+  const choice = isSoleTraderNumber(orgNr) && value?.mode === 'other' ? { ...value, mode: 'calendar' } : value;
+  const { fiscalYear, firstFiscalYear } = fiscalYearFields(choice);
   const digits = String(orgNr || '').replace(/\D/g, '');
   return {
     fiscalYear,
@@ -54,6 +57,12 @@ export default function FiscalYearVatFields({ value, onChange, orgNr, registry }
   const lastChecked = useRef('');
 
   const digits = String(orgNr || '').replace(/\D/g, '');
+  // Enskild firma (personnummer): bara kalenderår, och ett första år slutar
+  // 31 december. Kundönskemål 2026-10-23: skatten ska alltid bli rätt.
+  const soleTrader = isSoleTraderNumber(digits);
+  useEffect(() => {
+    if (soleTrader && v.mode === 'other') onChange(cur => ({ ...EMPTY_COMPANY_SETUP, ...cur, mode: 'calendar' }));
+  }, [soleTrader, v.mode]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (digits.length !== 10 || lastChecked.current === digits) return;
     lastChecked.current = digits;
@@ -88,14 +97,14 @@ export default function FiscalYearVatFields({ value, onChange, orgNr, registry }
       set({ mode, firstStart: start, firstEnd: defaultFirstYearEnd(start), fySource: 'user' });
     } else set({ mode, fySource: 'user' });
   };
-  const endOptions = firstYearEndOptions(v.firstStart);
+  const endOptions = firstYearEndOptions(v.firstStart).filter(d => !soleTrader || d.endsWith('-12-31'));
 
   return (
     <div style={{ display: 'grid', gap: '20px' }}>
       <div>
         <span style={labelStyle}>{t('ui.vilket_rakenskapsar_har_ni')}</span>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }} role="radiogroup" aria-label={t('ui.rakenskapsar')}>
-          {[['calendar', t('ui.kalenderar')], ['other', t('ui.annat_rakenskapsar')], ['first', t('ui.vart_forsta_ar')]].map(([id, label]) => (
+          {[['calendar', t('ui.kalenderar')], ...(soleTrader ? [] : [['other', t('ui.annat_rakenskapsar')]]), ['first', t('ui.vart_forsta_ar')]].map(([id, label]) => (
             <button key={id} type="button" role="radio" aria-checked={v.mode === id} onClick={() => chooseMode(id)} style={pill(v.mode === id)}>{label}</button>
           ))}
         </div>
@@ -105,7 +114,9 @@ export default function FiscalYearVatFields({ value, onChange, orgNr, registry }
             <Check size={13} style={{ flexShrink: 0, marginTop: '2px' }} /> <span>{v.fyNote} {t('ui.andra_om_det_inte_stammer')}</span>
           </div>
         )}
-        {v.mode === 'calendar' && v.fySource !== 'registry' && <div style={hintStyle}>{t('ui.n1_januari_31_december_det_vanligaste')}</div>}
+        {soleTrader
+          ? <div style={hintStyle}>{t('ui.enskild_firma_har_alltid_kalenderar')}</div>
+          : v.mode === 'calendar' && v.fySource !== 'registry' && <div style={hintStyle}>{t('ui.n1_januari_31_december_det_vanligaste')}</div>}
 
         {v.mode === 'other' && (
           <div style={{ marginTop: '12px' }}>

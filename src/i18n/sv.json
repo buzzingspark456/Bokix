@@ -3469,6 +3469,7 @@
     "sum_vinstmarginal": "Vinstmarginalen för året var {{v}}.",
     "sum_soliditet": "Soliditeten (eget kapital i förhållande till totala tillgångar) uppgick till {{v}}.",
     "kalenderar": "Kalenderår",
+    "enskild_firma_har_alltid_kalenderar": "En enskild firma har alltid kalenderår, 1 januari – 31 december. Första året slutar 31 december.",
     "annat_rakenskapsar": "Annat räkenskapsår",
     "vart_forsta_ar": "Det är vårt första år",
     "fler_atgarder": "Fler åtgärder",

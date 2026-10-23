@@ -86,6 +86,13 @@ describe('ocrCache', () => {
     expect(cloud).not.toHaveBeenCalled();
   });
 
+  it('låter reservläsningen försöka när den egna läsningen kraschar, och visar felet om den inte heller klarar det', async () => {
+    const reader = async () => { throw new Error('pdf.js kraschade'); };
+    const ok = await readDocumentText({ name: 'f.pdf', size: 9, lastModified: 7 }, null, { reader, cloud: async () => 'ICA Maxi\nTotalt 125,00' });
+    expect(ok.text).toBe('ICA Maxi\nTotalt 125,00');
+    await expect(readDocumentText({ name: 'g.pdf', size: 9, lastModified: 8 }, null, { reader, cloud: async () => null })).rejects.toThrow('pdf.js kraschade');
+  });
+
   it('fungerar utan localStorage', async () => {
     delete globalThis.localStorage;
     const reader = vi.fn(async () => ({ text: 'text', confidence: null }));
