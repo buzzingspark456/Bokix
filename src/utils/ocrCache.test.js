@@ -84,7 +84,7 @@ describe('ocrCache', () => {
     const cloud = vi.fn(async () => good);
     const result = await readDocumentText({ name: 'd.jpg', size: 9, lastModified: 5 }, null, { reader, cloud });
     expect(result.text).toBe(good);
-    expect(cloud).toHaveBeenCalledWith(expect.anything(), { imagesOnly: true });
+    expect(cloud).toHaveBeenCalledTimes(1);
     expect(reader).not.toHaveBeenCalled();
   });
 
@@ -97,13 +97,19 @@ describe('ocrCache', () => {
     expect(ok.text).toBe(good);
   });
 
-  it('skickar aldrig en digital PDF till Vision', async () => {
-    // Vision först gäller bara foton: imagesOnly gör att en PDF inte skickas.
-    const cloud = vi.fn(async (input, { imagesOnly = false } = {}) => (imagesOnly && input.name.endsWith('.pdf') ? null : 'annat'));
-    const result = await readDocumentText({ name: 'e.pdf', size: 9, lastModified: 6 }, null, { reader: async () => ({ text: 'Faktura utan belopp', confidence: null, quality: null }), cloud });
-    expect(result.text).toBe('Faktura utan belopp');
+  it('läser en PDF med Vision först också', async () => {
+    const good = fs.readFileSync(new URL('./__fixtures__/kvitto-r3.txt', import.meta.url), 'utf8');
+    const reader = vi.fn(async () => ({ text: 'Faktura utan belopp', confidence: null, quality: null }));
+    const cloud = vi.fn(async () => good);
+    const result = await readDocumentText({ name: 'e.pdf', size: 9, lastModified: 6 }, null, { reader, cloud });
+    expect(result.text).toBe(good);
+    expect(reader).not.toHaveBeenCalled();
+  });
+
+  it('frågar Vision bara en gång per läsning', async () => {
+    const cloud = vi.fn(async () => 'ICA\nTack');
+    await readDocumentText({ name: 'm.jpg', size: 9, lastModified: 11 }, null, { reader: async () => ({ text: 'ICA', confidence: 30 }), cloud });
     expect(cloud).toHaveBeenCalledTimes(1);
-    expect(cloud).toHaveBeenCalledWith(expect.anything(), { imagesOnly: true });
   });
 
   it('låter reservläsningen försöka när den egna läsningen kraschar, och visar felet om den inte heller klarar det', async () => {

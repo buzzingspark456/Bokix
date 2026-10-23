@@ -1,8 +1,8 @@
-// Kvittoläsning med Google Cloud Vision. Fotade kvitton läses här först så
+// Kvittoläsning med Google Cloud Vision. Foton och PDF:er läses här först så
 // länge månadens gratiskvot räcker (MONTHLY_LIMIT, under Googles 1 000
 // gratis per månad); sedan tar appens egen avläsning (Tesseract i
-// webbläsaren) över resten av månaden. En PDF skickas bara när den egna
-// läsningen inte räckte (se src/utils/ocrCloud.js och ocrCache.js). Nyckeln
+// webbläsaren) över resten av månaden (se src/utils/ocrCloud.js och
+// ocrCache.js). Nyckeln
 // (GOOGLE_VISION_API_KEY) finns bara här på servern och skickas aldrig till
 // webbläsaren. EU-ändpunkten används så att filen behandlas inom EU, och
 // Google sparar inte filerna.
@@ -12,8 +12,8 @@ import { requireAuthedUser, requireActiveSubscription } from './_auth.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
 
 const VISION_IMAGE_URL = 'https://eu-vision.googleapis.com/v1/images:annotate';
-// En PDF läses av Vision själv (första sidan), så att en PDF som webbläsarens
-// pdf.js inte klarar ändå går att läsa.
+// En PDF läses av Vision själv (första sidan), så att även en PDF som
+// webbläsarens pdf.js inte klarar går att läsa.
 const VISION_FILE_URL = 'https://eu-vision.googleapis.com/v1/files:annotate';
 // Base64 av en bild på 2000 px i JPEG är oftast under 1 MB. Vercels gräns
 // för en request är 4,5 MB, så det här taket ligger klart under den.

@@ -43,7 +43,7 @@ leverantörs trust center eller avtalssida och fylls i med datum. Kolumnen
 | Stripe | Prenumerationer, kundbetalningar av fakturor | Namn, e-post, betalningar | USA/EU | __________ | ☐ | ☐ | Export från Stripe |
 | Resend | Utskick av e-post | E-postadresser, fakturor och lönebesked som bilagor | __________ | __________ | ☐ | ☐ | Annan e-posttjänst |
 | Google | Workspace (e-post), Gmail-koppling, Search Console, GA4 | Grundarnas e-post, analys efter samtycke | __________ | __________ | ☐ | ☐ | |
-| Google Cloud Vision | Kvittoläsning, foton först upp till 800/månad, PDF som reserv (api/ocr-vision.js) | Kvittobilder, nedskalade | EU (eu-vision.googleapis.com) | __________ | ☐ | ☐ | Stäng av (ta bort GOOGLE_VISION_API_KEY) |
+| Google Cloud Vision | Kvittoläsning, foton och PDF först upp till 800/månad (api/ocr-vision.js) | Kvittobilder (nedskalade) och PDF-kvitton | EU (eu-vision.googleapis.com) | __________ | ☐ | ☐ | Stäng av (ta bort GOOGLE_VISION_API_KEY) |
 | PostHog | Sidvisningar efter samtycke | Pseudonym användning | EU | __________ | ☐ | ☐ | Stäng av |
 | Microsoft Clarity | Sessionsinspelning i appen, text maskerad | Pseudonym användning | __________ | __________ | ☐ | ☐ | Stäng av |
 | GitHub | Källkod, CI | Kod, inga kunddata | USA | __________ | Ej tillämpligt | ☐ | Annan git-värd |
