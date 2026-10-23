@@ -235,15 +235,46 @@ async function extractTextFromPdf(blob, onProgress) {
       fullText += pageText + '\n';
     }
 
-    const trimmed = fullText.trim();
-    if (trimmed.length >= 15) {
-      return trimmed;
-    }
+    return fullText.trim();
   } catch (err) {
+    if (err?.name === 'PasswordException') throw pdfOpenError(err);
     console.warn('[OCR] Direkt PDF-textextrahering gav ingen text, provar bild-OCR:', err);
   }
   return '';
 }
+
+/**
+ * Duger PDF:ens textlager som kvittotext? En digital PDF ger exakt text, men
+ * inte alltid: en skannerapp kan lägga en vattenstämpel ("Scanned with
+ * CamScanner") som enda text över en bild av kvittot, och vissa typsnitt
+ * saknar teckentabell så att texten blir obegripliga tecken. Då läses sidan
+ * som bild i stället. Kravet: minst ett belopp, och nästan bara vanliga
+ * tecken (bokstäver, siffror, skiljetecken).
+ */
+export function pdfTextLooksUsable(text) {
+  const t = String(text || '');
+  const compact = t.replace(/\s+/g, '');
+  if (compact.length < 15) return false;
+  // Ett belopp: med ören ("249,00") eller hela kronor med valuta ("249 kr").
+  if (!new RegExp(MONEY_DECIMAL_SOURCE).test(t) && !/\b\d+\s?(?:kr|sek|:-)(?![\p{L}])/iu.test(t)) return false;
+  const normal = (compact.match(/[\p{L}\p{N}.,:;%+\-–/()&*'"!?€$£#@=]/gu) || []).length;
+  return normal / compact.length >= 0.85;
+}
+
+/** Ett lösenordsskyddat dokument går inte att läsa alls, varken som text eller som bild. */
+function pdfOpenError(err) {
+  if (err?.name === 'PasswordException') {
+    return new Error('PDF:en är lösenordsskyddad. Spara den utan lösenord, eller ladda upp en skärmdump av kvittot.');
+  }
+  return err;
+}
+
+// Sidans långsida i pixlar när en skannad PDF renderas. En fast skala blev
+// fel åt båda håll: ett smalt kassakvitto (ca 80 mm brett) blev för litet för
+// att läsas, och en A4-skanning tappade detaljer som fanns i filen. Bilden
+// förminskas sedan till den storlek avläsningen själv vill ha.
+const PDF_RENDER_LONG_SIDE = 2600;
+const PDF_RENDER_MAX_SCALE = 6;
 
 /**
  * Renderar första sidan av en skannad PDF till en canvas så Tesseract kan läsa den.
@@ -251,13 +282,24 @@ async function extractTextFromPdf(blob, onProgress) {
 async function renderPdfPageToCanvas(blob) {
   const pdfjsLib = await loadPdfjs();
   const arrayBuffer = await blob.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer), isEvalSupported: false }).promise;
+  let pdf;
+  try {
+    pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer), isEvalSupported: false }).promise;
+  } catch (err) {
+    throw pdfOpenError(err);
+  }
   const page = await pdf.getPage(1);
-  const viewport = page.getViewport({ scale: 2.0 });
+  const base = page.getViewport({ scale: 1 });
+  const scale = Math.min(PDF_RENDER_MAX_SCALE, PDF_RENDER_LONG_SIDE / Math.max(base.width, base.height, 1));
+  const viewport = page.getViewport({ scale });
   const canvas = document.createElement('canvas');
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   const ctx = canvas.getContext('2d');
+  // Vit botten: en PDF utan egen bakgrund blir annars genomskinlig, och
+  // genomskinligt blir svart när bilden görs om till gråskala.
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   await page.render({ canvasContext: ctx, viewport }).promise;
   return canvas;
 }
@@ -1506,7 +1548,37 @@ function readingScore({ text, confidence }) {
  * av försöken används, och bildens mätvärden följer med tillbaka (`quality`) så
  * att appen kan säga varför det inte gick och vad användaren kan göra åt det.
  */
-async function extractTextFromImage(imageSource, onProgress, { quad = null } = {}) {
+/** En kopia av canvasen vriden 90, 180 eller 270 grader medurs. */
+function rotateCanvas(source, degrees) {
+  const quarter = degrees % 180 !== 0;
+  const out = document.createElement('canvas');
+  out.width = quarter ? source.height : source.width;
+  out.height = quarter ? source.width : source.height;
+  const ctx = out.getContext('2d');
+  ctx.translate(out.width / 2, out.height / 2);
+  ctx.rotate((degrees * Math.PI) / 180);
+  ctx.drawImage(source, -source.width / 2, -source.height / 2);
+  return out;
+}
+
+// Gav avläsningen inget kvitto kan bilden ligga på sidan eller upp och ned (en
+// skannad sida som matats in på tvären, en skärmdump i liggande läge). Då
+// provläses bilden snabbt i varje vinkel, och bara den vinkel som ger ett
+// kvitto läses noggrant. Ett kvitto som läses rätt direkt kostar inget extra.
+const ROTATIONS = [90, 270, 180];
+async function readRotated(stage, onProgress) {
+  for (const degrees of ROTATIONS) {
+    onProgress?.('Kvittot verkar ligga snett, vrider bilden…');
+    const turned = rotateCanvas(stage.base, degrees);
+    const probeStage = await stageImage(turned);
+    if (!probeStage) return null;
+    const probe = await recognizeWith(renderStage(probeStage, MAX_OCR_DIMENSION).source, onProgress, { label: 'Provar en annan vinkel' });
+    if (readingScore(probe) >= 3) return extractTextFromImage(turned, onProgress, { rotationTried: true });
+  }
+  return null;
+}
+
+async function extractTextFromImage(imageSource, onProgress, { quad = null, rotationTried = false } = {}) {
   onProgress?.('Startar OCR-motor…');
   const stage = await stageImage(imageSource, { quad });
   if (!stage) {
@@ -1539,6 +1611,14 @@ async function extractTextFromImage(imageSource, onProgress, { quad = null } = {
     }
   }
   readings = readings.map(x => ({ ...x, score: readingScore(x.r) })).sort((x, y) => y.score - x.score);
+  if (!quad && !rotationTried && readings[0].score < 3 && stage.base) {
+    try {
+      const rotated = await readRotated(stage, onProgress);
+      if (rotated) return rotated;
+    } catch (err) {
+      console.warn('[OCR] Kunde inte vrida bilden:', err);
+    }
+  }
   const best = readings[0].r;
   const other = readings[1].r;
   const quality = readings[0].quality;
@@ -1587,24 +1667,34 @@ export async function ocrFile(input, onProgress, { quad = null } = {}) {
 
   if (isPdf) {
     // 1. Snabb direkt-extrahering för digitala PDF-fakturor — exakt text,
-    // ingen OCR-osäkerhet att ange.
+    // ingen OCR-osäkerhet att ange. Bara om texten faktiskt är kvittot
+    // (se pdfTextLooksUsable), inte en vattenstämpel eller trasiga tecken.
+    let digitalText = '';
     if (!quad) {
-      const text = await extractTextFromPdf(blob, onProgress);
-      if (text && text.length >= 15) {
-        return { text, confidence: null, quality: null };
+      digitalText = await extractTextFromPdf(blob, onProgress);
+      if (pdfTextLooksUsable(digitalText)) {
+        return { text: digitalText, confidence: null, quality: null };
       }
     }
 
-    // 2. Om PDF:en var ett skannat papperskvitto utan textlager, rendera sida 1 och kör OCR
+    // 2. Skannat papperskvitto (eller oanvändbart textlager): rendera sida 1 och läs den som bild.
     if (typeof document !== 'undefined') {
       try {
         onProgress?.('Skannad PDF — kör bild-OCR…');
         const canvas = await renderPdfPageToCanvas(blob);
-        return await extractTextFromImage(canvas, onProgress, { quad });
+        const result = await extractTextFromImage(canvas, onProgress, { quad });
+        // Gav bilden ingenting men textlagret något, är textlagret bättre än inget.
+        if (isUnreadableText(result.text) && digitalText) return { text: digitalText, confidence: null, quality: null };
+        return result;
       } catch (err) {
+        if (err?.message?.startsWith('PDF:en är lösenordsskyddad')) throw err;
         console.warn('[OCR] Kunde inte rendera PDF till canvas:', err);
+        if (digitalText) return { text: digitalText, confidence: null, quality: null };
+        // Själva PDF-filen kan bildläsaren aldrig avkoda, så skicka den inte dit.
+        throw new Error('PDF:en gick inte att läsa. Prova att ladda upp en bild eller skärmdump av kvittot i stället.');
       }
     }
+    if (digitalText) return { text: digitalText, confidence: null, quality: null };
   }
 
   // 3. Bildkvitto (JPG, PNG, WEBP etc.)
