@@ -39,10 +39,14 @@ export default function SystemAdmin({ onOpenTab }) {
   const { data, error, updatedAt, refreshing, reload } = useAdminData({ resource: 'system' });
 
   const missingConfig = data?.config.filter(c => !c.ok) || [];
-  const emailProblems = data?.systemEvents || [];
+  // Appens egna fel (krascher och kvittoläsning) får ett eget kort; resten är mejl.
+  const APP_EVENT_KINDS = ['client_error', 'ocr_error'];
+  const emailProblems = (data?.systemEvents || []).filter(e => !APP_EVENT_KINDS.includes(e.kind));
+  const appProblems = (data?.systemEvents || []).filter(e => APP_EVENT_KINDS.includes(e.kind));
   const attention = data ? [
     ...missingConfig.map(c => ({ text: `${c.label} är inte konfigurerat (${c.key}). ${c.impact}` })),
     ...(emailProblems.length > 0 ? [{ text: `${emailProblems.length} mejlproblem de senaste sju dagarna.` }] : []),
+    ...(appProblems.length > 0 ? [{ text: `${appProblems.length} fel i appen eller kvittoläsningen de senaste sju dagarna.` }] : []),
     ...(data.apiErrors.length > 0 ? [{ text: `${data.apiErrors.length} fel i admin-API:t de senaste sju dagarna.` }] : []),
     ...(data.atRisk > 0 ? [{ text: `${data.atRisk} abonnemang med misslyckad betalning.`, tab: 'payments' }] : []),
     ...(data.unhandledMessages > 0 ? [{ text: `${data.unhandledMessages} kontaktmeddelanden att hantera.`, tab: 'inbox' }] : []),
@@ -120,6 +124,22 @@ export default function SystemAdmin({ onOpenTab }) {
                     <div key={i} style={{ fontSize: '13px', lineHeight: 1.5, borderTop: i ? '1px solid var(--border-light)' : 'none', paddingTop: i ? '10px' : 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><strong>{EVENT_LABELS[e.kind] || e.kind}</strong><span style={{ color: muted }}>{formatDateTime(e.created_at)}</span></div>
                       {e.detail && <div style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}>{e.detail}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+          </div>
+
+          <div style={cardStyle}>
+            <div style={{ ...h2, display: 'flex', gap: '8px', alignItems: 'center' }}><AlertTriangle size={15} /> Kvittoläsning och appfel, senaste sju dagarna</div>
+            {data.systemEvents === null ? <div style={{ fontSize: '13px', color: muted }}>Inte tillgängligt förrän SQL:en körts.</div>
+              : appProblems.length === 0 ? <div style={{ fontSize: '13px', color: muted }}>Inga fel.</div>
+              : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {appProblems.map((e, i) => (
+                    <div key={i} style={{ fontSize: '13px', lineHeight: 1.5, borderTop: i ? '1px solid var(--border-light)' : 'none', paddingTop: i ? '10px' : 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><strong>{EVENT_LABELS[e.kind] || e.kind}</strong><span style={{ color: muted }}>{formatDateTime(e.created_at)}</span></div>
+                      {e.detail && <div style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-line', overflowWrap: 'anywhere' }}>{e.detail}</div>}
                     </div>
                   ))}
                 </div>
