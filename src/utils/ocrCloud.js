@@ -5,11 +5,17 @@
 // webbläsaren, pdf.js för PDF) används resten av månaden. Texten tolkas av
 // samma parseReceiptText som den egna läsningens.
 import { supabase } from '../supabaseClient';
+import { reportOcrError } from './errorReporting';
 
 const CLOUD_TIMEOUT_MS = 20000;
 // Svarade servern att månadens kvot är slut skickas inget mer under besöket,
 // så att ingen bild laddas upp i onödan.
 let quotaReached = false;
+// Hur senaste Vision-försöket gick ('ok', 'kvot slut', 'svarade 403' …), för
+// felrapporten när hela avläsningen misslyckas (se ocrCache.js).
+let lastCloudStatus = '';
+export const lastCloudReadStatus = () => lastCloudStatus;
+const docType = (doc) => (doc?.kind === 'pdf' ? 'pdf' : 'bild');
 
 /** Behöver avläsningen hjälp? Oläsbart, inget belopp, gissat belopp eller moms som inte går ihop. */
 export function needsCloudReading(parsed) {
@@ -24,13 +30,14 @@ export function needsCloudReading(parsed) {
  * eller kvoten är slut (då gäller den egna läsningen).
  */
 export async function readWithCloud(input) {
-  if (quotaReached) return null;
+  if (quotaReached) { lastCloudStatus = 'kvot slut'; return null; }
+  let doc = null;
   try {
     const { documentForCloud } = await import('./ocrReceipt');
-    const doc = await documentForCloud(input);
-    if (!doc) return null;
+    doc = await documentForCloud(input);
+    if (!doc) { lastCloudStatus = 'inte skickad (för stor eller okänd fil)'; return null; }
     const { data: { session } = {} } = await supabase.auth.getSession();
-    if (!session?.access_token) return null;
+    if (!session?.access_token) { lastCloudStatus = 'inte inloggad'; return null; }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), CLOUD_TIMEOUT_MS);
     try {
@@ -42,13 +49,23 @@ export async function readWithCloud(input) {
       });
       const payload = await response.json().catch(() => ({}));
       if (response.status === 429 && payload?.code === 'quota') quotaReached = true;
-      if (!response.ok) return null;
-      return typeof payload?.text === 'string' && payload.text.trim() ? payload.text : null;
+      if (!response.ok) {
+        lastCloudStatus = quotaReached ? 'kvot slut' : `svarade ${response.status}`;
+        // Kvoten är ett väntat läge; allt annat ska synas i /internal.
+        if (!quotaReached) reportOcrError(`Vision svarade ${response.status}`, { fileType: docType(doc), cloud: String(payload?.error || '') });
+        return null;
+      }
+      const text = typeof payload?.text === 'string' && payload.text.trim() ? payload.text : null;
+      lastCloudStatus = text ? 'ok' : 'ingen text';
+      return text;
     } finally {
       clearTimeout(timer);
     }
   } catch (err) {
     console.warn('[OCR] Reservläsningen misslyckades, behåller den egna:', err?.name || err);
+    const timedOut = err?.name === 'AbortError';
+    lastCloudStatus = timedOut ? 'tog för lång tid' : 'anropet misslyckades';
+    reportOcrError(timedOut ? 'Vision tog för lång tid' : `Vision-anropet misslyckades: ${err?.message || err}`, { fileType: docType(doc) });
     return null;
   }
 }

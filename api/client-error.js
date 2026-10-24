@@ -53,6 +53,18 @@ export default async function handler(req, res) {
 
   // Bara sökvägen, aldrig query-strängen eller hash (kan innehålla tokens).
   const path = clip(body?.path, 200).split(/[?#]/)[0];
+
+  // Kvittoläsningen (reportOcrError i src/utils/errorReporting.js): egen
+  // sort i Systemstatus, inget larmmejl. Konto-id:t kommer från webbläsaren
+  // och är bara en ledtråd, inget som går att lita på.
+  if (body?.source === 'ocr') {
+    const fileType = body?.fileType === 'pdf' ? 'PDF' : 'bild';
+    const cloud = clip(body?.cloud, 80).replace(/\s+/g, ' ').trim();
+    const userId = /^[0-9a-f-]{36}$/i.test(String(body?.userId || '')) ? body.userId : 'okänt';
+    await logSystemEvent('ocr_error', `${fileType}: ${message}\nVision: ${cloud || '-'}\nKonto: ${userId}\n${clip(req.headers['user-agent'], 160)}`);
+    res.status(204).end();
+    return;
+  }
   const source = body?.source === 'boundary' ? 'krasch (vit sida)' : 'ohanterat fel';
   const ua = clip(req.headers['user-agent'], 160);
   const stackTop = stack.split('\n').slice(0, 6).join('\n');

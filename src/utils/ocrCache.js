@@ -111,7 +111,23 @@ export function clearCachedOcrText(key) {
  * tidigare framgångsrik avläsning behandlas som "ingen osäkerhet att ange" i
  * stället för att gissa en siffra.
  */
-export async function readDocumentText(input, onProgress, { force = false, reader, quad = null, cloud } = {}) {
+export async function readDocumentText(input, onProgress, options = {}) {
+  try {
+    return await readDocumentTextOnce(input, onProgress, options);
+  } catch (err) {
+    // Kundfel syns annars bara i kundens konsol (Bymarkens PDF-kvitton
+    // 2026-10-23). Rapporten hamnar i /internal → Systemstatus.
+    if (!options.reader) {
+      const isPdf = input?.type === 'application/pdf' || /\.pdf(\?|$)/i.test(String(input?.name || (typeof input === 'string' ? input : '')));
+      const { lastCloudReadStatus } = await import('./ocrCloud');
+      const { reportOcrError } = await import('./errorReporting');
+      reportOcrError(err, { fileType: isPdf ? 'pdf' : 'bild', cloud: lastCloudReadStatus() || 'inte provad' });
+    }
+    throw err;
+  }
+}
+
+async function readDocumentTextOnce(input, onProgress, { force = false, reader, quad = null, cloud } = {}) {
   const key = ocrCacheKey(input);
   // Egna hörn (Justera kanter) betyder alltid en ny avläsning.
   if (!force && !quad) {

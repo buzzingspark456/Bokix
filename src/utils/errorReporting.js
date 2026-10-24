@@ -27,6 +27,33 @@ export function reportClientError(error, source = 'global') {
   }
 }
 
+/**
+ * Kvittoläsningen misslyckades eller Vision svarade med fel. Syns som
+ * Kvittoläsning i /internal → Systemstatus (inget larmmejl). Skickar aldrig
+ * filen, texten eller adressen, bara feltexten, filtypen och kontots id så
+ * att felet går att koppla till kunden.
+ */
+export async function reportOcrError(error, { fileType = '', cloud = '' } = {}) {
+  try {
+    if (!import.meta.env.PROD || isReloadingForNewBuild()) return;
+    const message = String(error?.message || error || '').slice(0, 200);
+    const key = `ocr:${message}:${fileType}:${cloud}`;
+    if (!message || count >= 5 || sent.has(key)) return;
+    sent.add(key);
+    count += 1;
+    let userId = '';
+    try {
+      const { supabase } = await import('../supabaseClient');
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      userId = session?.user?.id || '';
+    } catch { /* utan konto-id */ }
+    const body = JSON.stringify({ message, stack: String(error?.stack || '').slice(0, 1000), path: window.location.pathname, source: 'ocr', fileType, cloud, userId });
+    fetch('/api/client-error', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+  } catch {
+    // Rapporteringen får aldrig själv orsaka ett fel.
+  }
+}
+
 export function installGlobalErrorHandlers() {
   // Bara i produktion: lokalt syns felen ändå i konsolen.
   if (!import.meta.env.PROD) return;

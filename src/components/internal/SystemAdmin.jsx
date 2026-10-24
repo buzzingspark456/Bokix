@@ -12,6 +12,8 @@ const EVENT_LABELS = {
   email_failed: 'Mejl gick inte iväg',
   email_fallback: 'Egen avsändare fungerade inte',
   contact_email_failed: 'Kontaktformulärets mejl gick inte iväg',
+  client_error: 'Appen kraschade hos en användare',
+  ocr_error: 'Kvittoläsning',
 };
 
 const mb = (bytes) => `${(bytes / 1024 / 1024).toLocaleString('sv-SE', { maximumFractionDigits: 1 })} MB`;
@@ -117,7 +119,7 @@ export default function SystemAdmin({ onOpenTab }) {
                   {emailProblems.map((e, i) => (
                     <div key={i} style={{ fontSize: '13px', lineHeight: 1.5, borderTop: i ? '1px solid var(--border-light)' : 'none', paddingTop: i ? '10px' : 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><strong>{EVENT_LABELS[e.kind] || e.kind}</strong><span style={{ color: muted }}>{formatDateTime(e.created_at)}</span></div>
-                      {e.detail && <div style={{ color: 'var(--text-secondary)' }}>{e.detail}</div>}
+                      {e.detail && <div style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}>{e.detail}</div>}
                     </div>
                   ))}
                 </div>
