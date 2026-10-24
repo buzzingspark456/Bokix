@@ -106,6 +106,13 @@ describe('ocrCache', () => {
     expect(reader).not.toHaveBeenCalled();
   });
 
+  it('en osäker Vision-läsning används ändå, den egna läsningen tar inte över', async () => {
+    const reader = vi.fn(async () => ({ text: 'ICA Maxi\nTotalt 125,00', confidence: 95 }));
+    const result = await readDocumentText({ name: 'n.jpg', size: 9, lastModified: 12 }, null, { reader, cloud: async () => 'ICA\nTack' });
+    expect(result.text).toBe('ICA\nTack');
+    expect(reader).not.toHaveBeenCalled();
+  });
+
   it('frågar Vision bara en gång per läsning', async () => {
     const cloud = vi.fn(async () => 'ICA\nTack');
     await readDocumentText({ name: 'm.jpg', size: 9, lastModified: 11 }, null, { reader: async () => ({ text: 'ICA', confidence: 30 }), cloud });

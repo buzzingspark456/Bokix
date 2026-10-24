@@ -140,21 +140,22 @@ async function readDocumentTextOnce(input, onProgress, { force = false, reader, 
   const { needsCloudReading } = await import('./ocrCloud');
 
   // 1. Foton och PDF:er läses av Vision först, så länge månadens kvot räcker
-  // (se ocrCloud.js). Blev läsningen säker används den direkt. Egna hörn
-  // (Justera kanter) är en beskärning för den egna läsningen och går dit.
+  // (se ocrCloud.js). Svarar Vision används dess text, även när tolkningen
+  // är osäker: den egna läsningen tar inte över (beslut 2026-10-24). Egna
+  // hörn (Justera kanter) är en beskärning för den egna läsningen och går dit.
   let firstCloudText = null;
   let cloudTried = false;
   if (cloudRead && !quad) {
     firstCloudText = await cloudRead(input);
     cloudTried = true;
-    if (firstCloudText && !needsCloudReading(ocr.parseReceiptText(firstCloudText))) {
+    if (firstCloudText) {
       setCachedOcrText(key, firstCloudText);
       return { text: firstCloudText, confidence: null, weakTokens: null, quality: null, layout: null, cached: false };
     }
   }
 
-  // 2. Den egna läsningen: kvoten slut, Vision svarade inte, eller Visions
-  // läsning var osäker (då vinner den bästa av de två nedan).
+  // 2. Den egna läsningen, bara när Vision inte gav någon text: kvoten slut,
+  // Vision svarade inte, filen för stor, eller egna hörn.
   let local;
   try {
     local = await (quad ? read(input, onProgress, { quad }) : read(input, onProgress));
