@@ -4224,7 +4224,7 @@ export default function Settings({
                   <SettingRow label={tr('ui.momsperiod')} last>
                     <select
                       value={company?.vatPeriod || 'quarterly'}
-                      onChange={e => setCompanyInfo({ ...company, vatPeriod: e.target.value })}
+                      onChange={e => setCompanyInfo({ ...company, vatPeriod: e.target.value, vatPeriodConfirmedAt: new Date().toISOString() })}
                       aria-label={tr('ui.momsperiod')}
                       style={{ ...inputBase, background: 'var(--bg-card)', width: '220px' }}
                     >
