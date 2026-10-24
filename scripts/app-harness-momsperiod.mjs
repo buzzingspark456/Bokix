@@ -28,7 +28,7 @@ for (const [theme, confirmed] of [['light', false], ['dark', false], ['light', t
   });
   await p0.close();
   const id = company.company.id;
-  Object.assign(company.company, { name: 'Testfirmans Nagelstudio', orgNr: '920927-3029', vatRegistered: true, vatNr: 'SE920927302901', fiscalYear: '2026-01-01', firstFiscalYear: null, vatPeriod: 'quarterly', setupConfirmedAt: confirmed ? '2026-10-23T10:00:00Z' : undefined, vatPeriodConfirmedAt: undefined,
+  Object.assign(company.company, { name: 'Testfirmans Nagelstudio', orgNr: '920927-3029', vatRegistered: true, vatNr: 'SE920927302901', fiscalYear: '2026-01-01', firstFiscalYear: null, vatPeriod: 'quarterly', setupConfirmedAt: confirmed ? '2026-10-23T10:00:00Z' : undefined, vatPeriodConfirmedAt: undefined, fSkatt: 'Innehar F-skattsedel', fSkattConfirmedAt: undefined,
     address: 'Storgatan 1', postalCode: '553 36', city: 'Jönköping', email: 'test@example.se', needsSetup: false });
   const server = { row: { id: 'r1', user_id: UID, state: { activeCompanyId: id, companies: { [id]: company } }, updated_at: newTs(), onboarding_completed: true, onboarding_skipped: false, company_name: company.company.name } };
   const page = await ctx.newPage();
@@ -71,9 +71,11 @@ for (const [theme, confirmed] of [['light', false], ['dark', false], ['light', t
     results[tag].sparaInaktiv = await dialog.locator('button:has-text("Spara")').isDisabled();
     results[tag].text = (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 220);
     await dialog.locator('[role=radio]:has-text("En gång per år")').click();
+    results[tag].sparaInaktivEfterMoms = await dialog.locator('button:has-text("Spara")').isDisabled();
+    await dialog.locator('[role=radio]:has-text("Nej")').click();
     await dialog.locator('button:has-text("Spara")').click();
     await page.waitForTimeout(3000);
-    results[tag].sparat = { vatPeriod: co().vatPeriod, confirmed: Boolean(co().vatPeriodConfirmedAt) };
+    results[tag].sparat = { vatPeriod: co().vatPeriod, confirmed: Boolean(co().vatPeriodConfirmedAt), fSkatt: co().fSkatt, fSkattConfirmed: Boolean(co().fSkattConfirmedAt) };
     await page.reload();
     await page.waitForSelector('.app-container', { timeout: 25000 });
     await page.waitForTimeout(2500);

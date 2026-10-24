@@ -2759,7 +2759,8 @@ export default function Settings({
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload?.error || tr('ui.kunde_inte_spara', { status: response.status }));
-      setCompanyInfo(companyDraft);
+      // En ändrad F-skattetext räknas som ett svar (VatPeriodPrompt frågar inte igen).
+      setCompanyInfo((companyDraft?.fSkatt ?? '') !== (company?.fSkatt ?? '') ? { ...companyDraft, fSkattConfirmedAt: new Date().toISOString() } : companyDraft);
       setCompanySaveSuccess(true);
       setTimeout(() => setCompanySaveSuccess(false), 4000);
     } catch (err) {

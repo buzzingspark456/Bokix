@@ -419,7 +419,7 @@ const Accruals = lazy(loadAccruals);
 import LandingPage from './components/LandingPage';
 import Auth from './components/Auth';
 import OnboardingFlow from './components/OnboardingFlow';
-import VatPeriodPrompt, { needsVatPeriodAnswer } from './components/VatPeriodPrompt';
+import VatPeriodPrompt, { needsCompanyFactsAnswer } from './components/VatPeriodPrompt';
 import { isVatExempt, stripVatRows } from './utils/vatRegistration';
 import { supabase } from './supabaseClient';
 import { isStandaloneApp } from './utils/authStorage';
@@ -6342,12 +6342,19 @@ function App() {
           helst — samma "en instans, anropad utifrån"-mönster som Toast. ── */}
       <ConfirmDialogHost />
 
-      {/* Momsperioden för företag som aldrig valt den (VatPeriodPrompt.jsx). */}
+      {/* Momsperiod och F-skatt för företag som aldrig svarat (VatPeriodPrompt.jsx). */}
       {isLoggedIn && !showOnboarding && !activeNeedsSetup && isActiveCompanyPaid && subscriptionGate !== 'blocked'
-        && !vatPromptLater.includes(data.activeCompanyId) && needsVatPeriodAnswer(data.companies?.[data.activeCompanyId]) && (
+        && !vatPromptLater.includes(data.activeCompanyId) && needsCompanyFactsAnswer(data.companies?.[data.activeCompanyId]) && (
         <VatPeriodPrompt
-          company={data.companies[data.activeCompanyId].company}
-          onSave={(vatPeriod) => setCompanyInfo(prev => ({ ...prev, vatPeriod, vatPeriodConfirmedAt: new Date().toISOString() }))}
+          companyData={data.companies[data.activeCompanyId]}
+          onSave={(answers) => {
+            const now = new Date().toISOString();
+            setCompanyInfo(prev => ({
+              ...prev,
+              ...('vatPeriod' in answers ? { vatPeriod: answers.vatPeriod, vatPeriodConfirmedAt: now } : {}),
+              ...('fSkatt' in answers ? { fSkatt: answers.fSkatt, fSkattConfirmedAt: now } : {}),
+            }));
+          }}
           onLater={() => setVatPromptLater(ids => [...ids, data.activeCompanyId])}
         />
       )}
