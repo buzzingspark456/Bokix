@@ -149,7 +149,7 @@ export default function PaymentRequiredGate({ user, company, onSignedOut, ownerU
             ? <>{t('ui.varje_foretag_i_bokix_betalas_for_sig')} <strong>{company?.name || t('ui.det_har_foretaget')}</strong> {t('ui.vantar_fortfarande_pa_betalningsuppgifter_hos_st')}</>
             : returning
               ? <>{t('ui.kontot')} {user?.email} {t('ui.har_ingen_aktiv_prenumeration_starta_den_igen_fo')}</>
-              : <>{t('ui.ditt_konto')}{user?.email}{t('ui.ar_skapat_men_du_har_inte_lagt_in_betalningsuppg')}</>}
+              : <>{t('ui.ditt_konto')}{user?.email}{t('ui.ar_skapat_men_du_har_inte_lagt_in_betalningsuppg')} {t('ui.konto_tas_bort_efter_7_dagar')}</>}
         </p>
 
         {errorMsg && (

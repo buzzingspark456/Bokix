@@ -1,6 +1,7 @@
 import { collectStoragePaths } from '../../src/utils/storageUrls.js';
 import { snapshotAllUsers, pruneExpiredArchives } from '../_archive.js';
 import { deleteClosedUfAccounts } from '../_ufAccount.js';
+import { isFreeEmail } from '../_auth.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { buildUfClosingHtml } from '../_emailTemplates.js';
 
@@ -66,10 +67,32 @@ function ufMailer() {
  * kunnat raderas innan användaren hann trycka Spara. */
 export const ORPHAN_FILE_GRACE_DAYS = 7;
 
-/** Hur länge en registrering utan betalning får ligga kvar. Tilltaget så att
- * någon som avbröt vid betalsteget hinner komma tillbaka och slutföra utan
- * att behöva registrera sig igen. */
-export const ABANDONED_SIGNUP_DAYS = 30;
+/** Hur länge en registrering utan betalning får ligga kvar. Användarens beslut
+ * 2026-10-24: sju dagar, sedan tas kontot bort om ingen prenumeration har
+ * startats. Står i Integritetspolicyn och på betalsidan, ändra alla samtidigt. */
+export const ABANDONED_SIGNUP_DAYS = 7;
+
+/** Konton som aldrig ska städas som övergivna, oavsett prenumeration: våra
+ * gratiskonton, UF (har ingen prenumeration och ett eget avslut i
+ * _ufAccount.js), och konton i ett delat företag (inbjuden medlem eller
+ * ägare med medlemmar). Kan kontot inte läsas räknas det som skyddat. */
+async function isProtectedAccount(admin, userId, state, cutoff) {
+  if (Object.values(state?.companies || {}).some(c => c?.company?.isUf)) return true;
+  const { data, error } = await admin.auth.admin.getUserById(userId);
+  const user = data?.user;
+  if (error || !user) return true;
+  if (isFreeEmail(user.email)) return true;
+  if (user.app_metadata?.uf || user.user_metadata?.uf) return true;
+  if (!user.created_at || new Date(user.created_at) >= cutoff) return true;
+  const { data: members, error: memberErr } = await admin
+    .from('company_members')
+    .select('id')
+    .or(`member_user_id.eq.${userId},owner_user_id.eq.${userId}`)
+    .eq('status', 'active')
+    .limit(1);
+  if (memberErr) return true;
+  return (members || []).length > 0;
+}
 
 const DAY_MS = 86400000;
 
@@ -176,7 +199,7 @@ export async function cleanAbandonedSignups(admin, { now = new Date(), dryRun = 
       .range(from, from + USER_PAGE - 1);
     if (error) throw error;
     scannedRows += data?.length || 0;
-    for (const r of data || []) if (!hasBookkeepingData(r.state)) rows.push({ user_id: r.user_id });
+    for (const r of data || []) if (!hasBookkeepingData(r.state)) rows.push({ user_id: r.user_id, state: r.state });
     if (!data || data.length < USER_PAGE) break;
   }
   if (!scannedRows) return { candidates: 0, removed: 0 };
@@ -189,8 +212,13 @@ export async function cleanAbandonedSignups(admin, { now = new Date(), dryRun = 
   if (subErr) throw subErr;
   const hasSubscription = new Set((subs || []).map(s => s.user_id));
 
-  const abandoned = rows.filter(r => !hasSubscription.has(r.user_id));
-  if (dryRun) return { candidates: scannedRows, removed: abandoned.length, dryRun: true };
+  const abandoned = [];
+  for (const r of rows) {
+    if (hasSubscription.has(r.user_id)) continue;
+    if (await isProtectedAccount(admin, r.user_id, r.state, cutoff)) continue;
+    abandoned.push(r);
+  }
+  if (dryRun) return { candidates: scannedRows, removed: abandoned.length, dryRun: true, userIds: abandoned.map(r => r.user_id) };
 
   let removed = 0;
   for (const row of abandoned) {

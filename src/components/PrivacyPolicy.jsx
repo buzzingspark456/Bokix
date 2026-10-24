@@ -121,7 +121,7 @@ export default function PrivacyPolicy() {
           <li style={policyLi}>Meddelanden via kontaktformuläret raderas automatiskt ett år efter att de skickades.</li>
           <li style={policyLi}>Teknisk logg-data sparas kortare tid, normalt några veckor, och används enbart för drift och säkerhet.</li>
           <li style={policyLi}>Uppladdade filer (kvitton, underlag, logotyper) som ingen post i tjänsten längre hänvisar till raderas automatiskt efter sju dagar, av ett jobb som körs varje dygn.</li>
-          <li style={policyLi}>Ett konto som skapats men aldrig aktiverats — registreringen avbröts före betalsteget — raderas automatiskt efter 30 dagar, inklusive de företags- och kontaktuppgifter som hunnit fyllas i.</li>
+          <li style={policyLi}>Ett konto där prenumerationen aldrig startats raderas automatiskt sju dagar efter registreringen, inklusive de företags- och kontaktuppgifter som fyllts i. Konton med bokförd information raderas aldrig på det här sättet.</li>
         </ul>
       </PolicySection>
 

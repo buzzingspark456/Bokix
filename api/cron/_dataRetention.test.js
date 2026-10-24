@@ -8,7 +8,7 @@ const old = new Date(now.getTime() - (ABANDONED_SIGNUP_DAYS + 5) * DAY).toISOStr
 /** Minimal stubb av den delen av supabase-admin-klienten rutinen använder.
  * Räcker för att bevisa VILKA konton som väljs ut, vilket är hela poängen —
  * ett fel där raderar riktig kunddata. */
-function makeAdmin({ rows, subs = [] }) {
+function makeAdmin({ rows, subs = [], users = {}, members = [] }) {
   const deleted = { userData: [], authUsers: [], storage: [] }
   return {
     deleted,
@@ -19,6 +19,9 @@ function makeAdmin({ rows, subs = [] }) {
         in: () => Promise.resolve({ data: subs, error: null }),
         delete: () => ({ eq: (_col, value) => { deleted.userData.push(value); return Promise.resolve({ error: null }) } }),
         then: undefined,
+      }
+      if (table === 'company_members') {
+        return { select: () => ({ or: (expr) => ({ eq: () => ({ limit: () => Promise.resolve({ data: members.filter(m => expr.includes(m)).map(m => ({ id: m })), error: null }) }) }) }) }
       }
       if (table === 'user_data') {
         api.select = () => ({ lt: () => ({ order: () => ({ range: (a, b) => Promise.resolve({ data: rows.slice(a, b + 1), error: null }) }) }) })
@@ -32,7 +35,11 @@ function makeAdmin({ rows, subs = [] }) {
         remove: (paths) => { deleted.storage.push(...paths); return Promise.resolve({ error: null }) },
       }),
     },
-    auth: { admin: { deleteUser: (id) => { deleted.authUsers.push(id); return Promise.resolve({ error: null }) } } },
+    auth: { admin: {
+      deleteUser: (id) => { deleted.authUsers.push(id); return Promise.resolve({ error: null }) },
+      // Förval: ett vanligt konto skapat lika länge sedan som raden.
+      getUserById: (id) => Promise.resolve({ data: { user: id in users ? users[id] : { id, email: `${id}@example.se`, created_at: old, app_metadata: {}, user_metadata: {} } }, error: null }),
+    } },
   }
 }
 
@@ -90,6 +97,44 @@ describe('cleanAbandonedSignups', () => {
     expect(result.removed).toBe(1)
     expect(result.dryRun).toBe(true)
     expect(admin.deleted.authUsers).toEqual([])
+  })
+
+  it('gränsen är sju dagar', () => {
+    expect(ABANDONED_SIGNUP_DAYS).toBe(7)
+  })
+
+  it('rör aldrig ett UF-konto (eget avslut i _ufAccount.js)', async () => {
+    const admin = makeAdmin({
+      rows: [
+        { user_id: 'u1', created_at: old, state: {} },
+        { user_id: 'u2', created_at: old, state: { companies: { c1: { company: { isUf: true } } } } },
+      ],
+      users: { u1: { id: 'u1', email: 'a@b.se', created_at: old, app_metadata: { uf: true }, user_metadata: {} } },
+    })
+    expect((await cleanAbandonedSignups(admin, { now })).removed).toBe(0)
+    expect(admin.deleted.authUsers).toEqual([])
+  })
+
+  it('rör aldrig våra gratiskonton', async () => {
+    const admin = makeAdmin({
+      rows: [{ user_id: 'u1', created_at: old, state: {} }],
+      users: { u1: { id: 'u1', email: 'AlwakiAbdullah1@gmail.com', created_at: old, app_metadata: {}, user_metadata: {} } },
+    })
+    expect((await cleanAbandonedSignups(admin, { now })).removed).toBe(0)
+  })
+
+  it('rör aldrig ett konto i ett delat företag', async () => {
+    const admin = makeAdmin({ rows: [{ user_id: 'u1', created_at: old, state: {} }], members: ['u1'] })
+    expect((await cleanAbandonedSignups(admin, { now })).removed).toBe(0)
+  })
+
+  it('rör aldrig ett konto som är yngre än sju dagar eller inte går att läsa', async () => {
+    const fresh = new Date(now.getTime() - 2 * DAY).toISOString()
+    const admin = makeAdmin({
+      rows: [{ user_id: 'u1', created_at: old, state: {} }, { user_id: 'u2', created_at: old, state: {} }],
+      users: { u1: { id: 'u1', email: 'a@b.se', created_at: fresh, app_metadata: {}, user_metadata: {} }, u2: null },
+    })
+    expect((await cleanAbandonedSignups(admin, { now })).removed).toBe(0)
   })
 
   it('inga kandidater ger ett tomt resultat utan anrop', async () => {

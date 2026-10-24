@@ -654,6 +654,7 @@
     "ar_inte_en_pdf_eller_bild": "\"{{name}}\" är inte en PDF eller bild.",
     "ar_inte_en_pdf_eller_bild_och_kunde_inte_laggas": "\"{{name}}\" är inte en PDF eller bild och kunde inte läggas till. Spara den som PDF, eller ta en bild av den, och lägg till den igen.",
     "ar_skapat_men_du_har_inte_lagt_in_betalningsuppg": ") är skapat, men du har inte lagt in betalningsuppgifter hos Stripe än. 30 dagar gratis, sedan 179 kr/mån — avsluta innan dess så kostar det ingenting.",
+    "konto_tas_bort_efter_7_dagar": "Startar du inte prenumerationen inom sju dagar från registreringen tas kontot och företagsuppgifterna bort.",
     "arbetade_timmar_registreras_per_lonekorning_kopp": "Arbetade timmar registreras per lönekörning, kopplat till tidrapportering under Projekt.",
     "arbetsblad": "Arbetsblad",
     "arbetsdagar_per_vecka": "Arbetsdagar per vecka",

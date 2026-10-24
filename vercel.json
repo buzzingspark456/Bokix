@@ -7,6 +7,10 @@
       "schedule": "0 2 * * *"
     },
     {
+      "path": "/api/cron/unpaid-signups",
+      "schedule": "45 3 * * *"
+    },
+    {
       "path": "/api/cron/status-check",
       "schedule": "*/5 * * * *"
     }
@@ -461,6 +465,9 @@
       "maxDuration": 300
     },
     "api/cron/data-retention.js": {
+      "maxDuration": 300
+    },
+    "api/cron/unpaid-signups.js": {
       "maxDuration": 300
     },
     "api/cron/reminders.js": {

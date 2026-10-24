@@ -654,6 +654,7 @@
     "ar_inte_en_pdf_eller_bild": "\"{{name}}\" is not a PDF or an image.",
     "ar_inte_en_pdf_eller_bild_och_kunde_inte_laggas": "\"{{name}}\" is not a PDF or an image and could not be added. Save it as a PDF, or take a photo of it, and add it again.",
     "ar_skapat_men_du_har_inte_lagt_in_betalningsuppg": ") has been created, but you have not added payment details at Stripe yet. 30 days free, then 179 kr/month — cancel before then and it costs nothing.",
+    "konto_tas_bort_efter_7_dagar": "If you do not start the subscription within seven days of signing up, the account and company details are deleted.",
     "arbetade_timmar_registreras_per_lonekorning_kopp": "Hours worked are registered per pay run, linked to time reporting under Projects.",
     "arbetsblad": "Worksheet",
     "arbetsdagar_per_vecka": "Working days per week",
