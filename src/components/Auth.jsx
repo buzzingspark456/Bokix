@@ -15,6 +15,8 @@ import { createStripeSubscriptionCheckout } from '../stripeApi';
 import { planFromId } from '../utils/plans';
 import { UF_FREE_MONTHS } from '../utils/ufMode';
 import Turnstile from './Turnstile';
+import OnboardingFlow from './OnboardingFlow';
+import CloudShaderBackground from './marketing/CloudShaderBackground';
 import Recaptcha from './Recaptcha';
 import { TERMS_VERSION } from '../utils/legalVersion';
 import { t, useForcedLanguage } from '../i18n';
@@ -45,11 +47,11 @@ const labelStyle = {
 
 // Nycklar, inte färdiga texter: översätts när sidan ritas, så att det
 // tvingade svenska språket (useForcedLanguage nedan) gäller även här.
-// Registreringen är bara kontot (2026-10-24): e-post, kod, lösenord.
-// Företaget, räkenskapsåret, momsen och F-skatten frågas en gång, i
-// onboardingen inne i appen (OnboardingFlow.jsx). Bara UF har kvar ett eget
-// företagssteg, eftersom UF-kontot ska veta att det är UF redan när det skapas.
-const STEP_LABELS = { personal: 'ui.personlig_info', verify: 'ui.bekrafta_e_post', company: 'ui.foretag', password: 'ui.losenord' };
+// Registreringen (2026-10-24): uppgifter, kod, företaget, lösenord och sedan
+// betalning. Företagssteget är onboardingen (OnboardingFlow.jsx, inbäddad):
+// org.nr, räkenskapsår, moms, momsperiod och F-skatt, så att appen öppnas med
+// företaget färdigt. UF har ett eget enkelt steg, en inbjuden person inget.
+const STEP_LABELS = { personal: 'ui.personlig_info', verify: 'ui.bekrafta_e_post', company: 'ui.foretag', uf: 'ui.foretag', password: 'ui.losenord' };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Säkerhetsgranskningen: bara en längdgräns (8 tecken) fanns tidigare,
@@ -250,8 +252,15 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   const [regCompany, setRegCompany] = useState('');
   const [regUfSchool, setRegUfSchool] = useState('');
 
-  const regSteps = isUfSignup && !hasPendingInvite ? ['personal', 'verify', 'company', 'password'] : ['personal', 'verify', 'password'];
+  const regSteps = hasPendingInvite ? ['personal', 'verify', 'password']
+    : isUfSignup ? ['personal', 'verify', 'uf', 'password']
+    : ['personal', 'verify', 'company', 'password'];
   const curStep = regSteps[Math.min(regStep, regSteps.length - 1)];
+  // Svaren från företagssteget (OnboardingFlow:s onComplete). Steget hålls
+  // monterat när man väl nått det, så Tillbaka från lösenordet visar svaren.
+  const [regProfile, setRegProfile] = useState(null);
+  const [companyStepReached, setCompanyStepReached] = useState(false);
+  useEffect(() => { if (curStep === 'company') setCompanyStepReached(true); }, [curStep]);
 
   // Switch between login/register and reset step
   const switchMode = (login) => {
@@ -405,7 +414,9 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       return;
     }
 
-    if (curStep === 'company') {
+    if (curStep === 'company') return; // företagssteget har egna knappar
+
+    if (curStep === 'uf') {
       // UF-företag: bara namnet är obligatoriskt. Inget org.nummer krävs
       // (de flesta UF-företag har inget), och skolan är frivillig.
       if (!regCompany.trim()) {
@@ -420,6 +431,8 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       if (regPassword.length < 8) { setErrorMsg(t('ui.losenordet_maste_vara_minst_8_tecken_2')); return; }
       if (regPassword !== regPassword2) { setErrorMsg(t('ui.losenorden_matchar_inte_2')); return; }
       if (!regAcceptTerms) { setErrorMsg(t('ui.du_behover_godkanna_anvandarvillkoren_och_person')); return; }
+      // Ett konto utan företag ska inte kunna skapas (utom inbjuden och UF).
+      if (!hasPendingInvite && !isUfSignup && !regProfile?.orgNr) { setRegStep(regSteps.indexOf('company')); return; }
       setLoading(true);
       // Egen flagga (inte bara "kom vi förbi signUp") — annars skulle ett
       // fel i själva Stripe-anropet felaktigt visa "kontot skapades" när
@@ -453,7 +466,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               // företag"-grenen när delad åtkomst finns). Alla andra får ett
               // platshållarföretag som onboardingen (OnboardingFlow.jsx)
               // fyller i med org.nr, räkenskapsår, moms och F-skatt.
-              company_name: (isUfSignup && !hasPendingInvite) ? regCompany : '',
+              company_name: hasPendingInvite ? '' : isUfSignup ? regCompany : (regProfile?.companyName || ''),
               // UF-läget. Läses av App.jsx på två ställen: betalspärren
               // (uf + uf_started_at = släpps in på gratisperioden) och
               // skapandet av det första företaget (isUf/ufSchool på
@@ -462,7 +475,20 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               // räknas från, inte "när företaget skapades" eller "första
               // inloggningen", som båda kan glida.
               ...((isUfSignup && !hasPendingInvite) ? { uf: true, uf_school: regUfSchool, uf_started_at: new Date().toISOString() } : {}),
-              org_nr: '',
+              org_nr: (!hasPendingInvite && !isUfSignup && regProfile?.orgNr) || '',
+              ...((!hasPendingInvite && !isUfSignup && regProfile) ? {
+                company_address: regProfile.address || '',
+                company_postal_code: regProfile.postalCode || '',
+                company_city: regProfile.city || '',
+                fiscal_year: regProfile.fiscalYear || '',
+                ...(regProfile.setup?.firstFiscalYear ? { first_fiscal_year_start: regProfile.setup.firstFiscalYear.start, first_fiscal_year_end: regProfile.setup.firstFiscalYear.end } : {}),
+                vat_registered: regProfile.setup?.vatRegistered === true,
+                vat_nr: regProfile.setup?.vatNr || '',
+                vat_period: regProfile.vatPeriod || '',
+                f_skatt: regProfile.fSkatt || '',
+                setup_done: true,
+                setup_done_at: new Date().toISOString(),
+              } : {}),
               terms_accepted_at: new Date().toISOString(),
               terms_version: TERMS_VERSION,
             },
@@ -695,6 +721,8 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
         }
       `}</style>
 
+      {/* Startsidans molnhimmel, samma som i registreringens företagssteg. */}
+      <CloudShaderBackground style={{ position: 'absolute', inset: 0, minHeight: 0, zIndex: 0 }} />
       <div className="auth-column">
       {/* Kundfeedback: den tidigare tvåkolumns-layouten (varumärkespanel med
           funktionslista + "100% Säkert/GDPR/Krypterat"-märken bredvid
@@ -866,10 +894,11 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                   </div>
                 ))}
               </div>
+              {curStep !== 'company' && <>
               <h2 key={regStep} className="auth-step-fade" style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: 'clamp(26px, 8vw, 34px)', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px', letterSpacing: '-0.01em' }}>
                 {curStep === 'personal' && t('ui.personlig_info')}
                 {curStep === 'verify' && t('ui.bekrafta_e_post')}
-                {curStep === 'company' && t('ui.ert_uf_foretag')}
+                {curStep === 'uf' && t('ui.ert_uf_foretag')}
                 {curStep === 'password' && t('ui.skapa_losenord')}
               </h2>
               <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>
@@ -884,6 +913,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 {curStep === 'password' && hasPendingInvite && t('ui.inbjuden_sedan')}
                 {curStep === 'password' && !isUfSignup && !hasPendingInvite && t('ui.sedan_skickas_du_vidare_till_betalning')}
               </p>
+              </>}
               {hasPendingInvite && curStep === 'personal' && (
                 <div style={{ marginTop: '14px', padding: '12px 14px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px' }}>
                   <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>{t('ui.inbjuden_rubrik')}</div>
@@ -891,6 +921,20 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 </div>
               )}
             </div>
+
+            {/* Företagssteget: onboardingens frågor, utanför formuläret så att
+                Enter i dess fält inte skickar registreringen. */}
+            {companyStepReached && !hasPendingInvite && !isUfSignup && (
+              <div style={{ display: curStep === 'company' ? 'block' : 'none' }}>
+                <OnboardingFlow
+                  embedded
+                  firstName={regFirstName}
+                  finishLabel={t('ui.fortsatt')}
+                  onExit={() => { setRegStep(s => s - 1); setErrorMsg(''); }}
+                  onComplete={(profile) => { setRegProfile(profile); setErrorMsg(''); setRegStep(s => s + 1); }}
+                />
+              </div>
+            )}
 
             <form onSubmit={handleNextStep} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
@@ -984,7 +1028,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               {/* UF-företagets namn och skola (bara UF, se regSteps). Inget
                   organisationsnummer och inget registeruppslag: det finns
                   ingenting att slå upp för ett UF-företag. */}
-              {curStep === 'company' && (
+              {curStep === 'uf' && (
                 <div key="step2" className="auth-step-fade" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '13px 14px', background: BRAND.greenLight, borderRadius: '10px' }}>
                     <GraduationCap size={16} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
@@ -1092,7 +1136,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 <div style={{ padding: '12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>
               )}
 
-              {!redirectingToPayment && (
+              {!redirectingToPayment && curStep !== 'company' && (
                 <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
                   {regStep > 0 && (
                     <button className="auth-btn-ghost" type="button" onClick={() => { setRegStep(s => s - 1); setErrorMsg(''); }} style={{ padding: '20px 26px', border: '1px solid var(--border)', borderRadius: '13px', fontSize: '17px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>

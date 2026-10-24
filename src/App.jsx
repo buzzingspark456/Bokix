@@ -2728,6 +2728,11 @@ function App() {
       } else {
         // First login, create blank company data based on metadata
         const metadata = authUser.user_metadata || {};
+        // Registreringen (Auth.jsx) ställer sedan 2026-10-24 alla företagsfrågor
+        // före betalningen: org.nr, räkenskapsår, moms, momsperiod och F-skatt
+        // ligger då i metadata och företaget är klart direkt. Bara konton utan
+        // de svaren (UF, äldre registreringar) får onboardingen i appen.
+        const setupDone = metadata.setup_done === true && Boolean(metadata.org_nr);
         const newData = createEmptyCompanyData({
           // UF-registreringen (Auth.jsx) skickar inget org.nummer och ett
           // eget förvalt namn — ett UF-företag som inte hunnit döpa sig
@@ -2746,7 +2751,7 @@ function App() {
           postalCode: metadata.company_postal_code || '',
           city: metadata.company_city || '',
           isUf: Boolean(metadata.uf),
-          needsSetup: true,
+          needsSetup: !setupDone,
           ufSchool: metadata.uf_school || '',
           ufStartedAt: metadata.uf_started_at || '',
           // Kundönskemål: e-posten som redan finns (kontots inloggnings-
@@ -2754,6 +2759,14 @@ function App() {
           // inskriven en gång till i Inställningar.
           email: authUser.email || '',
         });
+        if (setupDone) {
+          Object.assign(newData.company, {
+            ...(metadata.vat_period ? { vatPeriod: metadata.vat_period, vatPeriodConfirmedAt: metadata.setup_done_at || new Date().toISOString() } : {}),
+            // '' betyder ingen F-skattetext på fakturan.
+            fSkatt: typeof metadata.f_skatt === 'string' ? metadata.f_skatt : newData.company.fSkatt,
+            setupConfirmedAt: metadata.setup_done_at || new Date().toISOString(),
+          });
+        }
         const initialStore = {
           activeCompanyId: newData.company.id,
           companies: { [newData.company.id]: newData },
@@ -2763,7 +2776,7 @@ function App() {
         await syncCompanyDataToBackend(initialStore.activeCompanyId, initialStore);
 
         await saveUserDataToSupabase(initialStore, {
-          onboarding_completed: false,
+          onboarding_completed: setupDone,
           onboarding_skipped: false,
           company_name: newData.company.name,
           company_orgnr: newData.company.orgNr,
@@ -2774,12 +2787,12 @@ function App() {
           },
           company_settings: {
             fiscalYear: newData.company.fiscalYear,
-            vatPeriod: 'quarterly',
+            vatPeriod: newData.company.vatPeriod,
             chartPlan: 'bas2025',
           },
         });
 
-        localStorage.setItem('bokix_onboarding_completed', 'false');
+        localStorage.setItem('bokix_onboarding_completed', setupDone ? 'true' : 'false');
         localStorage.setItem('bokix_onboarding_skipped', 'false');
         setIsLoggedIn(true);
         captureEvent('konto_skapat', { bolagsform: metadata.uf ? 'UF-företag' : (detectOrgType(newData.company.orgNr) || 'okänd') });

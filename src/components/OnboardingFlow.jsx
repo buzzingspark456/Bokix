@@ -53,7 +53,10 @@ const fmtOrg = (n) => (/^\d{10}$/.test(n || '') ? `${n.slice(0, 6)}-${n.slice(6)
 /** Första och sista månaden i ett räkenskapsår som börjar `startMonth`. */
 const yearSpan = (startMonth) => [startMonth, startMonth === 1 ? 12 : startMonth - 1];
 
-export default function OnboardingFlow({ onComplete, initialCompanyData, firstName }) {
+// `embedded`: inne i registreringens kort (Auth.jsx), som har egen
+// bakgrund och stegrad. Tillbaka från första frågan anropar då `onExit`, och
+// sista knappen heter `finishLabel` (till lösenordet i stället för appen).
+export default function OnboardingFlow({ onComplete, initialCompanyData, firstName, embedded = false, onExit, finishLabel }) {
   const saved = initialCompanyData?.company || {};
   // Platshållarföretaget från registreringen ("Mitt Företag AB", inget
   // org.nr) ska inte stå förifyllt som om det vore ett riktigt svar.
@@ -591,7 +594,7 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
         )}
         <p className="onb-sub" style={{ marginTop: '16px' }}>{t('ui.onb_andra_senare')}</p>
         <div className="onb-row">
-          <button type="button" className="onb-primary" onClick={finish}>{t('ui.onb_borja_bokfora')} <ArrowRight size={18} /></button>
+          <button type="button" className="onb-primary" onClick={finish}>{finishLabel || t('ui.onb_borja_bokfora')} <ArrowRight size={18} /></button>
         </div>
       </>
     );
@@ -606,13 +609,13 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
   };
 
   return (
-    <div className="onb-page">
+    <div className={embedded ? 'onb-page onb-embedded' : 'onb-page'}>
       {/* Startsidans molnhimmel, samma som hjälten på bokix.se. */}
-      <CloudShaderBackground className="onb-sky" style={{ position: 'fixed', inset: 0, minHeight: 0, zIndex: 0 }} />
+      {!embedded && <CloudShaderBackground className="onb-sky" style={{ position: 'fixed', inset: 0, minHeight: 0, zIndex: 0 }} />}
 
-      <div className="onb-shell">
-        <div className="onb-logo"><BokixWordmark height={34} /></div>
-        <nav className="onb-steps" aria-label={t('ui.onb_steg')}>
+      <div className={embedded ? 'onb-shell-embedded' : 'onb-shell'}>
+        {!embedded && <div className="onb-logo"><BokixWordmark height={34} /></div>}
+        {!embedded && <nav className="onb-steps" aria-label={t('ui.onb_steg')}>
           <ol>
             {STEPS.map((s, i) => {
               const current = i === currentStep;
@@ -628,13 +631,13 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
               );
             })}
           </ol>
-        </nav>
+        </nav>}
 
         <main key={screen} className="onb-screen">{body}</main>
 
-        {history.length > 0 && (
+        {(history.length > 0 || (embedded && onExit)) && (
           <div className="onb-foot">
-            <button type="button" className="onb-back" onClick={back}><ArrowLeft size={15} /> {t('ui.tillbaka_2')}</button>
+            <button type="button" className="onb-back" onClick={history.length ? back : onExit}><ArrowLeft size={15} /> {t('ui.tillbaka_2')}</button>
           </div>
         )}
       </div>
@@ -647,6 +650,8 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
           position: relative; min-height: calc(100vh / var(--app-zoom, 1)); background: #f4f7f5; color: var(--text-main); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 16px 56px; box-sizing: border-box; }
         :root[data-theme="dark"] .onb-page { background: #0f1a13; --onb-green: #16803a; --onb-green-text: #8fd67a; --onb-green-bg: rgba(143, 214, 122, 0.12); }
         .onb-page button { font-family: inherit; }
+        .onb-page.onb-embedded { min-height: 0; background: transparent !important; padding: 0; display: block; }
+        .onb-shell-embedded { width: 100%; }
 
         .onb-logo { display: flex; margin-bottom: 26px; }
         .onb-alt { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; margin-top: 18px; }

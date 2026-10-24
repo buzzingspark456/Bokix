@@ -1,8 +1,8 @@
 // Kör: npx vite --port 5199, sedan node scripts/app-harness-registrering.mjs
-// Registreringen (Auth.jsx) efter 2026-10-24: tre steg (uppgifter, kod,
-// lösenord), koden kontrolleras av sig själv vid sjätte siffran, och inget
-// företag frågas (det gör onboardingen). Kodutskicket, Supabase och Stripe
-// är låtsade; kollar vad som skickas till signUp. WIDTH=390 för telefon.
+// Registreringen (Auth.jsx) efter 2026-10-24: uppgifter, kod (kontrolleras av
+// sig själv vid sjätte siffran), företaget (onboardingens frågor inbäddade),
+// lösenord, sedan Stripe. Kodutskicket, företagsuppslaget, Supabase och
+// Stripe är låtsade; kollar vad som skickas till signUp. WIDTH=390 för telefon.
 import { chromium } from '@playwright/test';
 import fs from 'fs';
 
@@ -37,6 +37,11 @@ await page.route('**/api/**', async (r) => {
     await new Promise(res => setTimeout(res, 300));
     return body.code === '123456' ? r.fulfill({ json: { ok: true } }) : r.fulfill({ status: 400, json: { error: 'Fel kod. Försök igen.' } });
   }
+  if (body.action === 'lookup') {
+    if (body.mode === 'name') return r.fulfill({ json: { companies: [{ name: 'Abbes Corner AB', orgNumber: '5592518863', city: 'SANDVIKEN' }] } });
+    if (body.mode === 'orgnr') return r.fulfill({ json: { companies: [{ name: 'Abbes Corner AB', orgNumber: '5592518863', street: 'STORGATAN 1', postalCode: '81130', city: 'SANDVIKEN', legalForm: 'AB', fiscalYearStart: '2024-12-01', fiscalYearEnd: '2025-11-30' }] } });
+    if (body.mode === 'vat') return r.fulfill({ json: { registered: true, vatNr: 'SE559251886301' } });
+  }
   if (r.request().url().includes('/api/stripe/')) return r.fulfill({ json: { session: { url: `${BASE}/?stripe=klart` } } });
   return r.fulfill({ json: {} });
 });
@@ -46,7 +51,7 @@ const result = {};
 
 await page.goto(BASE + '/?app=1');
 await page.locator('button:has-text("Nytt konto")').click();
-result.steg = (await page.locator('form').locator('xpath=..').locator('span').allInnerTexts()).filter(s => /^(Personlig info|Bekräfta e-post|Företag|Lösenord)$/.test(s));
+result.steg = (await page.locator('span').allInnerTexts()).filter(s => /^(Personlig info|Bekräfta e-post|Företag|Lösenord)$/.test(s));
 await page.locator('input[name="given-name"]').fill('Anna');
 await page.locator('input[name="family-name"]').fill('Svensson');
 await page.locator('input[type="email"]').fill('anna@example.se');
@@ -60,9 +65,32 @@ await page.waitForTimeout(1200);
 result.felKod = await page.locator('form').innerText().then(s => /Fel kod/.test(s));
 await page.locator('input[autocomplete="one-time-code"]').fill('');
 await page.locator('input[autocomplete="one-time-code"]').pressSequentially('123456', { delay: 40 });
-await page.waitForSelector('input[name="new-password"]', { timeout: 8000 });
+await page.waitForSelector('.onb-embedded', { timeout: 8000 });
 result.autoVidareEfterKod = true;
-await shot('3-losenord');
+const q = () => page.locator('.onb-q').innerText();
+const until = (txt) => page.waitForFunction((x) => document.querySelector('.onb-q')?.innerText.includes(x), txt, { timeout: 8000 });
+result.foretag = [];
+await shot('3-foretaget');
+await page.locator('.onb-line').first().pressSequentially('Abbes', { delay: 50 });
+await page.waitForSelector('.onb-results', { timeout: 5000 });
+await page.locator('.onb-results button').first().click();
+await until('räkenskapsår'); result.foretag.push(await q());
+await shot('4-rakenskapsar');
+await page.locator('.onb-opt:has-text("Ja, stämmer")').click();
+await until('moms'); result.foretag.push(await q());
+await page.locator('.onb-opt:has-text("En gång om året")').click();
+await until('F-skatt'); result.foretag.push(await q());
+await page.locator('.onb-opt:has-text("Ja")').first().click();
+await page.waitForSelector('.onb-card', { timeout: 5000 }); result.foretag.push(await q());
+await shot('5-profil');
+await page.locator('.onb-embedded button:has-text("Fortsätt")').click();
+await page.waitForSelector('input[name="new-password"]', { timeout: 8000 });
+await shot('6-losenord');
+// Tillbaka från lösenordet ska visa svaren kvar, sedan fram igen.
+await page.locator('button:has-text("Tillbaka")').last().click();
+result.tillbakaVisarProfil = await page.locator('.onb-card').isVisible().catch(() => false);
+await page.locator('.onb-embedded button:has-text("Fortsätt")').click();
+await page.waitForSelector('input[name="new-password"]', { timeout: 8000 });
 await page.locator('input[name="new-password"]').fill('Langt-losenord-2026');
 await page.locator('input[name="confirm-password"]').fill('Langt-losenord-2026');
 await page.locator('input[type="checkbox"]').check();
