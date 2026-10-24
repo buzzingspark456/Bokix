@@ -8,6 +8,7 @@ import { applySecurityHeaders } from './_security.js';
 import { checkRateLimit, hitShared } from './_rateLimit.js';
 import { requireAuthedUser, requireActiveSubscription } from './_auth.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
+import { visionLines } from './_visionLayout.js';
 
 const VISION_IMAGE_URL = 'https://eu-vision.googleapis.com/v1/images:annotate';
 // En PDF läses av Vision själv (första sidan), så att även en PDF som
@@ -95,7 +96,8 @@ export default async function handler(req, res) {
       res.status(502).json({ error: 'Reservläsningen svarade inte.' });
       return;
     }
-    res.status(200).json({ text: result?.fullTextAnnotation?.text || '' });
+    // Raderna med läge: kvittovyn markerar var uppgifterna stod (_visionLayout.js).
+    res.status(200).json({ text: result?.fullTextAnnotation?.text || '', lines: visionLines(result?.fullTextAnnotation) });
   } catch (err) {
     console.warn('[ocr-vision] Anropet misslyckades:', err?.name || err);
     res.status(504).json({ error: 'Reservläsningen tog för lång tid.' });

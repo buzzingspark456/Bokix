@@ -96,6 +96,13 @@ describe('ocrCache', () => {
     expect(reader).not.toHaveBeenCalled();
   });
 
+  it('ger Visions rader med läge vidare, så kvittovyn kan markera uppgifterna', async () => {
+    const lines = [{ text: 'Totalt 125,00', box: { x: 0.1, y: 0.75, w: 0.8, h: 0.03 } }];
+    const result = await readDocumentText({ name: 'v.jpg', size: 9, lastModified: 14 }, null, { cloud: async () => ({ text: 'ICA Maxi\nTotalt 125,00', lines }) });
+    expect(result.text).toBe('ICA Maxi\nTotalt 125,00');
+    expect(result.layout).toEqual(lines);
+  });
+
   it('skickar egna hörn till Vision', async () => {
     const quad = [{ x: 0.1, y: 0.1 }, { x: 0.9, y: 0.1 }, { x: 0.9, y: 0.9 }, { x: 0.1, y: 0.9 }];
     const cloud = vi.fn(async () => 'ICA Maxi\nTotalt 125,00');

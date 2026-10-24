@@ -141,10 +141,13 @@ async function readDocumentTextOnce(input, onProgress, { force = false, reader, 
   const cloudRead = cloud === undefined ? (reader ? null : (await import('./ocrCloud')).readWithCloud) : cloud;
   if (cloudRead) {
     onProgress?.('Läser kvittot…');
-    const text = await cloudRead(input, { quad });
+    const res = await cloudRead(input, { quad });
+    // { text, lines } från ocrCloud.js; en ren text går också (tester).
+    const text = typeof res === 'string' ? res : res?.text;
     if (!text) throw new Error('Kunde inte läsas');
     setCachedOcrText(key, text);
-    return { text, confidence: null, weakTokens: null, quality: null, layout: null, cached: false };
+    const layout = typeof res === 'object' && Array.isArray(res.lines) && res.lines.length > 0 ? res.lines : null;
+    return { text, confidence: null, weakTokens: null, quality: null, layout, cached: false };
   }
 
   // Den egna läsningen: bara när en läsare skickas in (tester och verktyg).

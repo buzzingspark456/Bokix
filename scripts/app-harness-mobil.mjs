@@ -49,7 +49,14 @@ await page.route(`${SUPA}/**`, async (route) => {
   if (url.pathname.startsWith('/auth/v1/user')) return route.fulfill({ json: user });
   if (url.pathname.startsWith('/auth/v1/token')) return route.fulfill({ json: session });
   if (url.pathname.startsWith('/auth/v1/')) return route.fulfill({ json: {} });
-  if (url.pathname.startsWith('/storage/')) return route.fulfill({ json: [] });
+  // RECEIPT_PNG: varje uppladdad fil kommer tillbaka som den bilden.
+  if (url.pathname.startsWith('/storage/') && process.env.RECEIPT_PNG && req.method() === 'GET' && url.pathname.includes('/object/')) return route.fulfill({ status: 200, contentType: 'image/png', body: fs.readFileSync(process.env.RECEIPT_PNG) });
+  if (url.pathname.startsWith('/storage/') && process.env.RECEIPT_PNG && req.method() === 'POST' && url.pathname.includes('/object/sign/')) {
+    const body = JSON.parse(req.postData() || '{}');
+    const one = (p) => ({ path: p, signedURL: `/object/public/${p}?token=t`, error: null });
+    return route.fulfill({ json: body.paths ? body.paths.map(one) : { signedURL: url.pathname.replace('/storage/v1', '').replace('/sign/', '/public/') + '?token=t' } });
+  }
+  if (url.pathname.startsWith('/storage/')) return route.fulfill({ json: process.env.RECEIPT_PNG && req.method() === 'POST' ? { Key: 'x', path: 'x' } : [] });
   if (url.pathname.startsWith('/rest/v1/rpc/')) return route.fulfill({ json: null });
   const table = url.pathname.replace('/rest/v1/', '');
   if (table === 'user_data') {
@@ -61,7 +68,8 @@ await page.route(`${SUPA}/**`, async (route) => {
   if (table === 'subscriptions') return reply(route, { user_id: UID, status: 'active', current_period_end: '2030-01-01T00:00:00Z', cancel_at_period_end: false }, wantsObject);
   return reply(route, wantsObject ? null : [], wantsObject);
 });
-await page.route('**/api/**', r => r.fulfill({ json: {} }));
+// VISION_MOCK: en JSON-fil med { text, lines } som /api/ocr-vision svarar med.
+await page.route('**/api/**', r => r.fulfill({ json: process.env.VISION_MOCK && r.request().url().includes('/api/ocr-vision') ? JSON.parse(fs.readFileSync(process.env.VISION_MOCK, 'utf8')) : {} }));
 
 
 
@@ -75,6 +83,8 @@ for (const step of (process.env.STEPS || 'shot:hem').split('|')) {
   if (cmd === 'hash') { await page.evaluate((h) => { location.hash = h; }, arg); await page.waitForTimeout(1300); }
   else if (cmd === 'click') { await page.getByText(arg, { exact: false }).locator('visible=true').first().click(); await page.waitForTimeout(900); }
   else if (cmd === 'tap') { await page.locator(arg).locator('visible=true').first().click(); await page.waitForTimeout(900); }
+  else if (cmd === 'upload') { const [sel, file] = arg.split('@'); await page.locator(sel).first().setInputFiles(file); await page.waitForTimeout(1500); }
+  else if (cmd === 'focus') { await page.locator(arg).locator('visible=true').first().focus(); await page.waitForTimeout(600); }
   else if (cmd === 'wait') await page.waitForTimeout(Number(arg));
   else if (cmd === 'scroll') { await page.mouse.wheel(0, Number(arg)); await page.waitForTimeout(500); }
   else if (cmd === 'back') { await page.goBack(); await page.waitForTimeout(900); }

@@ -25,7 +25,8 @@ export function needsCloudReading(parsed) {
 }
 
 /**
- * Läser dokumentet med Vision. Returnerar texten, eller null om det inte gick
+ * Läser dokumentet med Vision. Returnerar { text, lines } (lines: raderna med
+ * läge på fotot, för markeringarna i kvittovyn), eller null om det inte gick
  * eller kvoten är slut (då blir det "Kunde inte läsas", se ocrCache.js).
  */
 export async function readWithCloud(input, { quad = null } = {}) {
@@ -56,7 +57,10 @@ export async function readWithCloud(input, { quad = null } = {}) {
       }
       const text = typeof payload?.text === 'string' && payload.text.trim() ? payload.text : null;
       lastCloudStatus = text ? 'ok' : 'ingen text';
-      return text;
+      if (!text) return null;
+      // Radernas läge gäller hela fotot; med egna hörn skickades bara ett
+      // uträtat utsnitt, och då stämmer lägena inte mot fotot i kvittovyn.
+      return { text, lines: !quad && Array.isArray(payload.lines) ? payload.lines : null };
     } finally {
       clearTimeout(timer);
     }
