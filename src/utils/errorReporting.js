@@ -3,6 +3,7 @@
 // Högst fem rapporter per sidladdning och aldrig samma fel två gånger, så
 // en felande loop inte översvämmar något.
 import { isReloadingForNewBuild } from './staleBuild.js';
+import { initSentry, captureToSentry } from './sentry.js';
 
 const sent = new Set();
 let count = 0;
@@ -15,6 +16,8 @@ export function reportClientError(error, source = 'global') {
     if (!message || count >= 5 || sent.has(message)) return;
     sent.add(message);
     count += 1;
+    // Samma fel till Sentry (sentry.js), med detaljer och spår.
+    captureToSentry(error, source);
     const body = JSON.stringify({
       message,
       stack: String(error?.stack || '').slice(0, 2000),
@@ -59,4 +62,8 @@ export function installGlobalErrorHandlers() {
   if (!import.meta.env.PROD) return;
   window.addEventListener('error', (event) => reportClientError(event.error || event.message));
   window.addEventListener('unhandledrejection', (event) => reportClientError(event.reason));
+  // Sentry laddas när sidan är klar; fel före dess köas i sentry.js.
+  const start = () => initSentry();
+  if ('requestIdleCallback' in window) window.requestIdleCallback(start, { timeout: 4000 });
+  else setTimeout(start, 2000);
 }
