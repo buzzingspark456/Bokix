@@ -213,19 +213,99 @@
       "destination": "/verktyg/arsredovisning/index.html"
     },
     {
+      "source": "/.git",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.git/:rest*",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.svn",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.svn/:rest*",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.hg",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.hg/:rest*",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.vscode",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.vscode/:rest*",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.idea",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.idea/:rest*",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.ssh",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.ssh/:rest*",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.aws",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.aws/:rest*",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.docker",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.docker/:rest*",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.config",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.config/:rest*",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.npm",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.npm/:rest*",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.cache",
+      "destination": "/__finns-inte.txt"
+    },
+    {
+      "source": "/.cache/:rest*",
+      "destination": "/__finns-inte.txt"
+    },
+    {
       "source": "/env",
       "destination": "/__finns-inte.txt"
     },
     {
       "source": "/env/:rest*",
-      "destination": "/__finns-inte.txt"
-    },
-    {
-      "source": "/:dot(.(?!well-known)[^/]*)",
-      "destination": "/__finns-inte.txt"
-    },
-    {
-      "source": "/:dot(.(?!well-known)[^/]*)/:rest*",
       "destination": "/__finns-inte.txt"
     },
     {
