@@ -71,4 +71,17 @@ describe('buildTodoItems', () => {
     const items = buildTodoItems({ t, today, company: {} });
     expect(kinds(items)).toEqual(['start_company', 'start_vat', 'start_receipt', 'start_invoice']);
   });
+it("inkomstdeklaration och årsredovisning för förra året, de sista 30 dagarna och tills de är inlämnade", () => {
+    const july = new Date("2026-07-15T10:00:00");
+    const lastYear = Array.from({ length: 30 }, (_, i) => ({ id: "p" + i, date: "2025-06-01", rows: [] }));
+    const company = { ...base.company, lockedFiscalYears: { 2025: true } };
+    const items = buildTodoItems({ ...base, today: july, company, verifications: [...lastYear, ...established] });
+    expect(kinds(items)).toEqual(expect.arrayContaining(["income_declaration", "annual_report"]));
+    expect(items.find(i => i.kind === "annual_report").daysLeft).toBe(16);
+    const filed = { ...company, taxFilings: { "ink:2025": { at: "2026-07-01" }, "ar:2025": { at: "2026-07-01" } } };
+    expect(kinds(buildTodoItems({ ...base, today: july, company: filed, verifications: [...lastYear, ...established] }))).not.toEqual(expect.arrayContaining(["income_declaration"]));
+    // I mars är båda fristerna mer än 30 dagar bort.
+    const march = new Date("2026-03-15T10:00:00");
+    expect(kinds(buildTodoItems({ ...base, today: march, company, verifications: [...lastYear, ...established] }))).not.toEqual(expect.arrayContaining(["income_declaration", "annual_report"]));
+  });
 });

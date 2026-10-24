@@ -255,6 +255,10 @@
       "bankManyTitle": "{{count}} banktransaktioner att bokföra",
       "bankDetail": "Koppla till en faktura eller välj konto",
       "actionYearEnd": "Gör bokslut",
+      "actionTaxes": "Gå till Skatt och bokslut",
+      "incomeDeclarationTitle": "Inkomstdeklaration för {{year}}",
+      "annualReportTitle": "Årsredovisning för {{year}}",
+      "annualReportDue": "Till Bolagsverket {{when}}",
       "yearEndTitle": "Stäng räkenskapsåret {{year}}",
       "yearEndDetail": "Bokslut och lås året under Skatt och bokslut",
       "vatTitleLabel": "Momsdeklaration {{label}}"

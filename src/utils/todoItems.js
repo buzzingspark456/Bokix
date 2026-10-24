@@ -9,7 +9,9 @@
 //
 // Raderna har ingen ikon här (ikonerna är React-komponenter, se
 // Dashboard.jsx TODO_ICONS), bara `kind`.
-import { nextVatDeadline, nextAgiDeadline, vatContextFor } from './declarationDeadlines';
+import { nextVatDeadline, nextAgiDeadline, vatContextFor, incomeDeclarationDueDate } from './declarationDeadlines';
+import { annualReportDeadline } from './annualReport';
+import { detectOrgType } from './orgType';
 import { invoiceCustomerRemaining } from './rotRutConfig';
 import { activeFiscalYear } from './fiscalYear';
 import { numberFormat } from './intlCache';
@@ -217,6 +219,44 @@ export function buildTodoItems({
       title: t('dashboard.todo.yearEndTitle', { year: previous.label }),
       detail: t('dashboard.todo.yearEndDetail'),
     });
+  }
+
+  // Inkomstdeklarationen och årsredovisningen för förra räkenskapsåret, de
+  // sista 30 dagarna före fristen och tills de markerats inlämnade under
+  // Skatt och bokslut (samma nycklar som översikten där, Taxes.jsx).
+  // Kundönskemål 2026-10-24: förut syntes bara momsen här.
+  const dayStart = new Date(today);
+  dayStart.setHours(0, 0, 0, 0);
+  const daysToDue = (d) => Math.round((new Date(d) - dayStart) / 86400000);
+  const filed = (key) => Boolean(company?.taxFilings?.[key]?.at);
+  const orgType = detectOrgType(company?.orgNr);
+  if (previousHasBookkeeping) {
+    const declarationDue = incomeDeclarationDueDate({ orgType, fyEnd: previous.end });
+    const declarationKey = orgType === 'Ideell förening / stiftelse' ? `ink3:${previous.key}` : `ink:${previous.key}`;
+    if (declarationDue && !filed(declarationKey)) {
+      const daysLeft = daysToDue(declarationDue);
+      if (daysLeft <= 30) {
+        const late = daysLeft < 0;
+        rows.push({
+          kind: 'income_declaration', group: 'tax', sev: late ? 'danger' : 'warning', daysLeft, late,
+          tone: late ? 'bad' : 'warn', action: t('dashboard.todo.actionTaxes'), target: { tab: 'taxes' },
+          title: t('dashboard.todo.incomeDeclarationTitle', { year: previous.label }),
+          when: late ? t('dashboard.todo.vatLate') : t('dashboard.todo.vatDue', { when: whenIn(daysLeft) }),
+        });
+      }
+    }
+    if (orgType === 'Aktiebolag (AB)' && !filed(`ar:${previous.key}`)) {
+      const daysLeft = daysToDue(`${annualReportDeadline(previous.end)}T00:00:00`);
+      if (daysLeft <= 30 && daysLeft >= -90) {
+        const late = daysLeft < 0;
+        rows.push({
+          kind: 'annual_report', group: 'tax', sev: late ? 'danger' : 'warning', daysLeft, late,
+          tone: late ? 'bad' : 'warn', action: t('dashboard.todo.actionTaxes'), target: { tab: 'taxes' },
+          title: t('dashboard.todo.annualReportTitle', { year: previous.label }),
+          when: late ? t('dashboard.todo.vatLate') : t('dashboard.todo.annualReportDue', { when: whenIn(daysLeft) }),
+        });
+      }
+    }
   }
 
   // Första veckan: det som gör kontot klart. Bara för ett nytt konto; ett

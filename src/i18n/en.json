@@ -255,6 +255,10 @@
       "bankManyTitle": "{{count}} bank transactions to book",
       "bankDetail": "Match it to an invoice or choose an account",
       "actionYearEnd": "Do year-end",
+      "actionTaxes": "Go to Tax and year-end",
+      "incomeDeclarationTitle": "Income tax return for {{year}}",
+      "annualReportTitle": "Annual report for {{year}}",
+      "annualReportDue": "To Bolagsverket {{when}}",
       "yearEndTitle": "Close the fiscal year {{year}}",
       "yearEndDetail": "Year-end closing and lock under Tax and year-end",
       "vatTitleLabel": "VAT return {{label}}"

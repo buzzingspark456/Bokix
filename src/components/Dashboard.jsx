@@ -185,7 +185,7 @@ function ChartDataTable({ data, fmt, hasPrevYearData, comparisonLabel }) {
 // Ikonen per sorts rad i Att göra (utils/todoItems.js har bara `kind`).
 const TODO_ICONS = {
   overdue_invoices: TodoOverdueIcon, supplier_due: TodoOverdueIcon, vat_deadline: TodoVatIcon, agi_deadline: TodoVatIcon,
-  year_end: TodoVatIcon, start_vat: TodoVatIcon, payroll_pending: TodoPayrollIcon, employees_tax: TodoPayrollIcon,
+  year_end: TodoVatIcon, income_declaration: TodoVatIcon, annual_report: TodoVatIcon, start_vat: TodoVatIcon, payroll_pending: TodoPayrollIcon, employees_tax: TodoPayrollIcon,
   review: TodoReviewIcon, bank_unmatched: TodoReviewIcon, draft_invoices: TodoDraftIcon,
 };
 
