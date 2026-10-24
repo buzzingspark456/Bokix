@@ -9,7 +9,9 @@
 // Felen kommer från errorReporting.js (samma ställe som /api/client-error),
 // så Sentrys egna globala felfångare är avstängda för att inte dubbla.
 
-const DSN = import.meta.env.VITE_SENTRY_DSN;
+// DSN är inte hemlig (den hamnar alltid i webbläsarkoden). Projektet ligger i
+// Sentrys EU-region (ingest.de). VITE_SENTRY_DSN i Vercel går före.
+const DSN = import.meta.env.VITE_SENTRY_DSN || 'https://c58d6a251e48a33b7940c59e92dbef75@o4508412011806720.ingest.de.sentry.io/4508412025831504';
 const ENABLED = Boolean(import.meta.env.PROD && DSN);
 
 let sentry = null;
