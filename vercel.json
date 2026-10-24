@@ -213,6 +213,94 @@
       "destination": "/verktyg/arsredovisning/index.html"
     },
     {
+      "source": "/env",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/env/:rest*",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/:dot(.(?!well-known)[^/]*)",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/:dot(.(?!well-known)[^/]*)/:rest*",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/wp-admin",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/wp-admin/:rest*",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/wp-content/:rest*",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/wp-includes/:rest*",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/wordpress/:rest*",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/phpmyadmin",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/phpmyadmin/:rest*",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/pma",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/config",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/config/:rest*",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/server-status",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/actuator",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/actuator/:rest*",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/debug",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/backup",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/backups",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/vendor/:rest*",
+      "destination": "/__finns-inte"
+    },
+    {
+      "source": "/cgi-bin/:rest*",
+      "destination": "/__finns-inte"
+    },
+    {
       "source": "/((?!api|assets/)(?!.*[.][a-zA-Z0-9]+$).*)",
       "destination": "/app-shell.html"
     }
