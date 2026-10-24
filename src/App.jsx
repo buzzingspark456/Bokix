@@ -5735,8 +5735,8 @@ function App() {
               // aldrig någonstans, så klicket gjorde bokstavligen ingenting.
               <OnboardingFlow
                 onComplete={handleOnboardingComplete}
-                onSkip={handleSkipOnboarding}
                 initialCompanyData={data.companies[data.activeCompanyId]}
+                firstName={user?.user_metadata?.first_name}
               />
             ) : !isActiveCompanyPaid ? (
               // Betala-per-företag (kundkrav): det AKTIVA företaget kräver

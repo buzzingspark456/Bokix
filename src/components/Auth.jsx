@@ -2,12 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   LogIn, UserPlus, Mail, Lock,
-  ArrowRight, ArrowLeft, ShieldCheck, Check, User, Hash,
+  ArrowRight, ArrowLeft, ShieldCheck, User,
   RefreshCw, GraduationCap,
 } from './icons';
 import { supabase } from '../supabaseClient';
-import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
-import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import { sendSignupCode, verifySignupCode, confirmSignupEmail } from '../utils/signupVerification';
 import { translateSupabaseAuthError } from '../utils/translateAuthError';
 import { passkeyLoginOffered, rememberPasskeyOnDevice, isPasskeyCancel, setAppLock } from '../utils/sessionPolicy';
@@ -19,8 +17,6 @@ import { UF_FREE_MONTHS } from '../utils/ufMode';
 import Turnstile from './Turnstile';
 import Recaptcha from './Recaptcha';
 import { TERMS_VERSION } from '../utils/legalVersion';
-import CompanyLookupResults from './shared/CompanyLookupResults';
-import FiscalYearVatFields, { EMPTY_COMPANY_SETUP, companySetupComplete, companySetupToCompany } from './shared/FiscalYearVatFields';
 import { t, useForcedLanguage } from '../i18n';
 
 // ── Litet Stripe-märke — se motsvarande kommentar i PaymentRequiredGate.jsx
@@ -49,16 +45,12 @@ const labelStyle = {
 
 // Nycklar, inte färdiga texter: översätts när sidan ritas, så att det
 // tvingade svenska språket (useForcedLanguage nedan) gäller även här.
-const REGISTER_STEPS = ['ui.personlig_info', 'ui.bekrafta_e_post', 'ui.foretag', 'ui.losenord'];
+// Registreringen är bara kontot (2026-10-24): e-post, kod, lösenord.
+// Företaget, räkenskapsåret, momsen och F-skatten frågas en gång, i
+// onboardingen inne i appen (OnboardingFlow.jsx). Bara UF har kvar ett eget
+// företagssteg, eftersom UF-kontot ska veta att det är UF redan när det skapas.
+const STEP_LABELS = { personal: 'ui.personlig_info', verify: 'ui.bekrafta_e_post', company: 'ui.foretag', password: 'ui.losenord' };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-// ── Autouppslag mot FöretagsAPI på registreringens "Ditt företag"-steg
-// (useCompanyLookup, se api/company-access.js). Företagsnamnet skrivs inte
-// längre in för hand här — organisationsnumret är det enda fältet, och när
-// 10 siffror är ifyllda slår handleOrgNrChange upp och fyller regCompany
-// automatiskt (se companyLookup nedan). lookupStatusStyle visar resultatet
-// av det uppslaget under fältet. ──
-const lookupStatusStyle = { fontSize: '12px', marginTop: '8px', lineHeight: 1.5, color: 'var(--text-secondary)' };
 
 // Säkerhetsgranskningen: bara en längdgräns (8 tecken) fanns tidigare,
 // ingen som helst indikation till användaren om hur starkt lösenordet
@@ -130,7 +122,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   const [hasPendingInvite] = useState(() => typeof window !== 'undefined' && Boolean(sessionStorage.getItem(PENDING_INVITE_KEY)));
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [regStep, setRegStep] = useState(0); // 0=personal, 1=email-confirm, 2=company, 3=password
+  const [regStep, setRegStep] = useState(0); // index i regSteps nedan
   // Kontot är skapat och vi väntar på Stripe Checkout-URL:en innan sidan
   // navigerar bort — egen flagga (inte bara `loading`) så steg 2 kan visa en
   // tydlig "skickar dig vidare"-vy istället för företagsformuläret igen.
@@ -141,7 +133,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   const [loginPassword, setLoginPassword] = useState('');
 
   // "Glömt lösenord?" — egen liten vy ovanpå inloggningsformuläret, inte ett
-  // eget steg i REGISTER_STEPS (det är bara för nytt-konto-flödet). Visar
+  // eget steg i regSteps (det är bara för nytt-konto-flödet). Visar
   // ALLTID samma bekräftelse oavsett om e-postadressen faktiskt finns eller
   // ej (se handleForgotPassword) — att svara olika hade läckt vilka
   // e-postadresser som är registrerade i Bokix.
@@ -248,61 +240,18 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     }
   };
 
-  // Step 2 – Company
-  const [regCompany, setRegCompany] = useState('');
-  const [regOrgNr, setRegOrgNr] = useState('');
-  // Register's own answer for the legal form (FöretagsAPI's `legalForm`,
-  // via applyCompany) — authoritative, unlike the digit-position guess
-  // below. Empty until a lookup actually resolves.
-  const [regLegalForm, setRegLegalForm] = useState('');
-  // Adressen ur registret. Inga fält i det här steget, men den sparas i
-  // user_metadata och hamnar på det första företaget (App.jsx), så den står
-  // i Inställningar → Företagsuppgifter direkt efter registreringen.
-  const [regAddress, setRegAddress] = useState({ address: '', postalCode: '', city: '' });
-  // "Jag har inget företag än" — se knappen i steg 2 och handleNextStep:s
-  // regStep===2-gren för hela resonemanget.
-  const [skipCompany, setSkipCompany] = useState(false);
-  // Räkenskapsår och momsregistrering (FiscalYearVatFields.jsx). Skickas med
-  // i user_metadata och sätts på första företaget i App.jsx.
-  const [regSetup, setRegSetup] = useState(EMPTY_COMPANY_SETUP);
-
   // ── UF-registrering (utils/ufMode.js) ──
   // Ett UF-företag har oftast inget organisationsnummer att slå upp, inga
-  // uppgifter i bolagsregistret och ingen prenumeration att teckna. Hela
-  // steg 2 byter därför skepnad: företagsnamn + skola i stället för
-  // org.nummer + registeruppslag, och steg 3 skapar kontot UTAN att skicka
-  // någon vidare till Stripe.
-  //
-  // Förvalet kommer från /uf-sidans knappar (initialUf), men växeln finns
-  // också i formuläret: någon som hamnat i det vanliga flödet ska kunna
-  // byta utan att gå tillbaka till marknadssidan.
+  // uppgifter i bolagsregistret och ingen prenumeration att teckna. Det får
+  // därför ett eget steg med företagsnamn + skola, och lösenordssteget
+  // skapar kontot UTAN att skicka någon vidare till Stripe. Förvalet kommer
+  // från /uf-sidans knappar (initialUf).
   const [isUfSignup, setIsUfSignup] = useState(Boolean(initialUf));
+  const [regCompany, setRegCompany] = useState('');
   const [regUfSchool, setRegUfSchool] = useState('');
 
-  // Fallback only: a local heuristic from the org number's own digits, used
-  // when a real lookup hasn't resolved a legal form yet (or failed) so the
-  // step still shows *something*. Can be wrong — see orgType.js's own
-  // caveat — so regLegalForm below is always preferred once present.
-  const orgType = detectOrgType(regOrgNr);
-  const displayedOrgType = (regLegalForm && formatLegalForm(regLegalForm)) || orgType;
-
-  // Autouppslag i företagsregistret — det här steget visar bara namn +
-  // org.nummer, men adressen (gata, postnr, ort) sparas undan i regAddress
-  // och följer med till företaget (se ovan). 'legalForm' (se regLegalForm
-  // ovan) ersätter den lokala
-  // gissningen i orgType.js med registrets faktiska svar så fort ett
-  // uppslag lyckas. org.nummer formateras via SAMMA formatOrgNr som
-  // fältets egen onChange använder, så en ifylld post-lookup-siffersträng
-  // ser likadan ut (556123-4567) som en manuellt inskriven.
-  const handleLookupField = (key, value) => {
-    if (key === 'name') setRegCompany(value);
-    else if (key === 'orgNr') setRegOrgNr(formatOrgNr(value));
-    else if (key === 'legalForm') setRegLegalForm(value);
-    else if (key === 'address' || key === 'postalCode' || key === 'city') setRegAddress(a => ({ ...a, [key]: value }));
-  };
-  const companyLookup = useCompanyLookup(handleLookupField);
-  // Ankare för träfflistan när man söker på företagsnamnet.
-  const regCompanyFieldRef = useRef(null);
+  const regSteps = isUfSignup && !hasPendingInvite ? ['personal', 'verify', 'company', 'password'] : ['personal', 'verify', 'password'];
+  const curStep = regSteps[Math.min(regStep, regSteps.length - 1)];
 
   // Switch between login/register and reset step
   const switchMode = (login) => {
@@ -409,92 +358,65 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     }
   };
 
+  // Kundfeedback: det här steget släppte tidigare igenom VILKEN
+  // e-postadress som helst obekräftad — se filkommentaren vid
+  // emailVerified/otpToken ovan. Körs av sig själv när sjätte siffran är
+  // ifylld (effekten nedan), och av Bekräfta-knappen.
+  const verifyCode = async (code) => {
+    if (!/^\d{6}$/.test(code)) { setErrorMsg(t('ui.ange_den_sexsiffriga_koden_fran_mejlet')); return; }
+    setErrorMsg('');
+    setOtpStatus('verifying');
+    try {
+      await verifySignupCode({ email: regEmail, code, token: otpToken });
+      setEmailVerified(true);
+      setRegStep(s => s + 1);
+    } catch (err) {
+      setErrorMsg(err?.message || t('ui.fel_kod_forsok_igen'));
+    } finally {
+      setOtpStatus('idle');
+    }
+  };
+  const lastAutoVerified = useRef('');
+  useEffect(() => {
+    if (curStep !== 'verify' || emailVerified || otpStatus !== 'idle' || regVerifyCode.length !== 6) return;
+    if (lastAutoVerified.current === regVerifyCode) return; // samma felaktiga kod skickas inte igen
+    lastAutoVerified.current = regVerifyCode;
+    verifyCode(regVerifyCode);
+  }, [regVerifyCode, curStep]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleNextStep = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
-    if (regStep === 0) {
+    if (curStep === 'personal') {
       if (!regFirstName.trim()) { setErrorMsg(t('ui.ange_ditt_fornamn')); return; }
       if (!regEmail.trim() || !EMAIL_RE.test(regEmail.trim())) { setErrorMsg(t('ui.ange_en_giltig_e_postadress')); return; }
       setLoading(true);
       const error = await sendCode();
       setLoading(false);
       if (error) { setErrorMsg(error); return; }
+      lastAutoVerified.current = '';
       setRegStep(1);
       return;
     }
 
-    if (regStep === 1) {
-      // Kundfeedback: det här steget släppte tidigare igenom VILKEN
-      // e-postadress som helst obekräftad — se filkommentaren vid
-      // emailVerified/otpToken ovan. Fortsätt är nu en riktig kod-kontroll,
-      // inte bara ett nästa-klick.
-      if (!/^\d{6}$/.test(regVerifyCode)) { setErrorMsg(t('ui.ange_den_sexsiffriga_koden_fran_mejlet')); return; }
-      setOtpStatus('verifying');
-      try {
-        await verifySignupCode({ email: regEmail, code: regVerifyCode, token: otpToken });
-        setEmailVerified(true);
-        // En inbjuden person hoppar rakt förbi företagssteget (3) — de ska
-        // aldrig ombes namnge ett eget företag för att gå med i någon
-        // ANNANS.
-        setRegStep(hasPendingInvite ? 3 : 2);
-      } catch (err) {
-        setErrorMsg(err?.message || t('ui.fel_kod_forsok_igen'));
-      } finally {
-        setOtpStatus('idle');
-      }
+    if (curStep === 'verify') {
+      await verifyCode(regVerifyCode);
       return;
     }
 
-    if (regStep === 2) {
-      // "Jag har inget företag än" (se knappen nedan) — hoppar över hela
-      // valideringen precis som hasPendingInvite redan gör (fast den hoppar
-      // över SJÄLVA STEGET, den här bara fälten inuti det, användaren har
-      // fortfarande sett/kunnat fylla i steget). signUp()-anropet nedan
-      // skickar tomma company_name/org_nr precis som för en inbjuden
-      // person — App.jsx:s fetchUserData skapar då ett tomt platshållar-
-      // företag ('Mitt Företag AB', orgNr: '') som Settings.jsx:s
-      // Företag-flik känner igen (via ett tomt orgNr) och visar en riktig
-      // "slutför registreringen"-vy för, med samma org.nummer-uppslag som
-      // här — se Settings.jsx:s kommentar vid Grunduppgifter.
+    if (curStep === 'company') {
       // UF-företag: bara namnet är obligatoriskt. Inget org.nummer krävs
       // (de flesta UF-företag har inget), och skolan är frivillig.
-      if (isUfSignup) {
-        if (!regCompany.trim()) {
-          setErrorMsg(t('ui.ange_vad_ert_uf_foretag_heter'));
-          return;
-        }
-        setRegStep(3);
+      if (!regCompany.trim()) {
+        setErrorMsg(t('ui.ange_vad_ert_uf_foretag_heter'));
         return;
       }
-      if (!skipCompany) {
-        if (!regOrgNr.trim() || regOrgNr.replace(/\D/g, '').length < 10) {
-          setErrorMsg(t('ui.ange_ett_giltigt_organisationsnummer_10_siffror_2'));
-          return;
-        }
-        // Företagsnamnet fylls i automatiskt av ett lyckat FöretagsAPI-uppslag
-        // (regCompany sätts då av companyLookup.applyCompany via
-        // handleLookupField), men fältet nedan är ALLTID redigerbart för
-        // hand — se motiveringen vid namnfältet: en enskild firma har inget
-        // eget bolagsregister att slå upp (bara ägarens personnummer, se
-        // orgType.js), och ett FöretagsAPI-avbrott/slut kredit-kvot (402)
-        // ska aldrig kunna blockera en registrering helt. Så den här
-        // kontrollen är bara ett vanligt obligatoriskt-fält-krav numera,
-        // inte ett bevis på ett lyckat uppslag.
-        if (!regCompany.trim()) {
-          setErrorMsg(t('ui.ange_foretagsnamnet'));
-          return;
-        }
-        if (!companySetupComplete(regSetup)) {
-          setErrorMsg(t('ui.svara_pa_vilket_rakenskapsar_ni_har_och_om_foret'));
-          return;
-        }
-      }
-      setRegStep(3);
+      setRegStep(s => s + 1);
       return;
     }
 
-    if (regStep === 3) {
+    if (curStep === 'password') {
       if (regPassword.length < 8) { setErrorMsg(t('ui.losenordet_maste_vara_minst_8_tecken_2')); return; }
       if (regPassword !== regPassword2) { setErrorMsg(t('ui.losenorden_matchar_inte_2')); return; }
       if (!regAcceptTerms) { setErrorMsg(t('ui.du_behover_godkanna_anvandarvillkoren_och_person')); return; }
@@ -526,14 +448,12 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
             data: {
               first_name: regFirstName,
               last_name: regLastName,
-              // Tomma för en inbjuden person (se hasPendingInvite ovan —
-              // App.jsx:s fetchUserData hoppar då över "skapa tomt
-              // företag"-grenen helt, eftersom den bara körs när varken
-              // egen data eller delad åtkomst finns) ELLER för "Jag har
-              // inget företag än" (skipCompany, steg 2) — då körs samma
-              // gren, men skapar ETT tomt platshållarföretag istället för
-              // att hoppas över, se kommentaren vid skipCompany-deklarationen.
-              company_name: (hasPendingInvite || skipCompany) ? '' : regCompany,
+              // Tomt utom för UF. En inbjuden person får inget eget företag
+              // (App.jsx:s fetchUserData hoppar över "skapa tomt
+              // företag"-grenen när delad åtkomst finns). Alla andra får ett
+              // platshållarföretag som onboardingen (OnboardingFlow.jsx)
+              // fyller i med org.nr, räkenskapsår, moms och F-skatt.
+              company_name: (isUfSignup && !hasPendingInvite) ? regCompany : '',
               // UF-läget. Läses av App.jsx på två ställen: betalspärren
               // (uf + uf_started_at = släpps in på gratisperioden) och
               // skapandet av det första företaget (isUf/ufSchool på
@@ -541,20 +461,8 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               // registreringen — det är den enda tidpunkt gratisperioden
               // räknas från, inte "när företaget skapades" eller "första
               // inloggningen", som båda kan glida.
-              ...(isUfSignup ? { uf: true, uf_school: regUfSchool, uf_started_at: new Date().toISOString() } : {}),
-              org_nr: (hasPendingInvite || skipCompany) ? '' : regOrgNr,
-              ...((hasPendingInvite || skipCompany || isUfSignup) ? {} : (() => {
-                const setup = companySetupToCompany(regSetup, regOrgNr);
-                return {
-                  company_address: regAddress.address,
-                  company_postal_code: regAddress.postalCode,
-                  company_city: regAddress.city,
-                  fiscal_year: setup.fiscalYear,
-                  ...(setup.firstFiscalYear ? { first_fiscal_year_start: setup.firstFiscalYear.start, first_fiscal_year_end: setup.firstFiscalYear.end } : {}),
-                  vat_registered: setup.vatRegistered,
-                  vat_nr: setup.vatNr,
-                };
-              })()),
+              ...((isUfSignup && !hasPendingInvite) ? { uf: true, uf_school: regUfSchool, uf_started_at: new Date().toISOString() } : {}),
+              org_nr: '',
               terms_accepted_at: new Date().toISOString(),
               terms_version: TERMS_VERSION,
             },
@@ -949,23 +857,23 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
             {/* Step indicator */}
             <div style={{ marginBottom: '28px' }}>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '18px' }}>
-                {REGISTER_STEPS.map((s, i) => (hasPendingInvite && i === 2) ? null : (
+                {regSteps.map((s, i) => (
                   <div key={s} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '7px' }}>
                     <div style={{ position: 'relative', height: '4px', borderRadius: '2px', background: 'var(--border)', overflow: 'hidden' }}>
                       <div style={{ position: 'absolute', inset: 0, borderRadius: '2px', background: '#0b6329', transform: `scaleX(${i <= regStep ? 1 : 0})`, transformOrigin: 'left', transition: 'transform 0.35s ease' }} />
                     </div>
-                    <span style={{ fontSize: '13px', fontWeight: i === regStep ? 700 : 500, color: i <= regStep ? BRAND.greenDark : 'var(--text-muted)' }}>{t(s)}</span>
+                    <span style={{ fontSize: '13px', fontWeight: i === regStep ? 700 : 500, color: i <= regStep ? BRAND.greenDark : 'var(--text-muted)' }}>{t(STEP_LABELS[s])}</span>
                   </div>
                 ))}
               </div>
               <h2 key={regStep} className="auth-step-fade" style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: 'clamp(26px, 8vw, 34px)', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px', letterSpacing: '-0.01em' }}>
-                {regStep === 0 && t('ui.personlig_info')}
-                {regStep === 1 && t('ui.bekrafta_e_post')}
-                {regStep === 2 && (isUfSignup ? t('ui.ert_uf_foretag') : t('ui.ditt_foretag'))}
-                {regStep === 3 && t('ui.skapa_losenord')}
+                {curStep === 'personal' && t('ui.personlig_info')}
+                {curStep === 'verify' && t('ui.bekrafta_e_post')}
+                {curStep === 'company' && t('ui.ert_uf_foretag')}
+                {curStep === 'password' && t('ui.skapa_losenord')}
               </h2>
               <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-                {regStep === 1 && t('ui.skriv_in_koden_vi_skickade_till', { regEmail })}
+                {curStep === 'verify' && t('ui.skriv_in_koden_vi_skickade_till', { regEmail })}
                 {/* Bugkritiskt (kundrapport: "det säger betalning/organisationsnummer
                     fast det är ett UF-konto"): den här raden sa "Sedan skickas
                     du vidare till betalning" OAVSETT isUfSignup — men UF-konton
@@ -973,10 +881,10 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                     isUfSignup-grenen returnerar direkt, ingen
                     createStripeSubscriptionCheckout). Texten ljög alltså för
                     exakt den kontotyp den handlar minst om. */}
-                {regStep === 3 && hasPendingInvite && t('ui.inbjuden_sedan')}
-                {regStep === 3 && !isUfSignup && !hasPendingInvite && t('ui.sedan_skickas_du_vidare_till_betalning')}
+                {curStep === 'password' && hasPendingInvite && t('ui.inbjuden_sedan')}
+                {curStep === 'password' && !isUfSignup && !hasPendingInvite && t('ui.sedan_skickas_du_vidare_till_betalning')}
               </p>
-              {hasPendingInvite && regStep === 0 && (
+              {hasPendingInvite && curStep === 'personal' && (
                 <div style={{ marginTop: '14px', padding: '12px 14px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px' }}>
                   <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>{t('ui.inbjuden_rubrik')}</div>
                   <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{t('ui.inbjuden_text')} {t('ui.inbjuden_epost_tips')}</div>
@@ -991,7 +899,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                   konton i mängd. Renderar inget utan nyckel. */}
               <Recaptcha ref={signupRecaptchaRef} />
               {/* STEP 0 – Personal info */}
-              {regStep === 0 && (
+              {curStep === 'personal' && (
                 <div key="step0" className="auth-step-fade" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div className="form-row-2" style={{ display: 'grid', gap: '12px' }}>
                     <div>
@@ -1040,7 +948,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                   varför) — Fortsätt-knappen i foten nedan blir en
                   "Bekräfta"-knapp för det här steget, avstängd tills 6
                   siffror är ifyllda (se dess disabled-villkor). */}
-              {regStep === 1 && (
+              {curStep === 'verify' && (
                 <div key="step1" className="auth-step-fade" style={{ padding: '32px 28px', background: 'var(--status-green-bg)', borderRadius: '16px', border: '1px solid var(--status-green-bg)', textAlign: 'center' }}>
                   <div className="auth-pulse" style={{ width: 64, height: 64, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
                     <Mail size={26} color="white" />
@@ -1064,7 +972,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                   <button
                     type="button"
                     className="auth-btn-ghost"
-                    onClick={async () => { setErrorMsg(''); const error = await sendCode(); if (error) setErrorMsg(error); }}
+                    onClick={async () => { setErrorMsg(''); lastAutoVerified.current = ''; const error = await sendCode(); if (error) setErrorMsg(error); }}
                     disabled={resendCooldown > 0 || otpStatus === 'sending'}
                     style={{ marginTop: '14px', background: 'none', border: 'none', borderRadius: '8px', padding: '6px 10px', color: resendCooldown > 0 ? 'var(--text-muted)' : BRAND.green, fontWeight: 700, fontSize: '13px', cursor: resendCooldown > 0 ? 'default' : 'pointer', fontFamily: 'inherit' }}
                   >
@@ -1073,184 +981,55 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 </div>
               )}
 
-              {/* STEP 2 – Company. handleOrgNrChange slår upp mot
-                  FöretagsAPI så fort 10 siffror är ifyllda och fyller
-                  regCompany automatiskt (se companyLookup ovan) — men
-                  namnfältet nedan är ALLTID ett vanligt redigerbart fält,
-                  aldrig bara en bekräftelsetext. Tre fall där uppslaget
-                  aldrig ger ett namn och manuell inmatning är den ENDA
-                  vägen framåt: (1) enskild firma — inget eget
-                  bolagsregister att slå upp (personnumret ÄR numret, se
-                  orgType.js/useCompanyLookup.js), (2) FöretagsAPI:s
-                  månadskvot slut (402), (3) registret helt otillgängligt
-                  (502/nätverksfel). Innan den här ändringen fanns inget
-                  namnfält alls här — vilket blockerade registrering HELT
-                  i alla tre fallen (se git-historiken för den borttagna
-                  varianten). */}
-              {regStep === 2 && (
+              {/* UF-företagets namn och skola (bara UF, se regSteps). Inget
+                  organisationsnummer och inget registeruppslag: det finns
+                  ingenting att slå upp för ett UF-företag. */}
+              {curStep === 'company' && (
                 <div key="step2" className="auth-step-fade" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {emailVerified && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: BRAND.greenDark, marginTop: '-4px' }}>
-                      <Check size={13} /> {t('ui.e_postadressen_ar_verifierad')}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '13px 14px', background: BRAND.greenLight, borderRadius: '10px' }}>
+                    <GraduationCap size={16} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
+                    <div style={{ fontSize: '12.5px', color: BRAND.greenDark, lineHeight: 1.6, fontWeight: 600 }}>
+                      {t('ui.ni_registrerar_ett_uf_foretag_gratis_i')} {UF_FREE_MONTHS} {t('ui.manader_inget_organisationsnummer_och_inga_betal')}
                     </div>
-                  )}
-                  {isUfSignup ? (
-                    // UF-företag: namn + skola, inget organisationsnummer
-                    // och inget registeruppslag (det finns ingenting att slå
-                    // upp — se isUfSignup-kommentaren vid state:t ovan).
-                    <>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '13px 14px', background: BRAND.greenLight, borderRadius: '10px' }}>
-                        <GraduationCap size={16} color={BRAND.greenDark} style={{ flexShrink: 0, marginTop: 1 }} />
-                        <div style={{ fontSize: '12.5px', color: BRAND.greenDark, lineHeight: 1.6, fontWeight: 600 }}>
-                          {t('ui.ni_registrerar_ett_uf_foretag_gratis_i')} {UF_FREE_MONTHS} {t('ui.manader_inget_organisationsnummer_och_inga_betal')}
-                        </div>
-                      </div>
+                  </div>
 
-                      <div>
-                        <label style={labelStyle}>{t('ui.uf_foretagets_namn')}</label>
-                        <input
-                          className="auth-input"
-                          type="text"
-                          style={inputStyle}
-                          placeholder={t('ui.ex_solkraft_uf')}
-                          value={regCompany}
-                          onChange={e => setRegCompany(e.target.value)}
-                          required
-                        />
-                      </div>
+                  <div>
+                    <label style={labelStyle}>{t('ui.uf_foretagets_namn')}</label>
+                    <input
+                      className="auth-input"
+                      type="text"
+                      style={inputStyle}
+                      placeholder={t('ui.ex_solkraft_uf')}
+                      value={regCompany}
+                      onChange={e => setRegCompany(e.target.value)}
+                      required
+                    />
+                  </div>
 
-                      <div>
-                        <label style={labelStyle}>{t('ui.skola')} <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>{t('ui.frivilligt')}</span></label>
-                        <input
-                          className="auth-input"
-                          type="text"
-                          style={inputStyle}
-                          placeholder={t('ui.ex_katedralskolan')}
-                          value={regUfSchool}
-                          onChange={e => setRegUfSchool(e.target.value)}
-                        />
-                      </div>
+                  <div>
+                    <label style={labelStyle}>{t('ui.skola')} <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>{t('ui.frivilligt')}</span></label>
+                    <input
+                      className="auth-input"
+                      type="text"
+                      style={inputStyle}
+                      placeholder={t('ui.ex_katedralskolan')}
+                      value={regUfSchool}
+                      onChange={e => setRegUfSchool(e.target.value)}
+                    />
+                  </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setIsUfSignup(false)}
-                        style={{ alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0, color: 'var(--text-muted)', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}
-                      >
-                        {t('ui.vi_ar_inte_ett_uf_foretag')}
-                      </button>
-                    </>
-                  ) : skipCompany ? (
-                    // "Jag har inget företag än" valt — se knappen och
-                    // handleNextStep:s regStep===2-gren för hela resonemanget.
-                    // Ångra-knappen nollställer INTE regOrgNr/regCompany (om
-                    // man redan hunnit skriva något innan man klickade skip,
-                    // ingen anledning att slänga det).
-                    <div style={{ padding: '16px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{t('ui.inget_foretag_registrerat_an_inga_problem')}</div>
-                      <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                        {t('ui.du_kan_lagga_till_organisationsnummer_och_foreta')}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setSkipCompany(false)}
-                        style={{ alignSelf: 'flex-start', marginTop: '4px', background: 'none', border: 'none', padding: 0, color: BRAND.green, fontWeight: 700, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit' }}
-                      >
-                        {t('ui.jag_har_ett_foretag_anda')}
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <div>
-                        <label style={labelStyle}>{t('ui.organisationsnummer')} <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>{t('ui.n10_siffror')}</span></label>
-                        <div style={{ position: 'relative' }}>
-                          <Hash size={16} color="var(--text-muted)" style={{ position: 'absolute', top: 16, left: 14, pointerEvents: 'none' }} />
-                          <input
-                            className="auth-input"
-                            type="text"
-                            inputMode="numeric"
-                            style={{ ...inputStyle, paddingLeft: '42px' }}
-                            placeholder="556123-4567"
-                            value={regOrgNr}
-                            onChange={e => { const formatted = formatOrgNr(e.target.value); setRegOrgNr(formatted); setRegCompany(''); setRegLegalForm(''); setRegAddress({ address: '', postalCode: '', city: '' }); companyLookup.handleOrgNrChange(formatted); }}
-                            required
-                          />
-                        </div>
-                        {companyLookup.orgLookup.status === 'loading' && <div style={lookupStatusStyle}>{t('ui.hamtar_foretagsuppgifter')}</div>}
-                        {companyLookup.orgLookup.status === 'error' && <div style={lookupStatusStyle}>{companyLookup.orgLookup.message}</div>}
-                        {/* Enskild firma är FÖRVÄNTAT, inte ett misslyckat uppslag
-                            (se useCompanyLookup.js:s kommentar) — egen, positiv
-                            stil (samma gröna Check-mönster som "Hämtat från
-                            bolagsregistret" nedan) istället för att dela
-                            lookupStatusStyles neutrala "nåt gick kanske fel"-ton. */}
-                        {companyLookup.orgLookup.status === 'firma' && (
-                          <div style={{ ...lookupStatusStyle, display: 'flex', alignItems: 'flex-start', gap: '6px', color: BRAND.greenDark, fontWeight: 600 }}>
-                            <Check size={13} style={{ flexShrink: 0, marginTop: '2px' }} />
-                            <span>{companyLookup.orgLookup.message}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div ref={regCompanyFieldRef}>
-                        <label style={labelStyle}>{t('ui.foretagsnamn')}</label>
-                        {/* Går också att söka på: en träff fyller i org.nr och
-                            förväljer räkenskapsår och moms nedanför. */}
-                        <input
-                          className="auth-input"
-                          type="text"
-                          style={inputStyle}
-                          placeholder={t('ui.ex_mitt_foretag_ab')}
-                          value={regCompany}
-                          onChange={e => { setRegCompany(e.target.value); if (!regOrgNr.replace(/\D/g, '')) companyLookup.queueNameSearch(e.target.value); }}
-                          required
-                        />
-                        {companyLookup.nameSearch.status === 'loading' && <div style={{ fontSize: '12.5px', marginTop: '6px', color: 'var(--text-secondary)' }}>{t('ui.soker_i_foretagsregistret')}</div>}
-                        {companyLookup.nameSearch.status === 'error' && <div style={{ fontSize: '12.5px', marginTop: '6px', color: 'var(--text-secondary)' }}>{companyLookup.nameSearch.message}</div>}
-                        <CompanyLookupResults results={companyLookup.nameResults} onPick={companyLookup.applyCompany} anchorRef={regCompanyFieldRef} />
-                        {/* Kort, flyktig bekräftelse direkt efter ett lyckat
-                            uppslag — fältet ovan är annars identiskt oavsett om
-                            namnet kom från registret eller skrevs in för hand;
-                            det ena är inte "mer rätt" eller mer låst än det andra. */}
-                        {companyLookup.orgLookup.status === 'done' && regCompany && (
-                          <div style={{ marginTop: '9px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: BRAND.greenDark }}>
-                            <Check size={13} /> {t('ui.hamtat_fran_bolagsregistret_andra_garna_om_nagot')}
-                          </div>
-                        )}
-                        {displayedOrgType && (
-                          <div style={{ marginTop: '9px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: BRAND.greenLight, borderRadius: '999px', fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark }}>
-                            <Check size={13} /> {t('ui.identifierad_som')} {displayedOrgType}
-                          </div>
-                        )}
-                      </div>
-
-                      <FiscalYearVatFields value={regSetup} onChange={setRegSetup} orgNr={regOrgNr} registry={companyLookup.lastCompany} />
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
-                        <button
-                          type="button"
-                          onClick={() => setSkipCompany(true)}
-                          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text-muted)', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}
-                        >
-                          {t('ui.jag_har_inget_foretag_an')}
-                        </button>
-                        {/* Vägen in i UF-läget för den som INTE kom via
-                            /uf-sidan. Utan den här är UF-registreringen
-                            omöjlig att hitta för någon som klickade "Kom
-                            igång" på startsidan. */}
-                        <button
-                          type="button"
-                          onClick={() => setIsUfSignup(true)}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', padding: 0, color: BRAND.green, fontWeight: 700, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit' }}
-                        >
-                          <GraduationCap size={13} /> {t('ui.vi_driver_ett_uf_foretag')}
-                        </button>
-                      </div>
-                    </>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsUfSignup(false)}
+                    style={{ alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0, color: 'var(--text-muted)', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}
+                  >
+                    {t('ui.vi_ar_inte_ett_uf_foretag')}
+                  </button>
                 </div>
               )}
 
-              {/* STEP 3 – Password, sedan konto + betalning */}
-              {regStep === 3 && redirectingToPayment && (
+              {/* Lösenord, sedan konto + betalning */}
+              {curStep === 'password' && redirectingToPayment && (
                 <div className="auth-step-fade" style={{ padding: '32px 28px', background: 'var(--status-green-bg)', borderRadius: '16px', border: '1px solid var(--status-green-bg)', textAlign: 'center' }}>
                   <div style={{ width: 64, height: 64, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
                     <RefreshCw size={26} color="white" className="auth-spin" />
@@ -1261,7 +1040,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                   </div>
                 </div>
               )}
-              {regStep === 3 && !redirectingToPayment && (
+              {curStep === 'password' && !redirectingToPayment && (
                 <div key="step3" className="auth-step-fade" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div>
                     <label style={labelStyle}>{t('ui.losenord')}</label>
@@ -1316,19 +1095,19 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               {!redirectingToPayment && (
                 <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
                   {regStep > 0 && (
-                    <button className="auth-btn-ghost" type="button" onClick={() => { setRegStep(s => (hasPendingInvite && s === 3) ? 1 : s - 1); setErrorMsg(''); }} style={{ padding: '20px 26px', border: '1px solid var(--border)', borderRadius: '13px', fontSize: '17px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
+                    <button className="auth-btn-ghost" type="button" onClick={() => { setRegStep(s => s - 1); setErrorMsg(''); }} style={{ padding: '20px 26px', border: '1px solid var(--border)', borderRadius: '13px', fontSize: '17px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', gap: '7px', fontFamily: 'inherit' }}>
                       <ArrowLeft size={16} /> {t('ui.tillbaka_2')}
                     </button>
                   )}
                   {(() => {
-                    const verifying = regStep === 1 && otpStatus === 'verifying';
-                    const codeIncomplete = regStep === 1 && regVerifyCode.length !== 6;
+                    const verifying = curStep === 'verify' && otpStatus === 'verifying';
+                    const codeIncomplete = curStep === 'verify' && regVerifyCode.length !== 6;
                     const busy = loading || verifying;
                     const isDisabled = busy || codeIncomplete;
                     let label;
-                    if (regStep === REGISTER_STEPS.length - 1) label = busy ? t('ui.skapar_konto') : (hasPendingInvite ? t('ui.inbjuden_skapa_konto') : isUfSignup ? t('ui.skapa_uf_konto') : t('ui.skapa_konto_och_betalning'));
-                    else if (regStep === 0) label = busy ? t('ui.skickar_kod') : t('ui.fortsatt');
-                    else if (regStep === 1) label = verifying ? t('ui.bekraftar') : t('ui.bekrafta');
+                    if (curStep === 'password') label = busy ? t('ui.skapar_konto') : (hasPendingInvite ? t('ui.inbjuden_skapa_konto') : isUfSignup ? t('ui.skapa_uf_konto') : t('ui.skapa_konto_och_betalning'));
+                    else if (curStep === 'personal') label = busy ? t('ui.skickar_kod') : t('ui.fortsatt');
+                    else if (curStep === 'verify') label = verifying ? t('ui.bekraftar') : t('ui.bekrafta');
                     else label = busy ? t('ui.fortsatter') : t('ui.fortsatt');
                     return (
                       <button className="auth-btn-primary" type="submit" disabled={isDisabled} style={{ flex: 1, padding: '20px 22px', background: BRAND.green, border: 'none', borderRadius: '13px', fontSize: '18px', fontWeight: 700, color: 'white', cursor: isDisabled ? (busy ? 'wait' : 'not-allowed') : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: isDisabled ? 0.6 : 1 }}>
