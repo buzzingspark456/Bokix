@@ -8575,6 +8575,9 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 @media (max-width: 768px) {
   .rc-toolbar { gap: 8px !important; }
   .rc-toolbar > .rc-search { flex: 1 1 0 !important; min-width: calc(100% - 130px); height: 42px; box-sizing: border-box; }
+  /* Fältet inne i ramen: de allmänna telefonreglerna ger alla fält 44 px, här
+     hade fältets vita bakgrund då täckt ramens över- och underkant. */
+  .rc-toolbar > .rc-search input { min-height: 0 !important; height: 100% !important; background: transparent !important; }
   .rc-tb-toggle {
     display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 14px; flex-shrink: 0;
     border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--text-main);
