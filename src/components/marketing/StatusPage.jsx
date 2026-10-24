@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import MarketingLayout from './MarketingLayout';
 import { KitStyles } from './subpageKit';
 import { INK, INK_SOFT, MUTED } from './marketingTokens';
 import { PageMeta } from '../../utils/seo';
+import Recaptcha from '../Recaptcha';
 
 // ── Driftstatus (/status) ───────────────────────────────────────────────
 // Om Bokix fungerar just nu, del för del, och de senaste 90 dagarna.
@@ -27,7 +28,7 @@ const CSS = `
   .st { --st-ok: var(--mkt-accent-green-fg); --st-degraded: #b45309; --st-down: var(--mkt-accent-red-fg); --st-maintenance: #2563eb; --st-nodata: var(--mkt-border-soft); }
   html[data-theme="dark"] .st { --st-degraded: #f2b24a; --st-maintenance: #7aa7ff; }
   .st-wrap { max-width: 860px; margin: 0 auto; padding: 132px 24px 96px; }
-  .st-lead { font-size: 17px; color: ${INK_SOFT}; margin: 0 0 32px; line-height: 1.55; }
+  .st .kx-h1 { margin-bottom: 28px; }
   .st-banner { display: flex; align-items: center; gap: 16px; padding: 22px 24px; border-radius: 16px; background: var(--mkt-card-bg); border: 1px solid var(--mkt-border-soft); border-left: 6px solid var(--st-color); }
   .st-banner-title { font-size: 21px; font-weight: 700; color: ${INK}; }
   .st-banner-sub { font-size: 14px; color: ${MUTED}; margin-top: 3px; }
@@ -50,7 +51,16 @@ const CSS = `
   .st-note-meta { font-size: 13px; color: ${MUTED}; margin-top: 4px; }
   .st-note-body { font-size: 15px; color: ${INK_SOFT}; margin: 10px 0 0; line-height: 1.6; white-space: pre-line; }
   .st-empty { font-size: 15px; color: ${MUTED}; padding: 4px 0; }
-  .st-foot { margin-top: 40px; font-size: 13.5px; color: ${MUTED}; line-height: 1.6; }
+  .st-form { background: var(--mkt-card-bg); border: 1px solid var(--mkt-border-soft); border-radius: 16px; padding: 20px 22px; display: grid; gap: 14px; }
+  .st-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .st-form label { display: block; font-size: 13.5px; font-weight: 600; color: ${INK}; margin-bottom: 6px; }
+  .st-form input, .st-form textarea { display: block; width: 100%; box-sizing: border-box; padding: 11px 13px; font: inherit; font-size: 15px; color: ${INK}; background: var(--mkt-page-bg); border: 1.5px solid var(--mkt-border-soft); border-radius: 10px; outline: none; }
+  .st-form input:focus, .st-form textarea:focus { border-color: ${INK}; }
+  .st-form textarea { min-height: 110px; resize: vertical; }
+  .st-form button { justify-self: start; padding: 12px 22px; border: none; border-radius: 10px; background: var(--mkt-accent-green-fg); color: #fff; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .st-form button:disabled { opacity: 0.6; cursor: not-allowed; }
+  .st-form-msg { font-size: 14px; }
+  @media (max-width: 640px) { .st-form-row { grid-template-columns: 1fr; } .st-form { padding: 16px; } }
   @media (max-width: 640px) {
     .st-wrap { padding: 108px 16px 72px; }
     .st-banner { padding: 18px; }
@@ -86,6 +96,55 @@ function Note({ n }) {
   );
 }
 
+// Felanmälan direkt från statussidan: samma väg som Kontakt (api/contact.js,
+// ämnet Felrapport), så den hamnar i Inkorgen i /internal och mejlas till oss.
+function ReportForm() {
+  const [form, setForm] = useState({ name: '', email: '', message: '' });
+  const [state, setState] = useState('idle'); // idle | sending | sent | error
+  const [error, setError] = useState('');
+  const recaptchaRef = useRef(null);
+  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (state === 'sending') return;
+    setState('sending'); setError('');
+    try {
+      const recaptchaToken = await recaptchaRef.current?.execute();
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: form.name.trim(), email: form.email.trim(), topic: 'Felrapport', message: `[Från statussidan] ${form.message.trim()}`, recaptchaToken }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Kunde inte skicka. Försök igen om en stund.');
+      setState('sent');
+      setForm({ name: '', email: '', message: '' });
+    } catch (err) {
+      setState('error');
+      setError(err.message || 'Kunde inte skicka. Försök igen om en stund.');
+    } finally {
+      recaptchaRef.current?.reset();
+    }
+  };
+
+  if (state === 'sent') {
+    return <div className="st-form"><div className="st-form-msg" style={{ color: INK }}>Tack! Vi har fått det och svarar till din e-post så snart vi kan.</div></div>;
+  }
+  return (
+    <form className="st-form" onSubmit={submit}>
+      <div className="st-form-row">
+        <div><label htmlFor="st-name">Namn</label><input id="st-name" autoComplete="name" value={form.name} onChange={set('name')} required /></div>
+        <div><label htmlFor="st-email">E-post</label><input id="st-email" type="email" autoComplete="email" value={form.email} onChange={set('email')} required /></div>
+      </div>
+      <div><label htmlFor="st-msg">Vad fungerar inte?</label><textarea id="st-msg" value={form.message} onChange={set('message')} required maxLength={3000} /></div>
+      <Recaptcha ref={recaptchaRef} />
+      {state === 'error' && <div className="st-form-msg" style={{ color: 'var(--st-down)' }}>{error}</div>}
+      <button type="submit" disabled={state === 'sending'}>{state === 'sending' ? 'Skickar…' : 'Skicka'}</button>
+    </form>
+  );
+}
+
 export default function StatusPage() {
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState(false);
@@ -114,7 +173,6 @@ export default function StatusPage() {
       <div className="st">
         <div className="st-wrap">
           <h1 className="kx-h1">Driftstatus</h1>
-          <p className="st-lead">Om Bokix fungerar just nu, del för del. Allt kontrolleras automatiskt var femte minut.</p>
 
           {failed && !data && (
             <div className="st-banner" style={color('nodata')}>
@@ -180,10 +238,10 @@ export default function StatusPage() {
             </>
           )}
 
-          <p className="st-foot">
-            Kortbetalningar följer Stripes egen driftstatus. Kvittoläsningen räknas som störd när många läsningar misslyckas samtidigt.
-            Märker du något som inte syns här? Skriv till support@bokix.se.
-          </p>
+          <div className="st-section">
+            <h2 className="st-h2">Fungerar något inte?</h2>
+            <ReportForm />
+          </div>
         </div>
       </div>
     </MarketingLayout>
