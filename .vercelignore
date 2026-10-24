@@ -1,0 +1,2 @@
+# Testfiler ska inte bli serverfunktioner på Vercel.
+api/**/*.test.js

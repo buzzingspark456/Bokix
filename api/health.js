@@ -5,6 +5,7 @@
 // borttagen ur databasen sedan oktober 2026.)
 import { createClient } from '@supabase/supabase-js';
 import { applySecurityHeaders } from './_security.js';
+import { checkRateLimit } from './_rateLimit.js';
 
 export default async function handler(req, res) {
   applySecurityHeaders(res);
@@ -15,6 +16,7 @@ export default async function handler(req, res) {
     return;
   }
 
+  if (!(await checkRateLimit(req, res, { key: 'health', windowMs: 60 * 1000, max: 30 }))) return;
   const url = process.env.VITE_SUPABASE_URL;
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {

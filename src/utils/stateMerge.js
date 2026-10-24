@@ -6,6 +6,8 @@
 // (verifikationer, fakturor, kvitton …) slås ihop post för post, så att två
 // personer som lägger till var sin verifikation båda får behålla sin.
 
+import { getNextNumber, seriesOfVerification } from './verificationNumbering.js';
+
 const same = (a, b) => a === b || JSON.stringify(a) === JSON.stringify(b);
 
 const isRecordList = (v) => Array.isArray(v) && v.every(x => x && typeof x === 'object' && !Array.isArray(x) && x.id != null);
@@ -34,6 +36,33 @@ function mergeRecordLists(base, local, server) {
   return out;
 }
 
+// Två personer som bokför i samma serie samtidigt räknar fram samma nummer
+// mot var sin lista (App.jsx handleAddVerification), och sammanslagningen
+// behåller båda. En verifikation behåller sitt nummer om det är det som redan
+// är sparat för just den (`savedList`); en ny eller ändrad som krockar får
+// nästa lediga i serien. Bokföringslagen
+// kräver unika nummer i obruten följd.
+export function renumberVerificationCollisions(list, savedList) {
+  if (!Array.isArray(list)) return list;
+  const key = (v) => `${seriesOfVerification(v)}|${v.number}`;
+  const saved = new Map((Array.isArray(savedList) ? savedList : []).map(v => [String(v?.id), v]));
+  const isSavedAsIs = (v) => { const s = saved.get(String(v.id)); return s && s.number === v.number && seriesOfVerification(s) === seriesOfVerification(v); };
+  // Numren som redan är sparade, och vilken verifikation som har dem.
+  const owner = new Map();
+  for (const v of list) if (v?.number && isSavedAsIs(v)) owner.set(key(v), String(v.id));
+  let out = list;
+  list.forEach((v, i) => {
+    if (!v?.number || isSavedAsIs(v)) return;
+    const holder = owner.get(key(v));
+    if (!holder || holder === String(v.id)) { owner.set(key(v), String(v.id)); return; }
+    if (out === list) out = [...list];
+    const series = seriesOfVerification(v);
+    out[i] = { ...v, series, number: getNextNumber(out, series) };
+    owner.set(key(out[i]), String(v.id));
+  });
+  return out;
+}
+
 export function mergeField(base, local, server) {
   if (same(local, base)) return server;
   if (same(server, base)) return local;
@@ -53,7 +82,10 @@ export function mergeCompany(base, local, server) {
       if (local && key in local) out[key] = local[key];
       continue;
     }
-    const v = mergeField(base[key], local?.[key], server[key]);
+    let v = mergeField(base[key], local?.[key], server[key]);
+    if (key === 'verifications' && Array.isArray(v) && Array.isArray(server[key]) && v !== server[key]) {
+      v = renumberVerificationCollisions(v, server[key]);
+    }
     if (v === undefined) delete out[key]; else out[key] = v;
   }
   return out;

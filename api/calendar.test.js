@@ -21,7 +21,7 @@ function run(query, method = 'GET') {
     status(c) { this.statusCode = c; return this; },
     send(b) { this.body = b; return this; },
   };
-  return handler({ method, query }, res).then(() => res);
+  return handler({ method, query, headers: {} }, res).then(() => res);
 }
 
 describe('api/calendar', () => {

@@ -7,7 +7,7 @@ import { memberCompanyView, redactCompany, mergeMemberCompanyWrite } from './_me
 import { createClient } from '@supabase/supabase-js';
 import { gzipSync } from 'zlib';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
-import { mergeField, applyRecordPatch } from '../src/utils/stateMerge.js';
+import { mergeField, applyRecordPatch, renumberVerificationCollisions } from '../src/utils/stateMerge.js';
 import { isBolagsverketConfigured, lookupOrgNumber, BolagsverketError } from './_bolagsverket.js';
 
 // Huvudsakligen till för en INBJUDEN användare (se supabase-setup.sql:
@@ -66,6 +66,27 @@ async function addMissingField(admin, ownerUserId, companyKey, field, value) {
     if (!company) return false;
     const state = { ...row.state, companies: { ...row.state.companies, [companyKey]: { ...company, [field]: value } } };
     const { data: updated } = await admin.from('user_data').update({ state }).eq('user_id', ownerUserId).eq('updated_at', row.updated_at).select('user_id');
+    if (updated?.length) return true;
+  }
+  return false;
+}
+
+// En inbjuden medlems sparning, villkorad på att ägarens rad inte ändrats
+// sedan den lästes (samma updated_at-villkor som ägarens egen sparning).
+// Förut lästes företaget, värdet räknades fram och set_company_field skrev
+// sedan över fältet utan villkor: sparade ägaren under tiden försvann
+// ägarens ändring. `compute(companyData)` räknas om på den färska raden vid
+// varje försök. false = krockade tre gånger, klienten får 409 och försöker igen.
+export async function writeMemberField(admin, ownerUserId, companyKey, field, compute) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data: row, error } = await admin.from('user_data').select('state, updated_at').eq('user_id', ownerUserId).maybeSingle();
+    if (error) throw error;
+    const company = row?.state?.companies?.[companyKey];
+    if (!company) return false;
+    const value = compute(company);
+    const state = { ...row.state, companies: { ...row.state.companies, [companyKey]: { ...company, [field]: value } } };
+    const { data: updated, error: updateError } = await admin.from('user_data').update({ state }).eq('user_id', ownerUserId).eq('updated_at', row.updated_at).select('user_id');
+    if (updateError) throw updateError;
     if (updated?.length) return true;
   }
   return false;
@@ -597,11 +618,24 @@ export default async function handler(req, res) {
       // Medlemmen skickar med vad fältet var när den senast sparade (base).
       // Har ägaren ändrat samma lista sedan dess slås de ihop post för post
       // i stället för att medlemmens kopia skriver över ägarens nya poster.
-      if (isPatch) value = applyRecordPatch(member.companyData?.[field], patch);
-      else if (base !== undefined) value = mergeField(base, value, member.companyData?.[field]);
-      // Företagsuppgifterna: bara medlemmens egna ändringar, aldrig nycklar,
-      // kopplingar eller låst namn/org.nr (se api/_memberView.js).
-      if (field === 'company') value = mergeMemberCompanyWrite(member.companyData?.company, value);
+      const incoming = value;
+      const compute = (companyData) => {
+        let v = incoming;
+        if (isPatch) v = applyRecordPatch(companyData?.[field], patch);
+        else if (base !== undefined) v = mergeField(base, incoming, companyData?.[field]);
+        // Företagsuppgifterna: bara medlemmens egna ändringar, aldrig nycklar,
+        // kopplingar eller låst namn/org.nr (se api/_memberView.js).
+        if (field === 'company') v = mergeMemberCompanyWrite(companyData?.company, v);
+        if (field === 'verifications') v = renumberVerificationCollisions(v, companyData?.verifications);
+        return v;
+      };
+      const written = await writeMemberField(admin, ownerUserId, companyKey, field, compute);
+      if (!written) {
+        res.status(409).json({ error: 'Företaget ändrades samtidigt. Försök igen.' });
+        return;
+      }
+      res.status(200).json({ ok: true });
+      return;
     }
     if (isPatch && value === undefined) value = applyRecordPatch(ownerCompanyData?.[field], patch);
 

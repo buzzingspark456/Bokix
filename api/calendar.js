@@ -7,6 +7,7 @@
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { applySecurityHeaders } from './_security.js';
+import { checkRateLimit } from './_rateLimit.js';
 import { buildCalendarEvents, calendarChoices, toIcs } from '../src/utils/calendarFeed.js';
 
 const ID_RE = /^[A-Za-z0-9_-]{1,80}$/;
@@ -38,6 +39,12 @@ export default async function handler(req, res) {
   // gå att använda för att ta reda på vilka företag som finns.
   const notFound = () => res.status(404).send('Kalendern finns inte.');
   if (!UUID_RE.test(String(u || '')) || !ID_RE.test(String(c || '')) || !KEY_RE.test(String(k || ''))) return notFound();
+
+  // Varje hämtning läser hela kontot. Gränsen gäller per kalenderlänk:
+  // Google Kalender hämtar alla kunders länkar från samma adresser, så en
+  // gräns per IP hade stoppat alla. Den vida IP-gränsen stoppar bara robotar.
+  if (!(await checkRateLimit(req, res, { key: 'calendar-feed', max: 30, identifier: `${u}:${c}` }))) return;
+  if (!(await checkRateLimit(req, res, { key: 'calendar-ip', max: 600 }))) return;
 
   const admin = adminClient();
   if (!admin) return res.status(503).send('Kalendern är inte tillgänglig just nu.');

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mergeField, mergeCompany, mergeCompanies, applyRecordPatch, buildStateDelta } from './stateMerge.js';
+import { mergeField, mergeCompany, mergeCompanies, applyRecordPatch, buildStateDelta, renumberVerificationCollisions } from './stateMerge.js';
 
 const v = (id, extra = {}) => ({ id, ...extra });
 
@@ -176,3 +176,42 @@ describe('buildStateDelta för kontoplanen', () => {
     expect(applyDelta({ companies: baseCompanies }, ops)).toEqual(JSON.parse(JSON.stringify({ companies: local })));
   });
 });
+
+describe('renumberVerificationCollisions (två som bokför samtidigt)', () => {
+  const ver = (id, number, series = 'A') => ({ id, number, series, rows: [] })
+
+  it('ny verifikation som fått samma nummer som en sparad får nästa lediga', () => {
+    const saved = [ver('a1', 'A001'), ver('a2', 'A002')]
+    const merged = [...saved, ver('x', 'A002')]
+    const out = renumberVerificationCollisions(merged, saved)
+    expect(out.map(v => v.number)).toEqual(['A001', 'A002', 'A003'])
+    expect(out[0]).toBe(saved[0])
+  })
+
+  it('två nya med samma nummer: den första behåller, den andra flyttas', () => {
+    const saved = [ver('a1', 'A001')]
+    const out = renumberVerificationCollisions([...saved, ver('x', 'A002'), ver('y', 'A002')], saved)
+    expect(out.map(v => v.number)).toEqual(['A001', 'A002', 'A003'])
+  })
+
+  it('ett gammalt krockande nummer som skickas igen flyttas också', () => {
+    const saved = [ver('a1', 'A002'), ver('x', 'A003')]
+    const out = renumberVerificationCollisions([ver('a1', 'A002'), ver('x', 'A002')], saved)
+    expect(out.find(v => v.id === 'x').number).toBe('A003')
+  })
+
+  it('olika serier krockar inte, och inget ändras när numren är unika', () => {
+    const saved = [ver('a1', 'A001')]
+    const list = [...saved, ver('b', 'B001', 'B'), ver('c', 'A002')]
+    expect(renumberVerificationCollisions(list, saved)).toBe(list)
+  })
+
+  it('mergeCompany numrerar om när ägare och konsult bokfört samtidigt', () => {
+    const base = { verifications: [ver('a1', 'A001')] }
+    const local = { verifications: [ver('a1', 'A001'), ver('mine', 'A002')] }
+    const server = { verifications: [ver('a1', 'A001'), ver('theirs', 'A002')] }
+    const out = mergeCompany(base, local, server)
+    const byId = Object.fromEntries(out.verifications.map(v => [v.id, v.number]))
+    expect(byId).toEqual({ a1: 'A001', theirs: 'A002', mine: 'A003' })
+  })
+})

@@ -5,6 +5,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { applySecurityHeaders } from './_security.js';
 import { buildStatus } from './_status.js';
+import { checkRateLimit } from './_rateLimit.js';
 
 export default async function handler(req, res) {
   applySecurityHeaders(res);
@@ -13,6 +14,8 @@ export default async function handler(req, res) {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
+  // Cachen tar de flesta anropen, men en adress med ?något går förbi den.
+  if (!(await checkRateLimit(req, res, { key: 'status-page', windowMs: 60 * 1000, max: 60 }))) return;
   const url = process.env.VITE_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) {
