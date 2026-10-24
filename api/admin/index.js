@@ -10,6 +10,7 @@ import { planFromId } from '../../src/utils/plans.js';
 import * as featureFlags from '../../src/utils/featureFlags.js';
 import { buildOverview, summarizeState } from './_customers.js';
 import { detectOrgType } from '../../src/utils/orgType.js';
+import { buildStatus, COMPONENT_IDS } from '../_status.js';
 
 // ── Internt admin-API (/internal på klienten) ───────────────────────────
 // EN enda fil för HELA admin-panelen, inte en fil per delsystem —
@@ -518,6 +519,60 @@ export async function handleOverview(admin, res) {
   });
 }
 
+// ── Statussidan (resource: 'status') ────────────────────────────────────
+// Meddelanden på bokix.se/status: störningar och planerat underhåll. GET ger
+// meddelandena och sidan som den ser ut nu; POST skapar, ändrar eller tar bort.
+const INCIDENT_STATUSES = ['investigating', 'identified', 'monitoring', 'resolved', 'maintenance'];
+const INCIDENT_IMPACTS = ['degraded', 'down', 'maintenance'];
+
+async function handleStatus(admin, res) {
+  const now = new Date();
+  const [incidents, checks, daily] = await Promise.all([
+    admin.from('status_incidents').select('*').order('starts_at', { ascending: false }).limit(100),
+    admin.from('status_checks').select('component, status, checked_at, ms, note').gte('checked_at', new Date(now.getTime() - 30 * 60000).toISOString()).order('checked_at', { ascending: false }).limit(60),
+    admin.from('status_daily').select('day, component, ok, degraded, down').gte('day', new Date(now.getTime() - 91 * 86400000).toISOString().slice(0, 10)).limit(2000),
+  ]);
+  const err = incidents.error || checks.error || daily.error;
+  if (err) {
+    if (/does not exist|schema cache/i.test(err.message)) { res.status(200).json({ missingTable: true, incidents: [] }); return; }
+    res.status(500).json({ error: err.message }); return;
+  }
+  const latest = {};
+  (checks.data || []).forEach(r => { if (!latest[r.component]) latest[r.component] = r; });
+  res.status(200).json({ incidents: incidents.data || [], latest, page: buildStatus({ latest, daily: daily.data || [], incidents: incidents.data || [], now }) });
+}
+
+export function cleanIncident(body) {
+  const title = String(body.title || '').trim().slice(0, 120);
+  if (!title) return { error: 'Rubrik krävs.' };
+  const status = INCIDENT_STATUSES.includes(body.status) ? body.status : 'investigating';
+  const impact = INCIDENT_IMPACTS.includes(body.impact) ? body.impact : (status === 'maintenance' ? 'maintenance' : 'degraded');
+  const components = Array.isArray(body.components) ? body.components.filter(c => COMPONENT_IDS.includes(c)) : [];
+  const startsAt = body.startsAt && !Number.isNaN(Date.parse(body.startsAt)) ? new Date(body.startsAt).toISOString() : null;
+  return { value: { title, body: String(body.body || '').trim().slice(0, 2000), status, impact, components, ...(startsAt ? { starts_at: startsAt } : {}) } };
+}
+
+async function handleStatusUpdate(admin, res, body, adminEmail) {
+  const now = new Date().toISOString();
+  if (body.action === 'delete') {
+    const { error } = await admin.from('status_incidents').delete().eq('id', body.id);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.status(200).json({ ok: true }); return;
+  }
+  const { value, error: invalid } = cleanIncident(body);
+  if (invalid) { res.status(400).json({ error: invalid }); return; }
+  const resolved = value.status === 'resolved' ? { resolved_at: now } : { resolved_at: null };
+  if (body.action === 'create') {
+    const { error } = await admin.from('status_incidents').insert({ ...value, ...resolved, created_by: adminEmail, updated_at: now });
+    if (error) { res.status(500).json({ error: error.message }); return; }
+  } else if (body.action === 'update' && body.id) {
+    const { error } = await admin.from('status_incidents').update({ ...value, ...resolved, updated_at: now }).eq('id', body.id);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+  } else { res.status(400).json({ error: 'Okänd action.' }); return; }
+  console.log(`[admin/status] ${adminEmail} ${body.action}: ${value.title} (${value.status})`);
+  res.status(200).json({ ok: true });
+}
+
 // ── Kundkort (resource: 'customer', id) ─────────────────────────────────
 // Allt om ett konto på ett ställe: kontot, företagens inställningar och
 // användning (utan belopp eller kunders namn), prenumerationerna med länk
@@ -740,6 +795,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const resource = req.query?.resource;
       if (resource === 'overview') { await handleOverview(admin, res); return; }
+      if (resource === 'status') { await handleStatus(admin, res); return; }
       if (resource === 'customer') { await handleCustomer(admin, res, req.query?.id); return; }
       if (resource === 'analytics') { await handleAnalytics(admin, res, req.query); return; }
       if (resource === 'users') { await handleUsers(admin, res); return; }
@@ -759,6 +815,7 @@ export default async function handler(req, res) {
         res.status(400).json({ error: 'Okänd action.' }); return;
       }
       if (body.resource === 'inbox' && ['handle', 'unhandle'].includes(body.action)) { await handleInboxUpdate(admin, res, body, user.email); return; }
+      if (body.resource === 'status' && ['create', 'update', 'delete'].includes(body.action)) { await handleStatusUpdate(admin, res, body, user.email); return; }
       res.status(400).json({ error: 'Okänd resurs.' });
       return;
     }

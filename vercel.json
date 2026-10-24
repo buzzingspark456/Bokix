@@ -5,6 +5,10 @@
     {
       "path": "/api/cron/offsite-backup",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/status-check",
+      "schedule": "*/5 * * * *"
     }
   ],
   "rewrites": [

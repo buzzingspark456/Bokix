@@ -1631,6 +1631,7 @@ const FOOTER_COLUMNS = [
       { label: 'Nyheter', to: '/nyheter' },
       { label: 'Bokix i korthet', to: '/bokix-i-korthet' },
       { label: 'Säkerhet', to: '/sakerhet' },
+      { label: 'Driftstatus', to: '/status' },
       { label: 'Kontakt', to: '/kontakt' },
     ],
   },

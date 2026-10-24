@@ -167,6 +167,8 @@ describe('runOffsiteBackup', () => {
 describe('TABLES täcker databasen', () => {
   const SKIPPED = new Set([
     'system_events', // driftloggar, återskapas av sig själva
+    'status_checks', // statussidans kontroller var 5:e minut, mäts om av sig själva
+    'status_daily', // statussidans dagssummor, samma sak
     'blog_posts', // finns kvar i supabase-setup.sql men är borttagen ur databasen (2026-10)
   ])
   it('varje tabell i SQL-filerna finns i nattkopian eller är medvetet överhoppad', async () => {

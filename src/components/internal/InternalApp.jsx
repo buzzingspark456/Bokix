@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart3, CreditCard, ShieldAlert, Users, LogOut, Server, Inbox, LayoutDashboard } from '../icons';
+import { BarChart3, CreditCard, ShieldAlert, Users, LogOut, Server, Inbox, LayoutDashboard, CheckCircle2 } from '../icons';
 import BokixWordmark from '../shared/BokixWordmark';
 import { supabase } from '../../supabaseClient';
 import InternalAuth from './InternalAuth';
 import AnalyticsAdmin from './AnalyticsAdmin';
 import OverviewAdmin from './OverviewAdmin';
+import StatusAdmin from './StatusAdmin';
 import PaymentsAdmin from './PaymentsAdmin';
 import SecurityAdmin from './SecurityAdmin';
 import UsersAdmin from './UsersAdmin';
@@ -109,6 +110,7 @@ export default function InternalApp() {
     { id: 'users', label: 'Användare', icon: Users, live: true },
     { id: 'inbox', label: 'Inkorg', icon: Inbox, live: true },
     { id: 'system', label: 'Systemstatus', icon: Server, live: true },
+    { id: 'status', label: 'Statussidan', icon: CheckCircle2, live: true },
   ];
 
   // Dator: grön sidomeny som i appen. Telefon: loggan och utloggning
@@ -195,6 +197,7 @@ export default function InternalApp() {
         {activeTab === 'users' && <UsersAdmin />}
         {activeTab === 'inbox' && <InboxAdmin />}
         {activeTab === 'system' && <SystemAdmin onOpenTab={setActiveTab} />}
+        {activeTab === 'status' && <StatusAdmin />}
       </main>
     </div>
   );

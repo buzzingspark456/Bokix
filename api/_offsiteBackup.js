@@ -43,6 +43,9 @@ export const TABLES = [
   'stripe_payment_events', 'stripe_ledger_events', 'zettle_ledger_events',
   'audit_log', 'contact_messages', 'cron_progress',
   'inbox_addresses', 'inbox_items', 'login_events', 'security_events',
+  // Statussidans meddelanden (skrivna för hand). Kontrollerna och dagssummorna
+  // (status_checks, status_daily) är mätdata och hoppas över.
+  'status_incidents',
 ];
 
 // Nattkopiorna (_kopior) hoppas över: de är redan med i databasdumpen.

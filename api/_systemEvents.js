@@ -15,6 +15,7 @@ const ALERT_KINDS = new Set([
   'cron_failed',
   'backup_failed',
   'backup_not_configured',
+  'status_down',
 ]);
 
 const ALERT_LABELS = {
@@ -24,6 +25,7 @@ const ALERT_LABELS = {
   cron_failed: 'Nattkörningen misslyckades',
   backup_failed: 'Säkerhetskopian utanför Supabase misslyckades',
   backup_not_configured: 'Säkerhetskopian utanför Supabase är inte inställd',
+  status_down: 'Statussidan: en del av Bokix är nere',
 };
 
 // Högst ett larmmejl per sorts händelse och timme, räknat i den delade

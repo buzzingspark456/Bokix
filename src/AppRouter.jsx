@@ -72,6 +72,7 @@ const PayrollPage = lazy(() => import('./components/marketing/PayrollPage'));
 const BlogPage = lazy(() => import('./components/marketing/BlogPage'));
 const BlogPostPage = lazy(() => import('./components/marketing/BlogPostPage'));
 const NewsPage = lazy(() => import('./components/marketing/NewsPage'));
+const StatusPage = lazy(() => import('./components/marketing/StatusPage'));
 // Det dolda admin-läget — ingen länk till den någonstans i den publika
 // navigeringen, se InternalApp.jsx för behörighetskollen (klient-sidan är
 // bara UI, den riktiga spärren är api/admin/index.js:s ADMIN_EMAILS).
@@ -329,6 +330,7 @@ export default function AppRouter() {
         <Route path="/vanliga-fragor" element={<Suspense fallback={<AppLoadingFallback />}><FaqPage /></Suspense>} />
         <Route path="/blogg" element={<Suspense fallback={<AppLoadingFallback />}><BlogPage /></Suspense>} />
         <Route path="/nyheter" element={<Suspense fallback={<AppLoadingFallback />}><NewsPage /></Suspense>} />
+        <Route path="/status" element={<Suspense fallback={<AppLoadingFallback />}><StatusPage /></Suspense>} />
         {/* Artiklar med `body` i blog.js och news.js — en route per inlägg, härledd ur listan. */}
         {ALL_ARTICLES.filter(p => p.body).map(p => (
           <Route key={p.slug} path={p.path} element={<Suspense fallback={<AppLoadingFallback />}><BlogPostPage slug={p.slug} /></Suspense>} />
