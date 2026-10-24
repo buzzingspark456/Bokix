@@ -21,6 +21,7 @@ import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
 import { reconcileSieOpenings } from '../utils/sieOpeningReconcile';
 import { sieImportBatches } from '../utils/sieImportBatches';
 import { lockedPeriodFor } from '../utils/fiscalYear';
+import FiscalYearVatFields, { companySetupFromCompany, companySetupToCompany } from './shared/FiscalYearVatFields';
 import { resultAccountFor } from '../utils/yearEnd';
 import { getGreeting } from '../utils/greeting';
 import { confirmDialog } from './shared/ConfirmDialog';
@@ -680,6 +681,51 @@ function relativeTimeSv(iso) {
 
 // detectDevice flyttad till ../utils/deviceInfo.js (importerad ovan) — delad
 // med App.jsx (inloggningshistorik, login_events).
+
+// ── Räkenskapsår ──
+// Samma val som i onboardingen (kalenderår, annat år, första år) i stället
+// för ett rått datumfält. Kund 2026-10-24: fältet visade 2028-01-01 (när de
+// vanliga åren börjar efter ett förlängt första år), såg fel ut och skrevs
+// om till 2026-01-23, ett ogiltigt räkenskapsår för en enskild firma.
+// Sparar bara på användarens egna klick; komponentens automatiska
+// justeringar (onChange med en funktion) sparas aldrig tyst.
+function FiscalYearSetting({ company, setCompanyInfo, readOnly }) {
+  const [value, setValue] = useState(() => companySetupFromCompany(company));
+  const valueRef = useRef(value);
+  const [saved, setSaved] = useState(false);
+  const savedTimer = useRef(null);
+
+  useEffect(() => {
+    const next = companySetupFromCompany(company);
+    valueRef.current = next;
+    setValue(next);
+  }, [company?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleChange = (next) => {
+    const fromUser = typeof next !== 'function';
+    const v = fromUser ? next : next(valueRef.current);
+    valueRef.current = v;
+    setValue(v);
+    if (!fromUser) return;
+    const { fiscalYear, firstFiscalYear } = companySetupToCompany(v, company?.orgNr);
+    if (!fiscalYear) return;
+    if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
+    if (fiscalYear === company?.fiscalYear && JSON.stringify(firstFiscalYear) === JSON.stringify(company?.firstFiscalYear || null)) return;
+    setCompanyInfo({ ...company, fiscalYear, firstFiscalYear });
+    setSaved(true);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div>
+      <FiscalYearVatFields value={value} onChange={handleChange} orgNr={company?.orgNr} fiscalYearOnly />
+      <div style={{ fontSize: '12px', minHeight: '18px', marginTop: '8px' }}>
+        {saved && <span style={{ color: BRAND.greenDark, display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}><Check size={12} /> {tr('ui.sparat')}</span>}
+      </div>
+    </div>
+  );
+}
 
 // ── Autosave-fält ──
 // Race-condition-skydd: om `value` ändras utifrån (t.ex. samma företag öppet
@@ -4108,14 +4154,9 @@ export default function Settings({
                   company.vatPeriod, bara ett annat kort. */}
               <div style={card}>
                 <div style={{ marginBottom: '4px' }}><SectionHeading icon={Calendar} tone="amber">{tr('ui.rakenskapsar')}</SectionHeading></div>
-                <div style={{ maxWidth: '320px' }}>
-                  <AutoField label={tr('ui.rakenskapsar_startar')} type="date" value={company?.fiscalYear || ''} onChange={(v) => setCompanyInfo({ ...company, fiscalYear: v })} />
+                <div style={{ maxWidth: '520px' }}>
+                  <FiscalYearSetting company={company} setCompanyInfo={setCompanyInfo} readOnly={readOnly} />
                 </div>
-                {company?.firstFiscalYear?.start && (
-                  <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '10px 0 0' }}>
-                    {tr('ui.forsta_rakenskapsaret')} {company.firstFiscalYear.start} – {company.firstFiscalYear.end}.
-                  </p>
-                )}
               </div>
 
               </div>

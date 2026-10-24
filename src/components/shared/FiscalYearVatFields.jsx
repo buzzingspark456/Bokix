@@ -68,7 +68,8 @@ const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 700, color:
 const hintStyle = { fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.5 };
 const selectStyle = { width: '100%', border: '1px solid var(--border)', borderRadius: '10px', padding: '10px 12px', fontSize: '14px', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit' };
 
-export default function FiscalYearVatFields({ value, onChange, orgNr, registry }) {
+// fiscalYearOnly: bara räkenskapsåret (Inställningar, där momsen har ett eget kort).
+export default function FiscalYearVatFields({ value, onChange, orgNr, registry, fiscalYearOnly = false }) {
   const v = { ...EMPTY_COMPANY_SETUP, ...value };
   const set = (patch) => onChange({ ...v, ...patch });
   const [vatCheck, setVatCheck] = useState('idle'); // idle | checking | done | error
@@ -82,7 +83,7 @@ export default function FiscalYearVatFields({ value, onChange, orgNr, registry }
     if (soleTrader && v.mode === 'other') onChange(cur => ({ ...EMPTY_COMPANY_SETUP, ...cur, mode: 'calendar' }));
   }, [soleTrader, v.mode]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (digits.length !== 10 || lastChecked.current === digits) return;
+    if (fiscalYearOnly || digits.length !== 10 || lastChecked.current === digits) return;
     lastChecked.current = digits;
     let cancelled = false;
     setVatCheck('checking');
@@ -169,7 +170,7 @@ export default function FiscalYearVatFields({ value, onChange, orgNr, registry }
         )}
       </div>
 
-      <div>
+      {!fiscalYearOnly && <div>
         <span style={labelStyle}>{t('ui.ar_foretaget_momsregistrerat')}</span>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }} role="radiogroup" aria-label={t('ui.momsregistrerat_2')}>
           {[[true, 'Ja'], [false, 'Nej']].map(([val, label]) => (
@@ -195,7 +196,7 @@ export default function FiscalYearVatFields({ value, onChange, orgNr, registry }
         )}
         {vatCheck === 'error' && <div style={hintStyle}>{t('ui.momsregistret_gick_inte_att_na_svara_sjalv_det_g')}</div>}
         {vatCheck === 'idle' && digits.length !== 10 && <div style={hintStyle}>{t('ui.vi_kollar_automatiskt_nar_organisationsnumret_ar')}</div>}
-      </div>
+      </div>}
     </div>
   );
 }
