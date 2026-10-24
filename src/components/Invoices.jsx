@@ -25,6 +25,7 @@ import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, STRONG_DRAFT, STATUS_PILL, 
 import { AccountSearch } from './shared/SearchInputs';
 import ListTable from './shared/ListTable';
 import { useMobileForm, MobileFormBar } from './shared/MobileForm';
+import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 // Kodgranskning: fanns tidigare som en egen lokal kopia här OCH som
 // grossInvoiceAmount i reportCalculations.js (den senare påstod sig i sin
 // egen kommentar vara "delad istället för en tredje tyst kopia", men var i
@@ -174,11 +175,116 @@ const outlineToolbarBtnStyle = {
 };
 
 // ─── Invoice Full Form (Fortnox-inspired) ──────────────────────────────────────
+// Telefonens sammanfattning av en bokförd faktura (InvoiceForm, showSummary):
+// belopp och status först, uppgifterna i ett lugnt kort, raderna, och
+// åtgärderna som en lista. Huvudknappen ligger i den fasta raden nederst.
+function InvoiceMobileSummary({ invoice, customerName, nextNum, ocr, totals, customerDue, alreadyPaid, remainingDue, payCurrency, rows, verificationNumber, pdfBusy, emailBusy, emailSent, emailError, pdfError, onPay, onUnpay, onEmail, onPdf, onPreview, onComment, onEdit, onCreditNote }) {
+  const paid = invoice.status === 'paid';
+  const overdue = !paid && isOverdue(invoice);
+  const status = paid
+    ? { bg: BRAND.greenLight, color: BRAND.greenDark, label: tr('ui.betald') }
+    : overdue
+      ? { bg: BRAND.redBg, color: BRAND.redText, label: tr('ui.forfallen') }
+      : { bg: BRAND.amberBg, color: BRAND.amberText, label: tr('ui.obetald') };
+  const dueLine = paid
+    ? (invoice.paidDate ? tr('ui.isum_betald_den', { date: formatDate(invoice.paidDate) }) : '')
+    : tr(overdue ? 'ui.isum_forfoll' : 'ui.isum_forfaller', { date: formatDate(invoice.dueDate) });
+  const money = (v) => `${fmt(v)} ${payCurrency}`;
+  const details = [
+    [tr('ui.fakturanummer'), nextNum],
+    [tr('ui.ocr'), ocr],
+    [tr('ui.fakturadatum'), formatDate(invoice.date)],
+    [tr('ui.forfallodatum'), formatDate(invoice.dueDate)],
+    [tr('ui.isum_exkl_moms'), money(totals.net)],
+    [tr('ui.moms'), money(totals.vat)],
+    ...(verificationNumber ? [[tr('ui.verifikation'), verificationNumber]] : []),
+  ];
+  const actions = [
+    { icon: <Send size={18} />, label: emailBusy ? 'Skickar…' : (emailSent ? `${tr('ui.isum_skicka')} · ${tr('ui.isum_skickad').toLowerCase()}` : tr('ui.isum_skicka')), onClick: onEmail, disabled: emailBusy },
+    { icon: <Download size={18} />, label: pdfBusy ? tr('ui.skapar_pdf') : tr('ui.isum_dela_pdf'), onClick: onPdf, disabled: pdfBusy },
+    { icon: <Eye size={18} />, label: tr('ui.forhandsgranska'), onClick: onPreview },
+    { icon: <MessageSquare size={18} />, label: tr('ui.isum_kommentar'), onClick: onComment },
+    { icon: <Pencil size={18} />, label: tr('ui.redigera'), onClick: onEdit },
+    ...(paid ? [{ icon: <Tag size={18} />, label: tr('ui.isum_markera_obetald'), onClick: onUnpay }] : []),
+    ...(invoice.creditFor ? [] : [{ icon: <Undo2 size={18} />, label: tr('ui.skapa_en_kreditfaktura'), onClick: onCreditNote }]),
+  ];
+
+  return (
+    <div className="isum">
+      <div className="isum-card isum-hero">
+        <div className="isum-customer">{customerName}</div>
+        <div className="isum-amount">{money(paid ? customerDue : remainingDue)}</div>
+        <div className="isum-status-row">
+          <span className="isum-pill" style={{ background: status.bg, color: status.color }}>{status.label}</span>
+          {dueLine && <span className={`isum-due${overdue ? ' is-late' : ''}`}>{dueLine}</span>}
+        </div>
+        {!paid && alreadyPaid > 0 && (
+          <div className="isum-paid-note">{tr('ui.isum_betalt')} {money(alreadyPaid)} · {tr('ui.totalt')} {money(customerDue)}</div>
+        )}
+      </div>
+
+      <div className="isum-card">
+        <div className="isum-card-title">{tr('ui.isum_uppgifter')}</div>
+        {details.map(([k, v]) => (
+          <div key={k} className="isum-kv"><span>{k}</span><span>{v}</span></div>
+        ))}
+        <div className="isum-kv isum-kv-total"><span>{tr('ui.totalt')}</span><span>{money(totals.total)}</span></div>
+      </div>
+
+      {rows.some(r => r.description || r.unitPrice) && (
+        <div className="isum-card">
+          <div className="isum-card-title">{tr('ui.fakturarader')}</div>
+          {rows.filter(r => r.description || r.unitPrice).map(r => (
+            <div key={r.id} className="isum-row">
+              <div className="isum-row-main">
+                <div className="isum-row-desc">{r.description || '—'}</div>
+                <div className="isum-row-meta">{r.qty} × {fmt(r.unitPrice)}</div>
+              </div>
+              <div className="isum-row-sum">{fmt((Number(r.qty) || 0) * (Number(r.unitPrice) || 0) * (1 - (Number(r.discount) || 0) / 100))}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(emailError || pdfError) && <div className="isum-error">{emailError || pdfError}</div>}
+
+      <div className="isum-card isum-actions">
+        {actions.map(a => (
+          <button key={a.label} type="button" className="isum-action" onClick={a.onClick} disabled={a.disabled}>
+            <span className="isum-action-icon">{a.icon}</span>
+            <span className="isum-action-label">{a.label}</span>
+            <ChevronRight size={18} className="isum-action-chev" />
+          </button>
+        ))}
+      </div>
+
+      <MobileFormBar>
+        {paid
+          ? <button type="button" className="mform-bar-primary" onClick={onPdf} disabled={pdfBusy}>{pdfBusy ? tr('ui.skapar_pdf') : tr('ui.isum_dela_pdf')}</button>
+          : <button type="button" className="mform-bar-primary" onClick={onPay}>{tr('ui.registrera_betalning')}</button>}
+      </MobileFormBar>
+    </div>
+  );
+}
+
 function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles, projects = [], onSyncBeforeServerCall }) {
   // En bokförd faktura (allt utom utkast) får inte längre ändra belopp/rader/kund —
   // korrigeringar sker via kreditfaktura. Datum och kommentar går fortfarande att ändra.
   const isLocked = Boolean(initial) && (initial.status || 'draft') !== 'draft';
   useMobileForm();
+  // På telefon öppnas en bokförd faktura som en sammanfattning (som i
+  // Fortnox app, 2026-10-24); Redigera visar formuläret. Utkast och datorn
+  // går som förut direkt till formuläret.
+  const isPhone = useIsMobileViewport();
+  const [summaryMode, setSummaryMode] = useState(isLocked);
+  const showSummary = isPhone && summaryMode && isLocked;
+  // Byte mellan sammanfattning och formulär börjar alltid överst.
+  useEffect(() => {
+    if (!isPhone) return;
+    window.scrollTo(0, 0);
+    document.querySelector('.main-wrapper')?.scrollTo(0, 0);
+  }, [summaryMode, isPhone]);
+  const handleBack = () => { if (isPhone && isLocked && !summaryMode) setSummaryMode(true); else onClose(); };
 
   // `prefill` (från t.ex. Tidrapportering → "Skapa faktura") sätter bara
   // startvärden för en NY faktura — aldrig när `initial` redan pekar på en
@@ -691,13 +797,13 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           18px titel + statusmärke till vänster, Avbryt/Spara till höger,
           istället för en tät rad med KUNDFAKTURA/OCR/VER.NR i versaler. ── */}
       <div className="mform-head" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10 }}>
-        <button type="button" className="mform-back" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <span className="mform-back-desk">{tr('ui.tillbaka')}</span><span className="mform-back-phone">{tr('ui.avbryt')}</span>
+        <button type="button" className="mform-back" onClick={handleBack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span className="mform-back-desk">{tr('ui.tillbaka')}</span><span className="mform-back-phone">{showSummary ? tr('ui.tillbaka') : tr('ui.avbryt')}</span>
         </button>
         <div className="mform-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{initial ? tr('ui.faktura_4', { nextNum }) : tr('ui.ny_faktura')}</h1>
-          <span className="mform-meta" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tr('ui.ocr_2')} {ocr}{tr('ui.ver_nr')} {linkedVerification?.number || '—'}</span>
-          {isLocked && (
+          {!showSummary && <span className="mform-meta" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tr('ui.ocr_2')} {ocr}{tr('ui.ver_nr')} {linkedVerification?.number || '—'}</span>}
+          {isLocked && !showSummary && (
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--status-amber-text)', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '20px', padding: '4px 10px', fontWeight: 600 }}>
               <Lock size={11} /> {tr('ui.bokford')}
             </span>
@@ -738,7 +844,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           Knapparna har nu ett tydligt mellanrum (gap) sinsemellan istället
           för att bara skiljas åt av en tunn kantlinje — annars är det för
           lätt att klicka fel på grannknappen. */}
-      <div className={`quote-toolbar invoice-toolbar doc-toolbar${initial ? '' : ' is-new'}`} style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', flexShrink: 0, overflowX: 'auto', position: 'relative' }}>
+      {!showSummary && <div className={`quote-toolbar invoice-toolbar doc-toolbar${initial ? '' : ' is-new'}`} style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', flexShrink: 0, overflowX: 'auto', position: 'relative' }}>
         {topBarBtn(tr('ui.registrera_betalning'), <CreditCard size={13} />, () => setShowPaymentBox(v => !v), showPaymentBox ? activeToolbarPillStyle : {}, !initial, !initial ? tr('ui.spara_fakturan_forst') : undefined, 'tb-pay')}
         {topBarBtn(
           'Markera som obetald',
@@ -788,7 +894,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
         {pdfError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{pdfError}</span>}
         {topBarBtn(pdfBusy ? tr('ui.skapar_pdf') : tr('ui.ladda_ner_pdf'), <Download size={13} />, handleDownloadPdf, {}, pdfBusy, undefined, 'tb-pdf')}
         {topBarBtn(tr('ui.forhandsgranska'), <Eye size={13} />, () => setShowPreview(v => !v), showPreview ? activeToolbarPillStyle : {}, false, undefined, 'tb-preview')}
-      </div>
+      </div>}
 
       {/* Betalning och Kommentar renderas som riktiga skärmcentrerade modaler
           (samma .modal-overlay/.modal-content-mönster som resten av appen)
@@ -904,7 +1010,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
         </div>
       )}
 
-      {isLocked && (
+      {isLocked && !showSummary && (
         <div style={{ background: 'var(--status-amber-bg)', borderBottom: '1px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12.5px', color: '#7c4a03', flexShrink: 0 }}>
           <AlertTriangle size={16} style={{ flexShrink: 0 }} />
           <span>
@@ -922,6 +1028,18 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           för sidans övriga vita ytor, bara konsekvent applicerad på
           formulärkolumnen som helhet, inte bara var och en av dess sektioner
           för sig. */}
+      {showSummary ? (
+        <InvoiceMobileSummary
+          invoice={initial} customerName={customer?.name || initial.customerName || ''} nextNum={nextNum} ocr={ocr}
+          totals={totals} customerDue={customerDue} alreadyPaid={alreadyPaid} remainingDue={remainingDue} payCurrency={payCurrency}
+          rows={rows} verificationNumber={linkedVerification?.number} pdfBusy={pdfBusy} emailBusy={emailBusy} emailSent={emailSent} emailError={emailError} pdfError={pdfError}
+          onPay={() => setShowPaymentBox(true)}
+          onUnpay={async () => { if (await confirmDialog(tr('ui.markera_faktura_som_obetald_den_registrerade_bet', { nextNum }))) onUnmarkPaid?.(initial.id); }}
+          onEmail={openEmailCompose} onPdf={handleDownloadPdf} onPreview={() => setShowPreview(true)} onComment={() => setShowCommentBox(true)}
+          onEdit={() => setSummaryMode(false)}
+          onCreditNote={async () => { if (await confirmDialog(tr('ui.skapa_en_kreditfaktura_som_motsvarar_faktura', { nextNum }))) onCreateCreditNote?.(initial); }}
+        />
+      ) : (
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', background: 'var(--bg-card)' }}>
         <div style={{ flex: 1, minWidth: 0, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
 
@@ -1429,6 +1547,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           </MobileFormBar>
         </div>
       </div>
+      )}
 
       {/* ── Förhandsgranskning — öppnas nu som en fullskärmsmodal med samma
              InvoiceDocument-komponent (och samma .a4-paper-storlek, 210mm)

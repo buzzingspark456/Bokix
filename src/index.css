@@ -7765,6 +7765,97 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   }
   .mform-bar > button:active:not(:disabled) { transform: scale(0.98); }
 
+  /* Fakturans sammanfattning på telefon (InvoiceMobileSummary i Invoices.jsx). */
+  .isum {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: var(--bg-muted);
+    padding: 14px 16px calc(96px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: fadeIn 0.18s ease;
+  }
+  .isum-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 16px;
+    padding: 16px;
+  }
+  .isum-hero { padding: 20px 18px; }
+  .isum-customer { font-size: 15px; font-weight: 600; color: var(--text-secondary); }
+  .isum-amount {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text-main);
+    margin: 4px 0 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  .isum-status-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .isum-pill { padding: 4px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 700; }
+  .isum-due { font-size: 14px; color: var(--text-secondary); }
+  .isum-due.is-late { color: var(--status-red-text); font-weight: 600; }
+  .isum-paid-note { margin-top: 10px; font-size: 13.5px; color: var(--text-secondary); }
+  .isum-card-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .isum-kv {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    font-size: 15px;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .isum-kv:last-child { border-bottom: none; padding-bottom: 0; }
+  .isum-kv > span:first-child { color: var(--text-secondary); }
+  .isum-kv > span:last-child { color: var(--text-main); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+  .isum-kv-total > span { font-weight: 700 !important; color: var(--text-main) !important; }
+  .isum-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .isum-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .isum-row-main { flex: 1; min-width: 0; }
+  .isum-row-desc { font-size: 15px; color: var(--text-main); overflow-wrap: anywhere; }
+  .isum-row-meta { font-size: 13px; color: var(--text-muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .isum-row-sum { font-size: 15px; font-weight: 600; color: var(--text-main); font-variant-numeric: tabular-nums; }
+  .isum-actions { padding: 4px 0; }
+  .isum-action {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    min-height: 52px;
+    padding: 0 16px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--border-light);
+    font: inherit;
+    font-size: 16px;
+    color: var(--text-main);
+    text-align: left;
+    cursor: pointer;
+  }
+  .isum-action:last-child { border-bottom: none; }
+  .isum-action:active:not(:disabled) { background: var(--bg-muted); }
+  .isum-action:disabled { color: var(--text-muted); }
+  .isum-action-icon { display: inline-flex; color: var(--accent-text, var(--accent)); }
+  .isum-action-label { flex: 1; }
+  .isum-action-chev { color: var(--text-muted); }
+  .isum-error { font-size: 13.5px; color: var(--status-red-text); padding: 0 4px; }
+
   /* Underlaget i Ny verifikation: ingen kan dra något till en telefon. */
   .ver-drop { height: auto !important; padding: 16px !important; }
   .ver-drop-desk { display: none !important; }
