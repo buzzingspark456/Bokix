@@ -214,91 +214,91 @@
     },
     {
       "source": "/env",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/env/:rest*",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/:dot(.(?!well-known)[^/]*)",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/:dot(.(?!well-known)[^/]*)/:rest*",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/wp-admin",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/wp-admin/:rest*",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/wp-content/:rest*",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/wp-includes/:rest*",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/wordpress/:rest*",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/phpmyadmin",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/phpmyadmin/:rest*",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/pma",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/config",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/config/:rest*",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/server-status",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/actuator",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/actuator/:rest*",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/debug",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/backup",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/backups",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/vendor/:rest*",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/cgi-bin/:rest*",
-      "destination": "/__finns-inte"
+      "destination": "/__finns-inte.txt"
     },
     {
       "source": "/((?!api|assets/)(?!.*[.][a-zA-Z0-9]+$).*)",
