@@ -142,7 +142,7 @@ export default function PrivacyPolicy() {
           Lösenord lagras aldrig i klartext. Data överförs krypterat (HTTPS/TLS). Åtkomst till din bokföringsdata skyddas av behörighetskontroller på databasnivå (Row Level Security) så att endast du kan läsa och skriva din egen data.
         </p>
         <p style={policyP}>
-          Du kan slå på tvåstegsverifiering för ditt konto under Inställningar → Säkerhet. Lösenord och nycklar till din egen e-post (avsnitt 5) lagras krypterade och kan bara läsas av våra servrar. Texten på kvitton och underlag du laddar upp (foton och PDF) läses av Google Cloud Vision, som får en nedskalad kopia av bilden eller själva PDF-filen, se avsnitt 4. När månadens läsningar hos Google är slut läses kvittot i stället direkt i din webbläsare.
+          Du kan slå på tvåstegsverifiering för ditt konto under Inställningar → Säkerhet. Lösenord och nycklar till din egen e-post (avsnitt 5) lagras krypterade och kan bara läsas av våra servrar. Texten på kvitton och underlag du laddar upp (foton och PDF) läses av Google Cloud Vision, som får en nedskalad kopia av bilden eller själva PDF-filen, se avsnitt 4. Går läsningen inte att göra hos Google fyller du i uppgifterna själv; kvittot skickas inte någon annanstans.
         </p>
       </PolicySection>
 

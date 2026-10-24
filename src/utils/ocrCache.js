@@ -134,61 +134,26 @@ async function readDocumentTextOnce(input, onProgress, { force = false, reader, 
     const hit = getCachedOcrText(key);
     if (hit) return { text: hit, confidence: null, weakTokens: null, quality: null, layout: null, cached: true };
   }
+
+  // I appen läser bara Vision (beslut 2026-10-24): ger Vision ingen text
+  // (kvoten slut, fel, inget svar) blir det "Kunde inte läsas", och den
+  // egna läsningen tar inte över. Egna hörn skickas som ett uträtat foto.
+  const cloudRead = cloud === undefined ? (reader ? null : (await import('./ocrCloud')).readWithCloud) : cloud;
+  if (cloudRead) {
+    onProgress?.('Läser kvittot…');
+    const text = await cloudRead(input, { quad });
+    if (!text) throw new Error('Kunde inte läsas');
+    setCachedOcrText(key, text);
+    return { text, confidence: null, weakTokens: null, quality: null, layout: null, cached: false };
+  }
+
+  // Den egna läsningen: bara när en läsare skickas in (tester och verktyg).
   const ocr = await import('./ocrReceipt');
   const read = reader || ocr.ocrFile;
-  const cloudRead = cloud === undefined ? (reader ? null : (await import('./ocrCloud')).readWithCloud) : cloud;
-  const { needsCloudReading } = await import('./ocrCloud');
-
-  // 1. Foton och PDF:er läses av Vision först, så länge månadens kvot räcker
-  // (se ocrCloud.js). Svarar Vision används dess text, även när tolkningen
-  // är osäker: den egna läsningen tar inte över (beslut 2026-10-24). Egna
-  // hörn (Justera kanter) är en beskärning för den egna läsningen och går dit.
-  let firstCloudText = null;
-  let cloudTried = false;
-  if (cloudRead && !quad) {
-    firstCloudText = await cloudRead(input);
-    cloudTried = true;
-    if (firstCloudText) {
-      setCachedOcrText(key, firstCloudText);
-      return { text: firstCloudText, confidence: null, weakTokens: null, quality: null, layout: null, cached: false };
-    }
-  }
-
-  // 2. Den egna läsningen, bara när Vision inte gav någon text: kvoten slut,
-  // Vision svarade inte, filen för stor, eller egna hörn.
-  let local;
-  try {
-    local = await (quad ? read(input, onProgress, { quad }) : read(input, onProgress));
-  } catch (err) {
-    // Den egna läsningen kraschade (en PDF som pdf.js inte klarar i den här
-    // webbläsaren, en bild som inte går att avkoda): Vision får försöka innan
-    // felet visas. Kundfel 2026-10-23, PDF-kvitto i Verifikationer.
-    const cloudText = firstCloudText || (cloudRead && !cloudTried ? await cloudRead(input) : null);
-    if (!cloudText) throw err;
-    setCachedOcrText(key, cloudText);
-    return { text: cloudText, confidence: null, weakTokens: null, quality: null, layout: null, cached: false };
-  }
-  let { text, confidence, weakTokens, quality, layout } = local;
-
-  // 3. Den bästa av Visions osäkra läsning och den egna. Har Vision inte
-  // provats (egna hörn) får den försöka när den egna läsningen av en bild
-  // inte räckte. En cachad träff provas inte igen: "Läs av igen" gör det.
-  const isImageReading = (confidence !== null && confidence !== undefined) || Boolean(quality);
-  let cloudText = firstCloudText;
-  if (!cloudText && cloudRead && !cloudTried && isImageReading && needsCloudReading(ocr.parseReceiptText(text, { confidence, weakTokens }))) {
-    onProgress?.('Läser kvittot en gång till…');
-    cloudText = await cloudRead(input);
-  }
-  if (cloudText && ocr.readingScore({ text: cloudText, confidence: 100 }) > ocr.readingScore({ text, confidence })) {
-    // Visions text är säker på tecknen; Tesseracts rutor och osäkra ord
-    // hör till den andra läsningen och gäller inte längre.
-    text = cloudText;
-    confidence = null;
-    weakTokens = null;
-    layout = null;
-  }
+  const { text, confidence, weakTokens, quality, layout } = await (quad ? read(input, onProgress, { quad }) : read(input, onProgress));
   setCachedOcrText(key, text);
   // `layout` (var på fotot raderna stod) cachas inte: rutorna sparas på
   // kvittots utkast i stället, se Expenses.jsx.
   return { text, confidence, weakTokens: weakTokens || null, quality: quality || null, layout: layout || null, cached: false };
 }
+

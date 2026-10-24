@@ -1841,12 +1841,26 @@ async function readPdfHeaderName(page, inText) {
  * Tesseracts förbehandlade bild: Vision läser bäst på originalet.
  * Returnerar null om dokumentet inte går att skicka.
  */
-export async function documentForCloud(input, maxEdge = 2000) {
+export async function documentForCloud(input, { maxEdge = 2000, quad = null } = {}) {
   if (typeof document === 'undefined') return null;
   const { blob, isPdf } = await loadDocumentBlob(input);
+  const asJpeg = (canvas) => {
+    const content = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+    return content ? { kind: 'image', content } : null;
+  };
+  const scaled = (source) => {
+    const scale = Math.min(1, maxEdge / Math.max(source.width, source.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(source.width * scale));
+    canvas.height = Math.max(1, Math.round(source.height * scale));
+    canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  };
   if (isPdf) {
-    // Serverns tak är 3,5 miljoner tecken base64, ungefär 2,6 MB PDF.
-    if (blob.size > 2_600_000) return null;
+    // Serverns tak är 3,5 miljoner tecken base64, ungefär 2,6 MB PDF. En
+    // större PDF skickas som en bild av första sidan i stället, eftersom
+    // den egna läsningen inte längre tar över (beslut 2026-10-24).
+    if (blob.size > 2_600_000) return asJpeg(scaled(await renderPdfPageToCanvas(blob)));
     const dataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result || ''));
@@ -1858,14 +1872,14 @@ export async function documentForCloud(input, maxEdge = 2000) {
   }
   if (typeof createImageBitmap !== 'function') return null;
   const source = await createImageBitmap(blob, { imageOrientation: 'from-image' });
-  const scale = Math.min(1, maxEdge / Math.max(source.width, source.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(source.width * scale));
-  canvas.height = Math.max(1, Math.round(source.height * scale));
-  canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
+  const canvas = scaled(source);
   source.close?.();
-  const content = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
-  return content ? { kind: 'image', content } : null;
+  // Egna hörn (Justera kanter): bara papperet, uträtat, skickas.
+  if (quad) {
+    const warped = warpQuadToCanvas(canvas, quad, maxEdge);
+    if (warped) return asJpeg(warped);
+  }
+  return asJpeg(canvas);
 }
 
 /** Hämtar dokumentet (fil, data-URL eller lagrad URL) och avgör om det är en PDF. */

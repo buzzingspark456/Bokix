@@ -1,9 +1,8 @@
 // Kvittoläsning med Google Cloud Vision (/api/ocr-vision, EU). Beslut
-// 2026-10-23: kvitton, både foton och PDF:er, läses av Vision FÖRST så
-// länge månadens kvot räcker (10 000 läsningar, räknas på servern). När
-// kvoten är slut svarar servern 429 och appens egen avläsning (Tesseract i
-// webbläsaren, pdf.js för PDF) används resten av månaden. Texten tolkas av
-// samma parseReceiptText som den egna läsningens.
+// 2026-10-24: i appen läses kvitton, både foton och PDF:er, BARA av Vision,
+// upp till 20 000 läsningar i månaden (räknas på servern). Är kvoten slut
+// (429) eller svarar Vision inte blir det "Kunde inte läsas"; den egna
+// läsningen (Tesseract) tar inte över. Texten tolkas av parseReceiptText.
 import { supabase } from '../supabaseClient';
 import { reportOcrError } from './errorReporting';
 
@@ -27,14 +26,14 @@ export function needsCloudReading(parsed) {
 
 /**
  * Läser dokumentet med Vision. Returnerar texten, eller null om det inte gick
- * eller kvoten är slut (då gäller den egna läsningen).
+ * eller kvoten är slut (då blir det "Kunde inte läsas", se ocrCache.js).
  */
-export async function readWithCloud(input) {
+export async function readWithCloud(input, { quad = null } = {}) {
   if (quotaReached) { lastCloudStatus = 'kvot slut'; return null; }
   let doc = null;
   try {
     const { documentForCloud } = await import('./ocrReceipt');
-    doc = await documentForCloud(input);
+    doc = await documentForCloud(input, { quad });
     if (!doc) { lastCloudStatus = 'inte skickad (för stor eller okänd fil)'; return null; }
     const { data: { session } = {} } = await supabase.auth.getSession();
     if (!session?.access_token) { lastCloudStatus = 'inte inloggad'; return null; }

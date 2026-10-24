@@ -88,13 +88,20 @@ describe('ocrCache', () => {
     expect(reader).not.toHaveBeenCalled();
   });
 
-  it('använder den egna läsningen när kvoten är slut, och frågar inte Vision en gång till', async () => {
-    const good = fs.readFileSync(new URL('./__fixtures__/kvitto-r3.txt', import.meta.url), 'utf8');
+  it('ger "Kunde inte läsas" när Vision inte ger text, utan den egna läsningen', async () => {
+    const reader = vi.fn(async () => ({ text: 'ICA\nTack', confidence: 90 }));
     const cloud = vi.fn(async () => null);
-    const result = await readDocumentText({ name: 'k.jpg', size: 9, lastModified: 9 }, null, { reader: async () => ({ text: 'ICA\nTack', confidence: 40 }), cloud });
-    expect(result.text).toBe('ICA\nTack');
-    const ok = await readDocumentText({ name: 'l.jpg', size: 9, lastModified: 10 }, null, { reader: async () => ({ text: good, confidence: 90 }), cloud });
-    expect(ok.text).toBe(good);
+    await expect(readDocumentText({ name: 'k.jpg', size: 9, lastModified: 9 }, null, { reader, cloud })).rejects.toThrow('Kunde inte läsas');
+    expect(cloud).toHaveBeenCalledTimes(1);
+    expect(reader).not.toHaveBeenCalled();
+  });
+
+  it('skickar egna hörn till Vision', async () => {
+    const quad = [{ x: 0.1, y: 0.1 }, { x: 0.9, y: 0.1 }, { x: 0.9, y: 0.9 }, { x: 0.1, y: 0.9 }];
+    const cloud = vi.fn(async () => 'ICA Maxi\nTotalt 125,00');
+    const result = await readDocumentText({ name: 'q.jpg', size: 9, lastModified: 13 }, null, { cloud, quad });
+    expect(result.text).toBe('ICA Maxi\nTotalt 125,00');
+    expect(cloud).toHaveBeenCalledWith({ name: 'q.jpg', size: 9, lastModified: 13 }, { quad });
   });
 
   it('läser en PDF med Vision först också', async () => {
@@ -119,11 +126,11 @@ describe('ocrCache', () => {
     expect(cloud).toHaveBeenCalledTimes(1);
   });
 
-  it('låter reservläsningen försöka när den egna läsningen kraschar, och visar felet om den inte heller klarar det', async () => {
-    const reader = async () => { throw new Error('pdf.js kraschade'); };
+  it('läser en PDF som pdf.js inte klarar, eftersom bara Vision läser', async () => {
+    const reader = vi.fn(async () => { throw new Error('pdf.js kraschade'); });
     const ok = await readDocumentText({ name: 'f.pdf', size: 9, lastModified: 7 }, null, { reader, cloud: async () => 'ICA Maxi\nTotalt 125,00' });
     expect(ok.text).toBe('ICA Maxi\nTotalt 125,00');
-    await expect(readDocumentText({ name: 'g.pdf', size: 9, lastModified: 8 }, null, { reader, cloud: async () => null })).rejects.toThrow('pdf.js kraschade');
+    expect(reader).not.toHaveBeenCalled();
   });
 
   it('fungerar utan localStorage', async () => {
