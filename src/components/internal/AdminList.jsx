@@ -22,6 +22,7 @@ const CSS = `
   .ixl-row { display: grid; grid-template-columns: 38px minmax(0, 1.6fr) minmax(0, 1fr) 132px; gap: 14px; align-items: center; padding: 13px 20px; }
   .ixl-row + .ixl-row { border-top: 1px solid var(--border-light); }
   .ixl-row:hover { background: var(--bg-muted); }
+  .ixl-row.clickable { cursor: pointer; }
   .ixl-row.muted .ixl-main, .ixl-row.muted .ixl-avatar { opacity: 0.55; }
   .ixl-avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; background: var(--status-green-bg); color: var(--status-green-text); text-transform: uppercase; }
   .ixl-main { min-width: 0; }
@@ -70,9 +71,12 @@ export function AdminList({ title, count, empty, children }) {
 }
 
 /** En rad. `meta` är en lista med [etikett, värde]; `pills` etiketter under namnet. */
-export function AdminRow({ initial, primary, secondary, pills, meta = [], action, muted = false }) {
+export function AdminRow({ initial, primary, secondary, pills, meta = [], action, muted = false, onClick }) {
   return (
-    <div className={`ixl-row${muted ? ' muted' : ''}`}>
+    <div
+      className={`ixl-row${muted ? ' muted' : ''}${onClick ? ' clickable' : ''}`}
+      {...(onClick ? { role: 'button', tabIndex: 0, onClick, onKeyDown: (e) => { if (e.key === 'Enter') onClick(); } } : {})}
+    >
       <span className="ixl-avatar" aria-hidden="true">{initial || '?'}</span>
       <div className="ixl-main">
         <div className="ixl-primary">{primary}</div>
@@ -82,7 +86,7 @@ export function AdminRow({ initial, primary, secondary, pills, meta = [], action
       <div className="ixl-meta">
         {meta.filter(Boolean).map(([label, value]) => <span key={label}><span className="ixl-meta-label">{label}</span> {value}</span>)}
       </div>
-      <div className="ixl-action">{action}</div>
+      <div className="ixl-action" onClick={e => e.stopPropagation()}>{action}</div>
     </div>
   );
 }

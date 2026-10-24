@@ -8,6 +8,8 @@ import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { planFromId } from '../../src/utils/plans.js';
 import * as featureFlags from '../../src/utils/featureFlags.js';
+import { buildOverview, summarizeState } from './_customers.js';
+import { detectOrgType } from '../../src/utils/orgType.js';
 
 // ── Internt admin-API (/internal på klienten) ───────────────────────────
 // EN enda fil för HELA admin-panelen, inte en fil per delsystem —
@@ -302,15 +304,25 @@ async function handleAnalytics(admin, res, query) {
 // hanterar flerföretagsfallet, inte med här) + prenumeration
 // (subscriptions) slås ihop HÄR, på servern, i stället för att klienten
 // gör tre anrop och pusslar ihop dem själv.
-async function handleUsers(admin, res) {
+export async function handleUsers(admin, res) {
   let allUsers;
   try { allUsers = await fetchAllUsers(admin); } catch (err) { res.status(500).json({ error: err.message }); return; }
 
   const { data: userData, error: userDataError } = await admin
     .from('user_data')
-    .select('user_id, company_name, company_orgnr, onboarding_completed');
+    .select('user_id, company_name, company_orgnr, onboarding_completed, updated_at');
   if (userDataError) { res.status(500).json({ error: userDataError.message }); return; }
   const userDataById = Object.fromEntries((userData || []).map(u => [u.user_id, u]));
+  // Konton som hoppat över guiden har inget company_name i raden: namnet
+  // och org.nr hämtas då ur det sparade företaget (bara för dem, högst 60).
+  const missing = (userData || []).filter(u => !u.company_name).map(u => u.user_id).slice(0, 60);
+  if (missing.length) {
+    const { data: rows } = await admin.from('user_data').select('user_id, state').in('user_id', missing);
+    (rows || []).forEach(r => {
+      const first = summarizeState(r.state)[0];
+      if (first?.name) userDataById[r.user_id] = { ...userDataById[r.user_id], company_name: first.name, company_orgnr: first.orgNr };
+    });
+  }
 
   const { data: subs, error: subsError } = await admin
     .from('subscriptions')
@@ -329,6 +341,8 @@ async function handleUsers(admin, res) {
       companyName: ud?.company_name || null,
       companyOrgnr: ud?.company_orgnr || null,
       onboardingCompleted: !!ud?.onboarding_completed,
+      orgType: u.app_metadata?.uf ? 'UF-företag' : (detectOrgType(ud?.company_orgnr) || null),
+      lastSavedAt: ud?.updated_at || null,
       createdAt: u.created_at,
       lastSignInAt: u.last_sign_in_at || null,
       emailConfirmed: !!u.email_confirmed_at,
@@ -420,14 +434,15 @@ async function loadStripeDiscounts(subscriptionIds) {
   return Object.fromEntries(entries);
 }
 
-async function handlePayments(admin, res) {
+// Prenumerationerna med pris efter rabatt, MRR och de som kräver uppföljning.
+// Används av Betalningar och Översikt. Kastar vid fel.
+async function loadPayments(admin, allUsersIn) {
   const { data: subs, error: subsError } = await admin
     .from('subscriptions')
     .select('user_id, status, plan, trial_ends_at, current_period_end, cancel_at_period_end, created_at, stripe_subscription_id');
-  if (subsError) { res.status(500).json({ error: subsError.message }); return; }
+  if (subsError) throw new Error(subsError.message);
 
-  let allUsers;
-  try { allUsers = await fetchAllUsers(admin); } catch (err) { res.status(500).json({ error: err.message }); return; }
+  const allUsers = allUsersIn || await fetchAllUsers(admin);
   const emailById = Object.fromEntries(allUsers.map(u => [u.id, u.email]));
   const discounts = await loadStripeDiscounts((subs || []).filter(s => s.stripe_subscription_id && s.status !== 'canceled').map(s => s.stripe_subscription_id));
 
@@ -467,7 +482,81 @@ async function handlePayments(admin, res) {
   // alla sköter sig själva.
   const atRisk = rows.filter(r => ['past_due', 'unpaid', 'incomplete'].includes(r.status));
 
-  res.status(200).json({ subscriptions: rows, mrr, payingCount: paying.length, discountPerMonth, atRisk });
+  return { subscriptions: rows, mrr, payingCount: paying.length, discountPerMonth, atRisk };
+}
+
+async function handlePayments(admin, res) {
+  try { res.status(200).json(await loadPayments(admin)); } catch (err) { res.status(500).json({ error: err.message }); }
+}
+
+// ── Översikt (resource: 'overview') ─────────────────────────────────────
+// Det som behöver uppmärksamhet i dag: nya konton, provperioder som tar
+// slut, nya konton som inte kommit igång, betalningar, meddelanden och fel.
+// Kundernas sparade data läses bara för nya konton och provperioder
+// (högst 80), aldrig för alla.
+export async function handleOverview(admin, res) {
+  const users = await fetchAllUsers(admin);
+  const { data: subs, error: subsError } = await admin.from('subscriptions').select('user_id, company_id, status, plan, trial_ends_at, cancel_at_period_end');
+  if (subsError) { res.status(500).json({ error: subsError.message }); return; }
+  const monthAgo = Date.now() - 31 * 86400000;
+  const ids = [...new Set([
+    ...users.filter(u => new Date(u.created_at).getTime() >= monthAgo).map(u => u.id),
+    ...(subs || []).filter(s => s.status === 'trialing').map(s => s.user_id),
+  ])].slice(0, 80);
+  const states = {};
+  if (ids.length) {
+    const { data: rows } = await admin.from('user_data').select('user_id, state').in('user_id', ids);
+    (rows || []).forEach(r => { states[r.user_id] = r.state; });
+  }
+  const { data: messages } = await admin.from('contact_messages').select('handled_at').is('handled_at', null).limit(500);
+  const { data: events } = await admin.from('system_events').select('kind, created_at').gte('created_at', new Date(Date.now() - 86400000).toISOString()).limit(500);
+  const payments = await loadPayments(admin, users).catch(() => null);
+  res.status(200).json({
+    ...buildOverview({ users, subs, states, messages: messages || [], events: events || [], isAdmin: isAdminEmail }),
+    mrr: payments?.mrr ?? null,
+    payingCount: payments?.payingCount ?? null,
+  });
+}
+
+// ── Kundkort (resource: 'customer', id) ─────────────────────────────────
+// Allt om ett konto på ett ställe: kontot, företagens inställningar och
+// användning (utan belopp eller kunders namn), prenumerationerna med länk
+// till Stripe, inloggningar och kundens senaste fel.
+export async function handleCustomer(admin, res, id) {
+  if (!/^[0-9a-f-]{36}$/i.test(String(id || ''))) { res.status(400).json({ error: 'Ogiltigt konto-id.' }); return; }
+  const { data: got, error: userError } = await admin.auth.admin.getUserById(id);
+  if (userError || !got?.user) { res.status(404).json({ error: 'Kontot hittades inte.' }); return; }
+  const u = got.user;
+  const { data: ud } = await admin.from('user_data').select('state, updated_at, onboarding_completed, onboarding_skipped').eq('user_id', id).maybeSingle();
+  const { data: subs } = await admin.from('subscriptions').select('company_id, status, plan, trial_ends_at, current_period_end, cancel_at_period_end, created_at, stripe_customer_id').eq('user_id', id);
+  const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+  const { data: logins } = await admin.from('login_events').select('device, created_at').eq('user_id', id).gte('created_at', monthAgo).order('created_at', { ascending: false }).limit(300);
+  const { data: events } = await admin.from('system_events').select('kind, detail, created_at').ilike('detail', `%${id}%`).order('created_at', { ascending: false }).limit(10);
+  const { data: members } = await admin.from('company_members').select('company_id, invited_email, role, status').eq('owner_user_id', id);
+  const companies = summarizeState(ud?.state);
+  res.status(200).json({
+    account: {
+      id: u.id, email: u.email, createdAt: u.created_at, lastSignInAt: u.last_sign_in_at || null,
+      emailConfirmed: Boolean(u.email_confirmed_at), uf: Boolean(u.app_metadata?.uf), suspended: Boolean(u.banned_until),
+      isAdmin: isAdminEmail(u.email), name: [u.user_metadata?.first_name, u.user_metadata?.last_name].filter(Boolean).join(' ') || null,
+      onboardingCompleted: Boolean(ud?.onboarding_completed), onboardingSkipped: Boolean(ud?.onboarding_skipped), lastSavedAt: ud?.updated_at || null,
+    },
+    companies: companies.map(c => ({
+      ...c,
+      members: (members || []).filter(m => m.company_id === c.id && m.status !== 'revoked').map(m => ({ email: m.invited_email, role: m.role, status: m.status })),
+    })),
+    subscriptions: (subs || []).map(sub => {
+      const plan = planFromId(sub.plan);
+      return {
+        companyId: sub.company_id || null, companyName: (sub.company_id ? companies.find(c => c.id === sub.company_id) : companies[0])?.name || null,
+        status: sub.status, planName: plan?.name || null, price: plan?.price ?? null,
+        trialEndsAt: sub.trial_ends_at, currentPeriodEnd: sub.current_period_end, cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end), createdAt: sub.created_at,
+        stripeUrl: sub.stripe_customer_id ? `https://dashboard.stripe.com/customers/${sub.stripe_customer_id}` : null,
+      };
+    }),
+    logins: { last30Days: (logins || []).length, recent: (logins || []).slice(0, 5) },
+    errors: events || [],
+  });
 }
 
 // ── Säkerhet (resource: 'security') ─────────────────────────────────────
@@ -650,6 +739,8 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const resource = req.query?.resource;
+      if (resource === 'overview') { await handleOverview(admin, res); return; }
+      if (resource === 'customer') { await handleCustomer(admin, res, req.query?.id); return; }
       if (resource === 'analytics') { await handleAnalytics(admin, res, req.query); return; }
       if (resource === 'users') { await handleUsers(admin, res); return; }
       if (resource === 'payments') { await handlePayments(admin, res); return; }

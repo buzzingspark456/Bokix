@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart3, CreditCard, ShieldAlert, Users, LogOut, Server, Inbox } from '../icons';
+import { BarChart3, CreditCard, ShieldAlert, Users, LogOut, Server, Inbox, LayoutDashboard } from '../icons';
 import BokixWordmark from '../shared/BokixWordmark';
 import { supabase } from '../../supabaseClient';
 import InternalAuth from './InternalAuth';
 import AnalyticsAdmin from './AnalyticsAdmin';
+import OverviewAdmin from './OverviewAdmin';
 import PaymentsAdmin from './PaymentsAdmin';
 import SecurityAdmin from './SecurityAdmin';
 import UsersAdmin from './UsersAdmin';
@@ -22,7 +23,7 @@ import { adminGet } from './adminApi';
 // api/admin/index.js:s kommentar för varför.
 export default function InternalApp() {
   const [status, setStatus] = useState('checking'); // checking | needs-login | unauthorized | authorized | error
-  const [activeTab, setActiveTab] = useState('analytics');
+  const [activeTab, setActiveTab] = useState('overview');
   const [errorMsg, setErrorMsg] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   // Inloggad med bara lösenord: panelen kräver Face ID eller tvåfaktor
@@ -101,6 +102,7 @@ export default function InternalApp() {
   }
 
   const navItems = [
+    { id: 'overview', label: 'Översikt', icon: LayoutDashboard, live: true },
     { id: 'analytics', label: 'Analys', icon: BarChart3, live: true },
     { id: 'payments', label: 'Betalningar', icon: CreditCard, live: true },
     { id: 'security', label: 'Säkerhet', icon: ShieldAlert, live: true },
@@ -186,6 +188,7 @@ export default function InternalApp() {
       </nav>
 
       <main className="ix-main">
+        {activeTab === 'overview' && <OverviewAdmin onOpenTab={(t) => { setActiveTab(t); window.scrollTo(0, 0); }} />}
         {activeTab === 'analytics' && <AnalyticsAdmin />}
         {activeTab === 'payments' && <PaymentsAdmin />}
         {activeTab === 'security' && <SecurityAdmin />}
