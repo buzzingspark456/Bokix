@@ -112,7 +112,7 @@ function ReportForm() {
     setState('sending'); setError('');
     try {
       let captchaToken = null;
-      try { captchaToken = await captchaRef.current?.execute(); } catch { throw new Error('Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen. Har du en annonsblockerare, pausa den för bokix.se.'); }
+      try { captchaToken = await captchaRef.current?.execute(); } catch { throw new Error('Säkerhetskontrollen blev inte klar. Ladda om sidan och försök igen. Har du en annonsblockerare, pausa den för bokix.se.'); }
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

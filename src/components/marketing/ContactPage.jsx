@@ -66,7 +66,7 @@ export default function ContactPage() {
       // kontroll, en ruta visas bara om Cloudflare vill ha ett klick.
       // Returnerar null om Turnstile inte är inställt (se Turnstile.jsx).
       let captchaToken = null;
-      try { captchaToken = await captchaRef.current?.execute(); } catch { throw new Error('Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen. Har du en annonsblockerare, pausa den för bokix.se.'); }
+      try { captchaToken = await captchaRef.current?.execute(); } catch { throw new Error('Säkerhetskontrollen blev inte klar. Ladda om sidan och försök igen. Har du en annonsblockerare, pausa den för bokix.se.'); }
 
       // Egen rutt (api/contact.js), INTE /api/email/send-invoice: den kräver
       // inloggad session, vilket en anonym besökare aldrig har. Mottagare och
