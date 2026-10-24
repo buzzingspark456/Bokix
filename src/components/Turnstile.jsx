@@ -92,6 +92,10 @@ const Turnstile = forwardRef(function Turnstile({ onVerify, onExpire, onDemand =
     loadTurnstileScript()
       .then(() => {
         if (cancelled || !window.turnstile) return;
+        // Rutan kan hinna tas bort (ny `key` efter ett försök) innan skriptet
+        // laddat; då kastade Cloudflare "reading 'style'" (system_events
+        // 2026-10-24, /status).
+        if (!document.getElementById(containerId)) return;
         widgetIdRef.current = window.turnstile.render(`#${containerId}`, {
           sitekey: siteKey,
           ...(onDemand ? { appearance: 'interaction-only' } : {}),

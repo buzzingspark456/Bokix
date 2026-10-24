@@ -56,6 +56,15 @@ export default async function handler(req, res) {
       await logSystemEvent('status_down', `${name}: ${r.note || 'nere'}`);
     }
   }
+  // En gång om dagen (kl. 08 UTC): fanns en lyckad nattkopia (backup_ok) det
+  // senaste dygnet? Körs kopian inte alls loggas annars inget fel.
+  const nowUtc = new Date();
+  if (nowUtc.getUTCHours() === 8 && nowUtc.getUTCMinutes() < 5) {
+    const { data: okRows } = await admin.from('system_events').select('created_at')
+      .eq('kind', 'backup_ok').gte('created_at', new Date(Date.now() - 26 * 3600000).toISOString()).limit(1);
+    if (!okRows?.length) await logSystemEvent('backup_stale', 'Ingen backup_ok från /api/cron/offsite-backup de senaste 26 timmarna.');
+  }
+
   if (failed.length) {
     res.status(500).json({ error: 'Kunde inte spara', failed });
     return;

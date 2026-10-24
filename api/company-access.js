@@ -376,9 +376,17 @@ export default async function handler(req, res) {
       const owners = [...new Set((memberships || []).map(m => m.owner_user_id))];
       const ownerState = new Map();
       const ownerPaid = new Map();
+      // Alla ägares rader i en fråga, inte en per ägare (N+1). Bara
+      // companies-delen av state, inte resten av raden.
+      if (owners.length) {
+        const { data: rows, error: rowsError } = await admin.from('user_data').select('user_id, companies:state->companies').in('user_id', owners);
+        if (rowsError) {
+          res.status(500).json({ error: rowsError.message });
+          return;
+        }
+        for (const row of rows || []) ownerState.set(row.user_id, row.companies || {});
+      }
       await Promise.all(owners.map(async (ownerId) => {
-        const { data: row } = await admin.from('user_data').select('state').eq('user_id', ownerId).maybeSingle();
-        ownerState.set(ownerId, row?.state?.companies || {});
         ownerPaid.set(ownerId, await hasPaidAccess(admin, ownerId));
       }));
       const companies = (memberships || []).map((m) => {

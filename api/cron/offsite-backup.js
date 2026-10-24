@@ -43,6 +43,10 @@ export default async function handler(req, res) {
     const summary = await runOffsiteBackup(admin, createOffsiteStore(config), config.key);
     if (summary.errors.length) {
       await logSystemEvent('backup_failed', `Delvis klar (${summary.filesCopied} filer kopierade): ${summary.errors.slice(0, 5).join('; ')}`);
+    } else {
+      // Kvitto på att natten gick bra. status-check.js larmar om det saknas,
+      // så att en körning som slutat helt (inget fel loggas då) också märks.
+      await logSystemEvent('backup_ok', `Databas ${Math.round(summary.dbBytes / 1024)} kB, ${summary.filesCopied} nya filer, ${summary.filesPending} kvar till nästa natt`);
     }
     res.status(200).json(summary);
   } catch (error) {

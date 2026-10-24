@@ -16,6 +16,8 @@ const ALERT_KINDS = new Set([
   'backup_failed',
   'backup_not_configured',
   'status_down',
+  'backup_stale',
+  'retention_failed',
 ]);
 
 const ALERT_LABELS = {
@@ -26,6 +28,8 @@ const ALERT_LABELS = {
   backup_failed: 'Säkerhetskopian utanför Supabase misslyckades',
   backup_not_configured: 'Säkerhetskopian utanför Supabase är inte inställd',
   status_down: 'Statussidan: en del av Bokix är nere',
+  backup_stale: 'Ingen lyckad säkerhetskopia det senaste dygnet',
+  retention_failed: 'Städningen av obetalda konton misslyckades',
 };
 
 // Högst ett larmmejl per sorts händelse och timme, räknat i den delade
