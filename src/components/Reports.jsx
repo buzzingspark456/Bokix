@@ -121,7 +121,7 @@ export default function Reports({
       <div data-tour="page-reports-list" style={{ flex: 1, overflowY: 'auto' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '24px' }}>
           {sections.map((section, i) => (
-            <div key={section.id}>
+            <div key={section.id} className="rpt-section">
               <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px', padding: '0 20px', marginTop: i === 0 ? '16px' : 0 }}>
                 {section.label}
               </div>

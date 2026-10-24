@@ -79,6 +79,7 @@ for (const step of (process.env.STEPS || 'shot:hem').split('|')) {
   else if (cmd === 'scroll') { await page.mouse.wheel(0, Number(arg)); await page.waitForTimeout(500); }
   else if (cmd === 'back') { await page.goBack(); await page.waitForTimeout(900); }
   else if (cmd === 'scrollers') console.log(await page.evaluate(() => [document.scrollingElement, ...document.querySelectorAll('*')].filter(e => e && e.scrollTop > 0).map(e => (e.className && typeof e.className === 'string' ? e.className.slice(0, 60) : e.tagName) + ':' + e.scrollTop).join(' | ')));
+  else if (cmd === 'eval') console.log(JSON.stringify(await page.evaluate(arg)));
   else if (cmd === 'shot') await page.screenshot({ path: `test-results/mobil-${tag}-${arg}.png` });
 }
 console.log(JSON.stringify({ errors }));

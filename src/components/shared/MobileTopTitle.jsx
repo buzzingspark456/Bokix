@@ -23,8 +23,13 @@ export default function MobileTopTitle() {
     const update = () => {
       frame = 0;
       const h1 = scroller.querySelector('.main-content-inner h1');
-      const barBottom = bar.getBoundingClientRect().bottom;
-      const show = h1 ? h1.getBoundingClientRect().bottom < barBottom + 4 : scroller.scrollTop > 40;
+      const barRect = bar.getBoundingClientRect();
+      // En listsidas rubrik står i själva fältets rad (index.css): den lilla
+      // rubriken tonar in först när den stora nästan glidit ut under fältet.
+      const inBar = Boolean(h1?.closest('.list-page-header'));
+      const show = h1
+        ? h1.getBoundingClientRect().bottom < (inBar ? barRect.top + 12 : barRect.bottom + 4)
+        : scroller.scrollTop > 40;
       const title = (h1?.textContent || '').trim();
       bar.toggleAttribute('data-scrolled', scroller.scrollTop > 2);
       // Den flytande "Ny …"-knappen krymper till en rund knapp när man

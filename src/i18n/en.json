@@ -3500,6 +3500,7 @@
     "vpp_titel": "How often does {{name}} file VAT?",
     "vpp_ingress": "The VAT period has never been chosen, so the app currently assumes {{period}}. Choose the right period so the dates and the VAT return are correct.",
     "vpp_senare": "Ask later",
+    "ver_fler_val": "More (series, project, customer)",
     "isum_att_betala": "To pay",
     "isum_betalt": "Paid",
     "isum_forfaller": "Due {{date}}",

@@ -963,9 +963,9 @@ export default function SupplierInvoices({
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input type="text" placeholder={t('ui.fakturanr_eller_leverantor')} value={search} onChange={e => setSearch(e.target.value)} style={{ ...listSearchInputStyle, width: '220px' }} />
           </div>
-          <button onClick={() => { setSearch(''); setStatusFilter('all'); }} title={t('ui.rensa_sokning')} style={{ ...listHeaderButtonStyle('secondary'), padding: '0 10px' }}><RefreshCw size={14} /></button>
+          <button className="inv-reset" onClick={() => { setSearch(''); setStatusFilter('all'); }} title={t('ui.rensa_sokning')} style={{ ...listHeaderButtonStyle('secondary'), padding: '0 10px' }}><RefreshCw size={14} /></button>
           <div style={{ flex: 1 }} />
-          <button className="inv-cta" onClick={() => setShowForm(true)} style={listHeaderButtonStyle('primary')}>
+          <button className="inv-cta page-fab" onClick={() => setShowForm(true)} style={listHeaderButtonStyle('primary')}>
             <Plus size={14} /> {t('ui.ny_leverantorsfaktura')}
           </button>
         </div>

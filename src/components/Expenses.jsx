@@ -1411,7 +1411,7 @@ export default function Expenses({
               som redan finns i telefonen. Samma handleFileInput som ytan. */}
           <div className="rc-phone-capture">
             <input type="file" id="receipt-camera" style={{ display: 'none' }} accept="image/*" capture="environment" onChange={handleFileInput} />
-            <button type="button" className="rc-phone-camera" onClick={() => document.getElementById('receipt-camera').click()}>
+            <button type="button" className="rc-phone-camera page-fab" onClick={() => document.getElementById('receipt-camera').click()}>
               <Camera size={22} /> {tr('ui.fota_kvitto')}
             </button>
             <button type="button" className="rc-phone-file" onClick={() => document.getElementById('receipt-upload').click()}>
@@ -1749,7 +1749,7 @@ export default function Expenses({
                       </span>
                     </div>
                   )}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: showGroups ? '16px' : 0 }}>
+                  <div className="rc-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: showGroups ? '16px' : 0 }}>
                     {rows.map(r => {
                       const status = getReceiptStatus(r, verIndex);
                       const categoryName = accountNames.get(r.costAccount);

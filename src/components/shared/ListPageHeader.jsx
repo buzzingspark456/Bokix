@@ -165,7 +165,11 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
               </button>
             ))}
             {actions.some(a => a.type !== 'note' && a.variant !== 'primary') && (
-              <MoreActions actions={actions.filter(a => a.type !== 'note' && a.variant !== 'primary')} />
+              <MoreActions actions={[
+                ...actions.filter(a => a.type !== 'note' && a.variant !== 'primary'),
+                // Telefon: Se hur ligger i ⋯-menyn i stället för bredvid rubriken.
+                ...(guide?.guides?.length > 0 ? [{ key: 'guide', label: t('ui.se_hur'), icon: PlayCircle, onClick: guide.open, phoneOnly: true }] : []),
+              ]} />
             )}
           </div>
         )}
@@ -220,6 +224,7 @@ function MoreActions({ actions }) {
                 key={a.key ?? a.label ?? i}
                 type="button"
                 role="menuitem"
+                className={a.phoneOnly ? 'lph-more-phone' : undefined}
                 disabled={a.disabled}
                 onClick={() => { setOpen(false); a.onClick?.(); }}
               >

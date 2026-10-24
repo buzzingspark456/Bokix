@@ -203,6 +203,10 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   const toggleDoc = () => setShowDoc(v => !v);
   // Anteckningen är sällan ifylld: en länk tills man behöver den.
   const [showNote, setShowNote] = useState(Boolean(initial?.internalNote));
+  // Telefon: valfria fält (serie, anteckning, kostnadsställe, projekt, motpart)
+  // ligger bakom "Fler val" så att Vad har hänt? kommer högre upp. Öppet
+  // från början när något av dem redan har ett värde.
+  const [moreOpen, setMoreOpen] = useState(Boolean(initial?.internalNote || initial?.costCenter || initial?.projectId || initial?.counterpartyId));
   const [dragOver, setDragOver] = useState(false);
   const [fileError, setFileError] = useState('');
   const [expandedRows, setExpandedRows] = useState(new Set());
@@ -475,6 +479,8 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   // leverantörsskulder) används utan att motparten är ifylld.
   const usesReskontraAccount = rows.some(r => isReskontraAccount(r.account));
   const missingCounterparty = usesReskontraAccount && !counterpartyId;
+  // Motparten krävs (reskontrakonto): visa fälten även på telefon.
+  useEffect(() => { if (missingCounterparty) setMoreOpen(true); }, [missingCounterparty]);
 
   // Rensar OCR-badgen på raderna så fort användaren rör konteringen själv —
   // samma "försvinner vid redigering"-princip som Datum/Beskrivning nedan.
@@ -718,7 +724,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
           underlaget ger fälten hela bredden och lämnar en smal flik kvar
           som tar tillbaka det. Under 1080px staplas de, underlaget först. */}
       <div className={`ver-split${showDoc ? ' has-doc' : ''}`}>
-      <div className="ver-form-card ver-split-form" style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)', padding: 'clamp(16px, 2.2vw, 28px)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', minWidth: 0 }}>
+      <div className="ver-form-card ver-split-form" data-more={moreOpen ? 'open' : undefined} style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)', padding: 'clamp(16px, 2.2vw, 28px)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', minWidth: 0 }}>
 
       {/* Datum / Beskrivning / Serie */}
       <div className="ver-form-row" style={{ marginBottom: '10px' }}>
@@ -730,7 +736,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
           <label style={fieldLabel}>{tr('ui.beskrivning')} {ocrFields.has('desc') && <OcrBadge />}</label>
           <input data-tour="page-verifications-field" value={desc} onChange={e => { setDesc(e.target.value); setOcrFields(s => { const n = new Set(s); n.delete('desc'); return n; }); }} placeholder={tr('ui.verifikationstext')} style={inp} autoFocus={!window.matchMedia?.('(max-width: 768px)').matches} />
         </div>
-        <div style={{ width: '200px' }}>
+        <div className="ver-more" style={{ width: '200px' }}>
           <label style={fieldLabel}>{tr('ui.serie')}</label>
           <select value={series} onChange={e => setSeries(e.target.value)} style={{ ...inp, background: 'var(--bg-card)' }}>
             {VERIFICATION_SERIES.map(s => <option key={s} value={s}>{s} · {seriesNames?.[s] || tr(`ui.serienamn_${s}`)}</option>)}
@@ -749,8 +755,14 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         );
       })()}
 
+      {!moreOpen && (
+        <button type="button" className="ver-more-toggle" onClick={() => setMoreOpen(true)}>
+          <Plus size={15} /> {tr('ui.ver_fler_val')}
+        </button>
+      )}
+
       {/* Räkenskapsår + nästa nummer + valuta, som en informationsrad */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '18px', fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '18px', flexWrap: 'wrap' }}>
+      <div className="ver-more" style={{ display: 'flex', alignItems: 'center', gap: '18px', fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '18px', flexWrap: 'wrap' }}>
         <span>{tr('ui.rakenskapsar_2')} <strong style={{ color: 'var(--text-main)' }}>{tr('ui.rakenskapsar')} {(date || '').slice(0, 4) || new Date().getFullYear()}</strong> <strong style={{ color: 'var(--text-main)' }}>{previewNumber}</strong></span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           {tr('ui.valuta')}
@@ -761,7 +773,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       </div>
 
       {showNote ? (
-        <div style={{ marginBottom: '18px' }}>
+        <div className="ver-more" style={{ marginBottom: '18px' }}>
           <label style={fieldLabel}>{tr('ui.intern_anteckning_valfritt')}</label>
           <textarea
             value={internalNote}
@@ -773,12 +785,12 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
           />
         </div>
       ) : (
-        <button type="button" className="ver-add-note" onClick={() => setShowNote(true)}>
+        <button type="button" className="ver-add-note ver-more" onClick={() => setShowNote(true)}>
           <Plus size={13} /> Lägg till anteckning
         </button>
       )}
 
-      <div className="ver-form-row" style={{ marginBottom: '6px' }}>
+      <div className="ver-form-row ver-more" style={{ marginBottom: '6px' }}>
         <div style={{ flex: 1 }}>
           <label style={fieldLabel}>{tr('ui.kostnadsstalle')}</label>
           <input value={costCenter} onChange={e => setCostCenter(e.target.value)} placeholder={tr('ui.ange_kostnadsstalle')} style={inp} />
@@ -795,7 +807,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
           <PartySearch value={counterpartyId} onChange={setCounterpartyId} contacts={contacts} />
         </div>
       </div>
-      <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '0', marginBottom: '20px' }}>{tr('ui.galler_alla_rader_utan_egen_markning')}</p>
+      <p className="ver-more" style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '0', marginBottom: '20px' }}>{tr('ui.galler_alla_rader_utan_egen_markning')}</p>
 
       {missingCounterparty && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '6px', padding: '8px 12px', marginBottom: '20px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>

@@ -3500,6 +3500,7 @@
     "vpp_titel": "Hur ofta deklarerar {{name}} moms?",
     "vpp_ingress": "Momsperioden har aldrig valts, så appen räknar just nu med {{period}}. Välj rätt period så blir datumen och momsdeklarationen rätt.",
     "vpp_senare": "Fråga senare",
+    "ver_fler_val": "Fler val (serie, projekt, kund)",
     "isum_att_betala": "Att betala",
     "isum_betalt": "Betalt",
     "isum_forfaller": "Förfaller {{date}}",

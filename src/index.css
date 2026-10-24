@@ -6187,9 +6187,9 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 
   /* Statusfilter: en rad som skrollar i sidled. "Visa N" och skrivar-ikonen
      hör till datorn. */
-  .inv-pills { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; padding: 10px 14px !important; gap: 8px !important; }
+  .inv-pills { flex-wrap: wrap !important; overflow: visible; padding: 8px 14px 10px !important; gap: 6px !important; }
   .inv-pills::-webkit-scrollbar { display: none; }
-  .inv-pills > button { flex-shrink: 0; padding: 7px 12px !important; }
+  .inv-pills > button { flex-shrink: 0; padding: 6px 11px !important; }
   .inv-pills .inv-pills-spacer, .inv-pills .inv-pills-extra { display: none !important; }
 }
 /* ── Fakturarader ── omslagen är osynliga på dator (display: contents) */
@@ -6601,39 +6601,30 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .sup-row .qr-remove { grid-column: 1 / -1; justify-self: end; min-height: 40px; }
 }
 
-/* Flikrader på telefon: EN rad som man sveper i sidled, som segmentraderna i
-   en app. Tidigare radbröts de till upp till fyra rader (Skatt och bokslut,
-   Bank) och tog halva skärmen innan innehållet började. Kanten tonas där det
-   finns fler flikar, och den valda fliken skrollas alltid fram
-   (ListPageHeader). */
+/* Flikrader på telefon: kompakta piller som radbryter när de inte får plats,
+   så att alla flikar alltid syns (2026-10-24: Anläggningstillgångar och
+   Semester stod gömda bakom kanten när raden skrollade i sidled). */
 @media (max-width: 768px) {
   .page-header-tabs {
-    flex-wrap: nowrap !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-x: contain;
-    gap: 8px !important;
-    margin: 0 -20px !important;
-    padding: 10px 20px 12px !important;
-    scroll-padding: 0 20px;
+    flex-wrap: wrap !important;
+    overflow: visible !important;
+    gap: 6px !important;
+    margin: 0 !important;
+    padding: 6px 0 12px !important;
     background: none !important;
-    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 28px), transparent 100%);
-    mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 28px), transparent 100%);
   }
   .page-header-tabs::-webkit-scrollbar { display: none; }
   .page-header-tabs > button {
     flex: 0 0 auto !important;
     justify-content: center;
-    min-height: 36px;
-    padding: 6px 14px !important;
+    min-height: 34px;
+    padding: 5px 12px !important;
     margin: 0 !important;
     border: 1px solid var(--border) !important;
     border-radius: 999px;
     background: var(--bg-muted) !important;
     color: var(--text-secondary) !important;
-    font-size: 13.5px !important;
+    font-size: 13px !important;
     font-weight: 600 !important;
     white-space: nowrap;
   }
@@ -7418,6 +7409,54 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   }
 }
 
+@media (max-width: 768px) {
+  /* Sidans rubrik i toppfältets rad (2026-10-24, "rubriken kan vara högre
+     upp"): sidhuvudet dras upp under det genomskinliga fältet, med plats
+     till höger för klockan och profilen. Fältet blir glas först när man
+     skrollat (data-scrolled), då tonar den lilla rubriken in i mitten
+     (MobileTopTitle). Fältet släpper igenom tryck utom på sina knappar,
+     annars hade det legat över sidhuvudets egna knappar. */
+  .main-wrapper:has(.list-page-header) .global-top-bar { pointer-events: none; }
+  .main-wrapper:has(.list-page-header) .global-top-bar > * { pointer-events: auto; }
+  .main-wrapper:has(.list-page-header) .global-top-bar::before { transition: opacity 0.2s ease; }
+  .main-wrapper:has(.list-page-header) .global-top-bar:not([data-scrolled])::before { opacity: 0; }
+  .main-content-inner .list-page-header { margin-top: -56px; }
+  .list-page-header .page-header-row.page-header-top {
+    min-height: 56px;
+    padding: 0 100px 0 0 !important;
+  }
+  .list-page-header h1 {
+    font-size: 22px !important;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  /* Rubriken och en ensam knapp (⋯) står på samma rad; rubriken får
+     ellips hellre än att knappen hamnar på en egen rad. */
+  .list-page-header .page-header-top:not(:has(.page-header-actions > button:not(.page-fab):not(.lph-secondary))) { flex-wrap: nowrap !important; }
+  .list-page-header .page-header-top > div:first-child { min-height: 56px; display: flex; flex-direction: column; justify-content: center; }
+  .list-page-header .page-header-top > div:first-child > div:first-child { flex-wrap: nowrap !important; min-width: 0; }
+  /* Egen rad bara när det finns en synlig bred knapp (t.ex. Bankens
+     Importera); en "Ny …"-knapp är rund och flytande (page-fab) och tar
+     ingen plats i raden. */
+  .list-page-header .page-header-actions:has(> button:not(.page-fab):not(.lph-secondary)) {
+    flex: 1 1 calc(100% + 100px) !important;
+    margin-right: -100px;
+    width: calc(100% + 100px) !important;
+    padding-bottom: 4px;
+  }
+  .list-page-header .page-header-actions--many:not(:has(> button:not(.page-fab):not(.lph-secondary))) {
+    flex: 0 0 auto !important;
+    width: auto !important;
+  }
+  /* Se hur: bara ikonen på telefon, och i ⋯-menyn när sidan har en sådan. */
+  .list-page-header:has(.lph-more-wrap) .lph-guide { display: none !important; }
+  .lph-guide { font-size: 0 !important; width: 32px; height: 32px; justify-content: center; padding: 0 !important; }
+  .lph-guide svg { width: 18px; height: 18px; }
+}
+
 /* ══ Genomgång mot Apples riktlinjer (HIG), 2026-10-02 ══════════════════
    Uppmätt i appen på 390 px, se kommentarerna. */
 @media (max-width: 768px) {
@@ -7449,6 +7488,8 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   /* Kundfakturors flytande knapp fick sökradens 42 px-höjd; samma 54 px som
      på övriga sidor. */
   .inv-searchrow > button.page-fab { height: 54px !important; }
+  /* Rensa-knappen behövs inte på telefon: sökfältet töms för hand. */
+  .inv-searchrow > .inv-reset { display: none !important; }
 
   /* Flikraden svävar ovanför innehållet på glas, som iOS egen:
      "A tab bar floats above content at the bottom of the screen. Its items
@@ -7560,35 +7601,64 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
    På telefon en stor "Fota kvitto" (öppnar kameran direkt) och "Välj fil"
    i stället för dra-och-släpp-ytan. Dold på datorn. */
 .rc-phone-capture { display: none; }
+.ver-more-toggle { display: none; }
 @media (max-width: 768px) {
-  .rc-phone-capture { display: flex; gap: 10px; }
+  /* 2026-10-24: Fota kvitto är sidans flytande knapp (page-fab, som Ny … på
+     övriga sidor) och Välj fil en liten knapp i rubrikraden, i stället för
+     två stora knappar som tog sidans översta del. */
+  .rc-phone-capture { display: contents; }
   .rc-drop { display: none !important; }
-  .rc-phone-camera, .rc-phone-file {
+  .rc-phone-camera {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    min-height: 54px;
-    border-radius: 14px;
-    font: inherit;
-    font-size: 16px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .rc-phone-camera {
-    flex: 1 1 auto;
     border: none;
     background: var(--accent);
     color: #fff;
-    box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
   }
+  .list-page-header:has(.rc-phone-file) { position: relative; }
   .rc-phone-file {
-    flex: 0 0 auto;
-    padding: 0 18px;
+    position: absolute;
+    top: 10px;
+    right: 112px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 12px;
     border: 1px solid var(--border);
+    border-radius: 999px;
     background: var(--bg-card);
     color: var(--text-main);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
   }
+
+  /* Kvittolistan som en grupperad lista per månad (vitt kort, rader med
+     tunna avdelare) i stället för fristående kort med grå rutor. */
+  .rc-group {
+    gap: 0 !important;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .rc-group .rc-row {
+    border: none;
+    border-bottom: 1px solid var(--border-light);
+    border-radius: 0;
+    box-shadow: none;
+    padding: 11px 14px;
+    gap: 12px;
+  }
+  .rc-group .rc-row:last-child { border-bottom: none; }
+  .rc-group .rc-row:hover { transform: none; box-shadow: none; }
+  .rc-group .rc-row:active { background: var(--bg-muted); }
+  .rc-row-thumb { width: 42px; height: 42px; border-radius: 9px; }
 }
 
 /* Att göra idag på telefon: först på startsidan och lite större, det är
@@ -7856,8 +7926,52 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .isum-action-chev { color: var(--text-muted); }
   .isum-error { font-size: 13.5px; color: var(--status-red-text); padding: 0 4px; }
 
-  /* Underlaget i Ny verifikation: ingen kan dra något till en telefon. */
+  /* Underlaget i Ny verifikation: ingen kan dra något till en telefon.
+     Utan underlag är kortet bara två knappar och en rad text (2026-10-24:
+     ytan var 287 px hög och mest tom). */
   .ver-drop { height: auto !important; padding: 16px !important; }
+  .ver-split-doc { position: static; max-height: none; overflow: visible; padding: 14px 16px; }
+  .ver-split-doc .ver-drop {
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: none !important;
+    cursor: default;
+  }
+  .ver-split-doc .ver-drop > span { order: 1; margin-top: 2px !important; max-width: none !important; text-align: left; align-self: stretch; }
+  .ver-split-doc:not(:has(.ver-doc-view)) .ver-doc-hide { display: none; }
+  /* Rapporter: varje sektion som en grupperad lista (vitt kort), som Inställningar. */
+  .rpt-section .lt-mobile-list {
+    margin: 0 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .rpt-section .lt-mobile-row:last-child { border-bottom: none; }
+  .rpt-section > :last-child { background: none !important; border: none !important; box-shadow: none !important; }
+  /* Fler val (Verifications.jsx, moreOpen): valfria fält dolda tills man trycker. */
+  .ver-split-form:not([data-more]) .ver-more { display: none !important; }
+  .ver-more-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    margin: 4px 0 16px;
+    padding: 0 14px;
+    background: var(--bg-muted);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+  }
   .ver-drop-desk { display: none !important; }
   .ver-drop-phone {
     display: flex;
@@ -8420,6 +8534,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
    flera. Filterraden: sökfältet och Filter, resten fälls ut. Samma idé som
    på telefon, men i datorns storlekar. */
 .lph-more-wrap { position: relative; display: inline-flex; }
+@media (min-width: 769px) { .lph-more-sheet .lph-more-phone { display: none !important; } }
 .lph-more-backdrop { position: fixed; inset: 0; z-index: 250; background: transparent; }
 @media (min-width: 769px) and (max-width: 1199px) {
   .page-header-actions--many > .lph-secondary { display: none !important; }
