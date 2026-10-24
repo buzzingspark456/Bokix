@@ -3,7 +3,7 @@ import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, CARD_BORDER } from './marketingTokens';
 import { PageMeta } from '../../utils/seo';
-import Recaptcha from '../Recaptcha';
+import Turnstile from '../Turnstile';
 
 // Ämnen i formuläret. `value` måste finnas i ALLOWED_TOPICS i api/contact.js,
 // annars sparas meddelandet som "Övrigt". `label` är det besökaren ser.
@@ -42,7 +42,8 @@ export default function ContactPage() {
   const [form, setForm] = useState({ name: '', email: '', topic: TOPICS[0].value, message: '' });
   const [status, setStatus] = useState('idle'); // idle | sending | sent | error
   const [errorMsg, setErrorMsg] = useState('');
-  const recaptchaRef = useRef(null);
+  const captchaRef = useRef(null);
+  const [captchaRound, setCaptchaRound] = useState(0);
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -61,10 +62,11 @@ export default function ContactPage() {
     setStatus('sending');
     setErrorMsg('');
     try {
-      // Kör reCAPTCHA-utmaningen precis innan utskicket. "Invisible" v2 har
-      // ingen synlig knapp och löser (oftast) direkt. Returnerar `null` om
-      // reCAPTCHA inte är konfigurerat (se Recaptcha.jsx).
-      const recaptchaToken = await recaptchaRef.current?.execute();
+      // Cloudflare Turnstile precis innan utskicket (som bokningen): osynlig
+      // kontroll, en ruta visas bara om Cloudflare vill ha ett klick.
+      // Returnerar null om Turnstile inte är inställt (se Turnstile.jsx).
+      let captchaToken = null;
+      try { captchaToken = await captchaRef.current?.execute(); } catch { throw new Error('Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen. Har du en annonsblockerare, pausa den för bokix.se.'); }
 
       // Egen rutt (api/contact.js), INTE /api/email/send-invoice: den kräver
       // inloggad session, vilket en anonym besökare aldrig har. Mottagare och
@@ -72,7 +74,7 @@ export default function ContactPage() {
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, topic: form.topic, message, recaptchaToken }),
+        body: JSON.stringify({ name, email, topic: form.topic, message, captchaToken: captchaToken || undefined }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Kunde inte skicka meddelandet.');
@@ -85,7 +87,7 @@ export default function ContactPage() {
     } finally {
       // En reCAPTCHA-token är engångsbruk; utan reset() skulle ett andra
       // försök skicka samma förbrukade token och alltid misslyckas.
-      recaptchaRef.current?.reset();
+      setCaptchaRound(r => r + 1);
     }
   }
 
@@ -175,7 +177,7 @@ export default function ContactPage() {
                 )}
 
                 {/* Osynlig: körs av handleSubmit precis innan utskicket. */}
-                <Recaptcha ref={recaptchaRef} />
+                <Turnstile key={captchaRound} ref={captchaRef} onDemand />
 
                 <button
                   type="submit"

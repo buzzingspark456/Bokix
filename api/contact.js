@@ -290,7 +290,16 @@ export default async function handler(req, res) {
     // som Turnstile.jsx redan har på klientsidan, så en installation utan
     // reCAPTCHA-nycklar (eller ett Playwright-test, se e2e/contact.spec.js)
     // inte går sönder bara för att widgeten aldrig renderades.
-    if (!user && hasRecaptchaSecretKey()) {
+    // 2026-10-24: Cloudflare Turnstile i stället för reCAPTCHA (användarens
+    // önskemål), samma som bokningen. reCAPTCHA gäller bara om Turnstile inte
+    // är inställt.
+    if (!user && hasTurnstileSecretKey()) {
+      const { ok } = await verifyTurnstile(body?.captchaToken, getClientIp(req));
+      if (!ok) {
+        res.status(400).json({ error: 'Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen. Har du en annonsblockerare, pausa den för bokix.se.' });
+        return;
+      }
+    } else if (!user && hasRecaptchaSecretKey()) {
       const { ok } = await verifyRecaptcha(body?.recaptchaToken, getClientIp(req));
       if (!ok) {
         res.status(400).json({ error: 'Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen.' });

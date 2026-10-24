@@ -3,7 +3,7 @@ import MarketingLayout from './MarketingLayout';
 import { KitStyles } from './subpageKit';
 import { INK, INK_SOFT, MUTED } from './marketingTokens';
 import { PageMeta } from '../../utils/seo';
-import Recaptcha from '../Recaptcha';
+import Turnstile from '../Turnstile';
 
 // ── Driftstatus (/status) ───────────────────────────────────────────────
 // Om Bokix fungerar just nu, del för del, och de senaste 90 dagarna.
@@ -102,7 +102,8 @@ function ReportForm() {
   const [form, setForm] = useState({ name: '', email: '', message: '' });
   const [state, setState] = useState('idle'); // idle | sending | sent | error
   const [error, setError] = useState('');
-  const recaptchaRef = useRef(null);
+  const captchaRef = useRef(null);
+  const [captchaRound, setCaptchaRound] = useState(0);
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
   const submit = async (e) => {
@@ -110,11 +111,12 @@ function ReportForm() {
     if (state === 'sending') return;
     setState('sending'); setError('');
     try {
-      const recaptchaToken = await recaptchaRef.current?.execute();
+      let captchaToken = null;
+      try { captchaToken = await captchaRef.current?.execute(); } catch { throw new Error('Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen. Har du en annonsblockerare, pausa den för bokix.se.'); }
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: form.name.trim(), email: form.email.trim(), topic: 'Felrapport', message: `[Från statussidan] ${form.message.trim()}`, recaptchaToken }),
+        body: JSON.stringify({ name: form.name.trim(), email: form.email.trim(), topic: 'Felrapport', message: `[Från statussidan] ${form.message.trim()}`, captchaToken: captchaToken || undefined }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Kunde inte skicka. Försök igen om en stund.');
@@ -124,7 +126,8 @@ function ReportForm() {
       setState('error');
       setError(err.message || 'Kunde inte skicka. Försök igen om en stund.');
     } finally {
-      recaptchaRef.current?.reset();
+      // En token gäller en gång: ny ruta inför nästa försök.
+      setCaptchaRound(r => r + 1);
     }
   };
 
@@ -138,7 +141,7 @@ function ReportForm() {
         <div><label htmlFor="st-email">E-post</label><input id="st-email" type="email" autoComplete="email" value={form.email} onChange={set('email')} required /></div>
       </div>
       <div><label htmlFor="st-msg">Vad fungerar inte?</label><textarea id="st-msg" value={form.message} onChange={set('message')} required maxLength={3000} /></div>
-      <Recaptcha ref={recaptchaRef} />
+      <Turnstile key={captchaRound} ref={captchaRef} onDemand />
       {state === 'error' && <div className="st-form-msg" style={{ color: 'var(--st-down)' }}>{error}</div>}
       <button type="submit" disabled={state === 'sending'}>{state === 'sending' ? 'Skickar…' : 'Skicka'}</button>
     </form>
