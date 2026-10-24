@@ -1,7 +1,6 @@
 // Felspårning i webbläsaren med Sentry (användarens beslut 2026-10-24).
-// Bara i produktion och bara när VITE_SENTRY_DSN finns i Vercel, annars gör
-// filen ingenting. Laddas efter sidan (eget paket), så första visningen inte
-// blir långsammare.
+// Bara i produktionsbygget, lokalt gör filen ingenting. Laddas efter sidan
+// (eget paket), så första visningen inte blir långsammare.
 //
 // Ingen prestandamätning, ingen skärminspelning, inga cookies, headers,
 // frågeparametrar eller kroppar, ingen användare. Personnummer/org.nr,
