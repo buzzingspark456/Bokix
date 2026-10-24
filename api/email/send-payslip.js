@@ -5,6 +5,7 @@ import { requireAuthedUser, loadOwnedOrMemberCompany, requireActiveSubscription 
 import { checkRateLimit } from '../_rateLimit.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { trySendFromOwnAddress } from '../_smtp.js';
+import { withSentry } from '../_sentry.js';
 
 // Mejlar ett lönebesked till en anställd. Egen rutt i stället för
 // send-invoice.js av två skäl:
@@ -20,7 +21,7 @@ import { trySendFromOwnAddress } from '../_smtp.js';
 const MAX_PDF_BASE64 = 2_000_000;
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -102,3 +103,5 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error?.message || 'Kunde inte skicka lönebeskedet.' });
   }
 }
+
+export default withSentry(handler, '/api/email/send-payslip');

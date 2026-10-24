@@ -6,6 +6,7 @@ import { checkRateLimit, getClientIp } from './_rateLimit.js';
 import { hasRecaptchaSecretKey, verifyRecaptcha } from './_recaptcha.js';
 import { hasTurnstileSecretKey, verifyTurnstile } from './_turnstile.js';
 import { brandedEmail } from '../src/utils/brandedEmail.js';
+import { withSentry } from './_sentry.js';
 import {
   BOOKING_TOPIC, BOOKING_MODES, BOOKING_REASONS, bookingReason, bookingMinutes, isSlotFree, isValidSlot, formatSlot, bookingMessage,
   busyFromMessage, bookingIcs, stockholmToday,
@@ -244,7 +245,7 @@ async function handleBooking(req, res, body) {
   res.status(200).json({ id: saved || inbox.data?.id || null });
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method === 'GET') {
     // Upptagna tider till bokningssidan. Bara tider, inga namn.
@@ -373,3 +374,5 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error?.message || 'Kunde inte skicka e-post.' });
   }
 }
+
+export default withSentry(handler, '/api/contact');

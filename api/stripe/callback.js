@@ -11,6 +11,7 @@ import { verifySignedState } from './_oauthState.js';
 import { parseCookies, STRIPE_OAUTH_COOKIE, clearStripeOauthStateCookie } from './_cookies.js';
 import { checkRateLimit } from '../_rateLimit.js';
 import { syncStripeLedger } from './_ledgerSync.js';
+import { withSentry } from '../_sentry.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_') ? new Stripe(stripeSecretKey, {}) : null;
@@ -47,7 +48,7 @@ async function persistStripeAccountId({ userId, companyId, stripeAccountId }) {
   if (error) throw error;
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   // Säkerhetsgranskningen: den här callbacken hade ingen hastighets-
   // begränsning alls trots att den anropar Stripes OAuth-tokenendpoint
@@ -125,3 +126,5 @@ export default async function handler(req, res) {
     redirectWithStatus(res, 'error', err.message);
   }
 }
+
+export default withSentry(handler, '/api/stripe/callback');

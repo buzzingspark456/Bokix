@@ -9,6 +9,7 @@ import { createClient } from '@supabase/supabase-js';
 import { applySecurityHeaders } from './_security.js';
 import { checkRateLimit } from './_rateLimit.js';
 import { buildCalendarEvents, calendarChoices, toIcs } from '../src/utils/calendarFeed.js';
+import { withSentry } from './_sentry.js';
 
 const ID_RE = /^[A-Za-z0-9_-]{1,80}$/;
 // user_id är en uuid-kolumn: annat format ger ett Postgres-fel (500) i stället för 404.
@@ -27,7 +28,7 @@ function keysMatch(a, b) {
   return ab.length === bb.length && crypto.timingSafeEqual(ab, bb);
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.setHeader('Allow', 'GET, HEAD');
@@ -64,3 +65,5 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, max-age=900');
   return res.status(200).send(req.method === 'HEAD' ? '' : ics);
 }
+
+export default withSentry(handler, '/api/calendar');

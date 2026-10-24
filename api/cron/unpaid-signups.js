@@ -10,6 +10,7 @@ import { createClient } from '@supabase/supabase-js';
 import { applySecurityHeaders } from '../_security.js';
 import { logSystemEvent } from '../_systemEvents.js';
 import { cleanAbandonedSignups } from './_dataRetention.js';
+import { withSentry } from '../_sentry.js';
 
 function isAuthorized(req) {
   const secret = process.env.CRON_SECRET;
@@ -19,7 +20,7 @@ function isAuthorized(req) {
   return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   if (!isAuthorized(req)) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -42,3 +43,5 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error?.message || 'Städningen av obetalda konton misslyckades.' });
   }
 }
+
+export default withSentry(handler, '/api/cron/unpaid-signups');

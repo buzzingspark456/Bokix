@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, CheckCircle2, XCircle, Database, Mail, CreditCard, SlidersHorizontal } from '../icons';
+import { AlertTriangle, CheckCircle2, XCircle, Database, Mail, CreditCard, SlidersHorizontal, Bug, ExternalLink } from '../icons';
 import { useAdminData } from './useAdminData';
 import RefreshBar from './RefreshBar';
 import { dateTimeFormat } from '../../utils/intlCache';
@@ -50,6 +50,7 @@ export default function SystemAdmin({ onOpenTab }) {
     ...(appProblems.length > 0 ? [{ text: `${appProblems.length} fel i appen eller kvittoläsningen de senaste sju dagarna.` }] : []),
     ...(data.apiErrors.length > 0 ? [{ text: `${data.apiErrors.length} fel i admin-API:t de senaste sju dagarna.` }] : []),
     ...(data.atRisk > 0 ? [{ text: `${data.atRisk} abonnemang med misslyckad betalning.`, tab: 'payments' }] : []),
+    ...(data.sentry?.issues?.length > 0 ? [{ text: `${data.sentry.issues.length} olösta fel i Sentry de senaste två veckorna.` }] : []),
     ...(data.unhandledMessages > 0 ? [{ text: `${data.unhandledMessages} kontaktmeddelanden att hantera.`, tab: 'inbox' }] : []),
     ...(data.storage && data.storage.db_bytes / data.storage.dbLimit >= 0.7 ? [{ text: 'Databasen har använt över 70 % av gratisplanens utrymme.' }] : []),
     ...(data.storage && data.storage.storage_bytes / data.storage.storageLimit >= 0.7 ? [{ text: 'Fillagringen har använt över 70 % av gratisplanens utrymme.' }] : []),
@@ -113,6 +114,32 @@ export default function SystemAdmin({ onOpenTab }) {
                 </div>
               ) : <div style={{ fontSize: '13px', color: muted }}>Inte tillgängligt förrän SQL:en körts.</div>}
             </div>
+          </div>
+
+          <div style={cardStyle}>
+            <div style={{ ...h2, display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <Bug size={15} /> Sentry (felspårning)
+              <a href={data.sentry?.link || 'https://sentry.io/'} target="_blank" rel="noreferrer" style={{ marginLeft: 'auto', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-blue-text)', display: 'inline-flex', gap: '5px', alignItems: 'center', textDecoration: 'none' }}>Öppna Sentry <ExternalLink size={12} /></a>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '13px', marginBottom: '12px' }}>
+              <CheckCircle2 size={14} color="var(--accent-text)" /> På i webbläsaren och på servern (EU-regionen). Personuppgifter rensas bort innan något skickas.
+            </div>
+            {!data.sentry?.apiConfigured ? (
+              <div style={{ fontSize: '12.5px', color: muted, lineHeight: 1.6 }}>Lägg in SENTRY_API_TOKEN (läsbehörighet), SENTRY_ORG och SENTRY_PROJECT i Vercel för att se felen här. Tills dess finns de i Sentry.</div>
+            ) : data.sentry.error ? (
+              <div style={{ fontSize: '13px', color: 'var(--status-red-text)' }}>{data.sentry.error}</div>
+            ) : data.sentry.issues.length === 0 ? (
+              <div style={{ fontSize: '13px', color: muted }}>Inga olösta fel de senaste två veckorna.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {data.sentry.issues.map((s, i) => (
+                  <a key={s.permalink + i} href={s.permalink} target="_blank" rel="noreferrer" style={{ display: 'block', fontSize: '13px', lineHeight: 1.5, color: 'inherit', textDecoration: 'none', borderTop: i ? '1px solid var(--border-light)' : 'none', paddingTop: i ? '10px' : 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><strong>{s.title}</strong><span style={{ color: muted, whiteSpace: 'nowrap' }}>{s.lastSeen ? formatDateTime(s.lastSeen) : ''}</span></div>
+                    <div style={{ color: 'var(--text-secondary)' }}>{s.count === 1 ? '1 gång' : `${s.count} gånger`}{s.users ? `, ${s.users} användare` : ''}{s.culprit ? ` · ${s.culprit}` : ''}</div>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           <div style={cardStyle}>

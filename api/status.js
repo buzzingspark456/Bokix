@@ -6,8 +6,9 @@ import { createClient } from '@supabase/supabase-js';
 import { applySecurityHeaders } from './_security.js';
 import { buildStatus } from './_status.js';
 import { checkRateLimit } from './_rateLimit.js';
+import { withSentry } from './_sentry.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.setHeader('Allow', 'GET, HEAD');
@@ -44,3 +45,5 @@ export default async function handler(req, res) {
     res.status(503).json({ error: 'Statusen kunde inte hämtas just nu.' });
   }
 }
+
+export default withSentry(handler, '/api/status');

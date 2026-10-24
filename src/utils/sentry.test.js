@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { scrubText, scrubEvent } from './sentry.js'
+import { scrubText, scrubEvent } from './sentryScrub.js'
 
 describe('sentry: inga personuppgifter skickas', () => {
   it('tar bort e-post, personnummer, org.nr och långa nummer', () => {

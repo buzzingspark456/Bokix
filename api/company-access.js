@@ -9,6 +9,7 @@ import { gzipSync } from 'zlib';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
 import { mergeField, applyRecordPatch, renumberVerificationCollisions } from '../src/utils/stateMerge.js';
 import { isBolagsverketConfigured, lookupOrgNumber, BolagsverketError } from './_bolagsverket.js';
+import { withSentry } from './_sentry.js';
 
 // Huvudsakligen till för en INBJUDEN användare (se supabase-setup.sql:
 // company_members — ägare + upp till 2 inbjudna = max 3 per företag) att
@@ -306,7 +307,7 @@ function tokenSubject(token) {
   }
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'GET' && req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -671,3 +672,5 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error?.message || 'Kunde inte hämta/spara företagsdata.' });
   }
 }
+
+export default withSentry(handler, '/api/company-access');

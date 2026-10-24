@@ -10,6 +10,7 @@ export const COMPONENTS = [
   { id: 'ocr', name: 'Kvittoläsning' },
   { id: 'email', name: 'E-post (fakturor och påminnelser)' },
   { id: 'payments', name: 'Kortbetalningar' },
+  { id: 'errors', name: 'Felspårning' },
 ];
 export const COMPONENT_IDS = COMPONENTS.map(c => c.id);
 
@@ -66,7 +67,7 @@ export async function runChecks({ fetch: doFetch = fetch, env = process.env, cou
   const anon = env.VITE_SUPABASE_ANON_KEY;
   const get = (url, headers = {}) => () => doFetch(url, { headers, cache: 'no-store' });
 
-  const [app, login, data, stripe, resend, ocrErrors, emailErrors] = await Promise.all([
+  const [app, login, data, stripe, resend, ocrErrors, emailErrors, sentry] = await Promise.all([
     timed(get(`${site}/robots.txt`)),
     supa && anon ? timed(get(`${supa}/auth/v1/health`, { apikey: anon })) : Promise.resolve({ ok: false, error: 'inte inställt' }),
     supa && anon ? timed(get(`${supa}/rest/v1/contact_messages?select=id&limit=1`, { apikey: anon, Authorization: `Bearer ${anon}` })) : Promise.resolve({ ok: false, error: 'inte inställt' }),
@@ -76,6 +77,7 @@ export async function runChecks({ fetch: doFetch = fetch, env = process.env, cou
     (env.RESEND_ADMIN_API_KEY || env.RESEND_API_KEY) ? timed(get('https://api.resend.com/domains', { Authorization: `Bearer ${env.RESEND_ADMIN_API_KEY || env.RESEND_API_KEY}` })) : Promise.resolve(null),
     countEvents ? countEvents('ocr_error', 60, ['Vision svarade 5', 'Vision tog för lång tid', 'Vision-anropet misslyckades']) : 0,
     countEvents ? countEvents('email_failed', 60) : 0,
+    timed(async () => (await doFetch('https://status.sentry.io/api/v2/status.json', { cache: 'no-store' })).json()),
   ]);
 
   const out = [];
@@ -98,6 +100,12 @@ export async function runChecks({ fetch: doFetch = fetch, env = process.env, cou
   // inte som ett fel hos Stripe (det är deras statussida, inte betalningarna).
   const ind = stripe.ok ? stripe.result?.status?.indicator : 'none';
   push('payments', { status: stripeIndicator(ind), note: stripe.ok && ind !== 'none' ? stripe.result?.status?.description || null : null }, stripe.ms);
+
+  // Felspårning: Sentrys egen status (samma statussidetjänst som Stripe), som
+  // tar emot appens och serverns felrapporter. Påverkar inte kunderna direkt,
+  // men visar att fel som uppstår faktiskt når oss.
+  const sentryInd = sentry.ok ? sentry.result?.status?.indicator : 'none';
+  push('errors', { status: stripeIndicator(sentryInd), note: sentry.ok && sentryInd !== 'none' ? sentry.result?.status?.description || null : null }, sentry.ms);
 
   return out;
 }

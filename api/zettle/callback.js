@@ -24,6 +24,7 @@ import { parseCookies, ZETTLE_OAUTH_COOKIE, zettleOauthStateCookie, clearZettleO
 import { parseJsonBody } from '../stripe/_parseBody.js';
 import { requireAuthedUser, loadOwnedOrMemberCompany } from '../_auth.js';
 import { checkRateLimit } from '../_rateLimit.js';
+import { withSentry } from '../_sentry.js';
 
 const ZETTLE_AUTHORIZE_URL = 'https://oauth.zettle.com/authorize';
 const ZETTLE_TOKEN_URL = 'https://oauth.zettle.com/token';
@@ -200,7 +201,7 @@ async function handleCallback(req, res) {
   }
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
 
   if (req.method === 'GET') {
@@ -242,3 +243,5 @@ export default async function handler(req, res) {
     if (!res.headersSent) res.status(500).json({ error: error.message || 'Något gick fel.' });
   }
 }
+
+export default withSentry(handler, '/api/zettle/callback');

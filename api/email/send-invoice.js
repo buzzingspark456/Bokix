@@ -7,6 +7,7 @@ import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { trySendFromOwnAddress } from '../_smtp.js';
 import { createClient } from '@supabase/supabase-js';
 import { brandedEmail, emailButton } from '../../src/utils/brandedEmail.js';
+import { withSentry } from '../_sentry.js';
 
 // Ägarens egen väntande inbjudan, plus företagets data om den finns (för
 // avsändarnamn och egen domän). null om raden inte är ägarens.
@@ -84,7 +85,7 @@ export function buildInviteEmail({ invite, companyName, inviterName, origin }) {
 // company-access.js, se loadOwnedOrMemberCompany) istället för att lita
 // på ett client-supplied company-objekt — annars kunde man fortfarande
 // skicka "från" ett företagsnamn man inte äger eller är medlem i.
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -207,3 +208,5 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error?.message || 'Kunde inte skicka e-post.' });
   }
 }
+
+export default withSentry(handler, '/api/email/send-invoice');

@@ -6,6 +6,7 @@ import { enforceCardTrialLimit } from './_trialGuard.js';
 import { notifyAdminsAboutEvent } from './_adminNotify.js';
 import { createClient } from '@supabase/supabase-js';
 import { findCompanyEntry } from '../_auth.js';
+import { withSentry } from '../_sentry.js';
 
 // Är det anslutna kontot som skickade händelsen verkligen det konto
 // företaget har kopplat? Metadatan på en checkout-session på ett anslutet
@@ -61,7 +62,7 @@ export async function readRawBody(req) {
   return Buffer.concat(chunks).toString('utf8');
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -234,3 +235,5 @@ export default async function handler(req, res) {
 
   res.status(200).json({ received: true, type: event.type });
 }
+
+export default withSentry(handler, '/api/stripe/webhook');

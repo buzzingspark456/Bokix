@@ -7,10 +7,11 @@
 // (utils/skvBlankett.js). Ingen kunddata skickas hit.
 import { applySecurityHeaders } from './_security.js';
 import { checkRateLimit } from './_rateLimit.js';
+import { withSentry } from './_sentry.js';
 
 const BASE = 'https://www1.skatteverket.se/lcmp2/lc_webapp/secure/PdfServlet.do';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -58,3 +59,5 @@ export default async function handler(req, res) {
     res.status(502).json({ error: 'Kunde inte hämta blanketten från Skatteverket just nu. Försök igen om en stund.' });
   }
 }
+
+export default withSentry(handler, '/api/skv-blankett');

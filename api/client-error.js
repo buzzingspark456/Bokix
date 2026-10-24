@@ -7,6 +7,7 @@ import { applySecurityHeaders } from './_security.js';
 import { checkRateLimit } from './_rateLimit.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
 import { logSystemEvent } from './_systemEvents.js';
+import { withSentry } from './_sentry.js';
 
 // Brus som inte är våra fel: webbläsartillägg, avbrutna nätverksanrop,
 // korsdomänsskript utan detaljer och ResizeObserver-varningen.
@@ -23,7 +24,7 @@ const NOISE = [
 
 const clip = (value, max) => String(value ?? '').replace(/\s+\n/g, '\n').slice(0, max);
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -72,3 +73,5 @@ export default async function handler(req, res) {
   await logSystemEvent('client_error', `${source} på ${path || '?'}: ${message}\n${stackTop}\n${ua}`);
   res.status(204).end();
 }
+
+export default withSentry(handler, '/api/client-error');

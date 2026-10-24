@@ -13,6 +13,7 @@ import { logSystemEvent } from '../_systemEvents.js';
 import { hasPaidAccess } from '../_auth.js';
 import { refreshZettleToken, fetchZettlePurchases, fetchZettleFinanceTransactions, zettleFinanceRows } from '../zettle/_client.js';
 import { invoiceCustomerRemaining } from '../../src/utils/rotRutConfig.js';
+import { withSentry } from '../_sentry.js';
 
 // Bugkritiskt (lokal utveckling, samma orsak/fix som api/_resend.js): måste
 // vara en LAT, memoiserad getter, inte en toppnivå-konstant. server.js
@@ -104,7 +105,7 @@ function startOfToday() {
   return d;
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   const startTime = Date.now();
   applySecurityHeaders(res);
 
@@ -679,3 +680,5 @@ export default async function handler(req, res) {
     res.status(500).json({ error: error?.message || 'Cron-körningen misslyckades.', partialSummary: summary });
   }
 }
+
+export default withSentry(handler, '/api/cron/reminders');

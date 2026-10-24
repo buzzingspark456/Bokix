@@ -24,6 +24,7 @@ import { requireAuthedUser, loadOwnedOrMemberCompany, requireActiveSubscription 
 import { checkRateLimit } from '../_rateLimit.js';
 import { verifyReauthGrant } from '../_signedToken.js';
 import { syncStripeLedger } from './_ledgerSync.js';
+import { withSentry } from '../_sentry.js';
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || null;
 const stripe = stripeSecretKey && !stripeSecretKey.startsWith('pk_') ? new Stripe(stripeSecretKey, {}) : null;
@@ -171,7 +172,7 @@ async function handleSync(res, user, body) {
   res.status(200).json({ ok: true, count });
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -220,3 +221,5 @@ export default async function handler(req, res) {
     if (!res.headersSent) res.status(500).json({ error: error.message || 'Något gick fel.' });
   }
 }
+
+export default withSentry(handler, '/api/stripe/connect');

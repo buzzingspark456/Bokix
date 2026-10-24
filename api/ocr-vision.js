@@ -9,6 +9,7 @@ import { checkRateLimit, hitShared } from './_rateLimit.js';
 import { requireAuthedUser, requireActiveSubscription } from './_auth.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
 import { visionLines } from './_visionLayout.js';
+import { withSentry } from './_sentry.js';
 
 const VISION_IMAGE_URL = 'https://eu-vision.googleapis.com/v1/images:annotate';
 // En PDF läses av Vision själv (första sidan), så att även en PDF som
@@ -24,7 +25,7 @@ const VISION_TIMEOUT_MS = 15000;
 // månaden. Går att ändra med OCR_VISION_MONTHLY_LIMIT.
 const MONTHLY_LIMIT = Number(process.env.OCR_VISION_MONTHLY_LIMIT) || 20000;
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') {
@@ -105,3 +106,5 @@ export default async function handler(req, res) {
     clearTimeout(timer);
   }
 }
+
+export default withSentry(handler, '/api/ocr-vision');

@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import { applySecurityHeaders } from '../_security.js';
 import { logSystemEvent } from '../_systemEvents.js';
 import { runChecks, COMPONENTS } from '../_status.js';
+import { withSentry } from '../_sentry.js';
 
 function isAuthorized(req) {
   const secret = process.env.CRON_SECRET;
@@ -16,7 +17,7 @@ function isAuthorized(req) {
   return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   res.setHeader('Cache-Control', 'no-store');
   if (!isAuthorized(req)) {
@@ -71,3 +72,5 @@ export default async function handler(req, res) {
   }
   res.status(200).json({ ok: true, results });
 }
+
+export default withSentry(handler, '/api/cron/status-check');

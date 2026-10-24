@@ -6,8 +6,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { applySecurityHeaders } from './_security.js';
 import { checkRateLimit } from './_rateLimit.js';
+import { withSentry } from './_sentry.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -42,3 +43,5 @@ export default async function handler(req, res) {
   }
   res.status(200).json({ ok: true, database: 'up', ms: Date.now() - started });
 }
+
+export default withSentry(handler, '/api/health');

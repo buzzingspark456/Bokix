@@ -11,6 +11,7 @@ import * as featureFlags from '../../src/utils/featureFlags.js';
 import { buildOverview, summarizeState } from './_customers.js';
 import { detectOrgType } from '../../src/utils/orgType.js';
 import { buildStatus, COMPONENT_IDS } from '../_status.js';
+import { withSentry } from '../_sentry.js';
 
 // ── Internt admin-API (/internal på klienten) ───────────────────────────
 // EN enda fil för HELA admin-panelen, inte en fil per delsystem —
@@ -694,6 +695,41 @@ const CONFIG_CHECKS = [
 const DB_LIMIT_BYTES = 500 * 1024 * 1024;
 const STORAGE_LIMIT_BYTES = 1024 * 1024 * 1024;
 
+// Sentry (felspårning, api/_sentry.js och src/utils/sentry.js): olösta fel
+// de senaste två veckorna. Kräver en läs-token i Vercel (SENTRY_API_TOKEN med
+// event:read, SENTRY_ORG, SENTRY_PROJECT); utan den visas bara att Sentry är på.
+async function loadSentryIssues() {
+  const token = process.env.SENTRY_API_TOKEN;
+  const org = process.env.SENTRY_ORG;
+  const project = process.env.SENTRY_PROJECT;
+  const link = org ? `https://${org}.sentry.io/issues/` : 'https://sentry.io/';
+  if (!token || !org || !project) return { apiConfigured: false, link, issues: [] };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
+  try {
+    const url = `https://de.sentry.io/api/0/projects/${encodeURIComponent(org)}/${encodeURIComponent(project)}/issues/?query=is:unresolved&statsPeriod=14d&limit=10`;
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal });
+    if (!r.ok) return { apiConfigured: true, link, issues: [], error: `Sentry svarade ${r.status}` };
+    const rows = await r.json();
+    return {
+      apiConfigured: true,
+      link,
+      issues: (Array.isArray(rows) ? rows : []).map(i => ({
+        title: String(i.title || '').slice(0, 200),
+        culprit: String(i.culprit || '').slice(0, 200),
+        count: Number(i.count) || 0,
+        users: Number(i.userCount) || 0,
+        lastSeen: i.lastSeen || null,
+        permalink: i.permalink || link,
+      })),
+    };
+  } catch (err) {
+    return { apiConfigured: true, link, issues: [], error: err?.name === 'AbortError' ? 'Sentry svarade inte' : 'Kunde inte nå Sentry' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function handleSystem(admin, res) {
   const since = new Date(Date.now() - 7 * 86400000).toISOString();
   const safe = async (fn, fallback) => { try { return await fn(); } catch { return fallback; } };
@@ -726,9 +762,11 @@ async function handleSystem(admin, res) {
     const { data, error } = await admin.rpc('admin_db_stats');
     return error ? null : data;
   }, null);
+  const sentry = await safe(loadSentryIssues, { apiConfigured: false, link: 'https://sentry.io/', issues: [] });
 
   res.status(200).json({
     config,
+    sentry,
     systemEvents,
     apiErrors,
     atRisk,
@@ -752,7 +790,7 @@ async function logSecurityEvent(admin, type, email, detail) {
   }
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   // Adminsiffrorna ska alltid vara färska, aldrig ett sparat svar.
   res.setHeader('Cache-Control', 'no-store');
@@ -832,3 +870,5 @@ export default async function handler(req, res) {
     if (!res.headersSent) res.status(500).json({ error: err.message || 'Något gick fel.' });
   }
 }
+
+export default withSentry(handler, '/api/admin');

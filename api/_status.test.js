@@ -9,8 +9,15 @@ describe('runChecks', () => {
     const fetch = async (url) => (url.includes('stripe') ? ok({ status: { indicator: 'none' } }) : ok());
     const res = await runChecks({ fetch, env, countEvents: async () => 0 });
     expect(res.map(r => [r.component, r.status])).toEqual([
-      ['app', 'ok'], ['login', 'ok'], ['data', 'ok'], ['ocr', 'ok'], ['email', 'ok'], ['payments', 'ok'],
+      ['app', 'ok'], ['login', 'ok'], ['data', 'ok'], ['ocr', 'ok'], ['email', 'ok'], ['payments', 'ok'], ['errors', 'ok'],
     ]);
+  });
+
+  it('felspårningen följer Sentrys egen statussida', async () => {
+    const fetch = async (url) => (url.includes('status.sentry.io') ? ok({ status: { indicator: 'major', description: 'Ingestion delayed' } }) : ok());
+    const res = Object.fromEntries((await runChecks({ fetch, env, countEvents: async () => 0 })).map(r => [r.component, r]));
+    expect(res.errors).toMatchObject({ status: 'down', note: 'Ingestion delayed' });
+    expect(res.payments.status).toBe('ok');
   });
 
   it('nere när inloggningen inte svarar, störning vid många misslyckade kvittoläsningar och Stripe minor', async () => {

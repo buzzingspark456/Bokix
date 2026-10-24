@@ -12,7 +12,7 @@ import { dateTimeFormat } from '../../utils/intlCache';
 
 const COMPONENTS = [
   ['app', 'Appen och webbplatsen'], ['login', 'Inloggning'], ['data', 'Bokföring och sparande'],
-  ['ocr', 'Kvittoläsning'], ['email', 'E-post (fakturor och påminnelser)'], ['payments', 'Kortbetalningar'],
+  ['ocr', 'Kvittoläsning'], ['email', 'E-post (fakturor och påminnelser)'], ['payments', 'Kortbetalningar'], ['errors', 'Felspårning'],
 ];
 const STATE = { ok: ['Fungerar', 'green'], degraded: ['Störning', 'amber'], down: ['Nere', 'red'], maintenance: ['Underhåll', 'blue'] };
 const PHASES = [['investigating', 'Undersöker'], ['identified', 'Orsaken hittad'], ['monitoring', 'Åtgärdat, bevakas'], ['resolved', 'Löst'], ['maintenance', 'Planerat underhåll']];

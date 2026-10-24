@@ -8,6 +8,7 @@ import {
 } from '../../_smtp.js';
 import { hasGoogleOAuth, buildAuthUrl, exchangeCode, signState, verifyState } from '../../_gmail.js';
 import { signResendDomain, hasValidResendDomainToken } from '../../_resend.js';
+import { withSentry } from '../../_sentry.js';
 
 // Slog ihop det som tidigare var TVÅ separata filer (create.js POST,
 // status.js GET) till en enda — Vercels 12-funktionsgräns (Hobby-plan):
@@ -408,7 +409,7 @@ async function handleSenderRemove(req, res, body) {
   res.status(200).json({ sender: null });
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'GET' && req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -446,3 +447,5 @@ export default async function handler(req, res) {
   }
   await handleStatus(req, res);
 }
+
+export default withSentry(handler, '/api/email/domains');

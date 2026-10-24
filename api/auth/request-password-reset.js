@@ -12,6 +12,7 @@ import { isDisposableEmail } from '../_abuse.js';
 import { verifyRecaptcha, hasRecaptchaSecretKey } from '../_recaptcha.js';
 import { getClientIp } from '../_rateLimit.js';
 import { logSystemEvent } from '../_systemEvents.js';
+import { withSentry } from '../_sentry.js';
 
 // "Glömt lösenord?" (Auth.jsx) gick tidigare direkt mot
 // supabase.auth.resetPasswordForEmail() från klienten, som ALDRIG lämnade
@@ -409,7 +410,7 @@ async function handleChangePassword(req, body, res) {
   res.status(200).json({ ok: true });
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -444,3 +445,5 @@ export default async function handler(req, res) {
   }
   await handlePasswordReset(req, body, res);
 }
+
+export default withSentry(handler, '/api/auth/request-password-reset');

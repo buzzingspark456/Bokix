@@ -8,57 +8,15 @@
 // Felen kommer från errorReporting.js (samma ställe som /api/client-error),
 // så Sentrys egna globala felfångare är avstängda för att inte dubbla.
 
-// DSN är inte hemlig (den hamnar alltid i webbläsarkoden). Projektet ligger i
-// Sentrys EU-region (ingest.de). VITE_SENTRY_DSN i Vercel går före.
-const DSN = import.meta.env.VITE_SENTRY_DSN || 'https://c58d6a251e48a33b7940c59e92dbef75@o4508412011806720.ingest.de.sentry.io/4508412025831504';
+// VITE_SENTRY_DSN i Vercel går före Bokix eget projekt (sentryScrub.js).
+import { BOKIX_SENTRY_DSN, SENTRY_DATA_COLLECTION, scrubEvent, scrubBreadcrumb } from './sentryScrub.js';
+
+const DSN = import.meta.env.VITE_SENTRY_DSN || BOKIX_SENTRY_DSN;
 const ENABLED = Boolean(import.meta.env.PROD && DSN);
 
 let sentry = null;
 let loading = null;
 const queue = [];
-
-const SCRUB = [
-  [/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, '[e-post]'],
-  // Personnummer och org.nr (ÅÅMMDD-XXXX, ÅÅÅÅMMDDXXXX, 556123-4567)
-  [/\b(?:19|20)?\d{6}[-+]?\d{4}\b/g, '[nummer]'],
-  // Konto-, bankgiro-, OCR- och kortnummer
-  [/\b\d{7,}\b/g, '[nummer]'],
-];
-
-export function scrubText(value) {
-  if (typeof value !== 'string') return value;
-  return SCRUB.reduce((s, [re, to]) => s.replace(re, to), value);
-}
-
-function stripQuery(url) {
-  if (typeof url !== 'string') return url;
-  const i = url.search(/[?#]/);
-  return i === -1 ? url : url.slice(0, i);
-}
-
-export function scrubEvent(event) {
-  if (!event) return event;
-  delete event.user;
-  if (event.message) event.message = scrubText(event.message);
-  for (const ex of event.exception?.values || []) ex.value = scrubText(ex.value);
-  if (event.request) {
-    event.request = { url: stripQuery(event.request.url) };
-  }
-  if (Array.isArray(event.breadcrumbs)) event.breadcrumbs = event.breadcrumbs.map(scrubBreadcrumb).filter(Boolean);
-  return event;
-}
-
-function scrubBreadcrumb(crumb) {
-  if (!crumb) return crumb;
-  // Konsolutskrifter kan innehålla vad som helst, de skickas inte.
-  if (crumb.category === 'console') return null;
-  const out = { ...crumb, message: scrubText(crumb.message) };
-  if (crumb.data) {
-    out.data = { ...crumb.data };
-    for (const k of ['url', 'from', 'to']) if (out.data[k]) out.data[k] = stripQuery(out.data[k]);
-  }
-  return out;
-}
 
 export function initSentry() {
   if (!ENABLED || loading) return loading;
@@ -68,14 +26,7 @@ export function initSentry() {
         dsn: DSN,
         environment: 'production',
         tracesSampleRate: 0,
-        dataCollection: {
-          userInfo: false,
-          cookies: false,
-          httpHeaders: false,
-          httpBodies: [],
-          urlQueryParams: false,
-          databaseQueryData: false,
-        },
+        dataCollection: SENTRY_DATA_COLLECTION,
         integrations: (defaults) => defaults.filter(i => i.name !== 'GlobalHandlers'),
         beforeSend: scrubEvent,
         beforeBreadcrumb: scrubBreadcrumb,
