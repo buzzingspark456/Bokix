@@ -3172,6 +3172,29 @@ export function expandColumnTables(lines) {
   return out;
 }
 
+// En summaetikett ensam på raden ("Att betala", "Moms, 25 %") med beloppet
+// ensamt på raden under. Vision läser PDF-fakturor så (kundfel 2026-10-24:
+// "Att betala / 11 500,00 kr" missades och "Påminnelse / 450.00 SEK" blev
+// beloppet).
+const LONE_TOTAL_LABEL_RE = /^(?:summa att betala|totalt att betala|belopp att betala|att betala|totalt?|summa|total amount|amount due|amount paid|grand total|(?:moms|vat)\s*,?\s*(?:\d{1,2}(?:[.,]\d+)?\s*%)?)\s*:?$/i;
+const LONE_AMOUNT_RE = /^-?\d{1,3}(?:[  .]\d{3})*[.,]\d{2}\s*(?:kr|sek|:-)?$/i;
+
+/**
+ * "Att betala" + "11 500,00 kr" på två rader blir "Att betala 11 500,00 kr",
+ * så att beloppsreglerna hittar beloppet vid sin etikett. Exporterad för testerna.
+ */
+export function joinLoneTotalLabels(lines) {
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const next = lines[i + 1];
+    if (next !== undefined && LONE_TOTAL_LABEL_RE.test(lines[i]) && LONE_AMOUNT_RE.test(next)) {
+      out.push(`${lines[i]} ${next}`);
+      i++;
+    } else out.push(lines[i]);
+  }
+  return out;
+}
+
 // Skiljer flera oberoende avläsningar av samma dokument i en och samma text
 // (se extractTextFromImage). Texten cachas som den är, så sammanvägningen görs
 // om varje gång tolkningen körs.
@@ -3318,7 +3341,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   // kvitto eller en faktura.
   if (isUnreadableText(text)) return { ...EMPTY_PARSE, notReceipt: true, unreadable: true, documentKind: 'unreadable' };
 
-  const lines = expandColumnTables(text.split('\n').map(l => l.trim()).filter(Boolean));
+  const lines = joinLoneTotalLabels(expandColumnTables(text.split('\n').map(l => l.trim()).filter(Boolean)));
   // Text som kontoreglerna får läsa: kvittots egna rader UTAN finstilt och
   // kontaktuppgifter. Butikens villkorstext ("Inget byte eller öppet köp av
   // livsmedel, hygienartiklar, djurmat…") och telefonnumret i sidhuvudet står

@@ -1171,4 +1171,11 @@ describe('Dollarstore-kvittot (riktigt foto, 2026-09-29)', () => {
     expect(p.vatAmount).toBeCloseTo(1.36, 2);
     expect(p.receiptNumberGuessed).toBe(true);
   });
+
+  it("PDF-faktura läst av Vision: etikett och belopp på var sin rad (kundfel 2026-10-24)", () => {
+    const p = parseReceiptText("Utbetalning\n.com\nFaktura\nFakturadatum: 2026-09-02\n#12345\nAtt betala\n11 500,00 kr\nReferens\n12345\nBankgiro\n567-8107\nFörfallodatum\n2026-10-02\nOBS! Ange endast 12345 som betalningsreferens\nEr referens\nVår referens\nFakturareferens\n-\nErt VAT\nPåminnelse\n450.00 SEK\nDröjsmålsränta\n10 %\nVid frågor: utbetalning.com/faktura/12345\nDatum Beskrivning Pris Antal Summa\n2026-09-01 Google 7 700,00 1 st 7 700,00\n2026-09-01 Lön 1 500,00 1 st 1 500,00\nTotalt exkl. moms\n9 200,00 kr\nMoms, 25 %\n2 300,00 kr\nÖresutj.\n0,00 kr\nValuta\nSEK\nAtt betala\n11 500,00 kr\nUtbetalning Sverige AB (559484-9407)\nStrandvägen 67, SE-115 23 Stockholm\nVAT SE559484940701\nGodkänd för F-skatt\nBankgiro 567-8107\nIBAN SE39 8000 0816 6188 4109 9586\nBIC/SWIFT SWEDSESS\nBank Swedbank AB, SE-105 34 Stockholm\nUTKAST");
+    expect(p.amount).toBe(11500);
+    expect(p.vatAmount).toBeCloseTo(2300, 2);
+    expect(p.vatRate).toBe(25);
+  });
 });
