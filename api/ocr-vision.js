@@ -1,6 +1,5 @@
 // Kvittoläsning med Google Cloud Vision. Foton och PDF:er läses här först så
-// länge månadens gratiskvot räcker (MONTHLY_LIMIT, under Googles 1 000
-// gratis per månad); sedan tar appens egen avläsning (Tesseract i
+// länge månadens kvot räcker (MONTHLY_LIMIT); sedan tar appens egen avläsning (Tesseract i
 // webbläsaren) över resten av månaden (se src/utils/ocrCloud.js och
 // ocrCache.js). Nyckeln
 // (GOOGLE_VISION_API_KEY) finns bara här på servern och skickas aldrig till
@@ -20,9 +19,10 @@ const VISION_FILE_URL = 'https://eu-vision.googleapis.com/v1/files:annotate';
 const MAX_BASE64_CHARS = 3_500_000;
 const VISION_TIMEOUT_MS = 15000;
 // Läsningar per kalendermånad för alla konton tillsammans. Beslut
-// 2026-10-23: 800, så att felräkning eller en PDF-sida extra aldrig går över
-// Googles 1 000 gratis. Går att ändra med OCR_VISION_MONTHLY_LIMIT.
-const MONTHLY_LIMIT = Number(process.env.OCR_VISION_MONTHLY_LIMIT) || 800;
+// 2026-10-24: 10 000 (var 800). De första 1 000 är gratis hos Google,
+// resten kostar runt 1,50 USD per 1 000, alltså högst cirka 13,50 USD i
+// månaden. Går att ändra med OCR_VISION_MONTHLY_LIMIT.
+const MONTHLY_LIMIT = Number(process.env.OCR_VISION_MONTHLY_LIMIT) || 10000;
 
 export default async function handler(req, res) {
   applySecurityHeaders(res);

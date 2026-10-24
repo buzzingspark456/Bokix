@@ -1,6 +1,6 @@
 // Kvittoläsning med Google Cloud Vision (/api/ocr-vision, EU). Beslut
 // 2026-10-23: kvitton, både foton och PDF:er, läses av Vision FÖRST så
-// länge månadens gratiskvot räcker (800 läsningar, räknas på servern). När
+// länge månadens kvot räcker (10 000 läsningar, räknas på servern). När
 // kvoten är slut svarar servern 429 och appens egen avläsning (Tesseract i
 // webbläsaren, pdf.js för PDF) används resten av månaden. Texten tolkas av
 // samma parseReceiptText som den egna läsningens.
