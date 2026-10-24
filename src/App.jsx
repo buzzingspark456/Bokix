@@ -52,6 +52,7 @@ import { calcRotRutDeduction, invoiceCustomerDue, invoiceCustomerRemaining } fro
 import { mergeImportedEmployees } from './utils/employeeCsv';
 import { planFromId } from './utils/plans';
 import { detectOrgType } from './utils/orgType';
+import { captureEvent } from './utils/posthog';
 import { reconcileSieOpenings, applySieOpeningReconcile } from './utils/sieOpeningReconcile';
 import { sieImportTagOf } from './utils/sieImportBatches';
 import { OPTIONAL_FEATURES, isFeatureOn, hiddenFeatureNavIds } from './utils/optionalFeatures';
@@ -2568,6 +2569,8 @@ function App() {
         }
       }
       setSubscriptionsMap(subsMap);
+      // Tillbaka från Stripe Checkout med en giltig prenumeration: provperioden har börjat.
+      if (justSubscribed && !hasSharedAccess && !stillWaiting()) captureEvent('provperiod_startad');
 
       // UF-konton (utils/ufMode.js) har ingen Stripe-prenumeration alls —
       // registreringen hoppar över betalsteget helt (Auth.jsx). De släpps
@@ -2779,6 +2782,7 @@ function App() {
         localStorage.setItem('bokix_onboarding_completed', 'false');
         localStorage.setItem('bokix_onboarding_skipped', 'false');
         setIsLoggedIn(true);
+        captureEvent('konto_skapat', { bolagsform: metadata.uf ? 'UF-företag' : (detectOrgType(newData.company.orgNr) || 'okänd') });
       }
     } catch (err) {
       console.error(err);
@@ -3457,6 +3461,7 @@ function App() {
     setActiveTab('dashboard');
     localStorage.setItem('bokix_onboarding_completed', 'true');
     localStorage.setItem('bokix_onboarding_skipped', 'false');
+    captureEvent('onboarding_klar', { bolagsform: detectOrgType(nextState.companies[data.activeCompanyId].company.orgNr) || 'okänd' });
 
     await saveUserDataToSupabase(nextState, {
       onboarding_completed: true,

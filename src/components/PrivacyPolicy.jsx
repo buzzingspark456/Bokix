@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
     <PolicyLayout
       title="Integritetspolicy"
       path="/privacy"
-      updated="2026-10-23"
+      updated="2026-10-24"
       metaTitle="Integritetspolicy | Bokix"
       metaDescription="Vilken personuppgiftsinformation Bokix samlar in, varför, hur länge den sparas och vilka rättigheter du har enligt GDPR."
     >
@@ -71,7 +71,7 @@ export default function PrivacyPolicy() {
           <li style={policyLi}><strong>Google Cloud Vision</strong> — läser texten på kvitton och underlag du laddar upp, både foton och PDF. Bara bilden eller filen skickas, behandlas inom EU och sparas inte hos Google. Gratisverktyget Skanna kvitto på webbplatsen använder det aldrig.</li>
           <li style={policyLi}><strong>Bolagsverket, FöretagsAPI och VIES</strong> — när du söker upp ett företag (ditt eget, en kund eller en leverantör) skickas organisationsnumret, momsnumret eller det namn du söker på dit för att hämta namn och adress ur offentliga register. Inget annat skickas.</li>
           <li style={policyLi}><strong>Zettle</strong> — <em>endast om du själv kopplar din Zettle-kassa</em>. Bokix hämtar då dina försäljningar därifrån för att bokföra dem. Du kan koppla från när du vill under Inställningar.</li>
-          <li style={policyLi}><strong>Analysverktyg, bara med ditt samtycke</strong> — Google Analytics (Google), Microsoft Clarity (Microsoft) och PostHog mäter hur besökare använder Bokix och sätts först efter att du klickat "Acceptera alla" i cookiebannern. PostHog körs i EU-molnet (Frankfurt) och används bara för att räkna sidvisningar. Ingen bokföringsdata, inga kunduppgifter och inga klick eller inmatningar skickas dit. Exakt vilka cookies som sätts står i <a href="/cookies" style={link}>cookiepolicyn</a>.</li>
+          <li style={policyLi}><strong>Analysverktyg, bara med ditt samtycke</strong> — Google Analytics (Google), Microsoft Clarity (Microsoft) och PostHog mäter hur besökare använder Bokix och sätts först efter att du klickat "Acceptera alla" i cookiebannern. PostHog körs i EU-molnet (Frankfurt) och räknar sidvisningar och några få händelser, till exempel att ett kvitto laddats upp eller en faktura skickats. Ingen bokföringsdata, inga belopp, inga kunduppgifter och inga inmatningar skickas dit. Exakt vilka cookies som sätts står i <a href="/cookies" style={link}>cookiepolicyn</a>.</li>
           <li style={policyLi}><strong>Google</strong> — <em>endast om du själv väljer att koppla din Gmail-adress som avsändare</em> (Inställningar → Fakturautskick). Fakturan skickas då genom ditt eget Google-konto i stället för via Bokix. Se avsnitt 5 nedan för exakt vad det innebär.</li>
         </ul>
         <p style={policyP}>

@@ -124,3 +124,27 @@ export function schedulePosthogInit(granted) {
 export function capturePosthogPageview() {
   if (posthog) posthog.capture('$pageview');
 }
+
+// Demot på marknadssidorna (DemoWorkspace.jsx) använder samma komponenter
+// som appen; där ska inga händelser räknas som riktiga kunders.
+let demoActive = 0;
+export function setPosthogDemoActive(active) {
+  demoActive = Math.max(0, demoActive + (active ? 1 : -1));
+}
+
+/**
+ * Egna händelser i appen (kundönskemål 2026-10-24): konto_skapat,
+ * onboarding_klar, kvitto_uppladdat, faktura_skickad,
+ * deklaration_inlamnad, prenumeration_startad. Bara att något hände plus
+ * en grov egenskap (bolagsform, filtyp, deklarationstyp), aldrig belopp,
+ * namn eller annat om kunden. Som sidvisningarna: inget skickas utan
+ * samtycke, eftersom PostHog bara startas efter "Acceptera alla".
+ */
+export function captureEvent(name, properties = {}) {
+  if (demoActive > 0) return;
+  // Startar PostHog strax efter (schedulePosthogInit) skickas händelsen då.
+  const ready = posthog ? Promise.resolve(posthog) : initPromise;
+  ready?.then(ph => ph?.capture(name, properties)).catch(() => {
+    // Mätningen får aldrig störa appen.
+  });
+}

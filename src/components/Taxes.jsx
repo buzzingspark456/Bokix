@@ -39,6 +39,7 @@ import { confirmDialog } from './shared/ConfirmDialog';
 import { activeFiscalYear, inPeriod } from '../utils/fiscalYear';
 import { t as tr, dateLocale } from '../i18n';
 import { numberFormat, dateTimeFormat } from '../utils/intlCache';
+import { captureEvent } from '../utils/posthog';
 
 const fmt = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 
@@ -899,6 +900,7 @@ export default function Taxes({
   const filedDate = (key) => (filings[key]?.at ? new Date(filings[key].at).toLocaleDateString('sv-SE') : null);
   const toggleFiled = (key) => {
     if (!setCompanyInfo) return;
+    if (!company?.taxFilings?.[key]) captureEvent('deklaration_inlamnad', { typ: String(key).split(':')[0] });
     setCompanyInfo(prev => {
       const next = { ...(prev.taxFilings || {}) };
       if (next[key]) delete next[key]; else next[key] = { at: new Date().toISOString() };

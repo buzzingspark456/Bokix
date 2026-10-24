@@ -9,6 +9,7 @@ import {
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark, useMarketingTheme } from './marketing/MarketingLayout';
 import { createDemoSeed } from '../utils/landingDemoData';
+import { setPosthogDemoActive } from '../utils/posthog';
 import { buildNotificationFeed, isUnread, notificationWhen } from '../utils/notificationFeed';
 import { t as tr } from '../i18n';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
@@ -104,6 +105,11 @@ const MOBILE_SHEET_SECTIONS = SIDEBAR_GROUPS
 // bara en artikel). Standard 'dashboard' — oförändrat beteende för Hero-
 // knappen "Se demo", som aldrig skickar med något värde.
 export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
+  // Klick i demot ska inte räknas som riktiga kunders händelser (utils/posthog.js).
+  useEffect(() => {
+    setPosthogDemoActive(true);
+    return () => setPosthogDemoActive(false);
+  }, []);
   // Kundönskemål: headern ska vara sidomeny-färgad bara i mörkt läge, vit
   // i ljust läge — samma villkor som riktiga appens .desktop-top-bar
   // (index.css :root[data-theme="dark"]), men den regeln kan inte träffa

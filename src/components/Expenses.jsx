@@ -16,6 +16,7 @@ import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { parseReceiptText, OCR_DRAFT_VERSION } from '../utils/ocrReceipt';
 import { readDocumentText } from '../utils/ocrCache';
+import { captureEvent } from '../utils/posthog';
 import { locateFieldBoxes } from '../utils/ocrFieldBoxes';
 import { sellerTaxIds, prettifyCompanyName } from '../utils/supplierRegistry';
 import { lookupVatName } from '../utils/companyLookup';
@@ -1331,6 +1332,7 @@ export default function Expenses({
     uploadFn(user.id, file, 'receipts')
       .then(receiptUrl => {
         finish();
+        captureEvent('kvitto_uppladdat', { filtyp: file.type === 'application/pdf' ? 'pdf' : 'bild' });
         onAdd?.({
           type: 'receipt', date: new Date().toISOString().split('T')[0], description: '', supplier: '',
           amount: 0, netAmount: 0, vatAmount: 0, vatRate: 25, costAccount: '',

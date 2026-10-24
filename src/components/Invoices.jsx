@@ -40,6 +40,7 @@ import { workTypesFor, RUT_FLAT_RATE_TYPES } from '../utils/rotRutRequest';
 import RotRutRequestModal from './RotRutRequestModal';
 import { t as tr, dateLocale } from '../i18n';
 import { numberFormat, dateTimeFormat } from '../utils/intlCache';
+import { captureEvent } from '../utils/posthog';
 
 const newRowId = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `row_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const withRowIds = (rows) => rows.map(r => ({ id: r.id || newRowId(), ...r }));
@@ -655,6 +656,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
       try { window.localStorage.setItem(messageStorageKey, emailMessage); } catch { /* privat läge */ }
       setEmailSent(true);
       setShowEmailCompose(false);
+      captureEvent('faktura_skickad');
       // Precis som "✓ Skapa faktura"-knappen — ett utkast som faktiskt
       // skickas till kunden är per definition inte längre ett utkast.
       if ((initial?.status || 'draft') === 'draft') handleSave('sent');
