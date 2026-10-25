@@ -1204,7 +1204,8 @@ export default function Expenses({
   // per månad" — grupperingen är fin för en lång historik, men ibland vill
   // man bara se allt i en enda lista. Oberoende av monthFilter (man kan
   // fortfarande vilja se "bara augusti" OCH ha det platt).
-  const [flatView, setFlatView] = useState(false);
+  // Lista som standard (användarens val 2026-10-25); Grupperat går att välja.
+  const [flatView, setFlatView] = useState(true);
   const [rcFiltersOpen, setRcFiltersOpen] = useState(false);
 
   useEffect(() => () => {
@@ -1537,8 +1538,8 @@ export default function Expenses({
             {/* Grupperat (rubriker per månad/år) kontra en enda platt lista
                 — oberoende av månadsfiltret ovan. */}
             <div className="rc-segmented rc-tb-extra">
-              <button onClick={() => setFlatView(false)} className={!flatView ? 'active' : ''}>{tr('ui.grupperat')}</button>
               <button onClick={() => setFlatView(true)} className={flatView ? 'active' : ''}>{tr('ui.lista')}</button>
+              <button onClick={() => setFlatView(false)} className={!flatView ? 'active' : ''}>{tr('ui.grupperat')}</button>
             </div>
 
             {/* Status- och mappchips: en rad som går att svepa på telefon. */}
