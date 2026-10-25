@@ -589,10 +589,13 @@ $$;
 -- stämmer. reason: saknas_i_tabellerna, saknas_i_blobben, olika, eller
 -- poster_kvar (aktiva poster på ett borttaget företag eller i en lista som
 -- inte finns).
+-- SECURITY DEFINER: hjälpfunktionerna ligger i private, som service_role inte
+-- når. Bara service_role får köra den (se GRANT nedan).
 CREATE OR REPLACE FUNCTION public.companies_mismatch()
 RETURNS TABLE (owner_user_id uuid, legacy_key text, reason text)
 LANGUAGE sql
 STABLE
+SECURITY DEFINER
 SET search_path = ''
 AS $$
   WITH blob AS (
