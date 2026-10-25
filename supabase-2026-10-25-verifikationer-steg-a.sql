@@ -24,9 +24,11 @@
 --     aldrig ligga i den här raden).
 --   - Försvinner en verifikation ur listan sätts deleted_at, raden finns kvar
 --     i 30 dagar som kopia och rensas sedan vid nästa ändring av företaget.
---   - Raderas user_data-raden raderas företagets rader här också (blobbens
---     sista version finns i user_data_history, och arkivet görs före
---     radering som förut). Raderas användaren tar ON DELETE CASCADE resten.
+--   - Raderna hör till user_data-raden, inte till inloggningen (auth.users):
+--     user_data har ingen koppling dit, och det finns rader kvar vars konto
+--     är raderat. Raderas user_data-raden raderas raderna här också (ON
+--     DELETE CASCADE; blobbens sista version finns i user_data_history, och
+--     arkivet görs före radering som förut).
 --
 -- Säkerhet: ägaren kan bara LÄSA sina egna rader (samma villkor och samma
 -- tvåfaktorskrav som user_data). Ingen inloggad kan skriva direkt; bara
@@ -41,7 +43,7 @@
 -- dagens blobbar (sist i filen) och kan köras flera gånger.
 
 CREATE TABLE IF NOT EXISTS public.verifications (
-  user_id uuid NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.user_data (user_id) ON DELETE CASCADE,
   company_id text NOT NULL,
   id text NOT NULL,
   series text,
