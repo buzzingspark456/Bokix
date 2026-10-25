@@ -10,6 +10,7 @@ import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
 import { mergeField, applyRecordPatch, renumberVerificationCollisions } from '../src/utils/stateMerge.js';
 import { isBolagsverketConfigured, lookupOrgNumber, BolagsverketError } from './_bolagsverket.js';
 import { withSentry } from './_sentry.js';
+import { readOwnerCompany, readOwnerCompanies, readOwnerState, tablesModeIds } from './_companyStore.js';
 
 // Huvudsakligen till för en INBJUDEN användare (se supabase-setup.sql:
 // company_members — ägare + upp till 2 inbjudna = max 3 per företag) att
@@ -407,6 +408,10 @@ async function handler(req, res) {
           return;
         }
         for (const row of rows || []) ownerState.set(row.user_id, row.companies || {});
+        // Ägare i tabelläget: ur tabellerna, bara företagsuppgifterna (_companyStore.js).
+        for (const ownerId of await tablesModeIds(admin, owners)) {
+          ownerState.set(ownerId, (await readOwnerCompanies(admin, ownerId, { kinds: [] })).companies);
+        }
       }
       await Promise.all(owners.map(async (ownerId) => {
         ownerPaid.set(ownerId, await hasPaidAccess(admin, ownerId));
@@ -497,7 +502,8 @@ async function handler(req, res) {
           .eq('owner_user_id', pathOwnerId)
           .eq('status', 'active');
         if (memberships?.length) {
-          const { data: ownerRow } = await admin.from('user_data').select('state').eq('user_id', pathOwnerId).maybeSingle();
+          // Ur tabellerna för ägare i tabelläget, annars blobben (_companyStore.js).
+          const ownerRow = { state: await readOwnerState(admin, pathOwnerId).catch(() => null) };
           // Länkarna i datan kan vara URL-kodade (mellanslag som %20).
           const variants = [path, encodeURI(path), path.split('/').map(encodeURIComponent).join('/')];
           isAllowed = memberships.some((m) => {
@@ -560,12 +566,14 @@ async function handler(req, res) {
     // set_company_field skriver bara till en befintlig nyckel.
     let companyKey = companyId;
     {
-      const { data: ownRow, error: ownRowError } = await admin.from('user_data').select('state').eq('user_id', user.id).maybeSingle();
-      if (ownRowError) {
+      // Ur tabellerna för konton i tabelläget, annars blobben (_companyStore.js).
+      let existing;
+      try {
+        existing = await readOwnerCompany(admin, user.id, companyId);
+      } catch (ownRowError) {
         res.status(500).json({ error: ownRowError.message });
         return;
       }
-      const existing = findCompanyEntry(ownRow?.state?.companies, companyId);
       if (existing) { ownerUserId = user.id; ownerCompanyData = existing.data; currentCompanyData = existing.data; companyKey = existing.key; }
     }
 

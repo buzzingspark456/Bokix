@@ -7,6 +7,7 @@ import { checkRateLimit, getClientIp } from '../_rateLimit.js';
 import { createClient } from '@supabase/supabase-js';
 import { trialDecision, trialMetadata } from './_trialGuard.js';
 import { requireAuthedUser } from '../_auth.js';
+import { readOwnerCompany } from '../_companyStore.js';
 import { hasExistingSubscription, getSubscriptionRow, getStripeCustomerId, getStripeCustomerIds, upsertSubscription, subscriptionFieldsFromStripe, PAID_STATUSES } from './_subscriptions.js';
 import { listSubscriptionCustomerIds, listSubscriptionInvoices } from './_billingInvoices.js';
 
@@ -78,8 +79,8 @@ async function loadAccountForTrial(userId, companyId) {
     if (error || !data?.user) return null;
     let orgNr = data.user.user_metadata?.org_nr || '';
     if (companyId) {
-      const { data: row } = await admin.from('user_data').select('state').eq('user_id', userId).maybeSingle();
-      orgNr = row?.state?.companies?.[companyId]?.company?.orgNr || '';
+      const entry = await readOwnerCompany(admin, userId, companyId, { kinds: [] });
+      orgNr = entry?.data?.company?.orgNr || '';
     }
     return { email: data.user.email, orgNr };
   } catch (err) {

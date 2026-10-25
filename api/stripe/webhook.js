@@ -5,7 +5,7 @@ import { upsertSubscription } from './_subscriptions.js';
 import { enforceCardTrialLimit } from './_trialGuard.js';
 import { notifyAdminsAboutEvent } from './_adminNotify.js';
 import { createClient } from '@supabase/supabase-js';
-import { findCompanyEntry } from '../_auth.js';
+import { readOwnerCompany } from '../_companyStore.js';
 import { withSentry } from '../_sentry.js';
 
 // Är det anslutna kontot som skickade händelsen verkligen det konto
@@ -16,8 +16,9 @@ async function accountBelongsToCompany(account, userId, companyId) {
   const url = process.env.VITE_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key || !account) return false;
-  const { data: row } = await createClient(url, key).from('user_data').select('state').eq('user_id', userId).maybeSingle();
-  return findCompanyEntry(row?.state?.companies, companyId)?.data?.company?.stripeAccountId === account;
+  // Bara företagsuppgifterna behövs (_companyStore.js, inga listor).
+  const entry = await readOwnerCompany(createClient(url, key), userId, companyId, { kinds: [] }).catch(() => null);
+  return entry?.data?.company?.stripeAccountId === account;
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {

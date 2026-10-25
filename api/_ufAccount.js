@@ -1,4 +1,5 @@
 import { ARCHIVE_BUCKET, listAllObjects, archiveCompany } from './_archive.js';
+import { readBothStates } from './_companyStore.js';
 
 // ─────────────────────────────────────────────────────────────────────────
 // UF-konton: avsluta UF-året, och stäng kontot tre månader efteråt.
@@ -79,9 +80,13 @@ export async function closeUfAccount(admin, user, { now = new Date() } = {}) {
     return { status: 200, body: { ok: true, closedAt: existing.uf_closed_at, deleteAfter: existing.uf_delete_after } };
   }
 
-  const { data: row, error } = await admin.from('user_data').select('state').eq('user_id', user.id).maybeSingle();
-  if (error) return { status: 500, body: { error: 'Kunde inte läsa kontot. Försök igen.' } };
-  if (hasNonUfBookkeeping(row?.state)) {
+  let states;
+  try {
+    states = await readBothStates(admin, user.id);
+  } catch {
+    return { status: 500, body: { error: 'Kunde inte läsa kontot. Försök igen.' } };
+  }
+  if (hasNonUfBookkeeping(states.blob) || hasNonUfBookkeeping(states.tables)) {
     return {
       status: 409,
       body: { error: 'Kontot har också ett vanligt företag med bokföring, så det kan inte stängas med UF-året. Hör av er till support@bokix.se.' },
@@ -226,9 +231,10 @@ export async function deleteClosedUfAccounts(admin, { now = new Date(), dryRun =
           }
           continue;
         }
-        const { data: row, error: rowError } = await admin.from('user_data').select('state').eq('user_id', u.id).maybeSingle();
-        if (rowError) throw rowError;
-        if (hasNonUfBookkeeping(row?.state)) { summary.kept += 1; continue; }
+        const states = await readBothStates(admin, u.id);
+        if (hasNonUfBookkeeping(states.blob) || hasNonUfBookkeeping(states.tables)) { summary.kept += 1; continue; }
+        // Arkivet före stängningen får den mest aktuella versionen.
+        const row = { state: states.tables ?? states.blob };
 
         if (closedDue) {
           summary.due += 1;

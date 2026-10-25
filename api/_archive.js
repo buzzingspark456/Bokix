@@ -1,6 +1,12 @@
 import { createHash } from 'node:crypto';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { collectStorageUrls, parseStorageUrl } from '../src/utils/storageUrls.js';
+import { readOwnerState } from './_companyStore.js';
+import { logSystemEvent } from './_systemEvents.js';
+
+// Gick tabellerna inte att läsa för ett konto i tabelläget arkiveras blobben
+// (som i steg 4b fortfarande är aktuell), och det loggas.
+const reportArchiveTableError = (userId) => (error) => { logSystemEvent('company_read_failed', `arkivet ${userId}: ${error?.message || error}`); };
 
 // ─────────────────────────────────────────────────────────────────────────
 // Arkivet: sjuårslöftet, till nästan ingen kostnad.
@@ -285,9 +291,8 @@ export async function snapshotAllUsers(admin, { now = new Date(), dryRun = false
           summary.unchanged = (summary.unchanged || 0) + 1;
           continue;
         }
-        const { data: full, error: fullError } = await admin.from('user_data').select('state').eq('user_id', listed.user_id).maybeSingle();
-        if (fullError) throw fullError;
-        const row = { user_id: listed.user_id, state: full?.state };
+        // Ur tabellerna för konton i tabelläget, annars blobben (_companyStore.js).
+        const row = { user_id: listed.user_id, state: await readOwnerState(admin, listed.user_id, { onTableError: reportArchiveTableError(listed.user_id) }) };
         if (!hasBookkeeping(row.state)) continue;
         summary.users += 1;
         index.updatedAt = listed.updated_at || null;

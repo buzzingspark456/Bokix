@@ -14,6 +14,7 @@ import { hasPaidAccess } from '../_auth.js';
 import { refreshZettleToken, fetchZettlePurchases, fetchZettleFinanceTransactions, zettleFinanceRows } from '../zettle/_client.js';
 import { invoiceCustomerRemaining } from '../../src/utils/rotRutConfig.js';
 import { withSentry } from '../_sentry.js';
+import { withTablesState } from '../_companyStore.js';
 
 // Bugkritiskt (lokal utveckling, samma orsak/fix som api/_resend.js): måste
 // vara en LAT, memoiserad getter, inte en toppnivå-konstant. server.js
@@ -296,6 +297,8 @@ async function handler(req, res) {
       }
       if (!page || page.length === 0) break;
       after = page[page.length - 1].user_id;
+      // Konton i tabelläget läses ur tabellerna (_companyStore.js).
+      page = await withTablesState(admin, page);
 
       for (const row of page) {
         if (Date.now() - startTime > TIME_BUDGET_MS) { completedFullPass = false; break pageLoop; }

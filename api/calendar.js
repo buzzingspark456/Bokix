@@ -10,6 +10,7 @@ import { applySecurityHeaders } from './_security.js';
 import { checkRateLimit } from './_rateLimit.js';
 import { buildCalendarEvents, calendarChoices, toIcs } from '../src/utils/calendarFeed.js';
 import { withSentry } from './_sentry.js';
+import { readOwnerCompany } from './_companyStore.js';
 
 const ID_RE = /^[A-Za-z0-9_-]{1,80}$/;
 // user_id är en uuid-kolumn: annat format ger ett Postgres-fel (500) i stället för 404.
@@ -50,9 +51,13 @@ async function handler(req, res) {
   const admin = adminClient();
   if (!admin) return res.status(503).send('Kalendern är inte tillgänglig just nu.');
 
-  const { data: row, error } = await admin.from('user_data').select('state').eq('user_id', u).maybeSingle();
-  if (error) return res.status(500).send('Kunde inte läsa kalendern.');
-  const companyData = row?.state?.companies?.[c];
+  let entry;
+  try {
+    entry = await readOwnerCompany(admin, u, c);
+  } catch {
+    return res.status(500).send('Kunde inte läsa kalendern.');
+  }
+  const companyData = entry?.data;
   const settings = companyData?.company?.calendar;
   if (!companyData || !settings?.key || !keysMatch(settings.key, k)) return notFound();
 

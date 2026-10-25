@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { invoiceCustomerRemaining } from '../../src/utils/rotRutConfig.js';
+import { readOwnerCompany } from '../_companyStore.js';
 
 // Säkerhetsfix (se säkerhetsgranskningen): `create-checkout-session.js`
 // tog tidigare emot `line_items`/`application_fee_amount` RAKT från
@@ -23,16 +24,15 @@ export async function resolveInvoiceLineItems({ userId, companyId, invoiceId }) 
   }
 
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-  const { data: row, error: fetchError } = await supabaseAdmin
-    .from('user_data')
-    .select('state')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (fetchError) {
+  // Bara företagsuppgifterna och fakturorna behövs (_companyStore.js: ur
+  // tabellerna för konton i tabelläget, annars blobben).
+  let entry;
+  try {
+    entry = await readOwnerCompany(supabaseAdmin, userId, companyId, { kinds: ['invoices'] });
+  } catch (fetchError) {
     return { error: fetchError.message, status: 500 };
   }
-  const companyData = row?.state?.companies?.[companyId];
+  const companyData = entry?.data;
   const invoice = companyData?.invoices?.find(i => i.id === invoiceId);
   if (!companyData || !invoice) {
     return { error: 'Fakturan kunde inte hittas.', status: 404 };

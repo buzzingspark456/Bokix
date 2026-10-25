@@ -4,6 +4,7 @@ import { deleteClosedUfAccounts } from '../_ufAccount.js';
 import { isFreeEmail } from '../_auth.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { buildUfClosingHtml } from '../_emailTemplates.js';
+import { readOwnerState, tablesModeIds } from '../_companyStore.js';
 
 // Varningsmejlen till UF-konton som inte valt något (se _ufAccount.js).
 // Utan Resend-nyckel skickas inga mejl, och då stängs inget automatiskt.
@@ -150,10 +151,17 @@ export async function cleanOrphanFiles(admin, { buckets = ['bokix-uploads', 'com
     if (last) q = q.gt('user_id', last);
     const { data: rows, error } = await q;
     if (error) throw error;
+    // Konton i tabelläget (_companyStore.js): en fil räknas som använd om
+    // blobben ELLER tabellerna pekar på den. Ett fel i den ena källan får
+    // aldrig leda till att ett kvitto raderas.
+    const tablesIds = await tablesModeIds(admin, (rows || []).map(r => r.user_id));
   for (const row of rows || []) {
     if (Date.now() > deadline) return { scanned, removed, resumeFrom: last };
     last = row.user_id;
     const referenced = collectStoragePaths(row.state);
+    if (tablesIds.has(row.user_id)) {
+      for (const p of collectStoragePaths(await readOwnerState(admin, row.user_id))) referenced.add(p);
+    }
     for (const bucket of buckets) {
       const objects = await listAllObjects(admin, bucket, row.user_id);
       scanned += objects.length;
@@ -199,7 +207,14 @@ export async function cleanAbandonedSignups(admin, { now = new Date(), dryRun = 
       .range(from, from + USER_PAGE - 1);
     if (error) throw error;
     scannedRows += data?.length || 0;
-    for (const r of data || []) if (!hasBookkeepingData(r.state)) rows.push({ user_id: r.user_id, state: r.state });
+    // Ett konto i tabelläget raderas bara om varken blobben eller tabellerna
+    // har bokföring (_companyStore.js).
+    const tablesIds = await tablesModeIds(admin, (data || []).map(r => r.user_id));
+    for (const r of data || []) {
+      if (hasBookkeepingData(r.state)) continue;
+      if (tablesIds.has(r.user_id) && hasBookkeepingData(await readOwnerState(admin, r.user_id))) continue;
+      rows.push({ user_id: r.user_id, state: r.state });
+    }
     if (!data || data.length < USER_PAGE) break;
   }
   if (!scannedRows) return { candidates: 0, removed: 0 };

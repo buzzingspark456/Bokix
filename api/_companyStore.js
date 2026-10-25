@@ -81,3 +81,69 @@ export async function readOwnerCompanies(admin, ownerUserId, { kinds = null, onT
   const state = await readBlobState(admin, ownerUserId);
   return { companies: state?.companies || {}, source: 'blob' };
 }
+
+/**
+ * Hela kontot (som user_data.state): { activeCompanyId, companies }. För
+ * konton i tabelläget ur tabellerna (aktivt företag ligger kvar i blobben),
+ * annars blobben. null om kontot inte har någon rad.
+ */
+export async function readOwnerState(admin, ownerUserId, { onTableError } = {}) {
+  if (await storageModeOf(admin, ownerUserId) === 'tables') {
+    const [{ data, error }, top] = await Promise.all([
+      admin.rpc('server_read_companies', { p_owner: ownerUserId, p_kinds: null }),
+      admin.from('user_data').select('active:state->activeCompanyId').eq('user_id', ownerUserId).maybeSingle(),
+    ]);
+    if (!error && !top.error) {
+      if (!top.data) return null;
+      const companies = {};
+      for (const [key, payload] of Object.entries(data || {})) companies[key] = assembleCompany(payload);
+      return { ...(top.data.active != null ? { activeCompanyId: top.data.active } : {}), companies };
+    }
+    const err = error || top.error;
+    if (!isMissingFunction(err)) onTableError?.(err);
+  }
+  return readBlobState(admin, ownerUserId);
+}
+
+/**
+ * Rader som redan lästs ur user_data med state (nattjobben läser sida för
+ * sida): för de konton som är i tabelläget byts state mot det i tabellerna.
+ * Övriga rader lämnas orörda. En fråga för att se vilka konton det gäller.
+ */
+export async function withTablesState(admin, rows, { onTableError } = {}) {
+  const tablesIds = await tablesModeIds(admin, (rows || []).map(r => r.user_id));
+  if (!tablesIds.size) return rows;
+  const out = [];
+  for (const row of rows) {
+    if (!tablesIds.has(row.user_id)) { out.push(row); continue; }
+    const state = await readOwnerState(admin, row.user_id, { onTableError });
+    out.push(state ? { ...row, state } : row);
+  }
+  return out;
+}
+
+/** Vilka av kontona är i tabelläget? Tom mängd om det inte går att se. */
+export async function tablesModeIds(admin, ids) {
+  // Bara riktiga konto-id: ett felaktigt id får databasen att neka hela frågan.
+  const list = (ids || []).filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id || '')));
+  if (!list.length) return new Set();
+  try {
+    const { data, error } = await admin.from('storage_modes').select('user_id').eq('mode', 'tables').in('user_id', list);
+    return error ? new Set() : new Set((data || []).map(r => r.user_id));
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Både blobben och, för konton i tabelläget, tabellerna: { blob, tables }
+ * (tables null för övriga). För det som raderar eller stänger: något får
+ * bara försvinna om ingen av källorna har det. Kastar om blobben inte går
+ * att läsa; går tabellerna inte att läsa används blobben för båda.
+ */
+export async function readBothStates(admin, ownerUserId, { onTableError } = {}) {
+  const blob = await readBlobState(admin, ownerUserId);
+  if (await storageModeOf(admin, ownerUserId) !== 'tables') return { blob, tables: null };
+  const tables = await readOwnerState(admin, ownerUserId, { onTableError });
+  return { blob, tables };
+}

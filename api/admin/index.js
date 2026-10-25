@@ -12,6 +12,7 @@ import { buildOverview, summarizeState } from './_customers.js';
 import { detectOrgType } from '../../src/utils/orgType.js';
 import { buildStatus, COMPONENT_IDS } from '../_status.js';
 import { withSentry } from '../_sentry.js';
+import { withTablesState } from '../_companyStore.js';
 
 // ── Internt admin-API (/internal på klienten) ───────────────────────────
 // EN enda fil för HELA admin-panelen, inte en fil per delsystem —
@@ -319,8 +320,9 @@ export async function handleUsers(admin, res) {
   // och org.nr hämtas då ur det sparade företaget (bara för dem, högst 60).
   const missing = (userData || []).filter(u => !u.company_name).map(u => u.user_id).slice(0, 60);
   if (missing.length) {
-    const { data: rows } = await admin.from('user_data').select('user_id, state').in('user_id', missing);
-    (rows || []).forEach(r => {
+    const { data: blobRows } = await admin.from('user_data').select('user_id, state').in('user_id', missing);
+    const rows = await withTablesState(admin, blobRows || []);
+    rows.forEach(r => {
       const first = summarizeState(r.state)[0];
       if (first?.name) userDataById[r.user_id] = { ...userDataById[r.user_id], company_name: first.name, company_orgnr: first.orgNr };
     });
@@ -507,8 +509,8 @@ export async function handleOverview(admin, res) {
   ])].slice(0, 80);
   const states = {};
   if (ids.length) {
-    const { data: rows } = await admin.from('user_data').select('user_id, state').in('user_id', ids);
-    (rows || []).forEach(r => { states[r.user_id] = r.state; });
+    const { data: blobRows } = await admin.from('user_data').select('user_id, state').in('user_id', ids);
+    (await withTablesState(admin, blobRows || [])).forEach(r => { states[r.user_id] = r.state; });
   }
   const { data: messages } = await admin.from('contact_messages').select('handled_at').is('handled_at', null).limit(500);
   const { data: events } = await admin.from('system_events').select('kind, created_at').not('kind', 'in', '(backup_ok,shadow_read)').gte('created_at', new Date(Date.now() - 86400000).toISOString()).limit(500);
@@ -583,7 +585,8 @@ export async function handleCustomer(admin, res, id) {
   const { data: got, error: userError } = await admin.auth.admin.getUserById(id);
   if (userError || !got?.user) { res.status(404).json({ error: 'Kontot hittades inte.' }); return; }
   const u = got.user;
-  const { data: ud } = await admin.from('user_data').select('state, updated_at, onboarding_completed, onboarding_skipped').eq('user_id', id).maybeSingle();
+  const { data: udBlob } = await admin.from('user_data').select('state, updated_at, onboarding_completed, onboarding_skipped').eq('user_id', id).maybeSingle();
+  const ud = udBlob ? (await withTablesState(admin, [{ ...udBlob, user_id: id }]))[0] : udBlob;
   const { data: subs } = await admin.from('subscriptions').select('company_id, status, plan, trial_ends_at, current_period_end, cancel_at_period_end, created_at, stripe_customer_id').eq('user_id', id);
   const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString();
   const { data: logins } = await admin.from('login_events').select('device, created_at').eq('user_id', id).gte('created_at', monthAgo).order('created_at', { ascending: false }).limit(300);

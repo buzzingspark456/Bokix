@@ -1,7 +1,8 @@
 import { logSystemEvent } from '../_systemEvents.js';
 import { applySecurityHeaders } from '../_security.js';
 import { parseJsonBody } from '../stripe/_parseBody.js';
-import { requireAuthedUser, loadOwnedOrMemberCompany, requireActiveSubscription, findCompanyEntry } from '../_auth.js';
+import { requireAuthedUser, loadOwnedOrMemberCompany, requireActiveSubscription } from '../_auth.js';
+import { readOwnerCompany } from '../_companyStore.js';
 import { checkRateLimit } from '../_rateLimit.js';
 import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { trySendFromOwnAddress } from '../_smtp.js';
@@ -25,8 +26,9 @@ async function loadOwnInvite(userId, inviteId) {
     .maybeSingle();
   if (!invite) return null;
   if (invite.expires_at && new Date(invite.expires_at) < new Date()) return null;
-  const { data: row } = await admin.from('user_data').select('state').eq('user_id', userId).maybeSingle();
-  return { ...invite, companyData: findCompanyEntry(row?.state?.companies, invite.company_id)?.data || null };
+  // Bara företagsuppgifterna behövs (_companyStore.js, inga listor).
+  const entry = await readOwnerCompany(admin, userId, invite.company_id, { kinds: [] }).catch(() => null);
+  return { ...invite, companyData: entry?.data || null };
 }
 
 function escHtml(value) {
