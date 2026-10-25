@@ -91,6 +91,29 @@ describe('readOwnerCompany', () => {
   })
 })
 
+describe('endast tabeller (tables_only)', () => {
+  it('läser tabellerna, precis som tables', async () => {
+    expect(await storageModeOf(makeAdmin({ mode: 'tables_only' }), 'u1')).toBe('tables_only')
+    const admin = makeAdmin({ mode: 'tables_only', rpc: { server_read_company: { data: { key: 'k1', payload: payload('Tabell AB') }, error: null } } })
+    expect(await readOwnerCompany(admin, 'u1', 'k1')).toMatchObject({ source: 'tables' })
+  })
+
+  it('fel i tabellerna: kastar, faller aldrig tillbaka på den gamla blobben', async () => {
+    const errors = []
+    const admin = makeAdmin({ mode: 'tables_only', blobState, rpc: { server_read_company: { data: null, error: { message: 'timeout' } }, server_read_companies: { data: null, error: { message: 'timeout' } } } })
+    await expect(readOwnerCompany(admin, 'u1', 'k1', { onTableError: e => errors.push(e.message) })).rejects.toThrow(/bara ur tabellerna/)
+    await expect(readOwnerCompanies(admin, 'u1')).rejects.toThrow(/bara ur tabellerna/)
+    expect(errors).toEqual(['timeout'])
+    expect(admin.calls).not.toContain('user_data')
+  })
+
+  it('saknas i tabellerna: null, inte blobbens gamla kopia', async () => {
+    const admin = makeAdmin({ mode: 'tables_only', blobState, rpc: { server_read_company: { data: null, error: null } } })
+    expect(await readOwnerCompany(admin, 'u1', 'k1')).toBeNull()
+    expect(admin.calls).not.toContain('user_data')
+  })
+})
+
 describe('readOwnerCompanies', () => {
   it('blobläget: alla företag ur blobben', async () => {
     expect(await readOwnerCompanies(makeAdmin({ mode: 'blob', blobState }), 'u1')).toEqual({ companies: blobState.companies, source: 'blob' })

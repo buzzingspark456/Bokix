@@ -2037,6 +2037,7 @@ function App() {
   // fortsätter fungera precis som förut.
   const saveUserDataToSupabase = async (stateData, extras = {}) => {
     if (!user || !supabaseEnabled) return false;
+    if (tablesModeRef.current && tablesOnlyRef.current) return saveStateViaTables(stateData, extras);
 
     const payload = {
       user_id: user.id,
@@ -2091,6 +2092,49 @@ function App() {
   // och företagsrad, för krockkontrollen i save_company_changes.
   const tablesModeRef = useRef(false);
   const versionsRef = useRef(null);
+  // Endast tabeller (steg 4d, 'tables_only'): blobben skrivs inte längre för
+  // kontots företag; allt går via save_company_changes.
+  const tablesOnlyRef = useRef(false);
+  // Hela kontot sparat i läget endast tabeller (nytt eller borttaget företag,
+  // onboardingen, appens sista utväg): det som skiljer från senaste synken
+  // skickas som ändringar. Vid krock hämtas det färska och det som sparas
+  // här läggs ovanpå, eftersom det är en uttrycklig åtgärd.
+  const saveStateViaTables = async (stateData, extras = {}) => {
+    const ref = serverSyncRef.current;
+    const own = Object.fromEntries(Object.entries(stateData?.companies || {}).filter(([, c]) => !c?.__shared));
+    const target = { ...stateData, companies: own };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      let ops;
+      try { ops = buildStateDelta(ref.baseSnapshot, ref.baseCompanies, target, own); } catch { ops = null; }
+      if (!ops) return false;
+      if (ops.length) {
+        const saved = await saveToTables(supabase, ops, versionsRef.current || {});
+        if (saved.conflicts) {
+          let fresh;
+          try { fresh = await loadFromTables(supabase); } catch { return false; }
+          ref.baseCompanies = fresh.state.companies || {};
+          ref.baseSnapshot = fresh.state;
+          ref.updatedAt = fresh.updatedAt;
+          versionsRef.current = fresh.versions;
+          continue;
+        }
+        if (saved.error) {
+          console.warn('Sparning via tabellerna misslyckades:', saved.error.message || saved.error);
+          return false;
+        }
+        versionsRef.current = saved.versions;
+        ref.updatedAt = saved.updatedAt;
+      }
+      ref.baseCompanies = own;
+      ref.baseSnapshot = target;
+      rememberServerState(user.id, ref.updatedAt, target);
+      if (dbSupportsProfileColumns && extras && Object.keys(extras).length) {
+        await supabase.from('user_data').update(extras).eq('user_id', user.id);
+      }
+      return true;
+    }
+    return false;
+  };
   // Skickar bara ändringarna sedan förra synken. true = sparat, null = någon
   // annan har skrivit emellan (slå ihop), false = gick inte (spara allt).
   const saveDelta = async (ref, snapshot, companies) => {
@@ -2190,6 +2234,9 @@ function App() {
             ref.updatedAt = fresh.updated_at;
             continue;
           }
+          // Endast tabeller: blobbens företag får inte skrivas (databasen
+          // nekar det). Sista utvägen nedan sparar via tabellerna.
+          if (tablesOnlyRef.current) break;
           const { data: rows, error } = await supabase
             .from('user_data')
             .update({ state: { ...snapshot, companies } })
@@ -2508,6 +2555,7 @@ function App() {
         .then(r => (r.error ? null : r.data?.mode || null), () => null);
       // Varje inloggning börjar i blobläget; tabelläget sätts nedan om det gäller.
       tablesModeRef.current = false;
+      tablesOnlyRef.current = false;
       versionsRef.current = null;
       const ownedMembershipsPromise = supabase.from('company_members').select('company_id').eq('owner_user_id', authUser.id).eq('status', 'active').then(r => r);
       const firstSubscriptionsPromise = supabase
@@ -2703,14 +2751,26 @@ function App() {
         setDbSupportsProfileColumns(true);
         // Tabelläget: företagen ur tabellerna (ett anrop, med en version per
         // post för krockkontrollen). Går det inte läses blobben som förut.
-        if (resultData && (await storageModePromise) === 'tables') {
-          try {
-            const loaded = await loadFromTables(supabase);
+        const storageMode = resultData ? await storageModePromise : null;
+        if (storageMode === 'tables' || storageMode === 'tables_only') {
+          let loaded = null;
+          let lastError = null;
+          // Endast tabeller: blobben är gammal, så ingen reserv. Ett nytt
+          // försök, sedan fel hellre än gammal bokföring.
+          for (let attempt = 0; attempt < (storageMode === 'tables_only' ? 2 : 1) && !loaded; attempt++) {
+            if (attempt) await new Promise(resolve => setTimeout(resolve, 1500));
+            try { loaded = await loadFromTables(supabase); } catch (err) { lastError = err; }
+          }
+          if (loaded) {
             resultData = { ...resultData, state: loaded.state, updated_at: loaded.updatedAt || resultData.updated_at };
             versionsRef.current = loaded.versions;
             tablesModeRef.current = true;
-          } catch (err) {
-            reportClientError(new Error(`Tabelläget: kunde inte läsa, använder blobben (${err?.message || err})`), 'tables');
+            tablesOnlyRef.current = storageMode === 'tables_only';
+          } else if (storageMode === 'tables_only') {
+            reportClientError(new Error(`Endast tabeller: kunde inte läsa (${lastError?.message || lastError})`), 'tables');
+            throw lastError || new Error('Kunde inte läsa bokföringen.');
+          } else {
+            reportClientError(new Error(`Tabelläget: kunde inte läsa, använder blobben (${lastError?.message || lastError})`), 'tables');
           }
         }
         if (resultData && !tablesModeRef.current) {

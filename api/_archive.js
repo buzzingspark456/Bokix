@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { collectStorageUrls, parseStorageUrl } from '../src/utils/storageUrls.js';
-import { readOwnerState } from './_companyStore.js';
+import { readOwnerState, tablesModeIds, companiesUpdatedAt } from './_companyStore.js';
 import { logSystemEvent } from './_systemEvents.js';
 
 // Gick tabellerna inte att läsa för ett konto i tabelläget arkiveras blobben
@@ -247,6 +247,31 @@ const dailyDate = (d) => (typeof d === 'string' ? d : d.date);
 const monthlyFile = (m) => m.file || `man-${m.month}.json`;
 
 /**
+ * Vad som visar att ett konto ändrats sedan förra kopian. Blobkonton:
+ * user_data.updated_at, som förut. Konton i tabelläget: dessutom senaste
+ * ändringen i companies (i 'tables_only' rörs blobben inte när bokföringen
+ * ändras). Går tabellerna inte att läsa saknas markeringen, och kontot
+ * kopieras som ändrat hellre än att en ändring missas.
+ */
+async function changeMarks(admin, rows) {
+  const marks = new Map(rows.map(r => [r.user_id, r.updated_at || null]));
+  const tablesIds = await tablesModeIds(admin, rows.map(r => r.user_id));
+  if (!tablesIds.size) return marks;
+  let latest;
+  try {
+    latest = await companiesUpdatedAt(admin, [...tablesIds]);
+  } catch {
+    for (const id of tablesIds) marks.set(id, null);
+    return marks;
+  }
+  for (const id of tablesIds) {
+    const own = marks.get(id);
+    marks.set(id, own ? `${own}|${latest.get(id) || ''}` : null);
+  }
+  return marks;
+}
+
+/**
  * Nattkopior av varje konto med bokföring. Dagskopian skrivs bara när
  * kontot ändrats, månadskopian bara när det BOKFÖRDA ändrats sedan förra
  * månadskopian. Gallrar dagskopior äldre än DAILY_KEEP_DAYS och
@@ -270,13 +295,15 @@ export async function snapshotAllUsers(admin, { now = new Date(), dryRun = false
     if (startAfter) q = q.gt('user_id', startAfter);
     const { data: rows, error } = await q.range(from, from + PAGE - 1);
     if (error) throw error;
+    const marks = await changeMarks(admin, rows || []);
     for (const listed of rows || []) {
       if (Date.now() > deadline) return { ...summary, resumeFrom: last };
       last = listed.user_id;
       const dir = `${listed.user_id}/_kopior`;
       try {
         const index = (await readJson(admin, `${dir}/index.json`)) || { hash: null, daily: [], monthly: [] };
-        if (listed.updated_at && index.updatedAt === listed.updated_at && index.keepYear === year) {
+        const mark = marks.get(listed.user_id);
+        if (mark && index.updatedAt === mark && index.keepYear === year) {
           // Oförändrat sedan förra kopian: bara gallring.
           const toRemove = [];
           const cutoff = new Date(now.getTime() - DAILY_KEEP_DAYS * DAY_MS).toISOString().slice(0, 10);
@@ -295,7 +322,7 @@ export async function snapshotAllUsers(admin, { now = new Date(), dryRun = false
         const row = { user_id: listed.user_id, state: await readOwnerState(admin, listed.user_id, { onTableError: reportArchiveTableError(listed.user_id) }) };
         if (!hasBookkeeping(row.state)) continue;
         summary.users += 1;
-        index.updatedAt = listed.updated_at || null;
+        index.updatedAt = mark || null;
         index.keepYear = year;
         const hash = sha(row.state);
         const keepUntil = archiveKeepUntil(row.state, now);

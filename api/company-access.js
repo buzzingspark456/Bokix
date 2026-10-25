@@ -10,7 +10,9 @@ import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
 import { mergeField, applyRecordPatch, renumberVerificationCollisions } from '../src/utils/stateMerge.js';
 import { isBolagsverketConfigured, lookupOrgNumber, BolagsverketError } from './_bolagsverket.js';
 import { withSentry } from './_sentry.js';
-import { readOwnerCompany, readOwnerCompanies, readOwnerState, tablesModeIds } from './_companyStore.js';
+import { readOwnerCompany, readOwnerCompanies, readOwnerState, tablesModeIds, storageModeOf } from './_companyStore.js';
+import { assembleCompany } from '../src/utils/tableStore.js';
+import { RECORD_KINDS } from '../src/utils/companyTables.js';
 
 // Huvudsakligen till för en INBJUDEN användare (se supabase-setup.sql:
 // company_members — ägare + upp till 2 inbjudna = max 3 per företag) att
@@ -62,6 +64,7 @@ const WRITABLE_FIELDS = new Set(COMPANY_WRITABLE_FIELDS);
 
 // Lägger till ett fält som saknas i ägarens företag (se anropet i POST).
 async function addMissingField(admin, ownerUserId, companyKey, field, value) {
+  if (await storageModeOf(admin, ownerUserId) === 'tables_only') return writeTablesField(admin, ownerUserId, companyKey, field, () => value);
   for (let attempt = 0; attempt < 3; attempt++) {
     const { data: row } = await admin.from('user_data').select('state, updated_at').eq('user_id', ownerUserId).maybeSingle();
     const company = row?.state?.companies?.[companyKey];
@@ -80,6 +83,7 @@ async function addMissingField(admin, ownerUserId, companyKey, field, value) {
 // ägarens ändring. `compute(companyData)` räknas om på den färska raden vid
 // varje försök. false = krockade tre gånger, klienten får 409 och försöker igen.
 export async function writeMemberField(admin, ownerUserId, companyKey, field, compute) {
+  if (await storageModeOf(admin, ownerUserId) === 'tables_only') return writeTablesField(admin, ownerUserId, companyKey, field, compute);
   for (let attempt = 0; attempt < 3; attempt++) {
     const { data: row, error } = await admin.from('user_data').select('state, updated_at').eq('user_id', ownerUserId).maybeSingle();
     if (error) throw error;
@@ -90,6 +94,30 @@ export async function writeMemberField(admin, ownerUserId, companyKey, field, co
     const { data: updated, error: updateError } = await admin.from('user_data').update({ state }).eq('user_id', ownerUserId).eq('updated_at', row.updated_at).select('user_id');
     if (updateError) throw updateError;
     if (updated?.length) return true;
+  }
+  return false;
+}
+
+// Samma villkorade skrivning för konton som bara sparar i tabellerna (steg
+// 4d): blobbens företag är frysta där och får inte skrivas. Företaget läses
+// ur tabellerna (bara listan som skrivs), värdet räknas fram och skrivs med
+// server_apply_company_ops, som bara skriver om företagets updated_at är
+// det som lästes. Annars läses det om, som ovan.
+async function writeTablesField(admin, ownerUserId, companyKey, field, compute) {
+  const kinds = RECORD_KINDS.includes(field) ? [field] : [];
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data, error } = await admin.rpc('server_read_company', { p_owner: ownerUserId, p_company: String(companyKey), p_kinds: kinds });
+    if (error) throw error;
+    if (!data?.payload?.updated_at) return false;
+    const value = compute(assembleCompany(data.payload));
+    const { data: written, error: writeError } = await admin.rpc('server_apply_company_ops', {
+      p_owner: ownerUserId,
+      p_key: data.key,
+      p_expected_updated_at: data.payload.updated_at,
+      p_ops: [{ op: 'set', path: ['companies', data.key, field], value: value === undefined ? null : value }],
+    });
+    if (writeError) throw writeError;
+    if (written === true) return true;
   }
   return false;
 }

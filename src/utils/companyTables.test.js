@@ -205,8 +205,10 @@ describe('SQL-filerna hålls i takt (trigger)', () => {
       const start = sql.indexOf(`CREATE OR REPLACE FUNCTION ${name}`)
       return sql.slice(start, sql.indexOf('$$;', sql.indexOf('$$', sql.indexOf('AS $$', start) + 5)))
     }
-    for (const name of ['private.sync_companies()', 'private.in_tables_mode(']) {
-      expect(grab('supabase-2026-10-25-steg-4b.sql', name)).toEqual(grab('supabase-2026-10-25-foretag-och-poster.sql', name))
+    for (const name of ['private.sync_companies()', 'private.in_tables_mode(', 'private.storage_mode(']) {
+      const main = grab('supabase-2026-10-25-foretag-och-poster.sql', name)
+      expect(grab('supabase-2026-10-25-steg-4b.sql', name)).toEqual(main)
+      expect(grab('supabase-2026-10-25-steg-4d.sql', name)).toEqual(main)
     }
   })
 })

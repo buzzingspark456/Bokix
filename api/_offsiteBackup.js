@@ -42,6 +42,9 @@ export const TABLES = [
   'user_data', 'user_data_history', 'subscriptions', 'company_members', 'email_senders',
   // Vilket läge varje konto är i (blob eller tabeller, supabase-2026-10-25-steg-4a.sql).
   'storage_modes',
+  // Företagen och deras poster. För konton som bara sparar i tabellerna
+  // (steg 4d) är de sanningen, blobben där är en gammal kopia.
+  'companies', 'company_records',
   'stripe_payment_events', 'stripe_ledger_events', 'zettle_ledger_events',
   'audit_log', 'contact_messages', 'cron_progress',
   'inbox_addresses', 'inbox_items', 'login_events', 'security_events',
@@ -132,12 +135,31 @@ const pageSizeFor = (table) => (table === 'user_data' ? 50 : 1000);
 // Läser en tabell bit för bit och lämnar varje bit till onPage, så att hela
 // tabellen aldrig ligger i minnet samtidigt.
 async function forEachPage(admin, table, onPage) {
+  if (table === 'company_records') return forEachRecordsPage(admin, onPage);
   const PAGE = pageSizeFor(table);
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await admin.from(table).select('*').order('id').range(from, from + PAGE - 1);
     if (error) throw new Error(`${table}: ${error.message}`);
     if (data?.length) await onPage(data);
     if (!data || data.length < PAGE) break;
+  }
+}
+
+// company_records: id är bara unikt per företag och lista, och tabellen
+// blir störst av alla. Läses i primärnyckelns ordning med nyckelsida
+// (backup_company_records_page i supabase-2026-10-25-steg-4d.sql), så att
+// varje sida går lika fort oavsett hur långt in den ligger.
+const RECORDS_PAGE = 500;
+async function forEachRecordsPage(admin, onPage) {
+  let after = null;
+  for (;;) {
+    const { data, error } = await admin.rpc('backup_company_records_page', {
+      p_after_company: after?.company_id ?? null, p_after_kind: after?.kind ?? null, p_after_id: after?.id ?? null, p_limit: RECORDS_PAGE,
+    });
+    if (error) throw new Error(`company_records: ${error.message}`);
+    if (data?.length) await onPage(data);
+    if (!data || data.length < RECORDS_PAGE) break;
+    after = data[data.length - 1];
   }
 }
 

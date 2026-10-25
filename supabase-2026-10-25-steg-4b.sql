@@ -100,22 +100,34 @@ GRANT EXECUTE ON FUNCTION public.server_read_companies(uuid, text[]) TO service_
 
 -- Är kontot i tabelläget (public.storage_modes, steg 4a)? Tål att tabellen
 -- inte finns än (en databas där bara den här filen är körd): då nej.
-CREATE OR REPLACE FUNCTION private.in_tables_mode(p_user uuid)
-RETURNS boolean
+CREATE OR REPLACE FUNCTION private.storage_mode(p_user uuid)
+RETURNS text
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  v_found boolean;
+  v_mode text;
 BEGIN
   IF to_regclass('public.storage_modes') IS NULL THEN
-    RETURN false;
+    RETURN 'blob';
   END IF;
-  EXECUTE 'SELECT EXISTS (SELECT 1 FROM public.storage_modes WHERE user_id = $1 AND mode = ''tables'')' INTO v_found USING p_user;
-  RETURN coalesce(v_found, false);
+  EXECUTE 'SELECT mode FROM public.storage_modes WHERE user_id = $1' INTO v_mode USING p_user;
+  RETURN coalesce(v_mode, 'blob');
 END;
+$$;
+
+REVOKE ALL ON FUNCTION private.storage_mode(uuid) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION private.in_tables_mode(p_user uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT private.storage_mode(p_user) IN ('tables', 'tables_only');
 $$;
 
 REVOKE ALL ON FUNCTION private.in_tables_mode(uuid) FROM PUBLIC, anon, authenticated;
@@ -132,9 +144,11 @@ AS $$
 DECLARE
   v_hint jsonb;
 BEGIN
+  -- Konto som bara sparar i tabellerna: blobben är ingen källa längre.
+  IF private.storage_mode(NEW.user_id) = 'tables_only' THEN
+    RETURN NULL;
+  END IF;
   BEGIN
-    -- Satt av apply_user_data_delta i samma transaktion: exakt vad som
-    -- ändrats. Används en gång och bara för rätt konto.
     v_hint := nullif(current_setting('bokix.delta_ops', true), '')::jsonb;
     IF v_hint IS NOT NULL THEN
       PERFORM set_config('bokix.delta_ops', '', true);
@@ -151,9 +165,6 @@ BEGIN
     DELETE FROM public.companies
     WHERE owner_user_id = NEW.user_id AND deleted_at < now() - interval '30 days';
   EXCEPTION WHEN OTHERS THEN
-    -- Konto i tabelläget: tabellerna är sanningen, så skrivningen avbryts
-    -- hellre än att tabellerna hamnar efter (gäller alla vägar: appen,
-    -- inbjudna via servern, påminnelse-cronen).
     IF private.in_tables_mode(NEW.user_id) THEN
       RAISE;
     END IF;
@@ -161,7 +172,7 @@ BEGIN
       INSERT INTO public.system_events (kind, detail)
       VALUES ('company_sync_failed', format('user_data %s: %s (%s)', NEW.user_id, SQLERRM, SQLSTATE));
     EXCEPTION WHEN OTHERS THEN
-      NULL; -- inte ens loggen gick: sparningen ska ändå igenom
+      NULL;
     END;
   END;
   RETURN NULL;

@@ -25,6 +25,15 @@ function makeAdmin({ tables = {}, files = {} } = {}) {
       const q = { select: () => q, order: () => q, range: (a, b) => Promise.resolve({ data: rows.slice(a, b + 1), error: null }) }
       return q
     },
+    // company_records läses med nyckelsida (backup_company_records_page).
+    rpc: async (name, args) => {
+      if (name !== 'backup_company_records_page') return { data: null, error: { message: name } }
+      const key = (r) => [r.company_id, r.kind, r.id]
+      const cmp = (a, b) => { for (let i = 0; i < 3; i++) { if (a[i] < b[i]) return -1; if (a[i] > b[i]) return 1 } return 0 }
+      const sorted = [...(tables.company_records || [])].sort((a, b) => cmp(key(a), key(b)))
+      const after = args.p_after_company == null ? null : [args.p_after_company, args.p_after_kind, args.p_after_id]
+      return { data: sorted.filter(r => !after || cmp(key(r), after) > 0).slice(0, args.p_limit), error: null }
+    },
     auth: { admin: { listUsers: async () => ({ data: { users: [{ id: 'u1', email: 'a@b.se', created_at: '2026-01-01' }] }, error: null }) } },
     storage: {
       from(name) {
@@ -94,6 +103,19 @@ describe('runOffsiteBackup', () => {
     expect(dump.users[0].email).toBe('a@b.se')
     expect(decrypt(store.objects.get('files/bokix-uploads/u1/files/kvitto.jpg.enc'), KEY).toString()).toBe('JPG')
     expect([...store.objects.keys()].some(k => k.includes('_kopior'))).toBe(false)
+  })
+
+  it('tar med alla poster i company_records, sida för sida utan dubbletter', async () => {
+    // 1 200 poster: samma id i flera företag och listor, i blandad ordning.
+    const records = []
+    for (const company_id of ['c2', 'c1']) for (const kind of ['verifications', 'invoices']) for (let i = 0; i < 300; i++) records.push({ company_id, kind, id: String(i), data: {} })
+    const admin = makeAdmin({ tables: { companies: [{ id: 'c1' }, { id: 'c2' }], company_records: records } })
+    const store = makeStore()
+    await runOffsiteBackup(admin, store, KEY, { now })
+    const dump = await readDatabaseDump(store, KEY, '2026-10-01')
+    expect(dump.tables.companies).toHaveLength(2)
+    expect(dump.tables.company_records).toHaveLength(1200)
+    expect(new Set(dump.tables.company_records.map(r => `${r.company_id}/${r.kind}/${r.id}`)).size).toBe(1200)
   })
 
   it('kopierar bara nytt eller ändrat nästa natt', async () => {
@@ -170,11 +192,6 @@ describe('TABLES täcker databasen', () => {
     'status_checks', // statussidans kontroller var 5:e minut, mäts om av sig själva
     'status_daily', // statussidans dagssummor, samma sak
     'blog_posts', // finns kvar i supabase-setup.sql men är borttagen ur databasen (2026-10)
-    // Skuggkopian av blobben (supabase-2026-10-25-foretag-och-poster.sql): återskapas av
-    // triggern när user_data återställs. Flyttas till TABLES när appen byter till
-    // tabellerna och de blir sanningen.
-    'companies',
-    'company_records',
     'verifications', // steg A, ersatt och borttagen av filen ovan
   ])
   it('varje tabell i SQL-filerna finns i nattkopian eller är medvetet överhoppad', async () => {

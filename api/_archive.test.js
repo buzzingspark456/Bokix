@@ -239,3 +239,49 @@ describe('isSafeOwnPath', () => {
     expect(isSafeOwnPath('u1\\..\\u2', 'u1')).toBe(false);
   });
 });
+
+describe('snapshotAllUsers: konto som bara sparar i tabellerna', () => {
+  const U = '6545414d-a28e-4f96-8ef6-c098801e6c85'
+  // user_data.updated_at står still (blobben rörs inte), bara companies ändras.
+  function makeTablesAdmin(db) {
+    const base = makeAdmin({ rows: [{ user_id: U, updated_at: '2026-10-01T00:00:00+00:00', state: { companies: {} } }] })
+    const orig = base.from.bind(base)
+    base.tableReads = 0
+    base.from = (table) => {
+      if (table === 'storage_modes') {
+        const q = { select: () => q, eq: () => q, in: (col, v) => (col === 'user_id' ? Promise.resolve({ data: v.includes(U) ? [{ user_id: U }] : [], error: null }) : q), maybeSingle: async () => ({ data: { mode: 'tables_only' }, error: null }) }
+        return q
+      }
+      if (table === 'companies') {
+        const q = { select: () => q, in: async () => ({ data: [{ owner_user_id: U, updated_at: db.companyUpdatedAt }], error: null }) }
+        return q
+      }
+      if (table === 'user_data') {
+        // readOwnerState läser bara aktivt företag ur blobben.
+        const q = orig('user_data')
+        q.eq = () => ({ maybeSingle: async () => ({ data: { active: 'c1' }, error: null }) })
+        return q
+      }
+      return orig(table)
+    }
+    base.rpc = async (name) => {
+      if (name !== 'server_read_companies') return { data: null, error: { message: name } }
+      base.tableReads += 1
+      return { data: { c1: { extra: {}, has_settings: true, settings: { id: 'c1' }, list_fields: ['verifications'], lists: { verifications: db.verifications } } }, error: null }
+    }
+    return base
+  }
+
+  it('ser ändringar i tabellerna fast blobben står still', async () => {
+    const db = { companyUpdatedAt: '2026-10-02T00:00:00+00:00', verifications: [{ id: 'v1', date: '2026-01-10' }] }
+    const admin = makeTablesAdmin(db)
+    expect(await snapshotAllUsers(admin, { now: new Date('2026-10-03T06:00:00Z') })).toMatchObject({ written: 1 })
+    expect(await snapshotAllUsers(admin, { now: new Date('2026-10-04T06:00:00Z') })).toMatchObject({ written: 0, unchanged: 1 })
+    expect(admin.tableReads).toBe(1)
+    db.companyUpdatedAt = '2026-10-04T12:00:00+00:00'
+    db.verifications = [...db.verifications, { id: 'v2', date: '2026-10-04' }]
+    expect(await snapshotAllUsers(admin, { now: new Date('2026-10-05T06:00:00Z') })).toMatchObject({ written: 1 })
+    const index = read(admin, `${U}/_kopior/index.json`)
+    expect(index.updatedAt).toBe('2026-10-01T00:00:00+00:00|2026-10-04T12:00:00+00:00')
+  })
+})
