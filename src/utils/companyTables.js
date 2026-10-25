@@ -26,6 +26,14 @@ const KIND_SET = new Set(RECORD_KINDS);
 // Supabase lämnar högst 1 000 rader per fråga.
 export const PAGE_SIZE = 1000;
 
+// Samma ordning som ORDER BY position, id i databasen (id i C-ordning).
+function byPosition(a, b) {
+  const pa = a.position == null ? Infinity : Number(a.position);
+  const pb = b.position == null ? Infinity : Number(b.position);
+  if (pa !== pb) return pa - pb;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const hasId = (e) => isPlainObject(e) && e.id != null && String(e.id) !== '';
 
@@ -54,8 +62,8 @@ function canonicalList(list) {
   return { byId, invalid, dupes: valid - byId.size };
 }
 
-// Ett företag ur tabellerna i blobbens form. Listornas ordning finns inte i
-// tabellerna; här sorteras de på id, så att resultatet alltid blir detsamma.
+// Ett företag ur tabellerna i blobbens form. Listorna läggs i samma ordning
+// som i blobben (position; id om två skulle ha samma, som i databasen).
 export function buildCompany(row, records) {
   const company = { ...(isPlainObject(row?.extra) ? row.extra : {}) };
   if (row?.settings !== null && row?.settings !== undefined) company.company = row.settings;
@@ -66,10 +74,23 @@ export function buildCompany(row, records) {
     if (list) list.push(r);
   }
   for (const [kind, list] of lists) {
-    company[kind] = list.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).map(r => r.data);
+    company[kind] = list.sort(byPosition).map(r => r.data);
   }
   return company;
 }
+
+// Posternas id i listans ordning, där en post som förekommer flera gånger
+// räknas på sin sista plats.
+function idSequence(list) {
+  const last = new Map();
+  list.forEach((e, i) => { if (hasId(e)) last.set(String(e.id), i); });
+  return [...last.entries()].sort((x, y) => x[1] - y[1]).map(([id]) => id);
+}
+const sameOrder = (a, b) => {
+  const x = idSequence(a);
+  const y = idSequence(b);
+  return x.length === y.length && x.every((id, i) => id === y[i]);
+};
 
 // Vad som skiljer ett företag i blobben från samma företag ur tabellerna.
 // Bara fältnamn och antal, aldrig innehåll, så att resultatet kan skickas
@@ -98,8 +119,10 @@ export function compareCompany(blobCompany, tableCompany) {
       }
       let extra = 0;
       for (const id of cb.byId.keys()) if (!ca.byId.has(id)) extra++;
-      if (missing || changed || extra || ca.invalid || ca.dupes) {
-        diffs.push({ field: key, missing, changed, extra, invalid: ca.invalid, dupes: ca.dupes });
+      // Ordningen: samma poster i samma följd (sista förekomsten räknas, som i databasen).
+      const order = !missing && !extra && !sameOrder(a, b);
+      if (missing || changed || extra || ca.invalid || ca.dupes || order) {
+        diffs.push({ field: key, missing, changed, extra, invalid: ca.invalid, dupes: ca.dupes, ...(order ? { order: true } : {}) });
       }
     } else if (!sameJson(a, b)) {
       diffs.push({ field: key, issue: 'olika' });
@@ -144,7 +167,7 @@ export async function loadCompanyFromTables(supabase, { ownerUserId, key, maxRec
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data, error: pageError } = await supabase
       .from('company_records')
-      .select('kind, id, data')
+      .select('kind, id, data, position')
       .eq('company_id', row.id)
       .is('deleted_at', null)
       .order('kind', { ascending: true })

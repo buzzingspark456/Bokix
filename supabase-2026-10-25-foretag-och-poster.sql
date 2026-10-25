@@ -30,8 +30,8 @@
 --   - En post utan id, eller som inte är ett objekt, speglas inte (appen
 --     skapar alltid id; jämförelsen larmar om det ändå händer).
 --   - Samma id två gånger: den sista gäller (som applyRecordPatch).
---   - Ordningen i listan sparas inte här. Jämförelsen ser listorna som
---     mängder; ordningen hanteras när appen byter till tabellerna.
+--   - Ordningen i listan sparas i position (Kunder, Artiklar och Tid visar
+--     listan i sparad ordning), och jämförelsen kontrollerar den.
 --   - En borttagen post eller ett borttaget företag får deleted_at och
 --     finns kvar i 30 dagar som kopia. Kommer det tillbaka blir det aktivt
 --     igen. Äldre borttagna rensas vid nästa ändring.
@@ -114,6 +114,10 @@ CREATE TABLE IF NOT EXISTS public.company_records (
   id text NOT NULL,
   data jsonb NOT NULL,
   record_date text,
+  -- Platsen i listan (blobbens ordning). Bara den inbördes ordningen betyder
+  -- något: nya poster sist får max+1, nya först min-1, så att ingen annan
+  -- post behöver skrivas om. Hela listan bytt ger 1, 2, 3 …
+  position bigint,
   version bigint NOT NULL DEFAULT 1,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -122,6 +126,9 @@ CREATE TABLE IF NOT EXISTS public.company_records (
   -- En post är några kB; 1 MB är ett tak mot skräp, inte en gräns i praktiken.
   CONSTRAINT company_records_data_size CHECK (pg_column_size(data) < 1048576)
 );
+-- Fanns inte i första versionen av filen (körd 2026-10-25).
+ALTER TABLE public.company_records ADD COLUMN IF NOT EXISTS position bigint;
+
 CREATE INDEX IF NOT EXISTS company_records_by_date
   ON public.company_records (company_id, kind, record_date) WHERE deleted_at IS NULL;
 -- Rensningen av gamla borttagna poster körs vid varje ändring; utan det här
@@ -171,29 +178,32 @@ DECLARE
   v_changed bigint;
 BEGIN
   WITH n AS (
-    SELECT DISTINCT ON ((e ->> 'id') COLLATE "C") (e ->> 'id') COLLATE "C" AS id, e
+    SELECT DISTINCT ON ((e ->> 'id') COLLATE "C") (e ->> 'id') COLLATE "C" AS id, e, ord
     FROM jsonb_array_elements(v_list) WITH ORDINALITY AS t(e, ord)
     WHERE jsonb_typeof(e) = 'object' AND coalesce(e ->> 'id', '') <> ''
     ORDER BY (e ->> 'id') COLLATE "C", ord DESC
   ),
   cur AS (
-    SELECT r.id COLLATE "C" AS id, r.data, r.deleted_at
+    SELECT r.id COLLATE "C" AS id, r.data, r.deleted_at, r.position
     FROM public.company_records r
     WHERE r.company_id = p_company AND r.kind = p_kind
   ),
   diff AS (
-    SELECT coalesce(n.id, cur.id) AS id, n.e
+    SELECT coalesce(n.id, cur.id) AS id, n.e, n.ord
     FROM n FULL JOIN cur ON cur.id = n.id
     WHERE (n.id IS NULL AND cur.deleted_at IS NULL)
-       OR (n.id IS NOT NULL AND (cur.id IS NULL OR cur.deleted_at IS NOT NULL OR cur.data IS DISTINCT FROM n.e))
+       OR (n.id IS NOT NULL AND (cur.id IS NULL OR cur.deleted_at IS NOT NULL
+           OR cur.data IS DISTINCT FROM n.e OR cur.position IS DISTINCT FROM n.ord))
   ),
   upserted AS (
-    INSERT INTO public.company_records AS r (company_id, kind, id, data, record_date)
-    SELECT p_company, p_kind, diff.id, diff.e, diff.e ->> 'date'
+    INSERT INTO public.company_records AS r (company_id, kind, id, data, record_date, position)
+    SELECT p_company, p_kind, diff.id, diff.e, diff.e ->> 'date', diff.ord
     FROM diff WHERE diff.e IS NOT NULL
     ON CONFLICT (company_id, kind, id) DO UPDATE
-      SET data = EXCLUDED.data, record_date = EXCLUDED.record_date,
-          version = r.version + 1, deleted_at = NULL, updated_at = now()
+      SET data = EXCLUDED.data, record_date = EXCLUDED.record_date, position = EXCLUDED.position,
+          -- Bara en ändring av innehållet räknar upp versionen, inte en flytt.
+          version = r.version + CASE WHEN r.data IS DISTINCT FROM EXCLUDED.data OR r.deleted_at IS NOT NULL THEN 1 ELSE 0 END,
+          deleted_at = NULL, updated_at = now()
     RETURNING 1
   ),
   gone AS (
@@ -345,7 +355,10 @@ REVOKE ALL ON FUNCTION private.sync_companies_by_compare(uuid, jsonb, jsonb, tex
 -- p_upsert skrivs om de är nya eller ändrade, id i p_remove får deleted_at.
 -- Står ett id i båda gäller samma regel som i apply_keyed_patch: fanns posten
 -- redan tas den bort, var den ny läggs den till.
-CREATE OR REPLACE FUNCTION private.patch_company_records(p_company uuid, p_kind text, p_upsert jsonb, p_remove jsonb)
+-- Den första versionen saknade p_prepend (ordningen sparades inte då).
+DROP FUNCTION IF EXISTS private.patch_company_records(uuid, text, jsonb, jsonb);
+
+CREATE OR REPLACE FUNCTION private.patch_company_records(p_company uuid, p_kind text, p_upsert jsonb, p_remove jsonb, p_prepend boolean)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -362,19 +375,41 @@ DECLARE
       )
   );
 BEGIN
-  INSERT INTO public.company_records AS r (company_id, kind, id, data, record_date)
-  SELECT p_company, p_kind, u.id, u.e, u.e ->> 'date'
-  FROM (
-    SELECT DISTINCT ON (e ->> 'id') e ->> 'id' AS id, e
+  -- Platsen i listan, som i apply_keyed_patch: en post som finns behåller sin
+  -- plats; nya läggs sist (max+1 …) eller, med p_prepend, först (… min-1) i
+  -- den ordning de står i p_upsert.
+  WITH u AS (
+    SELECT DISTINCT ON (e ->> 'id') e ->> 'id' AS id, e, ord
     FROM jsonb_array_elements(CASE WHEN jsonb_typeof(p_upsert) = 'array' THEN p_upsert ELSE '[]'::jsonb END) WITH ORDINALITY AS t(e, ord)
     WHERE jsonb_typeof(e) = 'object' AND coalesce(e ->> 'id', '') <> ''
     ORDER BY e ->> 'id', ord DESC
-  ) u
+  ),
+  act AS (
+    SELECT r.id, r.position FROM public.company_records r
+    WHERE r.company_id = p_company AND r.kind = p_kind AND r.deleted_at IS NULL
+  ),
+  bounds AS (
+    SELECT coalesce(max(position), 0) AS mx, coalesce(min(position), 1) AS mn FROM act
+  ),
+  fresh AS (
+    SELECT u.id, row_number() OVER (ORDER BY u.ord) AS rn, count(*) OVER () AS cnt
+    FROM u WHERE NOT EXISTS (SELECT 1 FROM act WHERE act.id = u.id)
+  )
+  INSERT INTO public.company_records AS r (company_id, kind, id, data, record_date, position)
+  SELECT p_company, p_kind, u.id, u.e, u.e ->> 'date',
+    CASE WHEN act.id IS NOT NULL THEN act.position
+         WHEN p_prepend THEN b.mn - f.cnt + f.rn - 1
+         ELSE b.mx + f.rn END
+  FROM u
+  LEFT JOIN act ON act.id = u.id
+  LEFT JOIN fresh f ON f.id = u.id
+  CROSS JOIN bounds b
   WHERE NOT (u.id = ANY (v_remove))
   ON CONFLICT (company_id, kind, id) DO UPDATE
-    SET data = EXCLUDED.data, record_date = EXCLUDED.record_date,
-        version = r.version + 1, deleted_at = NULL, updated_at = now()
-    WHERE r.data IS DISTINCT FROM EXCLUDED.data OR r.deleted_at IS NOT NULL;
+    SET data = EXCLUDED.data, record_date = EXCLUDED.record_date, position = EXCLUDED.position,
+        version = r.version + CASE WHEN r.data IS DISTINCT FROM EXCLUDED.data OR r.deleted_at IS NOT NULL THEN 1 ELSE 0 END,
+        deleted_at = NULL, updated_at = now()
+    WHERE r.data IS DISTINCT FROM EXCLUDED.data OR r.deleted_at IS NOT NULL OR r.position IS DISTINCT FROM EXCLUDED.position;
 
   IF cardinality(v_remove) > 0 THEN
     UPDATE public.company_records r
@@ -384,7 +419,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION private.patch_company_records(uuid, text, jsonb, jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION private.patch_company_records(uuid, text, jsonb, jsonb, boolean) FROM PUBLIC, anon, authenticated;
 
 -- Appens vanliga sparning (apply_user_data_delta) vet exakt vad som ändrats.
 -- Då speglas bara det, utan att blobben packas upp och jämförs: en ny
@@ -435,7 +470,8 @@ BEGIN
       IF cardinality(v_path) > 3 THEN
         v_compare := array_append(v_compare, v_key);
       ELSIF v_op ->> 'op' = 'patch' THEN
-        PERFORM private.patch_company_records(v_id, v_field, v_op -> 'upsert', v_op -> 'remove');
+        PERFORM private.patch_company_records(v_id, v_field, v_op -> 'upsert', v_op -> 'remove',
+          coalesce((v_op ->> 'prepend')::boolean, false));
         v_touched := array_append(v_touched, v_id);
         IF NOT (v_field = ANY (v_lists)) THEN
           v_refresh := array_append(v_refresh, v_key);
@@ -528,7 +564,8 @@ CREATE TRIGGER sync_companies
 
 -- ── Jämförelsen ─────────────────────────────────────────────────────────
 -- Ett företag i jämförbar form: listorna blir objekt med posterna under sina
--- id, så att ordningen inte spelar in. Allt annat lämnas som det är.
+-- id, plus ett fingeravtryck av ordningen (__ordning). Allt annat lämnas som
+-- det är.
 -- Poster som speglingen inte kan ta (utan id, inte objekt, samma id två
 -- gånger) räknas under __utan_id / __dubbla_id. Tabellerna har aldrig de
 -- nycklarna, så sådana poster ger alltid en skillnad i stället för att
@@ -543,8 +580,9 @@ AS $$
       WHEN f.key = ANY (private.record_kinds()) AND jsonb_typeof(f.value) = 'array' THEN (
         SELECT coalesce((
             SELECT jsonb_object_agg(x.id, x.e)
+              || jsonb_build_object('__ordning', md5(string_agg(x.id, chr(31) ORDER BY x.ord)))
             FROM (
-              SELECT DISTINCT ON (e ->> 'id') e ->> 'id' AS id, e
+              SELECT DISTINCT ON (e ->> 'id') e ->> 'id' AS id, e, ord
               FROM jsonb_array_elements(f.value) WITH ORDINALITY AS t(e, ord)
               WHERE jsonb_typeof(e) = 'object' AND coalesce(e ->> 'id', '') <> ''
               ORDER BY e ->> 'id', ord DESC
@@ -576,6 +614,7 @@ AS $$
     || coalesce((
       SELECT jsonb_object_agg(k, coalesce((
         SELECT jsonb_object_agg(r.id, r.data)
+          || jsonb_build_object('__ordning', md5(string_agg(r.id, chr(31) ORDER BY r.position, r.id)))
         FROM public.company_records r
         WHERE r.company_id = c.id AND r.kind = k AND r.deleted_at IS NULL
       ), '{}'::jsonb))

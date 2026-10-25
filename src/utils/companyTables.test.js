@@ -26,6 +26,17 @@ describe('buildCompany', () => {
     expect('quotes' in c).toBe(false) // inte i list_fields
   })
 
+  it('listorna läggs i positionsordning, id avgör vid lika', () => {
+    const row = { settings: {}, accounts: [], extra: {}, list_fields: ['contacts'] }
+    const recs = [
+      { kind: 'contacts', id: 'c', position: 2, data: { id: 'c' } },
+      { kind: 'contacts', id: 'a', position: 3, data: { id: 'a' } },
+      { kind: 'contacts', id: 'b', position: -1, data: { id: 'b' } },
+      { kind: 'contacts', id: 'd', position: 2, data: { id: 'd' } },
+    ]
+    expect(buildCompany(row, recs).contacts.map(x => x.id)).toEqual(['b', 'c', 'd', 'a'])
+  })
+
   it('saknad settings/accounts ger ingen nyckel', () => {
     const c = buildCompany({ settings: null, accounts: null, extra: {}, list_fields: [] }, [])
     expect('company' in c).toBe(false)
@@ -36,9 +47,14 @@ describe('buildCompany', () => {
 describe('compareCompany', () => {
   const blob = { company: { name: 'AB' }, accounts: [{ code: '1930' }], verifications: [v('a'), v('b')], invoices: [], vatPeriods: { q: 1 } }
 
-  it('lika när bara ordningen och nyckelordningen skiljer', () => {
-    const table = { vatPeriods: { q: 1 }, invoices: [], verifications: [v('b'), v('a')], accounts: [{ code: '1930' }], company: { name: 'AB' } }
+  it('lika när bara nyckelordningen skiljer', () => {
+    const table = { vatPeriods: { q: 1 }, invoices: [], verifications: [v('a'), v('b')], accounts: [{ code: '1930' }], company: { name: 'AB' } }
     expect(compareCompany(blob, table)).toEqual([])
+  })
+
+  it('listans ordning räknas (Kunder, Artiklar och Tid visar sparad ordning)', () => {
+    const table = { ...blob, verifications: [v('b'), v('a')] }
+    expect(compareCompany(blob, table)).toEqual([{ field: 'verifications', missing: 0, changed: 0, extra: 0, invalid: 0, dupes: 0, order: true }])
   })
 
   it('räknar saknade, ändrade och extra poster utan innehåll', () => {
