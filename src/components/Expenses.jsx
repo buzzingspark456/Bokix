@@ -148,6 +148,8 @@ const STATUS_META = {
 };
 
 /** Bästa tillgängliga visningsnamn för den som laddade upp kvittot. */
+const RECEIPTS_VIEW_KEY = 'bokix_receipts_view';
+
 function displayUploaderName(uploadedBy) {
   if (!uploadedBy) return null;
   return uploadedBy.name?.trim() || uploadedBy.email || null;
@@ -1204,8 +1206,15 @@ export default function Expenses({
   // per månad" — grupperingen är fin för en lång historik, men ibland vill
   // man bara se allt i en enda lista. Oberoende av monthFilter (man kan
   // fortfarande vilja se "bara augusti" OCH ha det platt).
-  // Lista som standard (användarens val 2026-10-25); Grupperat går att välja.
-  const [flatView, setFlatView] = useState(true);
+  // Lista som standard (användarens val 2026-10-25); Grupperat går att välja,
+  // och valet sparas i webbläsaren så att det står kvar nästa gång.
+  const [flatView, setFlatViewState] = useState(() => {
+    try { return localStorage.getItem(RECEIPTS_VIEW_KEY) !== 'grouped'; } catch { return true; }
+  });
+  const setFlatView = (flat) => {
+    setFlatViewState(flat);
+    try { localStorage.setItem(RECEIPTS_VIEW_KEY, flat ? 'list' : 'grouped'); } catch { /* privat läge: bara den här gången */ }
+  };
   const [rcFiltersOpen, setRcFiltersOpen] = useState(false);
 
   useEffect(() => () => {
