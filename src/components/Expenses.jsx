@@ -1502,7 +1502,8 @@ export default function Expenses({
             {/* Telefon: månad och vy ligger bakom Filter (index.css, rc-toolbar). */}
             <button type="button" className="rc-tb-toggle" onClick={() => setRcFiltersOpen(v => !v)} aria-expanded={rcFiltersOpen}>
               <SlidersHorizontal size={15} /> {tr('shared.filterBar.filter')}
-              {(monthFilter !== 'all' || flatView || effectiveTab !== 'all') && <span className="lfb-toggle-badge">{[monthFilter !== 'all', flatView, effectiveTab !== 'all'].filter(Boolean).length}</span>}
+              {/* Bara riktiga filter räknas, inte Lista/Grupperat (ett visningsval). */}
+              {(monthFilter !== 'all' || effectiveTab !== 'all') && <span className="lfb-toggle-badge">{[monthFilter !== 'all', effectiveTab !== 'all'].filter(Boolean).length}</span>}
             </button>
 
             {showUploaderTabs && (
