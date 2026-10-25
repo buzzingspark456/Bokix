@@ -18,6 +18,7 @@ const ALERT_KINDS = new Set([
   'status_down',
   'backup_stale',
   'retention_failed',
+  'verif_mismatch',
 ]);
 
 const ALERT_LABELS = {
@@ -30,6 +31,7 @@ const ALERT_LABELS = {
   status_down: 'Statussidan: en del av Bokix är nere',
   backup_stale: 'Ingen lyckad säkerhetskopia det senaste dygnet',
   retention_failed: 'Städningen av obetalda konton misslyckades',
+  verif_mismatch: 'Verifikationstabellen stämmer inte med blobben',
 };
 
 // Högst ett larmmejl per sorts händelse och timme, räknat i den delade

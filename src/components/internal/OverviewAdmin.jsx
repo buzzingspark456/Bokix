@@ -11,7 +11,7 @@ import { dateTimeFormat, numberFormat } from '../../utils/intlCache';
 
 const fmtDate = (iso) => (iso ? dateTimeFormat('sv-SE', { day: 'numeric', month: 'short' }).format(new Date(iso)) : '—');
 const kr = (n) => `${numberFormat('sv-SE', { maximumFractionDigits: 0 }).format(n || 0)} kr`;
-const EVENT_LABEL = { ocr_error: 'kvittoläsning', client_error: 'appkrasch', email_failed: 'mejl', email_fallback: 'avsändare', contact_email_failed: 'kontaktformulär', cron_failed: 'nattkörning', backup_failed: 'säkerhetskopia' };
+const EVENT_LABEL = { ocr_error: 'kvittoläsning', client_error: 'appkrasch', email_failed: 'mejl', email_fallback: 'avsändare', contact_email_failed: 'kontaktformulär', cron_failed: 'nattkörning', backup_failed: 'säkerhetskopia', verif_mismatch: 'verifikationskopia', verif_sync_failed: 'verifikationskopia' };
 
 const CSS = `
   .ov-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 22px; }
