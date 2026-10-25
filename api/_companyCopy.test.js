@@ -2,87 +2,117 @@ import { describe, it, expect } from 'vitest'
 import { checkCompanyCopy } from './_companyCopy.js'
 
 /**
- * Precis så mycket av Supabase-admin-klienten som kontrollen använder.
- * mismatchRuns: vad companies_mismatch svarar vid första, andra … anropet.
+ * Supabase-admin i minnet: konton att kontrollera, skillnader per konto (före
+ * och efter rättning), cron_progress och system_events.
  */
-function makeAdmin({ mismatchRuns = [[]], rpcError = null, resyncResult = 0, resyncError = null, failures = 0, countError = null } = {}) {
-  const calls = []
-  let run = 0
+function makeAdmin({ owners = [], diffs = {}, fixable = {}, failures = 0, progress = null, missing = false, ownerError = null } = {}) {
+  const store = { progress, calls: [] }
+  const left = { ...diffs }
   return {
-    calls,
-    rpc: async (name) => {
-      calls.push(name)
-      if (name === 'companies_mismatch') {
-        if (rpcError) return { data: null, error: rpcError }
-        const data = mismatchRuns[Math.min(run, mismatchRuns.length - 1)]
-        run++
-        return { data, error: null }
+    store,
+    rpc: async (name, args) => {
+      store.calls.push({ name, args })
+      if (missing) return { data: null, error: { code: 'PGRST202', message: `Could not find the function public.${name}` } }
+      if (name === 'companies_owners_to_check') {
+        if (ownerError) return { data: null, error: ownerError }
+        const list = owners.filter(o => !args.p_after || o > args.p_after).slice(0, args.p_limit)
+        return { data: list.map(o => ({ owner_user_id: o })), error: null }
       }
-      if (name === 'companies_resync') return resyncError ? { data: null, error: resyncError } : { data: resyncResult, error: null }
+      if (name === 'companies_mismatch_for') return { data: left[args.p_owner] || [], error: null }
+      if (name === 'companies_resync_for') {
+        const n = (left[args.p_owner] || []).length
+        if (fixable[args.p_owner] !== false) delete left[args.p_owner]
+        return { data: n, error: null }
+      }
       throw new Error('okänd rpc ' + name)
     },
     from(table) {
-      const filters = {}
       const q = {
         select: () => q,
-        eq: (k, v) => { filters[k] = v; return q },
-        gte: (k, v) => { filters[k] = v; calls.push({ table, filters }); return Promise.resolve(countError ? { count: null, error: countError } : { count: failures, error: null }) },
+        eq: () => q,
+        gte: () => Promise.resolve({ count: failures, error: null }),
+        maybeSingle: async () => ({ data: store.progress ? { cursor_value: JSON.stringify(store.progress) } : null, error: null }),
+        upsert: async (row) => { if (table === 'cron_progress') store.progress = JSON.parse(row.cursor_value); return { error: null } },
       }
       return q
     },
   }
 }
 
-const diff = (i, reason = 'olika') => ({ owner_user_id: `u${i}`, legacy_key: `c${i}`, reason })
+const id = (n) => `00000000-0000-4000-a000-${String(n).padStart(12, '0')}`
+const diff = (o, reason = 'olika') => [{ owner_user_id: o, legacy_key: 'k', reason }]
+const SATURDAY = Date.parse('2026-10-24T02:30:00Z')
+const SUNDAY = Date.parse('2026-10-25T02:30:00Z')
 
 describe('checkCompanyCopy', () => {
-  it('inget larm och ingen rättning när allt stämmer', async () => {
-    const admin = makeAdmin()
-    const r = await checkCompanyCopy(admin)
-    expect(r).toEqual({ skipped: false, mismatched: 0, resynced: 0, syncFailures: 0, detail: null, alert: false })
-    expect(admin.calls).not.toContain('companies_resync')
+  it('allt stämmer: inget larm, genomgången klar och sparad', async () => {
+    const admin = makeAdmin({ owners: [id(1), id(2)] })
+    const r = await checkCompanyCopy(admin, { now: SATURDAY })
+    expect(r).toMatchObject({ checked: 2, complete: true, mismatched: 0, resynced: 0, alert: false, detail: null })
+    expect(admin.store.progress).toEqual({ after: null, lastPassStart: new Date(SATURDAY).toISOString() })
+    expect(admin.store.calls.some(c => c.name === 'companies_resync_for')).toBe(false)
   })
 
-  it('rättar och larmar om att något behövde rättas', async () => {
-    const admin = makeAdmin({ mismatchRuns: [[diff(1)], []], resyncResult: 1 })
-    const r = await checkCompanyCopy(admin)
-    expect(admin.calls.filter(c => c === 'companies_mismatch')).toHaveLength(2)
-    expect(r).toMatchObject({ mismatched: 0, resynced: 1, alert: true })
+  it('första gången (ingen sparad genomgång): alla konton', async () => {
+    const admin = makeAdmin({ owners: [id(1)] })
+    const r = await checkCompanyCopy(admin, { now: SATURDAY })
+    expect(r.full).toBe(true)
+    expect(admin.store.calls[0].args.p_since).toBeNull()
+  })
+
+  it('vanlig natt: bara konton ändrade sedan förra genomgången', async () => {
+    const admin = makeAdmin({ owners: [id(1)], progress: { after: null, lastPassStart: '2026-10-23T02:30:00.000Z' } })
+    await checkCompanyCopy(admin, { now: SATURDAY })
+    expect(admin.store.calls[0].args.p_since).toBe('2026-10-23T02:30:00.000Z')
+  })
+
+  it('söndag: alla konton, även om förra genomgången finns', async () => {
+    const admin = makeAdmin({ owners: [id(1)], progress: { after: null, lastPassStart: '2026-10-24T02:30:00.000Z' } })
+    const r = await checkCompanyCopy(admin, { now: SUNDAY })
+    expect(r.full).toBe(true)
+    expect(admin.store.calls[0].args.p_since).toBeNull()
+  })
+
+  it('rättar ett konto som skiljer sig, och larmar om att det behövdes', async () => {
+    const admin = makeAdmin({ owners: [id(1), id(2)], diffs: { [id(2)]: diff(id(2)) } })
+    const r = await checkCompanyCopy(admin, { now: SATURDAY })
+    expect(r).toMatchObject({ resynced: 1, mismatched: 0, alert: true })
     expect(r.detail).toContain('1 rättade automatiskt')
   })
 
-  it('beskriver det som fortfarande skiljer efter rättningen', async () => {
-    const r = await checkCompanyCopy(makeAdmin({ mismatchRuns: [[diff(1), diff(2)], [diff(2, 'saknas_i_tabellerna')]], resyncResult: 2 }))
+  it('det som inte går att rätta beskrivs i larmet', async () => {
+    const admin = makeAdmin({ owners: [id(1)], diffs: { [id(1)]: diff(id(1), 'saknas_i_tabellerna') }, fixable: { [id(1)]: false } })
+    const r = await checkCompanyCopy(admin, { now: SATURDAY })
     expect(r.mismatched).toBe(1)
-    expect(r.detail).toContain('u2/c2: saknas_i_tabellerna')
-    expect(r.alert).toBe(true)
+    expect(r.detail).toContain(`${id(1)}/k: saknas_i_tabellerna`)
+  })
+
+  it('hinner inte klart: sparar var den var och fortsätter nästa natt där', async () => {
+    const owners = Array.from({ length: 5 }, (_, i) => id(i + 1))
+    const admin = makeAdmin({ owners })
+    let calls = 0
+    const r1 = await checkCompanyCopy({ ...admin, rpc: async (n, a) => { if (n === 'companies_mismatch_for' && ++calls > 2) await new Promise(res => setTimeout(res, 30)); return admin.rpc(n, a) } }, { now: SATURDAY, deadline: Date.now() + 40 })
+    expect(r1.complete).toBe(false)
+    expect(admin.store.progress.after).toBeTruthy()
+    const resumeAfter = admin.store.progress.after
+    const r2 = await checkCompanyCopy(admin, { now: SATURDAY + DAY })
+    expect(r2.complete).toBe(true)
+    expect(admin.store.calls.filter(c => c.name === 'companies_owners_to_check').at(-1).args.p_after).toBe(resumeAfter)
+    expect(r1.checked + r2.checked).toBe(5)
   })
 
   it('räknar misslyckade speglingar det senaste dygnet', async () => {
-    const now = Date.parse('2026-10-26T02:00:00Z')
-    const admin = makeAdmin({ failures: 3 })
-    const r = await checkCompanyCopy(admin, { now })
+    const r = await checkCompanyCopy(makeAdmin({ owners: [id(1)], failures: 3 }), { now: SATURDAY })
     expect(r).toMatchObject({ syncFailures: 3, alert: true })
-    const countCall = admin.calls.find(c => c.table === 'system_events')
-    expect(countCall.filters).toEqual({ kind: 'company_sync_failed', created_at: '2026-10-25T02:00:00.000Z' })
   })
 
-  it('visar högst fem företag', async () => {
-    const many = Array.from({ length: 8 }, (_, i) => diff(i))
-    const r = await checkCompanyCopy(makeAdmin({ mismatchRuns: [many, many], resyncResult: 8 }))
-    expect(r.detail).toContain('8 företag skiljer sig')
-    expect(r.detail).toContain('u4/c4')
-    expect(r.detail).not.toContain('u5/c5')
+  it('SQL:en inte körd: hoppar över tyst', async () => {
+    expect(await checkCompanyCopy(makeAdmin({ missing: true }), { now: SATURDAY })).toEqual({ skipped: true })
   })
 
-  it('hoppar över tyst när SQL:en inte är körd', async () => {
-    const r = await checkCompanyCopy(makeAdmin({ rpcError: { code: 'PGRST202', message: 'Could not find the function public.companies_mismatch' } }))
-    expect(r).toEqual({ skipped: true })
-  })
-
-  it('kastar vid andra fel så att nattkörningen larmar', async () => {
-    await expect(checkCompanyCopy(makeAdmin({ rpcError: { code: '57014', message: 'timeout' } }))).rejects.toThrow('timeout')
-    await expect(checkCompanyCopy(makeAdmin({ mismatchRuns: [[diff(1)]], resyncError: { message: 'låst' } }))).rejects.toThrow('låst')
-    await expect(checkCompanyCopy(makeAdmin({ countError: { message: 'nere' } }))).rejects.toThrow('nere')
+  it('andra fel kastas så att jobbet larmar', async () => {
+    await expect(checkCompanyCopy(makeAdmin({ ownerError: { code: '57014', message: 'timeout' } }), { now: SATURDAY })).rejects.toThrow('timeout')
   })
 })
+
+const DAY = 24 * 60 * 60 * 1000

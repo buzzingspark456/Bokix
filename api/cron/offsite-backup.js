@@ -8,7 +8,6 @@ import { createClient } from '@supabase/supabase-js';
 import { applySecurityHeaders } from '../_security.js';
 import { logSystemEvent } from '../_systemEvents.js';
 import { readBackupConfig, createOffsiteStore, runOffsiteBackup } from '../_offsiteBackup.js';
-import { checkCompanyCopy } from '../_companyCopy.js';
 import { withSentry } from '../_sentry.js';
 
 function isAuthorized(req) {
@@ -50,16 +49,7 @@ async function handler(req, res) {
       // så att en körning som slutat helt (inget fel loggas då) också märks.
       await logSystemEvent('backup_ok', `Databas ${Math.round(summary.dbBytes / 1024)} kB, ${summary.filesCopied} nya filer, ${summary.filesPending} kvar till nästa natt`);
     }
-    // Skuggkopian i companies/company_records (_companyCopy.js): jämför,
-    // rättar och larmar. Eget try så att kontrollen aldrig ändrar kopians
-    // resultat.
-    try {
-      const check = await checkCompanyCopy(admin);
-      if (check.alert) await logSystemEvent('company_mismatch', check.detail);
-      summary.companyCopy = check;
-    } catch (checkError) {
-      await logSystemEvent('company_mismatch', `Kontrollen kunde inte köras: ${checkError?.message || checkError}`);
-    }
+    // Kontrollen av företagstabellerna har ett eget nattjobb (cron/company-copy.js).
     // Lyckade skuggläsningar (/api/client-error, en per konto och dygn) är
     // mätdata, inte fel; de behövs inte längre än en månad.
     await admin.from('system_events').delete().eq('kind', 'shadow_read')

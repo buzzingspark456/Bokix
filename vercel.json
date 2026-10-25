@@ -1,6 +1,8 @@
 {
   "trailingSlash": false,
-  "regions": ["arn1"],
+  "regions": [
+    "arn1"
+  ],
   "crons": [
     {
       "path": "/api/cron/offsite-backup",
@@ -13,6 +15,10 @@
     {
       "path": "/api/cron/status-check",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/company-copy",
+      "schedule": "30 2 * * *"
     }
   ],
   "rewrites": [
@@ -471,6 +477,9 @@
       "maxDuration": 300
     },
     "api/cron/reminders.js": {
+      "maxDuration": 300
+    },
+    "api/cron/company-copy.js": {
       "maxDuration": 300
     }
   }

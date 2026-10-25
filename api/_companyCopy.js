@@ -1,43 +1,82 @@
 // Nattlig kontroll av skuggkopian i companies/company_records
-// (supabase-2026-10-25-foretag-och-poster.sql). Blobben är fortfarande
-// sanningen; tabellerna ska vara en exakt kopia av den.
+// (supabase-2026-10-25-foretag-och-poster.sql). Körs av
+// api/cron/company-copy.js.
 //
-// Ordning: jämför. Skiljer något körs companies_resync(), som speglar om de
-// företagen, och sedan jämförs igen. Larm (company_mismatch) går ut om något
-// fortfarande skiljer, eller om speglingen har misslyckats det senaste
-// dygnet (triggern loggar company_sync_failed direkt i system_events, utan
-// mejl, så de räknas här). Rättade företag syns i detaljen; en rättning
-// betyder att speglingen missade något, och det ska vi få veta.
+// Ett konto i taget (supabase-2026-10-25-jamforelse-per-konto.sql), så att
+// kontrollen håller även med tusentals kunder: först jämförs kontot; skiljer
+// något körs companies_resync_for(), sedan jämförs igen. Bara konton som
+// ändrats sedan förra genomgången kontrolleras, och alla en gång i veckan
+// (söndag). Hinner den inte klart fortsätter nästa natt där den slutade
+// (cron_progress 'company_copy').
+//
+// Larm (company_mismatch) går ut om något fortfarande skiljer, om något
+// behövde rättas (då missade speglingen något), eller om speglingen har
+// misslyckats det senaste dygnet (triggern loggar company_sync_failed
+// direkt i system_events, utan mejl).
 //
 // Är SQL:en inte körd än (funktionerna saknas) görs ingenting.
 
 const DAY = 24 * 60 * 60 * 1000;
+const PAGE = 200;
+const PROGRESS_ID = 'company_copy';
 
 function isMissingFunction(error) {
-  return error?.code === 'PGRST202' || /companies_mismatch|companies_resync/i.test(error?.message || '');
+  return error?.code === 'PGRST202' || /companies_(mismatch_for|resync_for|owners_to_check)/i.test(error?.message || '');
 }
 
-async function mismatches(admin) {
-  const { data, error } = await admin.rpc('companies_mismatch');
-  if (error) {
-    if (isMissingFunction(error)) return null;
-    throw new Error(`companies_mismatch: ${error.message}`);
-  }
-  return Array.isArray(data) ? data : [];
+async function readProgress(admin) {
+  const { data } = await admin.from('cron_progress').select('cursor_value').eq('id', PROGRESS_ID).maybeSingle();
+  try { return data?.cursor_value ? JSON.parse(data.cursor_value) : null; } catch { return null; }
 }
 
-export async function checkCompanyCopy(admin, { now = Date.now() } = {}) {
-  const first = await mismatches(admin);
-  if (first === null) return { skipped: true };
+async function writeProgress(admin, value) {
+  await admin.from('cron_progress').upsert({ id: PROGRESS_ID, cursor_value: JSON.stringify(value), updated_at: new Date().toISOString() }, { onConflict: 'id' });
+}
 
+/**
+ * Går igenom kontona till deadline. Ger en sammanfattning med detail och
+ * alert (se ovan), eller { skipped: true } om SQL:en saknas.
+ */
+export async function checkCompanyCopy(admin, { now = Date.now(), deadline = Infinity } = {}) {
+  const saved = await readProgress(admin);
+  // Pågående genomgång fortsätter; annars en ny: alla på söndagar, annars
+  // de som ändrats sedan förra genomgången började.
+  const fullWeekly = new Date(now).getUTCDay() === 0;
+  const pass = saved?.after
+    ? saved
+    : { since: fullWeekly ? null : (saved?.lastPassStart || null), after: null, passStart: new Date(now).toISOString(), lastPassStart: saved?.lastPassStart || null };
+
+  let checked = 0;
   let resynced = 0;
-  let remaining = first;
-  if (first.length) {
-    const { data, error } = await admin.rpc('companies_resync');
-    if (error) throw new Error(`companies_resync: ${error.message}`);
-    resynced = Number(data) || 0;
-    remaining = (await mismatches(admin)) || [];
+  const remaining = [];
+  let done = false;
+  for (;;) {
+    if (Date.now() > deadline) break;
+    const { data: owners, error } = await admin.rpc('companies_owners_to_check', { p_since: pass.since, p_after: pass.after, p_limit: PAGE });
+    if (error) {
+      if (isMissingFunction(error)) return { skipped: true };
+      throw new Error(`companies_owners_to_check: ${error.message}`);
+    }
+    for (const { owner_user_id: owner } of owners || []) {
+      if (Date.now() > deadline) break;
+      const first = await admin.rpc('companies_mismatch_for', { p_owner: owner });
+      if (first.error) throw new Error(`companies_mismatch_for: ${first.error.message}`);
+      if ((first.data || []).length) {
+        const fix = await admin.rpc('companies_resync_for', { p_owner: owner });
+        if (fix.error) throw new Error(`companies_resync_for: ${fix.error.message}`);
+        resynced += Number(fix.data) || 0;
+        const again = await admin.rpc('companies_mismatch_for', { p_owner: owner });
+        if (again.error) throw new Error(`companies_mismatch_for: ${again.error.message}`);
+        remaining.push(...(again.data || []));
+      }
+      checked++;
+      pass.after = owner;
+    }
+    if (!owners || owners.length < PAGE) { done = Date.now() <= deadline || !owners?.length; break; }
   }
+  await writeProgress(admin, done
+    ? { after: null, lastPassStart: pass.passStart }
+    : pass);
 
   const { count, error: countError } = await admin
     .from('system_events')
@@ -56,11 +95,13 @@ export async function checkCompanyCopy(admin, { now = Date.now() } = {}) {
   }
   return {
     skipped: false,
+    checked,
+    complete: done,
+    full: pass.since === null,
     mismatched: remaining.length,
     resynced,
     syncFailures,
     detail,
-    // Larma bara när något faktiskt är fel eller har gått fel.
     alert: remaining.length > 0 || syncFailures > 0 || resynced > 0,
   };
 }
