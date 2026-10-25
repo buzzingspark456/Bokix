@@ -442,6 +442,7 @@ import { maybeAutoStartTour, startProductTourWhenReady } from './utils/productTo
 import { startInvoiceTourWhenReady } from './utils/invoiceTour';
 import { mergeCompanies, mergeCompany, makeRecordPatch, buildStateDelta } from './utils/stateMerge';
 import { readServerState, rememberServerState, isCacheUsable, noteCachedAt, clearServerState } from './utils/serverStateCache';
+import { shadowReadDue, scheduleShadowRead } from './utils/shadowRead';
 
 // Fallback under den enda <Suspense> som omsluter App-komponentens JSX (se
 // return-satsen längre ner) — visas bara under den korta stund en lazy-flik
@@ -2684,6 +2685,11 @@ function App() {
           baseCompanies: resultData.updated_at ? structuredClone(resultData.state.companies || {}) : null,
           baseSnapshot: resultData.updated_at ? resultData.state : null,
         };
+        // Skuggläsningen (utils/shadowRead.js) jämför blobben precis som den
+        // laddades, så den kopieras innan normalizeStore och taggningen nedan.
+        if (shadowReadDue(authUser.id)) {
+          scheduleShadowRead(supabase, { userId: authUser.id, state: structuredClone(resultData.state), updatedAt: resultData.updated_at || null });
+        }
         // normalizeStore: samma engångsmigrering av offerter/fakturor som
         // loadData() kör för localStorage-vägen — måste köras här också,
         // annars stannar ett Supabase-konto kvar på den gamla delade listan

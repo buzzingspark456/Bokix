@@ -19,6 +19,8 @@ const ALERT_KINDS = new Set([
   'backup_stale',
   'retention_failed',
   'company_mismatch',
+  'shadow_read_mismatch',
+  'shadow_read_failed',
 ]);
 
 const ALERT_LABELS = {
@@ -32,6 +34,8 @@ const ALERT_LABELS = {
   backup_stale: 'Ingen lyckad säkerhetskopia det senaste dygnet',
   retention_failed: 'Städningen av obetalda konton misslyckades',
   company_mismatch: 'Företagstabellerna stämmer inte med blobben',
+  shadow_read_mismatch: 'Skuggläsningen: tabellerna skilde sig från blobben i appen',
+  shadow_read_failed: 'Skuggläsningen: appen kunde inte läsa de nya tabellerna',
 };
 
 // Högst ett larmmejl per sorts händelse och timme, räknat i den delade

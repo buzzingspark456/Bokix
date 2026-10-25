@@ -55,6 +55,20 @@ async function handler(req, res) {
   // Bara sökvägen, aldrig query-strängen eller hash (kan innehålla tokens).
   const path = clip(body?.path, 200).split(/[?#]/)[0];
 
+  // Skuggläsningen (src/utils/shadowRead.js): tider, antal och vilka listor
+  // som skilde sig när appen läste företagen ur de nya tabellerna. Aldrig
+  // innehåll. Lyckad läsning loggas tyst; skillnad eller fel larmar.
+  if (body?.source === 'shadow') {
+    const summary = body?.summary && typeof body.summary === 'object' ? body.summary : {};
+    const userId = /^[0-9a-f-]{36}$/i.test(String(body?.userId || '')) ? body.userId : 'okänt';
+    const kind = summary.error ? 'shadow_read_failed' : Number(summary.mismatched) > 0 ? 'shadow_read_mismatch' : 'shadow_read';
+    let detail;
+    try { detail = clip(JSON.stringify(summary), 1500); } catch { detail = '?'; }
+    await logSystemEvent(kind, `Konto: ${userId}\n${detail}\n${clip(req.headers['user-agent'], 160)}`);
+    res.status(204).end();
+    return;
+  }
+
   // Kvittoläsningen (reportOcrError i src/utils/errorReporting.js): egen
   // sort i Systemstatus, inget larmmejl. Konto-id:t kommer från webbläsaren
   // och är bara en ledtråd, inget som går att lita på.
