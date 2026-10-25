@@ -40,6 +40,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // system_events (driftloggar) hoppas medvetet över.
 export const TABLES = [
   'user_data', 'user_data_history', 'subscriptions', 'company_members', 'email_senders',
+  // Vilket läge varje konto är i (blob eller tabeller, supabase-2026-10-25-steg-4a.sql).
+  'storage_modes',
   'stripe_payment_events', 'stripe_ledger_events', 'zettle_ledger_events',
   'audit_log', 'contact_messages', 'cron_progress',
   'inbox_addresses', 'inbox_items', 'login_events', 'security_events',

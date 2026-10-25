@@ -443,6 +443,8 @@ import { startInvoiceTourWhenReady } from './utils/invoiceTour';
 import { mergeCompanies, mergeCompany, makeRecordPatch, buildStateDelta } from './utils/stateMerge';
 import { readServerState, rememberServerState, isCacheUsable, noteCachedAt, clearServerState } from './utils/serverStateCache';
 import { shadowReadDue, scheduleShadowRead } from './utils/shadowRead';
+import { loadFromTables, saveToTables } from './utils/tableStore';
+import { reportClientError } from './utils/errorReporting';
 
 // Fallback under den enda <Suspense> som omsluter App-komponentens JSX (se
 // return-satsen längre ner) — visas bara under den korta stund en lazy-flik
@@ -2084,6 +2086,11 @@ function App() {
   // Finns databasfunktionen apply_user_data_delta (supabase-2026-10-17-
   // delta-sparning.sql)? Saknas den sparas hela kontot som förut.
   const deltaSupportedRef = useRef(true);
+  // Tabelläget (utils/tableStore.js): satt vid inloggningen om kontot läses
+  // ur tabellerna. versionsRef: vilken version appen har sett av varje post
+  // och företagsrad, för krockkontrollen i save_company_changes.
+  const tablesModeRef = useRef(false);
+  const versionsRef = useRef(null);
   // Skickar bara ändringarna sedan förra synken. true = sparat, null = någon
   // annan har skrivit emellan (slå ihop), false = gick inte (spara allt).
   const saveDelta = async (ref, snapshot, companies) => {
@@ -2092,6 +2099,20 @@ function App() {
     try { ops = buildStateDelta(ref.baseSnapshot, ref.baseCompanies, snapshot, companies); } catch { return false; }
     if (!ops) return false;
     if (ops.length === 0) return true;
+    if (tablesModeRef.current && versionsRef.current) {
+      const saved = await saveToTables(supabase, ops, versionsRef.current);
+      if (saved.conflicts) return null;
+      if (saved.error) {
+        // Kontot är inte längre i tabelläget (satt tillbaka av servern):
+        // resten av sessionen sparas som förut.
+        if (/not in tables mode/i.test(saved.error.message || '')) tablesModeRef.current = false;
+        else console.warn('Sparning via tabellerna misslyckades, sparar allt:', saved.error.message || saved.error);
+        return false;
+      }
+      versionsRef.current = saved.versions;
+      ref.updatedAt = saved.updatedAt;
+      return true;
+    }
     const { data: newUpdatedAt, error } = await supabase.rpc('apply_user_data_delta', { p_expected_updated_at: ref.updatedAt, p_ops: ops });
     if (error) {
       // PGRST202 = funktionen finns inte (SQL:en är inte körd än).
@@ -2142,6 +2163,19 @@ function App() {
           // Först bara ändringarna (några kB i stället för hela kontot).
           const delta = await saveDelta(ref, snapshot, companies);
           if (delta === true) { done(companies); return; }
+          if (delta === null && tablesModeRef.current) {
+            // Krock i tabelläget: det färska ur tabellerna (med versioner),
+            // sedan samma sammanslagning post för post som nedan.
+            let fresh;
+            try { fresh = await loadFromTables(supabase); } catch { break; }
+            const serverCompanies = fresh.state.companies || {};
+            companies = mergeCompanies(ref.baseCompanies, companies, serverCompanies);
+            ref.baseCompanies = serverCompanies;
+            ref.baseSnapshot = fresh.state;
+            ref.updatedAt = fresh.updatedAt;
+            versionsRef.current = fresh.versions;
+            continue;
+          }
           if (delta === null) {
             const { data: fresh, error: freshError } = await supabase
               .from('user_data')
@@ -2467,6 +2501,14 @@ function App() {
         .maybeSingle()
         .then(r => r);
       const cachedServerStatePromise = readServerState(authUser.id).catch(() => null);
+      // Tabelläget (utils/tableStore.js, steg 4a): bara konton som servern har
+      // satt i 'tables'. Saknas tabellen (SQL:en inte körd) eller raden gäller
+      // blobben, som förut.
+      const storageModePromise = supabase.from('storage_modes').select('mode').eq('user_id', authUser.id).maybeSingle()
+        .then(r => (r.error ? null : r.data?.mode || null), () => null);
+      // Varje inloggning börjar i blobläget; tabelläget sätts nedan om det gäller.
+      tablesModeRef.current = false;
+      versionsRef.current = null;
       const ownedMembershipsPromise = supabase.from('company_members').select('company_id').eq('owner_user_id', authUser.id).eq('status', 'active').then(r => r);
       const firstSubscriptionsPromise = supabase
         .from('subscriptions')
@@ -2659,7 +2701,19 @@ function App() {
         if (resultData?.state && resultData.updated_at) rememberServerState(authUser.id, resultData.updated_at, resultData.state, { fullFetch: true });
       } else {
         setDbSupportsProfileColumns(true);
-        if (resultData) {
+        // Tabelläget: företagen ur tabellerna (ett anrop, med en version per
+        // post för krockkontrollen). Går det inte läses blobben som förut.
+        if (resultData && (await storageModePromise) === 'tables') {
+          try {
+            const loaded = await loadFromTables(supabase);
+            resultData = { ...resultData, state: loaded.state, updated_at: loaded.updatedAt || resultData.updated_at };
+            versionsRef.current = loaded.versions;
+            tablesModeRef.current = true;
+          } catch (err) {
+            reportClientError(new Error(`Tabelläget: kunde inte läsa, använder blobben (${err?.message || err})`), 'tables');
+          }
+        }
+        if (resultData && !tablesModeRef.current) {
           const cached = await cachedServerStatePromise;
           if (isCacheUsable(cached, authUser.id, resultData.updated_at)) {
             resultData = { ...resultData, state: cached.state };
@@ -2687,7 +2741,8 @@ function App() {
         };
         // Skuggläsningen (utils/shadowRead.js) jämför blobben precis som den
         // laddades, så den kopieras innan normalizeStore och taggningen nedan.
-        if (shadowReadDue(authUser.id)) {
+        // I tabelläget är det redan tabellerna som laddats; inget att jämföra.
+        if (!tablesModeRef.current && shadowReadDue(authUser.id)) {
           scheduleShadowRead(supabase, { userId: authUser.id, state: structuredClone(resultData.state), updatedAt: resultData.updated_at || null });
         }
         // normalizeStore: samma engångsmigrering av offerter/fakturor som

@@ -107,6 +107,8 @@ CREATE TABLE IF NOT EXISTS public.companies (
   UNIQUE (owner_user_id, legacy_key)
 );
 CREATE INDEX IF NOT EXISTS companies_legacy_company_id ON public.companies (legacy_company_id);
+-- Krockkontrollen för företagsraden (steg 4a, supabase-2026-10-25-steg-4a.sql).
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS version bigint NOT NULL DEFAULT 1;
 
 CREATE TABLE IF NOT EXISTS public.company_records (
   company_id uuid NOT NULL REFERENCES public.companies (id) ON DELETE CASCADE,
@@ -245,7 +247,7 @@ BEGIN
   ON CONFLICT (owner_user_id, legacy_key) DO UPDATE
     SET legacy_company_id = EXCLUDED.legacy_company_id, settings = EXCLUDED.settings,
         accounts = EXCLUDED.accounts, extra = EXCLUDED.extra, list_fields = EXCLUDED.list_fields,
-        deleted_at = NULL, updated_at = now()
+        version = c.version + 1, deleted_at = NULL, updated_at = now()
   RETURNING id INTO v_id;
   RETURN v_id;
 END;

@@ -215,3 +215,41 @@ describe('renumberVerificationCollisions (två som bokför samtidigt)', () => {
     expect(byId).toEqual({ a1: 'A001', theirs: 'A002', mine: 'A003' })
   })
 })
+
+describe('mergeField: objekt som ändrats på båda håll', () => {
+  it('slås ihop fält för fält (F-skatten här, telefonnumret på en annan enhet)', () => {
+    const base = { name: 'AB', fSkatt: 'gammal', phone: '1' }
+    const local = { ...base, fSkatt: 'Godkänd för F-skatt' }
+    const server = { ...base, phone: '2' }
+    expect(mergeField(base, local, server)).toEqual({ name: 'AB', fSkatt: 'Godkänd för F-skatt', phone: '2' })
+  })
+
+  it('samma fält ändrat på båda håll: det lokala vinner, som förut', () => {
+    expect(mergeField({ city: 'A' }, { city: 'B' }, { city: 'C' })).toEqual({ city: 'B' })
+  })
+
+  it('nästlat: påminnelse-cronens markering försvinner inte när kunden ändrar inställningar', () => {
+    const base = { notifications: { enabled: true, agiRemindersSent: {} }, email: 'a@b.se' }
+    const local = { ...base, email: 'ny@b.se' }
+    const server = { ...base, notifications: { enabled: true, agiRemindersSent: { '2026-10': true } } }
+    expect(mergeField(base, local, server)).toEqual({ notifications: { enabled: true, agiRemindersSent: { '2026-10': true } }, email: 'ny@b.se' })
+  })
+
+  it('borttaget fält här tas bort, nytt fält på servern kommer med', () => {
+    const base = { a: 1, b: 2 }
+    const local = { a: 1 }
+    const server = { a: 1, b: 2, c: 3 }
+    expect(mergeField(base, local, server)).toEqual({ a: 1, c: 3 })
+  })
+
+  it('listor i objektet slås ihop post för post', () => {
+    const base = { bankAccounts: [{ id: 'x', name: 'X' }] }
+    const local = { bankAccounts: [{ id: 'x', name: 'X' }, { id: 'y', name: 'Y' }] }
+    const server = { bankAccounts: [{ id: 'x', name: 'X2' }] }
+    expect(mergeField(base, local, server)).toEqual({ bankAccounts: [{ id: 'x', name: 'X2' }, { id: 'y', name: 'Y' }] })
+  })
+
+  it('inget objekt i basen: fortfarande fält för fält', () => {
+    expect(mergeField(undefined, { a: 1 }, { b: 2 })).toEqual({ a: 1, b: 2 })
+  })
+})

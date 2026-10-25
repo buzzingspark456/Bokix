@@ -182,3 +182,16 @@ describe('RECORD_KINDS', () => {
     expect(kinds).toEqual(RECORD_KINDS)
   })
 })
+
+describe('SQL-filerna hålls i takt', () => {
+  it('refresh_company_row är identisk i foretag-och-poster.sql och steg-4a.sql', async () => {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const grab = (file) => {
+      const sql = fs.readFileSync(path.resolve(import.meta.dirname, '../../' + file), 'utf8').replace(/\r/g, '')
+      const start = sql.indexOf('CREATE OR REPLACE FUNCTION private.refresh_company_row')
+      return sql.slice(start, sql.indexOf('$$;', start))
+    }
+    expect(grab('supabase-2026-10-25-steg-4a.sql')).toEqual(grab('supabase-2026-10-25-foretag-och-poster.sql'))
+  })
+})

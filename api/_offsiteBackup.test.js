@@ -188,4 +188,20 @@ describe('TABLES täcker databasen', () => {
     const missing = [...created].filter(t => !TABLES.includes(t) && !SKIPPED.has(t))
     expect(missing, `Lägg till i TABLES (api/_offsiteBackup.js) eller i SKIPPED: ${missing.join(', ')}`).toEqual([])
   })
+
+  // Kopian läser varje tabell sorterad på id (forEachPage). En tabell utan
+  // id-kolumn får hela nattkopian att fallera.
+  it('varje tabell i nattkopian har en id-kolumn', async () => {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const { TABLES } = await import('./_offsiteBackup.js')
+    const root = path.resolve(import.meta.dirname, '..')
+    const sql = fs.readdirSync(root).filter(f => /^supabase-.*\.sql$/.test(f)).map(f => fs.readFileSync(path.join(root, f), 'utf8')).join('\n')
+    const withoutId = TABLES.filter((t) => {
+      const create = new RegExp(`create\\s+table\\s+(?:if\\s+not\\s+exists\\s+)?public\\.${t}\\s*\\(([\\s\\S]*?)\\n\\);`, 'i').exec(sql)?.[1] || ''
+      const added = new RegExp(`alter\\s+table\\s+public\\.${t}\\s+add\\s+column\\s+(?:if\\s+not\\s+exists\\s+)?id\\s`, 'i').test(sql)
+      return !/^\s*id\s/m.test(create) && !added
+    })
+    expect(withoutId, `Saknar id-kolumn: ${withoutId.join(', ')}`).toEqual([])
+  })
 })

@@ -63,11 +63,29 @@ export function renumberVerificationCollisions(list, savedList) {
   return out;
 }
 
+const isPlainObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+// Ett objekt som ändrats på båda håll (t.ex. företagsuppgifterna: kunden
+// ändrar F-skatten här medan en annan enhet ändrar telefonnumret, eller
+// påminnelse-cronen markerar en skickad påminnelse) slås ihop fält för fält.
+// Förut vann hela det lokala objektet och den andras ändring försvann.
+function mergeObjects(base, local, server) {
+  const out = {};
+  for (const key of new Set([...Object.keys(base || {}), ...Object.keys(local), ...Object.keys(server)])) {
+    const v = mergeField(base?.[key], local[key], server[key]);
+    if (v !== undefined) out[key] = v;
+  }
+  return out;
+}
+
 export function mergeField(base, local, server) {
   if (same(local, base)) return server;
   if (same(server, base)) return local;
   if (isRecordList(local) && isRecordList(server) && (base == null || isRecordList(base))) {
     return mergeRecordLists(base, local, server);
+  }
+  if (isPlainObj(local) && isPlainObj(server) && (base == null || isPlainObj(base))) {
+    return mergeObjects(base, local, server);
   }
   return local;
 }
