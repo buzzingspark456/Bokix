@@ -15,6 +15,9 @@
 import { loadCompanyFromTables, compareCompany, listOrder, RECORD_KINDS } from './companyTables.js';
 
 const ONCE_PER_MS = 24 * 60 * 60 * 1000;
+// Avstod läsningen (kontot sparades under tiden, vanligt strax efter
+// inloggningen) görs ett nytt försök tidigast så här mycket senare.
+const RETRY_MS = 60 * 60 * 1000;
 const DELAY_MS = 8000;
 const MAX_COMPANIES = 5;
 // Mer än så hämtas inte i bakgrunden (ett stort företag är flera MB).
@@ -39,6 +42,18 @@ function dueFor(userId, now) {
 function markDone(userId, now) {
   try { localStorage.setItem(storageKey(userId), String(now)); } catch { /* se dueFor */ }
 }
+
+/**
+ * När nästa läsning tidigast får ske, räknat som "senast klar"-tidpunkten
+ * dueFor jämför med: en rapport (lika, skillnad eller fel) ger ett dygn, en
+ * läsning som avstod en timme.
+ */
+export function nextMark(summary, now) {
+  return summary?.skipped ? now - ONCE_PER_MS + RETRY_MS : now;
+}
+
+// En läsning åt gången per sida.
+let running = false;
 
 /**
  * Själva läsningen och jämförelsen, utan tidsstyrning (testbar).
@@ -86,14 +101,22 @@ function report(userId, summary) {
 /** Anropas när inloggningen laddat klart. Gör inget om det inte är dags. */
 export function scheduleShadowRead(supabase, { userId, state, updatedAt }) {
   try {
-    if (!import.meta.env.PROD || !supabase || !userId || !state) return;
-    const now = Date.now();
-    if (!dueFor(userId, now)) return;
-    markDone(userId, now);
+    if (!import.meta.env.PROD || !supabase || !userId || !state || running) return;
+    if (!dueFor(userId, Date.now())) return;
+    running = true;
+    // Dagen räknas som klar först när en rapport har gått iväg (nextMark), så
+    // att en läsning som avstod eller en flik som stängdes försöker igen.
     setTimeout(() => {
       const run = () => runShadowRead(supabase, { userId, state, updatedAt })
-        .then(summary => { if (!summary.skipped) report(userId, summary); })
-        .catch(error => report(userId, { error: String(error?.message || error).slice(0, 200), mismatched: 0 }));
+        .then(summary => {
+          markDone(userId, nextMark(summary, Date.now()));
+          if (!summary.skipped) report(userId, summary);
+        })
+        .catch(error => {
+          markDone(userId, Date.now());
+          report(userId, { error: String(error?.message || error).slice(0, 200), mismatched: 0 });
+        })
+        .finally(() => { running = false; });
       if (typeof window !== 'undefined' && 'requestIdleCallback' in window) window.requestIdleCallback(run, { timeout: 10000 });
       else run();
     }, DELAY_MS);

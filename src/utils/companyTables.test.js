@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildCompany, compareCompany, sameJson, listOrder, loadCompanyFromTables, PAGE_SIZE, RECORD_KINDS } from './companyTables.js'
-import { runShadowRead } from './shadowRead.js'
+import { runShadowRead, nextMark } from './shadowRead.js'
 
 const v = (id, extra = {}) => ({ id, date: '2026-10-01', rows: [], ...extra })
 
@@ -140,6 +140,19 @@ describe('runShadowRead', () => {
   it('hoppar över om blobben ändrades under läsningen', async () => {
     const r = await runShadowRead(fakeSupabase({ companies: [companyRow], records: recs, updatedAt: 't2' }), { userId: 'u1', state, updatedAt: 't1' })
     expect(r).toEqual({ skipped: 'ändrad_under_läsningen' })
+  })
+})
+
+describe('nextMark', () => {
+  const now = Date.parse('2026-10-25T12:00:00Z')
+  const DAY = 24 * 60 * 60 * 1000
+  it('en rapport räknas som klar för ett dygn', () => {
+    expect(nextMark({ mismatched: 0 }, now)).toBe(now)
+    expect(nextMark({ error: 'x' }, now)).toBe(now)
+  })
+  it('en läsning som avstod försöker igen om en timme', () => {
+    const mark = nextMark({ skipped: 'ändrad_under_läsningen' }, now)
+    expect(now + 60 * 60 * 1000 - mark).toBe(DAY) // om en timme har ett dygn gått sedan "mark"
   })
 })
 

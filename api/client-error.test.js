@@ -32,6 +32,24 @@ describe('client-error', () => {
     expect(logged[0].detail).toContain('Konto: okänt');
   });
 
+  it('skuggläsning: lika loggas tyst, skillnad och fel får egna sorter', async () => {
+    const uid = 'd1b08949-66f5-4e92-ad06-9dbb3e04c7ef';
+    await run({ source: 'shadow', message: 'ok', userId: uid, summary: { mismatched: 0, records: 197, ms: 150 } });
+    await run({ source: 'shadow', message: 'skillnad', userId: uid, summary: { mismatched: 1, companies: [{ diffs: [{ field: 'verifications', missing: 1 }] }] } });
+    await run({ source: 'shadow', message: 'ok', userId: uid, summary: { error: 'company_records: permission denied', mismatched: 0 } });
+    expect(logged.map(l => l.kind)).toEqual(['shadow_read', 'shadow_read_mismatch', 'shadow_read_failed']);
+    expect(logged[0].detail).toContain(`Konto: ${uid}`);
+    expect(logged[1].detail).toContain('"field":"verifications"');
+    expect(logged[2].detail).toContain('permission denied');
+  });
+
+  it('skuggläsningens rapport kortas och kräver inget meddelande', async () => {
+    const res = await run({ source: 'shadow', userId: 'inte-ett-id', summary: { mismatched: 0, junk: 'x'.repeat(5000) } });
+    expect(res.statusCode).toBe(204);
+    expect(logged[0].detail).toContain('Konto: okänt');
+    expect(logged[0].detail.length).toBeLessThan(1800);
+  });
+
   it('vanliga krascher loggas som förut', async () => {
     await run({ message: 'x is undefined', source: 'boundary', path: '/app' });
     expect(logged[0].kind).toBe('client_error');

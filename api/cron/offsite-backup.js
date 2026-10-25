@@ -60,6 +60,11 @@ async function handler(req, res) {
     } catch (checkError) {
       await logSystemEvent('company_mismatch', `Kontrollen kunde inte köras: ${checkError?.message || checkError}`);
     }
+    // Lyckade skuggläsningar (/api/client-error, en per konto och dygn) är
+    // mätdata, inte fel; de behövs inte längre än en månad.
+    await admin.from('system_events').delete().eq('kind', 'shadow_read')
+      .lt('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+      .then(() => {}, () => {});
     res.status(200).json(summary);
   } catch (error) {
     console.error('Offsite backup error:', error);

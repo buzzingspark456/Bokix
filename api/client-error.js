@@ -41,20 +41,6 @@ async function handler(req, res) {
     return;
   }
 
-  const message = clip(body?.message, 300).trim();
-  if (!message) {
-    res.status(400).json({ error: 'message krävs.' });
-    return;
-  }
-  const stack = clip(body?.stack, 2000);
-  if (NOISE.some(re => re.test(message) || re.test(stack))) {
-    res.status(204).end();
-    return;
-  }
-
-  // Bara sökvägen, aldrig query-strängen eller hash (kan innehålla tokens).
-  const path = clip(body?.path, 200).split(/[?#]/)[0];
-
   // Skuggläsningen (src/utils/shadowRead.js): tider, antal och vilka listor
   // som skilde sig när appen läste företagen ur de nya tabellerna. Aldrig
   // innehåll. Lyckad läsning loggas tyst; skillnad eller fel larmar.
@@ -68,6 +54,20 @@ async function handler(req, res) {
     res.status(204).end();
     return;
   }
+
+  const message = clip(body?.message, 300).trim();
+  if (!message) {
+    res.status(400).json({ error: 'message krävs.' });
+    return;
+  }
+  const stack = clip(body?.stack, 2000);
+  if (NOISE.some(re => re.test(message) || re.test(stack))) {
+    res.status(204).end();
+    return;
+  }
+
+  // Bara sökvägen, aldrig query-strängen eller hash (kan innehålla tokens).
+  const path = clip(body?.path, 200).split(/[?#]/)[0];
 
   // Kvittoläsningen (reportOcrError i src/utils/errorReporting.js): egen
   // sort i Systemstatus, inget larmmejl. Konto-id:t kommer från webbläsaren
