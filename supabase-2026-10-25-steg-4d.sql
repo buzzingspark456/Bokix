@@ -183,6 +183,11 @@ BEGIN
         version = version + 1, updated_at = now()
     WHERE id = v_c.id;
   END LOOP;
+
+  -- Kontots ändringsmarkering: user_data.updated_at (triggern set_updated_at)
+  -- är det appens andra flikar och enheter tittar på för att se att något
+  -- ändrats. Rör inte state, så skyddet och speglingen körs inte.
+  UPDATE public.user_data SET updated_at = now() WHERE user_id = p_user;
 END;
 $$;
 

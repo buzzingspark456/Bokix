@@ -2271,6 +2271,43 @@ function App() {
     try { await run; } finally { if (syncInFlightRef.current === run) syncInFlightRef.current = null; }
   };
 
+  // Hämtar det någon annan sparat i mina egna företag (en inbjuden konsult,
+  // jag själv på en annan enhet) och slår ihop det med det som visas här.
+  // Förut skedde det bara om jag själv hade något osparat: utan egna
+  // ändringar skickades inget, och den andras kvitton syntes inte förrän
+  // sidan laddades om. Samma sammanslagning som vid en krock ovan.
+  const pullOwnChanges = async () => {
+    while (syncInFlightRef.current) await syncInFlightRef.current.catch(() => {});
+    const run = (async () => {
+      const ref = serverSyncRef.current;
+      if (!ref.baseCompanies) return;
+      let fresh;
+      if (tablesModeRef.current) {
+        const loaded = await loadFromTables(supabase);
+        fresh = { state: loaded.state || {}, updatedAt: loaded.updatedAt, versions: loaded.versions };
+      } else {
+        const { data: row, error } = await supabase.from('user_data').select('state, updated_at').eq('user_id', user.id).maybeSingle();
+        if (error || !row) return;
+        fresh = { state: row.state || {}, updatedAt: row.updated_at };
+      }
+      const serverCompanies = fresh.state.companies || {};
+      const base = ref.baseCompanies;
+      ref.baseCompanies = serverCompanies;
+      ref.baseSnapshot = fresh.state;
+      ref.updatedAt = fresh.updatedAt;
+      if (fresh.versions) versionsRef.current = fresh.versions;
+      rememberServerState(user.id, ref.updatedAt, fresh.state);
+      setData(prev => {
+        const entries = Object.entries(prev.companies || {});
+        const prevOwn = Object.fromEntries(entries.filter(([, c]) => !c.__shared));
+        const prevShared = Object.fromEntries(entries.filter(([, c]) => c.__shared));
+        return { ...prev, companies: { ...mergeCompanies(base, prevOwn, serverCompanies), ...prevShared } };
+      });
+    })();
+    syncInFlightRef.current = run;
+    try { await run; } finally { if (syncInFlightRef.current === run) syncInFlightRef.current = null; }
+  };
+
   // Skriver hela user_data-bloben till Supabase OMEDELBART — samma logik
   // som den debouncade "Persist"-useEffecten längre ner (2000 ms), bara
   // utan väntetiden. Bugkritiskt, hittat 2026-09-22: den debouncade
@@ -3187,7 +3224,7 @@ function App() {
     }
     const { data: meta } = await supabase.from('user_data').select('updated_at').eq('user_id', user.id).maybeSingle();
     if (meta?.updated_at && serverSyncRef.current.updatedAt && meta.updated_at !== serverSyncRef.current.updatedAt) {
-      await syncUserDataNow(); // krocken upptäcks där och slås ihop
+      await pullOwnChanges();
     }
   };
   useEffect(() => {
