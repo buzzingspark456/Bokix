@@ -8,7 +8,7 @@ const old = new Date(now.getTime() - (ABANDONED_SIGNUP_DAYS + 5) * DAY).toISOStr
 /** Minimal stubb av den delen av supabase-admin-klienten rutinen använder.
  * Räcker för att bevisa VILKA konton som väljs ut, vilket är hela poängen —
  * ett fel där raderar riktig kunddata. */
-function makeAdmin({ rows, subs = [], users = {}, members = [] }) {
+function makeAdmin({ rows, subs = [], users = {}, members = [], pastMemberships = [], ownerStates = {} }) {
   const deleted = { userData: [], authUsers: [], storage: [] }
   return {
     deleted,
@@ -21,10 +21,21 @@ function makeAdmin({ rows, subs = [], users = {}, members = [] }) {
         then: undefined,
       }
       if (table === 'company_members') {
-        return { select: () => ({ or: (expr) => ({ eq: () => ({ limit: () => Promise.resolve({ data: members.filter(m => expr.includes(m)).map(m => ({ id: m })), error: null }) }) }) }) }
+        return { select: () => ({
+          or: (expr) => ({ eq: () => ({ limit: () => Promise.resolve({ data: members.filter(m => expr.includes(m)).map(m => ({ id: m })), error: null }) }) }),
+          // Alla inbjudningar (även borttagna) där kontot var inbjudet.
+          eq: (_col, id) => Promise.resolve({ data: pastMemberships.filter(m => m.member_user_id === id), error: null }),
+        }) }
+      }
+      if (table === 'storage_modes') {
+        return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }) }
       }
       if (table === 'user_data') {
-        api.select = () => ({ lt: () => ({ order: () => ({ range: (a, b) => Promise.resolve({ data: rows.slice(a, b + 1), error: null }) }) }) })
+        api.select = () => ({
+          lt: () => ({ order: () => ({ range: (a, b) => Promise.resolve({ data: rows.slice(a, b + 1), error: null }) }) }),
+          // Ägarens bokföring (readOwnerState i blobläget).
+          eq: (_c, id) => ({ maybeSingle: () => Promise.resolve({ data: ownerStates[id] ? { state: ownerStates[id] } : null, error: null }) }),
+        })
         api.delete = () => ({ eq: (_c, v) => { deleted.userData.push(v); return Promise.resolve({ error: null }) } })
       }
       return api
@@ -167,5 +178,24 @@ describe('cleanOldContactMessages', () => {
   it('tål att tabellen saknas', async () => {
     const admin = contactAdmin({ data: null, error: { message: 'relation "contact_messages" does not exist' } })
     expect(await cleanOldContactMessages(admin)).toEqual({ removed: 0, missingTable: true })
+  })
+})
+
+describe('cleanAbandonedSignups: tidigare inbjuden', () => {
+  const rows = [{ user_id: 'ella', state: { companies: {} }, created_at: old }]
+  const ownerStates = { agare: { companies: { c1: { expenses: [{ id: 'e1', receiptUrl: 'https://x.supabase.co/storage/v1/object/public/bokix-uploads/ella/receipts/a.pdf' }] } } } }
+
+  it('raderas inte när ägarens bokföring använder kvitton hon laddat upp', async () => {
+    const admin = makeAdmin({ rows, pastMemberships: [{ owner_user_id: 'agare', member_user_id: 'ella' }], ownerStates })
+    const r = await cleanAbandonedSignups(admin, { now })
+    expect(admin.deleted.authUsers).toEqual([])
+    expect(admin.deleted.storage).toEqual([])
+    expect(r.deleted || 0).toBe(0)
+  })
+
+  it('raderas som vanligt när ägaren inte använder något av hennes', async () => {
+    const admin = makeAdmin({ rows, pastMemberships: [{ owner_user_id: 'agare', member_user_id: 'ella' }], ownerStates: { agare: { companies: { c1: { expenses: [] } } } } })
+    await cleanAbandonedSignups(admin, { now })
+    expect(admin.deleted.authUsers).toEqual(['ella'])
   })
 })

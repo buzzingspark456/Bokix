@@ -122,6 +122,65 @@ async function writeTablesField(admin, ownerUserId, companyKey, field, compute) 
   return false;
 }
 
+// Får användaren läsa en fil i någon annans mapp (bokix-uploads/<id>/…)?
+// Filen hamnar i mappen hos den som laddade upp den. Kvitton som en inbjuden
+// laddar upp ligger alltså i den inbjudnas mapp men hör till ägarens
+// bokföring. Tillåtet när filen finns i ett företag användaren har tillgång
+// till, och mappen är företagsägarens eller någon som är eller har varit
+// inbjuden till just det företaget:
+//   - ägaren: alla egna företag (även efter att den inbjudna tagits bort,
+//     bokföringen ska gå att läsa i sju år);
+//   - en aktiv inbjuden: bara på sidor hen får se (memberCompanyView).
+// Att sökvägen måste finnas i företagets data hindrar att någon skriver in
+// en främmande sökväg i sin egen bokföring och läser andras filer; att
+// mappen måste tillhöra företagets ägare eller inbjudna hindrar samma sak
+// från andra håll.
+export async function canReadCompanyFile(admin, userId, path) {
+  const folder = path.split('/')[0];
+  if (!folder || folder === userId) return folder === userId;
+  // Mappnamnet hamnar i en filterfråga nedan: bara riktiga konto-id.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(folder)) return false;
+  // Länkarna i datan kan vara URL-kodade (mellanslag som %20).
+  const variants = [path, encodeURI(path), path.split('/').map(encodeURIComponent).join('/')];
+  const mentions = (data) => { const text = JSON.stringify(data); return variants.some(v => text.includes(v)); };
+
+  // Alla inbjudningar där mappens ägare finns med (ägare eller inbjuden).
+  const { data: rows, error } = await admin
+    .from('company_members')
+    .select('owner_user_id, member_user_id, company_id, role, page_access, status')
+    .or(`owner_user_id.eq.${folder},member_user_id.eq.${folder}`);
+  if (error || !rows?.length) return false;
+
+  // Företag (ägare + nyckel) där mappen hör hemma.
+  const folderCompanies = rows.map(r => ({ owner: r.owner_user_id, company: r.company_id }));
+  const states = new Map();
+  const stateOf = async (owner) => {
+    if (!states.has(owner)) states.set(owner, await readOwnerState(admin, owner).catch(() => null));
+    return states.get(owner);
+  };
+
+  // Som ägare: mappen är en (nuvarande eller tidigare) inbjuden i mitt företag.
+  for (const fc of folderCompanies.filter(x => x.owner === userId)) {
+    const entry = findCompanyEntry((await stateOf(userId))?.companies, fc.company);
+    if (entry?.data && mentions(entry.data)) return true;
+  }
+
+  // Som aktiv inbjuden: företaget jag är inbjuden till är mappens (ägarens
+  // eller en annan inbjudens) företag.
+  const { data: mine } = await admin
+    .from('company_members')
+    .select('owner_user_id, company_id, role, page_access')
+    .eq('member_user_id', userId)
+    .eq('status', 'active');
+  for (const m of mine || []) {
+    const sameCompany = m.owner_user_id === folder || folderCompanies.some(x => x.owner === m.owner_user_id && x.company === m.company_id);
+    if (!sameCompany) continue;
+    const entry = findCompanyEntry((await stateOf(m.owner_user_id))?.companies, m.company_id);
+    if (entry?.data && mentions(memberCompanyView(entry.data, m.page_access, m.role))) return true;
+  }
+  return false;
+}
+
 // Läses INTE in som modul-nivå-konstant — samma gotcha som _signedToken.js/
 // _oauthState.js redan har en identisk kommentar om: server.js:s
 // dotenv.config() körs EFTER sina egna imports (ES-moduler kör hela det
@@ -515,33 +574,8 @@ async function handler(req, res) {
       }
       const admin = createClient(supabaseUrl, serviceRoleKey);
 
-      // Verifiera att anroparen äger sökvägen, är aktiv medlem i ägarens företag, eller är admin
-      const pathOwnerId = path.split('/')[0];
-      const isOwner = pathOwnerId === user.id;
-      let isAllowed = isOwner || isFreeEmail(user.email);
-      if (!isAllowed) {
-        // Sökvägen säger bara vems filen är, inte vilket företag den hör
-        // till. Medlemmen får därför bara filer som finns i något av de
-        // företag hen är inbjuden till, och då bara på sidor hen får se.
-        const { data: memberships } = await admin
-          .from('company_members')
-          .select('company_id, role, page_access')
-          .eq('member_user_id', user.id)
-          .eq('owner_user_id', pathOwnerId)
-          .eq('status', 'active');
-        if (memberships?.length) {
-          // Ur tabellerna för ägare i tabelläget, annars blobben (_companyStore.js).
-          const ownerRow = { state: await readOwnerState(admin, pathOwnerId).catch(() => null) };
-          // Länkarna i datan kan vara URL-kodade (mellanslag som %20).
-          const variants = [path, encodeURI(path), path.split('/').map(encodeURIComponent).join('/')];
-          isAllowed = memberships.some((m) => {
-            const entry = findCompanyEntry(ownerRow?.state?.companies, m.company_id);
-            if (!entry?.data) return false;
-            const text = JSON.stringify(memberCompanyView(entry.data, m.page_access, m.role));
-            return variants.some(v => text.includes(v));
-          });
-        }
-      }
+      // Verifiera att anroparen äger sökvägen, får se filen i ett företag, eller är admin
+      const isAllowed = path.split('/')[0] === user.id || isFreeEmail(user.email) || await canReadCompanyFile(admin, user.id, path);
       if (!isAllowed) {
         res.status(403).json({ error: 'Åtkomst nekad till denna fil.' });
         return;

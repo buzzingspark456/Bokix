@@ -92,7 +92,36 @@ async function isProtectedAccount(admin, userId, state, cutoff) {
     .eq('status', 'active')
     .limit(1);
   if (memberErr) return true;
-  return (members || []).length > 0;
+  if ((members || []).length > 0) return true;
+  // En tidigare inbjuden vars uppladdade kvitton finns i någon ägares
+  // bokföring: filerna ligger i den inbjudnas mapp och skulle försvinna med
+  // kontot. Kan det inte avgöras räknas kontot som skyddat.
+  try {
+    return (await pathsUsedByOwners(admin, userId)).size > 0;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Filer i kontots egen mapp som används i ANDRA konton: kvitton och underlag
+ * som en inbjuden laddat upp hamnar i den inbjudnas mapp men hör till
+ * ägarens bokföring (även efter att inbjudan tagits bort). Ger mängden
+ * "bucket/sökväg" (samma form som collectStoragePaths). Kastar om något
+ * inte går att läsa, så att anroparen hellre sparar än raderar.
+ */
+export async function pathsUsedByOwners(admin, userId) {
+  const used = new Set();
+  const { data: rows, error } = await admin.from('company_members').select('owner_user_id').eq('member_user_id', userId);
+  if (error) throw new Error(error.message);
+  const prefix = `/${userId}/`;
+  for (const owner of new Set((rows || []).map(r => r.owner_user_id))) {
+    if (!owner || owner === userId) continue;
+    for (const p of collectStoragePaths(await readOwnerState(admin, owner))) {
+      if (p.includes(prefix)) used.add(p);
+    }
+  }
+  return used;
 }
 
 const DAY_MS = 86400000;
@@ -161,6 +190,13 @@ export async function cleanOrphanFiles(admin, { buckets = ['bokix-uploads', 'com
     const referenced = collectStoragePaths(row.state);
     if (tablesIds.has(row.user_id)) {
       for (const p of collectStoragePaths(await readOwnerState(admin, row.user_id))) referenced.add(p);
+    }
+    // Kvitton kontot laddat upp som inbjuden räknas som använda om ägarens
+    // bokföring pekar på dem. Går det inte att se: hoppa över kontot i natt.
+    try {
+      for (const p of await pathsUsedByOwners(admin, row.user_id)) referenced.add(p);
+    } catch {
+      continue;
     }
     for (const bucket of buckets) {
       const objects = await listAllObjects(admin, bucket, row.user_id);
