@@ -8,7 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 import { applySecurityHeaders } from '../_security.js';
 import { logSystemEvent } from '../_systemEvents.js';
 import { readBackupConfig, createOffsiteStore, runOffsiteBackup } from '../_offsiteBackup.js';
-import { checkVerificationCopy } from '../_verificationCopy.js';
+import { checkCompanyCopy } from '../_companyCopy.js';
 import { withSentry } from '../_sentry.js';
 
 function isAuthorized(req) {
@@ -50,14 +50,15 @@ async function handler(req, res) {
       // så att en körning som slutat helt (inget fel loggas då) också märks.
       await logSystemEvent('backup_ok', `Databas ${Math.round(summary.dbBytes / 1024)} kB, ${summary.filesCopied} nya filer, ${summary.filesPending} kvar till nästa natt`);
     }
-    // Skuggkopian av verifikationerna (_verificationCopy.js). Eget try så att
-    // kontrollen aldrig ändrar kopians resultat.
+    // Skuggkopian i companies/company_records (_companyCopy.js): jämför,
+    // rättar och larmar. Eget try så att kontrollen aldrig ändrar kopians
+    // resultat.
     try {
-      const check = await checkVerificationCopy(admin);
-      if (check.detail) await logSystemEvent('verif_mismatch', check.detail);
-      summary.verificationCopy = check;
+      const check = await checkCompanyCopy(admin);
+      if (check.alert) await logSystemEvent('company_mismatch', check.detail);
+      summary.companyCopy = check;
     } catch (checkError) {
-      await logSystemEvent('verif_mismatch', `Kontrollen kunde inte köras: ${checkError?.message || checkError}`);
+      await logSystemEvent('company_mismatch', `Kontrollen kunde inte köras: ${checkError?.message || checkError}`);
     }
     res.status(200).json(summary);
   } catch (error) {

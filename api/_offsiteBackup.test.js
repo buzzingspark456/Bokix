@@ -170,10 +170,12 @@ describe('TABLES täcker databasen', () => {
     'status_checks', // statussidans kontroller var 5:e minut, mäts om av sig själva
     'status_daily', // statussidans dagssummor, samma sak
     'blog_posts', // finns kvar i supabase-setup.sql men är borttagen ur databasen (2026-10)
-    // Skuggkopia av blobbens verifikationer (steg A, supabase-2026-10-25-verifikationer-steg-a.sql):
-    // återskapas av triggern när user_data återställs. Flytta till TABLES i steg C,
-    // när tabellen blir sanningen.
-    'verifications',
+    // Skuggkopian av blobben (supabase-2026-10-25-foretag-och-poster.sql): återskapas av
+    // triggern när user_data återställs. Flyttas till TABLES när appen byter till
+    // tabellerna och de blir sanningen.
+    'companies',
+    'company_records',
+    'verifications', // steg A, ersatt och borttagen av filen ovan
   ])
   it('varje tabell i SQL-filerna finns i nattkopian eller är medvetet överhoppad', async () => {
     const fs = await import('node:fs')
