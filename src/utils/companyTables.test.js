@@ -195,3 +195,34 @@ describe('SQL-filerna hålls i takt', () => {
     expect(grab('supabase-2026-10-25-steg-4a.sql')).toEqual(grab('supabase-2026-10-25-foretag-och-poster.sql'))
   })
 })
+
+describe('SQL-filerna hålls i takt (trigger)', () => {
+  it('sync_companies och in_tables_mode är identiska i foretag-och-poster.sql och steg-4b.sql', async () => {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const grab = (file, name) => {
+      const sql = fs.readFileSync(path.resolve(import.meta.dirname, '../../' + file), 'utf8').replace(/\r/g, '')
+      const start = sql.indexOf(`CREATE OR REPLACE FUNCTION ${name}`)
+      return sql.slice(start, sql.indexOf('$$;', sql.indexOf('$$', sql.indexOf('AS $$', start) + 5)))
+    }
+    for (const name of ['private.sync_companies()', 'private.in_tables_mode(']) {
+      expect(grab('supabase-2026-10-25-steg-4b.sql', name)).toEqual(grab('supabase-2026-10-25-foretag-och-poster.sql', name))
+    }
+  })
+})
+
+describe('SQL-filerna är hela', () => {
+  it('inga trasiga $$ i supabase-*.sql (ensamt AS $ eller $;) och $$ i par', async () => {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const root = path.resolve(import.meta.dirname, '../..')
+    for (const f of fs.readdirSync(root).filter(n => /^supabase-.*\.sql$/.test(n))) {
+      const lines = fs.readFileSync(path.join(root, f), 'utf8').replace(/\r/g, '').split('\n')
+      const broken = lines.filter(l => /^AS \$$/.test(l) || /^\$;$/.test(l))
+      // $$ öppnar och stänger varje funktionskropp, så de ska komma i par.
+      const dollars = (lines.join('\n').match(/\$\$/g) || []).length
+      expect({ f, broken }).toEqual({ f, broken: [] })
+      expect({ f, even: dollars % 2 === 0 }).toEqual({ f, even: true })
+    }
+  })
+})

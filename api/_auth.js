@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
+import { readOwnerCompany } from './_companyStore.js';
+import { logSystemEvent } from './_systemEvents.js';
 
 // Säkerhetsfix (se säkerhetsgranskningen): flera endpoints litade tidigare
 // blint på user_id/company_id i request-body:n — vem som helst som kände
@@ -59,6 +61,13 @@ function tokenAal(token) {
   }
 }
 
+// Ägarens företag läses via _companyStore.js: ur tabellerna för konton i
+// tabelläget (steg 4b), annars ur blobben som förut. Gick tabellerna inte att
+// läsa används blobben, och det loggas (company_read_failed, larmar).
+function reportTableReadError(ownerUserId, companyId) {
+  return (error) => { logSystemEvent('company_read_failed', `${ownerUserId}/${companyId}: ${error?.message || error}`); };
+}
+
 /** Hittar ett företag i state.companies. Nyckeln och företagets eget
  * company.id är oftast samma, men inte alltid: äldre konton har företaget
  * under en annan nyckel än sitt id (createEmptyCompanyData-buggen), och
@@ -85,12 +94,14 @@ export async function loadOwnedCompany(userId, companyId, res) {
     return null;
   }
   const admin = createClient(supabaseUrl, serviceRoleKey);
-  const { data: row, error } = await admin.from('user_data').select('state').eq('user_id', userId).maybeSingle();
-  if (error) {
+  let entry;
+  try {
+    entry = await readOwnerCompany(admin, userId, companyId, { onTableError: reportTableReadError(userId, companyId) });
+  } catch (error) {
     res.status(500).json({ error: error.message });
     return null;
   }
-  const companyData = findCompanyEntry(row?.state?.companies, companyId)?.data;
+  const companyData = entry?.data;
   if (!companyData) {
     res.status(403).json({ error: 'Företaget hittades inte för den inloggade användaren.' });
     return null;
@@ -144,12 +155,13 @@ export async function loadOwnedOrMemberCompany(userId, companyId, res, { require
     return null;
   }
   const admin = createClient(supabaseUrl, serviceRoleKey);
-  const { data: row, error } = await admin.from('user_data').select('state').eq('user_id', userId).maybeSingle();
-  if (error) {
+  let ownEntry;
+  try {
+    ownEntry = await readOwnerCompany(admin, userId, companyId, { onTableError: reportTableReadError(userId, companyId) });
+  } catch (error) {
     res.status(500).json({ error: error.message });
     return null;
   }
-  const ownEntry = findCompanyEntry(row?.state?.companies, companyId);
   if (ownEntry) return { companyData: ownEntry.data, companyKey: ownEntry.key, ownerUserId: userId, role: 'owner' };
 
   const member = await loadMemberCompany(userId, companyId, res);
@@ -199,16 +211,13 @@ export async function loadMemberCompany(userId, companyId, res) {
     return null;
   }
 
-  const { data: row, error: rowError } = await admin
-    .from('user_data')
-    .select('state')
-    .eq('user_id', membership.owner_user_id)
-    .maybeSingle();
-  if (rowError) {
-    res.status(500).json({ error: rowError.message });
+  let entry;
+  try {
+    entry = await readOwnerCompany(admin, membership.owner_user_id, companyId, { onTableError: reportTableReadError(membership.owner_user_id, companyId) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
     return null;
   }
-  const entry = findCompanyEntry(row?.state?.companies, companyId);
   const companyData = entry?.data;
   if (!companyData) {
     // Ägaren finns, men själva företaget är borta ur deras state (t.ex.
