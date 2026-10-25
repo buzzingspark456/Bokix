@@ -1502,8 +1502,8 @@ export default function Expenses({
             {/* Telefon: månad och vy ligger bakom Filter (index.css, rc-toolbar). */}
             <button type="button" className="rc-tb-toggle" onClick={() => setRcFiltersOpen(v => !v)} aria-expanded={rcFiltersOpen}>
               <SlidersHorizontal size={15} /> {tr('shared.filterBar.filter')}
-              {/* Bara riktiga filter räknas, inte Lista/Grupperat (ett visningsval). */}
-              {(monthFilter !== 'all' || effectiveTab !== 'all') && <span className="lfb-toggle-badge">{[monthFilter !== 'all', effectiveTab !== 'all'].filter(Boolean).length}</span>}
+              {/* Bara månadsfiltret räknas; Lista/Grupperat och Alla/Mina är val av vy (användaren 2026-10-25). */}
+              {monthFilter !== 'all' && <span className="lfb-toggle-badge">1</span>}
             </button>
 
             {showUploaderTabs && (
