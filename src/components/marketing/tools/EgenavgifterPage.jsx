@@ -123,8 +123,8 @@ export default function EgenavgifterPage() {
       </ToolNote>
       <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.7, marginTop: '22px' }}>
         Funderar du på att anställa i stället för att ta ut mer själv? Räkna på arbetsgivarkostnaden i{' '}
-        <Link to="/verktyg/lonekalkylator" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>lönekalkylatorn</Link>,
-        eller läs om hur <Link to="/funktioner" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>Bokix bokför enligt rätt regler per bolagsform</Link>.
+        <Link to="/verktyg/lonekalkylator" style={{ color: 'var(--mkt-ink)', fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'var(--mkt-accent-green-fg)', textDecorationThickness: '1.5px', textUnderlineOffset: '3px' }}>lönekalkylatorn</Link>,
+        eller läs om hur <Link to="/funktioner" style={{ color: 'var(--mkt-ink)', fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'var(--mkt-accent-green-fg)', textDecorationThickness: '1.5px', textUnderlineOffset: '3px' }}>Bokix bokför enligt rätt regler per bolagsform</Link>.
       </p>
       <p style={{ fontSize: '14px', color: MUTED, lineHeight: 1.7, marginTop: '16px' }}>
         Satserna är kontrollerade mot skatteverket.se. Riksdagen kan ändra dem mellan år — stäm alltid av mot Skatteverkets aktuella sida inför deklarationen.

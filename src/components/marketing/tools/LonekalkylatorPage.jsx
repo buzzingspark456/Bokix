@@ -129,7 +129,7 @@ export default function LonekalkylatorPage() {
       <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.7, marginTop: '22px' }}>
         Driver du enskild firma betalar du inte arbetsgivaravgift på ditt eget uttag, utan{' '}
         <strong style={{ color: INK }}>egenavgifter</strong> på överskottet. Räkna på det i{' '}
-        <Link to="/verktyg/egenavgifter" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>egenavgiftskalkylatorn</Link>.
+        <Link to="/verktyg/egenavgifter" style={{ color: 'var(--mkt-ink)', fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'var(--mkt-accent-green-fg)', textDecorationThickness: '1.5px', textUnderlineOffset: '3px' }}>egenavgiftskalkylatorn</Link>.
       </p>
     </ToolShell>
   );

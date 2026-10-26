@@ -108,7 +108,7 @@ export default function MomsDatumPage() {
       </ToolNote>
       <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.7, marginTop: '22px' }}>
         Slipper hellre hålla koll själv?{' '}
-        <Link to="/funktioner" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>Bokix påminner dig</Link>{' '}
+        <Link to="/funktioner" style={{ color: 'var(--mkt-ink)', fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'var(--mkt-accent-green-fg)', textDecorationThickness: '1.5px', textUnderlineOffset: '3px' }}>Bokix påminner dig</Link>{' '}
         innan varje momsdeadline, och räknar fram momsdeklarationen automatiskt ur din bokföring.
       </p>
     </ToolShell>

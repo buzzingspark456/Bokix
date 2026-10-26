@@ -101,7 +101,7 @@ export default function RotRutKalkylatorPage() {
           </div>
 
           {cappedAway > 0 && (
-            <div style={{ marginTop: '16px', padding: '14px 16px', background: 'var(--mkt-accent-red-soft)', border: '1px solid color-mix(in srgb, var(--mkt-accent-red-fg) 35%, transparent)', borderRadius: '12px', fontSize: '14px', color: 'var(--tr-ink-soft)', lineHeight: 1.6 }}>
+            <div style={{ marginTop: '16px', padding: '14px 16px', background: 'color-mix(in srgb, oklch(62% 0.2 25) 22%, transparent)', border: '1px solid color-mix(in srgb, oklch(62% 0.2 25) 45%, transparent)', borderRadius: '12px', fontSize: '14px', color: 'var(--tr-ink-soft)', lineHeight: 1.6 }}>
               Avdraget slår i taket: <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(cappedAway)} kr</strong> ryms inte inom{' '}
               {formatKr(totalCap)} kr och måste betalas av kunden själv.
             </div>
@@ -161,7 +161,7 @@ export default function RotRutKalkylatorPage() {
       </ToolNote>
       <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.7, marginTop: '22px' }}>
         Ska du skicka fakturan också?{' '}
-        <Link to="/funktioner" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>Bokix räknar avdraget direkt i fakturan</Link>{' '}
+        <Link to="/funktioner" style={{ color: 'var(--mkt-ink)', fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'var(--mkt-accent-green-fg)', textDecorationThickness: '1.5px', textUnderlineOffset: '3px' }}>Bokix räknar avdraget direkt i fakturan</Link>{' '}
         och håller isär arbete och material åt dig.
       </p>
     </ToolShell>

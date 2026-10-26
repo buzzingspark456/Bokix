@@ -159,7 +159,7 @@ export default function DrojsmalsrantaPage() {
       </ToolNote>
       <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.7, marginTop: '22px' }}>
         Slipper hellre jaga betalningar?{' '}
-        <Link to="/funktioner" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>Bokix håller reda på förfallna fakturor</Link>{' '}
+        <Link to="/funktioner" style={{ color: 'var(--mkt-ink)', fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'var(--mkt-accent-green-fg)', textDecorationThickness: '1.5px', textUnderlineOffset: '3px' }}>Bokix håller reda på förfallna fakturor</Link>{' '}
         och låter kunden betala med kort direkt på fakturan.
       </p>
     </ToolShell>

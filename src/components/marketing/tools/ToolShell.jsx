@@ -50,6 +50,9 @@ function ToolStyles() {
          sin text i resultatet med --tr-* i stället för fast vitt. */
       #lp-root { --tr-bg: #f5f6f3; --tr-ink: #1c2420; --tr-ink-soft: #2f3a33; --tr-soft: #4a554d; --tr-muted: #5a6457; --tr-line: #e3e6df; --tr-inner: #ffffff; --tr-panel: oklch(96.6% 0.03 150); --tr-panel-line: oklch(90% 0.035 150); --tr-total: oklch(45% 0.15 148); }
       html[data-theme="dark"] #lp-root { --tr-bg: #122117; --tr-ink: #eef3ea; --tr-ink-soft: #d5e0cf; --tr-soft: #b4c3ad; --tr-muted: #8fa088; --tr-line: #2a3d2c; --tr-inner: #17281c; --tr-panel: oklch(25.5% 0.045 152); --tr-panel-line: oklch(34% 0.045 150); --tr-total: oklch(82% 0.16 145); }
+      /* Ljust tema: resultatet på Bokix mörkgröna yta med ljus text, så
+         svaret sticker ut. Mörkt tema behåller sina värden ovan. */
+      html:not([data-theme="dark"]) #lp-root .bx-tool-result { --tr-panel: oklch(30% 0.07 155); --tr-panel-line: oklch(40% 0.06 155); --tr-total: oklch(90% 0.17 135); --tr-ink: #ffffff; --tr-ink-soft: #e6efe4; --tr-soft: #cfe0cc; --tr-muted: #a9c2a6; --tr-inner: oklch(35% 0.07 155); }
       .bx-tool-stage { position: relative; max-width: 1040px; margin: 0 auto; }
       .bx-tool-stage::before { content: ''; position: absolute; inset: -40px -60px; z-index: 0; pointer-events: none; filter: blur(50px); opacity: 0.55;
         background: radial-gradient(40% 50% at 78% 40%, oklch(88% 0.08 150 / 0.7), transparent 70%), radial-gradient(35% 45% at 20% 70%, oklch(88% 0.06 220 / 0.6), transparent 70%); }
@@ -57,7 +60,7 @@ function ToolStyles() {
       .bx-tool-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 0; align-items: stretch; }
       .bx-tool-related { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 28px; }
       .bx-tool-related a { border-top: 1px solid var(--mkt-card-border); }
-      .bx-tool-related a:hover .bx-tool-related-title { color: var(--mkt-accent-green-fg); }
+      .bx-tool-related a:hover .bx-tool-related-title { text-decoration: underline; text-underline-offset: 3px; }
       .bx-tool-faq { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 40px; }
       .bx-tool-faq > div { border-top: 1px solid var(--mkt-card-border); padding: 20px 0 22px; }
       .bx-tool-input:hover { border-color: var(--mkt-btn-border); }
@@ -65,8 +68,9 @@ function ToolStyles() {
       .bx-tool-seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: var(--tr-bg); border: 1px solid var(--tr-line); margin-bottom: 22px; }
       .bx-tool-seg button { border: none; border-radius: 10px; padding: 10px 12px; cursor: pointer; font-family: inherit; text-align: center; background: transparent; color: var(--mkt-ink-soft); transition: background 0.15s, color 0.15s, box-shadow 0.15s; }
       .bx-tool-seg button:hover { color: var(--mkt-ink); }
-      .bx-tool-seg button[aria-pressed="true"] { background: var(--mkt-card-bg); color: var(--mkt-accent-green-fg); box-shadow: 0 1px 2px rgba(28,36,32,0.08), 0 2px 8px -2px rgba(28,36,32,0.1); }
-      html[data-theme="dark"] #lp-root .bx-tool-seg button[aria-pressed="true"] { background: #23382a; box-shadow: none; }
+      .bx-tool-seg button[aria-pressed="true"] { background: oklch(30% 0.07 155); color: #ffffff; box-shadow: 0 1px 2px rgba(15,40,25,0.18), 0 4px 10px -4px rgba(15,40,25,0.35); }
+      .bx-tool-seg button[aria-pressed="true"] .bx-seg-hint { color: #d6e6d3 !important; }
+      html[data-theme="dark"] #lp-root .bx-tool-seg button[aria-pressed="true"] { background: oklch(42% 0.08 155); box-shadow: none; }
       @media (max-width: 860px) {
         .bx-tool-grid { grid-template-columns: 1fr; }
         .bx-tool-result { border-left: none !important; border-top: 1px solid var(--tr-panel-line); }
@@ -149,7 +153,7 @@ export function ToolSegmented({ options, value, onChange }) {
       {options.map(opt => (
         <button key={String(opt.value)} type="button" onClick={() => onChange(opt.value)} aria-pressed={opt.value === value}>
           <span style={{ display: 'block', fontSize: '14px', fontWeight: 600 }}>{opt.label}</span>
-          {opt.hint && <span style={{ display: 'block', fontSize: '12px', fontWeight: 400, color: 'var(--tr-muted)', marginTop: '2px', lineHeight: 1.35 }}>{opt.hint}</span>}
+          {opt.hint && <span className="bx-seg-hint" style={{ display: 'block', fontSize: '12px', fontWeight: 400, color: 'var(--tr-muted)', marginTop: '2px', lineHeight: 1.35 }}>{opt.hint}</span>}
         </button>
       ))}
     </div>
@@ -174,7 +178,7 @@ export function ToolResultRow({ label, value, unit = 'kr', strong, muted, decima
           {label}
           {note && <span style={{ display: 'block', fontSize: '12px', color: 'var(--tr-muted)', fontWeight: 400 }}>{note}</span>}
         </div>
-        <div style={{ fontSize: 'clamp(32px, 4.2vw, 42px)', fontWeight: 700, color: 'var(--tr-total)', letterSpacing: '-0.03em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
+        <div style={{ fontSize: 'clamp(32px, 4.2vw, 42px)', fontWeight: 700, color: 'var(--tr-ink)', letterSpacing: '-0.03em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
           {shown}
           {unit && <span style={{ fontSize: '18px', fontWeight: 500, color: 'var(--tr-muted)', marginLeft: '6px', letterSpacing: 0 }}>{unit}</span>}
         </div>

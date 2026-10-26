@@ -53,8 +53,8 @@ export default function ToolsHubPage() {
         .bx-hub-group { display: grid; grid-template-columns: 220px 1fr; gap: 24px; padding: 28px 0; border-top: 1px solid var(--mkt-card-border); }
         .bx-hub-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 32px; }
         .bx-hub-item { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 0; text-decoration: none; border-bottom: 1px solid var(--mkt-card-border); }
-        .bx-hub-item:hover .bx-hub-title { color: var(--mkt-accent-green-fg); }
-        .bx-hub-item:hover .bx-hub-arrow { transform: translateX(3px); color: var(--mkt-accent-green-fg); }
+        .bx-hub-item:hover .bx-hub-title { text-decoration: underline; text-underline-offset: 3px; }
+        .bx-hub-item:hover .bx-hub-arrow { transform: translateX(3px); color: var(--mkt-ink); }
         @media (max-width: 780px) {
           .bx-hub-group { grid-template-columns: 1fr; gap: 6px; padding: 24px 0 8px; }
           .bx-hub-list { grid-template-columns: 1fr; }

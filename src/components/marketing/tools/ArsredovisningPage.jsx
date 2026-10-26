@@ -120,7 +120,7 @@ export default function ArsredovisningPage() {
       </ToolNote>
       <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.7, marginTop: '22px', borderTop: `1px dashed ${CARD_BORDER}`, paddingTop: '18px' }}>
         Vill du hellre bli påmind i god tid?{' '}
-        <Link to="/funktioner" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>Bokix håller koll på viktiga datum</Link>{' '}
+        <Link to="/funktioner" style={{ color: 'var(--mkt-ink)', fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'var(--mkt-accent-green-fg)', textDecorationThickness: '1.5px', textUnderlineOffset: '3px' }}>Bokix håller koll på viktiga datum</Link>{' '}
         och tar fram bokslutsunderlaget löpande, inte bara i sista sekunden.
       </p>
     </ToolShell>

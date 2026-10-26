@@ -210,8 +210,8 @@ export default function UtdelningPage() {
       </ToolNote>
       <p style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.7, marginTop: '22px' }}>
         Väger du lön mot utdelning? Räkna på vad lönen kostar bolaget i{' '}
-        <Link to="/verktyg/lonekalkylator" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>lönekalkylatorn</Link> —
-        och slå upp <Link to="/ordlista" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>gränsbelopp, K10 och fåmansföretag i ordlistan</Link>.
+        <Link to="/verktyg/lonekalkylator" style={{ color: 'var(--mkt-ink)', fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'var(--mkt-accent-green-fg)', textDecorationThickness: '1.5px', textUnderlineOffset: '3px' }}>lönekalkylatorn</Link> —
+        och slå upp <Link to="/ordlista" style={{ color: 'var(--mkt-ink)', fontWeight: 600, textDecoration: 'underline', textDecorationColor: 'var(--mkt-accent-green-fg)', textDecorationThickness: '1.5px', textUnderlineOffset: '3px' }}>gränsbelopp, K10 och fåmansföretag i ordlistan</Link>.
       </p>
       <p style={{ fontSize: '14px', color: MUTED, lineHeight: 1.7, marginTop: '16px' }}>
         Kontrollerat mot de nya 3:12-regler som gäller från 1 januari 2026. Riksdagen kan ändra dem mellan år — stäm alltid av mot Skatteverkets aktuella sida inför deklarationen.
