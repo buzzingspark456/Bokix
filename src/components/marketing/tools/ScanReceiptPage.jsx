@@ -5,8 +5,8 @@ import { INK, INK_SOFT, MUTED } from '../marketingTokens';
 import { BRAND } from '../../../utils/brandColors';
 import { toolBySlug } from './toolsConfig';
 import ToolShell, { ToolNote } from './ToolShell';
-import { ocrFile, parseReceiptText } from '../../../utils/ocrReceipt';
-import { locateFieldBoxes } from '../../../utils/ocrFieldBoxes';
+import { ocrFile } from '../../../utils/ocrReceipt';
+import { analyzeReceipt, buildReceiptPlan } from '../../../utils/receiptScan';
 import { freeGoogleReadLeft, readFreeWithGoogle } from '../../../utils/ocrFree';
 import { DEFAULT_ACCOUNTS } from '../../AccountsData';
 import { MIN_SCAN_MS, REVEAL_STEP_MS, SCAN_MESSAGES, photoHintText } from '../../shared/ScanExperience';
@@ -42,36 +42,55 @@ function stagePctFor(msg) {
   return 6; // "Startar läsning…" och allt okänt — precis igång
 }
 
-// Samma sex fält, samma ordning och samma tre lägen som kvittovyn i appen
-// (Expenses.jsx): "Avläst" när det stod tydligt i dokumentet, "Kontrollera"
-// när det är en rimlig gissning, "Hittades inte" när det saknas. Ett dokument
-// som inte är ett kvitto eller en faktura (ett CV, ett brev) fyller ingenting
-// i, och en tom avläsning gör detsamma. Avläsningen själv, parseReceiptText,
-// är samma funktion som appen kör.
+// Samma sex fält, samma ordning och samma bedömning som kvittovyn i appen:
+// analyzeReceipt och buildReceiptPlan (utils/receiptScan.js) är exakt den
+// kod appen kör. "Avläst" när det stod tydligt i dokumentet, "Kontrollera"
+// när det är en rimlig gissning, "Förslag" för ett konto appen skulle
+// föreslå men inte fylla i, och inget alls när det saknas. Ett dokument som
+// inte är ett kvitto eller en faktura fyller ingenting i.
 function fmtAmount(n) {
   return Number(n).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function buildFields(parsed, unreadable) {
-  const nr = unreadable || Boolean(parsed.notReceipt);
-  const has = (v) => !nr && v !== null && v !== undefined && v !== '' && v !== false;
-  const currency = parsed.currency && parsed.currency !== 'SEK' ? parsed.currency : 'kr';
-  return [
-    { key: 'supplier', label: 'Leverantör', found: has(parsed.supplier), state: parsed.supplierConfirmed ? 'found' : 'guess', value: parsed.supplier },
-    { key: 'date', label: 'Datum', found: has(parsed.date), state: parsed.dateGuessed ? 'guess' : 'found', value: parsed.date },
-    { key: 'receiptNumber', label: 'Nummer', found: has(parsed.receiptNumber), state: parsed.receiptNumberGuessed ? 'guess' : 'found', value: parsed.receiptNumber, note: parsed.receiptNumberLabel || '' },
-    { key: 'amount', label: 'Belopp', found: has(parsed.amount) && Number(parsed.amount) !== 0, state: parsed.amountGuessed ? 'guess' : 'found', value: parsed.amount != null ? `${fmtAmount(parsed.amount)} ${currency}` : '' },
-    {
-      key: 'vatRate', label: 'Moms', found: has(parsed.vatRate), state: parsed.vatRateGuessed ? 'guess' : 'found',
-      // Satsen och, när det står på kvittot och går ihop, momsbeloppet.
-      value: parsed.vatRate != null ? `${parsed.vatRate} %${parsed.vatVerified && parsed.vatAmount ? ` · ${fmtAmount(parsed.vatAmount)} ${currency}` : ''}` : '',
-      note: parsed.vatRateGuessed ? 'Antagen, stod inte tydligt' : '',
-    },
-    { key: 'costAccount', label: 'Konto', found: has(parsed.accountCode), state: (parsed.accountGuessed || parsed.accountChoices) ? 'guess' : 'found', value: parsed.accountCode ? `${parsed.accountCode} ${ACCOUNT_NAME[parsed.accountCode] || ''}`.trim() : '' },
-  ];
+const FIELD_NAMES = { supplier: 'Leverantör', date: 'Datum', receiptNumber: 'Nummer', amount: 'Belopp', vatRate: 'Moms', costAccount: 'Konto' };
+
+function buildFields(analysis, plan) {
+  const { parsed, supplierName, amountSek, foreignInfo } = analysis;
+  const blocked = Boolean(parsed.unreadable || parsed.notReceipt);
+  return plan.map(step => {
+    const field = { key: step.key, label: FIELD_NAMES[step.key], found: !blocked && step.found, state: step.state, value: '', note: '' };
+    if (step.key === 'supplier') field.value = supplierName;
+    if (step.key === 'date') field.value = parsed.date;
+    if (step.key === 'receiptNumber') { field.value = parsed.receiptNumber; field.note = parsed.receiptNumberLabel || ''; }
+    if (step.key === 'amount') {
+      if (amountSek) {
+        field.value = `${fmtAmount(amountSek)} kr`;
+        if (foreignInfo) field.note = `${fmtAmount(foreignInfo.amount)} ${foreignInfo.code} omräknat med dagskursen`;
+      } else if (!blocked && foreignInfo) {
+        // Kursen gick inte att hämta: beloppet visas som det stod, att kontrollera.
+        Object.assign(field, { found: true, state: 'guess', value: `${fmtAmount(foreignInfo.amount)} ${foreignInfo.code}`, note: 'Kursen kunde inte hämtas' });
+      }
+    }
+    if (step.key === 'vatRate') {
+      const mixed = step.patch.vatRate === 'mixed';
+      field.value = mixed
+        ? `Flera satser · ${fmtAmount(parsed.vatAmount)} kr`
+        : `${parsed.vatRate} %${parsed.vatVerified && parsed.vatAmount ? ` · ${fmtAmount(parsed.vatAmount)} ${parsed.currency || 'kr'}` : ''}`;
+      if (parsed.reverseCharge) field.note = 'Omvänd skattskyldighet';
+      else if (step.state === 'guess') field.note = 'Antagen, stod inte tydligt';
+    }
+    if (step.key === 'costAccount') {
+      const code = step.found ? step.patch.costAccount : step.suggest?.code;
+      if (!blocked && code) {
+        Object.assign(field, { found: true, state: step.found ? step.state : 'suggest', value: `${code} ${ACCOUNT_NAME[code] || ''}`.trim() });
+      }
+    }
+    return field;
+  });
 }
 
-const STATE_TEXT = { found: 'Avläst', guess: 'Kontrollera', missing: 'Hittades inte' };
+// Samma ord som appens checklista (ScanExperience.jsx).
+const STATE_TEXT = { found: 'Avläst', guess: 'Kontrollera', suggest: 'Förslag', missing: 'Hittades inte' };
 
 // Vilken ruta på kvittot varje rad hör till (ocrFieldBoxes.js). Kontot står
 // inte på kvittot, så det har ingen.
@@ -189,25 +208,23 @@ export default function ScanReceiptPage() {
         });
       }
       if (runIdRef.current !== runId) return;
-      const { text, confidence, weakTokens, quality } = read;
+      // Exakt samma tolkning som appens kvittovy: leverantören i EU:s
+      // momsregister, omräkning från utländsk valuta och samma kontoregel.
+      const analysis = await analyzeReceipt({ ...read, layout: read.lines || null }, {
+        onMessage: msg => { if (runIdRef.current === runId) setMessage(msg); },
+      });
+      if (runIdRef.current !== runId) return;
       const wait = MIN_SCAN_MS - (Date.now() - startedAt);
       if (wait > 0) await new Promise(r => setTimeout(r, wait));
       if (runIdRef.current !== runId) return;
       setBeamPct(100);
-      const parsed = parseReceiptText(text, { confidence, weakTokens });
-      // unreadable/notReceipt kommer nu från samma delade logik som appens
-      // kvitto- och verifikationsvyer (ocrReceipt.js), i stället för en egen
-      // kopia av gränsen här — se isUnreadableText/classifyDocument.
+      const { parsed } = analysis;
       const unreadable = Boolean(parsed.unreadable);
-      const fields = buildFields(parsed, unreadable);
-      const found = read.lines && !unreadable && !parsed.notReceipt ? locateFieldBoxes(read.lines, parsed) : null;
-      setBoxes(found && Object.keys(found).length > 0 ? found : null);
+      const fields = buildFields(analysis, buildReceiptPlan(analysis, null));
+      const found = !unreadable && !parsed.notReceipt ? analysis.boxes : null;
+      setBoxes(found);
       setEngine(read.lines !== undefined ? 'google' : 'local');
-      // Rådet om fotot (suddigt, mörkt, för långt bort) visas bara när bilden
-      // faktiskt stod i vägen — samma regel som i appens kvittovy.
-      const photoHint = (quality?.advice && (parsed.notReceipt || !parsed.amount || parsed.amountGuessed || parsed.vatMismatch))
-        ? quality.advice : null;
-      setResult({ fields, notReceipt: !unreadable && Boolean(parsed.notReceipt), unreadable, photoHint });
+      setResult({ fields, notReceipt: !unreadable && Boolean(parsed.notReceipt), unreadable, photoHint: analysis.hint });
       setStatus('done');
       fields.forEach((field, i) => {
         setTimeout(() => {
@@ -354,6 +371,7 @@ export default function ScanReceiptPage() {
             .bx-scan-value { font-size: 15px; font-weight: 600; color: ${INK}; min-width: 0; overflow-wrap: anywhere; }
             .bx-scan-value small { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: ${MUTED}; }
             .bx-scan-row.is-missing .bx-scan-value { color: ${MUTED}; font-weight: 500; }
+
             .bx-scan-in { animation: bxScanIn 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
             @keyframes bxScanIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
             .bx-scan-skel { display: block; height: 9px; width: 62%; border-radius: 5px; background: var(--mkt-border-soft); }
@@ -361,8 +379,8 @@ export default function ScanReceiptPage() {
             @keyframes bxScanPulse { 50% { opacity: 0.45; } }
             .bx-scan-state { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; white-space: nowrap; color: ${MUTED}; }
             .bx-scan-row.is-found .bx-scan-state { color: var(--mkt-accent-green-fg); }
-            .bx-scan-row.is-guess .bx-scan-state { color: #b45309; }
-            html[data-theme="dark"] .bx-scan-row.is-guess .bx-scan-state { color: #fbbf24; }
+            .bx-scan-row.is-guess .bx-scan-state, .bx-scan-row.is-suggest .bx-scan-state { color: #b45309; }
+            html[data-theme="dark"] .bx-scan-row.is-guess .bx-scan-state, html[data-theme="dark"] .bx-scan-row.is-suggest .bx-scan-state { color: #fbbf24; }
             .bx-scan-note { margin: 16px 0 0; font-size: 13px; line-height: 1.6; color: ${INK_SOFT}; }
             .bx-scan-note.is-warn { color: #b45309; font-weight: 600; }
             html[data-theme="dark"] .bx-scan-note.is-warn { color: #fbbf24; }

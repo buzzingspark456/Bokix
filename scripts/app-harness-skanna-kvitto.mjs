@@ -45,6 +45,8 @@ await page.route('**/api/ocr-free', async route => {
   const body = JSON.parse(route.request().postData() || '{}');
   if (calls > 1) return route.fulfill({ status: 429, json: { code: 'used' } });
   if (!body.image && !body.pdf) return route.fulfill({ status: 400, json: {} });
+  // VISION_MOCK: en JSON-fil med { text, lines } i stället för det ritade kvittots text.
+  if (process.env.VISION_MOCK) return route.fulfill({ json: JSON.parse(fs.readFileSync(process.env.VISION_MOCK, 'utf8')) });
   return route.fulfill({ json: { text: RECEIPT_LINES.map(l => l[0]).join('\n'), lines: RECEIPT_LINES.map(([text, x, y, w, h]) => ({ text, box: { x, y, w, h } })) } });
 });
 

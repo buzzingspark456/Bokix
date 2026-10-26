@@ -2475,8 +2475,10 @@ export function isUnreadableText(text) {
 // siffror och skräptecken drar ned, och står samma namn en gång till (logotyp
 // + namn under, som på nästan varje butikskvitto) vinner den variant som har
 // färst ord — alltså den rätt stavade.
+// "Receipt from Stripe" / "Kvitto från Bokix": namnet efter "från".
+const FROM_HEADING_RE = /^\s*(?:your\s+)?(?:receipt|invoice|kvitto|faktura)\s+(?:from|fr[åa]n)\s+(.{2,60}?)\s*$/i;
 const NAME_SKIP_RE = /^(\d[\d\s/.-]{4,}|\s*|kvitto|receipt|faktura|invoice|org\.?nr|datum|date|order|nr|org)$/i;
-const NAME_LABEL_RE = /(?:faktura|kvitto|invoice|receipt)\s*(?:nummer|nr|no\.?|datum|date)|f[öo]rfallo\w*|betalningsvillkor|bankgiro|plusgiro|org\.?\s*nr|organisationsnummer|vat\s*(?:id|no|number)|momsreg\w*|\bdatum\b|\bdate\b|\btotal\w*|att betala|\bsumma\b|\bmoms\b/i;
+const NAME_LABEL_RE = /(?:faktura|kvitto|invoice|receipt)\s*(?:nummer|nr|no\.?|datum|date)|f[öo]rfallo\w*|betalningsvillkor|bankgiro|plusgiro|org\.?\s*nr|organisationsnummer|vat\s*(?:id|no|number)|momsreg\w*|\bdatum\b|\bdate\b|\btotal\w*|att betala|\bsumma\b|\bmoms\b|amount\s*(?:paid|due)|date\s*(?:paid|due)|payment\s*method|betalningss[äa]tt|\bsummary\b/i;
 // Adress- och kontaktrader är inte namnet, hur fint de än står i huvudet.
 const NAME_ADDRESS_RE = /\b(?:gatan|gatu|v[äa]gen|gr[äa]nd|torget|\bbox\b|tel(?:efon)?|telnr|\btfn\b|butik|kassa|\bkvitto\b)\b/i;
 // Bolagsformer och liknande korta ord är inte sönderdelade ord.
@@ -3783,6 +3785,25 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     supplierIsLegalName = Boolean(supplier);
   }
 
+  // "Receipt from Stripe", "Kvitto från Bokix", "Invoice from …": säljaren
+  // står i rubriken (betalkvitton från Stripe och liknande). Säker när
+  // dokumentets e-post- eller webbadress pekar på samma namn.
+  let supplierFromHeading = false;
+  if (!supplier) {
+    const heading = lines.slice(0, 6).map(l => FROM_HEADING_RE.exec(String(l))).find(Boolean);
+    const name = heading ? cleanSupplierName(heading[1]) : '';
+    if (name.length >= 2 && (name.match(/\p{L}/gu) || []).length >= 2) {
+      const known = KNOWN_SUPPLIERS.find(sup => matchesAtWordStart(sup.re, name));
+      supplier = known ? known.name : name;
+      if (known) {
+        accountCode = known.account;
+        accountChoices = known.choices || null;
+        if (known.vat !== undefined) vatRate = known.vat;
+      }
+      supplierFromHeading = Boolean(webSupplier && (foldSupplier(name).includes(foldSupplier(webSupplier)) || foldSupplier(webSupplier).includes(foldSupplier(name))));
+    }
+  }
+
   // Annars raden i huvudet. Men på en faktura väger säljarens egen adress
   // tyngre än en gissad rad: där står logotypen ofta överst och går inte att
   // läsa. Stämmer raden med adressen behålls radens stavning ("Café Harlem"
@@ -3954,7 +3975,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     creditNote,
     receiptNumber: numberFound?.number ?? null, receiptNumberKind: numberFound?.kind ?? null, receiptNumberLabel: numberFound?.label ?? null,
     receiptNumberGuessed: Boolean(numberFound?.uncertain),
-    supplier, supplierMatched, supplierConfirmed: supplierMatched || supplierHasOrgNumber(lines, supplier), supplierIsLegalName, supplierFromWebAddress, accountCode, accountGuessed, accountSource, currency,
+    supplier, supplierMatched, supplierConfirmed: supplierMatched || supplierFromHeading || supplierHasOrgNumber(lines, supplier), supplierIsLegalName, supplierFromWebAddress, accountCode, accountGuessed, accountSource, currency,
     accountChoices: accountSource === 'supplier' ? accountChoices : null,
     notReceipt: false, documentKind: doc.isInvoice ? 'invoice' : 'receipt',
     paymentMethod: detectPaymentMethod(text, { isInvoice: doc.isInvoice }).method,

@@ -76,3 +76,40 @@ describe('leverantör ur e-post och webbadress', () => {
     expect(parseReceiptText(text).supplier).toBe('Café Harlem');
   });
 });
+
+describe('betalkvitton med "Receipt from …"', () => {
+  const stripeReceipt = [
+    'Receipt from Stripe',
+    'Receipt #2104-3381',
+    'AMOUNT PAID',
+    'SEK 1 250,00',
+    'DATE PAID',
+    'Oct 20, 2026',
+    'PAYMENT METHOD',
+    'Visa - 4242',
+    'SUMMARY',
+    'Stripe Billing Starter x 1 SEK 1 000,00',
+    'VAT (25%) SEK 250,00',
+    'Amount paid SEK 1 250,00',
+    'If you have any questions, contact us at support@stripe.com',
+  ].join('\n');
+
+  it('säljaren står i rubriken och är säker när e-postadressen säger samma sak', () => {
+    const r = parseReceiptText(stripeReceipt);
+    expect(r.supplier).toBe('Stripe');
+    expect(r.supplierConfirmed).toBe(true);
+    expect(r.amount).toBe(1250);
+    expect(r.vatRate).toBe(25);
+  });
+
+  it('rubriker som Amount paid och Payment method blir aldrig leverantör', () => {
+    const text = stripeReceipt.replace('Receipt from Stripe\n', '').replace('support@stripe.com', 'oss');
+    expect(String(parseReceiptText(text).supplier || '')).not.toMatch(/amount|payment|date paid|summary/i);
+  });
+
+  it('"Kvitto från" på svenska fungerar likadant, men utan adress är det bara ett förslag', () => {
+    const r = parseReceiptText(['Kvitto från Hemmafixarna', 'Datum 2026-10-20', 'Totalt 500,00 kr', 'Moms 25 % 100,00'].join('\n'));
+    expect(r.supplier).toBe('Hemmafixarna');
+    expect(r.supplierConfirmed).toBe(false);
+  });
+});

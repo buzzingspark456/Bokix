@@ -14,12 +14,10 @@ import { uploadFileToStorage } from '../utils/fileUpload';
 import { useSignedUrl } from '../utils/signedUrls';
 import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
-import { parseReceiptText, OCR_DRAFT_VERSION } from '../utils/ocrReceipt';
+import { OCR_DRAFT_VERSION } from '../utils/ocrReceipt';
 import { readDocumentText } from '../utils/ocrCache';
 import { captureEvent } from '../utils/posthog';
-import { locateFieldBoxes } from '../utils/ocrFieldBoxes';
-import { sellerTaxIds, prettifyCompanyName } from '../utils/supplierRegistry';
-import { lookupVatName } from '../utils/companyLookup';
+import { analyzeReceipt, buildReceiptPlan } from '../utils/receiptScan';
 import { ScanOverlay, OcrChecklist, photoHintText, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
 import { convertToSek } from '../utils/currencyConversion';
 import { historyForSupplier, historyFromVerifications } from '../utils/receiptHistory';
@@ -374,48 +372,18 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     try {
       const { text, confidence, weakTokens, quality, layout, cached } = await readDocumentText(input, msg => { if (isCurrent()) setOcrMessage(msg); }, { force, quad });
       if (!isCurrent()) return;
-      const parsed = parseReceiptText(text, { confidence, weakTokens });
+      // Tolkning, leverantören i momsregistret och valutaomräkningen delas med
+      // gratisverktyget Skanna kvitto (utils/receiptScan.js).
+      const analysis = await analyzeReceipt({ text, confidence, weakTokens, quality, layout }, {
+        ownCompany,
+        onMessage: msg => { if (isCurrent()) setOcrMessage(msg); },
+      });
+      if (!isCurrent()) return;
+      const { parsed, registryName, supplierName, hint, foreignInfo } = analysis;
       // En cachad läsning har inget läge; då gäller rutorna från förra gången.
-      const boxes = layout ? locateFieldBoxes(layout, parsed) : (currentDraft?.boxes || null);
+      const boxes = layout ? analysis.boxes : (currentDraft?.boxes || null);
       setFieldBoxes(boxes && Object.keys(boxes).length > 0 ? boxes : null);
-      // Leverantören inte säkert känd: slå upp säljarens momsnummer eller
-      // organisationsnummer i EU:s momsregister. Registrets namn är det
-      // juridiska och slår en gissad rad. Går registret inte att nå blir det
-      // som förut.
-      let registryName = '';
-      if (!parsed.notReceipt && !parsed.supplierMatched) {
-        const ids = sellerTaxIds(text, { orgNr: ownCompany?.orgNr, vatNr: ownCompany?.vatNr });
-        for (const id of ids) {
-          try {
-            setOcrMessage(tr('ui.slar_upp_leverantoren'));
-            const hit = await Promise.race([lookupVatName(id), new Promise(r => setTimeout(() => r(null), 7000))]);
-            if (hit?.name) { registryName = prettifyCompanyName(hit.name); break; }
-          } catch { /* registret svarar inte: fortsätt utan */ }
-        }
-        if (!isCurrent()) return;
-      }
       setSupplierFromRegistry(Boolean(registryName));
-      const supplierName = registryName || parsed.supplier;
-      // Rådet om fotot visas bara när avläsningen inte blev bra: blev beloppet
-      // avläst och kontrollerat mot momsen spelar det ingen roll att bilden
-      // kunde varit skarpare.
-      const hint = (quality?.advice && (parsed.notReceipt || !parsed.amount || parsed.amountGuessed || parsed.vatMismatch))
-        ? quality.advice : null;
-
-      // Utländsk valuta — räkna om till kronor med DAGSKURSEN FÖR
-      // KÖPDATUMET (Skatteverkets rekommendation) innan beloppet fylls i.
-      // Går omräkningen inte att göra (okänd valutakod, inget nät) fylls
-      // beloppet INTE i som om talet redan vore kronor — se
-      // convertToSek.
-      let amountSek = parsed.currency ? null : parsed.amount;
-      let foreignInfo = null;
-      if (parsed.amount && parsed.currency) {
-        setOcrMessage(tr('ui.raknar_om_till_kronor', { currency: parsed.currency }));
-        const converted = await convertToSek(parsed.amount, parsed.currency, parsed.date);
-        if (!isCurrent()) return;
-        if (converted) amountSek = converted.sek;
-        foreignInfo = { code: parsed.currency, amount: parsed.amount, converted };
-      }
 
       const remaining = (cached ? CACHED_SCAN_MS : MIN_SCAN_MS) - (Date.now() - startedAt);
       if (remaining > 0) {
@@ -423,54 +391,11 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         if (!isCurrent()) return;
       }
 
-      // Vad som hittades. `state` säger hur säkert: 'found' = det stod på
-      // kvittot, 'guess' = ett förslag att kontrollera (den första textraden
-      // som leverantör, en momssats som antagits eftersom kvittot inte sa
-      // någon). Ett förslag visas aldrig som en avläsning — kundönskemål,
-      // uttryckligt: en gissning som ser säker ut är värre än ingen gissning.
-      // Inget kvitto eller ingen faktura (ett CV, ett brev): inget fylls i.
+      // Vad som hittades och hur säkert: se buildReceiptPlan i utils/receiptScan.js.
+      // Företagets egen historik för leverantören går före de allmänna reglerna.
       const nr = Boolean(parsed.notReceipt);
       const hist = nr ? null : historyRef.current(supplierName);
-      const reverse = parsed.reverseCharge;
-      const vatFromHistory = !reverse && Boolean(hist && parsed.vatRateGuessed && hist.vatRate !== null);
-      // Moms i flera satser (mat 12 % och hushåll 25 %): momsbeloppet på
-      // kvittot bokförs som det står, i stället för en sats som blir fel.
-      const mixedVat = !nr && !reverse && !parsed.currency && Boolean(parsed.vatRates && parsed.vatAmount);
-      const plan = [
-        { key: 'supplier', found: !nr && Boolean(supplierName), state: (registryName || parsed.supplierConfirmed) ? 'found' : 'guess', patch: { supplier: supplierName || '' } },
-        { key: 'date', found: !nr && Boolean(parsed.date), state: parsed.dateGuessed ? 'guess' : 'found', patch: { date: parsed.date } },
-        { key: 'receiptNumber', found: !nr && Boolean(parsed.receiptNumber), state: parsed.receiptNumberGuessed ? 'guess' : 'found', patch: { receiptNumber: parsed.receiptNumber || '' } },
-        { key: 'amount', found: !nr && Boolean(amountSek), state: parsed.amountGuessed ? 'guess' : 'found', patch: { amount: amountToInput(amountSek), refund: Boolean(parsed.creditNote) } },
-        {
-          key: 'vatRate', found: !nr && parsed.vatRate !== null && parsed.vatRate !== undefined,
-          state: reverse ? 'found' : (vatFromHistory ? 'history' : (parsed.vatRateGuessed ? 'guess' : 'found')),
-          patch: mixedVat
-            ? { vatRate: 'mixed', vatAmount: amountToInput(parsed.vatAmount) }
-            : { vatRate: vatFromHistory ? hist.vatRate : parsed.vatRate },
-        },
-        {
-          // Tjänst från utlandet: kontot följer av dokumentet (4535 EU, 4531
-          // utanför EU), inte av tidigare kvitton som kan vara bokförda utan
-          // omvänd moms.
-          //
-          // Ett konto som avläsningen bara gissat (6990 som reservfall, eller en
-          // utländsk tjänst där regionen är oklar) fylls INTE i. Kundfeedback:
-          // ett gissat konto såg ut som ett riktigt och bokfördes fel. Fältet
-          // lämnas tomt och kontolistan visas i stället, så användaren väljer.
-          //
-          // Kundfeedback, uttryckligt: inga gissningar, och ett tomt konto är
-          // bättre än ett konto avläsningen inte vet. Kontot fylls därför bara i
-          // när det är känt: användaren har själv bokfört samma leverantör förut
-          // (historik), eller det är en utländsk tjänst där omvänd moms ger
-          // kontot. En regel (leverantören eller ett ord på kvittot) är ett
-          // FÖRSLAG som visas överst i kontolistan, inte något som skrivs in.
-          key: 'costAccount', found: !nr && Boolean(reverse ? parsed.accountCode : hist?.costAccount),
-          state: reverse ? 'found' : 'history',
-          patch: { costAccount: reverse ? parsed.accountCode : hist?.costAccount },
-          suggest: (!nr && !reverse && !hist?.costAccount && parsed.accountCode && !parsed.accountGuessed)
-            ? { code: parsed.accountCode, source: parsed.accountSource, choices: parsed.accountChoices || null } : null,
-        },
-      ];
+      const plan = buildReceiptPlan(analysis, hist);
 
       // Resultatet sparas på kvittot (som ett utkast, inte som ifyllda fält),
       // så att en ny öppning visar det direkt i stället för att läsa om.
