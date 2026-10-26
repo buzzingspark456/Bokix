@@ -101,9 +101,9 @@ export default function DrojsmalsrantaPage() {
           ))}
           <ToolResultRow label="Totalt att kräva" value={r.total} decimals={2} strong />
 
-          <div style={{ marginTop: '18px', padding: '12px 14px', background: 'rgba(255,255,255,0.06)', borderRadius: '11px', fontSize: '12.5px', color: 'rgba(255,255,255,0.72)', lineHeight: 1.6 }}>
-            Fakturan är <strong style={{ color: 'white' }}>{r.days} dagar</strong> försenad och kostar dig{' '}
-            <strong style={{ color: 'white' }}>{formatKr(r.dailyInterest, 2)} kr</strong> per dag i utebliven ränta.
+          <div style={{ marginTop: '18px', padding: '12px 14px', background: 'var(--tr-inner)', borderRadius: '11px', fontSize: '12.5px', color: 'var(--tr-soft)', lineHeight: 1.6 }}>
+            Fakturan är <strong style={{ color: 'var(--tr-ink)' }}>{r.days} dagar</strong> försenad och kostar dig{' '}
+            <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.dailyInterest, 2)} kr</strong> per dag i utebliven ränta.
           </div>
         </ToolResultPanel>
       }

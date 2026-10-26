@@ -61,9 +61,9 @@ export default function EgenavgifterPage() {
           <ToolResultRow label={`Inkomstskatt ${taxRate || 0} %`} value={r.incomeTax} />
           <ToolResultRow label="Kvar till dig" value={r.net} strong />
 
-          <div style={{ marginTop: '18px', padding: '12px 14px', background: 'rgba(255,255,255,0.06)', borderRadius: '11px', fontSize: '12.5px', color: 'rgba(255,255,255,0.72)', lineHeight: 1.6 }}>
-            Av <strong style={{ color: 'white' }}>{formatKr(r.surplus)} kr</strong> i överskott går ungefär{' '}
-            <strong style={{ color: 'white' }}>{formatKr(r.fees + r.incomeTax)} kr</strong> till avgifter och skatt.
+          <div style={{ marginTop: '18px', padding: '12px 14px', background: 'var(--tr-inner)', borderRadius: '11px', fontSize: '12.5px', color: 'var(--tr-soft)', lineHeight: 1.6 }}>
+            Av <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.surplus)} kr</strong> i överskott går ungefär{' '}
+            <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.fees + r.incomeTax)} kr</strong> till avgifter och skatt.
             Det är {r.surplus > 0 ? Math.round(((r.fees + r.incomeTax) / r.surplus) * 100) : 0} % — bra att veta innan pengarna redan är utgivna.
           </div>
         </ToolResultPanel>

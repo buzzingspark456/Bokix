@@ -130,10 +130,10 @@ export default function UtdelningPage() {
             <ToolResultRow label="Kvar till dig efter skatt" value={r.net} strong />
           </div>
 
-          <div style={{ marginTop: '18px', padding: '12px 14px', background: 'rgba(255,255,255,0.06)', borderRadius: '11px', fontSize: '12.5px', color: 'rgba(255,255,255,0.72)', lineHeight: 1.6 }}>
+          <div style={{ marginTop: '18px', padding: '12px 14px', background: 'var(--tr-inner)', borderRadius: '11px', fontSize: '12.5px', color: 'var(--tr-soft)', lineHeight: 1.6 }}>
             {r.carriedForward > 0 ? (
               <>
-                Du sparar <strong style={{ color: 'white' }}>{formatKr(r.carriedForward)} kr</strong> i outnyttjat utrymme till nästa år.
+                Du sparar <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.carriedForward)} kr</strong> i outnyttjat utrymme till nästa år.
                 Sedan {YEAR} växer det inte längre med ränta — det ligger bara kvar.
               </>
             ) : (

@@ -93,10 +93,10 @@ export default function MomsKalkylatorPage() {
           <ToolResultRow label="Belopp exkl. moms" value={r.net} decimals={2} />
           <ToolResultRow label={`Moms ${rate} %`} value={r.vat} decimals={2} />
           <ToolResultRow label="Belopp inkl. moms" value={r.gross} decimals={2} strong />
-          <div style={{ marginTop: '18px', padding: '12px 14px', background: 'rgba(255,255,255,0.06)', borderRadius: '11px', fontSize: '12.5px', color: 'rgba(255,255,255,0.72)', lineHeight: 1.6 }}>
+          <div style={{ marginTop: '18px', padding: '12px 14px', background: 'var(--tr-inner)', borderRadius: '11px', fontSize: '12.5px', color: 'var(--tr-soft)', lineHeight: 1.6 }}>
             {mode === 'add'
-              ? <>Du fakturerar <strong style={{ color: 'white' }}>{formatKr(r.gross, 2)} kr</strong>, varav <strong style={{ color: 'white' }}>{formatKr(r.vat, 2)} kr</strong> är moms du redovisar vidare till Skatteverket — inte en intäkt.</>
-              : <>Av <strong style={{ color: 'white' }}>{formatKr(r.gross, 2)} kr</strong> är <strong style={{ color: 'white' }}>{formatKr(r.vat, 2)} kr</strong> moms. Din faktiska kostnad (eller intäkt) är <strong style={{ color: 'white' }}>{formatKr(r.net, 2)} kr</strong>.</>}
+              ? <>Du fakturerar <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.gross, 2)} kr</strong>, varav <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.vat, 2)} kr</strong> är moms du redovisar vidare till Skatteverket — inte en intäkt.</>
+              : <>Av <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.gross, 2)} kr</strong> är <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.vat, 2)} kr</strong> moms. Din faktiska kostnad (eller intäkt) är <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.net, 2)} kr</strong>.</>}
           </div>
         </ToolResultPanel>
       }

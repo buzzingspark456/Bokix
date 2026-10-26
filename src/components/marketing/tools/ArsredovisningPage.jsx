@@ -45,15 +45,15 @@ export default function ArsredovisningPage() {
             title="Deadline hos Bolagsverket"
             footnote={`Gäller privata aktiebolag, räkenskapsår som inleds 2025-01-01 eller senare. Publika aktiebolag har dubbla belopp (15 000/15 000/30 000 kr).`}
           >
-            <div style={{ fontSize: '24px', fontWeight: 800, color: 'white', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--tr-ink)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
               {formatDateSv(r.deadline)}
             </div>
-            <div style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.65)', marginTop: '6px' }}>
+            <div style={{ fontSize: '13.5px', color: 'var(--tr-soft)', marginTop: '6px' }}>
               {r.daysLeft >= 0 ? `Om ${r.daysLeft} dagar` : `${Math.abs(r.daysLeft)} dagar sedan — redan passerad`}
             </div>
 
-            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
-              <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(255,255,255,0.5)', marginBottom: '10px' }}>
+            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--tr-line)' }}>
+              <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--tr-muted)', marginBottom: '10px' }}>
                 Om den blir sen
               </div>
               {r.feeSchedule.map((fee, i) => (
@@ -69,7 +69,7 @@ export default function ArsredovisningPage() {
           </ToolResultPanel>
         ) : (
           <ToolResultPanel title="Deadline hos Bolagsverket">
-            <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>Ange ett giltigt datum till vänster.</div>
+            <div style={{ fontSize: '14px', color: 'var(--tr-soft)' }}>Ange ett giltigt datum till vänster.</div>
           </ToolResultPanel>
         )
       }

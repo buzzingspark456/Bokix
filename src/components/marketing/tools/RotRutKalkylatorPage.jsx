@@ -95,14 +95,14 @@ export default function RotRutKalkylatorPage() {
           <ToolResultRow label={`${ROT_RUT_RATES[type].label}-avdrag ${rate} %`} value={-deduction} />
           <ToolResultRow label="Kunden betalar" value={customerPays} strong />
 
-          <div style={{ marginTop: '22px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
+          <div style={{ marginTop: '22px', paddingTop: '16px', borderTop: '1px solid var(--tr-line)' }}>
             <ToolResultRow label="Du begär från Skatteverket" value={deduction} />
             <ToolResultRow label="Totalt till dig" value={customerPays + deduction} muted />
           </div>
 
           {cappedAway > 0 && (
-            <div style={{ marginTop: '16px', padding: '12px 14px', background: 'rgba(239,68,68,0.14)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '11px', fontSize: '12.5px', color: 'rgba(255,255,255,0.85)', lineHeight: 1.6 }}>
-              Avdraget slår i taket: <strong style={{ color: 'white' }}>{formatKr(cappedAway)} kr</strong> ryms inte inom{' '}
+            <div style={{ marginTop: '16px', padding: '12px 14px', background: 'rgba(239,68,68,0.14)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '11px', fontSize: '12.5px', color: 'var(--tr-ink-soft)', lineHeight: 1.6 }}>
+              Avdraget slår i taket: <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(cappedAway)} kr</strong> ryms inte inom{' '}
               {formatKr(totalCap)} kr och måste betalas av kunden själv.
             </div>
           )}

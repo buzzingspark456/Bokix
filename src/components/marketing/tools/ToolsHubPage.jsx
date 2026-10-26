@@ -2,19 +2,17 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from '../../icons';
 import MarketingLayout, { Reveal } from '../MarketingLayout';
-import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, ACCENT } from '../marketingTokens';
-import { GRAD, grad, AuroraLayer } from '../aurora';
+import { SERIF, INK, MUTED } from '../marketingTokens';
 import { PageMeta, JsonLd, SITE_URL } from '../../../utils/seo';
-import { TOOLS, TOOLS_HUB_PATH } from './toolsConfig';
+import { TOOLS, TOOLS_HUB_PATH, TOOL_GROUPS, toolBySlug } from './toolsConfig';
 
 // Navet för de fria verktygen. Egen sida (inte bara sidfotslänkar) av två
 // skäl: den är målsidan för "gratis verktyg bokföring"-sökningar, och den
 // ger varje enskilt verktyg en intern länk från en sida med tyngd —
 // annars hänger verktygssidorna bara i sidfoten.
 //
-// Kortlistan byggs ur TOOLS (toolsConfig.js), aldrig ur en egen kopia:
-// ett nytt verktyg ska dyka upp här, i sidfoten och i "fler verktyg"-raden
-// av sig självt.
+// Listan byggs ur TOOL_GROUPS (toolsConfig.js), samma grupper som
+// Verktyg-menyn: ett nytt verktyg läggs in där och dyker upp i båda.
 
 const ITEM_LIST_SCHEMA = {
   '@context': 'https://schema.org',
@@ -29,6 +27,19 @@ const ITEM_LIST_SCHEMA = {
   })),
 };
 
+// Ordlistan är inte en räknare, men hör hemma i samma "gratis och
+// användbart utan konto"-familj.
+const GROUPS = [
+  ...TOOL_GROUPS.map(g => ({
+    title: g.title,
+    items: g.items.map(([slug]) => {
+      const t = toolBySlug(slug);
+      return { key: slug, title: t.title, text: t.short, to: t.path };
+    }),
+  })),
+  { title: 'Slå upp', items: [{ key: 'ordlista', title: 'Bokföringsordlista', text: 'Verifikation, periodisering, AGI och K2 på vanlig svenska', to: '/ordlista' }] },
+];
+
 export default function ToolsHubPage() {
   return (
     <MarketingLayout>
@@ -39,59 +50,47 @@ export default function ToolsHubPage() {
       />
       <JsonLd data={ITEM_LIST_SCHEMA} />
       <style>{`
-        .bx-hub-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
-        @media (max-width: 780px) { .bx-hub-grid { grid-template-columns: 1fr; } }
+        .bx-hub-group { display: grid; grid-template-columns: 220px 1fr; gap: 24px; padding: 28px 0; border-top: 1px solid var(--mkt-card-border); }
+        .bx-hub-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 32px; }
+        .bx-hub-item { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 0; text-decoration: none; border-bottom: 1px solid var(--mkt-card-border); }
+        .bx-hub-item:hover .bx-hub-title { color: var(--mkt-accent-green-fg); }
+        .bx-hub-item:hover .bx-hub-arrow { transform: translateX(3px); color: var(--mkt-accent-green-fg); }
+        @media (max-width: 780px) {
+          .bx-hub-group { grid-template-columns: 1fr; gap: 6px; padding: 24px 0 8px; }
+          .bx-hub-list { grid-template-columns: 1fr; }
+        }
       `}</style>
 
-      <section style={{ padding: '150px 24px 60px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer
-          stops={[['rgba(14,165,233,0.16)', '3% -8%'], ['rgba(132,204,22,0.14)', '98% 106%']]}
-          blob={{ gradient: grad(GRAD.blueTeal), top: '-160px', left: '-110px', size: '440px', opacity: 0.18 }}
-        />
-        <Reveal style={{ maxWidth: '720px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(32px, 5vw, 50px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '18px', lineHeight: 1.14 }}>
+      <section style={{ padding: 'clamp(116px, 15vw, 150px) 24px 36px', background: 'var(--mkt-page-bg)' }}>
+        <Reveal style={{ maxWidth: '1040px', margin: '0 auto' }}>
+          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(36px, 5.6vw, 60px)', fontWeight: 700, letterSpacing: '-0.02em', color: INK, margin: '0 0 16px', lineHeight: 1.06 }}>
             Verktyg som räknar rätt åt dig
           </h1>
-          <p style={{ fontSize: '17px', color: MUTED, lineHeight: 1.7 }}>
-            De uträkningar svenska företagare gör om och om igen, med formeln utskriven så du ser exakt hur svaret kom fram.
-            Ingen registrering, ingen mejladress, inget som sparas.
+          <p style={{ fontSize: 'clamp(16px, 1.7vw, 19px)', color: MUTED, lineHeight: 1.6, margin: 0, maxWidth: '640px' }}>
+            De uträkningar svenska företagare gör om och om igen, med formeln utskriven så du ser hur svaret kom fram.
+            Ingen registrering och inget som sparas.
           </p>
         </Reveal>
       </section>
 
-      <section style={{ padding: '0 24px 30px', background: 'var(--mkt-page-bg)' }}>
-        <div className="bx-hub-grid" style={{ maxWidth: '900px', margin: '0 auto' }}>
-          {TOOLS.map((t, i) => {
-            const accent = ACCENT[t.accentKey] || ACCENT.green;
-            return (
-              <Reveal key={t.slug} delay={i * 60} as={Link} to={t.path} className="lp-card-hover" style={{
-                display: 'block', textDecoration: 'none', background: 'var(--mkt-card-bg)',
-                border: `1px solid ${CARD_BORDER}`, borderRadius: '18px', padding: '26px 26px 24px', boxShadow: CARD_SHADOW,
-              }}>
-                <h2 style={{ fontSize: '18px', fontWeight: 700, color: INK, margin: '0 0 7px', letterSpacing: '-0.01em' }}>{t.title}</h2>
-                <p style={{ fontSize: '14px', color: INK_SOFT, lineHeight: 1.65, margin: '0 0 14px' }}>{t.description}</p>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '13.5px', fontWeight: 700, color: accent.fg }}>
-                  Öppna verktyget <ArrowRight size={14} />
-                </span>
-              </Reveal>
-            );
-          })}
-
-          {/* Ordlistan är inte en räknare, men hör hemma i samma "gratis och
-              användbart utan konto"-familj — och får därför sista platsen i
-              rutnätet i stället för att gömmas i sidfoten. */}
-          <Reveal delay={TOOLS.length * 60} as={Link} to="/ordlista" className="lp-card-hover" style={{
-            display: 'block', textDecoration: 'none', background: IVORY,
-            border: `1px solid ${CARD_BORDER}`, borderRadius: '18px', padding: '26px 26px 24px', boxShadow: CARD_SHADOW,
-          }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 700, color: INK, margin: '0 0 7px', letterSpacing: '-0.01em' }}>Bokföringsordlista</h2>
-            <p style={{ fontSize: '14px', color: INK_SOFT, lineHeight: 1.65, margin: '0 0 14px' }}>
-              Vad betyder verifikation, periodisering, AGI och K2? Ett uppslagsverk på svenska, utan revisorsprosa.
-            </p>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '13.5px', fontWeight: 700, color: ACCENT.blue.fg }}>
-              Slå upp ett ord <ArrowRight size={14} />
-            </span>
-          </Reveal>
+      <section style={{ padding: '12px 24px clamp(72px, 9vw, 110px)', background: 'var(--mkt-page-bg)' }}>
+        <div style={{ maxWidth: '1040px', margin: '0 auto' }}>
+          {GROUPS.map((g, gi) => (
+            <Reveal key={g.title} delay={gi * 60} className="bx-hub-group">
+              <h2 style={{ fontSize: '15px', fontWeight: 600, color: INK, margin: '14px 0 0' }}>{g.title}</h2>
+              <div className="bx-hub-list">
+                {g.items.map(item => (
+                  <Link key={item.key} to={item.to} className="bx-hub-item">
+                    <span style={{ minWidth: 0 }}>
+                      <span className="bx-hub-title" style={{ display: 'block', fontSize: '16.5px', fontWeight: 600, color: INK, transition: 'color 0.15s' }}>{item.title}</span>
+                      <span style={{ display: 'block', fontSize: '14px', color: MUTED, marginTop: '3px', lineHeight: 1.45 }}>{item.text}</span>
+                    </span>
+                    <ArrowRight className="bx-hub-arrow" size={16} color="var(--mkt-muted)" style={{ flexShrink: 0, transition: 'transform 0.15s, color 0.15s' }} />
+                  </Link>
+                ))}
+              </div>
+            </Reveal>
+          ))}
         </div>
       </section>
     </MarketingLayout>

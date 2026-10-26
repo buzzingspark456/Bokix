@@ -10,7 +10,7 @@ import { JsonLd, SITE_URL } from '../../utils/seo';
 // (headern/footern/mobilmenyn nedan) en lokal bindning, återexporten låter
 // de sex ställen som redan gör `import { BokixWordmark } from
 // './marketing/MarketingLayout'` fortsätta oförändrade.
-import { TOOLS, TOOLS_HUB_PATH } from './tools/toolsConfig';
+import { TOOLS, TOOLS_HUB_PATH, TOOL_GROUPS } from './tools/toolsConfig';
 import BokixWordmark from '../shared/BokixWordmark';
 import { BOKIX_SUMMARY, BOKIX_PROFILES } from '../../content/marketing/bokixFacts';
 import { ORG_TYPE_PAGES } from '../../content/marketing/orgTypes';
@@ -179,32 +179,7 @@ export const NAV_MENUS = [
     label: 'Verktyg',
     to: TOOLS_HUB_PATH,
     dropdownWidth: 780,
-    sections: [
-      {
-        title: 'Moms & skatt',
-        items: [
-          toolItem('momskalkylator'),
-          toolItem('egenavgifter'),
-          toolItem('utdelning'),
-          toolItem('rot-rut', 'ROT- och RUT-avdrag'),
-        ],
-      },
-      {
-        title: 'Lön & fakturor',
-        items: [
-          toolItem('lonekalkylator'),
-          toolItem('drojsmalsranta'),
-          toolItem('skanna-kvitto'),
-        ],
-      },
-      {
-        title: 'Datum & frister',
-        items: [
-          toolItem('momsdatum', 'Momsdeklaration'),
-          toolItem('arsredovisning', 'Årsredovisning'),
-        ],
-      },
-    ],
+    sections: TOOL_GROUPS.map(g => ({ title: g.title, items: g.items.map(([slug, title]) => toolItem(slug, title)) })),
     footer: { label: 'Alla gratis verktyg', to: TOOLS_HUB_PATH },
   },
   {

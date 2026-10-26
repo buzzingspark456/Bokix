@@ -42,14 +42,14 @@ export default function MomsDatumPage() {
         >
           {r.dueDate ? (
             <>
-              <div style={{ fontSize: '26px', fontWeight: 800, color: 'white', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+              <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--tr-ink)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
                 {formatDateSv(r.dueDate)}
               </div>
-              <div style={{ fontSize: '13.5px', color: 'rgba(255,255,255,0.65)', marginTop: '6px' }}>
+              <div style={{ fontSize: '13.5px', color: 'var(--tr-soft)', marginTop: '6px' }}>
                 {daysLeft >= 0 ? `Om ${daysLeft} ${daysLeft === 1 ? 'dag' : 'dagar'}` : 'Redan passerat'}
                 {vatPeriod === 'quarterly' && r.quarter && ` — avser kvartal ${r.quarter} ${r.year}`}
               </div>
-              <div style={{ marginTop: '20px', padding: '12px 14px', background: 'rgba(255,255,255,0.06)', borderRadius: '11px', fontSize: '12.5px', color: 'rgba(255,255,255,0.72)', lineHeight: 1.6 }}>
+              <div style={{ marginTop: '20px', padding: '12px 14px', background: 'var(--tr-inner)', borderRadius: '11px', fontSize: '12.5px', color: 'var(--tr-soft)', lineHeight: 1.6 }}>
                 {(r.dueDate.getMonth() === 0 || r.dueDate.getMonth() === 7) && (
                   <>Datumet är den 17:e, inte den vanliga 12:e — {r.dueDate.getMonth() === 0 ? 'januari' : 'augusti'} har ett eget undantag hos Skatteverket.</>
                 )}
@@ -59,7 +59,7 @@ export default function MomsDatumPage() {
               </div>
             </>
           ) : (
-            <div style={{ fontSize: '15px', color: 'rgba(255,255,255,0.85)', lineHeight: 1.7 }}>
+            <div style={{ fontSize: '15px', color: 'var(--tr-ink-soft)', lineHeight: 1.7 }}>
               Ingen fast dag att räkna fram — datumet följer din inkomstdeklaration.
             </div>
           )}

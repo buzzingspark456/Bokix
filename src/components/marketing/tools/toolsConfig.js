@@ -113,3 +113,11 @@ export const TOOLS_HUB_PATH = '/verktyg';
 export function toolBySlug(slug) {
   return TOOLS.find(t => t.slug === slug);
 }
+
+// Grupperna i Verktyg-menyn och på /verktyg. `title` ersätter verktygets
+// footerLabel där menyn vill ha ett kortare namn.
+export const TOOL_GROUPS = [
+  { title: 'Moms & skatt', items: [['momskalkylator'], ['egenavgifter'], ['utdelning'], ['rot-rut', 'ROT- och RUT-avdrag']] },
+  { title: 'Lön & fakturor', items: [['lonekalkylator'], ['drojsmalsranta'], ['skanna-kvitto']] },
+  { title: 'Datum & frister', items: [['momsdatum', 'Momsdeklaration'], ['arsredovisning', 'Årsredovisning']] },
+];

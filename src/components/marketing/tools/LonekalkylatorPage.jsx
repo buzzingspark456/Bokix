@@ -63,18 +63,18 @@ export default function LonekalkylatorPage() {
           {vacation && <ToolResultRow label="Sociala avgifter på semestern" value={r.vacationFee} />}
           <ToolResultRow label="Total kostnad för dig" value={r.totalCost} strong />
 
-          <div style={{ marginTop: '22px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
-            <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(255,255,255,0.45)', marginBottom: '8px' }}>
+          <div style={{ marginTop: '22px', paddingTop: '16px', borderTop: '1px solid var(--tr-line)' }}>
+            <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--tr-muted)', marginBottom: '8px' }}>
               Den anställda får ut
             </div>
             <ToolResultRow label={`Preliminärskatt ${taxRate || 0} %`} value={r.tax} muted />
             <ToolResultRow label="Nettolön (uppskattad)" value={r.net} />
           </div>
 
-          <div style={{ marginTop: '18px', padding: '12px 14px', background: 'rgba(255,255,255,0.06)', borderRadius: '11px', fontSize: '12.5px', color: 'rgba(255,255,255,0.72)', lineHeight: 1.6 }}>
-            Du betalar <strong style={{ color: 'white' }}>{formatKr(r.totalCost)} kr</strong> för att den anställda ska få{' '}
-            <strong style={{ color: 'white' }}>{formatKr(r.net)} kr</strong> i handen — ungefär{' '}
-            <strong style={{ color: 'white' }}>{formatKr(r.costPerNetKrona, 2)} kr</strong> per utbetald krona.
+          <div style={{ marginTop: '18px', padding: '12px 14px', background: 'var(--tr-inner)', borderRadius: '11px', fontSize: '12.5px', color: 'var(--tr-soft)', lineHeight: 1.6 }}>
+            Du betalar <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.totalCost)} kr</strong> för att den anställda ska få{' '}
+            <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.net)} kr</strong> i handen — ungefär{' '}
+            <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.costPerNetKrona, 2)} kr</strong> per utbetald krona.
           </div>
         </ToolResultPanel>
       }

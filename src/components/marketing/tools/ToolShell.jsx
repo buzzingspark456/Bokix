@@ -3,8 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, ArrowLeft, Check } from '../../icons';
 import { BRAND } from '../../../utils/brandColors';
 import MarketingLayout, { Reveal } from '../MarketingLayout';
-import { SERIF, INK, INK_SOFT, MUTED, IVORY, CARD_BORDER, CARD_SHADOW, CARD_SHADOW_SM, ACCENT } from '../marketingTokens';
-import { AuroraLayer } from '../aurora';
+import { SERIF, INK, INK_SOFT, MUTED, ACCENT } from '../marketingTokens';
 import { PageMeta, JsonLd, SITE_URL } from '../../../utils/seo';
 import { TOOLS, TOOLS_HUB_PATH } from './toolsConfig';
 import { dateTimeFormat } from '../../../utils/intlCache';
@@ -46,13 +45,31 @@ export function formatDateSv(date) {
 function ToolStyles() {
   return (
     <style>{`
-      .bx-tool-grid { display: grid; grid-template-columns: 1fr 0.85fr; gap: 0; align-items: stretch; }
-      .bx-tool-related { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-      .bx-tool-faq { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px 32px; }
-      .bx-tool-input:focus { outline: none; border-color: var(--mkt-accent-green-fg); box-shadow: 0 0 0 3px var(--mkt-accent-green-soft); }
-      .bx-tool-seg:hover { border-color: var(--mkt-accent-green-fg); }
+      /* Resultatytan följer sidans tema: ljus yta med mörk text i ljust
+         läge, en nyans mörkare än kortet i mörkt. Verktygssidorna färgar
+         sin text i resultatet med --tr-* i stället för fast vitt. */
+      #lp-root { --tr-bg: #f5f6f3; --tr-ink: #1c2420; --tr-ink-soft: #2f3a33; --tr-soft: #4a554d; --tr-muted: #6b7568; --tr-line: #e3e6df; --tr-inner: #ffffff; --tr-panel: linear-gradient(160deg, oklch(97.6% 0.028 150) 0%, oklch(97.4% 0.022 215) 100%); --tr-panel-line: oklch(91% 0.03 160); --tr-total: oklch(45% 0.15 148); }
+      html[data-theme="dark"] #lp-root { --tr-bg: #122117; --tr-ink: #eef3ea; --tr-ink-soft: #d5e0cf; --tr-soft: #b4c3ad; --tr-muted: #8fa088; --tr-line: #2a3d2c; --tr-inner: #17281c; --tr-panel: linear-gradient(160deg, #15301f 0%, #112530 100%); --tr-panel-line: #2b4636; --tr-total: oklch(82% 0.16 145); }
+      .bx-tool-stage { position: relative; max-width: 1040px; margin: 0 auto; }
+      .bx-tool-stage::before { content: ''; position: absolute; inset: -40px -60px; z-index: 0; pointer-events: none; filter: blur(50px); opacity: 0.55;
+        background: radial-gradient(40% 50% at 78% 40%, oklch(88% 0.08 150 / 0.7), transparent 70%), radial-gradient(35% 45% at 20% 70%, oklch(88% 0.06 220 / 0.6), transparent 70%); }
+      html[data-theme="dark"] #lp-root .bx-tool-stage::before { opacity: 0.35; background: radial-gradient(40% 50% at 78% 40%, oklch(45% 0.1 150 / 0.7), transparent 70%), radial-gradient(35% 45% at 20% 70%, oklch(40% 0.08 220 / 0.6), transparent 70%); }
+      .bx-tool-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 0; align-items: stretch; }
+      .bx-tool-related { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 28px; }
+      .bx-tool-related a { border-top: 1px solid var(--mkt-card-border); }
+      .bx-tool-related a:hover .bx-tool-related-title { color: var(--mkt-accent-green-fg); }
+      .bx-tool-faq { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 40px; }
+      .bx-tool-faq > div { border-top: 1px solid var(--mkt-card-border); padding: 20px 0 22px; }
+      .bx-tool-input:hover { border-color: var(--mkt-btn-border); }
+      .bx-tool-input:focus { outline: none; border-color: var(--mkt-accent-green-fg); box-shadow: 0 0 0 4px var(--mkt-accent-green-soft); }
+      .bx-tool-seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: var(--tr-bg); border: 1px solid var(--tr-line); margin-bottom: 22px; }
+      .bx-tool-seg button { border: none; border-radius: 10px; padding: 10px 12px; cursor: pointer; font-family: inherit; text-align: center; background: transparent; color: var(--mkt-ink-soft); transition: background 0.15s, color 0.15s, box-shadow 0.15s; }
+      .bx-tool-seg button:hover { color: var(--mkt-ink); }
+      .bx-tool-seg button[aria-pressed="true"] { background: var(--mkt-card-bg); color: var(--mkt-accent-green-fg); box-shadow: 0 1px 2px rgba(28,36,32,0.08), 0 2px 8px -2px rgba(28,36,32,0.1); }
+      html[data-theme="dark"] #lp-root .bx-tool-seg button[aria-pressed="true"] { background: #23382a; box-shadow: none; }
       @media (max-width: 860px) {
         .bx-tool-grid { grid-template-columns: 1fr; }
+        .bx-tool-result { border-left: none !important; border-top: 1px solid var(--tr-panel-line); }
         .bx-tool-related, .bx-tool-faq { grid-template-columns: 1fr; }
       }
     `}</style>
@@ -64,25 +81,26 @@ function ToolStyles() {
  * kolumn) så "kr"/"%" läses som en del av talet, inte som en etikett. */
 export function ToolField({ label, hint, suffix, children }) {
   return (
-    <label style={{ display: 'block', marginBottom: '18px' }}>
-      <span style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: INK, marginBottom: '7px' }}>{label}</span>
+    <label style={{ display: 'block', marginBottom: '22px' }}>
+      <span style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: INK, marginBottom: '8px' }}>{label}</span>
       <span style={{ position: 'relative', display: 'block' }}>
         {children}
         {suffix && (
-          <span style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '13.5px', fontWeight: 600, color: MUTED, pointerEvents: 'none' }}>
+          <span style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '15px', fontWeight: 500, color: MUTED, pointerEvents: 'none' }}>
             {suffix}
           </span>
         )}
       </span>
-      {hint && <span style={{ display: 'block', fontSize: '12.5px', color: MUTED, marginTop: '6px', lineHeight: 1.5 }}>{hint}</span>}
+      {hint && <span style={{ display: 'block', fontSize: '13px', color: MUTED, marginTop: '7px', lineHeight: 1.5 }}>{hint}</span>}
     </label>
   );
 }
 
 const inputStyle = {
-  width: '100%', padding: '13px 46px 13px 14px', fontSize: '16px', fontWeight: 600,
-  color: INK, background: 'var(--mkt-page-bg)', border: `1.5px solid ${CARD_BORDER}`,
-  borderRadius: '11px', fontFamily: 'inherit', transition: 'border-color 0.15s, box-shadow 0.15s',
+  width: '100%', padding: '15px 50px 15px 16px', fontSize: '18px', fontWeight: 600, letterSpacing: '-0.01em',
+  color: INK, background: 'var(--mkt-card-bg)', border: '1px solid var(--mkt-border-soft)',
+  borderRadius: '12px', fontFamily: 'inherit', fontVariantNumeric: 'tabular-nums', boxSizing: 'border-box',
+  transition: 'border-color 0.15s, box-shadow 0.15s',
 };
 
 /** Sifferfält. `type="text"` med inputMode="decimal" i stället för
@@ -125,32 +143,15 @@ export function ToolDate({ value, onChange }) {
 /** Segmenterad väljare (2–3 alternativ) — tydligare än en <select> när
  * valet påverkar hela resultatet, och lika bra med tangentbord eftersom
  * varje alternativ är en riktig knapp. */
-export function ToolSegmented({ options, value, onChange, accent = ACCENT.green }) {
+export function ToolSegmented({ options, value, onChange }) {
   return (
-    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '18px' }}>
-      {options.map(opt => {
-        const active = opt.value === value;
-        return (
-          <button
-            key={String(opt.value)}
-            type="button"
-            className={active ? '' : 'bx-tool-seg'}
-            onClick={() => onChange(opt.value)}
-            aria-pressed={active}
-            style={{
-              flex: '1 1 auto', minWidth: '96px', padding: '11px 14px', borderRadius: '11px', cursor: 'pointer',
-              fontFamily: 'inherit', fontSize: '13.5px', fontWeight: 700, textAlign: 'center',
-              background: active ? accent.soft : 'var(--mkt-page-bg)',
-              color: active ? accent.fg : INK_SOFT,
-              border: `1.5px solid ${active ? accent.fg : CARD_BORDER}`,
-              transition: 'background 0.15s, border-color 0.15s, color 0.15s',
-            }}
-          >
-            {opt.label}
-            {opt.hint && <span style={{ display: 'block', fontSize: '11.5px', fontWeight: 500, opacity: 0.8, marginTop: '2px' }}>{opt.hint}</span>}
-          </button>
-        );
-      })}
+    <div className="bx-tool-seg" role="group">
+      {options.map(opt => (
+        <button key={String(opt.value)} type="button" onClick={() => onChange(opt.value)} aria-pressed={opt.value === value}>
+          <span style={{ display: 'block', fontSize: '14px', fontWeight: 600 }}>{opt.label}</span>
+          {opt.hint && <span style={{ display: 'block', fontSize: '11.5px', fontWeight: 400, color: MUTED, marginTop: '2px', lineHeight: 1.35 }}>{opt.hint}</span>}
+        </button>
+      ))}
     </div>
   );
 }
@@ -164,25 +165,36 @@ export function ToolSegmented({ options, value, onChange, accent = ACCENT.green 
  * referensbild som strålen i ReceiptFlow.jsx: varje avläst fält ska synas
  * bekräftat för sig, inte bara stå där. */
 export function ToolResultRow({ label, value, unit = 'kr', strong, muted, decimals = 0, note, checked }) {
+  const shown = typeof value === 'number' ? formatKr(value, decimals) : value;
+  if (strong) {
+    // Svaret: egen rad med stort tal, så det syns på en gång.
+    return (
+      <div style={{ marginTop: '14px', paddingTop: '18px' }}>
+        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--tr-soft)', marginBottom: '4px' }}>
+          {label}
+          {note && <span style={{ display: 'block', fontSize: '12px', color: 'var(--tr-muted)', fontWeight: 400 }}>{note}</span>}
+        </div>
+        <div style={{ fontSize: 'clamp(32px, 4.2vw, 42px)', fontWeight: 700, color: 'var(--tr-total)', letterSpacing: '-0.03em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
+          {shown}
+          {unit && <span style={{ fontSize: '18px', fontWeight: 500, color: 'var(--tr-muted)', marginLeft: '6px', letterSpacing: 0 }}>{unit}</span>}
+        </div>
+      </div>
+    );
+  }
   return (
-    <div style={{
-      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '16px',
-      padding: strong ? '14px 0 0' : '7px 0',
-      borderTop: strong ? '1px solid rgba(255,255,255,0.18)' : 'none',
-      marginTop: strong ? '10px' : 0,
-    }}>
-      <span style={{ fontSize: strong ? '14.5px' : '13.5px', fontWeight: strong ? 700 : 500, color: muted ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.8)', lineHeight: 1.45 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '16px', padding: '10px 0', borderBottom: '1px solid var(--tr-line)' }}>
+      <span style={{ fontSize: '14px', color: muted ? 'var(--tr-muted)' : 'var(--tr-soft)', lineHeight: 1.45 }}>
         {label}
-        {note && <span style={{ display: 'block', fontSize: '11.5px', color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{note}</span>}
+        {note && <span style={{ display: 'block', fontSize: '12px', color: 'var(--tr-muted)' }}>{note}</span>}
       </span>
       <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '7px' }}>
-        <span style={{ fontSize: strong ? '22px' : '15px', fontWeight: strong ? 800 : 700, color: 'white', whiteSpace: 'nowrap', letterSpacing: strong ? '-0.02em' : 0 }}>
-          {typeof value === 'number' ? formatKr(value, decimals) : value}
-          {unit && <span style={{ fontSize: strong ? '13px' : '11.5px', fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginLeft: '4px' }}>{unit}</span>}
+        <span style={{ fontSize: '15.5px', fontWeight: 600, color: muted ? 'var(--tr-soft)' : 'var(--tr-ink)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+          {shown}
+          {unit && <span style={{ fontSize: '12.5px', fontWeight: 500, color: 'var(--tr-muted)', marginLeft: '4px' }}>{unit}</span>}
         </span>
         {checked && (
-          <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '16px', height: '16px', borderRadius: '50%', background: 'rgba(132,204,22,0.22)', flexShrink: 0 }}>
-            <Check size={10} strokeWidth={3.5} color="#a3e635" />
+          <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '16px', height: '16px', borderRadius: '50%', background: 'var(--mkt-accent-green-soft)', flexShrink: 0 }}>
+            <Check size={10} strokeWidth={3.5} color="var(--mkt-accent-green-fg)" />
           </span>
         )}
       </span>
@@ -195,14 +207,13 @@ export function ToolResultRow({ label, value, unit = 'kr', strong, muted, decima
  * scrollat förbi rubriken. Samma djupgröna ton som sidfoten. */
 export function ToolResultPanel({ title, children, footnote }) {
   return (
-    // I MÖRKT läge ligger kortets egen bakgrund nära panelens djupgröna
-    // ton — utan den tunna kanten flöt de två halvorna ihop till en enda yta.
-    <div style={{ background: '#0e2018', padding: 'clamp(24px, 4vw, 32px)', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', borderLeft: '1px solid rgba(255,255,255,0.09)' }}>
-      <div aria-hidden style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: BRAND.green }} />
-      <h2 style={{ fontSize: '12.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'rgba(255,255,255,0.5)', margin: '0 0 16px' }}>{title}</h2>
+    <div className="bx-tool-result" style={{ '--tr-line': 'var(--tr-panel-line)', background: 'var(--tr-panel)', padding: 'clamp(26px, 4vw, 40px)', display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--tr-panel-line)' }}>
+      <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--tr-soft)', margin: '0 0 6px' }}>
+        <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--tr-total)' }} />{title}
+      </h2>
       <div style={{ flex: 1 }}>{children}</div>
       {footnote && (
-        <p style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, margin: '20px 0 0', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+        <p style={{ fontSize: '12px', color: 'var(--tr-muted)', lineHeight: 1.6, margin: '24px 0 0' }}>
           {footnote}
         </p>
       )}
@@ -214,15 +225,15 @@ export function ToolResultPanel({ title, children, footnote }) {
  * skiljer ett verktyg man litar på från en svart låda. */
 export function ToolSteps({ steps }) {
   return (
-    <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+    <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {steps.map((s, i) => (
         <li key={s.title} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-          <span style={{ width: 26, height: 26, borderRadius: '8px', background: 'var(--mkt-ivory)', border: `1px solid ${CARD_BORDER}`, color: INK, fontSize: '12.5px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</span>
+          <span style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--tr-bg)', border: '1px solid var(--tr-line)', color: INK_SOFT, fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{i + 1}</span>
           <div>
-            <div style={{ fontSize: '14.5px', fontWeight: 700, color: INK, marginBottom: '3px' }}>{s.title}</div>
-            <div style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.65 }}>{s.body}</div>
+            <div style={{ fontSize: '16px', fontWeight: 600, color: INK, marginBottom: '4px', paddingTop: '3px' }}>{s.title}</div>
+            <div style={{ fontSize: '15px', color: INK_SOFT, lineHeight: 1.65 }}>{s.body}</div>
             {s.formula && (
-              <code style={{ display: 'inline-block', marginTop: '7px', fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '12.5px', background: 'var(--mkt-ivory)', border: `1px solid ${CARD_BORDER}`, padding: '5px 10px', borderRadius: '7px', color: INK }}>
+              <code style={{ display: 'inline-block', marginTop: '10px', fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace', fontSize: '13px', background: 'var(--tr-bg)', border: '1px solid var(--tr-line)', padding: '7px 12px', borderRadius: '9px', color: INK }}>
                 {s.formula}
               </code>
             )}
@@ -238,9 +249,9 @@ export function ToolSteps({ steps }) {
 export function ToolNote({ tone = 'neutral', title, children }) {
   const accent = tone === 'warn' ? ACCENT.red : ACCENT.blue;
   return (
-    <div style={{ background: accent.soft, border: `1px solid color-mix(in srgb, ${accent.fg} 25%, transparent)`, borderRadius: '14px', padding: '18px 20px', margin: '24px 0 0' }}>
-      {title && <div style={{ fontSize: '13.5px', fontWeight: 700, color: accent.fg, marginBottom: '6px' }}>{title}</div>}
-      <div style={{ fontSize: '13.5px', color: INK_SOFT, lineHeight: 1.7 }}>{children}</div>
+    <div style={{ background: 'var(--tr-bg)', border: '1px solid var(--tr-line)', borderLeft: `3px solid ${accent.fg}`, borderRadius: '12px', padding: '18px 22px', margin: '32px 0 0' }}>
+      {title && <div style={{ fontSize: '15px', fontWeight: 600, color: INK, marginBottom: '6px' }}>{title}</div>}
+      <div style={{ fontSize: '14.5px', color: INK_SOFT, lineHeight: 1.7 }}>{children}</div>
     </div>
   );
 }
@@ -262,7 +273,6 @@ export function ToolNote({ tone = 'neutral', title, children }) {
  */
 export default function ToolShell({ tool, metaTitle, metaDescription, intro, calculator, result, steps, faq, children }) {
   const navigate = useNavigate();
-  const accent = ACCENT[tool.accentKey] || ACCENT.green;
   const related = TOOLS.filter(t => t.slug !== tool.slug);
 
   // SoftwareApplication-schema för själva verktyget (inte för Bokix som
@@ -301,37 +311,39 @@ export default function ToolShell({ tool, metaTitle, metaDescription, intro, cal
       <ToolStyles />
 
       {/* ── Rubrik ── */}
-      <section style={{ padding: '140px 24px 44px', background: IVORY, position: 'relative', overflow: 'hidden' }}>
-        <AuroraLayer stops={[[`color-mix(in srgb, ${accent.fg} 16%, transparent)`, '4% -6%'], ['rgba(14,165,233,0.10)', '97% 104%']]} />
-        <Reveal style={{ maxWidth: '760px', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <Link to={TOOLS_HUB_PATH} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '7px 15px', borderRadius: '999px', background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, fontSize: '12.5px', fontWeight: 700, color: accent.fg, marginBottom: '20px', textDecoration: 'none' }}>
-            <ArrowLeft size={13} /> Gratis verktyg
+      <section style={{ padding: 'clamp(112px, 14vw, 136px) 24px 40px', background: 'var(--mkt-page-bg)' }}>
+        <Reveal style={{ maxWidth: '1040px', margin: '0 auto' }}>
+          <Link to={TOOLS_HUB_PATH} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 500, color: MUTED, marginBottom: '18px', textDecoration: 'none' }}>
+            <ArrowLeft size={14} /> Gratis verktyg
           </Link>
-          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(30px, 4.6vw, 46px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '16px', lineHeight: 1.15 }}>
+          <h1 style={{ fontFamily: SERIF, fontSize: 'clamp(34px, 5vw, 54px)', fontWeight: 700, letterSpacing: '-0.02em', color: INK, margin: '0 0 14px', lineHeight: 1.08 }}>
             {tool.title}
           </h1>
-          <p style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.7, margin: 0 }}>{intro}</p>
+          <p style={{ fontSize: 'clamp(16px, 1.6vw, 18px)', color: MUTED, lineHeight: 1.6, margin: 0, maxWidth: '640px' }}>{intro}</p>
         </Reveal>
       </section>
 
       {/* ── Räknaren ── */}
-      <section style={{ padding: '0 24px', background: 'var(--mkt-page-bg)', position: 'relative', marginTop: '-4px' }}>
-        <Reveal scale className="bx-tool-grid" style={{
-          maxWidth: '900px', margin: '0 auto', background: 'var(--mkt-card-bg)',
-          border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', overflow: 'hidden', boxShadow: CARD_SHADOW,
+      <section style={{ padding: '0 24px', background: 'var(--mkt-page-bg)' }}>
+        <div className="bx-tool-stage">
+        <Reveal className="bx-tool-grid" style={{
+          background: 'var(--mkt-card-bg)',
+          border: '1px solid var(--tr-line)', borderRadius: '24px', overflow: 'hidden',
+          boxShadow: '0 1px 2px rgba(20,40,28,0.04), 0 30px 60px -32px rgba(20,60,35,0.28)',
         }}>
-          <div style={{ padding: 'clamp(24px, 4vw, 34px)' }}>{calculator}</div>
+          <div style={{ padding: 'clamp(26px, 4vw, 40px)' }}>{calculator}</div>
           {result}
         </Reveal>
+        </div>
       </section>
 
       {/* ── Så räknar vi ── */}
-      <section style={{ padding: '64px 24px 20px', background: 'var(--mkt-page-bg)' }}>
+      <section style={{ padding: 'clamp(64px, 8vw, 96px) 24px 20px', background: 'var(--mkt-page-bg)' }}>
         <Reveal style={{ maxWidth: '760px', margin: '0 auto' }}>
-          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: 700, color: INK, margin: '0 0 8px', letterSpacing: '-0.01em' }}>
+          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 3.2vw, 34px)', fontWeight: 700, color: INK, margin: '0 0 8px', letterSpacing: '-0.015em' }}>
             Så räknar vi
           </h2>
-          <p style={{ fontSize: '15px', color: MUTED, margin: '0 0 26px', lineHeight: 1.65 }}>
+          <p style={{ fontSize: '16px', color: MUTED, margin: '0 0 32px', lineHeight: 1.65 }}>
             Ingen svart låda. Varje steg går att räkna efter för hand.
           </p>
           <ToolSteps steps={steps} />
@@ -341,16 +353,16 @@ export default function ToolShell({ tool, metaTitle, metaDescription, intro, cal
 
       {/* ── Frågor och svar ── */}
       {faq?.length > 0 && (
-        <section style={{ padding: '56px 24px 20px', background: 'var(--mkt-page-bg)' }}>
-          <Reveal style={{ maxWidth: '900px', margin: '0 auto' }}>
-            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: 700, color: INK, margin: '0 0 26px', letterSpacing: '-0.01em' }}>
+        <section style={{ padding: 'clamp(56px, 7vw, 88px) 24px 20px', background: 'var(--mkt-page-bg)' }}>
+          <Reveal style={{ maxWidth: '1040px', margin: '0 auto' }}>
+            <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 3.2vw, 34px)', fontWeight: 700, color: INK, margin: '0 0 18px', letterSpacing: '-0.015em' }}>
               Vanliga frågor
             </h2>
             <div className="bx-tool-faq">
               {faq.map(item => (
                 <div key={item.q}>
-                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: INK, margin: '0 0 7px' }}>{item.q}</h3>
-                  <p style={{ fontSize: '14px', color: INK_SOFT, lineHeight: 1.7, margin: 0 }}>{item.a}</p>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, color: INK, margin: '0 0 8px' }}>{item.q}</h3>
+                  <p style={{ fontSize: '15px', color: INK_SOFT, lineHeight: 1.7, margin: 0 }}>{item.a}</p>
                 </div>
               ))}
             </div>
@@ -359,23 +371,22 @@ export default function ToolShell({ tool, metaTitle, metaDescription, intro, cal
       )}
 
       {/* ── Andra verktyg ── */}
-      <section style={{ padding: '56px 24px 20px', background: 'var(--mkt-page-bg)' }}>
-        <Reveal style={{ maxWidth: '900px', margin: '0 auto' }}>
-          <h2 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: MUTED, margin: '0 0 16px' }}>
+      <section style={{ padding: 'clamp(56px, 7vw, 88px) 24px 20px', background: 'var(--mkt-page-bg)' }}>
+        <Reveal style={{ maxWidth: '1040px', margin: '0 auto' }}>
+          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 3.2vw, 34px)', fontWeight: 700, color: INK, margin: '0 0 18px', letterSpacing: '-0.015em' }}>
             Fler gratisverktyg
           </h2>
           <div className="bx-tool-related">
             {related.map(t => {
               return (
-                <Link key={t.slug} to={t.path} className="lp-card-hover" style={{
-                  display: 'flex', gap: '13px', alignItems: 'center', textDecoration: 'none',
-                  background: 'var(--mkt-card-bg)', border: `1px solid ${CARD_BORDER}`, borderRadius: '14px',
-                  padding: '15px 17px', boxShadow: CARD_SHADOW_SM,
+                <Link key={t.slug} to={t.path} style={{
+                  display: 'flex', gap: '12px', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', padding: '16px 0',
                 }}>
                   <span style={{ minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: '14.5px', fontWeight: 700, color: INK }}>{t.title}</span>
-                    <span style={{ display: 'block', fontSize: '12.5px', color: MUTED }}>{t.short}</span>
+                    <span className="bx-tool-related-title" style={{ display: 'block', fontSize: '15.5px', fontWeight: 600, color: INK, transition: 'color 0.15s' }}>{t.title}</span>
+                    <span style={{ display: 'block', fontSize: '13.5px', color: MUTED, marginTop: '2px' }}>{t.short}</span>
                   </span>
+                  <ArrowRight size={15} color="var(--mkt-muted)" style={{ flexShrink: 0 }} />
                 </Link>
               );
             })}
@@ -384,9 +395,9 @@ export default function ToolShell({ tool, metaTitle, metaDescription, intro, cal
       </section>
 
       {/* ── Avslut ── */}
-      <section style={{ padding: '70px 24px 90px', background: 'var(--mkt-page-bg)' }}>
-        <Reveal scale style={{ maxWidth: '900px', margin: '0 auto', background: IVORY, border: `1px solid ${CARD_BORDER}`, borderRadius: '22px', padding: 'clamp(28px, 5vw, 44px)', textAlign: 'center' }}>
-          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(22px, 3.2vw, 30px)', fontWeight: 700, color: INK, margin: '0 0 12px', letterSpacing: '-0.01em' }}>
+      <section style={{ padding: 'clamp(64px, 8vw, 96px) 24px clamp(72px, 9vw, 110px)', background: 'var(--mkt-page-bg)' }}>
+        <Reveal style={{ maxWidth: '1040px', margin: '0 auto', background: 'var(--tr-bg)', border: '1px solid var(--tr-line)', borderRadius: '24px', padding: 'clamp(32px, 6vw, 60px)', textAlign: 'center' }}>
+          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 3.6vw, 38px)', fontWeight: 700, color: INK, margin: '0 0 12px', letterSpacing: '-0.015em' }}>
             Slipp räkna det här för hand
           </h2>
           <p style={{ fontSize: '15.5px', color: MUTED, lineHeight: 1.65, margin: '0 auto 26px', maxWidth: '520px' }}>
@@ -396,7 +407,7 @@ export default function ToolShell({ tool, metaTitle, metaDescription, intro, cal
             <button onClick={() => navigate('/', { state: { enterApp: true, authMode: 'signup' } })} style={{ padding: '14px 28px', background: BRAND.green, border: 'none', borderRadius: '12px', color: 'white', fontWeight: 700, fontSize: '15px', cursor: 'pointer', fontFamily: 'inherit' }}>
               Prova gratis
             </button>
-            <Link to="/funktioner" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '14px 24px', background: 'var(--mkt-card-bg)', border: `1.5px solid ${CARD_BORDER}`, borderRadius: '12px', color: INK_SOFT, fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>
+            <Link to="/funktioner" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '14px 24px', background: 'var(--mkt-card-bg)', border: '1px solid var(--mkt-border-soft)', borderRadius: '12px', color: INK_SOFT, fontWeight: 600, fontSize: '15px', textDecoration: 'none' }}>
               Se alla funktioner <ArrowRight size={15} />
             </Link>
           </div>
