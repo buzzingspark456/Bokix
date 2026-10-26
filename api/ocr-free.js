@@ -24,7 +24,7 @@ import { withSentry } from './_sentry.js';
 
 const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
-export const FREE_DAILY_LIMIT = Number(process.env.OCR_FREE_DAILY_LIMIT) || 300;
+export const FREE_DAILY_LIMIT = Number(process.env.OCR_FREE_DAILY_LIMIT) || 100;
 
 /** Vem besökaren är, för "en gång per person": IPv4 som den är, IPv6 per /64. */
 export function visitorKey(ip, secret = process.env.SIGNED_TOKEN_SECRET || '') {
