@@ -57,7 +57,7 @@ const foot1 = await page.locator('.bx-scan-foot').innerText();
 
 const upload = async () => {
   await page.locator('.bx-scan-drop input[type=file]').setInputFiles(receiptPath);
-  await page.waitForSelector('.bx-scan-engine', { timeout: 90000 });
+  await page.waitForSelector('.bx-scan-note', { timeout: 90000 });
   await page.waitForTimeout(500);
 };
 
@@ -72,7 +72,7 @@ await page.locator('.bx-tool-grid').first().screenshot({ path: `test-results/ska
 const used = await page.evaluate(() => localStorage.getItem('bokix_free_ocr_used'));
 
 await upload();
-const engine2 = await page.locator('.bx-scan-engine').innerText();
+const engine2 = await page.locator('.bx-scan-engine').count() ? await page.locator('.bx-scan-engine').innerText() : '';
 await page.locator('.bx-tool-grid').first().screenshot({ path: `test-results/skanna-3-webblasare-${THEME}.png` });
 const foot2 = await page.locator('.bx-scan-foot').innerText();
 
@@ -83,7 +83,7 @@ console.log('Markering vid hovring:', markVisible, '| ihågkommen:', used);
 console.log('2:', engine2.replace(/\n/g, ' '));
 console.log('Efter:', foot2);
 console.log('Anrop till /api/ocr-free:', calls);
-const ok = calls === 1 && /Google/.test(engine1) && /webbläsare/.test(engine2) && markVisible && used === '1';
+const ok = calls === 1 && /Google/.test(engine1) && engine2 === '' && markVisible && used === '1';
 console.log(ok ? 'OK' : 'FEL', errors.length ? errors : '');
 await browser.close();
 process.exit(ok ? 0 : 1);

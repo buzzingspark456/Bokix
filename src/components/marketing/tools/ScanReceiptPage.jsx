@@ -434,11 +434,9 @@ export default function ScanReceiptPage() {
             )
           )}
 
-          {status === 'done' && engine && result && revealedCount >= result.fields.length && (
+          {status === 'done' && engine === 'google' && result && revealedCount >= result.fields.length && (
             <p className="bx-scan-engine">
-              {engine === 'google'
-                ? <span><strong>Läst av Google, som i appen.</strong>{boxes ? ' Peka på en rad så ser du var den stod på kvittot.' : ''} Nästa kvitto läses i din webbläsare.</span>
-                : <span><strong>Läst i din webbläsare.</strong> Din gratis läsning med Google är använd. I Bokix läses alla kvitton med Google och du ser var varje uppgift stod.</span>}
+              <span><strong>Läst av Google, som i appen.</strong>{boxes ? ' Peka på en rad så ser du var den stod på kvittot.' : ''} Nästa kvitto läses i din webbläsare.</span>
             </p>
           )}
 
