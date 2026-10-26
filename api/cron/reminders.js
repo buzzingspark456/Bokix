@@ -15,6 +15,7 @@ import { refreshZettleToken, fetchZettlePurchases, fetchZettleFinanceTransaction
 import { invoiceCustomerRemaining } from '../../src/utils/rotRutConfig.js';
 import { withSentry } from '../_sentry.js';
 import { withTablesState } from '../_companyStore.js';
+import { processDueTrustpilotInvites } from './_trustpilotInvites.js';
 
 // Bugkritiskt (lokal utveckling, samma orsak/fix som api/_resend.js): måste
 // vara en LAT, memoiserad getter, inte en toppnivå-konstant. server.js
@@ -156,10 +157,22 @@ async function handler(req, res) {
   // skarp körning skulle ha gjort.
   const dryRun = req.query?.dryRun === 'true' || req.query?.dryRun === '1';
 
-  const summary = { dryRun, usersScanned: 0, invoiceReminders: 0, vatReminders: 0, agiReminders: 0, trialReminders: 0, stripeLedgerEvents: 0, zettleLedgerEvents: 0, skippedUnpaid: 0, errors: [], wouldSend: [] };
+  const summary = { dryRun, usersScanned: 0, invoiceReminders: 0, vatReminders: 0, agiReminders: 0, trialReminders: 0, trustpilotInvites: { sent: 0, wouldSend: 0, failed: 0, errors: [] }, stripeLedgerEvents: 0, zettleLedgerEvents: 0, skippedUnpaid: 0, errors: [], wouldSend: [] };
 
   try {
     const today = startOfToday();
+
+    try {
+      summary.trustpilotInvites = await processDueTrustpilotInvites(admin, { dryRun });
+      if (summary.trustpilotInvites.wouldSend) {
+        summary.wouldSend.push({ type: 'trustpilot_invite', count: summary.trustpilotInvites.wouldSend });
+      }
+      if (summary.trustpilotInvites.errors.length) {
+        summary.errors.push(...summary.trustpilotInvites.errors);
+      }
+    } catch (err) {
+      summary.errors.push(`Trustpilot-inbjudningar: ${err.message}`);
+    }
 
     // ── 4) Trial-slut-påminnelse till KONTOT ── körs FÖRST och separat
     // från user_data-genomsökningen nedan — public.subscriptions är en

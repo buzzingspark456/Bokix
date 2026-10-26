@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
     <PolicyLayout
       title="Integritetspolicy"
       path="/privacy"
-      updated="2026-10-24"
+      updated="2026-10-26"
       metaTitle="Integritetspolicy | Bokix"
       metaDescription="Vilken personuppgiftsinformation Bokix samlar in, varför, hur länge den sparas och vilka rättigheter du har enligt GDPR."
     >
@@ -54,7 +54,7 @@ export default function PrivacyPolicy() {
         <ul style={policyUl}>
           <li style={policyLi}><strong>Fullgörande av avtal</strong> — för att kunna leverera bokförings-, fakturerings- och löneverktyget du registrerat dig för (kontouppgifter, företagsuppgifter, bokföringsdata).</li>
           <li style={policyLi}><strong>Rättslig förpliktelse</strong> — bokföringsdata du själv skapar i tjänsten omfattas av bokföringslagens krav på arkivering; vi raderar aldrig bokföringsdata i förtid enbart för att du säger upp kontot.</li>
-          <li style={policyLi}><strong>Berättigat intresse</strong> — teknisk data (IP, tidsstämplar) för att upptäcka missbruk, felsöka driftsproblem och hålla tjänsten säker.</li>
+          <li style={policyLi}><strong>Berättigat intresse</strong> — teknisk data (IP, tidsstämplar) för att upptäcka missbruk, felsöka driftsproblem och hålla tjänsten säker, och en enda inbjudan att lämna ett omdöme om Bokix på Trustpilot (se avsnitt 4).</li>
           <li style={policyLi}><strong>Samtycke</strong> — om du väljer att koppla på integrationer (t.ex. Stripe för kortbetalningar, Zettle för kassan eller din egen e-post som avsändare) behandlas ytterligare uppgifter först när du aktivt ansluter dem, och du kan koppla från när du vill.</li>
         </ul>
       </PolicySection>
@@ -72,6 +72,7 @@ export default function PrivacyPolicy() {
           <li style={policyLi}><strong>Google Cloud Vision</strong> — läser texten på kvitton och underlag du laddar upp, både foton och PDF. Bara bilden eller filen skickas, behandlas inom EU och sparas inte hos Google. Gratisverktyget Skanna kvitto på webbplatsen använder det aldrig.</li>
           <li style={policyLi}><strong>Bolagsverket, FöretagsAPI och VIES</strong> — när du söker upp ett företag (ditt eget, en kund eller en leverantör) skickas organisationsnumret, momsnumret eller det namn du söker på dit för att hämta namn och adress ur offentliga register. Inget annat skickas.</li>
           <li style={policyLi}><strong>Zettle</strong> — <em>endast om du själv kopplar din Zettle-kassa</em>. Bokix hämtar då dina försäljningar därifrån för att bokföra dem. Du kan koppla från när du vill under Inställningar.</li>
+          <li style={policyLi}><strong>Trustpilot</strong> — ungefär en månad efter din första betalning för Bokix skickar vi ett mejl där Trustpilot får en kopia. Trustpilot får då din e-postadress och skickar dig en inbjudan att lämna ett omdöme. Det sker en gång per konto, du väljer själv om du vill svara, och vill du inte få inbjudan mejlar du <a href="mailto:support@bokix.se" style={link}>support@bokix.se</a>. Gäller inte dina kunder eller mottagare av fakturor du skickar.</li>
           <li style={policyLi}><strong>Analysverktyg, bara med ditt samtycke</strong> — Google Analytics (Google), Microsoft Clarity (Microsoft) och PostHog mäter hur besökare använder Bokix och sätts först efter att du klickat "Acceptera alla" i cookiebannern. PostHog körs i EU-molnet (Frankfurt) och räknar sidvisningar och några få händelser, till exempel att ett kvitto laddats upp eller en faktura skickats. Ingen bokföringsdata, inga belopp, inga kunduppgifter och inga inmatningar skickas dit. Exakt vilka cookies som sätts står i <a href="/cookies" style={link}>cookiepolicyn</a>.</li>
           <li style={policyLi}><strong>Google</strong> — <em>endast om du själv väljer att koppla din Gmail-adress som avsändare</em> (Inställningar → Fakturautskick). Fakturan skickas då genom ditt eget Google-konto i stället för via Bokix. Se avsnitt 5 nedan för exakt vad det innebär.</li>
         </ul>

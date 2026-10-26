@@ -92,12 +92,13 @@ export async function resolveSenderAddress(company) {
   return { from: fallback, usingCustomDomain: false };
 }
 
-export async function sendViaResend(payload) {
+export async function sendViaResend(payload, { idempotencyKey } = {}) {
   const resendRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${getResendApiKey()}`,
       'Content-Type': 'application/json',
+      ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
     },
     body: JSON.stringify(payload),
   });

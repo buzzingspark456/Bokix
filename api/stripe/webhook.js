@@ -4,6 +4,7 @@ import { recordStripePaymentEvent } from './_paymentEvents.js';
 import { upsertSubscription } from './_subscriptions.js';
 import { enforceCardTrialLimit } from './_trialGuard.js';
 import { notifyAdminsAboutEvent } from './_adminNotify.js';
+import { scheduleTrustpilotInvite } from './_trustpilotInvites.js';
 import { createClient } from '@supabase/supabase-js';
 import { readOwnerCompany } from '../_companyStore.js';
 import { withSentry } from '../_sentry.js';
@@ -158,6 +159,13 @@ async function handler(req, res) {
         // Utbetalningshistorik för det anslutna kontot hämtas idag inte in
         // någonstans i appen (ingen sida visar den) — inget att spara förrän
         // en sådan sida faktiskt finns, se PRODUCTION_READINESS.md.
+        break;
+      case 'invoice.paid':
+        // Omdömesinbjudan är en bisak: ett fel här ska aldrig ge Stripe ett
+        // 500-svar (då uteblir grundarnas notis och händelsen skickas om).
+        if (!fromConnected) {
+          try { await scheduleTrustpilotInvite(stripe, event); } catch (err) { console.error('Trustpilot-inbjudan kunde inte schemaläggas:', err); }
+        }
         break;
 
       // ── Bokix egen prenumeration (create-subscription-checkout.js,

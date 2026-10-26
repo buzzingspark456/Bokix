@@ -12,6 +12,7 @@ import { ZETTLE_OAUTH_COOKIE, zettleOauthStateCookie, clearZettleOauthStateCooki
 import { recordStripePaymentEvent } from './api/stripe/_paymentEvents.js'
 import { upsertSubscription } from './api/stripe/_subscriptions.js'
 import remindersHandler from './api/cron/reminders.js'
+import { scheduleTrustpilotInvite } from './api/stripe/_trustpilotInvites.js'
 import {
   PROVIDERS as SMTP_PROVIDERS, GOOGLE_PROVIDER, guessProvider, publicView, hasEmailSecretKey,
   loadSenderRow, saveSenderRow, deleteSenderRow, encryptSecret, verifySmtp,
@@ -196,6 +197,8 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
           console.warn('checkout.session.completed utan user_id/company_id/invoice_id i metadata, hoppar över:', session.id)
         }
       }
+    } else if (event.type === 'invoice.paid') {
+      try { await scheduleTrustpilotInvite(stripe, event) } catch (err) { console.error('Trustpilot-inbjudan kunde inte schemaläggas:', err) }
     } else if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
       // Se motsvarande kommentar i api/stripe/webhook.js: Bokix egen
       // prenumeration (registreringsflödet), helt separat från

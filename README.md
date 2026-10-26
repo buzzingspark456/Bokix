@@ -35,6 +35,14 @@ cp .env.example .env
 
 Fyll i nödvändiga lokala utvecklingsnycklar i `.env` vid behov (se `.env.example` för tillgängliga variabler).
 
+### Trustpilot-inbjudningar i produktion
+
+För att be om ett ärligt omdöme från Bokix prenumerationskunder en kalendermånad efter deras första lyckade betalning:
+
+1. Kör `supabase-2026-10-26-trustpilot-invites.sql` i Supabase SQL Editor.
+2. Lägg till Trustpilots unika BCC-adress som `TRUSTPILOT_INVITE_BCC` i Vercels server-side miljövariabler. Lägg aldrig adressen i en `VITE_`-variabel.
+3. Kontrollera att Bokix egen Stripe-webhook tar emot `invoice.paid`, och deploya därefter.
+
 ### 4. Starta utvecklingsservern
 Starta appen lokalt:
 
