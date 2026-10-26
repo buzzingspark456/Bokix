@@ -26,7 +26,7 @@ export default function MomsDatumPage() {
       intro="Välj din redovisningsperiod, så räknar vi ut nästa gång momsdeklarationen och betalningen senast ska vara hos Skatteverket."
       calculator={
         <>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: INK, marginBottom: '7px' }}>Hur redovisar du moms?</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: INK, marginBottom: '8px' }}>Hur redovisar du moms?</div>
           <ToolSegmented value={vatPeriod} onChange={setVatPeriod} options={PERIOD_OPTIONS} />
           <p style={{ fontSize: '13px', color: MUTED, lineHeight: 1.65, margin: '2px 0 0' }}>
             Redovisningsperioden bestäms av din omsättning och står på ditt beslut från Skatteverket — de flesta aktiebolag och enskilda firmor med normal omsättning redovisar kvartalsvis.
@@ -49,7 +49,7 @@ export default function MomsDatumPage() {
                 {daysLeft >= 0 ? `Om ${daysLeft} ${daysLeft === 1 ? 'dag' : 'dagar'}` : 'Redan passerat'}
                 {vatPeriod === 'quarterly' && r.quarter && ` — avser kvartal ${r.quarter} ${r.year}`}
               </div>
-              <div style={{ marginTop: '20px', padding: '12px 14px', background: 'var(--tr-inner)', borderRadius: '11px', fontSize: '12.5px', color: 'var(--tr-soft)', lineHeight: 1.6 }}>
+              <div style={{ marginTop: '20px', padding: '14px 16px', background: 'var(--tr-inner)', borderRadius: '12px', fontSize: '14px', color: 'var(--tr-ink-soft)', lineHeight: 1.6 }}>
                 {(r.dueDate.getMonth() === 0 || r.dueDate.getMonth() === 7) && (
                   <>Datumet är den 17:e, inte den vanliga 12:e — {r.dueDate.getMonth() === 0 ? 'januari' : 'augusti'} har ett eget undantag hos Skatteverket.</>
                 )}

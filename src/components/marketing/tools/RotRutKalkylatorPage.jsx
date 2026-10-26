@@ -44,7 +44,7 @@ export default function RotRutKalkylatorPage() {
       intro="Avdraget gäller bara arbetskostnaden, aldrig materialet. Skriv in beloppen inklusive moms så ser du vad kunden ska betala och vad du begär tillbaka från Skatteverket."
       calculator={
         <>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: INK, marginBottom: '7px' }}>Typ av arbete</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: INK, marginBottom: '8px' }}>Typ av arbete</div>
           <ToolSegmented
             value={type}
             onChange={setType}
@@ -70,7 +70,7 @@ export default function RotRutKalkylatorPage() {
             <ToolNumber value={material} onChange={setMaterial} placeholder="0" />
           </ToolField>
 
-          <div style={{ fontSize: '13px', fontWeight: 700, color: INK, marginBottom: '7px' }}>Antal köpare på fakturan</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: INK, marginBottom: '8px' }}>Antal köpare på fakturan</div>
           <ToolSegmented
             value={buyers}
             onChange={setBuyers}
@@ -79,7 +79,7 @@ export default function RotRutKalkylatorPage() {
               { value: 2, label: 'Två köpare', hint: `Tak ${formatKr(perBuyerCap * 2)} kr` },
             ]}
           />
-          <p style={{ fontSize: '12.5px', color: MUTED, lineHeight: 1.65, margin: '2px 0 0' }}>
+          <p style={{ fontSize: '13.5px', color: MUTED, lineHeight: 1.6, margin: '2px 0 0' }}>
             Taket gäller per person och år. Står två personer som köpare, och båda äger bostaden och har tillräcklig skatt att räkna av mot, gäller dubbelt tak.
           </p>
         </>
@@ -101,7 +101,7 @@ export default function RotRutKalkylatorPage() {
           </div>
 
           {cappedAway > 0 && (
-            <div style={{ marginTop: '16px', padding: '12px 14px', background: 'rgba(239,68,68,0.14)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '11px', fontSize: '12.5px', color: 'var(--tr-ink-soft)', lineHeight: 1.6 }}>
+            <div style={{ marginTop: '16px', padding: '14px 16px', background: 'var(--mkt-accent-red-soft)', border: '1px solid color-mix(in srgb, var(--mkt-accent-red-fg) 35%, transparent)', borderRadius: '12px', fontSize: '14px', color: 'var(--tr-ink-soft)', lineHeight: 1.6 }}>
               Avdraget slår i taket: <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(cappedAway)} kr</strong> ryms inte inom{' '}
               {formatKr(totalCap)} kr och måste betalas av kunden själv.
             </div>

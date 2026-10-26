@@ -71,14 +71,14 @@ export default function MomsKalkylatorPage() {
           >
             <ToolNumber value={amount} onChange={setAmount} placeholder="0" />
           </ToolField>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: INK, marginBottom: '7px' }}>Momssats</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: INK, marginBottom: '8px' }}>Momssats</div>
           <ToolSegmented
             value={rate}
             onChange={setRate}
             options={VAT_RATE_GUIDE.map(g => ({ value: g.rate, label: g.label, hint: g.title }))}
           />
           {guide && (
-            <p style={{ fontSize: '12.5px', color: MUTED, lineHeight: 1.65, margin: '2px 0 0' }}>
+            <p style={{ fontSize: '13.5px', color: MUTED, lineHeight: 1.6, margin: '2px 0 0' }}>
               <strong style={{ color: INK_SOFT }}>{guide.rate} %:</strong> {guide.examples}
             </p>
           )}
@@ -93,7 +93,7 @@ export default function MomsKalkylatorPage() {
           <ToolResultRow label="Belopp exkl. moms" value={r.net} decimals={2} />
           <ToolResultRow label={`Moms ${rate} %`} value={r.vat} decimals={2} />
           <ToolResultRow label="Belopp inkl. moms" value={r.gross} decimals={2} strong />
-          <div style={{ marginTop: '18px', padding: '12px 14px', background: 'var(--tr-inner)', borderRadius: '11px', fontSize: '12.5px', color: 'var(--tr-soft)', lineHeight: 1.6 }}>
+          <div style={{ marginTop: '18px', padding: '14px 16px', background: 'var(--tr-inner)', borderRadius: '12px', fontSize: '14px', color: 'var(--tr-ink-soft)', lineHeight: 1.6 }}>
             {mode === 'add'
               ? <>Du fakturerar <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.gross, 2)} kr</strong>, varav <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.vat, 2)} kr</strong> är moms du redovisar vidare till Skatteverket — inte en intäkt.</>
               : <>Av <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.gross, 2)} kr</strong> är <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.vat, 2)} kr</strong> moms. Din faktiska kostnad (eller intäkt) är <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.net, 2)} kr</strong>.</>}

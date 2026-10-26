@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { INK, INK_SOFT, MUTED, CARD_BORDER } from '../marketingTokens';
+import { INK, INK_SOFT, CARD_BORDER } from '../marketingTokens';
 import { calcLateInterest, LATE_FEES, LATE_INTEREST_MARKUP, DEFAULT_REFERENCE_RATE } from '../../../utils/freeToolCalculations';
 import { toolBySlug } from './toolsConfig';
 import ToolShell, { ToolField, ToolNumber, ToolDate, ToolResultPanel, ToolResultRow, ToolNote, formatKr } from './ToolShell';
@@ -59,7 +59,7 @@ export default function DrojsmalsrantaPage() {
             <ToolNumber value={referenceRate} onChange={setReferenceRate} placeholder="0" />
           </ToolField>
 
-          <div style={{ fontSize: '13px', fontWeight: 700, color: INK, marginBottom: '9px' }}>Avgifter du vill lägga på</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: INK, marginBottom: '8px' }}>Avgifter du vill lägga på</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
             {Object.values(LATE_FEES).map(fee => {
               const checked = fees.includes(fee.id);
@@ -68,7 +68,7 @@ export default function DrojsmalsrantaPage() {
                   display: 'flex', gap: '11px', alignItems: 'flex-start', cursor: 'pointer',
                   padding: '12px 14px', borderRadius: '11px',
                   border: `1.5px solid ${checked ? 'var(--mkt-accent-green-fg)' : CARD_BORDER}`,
-                  background: checked ? 'var(--mkt-accent-green-soft)' : 'var(--mkt-page-bg)',
+                  background: checked ? 'var(--tr-panel)' : 'var(--mkt-card-bg)',
                   transition: 'border-color 0.15s, background 0.15s',
                 }}>
                   <input
@@ -81,7 +81,7 @@ export default function DrojsmalsrantaPage() {
                     <span style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: INK }}>
                       {fee.label} — {fee.amount} kr
                     </span>
-                    <span style={{ display: 'block', fontSize: '12px', color: MUTED, lineHeight: 1.55, marginTop: '2px' }}>{fee.note}</span>
+                    <span style={{ display: 'block', fontSize: '13px', color: 'var(--tr-soft)', lineHeight: 1.55, marginTop: '3px' }}>{fee.note}</span>
                   </span>
                 </label>
               );
@@ -101,7 +101,7 @@ export default function DrojsmalsrantaPage() {
           ))}
           <ToolResultRow label="Totalt att kräva" value={r.total} decimals={2} strong />
 
-          <div style={{ marginTop: '18px', padding: '12px 14px', background: 'var(--tr-inner)', borderRadius: '11px', fontSize: '12.5px', color: 'var(--tr-soft)', lineHeight: 1.6 }}>
+          <div style={{ marginTop: '18px', padding: '14px 16px', background: 'var(--tr-inner)', borderRadius: '12px', fontSize: '14px', color: 'var(--tr-ink-soft)', lineHeight: 1.6 }}>
             Fakturan är <strong style={{ color: 'var(--tr-ink)' }}>{r.days} dagar</strong> försenad och kostar dig{' '}
             <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.dailyInterest, 2)} kr</strong> per dag i utebliven ränta.
           </div>

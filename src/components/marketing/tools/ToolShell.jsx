@@ -48,7 +48,7 @@ function ToolStyles() {
       /* Resultatytan följer sidans tema: ljus yta med mörk text i ljust
          läge, en nyans mörkare än kortet i mörkt. Verktygssidorna färgar
          sin text i resultatet med --tr-* i stället för fast vitt. */
-      #lp-root { --tr-bg: #f5f6f3; --tr-ink: #1c2420; --tr-ink-soft: #2f3a33; --tr-soft: #4a554d; --tr-muted: #6b7568; --tr-line: #e3e6df; --tr-inner: #ffffff; --tr-panel: oklch(96.6% 0.03 150); --tr-panel-line: oklch(90% 0.035 150); --tr-total: oklch(45% 0.15 148); }
+      #lp-root { --tr-bg: #f5f6f3; --tr-ink: #1c2420; --tr-ink-soft: #2f3a33; --tr-soft: #4a554d; --tr-muted: #5a6457; --tr-line: #e3e6df; --tr-inner: #ffffff; --tr-panel: oklch(96.6% 0.03 150); --tr-panel-line: oklch(90% 0.035 150); --tr-total: oklch(45% 0.15 148); }
       html[data-theme="dark"] #lp-root { --tr-bg: #122117; --tr-ink: #eef3ea; --tr-ink-soft: #d5e0cf; --tr-soft: #b4c3ad; --tr-muted: #8fa088; --tr-line: #2a3d2c; --tr-inner: #17281c; --tr-panel: oklch(25.5% 0.045 152); --tr-panel-line: oklch(34% 0.045 150); --tr-total: oklch(82% 0.16 145); }
       .bx-tool-stage { position: relative; max-width: 1040px; margin: 0 auto; }
       .bx-tool-stage::before { content: ''; position: absolute; inset: -40px -60px; z-index: 0; pointer-events: none; filter: blur(50px); opacity: 0.55;
@@ -149,7 +149,7 @@ export function ToolSegmented({ options, value, onChange }) {
       {options.map(opt => (
         <button key={String(opt.value)} type="button" onClick={() => onChange(opt.value)} aria-pressed={opt.value === value}>
           <span style={{ display: 'block', fontSize: '14px', fontWeight: 600 }}>{opt.label}</span>
-          {opt.hint && <span style={{ display: 'block', fontSize: '11.5px', fontWeight: 400, color: MUTED, marginTop: '2px', lineHeight: 1.35 }}>{opt.hint}</span>}
+          {opt.hint && <span style={{ display: 'block', fontSize: '12px', fontWeight: 400, color: 'var(--tr-muted)', marginTop: '2px', lineHeight: 1.35 }}>{opt.hint}</span>}
         </button>
       ))}
     </div>
@@ -400,7 +400,7 @@ export default function ToolShell({ tool, metaTitle, metaDescription, intro, cal
           <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 3.6vw, 38px)', fontWeight: 700, color: INK, margin: '0 0 12px', letterSpacing: '-0.015em' }}>
             Slipp räkna det här för hand
           </h2>
-          <p style={{ fontSize: '15.5px', color: MUTED, lineHeight: 1.65, margin: '0 auto 26px', maxWidth: '520px' }}>
+          <p style={{ fontSize: '16px', color: 'var(--tr-soft)', lineHeight: 1.65, margin: '0 auto 26px', maxWidth: '520px' }}>
             I Bokix räknas det här automatiskt, på riktiga siffror ur din egen bokföring — och bokförs på rätt konton direkt. 30 dagar att testa, ingen bindningstid på månadsplanen.
           </p>
           <div className="lp-cta-group" style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>

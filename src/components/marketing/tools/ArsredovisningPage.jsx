@@ -53,7 +53,7 @@ export default function ArsredovisningPage() {
             </div>
 
             <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--tr-line)' }}>
-              <div style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--tr-muted)', marginBottom: '10px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--tr-muted)', marginBottom: '10px' }}>
                 Om den blir sen
               </div>
               {r.feeSchedule.map((fee, i) => (

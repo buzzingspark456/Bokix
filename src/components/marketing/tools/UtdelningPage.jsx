@@ -130,7 +130,7 @@ export default function UtdelningPage() {
             <ToolResultRow label="Kvar till dig efter skatt" value={r.net} strong />
           </div>
 
-          <div style={{ marginTop: '18px', padding: '12px 14px', background: 'var(--tr-inner)', borderRadius: '11px', fontSize: '12.5px', color: 'var(--tr-soft)', lineHeight: 1.6 }}>
+          <div style={{ marginTop: '18px', padding: '14px 16px', background: 'var(--tr-inner)', borderRadius: '12px', fontSize: '14px', color: 'var(--tr-ink-soft)', lineHeight: 1.6 }}>
             {r.carriedForward > 0 ? (
               <>
                 Du sparar <strong style={{ color: 'var(--tr-ink)' }}>{formatKr(r.carriedForward)} kr</strong> i outnyttjat utrymme till nästa år.
@@ -213,7 +213,7 @@ export default function UtdelningPage() {
         <Link to="/verktyg/lonekalkylator" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>lönekalkylatorn</Link> —
         och slå upp <Link to="/ordlista" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>gränsbelopp, K10 och fåmansföretag i ordlistan</Link>.
       </p>
-      <p style={{ fontSize: '12.5px', color: MUTED, lineHeight: 1.7, marginTop: '14px' }}>
+      <p style={{ fontSize: '14px', color: MUTED, lineHeight: 1.7, marginTop: '16px' }}>
         Kontrollerat mot de nya 3:12-regler som gäller från 1 januari 2026. Riksdagen kan ändra dem mellan år — stäm alltid av mot Skatteverkets aktuella sida inför deklarationen.
         Verktyget ger ett underlag, inte skatterådgivning.
       </p>
