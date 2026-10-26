@@ -48,8 +48,8 @@ function ToolStyles() {
       /* Resultatytan följer sidans tema: ljus yta med mörk text i ljust
          läge, en nyans mörkare än kortet i mörkt. Verktygssidorna färgar
          sin text i resultatet med --tr-* i stället för fast vitt. */
-      #lp-root { --tr-bg: #f5f6f3; --tr-ink: #1c2420; --tr-ink-soft: #2f3a33; --tr-soft: #4a554d; --tr-muted: #6b7568; --tr-line: #e3e6df; --tr-inner: #ffffff; --tr-panel: radial-gradient(120% 90% at 100% 0%, oklch(94.5% 0.055 150) 0%, oklch(97.2% 0.03 150) 45%, oklch(98.6% 0.012 150) 100%); --tr-panel-line: oklch(90% 0.035 150); --tr-total: oklch(45% 0.15 148); }
-      html[data-theme="dark"] #lp-root { --tr-bg: #122117; --tr-ink: #eef3ea; --tr-ink-soft: #d5e0cf; --tr-soft: #b4c3ad; --tr-muted: #8fa088; --tr-line: #2a3d2c; --tr-inner: #17281c; --tr-panel: radial-gradient(120% 90% at 100% 0%, oklch(33% 0.075 150) 0%, oklch(25% 0.045 152) 50%, oklch(21% 0.03 155) 100%); --tr-panel-line: oklch(34% 0.045 150); --tr-total: oklch(82% 0.16 145); }
+      #lp-root { --tr-bg: #f5f6f3; --tr-ink: #1c2420; --tr-ink-soft: #2f3a33; --tr-soft: #4a554d; --tr-muted: #6b7568; --tr-line: #e3e6df; --tr-inner: #ffffff; --tr-panel: oklch(96.6% 0.03 150); --tr-panel-line: oklch(90% 0.035 150); --tr-total: oklch(45% 0.15 148); }
+      html[data-theme="dark"] #lp-root { --tr-bg: #122117; --tr-ink: #eef3ea; --tr-ink-soft: #d5e0cf; --tr-soft: #b4c3ad; --tr-muted: #8fa088; --tr-line: #2a3d2c; --tr-inner: #17281c; --tr-panel: oklch(25.5% 0.045 152); --tr-panel-line: oklch(34% 0.045 150); --tr-total: oklch(82% 0.16 145); }
       .bx-tool-stage { position: relative; max-width: 1040px; margin: 0 auto; }
       .bx-tool-stage::before { content: ''; position: absolute; inset: -40px -60px; z-index: 0; pointer-events: none; filter: blur(50px); opacity: 0.55;
         background: radial-gradient(40% 50% at 78% 40%, oklch(88% 0.08 150 / 0.7), transparent 70%), radial-gradient(35% 45% at 20% 70%, oklch(88% 0.06 220 / 0.6), transparent 70%); }
