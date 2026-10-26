@@ -4960,5 +4960,12 @@
     "life": "Livslängd",
     "residual": "Restvärde",
     "kpiMonthly": "Månadsavskrivning"
+  },
+  "payrollDelete": {
+    "button": "Ta bort",
+    "confirmBooked": "Ta bort lönekörningen för {{period}}? Den är bokförd, så Bokix skapar rättelseverifikationer med dagens datum som tar ut lönens verifikationer. De ursprungliga verifikationerna finns kvar, som lagen kräver.",
+    "agiNote": "Arbetsgivardeklarationen är redan inlämnad, så du behöver också rätta den hos Skatteverket.",
+    "done": "Lönekörningen är borttagen.",
+    "doneBooked": "Lönekörningen är borttagen och rättelseverifikationerna är skapade."
   }
 }

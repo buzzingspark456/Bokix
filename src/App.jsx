@@ -5169,6 +5169,49 @@ function App() {
     }));
   };
 
+  // Ta bort en lönekörning (kundönskemål: felskapade körningar gick inte att
+  // bli av med). Obokförd: tas bort direkt med Ångra. Bokförd: frågar först
+  // och rättar lönens verifikationer med motverifikationer, samma princip
+  // som handleReverseExpense — bokförda verifikationer raderas aldrig.
+  // Ett AGI-utkast byggt på körningen följer med; en inlämnad AGI står kvar.
+  const handleDeleteRun = async (runId) => {
+    const index = payrollRuns.findIndex(r => r.id === runId);
+    const run = payrollRuns[index];
+    if (!run) return false;
+    const booked = run.completedSteps.includes('booked');
+    const agiSubmitted = run.completedSteps.includes('agi');
+    if (booked) {
+      const message = tr('payrollDelete.confirmBooked', { period: run.period }) + (agiSubmitted ? ` ${tr('payrollDelete.agiNote')}` : '');
+      if (!(await confirmDialog(message, { danger: true }))) return false;
+      const today = new Date().toISOString().split('T')[0];
+      verifications
+        .filter(v => v.source === 'payroll' && String(v.sourceId || '').startsWith(`${runId}_`))
+        .filter(v => !verifications.some(x => x.source === 'payroll_reversal' && x.sourceId === v.sourceId))
+        .forEach(v => handleAddVerification({
+          date: today,
+          description: `Rättelse: ${v.description}`,
+          source: 'payroll_reversal',
+          sourceId: v.sourceId,
+          rows: (v.rows || []).map(r => ({ ...r, debet: r.kredit || 0, kredit: r.debet || 0 })),
+        }));
+    }
+    const draftAgi = agiReports.filter(r => r.payrollRunId === runId && r.status !== 'submitted');
+    setPayrollRuns(prev => prev.filter(r => r.id !== runId));
+    if (draftAgi.length) setAgiReports(prev => prev.filter(r => !draftAgi.some(d => d.id === r.id)));
+    if (booked) {
+      setToast({ message: tr('payrollDelete.doneBooked'), variant: 'success' });
+    } else {
+      showUndo({
+        message: tr('payrollDelete.done'),
+        onUndo: () => {
+          setPayrollRuns(prev => restoreAt(prev, run, index));
+          if (draftAgi.length) setAgiReports(prev => [...prev, ...draftAgi]);
+        },
+      });
+    }
+    return true;
+  };
+
   // End of logic
 
   // Import/export (for settings)
@@ -5516,6 +5559,7 @@ function App() {
             onAdvanceRunStep={handleAdvanceRunStep}
             onBookRun={handleBookRun}
             onMarkRunPaid={handleMarkRunPaid}
+            onDeleteRun={handleDeleteRun}
             onRefreshRunSnapshots={handleRefreshRunSnapshots}
             agiReports={agiReports}
           />

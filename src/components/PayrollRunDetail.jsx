@@ -527,7 +527,7 @@ export function VerificationBlock({ title, rows, accounts }) {
   );
 }
 
-export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyncBeforeServerCall, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onUpdateRow, onUpdateRun, onRefreshSnapshots }) {
+export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyncBeforeServerCall, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onDelete, onUpdateRow, onUpdateRun, onRefreshSnapshots }) {
   // Fakturans logga på lönebeskeden, hämtad en gång som PNG.
   const [payslipLogo, setPayslipLogo] = useState(null);
   useEffect(() => {
@@ -793,7 +793,10 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
           </span>
         }
         subtitle={subtitleParts.join(' · ')}
-        actions={[{ key: 'back', label: tr('ui.tillbaka_till_lonekorningar'), icon: ChevronLeft, onClick: onBack }]}
+        actions={[
+          ...(onDelete ? [{ key: 'delete', label: tr('payrollDelete.button'), icon: Trash2, onClick: onDelete }] : []),
+          { key: 'back', label: tr('ui.tillbaka_till_lonekorningar'), icon: ChevronLeft, onClick: onBack },
+        ]}
       >
         <StageNav stage={stage} completedSteps={run.completedSteps} onOpen={setStage} />
       </ListPageHeader>

@@ -40,6 +40,7 @@ const SOURCE_SERIES = {
   partner_allocation: 'I',
   inventory: 'I',
   payroll: 'K',
+  payroll_reversal: 'K',
   zettle_ledger: 'L',
   rotrut_import: 'L',
   vat_declaration: 'M',

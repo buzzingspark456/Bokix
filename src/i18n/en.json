@@ -4960,5 +4960,12 @@
     "life": "Useful life",
     "residual": "Residual value",
     "kpiMonthly": "Monthly depreciation"
+  },
+  "payrollDelete": {
+    "button": "Delete",
+    "confirmBooked": "Delete the pay run for {{period}}? It has been booked, so Bokix creates correction vouchers dated today that cancel out the salary vouchers. The original vouchers are kept, as the law requires.",
+    "agiNote": "The employer declaration has already been submitted, so you also need to correct it with Skatteverket.",
+    "done": "The pay run has been deleted.",
+    "doneBooked": "The pay run has been deleted and the correction vouchers have been created."
   }
 }
