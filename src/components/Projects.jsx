@@ -770,8 +770,8 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
   const [statusFilter, setStatusFilter] = useState('active'); // 'active' | 'archived' | 'all'
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [openProjectId, setOpenProjectId] = useState(null);
-  // Kort eller lista. Kort är förvalet; listan passar när projekten är många.
-  const [view, setViewState] = useState(() => { try { return localStorage.getItem('bokix_projects_view') || 'cards'; } catch { return 'cards'; } });
+  // Kort eller lista. Lista är förvalet och står först; kort går att välja.
+  const [view, setViewState] = useState(() => { try { return localStorage.getItem('bokix_projects_view') || 'list'; } catch { return 'list'; } });
   const setView = (v) => { setViewState(v); try { localStorage.setItem('bokix_projects_view', v); } catch { /* privat läge */ } };
 
   const [timeSubTab, setTimeSubTab] = useState('week');
@@ -956,8 +956,8 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
             <Panel
               title={statusFilter === 'archived' ? tr('proj.finished') : statusFilter === 'all' ? tr('proj.allProjects') : tr('proj.ongoingProjects')}
               actions={<div className="ws-seg">
-                <button type="button" className={view === 'cards' ? 'on' : ''} onClick={() => setView('cards')}>{tr('proj.viewCards')}</button>
                 <button type="button" className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>{tr('proj.viewList')}</button>
+                <button type="button" className={view === 'cards' ? 'on' : ''} onClick={() => setView('cards')}>{tr('proj.viewCards')}</button>
               </div>}
             >
             {view === 'cards' ? (
