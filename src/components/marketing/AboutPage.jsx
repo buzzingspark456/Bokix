@@ -33,6 +33,18 @@ const FACTS = [
   { label: 'Kontakt', value: 'support@bokix.se', href: 'mailto:support@bokix.se' },
 ];
 
+const TRUSTPILOT_PAGE_URL = 'https://se.trustpilot.com/review/bokix.se';
+const TRUSTPILOT_WRITE_URL = 'https://se.trustpilot.com/evaluate/bokix.se';
+
+// Trustpilots stjärna i deras gröna färg.
+function TrustpilotStar() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#00b67a" d="M12 1.5l2.62 8.06h8.48l-6.86 4.98 2.62 8.06L12 17.62l-6.86 4.98 2.62-8.06L.9 9.56h8.48z" />
+    </svg>
+  );
+}
+
 const SCHEMA = {
   '@context': 'https://schema.org',
   '@type': 'AboutPage',
@@ -79,6 +91,16 @@ function AboutStyles() {
       .ab-fact dd { margin: 0; font-size: 16.5px; line-height: 1.55; color: ${INK}; }
       .ab-fact a { color: ${INK}; text-decoration: none; border-bottom: 1.5px solid ${BRAND.green}; }
       .ab-fact a:hover { color: var(--mkt-accent-green-fg); }
+
+      .ab-tp { display: flex; flex-direction: column; gap: 22px; padding: 28px 30px; border-radius: 20px; background: var(--mkt-card-bg); border: 1px solid var(--mkt-border-soft); }
+      .ab-tp-brand { display: inline-flex; align-items: center; gap: 9px; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: ${INK}; }
+      .ab-tp-text { font-size: 16.5px; line-height: 1.6; color: ${INK_SOFT}; margin: 0; }
+      .ab-tp-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+      .ab-tp-btn { display: inline-flex; align-items: center; justify-content: center; padding: 13px 22px; border-radius: 12px; font-size: 15px; font-weight: 600; text-decoration: none; transition: filter 0.15s, border-color 0.15s; }
+      .ab-tp-primary { background: #00b67a; color: #fff; }
+      .ab-tp-primary:hover { filter: brightness(0.94); }
+      .ab-tp-secondary { background: transparent; color: ${INK}; border: 1px solid var(--mkt-border-soft); }
+      .ab-tp-secondary:hover { border-color: var(--mkt-btn-border); }
 
       @media (max-width: 900px) {
         .ab-split { grid-template-columns: 1fr; gap: 28px; }
@@ -167,6 +189,27 @@ export default function AboutPage() {
               </div>
             ))}
           </dl>
+        </Reveal>
+      </section>
+
+      {/* Omdömen på Trustpilot. Bara länkar, inget betyg: vi hämtar det inte
+          därifrån och skriver aldrig in en siffra för hand. */}
+      <section className="ab-sec ab-sec-alt">
+        <Reveal className="ab-wrap ab-split">
+          <div>
+            <h2 className="ab-h2">Vad tycker du?</h2>
+            <p className="ab-sub">Använder du Bokix? Ett ärligt omdöme hjälper oss att bli bättre och andra företagare att välja.</p>
+          </div>
+          <div className="ab-tp">
+            <span className="ab-tp-brand">
+              <TrustpilotStar /> Trustpilot
+            </span>
+            <p className="ab-tp-text">Allt som skrivs om Bokix på Trustpilot syns öppet, både det bra och det som kan bli bättre.</p>
+            <div className="ab-tp-actions">
+              <a className="ab-tp-btn ab-tp-primary" href={TRUSTPILOT_WRITE_URL} target="_blank" rel="noopener noreferrer">Skriv ett omdöme</a>
+              <a className="ab-tp-btn ab-tp-secondary" href={TRUSTPILOT_PAGE_URL} target="_blank" rel="noopener noreferrer">Läs omdömen</a>
+            </div>
+          </div>
         </Reveal>
       </section>
     </MarketingLayout>
