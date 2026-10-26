@@ -16,7 +16,7 @@ for (const theme of ['light', 'dark']) {
   await ctx.addInitScript(t => { try { localStorage.setItem('bokix_theme_pref', t); } catch { /* privat läge */ } }, theme);
   const page = await ctx.newPage();
   for (const p of PAGES) {
-    await page.goto(`${BASE}/verktyg${p}`, { waitUntil: 'networkidle' });
+    await page.goto(`${BASE}/verktyg${p}`, { waitUntil: 'load' }); await page.waitForTimeout(800);
     for (let y = 0; y < 9000; y += 500) { await page.evaluate(v => window.scrollTo(0, v), y); await page.waitForTimeout(40); }
     await page.waitForTimeout(800);
     const bad = await page.evaluate((limit) => {

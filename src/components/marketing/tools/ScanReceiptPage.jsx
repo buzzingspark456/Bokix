@@ -1,10 +1,13 @@
 import React, { useRef, useState } from 'react';
+import Turnstile from '../../Turnstile';
 import { Check } from '../../icons';
 import { INK, INK_SOFT, MUTED } from '../marketingTokens';
 import { BRAND } from '../../../utils/brandColors';
 import { toolBySlug } from './toolsConfig';
 import ToolShell, { ToolNote } from './ToolShell';
 import { ocrFile, parseReceiptText } from '../../../utils/ocrReceipt';
+import { locateFieldBoxes } from '../../../utils/ocrFieldBoxes';
+import { freeGoogleReadLeft, readFreeWithGoogle } from '../../../utils/ocrFree';
 import { DEFAULT_ACCOUNTS } from '../../AccountsData';
 import { MIN_SCAN_MS, REVEAL_STEP_MS, SCAN_MESSAGES, photoHintText } from '../../shared/ScanExperience';
 
@@ -70,16 +73,25 @@ function buildFields(parsed, unreadable) {
 
 const STATE_TEXT = { found: 'Avläst', guess: 'Kontrollera', missing: 'Hittades inte' };
 
+// Vilken ruta på kvittot varje rad hör till (ocrFieldBoxes.js). Kontot står
+// inte på kvittot, så det har ingen.
+const BOX_FOR = { supplier: 'supplier', date: 'date', receiptNumber: 'receiptNumber', amount: 'amount', vatRate: 'vatAmount' };
+
 // Fältens namn, så att formuläret syns redan innan något kvitto valts.
 const FIELD_LABELS = ['Leverantör', 'Datum', 'Nummer', 'Belopp', 'Moms', 'Konto'];
 
 /** En rad i "Ny utgift": namn, värde och en liten statustext. Utan värde
  * (inget kvitto än, eller raden inte uppläst ännu) visas en grå platshållare,
  * som i appens kvittovy. */
-function ScanRow({ label, field, revealed, scanning }) {
+function ScanRow({ label, field, revealed, scanning, hasBox, onPoint }) {
   const st = !revealed || !field ? null : (field.found ? field.state : 'missing');
+  const pointable = hasBox && st && st !== 'missing';
   return (
-    <div className={`bx-scan-row${st ? ` is-${st}` : ''}`}>
+    <div
+      className={`bx-scan-row${st ? ` is-${st}` : ''}${pointable ? ' has-box' : ''}`}
+      onMouseEnter={pointable ? () => onPoint(true) : undefined}
+      onMouseLeave={pointable ? () => onPoint(false) : undefined}
+    >
       <span className="bx-scan-label">{label}</span>
       <span className="bx-scan-value">
         {st && st !== 'missing'
@@ -102,11 +114,11 @@ function ScanRow({ label, field, revealed, scanning }) {
 // innehåll ToolShell.jsx:s egen filkommentar beskriver: "användbart för
 // någon som INTE är kund ännu, utan att vara reklam".
 //
-// Kör exakt samma utils/ocrReceipt.js som Expenses.jsx i den inloggade
-// appen — ingen egen kopia av tolkningslogiken. Allt sker i webbläsaren
-// (Tesseract.js WebAssembly, samma sak Expenses.jsx redan gör); ingen
-// bild skickas någonsin till en server eller sparas — se ToolNote i
-// botten och FAQ:n, båda måste hålla den linjen ärlig.
+// Tolkningen är samma utils/ocrReceipt.js som appen kör. Första kvittot
+// läses av Google Cloud Vision, som i appen (api/ocr-free.js, en gång per
+// person), och visar då som i appens kvittovy var på kvittot varje uppgift
+// stod. Därefter läses kvitton i webbläsaren (Tesseract). Texterna på
+// sidan, i FAQ:n och i integritetspolicyn måste säga exakt det.
 export default function ScanReceiptPage() {
   const [status, setStatus] = useState('idle'); // idle | scanning | done | error
   const [message, setMessage] = useState('');
@@ -116,8 +128,13 @@ export default function ScanReceiptPage() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [fileName, setFileName] = useState('');
   const [beamPct, setBeamPct] = useState(0);
+  const [boxes, setBoxes] = useState(null); // { supplier, date, … } andelar av bilden
+  const [activeBox, setActiveBox] = useState(null);
+  const [engine, setEngine] = useState(null); // 'google' | 'local'
+  const [googleLeft, setGoogleLeft] = useState(() => freeGoogleReadLeft());
   const inputRef = useRef(null);
   const runIdRef = useRef(0);
+  const captchaRef = useRef(null);
 
   const handleFile = async (file) => {
     if (!file) return;
@@ -139,6 +156,7 @@ export default function ScanReceiptPage() {
     // ett gammalt läge att glida bort ifrån.
     setPreviewUrl(prev => { if (prev) URL.revokeObjectURL(prev); return file.type === 'application/pdf' ? null : URL.createObjectURL(file); });
     setStatus('scanning'); setMessage('Startar läsning…'); setResult(null); setBeamPct(4); setRevealedCount(0); setMsgIdx(0);
+    setBoxes(null); setActiveBox(null); setEngine(null);
     const startedAt = Date.now();
     // Läsningen tar minst lika lång tid som i appen (MIN_SCAN_MS): ett svar
     // på en tiondels sekund ser ut som en gissning. Strålen och texterna
@@ -150,12 +168,28 @@ export default function ScanReceiptPage() {
     }, 200);
     const msgTicker = setInterval(() => { if (runIdRef.current === runId) setMsgIdx(n => (n + 1) % SCAN_MESSAGES.length); }, 1100);
     try {
-      const { text, confidence, weakTokens, quality } = await ocrFile(file, msg => {
+      let read = null;
+      if (googleLeft) {
+        // Turnstile körs osynligt; utan token (annonsblockerare, ingen
+        // nyckel lokalt) försöker servern ändå och läsningen faller tillbaka.
+        const token = await Promise.race([
+          captchaRef.current?.execute?.().catch(() => null) ?? null,
+          new Promise(r => setTimeout(() => r(null), 8000)),
+        ]);
+        const google = await readFreeWithGoogle(file, token);
         if (runIdRef.current !== runId) return;
-        setMessage(msg);
-        setBeamPct(p => Math.max(p, stagePctFor(msg)));
-      });
+        if (google?.text) read = { text: google.text, confidence: null, weakTokens: null, quality: null, lines: google.lines };
+        if (google !== null || !freeGoogleReadLeft()) setGoogleLeft(freeGoogleReadLeft());
+      }
+      if (!read) {
+        read = await ocrFile(file, msg => {
+          if (runIdRef.current !== runId) return;
+          setMessage(msg);
+          setBeamPct(p => Math.max(p, stagePctFor(msg)));
+        });
+      }
       if (runIdRef.current !== runId) return;
+      const { text, confidence, weakTokens, quality } = read;
       const wait = MIN_SCAN_MS - (Date.now() - startedAt);
       if (wait > 0) await new Promise(r => setTimeout(r, wait));
       if (runIdRef.current !== runId) return;
@@ -166,15 +200,23 @@ export default function ScanReceiptPage() {
       // kopia av gränsen här — se isUnreadableText/classifyDocument.
       const unreadable = Boolean(parsed.unreadable);
       const fields = buildFields(parsed, unreadable);
+      const found = read.lines && !unreadable && !parsed.notReceipt ? locateFieldBoxes(read.lines, parsed) : null;
+      setBoxes(found && Object.keys(found).length > 0 ? found : null);
+      setEngine(read.lines !== undefined ? 'google' : 'local');
       // Rådet om fotot (suddigt, mörkt, för långt bort) visas bara när bilden
       // faktiskt stod i vägen — samma regel som i appens kvittovy.
       const photoHint = (quality?.advice && (parsed.notReceipt || !parsed.amount || parsed.amountGuessed || parsed.vatMismatch))
         ? quality.advice : null;
       setResult({ fields, notReceipt: !unreadable && Boolean(parsed.notReceipt), unreadable, photoHint });
       setStatus('done');
-      fields.forEach((_, i) => {
-        setTimeout(() => { if (runIdRef.current === runId) setRevealedCount(i + 1); }, 250 + i * REVEAL_STEP_MS);
+      fields.forEach((field, i) => {
+        setTimeout(() => {
+          if (runIdRef.current !== runId) return;
+          setRevealedCount(i + 1);
+          if (field.found && found?.[BOX_FOR[field.key]]) setActiveBox(BOX_FOR[field.key]);
+        }, 250 + i * REVEAL_STEP_MS);
       });
+      setTimeout(() => { if (runIdRef.current === runId) setActiveBox(null); }, 250 + fields.length * REVEAL_STEP_MS + 700);
     } catch (err) {
       if (runIdRef.current !== runId) return;
       setStatus('error'); setMessage(err?.message || 'Kunde inte läsa kvittot. Prova en tydligare bild.');
@@ -194,8 +236,8 @@ export default function ScanReceiptPage() {
     <ToolShell
       tool={tool}
       metaTitle="Skanna kvitto: läs av kvitton automatiskt | Bokix"
-      metaDescription="Ladda upp en bild av ett kvitto och få datum, belopp, moms och bokföringskonto direkt — läses av i din egen webbläsare, ingenting laddas upp till en server."
-      intro="Ladda upp en bild eller PDF av ett kvitto. Datum, belopp, momssats och ett förslag på bokföringskonto läses av på några sekunder — direkt i din webbläsare."
+      metaDescription="Ladda upp en bild av ett kvitto och få leverantör, datum, belopp, moms och bokföringskonto direkt. Första kvittot läses av Google, som i Bokix-appen. Gratis, utan konto."
+      intro="Ladda upp en bild eller PDF av ett kvitto. Leverantör, datum, belopp, moms och ett förslag på bokföringskonto läses av på några sekunder, och du ser var på kvittot varje uppgift stod."
       calculator={
         <div
           className={`bx-scan-drop${previewUrl ? ' has-image' : ''}${status === 'scanning' ? ' is-scanning' : ''}`}
@@ -215,6 +257,16 @@ export default function ScanReceiptPage() {
             // takt med den riktiga läsningen (beamPct, från ocrReceipt.js).
             <div className="bx-scan-image">
               <img src={previewUrl} alt="Ditt kvitto" />
+              {activeBox && boxes?.[activeBox] && (
+                <span
+                  key={activeBox}
+                  className="bx-scan-mark" aria-hidden
+                  style={{
+                    left: `${boxes[activeBox].x * 100}%`, top: `${boxes[activeBox].y * 100}%`,
+                    width: `${boxes[activeBox].w * 100}%`, height: `${boxes[activeBox].h * 100}%`,
+                  }}
+                />
+              )}
               <span
                 key={runIdRef.current}
                 className="bx-scan-beam" aria-hidden
@@ -239,6 +291,7 @@ export default function ScanReceiptPage() {
                 : fileName ? 'Klicka för att läsa ett annat kvitto'
                   : 'JPG, PNG, WEBP eller PDF, högst 10 MB'}
           </p>
+          {googleLeft && <Turnstile ref={captchaRef} onDemand />}
         </div>
       }
       result={
@@ -279,6 +332,17 @@ export default function ScanReceiptPage() {
               transition: top 0.5s cubic-bezier(0.45, 0, 0.55, 1), opacity 0.35s;
             }
 
+            .bx-scan-mark {
+              position: absolute; box-sizing: content-box; margin: -3px 0 0 -4px; padding: 3px 4px;
+              border: 2px solid #f59e0b; border-radius: 5px; background: rgba(245,158,11,0.16);
+              box-shadow: 0 0 0 9999px rgba(15,23,20,0.22); pointer-events: none;
+              animation: bxMarkIn 0.18s ease-out both;
+            }
+            @keyframes bxMarkIn { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: none; } }
+            .bx-scan-row.has-box { cursor: default; }
+            .bx-scan-row.has-box:hover .bx-scan-label { color: ${INK}; }
+            .bx-scan-engine { display: flex; gap: 10px; align-items: flex-start; margin: 18px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--mkt-ivory); border: 1px solid var(--mkt-border-soft); font-size: 13.5px; line-height: 1.55; color: ${INK_SOFT}; }
+            .bx-scan-engine strong { color: ${INK}; }
             .bx-scan-panel { padding: clamp(24px, 4vw, 34px); display: flex; flex-direction: column; border-left: 1px solid var(--mkt-border-soft); }
             .bx-scan-title { margin: 0 0 6px; font-size: 17px; font-weight: 700; color: ${INK}; }
             .bx-scan-sub { margin: 0 0 14px; font-size: 13.5px; color: ${MUTED}; line-height: 1.55; }
@@ -311,7 +375,7 @@ export default function ScanReceiptPage() {
             }
             @media (prefers-reduced-motion: reduce) {
               .bx-scan-beam { transition: opacity 0.35s; }
-              .bx-scan-in, .bx-scan-skel.is-busy { animation: none; }
+              .bx-scan-in, .bx-scan-skel.is-busy, .bx-scan-mark { animation: none; }
             }
           `}</style>
 
@@ -330,6 +394,8 @@ export default function ScanReceiptPage() {
                 field={status === 'done' && result ? result.fields[i] : null}
                 revealed={status === 'done' && i < revealedCount}
                 scanning={status === 'scanning'}
+                hasBox={Boolean(status === 'done' && result && boxes?.[BOX_FOR[result.fields[i].key]])}
+                onPoint={on => setActiveBox(on ? BOX_FOR[result.fields[i].key] : null)}
               />
             ))}
           </div>
@@ -350,15 +416,27 @@ export default function ScanReceiptPage() {
             )
           )}
 
+          {status === 'done' && engine && result && revealedCount >= result.fields.length && (
+            <p className="bx-scan-engine">
+              {engine === 'google'
+                ? <span><strong>Läst av Google, som i appen.</strong>{boxes ? ' Peka på en rad så ser du var den stod på kvittot.' : ''} Nästa kvitto läses i din webbläsare.</span>
+                : <span><strong>Läst i din webbläsare.</strong> Din gratis läsning med Google är använd. I Bokix läses alla kvitton med Google och du ser var varje uppgift stod.</span>}
+            </p>
+          )}
+
           <p className="bx-scan-foot">
-            Bilden stannar i din webbläsare och sparas ingenstans.
+            {status === 'done' && engine === 'google'
+              ? 'Kvittot lästes av Google Cloud Vision inom EU och sparades inte, varken hos Google eller hos oss.'
+              : googleLeft
+                ? 'Ditt första kvitto läses av Google Cloud Vision inom EU och sparas inte. Sedan läses kvitton i din webbläsare.'
+                : 'Kvittot läses i din webbläsare och sparas ingenstans.'}
           </p>
         </div>
       }
       steps={[
         {
-          title: 'Bilden stannar i din webbläsare',
-          body: 'Läsningen körs lokalt (Tesseract.js WebAssembly) — kvittot skickas aldrig till en server och sparas ingenstans. Stänger du sidan är det borta.',
+          title: 'Första kvittot läses av Google, som i appen',
+          body: 'Ditt första kvitto läses av Google Cloud Vision, samma läsning som Bokix-appen använder. Det sker inom EU och Google sparar inte bilden. Du ser också var på kvittot varje uppgift stod. Efter det läses kvitton direkt i din webbläsare (Tesseract.js), utan att skickas någonstans.',
         },
         {
           title: 'Texten tolkas rad för rad',
@@ -372,7 +450,11 @@ export default function ScanReceiptPage() {
       faq={[
         {
           q: 'Sparas min kvittobild eller mina uppgifter någonstans?',
-          a: 'Nej. Läsningen körs helt i din egen webbläsare och ingenting skickas till en server eller sparas — varken bilden eller det avlästa resultatet. Stänger eller laddar du om sidan är det borta.',
+          a: 'Nej. Ditt första kvitto skickas till Google Cloud Vision inom EU för att läsas och sparas inte där, och inte hos oss. Därefter läses kvitton helt i din webbläsare. Varken bilden eller resultatet sparas, och stänger du sidan är det borta.',
+        },
+        {
+          q: 'Varför bara ett kvitto med Google?',
+          a: 'Googles läsning kostar för varje kvitto, så på den här gratissidan får varje besökare en. Vi räknar på din IP-adress, som sparas krypterat (hashad) i högst ett år och aldrig i klartext. I Bokix läses alla kvitton med Google.',
         },
         {
           q: 'Vilka filformat fungerar?',
