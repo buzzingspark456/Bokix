@@ -7,7 +7,7 @@ import { memberCompanyView, redactCompany, mergeMemberCompanyWrite } from './_me
 import { createClient } from '@supabase/supabase-js';
 import { gzipSync } from 'zlib';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
-import { mergeField, applyRecordPatch, renumberVerificationCollisions } from '../src/utils/stateMerge.js';
+import { mergeField, applyRecordPatch, makeRecordPatch, renumberVerificationCollisions } from '../src/utils/stateMerge.js';
 import { isBolagsverketConfigured, lookupOrgNumber, BolagsverketError } from './_bolagsverket.js';
 import { withSentry } from './_sentry.js';
 import { readOwnerCompany, readOwnerCompanies, readOwnerState, tablesModeIds, storageModeOf } from './_companyStore.js';
@@ -109,17 +109,40 @@ async function writeTablesField(admin, ownerUserId, companyKey, field, compute) 
     const { data, error } = await admin.rpc('server_read_company', { p_owner: ownerUserId, p_company: String(companyKey), p_kinds: kinds });
     if (error) throw error;
     if (!data?.payload?.updated_at) return false;
-    const value = compute(assembleCompany(data.payload));
+    const company = assembleCompany(data.payload);
+    const value = compute(company);
     const { data: written, error: writeError } = await admin.rpc('server_apply_company_ops', {
       p_owner: ownerUserId,
       p_key: data.key,
       p_expected_updated_at: data.payload.updated_at,
-      p_ops: [{ op: 'set', path: ['companies', data.key, field], value: value === undefined ? null : value }],
+      p_ops: [tablesFieldOp(data.key, field, company[field], value)],
     });
     if (writeError) throw writeError;
     if (written === true) return true;
   }
   return false;
+}
+
+const sameIdOrder = (a, b) => a.length === b.length && a.every((x, i) => String(x?.id) === String(b[i]?.id));
+
+// En lista skickas som patch (bara de ändrade posterna), inte som hela
+// listan: med hela listan räknas varje posts plats om, och en ny post
+// överst flyttade alla andra ett steg, så att hela listan skrevs om medan
+// kontot var låst. För en stor bokföring tog det längre än databasens
+// tidsgräns och sparningarna köade på varandra (2026-10-27). Hela listan
+// skickas bara när patchen inte ger samma ordning.
+function tablesFieldOp(key, field, before, after) {
+  const path = ['companies', key, field];
+  const set = { op: 'set', path, value: after === undefined ? null : after };
+  if (!RECORD_KINDS.includes(field) || !Array.isArray(before) || !Array.isArray(after)) return set;
+  const patch = makeRecordPatch(before, after);
+  if (!patch) return set;
+  for (const prepend of [false, true]) {
+    if (sameIdOrder(applyRecordPatch(before, { ...patch, prepend }), after)) {
+      return { op: 'patch', path, upsert: patch.upsert, remove: patch.remove, prepend };
+    }
+  }
+  return set;
 }
 
 // Får användaren läsa en fil i någon annans mapp (bokix-uploads/<id>/…)?

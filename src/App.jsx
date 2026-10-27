@@ -1971,7 +1971,28 @@ function App() {
   // att slippa ett garanterat-att-misslyckas nätverksanrop för en viewer —
   // den RIKTIGA spärren är ändå servern (api/company-access.js 403:ar).
   const lastPersistedSharedFieldsRef = useRef({});
+  // Företag vars sparning pågår. Sparningen körs två sekunder efter varje
+  // ändring; tog servern längre tid skickades samma fält igen medan de
+  // första anropen fortfarande väntade, och anropen köade på varandra tills
+  // databasen gav upp (2026-10-27). Nu väntar en ny körning på den pågående
+  // och sparar sedan det senaste läget, en gång.
+  const persistingSharedRef = useRef(new Map());
   const persistSharedCompanyFields = async (companyId, companyData) => {
+    const running = persistingSharedRef.current;
+    if (running.has(companyId)) { running.set(companyId, companyData); return; }
+    running.set(companyId, null);
+    try {
+      let next = companyData;
+      while (next) {
+        await persistSharedCompanyFieldsNow(companyId, next);
+        next = running.get(companyId);
+        running.set(companyId, null);
+      }
+    } finally {
+      running.delete(companyId);
+    }
+  };
+  const persistSharedCompanyFieldsNow = async (companyId, companyData) => {
     if (companyData.__shared?.role !== 'editor' || companyData.__stub) return;
 
     // Första gången det här företaget dyker upp i en sparningscykel den här

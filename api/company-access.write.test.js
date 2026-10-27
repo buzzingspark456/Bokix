@@ -72,7 +72,8 @@ function makeTablesAdmin({ conflicts = 0 } = {}) {
           db.updated_at = 't' + Math.random()
         }
         if (args.p_expected_updated_at !== db.updated_at) return { data: false, error: null }
-        db.verifications = args.p_ops[0].value
+        const op = args.p_ops[0]
+        db.verifications = op.op === 'patch' ? applyRecordPatch(db.verifications, op) : op.value
         db.updated_at = 'ny'
         return { data: true, error: null }
       }
@@ -91,6 +92,9 @@ describe('writeMemberField (endast tabeller)', () => {
     const write = admin.calls.find(c => c.rpc === 'server_apply_company_ops').args
     expect(write).toMatchObject({ p_owner: 'o', p_key: 'c1', p_expected_updated_at: 't1' })
     expect(write.p_ops[0].path).toEqual(['companies', 'c1', 'verifications'])
+    // Bara den nya posten, inte hela listan (hela listan skrev om alla poster).
+    expect(write.p_ops[0]).toMatchObject({ op: 'patch', remove: [], prepend: false })
+    expect(write.p_ops[0].upsert.map(v => v.id)).toEqual(['member'])
     expect(admin.calls.find(c => c.rpc === 'server_read_company').args.p_kinds).toEqual(['verifications'])
   })
 
