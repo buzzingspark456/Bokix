@@ -447,7 +447,7 @@
   "redirects": [
     {
       "source": "/status",
-      "destination": "https://status.bokix.se",
+      "destination": "https://status.bokix.se/sv",
       "permanent": true
     },
     {

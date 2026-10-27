@@ -56,7 +56,7 @@ export default function StatusAdmin() {
     <div style={{ padding: '32px 36px', maxWidth: '1160px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
         <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '6px' }}>Status</div>
-        <a href="https://status.bokix.se" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13.5px', fontWeight: 700, color: 'var(--accent-text)', textDecoration: 'none' }}>Öppna status.bokix.se <ExternalLink size={14} /></a>
+        <a href="https://status.bokix.se/sv" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13.5px', fontWeight: 700, color: 'var(--accent-text)', textDecoration: 'none' }}>Öppna status.bokix.se <ExternalLink size={14} /></a>
       </div>
       <div style={{ fontSize: '13.5px', color: 'var(--text-muted)', marginBottom: '24px' }}>Kontrollerna körs var femte minut. Meddelanden du skriver här syns på statussidan direkt (inom en minut).</div>
       <RefreshBar updatedAt={updatedAt} refreshing={refreshing} onRefresh={reload} />

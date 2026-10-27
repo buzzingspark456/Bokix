@@ -1606,7 +1606,7 @@ const FOOTER_COLUMNS = [
       { label: 'Nyheter', to: '/nyheter' },
       { label: 'Bokix i korthet', to: '/bokix-i-korthet' },
       { label: 'Säkerhet', to: '/sakerhet' },
-      { label: 'Driftstatus', href: 'https://status.bokix.se' },
+      { label: 'Driftstatus', href: 'https://status.bokix.se/sv' },
       { label: 'Kontakt', to: '/kontakt' },
     ],
   },
