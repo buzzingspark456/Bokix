@@ -15,6 +15,11 @@ function makeAdmin({ rows = [], files = {} } = {}) {
     reads,
     get created() { return created },
     from(table) {
+      // Inga konton i tabelläget.
+      if (table === 'storage_modes') {
+        const s = { select: () => s, in: () => s, then: (ok) => ok({ data: [], error: null }), eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }
+        return s
+      }
       if (table !== 'user_data') throw new Error(table)
       const q = {
         select: () => q, order: () => q, range: (a, b) => Promise.resolve({ data: rows.slice(a, b + 1), error: null }),

@@ -20,15 +20,22 @@ const isMissingFunction = (error) => error?.code === 'PGRST202' || /server_read_
 const TABLE_MODES = ['tables', 'tables_only'];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** 'blob', 'tables' eller 'tables_only'. Saknas tabellen eller raden: 'blob'. */
+// Tabellen storage_modes finns inte (databasen före steg 4): alla är blob.
+const isMissingTable = (error) => error?.code === 'PGRST205' || error?.code === '42P01' || /storage_modes.*does not exist|does not exist.*storage_modes/i.test(error?.message || '');
+
+/**
+ * 'blob', 'tables' eller 'tables_only'. Saknas tabellen eller raden: 'blob'.
+ * Kastar om läget inte går att läsa. Förut gissades 'blob', och då fick ett
+ * konto i 'tables_only' den frysta (gamla) blobben, och raderingen kunde
+ * missa kvitton som bara tabellerna pekar på.
+ */
 export async function storageModeOf(admin, ownerUserId) {
-  try {
-    const { data, error } = await admin.from('storage_modes').select('mode').eq('user_id', ownerUserId).maybeSingle();
-    if (error) return 'blob';
-    return TABLE_MODES.includes(data?.mode) ? data.mode : 'blob';
-  } catch {
-    return 'blob';
+  const { data, error } = await admin.from('storage_modes').select('mode').eq('user_id', ownerUserId).maybeSingle();
+  if (error) {
+    if (isMissingTable(error)) return 'blob';
+    throw new Error(`Kunde inte läsa lagringsläget för ${ownerUserId}: ${error.message}`);
   }
+  return TABLE_MODES.includes(data?.mode) ? data.mode : 'blob';
 }
 
 async function readBlobState(admin, ownerUserId) {
@@ -136,17 +143,17 @@ export async function withTablesState(admin, rows, { onTableError } = {}) {
   return out;
 }
 
-/** Vilka av kontona är i tabelläget (båda formerna)? Tom mängd om det inte går att se. */
+/** Vilka av kontona är i tabelläget (båda formerna)? Kastar om det inte går att se (som storageModeOf). */
 export async function tablesModeIds(admin, ids) {
   // Bara riktiga konto-id: ett felaktigt id får databasen att neka hela frågan.
   const list = (ids || []).filter(id => UUID.test(String(id || '')));
   if (!list.length) return new Set();
-  try {
-    const { data, error } = await admin.from('storage_modes').select('user_id').in('mode', TABLE_MODES).in('user_id', list);
-    return error ? new Set() : new Set((data || []).map(r => r.user_id));
-  } catch {
-    return new Set();
+  const { data, error } = await admin.from('storage_modes').select('user_id').in('mode', TABLE_MODES).in('user_id', list);
+  if (error) {
+    if (isMissingTable(error)) return new Set();
+    throw new Error(`Kunde inte läsa lagringslägena: ${error.message}`);
   }
+  return new Set((data || []).map(r => r.user_id));
 }
 
 /**

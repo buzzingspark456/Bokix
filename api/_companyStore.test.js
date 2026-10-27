@@ -35,10 +35,14 @@ function makeAdmin({ mode = 'blob', modeError = null, blobState = null, rpc = {}
 const blobState = { companies: { k1: { company: { id: 'eget_id', name: 'Blob AB' }, invoices: [{ id: 'f1' }], verifications: [] } } }
 
 describe('storageModeOf', () => {
-  it('tables bara när raden säger det, annars blob (även vid fel)', async () => {
+  it('tables bara när raden säger det, annars blob', async () => {
     expect(await storageModeOf(makeAdmin({ mode: 'tables' }), 'u1')).toBe('tables')
     expect(await storageModeOf(makeAdmin({ mode: null }), 'u1')).toBe('blob')
-    expect(await storageModeOf(makeAdmin({ modeError: { message: 'relation does not exist' } }), 'u1')).toBe('blob')
+    expect(await storageModeOf(makeAdmin({ modeError: { code: '42P01', message: 'relation "public.storage_modes" does not exist' } }), 'u1')).toBe('blob')
+  })
+
+  it('kastar när läget inte går att läsa, i stället för att gissa blob', async () => {
+    await expect(storageModeOf(makeAdmin({ modeError: { code: '57014', message: 'canceling statement due to statement timeout' } }), 'u1')).rejects.toThrow(/lagringsläget/)
   })
 })
 

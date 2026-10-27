@@ -255,7 +255,15 @@ const monthlyFile = (m) => m.file || `man-${m.month}.json`;
  */
 async function changeMarks(admin, rows) {
   const marks = new Map(rows.map(r => [r.user_id, r.updated_at || null]));
-  const tablesIds = await tablesModeIds(admin, rows.map(r => r.user_id));
+  let tablesIds;
+  try {
+    tablesIds = await tablesModeIds(admin, rows.map(r => r.user_id));
+  } catch {
+    // Läget gick inte att läsa: alla på sidan kopieras som ändrade, och
+    // varje konto läses då för sig (readOwnerState avgör, fel per konto).
+    for (const r of rows) marks.set(r.user_id, null);
+    return marks;
+  }
   if (!tablesIds.size) return marks;
   let latest;
   try {
