@@ -15,6 +15,7 @@ const EVENT_LABELS = {
   client_error: 'Appen kraschade hos en användare',
   ocr_error: 'Kvittoläsning',
   status_down: 'En del av Bokix gick ner (statussidan)',
+  login_slow: 'Långsam inloggning',
 };
 
 const mb = (bytes) => `${(bytes / 1024 / 1024).toLocaleString('sv-SE', { maximumFractionDigits: 1 })} MB`;
@@ -41,7 +42,7 @@ export default function SystemAdmin({ onOpenTab }) {
 
   const missingConfig = data?.config.filter(c => !c.ok) || [];
   // Appens egna fel (krascher och kvittoläsning) får ett eget kort; resten är mejl.
-  const APP_EVENT_KINDS = ['client_error', 'ocr_error', 'status_down'];
+  const APP_EVENT_KINDS = ['client_error', 'ocr_error', 'status_down', 'login_slow'];
   const emailProblems = (data?.systemEvents || []).filter(e => !APP_EVENT_KINDS.includes(e.kind));
   const appProblems = (data?.systemEvents || []).filter(e => APP_EVENT_KINDS.includes(e.kind));
   const attention = data ? [

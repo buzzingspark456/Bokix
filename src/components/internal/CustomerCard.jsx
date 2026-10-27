@@ -11,7 +11,7 @@ import { dateTimeFormat } from '../../utils/intlCache';
 const fmtDate = (iso) => (iso ? dateTimeFormat('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso)) : '—');
 const fmtDateTime = (iso) => (iso ? dateTimeFormat('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)) : '—');
 const VAT_PERIOD = { monthly: 'Månadsvis', quarterly: 'Kvartalsvis', yearly: 'En gång per år' };
-const EVENT_LABEL = { ocr_error: 'Kvittoläsning', client_error: 'Appen kraschade' };
+const EVENT_LABEL = { ocr_error: 'Kvittoläsning', client_error: 'Appen kraschade', login_slow: 'Långsam inloggning' };
 
 function fiscalYearText(s) {
   if (s.firstFiscalYear?.start && s.firstFiscalYear?.end) return `Första året ${s.firstFiscalYear.start} – ${s.firstFiscalYear.end}, sedan från ${String(s.fiscalYear || '').slice(5) || '01-01'}`;

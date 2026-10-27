@@ -55,6 +55,18 @@ async function handler(req, res) {
     return;
   }
 
+  // En långsam inloggning (src/utils/loginTiming.js): bara tiderna per steg.
+  // Tyst, inget larmmejl.
+  if (body?.source === 'login_timing') {
+    const s = body?.summary && typeof body.summary === 'object' ? body.summary : {};
+    const ms = (v) => (Number.isFinite(Number(v)) ? `${Math.round(Number(v))} ms` : '-');
+    const userId = /^[0-9a-f-]{36}$/i.test(String(body?.userId || '')) ? body.userId : 'okänt';
+    const method = s.method === 'passkey' ? 'Face ID' : 'lösenord';
+    await logSystemEvent('login_slow', `Konto: ${userId}\nTotalt ${ms(s.total)} (${method}): robotkontroll ${ms(s.captcha)}, Supabase ${ms(s.auth)}, laddning ${ms(s.data)}\n${clip(req.headers['user-agent'], 160)}`);
+    res.status(204).end();
+    return;
+  }
+
   const message = clip(body?.message, 300).trim();
   if (!message) {
     res.status(400).json({ error: 'message krävs.' });

@@ -116,6 +116,9 @@
          utan att kasta. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Inloggningen: anslutningen till Supabase och robotkontrollen öppnas direkt, inte först vid knapptrycket. -->
+    <link rel="preconnect" href="%VITE_SUPABASE_URL%" crossorigin />
+    <link rel="preconnect" href="https://challenges.cloudflare.com" />
     <!-- Lighthouse (Prestanda, "Begäranden om renderingsblockering"): en
          vanlig <link rel="stylesheet"> här blockerar första målningen tills
          Google Fonts svarat. `media="print"` gör att webbläsaren laddar

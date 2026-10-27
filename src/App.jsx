@@ -445,6 +445,7 @@ import { readServerState, rememberServerState, isCacheUsable, noteCachedAt, clea
 import { shadowReadDue, scheduleShadowRead } from './utils/shadowRead';
 import { loadFromTables, saveToTables } from './utils/tableStore';
 import { reportClientError } from './utils/errorReporting';
+import { finishLoginTiming } from './utils/loginTiming';
 
 // Fallback under den enda <Suspense> som omsluter App-komponentens JSX (se
 // return-satsen längre ner) — visas bara under den korta stund en lazy-flik
@@ -2540,6 +2541,19 @@ function App() {
   // (SIGNED_IN) startar båda en laddning, nästan samtidigt. Ett andra anrop
   // för samma användare medan det första pågår väntar in det i stället för
   // att hämta allt igen (förut gick bl.a. listan över delade företag två gånger).
+  // Inloggningens tid (utils/loginTiming.js): klar när appen syns.
+  useEffect(() => {
+    if (isLoggedIn && user?.id) finishLoginTiming(user.id);
+  }, [isLoggedIn, user?.id]);
+
+  // Startsidan laddas ner medan inloggningen visas, så att den inte behöver
+  // hämtas efter knapptrycket.
+  useEffect(() => {
+    if (isLoggedIn || isLoadingAuth) return;
+    const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 1500));
+    idle(() => { import('./components/Dashboard').catch(() => {}); });
+  }, [isLoggedIn, isLoadingAuth]);
+
   const fetchInFlightRef = useRef(null);
   const fetchUserData = (authUser) => {
     const current = fetchInFlightRef.current;

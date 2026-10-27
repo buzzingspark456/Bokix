@@ -20,6 +20,7 @@ import CloudShaderBackground from './marketing/CloudShaderBackground';
 import Recaptcha from './Recaptcha';
 import { TERMS_VERSION } from '../utils/legalVersion';
 import { t, useForcedLanguage } from '../i18n';
+import { markLoginStart, markLoginStep } from '../utils/loginTiming';
 
 // ── Litet Stripe-märke — se motsvarande kommentar i PaymentRequiredGate.jsx
 // (samma lokala-kopia-mönster). ──
@@ -326,13 +327,16 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     setLoading(true);
     try {
       if (!loginEmail || !loginPassword) throw new Error(t('ui.fyll_i_alla_falt'));
+      markLoginStart('password');
       const loginCaptchaToken = await runCaptcha(loginCaptchaRef);
+      markLoginStep('captcha');
       const { error } = await supabase.auth.signInWithPassword({
         email: loginEmail,
         password: loginPassword,
         options: loginCaptchaToken ? { captchaToken: loginCaptchaToken } : undefined,
       });
       if (error) throw error;
+      markLoginStep('auth');
       offerToSavePassword(loginEmail, loginPassword);
     } catch (err) {
       setErrorMsg(translateSupabaseAuthError(err.message));
@@ -350,9 +354,12 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     try {
       // Supabase kräver captcha även för passkey-inloggning när Turnstile är på.
       let captchaToken;
+      markLoginStart('passkey');
       try { captchaToken = await runCaptcha(loginCaptchaRef); } catch (captchaErr) { setErrorMsg(captchaErr.message); newCaptchaRound(); return; }
+      markLoginStep('captcha');
       const { data, error } = await supabase.auth.signInWithPasskey(captchaToken ? { options: { captchaToken } } : undefined);
       if (error) throw error;
+      markLoginStep('auth');
       // Face ID används på den här enheten: appen spärras med det framöver.
       setAppLock(data?.user?.id || data?.session?.user?.id || null);
       rememberPasskeyOnDevice(true);

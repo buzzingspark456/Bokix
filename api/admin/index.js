@@ -513,7 +513,7 @@ export async function handleOverview(admin, res) {
     (await withTablesState(admin, blobRows || [])).forEach(r => { states[r.user_id] = r.state; });
   }
   const { data: messages } = await admin.from('contact_messages').select('handled_at').is('handled_at', null).limit(500);
-  const { data: events } = await admin.from('system_events').select('kind, created_at').not('kind', 'in', '(backup_ok,shadow_read)').gte('created_at', new Date(Date.now() - 86400000).toISOString()).limit(500);
+  const { data: events } = await admin.from('system_events').select('kind, created_at').not('kind', 'in', '(backup_ok,shadow_read,login_slow)').gte('created_at', new Date(Date.now() - 86400000).toISOString()).limit(500);
   const payments = await loadPayments(admin, users).catch(() => null);
   res.status(200).json({
     ...buildOverview({ users, subs, states, messages: messages || [], events: events || [], isAdmin: isAdminEmail }),
