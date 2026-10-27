@@ -1606,7 +1606,7 @@ const FOOTER_COLUMNS = [
       { label: 'Nyheter', to: '/nyheter' },
       { label: 'Bokix i korthet', to: '/bokix-i-korthet' },
       { label: 'Säkerhet', to: '/sakerhet' },
-      { label: 'Driftstatus', to: '/status' },
+      { label: 'Driftstatus', href: 'https://status.bokix.se' },
       { label: 'Kontakt', to: '/kontakt' },
     ],
   },
@@ -1649,7 +1649,9 @@ export function MarketingFooter() {
               <h3 className="lp-footer-heading">{column.heading}</h3>
               <ul className="lp-footer-list">
                 {column.links.map(link => (
-                  <li key={link.to}><Link to={link.to} className="lp-footer-link">{link.label}</Link></li>
+                  <li key={link.to || link.href}>{link.href
+                    ? <a href={link.href} className="lp-footer-link">{link.label}</a>
+                    : <Link to={link.to} className="lp-footer-link">{link.label}</Link>}</li>
                 ))}
               </ul>
             </nav>

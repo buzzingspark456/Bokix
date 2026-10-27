@@ -446,6 +446,11 @@
   ],
   "redirects": [
     {
+      "source": "/status",
+      "destination": "https://status.bokix.se",
+      "permanent": true
+    },
+    {
       "source": "/valja-bokforingsprogram",
       "destination": "/funktioner",
       "permanent": true

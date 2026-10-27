@@ -205,7 +205,6 @@ const SITEMAP_MANIFEST = [
   }))),
   { path: '/blogg', changefreq: 'weekly', priority: '0.6', lastmod: latest(ALL_ARTICLES.filter(p => p.body && !p.news)) },
   { path: '/nyheter', changefreq: 'weekly', priority: '0.6', lastmod: latest(ALL_ARTICLES.filter(p => p.body && p.news)) },
-  { path: '/status', changefreq: 'daily', priority: '0.3' },
   // Artiklarna härleds ur blog.js och news.js, samma lista som routing/förrendering.
   ...ALL_ARTICLES.filter(post => post.body && !post.hidden).map(post => ({ path: post.path, changefreq: 'monthly', priority: '0.6', lastmod: post.dateModified || post.datePublished })),
   { path: '/vanliga-fragor', changefreq: 'monthly', priority: '0.6' },
