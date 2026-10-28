@@ -6,6 +6,10 @@
 // kund och har därför ingen Bokix-ram.
 import { brandedEmail, emailButton, emailCode } from '../src/utils/brandedEmail.js';
 
+// Uppgifter ur företagets egen data (kundnamn, fakturanummer, företagsnamn)
+// escapas innan de hamnar i HTML:en (granskningen 2026-10-28).
+const esc = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 const fmt = (val) => new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
 const formatDate = (d) => {
   if (!d) return '—';
@@ -18,10 +22,10 @@ const formatDate = (d) => {
  * e-postprogram. */
 export function buildInvoiceReminderHtml({ invoice, customer, company, grossAmount }) {
   return `
-    <p>Hej${customer?.contactPerson ? ' ' + customer.contactPerson : ''},</p>
-    <p>Det här är en automatisk påminnelse om faktura <strong>${invoice.invoiceNumber}</strong> på <strong>${fmt(grossAmount)} kr</strong>, som förföll ${formatDate(invoice.dueDate)}.</p>
+    <p>Hej${customer?.contactPerson ? ' ' + esc(customer.contactPerson) : ''},</p>
+    <p>Det här är en automatisk påminnelse om faktura <strong>${esc(invoice.invoiceNumber)}</strong> på <strong>${fmt(grossAmount)} kr</strong>, som förföll ${formatDate(invoice.dueDate)}.</p>
     <p>Hör av dig om du redan betalat eller har frågor.</p>
-    <p>Med vänlig hälsning<br/>${company?.invoiceDisplayName || company?.name || ''}</p>
+    <p>Med vänlig hälsning<br/>${esc(company?.invoiceDisplayName || company?.name || '')}</p>
   `;
 }
 
@@ -31,7 +35,7 @@ export function buildVatDeadlineHtml({ company, deadline, siteUrl }) {
   return brandedEmail({
     title: 'Momsdeklarationen närmar sig',
     body: `
-    <p>Hej${company?.name ? ' ' + company.name : ''},</p>
+    <p>Hej${company?.name ? ' ' + esc(company.name) : ''},</p>
     <p>Momsdeklarationen för <strong>${deadline.label || `kvartal ${deadline.quarter} ${deadline.year}`}</strong> ska vara inlämnad till Skatteverket senast <strong>${formatDate(deadline.dueDate)}</strong>.</p>
     ${siteUrl ? emailButton(`${siteUrl}/`, 'Öppna Bokix') : ''}
   `,
@@ -44,8 +48,8 @@ export function buildAgiDeadlineHtml({ company, deadline, siteUrl }) {
   return brandedEmail({
     title: 'Arbetsgivardeklarationen närmar sig',
     body: `
-    <p>Hej${company?.name ? ' ' + company.name : ''},</p>
-    <p>Arbetsgivardeklarationen (AGI) för löner utbetalda i <strong>${deadline.periodKey}</strong> ska vara inlämnad till Skatteverket senast <strong>${formatDate(deadline.dueDate)}</strong>.</p>
+    <p>Hej${company?.name ? ' ' + esc(company.name) : ''},</p>
+    <p>Arbetsgivardeklarationen (AGI) för löner utbetalda i <strong>${esc(deadline.periodKey)}</strong> ska vara inlämnad till Skatteverket senast <strong>${formatDate(deadline.dueDate)}</strong>.</p>
     ${siteUrl ? emailButton(`${siteUrl}/`, 'Öppna Bokix') : ''}
   `,
   });

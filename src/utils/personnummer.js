@@ -33,6 +33,18 @@ function luhnValid(tenDigits) {
 }
 
 /**
+ * Ett svenskt organisationsnummer eller personnummer (enskild firma), med
+ * rätt kontrollsiffra. Tio siffror, eller tolv med sekel (16/19/20) först.
+ * Bokix är bara för svenska företag: ett påhittat eller utländskt nummer
+ * stoppas (2026-10-28).
+ */
+export function isValidSwedishOrgNr(value) {
+  let digits = digitsOnly(value);
+  if (digits.length === 12 && /^(16|19|20)/.test(digits)) digits = digits.slice(2);
+  return digits.length === 10 && luhnValid(digits);
+}
+
+/**
  * Validerar format (ÅÅÅÅMMDD-XXXX) + att datumdelen är ett giltigt datum +
  * Luhn-checksumma. Returnerar { valid, error }.
  */

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatPersonnummerInput, validatePersonnummer } from './personnummer'
+import { formatPersonnummerInput, validatePersonnummer, isValidSwedishOrgNr } from './personnummer'
 
 describe('formatPersonnummerInput', () => {
   it('inserts a hyphen after 8 digits while typing', () => {
@@ -57,3 +57,16 @@ describe('validatePersonnummer', () => {
     expect(result.error).toMatch(/Luhn/)
   })
 })
+
+describe('isValidSwedishOrgNr', () => {
+  it('godtar riktiga nummer med eller utan sekel', () => {
+    expect(isValidSwedishOrgNr('556036-0793')).toBe(true);
+    expect(isValidSwedishOrgNr('165560360793')).toBe(true);
+    expect(isValidSwedishOrgNr('900101-1239')).toBe(true);
+  });
+  it('stoppar fel kontrollsiffra och påhittade nummer', () => {
+    expect(isValidSwedishOrgNr('556036-0794')).toBe(false);
+    expect(isValidSwedishOrgNr('1234567890')).toBe(false);
+    expect(isValidSwedishOrgNr('12.345.678/0001-90')).toBe(false);
+  });
+});

@@ -1,7 +1,7 @@
 import { applySecurityHeaders } from './_security.js';
 import { canWriteField } from '../src/utils/pageAccess.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
-import { requireAuthedUser, loadMemberCompany, requireActiveSubscription, requireOwnerPaidAccess, hasPaidAccess, isFreeEmail, findCompanyEntry } from './_auth.js';
+import { requireAuthedUser, loadMemberCompany, requireActiveSubscription, requireOwnerPaidAccess, hasPaidAccess, isFreeUser, findCompanyEntry } from './_auth.js';
 import { checkRateLimit } from './_rateLimit.js';
 import { memberCompanyView, redactCompany, mergeMemberCompanyWrite, pinServerConnections, foreignStoragePaths } from './_memberView.js';
 import { createClient } from '@supabase/supabase-js';
@@ -628,7 +628,7 @@ async function handler(req, res) {
       const admin = createClient(supabaseUrl, serviceRoleKey);
 
       // Verifiera att anroparen äger sökvägen, får se filen i ett företag, eller är admin
-      const isAllowed = path.split('/')[0] === user.id || isFreeEmail(user.email) || await canReadCompanyFile(admin, user.id, path);
+      const isAllowed = path.split('/')[0] === user.id || isFreeUser(user) || await canReadCompanyFile(admin, user.id, path);
       if (!isAllowed) {
         res.status(403).json({ error: 'Åtkomst nekad till denna fil.' });
         return;

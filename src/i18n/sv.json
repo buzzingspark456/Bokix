@@ -3556,6 +3556,7 @@
     "onb2_firmanamn": "Firmans namn",
     "onb2_personnummer": "Personnummer",
     "onb2_personnummer_fel": "Det ser inte ut som ett personnummer. Skriv det som ÅÅMMDD-XXXX.",
+    "onb2_orgnr_fel": "Det ser inte ut som ett svenskt organisationsnummer. Kontrollera siffrorna.",
     "onb2_adress_q": "Var har firman sin adress?",
     "onb2_adress_q_foretag": "Var har företaget sin adress?",
     "onb2_adress_sub": "Adressen står på dina fakturor.",

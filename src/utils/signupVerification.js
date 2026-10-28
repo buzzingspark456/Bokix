@@ -25,8 +25,14 @@ async function requestVerification(body) {
 
 /** Skickar en sexsiffrig kod till `email` och returnerar den signerade
  * token:en som måste skickas med (oförändrad) till verifySignupCode. */
-export async function sendSignupCode(email, recaptchaToken = null) {
-  const { token } = await requestVerification({ action: 'send-signup-code', email, ...(recaptchaToken ? { recaptchaToken } : {}) });
+export async function sendSignupCode(email, recaptchaToken = null, inviteToken = null) {
+  const { token } = await requestVerification({
+    action: 'send-signup-code',
+    email,
+    ...(recaptchaToken ? { recaptchaToken } : {}),
+    // Inbjudna får registrera sig utanför Sverige (se api/_country.js).
+    ...(inviteToken ? { inviteToken } : {}),
+  });
   return token;
 }
 

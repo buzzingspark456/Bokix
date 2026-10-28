@@ -10,6 +10,7 @@ import { requireAuthedUser } from '../_auth.js';
 import { readOwnerCompany } from '../_companyStore.js';
 import { hasExistingSubscription, getSubscriptionRow, getStripeCustomerId, getStripeCustomerIds, upsertSubscription, subscriptionFieldsFromStripe, PAID_STATUSES } from './_subscriptions.js';
 import { listSubscriptionCustomerIds, listSubscriptionInvoices } from './_billingInvoices.js';
+import { isValidSwedishOrgNr } from '../../src/utils/personnummer.js';
 
 // Läses INTE in som modul-nivå-konstant — samma gotcha som _resend.js/
 // _signedToken.js/company-access.js:s getForetagsApiKey redan har en
@@ -361,6 +362,12 @@ export default async function handler(req, res) {
     // nummer läses från kontot på servern, aldrig från det klienten skickar.
     // Ett företag (Lägg till företag) slås upp i kontots sparade data.
     const account = await loadAccountForTrial(body.user_id, body.company_id || null);
+    // Bara svenska företag (2026-10-28): ett påhittat eller utländskt nummer
+    // får ingen prenumeration. UF-konton har inget org.nr och berörs inte.
+    if (account?.orgNr && !isValidSwedishOrgNr(account.orgNr)) {
+      res.status(400).json({ error: 'Organisationsnumret är inte ett giltigt svenskt nummer. Bokix är för svenska företag. Kontakta support@bokix.se om något är fel.' });
+      return;
+    }
     const trialSignals = { email: account?.email || body.customer_email, orgNr: account?.orgNr, ip: getClientIp(req) };
     const decision = await trialDecision(stripe, { ...trialSignals, excludeUserId: body.user_id });
     if (!decision.allowTrial) console.warn('[provperiod] ingen provperiod:', decision.reasons.join(','), body.user_id);

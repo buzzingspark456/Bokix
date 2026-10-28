@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { requireActiveSubscription, requireOwnerPaidAccess, isFreeEmail, isWithinUfFreePeriod } from './_auth.js';
+import { requireActiveSubscription, requireOwnerPaidAccess, isFreeEmail, isFreeUser, isWithinUfFreePeriod } from './_auth.js';
 
 // En liten låtsasdatabas: `db.subscriptions[userId]` = lista med statusar,
 // `db.members[userId]` = ägar-id:n där användaren är aktiv medlem,
@@ -51,8 +51,13 @@ describe('_auth betalningsspärr', () => {
 
   it('släpper igenom gratis-/adminkonton', async () => {
     const res = createMockRes();
-    expect(await requireActiveSubscription({ id: 'a', email: 'alwakiabdullah1@gmail.com' }, res)).toBe(true);
+    expect(await requireActiveSubscription({ id: 'a', email: 'alwakiabdullah1@gmail.com', email_confirmed_at: '2026-01-01T00:00:00Z' }, res)).toBe(true);
     expect(isFreeEmail(' AlwakiAbdullah1@gmail.com ')).toBe(true);
+  });
+
+  it('gratiskontot kräver bekräftad e-post', () => {
+    expect(isFreeUser({ email: 'alwakiabdullah1@gmail.com' })).toBe(false);
+    expect(isFreeUser({ email: 'alwakiabdullah1@gmail.com', email_confirmed_at: '2026-01-01T00:00:00Z' })).toBe(true);
   });
 
   it('släpper igenom UF-konton inom tre månader från registreringen', async () => {

@@ -13,6 +13,24 @@ import { verifyRecaptcha, hasRecaptchaSecretKey } from '../_recaptcha.js';
 import { getClientIp } from '../_rateLimit.js';
 import { logSystemEvent } from '../_systemEvents.js';
 import { withSentry } from '../_sentry.js';
+import { isOutsideSweden, requestCountry } from '../_country.js';
+
+// Har `email` en väntande, giltig inbjudan med just den här token:en? Då får
+// personen skapa konto var hen än är (en revisor i ett annat land).
+async function hasValidInvite(email, inviteToken) {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key || typeof inviteToken !== 'string' || !/^[0-9a-f-]{36}$/i.test(inviteToken)) return false;
+  const { data, error } = await createClient(url, key)
+    .from('company_members')
+    .select('invited_email, expires_at')
+    .eq('invite_token', inviteToken)
+    .eq('status', 'pending')
+    .maybeSingle();
+  if (error || !data) return false;
+  if (data.expires_at && new Date(data.expires_at) < new Date()) return false;
+  return String(data.invited_email || '').trim().toLowerCase() === email;
+}
 
 // "Glömt lösenord?" (Auth.jsx) gick tidigare direkt mot
 // supabase.auth.resetPasswordForEmail() från klienten, som ALDRIG lämnade
@@ -136,6 +154,15 @@ async function handleSendSignupCode(req, body, res) {
   }
   if (!(await checkRateLimit(req, res, { key: 'signup-code-ip', max: 20 }))) return;
   if (!(await checkRateLimit(req, res, { key: 'signup-code-email', windowMs: 60 * 60 * 1000, max: 5, identifier: email }))) return;
+
+  // Bara svenska företag (2026-10-28): ett nytt konto skapas bara från
+  // Sverige. Den som är inbjuden till ett företag får skapa konto var hen än
+  // är, och inloggning påverkas inte (se api/_country.js).
+  if (isOutsideSweden(req) && !(await hasValidInvite(email, body?.inviteToken))) {
+    await logSystemEvent('signup_blocked_country', `Registrering stoppad från ${requestCountry(req)}`);
+    res.status(403).json({ error: 'Bokix är för svenska företag, och ett nytt konto kan bara skapas från Sverige. Har du fått en inbjudan, öppna inbjudningslänken igen. Frågor: support@bokix.se.', code: 'country' });
+    return;
+  }
 
   // Skydd mot massregistrering (2026-10-04): falska konton med nya adresser,
   // och Bokix som avsändare av mejl till främmande inkorgar.

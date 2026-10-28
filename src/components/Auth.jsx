@@ -231,7 +231,9 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       } finally {
         signupRecaptchaRef.current?.reset();
       }
-      const token = await sendSignupCode(regEmail, recaptchaToken);
+      let inviteToken = null;
+      try { inviteToken = sessionStorage.getItem(PENDING_INVITE_KEY); } catch { /* privat läge */ }
+      const token = await sendSignupCode(regEmail, recaptchaToken, inviteToken);
       setOtpToken(token);
       setRegVerifyCode('');
       setResendCooldown(30);

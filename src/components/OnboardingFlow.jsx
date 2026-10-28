@@ -8,6 +8,7 @@ import { checkVatRegistration } from '../utils/companyLookup';
 import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
 import { EMPTY_COMPANY_SETUP, companySetupFromCompany, companySetupToCompany } from './shared/FiscalYearVatFields';
 import { firstYearEndOptions, defaultFirstYearEnd, todayIso, fiscalYearFields, suggestFiscalYear, isSoleTraderNumber } from '../utils/fiscalYearSetup';
+import { isValidSwedishOrgNr } from '../utils/personnummer';
 import { keyDatesForSetup } from '../utils/setupDates';
 import { dateTimeFormat } from '../utils/intlCache';
 import { t, dateLocale } from '../i18n';
@@ -101,8 +102,10 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
   // startade i år eftersom räkenskapsåret alltid är kalenderår.
   const [firma, setFirma] = useState(() => startsKnown && isSoleTraderNumber(digitsOf(saved.orgNr)));
   const soleTrader = firma || isSoleTraderNumber(orgDigits);
-  const pnrValid = orgDigits.length === 10 && isSoleTraderNumber(orgDigits);
-  const companyValid = Boolean(companyName.trim()) && (firma ? pnrValid : (orgDigits.length === 10 || Boolean(saved.isUf)));
+  // Rätt kontrollsiffra: Bokix är bara för svenska företag (2026-10-28).
+  const orgNrValid = isValidSwedishOrgNr(orgDigits);
+  const pnrValid = orgNrValid && isSoleTraderNumber(orgDigits);
+  const companyValid = Boolean(companyName.trim()) && (firma ? pnrValid : (orgNrValid || Boolean(saved.isUf)));
   const deregistered = lastCompany?.active === false;
   const industry = lastCompany?.sni?.[0]?.text || '';
   const vatRegistered = companySetup.vatRegistered === true;
@@ -286,6 +289,7 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
               onChange={(e) => setOrgNr(formatOrgNr(e.target.value))}
               onKeyDown={(e) => { if (e.key === 'Enter' && companyValid) goManual(); }}
             />
+            {orgDigits.length === 10 && !orgNrValid && <span className="onb-warn">{t('ui.onb2_orgnr_fel')}</span>}
             <div className="onb-row">
               <button type="button" className="onb-primary" disabled={!companyValid} onClick={goManual}>{t('ui.fortsatt')} <ArrowRight size={18} /></button>
             </div>

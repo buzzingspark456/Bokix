@@ -268,6 +268,12 @@ export function isFreeEmail(email) {
   return FREE_EMAILS.includes(String(email || '').trim().toLowerCase());
 }
 
+/** Gratiskontot, men bara med bekräftad adress: åtkomsten följer e-posten,
+ * så den måste vara bevisad (granskningen 2026-10-28). */
+export function isFreeUser(user) {
+  return Boolean(user?.email_confirmed_at) && isFreeEmail(user?.email);
+}
+
 /** UF-gratisperioden, räknad från KONTOTS skapelsedatum (auth.users.created_at).
  *  Medvetet INTE från user_metadata.uf_started_at: user_metadata kan varje
  *  inloggad användare skriva om själv (supabase.auth.updateUser), så ett
@@ -310,7 +316,7 @@ export async function hasPaidAccess(admin, userId, knownUser = null) {
     }
     user = data?.user || null;
   }
-  if (user && isFreeEmail(user.email)) return true;
+  if (user && isFreeUser(user)) return true;
   if (user && isWithinUfFreePeriod(user)) return true;
 
   const { data: subs, error } = await admin
@@ -339,7 +345,7 @@ function paymentRequired(res, message = 'Ingen aktiv prenumeration. Gå till bet
  * Returnerar true om anroparen får fortsätta, annars false (402 redan skickat).
  */
 export async function requireActiveSubscription(user, res) {
-  if (isFreeEmail(user.email)) return true;
+  if (isFreeUser(user)) return true;
   if (isWithinUfFreePeriod(user)) return true;
 
   const admin = adminClient();
@@ -376,7 +382,7 @@ export async function requireActiveSubscription(user, res) {
 export async function payingAccountFor(user) {
   if (isWithinUfFreePeriod(user)) return { id: user.id, uf: true };
   const admin = adminClient();
-  if (!admin || isFreeEmail(user.email)) return { id: user.id, uf: false };
+  if (!admin || isFreeUser(user)) return { id: user.id, uf: false };
   const { data: subs } = await admin.from('subscriptions').select('status').eq('user_id', user.id);
   if ((subs || []).some(s => ALLOWED_SUBSCRIPTION_STATUSES.includes(s.status))) return { id: user.id, uf: false };
   const { data: memberships } = await admin

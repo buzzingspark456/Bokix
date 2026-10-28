@@ -3556,6 +3556,7 @@
     "onb2_firmanamn": "Business name",
     "onb2_personnummer": "Personal identity number",
     "onb2_personnummer_fel": "That doesn't look like a personal identity number. Write it as YYMMDD-XXXX.",
+    "onb2_orgnr_fel": "That doesn't look like a Swedish organisation number. Check the digits.",
     "onb2_adress_q": "What is the business's address?",
     "onb2_adress_q_foretag": "What is the company's address?",
     "onb2_adress_sub": "The address appears on your invoices.",
