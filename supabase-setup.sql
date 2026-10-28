@@ -85,7 +85,10 @@ AS $$
         AND (
           lower(coalesce(u.email, '')) IN ('alwakiabdullah1@gmail.com', 'abbealwaki08@gmail.com')
           OR (
-            (u.raw_user_meta_data ->> 'uf') = 'true'
+            -- app_metadata, inte user_metadata: den senare kan varje inloggad
+            -- sätta själv (supabase-2026-10-20-uf-skyddad-flagga.sql, och
+            -- protect_uf_flag nedan som kopierar dit flaggan vid registrering).
+            (u.raw_app_meta_data ->> 'uf') = 'true'
             AND u.created_at + interval '3 months' > now()
             -- Avslutat UF-år (app_metadata, bara servern skriver) = inte gratis längre.
             AND (u.raw_app_meta_data ->> 'uf_closed_at') IS NULL
@@ -111,6 +114,37 @@ REVOKE EXECUTE ON FUNCTION public.has_paid_access(uuid) FROM PUBLIC, anon, authe
 CREATE SCHEMA IF NOT EXISTS private;
 REVOKE ALL ON SCHEMA private FROM PUBLIC, anon;
 GRANT USAGE ON SCHEMA private TO authenticated;
+
+-- UF-flaggan: kopieras från user_metadata till app_metadata när kontot
+-- skapas och går sedan inte att ändra från klienten (samma som
+-- supabase-2026-10-20-uf-skyddad-flagga.sql; finns här också så att en ny
+-- körning av den här filen inte tar bort skyddet, granskningen 2026-10-28).
+CREATE OR REPLACE FUNCTION private.protect_uf_flag()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF (NEW.raw_user_meta_data ->> 'uf') = 'true' THEN
+      NEW.raw_app_meta_data := coalesce(NEW.raw_app_meta_data, '{}'::jsonb) || jsonb_build_object('uf', true);
+    END IF;
+  ELSIF (OLD.raw_app_meta_data ->> 'uf') = 'true' AND (NEW.raw_app_meta_data ->> 'uf') IS DISTINCT FROM 'true' THEN
+    NEW.raw_app_meta_data := coalesce(NEW.raw_app_meta_data, '{}'::jsonb) || jsonb_build_object('uf', true);
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION private.protect_uf_flag() FROM PUBLIC, anon, authenticated;
+GRANT USAGE ON SCHEMA private TO supabase_auth_admin;
+GRANT EXECUTE ON FUNCTION private.protect_uf_flag() TO supabase_auth_admin;
+
+DROP TRIGGER IF EXISTS protect_uf_flag ON auth.users;
+CREATE TRIGGER protect_uf_flag
+  BEFORE INSERT OR UPDATE OF raw_app_meta_data ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION private.protect_uf_flag();
 
 CREATE OR REPLACE FUNCTION private.can_write_user_data(target_user_id uuid)
 RETURNS boolean
