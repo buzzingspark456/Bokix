@@ -3,7 +3,7 @@ import { canWriteField } from '../src/utils/pageAccess.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
 import { requireAuthedUser, loadMemberCompany, requireActiveSubscription, requireOwnerPaidAccess, hasPaidAccess, isFreeEmail, findCompanyEntry } from './_auth.js';
 import { checkRateLimit } from './_rateLimit.js';
-import { memberCompanyView, redactCompany, mergeMemberCompanyWrite } from './_memberView.js';
+import { memberCompanyView, redactCompany, mergeMemberCompanyWrite, pinServerConnections, foreignStoragePaths } from './_memberView.js';
 import { createClient } from '@supabase/supabase-js';
 import { gzipSync } from 'zlib';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
@@ -158,6 +158,14 @@ function tablesFieldOp(key, field, before, after) {
 // en främmande sökväg i sin egen bokföring och läser andras filer; att
 // mappen måste tillhöra företagets ägare eller inbjudna hindrar samma sak
 // från andra håll.
+//
+// Granskningen 2026-10-28: datan kan skrivas av samma personer som
+// kontrolleras. Därför dessutom:
+//   - en inbjuden får inte skriva in andras sökvägar (foreignStoragePaths
+//     vid medlemmens sparning nedan);
+//   - en fil i en inbjudens mapp räknas bara om den laddades upp medan hen
+//     var inbjuden till just det företaget. Hens egna filer från andra
+//     företag kan då inte läsas genom att någon skriver in sökvägen.
 export async function canReadCompanyFile(admin, userId, path) {
   const folder = path.split('/')[0];
   if (!folder || folder === userId) return folder === userId;
@@ -170,12 +178,13 @@ export async function canReadCompanyFile(admin, userId, path) {
   // Alla inbjudningar där mappens ägare finns med (ägare eller inbjuden).
   const { data: rows, error } = await admin
     .from('company_members')
-    .select('owner_user_id, member_user_id, company_id, role, page_access, status')
+    .select('owner_user_id, member_user_id, company_id, role, page_access, status, redeemed_at, revoked_at')
     .or(`owner_user_id.eq.${folder},member_user_id.eq.${folder}`);
   if (error || !rows?.length) return false;
 
-  // Företag (ägare + nyckel) där mappen hör hemma.
-  const folderCompanies = rows.map(r => ({ owner: r.owner_user_id, company: r.company_id }));
+  // Företag (ägare + nyckel) där mappen hör hemma. membership = mappens egen
+  // inbjudan till företaget, när mappen är en inbjudens.
+  const folderCompanies = rows.map(r => ({ owner: r.owner_user_id, company: r.company_id, membership: r.member_user_id === folder ? r : null }));
   const states = new Map();
   const stateOf = async (owner) => {
     if (!states.has(owner)) states.set(owner, await readOwnerState(admin, owner).catch(() => null));
@@ -185,7 +194,7 @@ export async function canReadCompanyFile(admin, userId, path) {
   // Som ägare: mappen är en (nuvarande eller tidigare) inbjuden i mitt företag.
   for (const fc of folderCompanies.filter(x => x.owner === userId)) {
     const entry = findCompanyEntry((await stateOf(userId))?.companies, fc.company);
-    if (entry?.data && mentions(entry.data)) return true;
+    if (entry?.data && mentions(entry.data) && await uploadedWhileMember(admin, path, fc.membership)) return true;
   }
 
   // Som aktiv inbjuden: företaget jag är inbjuden till är mappens (ägarens
@@ -196,12 +205,33 @@ export async function canReadCompanyFile(admin, userId, path) {
     .eq('member_user_id', userId)
     .eq('status', 'active');
   for (const m of mine || []) {
-    const sameCompany = m.owner_user_id === folder || folderCompanies.some(x => x.owner === m.owner_user_id && x.company === m.company_id);
-    if (!sameCompany) continue;
+    const ownerFolder = m.owner_user_id === folder;
+    const fellow = folderCompanies.find(x => x.owner === m.owner_user_id && x.company === m.company_id && x.membership);
+    if (!ownerFolder && !fellow) continue;
     const entry = findCompanyEntry((await stateOf(m.owner_user_id))?.companies, m.company_id);
-    if (entry?.data && mentions(memberCompanyView(entry.data, m.page_access, m.role))) return true;
+    if (!entry?.data || !mentions(memberCompanyView(entry.data, m.page_access, m.role))) continue;
+    if (ownerFolder || await uploadedWhileMember(admin, path, fellow.membership)) return true;
   }
   return false;
+}
+
+// Laddades filen upp medan mappens ägare var inbjuden (inlöst, inte
+// borttagen) till företaget? Tiden kommer från lagringen, inte från datan.
+// En minuts marginal åt båda hållen för klockor och sparningar i kö.
+async function uploadedWhileMember(admin, path, membership) {
+  if (!membership?.redeemed_at) return false;
+  const slash = path.lastIndexOf('/');
+  const name = path.slice(slash + 1);
+  try {
+    const { data, error } = await admin.storage.from('bokix-uploads').list(path.slice(0, slash), { search: name, limit: 20 });
+    const created = Date.parse((!error && (data || []).find(o => o.name === name))?.created_at);
+    if (Number.isNaN(created)) return false;
+    const from = Date.parse(membership.redeemed_at) - 60_000;
+    const to = membership.revoked_at ? Date.parse(membership.revoked_at) + 60_000 : Infinity;
+    return created >= from && created <= to;
+  } catch {
+    return false;
+  }
 }
 
 // Läses INTE in som modul-nivå-konstant — samma gotcha som _signedToken.js/
@@ -689,6 +719,8 @@ async function handler(req, res) {
         res.status(403).json({ error: 'Organisationsnumret är låst efter registreringen. Kontakta support@bokix.se för att ändra det.' });
         return;
       }
+      // Stripe-konto och Zettle-nycklar sätts bara av servern (_memberView.js).
+      if (field === 'company') value = pinServerConnections(ownerCompanyData, value);
     } else {
       const member = await loadMemberCompany(user.id, companyId, res);
       if (!member) return;
@@ -709,6 +741,12 @@ async function handler(req, res) {
       ownerUserId = member.ownerUserId;
       companyKey = member.companyKey || companyId;
       currentCompanyData = member.companyData;
+      // Inga nya länkar till andras filer (se foreignStoragePaths).
+      const visible = memberCompanyView(currentCompanyData, member.pageAccess, member.role);
+      if (foreignStoragePaths(isPatch ? patch.upsert : value, visible, user.id).length) {
+        res.status(403).json({ error: 'Du kan bara bifoga filer som du själv har laddat upp.' });
+        return;
+      }
       // Medlemmen skickar med vad fältet var när den senast sparade (base).
       // Har ägaren ändrat samma lista sedan dess slås de ihop post för post
       // i stället för att medlemmens kopia skriver över ägarens nya poster.

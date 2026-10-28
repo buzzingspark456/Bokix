@@ -2544,7 +2544,7 @@ function App() {
   // att hämta allt igen (förut gick bl.a. listan över delade företag två gånger).
   // Inloggningens tid (utils/loginTiming.js): klar när appen syns.
   useEffect(() => {
-    if (isLoggedIn && user?.id) finishLoginTiming(user.id);
+    if (isLoggedIn && user?.id) finishLoginTiming();
   }, [isLoggedIn, user?.id]);
 
   // Startsidan laddas ner medan inloggningen visas, så att den inte behöver

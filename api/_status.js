@@ -75,7 +75,9 @@ export async function runChecks({ fetch: doFetch = fetch, env = process.env, cou
     // Domänlistan kräver en nyckel med full åtkomst (RESEND_ADMIN_API_KEY);
     // den vanliga nyckeln får bara skicka och svarar 401 här.
     (env.RESEND_ADMIN_API_KEY || env.RESEND_API_KEY) ? timed(get('https://api.resend.com/domains', { Authorization: `Bearer ${env.RESEND_ADMIN_API_KEY || env.RESEND_API_KEY}` })) : Promise.resolve(null),
-    countEvents ? countEvents('ocr_error', 60, ['Vision svarade 5', 'Vision tog för lång tid', 'Vision-anropet misslyckades']) : 0,
+    // Bara fel som servern själv loggat (api/ocr-vision.js). Webbläsarens
+    // ocr_error kommer från en öppen endpoint och kan förfalskas.
+    countEvents ? countEvents('vision_error', 60) : 0,
     countEvents ? countEvents('email_failed', 60) : 0,
     timed(async () => (await doFetch('https://status.sentry.io/api/v2/status.json', { cache: 'no-store' })).json()),
   ]);

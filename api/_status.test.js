@@ -26,7 +26,7 @@ describe('runChecks', () => {
       if (url.includes('stripe')) return ok({ status: { indicator: 'minor', description: 'Partial outage' } });
       return ok();
     };
-    const res = Object.fromEntries((await runChecks({ fetch, env, countEvents: async (kind) => (kind === 'ocr_error' ? 4 : 0) })).map(r => [r.component, r]));
+    const res = Object.fromEntries((await runChecks({ fetch, env, countEvents: async (kind) => (kind === 'vision_error' ? 4 : 0) })).map(r => [r.component, r]));
     expect(res.login.status).toBe('down');
     expect(res.ocr.status).toBe('degraded');
     expect(res.ocr.note).toContain('4 misslyckade');

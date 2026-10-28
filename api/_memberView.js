@@ -58,6 +58,48 @@ export function memberCompanyView(companyData, pageAccess, role) {
   return out;
 }
 
+// Sätts bara av servern (OAuth-kopplingarna, set_company_stripe_account och
+// set_company_zettle_tokens). Samma lista som skyddet i databasen
+// (private.guard_user_data_connections).
+const SERVER_ONLY_KEYS = ['stripeAccountId', 'zettleAccessToken', 'zettleRefreshToken', 'zettleTokenExpiresAt'];
+
+/** Ägarens sparning av 'company': ägaren får ta bort en koppling (koppla
+ * från) men aldrig sätta eller byta den. Ett ändrat värde ersätts med det
+ * sparade, precis som databasens skydd gör för inloggade. Granskningen
+ * 2026-10-28: ägarvägen i company-access skriver med service-rollen, som
+ * databasens skydd släpper förbi. */
+export function pinServerConnections(current, incoming) {
+  if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) return incoming;
+  const base = current && typeof current === 'object' ? current : {};
+  const out = { ...incoming };
+  for (const key of SERVER_ONLY_KEYS) {
+    const val = out[key];
+    if (val === undefined || val === null || val === '') continue;
+    if (JSON.stringify(val) === JSON.stringify(base[key])) continue;
+    if (key in base) out[key] = base[key];
+    else delete out[key];
+  }
+  return out;
+}
+
+// En lagringssökväg i data: <konto-id>/<resten>, i klartext eller URL-kodad.
+const STORAGE_PATH = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[^"\s?#\\]+/gi;
+
+/** Sökvägar i `value` till andras filer (inte i `userId`s egen mapp) som
+ * inte redan finns i `visible` (det medlemmen får se av företaget). En
+ * inbjuden får länka sina egna uppladdningar och behålla befintliga länkar,
+ * men inte skriva in nya länkar till andras filer: fillänkarna
+ * (canReadCompanyFile i company-access.js) går efter vad datan nämner.
+ * Granskningen 2026-10-28. */
+export function foreignStoragePaths(value, visible, userId) {
+  let text;
+  try { text = JSON.stringify(value ?? null); } catch { return []; }
+  const seen = JSON.stringify(visible ?? null);
+  const own = String(userId || '').toLowerCase();
+  return [...new Set(text.match(STORAGE_PATH) || [])]
+    .filter(p => p.slice(0, 36).toLowerCase() !== own && !seen.includes(p));
+}
+
 /** En medlems sparning av 'company': medlemmens ändringar läggs på det
  * som finns, men hemligheter, kopplingar, kalendernyckeln och låst
  * namn/org.nr behålls alltid från ägarens version. */

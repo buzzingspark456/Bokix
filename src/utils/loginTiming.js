@@ -6,6 +6,8 @@
 // Stegen: click (knappen), captcha (robotkontrollen klar), auth (Supabase
 // svarat), shown (appen ritad). Saknas click (sessionen fanns redan) mäts
 // ingenting.
+import { postClientReport } from './errorReporting.js';
+
 const SLOW_MS = 4000;
 let marks = null;
 
@@ -18,7 +20,7 @@ export function markLoginStep(step) {
 }
 
 /** Appen syns: räkna ihop och skicka om det var långsamt. Körs en gång per inloggning. */
-export function finishLoginTiming(userId) {
+export function finishLoginTiming() {
   if (!marks) return;
   const m = marks;
   marks = null;
@@ -36,13 +38,7 @@ export function finishLoginTiming(userId) {
     };
     if (import.meta.env.DEV) console.info('[inloggning]', summary);
     if (total < SLOW_MS) return;
-    try {
-      fetch('/api/client-error', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: 'login_timing', userId, summary }),
-        keepalive: true,
-      }).catch(() => {});
-    } catch { /* mätningen får aldrig störa inloggningen */ }
+    // Kontot tar servern ur inloggningen, inte ur rapporten (api/client-error.js).
+    postClientReport({ source: 'login_timing', summary }).catch(() => {});
   }, 0));
 }

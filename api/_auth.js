@@ -48,6 +48,24 @@ export async function requireAuthedUser(req, res) {
   return data.user;
 }
 
+/** Som requireAuthedUser men frivillig: användaren om en giltig token
+ * skickades med, annars null. Svarar aldrig själv. För endpoints som tar
+ * emot både inloggade och anonyma anrop (api/client-error.js) men bara får
+ * lita på ett konto-id som kommer från en verifierad inloggning. */
+export async function optionalAuthedUser(req) {
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+  const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!token || !supabaseUrl || !anonKey) return null;
+  try {
+    const { data, error } = await createClient(supabaseUrl, anonKey).auth.getUser(token);
+    return error ? null : data?.user || null;
+  } catch {
+    return null;
+  }
+}
+
 function hasVerifiedFactor(user) {
   return (user?.factors || []).some(f => f?.status === 'verified');
 }
@@ -346,6 +364,30 @@ export async function requireActiveSubscription(user, res) {
     if (await hasPaidAccess(admin, ownerId)) return true;
   }
   return paymentRequired(res);
+}
+
+/**
+ * Kontot som "betalar" för `user`: det egna om kontot har egen åtkomst,
+ * annars den första betalande ägaren bland medlemskapen. Används för tak
+ * per kund (kvittoläsningen, api/ocr-vision.js), så att inbjudna räknas mot
+ * sin ägare i stället för att få var sin kvot. `uf` = gratis UF-period.
+ * Anropas efter requireActiveSubscription.
+ */
+export async function payingAccountFor(user) {
+  if (isWithinUfFreePeriod(user)) return { id: user.id, uf: true };
+  const admin = adminClient();
+  if (!admin || isFreeEmail(user.email)) return { id: user.id, uf: false };
+  const { data: subs } = await admin.from('subscriptions').select('status').eq('user_id', user.id);
+  if ((subs || []).some(s => ALLOWED_SUBSCRIPTION_STATUSES.includes(s.status))) return { id: user.id, uf: false };
+  const { data: memberships } = await admin
+    .from('company_members')
+    .select('owner_user_id')
+    .eq('member_user_id', user.id)
+    .eq('status', 'active');
+  for (const ownerId of [...new Set((memberships || []).map(m => m.owner_user_id))]) {
+    if (await hasPaidAccess(admin, ownerId)) return { id: ownerId, uf: false };
+  }
+  return { id: user.id, uf: false };
 }
 
 /** För en inbjuden medlem som skriver i ägarens företag: det är ÄGAREN som

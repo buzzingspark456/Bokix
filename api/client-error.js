@@ -3,7 +3,14 @@
 // som client_error i system_events, och larmmejlet (_systemEvents.js) går
 // högst en gång i timmen. Ingen inloggning krävs eftersom felet kan
 // inträffa före inloggningen, därför strikt rate limit och hård trunkering.
+//
+// Granskningen 2026-10-28: vem som helst kan anropa den här, så ett konto-id
+// godtas bara från en verifierad inloggning (Authorization). Anonyma
+// rapporter får inga konto-id i texten (då hamnar de inte på ett kundkort i
+// /internal) och en egen larmplats, skuggläsningen kräver inloggning, och
+// statussidan räknar inte de här alls (api/_status.js).
 import { applySecurityHeaders } from './_security.js';
+import { optionalAuthedUser } from './_auth.js';
 import { checkRateLimit } from './_rateLimit.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
 import { logSystemEvent } from './_systemEvents.js';
@@ -23,6 +30,7 @@ const NOISE = [
 ];
 
 const clip = (value, max) => String(value ?? '').replace(/\s+\n/g, '\n').slice(0, max);
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 
 async function handler(req, res) {
   applySecurityHeaders(res);
@@ -41,12 +49,20 @@ async function handler(req, res) {
     return;
   }
 
+  const user = await optionalAuthedUser(req);
+  // Text från en anonym rapport: utan konto-id, se filkommentaren.
+  const text = (value, max) => (user ? clip(value, max) : clip(value, max).replace(UUID, '<id>'));
+
   // Skuggläsningen (src/utils/shadowRead.js): tider, antal och vilka listor
   // som skilde sig när appen läste företagen ur de nya tabellerna. Aldrig
   // innehåll. Lyckad läsning loggas tyst; skillnad eller fel larmar.
   if (body?.source === 'shadow') {
+    if (!user) {
+      res.status(204).end();
+      return;
+    }
     const summary = body?.summary && typeof body.summary === 'object' ? body.summary : {};
-    const userId = /^[0-9a-f-]{36}$/i.test(String(body?.userId || '')) ? body.userId : 'okänt';
+    const userId = user.id;
     const kind = summary.error ? 'shadow_read_failed' : Number(summary.mismatched) > 0 ? 'shadow_read_mismatch' : 'shadow_read';
     let detail;
     try { detail = clip(JSON.stringify(summary), 1500); } catch { detail = '?'; }
@@ -60,34 +76,33 @@ async function handler(req, res) {
   if (body?.source === 'login_timing') {
     const s = body?.summary && typeof body.summary === 'object' ? body.summary : {};
     const ms = (v) => (Number.isFinite(Number(v)) ? `${Math.round(Number(v))} ms` : '-');
-    const userId = /^[0-9a-f-]{36}$/i.test(String(body?.userId || '')) ? body.userId : 'okänt';
+    const userId = user?.id || 'okänt';
     const method = s.method === 'passkey' ? 'Face ID' : 'lösenord';
     await logSystemEvent('login_slow', `Konto: ${userId}\nTotalt ${ms(s.total)} (${method}): robotkontroll ${ms(s.captcha)}, Supabase ${ms(s.auth)}, laddning ${ms(s.data)}\n${clip(req.headers['user-agent'], 160)}`);
     res.status(204).end();
     return;
   }
 
-  const message = clip(body?.message, 300).trim();
+  const message = text(body?.message, 300).trim();
   if (!message) {
     res.status(400).json({ error: 'message krävs.' });
     return;
   }
-  const stack = clip(body?.stack, 2000);
+  const stack = text(body?.stack, 2000);
   if (NOISE.some(re => re.test(message) || re.test(stack))) {
     res.status(204).end();
     return;
   }
 
   // Bara sökvägen, aldrig query-strängen eller hash (kan innehålla tokens).
-  const path = clip(body?.path, 200).split(/[?#]/)[0];
+  const path = text(body?.path, 200).split(/[?#]/)[0];
 
   // Kvittoläsningen (reportOcrError i src/utils/errorReporting.js): egen
-  // sort i Systemstatus, inget larmmejl. Konto-id:t kommer från webbläsaren
-  // och är bara en ledtråd, inget som går att lita på.
+  // sort i Systemstatus, inget larmmejl.
   if (body?.source === 'ocr') {
     const fileType = body?.fileType === 'pdf' ? 'PDF' : 'bild';
-    const cloud = clip(body?.cloud, 80).replace(/\s+/g, ' ').trim();
-    const userId = /^[0-9a-f-]{36}$/i.test(String(body?.userId || '')) ? body.userId : 'okänt';
+    const cloud = text(body?.cloud, 80).replace(/\s+/g, ' ').trim();
+    const userId = user?.id || 'okänt';
     await logSystemEvent('ocr_error', `${fileType}: ${message}\nVision: ${cloud || '-'}\nKonto: ${userId}\n${clip(req.headers['user-agent'], 160)}`);
     res.status(204).end();
     return;
@@ -96,7 +111,9 @@ async function handler(req, res) {
   const ua = clip(req.headers['user-agent'], 160);
   const stackTop = stack.split('\n').slice(0, 6).join('\n');
 
-  await logSystemEvent('client_error', `${source} på ${path || '?'}: ${message}\n${stackTop}\n${ua}`);
+  const account = user ? `\nKonto: ${user.id}` : '';
+  await logSystemEvent('client_error', `${source} på ${path || '?'}: ${message}\n${stackTop}${account}\n${ua}`,
+    { alertKey: user ? 'client_error:inloggad' : 'client_error:anonym' });
   res.status(204).end();
 }
 

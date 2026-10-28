@@ -8,6 +8,21 @@ import { initSentry, captureToSentry } from './sentry.js';
 const sent = new Set();
 let count = 0;
 
+/**
+ * Skickar en rapport till /api/client-error, med inloggningen om det finns
+ * en. Servern godtar bara ett konto-id från en verifierad inloggning (se
+ * api/client-error.js), så konto-id skickas aldrig i själva rapporten.
+ */
+export async function postClientReport(payload) {
+  let headers = { 'Content-Type': 'application/json' };
+  try {
+    const { supabase } = await import('../supabaseClient');
+    const { data: { session } = {} } = await supabase.auth.getSession();
+    if (session?.access_token) headers = { ...headers, Authorization: `Bearer ${session.access_token}` };
+  } catch { /* utan inloggning */ }
+  fetch('/api/client-error', { method: 'POST', headers, body: JSON.stringify(payload), keepalive: true }).catch(() => {});
+}
+
 export function reportClientError(error, source = 'global') {
   try {
     // Sidan laddas redan om för en ny version, felet är en följd av det.
@@ -18,13 +33,12 @@ export function reportClientError(error, source = 'global') {
     count += 1;
     // Samma fel till Sentry (sentry.js), med detaljer och spår.
     captureToSentry(error, source);
-    const body = JSON.stringify({
+    postClientReport({
       message,
       stack: String(error?.stack || '').slice(0, 2000),
       path: window.location.pathname,
       source,
-    });
-    fetch('/api/client-error', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+    }).catch(() => {});
   } catch {
     // Rapporteringen får aldrig själv orsaka ett fel.
   }
@@ -33,8 +47,8 @@ export function reportClientError(error, source = 'global') {
 /**
  * Kvittoläsningen misslyckades eller Vision svarade med fel. Syns som
  * Kvittoläsning i /internal → Systemstatus (inget larmmejl). Skickar aldrig
- * filen, texten eller adressen, bara feltexten, filtypen och kontots id så
- * att felet går att koppla till kunden.
+ * filen, texten eller adressen, bara feltexten och filtypen; kontot får
+ * servern ur inloggningen så att felet går att koppla till kunden.
  */
 export async function reportOcrError(error, { fileType = '', cloud = '' } = {}) {
   try {
@@ -44,14 +58,7 @@ export async function reportOcrError(error, { fileType = '', cloud = '' } = {}) 
     if (!message || count >= 5 || sent.has(key)) return;
     sent.add(key);
     count += 1;
-    let userId = '';
-    try {
-      const { supabase } = await import('../supabaseClient');
-      const { data: { session } = {} } = await supabase.auth.getSession();
-      userId = session?.user?.id || '';
-    } catch { /* utan konto-id */ }
-    const body = JSON.stringify({ message, stack: String(error?.stack || '').slice(0, 1000), path: window.location.pathname, source: 'ocr', fileType, cloud, userId });
-    fetch('/api/client-error', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+    await postClientReport({ message, stack: String(error?.stack || '').slice(0, 1000), path: window.location.pathname, source: 'ocr', fileType, cloud });
   } catch {
     // Rapporteringen får aldrig själv orsaka ett fel.
   }

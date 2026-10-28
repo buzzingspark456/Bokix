@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { memberCompanyView, redactCompany, mergeMemberCompanyWrite } from './_memberView.js';
+import { memberCompanyView, redactCompany, mergeMemberCompanyWrite, pinServerConnections, foreignStoragePaths } from './_memberView.js';
 
 const company = {
   name: 'Ab', orgNr: '556000-0000', stripeAccountId: 'acct_1', emailDomain: 'ab.se', resendDomainId: 'd1',
@@ -45,5 +45,38 @@ describe('mergeMemberCompanyWrite', () => {
     expect(out.zettleRefreshToken).toBe('zrt');
     expect(out.calendar).toEqual({ invoices: false, key: 'hemlig' });
     expect(out.address).toBe('Gatan 1');
+  });
+});
+
+describe('pinServerConnections (ägarens sparning)', () => {
+  it('byter aldrig Stripe-konto eller Zettle-nycklar, men låter ägaren koppla från', () => {
+    const changed = pinServerConnections(company, { ...company, stripeAccountId: 'acct_annan', zettleAccessToken: 'stulen', name: 'Nytt' });
+    expect(changed.stripeAccountId).toBe('acct_1');
+    expect(changed.zettleAccessToken).toBe('zat');
+    expect(changed.name).toBe('Nytt');
+    const cleared = pinServerConnections(company, { ...company, stripeAccountId: null, zettleAccessToken: '' });
+    expect(cleared.stripeAccountId).toBe(null);
+    expect(cleared.zettleAccessToken).toBe('');
+  });
+
+  it('kan inte lägga till en koppling som inte fanns', () => {
+    const out = pinServerConnections({ name: 'Ab' }, { name: 'Ab', stripeAccountId: 'acct_annan' });
+    expect('stripeAccountId' in out).toBe(false);
+  });
+});
+
+describe('foreignStoragePaths (medlemmens sparning)', () => {
+  const ME = '22222222-2222-4222-8222-222222222222';
+  const OWNER = '11111111-1111-4111-8111-111111111111';
+  const ownerFile = `${OWNER}/receipts/1700000000000_abc123.pdf`;
+  const url = (p) => `https://x.supabase.co/storage/v1/object/public/bokix-uploads/${p}`;
+
+  it('egna uppladdningar och redan synliga länkar går bra', () => {
+    const visible = { expenses: [{ id: 'e1', receiptUrl: url(ownerFile) }] };
+    expect(foreignStoragePaths([{ id: 'e1', receiptUrl: url(ownerFile) }, { id: 'e2', receiptUrl: url(`${ME}/receipts/2_b.pdf`) }], visible, ME)).toEqual([]);
+  });
+
+  it('en ny länk till någon annans fil fångas', () => {
+    expect(foreignStoragePaths({ note: ownerFile }, { expenses: [] }, ME)).toEqual([ownerFile]);
   });
 });

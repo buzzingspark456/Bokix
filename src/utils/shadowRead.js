@@ -13,6 +13,7 @@
 // En gång per dygn och konto, bara i produktion, och den får aldrig störa:
 // allt sker i bakgrunden och varje fel sväljs.
 import { loadCompanyFromTables, compareCompany, listOrder, RECORD_KINDS } from './companyTables.js';
+import { postClientReport } from './errorReporting.js';
 
 const ONCE_PER_MS = 24 * 60 * 60 * 1000;
 // Avstod läsningen (kontot sparades under tiden, vanligt strax efter
@@ -92,10 +93,9 @@ export async function runShadowRead(supabase, { userId, state, updatedAt, maxRec
   return result;
 }
 
-function report(userId, summary) {
-  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-  const body = JSON.stringify({ source: 'shadow', message: summary.mismatched ? 'skillnad' : 'ok', userId, summary, ua });
-  fetch('/api/client-error', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+// Kontot tar servern ur inloggningen (postClientReport), inte ur rapporten.
+function report(summary) {
+  postClientReport({ source: 'shadow', message: summary.mismatched ? 'skillnad' : 'ok', summary }).catch(() => {});
 }
 
 /** Anropas när inloggningen laddat klart. Gör inget om det inte är dags. */
@@ -110,11 +110,11 @@ export function scheduleShadowRead(supabase, { userId, state, updatedAt }) {
       const run = () => runShadowRead(supabase, { userId, state, updatedAt })
         .then(summary => {
           markDone(userId, nextMark(summary, Date.now()));
-          if (!summary.skipped) report(userId, summary);
+          if (!summary.skipped) report(summary);
         })
         .catch(error => {
           markDone(userId, Date.now());
-          report(userId, { error: String(error?.message || error).slice(0, 200), mismatched: 0 });
+          report({ error: String(error?.message || error).slice(0, 200), mismatched: 0 });
         })
         .finally(() => { running = false; });
       if (typeof window !== 'undefined' && 'requestIdleCallback' in window) window.requestIdleCallback(run, { timeout: 10000 });

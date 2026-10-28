@@ -11,8 +11,13 @@ const ellaFile = `${ELLA}/receipts/1_a.pdf`
 const url = (p) => `https://x.supabase.co/storage/v1/object/public/bokix-uploads/${p}`
 
 /** Ägarens bokföring (blobläget) och inbjudningarna, så mycket som kontrollen läser. */
-function makeAdmin({ members, states }) {
+function makeAdmin({ members, states, files = { [ellaFile]: '2026-06-01T10:00:00Z' } }) {
   return {
+    storage: {
+      from: () => ({
+        list: async (dir, { search }) => ({ data: Object.entries(files).filter(([p]) => p === `${dir}/${search}`).map(([, created_at]) => ({ name: search, created_at })), error: null }),
+      }),
+    },
     from(table) {
       const filters = []
       const q = {
@@ -37,8 +42,8 @@ function makeAdmin({ members, states }) {
 }
 
 const company = (extra = {}) => ({ company: { id: 'c1', name: 'AB' }, expenses: [{ id: 'e1', receiptUrl: url(ellaFile) }], verifications: [], ...extra })
-const ellaMember = { owner_user_id: OWNER, member_user_id: ELLA, company_id: 'c1', role: 'editor', page_access: null, status: 'active' }
-const bobMember = { owner_user_id: OWNER, member_user_id: BOB, company_id: 'c1', role: 'viewer', page_access: null, status: 'active' }
+const ellaMember = { owner_user_id: OWNER, member_user_id: ELLA, company_id: 'c1', role: 'editor', page_access: null, status: 'active', redeemed_at: '2026-05-01T00:00:00Z', revoked_at: null }
+const bobMember = { owner_user_id: OWNER, member_user_id: BOB, company_id: 'c1', role: 'viewer', page_access: null, status: 'active', redeemed_at: '2026-05-01T00:00:00Z', revoked_at: null }
 
 describe('canReadCompanyFile', () => {
   it('ägaren får öppna ett kvitto som den inbjudna laddat upp', async () => {
@@ -47,7 +52,7 @@ describe('canReadCompanyFile', () => {
   })
 
   it('även efter att den inbjudna tagits bort (bokföringen ska gå att läsa i sju år)', async () => {
-    const admin = makeAdmin({ members: [{ ...ellaMember, status: 'revoked' }], states: { [OWNER]: { companies: { c1: company() } } } })
+    const admin = makeAdmin({ members: [{ ...ellaMember, status: 'revoked', revoked_at: '2026-07-01T00:00:00Z' }], states: { [OWNER]: { companies: { c1: company() } } } })
     expect(await canReadCompanyFile(admin, OWNER, ellaFile)).toBe(true)
   })
 
@@ -76,6 +81,16 @@ describe('canReadCompanyFile', () => {
 
   it('filen finns inte i företagets data: nekas', async () => {
     const admin = makeAdmin({ members: [ellaMember], states: { [OWNER]: { companies: { c1: company({ expenses: [] }) } } } })
+    expect(await canReadCompanyFile(admin, OWNER, ellaFile)).toBe(false)
+  })
+
+  it('en inbjudens fil från tiden före inbjudan (hens egna bokföring) nekas, även om sökvägen står i datan', async () => {
+    const admin = makeAdmin({ members: [ellaMember], states: { [OWNER]: { companies: { c1: company() } } }, files: { [ellaFile]: '2026-01-01T10:00:00Z' } })
+    expect(await canReadCompanyFile(admin, OWNER, ellaFile)).toBe(false)
+  })
+
+  it('och likaså en fil uppladdad efter att hen tagits bort', async () => {
+    const admin = makeAdmin({ members: [{ ...ellaMember, status: 'revoked', revoked_at: '2026-05-15T00:00:00Z' }], states: { [OWNER]: { companies: { c1: company() } } } })
     expect(await canReadCompanyFile(admin, OWNER, ellaFile)).toBe(false)
   })
 

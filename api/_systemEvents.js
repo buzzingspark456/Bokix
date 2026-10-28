@@ -43,9 +43,9 @@ const ALERT_LABELS = {
 // Högst ett larmmejl per sorts händelse och timme, räknat i den delade
 // rate limit-tabellen (supabase-2026-10-01-skydd.sql). Går den inte att
 // fråga skickas mejlet ändå: hellre ett larm för mycket än inget.
-async function alertAllowed(admin, kind) {
+async function alertAllowed(admin, alertKey) {
   try {
-    const { data, error } = await admin.rpc('hit_rate_limit', { p_key: `alert:${kind}`, p_max: 1, p_window_seconds: 3600 });
+    const { data, error } = await admin.rpc('hit_rate_limit', { p_key: `alert:${alertKey}`, p_max: 1, p_window_seconds: 3600 });
     if (error || typeof data !== 'boolean') return true;
     return data;
   } catch {
@@ -53,9 +53,9 @@ async function alertAllowed(admin, kind) {
   }
 }
 
-async function sendAlert(admin, kind, detail) {
+async function sendAlert(admin, kind, detail, alertKey) {
   if (!ALERT_KINDS.has(kind) || !hasResendApiKey()) return;
-  if (!(await alertAllowed(admin, kind))) return;
+  if (!(await alertAllowed(admin, alertKey || kind))) return;
   const label = ALERT_LABELS[kind] || kind;
   const esc = (s) => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   await sendViaResend({
@@ -72,7 +72,11 @@ async function sendAlert(admin, kind, detail) {
 // logSecurityEvent i admin/index.js: ett fel i loggningen eller larmet får
 // aldrig ändra svaret på det egentliga anropet. Finns inte tabellen än
 // (SQL:en inte körd) händer ingenting.
-export async function logSystemEvent(kind, detail) {
+//
+// alertKey: egen larmplats i stället för sorten. Anonyma rapporter från
+// webbläsaren får en egen, så att en förfalskad rapport inte tar timmens
+// enda larm för samma sort från inloggade (granskningen 2026-10-28).
+export async function logSystemEvent(kind, detail, { alertKey } = {}) {
   try {
     const url = process.env.VITE_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -80,7 +84,7 @@ export async function logSystemEvent(kind, detail) {
     const admin = createClient(url, key);
     const text = detail ? String(detail).slice(0, 1000) : null;
     await admin.from('system_events').insert({ kind, detail: text });
-    await sendAlert(admin, kind, text);
+    await sendAlert(admin, kind, text, alertKey);
   } catch {
     // se kommentaren ovan
   }

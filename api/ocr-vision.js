@@ -4,10 +4,11 @@
 // Google ligger i _vision.js, delat med gratisverktyget (ocr-free.js).
 import { applySecurityHeaders } from './_security.js';
 import { checkRateLimit, hitShared } from './_rateLimit.js';
-import { requireAuthedUser, requireActiveSubscription } from './_auth.js';
+import { requireAuthedUser, requireActiveSubscription, payingAccountFor } from './_auth.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
-import { documentFromBody, readWithVision, MONTHLY_LIMIT, monthQuotaKey, MONTH_WINDOW_MS } from './_vision.js';
+import { documentFromBody, readWithVision, MONTHLY_LIMIT, monthQuotaKey, MONTH_WINDOW_MS, ACCOUNT_MONTHLY_LIMIT, UF_MONTHLY_LIMIT, accountQuotaKey } from './_vision.js';
 import { withSentry } from './_sentry.js';
+import { logSystemEvent } from './_systemEvents.js';
 
 async function handler(req, res) {
   applySecurityHeaders(res);
@@ -43,6 +44,15 @@ async function handler(req, res) {
     res.status(400).json({ error: 'Filen saknas eller är för stor.' });
     return;
   }
+  // Kundens eget tak först, så att ett konto som nått sitt inte äter av den
+  // gemensamma kvoten. Inbjudna räknas mot ägaren som betalar (_auth.js).
+  // Går räknaren inte att nå avgör den gemensamma kontrollen nedan.
+  const account = await payingAccountFor(user);
+  const withinAccount = await hitShared(accountQuotaKey(account.id), MONTH_WINDOW_MS, account.uf ? UF_MONTHLY_LIMIT : ACCOUNT_MONTHLY_LIMIT);
+  if (withinAccount === false) {
+    res.status(429).json({ error: 'Månadens kvot för kvittoläsning är slut för ert konto.', code: 'quota' });
+    return;
+  }
   // Månadens kvot, räknad i databasen så att alla serverinstanser delar den.
   // Nyckeln har månaden i sig, så räknaren börjar om den 1:a. Går räknaren
   // inte att nå används inte Vision alls: hellre den egna läsningen en
@@ -56,6 +66,9 @@ async function handler(req, res) {
 
   const read = await readWithVision(doc, apiKey);
   if (!read.ok) {
+    // Statussidan räknar bara de här (api/_status.js), aldrig felrapporter
+    // från webbläsaren: dem kan vem som helst skicka (granskningen 2026-10-28).
+    await logSystemEvent('vision_error', `${doc.isPdf ? 'PDF' : 'bild'}: ${read.error} (${read.status})\nKonto: ${user.id}`);
     res.status(read.status).json({ error: read.error });
     return;
   }

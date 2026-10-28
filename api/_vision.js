@@ -20,6 +20,15 @@ export const MONTHLY_LIMIT = Number(process.env.OCR_VISION_MONTHLY_LIMIT) || 200
 export const monthQuotaKey = (now = new Date()) => `ocr-vision-month:${now.toISOString().slice(0, 7)}`;
 export const MONTH_WINDOW_MS = 32 * 24 * 60 * 60 * 1000;
 
+// Tak per kund och månad, så att ett enda konto (med sina inbjudna) inte kan
+// tömma kvoten ovan för alla (granskningen 2026-10-28). Ett vanligt företag
+// läser några hundra kvitton i månaden. UF-konton är gratis att skapa och
+// får ett lägre tak. Går att ändra med OCR_VISION_ACCOUNT_LIMIT och
+// OCR_VISION_UF_LIMIT.
+export const ACCOUNT_MONTHLY_LIMIT = Number(process.env.OCR_VISION_ACCOUNT_LIMIT) || 1500;
+export const UF_MONTHLY_LIMIT = Number(process.env.OCR_VISION_UF_LIMIT) || 300;
+export const accountQuotaKey = (accountId, now = new Date()) => `ocr-vision-konto:${accountId}:${now.toISOString().slice(0, 7)}`;
+
 /** Filen ur request-kroppen ({ image } eller { pdf }, base64), eller null om den saknas eller är för stor. */
 export function documentFromBody(body) {
   const isPdf = typeof body?.pdf === 'string';
