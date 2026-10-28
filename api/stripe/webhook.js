@@ -17,8 +17,10 @@ async function accountBelongsToCompany(account, userId, companyId) {
   const url = process.env.VITE_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key || !account) return false;
-  // Bara företagsuppgifterna behövs (_companyStore.js, inga listor).
-  const entry = await readOwnerCompany(createClient(url, key), userId, companyId, { kinds: [] }).catch(() => null);
+  // Bara företagsuppgifterna behövs (_companyStore.js, inga listor). Ett
+  // läsfel kastas vidare: då svarar webhooken 500 och Stripe försöker igen,
+  // i stället för att en riktig betalning tyst hoppas över.
+  const entry = await readOwnerCompany(createClient(url, key), userId, companyId, { kinds: [] });
   return entry?.data?.company?.stripeAccountId === account;
 }
 
