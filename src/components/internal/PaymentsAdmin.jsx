@@ -1,14 +1,15 @@
-import React from 'react';
-import { Wallet, AlertTriangle, TrendingUp, Users, PiggyBank } from '../icons';
+import React, { useState } from 'react';
 import { useAdminData } from './useAdminData';
-import RefreshBar from './RefreshBar';
 import { AdminList, AdminRow, Pill, SUBSCRIPTION_STATUS } from './AdminList';
-import { dateTimeFormat } from '../../utils/intlCache';
+import { Page, Loadable, Section, Stats, Stat, Notice, Segmented } from './ui';
+import { dateTimeFormat, numberFormat } from '../../utils/intlCache';
 
-const cardStyle = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '22px' };
+// Betalningar: Bokix egna abonnemangsintäkter (api/admin, resource
+// 'payments'), inte kundernas bokföring.
 
-// Aktiva först, sedan provperiod och problem, uppsagda sist.
+// Aktiva först, sedan problem och provperiod, uppsagda sist.
 const STATUS_ORDER = ['active', 'past_due', 'unpaid', 'incomplete', 'trialing', 'incomplete_expired', 'canceled'];
+const kr = (n) => `${numberFormat('sv-SE', { maximumFractionDigits: 0 }).format(n || 0)} kr`;
 
 function formatDate(iso) {
   if (!iso) return '—';
@@ -22,90 +23,85 @@ function discountLabel(d) {
   return `Rabatt ${size}${until}`;
 }
 
-function StatTile({ icon: Icon, label, value, sub, color }) {
-  return (
-    <div style={cardStyle}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '12px' }}>
-        <span style={{ width: 30, height: 30, borderRadius: '8px', background: `color-mix(in srgb, ${color} 14%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon size={15} color={color} />
-        </span>
-        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
-      </div>
-      <div style={{ fontSize: '30px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>{value}</div>
-      {sub && <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '4px' }}>{sub}</div>}
-    </div>
-  );
-}
-
+const FILTERS = [
+  ['current', 'Aktuella', s => s.status !== 'canceled' && s.status !== 'incomplete_expired'],
+  ['risk', 'Kräver uppföljning', s => ['past_due', 'unpaid', 'incomplete'].includes(s.status)],
+  ['trialing', 'Provperiod', s => s.status === 'trialing'],
+  ['ended', 'Avslutade', s => s.status === 'canceled' || s.status === 'incomplete_expired'],
+  ['all', 'Alla', () => true],
+];
 
 export default function PaymentsAdmin() {
   const { data, error, updatedAt, refreshing, reload } = useAdminData({ resource: 'payments' });
+  const [filter, setFilter] = useState('current');
 
   // Grundarnas egna konton räknas inte (servern skickar payingCount).
-  const activeCount = data?.payingCount ?? 0;
-  const arpu = data && activeCount ? Math.round(data.mrr / activeCount) : 0;
-  const discounted = data?.subscriptions.filter(s => s.discount && s.status !== 'canceled') || [];
+  const paying = data?.payingCount ?? 0;
+  const arpu = data && paying ? Math.round(data.mrr / paying) : 0;
+  const subs = data?.subscriptions || [];
+  const test = FILTERS.find(([id]) => id === filter)?.[2] || (() => true);
+  const shown = subs.filter(test).sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status));
 
   return (
-    <div style={{ padding: '32px 36px', maxWidth: '1160px' }}>
-      <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '6px' }}>Betalningar</div>
-      <div style={{ fontSize: '13.5px', color: 'var(--text-muted)', marginBottom: '24px' }}>Bokix egen abonnemangsintäkt — inte kundernas bokföringsunderlag.</div>
-      <RefreshBar updatedAt={updatedAt} refreshing={refreshing} onRefresh={reload} />
+    <Page
+      title="Betalningar"
+      description="Bokix egna abonnemang i Stripe. Grundarnas egna konton räknas inte i siffrorna."
+      refresh={{ updatedAt, refreshing, onRefresh: reload }}
+    >
+      <Loadable data={data} error={error}>
+        {data && (
+          <>
+            {data.atRisk.length > 0 && (
+              <Notice tone="amber">
+                <strong>{data.atRisk.length === 1 ? '1 konto' : `${data.atRisk.length} konton`} behöver följas upp</strong> efter misslyckad betalning eller ogiltigt kort: {data.atRisk.map(r => r.email).join(', ')}
+              </Notice>
+            )}
 
-      {error && <div style={{ fontSize: '13px', color: 'var(--status-red-text)', marginBottom: '18px' }}>{error}</div>}
-      {!data && !error && <div style={{ color: 'var(--text-muted)', fontSize: '13.5px' }}>Laddar…</div>}
+            <Section>
+              <Stats cols={4}>
+                <Stat label="Intäkt per månad" value={kr(data.mrr)} sub={data.discountPerMonth > 0 ? `efter ${kr(data.discountPerMonth)} rabatt` : 'MRR, bara aktiva'} />
+                <Stat label="Per år" value={kr(data.mrr * 12)} sub="ARR, MRR × 12" />
+                <Stat label="Betalande konton" value={paying} />
+                <Stat label="Snitt per konto" value={kr(arpu)} sub="ARPU per månad" />
+              </Stats>
+            </Section>
 
-      {data && (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '14px', marginBottom: '20px' }}>
-            <StatTile icon={Wallet} label="MRR" value={`${data.mrr.toLocaleString('sv-SE')} kr`} sub={data.discountPerMonth > 0 ? `per månad efter ${data.discountPerMonth.toLocaleString('sv-SE')} kr rabatt` : 'per månad, endast aktiva'} color="var(--accent-text)" />
-            <StatTile icon={TrendingUp} label="ARR" value={`${(data.mrr * 12).toLocaleString('sv-SE')} kr`} sub="MRR × 12, utan egna konton" color="var(--accent-text)" />
-            <StatTile icon={Users} label="Betalande konton" value={activeCount} color="var(--status-blue-text)" />
-            <StatTile icon={PiggyBank} label="Snitt per konto" value={`${arpu.toLocaleString('sv-SE')} kr`} sub="ARPU" color="var(--status-blue-text)" />
-          </div>
-
-          {data.atRisk.length > 0 && (
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '14px 18px', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '13px', marginBottom: '24px' }}>
-              <AlertTriangle size={16} color="var(--status-amber-text)" style={{ flexShrink: 0, marginTop: 1 }} />
-              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                <strong style={{ color: 'var(--status-amber-text)' }}>{data.atRisk.length} {data.atRisk.length === 1 ? 'konto' : 'konton'}</strong> kräver uppföljning — misslyckad betalning eller ogiltigt kort: {data.atRisk.map(r => r.email).join(', ')}
+            <Section title="Prenumerationer" note={`${shown.length} av ${subs.length}`}>
+              <div className="ix-toolbar">
+                <Segmented
+                  label="Visa"
+                  value={filter}
+                  onChange={setFilter}
+                  options={FILTERS.map(([id, text, t]) => [id, text, subs.filter(t).length])}
+                />
               </div>
-            </div>
-          )}
-
-          {discounted.length > 0 && (
-            <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '14px' }}>
-              {discounted.length} {discounted.length === 1 ? 'konto har' : 'konton har'} rabatt.
-            </div>
-          )}
-
-          <AdminList title="Prenumerationer" count={`${data.subscriptions.length} st`} empty="Inga prenumerationer registrerade än.">
-            {[...data.subscriptions]
-              .sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status))
-              .map(s => {
-                const status = SUBSCRIPTION_STATUS[s.status] || { label: s.status, tone: 'gray' };
-                return (
-                  <AdminRow
-                    key={s.userId}
-                    initial={s.email?.[0]}
-                    primary={s.email || 'Konto utan e-post'}
-                    secondary={s.discount && s.planPrice !== s.listPrice
-                      ? `${s.planName} · ${s.planPrice} kr/mån (ordinarie ${s.listPrice} kr)`
-                      : `${s.planName} · ${s.planPrice} kr/mån`}
-                    pills={<>
-                      <Pill tone={status.tone}>{status.label}</Pill>
-                      {s.isAdmin && <Pill tone="gray">Eget konto, räknas inte</Pill>}
-                      {s.discount && <Pill tone="blue">{discountLabel(s.discount)}</Pill>}
-                      {s.cancelAtPeriodEnd && <Pill tone="amber">Avslutas vid periodens slut</Pill>}
-                    </>}
-                    meta={[s.currentPeriodEnd && ['Nästa faktura', formatDate(s.currentPeriodEnd)]]}
-                    muted={s.status === 'canceled'}
-                  />
-                );
-              })}
-          </AdminList>
-        </>
-      )}
-    </div>
+              <AdminList empty="Inga prenumerationer här.">
+                {shown.map(s => {
+                  const status = SUBSCRIPTION_STATUS[s.status] || { label: s.status, tone: 'gray' };
+                  return (
+                    <AdminRow
+                      key={`${s.userId}-${s.companyId || ''}`}
+                      initial={s.email?.[0]}
+                      primary={s.email || 'Konto utan e-post'}
+                      secondary={s.discount && s.planPrice !== s.listPrice
+                        ? `${s.planName} · ${s.planPrice} kr/mån (ordinarie ${s.listPrice} kr)`
+                        : `${s.planName} · ${s.planPrice} kr/mån`}
+                      pills={<>
+                        <Pill tone={status.tone}>{status.label}</Pill>
+                        {s.isAdmin && <Pill>Eget konto, räknas inte</Pill>}
+                        {s.discount && <Pill tone="blue">{discountLabel(s.discount)}</Pill>}
+                        {s.cancelAtPeriodEnd && <Pill tone="amber">Avslutas vid periodens slut</Pill>}
+                      </>}
+                      meta={[s.currentPeriodEnd && ['Nästa faktura', formatDate(s.currentPeriodEnd)]]}
+                      muted={s.status === 'canceled'}
+                    />
+                  );
+                })}
+              </AdminList>
+            </Section>
+          </>
+        )}
+      </Loadable>
+    </Page>
   );
 }

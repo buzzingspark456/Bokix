@@ -102,6 +102,9 @@ function report(summary) {
 export function scheduleShadowRead(supabase, { userId, state, updatedAt }) {
   try {
     if (!import.meta.env.PROD || !supabase || !userId || !state || running) return;
+    // Inga egna företag (bara inbjuden): inget att jämföra, och en tom
+    // rapport var bara brus i Systemstatus.
+    if (!Object.values(state.companies || {}).some(c => c && typeof c === 'object' && !c.__shared)) return;
     if (!dueFor(userId, Date.now())) return;
     running = true;
     // Dagen räknas som klar först när en rapport har gått iväg (nextMark), så

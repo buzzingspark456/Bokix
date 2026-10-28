@@ -1,15 +1,16 @@
 import React from 'react';
-import { ShieldCheck, ShieldAlert, Clock, MailWarning, Info, Bug, KeyRound, UserX } from '../icons';
+import { ShieldCheck, Clock, MailWarning } from '../icons';
 import { useAdminData } from './useAdminData';
-import RefreshBar from './RefreshBar';
+import { Page, Loadable, Section, Stats, Stat, Card, Event, Kv } from './ui';
 import { dateTimeFormat } from '../../utils/intlCache';
 
-const cardStyle = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '22px' };
+// Säkerhet: försök att nå admin-panelen, fel i admin-API:t, obekräftade
+// adresser och senaste inloggningar (api/admin, resource 'security').
 
 const EVENT_META = {
-  admin_denied: { label: 'Nekad adminåtkomst', icon: UserX, color: 'var(--status-red-text)', detail: 'Inloggad person utan adminbehörighet försökte nå admin-panelen.' },
-  mfa_required: { label: 'Blockerad — saknar tvåfaktor', icon: KeyRound, color: 'var(--status-amber-text)', detail: 'Rätt lösenord, men tvåfaktorssteget inte klarat i den sessionen.' },
-  admin_api_error: { label: 'API-fel', icon: Bug, color: 'var(--status-red-text)', detail: 'Ett oväntat fel i admin-API:t.' },
+  admin_denied: { label: 'Nekad adminåtkomst', detail: 'En inloggad person utan adminbehörighet försökte nå panelen.' },
+  mfa_required: { label: 'Stoppad utan tvåfaktor', detail: 'Rätt lösenord, men tvåfaktorssteget klarades inte i den sessionen.' },
+  admin_api_error: { label: 'Fel i admin-API:t', detail: 'Ett oväntat fel i admin-API:t.' },
 };
 
 function formatDateTime(iso) {
@@ -18,8 +19,7 @@ function formatDateTime(iso) {
 }
 
 function timeAgo(iso) {
-  const ms = Date.now() - new Date(iso).getTime();
-  const mins = Math.round(ms / 60000);
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
   if (mins < 1) return 'just nu';
   if (mins < 60) return `${mins} min sedan`;
   const hours = Math.round(mins / 60);
@@ -27,125 +27,70 @@ function timeAgo(iso) {
   return `${Math.round(hours / 24)} dygn sedan`;
 }
 
-function StatTile({ icon: Icon, label, value, color }) {
-  return (
-    <div style={cardStyle}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '12px' }}>
-        <span style={{ width: 30, height: 30, borderRadius: '8px', background: `color-mix(in srgb, ${color} 14%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon size={15} color={color} />
-        </span>
-        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
-      </div>
-      <div style={{ fontSize: '30px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>{value}</div>
-    </div>
-  );
-}
-
 export default function SecurityAdmin() {
   const { data, error, updatedAt, refreshing, reload } = useAdminData({ resource: 'security' });
-
   const events = data?.events || [];
-  const deniedCount = events.filter(e => e.type === 'admin_denied').length;
-  const mfaCount = events.filter(e => e.type === 'mfa_required').length;
-  const errorCount = events.filter(e => e.type === 'admin_api_error').length;
-  const allClear = data && events.length === 0;
+  const count = (type) => events.filter(e => e.type === type).length;
 
   return (
-    <div style={{ padding: '32px 36px', maxWidth: '980px' }}>
-      <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '6px' }}>Säkerhet</div>
-      <div style={{ fontSize: '13.5px', color: 'var(--text-muted)', marginBottom: '24px' }}>Adminåtkomst, misstänkt aktivitet och inloggningar.</div>
-      <RefreshBar updatedAt={updatedAt} refreshing={refreshing} onRefresh={reload} />
+    <Page
+      title="Säkerhet"
+      description="Försök att nå admin-panelen, fel i admin-API:t och de senaste inloggningarna."
+      refresh={{ updatedAt, refreshing, onRefresh: reload }}
+    >
+      <Loadable data={data} error={error}>
+        {data && (
+          <>
+            <Section>
+              <Stats cols={3}>
+                <Stat label="Nekade försök" value={count('admin_denied')} tone={count('admin_denied') ? 'red' : undefined} />
+                <Stat label="Stoppade utan tvåfaktor" value={count('mfa_required')} tone={count('mfa_required') ? 'amber' : undefined} />
+                <Stat label="Fel i admin-API:t" value={count('admin_api_error')} tone={count('admin_api_error') ? 'red' : undefined} />
+              </Stats>
+            </Section>
 
-      {error && <div style={{ fontSize: '13px', color: 'var(--status-red-text)', marginBottom: '18px' }}>{error}</div>}
-      {!data && !error && <div style={{ color: 'var(--text-muted)', fontSize: '13.5px' }}>Laddar…</div>}
-
-      {data && (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '20px' }}>
-            <StatTile icon={UserX} label="Nekade försök" value={deniedCount} color="var(--status-red-text)" />
-            <StatTile icon={KeyRound} label="Blockerade utan 2FA" value={mfaCount} color="var(--status-amber-text)" />
-            <StatTile icon={Bug} label="API-fel" value={errorCount} color="var(--status-red-text)" />
-          </div>
-
-          <div style={{ ...cardStyle, marginBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '16px' }}>
-              {allClear ? <ShieldCheck size={17} color="var(--accent-text)" /> : <ShieldAlert size={17} color="var(--status-amber-text)" />}
-              <div style={{ fontSize: '15px', fontWeight: 700 }}>Misstänkt aktivitet</div>
-            </div>
-            {allClear ? (
-              <div style={{ fontSize: '13.5px', color: 'var(--accent-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ShieldCheck size={14} /> Inget upptäckt — allt ser normalt ut.
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gap: '2px' }}>
-                {events.map((ev, i) => {
-                  const meta = EVENT_META[ev.type] || { label: ev.type, icon: Info, color: 'var(--text-muted)', detail: '' };
-                  const Icon = meta.icon;
+            <Section title="Misstänkt aktivitet">
+              <Card flush>
+                {events.length === 0 ? (
+                  <div className="ix-event"><span className="ix-ok"><ShieldCheck size={16} /> Inget upptäckt.</span></div>
+                ) : events.map((ev, i) => {
+                  const meta = EVENT_META[ev.type] || { label: ev.type, detail: '' };
                   return (
-                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '11px 4px', borderTop: i > 0 ? '1px solid var(--border-light)' : 'none' }}>
-                      <span style={{ width: 28, height: 28, borderRadius: '7px', background: `color-mix(in srgb, ${meta.color} 14%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-                        <Icon size={13} color={meta.color} />
-                      </span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>{meta.label}{ev.email ? ` — ${ev.email}` : ''}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          {ev.type === 'admin_api_error' && ev.detail ? ev.detail : meta.detail}
-                        </div>
-                      </div>
-                      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', flexShrink: 0, textAlign: 'right' }} title={formatDateTime(ev.created_at)}>
-                        {timeAgo(ev.created_at)}
-                      </div>
-                    </div>
+                    <Event
+                      key={i}
+                      title={`${meta.label}${ev.email ? ` · ${ev.email}` : ''}`}
+                      time={<span title={formatDateTime(ev.created_at)}>{timeAgo(ev.created_at)}</span>}
+                      detail={ev.type === 'admin_api_error' && ev.detail ? ev.detail : meta.detail}
+                    />
                   );
                 })}
-              </div>
-            )}
-          </div>
+              </Card>
+            </Section>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
-            <div style={cardStyle}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                <ShieldCheck size={15} color="var(--accent-text)" />
-                <div style={{ fontSize: '14px', fontWeight: 700 }}>Adminkonton</div>
+            <Section>
+              <div className="ix-two">
+                <Card title="Adminkonton" icon={ShieldCheck}>
+                  {data.adminEmails.map(email => <Kv key={email} label={email} value="" />)}
+                </Card>
+                <Card title={`Obekräftade adresser (${data.unconfirmed.length})`} icon={MailWarning}>
+                  {data.unconfirmed.length === 0
+                    ? <div className="ix-muted">Alla konton har bekräftat sin e-post.</div>
+                    : <div style={{ maxHeight: 180, overflowY: 'auto' }}>{data.unconfirmed.map(u => <Kv key={u.email} label={u.email} value="" />)}</div>}
+                </Card>
               </div>
-              <div style={{ display: 'grid', gap: '7px' }}>
-                {data.adminEmails.map(email => (
-                  <div key={email} style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{email}</div>
-                ))}
-              </div>
-            </div>
+            </Section>
 
-            <div style={cardStyle}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                <MailWarning size={15} color="var(--status-amber-text)" />
-                <div style={{ fontSize: '14px', fontWeight: 700 }}>Obekräftade mejladresser ({data.unconfirmed.length})</div>
-              </div>
-              <div style={{ display: 'grid', gap: '7px', maxHeight: 160, overflowY: 'auto' }}>
-                {data.unconfirmed.map(u => (
-                  <div key={u.email} style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>{u.email}</div>
-                ))}
-                {data.unconfirmed.length === 0 && <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Alla konton har bekräftat sin mejladress.</div>}
-              </div>
-            </div>
-          </div>
-
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-              <Clock size={15} color="var(--status-blue-text)" />
-              <div style={{ fontSize: '14px', fontWeight: 700 }}>Senaste inloggningar</div>
-            </div>
-            <div style={{ display: 'grid', gap: '8px' }}>
-              {data.recentSignIns.map(u => (
-                <div key={u.email} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>{u.email}</span>
-                  <span style={{ color: 'var(--text-muted)' }}>{formatDateTime(u.lastSignInAt)}</span>
-                </div>
-              ))}
-              {data.recentSignIns.length === 0 && <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Inga inloggningar registrerade än.</div>}
-            </div>
-          </div>
-        </>
-      )}
-    </div>
+            <Section>
+              <Card title="Senaste inloggningar" icon={Clock}>
+                {data.recentSignIns.length === 0
+                  ? <div className="ix-muted">Inga inloggningar registrerade än.</div>
+                  : data.recentSignIns.map(u => <Kv key={u.email} label={u.email} value={formatDateTime(u.lastSignInAt)} muted />)}
+              </Card>
+            </Section>
+          </>
+        )}
+      </Loadable>
+    </Page>
   );
 }
+
