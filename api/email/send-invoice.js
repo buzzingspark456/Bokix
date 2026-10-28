@@ -8,6 +8,7 @@ import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { trySendFromOwnAddress } from '../_smtp.js';
 import { createClient } from '@supabase/supabase-js';
 import { brandedEmail, emailButton } from '../../src/utils/brandedEmail.js';
+import { sendableEmail } from '../../src/utils/validators.js';
 import { withSentry } from '../_sentry.js';
 
 // Ägarens egen väntande inbjudan, plus företagets data om den finns (för
@@ -149,6 +150,16 @@ async function handler(req, res) {
       res.status(400).json({ error: 'to, subject, html och company_id krävs.' });
       return;
     }
+
+    // Felskriven adress är användarens fel, inte ett systemfel: tydligt svar
+    // och inget larm, i stället för Resends "Invalid `to` field".
+    const cleanTo = sendableEmail(to);
+    if (!cleanTo) {
+      res.status(400).json({ error: 'Mottagaradressen ser inte ut som en giltig e-postadress. Ange en adress, till exempel namn@foretag.se.' });
+      return;
+    }
+    to = cleanTo;
+    replyTo = replyTo ? sendableEmail(replyTo) || undefined : undefined;
 
     const basePayload = {
       to: [to],

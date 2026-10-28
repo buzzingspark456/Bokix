@@ -43,6 +43,7 @@ import { receiptAttachmentFields, backfillReceiptAttachments } from './utils/rec
 import { getNextInvoiceNumber } from './utils/invoiceNumbering';
 import { createStripeCheckoutSession, createStripeSubscriptionCheckout, cancelStripeSubscription, syncStripeSubscription } from './stripeApi';
 import { createEmailDomain, getEmailDomainStatus, sendInvoiceEmail } from './emailApi';
+import { sendableEmail } from './utils/validators';
 import { getDebet, getKredit, withRoundingBalance } from './utils/verificationAmounts';
 import { describeForeign } from './utils/foreignCurrency';
 import { convertToSek } from './utils/currencyConversion';
@@ -2875,7 +2876,11 @@ function App() {
         // laddades, så den kopieras innan normalizeStore och taggningen nedan.
         // I tabelläget är det redan tabellerna som laddats; inget att jämföra.
         if (!tablesModeRef.current && shadowReadDue(authUser.id)) {
-          scheduleShadowRead(supabase, { userId: authUser.id, state: structuredClone(resultData.state), updatedAt: resultData.updated_at || null });
+          // Via JSON, inte structuredClone: kopian kan komma från webbläsarens
+          // cache (serverStateCache) med fält som är undefined, vilka jsonb i
+          // databasen aldrig har. Det gav falskt larm om en ändrad faktura
+          // 2026-10-28 fast tabellerna och blobben var lika.
+          scheduleShadowRead(supabase, { userId: authUser.id, state: JSON.parse(JSON.stringify(resultData.state)), updatedAt: resultData.updated_at || null });
         }
         // normalizeStore: samma engångsmigrering av offerter/fakturor som
         // loadData() kör för localStorage-vägen — måste köras här också,
@@ -4493,7 +4498,7 @@ function App() {
       const amountLabel = `${Math.round(newPaid).toLocaleString('sv-SE')} ${foreign ? inv.currency : 'kr'}`;
       const dateLabel = new Date(paidDate).toLocaleDateString('sv-SE');
 
-      if ((company?.notifications?.paymentRemindersEnabled ?? true) && company?.email) {
+      if ((company?.notifications?.paymentRemindersEnabled ?? true) && sendableEmail(company?.email)) {
         sendInvoiceEmail({
           to: company.email,
           subject: `Betalning mottagen – faktura ${inv.invoiceNumber}`,
@@ -4510,7 +4515,7 @@ function App() {
 
       if (company?.notifications?.invoiceReceiptsEnabled ?? true) {
         const customer = contacts.find(c => c.id === inv.customerId);
-        if (customer?.email) {
+        if (sendableEmail(customer?.email)) {
           sendInvoiceEmail({
             to: customer.email,
             subject: `Kvitto – faktura ${inv.invoiceNumber} betald`,

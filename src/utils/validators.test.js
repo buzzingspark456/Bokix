@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateEmailList, isValidEmail, isValidIban } from './validators'
+import { validateEmailList, isValidEmail, isValidIban, sendableEmail } from './validators'
 
 describe('isValidEmail', () => {
   it('accepts a well-formed address', () => {
@@ -46,5 +46,25 @@ describe('isValidIban', () => {
 
   it('treats an empty value as valid (required-ness is handled elsewhere)', () => {
     expect(isValidIban('')).toBe(true)
+  })
+})
+
+describe('sendableEmail', () => {
+  it('städar bort det som följer med vid kopiering', () => {
+    expect(sendableEmail('  anna@firma.se, ')).toBe('anna@firma.se')
+    expect(sendableEmail('mailto:anna@firma.se')).toBe('anna@firma.se')
+    expect(sendableEmail('Anna <anna@firma.se>')).toBe('anna@firma.se')
+    expect(sendableEmail('anna@firma.se.')).toBe('anna@firma.se')
+  })
+
+  it('avvisar det Resend inte tar emot', () => {
+    expect(sendableEmail('a@b.se;c@d.se')).toBe(null)
+    expect(sendableEmail('a@b.se, c@d.se')).toBe(null)
+    expect(sendableEmail('åsa@firma.se')).toBe(null)
+    expect(sendableEmail('anna@företag.se')).toBe(null)
+    expect(sendableEmail('anna@firma')).toBe(null)
+    expect(sendableEmail('a..b@firma.se')).toBe(null)
+    expect(sendableEmail('')).toBe(null)
+    expect(sendableEmail(undefined)).toBe(null)
   })
 })

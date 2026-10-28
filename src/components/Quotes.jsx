@@ -14,6 +14,7 @@ import { showUndo, restoreAt } from './shared/undoToast';
 import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { t } from '../i18n';
 import { numberFormat, dateTimeFormat } from '../utils/intlCache';
+import { sendableEmail } from '../utils/validators';
 
 const fmtSEK = (val) => numberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
 const fmtDateSv = (d) => { if (!d) return '—'; try { return dateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; } };
@@ -353,7 +354,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
   const handleSendEmail = async () => {
     const to = emailToInput.trim();
     if (!to) { setEmailError(t('ui.ange_en_mottagaradress')); return; }
-    if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError(t('ui.det_dar_ser_inte_ut_som_en_giltig_e_postadress')); return; }
+    if (!sendableEmail(to)) { setEmailError(t('ui.det_dar_ser_inte_ut_som_en_giltig_e_postadress')); return; }
     setEmailBusy(true); setEmailError(''); setEmailSent(false);
     try {
       const attachmentBase64 = await getInvoicePdfBase64(captureRef.current);

@@ -42,6 +42,7 @@ import RotRutRequestModal from './RotRutRequestModal';
 import { t as tr, dateLocale } from '../i18n';
 import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 import { captureEvent } from '../utils/posthog';
+import { sendableEmail } from '../utils/validators';
 
 const newRowId = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `row_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const withRowIds = (rows) => rows.map(r => ({ id: r.id || newRowId(), ...r }));
@@ -632,7 +633,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   const openEmailCompose = () => {
     const to = emailToInput.trim();
     if (!to) { setEmailError(tr('ui.ange_en_mottagaradress')); return; }
-    if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError(tr('ui.det_dar_ser_inte_ut_som_en_giltig_e_postadress')); return; }
+    if (!sendableEmail(to)) { setEmailError(tr('ui.det_dar_ser_inte_ut_som_en_giltig_e_postadress')); return; }
     let sparad = '';
     try { sparad = window.localStorage.getItem(messageStorageKey) || ''; } catch { /* privat läge */ }
     setEmailMessage(sparad || defaultEmailMessage());
@@ -688,7 +689,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   const handleSendEmail = async () => {
     const to = emailToInput.trim();
     if (!to) { setEmailError(tr('ui.ange_en_mottagaradress')); return; }
-    if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError(tr('ui.det_dar_ser_inte_ut_som_en_giltig_e_postadress')); return; }
+    if (!sendableEmail(to)) { setEmailError(tr('ui.det_dar_ser_inte_ut_som_en_giltig_e_postadress')); return; }
     setEmailBusy(true); setEmailError(''); setEmailSent(false);
     try {
       // Förberett när fönstret öppnades (se prepareEmailAttachments).
@@ -2056,7 +2057,7 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onS
   const handleSendEmail = async () => {
     const to = emailTo.trim();
     if (!to) { setEmailError(tr('ui.ange_en_mottagaradress')); return; }
-    if (!/^\S+@\S+\.\S+$/.test(to)) { setEmailError(tr('ui.det_dar_ser_inte_ut_som_en_giltig_e_postadress')); return; }
+    if (!sendableEmail(to)) { setEmailError(tr('ui.det_dar_ser_inte_ut_som_en_giltig_e_postadress')); return; }
     setEmailBusy(true); setEmailError(''); setEmailSent(false);
     try {
       // Best effort — misslyckas PDF-genereringen (t.ex. ett konstigt

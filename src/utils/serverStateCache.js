@@ -79,7 +79,13 @@ function flush() {
   handle = null;
   const entry = pending;
   pending = null;
-  if (entry) run('readwrite', store => store.put(entry, entry.userId));
+  if (!entry) return;
+  // Efter en egen sparning är state appens objekt, som kan ha fält som är
+  // undefined eller NaN. I raden finns de inte (jsonb), så kopian sparas i
+  // samma form som raden; annars är den inte "exakt det som ligger i raden".
+  let state;
+  try { state = JSON.parse(JSON.stringify(entry.state)); } catch { return; }
+  run('readwrite', store => store.put({ ...entry, state }, entry.userId));
 }
 
 /** Kom ihåg serverns version. `cachedAt` behålls från förra kopian när

@@ -21,6 +21,26 @@ export function isValidEmail(value) {
   return EMAIL_RE.test(value.trim());
 }
 
+// Det Resend tar emot: en adress, bara ASCII, domän med punkt och toppdomän.
+// EMAIL_RE ovan släppte igenom t.ex. "anna@firma.se," och "a@b.se;c@d.se",
+// som Resend sedan avvisade ("Invalid `to` field", 2026-10-28).
+const SENDABLE_RE = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$/;
+
+/**
+ * En mottagaradress som går att skicka till, städad från det som ofta följer
+ * med vid kopiering (mailto:, <>, mellanslag, avslutande punkt/komma).
+ * null om det inte är exakt en giltig adress.
+ */
+export function sendableEmail(value) {
+  if (typeof value !== 'string') return null;
+  const cleaned = value.trim()
+    .replace(/^mailto:/i, '')
+    .replace(/^.*<([^<>]+)>\s*$/, '$1')
+    .replace(/[\s.,;:]+$/, '')
+    .trim();
+  return SENDABLE_RE.test(cleaned) && !cleaned.includes('..') ? cleaned : null;
+}
+
 // IBAN-längd per landskod (ISO 3166-1 alpha-2). Används för att ge ett
 // tydligare fel än ett generellt mod-97-fel när längden redan är fel.
 const IBAN_LENGTHS = {
