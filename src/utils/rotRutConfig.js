@@ -61,3 +61,10 @@ export function invoiceCustomerDue(inv) {
 export function invoiceCustomerRemaining(inv) {
   return Math.max(0, invoiceCustomerDue(inv) - (Number(inv?.paidAmount) || 0));
 }
+
+/** Samma sak i kronor: en faktura i annan valuta räknas om med kursen den
+ * bokfördes med (`fxRate`), så att den kan summeras med SEK-fakturor. */
+export function invoiceCustomerRemainingSek(inv) {
+  const rate = inv?.currency && inv.currency !== 'SEK' && Number(inv.fxRate) > 0 ? Number(inv.fxRate) : 1;
+  return invoiceCustomerRemaining(inv) * rate;
+}

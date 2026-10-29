@@ -12,7 +12,7 @@
 import { nextVatDeadline, nextAgiDeadline, vatContextFor, incomeDeclarationDueDate } from './declarationDeadlines';
 import { annualReportDeadline } from './annualReport';
 import { detectOrgType } from './orgType';
-import { invoiceCustomerRemaining } from './rotRutConfig';
+import { invoiceCustomerRemainingSek } from './rotRutConfig';
 import { activeFiscalYear } from './fiscalYear';
 import { numberFormat } from './intlCache';
 
@@ -71,7 +71,7 @@ export function buildTodoItems({
   if (overdueInvoices.length > 0) {
     const one = overdueInvoices.length === 1 ? overdueInvoices[0] : null;
     const customer = one && contacts.find(c => c.id === one.customerId)?.name;
-    const amount = overdueInvoices.reduce((sum, i) => sum + invoiceCustomerRemaining(i), 0);
+    const amount = overdueInvoices.reduce((sum, i) => sum + invoiceCustomerRemainingSek(i), 0);
     const mostOverdue = overdueInvoices.reduce((max, i) => Math.max(max, calendarDaysOverdue(i.dueDate, today)), 0);
     rows.push({
       kind: 'overdue_invoices', group: 'invoices', sev: 'danger', daysLeft: -mostOverdue, late: true,

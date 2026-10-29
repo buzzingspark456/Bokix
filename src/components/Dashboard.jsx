@@ -27,7 +27,7 @@ import { useTranslation, dateLocale } from '../i18n';
 // glida isär (se PeriodPicker/OVERVIEW_PERIODS-kommentaren i ReportUI.jsx).
 import { overviewPeriodBounds, buildResultSeries, companyFiscalYearSetting } from '../utils/reportCalculations';
 import { layoutRect, layoutViewport } from '../utils/dropdownPlacement';
-import { invoiceCustomerRemaining } from '../utils/rotRutConfig';
+import { invoiceCustomerRemainingSek } from '../utils/rotRutConfig';
 import { numberFormat } from '../utils/intlCache';
 
 // Intäkter-vs-Utgifter-grafens färger kommer numera från paletten
@@ -496,7 +496,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     const unpaidInvoices = (invoices || []).filter(i => i.status === 'sent');
     // Delbetalda fakturor räknas på det som ÅTERSTÅR, inte på hela
     // beloppet — annars säger rutan att man har mer att få in än man har.
-    const receivable = unpaidInvoices.reduce((sum, i) => sum + invoiceCustomerRemaining(i), 0);
+    const receivable = unpaidInvoices.reduce((sum, i) => sum + invoiceCustomerRemainingSek(i), 0);
     const overdueIn = unpaidInvoices.filter(i => daysOverdue(i.dueDate) > 0);
     const oldestOverdue = overdueIn.reduce((max, i) => Math.max(max, daysOverdue(i.dueDate)), 0);
 
@@ -515,7 +515,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
       ...unpaidInvoices.map(i => ({
         key: `in-${i.id}`, dir: 'in', target: { tab: 'invoices', action: { type: 'open_invoice', payload: { id: i.id } } },
         name: nameOf(i.customerId, i.invoiceNumber ? `#${i.invoiceNumber}` : ''),
-        amount: invoiceCustomerRemaining(i), dueDate: i.dueDate, overdue: daysOverdue(i.dueDate),
+        amount: invoiceCustomerRemainingSek(i), dueDate: i.dueDate, overdue: daysOverdue(i.dueDate),
       })),
       ...unpaidSupplier.map(e => ({
         key: `out-${e.id}`, dir: 'out', target: { tab: 'supplier_invoices', action: { type: 'view_supplier_invoice', payload: { id: e.id } } },
@@ -563,7 +563,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   const comparisonLabelDisplay = t('dashboard.chart.previousYear');
   const periodBounds = useMemo(
     () => overviewPeriodBounds(periodId, { fiscalYearStart: companyFiscalYearSetting(company), verifications }),
-    [periodId, company?.fiscalYear, verifications],
+    [periodId, company?.fiscalYear, company?.firstFiscalYear, verifications],
   );
   const chartData = useMemo(() => {
     const { start, end, prevStart, prevEnd, granularity, hasComparison } = periodBounds;
@@ -971,7 +971,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                 {
                   key: 'out', label: t('dashboard.outstanding.toPay'), amount: outstanding.payable,
                   count: outstanding.outCount, overdue: outstanding.overdueOutCount,
-                  tone: chartExpense, tab: 'expenses', hint: t('dashboard.outstanding.toPayHint'),
+                  tone: chartExpense, tab: 'supplier_invoices', hint: t('dashboard.outstanding.toPayHint'),
                   empty: t('dashboard.outstanding.noUnpaidSupplierInvoices'),
                   note: null,
                 },
