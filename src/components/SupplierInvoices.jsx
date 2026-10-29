@@ -1072,12 +1072,9 @@ export default function SupplierInvoices({
               columns={[
                 { key: 'supplier', label: t('ui.leverantor'), sortKeyName: 'supplier', fontWeight: 600, color: 'var(--text-main)', fontSize: '14px', wrap: true, render: inv => nameOf(inv) || t('ui.okand_leverantor') },
                 { key: 'invoiceNumber', label: t('ui.fakturanr'), sortKeyName: 'invoiceNumber', color: 'var(--text-main)', render: inv => `#${inv.invoiceNumber}` },
-                { key: 'date', label: t('ui.fakturadatum'), sortKeyName: 'date', render: inv => formatDate(inv.date) },
+                { key: 'date', label: t('ui.fakturadatum'), sortKeyName: 'date', color: 'var(--text-main)', render: inv => formatDate(inv.date) },
                 {
-                  key: 'dueDate', label: t('ui.forfallodatum'), sortKeyName: 'dueDate', render: inv => {
-                    const overdue = statusOf(inv) === 'overdue';
-                    return <span style={{ color: 'var(--text-main)', fontWeight: overdue ? 700 : 500 }}>{formatDate(inv.dueDate)}</span>;
-                  },
+                  key: 'dueDate', label: t('ui.forfallodatum'), sortKeyName: 'dueDate', color: 'var(--text-main)', render: inv => formatDate(inv.dueDate),
                 },
                 { key: 'amount', label: t('ui.belopp'), align: 'right', sortKeyName: 'amount', fontWeight: 600, color: 'var(--text-main)', render: inv => formatSEK(inv.amount) },
                 {
