@@ -164,6 +164,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       throw new Error(`${translateSupabaseAuthError('captcha verification process failed')} (cloudflare: ${e?.message || 'okänt'})`);
     }
   };
+  const LOGIN_CAPTCHA_WAIT_MS = 3000;
   const signupRecaptchaRef = useRef(null);
 
   // Step 0 – Personal info
@@ -330,13 +331,23 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     try {
       if (!loginEmail || !loginPassword) throw new Error(t('ui.fyll_i_alla_falt'));
       markLoginStart('password');
-      const loginCaptchaToken = await runCaptcha(loginCaptchaRef);
+      // Vänta högst LOGIN_CAPTCHA_WAIT_MS på Cloudflare (ibland tog den 15 s,
+      // login_slow 2026-10-29). Utan token provar vi ändå; kräver Supabase
+      // captcha väntar vi då in den token som redan är på väg och provar igen.
+      const pending = runCaptcha(loginCaptchaRef);
+      pending.catch(() => {});
+      const early = await Promise.race([
+        pending.catch(() => null),
+        new Promise(r => setTimeout(() => r(null), LOGIN_CAPTCHA_WAIT_MS)),
+      ]);
       markLoginStep('captcha');
-      const { error } = await supabase.auth.signInWithPassword({
+      const signIn = (captchaToken) => supabase.auth.signInWithPassword({
         email: loginEmail,
         password: loginPassword,
-        options: loginCaptchaToken ? { captchaToken: loginCaptchaToken } : undefined,
+        options: captchaToken ? { captchaToken } : undefined,
       });
+      let { error } = await signIn(early);
+      if (error && !early && /captcha/i.test(error.message || '')) ({ error } = await signIn(await pending));
       if (error) throw error;
       markLoginStep('auth');
       offerToSavePassword(loginEmail, loginPassword);
