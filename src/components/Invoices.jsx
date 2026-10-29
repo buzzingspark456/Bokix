@@ -2609,7 +2609,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
     { key: 'date', label: tr('ui.fakturadatum'), sortKeyName: 'date', color: 'var(--text-main)', render: inv => formatDate(inv.date) },
     {
       key: 'dueDate', label: tr('ui.forfallodatum'), sortKeyName: 'dueDate',
-      render: inv => <span style={{ color: isOverdue(inv) ? 'var(--status-red-text)' : 'var(--text-main)', fontWeight: isOverdue(inv) ? 700 : 500 }}>{formatDate(inv.dueDate)}</span>,
+      render: inv => <span style={{ color: 'var(--text-main)', fontWeight: isOverdue(inv) ? 700 : 500 }}>{formatDate(inv.dueDate)}</span>,
     },
     { key: 'amount', label: tr('ui.belopp'), align: 'right', sortKeyName: 'amount', fontWeight: 600, color: 'var(--text-main)', render: inv => fmt(grossOf(inv)) },
     {

@@ -1076,7 +1076,7 @@ export default function SupplierInvoices({
                 {
                   key: 'dueDate', label: t('ui.forfallodatum'), sortKeyName: 'dueDate', render: inv => {
                     const overdue = statusOf(inv) === 'overdue';
-                    return <span style={{ color: overdue ? 'var(--status-red-text)' : 'var(--text-secondary)', fontWeight: overdue ? 700 : 400 }}>{formatDate(inv.dueDate)}</span>;
+                    return <span style={{ color: 'var(--text-main)', fontWeight: overdue ? 700 : 500 }}>{formatDate(inv.dueDate)}</span>;
                   },
                 },
                 { key: 'amount', label: t('ui.belopp'), align: 'right', sortKeyName: 'amount', fontWeight: 600, color: 'var(--text-main)', render: inv => formatSEK(inv.amount) },
