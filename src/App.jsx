@@ -50,6 +50,7 @@ import { convertToSek } from './utils/currencyConversion';
 import { invoiceBookingRows } from './utils/invoiceBooking';
 import { grossInvoiceAmount } from './utils/reportCalculations';
 import { calcRotRutDeduction, invoiceCustomerDue, invoiceCustomerRemaining } from './utils/rotRutConfig';
+import { applyCreditNotes } from './utils/creditNotes';
 import { mergeImportedEmployees } from './utils/employeeCsv';
 import { planFromId } from './utils/plans';
 import { detectOrgType } from './utils/orgType';
@@ -3801,7 +3802,8 @@ function App() {
     || ALLOWED_SUBSCRIPTION_STATUSES.includes(subscriptionsMap[company.id]?.status));
   const accounts = currentCompany.accounts;
   const verifications = currentCompany.verifications;
-  const invoices = currentCompany.invoices;
+  // Kreditfakturor reglerar sitt original (utils/creditNotes.js).
+  const invoices = applyCreditNotes(currentCompany.invoices);
   // `|| []` som skyddsnät: ett företag inloggat sedan innan denna migrering
   // och som ännu inte hunnit spara/ladda om kan sakna fältet ett ögonblick.
   const quotes = currentCompany.quotes || [];
@@ -4443,7 +4445,8 @@ function App() {
     const foreign = fx !== 1;
 
     // Kundens del: vid ROT/RUT betalar Skatteverket avdraget, inte kunden.
-    const totalGross = invoiceCustomerDue(inv);
+    // En skickad kreditfaktura har redan dragit av sin del (utils/creditNotes.js).
+    const totalGross = invoiceCustomerDue(inv) - (Number(inv.creditedAmount) || 0);
     const alreadyPaid = inv.paidAmount || 0;
     const remaining = Math.max(0, totalGross - alreadyPaid);
     const paymentAmount = foreign && amountIsSek ? remaining : Math.min(amount, remaining);

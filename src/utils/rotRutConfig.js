@@ -57,9 +57,10 @@ export function invoiceCustomerDue(inv) {
   return gross - deduction;
 }
 
-/** Kvar för kunden att betala. */
+/** Kvar för kunden att betala, efter betalningar och kreditfakturor
+ * (`creditedAmount`, se utils/creditNotes.js). */
 export function invoiceCustomerRemaining(inv) {
-  return Math.max(0, invoiceCustomerDue(inv) - (Number(inv?.paidAmount) || 0));
+  return Math.max(0, invoiceCustomerDue(inv) - (Number(inv?.paidAmount) || 0) - (Number(inv?.creditedAmount) || 0));
 }
 
 /** Samma sak i kronor: en faktura i annan valuta räknas om med kursen den

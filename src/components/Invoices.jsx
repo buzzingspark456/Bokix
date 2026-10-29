@@ -59,6 +59,9 @@ const formatDate = (d) => {
 const isOverdue = (inv) =>
   inv.status !== 'paid' && inv.dueDate && new Date(inv.dueDate) < new Date();
 
+// Reglerad av en kreditfaktura (utils/creditNotes.js) står som Krediterad.
+const paidLabel = (inv) => (inv?.paidVia === 'credit' ? tr('ui.krediterad') : tr('ui.betald'));
+
 
 // Kundfeedback ("starkare färger för obetald och betald"): de vanliga
 // BRAND.amberBg/greenLight-tonerna är avsiktligt bleka (samma neutrala
@@ -183,12 +186,12 @@ function InvoiceMobileSummary({ invoice, customerName, nextNum, ocr, totals, cus
   const paid = invoice.status === 'paid';
   const overdue = !paid && isOverdue(invoice);
   const status = paid
-    ? { bg: BRAND.greenLight, color: BRAND.greenDark, label: tr('ui.betald') }
+    ? { bg: BRAND.greenLight, color: BRAND.greenDark, label: paidLabel(invoice) }
     : overdue
       ? { bg: BRAND.redBg, color: BRAND.redText, label: tr('ui.forfallen') }
       : { bg: BRAND.amberBg, color: BRAND.amberText, label: tr('ui.obetald') };
   const dueLine = paid
-    ? (invoice.paidDate ? tr('ui.isum_betald_den', { date: formatDate(invoice.paidDate) }) : '')
+    ? (invoice.paidDate ? (invoice.paidVia === 'credit' ? `${paidLabel(invoice)} ${formatDate(invoice.paidDate)}` : tr('ui.isum_betald_den', { date: formatDate(invoice.paidDate) })) : '')
     : tr(overdue ? 'ui.isum_forfoll' : 'ui.isum_forfaller', { date: formatDate(invoice.dueDate) });
   const money = (v) => `${fmt(v)} ${payCurrency}`;
   const details = [
@@ -508,7 +511,9 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   // Vid ROT/RUT betalar kunden fakturan minus avdraget (resten kommer från
   // Skatteverket), utom när Skatteverket har avslagit begäran.
   const customerDue = rotRutType !== 'none' && initial?.rotRutStatus !== 'rejected' ? amountAfterRotRut : totals.total;
-  const remainingDue = Math.max(0, customerDue - alreadyPaid);
+  // En skickad kreditfaktura har redan dragit av sin del (utils/creditNotes.js).
+  const creditedAmount = Number(initial?.creditedAmount) || 0;
+  const remainingDue = Math.max(0, customerDue - alreadyPaid - creditedAmount);
 
   // Fylla i betalningsformuläret med rimliga defaults (hela kvarvarande
   // beloppet, dagens datum) varje gång det öppnas.
@@ -915,15 +920,36 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
             <div style={{ padding: '0 4px' }}>
               {(initial.status === 'paid') ? (
                 <div style={{ fontSize: '13px', color: 'var(--status-green-text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Check size={14} /> {tr('ui.betald')} {initial.paidDate ? formatDate(initial.paidDate) : ''}
+                  <Check size={14} /> {paidLabel(initial)} {initial.paidDate ? formatDate(initial.paidDate) : ''}
                 </div>
               ) : (
                 <>
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{tr('ui.totalt_2')} {fmt(totals.total)} {payCurrency}</div>
-                  {alreadyPaid > 0 && (
-                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{tr('ui.redan_betalt')} {fmt(alreadyPaid)} {payCurrency}</div>
-                  )}
-                  <div style={{ fontSize: '13px', color: 'var(--status-amber-text)', fontWeight: 600, marginBottom: '14px' }}>{tr('ui.kvar_att_betala')} {fmt(remainingDue)} {payCurrency}</div>
+                  {/* Fakturans datum och belopp överst, kvar att betala störst
+                      (kundönskemål 2026-10-29: syntes för dåligt). */}
+                  {(() => {
+                    const late = isOverdue({ ...initial, dueDate });
+                    const row = { display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '13.5px', padding: '3px 0' };
+                    const key = { color: 'var(--text-secondary)' };
+                    const val = { color: 'var(--text-main)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' };
+                    return (
+                      <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', marginBottom: '16px' }}>
+                        <div style={row}><span style={key}>{tr('ui.fakturadatum')}</span><span style={val}>{formatDate(invoiceDate)}</span></div>
+                        <div style={row}>
+                          <span style={key}>{tr('ui.forfallodatum')}</span>
+                          <span style={{ ...val, color: late ? 'var(--status-red-text)' : val.color }}>
+                            {formatDate(dueDate)}{late ? ` · ${tr('ui.forfallen')}` : ''}
+                          </span>
+                        </div>
+                        <div style={{ ...row, marginTop: '6px', paddingTop: '9px', borderTop: '1px solid var(--border)' }}><span style={key}>{tr('ui.totalt_2').replace(/:$/, '')}</span><span style={val}>{fmt(customerDue)} {payCurrency}</span></div>
+                        {alreadyPaid > 0 && <div style={row}><span style={key}>{tr('ui.redan_betalt').replace(/:$/, '')}</span><span style={val}>−{fmt(alreadyPaid)} {payCurrency}</span></div>}
+                        {creditedAmount > 0 && <div style={row}><span style={key}>{tr('ui.krediterat').replace(/:$/, '')}</span><span style={val}>−{fmt(creditedAmount)} {payCurrency}</span></div>}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '12px', marginTop: '6px', paddingTop: '9px', borderTop: '1px solid var(--border)' }}>
+                          <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.kvar_att_betala').replace(/:$/, '')}</span>
+                          <span style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-main)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>{fmt(remainingDue)} {payCurrency}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{tr('ui.belopp_2')}{payCurrency})</label>
                   <input
@@ -1892,7 +1918,7 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
   const rotRut = calcRotRutDeduction(invoice.rotRutType, rows);
 
   const statusStyle = {
-    paid: { bg: BRAND.greenLight, color: BRAND.greenDark, label: tr('ui.betald') },
+    paid: { bg: BRAND.greenLight, color: BRAND.greenDark, label: paidLabel(invoice) },
     overdue: { bg: BRAND.redBg, color: BRAND.redText, label: tr('ui.forfallen') },
     sent: { bg: BRAND.amberBg, color: BRAND.amberText, label: tr('ui.obetald') },
     draft: { bg: BRAND.grayBg, color: BRAND.grayText, label: tr('ui.ej_bokford') },
@@ -2580,10 +2606,10 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
       ) : inv.invoiceNumber,
     },
     { key: 'customer', label: tr('ui.kund'), fontWeight: 500, color: 'var(--text-main)', wrap: true, render: inv => getCustomerName(inv.customerId) },
-    { key: 'date', label: tr('ui.fakturadatum'), sortKeyName: 'date', render: inv => formatDate(inv.date) },
+    { key: 'date', label: tr('ui.fakturadatum'), sortKeyName: 'date', color: 'var(--text-main)', render: inv => formatDate(inv.date) },
     {
       key: 'dueDate', label: tr('ui.forfallodatum'), sortKeyName: 'dueDate',
-      render: inv => <span style={{ color: isOverdue(inv) ? 'var(--status-red-text)' : 'var(--text-secondary)', fontWeight: isOverdue(inv) ? 700 : 400 }}>{formatDate(inv.dueDate)}</span>,
+      render: inv => <span style={{ color: isOverdue(inv) ? 'var(--status-red-text)' : 'var(--text-main)', fontWeight: isOverdue(inv) ? 700 : 500 }}>{formatDate(inv.dueDate)}</span>,
     },
     { key: 'amount', label: tr('ui.belopp'), align: 'right', sortKeyName: 'amount', fontWeight: 600, color: 'var(--text-main)', render: inv => fmt(grossOf(inv)) },
     {
@@ -2592,8 +2618,8 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
         return (
           <div data-inv-tour="row-status" onClick={e => e.stopPropagation()}>
             {status === 'paid' ? (
-              <span title={inv.paidDate ? `${tr('ui.betald')} ${formatDate(inv.paidDate)}` : undefined} style={{ ...STATUS_PILL, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>
-                <Check size={12} /> {tr('ui.betald')}
+              <span title={inv.paidDate ? `${paidLabel(inv)} ${formatDate(inv.paidDate)}` : undefined} style={{ ...STATUS_PILL, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>
+                <Check size={12} /> {paidLabel(inv)}
               </span>
             ) : (
               <button
@@ -2632,7 +2658,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
   const invoiceMobileRow = (inv) => {
     const status = getStatus(inv);
     const dot = status === 'overdue' ? STRONG_OVERDUE.bg : status === 'draft' ? BRAND.grayText : status === 'paid' ? STRONG_PAID.bg : STRONG_UNPAID.bg;
-    const metaDate = status === 'paid' ? `betald ${shortDate(inv.paidDate)}` : status === 'overdue' ? tr('ui.forfoll', { v0: shortDate(inv.dueDate) }) : tr('ui.forfaller', { v0: shortDate(inv.dueDate) });
+    const metaDate = status === 'paid' ? `${paidLabel(inv).toLowerCase()} ${shortDate(inv.paidDate)}` : status === 'overdue' ? tr('ui.forfoll', { v0: shortDate(inv.dueDate) }) : tr('ui.forfaller', { v0: shortDate(inv.dueDate) });
     // Kundfeedback med skärmdump: på mobilen stod det bara "—" överst på
     // raden. Identitetsraden hämtade kundnamnet, och saknas kunden (utkast
     // där ingen valts än, eller en kund som tagits bort) blev hela raden
@@ -2648,7 +2674,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
       amount: fmt(grossOf(inv)),
       meta: hasCustomer ? `#${inv.invoiceNumber} · ${metaDate}` : tr('ui.ingen_kund_vald', { metaDate }),
       pill: status === 'paid' ? (
-        <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 700, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>{tr('ui.betald')}</span>
+        <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 700, background: STRONG_PAID.bg, color: STRONG_PAID.text }}>{paidLabel(inv)}</span>
       ) : (
         <span style={{
           padding: '2px 8px', borderRadius: '999px', fontSize: '10.5px', fontWeight: 700,
