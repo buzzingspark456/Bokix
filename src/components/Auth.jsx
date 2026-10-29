@@ -164,7 +164,21 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       throw new Error(`${translateSupabaseAuthError('captcha verification process failed')} (cloudflare: ${e?.message || 'okänt'})`);
     }
   };
-  const LOGIN_CAPTCHA_WAIT_MS = 3000;
+  // Captcha är avstängd i Supabase sedan 2026-10-29 (Cloudflare tog ibland
+  // 15 s, login_slow). Anropet görs därför direkt med en token bara om den
+  // redan är klar. Slås captchan på igen och Supabase avvisar anropet väntar
+  // vi in den token som redan är på väg (högst `waitMs`) och provar igen.
+  const withCaptcha = async (ref, call, waitMs = 45000) => {
+    const pending = Promise.race([
+      runCaptcha(ref),
+      new Promise((_, reject) => setTimeout(() => reject(new Error(`${translateSupabaseAuthError('captcha verification process failed')} (cloudflare: timeout)`)), waitMs)),
+    ]);
+    pending.catch(() => {});
+    const ready = await Promise.race([pending.catch(() => null), new Promise(r => setTimeout(() => r(null), 0))]);
+    const res = await call(ready);
+    if (!res?.error || ready || !/captcha/i.test(res.error.message || '')) return res;
+    return call(await pending);
+  };
   const signupRecaptchaRef = useRef(null);
 
   // Step 0 – Personal info
@@ -331,23 +345,14 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     try {
       if (!loginEmail || !loginPassword) throw new Error(t('ui.fyll_i_alla_falt'));
       markLoginStart('password');
-      // Vänta högst LOGIN_CAPTCHA_WAIT_MS på Cloudflare (ibland tog den 15 s,
-      // login_slow 2026-10-29). Utan token provar vi ändå; kräver Supabase
-      // captcha väntar vi då in den token som redan är på väg och provar igen.
-      const pending = runCaptcha(loginCaptchaRef);
-      pending.catch(() => {});
-      const early = await Promise.race([
-        pending.catch(() => null),
-        new Promise(r => setTimeout(() => r(null), LOGIN_CAPTCHA_WAIT_MS)),
-      ]);
-      markLoginStep('captcha');
-      const signIn = (captchaToken) => supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: loginPassword,
-        options: captchaToken ? { captchaToken } : undefined,
+      const { error } = await withCaptcha(loginCaptchaRef, (captchaToken) => {
+        markLoginStep('captcha');
+        return supabase.auth.signInWithPassword({
+          email: loginEmail,
+          password: loginPassword,
+          options: captchaToken ? { captchaToken } : undefined,
+        });
       });
-      let { error } = await signIn(early);
-      if (error && !early && /captcha/i.test(error.message || '')) ({ error } = await signIn(await pending));
       if (error) throw error;
       markLoginStep('auth');
       offerToSavePassword(loginEmail, loginPassword);
@@ -365,12 +370,19 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     setErrorMsg('');
     setLoading(true);
     try {
-      // Supabase kräver captcha även för passkey-inloggning när Turnstile är på.
-      let captchaToken;
+      // Supabase kräver captcha även för passkey-inloggning när den är påslagen.
       markLoginStart('passkey');
-      try { captchaToken = await runCaptcha(loginCaptchaRef); } catch (captchaErr) { setErrorMsg(captchaErr.message); newCaptchaRound(); return; }
-      markLoginStep('captcha');
-      const { data, error } = await supabase.auth.signInWithPasskey(captchaToken ? { options: { captchaToken } } : undefined);
+      let res;
+      try {
+        res = await withCaptcha(loginCaptchaRef, (captchaToken) => {
+          markLoginStep('captcha');
+          return supabase.auth.signInWithPasskey(captchaToken ? { options: { captchaToken } } : undefined);
+        });
+      } catch (captchaErr) {
+        if (/cloudflare|robot/i.test(captchaErr?.message || '')) { setErrorMsg(captchaErr.message); newCaptchaRound(); return; }
+        throw captchaErr;
+      }
+      const { data, error } = res;
       if (error) throw error;
       markLoginStep('auth');
       // Face ID används på den här enheten: appen spärras med det framöver.
@@ -460,20 +472,9 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       let accountCreated = false;
       let captchaMissing = false;
       try {
-        // Ger Cloudflare ingen token inom 5 s (t.ex. stoppad av ett
-        // webbläsartillägg) skickas registreringen ändå. Supabase avgör: är
-        // captchan påslagen där avvisas anropet som förut, så inget skydd
-        // försvinner. Är den avstängd går registreringen igenom.
+        // Token bara om den redan är klar (withCaptcha). Kom ingen alls och
+        // Supabase ändå kräver en, visas robotkontroll_blockerad.
         let regCaptchaToken = null;
-        try {
-          regCaptchaToken = await Promise.race([
-            runCaptcha(regCaptchaRef),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
-          ]);
-        } catch (captchaErr) {
-          captchaMissing = true;
-          console.warn('Ingen Cloudflare-token, försöker utan:', captchaErr?.message);
-        }
         const doSignUp = (captchaToken) => supabase.auth.signUp({
           email: regEmail,
           password: regPassword,
@@ -515,7 +516,8 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
             ...(captchaToken ? { captchaToken } : {}),
           }
         });
-        let { data, error } = await doSignUp(regCaptchaToken);
+        let { data, error } = await withCaptcha(regCaptchaRef, (tok) => { regCaptchaToken = tok; return doSignUp(tok); }, 15000)
+          .catch(err => { captchaMissing = true; return { data: null, error: err }; });
         // Avvisad Cloudflare-token (gått ut eller redan använd): ett nytt
         // försök med en färsk token innan användaren får se ett fel.
         // Om det nya försöket också fallerar visas Supabases FÖRSTA svar, inte
@@ -560,19 +562,12 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               }
             }
             // Ny Cloudflare-token (den förra gick åt till signUp), om captchan är på.
-            let signInCaptcha = null;
-            try {
-              regCaptchaRef.current?.reset?.();
-              signInCaptcha = await Promise.race([
-                runCaptcha(regCaptchaRef),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
-              ]);
-            } catch { /* utan token; Supabase avgör */ }
-            const { error: signInError } = await supabase.auth.signInWithPassword({
+            regCaptchaRef.current?.reset?.();
+            const { error: signInError } = await withCaptcha(regCaptchaRef, (signInCaptcha) => supabase.auth.signInWithPassword({
               email: regEmail,
               password: regPassword,
               ...(signInCaptcha ? { options: { captchaToken: signInCaptcha } } : {}),
-            });
+            }), 5000).catch(err => ({ error: err }));
             if (signInError) {
               console.error('Inloggning efter registrering misslyckades:', signInError);
               setErrorMsg(`${t('ui.kontot_skapat_logga_in')} (${translateSupabaseAuthError(signInError.message)})`);
