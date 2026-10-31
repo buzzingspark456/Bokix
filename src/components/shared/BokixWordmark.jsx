@@ -34,6 +34,14 @@ const PATH_D = "M8.39 37L2.92 37L2.92 35.25Q3.79 34.75 4.78 34.38Q5.77 34.01 6.6
 const VB_WIDTH = 125;
 const VB_HEIGHT = 40;
 
+// CSS-variabler så att en yta kan byta loggans färger: se den gröna sidomenyn
+// i ljust läge i index.css, där standardfärgerna flöt ihop med bakgrunden.
+const GRADIENT_STOPS = [
+  { stopColor: 'var(--logo-grad-a, #0ea5e9)' },
+  { stopColor: 'var(--logo-grad-b, #14b8a6)' },
+  { stopColor: 'var(--logo-grad-c, #84cc16)' },
+];
+
 export default function BokixWordmark({ height = 34, style, className }) {
   // Egen gradient-id per instans (useId()) — annars kolliderar två
   // samtidigt monterade loggor (t.ex. sidopanelen + mobilens topbar) på
@@ -56,9 +64,9 @@ export default function BokixWordmark({ height = 34, style, className }) {
     >
       <defs>
         <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#0ea5e9" />
-          <stop offset="50%" stopColor="#14b8a6" />
-          <stop offset="100%" stopColor="#84cc16" />
+          <stop offset="0%" style={GRADIENT_STOPS[0]} />
+          <stop offset="50%" style={GRADIENT_STOPS[1]} />
+          <stop offset="100%" style={GRADIENT_STOPS[2]} />
         </linearGradient>
       </defs>
       <path d={PATH_D} fill={`url(#${gradId})`} />
@@ -84,9 +92,9 @@ export function BokixMark({ height = 30, style, className }) {
     >
       <defs>
         <linearGradient id={gradId} gradientUnits="userSpaceOnUse" x1="2.9" y1="0" x2="30.2" y2="0">
-          <stop offset="0%" stopColor="#0ea5e9" />
-          <stop offset="50%" stopColor="#14b8a6" />
-          <stop offset="100%" stopColor="#84cc16" />
+          <stop offset="0%" style={GRADIENT_STOPS[0]} />
+          <stop offset="50%" style={GRADIENT_STOPS[1]} />
+          <stop offset="100%" style={GRADIENT_STOPS[2]} />
         </linearGradient>
       </defs>
       <path d={PATH_D} fill={`url(#${gradId})`} />

@@ -796,6 +796,15 @@ body {
   background-image: linear-gradient(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.22));
 }
 
+/* Loggans blå och turkos har för låg kontrast mot den gröna menyn i ljust
+   läge, kanterna flöt ihop och loggan såg suddig ut. Faviconens ljusare
+   färger i stället, gäller både ordmärket och B:et i smal sidomeny. */
+:root:not([data-theme="dark"]) .sidebar {
+  --logo-grad-a: #00b4ff;
+  --logo-grad-b: #0ee5c3;
+  --logo-grad-c: #8aff2e;
+}
+
 /* Bokix-loggan (App.jsx: BokixLogo) — base-stilarna för de två varianterna,
    flyttade hit FRÅN inline style specifikt så storlek/padding kan svara på
    @media-brytpunkter nedan (en riktig inline style vinner alltid över CSS,

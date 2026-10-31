@@ -13,15 +13,15 @@ const pub = (name) => path.join(root, 'public', name);
 const svg = fs.readFileSync(pub('favicon.svg'), 'utf8');
 const B_SIZE = 885; // B:ets höjd i SVG:ns enheter
 
-const ZOOM = { 16: [0.94, 26], 32: [0.88, 14], 48: [0.74, 8], 96: [0.72, 0], 480: [0.72, 0] };
+const ZOOM = { 16: [0.94, 26], 32: [0.88, 14], 48: [0.68, 8], 96: [0.6, 0], 480: [0.6, 0] };
 const OUTPUTS = [
   ...[16, 32, 48, 96, 480].flatMap((size) => [
     { name: `favicon-${size}x${size}-v3.png`, size, scheme: 'dark', zoom: ZOOM[size] },
     { name: `favicon-ljus-${size}x${size}.png`, size, scheme: 'light', zoom: ZOOM[size] },
   ]),
-  { name: 'apple-touch-icon.png', size: 180, scheme: 'dark', zoom: [0.72, 0] },
-  { name: 'icon-192.png', size: 192, scheme: 'dark', zoom: [0.72, 0] },
-  { name: 'icon-512.png', size: 512, scheme: 'dark', zoom: [0.72, 0] },
+  { name: 'apple-touch-icon.png', size: 180, scheme: 'dark', zoom: [0.6, 0] },
+  { name: 'icon-192.png', size: 192, scheme: 'dark', zoom: [0.6, 0] },
+  { name: 'icon-512.png', size: 512, scheme: 'dark', zoom: [0.6, 0] },
   // Android beskär maskable-ikoner till 80 %, så B:et måste hålla sig innanför.
   { name: 'icon-maskable-512.png', size: 512, scheme: 'dark', zoom: [0.54, 0] },
 ];
