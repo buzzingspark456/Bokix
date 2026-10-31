@@ -20,23 +20,33 @@
          från webbläsare), och de äldre 16/32px-varianterna längre ner är
          för små för att Google ska plocka upp dem i sökresultatet (skärm-
          dumpen visade bara en generisk jordglob istället för Bokix egen
-         logga). PNG ≥48px läggs därför FÖRST — Google använder den första
+         logga). PNG ≥48px (största först, skarp på alla ytor) läggs därför FÖRST — Google använder den första
          ikonen den faktiskt stödjer i listan, inte nödvändigtvis den
-         "bästa". "-v2"-suffixet på filnamnen är medvetet: samma innehåll
-         som de gamla (icke-v2) filerna, men ett nytt filnamn tvingar
+         "bästa". Google och Bing visar bara EN ikon per sajt och bryr sig
+         inte om ljust/mörkt läge, därför ligger den mörkgröna ikonen först
+         och utan media: den syns på både ljusa och mörka sökresultat.
+         Versionssuffixet på filnamnen är medvetet: ett nytt filnamn tvingar
          Googles favicon-cache att hämta om istället för att fortsätta
          servera en gammal, cachad ikon under samma URL. Kräver ändå ett
          manuellt "Begär indexering" i Search Console efter deploy — annars
          kan omcrawlningen ta veckor på egen hand. -->
-    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48-v2.png" />
-    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96-v2.png" />
-    <!-- Bing och Edge: .ico med 16, 32 och 48 px (scripts/make-favicon-ico.mjs),
-         samma fil ligger även som /favicon.ico i roten, som Bing hämtar.
-         Ingen SVG-länk: den ritade B:et som text i Georgia, och på datorer
-         utan Georgia blev bokstaven fel i Edge. PNG-ikonerna räcker. -->
-    <link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="/favicon-v3.ico" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="480x480" href="/favicon-480x480-v3.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48-v3.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96-v3.png" />
+    <!-- Bing och Edge: .ico med 16, 32 och 48 px (scripts/make-favicons.mjs),
+         samma fil ligger även som /favicon.ico i roten, som Bing hämtar. -->
+    <link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="/favicon-v4.ico" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16-v3.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32-v3.png" />
+    <!-- Webbläsarfliken följer ljust/mörkt läge: SVG:n byter färg själv, och
+         webbläsare utan SVG-ikoner tar PNG-filerna med media nedan. B:et är
+         en ritad form, inte text, så den beror inte på något typsnitt. -->
+    <link rel="icon" type="image/svg+xml" sizes="any" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-ljus-16x16.png" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-ljus-32x32.png" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-ljus-48x48.png" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-ljus-96x96.png" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" sizes="480x480" href="/favicon-ljus-480x480.png" media="(prefers-color-scheme: light)" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <!-- Bokix som app på hemskärmen (se /lagg-till-pa-hemskarmen): manifestet
          ger namn, ikon och helskärm på Android; taggarna nedan gör samma sak
