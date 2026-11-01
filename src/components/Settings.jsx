@@ -4048,7 +4048,7 @@ export default function Settings({
                       <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', flex: '1 1 300px', minWidth: 0, lineHeight: 1.55 }}>
                         {registryCompany
                           ? <>{tr('ui.uppgifterna_kommer_fran_bv')}{company?.registrySyncedAt ? ` ${tr('ui.senast_kontrollerat', { date: String(company.registrySyncedAt).slice(0, 10) })}` : ''}</>
-                          : <>{tr('ui.foretagets_registrerade_uppgifter_de_sparades_au')} <a href="mailto:support@bokix.se" style={{ color: BRAND.green }}>{tr('ui.support_bokix_se')}</a> {tr('ui.om_nagot_blivit_fel')}</>}
+                          : <>{tr('ui.foretagets_registrerade_uppgifter_de_sparades_au')} <a href="mailto:bokixab@gmail.com" style={{ color: BRAND.green }}>{tr('ui.support_bokix_se')}</a> {tr('ui.om_nagot_blivit_fel')}</>}
                       </div>
                       {registryCompany && !sharedAccess && (
                         <div style={{ flexShrink: 0 }}>

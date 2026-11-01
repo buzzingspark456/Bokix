@@ -53,7 +53,7 @@ function deleteLabelFromNow() {
  */
 export async function closeUfYear() {
   const ok = await confirmDialog(
-    `Kontot blir skrivskyddat direkt. Ni kan logga in och ladda ner allt till ${deleteLabelFromNow()}, sedan stängs kontot. Bokföringen och underlagen sparas ändå i sju år, som Skatteverket kräver, och kan begäras ut via support@bokix.se. Vill ni fortsätta med Bokix går det att betala när som helst innan dess.`,
+    `Kontot blir skrivskyddat direkt. Ni kan logga in och ladda ner allt till ${deleteLabelFromNow()}, sedan stängs kontot. Bokföringen och underlagen sparas ändå i sju år, som Skatteverket kräver, och kan begäras ut via bokixab@gmail.com. Vill ni fortsätta med Bokix går det att betala när som helst innan dess.`,
     { title: 'Avsluta UF-året?', confirmLabel: 'Avsluta UF-året', cancelLabel: 'Inte nu', danger: true },
   );
   if (!ok) return null;

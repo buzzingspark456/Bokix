@@ -94,7 +94,7 @@ export function buildUfClosingHtml({ stage, closeDate, siteUrl }) {
     <p>Hej,</p>
     ${intro}
     <p>Vill ni driva företaget vidare fortsätter ni med Bokix. Är ni klara kan ni logga in och ladda ner bokföringen fram till dess, till exempel som underlag för årsredovisningen hos Ung Företagsamhet.</p>
-    <p>Bokföringen och underlagen sparas i sju år även efter att kontot stängts, som Skatteverket kräver för UF-företag. Ni kan begära ut dem via support@bokix.se.</p>
+    <p>Bokföringen och underlagen sparas i sju år även efter att kontot stängts, som Skatteverket kräver för UF-företag. Ni kan begära ut dem via bokixab@gmail.com.</p>
     ${siteUrl ? emailButton(`${siteUrl}/`, 'Logga in och välj') : ''}
   `,
   });

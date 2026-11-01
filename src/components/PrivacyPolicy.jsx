@@ -8,7 +8,7 @@ import { INK } from './marketing/marketingTokens';
 // Bolagsidentitet (avsnitt 1) bekräftad av kunden: Bokix, Strömsörgatan
 // 19, Skellefteå. Org.nr medvetet UTELÄMNAT från denna publika,
 // sökmotorindexerade sida efter kundens önskemål — hänvisar till
-// support@bokix.se istället.
+// bokixab@gmail.com istället.
 //
 // Avsnitt 10 länkar till det fullständiga PUB-avtalet på /pub
 // (PersonuppgiftsBitradesAvtal.jsx) — samma "utkast, ej granskat"-status.
@@ -26,7 +26,7 @@ export default function PrivacyPolicy() {
     >
       <PolicySection n={1} title="Personuppgiftsansvarig" first>
         <p style={policyP}>
-          Bokix, Strömsörgatan 19, Skellefteå, är personuppgiftsansvarig för de personuppgifter som behandlas i tjänsten. Har du frågor om hur dina uppgifter hanteras, vill ha vårt organisationsnummer, eller vill utöva någon av dina rättigheter nedan, kontaktar du oss på <a href="mailto:support@bokix.se" style={link}>support@bokix.se</a>.
+          Bokix, Strömsörgatan 19, Skellefteå, är personuppgiftsansvarig för de personuppgifter som behandlas i tjänsten. Har du frågor om hur dina uppgifter hanteras, vill ha vårt organisationsnummer, eller vill utöva någon av dina rättigheter nedan, kontaktar du oss på <a href="mailto:bokixab@gmail.com" style={link}>bokixab@gmail.com</a>.
         </p>
         <p style={policyP}>
           Observera skillnaden mellan de två roller vi kan ha: för dina EGNA konto- och företagsuppgifter är vi personuppgiftsansvariga (se ovan). För de kund-, leverantörs- och anställduppgifter DU själv lägger in i din bokföring är DU personuppgiftsansvarig och Bokix är personuppgiftsbiträde åt dig — se avsnitt 11.
@@ -72,7 +72,7 @@ export default function PrivacyPolicy() {
           <li style={policyLi}><strong>Google Cloud Vision</strong> — läser texten på kvitton och underlag du laddar upp, både foton och PDF. Bara bilden eller filen skickas, behandlas inom EU och sparas inte hos Google. På webbplatsens gratisverktyg Skanna kvitto läses besökarens första kvitto på samma sätt; för att det ska ske en gång per besökare sparar vi en hashad (oläslig) form av IP-adressen i högst ett år, aldrig adressen i klartext. Efter det läses kvitton i besökarens egen webbläsare.</li>
           <li style={policyLi}><strong>Bolagsverket, FöretagsAPI och VIES</strong> — när du söker upp ett företag (ditt eget, en kund eller en leverantör) skickas organisationsnumret, momsnumret eller det namn du söker på dit för att hämta namn och adress ur offentliga register. Inget annat skickas.</li>
           <li style={policyLi}><strong>Zettle</strong> — <em>endast om du själv kopplar din Zettle-kassa</em>. Bokix hämtar då dina försäljningar därifrån för att bokföra dem. Du kan koppla från när du vill under Inställningar.</li>
-          <li style={policyLi}><strong>Trustpilot</strong> — ungefär en månad efter din första betalning för Bokix skickar vi ett mejl där Trustpilot får en kopia. Trustpilot får då din e-postadress och skickar dig en inbjudan att lämna ett omdöme. Det sker en gång per konto, du väljer själv om du vill svara, och vill du inte få inbjudan mejlar du <a href="mailto:support@bokix.se" style={link}>support@bokix.se</a>. Gäller inte dina kunder eller mottagare av fakturor du skickar.</li>
+          <li style={policyLi}><strong>Trustpilot</strong> — ungefär en månad efter din första betalning för Bokix skickar vi ett mejl där Trustpilot får en kopia. Trustpilot får då din e-postadress och skickar dig en inbjudan att lämna ett omdöme. Det sker en gång per konto, du väljer själv om du vill svara, och vill du inte få inbjudan mejlar du <a href="mailto:bokixab@gmail.com" style={link}>bokixab@gmail.com</a>. Gäller inte dina kunder eller mottagare av fakturor du skickar.</li>
           <li style={policyLi}><strong>Analysverktyg, bara med ditt samtycke</strong> — Google Analytics (Google), Microsoft Clarity (Microsoft) och PostHog mäter hur besökare använder Bokix och sätts först efter att du klickat "Acceptera alla" i cookiebannern. PostHog körs i EU-molnet (Frankfurt) och räknar sidvisningar och några få händelser, till exempel att ett kvitto laddats upp eller en faktura skickats. Ingen bokföringsdata, inga belopp, inga kunduppgifter och inga inmatningar skickas dit. Exakt vilka cookies som sätts står i <a href="/cookies" style={link}>cookiepolicyn</a>.</li>
           <li style={policyLi}><strong>Google</strong> — <em>endast om du själv väljer att koppla din Gmail-adress som avsändare</em> (Inställningar → Fakturautskick). Fakturan skickas då genom ditt eget Google-konto i stället för via Bokix. Se avsnitt 5 nedan för exakt vad det innebär.</li>
         </ul>
@@ -110,7 +110,7 @@ export default function PrivacyPolicy() {
           Själva lagringen av din bokföring — databasen och de filer du laddar upp — sker i Sverige, i Stockholm (se avsnitt 4). Kopplar du din egen Gmail-adress (avsnitt 5) hanteras det utskicket av Google, ett amerikanskt bolag, på samma villkor som övriga leverantörer nedan.
         </p>
         <p style={policyP}>
-          Flera av underleverantörerna i avsnitt 4 (bland annat Stripe, Resend, Vercel, Sentry, Google reCAPTCHA och analysverktygen) är amerikanska bolag och kan behandla uppgifter i, eller från, USA. När det sker gör vi det bara med ett giltigt överföringsverktyg på plats — till exempel att leverantören är ansluten till EU-U.S. Data Privacy Framework, eller att vi har standardavtalsklausuler (SCC) med dem — i enlighet med respektive leverantörs egna dataskyddsvillkor. Vill du se vilket verktyg som gäller för en specifik leverantör, kontakta oss på <a href="mailto:support@bokix.se" style={link}>support@bokix.se</a>.
+          Flera av underleverantörerna i avsnitt 4 (bland annat Stripe, Resend, Vercel, Sentry, Google reCAPTCHA och analysverktygen) är amerikanska bolag och kan behandla uppgifter i, eller från, USA. När det sker gör vi det bara med ett giltigt överföringsverktyg på plats — till exempel att leverantören är ansluten till EU-U.S. Data Privacy Framework, eller att vi har standardavtalsklausuler (SCC) med dem — i enlighet med respektive leverantörs egna dataskyddsvillkor. Vill du se vilket verktyg som gäller för en specifik leverantör, kontakta oss på <a href="mailto:bokixab@gmail.com" style={link}>bokixab@gmail.com</a>.
         </p>
       </PolicySection>
 
@@ -156,7 +156,7 @@ export default function PrivacyPolicy() {
 
       <PolicySection n={11} title="Personuppgiftsbiträdesavtal (PUB) för dig som företagskund">
         <p style={policyP}>
-          De kund-, leverantörs- och anställduppgifter du själv registrerar i din bokföring (t.ex. dina kunders namn/adress, eller dina anställdas personnummer och lön i lönemodulen) ägs och ansvaras för av DIG — du är personuppgiftsansvarig för dem. Bokix behandlar dem enbart på dina instruktioner, som personuppgiftsbiträde. Villkoren för det regleras i vårt <Link to="/pub" style={link}>personuppgiftsbiträdesavtal (PUB)</Link>, som gäller automatiskt för alla företagskunder från och med att du använder tjänsten. Har du frågor kring det, kontakta <a href="mailto:support@bokix.se" style={link}>support@bokix.se</a>.
+          De kund-, leverantörs- och anställduppgifter du själv registrerar i din bokföring (t.ex. dina kunders namn/adress, eller dina anställdas personnummer och lön i lönemodulen) ägs och ansvaras för av DIG — du är personuppgiftsansvarig för dem. Bokix behandlar dem enbart på dina instruktioner, som personuppgiftsbiträde. Villkoren för det regleras i vårt <Link to="/pub" style={link}>personuppgiftsbiträdesavtal (PUB)</Link>, som gäller automatiskt för alla företagskunder från och med att du använder tjänsten. Har du frågor kring det, kontakta <a href="mailto:bokixab@gmail.com" style={link}>bokixab@gmail.com</a>.
         </p>
       </PolicySection>
 

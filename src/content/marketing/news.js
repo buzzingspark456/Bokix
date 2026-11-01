@@ -80,7 +80,7 @@ export const NEWS_POSTS = [
 
       { t: 'h2', x: 'Arkivet sparas innan något raderas' },
       { t: 'p', x: 'Tömmer eller tar du bort ett företag sparar Bokix först en kopia av bokföringen och underlagen. Går det inte stoppas raderingen.' },
-      { t: 'p', x: 'Kopian ligger i en privat lagring inom EU. Du får ut den via support@bokix.se.' },
+      { t: 'p', x: 'Kopian ligger i en privat lagring inom EU. Du får ut den via bokixab@gmail.com.' },
 
       { t: 'h2', x: 'Bara det lagen kräver' },
       { t: 'p', x: 'Arkivet innehåller det som är bokfört: verifikationer, skickade fakturor, kvitton, löner, bankrader och deklarationer.' },

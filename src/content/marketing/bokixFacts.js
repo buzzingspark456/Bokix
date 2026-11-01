@@ -20,7 +20,7 @@ export const BOKIX_FACTS = [
   { title: 'Bindningstid', body: 'Ingen på månadsplanen. Årsplanen gäller i minst tre månader.' },
   { title: 'Språk', body: 'Appen finns på svenska och engelska.' },
   { title: 'Data', body: 'Lagras i Sverige, i Stockholm. Bokföringen sparas i sju år och kan alltid exporteras som SIE4.' },
-  { title: 'Support', body: 'Ingår i priset. support@bokix.se.' },
+  { title: 'Support', body: 'Ingår i priset. bokixab@gmail.com.' },
   { title: 'Företaget', body: 'Svenskt, drivs av två personer. Webbplats: www.bokix.se.' },
   { title: 'Omdömen', body: 'På Trustpilot: se.trustpilot.com/review/bokix.se.' },
 ];

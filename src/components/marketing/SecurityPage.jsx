@@ -149,7 +149,7 @@ export default function SecurityPage() {
         <PointList items={PRACTICES} />
       </KitSection>
 
-      <KitCta title="Hittat något som ser fel ut?" lead={<>Mejla <a href="mailto:support@bokix.se" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>support@bokix.se</a> med stegen för att återskapa det. Vi svarar på varje rapport. Kontaktvägen finns också i <a href="/security.txt" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>security.txt</a>.</>}>
+      <KitCta title="Hittat något som ser fel ut?" lead={<>Mejla <a href="mailto:bokixab@gmail.com" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>bokixab@gmail.com</a> med stegen för att återskapa det. Vi svarar på varje rapport. Kontaktvägen finns också i <a href="/security.txt" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>security.txt</a>.</>}>
         <PrimaryButton onClick={enterApp}>Prova gratis</PrimaryButton>
         <GhostLink to="/pub">PUB-avtal</GhostLink>
       </KitCta>

@@ -42,7 +42,7 @@ function getEmailFrom() {
   return process.env.EMAIL_FROM || 'Bokix <onboarding@resend.dev>';
 }
 function getContactInbox() {
-  return process.env.CONTACT_INBOX || 'support@bokix.se';
+  return process.env.CONTACT_INBOX || 'bokixab@gmail.com';
 }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // 'Felrapport' — den inloggade appens "Rapportera fel" (App.jsx), inte
@@ -206,7 +206,7 @@ async function handleBooking(req, res, body) {
   const resendApiKey = getResendApiKey();
   if (!resendApiKey) {
     if (saved) { res.status(200).json({ id: saved }); return; }
-    res.status(503).json({ error: 'Bokningen kunde inte tas emot just nu. Mejla support@bokix.se.' });
+    res.status(503).json({ error: 'Bokningen kunde inte tas emot just nu. Mejla bokixab@gmail.com.' });
     return;
   }
 
@@ -221,7 +221,7 @@ async function handleBooking(req, res, body) {
     console.error('Resend API error (booking):', inbox.data);
     await logSystemEvent('contact_email_failed', inbox.data?.message || `Resend svarade ${inbox.status}`);
     if (!saved) {
-      res.status(502).json({ error: 'Bokningen kunde inte tas emot just nu. Mejla support@bokix.se.' });
+      res.status(502).json({ error: 'Bokningen kunde inte tas emot just nu. Mejla bokixab@gmail.com.' });
       return;
     }
   } else if (saved) {

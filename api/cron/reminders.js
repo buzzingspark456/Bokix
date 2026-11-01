@@ -393,7 +393,7 @@ async function handler(req, res) {
                 // till Bokix. Samma reply_to som fakturautskicket självt
                 // redan sätter (Invoices.jsx → api/email/send-invoice.js).
                 // Blev skarpt när systemavsändaren byttes från en
-                // noreply-adress till support@bokix.se: utan det här
+                // noreply-adress till bokixab@gmail.com: utan det här
                 // hamnar kundens "jag har redan betalat" i Bokix
                 // supportinkorg i stället för hos den som fakturerat.
                 // Bara när företaget har en e-postadress ifylld — Resend

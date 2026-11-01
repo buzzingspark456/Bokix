@@ -172,7 +172,7 @@ export default function ContactPage() {
 
                 {status === 'error' && (
                   <p role="alert" style={{ fontSize: '14px', color: BRAND.redText, margin: '0 0 18px', lineHeight: 1.55 }}>
-                    {errorMsg} Du kan också mejla <a className="ct-a" href="mailto:support@bokix.se">support@bokix.se</a>.
+                    {errorMsg} Du kan också mejla <a className="ct-a" href="mailto:bokixab@gmail.com">bokixab@gmail.com</a>.
                   </p>
                 )}
 
@@ -194,7 +194,7 @@ export default function ContactPage() {
               </form>
             )}
             <p style={{ fontSize: '14.5px', color: INK_SOFT, margin: '32px 0 0', paddingTop: '22px', borderTop: '1px solid var(--mkt-border-soft)' }}>
-              Du kan också mejla <a className="ct-a" href="mailto:support@bokix.se">support@bokix.se</a>.
+              Du kan också mejla <a className="ct-a" href="mailto:bokixab@gmail.com">bokixab@gmail.com</a>.
             </p>
           </div>
         </div>

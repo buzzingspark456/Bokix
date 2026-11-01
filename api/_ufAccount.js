@@ -89,7 +89,7 @@ export async function closeUfAccount(admin, user, { now = new Date() } = {}) {
   if (hasNonUfBookkeeping(states.blob) || hasNonUfBookkeeping(states.tables)) {
     return {
       status: 409,
-      body: { error: 'Kontot har också ett vanligt företag med bokföring, så det kan inte stängas med UF-året. Hör av er till support@bokix.se.' },
+      body: { error: 'Kontot har också ett vanligt företag med bokföring, så det kan inte stängas med UF-året. Hör av er till bokixab@gmail.com.' },
     };
   }
 

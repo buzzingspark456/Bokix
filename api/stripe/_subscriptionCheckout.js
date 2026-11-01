@@ -369,13 +369,13 @@ export default async function handler(req, res) {
     // Bara svenska företag (2026-10-28): ett påhittat eller utländskt nummer
     // får ingen prenumeration. UF-konton har inget org.nr och berörs inte.
     if (account?.orgNr && !isValidSwedishOrgNr(account.orgNr)) {
-      res.status(400).json({ error: 'Organisationsnumret är inte ett giltigt svenskt nummer. Bokix är för svenska företag. Kontakta support@bokix.se om något är fel.' });
+      res.status(400).json({ error: 'Organisationsnumret är inte ett giltigt svenskt nummer. Bokix är för svenska företag. Kontakta bokixab@gmail.com om något är fel.' });
       return;
     }
     // Lägg till företag: företaget måste ha ett nummer och finnas på riktigt.
     if (body.company_id && account?.companyFound && !account.isUf) {
       if (!account.orgNr) {
-        res.status(400).json({ error: 'Företaget saknar organisationsnummer. Kontakta support@bokix.se.' });
+        res.status(400).json({ error: 'Företaget saknar organisationsnummer. Kontakta bokixab@gmail.com.' });
         return;
       }
       const registry = await checkCompanyInRegistry(account.orgNr);

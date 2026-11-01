@@ -29,8 +29,8 @@ export async function registryPatch(company, { configured = isBolagsverketConfig
  * registreringen, för någon företagsform. */
 export function companyWriteError(current, next) {
   if (!current?.orgNr) return null;
-  if (orgDigits(next?.orgNr) !== orgDigits(current.orgNr)) return 'Organisationsnumret är låst efter registreringen. Kontakta support@bokix.se för att ändra det.';
-  if (next?.name !== current.name) return 'Företagsnamnet är låst efter registreringen. Kontakta support@bokix.se för att ändra det.';
+  if (orgDigits(next?.orgNr) !== orgDigits(current.orgNr)) return 'Organisationsnumret är låst efter registreringen. Kontakta bokixab@gmail.com för att ändra det.';
+  if (next?.name !== current.name) return 'Företagsnamnet är låst efter registreringen. Kontakta bokixab@gmail.com för att ändra det.';
   return null;
 }
 

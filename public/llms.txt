@@ -83,7 +83,7 @@ Senast uppdaterad: {{DATUM}}
 - [Bokix på hemskärmen](https://www.bokix.se/lagg-till-pa-hemskarmen): så lägger man Bokix som en app på hemskärmen på iPhone (Safari) och Android (Chrome), steg för steg
 - [Bokix i korthet](https://www.bokix.se/bokix-i-korthet): fakta om Bokix på en sida, vad som ingår och vad det inte passar för
 - [Om oss](https://www.bokix.se/om-oss): varför Bokix finns, vad vi bryr oss om, vad Bokix inte gör och kort fakta om företaget
-- [Kontakt](https://www.bokix.se/kontakt): kontaktformulär, support@bokix.se
+- [Kontakt](https://www.bokix.se/kontakt): kontaktformulär, bokixab@gmail.com
 - [Boka en genomgång](https://www.bokix.se/boka-genomgang): boka en personlig genomgång av Bokix
 
 ## Vanliga frågor
@@ -109,5 +109,5 @@ Samma fyra dokument som ligger i sidfoten på varje sida:
 
 ## Kontakt
 
-E-post: support@bokix.se
+E-post: bokixab@gmail.com
 Omdömen: https://se.trustpilot.com/review/bokix.se

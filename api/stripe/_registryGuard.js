@@ -15,7 +15,7 @@ export async function checkCompanyInRegistry(orgNr, { configured = isBolagsverke
   if (!digits || isSoleTraderNumber(digits) || !configured()) return { ok: true };
   try {
     const [company] = await lookup(digits);
-    if (!company) return { ok: false, error: 'Företaget finns inte hos Bolagsverket. Kontakta support@bokix.se om något är fel.' };
+    if (!company) return { ok: false, error: 'Företaget finns inte hos Bolagsverket. Kontakta bokixab@gmail.com om något är fel.' };
     if (company.active === false) return { ok: false, error: 'Företaget är avregistrerat hos Bolagsverket och kan inte läggas till.' };
     return { ok: true };
   } catch (err) {

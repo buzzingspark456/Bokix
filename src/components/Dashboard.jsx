@@ -1160,7 +1160,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px 16px', marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--bg-cream-border)' }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px' }}>
                   <a
-                    href="mailto:support@bokix.se?subject=Support%20-%20Bokix"
+                    href="mailto:bokixab@gmail.com?subject=Support%20-%20Bokix"
                     style={ONBOARD_FOOTER_LINK_STYLE}
                     onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
                     onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
@@ -1168,7 +1168,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                     <MessageSquare size={13} /> {t('dashboard.onboarding.contactSupport')}
                   </a>
                   <a
-                    href="mailto:support@bokix.se?subject=Felrapport%20-%20Bokix"
+                    href="mailto:bokixab@gmail.com?subject=Felrapport%20-%20Bokix"
                     style={ONBOARD_FOOTER_LINK_STYLE}
                     onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}
                     onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}

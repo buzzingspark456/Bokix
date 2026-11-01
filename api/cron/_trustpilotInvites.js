@@ -60,7 +60,7 @@ export async function processDueTrustpilotInvites(admin, {
         from: fallbackSenderAddress(),
         to: [row.customer_email],
         bcc: [bccAddress],
-        reply_to: process.env.CONTACT_INBOX || 'support@bokix.se',
+        reply_to: process.env.CONTACT_INBOX || 'bokixab@gmail.com',
         subject: 'Hur har du upplevt Bokix?',
         html: '<p>Hej!</p><p>Nu har du använt Bokix i ungefär en månad. Tack för det!</p><p>Om en liten stund får du ett mejl från Trustpilot med en länk där du kan lämna ett omdöme om Bokix. Det tar en minut, och vi vill gärna höra hur det faktiskt har gått, både det som fungerar och det som kan bli bättre.</p><p>Vill du hellre säga något direkt till oss räcker det att svara på det här mejlet.</p><p>Vänliga hälsningar,<br>Bokix</p>',
       }, { idempotencyKey: `trustpilot-invite-${row.id}` });
