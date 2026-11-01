@@ -92,6 +92,13 @@ export async function resolveSenderAddress(company) {
   return { from: fallback, usingCustomDomain: false };
 }
 
+// Mejl från Bokix egna adress: svar ska komma fram även när adressen inte tar
+// emot mejl. Företagens egna domäner och angivna svarsadresser rörs inte.
+function withBokixReplyTo(payload) {
+  if (payload.reply_to || !/@bokix.se>?s*$/i.test(String(payload.from || ''))) return payload;
+  return { ...payload, reply_to: process.env.CONTACT_INBOX || 'bokixab@gmail.com' };
+}
+
 export async function sendViaResend(payload, { idempotencyKey } = {}) {
   const resendRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -100,7 +107,7 @@ export async function sendViaResend(payload, { idempotencyKey } = {}) {
       'Content-Type': 'application/json',
       ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(withBokixReplyTo(payload)),
   });
   const data = await resendRes.json().catch(() => ({}));
   return { ok: resendRes.ok, status: resendRes.status, data };
