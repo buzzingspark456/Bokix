@@ -23,6 +23,8 @@ const PATTERNS = [
   [/email not confirmed/i, () => 'E-postadressen är inte bekräftad än — kolla inkorgen efter bekräftelsemailet.'],
   [/email rate limit exceeded/i, () => 'För många e-postutskick till den adressen just nu. Försök igen om en stund.'],
   [/password should be at least/i, () => 'Lösenordet är för kort.'],
+  [/different from the old password/i, () => 'Det nya lösenordet måste skilja sig från det gamla.'],
+  [/auth session missing/i, () => 'Länken har gått ut. Gå till inloggningen och välj Glömt lösenord igen.'],
   // Turnstile (Supabase Attack Protection): token saknas, är förbrukad
   // eller underkänd.
   [/captcha/i, () => 'Kunde inte verifiera att du inte är en robot. Ladda om sidan och försök igen. Har du en annonsblockerare, pausa den för bokix.se.'],

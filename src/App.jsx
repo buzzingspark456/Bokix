@@ -424,7 +424,8 @@ import OnboardingFlow from './components/OnboardingFlow';
 import VatPeriodPrompt, { needsCompanyFactsAnswer } from './components/VatPeriodPrompt';
 import { isVatExempt, stripVatRows } from './utils/vatRegistration';
 import { supabase } from './supabaseClient';
-import { isStandaloneApp } from './utils/authStorage';
+import { isStandaloneApp, isPasswordRecovery, clearPasswordRecovery } from './utils/authStorage';
+import { translateSupabaseAuthError } from './utils/translateAuthError';
 import { isInactiveTooLong, markActive, clearActive, appLockEnabledFor, setAppLock, APP_LOCK_AFTER_MS, passkeysAvailable, rememberPasskeyOnDevice } from './utils/sessionPolicy';
 import AppLock from './components/AppLock';
 import { detectDevice } from './utils/deviceInfo';
@@ -1343,7 +1344,7 @@ function App() {
   // PasswordRecoveryScreen ovan) — tills användaren faktiskt satt ett nytt
   // lösenord. Samma gate-mönster som mfaChallenge ovan, kollas FÖRE
   // !isLoggedIn-grenen i renderingen av samma skäl.
-  const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [passwordRecovery, setPasswordRecovery] = useState(isPasswordRecovery);
   // Fångas EN gång vid första renderingen — innan den andra useEffect-hooken
   // längre ner (?subscription_checkout=success-toasten) hinner städa bort
   // parametern ur URL:en. fetchUserData körs asynkront (efter getSession()-
@@ -2418,9 +2419,18 @@ function App() {
 
     supabase.auth.getSession()
       .then(async ({ data: { session } }) => {
+        // Återställningslänk (authStorage.js). Utan session gick länken inte
+        // att använda, och då ska rutan för nytt lösenord inte visas.
+        const recovering = isPasswordRecovery();
+        if (recovering && !session?.user) {
+          clearPasswordRecovery();
+          setPasswordRecovery(false);
+        }
         // Oanvänd i mer än INACTIVE_DAYS dagar (sessionPolicy.js): logga ut
-        // och visa inloggningen, som om man loggat ut själv.
-        if (session?.user && isInactiveTooLong()) {
+        // och visa inloggningen, som om man loggat ut själv. Inte för den som
+        // just kommit via en återställningslänk: då tas sessionen bort under
+        // rutan och bytet ger "Auth session missing".
+        if (session?.user && !recovering && isInactiveTooLong()) {
           await supabase.auth.signOut();
           clearLocalData();
           clearTimeout(loadingTimeout);
@@ -2441,13 +2451,10 @@ function App() {
         // subscriptionGate='blocked' INNAN passwordRecovery ens hunnit bli
         // sant, och render-ordningen (se ternary-kedjan längre ner) räckte
         // inte ensam: state:t fastnade på "blocked" permanent eftersom
-        // inget senare någonsin nollställer det. Samma hash-baserade
-        // detektering som AppRouter.jsx:s shouldLoadAppImmediately redan
-        // använder — om länken är en återställningslänk, hoppa över
-        // fetchUserData HELT här och lita på PASSWORD_RECOVERY-eventet
-        // nedan istället.
-        const isPasswordRecoveryUrl = /type=recovery/.test(window.location.hash || '');
-        if (isPasswordRecoveryUrl) {
+        // inget senare någonsin nollställer det. Om länken är en
+        // återställningslänk, hoppa över fetchUserData HELT här. Adressen är
+        // redan tömd av Supabase, så det avgörs av det authStorage.js minns.
+        if (recovering) {
           clearTimeout(loadingTimeout);
           setIsLoadingAuth(false);
         } else if (session?.user) {
@@ -2482,6 +2489,8 @@ function App() {
         setIsLoggedIn(false);
         setShowOnboarding(false);
         setSubscriptionGate(null);
+        clearPasswordRecovery();
+        setPasswordRecovery(false);
       } else if (event === 'PASSWORD_RECOVERY') {
         // Klickad återställningslänk (Auth.jsx: "Glömt lösenord?") —
         // Supabase loggar in med en TILLFÄLLIG session från själva länken,
@@ -2498,8 +2507,8 @@ function App() {
         // PASSWORD_RECOVERY-grenens redan satta passwordRecovery=true,
         // exakt samma "hamnar på betalningsspärren istället för
         // återställningsformuläret"-bugg som mount-effektens getSession()
-        // ovan redan skyddas mot. Samma hash-kontroll här.
-        if (/type=recovery/.test(window.location.hash || '')) return;
+        // ovan redan skyddas mot. Samma kontroll här.
+        if (isPasswordRecovery()) return;
         // Se loadedUserIdRef-kommentaren ovan: den här fliken har redan en
         // annan (eller ingen) användare inläst sedan tidigare. Skiljer
         // mellan "första inloggningen i den här fliken" (loadedUserIdRef
@@ -3048,7 +3057,8 @@ function App() {
   // som handleMfaVerify.
   const handleSetNewPassword = async (password) => {
     const { error } = await supabase.auth.updateUser({ password });
-    if (error) throw error;
+    if (error) throw new Error(translateSupabaseAuthError(error.message));
+    clearPasswordRecovery();
     // Samma isLoadingAuth-brygga som handleMfaVerify använder: utan den
     // hinner ett kort ögonblick (passwordRecovery redan false, isLoggedIn
     // fortfarande false) falla igenom till !isLoggedIn-grenen och blinka
@@ -3061,6 +3071,7 @@ function App() {
   const handlePasswordRecoveryCancel = async () => {
     await supabase.auth.signOut();
     clearLocalData();
+    clearPasswordRecovery();
     setPasswordRecovery(false);
     setIsLoggedIn(false);
   };
