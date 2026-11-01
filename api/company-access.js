@@ -7,7 +7,7 @@ import { memberCompanyView, redactCompany, mergeMemberCompanyWrite, pinServerCon
 import { createClient } from '@supabase/supabase-js';
 import { gzipSync } from 'zlib';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
-import { mergeField, applyRecordPatch, makeRecordPatch, renumberVerificationCollisions } from '../src/utils/stateMerge.js';
+import { mergeField, applyRecordPatch, makeRecordPatch, renumberVerificationCollisions, keepCompanyId } from '../src/utils/stateMerge.js';
 import { isBolagsverketConfigured, lookupOrgNumber, BolagsverketError } from './_bolagsverket.js';
 import { withSentry } from './_sentry.js';
 import { readOwnerCompany, readOwnerCompanies, readOwnerState, tablesModeIds, storageModeOf } from './_companyStore.js';
@@ -720,7 +720,7 @@ async function handler(req, res) {
         return;
       }
       // Stripe-konto och Zettle-nycklar sätts bara av servern (_memberView.js).
-      if (field === 'company') value = pinServerConnections(ownerCompanyData, value);
+      if (field === 'company') value = keepCompanyId(ownerCompanyData?.company, pinServerConnections(ownerCompanyData?.company, value));
     } else {
       const member = await loadMemberCompany(user.id, companyId, res);
       if (!member) return;

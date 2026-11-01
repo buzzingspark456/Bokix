@@ -214,6 +214,13 @@ function fieldOps(path, base, local) {
 
 const isPlainObject = (v) => v && typeof v === 'object' && !Array.isArray(v);
 
+// Företagets id får aldrig sparas bort: inbjudningar pekar på det, och utan det
+// nekas inbjudna åtkomst (hände grundarens företag i oktober 2026).
+export function keepCompanyId(base, local) {
+  if (!isPlainObject(local) || local.id || !base?.id) return local;
+  return { ...local, id: base.id };
+}
+
 export function buildStateDelta(baseSnapshot, baseCompanies, snapshot, companies) {
   if (!isPlainObject(baseCompanies) || !isPlainObject(companies)) return null;
   const ops = [];
@@ -234,7 +241,7 @@ export function buildStateDelta(baseSnapshot, baseCompanies, snapshot, companies
     if (base === local) continue;
     if (!isPlainObject(base) || !isPlainObject(local)) { ops.push({ op: 'set', path: ['companies', id], value: local }); continue; }
     for (const key of new Set([...Object.keys(base), ...Object.keys(local)])) {
-      ops.push(...fieldOps(['companies', id, key], base[key], local[key]));
+      ops.push(...fieldOps(['companies', id, key], base[key], key === 'company' ? keepCompanyId(base[key], local[key]) : local[key]));
     }
   }
   for (const id of Object.keys(baseCompanies)) {

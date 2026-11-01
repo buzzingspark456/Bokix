@@ -7,7 +7,7 @@ import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { applySecurityHeaders } from '../_security.js';
 import { logSystemEvent } from '../_systemEvents.js';
-import { checkCompanyCopy } from '../_companyCopy.js';
+import { checkCompanyCopy, checkCompanyLinks } from '../_companyCopy.js';
 import { withSentry } from '../_sentry.js';
 
 // Under Vercels gräns (maxDuration 300 s i vercel.json), med marginal.
@@ -37,7 +37,15 @@ async function handler(req, res) {
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
     const summary = await checkCompanyCopy(admin, { deadline: Date.now() + TIME_BUDGET_MS });
     if (summary.alert) await logSystemEvent('company_mismatch', summary.detail);
-    res.status(200).json(summary);
+    // Egen kontroll: den ska larma även om jämförelsen ovan inte hittar något.
+    const links = await checkCompanyLinks(admin);
+    if (links.detail) await logSystemEvent('company_link_broken', links.detail);
+    // Databasens skydd (private.keep_company_id) stoppade en sparning som hade
+    // tagit bort många fält. Inget gick förlorat, men något skrev fel.
+    const { data: kept } = await admin.from('system_events').select('detail').eq('kind', 'company_settings_kept')
+      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()).limit(5);
+    if (kept?.length) await logSystemEvent('company_link_broken', kept.map(e => e.detail).join('\n'));
+    res.status(200).json({ ...summary, missingIds: links.missingIds.length, brokenInvites: links.brokenInvites.length });
   } catch (error) {
     console.error('Company copy check error:', error);
     await logSystemEvent('company_mismatch', `Kontrollen kunde inte köras: ${error?.message || error}`);

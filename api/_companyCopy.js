@@ -34,6 +34,48 @@ async function writeProgress(admin, value) {
 }
 
 /**
+ * Företag utan id, och aktiva inbjudningar som pekar på ett företag som inte
+ * finns. Båda betyder att en inbjuden inte kommer in, så det ska larma innan
+ * en kund märker det. Ger { missingIds, brokenInvites, detail }; detail är
+ * null när allt stämmer.
+ */
+export async function checkCompanyLinks(admin) {
+  const { data: withoutId, error: idError } = await admin
+    .from('companies').select('owner_user_id, legacy_key')
+    .is('deleted_at', null).is('legacy_company_id', null).limit(50);
+  if (idError) throw new Error(`companies: ${idError.message}`);
+
+  const { data: invites, error: inviteError } = await admin
+    .from('company_members').select('owner_user_id, company_id').eq('status', 'active').limit(5000);
+  if (inviteError) throw new Error(`company_members: ${inviteError.message}`);
+
+  const owners = [...new Set((invites || []).map(i => i.owner_user_id))];
+  const known = new Set();
+  for (let i = 0; i < owners.length; i += PAGE) {
+    const { data, error } = await admin
+      .from('companies').select('owner_user_id, legacy_key, legacy_company_id')
+      .is('deleted_at', null).in('owner_user_id', owners.slice(i, i + PAGE));
+    if (error) throw new Error(`companies: ${error.message}`);
+    for (const c of data || []) {
+      known.add(`${c.owner_user_id}/${c.legacy_key}`);
+      if (c.legacy_company_id) known.add(`${c.owner_user_id}/${c.legacy_company_id}`);
+    }
+  }
+  const brokenInvites = (invites || []).filter(i => !known.has(`${i.owner_user_id}/${i.company_id}`));
+  const missingIds = withoutId || [];
+  if (!missingIds.length && !brokenInvites.length) return { missingIds, brokenInvites, detail: null };
+
+  const line = (list, key) => list.slice(0, 5).map(r => `${r.owner_user_id}/${r[key]}`).join('; ');
+  return {
+    missingIds,
+    brokenInvites,
+    detail: `${missingIds.length} företag saknar id${missingIds.length ? ` (${line(missingIds, 'legacy_key')})` : ''}. `
+      + `${brokenInvites.length} aktiva inbjudningar pekar på ett företag som inte hittas${brokenInvites.length ? ` (${line(brokenInvites, 'company_id')})` : ''}. `
+      + 'De inbjudna kommer inte in förrän det är rättat.',
+  };
+}
+
+/**
  * Går igenom kontona till deadline. Ger en sammanfattning med detail och
  * alert (se ovan), eller { skipped: true } om SQL:en saknas.
  */

@@ -74,10 +74,12 @@ test.describe('Begär återställning (Auth.jsx, mockat nätverk)', () => {
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const canRunLiveTest = Boolean(supabaseUrl && serviceRoleKey);
+// Lokala .env pekar på produktionen: testet skapar ett riktigt konto där och
+// Supabase skickar ett riktigt mejl. Körs därför bara med E2E_LIVE=1.
+const canRunLiveTest = Boolean(process.env.E2E_LIVE === '1' && supabaseUrl && serviceRoleKey);
 
 test.describe('Återställningslänken fungerar på riktigt (mot Supabase)', () => {
-  test.skip(!canRunLiveTest, 'Kräver SUPABASE_SERVICE_ROLE_KEY lokalt — se filkommentaren.');
+  test.skip(!canRunLiveTest, 'Går mot produktionen, körs bara med E2E_LIVE=1 — se filkommentaren.');
 
   test.beforeEach(async ({ context }) => {
     await context.addCookies([{

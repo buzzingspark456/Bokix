@@ -120,5 +120,7 @@ export function mergeMemberCompanyWrite(current, incoming) {
     out.name = base.name;
     out.orgNr = base.orgNr;
   }
+  // Inbjudningar pekar på id:t: en medlem får aldrig ändra eller ta bort det.
+  if (base.id) out.id = base.id;
   return out;
 }

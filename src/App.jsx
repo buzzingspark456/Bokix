@@ -1918,7 +1918,10 @@ function App() {
       try {
         const got = await fetchSharedCompanyWithRetry(m.company_id, accessToken);
         if (!got.ok) {
-          if (![403, 404].includes(got.status)) results[m.company_id] = stubFor(m);
+          // Inbjudan är aktiv (raden ovan), så ett nej här betyder att företaget
+          // inte gick att läsa. Då ska den inbjudna få felsidan med Logga ut,
+          // aldrig betalsidan. Har åtkomsten återkallats kommer raden inte med.
+          results[m.company_id] = stubFor(m);
           return;
         }
         const json = got.json;
