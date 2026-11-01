@@ -249,3 +249,22 @@ export function buildStateDelta(baseSnapshot, baseCompanies, snapshot, companies
   }
   return ops;
 }
+
+const isEmptyField = (v) => v == null || (Array.isArray(v) && v.length === 0);
+
+/** Vilka fält av ett delat företag ska sparas? En ny inläsning ger nya objekt
+ * med samma innehåll, och de ska inte skickas igen (same: uppdatera bara
+ * referensen). Fält användaren inte får skriva tas inte med alls: servern
+ * nekar dem ändå, och de hade försökts om vid varje sparning. */
+export function sharedFieldsToSave(last, current, fields, canWrite) {
+  const same = [];
+  const changed = [];
+  for (const field of fields) {
+    const before = last[field];
+    const now = current[field];
+    if (now === before) continue;
+    if ((isEmptyField(before) && isEmptyField(now)) || JSON.stringify(before) === JSON.stringify(now)) same.push(field);
+    else if (canWrite(field)) changed.push(field);
+  }
+  return { same, changed };
+}

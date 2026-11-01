@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import useFitLevel from './utils/useFitLevel';
-import { visiblePages, accessForPage } from './utils/pageAccess';
+import { visiblePages, accessForPage, canWriteField } from './utils/pageAccess';
 import { STRIPE_BALANCE_ACCOUNT } from './utils/stripeLedger';
 import { isUfCompany, ufPageState, ufInvoiceQuota, ufFreePeriod, UF_NAV_IDS, UF_HIDDEN_REPORT_IDS } from './utils/ufMode';
 import { t as tr, useTranslation } from './i18n';
@@ -443,7 +443,7 @@ import UfLockedPage from './components/UfLockedPage';
 import AddCompanyModal from './components/AddCompanyModal';
 import { maybeAutoStartTour, startProductTourWhenReady } from './utils/productTour';
 import { startInvoiceTourWhenReady } from './utils/invoiceTour';
-import { mergeCompanies, mergeCompany, makeRecordPatch, buildStateDelta } from './utils/stateMerge';
+import { mergeCompanies, mergeCompany, makeRecordPatch, buildStateDelta, sharedFieldsToSave } from './utils/stateMerge';
 import { readServerState, rememberServerState, isCacheUsable, noteCachedAt, clearServerState } from './utils/serverStateCache';
 import { shadowReadDue, scheduleShadowRead } from './utils/shadowRead';
 import { loadFromTables, saveToTables } from './utils/tableStore';
@@ -1984,6 +1984,7 @@ function App() {
   // databasen gav upp (2026-10-27). Nu väntar en ny körning på den pågående
   // och sparar sedan det senaste läget, en gång.
   const persistingSharedRef = useRef(new Map());
+  const sharedSaveToastRef = useRef(0);
   const persistSharedCompanyFields = async (companyId, companyData) => {
     const running = persistingSharedRef.current;
     if (running.has(companyId)) { running.set(companyId, companyData); return; }
@@ -2019,9 +2020,12 @@ function App() {
     if (!accessToken) return;
 
     const last = lastPersistedSharedFieldsRef.current[companyId];
-    const changedFields = SHARED_COMPANY_WRITABLE_FIELDS.filter(f => companyData[f] !== last[f]);
+    const { pageAccess, role } = companyData.__shared;
+    const { same, changed: changedFields } = sharedFieldsToSave(last, companyData, SHARED_COMPANY_WRITABLE_FIELDS, f => canWriteField(pageAccess, f, role));
+    for (const f of same) last[f] = companyData[f];
     if (changedFields.length === 0) return;
 
+    let failed = false;
     for (const field of changedFields) {
       // Listor (verifikationer, kvitton …): bara de poster som ändrats, så att
       // anropet inte växer med hela historiken. Annars hela värdet + base.
@@ -2041,12 +2045,21 @@ function App() {
           // Sparas inte in i "last" — försöks igen nästa gång effekten körs,
           // istället för att tyst ge upp på ett fält som faktiskt inte gick
           // igenom (t.ex. rollen nedgraderades till viewer mitt i sessionen).
+          failed = true;
+          // Inloggningen gäller inte längre: resten av fälten nekas likadant.
+          if (res.status === 401) break;
           continue;
         }
         lastPersistedSharedFieldsRef.current[companyId] = { ...lastPersistedSharedFieldsRef.current[companyId], [field]: companyData[field] };
       } catch (err) {
         console.error(`Nätverksfel vid sparning av ${field} för delat företag ${companyId}:`, err);
+        failed = true;
       }
+    }
+    // Ändringen finns bara på skärmen tills den sparats, så det ska synas.
+    if (failed && Date.now() - sharedSaveToastRef.current > 60000) {
+      sharedSaveToastRef.current = Date.now();
+      setToast({ message: tr('ui.kunde_inte_spara_andringarna_forsok_igen_om_en_s'), variant: 'error' });
     }
   };
 
