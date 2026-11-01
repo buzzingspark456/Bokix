@@ -6567,13 +6567,28 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .doc-split-paper { --doc-paper-h: calc(100dvh / var(--app-zoom, 1) - 206px); width: min(100%, calc(var(--doc-paper-h) * 0.7071)); min-width: 0; max-height: var(--doc-paper-h); margin-inline: auto; border-radius: 8px; overflow: hidden auto; scrollbar-width: none; box-shadow: 0 10px 30px rgba(15, 26, 19, 0.14); }
   .doc-split-paper .a4-paper { box-shadow: none; border-radius: 0; }
 }
-/* Låg laptop: hela A4-arket blir för litet att läsa. Pappret får full bredd och
-   det tomma utrymmet mellan innehållet och sidfoten tas bort, bara här. Utskrift,
-   PDF och Förstora är hela sidan. */
+/* Låg laptop: en hel A4 ryms bara om dokumentet får hela fönstrets höjd. Kolumnen
+   går därför upp till överkanten, rubrikraden och åtgärdsraden står över formuläret
+   och knapparna som ikoner bredvid pappret. */
 @media (min-width: 1280px) and (max-height: 860px) {
-  .doc-split-paper { width: 100%; }
-  .doc-split-paper .a4-paper { aspect-ratio: auto; padding-bottom: 12mm; }
-  .doc-split-paper .a4-paper > :last-child { margin-top: 28px !important; }
+  .main-wrapper:has(.doc-split:not(.is-closed)) { --doc-col: calc((100vw / var(--app-zoom, 1) - var(--sidebar-width)) * 0.48); }
+  .main-wrapper:has(.doc-split:not(.is-closed)) .mform-head,
+  .main-wrapper:has(.doc-split:not(.is-closed)) .quote-toolbar { padding-right: calc(var(--doc-col) + 24px) !important; }
+  .main-wrapper:has(.doc-split:not(.is-closed)) .quote-toolbar .tb-preview { display: none !important; }
+  .main-wrapper:has(.doc-split:not(.is-closed)) .mform-head { flex-wrap: nowrap !important; }
+  .main-wrapper:has(.doc-split:not(.is-closed)) .mform-title { flex-wrap: nowrap !important; min-width: 0; overflow: hidden; white-space: nowrap; }
+  .main-wrapper:has(.doc-split:not(.is-closed)) .mform-meta { display: none; }
+  .doc-split:not(.is-closed) { --doc-split-width: var(--doc-col); padding: 0; border-left: 0; background: none; }
+  .doc-split:not(.is-closed) .doc-split-inner { position: fixed; top: 0; right: 0; z-index: 11; width: var(--doc-col); height: calc(100dvh / var(--app-zoom, 1)); padding: 14px 16px; box-sizing: border-box; display: flex; justify-content: center; align-items: flex-start; gap: 10px; background: var(--bg-page); border-left: 1px solid var(--border-light); }
+  .doc-split-paper { --doc-paper-h: calc(100dvh / var(--app-zoom, 1) - 28px); width: min(calc(100% - 48px), calc(var(--doc-paper-h) * 0.7071)); flex: none; order: 1; margin-inline: 0; }
+  .doc-split-head { order: 2; margin: 0; flex: none; }
+  .doc-split-title { display: none; }
+  .doc-split-actions { flex-direction: column; margin-left: 0; }
+  .doc-split-group { flex-direction: column; height: auto; }
+  .doc-split-group button { justify-content: center; width: 36px; height: 36px; padding: 0; border-left: 0; border-top: 1px solid var(--border); }
+  .doc-split-group button:first-child { border-top: 0; }
+  .doc-split-group button span { display: none; }
+  .doc-split .doc-split-round { width: 38px; height: 34px; }
 }
 .record-nav { display: flex; gap: 6px; }
 .record-nav button { display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--bg-card); color: var(--text-main); cursor: pointer; transition: border-color 0.15s, color 0.15s; }
