@@ -633,7 +633,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
               </div>
             </div>
 
-            <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+            <div className="form-row-stack quote-address-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.adress_2')}</label>
                 <input type="text" style={inputStyle} value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} placeholder={t('ui.gatuadress_postnummer_ort')} />
@@ -644,7 +644,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
                   <input type="text" style={inputStyle} value={customerOrgNr} onChange={e => setCustomerOrgNr(e.target.value)} placeholder="556123-4567" />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.kundens_kontaktperson')}</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.kontaktperson')}</label>
                   <input type="text" style={inputStyle} value={customerContactPerson} onChange={e => setCustomerContactPerson(e.target.value)} placeholder={t('ui.anna_andersson')} />
                 </div>
               </div>
@@ -670,7 +670,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
                 )}
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.var_kontaktperson_referens')}</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.var_referens')}</label>
                 <input type="text" style={inputStyle} value={ourRef} onChange={e => setOurRef(e.target.value)} placeholder={t('ui.erik_eriksson')} />
               </div>
             </div>

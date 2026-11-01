@@ -6522,28 +6522,32 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .quote-toolbar.doc-toolbar .tb-send:disabled { background: var(--bg-muted) !important; border-color: var(--border) !important; color: var(--text-muted) !important; }
   .quote-toolbar.doc-toolbar > span { grid-column: 1 / -1; order: 7; }
 }
-/* Faktura och offert: dokumentet bredvid formuläret. Bredden följer fönstrets
-   höjd, så att hela A4-sidan syns utan att man behöver scrolla. */
+/* Faktura och offert: dokumentet bredvid formuläret. Bredden är en fast andel, så
+   att dokumentet går att läsa även på en låg laptop. Får sidan inte plats på
+   höjden rullas den inne i panelen. */
 .doc-split { display: none; }
 @media (min-width: 1280px) {
   .doc-split {
     display: block;
-    --doc-split-width: min(46%, calc((100dvh / var(--app-zoom, 1) - 196px) * 0.707 + 56px));
+    --doc-split-width: 48%;
     flex: 0 0 var(--doc-split-width);
     width: var(--doc-split-width);
     min-width: 0;
     background: var(--bg-page);
     border-left: 1px solid var(--border-light);
-    padding: 16px 28px;
+    padding: 16px 24px;
     box-sizing: border-box;
   }
-  .doc-split-inner { position: sticky; top: 16px; min-width: 0; }
+  .doc-split-inner { position: sticky; top: 16px; min-width: 0; container-type: inline-size; }
   .doc-split-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
-  .doc-split-actions { display: flex; align-items: center; gap: 6px; }
-  .doc-split-actions button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text-main); font: inherit; font-weight: 600; cursor: pointer; }
-  .doc-split-actions button:hover:not(:disabled) { border-color: var(--accent); }
-  .doc-split-actions button:disabled { opacity: 0.6; cursor: default; }
-  .doc-split .doc-split-round { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--bg-card); color: var(--text-main); cursor: pointer; }
+  .doc-split-title { white-space: nowrap; }
+  .doc-split-actions { display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto; }
+  .doc-split-group { display: flex; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); overflow: hidden; }
+  .doc-split-group button { display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 0; border-left: 1px solid var(--border); background: none; color: var(--text-main); font: inherit; font-weight: 600; white-space: nowrap; cursor: pointer; }
+  .doc-split-group button:first-child { border-left: 0; }
+  .doc-split-group button:hover:not(:disabled) { background: var(--bg-muted); }
+  .doc-split-group button:disabled { opacity: 0.6; cursor: default; }
+  .doc-split .doc-split-round { display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--text-main); cursor: pointer; }
   .doc-split .doc-split-round:hover { border-color: var(--accent); }
   .doc-split.is-closed { --doc-split-width: 64px; padding: 16px; }
   .doc-split.is-closed .doc-split-inner { display: flex; flex-direction: column; gap: 8px; }
@@ -6554,8 +6558,14 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   @media (max-width: 1500px) {
     .invoice-head-row { grid-template-columns: 1fr 1fr 1fr !important; }
     .invoice-head-row > :first-child { grid-column: 1 / -1; }
+    .quote-address-row { grid-template-columns: 1fr !important; }
   }
-  .doc-split-paper { width: 100%; min-width: 0; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 30px rgba(15, 26, 19, 0.14); }
+  @container (max-width: 450px) { .doc-split-title { display: none; } }
+  @container (max-width: 340px) {
+    .doc-split-group button span { display: none; }
+    .doc-split-group button { padding: 0 11px; }
+  }
+  .doc-split-paper { width: 100%; min-width: 0; max-height: calc(100dvh / var(--app-zoom, 1) - 206px); border-radius: 8px; overflow: hidden auto; scrollbar-width: none; box-shadow: 0 10px 30px rgba(15, 26, 19, 0.14); }
   .doc-split-paper .a4-paper { box-shadow: none; border-radius: 0; }
 }
 .record-nav { display: flex; gap: 6px; }
