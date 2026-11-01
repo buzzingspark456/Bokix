@@ -17,7 +17,7 @@ import { ACCENT } from './marketingTokens';
 export const BASE_FEATURES = [
   'Automatisk bokföring från kvitton och fakturor',
   'Kund- och leverantörsfakturor, obegränsat antal',
-  'Fyra fakturamallar med egen logotyp och accentfärg',
+  'Sex fakturamallar med egen logotyp och accentfärg',
   'Momsdeklaration varje kvartal',
   'Bokslutsflöde som låser räkenskapsåret',
   'Kortbetalningar direkt på fakturan via Stripe',

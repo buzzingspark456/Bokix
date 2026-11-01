@@ -22,6 +22,7 @@ const ALERT_KINDS = new Set([
   'shadow_read_mismatch',
   'shadow_read_failed',
   'company_read_failed',
+  'company_link_broken',
 ]);
 
 const ALERT_LABELS = {
@@ -38,6 +39,7 @@ const ALERT_LABELS = {
   shadow_read_mismatch: 'Skuggläsningen: tabellerna skilde sig från blobben i appen',
   shadow_read_failed: 'Skuggläsningen: appen kunde inte läsa de nya tabellerna',
   company_read_failed: 'Servern kunde inte läsa ett företag ur tabellerna (läste blobben i stället)',
+  company_link_broken: 'Ett företag saknar id, eller en inbjuden kommer inte åt sitt företag',
 };
 
 // Högst ett larmmejl per sorts händelse och timme, räknat i den delade

@@ -266,7 +266,7 @@ const EditorScene = (
       <div style={{ width: 'min(94%, 420px)', display: 'flex', flexDirection: 'column', background: 'var(--ax-card)', borderRadius: 12, overflow: 'hidden', boxShadow: '0 24px 60px -20px rgba(0,0,0,0.45)' }}>
         <div className="ax-modal-head" style={{ fontSize: 12 }}>Förhandsgranskning · Faktura 1013<ModalClose /></div>
         <div style={{ display: 'flex', gap: 5, padding: '7px 14px' }}>
-          {['Klassisk', 'Kraftfull', 'Minimal', 'Rutnät'].map(m => <span key={m} className={`ax-chip${m === 'Minimal' ? ' on' : ''}`} style={{ padding: '2px 7px', fontSize: 9.5, borderRadius: 999 }}>{m}</span>)}
+          {['Standard', 'Modern', 'Ren', 'Blankett', 'Affär', 'Enkel'].map(m => <span key={m} className={`ax-chip${m === 'Minimal' ? ' on' : ''}`} style={{ padding: '2px 7px', fontSize: 9.5, borderRadius: 999 }}>{m}</span>)}
         </div>
         <div style={{ flex: 1, minHeight: 0, background: 'var(--ax-soft)', padding: '12px 14px', overflow: 'hidden' }}>
           <div className="axf-paper dp-pop" style={d(4.2)}>

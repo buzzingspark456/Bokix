@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { isVatExempt } from '../utils/vatRegistration';
-import { NavQuotesIcon, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Loader2, Search, ChevronDown, ChevronRight } from './icons';
+import { NavQuotesIcon, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Search, ChevronDown, ChevronRight, Printer } from './icons';
 import PaperFit from './shared/PaperFit';
+import DocSplit from './shared/DocSplit';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
-import { exportInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';
+import { uploadTempMailFile, deleteTempMailFile } from '../utils/fileUpload';
+import { exportInvoicePdf, getInvoicePdfBase64, printInvoicePdf } from '../utils/exportInvoicePdf';
 import { sendInvoiceEmail } from '../emailApi';
-import { uploadFileToStorage } from '../utils/fileUpload';
 import { BRAND } from '../utils/brandColors';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -17,7 +18,7 @@ import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 import { sendableEmail } from '../utils/validators';
 
 const fmtSEK = (val) => numberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
-const fmtDateSv = (d) => { if (!d) return '—'; try { return dateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; } };
+const fmtDateSv = (d) => { if (!d) return ''; try { return dateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; } };
 const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 const emptyRow = (vat = 25) => ({ description: '', price: '', qty: 1, unit: 'st', vat, discount: 0, deduction: 'none' });
@@ -37,13 +38,11 @@ const DEDUCTION_OPTIONS = [
 ];
 
 // Bilagor i mejlet (Sida 40) — samma godkända filtyper som redan etablerat
-// för uppladdning i appen (Expenses.jsx: kvitton), men en TOTAL storleksgräns
-// istället för en per-fil-gräns, eftersom det är den totala mejlstorleken som
-// spelar roll. Filerna laddas upp direkt till Supabase Storage och skickas
-// som LÄNKAR i mejlet (inte riktiga MIME-bilagor) — det är vad som faktiskt
-// gör 15 MB möjligt: Vercels serverless-funktioner har ett hårt tak på
-// ~4.5 MB per request, så riktiga base64-bilagor av den storleken skulle
-// aldrig gå att skicka i produktion (se emailApi.js).
+// för uppladdning i appen (Expenses.jsx: kvitton). Filerna ligger i webbläsaren
+// tills man trycker Skicka. Då laddas de upp tillfälligt, eftersom Vercel bara tar
+// 4,5 MB per anrop, och servern raderar dem direkt efter utskicket
+// (api/email/_attachments.js). De sparas aldrig på offerten. Äldre offerter kan
+// ha sparade filer (`url`), de går fortsatt med som länkar.
 const ATTACHMENT_ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
 const ATTACHMENT_ACCEPT_ATTR = 'image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf';
 const MAX_ATTACHMENTS_TOTAL_MB = 15;
@@ -116,7 +115,7 @@ const toolbarBtnStyle = (active) => ({
  * förhandsgranskning som öppnas på begäran. Samma lösning återanvänds här
  * rakt av — samma CSS-klass, samma mönster, samma mobilanpassning.
  */
-function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, articles = [], onSave, onClose, onConvert, onSyncBeforeServerCall }) {
+function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], company, user, articles = [], onSave, onClose, onConvert, onSyncBeforeServerCall }) {
   useMobileForm();
   const [customerId, setCustomerId] = useState(quote?.customerId || '');
   const [customerName, setCustomerName] = useState(quote?.customerName || '');
@@ -187,7 +186,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
   // och dröjsmålsränta som ett rent procenttal. Formaterade till läsbara
   // strängar för InvoiceDocument (`terms`/`lateInterest`) vid spara/förhandsgranska.
   const [paymentTermsDays, setPaymentTermsDays] = useState(quote?.paymentTermsDays ?? company?.paymentTermsDays ?? 30);
-  const [lateInterestPercent, setLateInterestPercent] = useState(quote?.lateInterestPercent ?? 10);
+  const [lateInterestPercent] = useState(quote?.lateInterestPercent ?? 10);
   // Vad som inte ingår (Sida 40) — valfritt, skilt från "Övriga villkor"
   // (som är generella juridiska standardpunkter, inte projektspecifika
   // avgränsningar).
@@ -207,7 +206,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
   const [detailsOpen, setDetailsOpen] = useState(() => !!(
     quote?.emailMessage || (quote?.emailAttachments || []).length > 0 || quote?.notIncluded ||
     quote?.workStartDate || quote?.workEndDate || quote?.workLocation || quote?.deliveryDescription ||
-    quote?.paymentTermsDays != null || quote?.lateInterestPercent != null ||
+    (quote?.paymentTermsDays != null && Number(quote.paymentTermsDays) !== Number(company?.paymentTermsDays ?? 30)) ||
     (quote?.otherTerms != null && quote.otherTerms !== DEFAULT_OTHER_TERMS)
   ));
 
@@ -230,6 +229,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
 
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState('');
+  const [printBusy, setPrintBusy] = useState(false);
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [emailSent, setEmailSent] = useState(false);
@@ -337,6 +337,18 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
     onSave(buildSaveData());
   };
 
+  const handlePrint = async () => {
+    setPrintBusy(true); setPdfError('');
+    try {
+      await printInvoicePdf(captureRef.current);
+    } catch (err) {
+      console.error(err);
+      setPdfError(t('ui.kunde_inte_skapa_pdf_forsok_igen'));
+    } finally {
+      setPrintBusy(false);
+    }
+  };
+
   const handleDownloadPdf = async () => {
     setPdfBusy(true); setPdfError('');
     try {
@@ -356,6 +368,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
     if (!to) { setEmailError(t('ui.ange_en_mottagaradress')); return; }
     if (!sendableEmail(to)) { setEmailError(t('ui.det_dar_ser_inte_ut_som_en_giltig_e_postadress')); return; }
     setEmailBusy(true); setEmailError(''); setEmailSent(false);
+    let tempAttachments = [];
     try {
       const attachmentBase64 = await getInvoicePdfBase64(captureRef.current);
       // Meddelande i mejlet (Sida 40) ersätter standardstycket när
@@ -364,10 +377,11 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
       const messageHtml = emailMessage.trim()
         ? `<p>${escapeHtml(emailMessage).replace(/\n/g, '<br/>')}</p>`
         : `<p>Bifogat finner du offert <strong>${previewNumber}</strong> på <strong>${fmtSEK(totals.total)} ${currency}</strong>, giltig till ${fmtDateSv(dueDate)}.</p>`;
-      // Bilagor i mejlet (Sida 40) — riktiga MIME-bilagor bär bara PDF:en
-      // (se konstanten ATTACHMENT_ACCEPTED_TYPES ovan för varför); egna
-      // uppladdade filer skickas som länkar till Supabase Storage istället.
-      const readyAttachments = attachments.filter(a => a.url && !a.error && !a.uploading);
+      // Egna filer går med som riktiga bilagor och raderas direkt efter
+      // utskicket. Bara äldre offerter har sparade filer, de skickas som länkar.
+      const readyAttachments = attachments.filter(a => a.url && !a.error);
+      const pendingFiles = attachments.filter(a => a.file);
+      tempAttachments = await Promise.all(pendingFiles.map(async a => ({ filename: a.name, path: await uploadTempMailFile(user.id, a.file) })));
       const attachmentsHtml = readyAttachments.length > 0
         ? `<p>Bilagor:</p><ul>${readyAttachments.map(a => `<li><a href="${a.url}">${escapeHtml(a.name)}</a></li>`).join('')}</ul>`
         : '';
@@ -392,11 +406,12 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
         replyTo: company?.email || undefined,
         attachmentBase64,
         attachmentFilename: `offert-${previewNumber}.pdf`,
+        tempAttachments,
         // Avsändaradressen avgörs server-side (Sida 33) utifrån den
         // inloggade användarens EGEN sparade företagsdata (säkerhetsfix —
         // se send-invoice.js), inte längre ett client-supplied
         // företagsobjekt. Skickar bara med ID:t.
-        company_id: company?.id,
+        company_id: activeCompanyId,
       });
       setEmailSent(true);
       // Ett utkast som faktiskt skickas till kunden är per definition inte
@@ -412,17 +427,17 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
       if (!quote) onSave(buildSaveData({ status: 'sent' }));
     } catch (err) {
       console.error(err);
+      // Nådde anropet aldrig servern får filerna inte bli kvar.
+      tempAttachments.forEach(a => deleteTempMailFile(a.path));
       setEmailError(err.message || t('ui.kunde_inte_skicka_e_post'));
     } finally {
       setEmailBusy(false);
     }
   };
 
-  // Bilagor i mejlet — samma "typ + total storleksgräns kontrollerad innan
-  // uppladdning godkänns"-princip som redan etablerat i Expenses.jsx, men
-  // mot en TOTAL gräns (15 MB) istället för per fil, eftersom det är hela
-  // utskickets storlek som spelar roll (se konstanten ovan).
-  const attachmentsTotalBytes = attachments.filter(a => !a.error).reduce((sum, a) => sum + (a.size || 0), 0);
+  // Bilagor i mejlet: typ och TOTAL storlek kontrolleras när filen väljs, eftersom
+  // det är hela utskickets storlek som spelar roll (se konstanten ovan).
+  const attachmentsTotalBytes = attachments.filter(a => a.file).reduce((sum, a) => sum + (a.size || 0), 0);
   const handleAddFiles = (fileList) => {
     const files = Array.from(fileList || []);
     if (files.length === 0) return;
@@ -443,24 +458,25 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
     });
     setAttachmentsError(errors.join(' '));
     if (toUpload.length === 0) return;
-    if (!user?.id) { setAttachmentsError(t('ui.du_maste_vara_inloggad_for_att_lagga_till_bilago')); return; }
-    toUpload.forEach(file => {
-      const id = `att_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      setAttachments(prev => [...prev, { id, name: file.name, size: file.size, type: file.type, url: '', uploading: true, error: '' }]);
-      uploadFileToStorage(user.id, file, 'quote-attachments')
-        .then(url => setAttachments(prev => prev.map(a => a.id === id ? { ...a, url, uploading: false } : a)))
-        .catch(err => {
-          const msg = /bucket not found/i.test(err.message || '')
-            ? t('ui.bildlagring_ar_inte_konfigurerad_i_supabase_proj_2')
-            : t('ui.kunde_inte_laddas_upp_2', { message: err.message });
-          setAttachments(prev => prev.map(a => a.id === id ? { ...a, uploading: false, error: msg } : a));
-        });
-    });
+    setAttachments(prev => [...prev, ...toUpload.map(file => ({
+      id: `att_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, name: file.name, size: file.size, type: file.type, file,
+    }))]);
   };
   const removeAttachment = (id) => setAttachments(prev => prev.filter(a => a.id !== id));
 
   const displayStatus = quote ? getDisplayStatus({ ...quote, status }) : 'draft';
   const statusStyle = getStatusStyle(displayStatus);
+
+  const documentProps = {
+    invoice: { invoiceNumber: previewNumber, date, dueDate, workStartDate, workEndDate, workLocation, deliveryDescription, terms: formattedTerms, lateInterest: formattedLateInterest, notIncluded, otherTerms },
+    customer, company, rows: previewRows, totals, currency, docLabel: 'OFFERT', docType: 'quote',
+    template: templateSnapshot.templateId,
+    accentColor: templateSnapshot.accentColor,
+    logoUrl: templateSnapshot.logoUrl,
+    logoSize: templateSnapshot.logoSize,
+    showCompanyName: templateSnapshot.showCompanyName,
+    footerText: templateSnapshot.footerText,
+  };
 
   return (
     <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-muted)', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.15s ease' }}>
@@ -682,12 +698,10 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
               {/* Radräknare — uppdateras dynamiskt i takt med Lägg till/Ta bort rad. */}
               <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{rows.length} {rows.length === 1 ? t('ui.rad_2') : t('ui.rader')}</span>
             </div>
-            {/* Tabellen har fått fler kolumner (enhet, avdrag, beräknad summa)
-                — en egen horisontellt skrollbar yta istället för att klämma
-                ihop kolumnerna eller staplas till en orimligt hög lista på
-                smala skärmar, samma princip som listvyns tabell använder. */}
-            <div className="quote-rows-scroll" style={{ overflowX: 'auto' }}>
-              <div className="quote-rows-min" style={{ minWidth: '980px' }}>
+            {/* Ingen scroll i sidled: när ytan blir smal går raden över till två
+                nivåer och sedan till kort (index.css, @container quote-rows). */}
+            <div className="quote-rows-scroll">
+              <div className="quote-rows-min">
                 <div className="quote-rows-header" style={{ display: 'grid', gridTemplateColumns: '2.2fr 0.8fr 0.8fr 1fr 0.8fr 0.9fr 1.1fr 1fr auto', gap: '10px', marginBottom: '6px', padding: '0 2px' }}>
                   {[t('ui.beskrivning'), t('ui.antal'), t('ui.enhet'), t('ui.pris_5'), t('ui.rabatt'), t('ui.moms_procent'), t('ui.avdrag_2'), t('ui.summa'), ''].map(h => (
                     <span key={h} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{h}</span>
@@ -736,7 +750,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                       </select>
                       )}
                       </label>
-                      <label className="qr-cell"><span className="qr-lbl">{t('ui.avdrag_2')}</span>
+                      <label className="qr-cell qr-ded"><span className="qr-lbl">{t('ui.avdrag_2')}</span>
                       <select style={inputStyle} value={row.deduction} onChange={e => updateRow(i, 'deduction', e.target.value)}>
                         {DEDUCTION_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
                       </select>
@@ -794,7 +808,7 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
               style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '13px', fontWeight: 600, color: 'var(--accent-text)' }}
             >
               {detailsOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-              {detailsOpen ? t('ui.dolj_fler_detaljer') : t('ui.fler_detaljer_meddelande_bilagor_villkor')}
+              {detailsOpen ? t('ui.dolj_fler_detaljer') : t('ui.fler_detaljer')}
             </button>
           </div>
 
@@ -813,9 +827,8 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
             />
           </div>
 
-          {/* ── Bilagor i mejlet — laddas upp direkt till lagring och skickas
-                 som länkar (se konstanten ATTACHMENT_ACCEPTED_TYPES/kommentaren
-                 vid handleAddFiles för varför). ── */}
+          {/* ── Bilagor i mejlet: följer med utskicket och raderas direkt efteråt
+                 (se kommentaren vid ATTACHMENT_ACCEPTED_TYPES). ── */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
             <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>{t('ui.bilagor_i_mejlet')}</h3>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>{t('ui.filerna_foljer_med_som_bilagor_i_mejlet_tillsamm')} {MAX_ATTACHMENTS_TOTAL_MB} {t('ui.mb')}</p>
@@ -827,9 +840,8 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                     <Paperclip size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: a.error ? 'var(--status-red-text)' : 'var(--text-main)' }}>
                       {a.name} <span style={{ color: 'var(--text-muted)' }}>({((a.size || 0) / (1024 * 1024)).toFixed(1)} {t('ui.mb_2')}</span>
-                      {a.error && <> — {a.error}</>}
+                      {a.error && <>: {a.error}</>}
                     </span>
-                    {a.uploading && <Loader2 size={13} className="spin" color="var(--text-muted)" style={{ animation: 'spin 0.8s linear infinite' }} />}
                     <button type="button" onClick={() => removeAttachment(a.id)} title={t('ui.ta_bort')} style={{ padding: '2px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', flexShrink: 0 }}>
                       <Trash2 size={13} />
                     </button>
@@ -855,48 +867,33 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
             />
           </div>
 
-          {/* ── Betalningsvillkor — betalningstid som ett riktigt antal dagar
-                 (förval 30, Sida 5) och dröjsmålsränta som rent procenttal,
-                 inte längre fri text. ── */}
+          {/* ── Betalning och leverans. Dröjsmålsränta står inte på en offert, och
+                 start, slut och plats visas bara på offerter som redan har dem. ── */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.betalningsvillkor')}</h3>
-            <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-              <div>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.betalning_och_leverans')}</h3>
+            <div style={{ maxWidth: '640px' }}>
+              <div style={{ maxWidth: '200px', marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.betalningstid_dagar')}</label>
                 <input type="number" min="0" style={inputStyle} value={paymentTermsDays} onChange={e => setPaymentTermsDays(e.target.value)} placeholder="30" />
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.drojsmalsranta')}</label>
-                <input type="number" min="0" step="0.1" style={inputStyle} value={lateInterestPercent} onChange={e => setLateInterestPercent(e.target.value)} placeholder="10" />
-              </div>
-            </div>
-          </div>
-
-          {/* ── Leveransvillkor / Utförande — VAR och NÄR arbetet utförs,
-                 skilt från betalningsvillkoren ovan. ── */}
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.leveransvillkor_utforande')}</h3>
-            <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '16px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.startdatum')}</label>
-                <input type="date" style={inputStyle} value={workStartDate} onChange={e => setWorkStartDate(e.target.value)} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.slutdatum')}</label>
-                <input type="date" style={inputStyle} value={workEndDate} onChange={e => setWorkEndDate(e.target.value)} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.plats_for_arbete')}</label>
-                <input type="text" style={inputStyle} value={workLocation} onChange={e => setWorkLocation(e.target.value)} placeholder={t('ui.gatuadress_ort')} />
-              </div>
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.leveransbeskrivning')}</label>
-              <textarea
-                style={{ ...inputStyle, resize: 'vertical', minHeight: '70px', lineHeight: 1.6, fontFamily: 'inherit', maxWidth: '640px' }}
-                value={deliveryDescription} onChange={e => setDeliveryDescription(e.target.value)}
-                placeholder={t('ui.t_ex_leverans_inom_2_3_veckor_fran_accepterad_of')}
-              />
+              {(workStartDate || workEndDate || workLocation) && (
+                <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.startdatum')}</label>
+                    <input type="date" style={inputStyle} value={workStartDate} onChange={e => setWorkStartDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.slutdatum')}</label>
+                    <input type="date" style={inputStyle} value={workEndDate} onChange={e => setWorkEndDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.plats_for_arbete')}</label>
+                    <input type="text" style={inputStyle} value={workLocation} onChange={e => setWorkLocation(e.target.value)} placeholder={t('ui.gatuadress_ort')} />
+                  </div>
+                </div>
+              )}
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.leverans')}</label>
+              <input type="text" style={inputStyle} value={deliveryDescription} onChange={e => setDeliveryDescription(e.target.value)} placeholder={t('ui.t_ex_leverans_inom_2_3_veckor_fran_accepterad_of')} />
             </div>
           </div>
 
@@ -918,6 +915,9 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
           </>
           )}
         </div>
+        <DocSplit onEnlarge={() => setShowPreview(true)} onPrint={handlePrint} printing={printBusy} onDownload={handleDownloadPdf} downloading={pdfBusy}>
+          <InvoiceDocument {...documentProps} />
+        </DocSplit>
       </form>
 
       {/* ── Förhandsgranskning — fullskärmsmodal med riktig A4-bredd (samma
@@ -983,6 +983,9 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
                   ><ZoomIn size={14} /></button>
                 </div>
                 <div style={{ flex: 1, minWidth: '8px' }} />
+                <button onClick={handlePrint} disabled={printBusy} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', cursor: printBusy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  <Printer size={13} /> {t('ui.skriv_ut')}
+                </button>
                 <button onClick={handleDownloadPdf} disabled={pdfBusy} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', cursor: pdfBusy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
                   <Download size={13} /> {pdfBusy ? t('ui.skapar_pdf') : t('ui.ladda_ner_pdf')}
                 </button>
@@ -1018,29 +1021,13 @@ function QuoteEditor({ quote, quotes, contacts, projects = [], company, user, ar
 
       {/* Osynlig, alltid monterad, oskalad — PDF/mejl fångar ALLTID denna. */}
       <div style={{ position: 'fixed', top: 0, left: '-9999px', width: '794px', pointerEvents: 'none' }} aria-hidden="true">
-        <InvoiceDocument
-          ref={captureRef}
-          invoice={{ invoiceNumber: previewNumber, date, dueDate, workStartDate, workEndDate, workLocation, deliveryDescription, terms: formattedTerms, lateInterest: formattedLateInterest, notIncluded, otherTerms }}
-          customer={customer}
-          company={company}
-          rows={previewRows}
-          totals={totals}
-          currency={currency}
-          docLabel="OFFERT"
-          docType="quote"
-          template={templateSnapshot.templateId}
-          accentColor={templateSnapshot.accentColor}
-          logoUrl={templateSnapshot.logoUrl}
-          logoSize={templateSnapshot.logoSize}
-          showCompanyName={templateSnapshot.showCompanyName}
-          footerText={templateSnapshot.footerText}
-        />
+        <InvoiceDocument ref={captureRef} {...documentProps} />
       </div>
     </div>
   );
 }
 
-export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction, articles = [], onSyncBeforeServerCall }) {
+export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConvert, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction, articles = [], onSyncBeforeServerCall }) {
   const [searchTerm, setSearchTerm] = useState('');
   // Kundönskemål: "en knapp där man kan se femton, trettio, femtio" — samma
   // visa-N-åt-gången-väljare som Kunder/Fakturering (ListFilterBar).
@@ -1148,6 +1135,7 @@ export default function Quotes({ quotes = [], setQuotes, onConvert, contacts = [
         company={company}
         user={user}
         articles={articles}
+        activeCompanyId={activeCompanyId}
         onSave={handleSaveQuote}
         onClose={closeForm}
         onConvert={editingQuote ? (e) => handleConvert(editingQuote, e) : null}

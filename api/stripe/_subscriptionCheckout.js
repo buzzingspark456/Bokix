@@ -6,10 +6,11 @@ import { stripeReturnBase, appendQueryParam } from './_urls.js';
 import { checkRateLimit, getClientIp } from '../_rateLimit.js';
 import { createClient } from '@supabase/supabase-js';
 import { trialDecision, trialMetadata } from './_trialGuard.js';
+import { checkCompanyInRegistry } from './_registryGuard.js';
 import { requireAuthedUser } from '../_auth.js';
 import { readOwnerCompany } from '../_companyStore.js';
-import { hasExistingSubscription, getSubscriptionRow, getStripeCustomerId, getStripeCustomerIds, upsertSubscription, subscriptionFieldsFromStripe, PAID_STATUSES } from './_subscriptions.js';
-import { listSubscriptionCustomerIds, listSubscriptionInvoices } from './_billingInvoices.js';
+import { hasExistingSubscription, getSubscriptionRow, getStripeCustomerId, getStripeCustomerIds, upsertSubscription, subscriptionFieldsFromStripe, stripePeriodEnd, PAID_STATUSES } from './_subscriptions.js';
+import { listSubscriptionCustomerIds, listSubscriptionInvoices, invoicesForCompany } from './_billingInvoices.js';
 import { isValidSwedishOrgNr } from '../../src/utils/personnummer.js';
 
 // Läses INTE in som modul-nivå-konstant — samma gotcha som _resend.js/
@@ -82,6 +83,7 @@ async function loadAccountForTrial(userId, companyId) {
     if (companyId) {
       const entry = await readOwnerCompany(admin, userId, companyId, { kinds: [] });
       orgNr = entry?.data?.company?.orgNr || '';
+      return { email: data.user.email, orgNr, companyFound: Boolean(entry), isUf: Boolean(entry?.data?.company?.isUf) };
     }
     return { email: data.user.email, orgNr };
   } catch (err) {
@@ -153,7 +155,9 @@ export default async function handler(req, res) {
 
       const storedCustomerIds = await getStripeCustomerIds(authedUser.id);
       const customerIds = await listSubscriptionCustomerIds(stripe, authedUser.id, storedCustomerIds);
-      const invoices = await listSubscriptionInvoices(stripe, customerIds);
+      const companyId = body.company_id || null;
+      const subRow = await getSubscriptionRow(authedUser.id, companyId);
+      const invoices = invoicesForCompany(await listSubscriptionInvoices(stripe, customerIds), companyId, subRow?.stripe_subscription_id);
       res.status(200).json({ invoices });
       return;
     }
@@ -253,7 +257,7 @@ export default async function handler(req, res) {
         stripeSubscriptionId: updated.id,
         status: updated.status,
         trialEndsAt: updated.trial_end ? new Date(updated.trial_end * 1000).toISOString() : null,
-        currentPeriodEnd: updated.current_period_end ? new Date(updated.current_period_end * 1000).toISOString() : null,
+        currentPeriodEnd: stripePeriodEnd(updated),
         cancelAtPeriodEnd: !!updated.cancel_at_period_end,
       });
 
@@ -267,7 +271,7 @@ export default async function handler(req, res) {
         minimumMonths: cancellation.minimumMonths || 0,
         cancelAtPeriodEnd: !!updated.cancel_at_period_end,
         trialEndsAt: updated.trial_end ? new Date(updated.trial_end * 1000).toISOString() : null,
-        currentPeriodEnd: updated.current_period_end ? new Date(updated.current_period_end * 1000).toISOString() : null,
+        currentPeriodEnd: stripePeriodEnd(updated),
       });
       return;
     }
@@ -368,8 +372,20 @@ export default async function handler(req, res) {
       res.status(400).json({ error: 'Organisationsnumret är inte ett giltigt svenskt nummer. Bokix är för svenska företag. Kontakta support@bokix.se om något är fel.' });
       return;
     }
+    // Lägg till företag: företaget måste ha ett nummer och finnas på riktigt.
+    if (body.company_id && account?.companyFound && !account.isUf) {
+      if (!account.orgNr) {
+        res.status(400).json({ error: 'Företaget saknar organisationsnummer. Kontakta support@bokix.se.' });
+        return;
+      }
+      const registry = await checkCompanyInRegistry(account.orgNr);
+      if (!registry.ok) {
+        res.status(400).json({ error: registry.error });
+        return;
+      }
+    }
     const trialSignals = { email: account?.email || body.customer_email, orgNr: account?.orgNr, ip: getClientIp(req) };
-    const decision = await trialDecision(stripe, { ...trialSignals, excludeUserId: body.user_id });
+    const decision = await trialDecision(stripe, { ...trialSignals, excludeUserId: body.user_id, companyId: body.company_id || null });
     if (!decision.allowTrial) console.warn('[provperiod] ingen provperiod:', decision.reasons.join(','), body.user_id);
     const guardMetadata = {
       ...trialMetadata(trialSignals),

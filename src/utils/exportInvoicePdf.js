@@ -8,14 +8,8 @@ import html2canvas from 'html2canvas';
  * i mejl) så PDF:en aldrig kan avvika mellan de två — bara vad som görs med
  * resultatet skiljer.
  */
-// Två tidigare försök (scale+JPEG-kvalitet neråt, neråt igen) löste bara
-// storleken genom att offra skärpa på TEXTEN — fel avvägning för ett
-// textdokument. Den faktiska boven för filstorleken var aldrig
-// upplösningen i sig: `.a4-paper` har `min-height: 297mm` (en hel A4-sida)
-// oavsett hur lite innehåll fakturan har — en kort 3-rads-faktura rastrerade
-// alltså över 20cm ren vit yta i FULL upplösning i onödan. Nollställer
-// min-height till fångst-nodens faktiska innehållshöjd innan skärmdumpen
-// (återställs direkt efteråt, rör aldrig den synliga förhandsgranskningen).
+// Två tidigare försök (scale+JPEG-kvalitet neråt) löste storleken genom att
+// offra skärpa på TEXTEN, fel avvägning för ett textdokument.
 //
 // PNG provades härnäst (lossless, inga JPEG-kanter runt text) men gav en
 // PDF på över 6MB trots att själva canvas-bilden bara var ~170KB — ett känt
@@ -26,18 +20,27 @@ import html2canvas from 'html2canvas';
 // hela problemet. Med utrymmet min-height-trimningen frigör räcker det gott
 // med en hög JPEG-kvalitet (0.92, nästan omärkbar kompression) istället för
 // den tidigare hårt nedskruvade 0.7:an.
-// Sida A4-bredd (210mm) — behålls alltid, så PDF:en fortfarande fyller en
-// vanlig skrivare/pappersbredd. Höjden däremot är INTE längre alltid det
-// fasta 297mm-A4-måttet: en kort, enradig faktura skulle annars täcka
-// bara toppen av arket och lämna en stor vit yta under (kundfeedback —
-// "ser kompakt/tom ut jämfört med förhandsgranskningen", eftersom
-// förhandsgranskningens skärmdump av naturliga skäl bara visar det
-// synliga innehållet, inte en hel A4-sidas tomrum).
+// Arket är alltid ett helt A4 (.a4-paper), en längre faktura delas på flera ark.
+//
+// Texten är en bild i PDF:en, så upplösningen avgör skärpan på skärm och papper.
+// 2480 px över arkets bredd är 300 dpi på A4.
+const PRINT_WIDTH_PX = 2480;
+// Telefoner ritar inte större bilder än så. En mycket lång faktura får hellre
+// lägre upplösning än en tom sida.
+const MAX_CANVAS_PIXELS = 16000000;
+const MAX_CANVAS_SIDE = 16000;
 const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
 // Golv för en degenererad nästan-tom nod (aldrig ett realistiskt fall,
 // men jsPDF godtar inte en absurt liten/nollstor sida).
 const MIN_PAGE_HEIGHT_MM = 40;
+
+// Räknas på nodens uppmätta storlek: appens zoom (--app-zoom) krymper den, och
+// en fast skala gav därför bara 1072 px bred bild på en vanlig datorskärm.
+export function captureScale(width, height) {
+  if (!width || !height) return 2;
+  return Math.min(PRINT_WIDTH_PX / width, Math.sqrt(MAX_CANVAS_PIXELS / (width * height)), MAX_CANVAS_SIDE / height);
+}
 
 // Exporterad (inte bara privat) så sidstorleks-/orienteringslogiken ovan
 // går att testa direkt mot jsPDF:s riktiga pageSize (se exportInvoicePdf.test.js)
@@ -46,17 +49,22 @@ const MIN_PAGE_HEIGHT_MM = 40;
 export async function renderInvoicePdf(node) {
   if (!node) throw new Error('Inget fakturaunderlag att exportera.');
 
-  const originalMinHeight = node.style.minHeight;
-  node.style.minHeight = 'auto';
+  // Skuggan hör till förhandsvisningen. html2canvas ritar den över hela arket,
+  // så PDF:en blev grå i stället för vit.
+  const originalShadow = node.style.boxShadow;
+  node.style.boxShadow = 'none';
 
+  const rect = node.getBoundingClientRect?.();
   let canvas;
   try {
-    canvas = await html2canvas(node, { scale: 1.5, useCORS: true, backgroundColor: '#ffffff' });
+    canvas = await html2canvas(node, { scale: captureScale(rect?.width, rect?.height), useCORS: true, backgroundColor: '#ffffff' });
   } finally {
-    node.style.minHeight = originalMinHeight;
+    node.style.boxShadow = originalShadow;
   }
   const imgData = canvas.toDataURL('image/jpeg', 0.92);
-  const imgHeightMM = (canvas.height * A4_WIDTH_MM) / canvas.width;
+  const rawHeightMM = (canvas.height * A4_WIDTH_MM) / canvas.width;
+  // Avrundning av pixlar får inte ge ett andra ark med en tom rand.
+  const imgHeightMM = rawHeightMM > A4_HEIGHT_MM && rawHeightMM <= A4_HEIGHT_MM + 1 ? A4_HEIGHT_MM : rawHeightMM;
 
   if (imgHeightMM <= A4_HEIGHT_MM) {
     // Vanliga fallet: innehållet ryms på en sida. Sidan görs lika hög som
@@ -123,6 +131,28 @@ export async function sharePdf(pdf, filename) {
   } catch (err) {
     return err?.name === 'AbortError';
   }
+}
+
+/** Skriver ut samma PDF som laddas ner, så att pappret ser ut som det kunden
+ * får. Skrivarrutan öppnas från en dold ram som tas bort efter en stund. */
+export async function printInvoicePdf(node) {
+  const pdf = await renderInvoicePdf(node);
+  const url = URL.createObjectURL(pdf.output('blob'));
+  const frame = document.createElement('iframe');
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  frame.src = url;
+  frame.onload = () => {
+    try {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+    } catch {
+      // Vissa webbläsare släpper inte in utskrift av PDF i en ram: visa den i en
+      // egen flik där skrivarknappen finns.
+      window.open(url, '_blank');
+    }
+    setTimeout(() => { frame.remove(); URL.revokeObjectURL(url); }, 60000);
+  };
+  document.body.appendChild(frame);
 }
 
 /** Samma rendering, men returnerar PDF:en som en ren base64-sträng (utan

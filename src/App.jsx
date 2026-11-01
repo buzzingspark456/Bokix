@@ -1,33 +1,28 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import useFitLevel from './utils/useFitLevel';
-import { visiblePages, accessForPage } from './utils/pageAccess';
+import { visiblePages, accessForPage, canWriteField } from './utils/pageAccess';
 import { STRIPE_BALANCE_ACCOUNT } from './utils/stripeLedger';
 import { isUfCompany, ufPageState, ufInvoiceQuota, ufFreePeriod, UF_NAV_IDS, UF_HIDDEN_REPORT_IDS } from './utils/ufMode';
 import { t as tr, useTranslation } from './i18n';
 import {
-  LayoutDashboard,
-  FileText,
   ReceiptText,
   Loader2,
   Users,
+  Building2,
   BookOpen,
   Landmark,
-  FolderTree,
   BarChart3,
   Settings as SettingsIcon,
   ChevronDown,
   ChevronRight,
   X,
   Calculator,
-  FileCheck,
   Menu,
   Sun,
-  Shield,
-  UsersRound,
   Bell,
   HelpCircle,
   Briefcase,
-  NavQuotesIcon, NavInvoicesIcon, NavReceiptsIcon, NavHomeIcon, Inbox,
+  NavQuotesIcon, NavReceiptsIcon, NavHomeIcon, NavCustomerInvoicesIcon, NavSupplierInvoicesIcon, NavPayrollIcon,
   LogOut,
   Moon,
   AlertTriangle,
@@ -421,10 +416,13 @@ const Accruals = lazy(loadAccruals);
 import LandingPage from './components/LandingPage';
 import Auth from './components/Auth';
 import OnboardingFlow from './components/OnboardingFlow';
+import { registrySyncDue } from './utils/companyRegistry';
+import { requestRegistrySync } from './utils/companyLookup';
 import VatPeriodPrompt, { needsCompanyFactsAnswer } from './components/VatPeriodPrompt';
 import { isVatExempt, stripVatRows } from './utils/vatRegistration';
 import { supabase } from './supabaseClient';
-import { isStandaloneApp } from './utils/authStorage';
+import { isStandaloneApp, isPasswordRecovery, clearPasswordRecovery } from './utils/authStorage';
+import { translateSupabaseAuthError } from './utils/translateAuthError';
 import { isInactiveTooLong, markActive, clearActive, appLockEnabledFor, setAppLock, APP_LOCK_AFTER_MS, passkeysAvailable, rememberPasskeyOnDevice } from './utils/sessionPolicy';
 import AppLock from './components/AppLock';
 import { detectDevice } from './utils/deviceInfo';
@@ -439,10 +437,9 @@ import PaymentRequiredGate from './components/PaymentRequiredGate';
 // markup som hör till renderingen av en helt vanlig flik — en lazy-gräns
 // runt den hade bara lagt till en laddningsruta för ingenting.
 import UfLockedPage from './components/UfLockedPage';
-import AddCompanyModal from './components/AddCompanyModal';
 import { maybeAutoStartTour, startProductTourWhenReady } from './utils/productTour';
 import { startInvoiceTourWhenReady } from './utils/invoiceTour';
-import { mergeCompanies, mergeCompany, makeRecordPatch, buildStateDelta } from './utils/stateMerge';
+import { mergeCompanies, mergeCompany, makeRecordPatch, buildStateDelta, sharedFieldsToSave } from './utils/stateMerge';
 import { readServerState, rememberServerState, isCacheUsable, noteCachedAt, clearServerState } from './utils/serverStateCache';
 import { shadowReadDue, scheduleShadowRead } from './utils/shadowRead';
 import { loadFromTables, saveToTables } from './utils/tableStore';
@@ -470,15 +467,14 @@ function RouteLoadingFallback() {
 // exakt samma radlängder OCH markera rätt rad som aktiv, istället för sex
 // gissade streck utan koppling till vilken sida man faktiskt ska in på.
 const SKELETON_NAV_GROUPS = [
-  ['dashboard'],
-  ['contacts', 'articles', 'quotes', 'invoices'],
-  ['expenses', 'supplier_invoices', 'bank', 'verifications'],
-  ['reports', 'taxes'],
-  ['projects', 'payroll', 'settings'],
+  ['dashboard', 'review'],
+  ['contacts', 'quotes', 'invoices', 'articles', 'projects'],
+  ['expenses', 'supplier_invoices', 'payroll'],
+  ['bank', 'verifications', 'reports', 'taxes'],
 ];
 // Bredd i % per nav-rad (samma etiketter som riktiga <nav>:en, fast som
 // streck) — statiska tal räcker, det är bara en siluett.
-const SKELETON_NAV_WIDTHS = { dashboard: 40, contacts: 50, articles: 52, quotes: 56, invoices: 68, expenses: 58, supplier_invoices: 84, bank: 40, verifications: 60, projects: 52, payroll: 78, reports: 82, taxes: 70, settings: 64 };
+const SKELETON_NAV_WIDTHS = { dashboard: 40, review: 56, contacts: 50, articles: 52, quotes: 56, invoices: 68, expenses: 58, supplier_invoices: 84, bank: 40, verifications: 60, projects: 52, payroll: 78, reports: 82, taxes: 70, settings: 64 };
 
 // Vilken innehålls-siluett (se DashboardSkeletonContent/ListSkeletonContent/
 // SettingsSkeletonContent nedan) som bäst speglar respektive sidas FAKTISKA
@@ -1343,7 +1339,7 @@ function App() {
   // PasswordRecoveryScreen ovan) — tills användaren faktiskt satt ett nytt
   // lösenord. Samma gate-mönster som mfaChallenge ovan, kollas FÖRE
   // !isLoggedIn-grenen i renderingen av samma skäl.
-  const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [passwordRecovery, setPasswordRecovery] = useState(isPasswordRecovery);
   // Fångas EN gång vid första renderingen — innan den andra useEffect-hooken
   // längre ner (?subscription_checkout=success-toasten) hinner städa bort
   // parametern ur URL:en. fetchUserData körs asynkront (efter getSession()-
@@ -1429,14 +1425,10 @@ function App() {
   // Företag där "Fråga senare" valts i momsperiodsfrågan (VatPeriodPrompt),
   // bara under det här besöket.
   const [vatPromptLater, setVatPromptLater] = useState([]);
-  // "Lägg till företag" (profilmenyn) — kundfeedback: återanvände
-  // tidigare <OnboardingFlow> (kontots ORIGINAL-signupguide, fyra steg
-  // med progressbar) för det här också, kändes för tungt för att bara
-  // lägga till ETT till företag. Egen, enkel modal istället, se
-  // AddCompanyModal.jsx/handleCreateNewCompany nedan — <OnboardingFlow>
-  // används numera bara för kontots allra första företag.
-  const [newCompanyModalOpen, setNewCompanyModalOpen] = useState(false);
-  const [newCompanyModalSubmitting, setNewCompanyModalSubmitting] = useState(false);
+  // "Lägg till företag" (profilmenyn): hela onboardingen i läget addMode, så
+  // att ett nytt företag kontrolleras lika noga som kontots första.
+  const [addingCompany, setAddingCompany] = useState(false);
+  const [addingCompanySubmitting, setAddingCompanySubmitting] = useState(false);
 
   // ── Tema (ljust/mörkt/system) ── Sparat val vinner; annars mörkt som
   // standard (appen är byggd för och ser bäst ut i mörkt läge) — inte
@@ -1765,6 +1757,29 @@ function App() {
   // Fler delade företag än så hämtas bara som namn vid inloggningen.
   const SHARED_EAGER_LIMIT = 3;
 
+  // Företagets uppgifter följer Bolagsverket: en kontroll per dygn när
+  // företaget öppnas. Går registret inte att nå står allt kvar som det var.
+  const registrySyncTried = useRef(new Set());
+  const activeRegistryEntry = data?.companies?.[data?.activeCompanyId];
+  const registryDue = isLoggedIn && registrySyncDue(activeRegistryEntry);
+  useEffect(() => {
+    const companyId = data?.activeCompanyId;
+    if (!registryDue || registrySyncTried.current.has(companyId)) return;
+    registrySyncTried.current.add(companyId);
+    (async () => {
+      try {
+        const result = await requestRegistrySync(companyId, await getAccessToken());
+        if (!result?.company) return;
+        setData(prev => (prev.companies?.[companyId]
+          ? { ...prev, companies: { ...prev.companies, [companyId]: { ...prev.companies[companyId], company: { ...prev.companies[companyId].company, ...result.company } } } }
+          : prev));
+        if (result.changed?.length) setToast({ message: tr('ui.foretagets_uppgifter_uppdaterades_bv'), variant: 'success' });
+      } catch (err) {
+        console.warn('Företagsuppgifterna kunde inte uppdateras från Bolagsverket:', err.message);
+      }
+    })();
+  }, [registryDue, data?.activeCompanyId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const getAccessToken = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     return session?.access_token || null;
@@ -1918,7 +1933,10 @@ function App() {
       try {
         const got = await fetchSharedCompanyWithRetry(m.company_id, accessToken);
         if (!got.ok) {
-          if (![403, 404].includes(got.status)) results[m.company_id] = stubFor(m);
+          // Inbjudan är aktiv (raden ovan), så ett nej här betyder att företaget
+          // inte gick att läsa. Då ska den inbjudna få felsidan med Logga ut,
+          // aldrig betalsidan. Har åtkomsten återkallats kommer raden inte med.
+          results[m.company_id] = stubFor(m);
           return;
         }
         const json = got.json;
@@ -1980,6 +1998,7 @@ function App() {
   // databasen gav upp (2026-10-27). Nu väntar en ny körning på den pågående
   // och sparar sedan det senaste läget, en gång.
   const persistingSharedRef = useRef(new Map());
+  const sharedSaveToastRef = useRef(0);
   const persistSharedCompanyFields = async (companyId, companyData) => {
     const running = persistingSharedRef.current;
     if (running.has(companyId)) { running.set(companyId, companyData); return; }
@@ -2015,9 +2034,12 @@ function App() {
     if (!accessToken) return;
 
     const last = lastPersistedSharedFieldsRef.current[companyId];
-    const changedFields = SHARED_COMPANY_WRITABLE_FIELDS.filter(f => companyData[f] !== last[f]);
+    const { pageAccess, role } = companyData.__shared;
+    const { same, changed: changedFields } = sharedFieldsToSave(last, companyData, SHARED_COMPANY_WRITABLE_FIELDS, f => canWriteField(pageAccess, f, role));
+    for (const f of same) last[f] = companyData[f];
     if (changedFields.length === 0) return;
 
+    let failed = false;
     for (const field of changedFields) {
       // Listor (verifikationer, kvitton …): bara de poster som ändrats, så att
       // anropet inte växer med hela historiken. Annars hela värdet + base.
@@ -2037,12 +2059,21 @@ function App() {
           // Sparas inte in i "last" — försöks igen nästa gång effekten körs,
           // istället för att tyst ge upp på ett fält som faktiskt inte gick
           // igenom (t.ex. rollen nedgraderades till viewer mitt i sessionen).
+          failed = true;
+          // Inloggningen gäller inte längre: resten av fälten nekas likadant.
+          if (res.status === 401) break;
           continue;
         }
         lastPersistedSharedFieldsRef.current[companyId] = { ...lastPersistedSharedFieldsRef.current[companyId], [field]: companyData[field] };
       } catch (err) {
         console.error(`Nätverksfel vid sparning av ${field} för delat företag ${companyId}:`, err);
+        failed = true;
       }
+    }
+    // Ändringen finns bara på skärmen tills den sparats, så det ska synas.
+    if (failed && Date.now() - sharedSaveToastRef.current > 60000) {
+      sharedSaveToastRef.current = Date.now();
+      setToast({ message: tr('ui.kunde_inte_spara_andringarna_forsok_igen_om_en_s'), variant: 'error' });
     }
   };
 
@@ -2415,9 +2446,18 @@ function App() {
 
     supabase.auth.getSession()
       .then(async ({ data: { session } }) => {
+        // Återställningslänk (authStorage.js). Utan session gick länken inte
+        // att använda, och då ska rutan för nytt lösenord inte visas.
+        const recovering = isPasswordRecovery();
+        if (recovering && !session?.user) {
+          clearPasswordRecovery();
+          setPasswordRecovery(false);
+        }
         // Oanvänd i mer än INACTIVE_DAYS dagar (sessionPolicy.js): logga ut
-        // och visa inloggningen, som om man loggat ut själv.
-        if (session?.user && isInactiveTooLong()) {
+        // och visa inloggningen, som om man loggat ut själv. Inte för den som
+        // just kommit via en återställningslänk: då tas sessionen bort under
+        // rutan och bytet ger "Auth session missing".
+        if (session?.user && !recovering && isInactiveTooLong()) {
           await supabase.auth.signOut();
           clearLocalData();
           clearTimeout(loadingTimeout);
@@ -2438,13 +2478,10 @@ function App() {
         // subscriptionGate='blocked' INNAN passwordRecovery ens hunnit bli
         // sant, och render-ordningen (se ternary-kedjan längre ner) räckte
         // inte ensam: state:t fastnade på "blocked" permanent eftersom
-        // inget senare någonsin nollställer det. Samma hash-baserade
-        // detektering som AppRouter.jsx:s shouldLoadAppImmediately redan
-        // använder — om länken är en återställningslänk, hoppa över
-        // fetchUserData HELT här och lita på PASSWORD_RECOVERY-eventet
-        // nedan istället.
-        const isPasswordRecoveryUrl = /type=recovery/.test(window.location.hash || '');
-        if (isPasswordRecoveryUrl) {
+        // inget senare någonsin nollställer det. Om länken är en
+        // återställningslänk, hoppa över fetchUserData HELT här. Adressen är
+        // redan tömd av Supabase, så det avgörs av det authStorage.js minns.
+        if (recovering) {
           clearTimeout(loadingTimeout);
           setIsLoadingAuth(false);
         } else if (session?.user) {
@@ -2479,6 +2516,8 @@ function App() {
         setIsLoggedIn(false);
         setShowOnboarding(false);
         setSubscriptionGate(null);
+        clearPasswordRecovery();
+        setPasswordRecovery(false);
       } else if (event === 'PASSWORD_RECOVERY') {
         // Klickad återställningslänk (Auth.jsx: "Glömt lösenord?") —
         // Supabase loggar in med en TILLFÄLLIG session från själva länken,
@@ -2495,8 +2534,8 @@ function App() {
         // PASSWORD_RECOVERY-grenens redan satta passwordRecovery=true,
         // exakt samma "hamnar på betalningsspärren istället för
         // återställningsformuläret"-bugg som mount-effektens getSession()
-        // ovan redan skyddas mot. Samma hash-kontroll här.
-        if (/type=recovery/.test(window.location.hash || '')) return;
+        // ovan redan skyddas mot. Samma kontroll här.
+        if (isPasswordRecovery()) return;
         // Se loadedUserIdRef-kommentaren ovan: den här fliken har redan en
         // annan (eller ingen) användare inläst sedan tidigare. Skiljer
         // mellan "första inloggningen i den här fliken" (loadedUserIdRef
@@ -3045,7 +3084,8 @@ function App() {
   // som handleMfaVerify.
   const handleSetNewPassword = async (password) => {
     const { error } = await supabase.auth.updateUser({ password });
-    if (error) throw error;
+    if (error) throw new Error(translateSupabaseAuthError(error.message));
+    clearPasswordRecovery();
     // Samma isLoadingAuth-brygga som handleMfaVerify använder: utan den
     // hinner ett kort ögonblick (passwordRecovery redan false, isLoggedIn
     // fortfarande false) falla igenom till !isLoggedIn-grenen och blinka
@@ -3058,6 +3098,7 @@ function App() {
   const handlePasswordRecoveryCancel = async () => {
     await supabase.auth.signOut();
     clearLocalData();
+    clearPasswordRecovery();
     setPasswordRecovery(false);
     setIsLoggedIn(false);
   };
@@ -3381,6 +3422,7 @@ function App() {
   // Sidomenyns grupper kan fällas ihop genom att klicka på rubriken. Valet sparas
   // i webbläsaren. Alla grupper är uppfällda som standard, och gruppen som
   // innehåller sidan man står på är alltid uppfälld (se nav-blocket längre ner).
+  const [supplierPageTab, setSupplierPageTab] = useState('invoices');
   const [collapsedNav, setCollapsedNav] = useState(() => {
     try {
       const v = JSON.parse(localStorage.getItem('bokix_nav_collapsed') || '[]');
@@ -3595,16 +3637,13 @@ function App() {
     }
   };
 
-  // "Lägg till företag" (profilmenyn) — öppnar bara den lätta modalen
-  // (AddCompanyModal.jsx), skapar INGET förrän formuläret faktiskt
-  // skickas in (handleCreateNewCompany nedan) — till skillnad från det
-  // gamla OnboardingFlow-baserade flödet, som skapade ett tomt
-  // platshållarföretag redan HÄR, innan användaren skrivit in något alls
-  // (så "Avbryt" lämnade kvar ett spöktomt företag om man ångrade sig).
+  // "Lägg till företag" (profilmenyn): öppnar onboardingen men skapar INGET
+  // förrän sista steget är klart (handleCreateNewCompany nedan), så "Avbryt"
+  // lämnar inget tomt företag efter sig.
   const handleStartNewCompany = () => {
     // Bara inbjuden (inget eget företag): ingen väg till en egen betalning.
     if (!Object.values(data.companies || {}).some(c => !c?.__shared)) return;
-    setNewCompanyModalOpen(true);
+    setAddingCompany(true);
   };
 
   // Skickar det nya företaget vidare till Stripe för dess EGNA betalning —
@@ -3711,21 +3750,26 @@ function App() {
     });
   };
 
-  // AddCompanyModal.jsx:s submit — skapar det nya företaget HÄR (inte i
-  // handleStartNewCompany, se den funktionens kommentar) och avslutar med
-  // Stripe-redirect istället för bara dashboarden. MEDVETET utan
+  // Onboardingens sista steg i addMode: skapar företaget HÄR och avslutar med
+  // Stripe-redirect i stället för dashboarden. MEDVETET utan
   // saveUserDataToSupabase:s `extras`-argument (jämför handleOnboardingComplete
   // ovan): onboarding_completed/company_name/company_orgnr m.fl. är
   // kontots EGNA kolumner (beskriver bara det allra första företaget) och
   // ska aldrig skrivas över av ett SENARE tillagt företags uppgifter.
-  // Räkenskapsår/momsperiod/kontoplan sätts inte i formuläret längre —
-  // createEmptyCompanyData:s egna förval duger, ändringsbart i
-  // Inställningar sen.
-  const handleCreateNewCompany = async ({ companyName, orgNr, address, postalCode, city, email, setup }) => {
-    setNewCompanyModalSubmitting(true);
+  const handleCreateNewCompany = async ({ companyName, orgNr, address, postalCode, city, email, setup, vatPeriod, fSkatt, registryVerified }) => {
+    setAddingCompanySubmitting(true);
     try {
       const newCompanyData = createEmptyCompanyData({ name: companyName, orgNr, address, postalCode, city, email: email || user?.email || '', ...(setup || {}) });
-      newCompanyData.company.requiresOwnPayment = true;
+      Object.assign(newCompanyData.company, {
+        requiresOwnPayment: true,
+        ...(vatPeriod ? { vatPeriod } : {}),
+        ...(typeof fSkatt === 'string' ? { fSkatt } : {}),
+        setupConfirmedAt: new Date().toISOString(),
+        // Vem som intygade uppgifterna, och om företaget hittades i registret.
+        attestedAt: new Date().toISOString(),
+        attestedBy: user?.email || '',
+        registryVerified: Boolean(registryVerified),
+      });
       const companyId = newCompanyData.company.id;
       const nextState = {
         ...data,
@@ -3737,11 +3781,11 @@ function App() {
       };
 
       setData(nextState);
-      setNewCompanyModalOpen(false);
+      setAddingCompany(false);
       await saveUserDataToSupabase(nextState);
       await redirectNewCompanyToPayment(companyId);
     } finally {
-      setNewCompanyModalSubmitting(false);
+      setAddingCompanySubmitting(false);
     }
   };
 
@@ -5402,33 +5446,33 @@ function App() {
   // Kvitton, eftersom att fota ett kvitto är det man oftast gör på telefonen.
   // Bokföring och Rapport ligger på var sin sida om den, Hem först och Meny sist.
   const mobileNavItems = [
-    { id: 'dashboard',     label: tr('ui.hem'),       icon: NavHomeIcon },
+    { id: 'dashboard',     label: t('navShort.dashboard'), icon: NavHomeIcon },
     { id: 'verifications', label: tr('ui.bokforing'), icon: BookOpen },
     { id: 'expenses',      label: tr('ui.kvitton'),   icon: NavReceiptsIcon },
-    { id: 'reports',       label: tr('ui.rapport'),   icon: BarChart3 },
+    { id: 'reports',       label: t('navShort.reports'), icon: BarChart3 },
   ];
   // Telefonens Meny har samma grupper som sidomenyn på datorn, utan det som redan
   // finns i bottenraden (se visibleMobileSheetSections).
   const mobileSheetSections = [
     { key: 'business', title: t('nav.groupBusiness'), items: [
       { id: 'contacts', label: t('nav.contacts'), icon: Users },
-      { id: 'articles', label: t('nav.articles'), icon: Package, exact: true },
       { id: 'quotes', label: t('nav.quotes'), icon: NavQuotesIcon, exact: true },
-      { id: 'invoices', label: t('nav.customerInvoices'), icon: NavInvoicesIcon, exact: true },
+      { id: 'invoices', label: t('nav.customerInvoices'), icon: NavCustomerInvoicesIcon, exact: true },
+      { id: 'articles', label: t('nav.articles'), icon: Package, exact: true },
+      { id: 'projects', label: t('nav.projects'), icon: Briefcase },
     ] },
     { key: 'finance', title: t('nav.groupFinance'), items: [
       { id: 'expenses', label: t('nav.expenses'), icon: NavReceiptsIcon },
-      { id: 'supplier_invoices', label: t('nav.supplierInvoices'), icon: Inbox, exact: true },
-      { id: 'bank', label: t('nav.bank'), icon: Landmark },
-      { id: 'verifications', label: t('nav.verifications'), icon: BookOpen },
+      { id: 'supplier_invoices', label: t('nav.supplierInvoices'), icon: NavSupplierInvoicesIcon, exact: true },
+      { id: 'payroll', label: t('nav.payroll'), icon: NavPayrollIcon },
     ] },
     { key: 'reports', title: t('nav.groupReports'), items: [
+      { id: 'bank', label: t('nav.bank'), icon: Landmark },
+      { id: 'verifications', label: t('nav.verifications'), icon: BookOpen },
       { id: 'reports', label: t('nav.reports'), icon: BarChart3 },
-      { id: 'taxes', label: t('nav.taxes'), icon: Shield },
+      { id: 'taxes', label: t('nav.taxes'), icon: Calculator },
     ] },
-    { key: 'admin', title: t('nav.groupAdmin'), items: [
-      { id: 'projects', label: t('nav.projects'), icon: Briefcase },
-      { id: 'payroll', label: t('nav.payroll'), icon: UsersRound },
+    { key: 'settings', title: null, items: [
       { id: 'settings', label: t('nav.settings'), icon: SettingsIcon },
     ] },
   ];
@@ -5454,8 +5498,8 @@ function App() {
   const visibleMobileSheetSections = mobileSheetSections
     .map(sec => ({ ...sec, items: sec.items.filter(item => isNavItemShown(item) && !barIds.includes(item.id)) }))
     .filter(sec => sec.items.length > 0);
-  // Som på datorn: Granskning visas bara när något väntar, eller när man står på sidan.
-  const reviewSheetVisible = isNavIdAllowed('review') && (reviewTotal > 0 || resolveNavGroup(activeTab) === 'review');
+  // Som på datorn: Att granska står alltid på samma plats, bara siffran kommer och går.
+  const reviewSheetVisible = isNavIdAllowed('review');
   // "Meny" lyser när sidan man står på finns i panelen.
   const isMobileSheetItemActive = (reviewSheetVisible && resolveNavGroup(activeTab) === 'review')
     || visibleMobileSheetSections.some(sec => sec.items.some(isNavItemActive));
@@ -5464,7 +5508,8 @@ function App() {
 
   // Byt företag i profilmenyn (dator och telefon): en ägare med flera
   // företag, eller en redovisningskonsult inbjuden av flera kunder. Med
-  // många företag finns en sökruta.
+  // många företag finns en sökruta. Lägg till företag står direkt under
+  // listan, så allt om företag ligger samlat.
   const companyEntries = Object.entries(data.companies || {});
   const renderCompanySwitcher = () => {
     if (companyEntries.length < 2) return null;
@@ -5484,7 +5529,7 @@ function App() {
             />
           </div>
         )}
-        <div style={{ maxHeight: '260px', overflowY: 'auto' }}>
+        <div className="company-switch-list" style={{ maxHeight: '260px', overflowY: 'auto' }}>
           {shown.map(([id, c]) => (
             <button
               key={id}
@@ -5498,7 +5543,6 @@ function App() {
           ))}
           {shown.length === 0 && <div style={{ padding: '6px 14px', fontSize: '13px', color: 'var(--text-muted)' }}>{tr('companySwitcher.none')}</div>}
         </div>
-        <div className="dropdown-divider"></div>
       </>
     );
   };
@@ -5664,6 +5708,7 @@ function App() {
             onRotRutBatchPayout={handleRotRutBatchPayout}
             onUnmarkPaid={handleUnmarkInvoicePaid}
             onGetPaymentLinkUrl={getInvoicePaymentLinkUrl}
+            activeCompanyId={data.activeCompanyId}
             stripeAccountId={company.stripeAccountId}
             setInvoices={setInvoices}
             company={company}
@@ -5721,10 +5766,35 @@ function App() {
             pageTitle={tr('ui.kvitton')}
           />
         );
-      case 'supplier_invoices':
+      case 'supplier_invoices': {
+        // Leverantörerna finns också här, där man letar när man har en faktura
+        // i handen. Samma register som fliken på Kunder, bara en dörr till.
+        const supplierTabs = {
+          items: [{ id: 'invoices', label: tr('ui.fakturor') }, { id: 'suppliers', label: t('contacts.list.suppliers') }],
+          activeId: supplierPageTab,
+          onChange: setSupplierPageTab,
+        };
+        if (supplierPageTab === 'suppliers') {
+          return (
+            <Contacts
+              fixedType="supplier"
+              headerTitle={tr('ui.leverantorsfakturor')}
+              headerTabs={supplierTabs}
+              contacts={contacts}
+              setContacts={setContacts}
+              accounts={accounts}
+              invoices={invoices}
+              quotes={quotes}
+              expenses={expenses}
+              globalAction={globalAction}
+              clearGlobalAction={() => setGlobalAction(null)}
+            />
+          );
+        }
         return (
           <SupplierInvoices
             key={company?.id || data.activeCompanyId}
+            headerTabs={supplierTabs}
             expenses={expenses}
             accounts={accounts}
             contacts={contacts}
@@ -5740,8 +5810,9 @@ function App() {
             onNavigate={handleNavTabChange}
           />
         );
+      }
       case 'quotes':
-        return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} contacts={contacts} projects={projects} company={company} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} articles={articles} setArticles={setArticles} onSyncBeforeServerCall={syncUserDataNow} />;
+        return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} contacts={contacts} projects={projects} company={company} activeCompanyId={data.activeCompanyId} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} articles={articles} setArticles={setArticles} onSyncBeforeServerCall={syncUserDataNow} />;
       case 'articles':
         return <Articles key={company?.id || data.activeCompanyId} articles={articles} setArticles={setArticles} accounts={accounts} company={company} verifications={verifications} invoices={invoices} expenses={expenses} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} />;
       case 'projects':
@@ -5848,7 +5919,7 @@ function App() {
             }}
             extraTabs={isUfCompany(company) ? [] : [
               { id: 'accruals', label: tr('ui.periodiseringar'), content: <Accruals company={company} accounts={accounts} verifications={verifications} employees={employees} payrollRuns={payrollRuns} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
-              { id: 'fixed_assets', label: tr('ui.anlaggningstillgangar'), content: <FixedAssets company={company} accounts={accounts} verifications={verifications} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
+              { id: 'fixed_assets', label: tr('ui.tillgangar'), content: <FixedAssets company={company} accounts={accounts} verifications={verifications} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
             // Gömda funktioner (utils/optionalFeatures.js) visas inte, utom när
             // man kommer dit via en länk (t.ex. bokslutets checklista).
             ].filter(tab => isFeatureOn(currentCompany, tab.id) || verificationsInitialTab === tab.id)}
@@ -5996,6 +6067,17 @@ function App() {
                 initialCompanyData={data.companies[data.activeCompanyId]}
                 firstName={user?.user_metadata?.first_name}
               />
+            ) : addingCompany ? (
+              <OnboardingFlow
+                onComplete={handleCreateNewCompany}
+                firstName={user?.user_metadata?.first_name}
+                addMode={{
+                  existingOrgNrs: Object.values(data.companies || {}).map(c => c?.company?.orgNr).filter(Boolean),
+                  defaultEmail: user?.email || '',
+                  submitting: addingCompanySubmitting,
+                  onCancel: () => setAddingCompany(false),
+                }}
+              />
             ) : !isActiveCompanyPaid ? (
               // Betala-per-företag (kundkrav): det AKTIVA företaget kräver
               // sin egen betalning (requiresOwnPayment) och har ingen giltig
@@ -6039,21 +6121,22 @@ function App() {
 
         {/* Företagsväxlaren flyttad till Inställningar → Företag (Sida 38) —
             fanns tidigare här som en dropdown i sidomenyn. Byt-företag/
-            lägg-till-företag är kvar (handleSwitchCompany, setNewCompanyModal),
+            lägg-till-företag är kvar (handleSwitchCompany, setAddingCompany),
             bara UI:t flyttat, se <Settings companyList/activeCompanyId/
             onSwitchCompany/onAddCompany> ovan. */}
 
-        {/* Huvudnavigering — fem grupper: överst Start och Granskning, sedan
-            Verksamhet, Ekonomi, Rapporter och Administration. Grupprubrikerna
-            visas när fönstret är högt nog (index.css); annars, och i halvskärmens
-            ikonfält, skiljs grupperna åt av en tunn linje. Granskning syns bara när
-            något väntar, eller när man redan står på sidan. */}
+        {/* Huvudnavigering efter hur en företagare tänker: överst Start och Att
+            granska, sedan Pengar in, Pengar ut och Koll på ekonomin. Inställningar
+            ligger fast i botten-sektionen. Grupprubrikerna visas när fönstret är
+            högt nog (index.css); annars, och i halvskärmens ikonfält, skiljs
+            grupperna åt av en tunn linje. Att granska står alltid på samma plats så
+            att raderna inte flyttar sig, bara siffran kommer och går. */}
         <nav className="nav-links" ref={sidebarNavRef} style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 0, flexShrink: 1, minHeight: 0, overflowY: 'auto' }}>
           {[
             {
               items: [
-                { id: 'dashboard', label: t('nav.dashboard'), short: t('navShort.dashboard'), icon: LayoutDashboard },
-                { id: 'review', label: t('nav.review'), short: t('navShort.review'), badge: reviewTotal, icon: ClipboardCheck, hidden: reviewTotal === 0 && resolveNavGroup(activeTab) !== 'review' },
+                { id: 'dashboard', label: t('nav.dashboard'), short: t('navShort.dashboard'), icon: NavHomeIcon },
+                { id: 'review', label: t('nav.review'), short: t('navShort.review'), badge: reviewTotal, icon: ClipboardCheck },
               ],
             },
             {
@@ -6061,9 +6144,10 @@ function App() {
               title: t('nav.groupBusiness'),
               items: [
                 { id: 'contacts', label: t('nav.contacts'), short: t('navShort.contacts'), icon: Users },
-                { id: 'articles', label: t('nav.articles'), short: t('navShort.articles'), icon: Package, exact: true },
                 { id: 'quotes', label: t('nav.quotes'), short: t('navShort.quotes'), icon: NavQuotesIcon, exact: true },
-                { id: 'invoices', label: t('nav.customerInvoices'), short: t('navShort.invoices'), icon: NavInvoicesIcon, exact: true },
+                { id: 'invoices', label: t('nav.customerInvoices'), short: t('navShort.invoices'), icon: NavCustomerInvoicesIcon, exact: true },
+                { id: 'articles', label: t('nav.articles'), short: t('navShort.articles'), icon: Package, exact: true },
+                { id: 'projects', label: t('nav.projects'), short: t('navShort.projects'), icon: Briefcase },
               ],
             },
             {
@@ -6071,26 +6155,18 @@ function App() {
               title: t('nav.groupFinance'),
               items: [
                 { id: 'expenses', label: t('nav.expenses'), short: t('navShort.expenses'), icon: NavReceiptsIcon },
-                { id: 'supplier_invoices', label: t('nav.supplierInvoices'), short: t('navShort.supplierInvoices'), icon: Inbox, exact: true },
-                { id: 'bank', label: t('nav.bank'), short: t('navShort.bank'), icon: Landmark },
-                { id: 'verifications', label: t('nav.verifications'), short: t('navShort.verifications'), icon: BookOpen },
+                { id: 'supplier_invoices', label: t('nav.supplierInvoices'), short: t('navShort.supplierInvoices'), icon: NavSupplierInvoicesIcon, exact: true },
+                { id: 'payroll', label: t('nav.payroll'), short: t('navShort.payroll'), icon: NavPayrollIcon },
               ],
             },
             {
               key: 'reports',
               title: t('nav.groupReports'),
               items: [
+                { id: 'bank', label: t('nav.bank'), short: t('navShort.bank'), icon: Landmark },
+                { id: 'verifications', label: t('nav.verifications'), short: t('navShort.verifications'), icon: BookOpen },
                 { id: 'reports', label: t('nav.reports'), short: t('navShort.reports'), icon: BarChart3 },
-                { id: 'taxes', label: t('nav.taxes'), short: t('navShort.taxes'), icon: Shield },
-              ],
-            },
-            {
-              key: 'admin',
-              title: t('nav.groupAdmin'),
-              items: [
-                { id: 'projects', label: t('nav.projects'), short: t('navShort.projects'), icon: Briefcase },
-                { id: 'payroll', label: t('nav.payroll'), short: t('navShort.payroll'), icon: UsersRound },
-                { id: 'settings', label: t('nav.settings'), short: t('navShort.settings'), icon: SettingsIcon },
+                { id: 'taxes', label: t('nav.taxes'), short: t('navShort.taxes'), icon: Calculator },
               ],
             },
           ].map(group => ({ ...group, items: group.items.filter(item => !item.hidden && isNavItemShown(item)) }))
@@ -6166,10 +6242,31 @@ function App() {
         {/* Flexibelt tomt utrymme — trycker botten-sektionen längst ner oavsett skärmhöjd */}
         <div style={{ flex: 1 }}></div>
 
-        {/* Fastsatt botten-sektion: Hjälp och support, sedan Logga ut */}
+        {/* Fastsatt botten-sektion: Inställningar och Hjälp och support. Logga ut
+            ligger i profilmenyn och längst ned i Inställningars meny. */}
         <div className="sidebar-footer-actions" style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.15)' }}>
           <button
+            type="button"
+            data-tour="nav-settings"
+            title={t('nav.settings')}
+            className={`nav-item ${resolveNavGroup(activeTab) === 'settings' ? 'active' : ''}`}
+            onClick={() => handleNavTabChange('settings')}
+            style={{
+              padding: 'var(--sb-pad, 13px) 24px', width: '100%', textAlign: 'left',
+              background: resolveNavGroup(activeTab) === 'settings' ? 'rgba(255,255,255,0.14)' : 'none',
+              border: 'none', color: resolveNavGroup(activeTab) === 'settings' ? '#ffffff' : 'rgba(255,255,255,0.88)',
+              fontSize: 'var(--sb-font, 15px)', fontWeight: resolveNavGroup(activeTab) === 'settings' ? 700 : 500, cursor: 'pointer',
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
+              <SettingsIcon size={18} style={{ flexShrink: 0, opacity: 0.85 }} />
+              <span className="nav-label">{t('nav.settings')}</span>
+              <span className="nav-short">{t('navShort.settings')}</span>
+            </span>
+          </button>
+          <button
             className="nav-item"
+            title={t('nav.help')}
             onClick={() => setIsHelpDrawerOpen(true)}
             style={{
               padding: 'var(--sb-pad, 13px) 24px', width: '100%', textAlign: 'left', background: 'none',
@@ -6177,16 +6274,6 @@ function App() {
             }}
           >
             <HelpCircle size={17} /> <span className="nav-label">{t('nav.help')}</span>
-          </button>
-          <button
-            className="nav-item logout-btn"
-            onClick={() => setShowLogoutConfirm(true)}
-            style={{
-              padding: 'var(--sb-pad, 13px) 24px', width: '100%', textAlign: 'left', background: 'none',
-              border: 'none', color: '#fca5a5', fontSize: 'var(--sb-font, 15px)', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px'
-            }}
-          >
-            <LogOut size={17} /> <span className="nav-label">{t('nav.logout')}</span>
           </button>
         </div>
       </aside>
@@ -6268,37 +6355,20 @@ function App() {
                       det finns kvar på två ställen: sol/måne-ikonen i
                       topbaren (båda layouterna) och Inställningar →
                       Utseende. Lägg inte tillbaka det här utan att fråga. */}
-                  <button onClick={() => { handleNavTabChange('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> {tr('ui.kontoplaner')}</button>
-                  {/* Produkt-/artikelregistret (Articles.jsx) — kundönskemål:
-                      en egen, hittbar sida för produkter/tjänster, valbara
-                      direkt på både fakturor och offerter. */}
-                  <button onClick={() => { handleNavTabChange('articles'); setIsProfileMenuOpen(false); }}><Package size={14} /> {tr('ui.artikel')}</button>
-                  {/* Ingen egen "viktiga datum"-sida finns — Skatt & bokslut är
-                      redan där deadlines (momsdeklaration, bokslut) visas, så
-                      det är dit den rimligen ska peka istället för att inte
-                      göra något alls. */}
-                  <button onClick={() => { handleNavTabChange('taxes'); setIsProfileMenuOpen(false); }}><FileCheck size={14} /> {tr('ui.viktiga_datum')}</button>
-                  <button onClick={() => { handleNavTabChange('taxes_yearend'); setIsProfileMenuOpen(false); }}><Shield size={14} /> {tr('ui.bokslut_arsredovisning')}</button>
-                  <button onClick={() => { handleNavTabChange('taxes_vat'); setIsProfileMenuOpen(false); }}><Calculator size={14} /> {tr('ui.momsredovisning')}</button>
-                  <div className="dropdown-divider"></div>
+                  {ownsAnyCompany && (
+                    <>
+                      <button onClick={() => { handleStartNewCompany(); setIsProfileMenuOpen(false); }}><Building2 size={14} /> {tr('ui.lagg_till_foretag')}</button>
+                      <div className="dropdown-divider"></div>
+                    </>
+                  )}
+                  {!ownsAnyCompany && companyEntries.length > 1 && <div className="dropdown-divider"></div>}
                   {/* Samma mejladress/ämnesrad som felrapport-länken i
                       HelpDrawer.jsx — en riktig kanal istället för att bara
                       stänga menyn utan att göra något. */}
                   <button onClick={() => { setReportErrorModal(true); setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> {tr('ui.rapportera_fel')}</button>
                   <button className="profile-item-desktop-only" onClick={() => { setIsHelpDrawerOpen(true); setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> {tr('ui.hjalp_support')}</button>
                   <div className="dropdown-divider"></div>
-                  {ownsAnyCompany && (
-                    <>
-                      <button onClick={() => { handleStartNewCompany(); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> {tr('ui.lagg_till_foretag')}</button>
-                      <div className="dropdown-divider"></div>
-                    </>
-                  )}
-                  <button onClick={async () => {
-                    await supabase.auth.signOut();
-                    clearLocalData();
-                    setIsLoggedIn(false);
-                    setShowOnboarding(false);
-                  }} className="text-danger profile-item-desktop-only"><LogOut size={14} /> {tr('ui.logga_ut')}</button>
+                  <button onClick={() => { setIsProfileMenuOpen(false); setShowLogoutConfirm(true); }} className="text-danger profile-item-desktop-only"><LogOut size={14} /> {tr('ui.logga_ut')}</button>
                 </div>
               )}
             </div>
@@ -6379,30 +6449,17 @@ function App() {
                       profil"), inte en egen destination. Borttagna, inte bara
                       dolda — samma två rader fanns dubblerat i mobilkopian av
                       den här menyn, borttagna där också. */}
-                  <button onClick={() => { handleNavTabChange('accounts'); setIsProfileMenuOpen(false); }}><FolderTree size={14} /> {tr('ui.kontoplaner')}</button>
-                  {/* Produkt-/artikelregistret (Articles.jsx) — kundönskemål:
-                      en egen, hittbar sida för produkter/tjänster, valbara
-                      direkt på både fakturor och offerter. */}
-                  <button onClick={() => { handleNavTabChange('articles'); setIsProfileMenuOpen(false); }}><Package size={14} /> {tr('ui.artikel')}</button>
-                  <button onClick={() => { handleNavTabChange('taxes'); setIsProfileMenuOpen(false); }}><FileCheck size={14} /> {tr('ui.viktiga_datum')}</button>
-                  <button onClick={() => { handleNavTabChange('taxes_yearend'); setIsProfileMenuOpen(false); }}><Shield size={14} /> {tr('ui.bokslut_arsredovisning')}</button>
-                  <button onClick={() => { handleNavTabChange('taxes_vat'); setIsProfileMenuOpen(false); }}><Calculator size={14} /> {tr('ui.momsredovisning')}</button>
-                  <div className="dropdown-divider"></div>
-                  <button onClick={() => { setReportErrorModal(true); setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> {tr('ui.rapportera_fel')}</button>
-                  <button onClick={() => { setIsHelpDrawerOpen(true); setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> {tr('ui.hjalp_support')}</button>
-                  <div className="dropdown-divider"></div>
                   {ownsAnyCompany && (
                     <>
-                      <button onClick={() => { handleStartNewCompany(); setIsProfileMenuOpen(false); }}><UsersRound size={14} /> {tr('ui.lagg_till_foretag')}</button>
+                      <button onClick={() => { handleStartNewCompany(); setIsProfileMenuOpen(false); }}><Building2 size={14} /> {tr('ui.lagg_till_foretag')}</button>
                       <div className="dropdown-divider"></div>
                     </>
                   )}
-                  <button onClick={async () => {
-                    await supabase.auth.signOut();
-                    clearLocalData();
-                    setIsLoggedIn(false);
-                    setShowOnboarding(false);
-                  }} className="text-danger"><LogOut size={14} /> {tr('ui.logga_ut')}</button>
+                  {!ownsAnyCompany && companyEntries.length > 1 && <div className="dropdown-divider"></div>}
+                  <button onClick={() => { setReportErrorModal(true); setIsProfileMenuOpen(false); }}><AlertTriangle size={14} /> {tr('ui.rapportera_fel')}</button>
+                  <button onClick={() => { setIsHelpDrawerOpen(true); setIsProfileMenuOpen(false); }}><HelpCircle size={14} /> {tr('ui.hjalp_support')}</button>
+                  <div className="dropdown-divider"></div>
+                  <button onClick={() => { setIsProfileMenuOpen(false); setShowLogoutConfirm(true); }} className="text-danger"><LogOut size={14} /> {tr('ui.logga_ut')}</button>
                 </div>
               )}
             </div>
@@ -6537,7 +6594,7 @@ function App() {
           )}
           {visibleMobileSheetSections.map(sec => (
             <div className="mobile-sheet-section" key={sec.key}>
-              <div className="mobile-sheet-section-title">{sec.title}</div>
+              {sec.title && <div className="mobile-sheet-section-title">{sec.title}</div>}
               <div className="mobile-sheet-list">
                 {sec.items.map(item => (
                   <button
@@ -6562,22 +6619,6 @@ function App() {
       {(isProfileMenuOpen || isNotifMenuOpen) && (
         <div className="mobile-dropdown-backdrop" onClick={() => { setIsProfileMenuOpen(false); setIsNotifMenuOpen(false); }} />
       )}
-
-      {/* ── New Company Modal ── */}
-      {/* "Lägg till företag" — kundfeedback (två omgångar): först en bar
-          namn+org.nr-modal, sedan ersatt av kontots FÖRSTA-företags fyrstegs
-          OnboardingFlow-guide ("en riktig upplevelse"). Andra omgången
-          kundfeedback: den guiden kändes för tung/"wizard-aktig" bara för
-          att lägga till ETT till företag på ett konto som redan finns —
-          tillbaka till en enkel modal (AddCompanyModal.jsx), men med
-          org.nummerslagningen kvar (se handleCreateNewCompany ovan). */}
-      <AddCompanyModal
-        isOpen={newCompanyModalOpen}
-        onClose={() => setNewCompanyModalOpen(false)}
-        onSubmit={handleCreateNewCompany}
-        submitting={newCompanyModalSubmitting}
-        defaultEmail={user?.email || ''}
-      />
 
       {/* ── Help Drawer ── */}
       <HelpDrawer

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { renderInvoicePdf } from './exportInvoicePdf.js';
+import { captureScale, renderInvoicePdf } from './exportInvoicePdf.js';
 
 // html2canvas needs a real DOM/canvas — mocked here so the actual
 // page-size/orientation decision in renderInvoicePdf runs against a real
@@ -18,6 +18,23 @@ vi.mock('html2canvas', () => ({
 function fakeNode(mockWidth, mockHeight) {
   return { style: {}, __mockWidth: mockWidth, __mockHeight: mockHeight };
 }
+
+describe('captureScale', () => {
+  it('ger 300 dpi på ett A4, även när appens zoom krymper noden', () => {
+    expect(794 * captureScale(794, 1123)).toBeCloseTo(2480, 0);
+    expect(715 * captureScale(715, 1011)).toBeCloseTo(2480, 0);
+  });
+
+  it('håller en lång faktura inom vad en telefon kan rita', () => {
+    const scale = captureScale(794, 1123 * 6);
+    expect(794 * 1123 * 6 * scale * scale).toBeLessThanOrEqual(16000001);
+    expect(1123 * 6 * scale).toBeLessThanOrEqual(16000);
+  });
+
+  it('klarar en nod utan mått', () => {
+    expect(captureScale(undefined, undefined)).toBe(2);
+  });
+});
 
 describe('renderInvoicePdf — sidstorlek/orientering', () => {
   it('kort faktura (innehåll smalare än det är brett i mm) får en anpassad liggande sida, inte växlad bredd/höjd', async () => {

@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  MdCalendarMonth, MdEmail, MdAccountBalance, MdMoreHoriz,
+  MdCalendarMonth, MdCookie, MdEmail, MdAccountBalance, MdMoreHoriz, MdOutlineBadge,
   MdOutlineEditNote, MdOutlineTask, MdOutlineHome, MdOutlineStorefront, MdMoreTime, MdPayments, MdPersonAddAlt1, MdPostAdd, MdUploadFile,
   MdOutlineAccessTime, MdOutlineAccountBalance, MdOutlineAccountBalanceWallet, MdOutlineAccountTree,
   MdOutlineAdd, MdOutlineAlarm, MdOutlineApartment,
@@ -96,6 +96,7 @@ export const Clock = make(MdOutlineAccessTime, 'Clock');
 export const Cog = make(MdOutlineSettings, 'Cog');
 export const Columns3 = make(MdOutlineViewColumn, 'Columns3');
 export const Cookie = make(MdOutlineCookie, 'Cookie');
+export const CookieFilled = make(MdCookie, 'CookieFilled');
 export const Copy = make(MdOutlineContentCopy, 'Copy');
 export const CreditCard = make(MdOutlineCreditCard, 'CreditCard');
 export const Database = make(MdOutlineStorage, 'Database');
@@ -219,9 +220,23 @@ export const NavQuotesIcon = ({ size = 24, className, style, color, strokeWidth:
 NavQuotesIcon.displayName = 'NavQuotesIcon';
 export const NavInvoicesIcon = make(MdOutlineTask, 'NavInvoicesIcon');
 
+// Fakturaparet i menyn: samma papper, pilen visar om fakturan går ut eller kommer in.
+const InvoiceArrowIcon = ({ arrow, size = 24, className, style, color, strokeWidth: _strokeWidth, absoluteStrokeWidth: _absoluteStrokeWidth, ...rest }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color || 'currentColor'} strokeWidth="2" strokeLinejoin="round" className={className} style={style} aria-hidden="true" {...rest}>
+    <path d="M12 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8l6 6v3" />
+    <path d="M14 3v6h6" />
+    <path d={arrow} strokeLinecap="round" />
+  </svg>
+);
+export const NavCustomerInvoicesIcon = (props) => <InvoiceArrowIcon arrow="M14.5 21.5l7-7M16 14.5h5.5V20" {...props} />;
+NavCustomerInvoicesIcon.displayName = 'NavCustomerInvoicesIcon';
+export const NavSupplierInvoicesIcon = (props) => <InvoiceArrowIcon arrow="M21.5 14.5l-7 7M14.5 16v5.5H20" {...props} />;
+NavSupplierInvoicesIcon.displayName = 'NavSupplierInvoicesIcon';
+export const NavPayrollIcon = make(MdOutlineBadge, 'NavPayrollIcon');
+
 // Att göra på startsidan (2026-10-03): en egen ikon per sorts sak.
 export const TodoOverdueIcon = make(MdOutlineAlarm, 'TodoOverdueIcon');
-export const TodoReviewIcon = make(MdOutlineFactCheck, 'TodoReviewIcon');
+export const TodoReviewIcon = make(MdOutlineAssignmentTurnedIn, 'TodoReviewIcon');
 export const TodoDraftIcon = make(MdOutlineEditNote, 'TodoDraftIcon');
 export const TodoVatIcon = make(MdOutlinePercent, 'TodoVatIcon');
 export const TodoPayrollIcon = make(MdOutlinePayments, 'TodoPayrollIcon');

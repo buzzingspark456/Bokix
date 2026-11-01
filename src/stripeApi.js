@@ -123,10 +123,10 @@ export async function openBillingPortal(companyId = null) {
   return url;
 }
 
-export async function getSubscriptionInvoices() {
+export async function getSubscriptionInvoices(companyId = null) {
   const { data: { session } = {} } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('Du måste vara inloggad för att se fakturor och kvitton.');
-  const { invoices } = await requestStripeApi('create-subscription-checkout', { action: 'billing-invoices' }, session.access_token);
+  const { invoices } = await requestStripeApi('create-subscription-checkout', { action: 'billing-invoices', company_id: companyId || undefined }, session.access_token);
   return invoices;
 }
 

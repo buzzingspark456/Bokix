@@ -71,13 +71,17 @@ async function priorTrials(stripe, key, value) {
  * Ska den här registreringen få en provperiod? Returnerar
  * { allowTrial, reasons } där reasons är 'orgnr' | 'email' | 'ip'.
  * `excludeUserId`: kontots egna tidigare försök (en avbruten checkout) räknas inte.
+ * För org.numret gäller det bara samma företagspost (`companyId`): ett företag
+ * som tas bort och läggs till igen på kontot är samma företag och ska inte få
+ * en ny provperiod.
  */
-export async function trialDecision(stripe, { email, orgNr, ip, excludeUserId = null }) {
+export async function trialDecision(stripe, { email, orgNr, ip, excludeUserId = null, companyId = null }) {
   const reasons = [];
   const notMine = (s) => !excludeUserId || s.metadata?.user_id !== excludeUserId;
   try {
     const o = normalizeOrgNr(orgNr);
-    if (o && (await priorTrials(stripe, 'bokix_orgnr', o)).some(notMine)) reasons.push('orgnr');
+    const otherCheckout = (s) => notMine(s) || (s.metadata?.company_id || null) !== companyId;
+    if (o && (await priorTrials(stripe, 'bokix_orgnr', o)).some(otherCheckout)) reasons.push('orgnr');
     const e = normalizeEmail(email);
     if (e && (await priorTrials(stripe, 'bokix_email_norm', e)).some(notMine)) reasons.push('email');
     const i = hashIp(ip);

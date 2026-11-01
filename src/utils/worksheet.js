@@ -34,6 +34,29 @@ function sides(net) {
   return n >= 0 ? { debet: n, kredit: 0 } : { debet: 0, kredit: -n };
 }
 
+/** Arbetsbladets rader i fyra grupper med en delsumma per kolumn. Tomma
+ * grupper hoppas över. */
+const WORKSHEET_GROUPS = [
+  { key: 'assets', type: 'tillgang' },
+  { key: 'equityAndLiabilities', type: 'skuld_kapital' },
+  { key: 'income', type: 'intakt' },
+  { key: 'costs', type: 'kostnad' },
+];
+const WORKSHEET_COLUMNS = ['raw', 'adjustments', 'adjusted', 'income', 'balance'];
+
+export function groupWorksheetRows(rows) {
+  return WORKSHEET_GROUPS
+    .map(({ key, type }) => {
+      const groupRows = rows.filter(r => r.type === type);
+      const totals = Object.fromEntries(WORKSHEET_COLUMNS.map(column => [column, {
+        debet: round2(groupRows.reduce((s, r) => s + r[column].debet, 0)),
+        kredit: round2(groupRows.reduce((s, r) => s + r[column].kredit, 0)),
+      }]));
+      return { key, rows: groupRows, totals };
+    })
+    .filter(g => g.rows.length > 0);
+}
+
 export function computeWorksheet(verifications, accounts, start, end) {
   const byCode = new Map((accounts || []).map(a => [a.code, a]));
   const startStr = start;
@@ -118,9 +141,27 @@ export function computeWorksheet(verifications, accounts, start, end) {
       kredit: round2(incomeKredit + (yearResult < 0 ? -yearResult : 0)),
     },
     balanceWithResult: { debet: balanceDebet, kredit: balanceKredit },
+    // Råbalansen med tidigare års resultat, som saknar egna rader: så går
+    // summorna ihop på skärmen även när ett år inte är bokslutat.
+    rawWithPrior: {
+      debet: round2(totals.raw.debet + (priorResultAmount < 0 ? -priorResultAmount : 0)),
+      kredit: round2(totals.raw.kredit + (priorResultAmount > 0 ? priorResultAmount : 0)),
+    },
+    adjustedWithPrior: {
+      debet: round2(totals.adjusted.debet + (priorResultAmount < 0 ? -priorResultAmount : 0)),
+      kredit: round2(totals.adjusted.kredit + (priorResultAmount > 0 ? priorResultAmount : 0)),
+    },
+    adjustmentsTotal: totals.adjustments.debet,
+    // Kundfordringar på kreditsidan: kunder har betalat mer än det som är
+    // fakturerat, oftast en betalning som är bokförd utan sin faktura.
+    negativeReceivables: rows
+      .filter(r => r.code >= '1510' && r.code <= '1519' && r.adjusted.kredit > 0)
+      .map(r => ({ code: r.code, name: r.name, amount: r.adjusted.kredit })),
     hasAdjustments: rows.some(r => r.adjustments.debet !== 0 || r.adjustments.kredit !== 0),
-    // Grundkontrollen: all bokföring summerar till noll i råbalansen.
-    rawInBalance: Math.abs(totals.raw.debet - totals.raw.kredit) < 0.01,
+    // Grundkontrollen: all bokföring summerar till noll i råbalansen. Tidigare
+    // års resultat står inte på egna rader där men är en del av summan, annars
+    // larmar kontrollen för varje företag med ett år som inte är bokslutat.
+    rawInBalance: Math.abs(totals.raw.debet - totals.raw.kredit + priorResult) < 0.01,
     balanceInBalance: Math.abs(balanceDebet - balanceKredit) < 0.01,
   };
 }

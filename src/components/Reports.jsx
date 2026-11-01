@@ -67,11 +67,33 @@ export default function Reports({
     }));
   };
 
+  // Samma val på listan och inne i rapporten: man ska kunna byta period utan
+  // att gå tillbaka till listan.
+  const periodControl = (
+    <div className="no-print" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <select value={period} onChange={e => setPeriod(e.target.value)} style={inputSt} aria-label={t('ui.period')}>
+        <option value="month">{t('ui.denna_manad')}</option>
+        <option value="quarter">{t('ui.detta_kvartal')}</option>
+        <option value="year">{t('ui.detta_rakenskapsar')}</option>
+        <option value="last12">{t('ui.senaste_12_manaderna')}</option>
+        <option value="custom">{t('ui.anpassat')}</option>
+      </select>
+      {period === 'custom' && (
+        <>
+          <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} style={inputSt} />
+          <span style={{ color: 'var(--text-muted)' }}>–</span>
+          <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} style={inputSt} />
+        </>
+      )}
+    </div>
+  );
+
   if (openReportId) {
     return (
       <ReportDetail
         reportId={openReportId}
         bounds={bounds}
+        periodControl={periodControl}
         verifications={verifications} accounts={accounts} invoices={invoices}
         payrollRuns={payrollRuns} contacts={contacts} company={company}
         isMobile={isMobile}
@@ -92,23 +114,9 @@ export default function Reports({
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
-        title={t('ui.rapport_och_analys')}
+        title={t('nav.reports')}
       >
-        <div className="no-print" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginTop: '10px' }}>
-          <select value={period} onChange={e => setPeriod(e.target.value)} style={inputSt}>
-            <option value="month">{t('ui.denna_manad')}</option>
-            <option value="quarter">{t('ui.detta_kvartal')}</option>
-            <option value="year">{t('ui.detta_rakenskapsar')}</option>
-            <option value="custom">{t('ui.anpassat')}</option>
-          </select>
-          {period === 'custom' && (
-            <>
-              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} style={inputSt} />
-              <span style={{ color: 'var(--text-muted)' }}>–</span>
-              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} style={inputSt} />
-            </>
-          )}
-        </div>
+        <div style={{ marginTop: '10px' }}>{periodControl}</div>
       </ListPageHeader>
 
       {/* Kundfeedback ("no space"-genomgången, uppföljning): ingen padding
@@ -138,7 +146,8 @@ export default function Reports({
                 })}
                 columns={[
                   {
-                    key: 'name', label: t('ui.rapport'), fontWeight: 700, color: 'var(--text-main)', render: r => (
+                    // Fast bredd: annars hamnar Beskrivning olika långt in i varje grupp.
+                    key: 'name', label: t('ui.rapport'), width: '300px', fontWeight: 700, color: 'var(--text-main)', render: r => (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div style={{ width: 30, height: 30, borderRadius: '8px', background: 'var(--border-light)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           <FileBarChart size={14} />
@@ -156,7 +165,7 @@ export default function Reports({
           ))}
 
           {onNavigate && (
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, padding: '0 20px' }}>
               {t('ui.underlaget_kommer_fran_din_bokforing_och_dina_fa')}
             </p>
           )}

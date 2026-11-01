@@ -275,7 +275,7 @@ export function friendlySmtpError(error) {
  * `attachmentBase64` är samma format som Resend-vägen använder, så
  * anropande kod slipper veta vilken väg mejlet tar.
  */
-export async function sendViaSmtp(row, { to, subject, html, replyTo, attachmentBase64, attachmentFilename }) {
+export async function sendViaSmtp(row, { to, subject, html, replyTo, attachmentBase64, attachmentFilename, extraAttachments = [] }) {
   const password = decryptSecret(row.secret);
   const transporter = transportFor({
     host: row.host,
@@ -291,8 +291,12 @@ export async function sendViaSmtp(row, { to, subject, html, replyTo, attachmentB
 
   // Bilagan kommer in som base64 (samma format som Resend-vägen tar), och
   // nodemailer vill ha en Buffer. Ett enda ställe att bygga den på.
-  const attachments = attachmentBase64
-    ? [{ filename: attachmentFilename || 'faktura.pdf', content: Buffer.from(attachmentBase64, 'base64') }]
+  const allAttachments = [
+    ...(attachmentBase64 ? [{ filename: attachmentFilename || 'faktura.pdf', content: attachmentBase64 }] : []),
+    ...extraAttachments,
+  ].map(a => ({ filename: a.filename, content: Buffer.from(a.content, 'base64') }));
+  const attachments = allAttachments.length
+    ? allAttachments
     : undefined;
 
   const info = await transporter.sendMail({

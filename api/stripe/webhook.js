@@ -1,7 +1,7 @@
 import { applySecurityHeaders } from '../_security.js';
 import Stripe from 'stripe';
 import { recordStripePaymentEvent } from './_paymentEvents.js';
-import { upsertSubscription } from './_subscriptions.js';
+import { upsertSubscription, stripePeriodEnd } from './_subscriptions.js';
 import { enforceCardTrialLimit } from './_trialGuard.js';
 import { notifyAdminsAboutEvent } from './_adminNotify.js';
 import { scheduleTrustpilotInvite } from './_trustpilotInvites.js';
@@ -197,7 +197,7 @@ async function handler(req, res) {
           stripeSubscriptionId: sub.id,
           status: sub.status,
           trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
-          currentPeriodEnd: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
+          currentPeriodEnd: stripePeriodEnd(sub),
           cancelAtPeriodEnd: !!sub.cancel_at_period_end,
         });
         // Samma kort på ett nytt konto: provperioden avslutas och kortet dras
@@ -223,7 +223,7 @@ async function handler(req, res) {
           stripeSubscriptionId: sub.id,
           status: sub.status,
           trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
-          currentPeriodEnd: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
+          currentPeriodEnd: stripePeriodEnd(sub),
           cancelAtPeriodEnd: !!sub.cancel_at_period_end,
         });
         break;

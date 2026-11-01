@@ -124,7 +124,7 @@ const fail = async (msg) => {
 };
 
 await page.goto(BASE + '/?app=1');
-await page.waitForFunction(() => document.body.innerText.includes('Räkenskapsåret'), null, { timeout: 25000 }).catch(() => fail('startsidan laddade inte'));
+await page.waitForFunction(() => document.body.innerText.includes('Att göra'), null, { timeout: 25000 }).catch(() => fail('startsidan laddade inte'));
 await page.waitForTimeout(1500);
 console.log(`[${ROLE}] verifikationer på servern: ${before}, varav gammal import: ${oldLeft()}`);
 

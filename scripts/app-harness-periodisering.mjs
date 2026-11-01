@@ -83,7 +83,7 @@ async function run(dark, steps) {
   });
   await page.route('**/api/**', r => r.fulfill({ json: {} }));
   await page.goto(BASE + '/?app=1');
-  await page.waitForFunction(() => document.body.innerText.includes('Räkenskapsåret'), null, { timeout: 25000 });
+  await page.waitForFunction(() => document.body.innerText.includes('Att göra'), null, { timeout: 25000 });
   await page.waitForTimeout(1200);
 
   const tag = `${W}${dark ? '-dark' : ''}`;

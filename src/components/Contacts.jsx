@@ -465,10 +465,12 @@ function FormActions({ onCancel, saveLabel, formId }) {
 }
 
 // ─── Huvudkomponent ─────────────────────────────────────────────────────────
-export default function Contacts({ contacts, setContacts, accounts = [], invoices = [], quotes = [], expenses = [], globalAction, clearGlobalAction }) {
+// fixedType/headerTitle/headerTabs: samma register visas som flik på
+// Leverantörsfakturor, med den sidans rubrik och flikar.
+export default function Contacts({ contacts, setContacts, accounts = [], invoices = [], quotes = [], expenses = [], globalAction, clearGlobalAction, fixedType, headerTitle, headerTabs }) {
   // Renderar om när språket byts (Inställningar → Utseende → Språk).
   useTranslation();
-  const [activeTab, setActiveTab] = useState('customer'); // 'customer' | 'supplier'
+  const [activeTab, setActiveTab] = useState(fixedType || 'customer'); // 'customer' | 'supplier'
   const [searchTerm, setSearchTerm] = useState('');
   // Kundönskemål: "en knapp där man kan se femton, trettio, femtio" — en
   // visa-N-åt-gången-väljare, inte fullständig sidnumrering. 30 som förval,
@@ -679,14 +681,14 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       {/* ── Header & Tabs ── */}
       <ListPageHeader
-        title={title}
+        title={headerTitle || title}
         subtitle={`${entityCount} ${countWord(entityCount)}`}
         actions={viewState === 'list' ? [
           { key: 'export', label: c('actions.export'), icon: Download, onClick: handleExportCsv, title: c('actions.exportTitle', { what: title.toLowerCase() }) },
           { key: 'import', label: c('actions.import'), icon: Upload, onClick: handleImportClick, title: c('actions.importTitle', { what: title.toLowerCase() }) },
           { key: 'new', label: newBtnText, icon: Plus, onClick: () => openNewForm(activeTab), variant: 'primary', dataTour: 'page-contacts-cta' },
         ] : []}
-        tabs={{
+        tabs={headerTabs || {
           items: [{ id: 'customer', label: c('list.customers') }, { id: 'supplier', label: c('list.suppliers') }],
           activeId: activeTab,
           onChange: handleSetTab,
@@ -734,7 +736,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                  det HELT tomma läget (grenen nedan) ska centreras. En
                  populerad (om än kort) lista ligger kvar uppe vid
                  sök/toppen, som en vanlig tabellsida. */
-              <div style={{ width: '100%' }}>
+              <div className="contacts-table" style={{ width: '100%' }}>
                 <ListTable
                   rowKey={ct => ct.id}
                   onRowClick={openDetail}

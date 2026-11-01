@@ -172,6 +172,9 @@ const USER_PAGE = 50;
 
 export async function cleanOrphanFiles(admin, { buckets = ['bokix-uploads', 'companylogo'], now = new Date(), dryRun = false, deadline = Infinity, startAfter = null } = {}) {
   const cutoff = new Date(now.getTime() - ORPHAN_FILE_GRACE_DAYS * DAY_MS);
+  // Mejlbilagor raderas direkt efter utskicket. Blev något kvar efter ett
+  // avbrott ska det inte ligga kvar i dagar som andra filer.
+  const mailTempCutoff = new Date(now.getTime() - 60 * 60 * 1000);
   let scanned = 0;
   let removed = 0;
   let last = startAfter;
@@ -206,7 +209,7 @@ export async function cleanOrphanFiles(admin, { buckets = ['bokix-uploads', 'com
         // Saknad tidsstämpel behandlas som NY (spara hellre en fil för
         // mycket än radera en som kanske används).
         if (!o.createdAt) return false;
-        return o.createdAt < cutoff;
+        return o.createdAt < (o.path.includes('/mail-temp/') ? mailTempCutoff : cutoff);
       });
       if (orphans.length && !dryRun) {
         await admin.storage.from(bucket).remove(orphans.map(o => o.path));

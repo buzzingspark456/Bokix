@@ -142,6 +142,8 @@ export function getPeriodBounds(periodId, { referenceDate = new Date(), fiscalYe
     start = startOfMonth(today); naturalEnd = endOfMonth(today); label = 'Denna månad';
   } else if (periodId === 'quarter') {
     start = startOfQuarter(today); naturalEnd = endOfQuarter(today); label = 'Detta kvartal';
+  } else if (periodId === 'last12') {
+    start = new Date(today.getFullYear(), today.getMonth() - 11, 1); naturalEnd = today; label = 'Senaste 12 månaderna';
   } else if (periodId === 'custom' && customStart && customEnd) {
     start = toDate(customStart); naturalEnd = toDate(customEnd); label = 'Anpassad period';
   } else {
@@ -153,7 +155,7 @@ export function getPeriodBounds(periodId, { referenceDate = new Date(), fiscalYe
   const prevStart = addYears(start, -1);
   const prevEnd = addYears(end, -1);
 
-  return { start, end, prevStart, prevEnd, label };
+  return { start, end, prevStart, prevEnd, label, isFiscalYear: label === 'Detta räkenskapsår' };
 }
 
 /** Tidigaste bokförda datumet över huvud taget — underlag för "Sedan
@@ -500,6 +502,38 @@ function withFlows(buckets, verifications, accounts) {
   return buckets.map(({ range, ...b }, i) => ({ ...b, ...sums[i] }));
 }
 
+/** Resultatet ackumulerat genom perioden, mot samma datum ett år tidigare.
+ * Rapportsidans huvuddiagram: linjen svarar på "hur går året?" utan att man
+ * behöver summera staplar i huvudet. Kortare perioder delas per dag, annars
+ * blir ett kvartal bara tre punkter. */
+export function buildResultPace(verifications, accounts, { start, end, prevStart, prevEnd }) {
+  const granularity = (end - start) / 86400000 <= 92 ? 'day' : 'month';
+  const current = buildResultSeries(verifications, accounts, start, end, granularity);
+  const previous = buildResultSeries(verifications, accounts, prevStart, prevEnd, granularity);
+  const net = (p) => p.intakt - p.kostnad;
+  const hasComparison = previous.some(p => p.intakt !== 0 || p.kostnad !== 0);
+  const dayLabel = dateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' });
+  let sum = 0;
+  let prevSum = 0;
+  const points = current.map((p, i) => {
+    sum += net(p);
+    if (previous[i]) prevSum += net(previous[i]);
+    return {
+      label: granularity === 'day' ? dayLabel.format(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)) : p.label,
+      title: p.title,
+      resultat: sum,
+      ...(hasComparison ? { fjol: previous[i] ? prevSum : null } : {}),
+    };
+  });
+  return {
+    points,
+    result: sum,
+    prevResult: previous.reduce((s, p) => s + net(p), 0),
+    hasComparison,
+    hasActivity: hasComparison || current.some(p => p.intakt !== 0 || p.kostnad !== 0),
+  };
+}
+
 /**
  * Marginalanalys per period: brutto-, rörelse- och vinstmarginal.
  *
@@ -621,6 +655,211 @@ export function computeBalanceSheet(verifications, accounts, asOfDate) {
   };
 }
 
+/**
+ * Resultat som ännu inte förts över till eget kapital: nettot på alla
+ * resultatkonton (klass 3–8) till och med datumet. Efter ett bokfört
+ * bokslut (8999 mot 2099) är det noll. Innan dess saknas just det här
+ * beloppet i eget kapital, och balansräkningen går inte ihop — trots att
+ * bokföringen är rätt. Positivt = vinst.
+ */
+export function unclosedResult(verifications, asOfDate) {
+  let sum = 0;
+  for (const ver of verifications) {
+    if (!isBooked(ver) || !ver.date || new Date(`${ver.date}T00:00:00`) > asOfDate) continue;
+    for (const row of ver.rows || []) {
+      const n = Number(row.account);
+      if (n >= 3000 && n <= 8999) sum += getKredit(row) - getDebet(row);
+    }
+  }
+  return Math.round(sum * 100) / 100;
+}
+
+/** Balansräkningen som den ska visas för läsaren: årets resultat står som en
+ * egen rad i eget kapital även före bokslutet. Blanketterna läser
+ * computeBalanceSheet och lägger själva in raden på sitt eget sätt. */
+export function computeBalanceReport(verifications, accounts, asOfDate) {
+  const balance = computeBalanceSheet(verifications, accounts, asOfDate);
+  const result = unclosedResult(verifications, asOfDate);
+  if (Math.abs(result) <= 0.5) return balance;
+  return {
+    ...balance,
+    equityAndLiabilities: [...balance.equityAndLiabilities, { code: '2099', name: t('ui.beraknat_resultat'), amount: result, computed: true }],
+    totalEquityAndLiabilities: balance.totalEquityAndLiabilities + result,
+  };
+}
+
+// Saldot (debet minus kredit) per konto under perioden. Bokslutsverifikationen
+// räknas inte, samma regel som resten av resultatsiffrorna.
+function netByAccount(verifications, start, end) {
+  const out = new Map();
+  for (const ver of verifications) {
+    if (!isBooked(ver) || isClosingEntry(ver) || !ver.date) continue;
+    const d = verDate(ver.date);
+    if (d < start || d > end) continue;
+    for (const row of ver.rows || []) out.set(row.account, (out.get(row.account) || 0) + getDebet(row) - getKredit(row));
+  }
+  return out;
+}
+
+const statementGroup = (key, label, from, to) => ({ type: 'group', key, label, from, to, rows: [], amount: 0, prev: 0 });
+const addToGroup = (group, row) => {
+  group.amount += row.amount;
+  group.prev += row.prev;
+  if (Math.abs(row.amount) > 0.5 || Math.abs(row.prev) > 0.5) group.rows.push(row);
+};
+const statementItems = (groups) => groups.filter(g => g.rows.length > 0);
+
+/** Resultaträkningen uppställd i BAS-kontoplanens grupper, med fjolårets
+ * belopp bredvid. Summorna följer sumFlowByType, så uppställningen och
+ * rapportens nyckeltal visar alltid samma tal. */
+export function computeResultStatement(verifications, accounts, { start, end, prevStart, prevEnd }) {
+  const current = netByAccount(verifications, start, end);
+  const previous = netByAccount(verifications, prevStart, prevEnd);
+  const income = statementGroup('income', t('ui.intakter'));
+  const costs = [
+    statementGroup('goods', t('ui.rapp_varor_och_material'), 4000, 4999),
+    statementGroup('external', t('ui.rapp_ovriga_externa_kostnader'), 5000, 6999),
+    statementGroup('staff', t('ui.rapp_personalkostnader'), 7000, 7699),
+    statementGroup('depreciation', t('ui.rapp_avskrivningar'), 7700, 7899),
+    statementGroup('otherOperating', t('ui.rapp_ovriga_rorelsekostnader'), 7900, 7999),
+    statementGroup('financial', t('ui.rapp_finansiella_poster_och_skatt'), 8000, 8999),
+  ];
+  // Per kontonummer: en kontoplan kan ha samma konto två gånger.
+  for (const account of new Map(accounts.map(a => [a.code, a])).values()) {
+    const type = classifyAccount(account);
+    if (type !== 'intakt' && type !== 'kostnad') continue;
+    const sign = type === 'intakt' ? -1 : 1;
+    const row = { code: account.code, name: account.name, sign, amount: sign * (current.get(account.code) || 0), prev: sign * (previous.get(account.code) || 0) };
+    const code = Number(account.code);
+    addToGroup(type === 'intakt' ? income : (costs.find(g => code >= g.from && code <= g.to) || costs[1]), row);
+  }
+  const omsattning = income.amount;
+  const prevOmsattning = income.prev;
+  const kostnader = costs.reduce((s, g) => s + g.amount, 0);
+  const prevKostnader = costs.reduce((s, g) => s + g.prev, 0);
+  return {
+    items: [
+      ...statementItems([income, ...costs]),
+      { type: 'total', key: 'result', label: t('ui.resultat'), amount: omsattning - kostnader, prev: prevOmsattning - prevKostnader },
+    ],
+    omsattning, kostnader, resultat: omsattning - kostnader,
+    prevOmsattning, prevKostnader, prevResultat: prevOmsattning - prevKostnader,
+    hasComparison: prevOmsattning !== 0 || prevKostnader !== 0,
+  };
+}
+
+/** Vattenfallet ur resultaträkningens uppställning: intäkterna, varje
+ * kostnadsgrupp som ett steg nedåt, och resultatet. `range` är stapelns start
+ * och slut. */
+export function buildResultWaterfall(items) {
+  let running = 0;
+  return items.map((item) => {
+    if (item.type === 'total') return { key: item.key, label: item.label, amount: item.amount, range: [Math.min(0, item.amount), Math.max(0, item.amount)], kind: 'result' };
+    if (item.key === 'income') {
+      running = item.amount;
+      return { key: item.key, label: item.label, amount: item.amount, range: [Math.min(0, item.amount), Math.max(0, item.amount)], kind: 'income' };
+    }
+    const before = running;
+    running -= item.amount;
+    return { key: item.key, label: item.label, amount: -item.amount, range: [Math.min(before, running), Math.max(before, running)], kind: 'cost' };
+  });
+}
+
+/** Avviker den senaste hela månaden mer än 30 % från snittet av de tolv
+ * månaderna före? Innevarande månad räknas inte: den är inte slut och hade
+ * larmat varje månadsskifte. Null när inget sticker ut. */
+export function computeMonthDeviation(verifications, accounts, referenceDate = new Date()) {
+  const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 13, 1);
+  const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 0);
+  const months = buildResultSeries(verifications, accounts, start, end).map(m => ({ ...m, resultat: m.intakt - m.kostnad }));
+  const latest = months[months.length - 1];
+  const prior = months.slice(0, -1);
+  const active = prior.filter(m => m.intakt !== 0 || m.kostnad !== 0);
+  // Under ett kvartal med bokföring är snittet för tunt för att säga något.
+  if (active.length < 3) return null;
+  // Bara månader med bokföring: ett nytt företags tomma månader hade dragit
+  // ner snittet och larmat varje månad.
+  const average = (key) => active.reduce((s, m) => s + m[key], 0) / active.length;
+  const off = (key) => {
+    const avg = average(key);
+    return avg !== 0 && Math.abs((latest[key] - avg) / avg) * 100 >= 30;
+  };
+  return off('intakt') || off('resultat') ? { label: latest.title } : null;
+}
+
+/** Balansräkningen uppställd i grupper per datum, med samma datum ett år
+ * tidigare bredvid. Bygger på computeBalanceReport, så årets beräknade
+ * resultat ingår i eget kapital. */
+export function computeBalanceStatement(verifications, accounts, asOfDate, prevAsOfDate) {
+  const current = computeBalanceReport(verifications, accounts, asOfDate);
+  const previous = computeBalanceReport(verifications, accounts, prevAsOfDate);
+  const fixedAssets = statementGroup('fixed', t('ui.rapp_anlaggningstillgangar'), 1000, 1399);
+  const currentAssets = statementGroup('current', t('ui.rapp_omsattningstillgangar'), 1400, 1999);
+  const equity = statementGroup('equity', t('ui.eget_kapital'), 2000, 2099);
+  const reserves = statementGroup('reserves', t('ui.rapp_reserver_och_avsattningar'), 2100, 2299);
+  const debts = statementGroup('debts', t('ui.skulder'), 2300, 2999);
+
+  const merge = (cur, prev) => {
+    const rows = new Map();
+    const keyOf = (r) => `${r.code}${r.computed ? '-beraknat' : ''}`;
+    for (const r of cur) rows.set(keyOf(r), { ...r, prev: 0 });
+    for (const r of prev) {
+      const row = rows.get(keyOf(r));
+      if (row) row.prev = r.amount;
+      else rows.set(keyOf(r), { ...r, amount: 0, prev: r.amount });
+    }
+    return [...rows.values()].sort((a, b) => Number(a.code) - Number(b.code) || Number(Boolean(a.computed)) - Number(Boolean(b.computed)));
+  };
+  const place = (groups, fallback, rows) => {
+    for (const row of rows) {
+      const code = Number(row.code);
+      addToGroup(groups.find(g => code >= g.from && code <= g.to) || fallback, row);
+    }
+  };
+  place([fixedAssets, currentAssets], currentAssets, merge(current.assets, previous.assets));
+  place([equity, reserves, debts], debts, merge(current.equityAndLiabilities, previous.equityAndLiabilities).map(r => ({ ...r, sign: -1 })));
+
+  return {
+    items: [
+      ...statementItems([fixedAssets, currentAssets]),
+      { type: 'total', key: 'assets', label: t('ui.rapp_summa_tillgangar'), amount: current.totalAssets, prev: previous.totalAssets },
+      ...statementItems([equity, reserves, debts]),
+      { type: 'total', key: 'equityAndLiabilities', label: t('ui.rapp_summa_eget_kapital_och_skulder'), amount: current.totalEquityAndLiabilities, prev: previous.totalEquityAndLiabilities },
+    ],
+    totalAssets: current.totalAssets,
+    prevTotalAssets: previous.totalAssets,
+    totalEquityAndLiabilities: current.totalEquityAndLiabilities,
+    equity: equity.amount,
+    prevEquity: equity.prev,
+    debts: current.totalEquityAndLiabilities - equity.amount,
+    prevDebts: previous.totalEquityAndLiabilities - equity.prev,
+    isEmpty: current.assets.length === 0 && current.equityAndLiabilities.length === 0,
+    hasComparison: previous.assets.length > 0 || previous.equityAndLiabilities.length > 0,
+  };
+}
+
+/** Eget kapital och skulder vid varje månads slut. Staplade blir de lika höga
+ * som tillgångarna, så att balansen syns i diagrammet. */
+export function computeBalanceTrend(verifications, accounts, start, end) {
+  const points = [];
+  let cursor = startOfMonth(start);
+  while (cursor <= end) {
+    const monthEnd = endOfMonth(cursor) > end ? end : endOfMonth(cursor);
+    const balance = computeBalanceReport(verifications, accounts, monthEnd);
+    const equity = balance.equityAndLiabilities
+      .filter(r => Number(r.code) >= 2000 && Number(r.code) < 2100)
+      .reduce((s, r) => s + r.amount, 0);
+    points.push({
+      label: dateTimeFormat(dateLocale(), { month: 'short' }).format(cursor),
+      title: dateTimeFormat(dateLocale(), { month: 'long', year: 'numeric' }).format(cursor),
+      equity,
+      debts: balance.totalEquityAndLiabilities - equity,
+    });
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+  }
+  return points;
+}
+
 /** Finns det överhuvudtaget bokförd historik i företaget? Styr det
  * övergripande tomt-läget (helt nytt företag) skilt från "inget hände
  * just i den här perioden". */
@@ -714,15 +953,25 @@ export function computeInvoiceReport(invoices, contacts, start, end) {
     return d >= start && d <= end;
   });
 
+  // En kreditfaktura hör till samma kund som fakturan den krediterar, även
+  // när den saknar kund själv (äldre kreditfakturor).
+  const originals = new Map((invoices || []).filter(inv => !inv.creditFor && inv.type !== 'quote').map(inv => [String(inv.invoiceNumber), inv]));
+
   const byCustomer = new Map();
   for (const inv of inRange) {
-    const key = inv.customerId || inv.customerName || t('ui.okand');
+    const original = inv.creditFor ? originals.get(String(inv.creditFor)) : null;
+    const customerId = inv.customerId || original?.customerId;
+    const customerName = inv.customerName || original?.customerName;
+    const key = customerId || customerName || t('ui.okand');
     const gross = grossInvoiceAmount(inv);
-    const paid = inv.status === 'paid' ? gross : (Number(inv.paidAmount) || 0);
+    // Reglerad med en kreditfaktura är inte betald: inga pengar har kommit in.
+    // Bara det som faktiskt betalats räknas, annars går summorna inte ihop.
+    const fullyPaid = inv.status === 'paid' && inv.paidVia !== 'credit';
+    const paid = fullyPaid ? gross : (Number(inv.paidAmount) || 0);
     if (!byCustomer.has(key)) {
       byCustomer.set(key, {
-        customerId: inv.customerId || null,
-        name: byId.get(inv.customerId)?.name || inv.customerName || 'Okänd kund',
+        customerId: customerId || null,
+        name: byId.get(customerId)?.name || customerName || 'Okänd kund',
         invoiced: 0, paid: 0, invoiceCount: 0,
       });
     }
@@ -760,7 +1009,8 @@ export function computeKeyFigures(verifications, accounts, start, end) {
   const resultat = omsattning - kostnader;
   const vinstmarginal = omsattning !== 0 ? (resultat / omsattning) * 100 : null;
 
-  const balance = computeBalanceSheet(verifications, accounts, end);
+  // Med årets beräknade resultat: annars står soliditeten på 0 % fram till bokslutet.
+  const balance = computeBalanceReport(verifications, accounts, end);
   const egetKapital = balance.equityAndLiabilities
     .filter(r => Number(r.code) >= 2000 && Number(r.code) < 2100)
     .reduce((s, r) => s + r.amount, 0);

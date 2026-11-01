@@ -28,16 +28,13 @@ export function redactCompany(company) {
   return out;
 }
 
-// agiReports hör till lönen men står inte under någon sida i ACCESS_PAGES.
-const EXTRA_FIELD_PAGE = { agiReports: 'payroll' };
-
 /** Hela företaget som medlemmen ska få det: fält som bara hör till sidor
  * med Ingen åtkomst tas bort, och företagsuppgifterna rensas. */
 export function memberCompanyView(companyData, pageAccess, role) {
   if (!companyData || typeof companyData !== 'object') return companyData;
   const out = { ...companyData };
   if (pageAccess && typeof pageAccess === 'object') {
-    const fieldPages = new Map(Object.entries(EXTRA_FIELD_PAGE).map(([f, p]) => [f, [p]]));
+    const fieldPages = new Map();
     for (const page of ACCESS_PAGES) {
       for (const field of page.fields) {
         fieldPages.set(field, [...(fieldPages.get(field) || []), page.id]);
@@ -120,5 +117,7 @@ export function mergeMemberCompanyWrite(current, incoming) {
     out.name = base.name;
     out.orgNr = base.orgNr;
   }
+  // Inbjudningar pekar på id:t: en medlem får aldrig ändra eller ta bort det.
+  if (base.id) out.id = base.id;
   return out;
 }

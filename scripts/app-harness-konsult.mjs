@@ -101,7 +101,7 @@ await page.route('**/api/company-access**', r => {
 });
 const t0 = Date.now();
 await page.goto(BASE + '/?app=1');
-await page.waitForFunction(() => document.body.innerText.includes('Räkenskapsåret'), null, { timeout: 20000 }).catch(async () => { await page.screenshot({ path: 'test-results/harness-konsult.png' }); console.log('TEXT:', (await page.evaluate(() => document.body.innerText)).slice(0, 300)); console.log('API', JSON.stringify(apiCalls), errors); process.exit(1); });
+await page.waitForFunction(() => document.body.innerText.includes('Att göra'), null, { timeout: 20000 }).catch(async () => { await page.screenshot({ path: 'test-results/harness-konsult.png' }); console.log('TEXT:', (await page.evaluate(() => document.body.innerText)).slice(0, 300)); console.log('API', JSON.stringify(apiCalls), errors); process.exit(1); });
 await page.waitForTimeout(2500);
 console.log('Inloggad som konsult efter', ((Date.now() - t0) / 1000).toFixed(1), 's');
 console.log('Anrop till company-access vid inloggning:', JSON.stringify(apiCalls));
@@ -113,7 +113,7 @@ await page.screenshot({ path: 'test-results/harness-konsult-meny.png' });
 const opt = page.getByText('Kundföretag 3 AB').first();
 if (await opt.count()) { await opt.click(); await page.waitForTimeout(3000); }
 console.log('Anrop efter byte:', JSON.stringify(apiCalls));
-console.log('Visar:', (await page.evaluate(() => document.body.innerText.includes('Räkenskapsåret'))) ? 'startsidan' : 'något annat');
+console.log('Visar:', (await page.evaluate(() => document.body.innerText.includes('Att göra'))) ? 'startsidan' : 'något annat');
 await page.screenshot({ path: 'test-results/harness-konsult.png' });
 if (errors.length) console.log('Sidfel:', errors);
 await browser.close();

@@ -7,8 +7,9 @@ import { memberCompanyView, redactCompany, mergeMemberCompanyWrite, pinServerCon
 import { createClient } from '@supabase/supabase-js';
 import { gzipSync } from 'zlib';
 import { COMPANY_WRITABLE_FIELDS } from '../src/utils/companyFields.js';
-import { mergeField, applyRecordPatch, makeRecordPatch, renumberVerificationCollisions } from '../src/utils/stateMerge.js';
+import { mergeField, applyRecordPatch, makeRecordPatch, renumberVerificationCollisions, keepCompanyId } from '../src/utils/stateMerge.js';
 import { isBolagsverketConfigured, lookupOrgNumber, BolagsverketError } from './_bolagsverket.js';
+import { registryPatch, companyWriteError, pinRegistryFields } from './_companyRegistrySync.js';
 import { withSentry } from './_sentry.js';
 import { readOwnerCompany, readOwnerCompanies, readOwnerState, tablesModeIds, storageModeOf } from './_companyStore.js';
 import { assembleCompany } from '../src/utils/tableStore.js';
@@ -647,10 +648,10 @@ async function handler(req, res) {
     // eller en inbjuden medlem (ägarens prenumeration).
     // patch = { upsert, remove }: bara de ändrade posterna i en lista (se
     // makeRecordPatch i src/utils/stateMerge.js), läggs på serverns lista nedan.
-    const { company_id: companyId, field, base, patch } = postBody || {};
+    const { company_id: companyId, field, base, patch, registry_sync: registrySync } = postBody || {};
     let { value } = postBody || {};
     const isPatch = patch && Array.isArray(patch.upsert) && Array.isArray(patch.remove);
-    if (!companyId || !field || (value === undefined && !isPatch)) {
+    if (!companyId || !field || (value === undefined && !isPatch && !registrySync)) {
       res.status(400).json({ error: 'company_id, field och value krävs.' });
       return;
     }
@@ -674,6 +675,7 @@ async function handler(req, res) {
     // klient-anrop aldrig kan.
     let ownerUserId = null;
     let ownerCompanyData = null;
+    let registryResult = null;
     // Företagets nuvarande innehåll (ägarens eller medlemmens uppslag).
     let currentCompanyData = null;
     // Nyckeln där företaget faktiskt ligger i ägarens state, som kan skilja
@@ -694,34 +696,41 @@ async function handler(req, res) {
 
     if (ownerUserId) {
       if (!await requireActiveSubscription(user, res)) return;
-      // Låst registrerat företagsnamn: en gång satt (dvs. orgNr är ifyllt —
-      // se Settings.jsx:s kommentar om varför just orgNr är signalen "riktig
-      // registrering genomförd", inte en egen flagga) går namnet inte att
-      // ändra härifrån längre — kontakta support är den enda vägen. Servern
-      // är den RIKTIGA spärren (ett rått
-      // API-anrop kan aldrig kringgå den), Settings.jsx:s låsta UI är bara
-      // återspeglingen av samma regel. Fritt fram att sätta namnet FÖRSTA
-      // gången (tomt orgNr = oavslutad registrering, se "Jag har inget
-      // företag än" i Auth.jsx) — det är precis vad Settings.jsx:s
-      // "Slutför din företagsregistrering"-flöde gör.
-      if (field === 'company' && ownerCompanyData?.orgNr && value?.name !== ownerCompanyData?.name) {
-        res.status(403).json({ error: 'Företagsnamnet är låst efter registreringen. Kontakta support@bokix.se för att ändra det.' });
-        return;
-      }
-      // …och organisationsnumret av exakt samma skäl. Det är företagets
-      // identitet i allt appen skickar vidare: fakturor, momsdeklarationen
-      // och AGI:n till Skatteverket, SIE-exporten till revisorn,
-      // bolagsuppslagen. Ett ändrat org.nummer på en befintlig bokföring är
-      // aldrig en rättelse — det är ett annat företag — så det går inte att
-      // skriva om härifrån. Fritt fram FÖRSTA gången
-      // (tomt orgNr = oavslutad registrering), precis som namnet ovan.
-      if (field === 'company' && ownerCompanyData?.orgNr && value?.orgNr !== ownerCompanyData?.orgNr) {
-        res.status(403).json({ error: 'Organisationsnumret är låst efter registreringen. Kontakta support@bokix.se för att ändra det.' });
-        return;
+      // Företagsuppgifterna ligger under .company i företagets post; låsen här
+      // läste tidigare ett plan fält som aldrig finns och slog därför aldrig
+      // till. Skyddet för kopplingarna jämförde mot samma fel objekt och tog
+      // bort Stripe- och Zettle-kopplingarna vid varje sparning.
+      const currentCompany = ownerCompanyData?.company;
+      // "Uppdatera från Bolagsverket": servern hämtar uppgifterna själv.
+      if (field === 'company' && registrySync) {
+        try {
+          registryResult = await registryPatch(currentCompany);
+        } catch (registryError) {
+          console.warn('Bolagsverket-uppdateringen misslyckades:', registryError?.message);
+        }
+        if (!registryResult) {
+          res.status(200).json({ ok: true, synced: false });
+          return;
+        }
+        value = { ...currentCompany, ...registryResult.fields };
+      } else if (field === 'company') {
+        // Namnet och org.numret är företagets identitet i allt appen skickar
+        // vidare: fakturor, deklarationer, SIE-exporten. Servern är den
+        // riktiga spärren, Settings.jsx:s låsta fält är bara återspeglingen.
+        const lockError = companyWriteError(currentCompany, value);
+        if (lockError) {
+          res.status(403).json({ error: lockError });
+          return;
+        }
+        value = pinRegistryFields(currentCompany, value);
       }
       // Stripe-konto och Zettle-nycklar sätts bara av servern (_memberView.js).
-      if (field === 'company') value = pinServerConnections(ownerCompanyData, value);
+      if (field === 'company') value = keepCompanyId(currentCompany, pinServerConnections(currentCompany, value));
     } else {
+      if (registrySync) {
+        res.status(403).json({ error: 'Bara ägaren kan uppdatera företagets uppgifter från Bolagsverket.' });
+        return;
+      }
       const member = await loadMemberCompany(user.id, companyId, res);
       if (!member) return;
       if (member.role !== 'editor') {
@@ -757,7 +766,7 @@ async function handler(req, res) {
         else if (base !== undefined) v = mergeField(base, incoming, companyData?.[field]);
         // Företagsuppgifterna: bara medlemmens egna ändringar, aldrig nycklar,
         // kopplingar eller låst namn/org.nr (se api/_memberView.js).
-        if (field === 'company') v = mergeMemberCompanyWrite(companyData?.company, v);
+        if (field === 'company') v = pinRegistryFields(companyData?.company, mergeMemberCompanyWrite(companyData?.company, v));
         if (field === 'verifications') v = renumberVerificationCollisions(v, companyData?.verifications);
         return v;
       };
@@ -797,7 +806,7 @@ async function handler(req, res) {
       return;
     }
 
-    res.status(200).json({ ok: true });
+    res.status(200).json({ ok: true, ...(registryResult ? { synced: true, company: registryResult.fields, changed: registryResult.changed } : {}) });
   } catch (error) {
     console.error('company-access error:', error);
     res.status(500).json({ error: error?.message || 'Kunde inte hämta/spara företagsdata.' });

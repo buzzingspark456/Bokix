@@ -837,7 +837,7 @@ function PaySupplierInvoiceModal({ invoice, contacts, onNavigate, onConfirm, onC
 export default function SupplierInvoices({
   expenses = [], accounts = [], contacts = [], setContacts, projects = [], user,
   onAddSupplierInvoice, onMarkSupplierInvoicePaid, onUnmarkSupplierInvoicePaid, onFixExpenseAccount,
-  globalAction, clearGlobalAction, onNavigate,
+  globalAction, clearGlobalAction, onNavigate, headerTabs,
   uploadFn = uploadFileToStorage,
 }) {
   const [showForm, setShowForm] = useState(false);
@@ -955,6 +955,7 @@ export default function SupplierInvoices({
       <ListPageHeader
         title={t('ui.leverantorsfakturor')}
         subtitle={t('ui.fakturor_du_fatt_fran_leverantorer_och_ska_betal')}
+        tabs={headerTabs}
       />
 
       <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>

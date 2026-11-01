@@ -258,6 +258,14 @@ export const DEFAULT_CHART_COLORS = { income: 'demoBlue', cost: 'demoCoral', pro
  * korallröd för kortet, en djupare ton för text och staplar på vitt. */
 export const LOSS_COLOR = { base: '#dc2626', card: ['#ef4444', '#f87171'] };
 
+/** Kostnadsfördelningens kategorier: en egen tydlig färg per kategori, inte
+ * nyanser av kostnadsfärgen (användaren 2026-10-31: inte en färg och inte
+ * rött med närliggande färger). Rött är också reserverat för förlust.
+ * Ordningen följer COST_CATEGORIES i reportCalculations.js. Den största
+ * posten är nästan alltid Övriga externa kostnader och har blått. Övrigt är
+ * restposten och grå. */
+export const CATEGORY_RAMP = ['#7c5cd6', '#14a3a3', '#e5a11a', '#3fa34d', '#2f76e6', '#9aa3ad'];
+
 /** Nyckeltalskortets gradient för en familj. En familj med egen `card`
  * använder den, och `darkCard` i mörkt läge. */
 export function kpiGradient(id, dark = false) {
@@ -325,6 +333,7 @@ export function resolveChartPalette(prefs, options = {}) {
     // Korallen är en riktig serie, inte en bakgrund: full styrka.
     costBarOpacity: cost.bar || cost.darkBase ? 1 : 0.28,
     costRamp: cost.ramp,
+    categoryRamp: CATEGORY_RAMP,
     costWash: dark ? 'rgba(255,255,255,0.10)' : cost.wash,
     // Resultatlinjen. Familjer med en mörk huvudton (Bokix grönt, indigo,
     // grafit) får sin ljusa motsvarighet på mörk botten.

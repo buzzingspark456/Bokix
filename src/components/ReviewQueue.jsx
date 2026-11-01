@@ -1200,7 +1200,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
       <style>{REVIEW_LIST_CSS}</style>
       {/* Header i samma mönster som Kunder/Anställda och lön/Projekt/Bokföring. */}
       <ListPageHeader
-        title={t('ui.granskning')}
+        title={t('nav.review')}
         // Antalet står i knappen, inte bara i bekräftelserutan: hur många
         // poster ett klick omfattar ska gå att se INNAN man klickar.
         actions={headerActions}

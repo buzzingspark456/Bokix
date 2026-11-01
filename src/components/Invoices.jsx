@@ -5,15 +5,15 @@ import { foreignSaleRegion, rowsForCustomer } from '../utils/foreignSales';
 import { convertToSek } from '../utils/currencyConversion';
 import {
   Plus, X, Send, Check, NavInvoicesIcon,
-  Search, ChevronRight, ChevronDown,
+  Search, ChevronLeft, ChevronRight, ChevronDown,
   RefreshCw, Printer, Eye, CreditCard, Link2,
   MessageSquare, Tag, Lock, Settings2, Download, AlertTriangle, Trash2,
-  ZoomIn, ZoomOut, Pencil, Copy, CheckCircle2, Undo2, Sparkles, SlidersHorizontal,
-} from './icons';
+  ZoomIn, ZoomOut, Pencil, Copy, CheckCircle2, Undo2, Sparkles, SlidersHorizontal } from './icons';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import PaperFit from './shared/PaperFit';
+import DocSplit from './shared/DocSplit';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
-import { exportInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';
+import { exportInvoicePdf, getInvoicePdfBase64, printInvoicePdf } from '../utils/exportInvoicePdf';
 import { sendInvoiceEmail } from '../emailApi';
 import { BRAND } from '../utils/brandColors';
 import { getNextInvoiceNumber } from '../utils/invoiceNumbering';
@@ -45,6 +45,8 @@ import { captureEvent } from '../utils/posthog';
 import { sendableEmail } from '../utils/validators';
 
 const newRowId = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `row_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+// Samma enheter som på offertraderna (Quotes.jsx), "st" som förval.
+const ROW_UNITS = ['st', 'tim', 'kr', 'm', 'm²', 'kg', 'dag'];
 const withRowIds = (rows) => rows.map(r => ({ id: r.id || newRowId(), ...r }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -271,7 +273,7 @@ function InvoiceMobileSummary({ invoice, customerName, nextNum, ocr, totals, cus
   );
 }
 
-function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles, projects = [], onSyncBeforeServerCall }) {
+function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles, projects = [], onSyncBeforeServerCall }) {
   // En bokförd faktura (allt utom utkast) får inte längre ändra belopp/rader/kund —
   // korrigeringar sker via kreditfaktura. Datum och kommentar går fortfarande att ändra.
   const isLocked = Boolean(initial) && (initial.status || 'draft') !== 'draft';
@@ -396,6 +398,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   const captureRef = useRef(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState('');
+  const [printBusy, setPrintBusy] = useState(false);
 
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailError, setEmailError] = useState('');
@@ -675,6 +678,18 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
     onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, projectId: projectId || undefined, priceInclVat, rotRutType: rotRutType !== 'none' && currency === 'SEK' ? rotRutType : undefined, ...(currency === 'SEK' ? rotRutFields() : {}), internalNote: commentDraft, invoiceTemplateSnapshot, currency, fxRate: currency !== 'SEK' ? rate : undefined });
   };
 
+  const handlePrint = async () => {
+    setPrintBusy(true); setPdfError('');
+    try {
+      await printInvoicePdf(captureRef.current);
+    } catch (err) {
+      console.error(err);
+      setPdfError(tr('ui.kunde_inte_skapa_pdf_forsok_igen'));
+    } finally {
+      setPrintBusy(false);
+    }
+  };
+
   const handleDownloadPdf = async () => {
     setPdfBusy(true); setPdfError('');
     try {
@@ -760,7 +775,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
         // inloggade användarens EGEN sparade företagsdata (säkerhetsfix —
         // se send-invoice.js), inte längre ett client-supplied
         // företagsobjekt. Skickar bara med ID:t.
-        company_id: company?.id,
+        company_id: activeCompanyId,
       });
 
       // Texten blir utgångspunkt nästa gång — de flesta skriver ungefär
@@ -796,6 +811,18 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
   );
   const activeToolbarPillStyle = { background: 'var(--status-blue-bg)', borderColor: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' };
 
+  const documentProps = {
+    invoice: { invoiceNumber: nextNum, date: invoiceDate, dueDate, terms },
+    customer, company, rows, totals, currency, invoiceText,
+    template: invoiceTemplateSnapshot.templateId,
+    accentColor: invoiceTemplateSnapshot.accentColor,
+    logoUrl: invoiceTemplateSnapshot.logoUrl,
+    logoSize: invoiceTemplateSnapshot.logoSize,
+    showCompanyName: invoiceTemplateSnapshot.showCompanyName,
+    footerText: invoiceTemplateSnapshot.footerText,
+    rotRut: rotRutType !== 'none' ? { type: rotRutType, ...rotRut } : null,
+  };
+
   return (
     <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-muted)', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.15s ease' }}>
 
@@ -808,7 +835,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
         </button>
         <div className="mform-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{initial ? tr('ui.faktura_4', { nextNum }) : tr('ui.ny_faktura')}</h1>
-          {!showSummary && <span className="mform-meta" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tr('ui.ocr_2')} {ocr}{tr('ui.ver_nr')} {linkedVerification?.number || '—'}</span>}
+          {!showSummary && <span className="mform-meta" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tr('ui.ocr_2')} {ocr}{tr('ui.ver_nr')} {linkedVerification?.number || ''}</span>}
           {isLocked && !showSummary && (
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--status-amber-text)', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '20px', padding: '4px 10px', fontWeight: 600 }}>
               <Lock size={11} /> {tr('ui.bokford')}
@@ -818,20 +845,13 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
 
         <div style={{ flex: 1, minWidth: '8px' }} />
 
-        {/* Navigation — bläddrar genom samma lista man kom ifrån */}
-        <div className="record-nav" style={{ display: 'flex', gap: '2px' }}>
-          {[
-            { s: '«', onClick: nav?.first, enabled: nav?.hasPrev, title: tr('ui.forsta_fakturan') },
-            { s: '‹', onClick: nav?.prev, enabled: nav?.hasPrev, title: tr('ui.foregaende_faktura') },
-            { s: '›', onClick: nav?.next, enabled: nav?.hasNext, title: tr('ui.nasta_faktura') },
-            { s: '»', onClick: nav?.last, enabled: nav?.hasNext, title: tr('ui.sista_fakturan') },
-          ].map(({ s, onClick, enabled, title }) => (
-            <button
-              key={s} type="button" disabled={!enabled} onClick={onClick} title={title}
-              style={{ padding: '4px 8px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '4px', cursor: enabled ? 'pointer' : 'not-allowed', fontSize: '13px', color: enabled ? 'var(--text-main)' : 'var(--border)' }}
-            >{s}</button>
-          ))}
-        </div>
+        {/* Bläddra mellan fakturorna i listan man kom ifrån. */}
+        {initial && nav && (
+          <div className="record-nav">
+            <button type="button" disabled={!nav.hasPrev} onClick={nav.prev} title={tr('ui.foregaende_faktura')} aria-label={tr('ui.foregaende_faktura')}><ChevronLeft size={17} /></button>
+            <button type="button" disabled={!nav.hasNext} onClick={nav.next} title={tr('ui.nasta_faktura')} aria-label={tr('ui.nasta_faktura')}><ChevronRight size={17} /></button>
+          </div>
+        )}
 
         <div className="mform-head-actions" style={{ display: 'flex', gap: '8px' }}>
           <button type="button" data-tour="page-invoices-cancel" data-inv-tour="form-cancel" onClick={onClose} style={listHeaderButtonStyle('secondary')}>{tr('ui.avbryt')}</button>
@@ -1079,7 +1099,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
             {/* form-row-stack (Sida 38, punkt 2): kolumnbredden är ojämn
                 (2fr 1fr 1fr 1fr) så den kan inte återanvända .form-row-2/-3,
                 men ska ändå bli en kolumn på mobil. */}
-            <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '16px', alignItems: 'end', marginBottom: '16px' }}>
+            <div className="form-row-stack invoice-head-row" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '16px', alignItems: 'end', marginBottom: '16px' }}>
               <div>
                 <label style={lbl}>{tr('ui.kund')}</label>
                 <select data-tour="page-invoices-field" data-inv-tour="form-customer" value={customerId} onChange={e => {
@@ -1308,7 +1328,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
           {/* Fakturarader — samma rutnätsmönster som QuoteEditor:s
               "Offertrader" (Quotes.jsx: gridTemplateColumns-rader av riktiga
               inputs) istället för ett tätt kalkylblad (<table>, 12px celler).
-              Avancerade fält (artikelnr/momsfri tjänst/rabatt/konto) bakom
+              Avancerade fält (artikelnr/momsfri tjänst/konto) bakom
               kugghjulet, precis som förut — bara paketeringen är ny. */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
@@ -1333,71 +1353,94 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{rows.length} {rows.length === 1 ? tr('ui.rad_2') : tr('ui.rader')}</span>
               </div>
             </div>
-            <div style={{ overflowX: 'auto' }}>
-              <div className="inv-rows-min" style={{ minWidth: '760px' }}>
-                <div className="inv-rows-head" style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.7fr 0.9fr 0.7fr 0.9fr auto auto', gap: '10px', marginBottom: '8px', padding: '0 2px' }}>
-                  {[tr('ui.benamning'), tr('ui.antal'), priceInclVat ? tr('ui.a_pris_inkl_moms') : tr('ui.pris_2'), tr('ui.moms'), tr('ui.summa'), '', ''].map((h, i) => (
-                    <span key={i} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: i >= 1 && i <= 4 ? 'right' : 'left' }}>{h}</span>
+            {/* Samma rader som Offertrader: full tabell när den ryms, två nivåer
+                när ytan är smal och kort på telefon (index.css, @container
+                quote-rows). Ingen scroll i sidled. */}
+            <div className="quote-rows-scroll">
+              <div>
+                <div className="quote-rows-header" style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.8fr 0.8fr 1fr 0.8fr 0.9fr 1fr auto', gap: '10px', marginBottom: '6px', padding: '0 2px' }}>
+                  {[tr('ui.beskrivning'), tr('ui.antal'), tr('ui.enhet'), priceInclVat ? tr('ui.a_pris_inkl_moms') : tr('ui.pris_2'), tr('ui.rabatt'), tr('ui.moms'), tr('ui.summa'), ''].map((h, i) => (
+                    <span key={i} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{h}</span>
                   ))}
                 </div>
 
                 {rows.map((row, i) => {
                   const { net } = calcRow(row);
                   const advancedOpen = expandedRows.has(row.id);
+                  const lockedCell = { ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)' };
                   return (
-                    <div key={row.id} className="inv-row-card" style={{ marginBottom: '10px' }}>
-                      <div className="inv-row-grid" style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.7fr 0.9fr 0.7fr 0.9fr auto auto', gap: '10px', alignItems: 'center' }}>
-                        <div className="inv-cell" data-label={tr('ui.benamning')}>{isLocked ? (
-                          <div style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)' }}>{row.description}</div>
-                        ) : (
-                          <input
-                            value={row.description}
-                            list="article-description-list"
-                            onChange={e => updateRow(i, 'description', e.target.value)}
-                            onBlur={e => {
-                              const hit = findArticleByDescription(e.target.value);
-                              if (hit) applyArticleToRow(i, hit);
-                            }}
-                            style={inp}
-                            placeholder={tr('ui.beskrivning_av_tjanst_eller_produkt')}
-                          />
-                        )}</div>
-                        <div className="inv-cell" data-label="Antal">{isLocked ? (
-                          <div style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)', textAlign: 'right' }}>{row.qty}</div>
-                        ) : (
-                          <input type="number" value={row.qty} onChange={e => updateRow(i, 'qty', Number(e.target.value))} style={{ ...inp, textAlign: 'right' }} />
-                        )}</div>
-                        <div className="inv-cell" data-label={tr('ui.pris_2')}>{isLocked ? (
-                          <div style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)', textAlign: 'right' }}>{fmt(row.unitPrice)}</div>
-                        ) : (
-                          <input
-                            type="number"
-                            // row.unitPrice är alltid nettot (se priceInclVat-
-                            // kommentaren ovan) — bara VISNINGEN och det man
-                            // skriver in räknas om till/från brutto här.
-                            value={priceInclVat ? row.unitPrice * (1 + (row.vatRate || 0) / 100) : row.unitPrice}
-                            onChange={e => {
-                              const typed = Number(e.target.value);
-                              const net = priceInclVat ? typed / (1 + (row.vatRate || 0) / 100) : typed;
-                              updateRow(i, 'unitPrice', net);
-                            }}
-                            style={{ ...inp, textAlign: 'right' }}
-                          />
-                        )}</div>
-                        <div className="inv-cell" data-label="Moms">{(isLocked || vatExempt) ? (
-                          <div title={vatExempt ? tr('ui.foretaget_ar_inte_momsregistrerat') : undefined} style={{ ...inp, background: 'var(--bg-muted)', border: '1px solid var(--border-light)', textAlign: 'right' }}>{vatExempt ? 0 : row.vatRate}%</div>
-                        ) : (
-                          <select value={row.vatRate} onChange={e => updateRow(i, 'vatRate', Number(e.target.value))} style={inp}>
-                            {[0, 6, 12, 25].map(r => <option key={r} value={r}>{r}%</option>)}
-                          </select>
-                        )}</div>
-                        <div className="inv-cell" data-label="Summa"><div style={{ ...inp, background: 'var(--bg-muted)', color: 'var(--text-secondary)', border: '1px solid var(--border-light)', textAlign: 'right', fontWeight: 600 }}>{fmt(net)}</div></div>
-                        <div className="inv-cell-actions" data-label=""><button type="button" onClick={() => toggleRowAdvanced(row.id)} title={tr('ui.fler_falt_for_raden')} style={{ padding: '6px', background: advancedOpen ? 'var(--status-blue-bg)' : 'transparent', borderRadius: '7px', border: 'none', cursor: 'pointer', color: advancedOpen ? 'var(--status-blue-text)' : 'var(--text-muted)' }}>
-                          <Settings2 size={15} />
-                        </button>
-                        <button type="button" onClick={() => removeRow(i)} disabled={isLocked || rows.length === 1} title={tr('ui.ta_bort_rad')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: (isLocked || rows.length === 1) ? 'not-allowed' : 'pointer', color: (isLocked || rows.length === 1) ? 'var(--border)' : '#ef4444' }}>
-                          <Trash2 size={15} />
-                        </button></div>
+                    <div key={row.id} style={{ marginBottom: '10px' }}>
+                      <div className="quote-row quote-row--no-ded" style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.8fr 0.8fr 1fr 0.8fr 0.9fr 1fr auto', gap: '10px', alignItems: 'center' }}>
+                        <label className="qr-cell qr-desc"><span className="qr-lbl">{tr('ui.beskrivning')}</span>
+                          {isLocked ? <div style={lockedCell}>{row.description}</div> : (
+                            <input
+                              value={row.description}
+                              list="article-description-list"
+                              onChange={e => updateRow(i, 'description', e.target.value)}
+                              onBlur={e => {
+                                const hit = findArticleByDescription(e.target.value);
+                                if (hit) applyArticleToRow(i, hit);
+                              }}
+                              style={inp}
+                              placeholder={tr('ui.beskrivning_av_tjanst_eller_produkt')}
+                            />
+                          )}
+                        </label>
+                        <label className="qr-cell"><span className="qr-lbl">{tr('ui.antal')}</span>
+                          {isLocked ? <div style={lockedCell}>{row.qty}</div> : (
+                            <input type="number" inputMode="decimal" value={row.qty} onChange={e => updateRow(i, 'qty', Number(e.target.value))} style={inp} />
+                          )}
+                        </label>
+                        <label className="qr-cell"><span className="qr-lbl">{tr('ui.enhet')}</span>
+                          {isLocked ? <div style={lockedCell}>{row.unit || 'st'}</div> : (
+                            <select value={row.unit || 'st'} onChange={e => updateRow(i, 'unit', e.target.value)} style={inp}>
+                              {ROW_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                            </select>
+                          )}
+                        </label>
+                        <label className="qr-cell"><span className="qr-lbl">{priceInclVat ? tr('ui.a_pris_inkl_moms') : tr('ui.pris_2')}</span>
+                          {isLocked ? <div style={lockedCell}>{fmt(row.unitPrice)}</div> : (
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              // row.unitPrice är alltid nettot (se priceInclVat-
+                              // kommentaren ovan) — bara VISNINGEN och det man
+                              // skriver in räknas om till/från brutto här.
+                              value={priceInclVat ? row.unitPrice * (1 + (row.vatRate || 0) / 100) : row.unitPrice}
+                              onChange={e => {
+                                const typed = Number(e.target.value);
+                                const net = priceInclVat ? typed / (1 + (row.vatRate || 0) / 100) : typed;
+                                updateRow(i, 'unitPrice', net);
+                              }}
+                              style={inp}
+                            />
+                          )}
+                        </label>
+                        <label className="qr-cell"><span className="qr-lbl">{tr('ui.rabatt')}</span>
+                          {isLocked ? <div style={lockedCell}>{row.discount || 0}</div> : (
+                            <input type="number" inputMode="decimal" min="0" max="100" value={row.discount || 0} onChange={e => updateRow(i, 'discount', Number(e.target.value))} style={inp} />
+                          )}
+                        </label>
+                        <label className="qr-cell"><span className="qr-lbl">{tr('ui.moms')}</span>
+                          {(isLocked || vatExempt) ? (
+                            <div title={vatExempt ? tr('ui.foretaget_ar_inte_momsregistrerat') : undefined} style={lockedCell}>{vatExempt ? 0 : row.vatRate}%</div>
+                          ) : (
+                            <select value={row.vatRate} onChange={e => updateRow(i, 'vatRate', Number(e.target.value))} style={inp}>
+                              {[25, 12, 6, 0].map(r => <option key={r} value={r}>{r}%</option>)}
+                            </select>
+                          )}
+                        </label>
+                        <div className="qr-cell qr-sum"><span className="qr-lbl">{tr('ui.summa')}</span>
+                          <div style={{ ...lockedCell, color: 'var(--text-secondary)', textAlign: 'right', fontWeight: 600 }}>{fmt(net)}</div>
+                        </div>
+                        <div className="qr-remove" style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                          <button type="button" onClick={() => toggleRowAdvanced(row.id)} title={tr('ui.fler_falt_for_raden')} style={{ padding: '6px', background: advancedOpen ? 'var(--status-blue-bg)' : 'transparent', borderRadius: '7px', border: 'none', cursor: 'pointer', color: advancedOpen ? 'var(--status-blue-text)' : 'var(--text-muted)' }}>
+                            <Settings2 size={15} />
+                          </button>
+                          <button type="button" onClick={() => removeRow(i)} disabled={isLocked || rows.length === 1} title={tr('ui.ta_bort_rad')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: (isLocked || rows.length === 1) ? 'not-allowed' : 'pointer', color: (isLocked || rows.length === 1) ? 'var(--border)' : '#ef4444' }}>
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       </div>
 
                       {/* Arbete/Material — bara synlig när Husavdrag är
@@ -1421,7 +1464,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                       )}
 
                       {advancedOpen && (
-                        <div className="form-row-stack" style={{ marginTop: '8px', padding: '14px', background: 'var(--bg-muted)', borderRadius: '10px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                        <div className="form-row-stack" style={{ marginTop: '8px', padding: '14px', background: 'var(--bg-muted)', borderRadius: '10px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                           <div>
                             <label style={lbl}>{tr('ui.artikelnr')}</label>
                             <div style={{ display: 'flex', gap: '6px' }}>
@@ -1460,10 +1503,6 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                               <option>{tr('ui.ja')}</option><option>{tr('ui.nej')}</option>
                             </select>
                           </div>}
-                          <div>
-                            <label style={lbl}>{tr('ui.rabatt')}</label>
-                            <input disabled={isLocked} type="number" min="0" max="100" value={row.discount || 0} onChange={e => updateRow(i, 'discount', Number(e.target.value))} style={inp} />
-                          </div>
                           <div>
                             <label style={lbl}>{tr('ui.konto_2')}</label>
                             {/* Var ett tomt textfält där man förväntades kunna
@@ -1518,13 +1557,6 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
               istället för att stå kvar och antyda en uträkning som aldrig
               faktiskt skedde. */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{tr('ui.fakturatext')}</h3>
-            <textarea
-              value={invoiceText} onChange={e => setInvoiceText(e.target.value)}
-              style={{ ...inp, minHeight: '70px', resize: 'vertical', lineHeight: 1.6, maxWidth: '640px', marginBottom: '20px' }}
-              placeholder={tr('ui.hej_tack_for_ditt_kop_hos_oss')}
-            />
-
             <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border-light)', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '360px', marginLeft: 'auto', fontSize: '13px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                 <span>{tr('ui.netto_exkl_moms')}</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{fmt(totals.net)} {currency}</span>
@@ -1552,6 +1584,15 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                 </>
               )}
             </div>
+
+            {/* Fakturatexten är en avslutning, inte det viktigaste. Den står
+                under Att betala, här och på fakturan. */}
+            <label style={{ ...lbl, marginTop: '20px' }}>{tr('ui.fakturatext')}</label>
+            <textarea
+              value={invoiceText} onChange={e => setInvoiceText(e.target.value)}
+              style={{ ...inp, minHeight: '64px', resize: 'vertical', lineHeight: 1.6 }}
+              placeholder={tr('ui.hej_tack_for_ditt_kop_hos_oss')}
+            />
           </div>
 
           {/* Spara/bokför — sista raden i formuläret, samma placering och
@@ -1573,6 +1614,9 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
             </button>
           </MobileFormBar>
         </div>
+        <DocSplit onEnlarge={() => setShowPreview(true)} onPrint={handlePrint} printing={printBusy} onDownload={handleDownloadPdf} downloading={pdfBusy}>
+          <InvoiceDocument {...documentProps} />
+        </DocSplit>
       </div>
       )}
 
@@ -1756,6 +1800,9 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                   ><ZoomIn size={14} /></button>
                 </div>
                 <div style={{ flex: 1, minWidth: '8px' }} />
+                <button onClick={handlePrint} disabled={printBusy} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', cursor: printBusy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  <Printer size={13} /> {tr('ui.skriv_ut')}
+                </button>
                 <button onClick={handleDownloadPdf} disabled={pdfBusy} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', cursor: pdfBusy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
                   <Download size={13} /> {pdfBusy ? tr('ui.skapar_pdf') : tr('ui.ladda_ner_pdf')}
                 </button>
@@ -1777,23 +1824,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
                   några år tillbaka (inklusive Firefox). */}
               <div style={{ zoom: previewZoom, transition: 'zoom 0.15s ease' }}>
                 <PaperFit>
-                <InvoiceDocument
-                  ref={previewRef}
-                  invoice={{ invoiceNumber: nextNum, date: invoiceDate, dueDate, terms }}
-                  customer={customer}
-                  company={company}
-                  rows={rows}
-                  totals={totals}
-                  currency={currency}
-                  invoiceText={invoiceText}
-                  template={invoiceTemplateSnapshot.templateId}
-                  accentColor={invoiceTemplateSnapshot.accentColor}
-                  logoUrl={invoiceTemplateSnapshot.logoUrl}
-                  logoSize={invoiceTemplateSnapshot.logoSize}
-                  showCompanyName={invoiceTemplateSnapshot.showCompanyName}
-                  footerText={invoiceTemplateSnapshot.footerText}
-                  rotRut={rotRutType !== 'none' ? { type: rotRutType, ...rotRut } : null}
-                />
+                <InvoiceDocument ref={previewRef} {...documentProps} />
                 </PaperFit>
               </div>
             </div>
@@ -1804,23 +1835,7 @@ function InvoiceForm({ contacts, accounts = [], onSave, onClose, initial, prefil
       {/* Osynlig, alltid monterad — se kommentaren vid captureRef ovan för
           varför PDF/mejl fångar DENNA istället för förhandsgranskningen. */}
       <div style={{ position: 'fixed', top: 0, left: '-9999px', width: '794px', pointerEvents: 'none' }} aria-hidden="true">
-        <InvoiceDocument
-          ref={captureRef}
-          invoice={{ invoiceNumber: nextNum, date: invoiceDate, dueDate, terms }}
-          customer={customer}
-          company={company}
-          rows={rows}
-          totals={totals}
-          currency={currency}
-          invoiceText={invoiceText}
-          template={invoiceTemplateSnapshot.templateId}
-          accentColor={invoiceTemplateSnapshot.accentColor}
-          logoUrl={invoiceTemplateSnapshot.logoUrl}
-          logoSize={invoiceTemplateSnapshot.logoSize}
-          showCompanyName={invoiceTemplateSnapshot.showCompanyName}
-          footerText={invoiceTemplateSnapshot.footerText}
-          rotRut={rotRutType !== 'none' ? { type: rotRutType, ...rotRut } : null}
-        />
+        <InvoiceDocument ref={captureRef} {...documentProps} />
       </div>
     </div>
   );
@@ -2018,7 +2033,7 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
  * komponenten ändrar inget i det flödet, den visar bara den redan
  * skapade länken.
  */
-function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onSyncBeforeServerCall, onClose, onMarkSent }) {
+function PaymentLinkModal({ activeCompanyId, invoice, customer, company, onGetPaymentLinkUrl, onSyncBeforeServerCall, onClose, onMarkSent }) {
   const [url, setUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -2112,7 +2127,7 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onS
         subject: `Betalningslänk – faktura ${invoice.invoiceNumber}`,
         html,
         replyTo: company?.email || undefined,
-        company_id: company?.id,
+        company_id: activeCompanyId,
         ...(attachmentBase64 ? { attachmentBase64, attachmentFilename: `faktura-${invoice.invoiceNumber}.pdf` } : {}),
       });
       setEmailSent(true);
@@ -2184,7 +2199,7 @@ function PaymentLinkModal({ invoice, customer, company, onGetPaymentLinkUrl, onS
   );
 }
 
-export default function Invoices({ ufQuota = { limited: false }, invoices, contacts, accounts = [], onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, onRotRutRequested, onRotRutPayout, onRotRutRejected, onImportRotRutBookings, onRotRutBatchRequested, onRotRutBatchPayout, setInvoices, company, globalAction, clearGlobalAction, verifications = [], onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [], onSyncBeforeServerCall }) {
+export default function Invoices({ activeCompanyId, ufQuota = { limited: false }, invoices, contacts, accounts = [], onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, onRotRutRequested, onRotRutPayout, onRotRutRejected, onImportRotRutBookings, onRotRutBatchRequested, onRotRutBatchPayout, setInvoices, company, globalAction, clearGlobalAction, verifications = [], onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [], onSyncBeforeServerCall }) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   // react-routers setSearchParams navigerar till bara "?…" och tappar
@@ -2361,7 +2376,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
 
   // Bara den grenen som faktiskt renderar listan (InvoiceEmptyState-gaten +
   // tabellen längre ner) använder den här — bläddringen
-  // («‹›» i InvoiceForm) använder fortfarande `sorted` orört, en påhittad
+  // (pilarna i InvoiceForm) använder fortfarande `sorted` orört, en påhittad
   // exempelfaktura ska aldrig gå att bläddra in i redigeringsläge.
   const sortedWithDemo = useMemo(() => {
     if (!tourDemoActive || invoiceList.length > 0) return sorted;
@@ -2721,17 +2736,15 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
   }
 
   if (showForm) {
-    // Bläddring («‹›») navigerar genom exakt samma sorterade/filtrerade
+    // Bläddringen navigerar genom exakt samma sorterade/filtrerade
     // lista användaren kom ifrån — inte en fristående ordning — så pilarna
     // matchar det man faktiskt såg i listvyn.
     const navIndex = editingInvoice ? sorted.findIndex(i => i.id === editingInvoice.id) : -1;
     const nav = {
       hasPrev: navIndex > 0,
       hasNext: navIndex >= 0 && navIndex < sorted.length - 1,
-      first: () => sorted[0] && setEditingInvoice(sorted[0]),
       prev: () => navIndex > 0 && setEditingInvoice(sorted[navIndex - 1]),
       next: () => navIndex >= 0 && navIndex < sorted.length - 1 && setEditingInvoice(sorted[navIndex + 1]),
-      last: () => sorted.length > 0 && setEditingInvoice(sorted[sorted.length - 1]),
     };
     return (
       <InvoiceForm
@@ -2746,6 +2759,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
         contacts={contacts}
         accounts={accounts}
         company={company}
+        activeCompanyId={activeCompanyId}
         initial={editingInvoice}
         prefill={invoicePrefill}
         articles={articles}
@@ -3014,6 +3028,7 @@ export default function Invoices({ ufQuota = { limited: false }, invoices, conta
     {paymentLinkInvoice && onGetPaymentLinkUrl && (
       <PaymentLinkModal
         invoice={paymentLinkInvoice.invoice}
+        activeCompanyId={activeCompanyId}
         customer={paymentLinkInvoice.customer}
         company={company}
         onGetPaymentLinkUrl={onGetPaymentLinkUrl}

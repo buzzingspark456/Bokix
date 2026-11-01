@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { getAuthStorage } from './utils/authStorage';
+import { getAuthStorage, rememberRecoveryLink } from './utils/authStorage';
 import { PASSKEYS_ENABLED } from './utils/sessionPolicy';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -18,6 +18,9 @@ function isValidHttpUrl(str) {
 }
 
 const hasValidConfig = isValidHttpUrl(supabaseUrl) && supabaseAnonKey && supabaseAnonKey.length > 10;
+
+// Måste ske före createClient, som tömmer adressen (se authStorage.js).
+rememberRecoveryLink();
 
 // Create a no-op mock client when Supabase is not configured, so the app
 // still renders without crashing in demo / dev environments.

@@ -86,7 +86,7 @@ export async function buildAdminNotice(stripe, event) {
     const email = await customerEmail(stripe, obj.customer);
     const plan = planName(obj.metadata?.plan);
     if (isCanceling) {
-      const end = obj.cancel_at || obj.current_period_end;
+      const end = obj.cancel_at || obj.current_period_end || obj.items?.data?.[0]?.current_period_end;
       return {
         subject: `Uppsägning: ${email || 'okänd e-post'}`,
         lines: [

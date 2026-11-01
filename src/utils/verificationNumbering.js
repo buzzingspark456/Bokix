@@ -1,6 +1,6 @@
 // Verifikationsserier och verifikationsnummer (A001, B014, ...). Delad av
 // bokföringen (App.jsx: handleAddVerification), Ny verifikation
-// (Verifications.jsx), Bank och Inställningar → Allmänt.
+// (Verifications.jsx), Bank och Inställningar → Bokföring.
 //
 // Serierna följer samma indelning som Fortnox (kundönskemål 2026-09-27), så
 // en revisor känner igen dem och en SIE-fil flyttar dem rätt: varje sorts

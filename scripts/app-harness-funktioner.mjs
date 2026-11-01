@@ -62,12 +62,12 @@ async function run(label, emptyModules, check) {
   });
   await page.route('**/api/**', r => r.fulfill({ json: {} }));
   await page.goto(BASE + '/?app=1');
-  await page.waitForFunction(() => document.body.innerText.includes('Räkenskapsåret'), null, { timeout: 25000 });
+  await page.waitForFunction(() => document.body.innerText.includes('Att göra'), null, { timeout: 25000 });
   await page.waitForTimeout(1200);
   const menu = () => page.evaluate(() => {
     const nav = document.querySelector('nav, .sidebar, aside');
     const t = (nav || document.body).innerText;
-    return { artiklar: /\nArtiklar\n/.test('\n' + t + '\n'), projekt: /\nProjekt\n/.test('\n' + t + '\n') };
+    return { artiklar: /\nArtiklar( och lager)?\n/.test('\n' + t + '\n'), projekt: /\nProjekt( och tid)?\n/.test('\n' + t + '\n') };
   });
   const ok = await check({ page, menu, server, id });
   console.log(`[${label}]`, ok ? 'OK' : 'FEL', errors.length ? errors : '');
@@ -91,7 +91,7 @@ await run('nytt företag', true, async ({ page, menu, server, id }) => {
     (el?.closest('button, a, [role="button"]') || el)?.click();
   });
   await page.waitForTimeout(800);
-  await page.getByText('Allmänt', { exact: true }).first().click();
+  await page.getByText('Funktioner', { exact: true }).first().click();
   await page.waitForTimeout(800);
   await page.screenshot({ path: 'test-results/harness-funktioner-installningar.png' });
   const toggles = page.locator('input[type="checkbox"]');

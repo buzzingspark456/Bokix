@@ -878,7 +878,7 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
   return (
     <div style={{ flex: 1, minHeight: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
-        title={tr('ui.projekt')}
+        title={tr('nav.projects')}
         actions={[{ key: 'new', label: tr('ui.nytt_projekt'), icon: Plus, onClick: openNewProjectForm, variant: 'primary', dataTour: 'page-projects-cta' }]}
         tabs={{ items: [{ id: 'projects', label: tr('ui.projekt') }, { id: 'time', label: tr('ui.tidrapportering') }], activeId: activeTab, onChange: handleSetTab }}
       />

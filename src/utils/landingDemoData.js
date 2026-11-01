@@ -576,6 +576,7 @@ export function createDemoSeed() {
       zettleAccessToken: 'demo_zettle_access_token',
       emailDomain: '', resendDomainId: '', emailDomainStatus: '', emailDomainRecords: [],
       defaultVat: 25, fiscalYear: `${YEAR}-01-01`, vatPeriod: 'quarterly', chartPlan: 'bas2025',
+      vatPeriodConfirmedAt: `${YEAR}-01-01T00:00:00Z`, fSkattConfirmedAt: `${YEAR}-01-01T00:00:00Z`,
     },
     // Standardkontoplanen plus ett annonseringskonto (5910). Kontot finns
     // inte i DEFAULT_ACCOUNTS, men i BAS — och en riktig användare lägger

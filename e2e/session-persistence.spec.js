@@ -18,10 +18,12 @@ dotenv.config();
 // borde (t.ex. om något av misstag fortfarande skriver till localStorage).
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const canRunLiveTest = Boolean(supabaseUrl && serviceRoleKey);
+// Lokala .env pekar på produktionen: testet skapar ett riktigt konto där.
+// Körs därför bara med E2E_LIVE=1.
+const canRunLiveTest = Boolean(process.env.E2E_LIVE === '1' && supabaseUrl && serviceRoleKey);
 
 test.describe('Session förblir bara inloggad medan fliken är öppen', () => {
-  test.skip(!canRunLiveTest, 'Kräver SUPABASE_SERVICE_ROLE_KEY lokalt.');
+  test.skip(!canRunLiveTest, 'Går mot produktionen, körs bara med E2E_LIVE=1.');
 
   const testEmail = `e2e-session-${Date.now()}@bokix-test.invalid`;
   const testPassword = `e2e-session-pw-${Date.now()}`;

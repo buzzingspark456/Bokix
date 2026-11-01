@@ -1,24 +1,6 @@
-import { computeBalanceSheet, isBooked } from './reportCalculations';
-import { getDebet, getKredit } from './verificationAmounts';
+import { computeBalanceSheet, unclosedResult } from './reportCalculations';
 
-/**
- * Resultat som ännu inte förts över till eget kapital: nettot på alla
- * resultatkonton (klass 3–8) till och med datumet. Efter ett bokfört
- * bokslut (8999 mot 2099) är det noll. Innan dess saknas just det här
- * beloppet i eget kapital, och balansräkningen går inte ihop — trots att
- * bokföringen är rätt. Positivt = vinst.
- */
-export function unclosedResult(verifications, asOfDate) {
-  let sum = 0;
-  for (const ver of verifications) {
-    if (!isBooked(ver) || !ver.date || new Date(`${ver.date}T00:00:00`) > asOfDate) continue;
-    for (const row of ver.rows || []) {
-      const n = Number(row.account);
-      if (n >= 3000 && n <= 8999) sum += getKredit(row) - getDebet(row);
-    }
-  }
-  return Math.round(sum * 100) / 100;
-}
+export { unclosedResult };
 
 /**
  * INK2R — Räkenskapsschema, balansräkningsdelen (rad 2.1–2.50) av

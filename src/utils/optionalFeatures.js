@@ -1,5 +1,5 @@
 // Funktioner de flesta små företag aldrig använder ligger gömda tills man
-// slår på dem (Inställningar → Allmänt → Funktioner). Inget tas bort: sidan
+// slår på dem (Inställningar → Funktioner). Inget tas bort: sidan
 // finns kvar, den syns bara inte i menyn.
 //
 // Valet sparas i company.features ({ articles: true, ... }). Har företaget

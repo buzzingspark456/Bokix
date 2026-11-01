@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { HelpCircle, ArrowUpRight, ArrowDownRight, Inbox, Calendar, ChevronDown, Palette } from '../icons';
+import { HelpCircle, ArrowUpRight, ArrowDownRight, Inbox, Calendar, ChevronDown, ChevronRight, Palette } from '../icons';
 import {
-  BarChart, Bar, LineChart, Line, ComposedChart, PieChart, Pie, Cell,
+  BarChart, Bar, LabelList, LineChart, Line, Area, ComposedChart, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts';
 // Tremor Raw AreaChart/BarChart (src/components/tremor/) — AreaChart
@@ -81,11 +81,8 @@ export const CHART_H_SIDE = 270;
 export const REVENUE = CHART_PROFIT;
 export const EXPENSE = KPI_GRADIENTS.negative[1];
 
-/* Kostnadernas egen ramp. Allt i kostnadspanelerna hör till EN sak —
- * pengar ut — så de delar kostnadsfärgens familj i stället för att vara
- * sex nominellt olika kulörer. Det är skillnaden mot en godtycklig
- * kategoripalett: ringen säger "det här är kostnader, så här fördelade",
- * inte "här är sex saker som råkar ha varsin färg".
+/* Kostnadsfördelningens färger ligger sedan 2026-10-31 i CATEGORY_RAMP
+ * (chartPalette.js): en egen färg per kategori i stället för nyanser av rött.
  *
  * Varje kategori har en FAST plats (se `colorIndex` i reportCalculations.js)
  * så en post behåller sin ton även när en annan kategori saknar belopp.
@@ -259,7 +256,8 @@ export function DeltaPill({ delta, context }) {
         background: neutral ? 'var(--status-gray-bg)' : good ? 'var(--status-green-bg)' : 'var(--status-red-bg)',
         color: neutral ? 'var(--status-gray-text)' : good ? 'var(--status-green-text)' : 'var(--status-red-text)',
       }}>
-        {!neutral && (good ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />)}
+        {/* Pilen visar riktningen, färgen om det är bra: högre kostnader är en röd pil uppåt. */}
+        {!neutral && ((delta.rising ?? good) ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />)}
         {delta.short || delta.text}
       </span>
       {context && <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>{context}</span>}
@@ -469,6 +467,7 @@ export function formatDelta(current, previous, invert = false) {
     short: `${rising ? '+' : '−'}${formatPct(Math.abs(pct))}`,
     context: t('ui.mot_foregaende_ar'),
     good,
+    rising,
   };
 }
 
@@ -999,7 +998,7 @@ export function RevenueExpenseChart({ data, isMobile, granularity = 'month', hei
     // finns i rutorna ovanför och i tooltipen.
     const axisFmt = (v) => (v === 0 ? '0' : Math.abs(v) >= 1e6
       ? `${numberFormat('sv-SE', { maximumFractionDigits: 1 }).format(v / 1e6)} mkr`
-      : Math.abs(v) >= 1000 ? `${numberFormat('sv-SE').format(Math.round(v / 1000))} tkr` : `${v} kr`);
+      : Math.abs(v) >= 1000 ? `${numberFormat('sv-SE', { maximumFractionDigits: 1 }).format(v / 1000)} tkr` : `${v} kr`);
     // Bred nog för "−160 tkr" på en rad; smalare bröt Recharts etiketten i två.
     const axisW = 58;
     return (
@@ -1083,6 +1082,185 @@ export function RevenueExpenseChart({ data, isMobile, granularity = 'month', hei
     />
   );
 }
+/** Rapportsidans huvuddiagram: resultatet ackumulerat genom perioden som en
+ * linje med mjuk yta, fjolåret streckat bakom. Färgen följer tecknet på
+ * slutresultatet, samma som Resultat-brickorna. */
+export function ResultPaceChart({ data, height = 260 }) {
+  const { palette, amount } = useReportDisplay();
+  const gradientId = React.useId();
+  const last = data.length - 1;
+  const color = (data[last]?.resultat ?? 0) >= 0 ? palette.profit : palette.loss;
+  const prevName = t('ui.foregaende_ar_stor');
+  const hasPrev = data.some(d => d.fjol != null);
+  // Annars får ett resultat som bara går uppåt en nollinje i underkanten
+  // som ser ut som diagrammets botten.
+  const crossesZero = data.some(d => d.resultat < 0 || (d.fjol ?? 0) < 0);
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <ComposedChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity={0.2} />
+            <stop offset="100%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid vertical={false} stroke="var(--border-light)" />
+        <XAxis dataKey="label" tick={{ fontSize: 11.5, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} tickMargin={8} interval="preserveStartEnd" minTickGap={28} />
+        <YAxis tickFormatter={amount.axis} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} width={amount.axisWidth} />
+        <Tooltip content={<ChartTooltip valueFormatter={amount.exact} showDerived={false} />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
+        {crossesZero && <ReferenceLine y={0} stroke="var(--text-muted)" strokeOpacity={0.35} />}
+        {hasPrev && <Line type="monotone" dataKey="fjol" name={prevName} stroke="var(--text-muted)" strokeWidth={1.75} strokeDasharray="4 4" dot={false} activeDot={false} isAnimationActive={false} />}
+        <Area
+          type="monotone" dataKey="resultat" name={t('ui.resultat')} stroke={color} strokeWidth={2.5} fill={`url(#${gradientId})`}
+          dot={({ index, cx, cy }) => (index === last
+            ? <circle key="slut" cx={cx} cy={cy} r={4.5} fill={color} stroke="var(--bg-card)" strokeWidth={2} />
+            : <g key={index} />)}
+          activeDot={{ r: 5, strokeWidth: 2, stroke: 'var(--bg-card)' }}
+          isAnimationActive={false}
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** Eget kapital och skulder staplade per månad: stapelns höjd är tillgångarna,
+ * så balansräkningens två sidor syns i samma figur. Skulderna är dämpade,
+ * eget kapital är det läsaren följer. */
+export function BalanceTrendChart({ data, height = 260 }) {
+  const { palette, amount } = useReportDisplay();
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <ComposedChart data={data} stackOffset="sign" barCategoryGap="28%" margin={{ top: 10, right: 6, bottom: 0, left: 0 }}>
+        <CartesianGrid vertical={false} stroke="var(--border-light)" />
+        <XAxis dataKey="label" tick={{ fontSize: 11.5, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} tickMargin={8} />
+        <YAxis tickFormatter={amount.axis} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} width={amount.axisWidth} />
+        <Tooltip content={<ChartTooltip valueFormatter={amount.exact} showDerived={false} />} cursor={{ fill: 'var(--bg-muted)', opacity: 0.6 }} />
+        <Bar dataKey="equity" name={t('ui.eget_kapital')} stackId="b" fill={palette.profit} stroke="var(--bg-card)" strokeWidth={1.5} maxBarSize={CHART_BAR_SIZE + 8} isAnimationActive={false} />
+        <Bar dataKey="debts" name={t('ui.skulder')} stackId="b" fill={palette.muted} stroke="var(--bg-card)" strokeWidth={1.5} radius={[5, 5, 0, 0]} maxBarSize={CHART_BAR_SIZE + 8} isAnimationActive={false} />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** Från intäkterna ner till resultatet, en post i taget (Fortnox vattenfall).
+ * Liggande, så att gruppernas namn får plats även på telefon. Varje stapel
+ * börjar där den förra slutade, och beloppet står intill. */
+export function ResultWaterfallChart({ data, isMobile }) {
+  const { palette, amount } = useReportDisplay();
+  const colorOf = (d) => (d.kind === 'income' ? palette.income : d.kind === 'cost' ? palette.cost : d.amount >= 0 ? palette.profit : palette.loss);
+  return (
+    <ResponsiveContainer width="100%" height={data.length * 46 + 12}>
+      <BarChart layout="vertical" data={data} barCategoryGap="26%" margin={{ top: 6, right: isMobile ? 76 : 104, bottom: 6, left: 0 }}>
+        <XAxis type="number" hide domain={[dataMin => Math.min(0, dataMin), dataMax => Math.max(0, dataMax)]} />
+        <YAxis type="category" dataKey="label" width={isMobile ? 112 : 190} tick={{ fontSize: isMobile ? 11.5 : 13, fill: 'var(--text-main)' }} axisLine={false} tickLine={false} interval={0} />
+        <ReferenceLine x={0} stroke="var(--text-muted)" strokeOpacity={0.35} />
+        <Bar dataKey="range" radius={4} isAnimationActive={false}>
+          {data.map(d => <Cell key={d.key} fill={colorOf(d)} />)}
+          <LabelList dataKey="amount" position="right" formatter={amount.exact} style={{ fontSize: 12.5, fontWeight: 600, fill: 'var(--text-main)' }} />
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+// Tom kolumn när det inte finns något att jämföra med, aldrig "∞ %".
+export function statementChange(amount, prev) {
+  if (!prev) return '—';
+  const pct = ((amount - prev) / Math.abs(prev)) * 100;
+  return `${pct >= 0 ? '+' : '−'}${formatPct(Math.abs(pct), 0)}`;
+}
+
+/** Uppställningen per konto som resultat- och balansräkningen bygger på:
+ * grupprad med summa, kontona under, och summeringsrader. Förändringen är
+ * ofärgad med flit: om en högre kostnad är bra eller dåligt vet bara läsaren.
+ * Ett klick på ett konto fäller ut transaktionerna under perioden, utan att
+ * man lämnar rapporten (`ledger`: konto → huvudbokens rader). */
+export function StatementTable({ items, showPrev = false, showAccounts = true, ledger }) {
+  const opt = 'stm-opt';
+  const [openRow, setOpenRow] = useState(null);
+  const columns = showPrev ? 4 : 2;
+  return (
+    <div className="stm">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">{t('ui.rapp_konto')}</th>
+            <th scope="col">{t('ui.belopp')}</th>
+            {showPrev && <th scope="col" className={opt}>{t('ui.foregaende_ar_stor')}</th>}
+            {showPrev && <th scope="col" className={opt}>{t('ui.rapp_forandring')}</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {items.map(item => (item.type === 'total' ? (
+            <tr key={item.key} className="stm-total">
+              <td>{item.label}</td>
+              <td>{formatSEK(item.amount)}</td>
+              {showPrev && <td className={opt}>{formatSEK(item.prev)}</td>}
+              {showPrev && <td className={opt}>{statementChange(item.amount, item.prev)}</td>}
+            </tr>
+          ) : (
+            <React.Fragment key={item.key}>
+              <tr className={showAccounts ? 'stm-group' : 'stm-sum'}>
+                <td>{item.label}</td>
+                <td>{showAccounts ? '' : formatSEK(item.amount)}</td>
+                {showPrev && <td className={opt}>{showAccounts ? '' : formatSEK(item.prev)}</td>}
+                {showPrev && <td className={opt}>{showAccounts ? '' : statementChange(item.amount, item.prev)}</td>}
+              </tr>
+              {showAccounts && item.rows.map(row => {
+                const moves = !row.computed && ledger?.get(row.code);
+                const canOpen = Boolean(moves?.length);
+                const isOpen = canOpen && openRow === row.code;
+                return (
+                  <React.Fragment key={`${row.code}${row.computed ? '-b' : ''}`}>
+                    <tr className={canOpen ? 'stm-click' : undefined} onClick={canOpen ? () => setOpenRow(isOpen ? null : row.code) : undefined}>
+                      <td>
+                        {canOpen ? (
+                          <button type="button" className="stm-open" aria-expanded={isOpen} onClick={(e) => { e.stopPropagation(); setOpenRow(isOpen ? null : row.code); }}>
+                            <ChevronRight size={13} className={isOpen ? 'is-open' : undefined} aria-hidden="true" />
+                            <span className="stm-code">{row.code}</span>{row.name}
+                          </button>
+                        ) : (
+                          <span className="stm-plain"><span className="stm-code">{row.computed ? '' : row.code}</span>{row.name}</span>
+                        )}
+                      </td>
+                      <td>{formatSEK(row.amount)}</td>
+                      {showPrev && <td className={`${opt} stm-muted`}>{formatSEK(row.prev)}</td>}
+                      {showPrev && <td className={`${opt} stm-muted`}>{statementChange(row.amount, row.prev)}</td>}
+                    </tr>
+                    {isOpen && (
+                      <tr className="stm-detail">
+                        <td colSpan={columns}>
+                          <div className="stm-moves">
+                            {moves.map((m, i) => (
+                              <div key={`${m.verificationId}_${i}`} className="stm-move">
+                                <span className="stm-move-date">{m.date ? fmtDate(m.date) : ''}</span>
+                                <span className="stm-move-text">{[m.verificationNumber, m.description].filter(Boolean).join(' · ')}</span>
+                                <span>{formatSEK((m.debet - m.kredit) * (row.sign || 1))}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+              {showAccounts && (
+                <tr className="stm-sum">
+                  <td>{t('ui.summa')} {item.label.toLowerCase()}</td>
+                  <td>{formatSEK(item.amount)}</td>
+                  {showPrev && <td className={opt}>{formatSEK(item.prev)}</td>}
+                  {showPrev && <td className={opt}>{statementChange(item.amount, item.prev)}</td>}
+                </tr>
+              )}
+            </React.Fragment>
+          )))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /** Generell trendgraf som kan rita SAMMA data som Stapel, Linje eller
  * gradientfylld Yta (styrt av `format` — ett anropar-internt val, inte
  * längre en synlig växlare i UI:t; se kodgranskningen vid PeriodTabs ovan
@@ -1333,7 +1511,7 @@ export function MarginLinesChart({ data, series = MARGIN_SERIES, isMobile, heigh
 }
 export function CostBreakdownDonut({ categories, total, variant = 'donut' }) {
   const { palette, amount } = useReportDisplay();
-  const data = categories.map((c, i) => ({ ...c, color: palette.costRamp[(c.colorIndex ?? i) % palette.costRamp.length] }));
+  const data = categories.map((c, i) => ({ ...c, color: palette.categoryRamp[(c.colorIndex ?? i) % palette.categoryRamp.length] }));
   return (
     // Ringen ligger CENTRERAD ÖVER legenden (inte bredvid den), som i
     // utkastet — i en halvbred panel får ringen då sin fulla storlek och
@@ -1453,7 +1631,7 @@ export function CostRankingList({ rows, total }) {
             <span style={{ color: 'var(--text-secondary)', fontWeight: 700, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{formatSEK(r.amount)}</span>
           </div>
           <div style={{ height: '10px', borderRadius: '999px', background: palette.costWash, overflow: 'hidden' }}>
-            <div style={{ height: '100%', borderRadius: '999px', width: `${max ? (r.amount / max) * 100 : 0}%`, background: palette.costRamp[i % palette.costRamp.length] }} />
+            <div style={{ height: '100%', borderRadius: '999px', width: `${max ? (r.amount / max) * 100 : 0}%`, background: palette.categoryRamp[i % palette.categoryRamp.length] }} />
           </div>
         </div>
       ))}

@@ -27,6 +27,13 @@ const legacyCompanyId = (companyId) => companyId || '';
 // släpper in kontot förbi betalspärren.
 export const PAID_STATUSES = ['trialing', 'active', 'past_due'];
 
+// Periodens slut. Nyare Stripe-versioner har flyttat fältet från prenumerationen
+// till dess rader; utan reserven sparades null och Inställningar visade inget datum.
+export function stripePeriodEnd(sub) {
+  const seconds = sub?.current_period_end ?? sub?.items?.data?.[0]?.current_period_end;
+  return seconds ? new Date(seconds * 1000).toISOString() : null;
+}
+
 // Fälten upsertSubscription vill ha, ur ett Stripe Subscription-objekt.
 export function subscriptionFieldsFromStripe(sub) {
   return {
@@ -37,7 +44,7 @@ export function subscriptionFieldsFromStripe(sub) {
     stripeSubscriptionId: sub.id,
     status: sub.status,
     trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
-    currentPeriodEnd: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
+    currentPeriodEnd: stripePeriodEnd(sub),
     cancelAtPeriodEnd: !!sub.cancel_at_period_end,
   };
 }

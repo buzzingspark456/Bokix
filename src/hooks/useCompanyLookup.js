@@ -102,7 +102,7 @@ export function useCompanyLookup(set) {
     try {
       const company = await lookupCompanyByOrgNumber(digits);
       if (!company) {
-        setOrgLookup({ status: 'error', message: 'Inget företag hittades för det organisationsnumret.' });
+        setOrgLookup({ status: 'error', notFound: true, message: 'Inget företag hittades för det organisationsnumret.' });
         return;
       }
       applyCompany(company);

@@ -70,7 +70,7 @@ const fail = async (msg) => {
 };
 
 await page.goto(BASE + '/?app=1');
-await page.waitForFunction(() => document.body.innerText.includes('Räkenskapsåret'), null, { timeout: 25000 }).catch(() => fail('startsidan laddade inte'));
+await page.waitForFunction(() => document.body.innerText.includes('Att göra'), null, { timeout: 25000 }).catch(() => fail('startsidan laddade inte'));
 await page.waitForTimeout(1200);
 await page.evaluate(() => {
   const el = [...document.querySelectorAll('button, a, [role="button"], li, div')].reverse()

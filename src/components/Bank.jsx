@@ -114,6 +114,9 @@ export default function Bank({
   onMarkSupplierInvoicePaid,
   onAddVerification,
 }) {
+  // Två uppgifter: gå igenom transaktionerna eller kontrollera mot banken.
+  // Statusarna (Ej hanterade m.fl.) är filter inuti Transaktioner.
+  const [view, setView] = useState('transactions');
   const [activeTab, setActiveTab] = useState('all');
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState(daysAgoIso(90));
@@ -225,6 +228,7 @@ export default function Bank({
     if (rows.length) {
       const earliest = rows.reduce((min, r) => (!min || r.date < min) ? r.date : min, null);
       if (earliest && (!dateFrom || earliest < dateFrom)) setDateFrom(earliest);
+      setView('transactions');
       setActiveTab('unmatched');
       // Hoppa till DET kontot som just importerades till, annars ser den nya
       // omgången ut att saknas om ett annat konto råkade vara valt sedan
@@ -379,19 +383,40 @@ export default function Bank({
         ]}
         tabs={{
           items: [
-            { id: 'all', label: tr('ui.alla'), badge: tabCounts.all },
-            { id: 'unmatched', label: tr('ui.ej_hanterade'), badge: tabCounts.unmatched },
-            { id: 'matched', label: tr('ui.matchade'), badge: tabCounts.matched },
-            { id: 'booked', label: tr('ui.bokforda'), badge: tabCounts.booked },
-            { id: 'ignored', label: tr('ui.ignorerade'), badge: tabCounts.ignored },
+            { id: 'transactions', label: tr('ui.transaktioner_rubrik') },
             { id: 'reconcile', label: tr('ui.avstamning'), shortLabel: tr('bankUi.reconcileShort') },
           ],
-          // Radbryts i halvskärm och på telefon i stället för att skrolla i sidled.
-          wrap: true,
-          activeId: activeTab,
-          onChange: setActiveTab,
+          activeId: view,
+          onChange: setView,
         }}
       />
+
+      {view === 'transactions' && (
+        <div role="group" aria-label={tr('ui.status')} style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '10px 20px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+          {[
+            { id: 'all', label: tr('ui.alla'), count: tabCounts.all },
+            { id: 'unmatched', label: tr('ui.ej_hanterade'), count: tabCounts.unmatched },
+            { id: 'matched', label: tr('ui.matchade'), count: tabCounts.matched },
+            { id: 'booked', label: tr('ui.bokforda'), count: tabCounts.booked },
+            { id: 'ignored', label: tr('ui.ignorerade'), count: tabCounts.ignored },
+          ].map(f => (
+            <button
+              key={f.id}
+              type="button"
+              aria-pressed={activeTab === f.id}
+              onClick={() => setActiveTab(f.id)}
+              style={{
+                padding: '6px 12px', borderRadius: '999px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                border: `1px solid ${activeTab === f.id ? 'var(--accent)' : 'var(--border)'}`,
+                background: activeTab === f.id ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'none',
+                color: activeTab === f.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+              }}
+            >
+              {f.label} {f.count}
+            </button>
+          ))}
+        </div>
+      )}
 
       {reconcileResult && (
         <div style={{ margin: '12px 20px 0', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', lineHeight: 1.55, background: reconcileResult.unmatchedDays.length ? 'var(--status-amber-bg)' : 'var(--status-green-bg)', color: reconcileResult.unmatchedDays.length ? 'var(--status-amber-text)' : 'var(--status-green-text)', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
@@ -405,7 +430,7 @@ export default function Bank({
         </div>
       )}
 
-      {activeTab !== 'reconcile' && <ListFilterBar
+      {view !== 'reconcile' && <ListFilterBar
         onClear={() => { setSearch(''); setDateFrom(''); setDateTo(''); setSelectedAccountId('all'); }}
         count={filtered.length}
         countLabel="transaktioner"
@@ -437,7 +462,7 @@ export default function Bank({
         )}
       </ListFilterBar>}
 
-      {activeTab === 'reconcile' && (
+      {view === 'reconcile' && (
         <div style={{ flex: 1, overflowY: 'auto' }}>
           <Reconciliation
             bankAccounts={effectiveAccounts}
@@ -451,7 +476,7 @@ export default function Bank({
         </div>
       )}
 
-      {activeTab !== 'reconcile' && <div style={{ flex: 1, overflowY: 'auto' }}>
+      {view !== 'reconcile' && <div style={{ flex: 1, overflowY: 'auto' }}>
         {bankTransactions.length === 0 ? (
           // Samma kortram som ListTable (bordered=true, samma komponent som
           // renderar raderna nedan) i stället för en egen flytande, rundad

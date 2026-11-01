@@ -137,7 +137,7 @@ function base64url(buf) {
 /** Bygger själva mejlet (MIME) och lämnar över det till Gmail. Vi
  *  återanvänder nodemailers meddelandebyggare men INTE dess sändning —
  *  Gmail vill ha råmeddelandet, inte en SMTP-uppkoppling. */
-export async function sendViaGmail({ refreshToken, from, to, subject, html, replyTo, attachmentBase64, attachmentFilename }) {
+export async function sendViaGmail({ refreshToken, from, to, subject, html, replyTo, extraAttachments = [], attachmentBase64, attachmentFilename }) {
   const accessToken = await accessTokenFrom(refreshToken);
 
   const mail = new MailComposer({
@@ -146,8 +146,8 @@ export async function sendViaGmail({ refreshToken, from, to, subject, html, repl
     subject,
     html,
     ...(replyTo ? { replyTo } : {}),
-    ...(attachmentBase64
-      ? { attachments: [{ filename: attachmentFilename || 'faktura.pdf', content: Buffer.from(attachmentBase64, 'base64') }] }
+    ...(attachmentBase64 || extraAttachments.length
+      ? { attachments: [...(attachmentBase64 ? [{ filename: attachmentFilename || 'faktura.pdf', content: attachmentBase64 }] : []), ...extraAttachments].map(a => ({ filename: a.filename, content: Buffer.from(a.content, 'base64') })) }
       : {}),
   });
   const raw = await new Promise((resolve, reject) => {

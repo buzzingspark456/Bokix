@@ -80,13 +80,13 @@ async function run(dark, steps) {
   });
   await page.route('**/api/**', r => r.fulfill({ json: {} }));
   await page.goto(BASE + '/?app=1');
-  await page.waitForFunction(() => document.body.innerText.includes('Räkenskapsåret'), null, { timeout: 25000 });
+  await page.waitForFunction(() => document.body.innerText.includes('Att göra'), null, { timeout: 25000 });
   await page.waitForTimeout(1200);
 
   const tag = `${W}${dark ? '-dark' : ''}`;
   const shot = async (name, full = true) => { await page.waitForTimeout(900); await page.screenshot({ path: `test-results/pl-${name}-${tag}.png`, fullPage: full }); };
   const go = async (hash) => { await page.evaluate((h) => { location.hash = h; }, hash); await page.waitForTimeout(1400); };
-  const tab = async (label) => { await page.locator('button:visible, [role=tab]:visible', { hasText: label }).first().click().catch(() => {}); await page.waitForTimeout(800); };
+  const tab = async (label) => { await page.locator('button:visible, [role=tab]:visible', { hasText: new RegExp(`^\\s*${label}\\s*$`) }).first().click().catch(() => {}); await page.waitForTimeout(800); };
   await steps({ page, shot, go, tab });
   console.log(dark ? '[mörkt]' : '[ljust]', errors.length ? errors : 'OK');
   if (errors.length) failed = true;

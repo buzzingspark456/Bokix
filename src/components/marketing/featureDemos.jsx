@@ -10,7 +10,7 @@ import { BRAND } from '../../utils/brandColors';
 // Varje demo visar det som faktiskt händer i just den delen av appen, med
 // siffror som går ihop:
 //   Bokföring   — det säkra bokförs, det osäkra hamnar i Granskning.
-//   Fakturering — samma faktura i de fyra mallar som finns i produkten.
+//   Fakturering — samma faktura i de sex mallar som finns i produkten.
 //   Skatt       — momsrutorna fylls, och 59 125 − 9 199 = 49 926.
 //   Personal    — 32 000 brutto, 7 040 i skatt, 24 960 netto.
 //
@@ -158,13 +158,15 @@ export function DemoBokforing() {
   );
 }
 
-/** Fakturering: samma faktura i produktens fyra mallar. */
+/** Fakturering: samma faktura i produktens sex mallar. */
 export function DemoFakturering() {
   const TEMPLATES = [
-    { name: 'Klassisk', color: BRAND.green, headWidth: '52%' },
-    { name: 'Kraftfull', color: '#0ea5e9', headWidth: '78%' },
-    { name: 'Minimal', color: '#6b7568', headWidth: '34%' },
-    { name: 'Rutnät', color: '#14b8a6', headWidth: '64%' },
+    { name: 'Standard', color: BRAND.green, headWidth: '52%' },
+    { name: 'Modern', color: '#0ea5e9', headWidth: '78%' },
+    { name: 'Ren', color: '#6b7568', headWidth: '34%' },
+    { name: 'Blankett', color: '#14b8a6', headWidth: '64%' },
+    { name: 'Affär', color: '#7f1d1d', headWidth: '58%' },
+    { name: 'Enkel', color: '#a3a838', headWidth: '44%' },
   ];
   const [ref, i] = useCycle(TEMPLATES.length, 1900);
   const t = TEMPLATES[i];

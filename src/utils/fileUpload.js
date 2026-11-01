@@ -33,6 +33,21 @@ export async function uploadFileToStorage(userId, originalFile, folder = 'files'
 // `?v=...`-cachebuster på slutet (Settings.jsx) som inte hör till sökvägen.
 const PUBLIC_URL_RE = /\/storage\/v1\/object\/public\/([^/]+)\/([^?]+)/;
 
+/** Laddar upp en mejlbilaga till den tillfälliga mappen och returnerar sökvägen.
+ * Servern raderar filen direkt efter utskicket (api/email/_attachments.js). */
+export async function uploadTempMailFile(userId, file) {
+  const url = await uploadFileToStorage(userId, file, 'mail-temp');
+  return decodeURIComponent(PUBLIC_URL_RE.exec(url)[2]);
+}
+
+export async function deleteTempMailFile(path) {
+  try {
+    await supabase.storage.from('bokix-uploads').remove([path]);
+  } catch {
+    // Servern och nattjobbet städar också, se api/email/_attachments.js.
+  }
+}
+
 /**
  * Tar bort en tidigare uppladdad fil (varsomhelst i Storage — inte bara
  * 'bokix-uploads', se PUBLIC_URL_RE ovan) utifrån dess publika URL, för att

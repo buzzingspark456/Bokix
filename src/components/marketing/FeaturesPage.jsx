@@ -30,7 +30,7 @@ const SECTIONS = [
     id: 'fakturering', demo: FAKTURERING_DEMO, title: 'Fakturering',
     desc: 'Kund- och leverantörsfakturor i samma flöde, med ditt eget varumärke på fakturan.',
     points: [
-      'Fyra fakturamallar (Klassisk, Kraftfull, Minimal, Rutnät) med egen logotyp och accentfärg',
+      'Sex fakturamallar (Standard, Modern, Ren, Blankett, Affär, Enkel) med egen logotyp och accentfärg',
       'Leverantörsfakturor registreras snabbt och bokförs automatiskt när konto är valt',
       'Kortbetalningar direkt på fakturan via Stripe',
       'Stripe-försäljning, avgifter och utbetalningar hämtas in varje morgon',

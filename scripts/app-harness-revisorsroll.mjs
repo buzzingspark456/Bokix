@@ -62,7 +62,7 @@ await page.route(`${SUPA}/**`, async (route) => {
 await page.route('**/api/**', r => r.fulfill({ json: {} }));
 
 await page.goto(BASE + '/?app=1');
-await page.waitForFunction(() => document.body.innerText.includes('Räkenskapsåret'), null, { timeout: 25000 });
+await page.waitForFunction(() => document.body.innerText.includes('Att göra'), null, { timeout: 25000 });
 await page.waitForTimeout(1200);
 await page.evaluate(() => {
   const el = [...document.querySelectorAll('button, a, [role="button"], li, div')].reverse()

@@ -6,7 +6,7 @@
 import { chromium } from '@playwright/test';
 import fs from 'fs';
 
-const BASE = process.env.HARNESS_URL || 'http://localhost:5173';
+const BASE = process.env.HARNESS_URL || 'http://localhost:5199';
 const env = Object.fromEntries(fs.readFileSync('.env', 'utf8').split(/\r?\n/).map(l => /^([A-Z0-9_]+)=(.*)$/.exec(l)).filter(Boolean).map(m => [m[1], m[2].replace(/^"|"$/g, '')]));
 const SUPA = env.VITE_SUPABASE_URL.replace(/\/$/, '');
 const REF = new URL(SUPA).hostname.split('.')[0];

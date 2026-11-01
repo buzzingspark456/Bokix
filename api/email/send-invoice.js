@@ -10,6 +10,9 @@ import { createClient } from '@supabase/supabase-js';
 import { brandedEmail, emailButton } from '../../src/utils/brandedEmail.js';
 import { sendableEmail } from '../../src/utils/validators.js';
 import { withSentry } from '../_sentry.js';
+import { loadTempFiles, ownTempFiles, removeTempFiles } from './_attachments.js';
+
+const storageAdmin = () => createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 // Ägarens egen väntande inbjudan, plus företagets data om den finns (för
 // avsändarnamn och egen domän). null om raden inte är ägarens.
@@ -104,11 +107,15 @@ async function handler(req, res) {
   const user = await requireAuthedUser(req, res);
   if (!user) return;
 
+  // Tillfälliga bilagor raderas i finally: de ska bort oavsett hur utskicket går.
+  let tempFiles = [];
   try {
     const body = await parseJsonBody(req);
     const { invite_id: inviteId } = body || {};
+    tempFiles = inviteId ? [] : ownTempFiles(body?.tempAttachments, user.id);
     let { subject, html, replyTo, attachmentBase64, attachmentFilename } = body || {};
     let { to, company_id: companyId } = body || {};
+    let extraAttachments = [];
 
     let companyData;
     let ownerUserId;
@@ -161,12 +168,23 @@ async function handler(req, res) {
     to = cleanTo;
     replyTo = replyTo ? sendableEmail(replyTo) || undefined : undefined;
 
+    if (tempFiles.length) {
+      try {
+        extraAttachments = await loadTempFiles(storageAdmin(), tempFiles);
+      } catch (err) {
+        res.status(400).json({ error: err.message });
+        return;
+      }
+    }
+
     const basePayload = {
       to: [to],
       subject,
       html,
       ...(replyTo ? { reply_to: replyTo } : {}),
-      ...(attachmentBase64 ? { attachments: [{ filename: attachmentFilename || 'faktura.pdf', content: attachmentBase64 }] } : {}),
+      ...(attachmentBase64 || extraAttachments.length ? {
+        attachments: [...(attachmentBase64 ? [{ filename: attachmentFilename || 'faktura.pdf', content: attachmentBase64 }] : []), ...extraAttachments],
+      } : {}),
     };
 
     // ── 1. Kundens EGEN adress, om den är kopplad ──
@@ -182,6 +200,7 @@ async function handler(req, res) {
       replyTo,
       attachmentBase64,
       attachmentFilename,
+      extraAttachments,
     });
     if (own.used && own.ok) {
       res.status(200).json({ id: own.id, sentFrom: 'own' });
@@ -219,6 +238,8 @@ async function handler(req, res) {
     console.error('Email send error:', error);
     await logSystemEvent('email_failed', `Faktura/påminnelse: ${error?.message || error}`);
     res.status(500).json({ error: error?.message || 'Kunde inte skicka e-post.' });
+  } finally {
+    if (tempFiles.length) await removeTempFiles(storageAdmin(), tempFiles);
   }
 }
 

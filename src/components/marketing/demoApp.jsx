@@ -268,10 +268,9 @@ export function DownloadBar({ file, delay }) {
 
 // Inställningar har en egen vänstermeny med grupper (Settings.jsx), inte flikar.
 const SETTINGS_NAV = [
-  ['DU', ['Profil', 'Säkerhet', 'Utseende', 'Notiser']],
-  ['FÖRETAGET', ['Företagsuppgifter', 'Användare', 'Prenumeration']],
-  ['BOKFÖRING', ['Allmänt', 'Import och export']],
-  ['FÖRSÄLJNING', ['Fakturor', 'Kopplingar']],
+  ['FÖRETAGET', ['Företag och profil', 'Användare', 'Prenumeration', 'Funktioner']],
+  ['EKONOMI', ['Fakturor', 'Bokföring', 'Kopplingar', 'Import och export']],
+  ['MITT KONTO', ['Utseende', 'Notiser', 'Säkerhet']],
 ];
 
 /** Inställningar med `section` vald i vänstermenyn och avsnittets rubrik. */

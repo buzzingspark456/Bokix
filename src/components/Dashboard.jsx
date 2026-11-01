@@ -392,13 +392,14 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     setAmountUnitState(u);
     try { localStorage.setItem('bokix_dash_unit', u); } catch { /* privat läge */ }
   };
-  // tkr från 10 000 kr och mkr från en miljon. Mindre belopp står i hela
+  // tkr med en decimal från 10 000 kr och mkr med två från en miljon: 22 445 kr
+  // ska bli 22,4 tkr, inte 22 tkr. Mindre belopp står i hela
   // kronor: "719 kr" läses lättare än "0,7 tkr".
   const fmtTkr = (v) => {
     const n = Math.abs(v || 0);
     if (n < 10000) return fmt(v || 0);
-    if (n >= 1e6) return `${numberFormat('sv-SE', { maximumFractionDigits: 1 }).format((v || 0) / 1e6)} mkr`;
-    return `${numberFormat('sv-SE', { maximumFractionDigits: 0 }).format((v || 0) / 1000)} tkr`;
+    if (n >= 1e6) return `${numberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((v || 0) / 1e6)} mkr`;
+    return `${numberFormat('sv-SE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format((v || 0) / 1000)} tkr`;
   };
   const fmtKpi = amountUnit === 'tkr' ? fmtTkr : fmt;
 
@@ -650,7 +651,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   const todoFirst = useIsPhone(768);
   // Högst fyra rader syns; listan är redan sorterad med det viktigaste först.
   // Resten ligger bakom "Visa alla", så kortet aldrig blir en lång vägg.
-  const TODO_VISIBLE = 4;
+  const TODO_VISIBLE = 3;
   const [todosExpanded, setTodosExpanded] = useState(false);
   // Utestående: fyra fakturor syns i smalt fönster, resten bakom Visa alla.
   const [outExpanded, setOutExpanded] = useState(false);
@@ -718,10 +719,9 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     </section>
   ) : null;
 
-  // Diagrammets höjd. På bred dator (två kolumner) fyller det fönstret ner till
-  // kanten: höjden mäts från var diagrammet faktiskt börjar, så det blir rätt
-  // oavsett skärm, zoom och om hälsningen visas. Förut var det en andel av
-  // fönstret, vilket lämnade ett tomt band under kortet på stora skärmar.
+  // Diagrammets höjd. På bred dator (två kolumner, 70/30) slutar kortet på samma
+  // linje som högerkolumnen, så att vänster och höger bildar en jämn yta. Finns
+  // ingen högerkolumn följer höjden kortets bredd, annars blir kortet utdraget.
   // Smalare än två kolumner staplas sidan och diagrammet har en fast höjd.
   const chartSlotRef = useRef(null);
   const [fillH, setFillH] = useState(null);
@@ -730,18 +730,21 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     const measure = () => {
       const slot = chartSlotRef.current;
       if (!slot || !window.matchMedia('(min-width: 1200px)').matches) { setFillH(null); return; }
-      const scroller = slot.closest('.main-wrapper');
-      const top = layoutRect(slot).top - (scroller ? layoutRect(scroller).top - scroller.scrollTop : 0);
-      const viewport = scroller ? scroller.clientHeight : layoutViewport().height;
-      // Under diagrammet: kortets innerkant och ram (19), kroppens marginal
-      // (16) och sidans botten (24).
-      setFillH(Math.round(viewport - top - 60));
+      const rect = layoutRect(slot);
+      const right = [...(slot.closest('.dash-body')?.querySelectorAll('.dash-todo-card, .dash-outstanding') || [])];
+      // Under diagrammet: kortets innerkant och ram (19).
+      const toRight = right.length ? Math.max(...right.map(el => layoutRect(el).bottom)) - rect.top - 19 : 0;
+      const width = rect.right - rect.left;
+      setFillH(Math.round(toRight > 0 ? Math.min(toRight, width * 0.72) : width * 0.42));
     };
     measure();
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+    const body = chartSlotRef.current?.closest('.dash-body');
+    body?.querySelectorAll('.dash-todo-card, .dash-outstanding').forEach(el => observer?.observe(el));
+    return () => { window.removeEventListener('resize', measure); observer?.disconnect(); };
   }, [chartFormat, periodId, todos.length, hasOutstanding, showGreeting]);
-  const chartH = isPhone ? 240 : fillH != null ? Math.max(260, Math.min(820, fillH)) : 300;
+  const chartH = isPhone ? 240 : fillH != null ? Math.max(260, Math.min(680, fillH)) : 300;
 
   return (
     // Bugkritiskt: rotdiven hade varken minHeight eller egen bakgrund, bara
@@ -831,7 +834,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             skild (18px) från graf-rubrikraden under — två separata beslut
             (VILKEN period, VILKEN graf) ska inte läsas ihop till ett. */}
         <div className="dash-period-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
-          <PeriodHeading label={periodBounds.label} start={periodBounds.start} end={periodBounds.end} />
+          <PeriodHeading label={t('dashboard.howItGoes')} start={periodBounds.start} end={periodBounds.end} />
           <div className="dash-period-controls">
             {/* Bara två perioder, I år och Senaste 12 mån, som små knappar i samma
                 stil som tkr/kr (2026-10-03). Denna månad och Sedan start finns i
@@ -1018,8 +1021,8 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
               </span>
             </div>
             )}
-            {/* De obetalda fakturorna, närmast förfallodag först. Listan tar den
-                höjd kortet har kvar och skrollar om den inte får plats. */}
+            {/* De obetalda fakturorna, närmast förfallodag först: tre rader och
+                Visa alla, utan skrollruta inne i kortet. */}
             {outstanding.items.length > 0 && (
               <div className={`dash-out-list${outExpanded ? ' is-open' : ''}`}>
                 <div className="dash-out-list-title">{t('dashboard.outstanding.listTitle')}</div>
@@ -1045,7 +1048,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                     </li>
                   ))}
                 </ul>
-                {outstanding.items.length > 4 && (
+                {outstanding.items.length > 3 && (
                   <button type="button" className="dash-todo-more dash-out-more" onClick={() => setOutExpanded(v => !v)} aria-expanded={outExpanded}>
                     {outExpanded ? t('dashboard.todo.showLess') : t('dashboard.todo.showAll', { count: outstanding.items.length })}
                     <ChevronRight size={15} aria-hidden="true" style={{ transform: outExpanded ? 'rotate(-90deg)' : 'rotate(90deg)' }} />

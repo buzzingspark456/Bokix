@@ -18,6 +18,27 @@ export async function listSubscriptionCustomerIds(stripe, userId, knownCustomerI
   return [...customerIds];
 }
 
+/** Fakturorna som visas i Inställningar: det här företagets, en rad för varje
+ * månad det har betalat. Hela kontots historik gav flera rader samma månad:
+ * andra företags fakturor, och påbörjade abonnemang som aldrig betalades.
+ *
+ * En obetald faktura visas bara om den hör till prenumerationen som gäller nu
+ * och månaden inte redan är betald. Två BETALDA fakturor samma månad står båda
+ * kvar: det är riktiga dragningar, och de behövs som underlag i bokföringen. */
+export function invoicesForCompany(invoices, companyId, currentSubscriptionId) {
+  const month = (invoice) => new Date(invoice.created * 1000).toISOString().slice(0, 7);
+  const mine = invoices.filter(i => (i.company_id || null) === (companyId || null));
+  const paidMonths = new Set(mine.filter(i => i.status === 'paid').map(month));
+  const shownUnpaid = new Set();
+  return mine.filter((invoice) => {
+    if (invoice.status === 'paid') return true;
+    const key = month(invoice);
+    if (invoice.subscription !== currentSubscriptionId || paidMonths.has(key) || shownUnpaid.has(key)) return false;
+    shownUnpaid.add(key);
+    return true;
+  });
+}
+
 export async function listSubscriptionInvoices(stripe, customerIds) {
   const invoices = [];
   const seen = new Set();
@@ -34,8 +55,13 @@ export async function listSubscriptionInvoices(stripe, customerIds) {
         // "Betald · 0,00 kr" samma dag.
         if (invoice.status === 'draft' || invoice.status === 'void') continue;
         if (!invoice.amount_due && !invoice.amount_paid) continue;
+        // Nyare Stripe-versioner har prenumerationen under parent.
+        const details = invoice.parent?.subscription_details || invoice.subscription_details;
+        const subscription = details?.subscription || invoice.subscription;
         invoices.push({
           id: invoice.id,
+          subscription: (typeof subscription === 'string' ? subscription : subscription?.id) || null,
+          company_id: details?.metadata?.company_id || null,
           number: invoice.number || null,
           created: invoice.created,
           status: invoice.status || 'unknown',

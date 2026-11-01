@@ -54,10 +54,17 @@ const fmtOrg = (n) => (/^\d{10}$/.test(n || '') ? `${n.slice(0, 6)}-${n.slice(6)
 /** Första och sista månaden i ett räkenskapsår som börjar `startMonth`. */
 const yearSpan = (startMonth) => [startMonth, startMonth === 1 ? 12 : startMonth - 1];
 
+// `addMode`: Lägg till företag på ett konto som redan finns. Samma frågor, men
+// strängare: företaget måste hittas hos Bolagsverket och vara aktivt, får inte
+// redan finnas på kontot, och den som lägger till det intygar uppgifterna.
+// Bara när registret inte går att nå får numret skrivas in för hand, och då
+// kontrollerar servern igen innan betalningen (api/stripe/_registryGuard.js).
+// { existingOrgNrs, defaultEmail, submitting, onCancel }
+//
 // `embedded`: inne i registreringens kort (Auth.jsx), som har egen
 // bakgrund och stegrad. Tillbaka från första frågan anropar då `onExit`, och
 // sista knappen heter `finishLabel` (till lösenordet i stället för appen).
-export default function OnboardingFlow({ onComplete, initialCompanyData, firstName, embedded = false, onExit, finishLabel }) {
+export default function OnboardingFlow({ onComplete, initialCompanyData, firstName, embedded = false, onExit, finishLabel, addMode = null }) {
   const saved = initialCompanyData?.company || {};
   // Platshållarföretaget från registreringen ("Mitt Företag AB", inget
   // org.nr) ska inte stå förifyllt som om det vore ett riktigt svar.
@@ -84,6 +91,8 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
   // ska komma från användaren, inte från oss.
   const [vatPeriod, setVatPeriod] = useState('');
   const [fTax, setFTax] = useState(null); // true | false | null
+  const [email, setEmail] = useState(addMode?.defaultEmail || '');
+  const [attested, setAttested] = useState(false);
 
   const companyLookup = useCompanyLookup((key, value) => {
     if (key === 'name') { setCompanyName(value); setQuery(value); }
@@ -107,6 +116,11 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
   const pnrValid = orgNrValid && isSoleTraderNumber(orgDigits);
   const companyValid = Boolean(companyName.trim()) && (firma ? pnrValid : (orgNrValid || Boolean(saved.isUf)));
   const deregistered = lastCompany?.active === false;
+  const isAdding = Boolean(addMode);
+  const inRegistry = orgLookup.status === 'done' && digitsOf(lastCompany?.orgNumber).slice(-10) === orgDigits;
+  const registryDown = orgLookup.status === 'error' && !orgLookup.notFound;
+  const duplicate = isAdding && orgDigits.length === 10 && (addMode.existingOrgNrs || []).some(n => digitsOf(n).slice(-10) === orgDigits);
+  const canContinue = companyValid && !(isAdding && (duplicate || deregistered)) && (!isAdding || firma || inRegistry || registryDown);
   const industry = lastCompany?.sni?.[0]?.text || '';
   const vatRegistered = companySetup.vatRegistered === true;
   const fyValid = Boolean(companySetup.mode) && !fiscalYearFields(companySetup).error;
@@ -166,8 +180,8 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
   useEffect(() => {
     if (!pendingAdvance || screen !== 'company' || orgLookup.status === 'loading') return;
     setPendingAdvance(false);
-    if (orgLookup.status === 'done' && companyValid && !deregistered) advanceSoon('fiscal');
-  }, [pendingAdvance, orgLookup.status, companyValid, screen, deregistered]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (orgLookup.status === 'done' && canContinue && !deregistered) advanceSoon('fiscal');
+  }, [pendingAdvance, orgLookup.status, canContinue, screen, deregistered]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ett personnummer i sökfältet: det är en enskild firma, vidare till dess frågor.
   useEffect(() => {
@@ -230,7 +244,7 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
       if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight(i => Math.max(i - 1, 0)); return; }
       if (e.key === 'Enter') { e.preventDefault(); pick(nameResults[highlight] || nameResults[0]); return; }
     }
-    if (e.key === 'Enter' && companyValid) { e.preventDefault(); go('fiscal'); }
+    if (e.key === 'Enter' && canContinue) { e.preventDefault(); go('fiscal'); }
   };
 
   const setup = useMemo(() => companySetupToCompany(companySetup, orgNr), [companySetup, orgNr]);
@@ -240,10 +254,11 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
 
   const finish = () => {
     onComplete({
-      companyName: companyName.trim(), orgNr, address, postalCode, city, email: saved.email || '', phone: saved.phone || '',
+      companyName: companyName.trim(), orgNr, address, postalCode, city, email: isAdding ? email.trim() : saved.email || '', phone: saved.phone || '',
       fiscalYear: setup.fiscalYear, setup,
       vatPeriod: vatRegistered ? vatPeriod : undefined,
       fSkatt: fTax ? F_TAX_TEXT : '',
+      ...(isAdding ? { registryVerified: inRegistry } : {}),
     });
   };
 
@@ -287,11 +302,12 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
             <input
               className="onb-line" aria-label={t('ui.organisationsnummer')} placeholder="556123-4567" inputMode="numeric" value={orgNr}
               onChange={(e) => setOrgNr(formatOrgNr(e.target.value))}
-              onKeyDown={(e) => { if (e.key === 'Enter' && companyValid) goManual(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && canContinue) goManual(); }}
             />
             {orgDigits.length === 10 && !orgNrValid && <span className="onb-warn">{t('ui.onb2_orgnr_fel')}</span>}
+            {duplicate && <span className="onb-warn">{t('ui.onb3_finns_redan')}</span>}
             <div className="onb-row">
-              <button type="button" className="onb-primary" disabled={!companyValid} onClick={goManual}>{t('ui.fortsatt')} <ArrowRight size={18} /></button>
+              <button type="button" className="onb-primary" disabled={!canContinue} onClick={goManual}>{t('ui.fortsatt')} <ArrowRight size={18} /></button>
             </div>
             <button type="button" className="onb-link" onClick={() => { setManual(false); setQuery(''); resetCompany(); }}>{t('ui.onb2_sok_i_registret')}</button>
           </div>
@@ -317,16 +333,17 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
             ) : (
               <div className="onb-status">
                 {(nameSearch.status === 'loading' || orgLookup.status === 'loading') && <span className="onb-muted"><Loader2 size={12} className="onb-spin" /> {t('ui.onb2_soker')}</span>}
-                {companyValid && !deregistered && (
+                {duplicate && <span className="onb-warn">{t('ui.onb3_finns_redan')}</span>}
+                {companyValid && !deregistered && !duplicate && (inRegistry || !isAdding) && (
                   <span className="onb-found"><Check size={13} /> {[legalFormLabel, city, industry].filter(Boolean).join(' · ') || fmtOrg(orgDigits)}</span>
                 )}
-                {companyValid && deregistered && <span className="onb-warn">{t('ui.onb2_avregistrerad')}</span>}
+                {companyValid && deregistered && <span className="onb-warn">{t(isAdding ? 'ui.onb3_avregistrerad_stopp' : 'ui.onb2_avregistrerad')}</span>}
                 {(nameSearch.status === 'error' || orgLookup.status === 'error') && (
-                  <span className="onb-muted">{orgLookup.status === 'error' ? orgLookup.message : t('ui.onb2_inga_traffar')}</span>
+                  <span className={isAdding && orgLookup.notFound ? 'onb-warn' : 'onb-muted'}>{orgLookup.status === 'error' ? (isAdding && orgLookup.notFound ? t('ui.onb3_hittas_inte') : orgLookup.message) : t('ui.onb2_inga_traffar')}</span>
                 )}
               </div>
             )}
-            {companyValid && !pendingAdvance && (
+            {canContinue && !pendingAdvance && (
               <div className="onb-row" style={{ marginTop: '22px' }}>
                 <button type="button" className="onb-primary" onClick={() => go('fiscal')}>{t('ui.fortsatt')} <ArrowRight size={18} /></button>
               </div>
@@ -334,7 +351,7 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
             {!companyValid && (
               <div className="onb-alt">
                 <button type="button" className="onb-opt" onClick={startFirma}>{t('ui.onb2_enskild_firma_knapp')}</button>
-                <button type="button" className="onb-link" onClick={() => { setManual(true); setCompanyName(/d{6}/.test(query) ? '' : query); companyLookup.clearNameResults(); }}>{t('ui.onb2_skriv_sjalv')}</button>
+                {(!isAdding || registryDown) && <button type="button" className="onb-link" onClick={() => { setManual(true); setCompanyName(/d{6}/.test(query) ? '' : query); companyLookup.clearNameResults(); }}>{t('ui.onb2_skriv_sjalv')}</button>}
               </div>
             )}
           </div>
@@ -357,11 +374,12 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
           <input
             id="onb-firma-pnr" className="onb-line" value={orgNr} placeholder="ÅÅMMDD-XXXX" inputMode="numeric" autoComplete="off"
             onChange={(e) => { setOrgNr(formatOrgNr(e.target.value)); lastVatChecked.current = ''; }}
-            onKeyDown={(e) => { if (e.key === 'Enter' && companyValid) go('address'); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && canContinue) go('address'); }}
           />
           {pnrTyped && !pnrValid && <span className="onb-warn">{t('ui.onb2_personnummer_fel')}</span>}
+          {duplicate && <span className="onb-warn">{t('ui.onb3_finns_redan')}</span>}
           <div className="onb-row">
-            <button type="button" className="onb-primary" disabled={!companyValid} onClick={() => go('address')}>{t('ui.fortsatt')} <ArrowRight size={18} /></button>
+            <button type="button" className="onb-primary" disabled={!canContinue} onClick={() => go('address')}>{t('ui.fortsatt')} <ArrowRight size={18} /></button>
           </div>
         </div>
       </>
@@ -577,7 +595,7 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
     const name = String(firstName || '').trim();
     return (
       <>
-        <h1 className="onb-q">{name ? t('ui.onb2_valkommen', { name }) : t('ui.onb2_valkommen_utan_namn')}</h1>
+        <h1 className="onb-q">{isAdding ? t('ui.onb3_stammer_allt') : name ? t('ui.onb2_valkommen', { name }) : t('ui.onb2_valkommen_utan_namn')}</h1>
         <div className="onb-card">
           <div className="onb-card-kicker">{t('ui.onb2_foretagsprofil')}</div>
           <div className="onb-card-title">{companyName}</div>
@@ -596,10 +614,27 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
             ))}
           </div>
         )}
-        <p className="onb-sub" style={{ marginTop: '16px' }}>{t('ui.onb_andra_senare')}</p>
-        <div className="onb-row">
-          <button type="button" className="onb-primary" onClick={finish}>{finishLabel || t('ui.onb_borja_bokfora')} <ArrowRight size={18} /></button>
-        </div>
+        {isAdding ? (
+          <div className="onb-fields" style={{ marginTop: '18px' }}>
+            <label className="onb-field-label" htmlFor="onb-add-email">{t('ui.onb3_e_post_foretag')}</label>
+            <input id="onb-add-email" className="onb-line" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+            <label className="onb-check">
+              <input type="checkbox" checked={attested} onChange={(e) => setAttested(e.target.checked)} />
+              <span>{t('ui.onb3_intyg')}</span>
+            </label>
+            <p className="onb-sub" style={{ margin: 0 }}>{t('ui.du_betalar_separat_for_det_har_foretaget_precis')}</p>
+            <div className="onb-row">
+              <button type="button" className="onb-primary" disabled={!attested || addMode.submitting} onClick={finish}>{addMode.submitting ? t('ui.skapar') : t('ui.skapa_och_fortsatt_till_betalning')} <ArrowRight size={18} /></button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="onb-sub" style={{ marginTop: '16px' }}>{t('ui.onb_andra_senare')}</p>
+            <div className="onb-row">
+              <button type="button" className="onb-primary" onClick={finish}>{finishLabel || t('ui.onb_borja_bokfora')} <ArrowRight size={18} /></button>
+            </div>
+          </>
+        )}
       </>
     );
   };
@@ -639,9 +674,10 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
 
         <main key={screen} className="onb-screen">{body}</main>
 
-        {(history.length > 0 || (embedded && onExit)) && (
+        {(history.length > 0 || isAdding || (embedded && onExit)) && (
           <div className="onb-foot">
-            <button type="button" className="onb-back" onClick={history.length ? back : onExit}><ArrowLeft size={15} /> {t('ui.tillbaka_2')}</button>
+            {(history.length > 0 || !isAdding) && <button type="button" className="onb-back" onClick={history.length ? back : onExit}><ArrowLeft size={15} /> {t('ui.tillbaka_2')}</button>}
+            {isAdding && <button type="button" className="onb-back onb-cancel" onClick={addMode.onCancel}>{t('ui.avbryt')}</button>}
           </div>
         )}
       </div>
@@ -736,7 +772,10 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
         .onb-card-row > span:last-child { color: var(--text-main); font-weight: 600; text-align: right; white-space: nowrap; }
         .onb-card-row small { font-size: 12px; color: var(--text-muted); font-weight: 400; }
 
-        .onb-foot { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--border); }
+        .onb-foot { display: flex; margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--border); }
+        .onb-cancel { margin-left: auto; }
+        .onb-check { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.5; color: var(--text-main); cursor: pointer; }
+        .onb-check input { width: 18px; height: 18px; margin: 2px 0 0; flex-shrink: 0; accent-color: var(--onb-green); }
         .onb-back { display: inline-flex; align-items: center; gap: 7px; padding: 11px 18px; border: 1px solid var(--border); border-radius: 11px; background: var(--bg-card); color: var(--text-secondary); font-size: 14.5px; font-weight: 600; cursor: pointer; }
         .onb-back:hover { background: var(--bg-muted); color: var(--text-main); }
 

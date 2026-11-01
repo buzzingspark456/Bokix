@@ -852,7 +852,7 @@ export default function Taxes({
     { id: 'g_overview', label: tr('ui.oversikt'), sections: ['dates'] },
     { id: 'g_vat', label: tr('ui.moms'), sections: ['vat', 'ecsales'] },
     { id: 'g_payroll', label: tr('ui.skatt_lon'), sections: ['agi', 'ku'] },
-    { id: 'g_yearend', label: tr('ui.arsavslut'), sections: ['yearend', 'annual', 'partners', 'dividend', 'refund', 'ink2', 'ink3', 'ink4', 'ne'], numbered: true },
+    { id: 'g_yearend', label: tr('ui.bokslut'), sections: ['yearend', 'annual', 'partners', 'dividend', 'refund', 'ink2', 'ink3', 'ink4', 'ne'], numbered: true },
   ];
   const groupTabs = TAX_GROUPS
     .map(g => ({ ...g, sections: g.sections.filter(id => sectionTabs.some(t => t.id === id)) }))
@@ -1133,7 +1133,7 @@ export default function Taxes({
     // annars i appen).
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
-        title={tr('ui.skatt_och_bokslut')}
+        title={tr('nav.taxes')}
         tabs={{
           items: groupTabs.map(g => ({ id: g.id, label: g.label })),
           activeId: activeGroup?.id,

@@ -5,11 +5,13 @@ import {
   Palette, Hash, Calendar, X, ZoomIn, ZoomOut, Maximize2, ExternalLink, Sun, Moon,
   UserRound, Users, Cog, ArrowLeft, ArrowRight,
   Sparkles, CheckCircle2, HelpCircle, LogOut, Search, ChevronRight, Fingerprint, CalendarFilled, MailFilled, BankFilled, Copy,
+  FileText, BookOpen, Plug, Bell,
 } from './icons';
 import { supabase } from '../supabaseClient';
 import { passkeysAvailable, isPasskeyCancel, isPasskeyAlreadyOnDevice, appLockEnabledFor, setAppLock, rememberPasskeyOnDevice } from '../utils/sessionPolicy';
 import { sendInvoiceEmail } from '../emailApi';
-import { cancelStripeSubscription, reactivateStripeSubscription, openBillingPortal, getSubscriptionInvoices } from '../stripeApi';
+import { cancelStripeSubscription, reactivateStripeSubscription, openBillingPortal, getSubscriptionInvoices, syncStripeSubscription } from '../stripeApi';
+import BokixWordmark from './shared/BokixWordmark';
 import { BRAND } from '../utils/brandColors';
 import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
@@ -17,6 +19,9 @@ import ListTable from './shared/ListTable';
 import ListPageHeader from './shared/ListPageHeader';
 import { sendReauthCode, verifyReauthCode, changePassword } from '../utils/reauthVerification';
 import { useCompanyLookup } from '../hooks/useCompanyLookup';
+import { requestRegistrySync } from '../utils/companyLookup';
+import { isFieldLocked, isRegistryCompany } from '../utils/companyRegistry';
+import { isSoleTraderNumber } from '../utils/fiscalYearSetup';
 import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
 import { reconcileSieOpenings } from '../utils/sieOpeningReconcile';
 import { sieImportBatches } from '../utils/sieImportBatches';
@@ -163,10 +168,10 @@ function GmailLogo({ height = 18 }) {
 // datum, förfallodagar, påminnelser, betalningsuppgifter, e-post) på en
 // gång, inte bara mallen. "Användare" blev "Användare & behörigheter".
 const SETTINGS_TABS = [
-  { id: 'profile', label: tr('ui.profil') },
   { id: 'company', label: tr('ui.foretag') },
   { id: 'invoice', label: tr('ui.fakturor') },
   { id: 'integrations', label: tr('ui.integrationer') },
+  { id: 'features', label: tr('ui.funktioner_titel') },
   { id: 'system', label: tr('ui.system') },
   { id: 'users', label: tr('ui.anvandare_behorigheter') },
   { id: 'subscription', label: tr('ui.prenumeration') },
@@ -184,11 +189,11 @@ const SETTINGS_TABS = [
 //
 // Beskrivningen visas under namnet i telefonens meny och används av sökfältet.
 const SECTION_META = {
-  profile: { desc: tr('ui.namn_bild_och_kontaktuppgifter') },
-  company: { desc: tr('ui.namn_organisationsnummer_adress_och_bankuppgifte') },
+  company: { desc: tr('ui.foretag_och_profil_desc'), keywords: tr('ui.foretag_och_profil_sokord') },
   invoice: { desc: tr('ui.nummer_datum_paminnelser_mall_och_e_post') },
   integrations: { desc: tr('ui.stripe_zettle_och_egen_avsandardoman_for_mejl') },
-  system: { desc: tr('ui.moms_kontoplan_verifikationsserier_valuta_och_ex') },
+  features: { desc: tr('ui.valbara_funktioner_desc') },
+  system: { desc: tr('ui.bokforing_installningar_desc') },
   users: { desc: tr('ui.lagg_till_anvandare_roller_och_behorigheter') },
   subscription: { desc: tr('ui.plan_betalningar_och_kvitton') },
   appearance: { desc: tr('ui.tema_fargtema_layout_och_sprak') },
@@ -199,18 +204,27 @@ const SECTION_META = {
 
 // Samma grupper i datorns vänstermeny (SettingsNav) och telefonens lista.
 const HUB_GROUPS = [
-  { title: null, ids: ['profile', 'security', 'appearance', 'notifications'] },
-  { title: tr('ui.sg_foretaget'), ids: ['company', 'users', 'subscription'] },
-  { title: tr('ui.sg_bokforing'), ids: ['system', 'advanced'] },
-  { title: tr('ui.sg_forsaljning'), ids: ['invoice', 'integrations'] },
+  { title: tr('ui.sg_foretaget'), ids: ['company', 'users', 'subscription', 'features'] },
+  { title: tr('ui.sg_ekonomi'), ids: ['invoice', 'system', 'integrations', 'advanced'] },
+  { title: tr('ui.sg_mitt_konto'), ids: ['appearance', 'notifications', 'security'] },
 ];
 
-// Vänstermenyn på dator, som Accounted: grupprubriker, en rad per avsnitt,
-// sökfält överst. Inga ikoner, den valda raden får en dämpad bakgrund.
-function SettingsNav({ sections, activeId, onPick }) {
+const SECTION_ICONS = {
+  company: Building2, users: Users, subscription: CreditCard, features: Sparkles,
+  invoice: FileText, system: BookOpen, integrations: Plug, advanced: Download,
+  appearance: Palette, notifications: Bell, security: Shield,
+};
+
+// Profilen ligger på samma sida som företaget. Gamla länkar och bokmärken till
+// #settings/profile och #profile ska fortsätta fungera.
+const resolveSection = (id) => (id === 'profile' ? 'company' : id);
+
+// Vänstermenyn på dator: grupprubriker, en rad per avsnitt med ikon, sökfält
+// överst. Muspekaren på en rad visar vad avsnittet innehåller.
+function SettingsNav({ sections, activeId, onPick, onLogout }) {
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
-  const matches = (s) => !q || s.label.toLowerCase().includes(q) || (SECTION_META[s.id]?.desc || '').toLowerCase().includes(q);
+  const matches = (s) => !q || [s.label, SECTION_META[s.id]?.desc, SECTION_META[s.id]?.keywords].some(text => (text || '').toLowerCase().includes(q));
   const groups = HUB_GROUPS
     .map(g => ({ ...g, items: g.ids.map(id => sections.find(s => s.id === id)).filter(s => s && matches(s)) }))
     .filter(g => g.items.length > 0);
@@ -223,20 +237,30 @@ function SettingsNav({ sections, activeId, onPick }) {
       {groups.map(group => (
         <div key={group.title || 'you'} className="settings-nav-group">
           {group.title && <div className="settings-nav-group-title">{group.title}</div>}
-          {group.items.map(s => (
-            <button
-              key={s.id}
-              type="button"
-              className={`settings-nav-item${s.id === activeId ? ' is-active' : ''}`}
-              aria-current={s.id === activeId ? 'page' : undefined}
-              onClick={() => onPick(s.id)}
-            >
-              {s.label}
-            </button>
-          ))}
+          {group.items.map(s => {
+            const Icon = SECTION_ICONS[s.id];
+            return (
+              <button
+                key={s.id}
+                type="button"
+                className={`settings-nav-item${s.id === activeId ? ' is-active' : ''}`}
+                aria-current={s.id === activeId ? 'page' : undefined}
+                title={SECTION_META[s.id]?.desc}
+                onClick={() => onPick(s.id)}
+              >
+                {Icon && <Icon size={15} />}
+                <span>{s.label}</span>
+              </button>
+            );
+          })}
         </div>
       ))}
       {groups.length === 0 && <div className="settings-nav-empty">{tr('ui.inga_traffar')}</div>}
+      {onLogout && !q && (
+        <div className="settings-nav-logout">
+          <button type="button" className="settings-nav-item" onClick={onLogout}><LogOut size={15} /><span>{tr('ui.logga_ut')}</span></button>
+        </div>
+      )}
     </nav>
   );
 }
@@ -247,7 +271,7 @@ function SettingsNav({ sections, activeId, onPick }) {
 function SettingsHub({ sections, onPick }) {
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
-  const matches = (s) => !q || s.label.toLowerCase().includes(q) || (SECTION_META[s.id]?.desc || '').toLowerCase().includes(q);
+  const matches = (s) => !q || [s.label, SECTION_META[s.id]?.desc, SECTION_META[s.id]?.keywords].some(text => (text || '').toLowerCase().includes(q));
   const placed = new Set(HUB_GROUPS.flatMap(g => g.ids));
   const groups = HUB_GROUPS
     .map(g => ({ ...g, items: g.ids.map(id => sections.find(s => s.id === id)).filter(Boolean) }));
@@ -1567,7 +1591,7 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
             maxWidth-spärr längre, och auto-fill låter fler mallkort få plats
             per rad ju bredare fönstret är, istället för att bara två kort
             flyter i en smal remsa mitt i kortet. */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+        <div className="template-grid">
           {Object.values(INVOICE_TEMPLATES).map(tpl => (
             <TemplateCard
               key={tpl.id}
@@ -2146,23 +2170,13 @@ const SUBSCRIPTION_STATUS_LABELS = {
   canceled: tr('ui.avslutad'), unpaid: tr('ui.obetald'), incomplete: tr('ui.ofullstandig'), incomplete_expired: tr('ui.utgangen'),
 };
 
-/** Knappen för prenumerationens fakturor hämtar historiken för alla företag
- * på kontot. Kortbytesknappen går fortsatt till Stripes Billing Portal. */
-function BillingPortalButton({ companyId, label, showInvoices = false }) {
+/** Byt kort går till Stripes Billing Portal. */
+function BillingPortalButton({ companyId, label }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [invoices, setInvoices] = useState(null);
   const open = async () => {
     setBusy(true); setError('');
     try {
-      if (showInvoices) {
-        if (invoices !== null) {
-          setInvoices(null);
-          return;
-        }
-        setInvoices(await getSubscriptionInvoices());
-        return;
-      }
       const url = await openBillingPortal(companyId);
       window.open(url, '_blank', 'noopener,noreferrer');
     } catch (err) {
@@ -2174,62 +2188,103 @@ function BillingPortalButton({ companyId, label, showInvoices = false }) {
   return (
     <div>
       <button type="button" onClick={open} disabled={busy} style={{ ...btnSecondary, opacity: busy ? 0.6 : 1 }}>
-        {showInvoices ? <Download size={14} style={{ verticalAlign: 'middle', marginRight: '7px' }} /> : <ExternalLink size={14} style={{ verticalAlign: 'middle', marginRight: '7px' }} />}
-        {busy ? tr('ui.laddar') : showInvoices && invoices !== null ? tr('ui.dolj_fakturor') : label}
+        <ExternalLink size={14} style={{ verticalAlign: 'middle', marginRight: '7px' }} />
+        {busy ? tr('ui.laddar') : label}
       </button>
       {error && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginTop: '6px' }}>{error}</div>}
-      {invoices && (
-        <div style={{ width: 'min(680px, calc(100vw - 48px))', marginTop: '12px', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
-          <div style={{ padding: '12px 14px', fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', background: 'var(--bg-muted)' }}>
-            {tr('ui.prenumerationsfakturor_kvitton')}
-          </div>
-          {invoices.length === 0 ? (
-            <p style={{ margin: 0, padding: '14px', color: 'var(--text-secondary)', fontSize: '13px' }}>{tr('ui.inga_prenumerationsfakturor')}</p>
-          ) : (
-            <div>
-              {invoices.map((invoice, index) => {
-                const amount = invoice.status === 'paid' ? invoice.amount_paid : invoice.amount_due;
-                const currency = (invoice.currency || 'sek').toUpperCase();
-                const formattedAmount = numberFormat(getLanguage(), { style: 'currency', currency }).format((amount || 0) / 100);
-                const statusLabel = invoice.status === 'paid'
-                  ? tr('ui.betald')
-                  : invoice.status === 'draft'
-                    ? tr('ui.utkast')
-                    : invoice.status === 'void'
-                      ? tr('ui.faktura_makulerad')
-                      : invoice.status === 'open' || invoice.status === 'uncollectible'
-                        ? tr('ui.obetald')
-                        : invoice.status;
-                return (
-                  <div key={invoice.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', padding: '12px 14px', borderTop: index === 0 ? 'none' : '1px solid var(--border-light)' }}>
-                    <div style={{ minWidth: '180px', flex: 1 }}>
-                      <div style={{ color: 'var(--text-main)', fontSize: '13px', fontWeight: 600 }}>
-                        {invoice.number || invoice.id} · {formattedAmount}
-                      </div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '3px' }}>
-                        {new Date(invoice.created * 1000).toLocaleDateString(getLanguage())} · {statusLabel}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                      {invoice.hosted_invoice_url && (
-                        <a href={invoice.hosted_invoice_url} target="_blank" rel="noopener noreferrer" style={{ color: BRAND.greenDark, fontSize: '12.5px', fontWeight: 600 }}>
-                          {tr('ui.visa_faktura')}
-                        </a>
-                      )}
-                      {invoice.invoice_pdf && (
-                        <a href={invoice.invoice_pdf} target="_blank" rel="noopener noreferrer" style={{ color: BRAND.greenDark, fontSize: '12.5px', fontWeight: 600 }}>
-                          {tr('ui.ladda_ner_kvitto')}
-                        </a>
-                      )}
-                    </div>
+    </div>
+  );
+}
+
+// Så många månader syns innan "Visa alla": ett år, resten på begäran.
+const INVOICES_SHOWN = 12;
+
+// En rad per månad. Finns flera betalningar samma månad slås de ihop till en
+// rad med alla kvitton, så att inget underlag försvinner ur bokföringen.
+function invoicesByMonth(invoices) {
+  const months = new Map();
+  for (const invoice of invoices) {
+    const date = new Date(invoice.created * 1000);
+    const key = `${date.getFullYear()}-${date.getMonth()}`;
+    if (!months.has(key)) months.set(key, { key, date, invoices: [] });
+    months.get(key).invoices.push(invoice);
+  }
+  return [...months.values()];
+}
+
+/** Knappen Se fakturor & kvitton och listan den fäller ut: företagets betalningar,
+ * en rad per månad. Urvalet görs på servern (invoicesForCompany i
+ * api/stripe/_billingInvoices.js). */
+function SubscriptionInvoices({ companyId, enabled }) {
+  const [open, setOpen] = useState(false);
+  const [invoices, setInvoices] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => { setOpen(false); setInvoices(null); setShowAll(false); }, [companyId]);
+
+  const toggle = async () => {
+    if (open) { setOpen(false); return; }
+    setOpen(true);
+    if (invoices !== null || !enabled) return;
+    setBusy(true); setError('');
+    try {
+      setInvoices(await getSubscriptionInvoices(companyId));
+    } catch (err) {
+      setError(err.message || tr('ui.plan_kunde_inte_hamta_fakturor'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const months = invoicesByMonth(invoices || []);
+  const shown = showAll ? months : months.slice(0, INVOICES_SHOWN);
+  const currency = (invoice) => (invoice.currency || 'sek').toUpperCase();
+  return (
+    <>
+      <button type="button" onClick={toggle} disabled={busy} style={{ ...btnSecondary, opacity: busy ? 0.6 : 1 }} aria-expanded={open}>
+        <Download size={14} style={{ verticalAlign: 'middle', marginRight: '7px' }} />
+        {busy ? tr('ui.laddar') : open ? tr('ui.dolj_fakturor') : tr('ui.se_fakturor_kvitton')}
+      </button>
+      {open && error && <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)' }}>{error}</div>}
+      {open && !busy && !error && months.length === 0 && (
+        <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.inga_prenumerationsfakturor')}</div>
+      )}
+      {open && months.length > 0 && (
+        <div className="plan-invoices">
+          {shown.map(({ key, date, invoices: rows }) => {
+            const paid = rows.some(i => i.status === 'paid');
+            const amount = rows.reduce((sum, i) => sum + (i.status === 'paid' ? i.amount_paid : i.amount_due), 0) / 100;
+            const month = date.toLocaleDateString(getLanguage(), { month: 'long', year: 'numeric' });
+            return (
+              <div key={key} className="plan-invoice">
+                <div className="plan-invoice-main">
+                  <div className="plan-invoice-month">{month.charAt(0).toUpperCase() + month.slice(1)}</div>
+                  <div className="plan-invoice-sub">
+                    {rows.length > 1 ? tr('ui.plan_betalningar_n', { n: rows.length }) : `${date.toLocaleDateString(getLanguage())}${rows[0].number ? ` · ${rows[0].number}` : ''}`}
+                    {!paid && <span className="plan-invoice-unpaid"> · {tr('ui.obetald')}</span>}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+                <div className="plan-invoice-amount">
+                  {numberFormat(getLanguage(), { style: 'currency', currency: currency(rows[0]), maximumFractionDigits: 0 }).format(amount)}
+                </div>
+                <div className="plan-invoice-files">
+                  {rows.filter(i => i.invoice_pdf || i.hosted_invoice_url).map(i => (
+                    <a key={i.id} href={i.invoice_pdf || i.hosted_invoice_url} target="_blank" rel="noopener noreferrer" className="plan-invoice-link" aria-label={`${tr('ui.ladda_ner_kvitto')}, ${i.number || month}`} title={tr('ui.ladda_ner_kvitto')}>
+                      <Download size={15} aria-hidden="true" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {months.length > INVOICES_SHOWN && !showAll && (
+            <button type="button" className="plan-invoice-more" onClick={() => setShowAll(true)}>{tr('ui.visa_alla_n', { n: months.length })}</button>
           )}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -2342,6 +2397,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const periodSynced = useRef(null);
 
   const loadSubscription = async () => {
     if (readOnly || !isOwner || !user?.id) { setLoading(false); return; }
@@ -2351,12 +2407,23 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
     // det finns mer än en (dvs. så fort ett andra företag köpts).
     const { data } = await supabase
       .from('subscriptions')
-      .select('status, trial_ends_at, current_period_end, cancel_at_period_end')
+      .select('status, plan, trial_ends_at, current_period_end, cancel_at_period_end')
       .eq('user_id', user.id)
       .eq('company_id', companyId)
       .maybeSingle();
     setSub(data || null);
     setLoading(false);
+    // Rader sparade innan periodens slut hämtades rätt saknar datum. En gång
+    // per besök: hämta det från Stripe och visa det när det kommit.
+    if (data?.status === 'active' && !data.current_period_end && periodSynced.current !== companyId) {
+      periodSynced.current = companyId;
+      try {
+        await syncStripeSubscription({ companyId: companyId || null });
+        await loadSubscription();
+      } catch (err) {
+        console.warn('Kunde inte hämta perioden från Stripe:', err.message);
+      }
+    }
   };
 
   useEffect(() => { loadSubscription(); }, [user?.id, isOwner, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2480,60 +2547,37 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
 
   return (
     <div style={{ display: 'grid', gap: '16px' }}>
-      {/* Planen som ett riktigt plankort — kundönskemål ("gör den mycket
-          mer aptitlig"): den tidigare versionen var ett platt vitt kort,
-          samma yta som varenda annan inställningsrad. Ett mörkgrönt
-          gradient-huvud (samma märkesgrönt som sidopanelen/loggan,
-          BRAND.green) ger planen en egen, firad yta i stället för att
-          smälta in — statusen/priset i vitt ovanpå, funktionerna i ett
-          ljust kort under. */}
-      <div style={{
-        background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '18px',
-        overflow: 'hidden', boxShadow: '0 4px 20px -8px color-mix(in srgb, var(--accent) 28%, transparent)',
-      }}>
-        <div style={{
-          position: 'relative', overflow: 'hidden',
-          background: `linear-gradient(135deg, ${BRAND.green}, #0a4d20)`,
-          padding: '24px 26px',
-        }}>
-          {/* Dekorativ glow, samma trick som Dashboardens KPI-kort — en
-              ren yta hade känts platt trots gradienten. */}
-          <div style={{ position: 'absolute', top: '-60px', right: '-40px', width: '200px', height: '200px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.14), transparent 70%)', pointerEvents: 'none' }} />
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap' }}>
-            <div className="settings-main" style={{ minWidth: 0, flex: '1 1 220px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', padding: '4px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: 700, color: 'white', background: 'rgba(255,255,255,0.16)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                  <Sparkles size={12} /> {tr('ui.din_plan')}
-                </span>
-                <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '11.5px', fontWeight: 700, background: statusBadge.bg, color: statusBadge.text }}>{statusBadge.label}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap', marginTop: '10px' }}>
-                <span style={{ fontFamily: 'var(--font-voice)', fontSize: '28px', fontWeight: 700, color: 'white', letterSpacing: '-0.01em' }}>
-                  {tr('ui.bokix')}{plan ? ' ' + plan.name : ''}
-                </span>
-                <span style={{ fontSize: '16px', fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>{priceLabel}</span>
-              </div>
-              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.82)', maxWidth: '520px', marginTop: '8px', lineHeight: 1.6 }}>
-                {sub.cancel_at_period_end
-                  ? <>{tr('ui.avslutas')} {fmtDateSv(endDate)}{tr('ui.du_har_full_atkomst_fram_till_dess_sedan_tas_ing')}</>
-                  : isTrialing
-                    ? <>{tr('ui.kostnadsfri_provperiod_till')} {fmtDateSv(endDate)}{tr('ui.darefter')} {priceLabel} {tr('ui.automatiskt_2')}</>
-                    : sub.status === 'past_due'
-                      ? <>{tr('ui.senaste_betalningen_misslyckades_stripe_forsoker')}</>
-                      : <>{tr('ui.fornyas_automatiskt')} {fmtDateSv(endDate)}.</>}
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px', flexShrink: 0, flexWrap: 'wrap' }}>
-              {!sub.cancel_at_period_end && sub.status !== 'canceled' && !confirmCancel && (
-                <button onClick={() => setConfirmCancel(true)} style={{ border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.08)', color: 'white', borderRadius: '10px', padding: '9px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>{tr('ui.avsluta')}</button>
-              )}
-              {sub.cancel_at_period_end && (
-                <button onClick={handleReactivate} disabled={busy} style={{ border: 0, background: 'white', color: BRAND.greenDark, borderRadius: '10px', padding: '9px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>
-                  {busy ? tr('ui.ateraktiverar') : tr('ui.angra_uppsagning')}
-                </button>
-              )}
-            </div>
+      {/* Plankortet i märkets egna färger: ordmärket i sin gradient, så att
+          det ser ut som Bokix och inte som ett kort från betaltjänsten.
+          Färgerna per tema ligger på .plan-card i index.css. */}
+      <div className="plan-card">
+        <div className="plan-card-head">
+          <div className="plan-card-top">
+            <BokixWordmark height={30} />
+            <span className="plan-card-status" style={{ background: statusBadge.bg, color: statusBadge.text }}>{statusBadge.label}</span>
+          </div>
+          <div className="plan-card-price">
+            <span>{priceLabel}</span>
+            {plan && <small>{plan.name}</small>}
+          </div>
+          <div className="plan-card-note">
+            {sub.cancel_at_period_end
+              ? <>{tr('ui.avslutas')} {fmtDateSv(endDate)}{tr('ui.du_har_full_atkomst_fram_till_dess_sedan_tas_ing')}</>
+              : isTrialing
+                ? <>{tr('ui.kostnadsfri_provperiod_till')} {fmtDateSv(endDate)}{tr('ui.darefter')} {priceLabel} {tr('ui.automatiskt_2')}</>
+                : sub.status === 'past_due'
+                  ? <>{tr('ui.senaste_betalningen_misslyckades_stripe_forsoker')}</>
+                  : <>{tr('ui.fornyas_automatiskt')}{endDate ? <> {fmtDateSv(endDate)}</> : null}.</>}
+          </div>
+          <div className="plan-card-actions">
+            {!sub.cancel_at_period_end && sub.status !== 'canceled' && !confirmCancel && (
+              <button type="button" className="plan-card-btn" onClick={() => setConfirmCancel(true)}>{tr('ui.avsluta')}</button>
+            )}
+            {sub.cancel_at_period_end && (
+              <button type="button" className="plan-card-btn is-primary" onClick={handleReactivate} disabled={busy}>
+                {busy ? tr('ui.ateraktiverar') : tr('ui.angra_uppsagning')}
+              </button>
+            )}
           </div>
         </div>
 
@@ -2633,7 +2677,7 @@ export default function Settings({
   // Dator: vänstermenyn syns alltid, så sidan öppnar direkt på Profil i
   // stället för en översikt. Telefon: listan (SettingsHub) är ingången.
   const isPhone = useIsMobileViewport();
-  const activeTab = pickedTab ?? (isPhone ? null : 'profile');
+  const activeTab = pickedTab ?? (isPhone ? null : 'company');
   const { t, language, setLanguage } = useTranslation();
   const [dateFormatPref, setDateFormatPref] = useState(getDateFormatPreference());
   const saveDateFormatPref = (fmt) => { setDateFormatPreference(fmt); setDateFormatPref(fmt); };
@@ -2701,43 +2745,34 @@ export default function Settings({
   const companyRegLookup = useCompanyLookup((key, value) => {
     if (key === 'name') setCompanyDraft(d => ({ ...d, name: value }));
     else if (key === 'orgNr') setCompanyDraft(d => ({ ...d, orgNr: formatOrgNr(value) }));
-    else if (key === 'legalForm') setCompanyRegLegalForm(value);
-  });
-  // ── "Hämta uppgifter" på ett REDAN registrerat företag ────────────────
-  // Kundfeedback: "väljer man företaget ska det direkt ha organisations-
-  // numret och företagsnamnet — och adressen, bankuppgifterna, telefon och
-  // momsregistreringsnumret." Uppslaget fanns bara i registreringsflödet
-  // (companyRegLookup ovan) och i kundregistret; här fick man skriva av
-  // adressen för hand trots att appen redan kan slå upp den.
-  //
-  // Skriver in i samma companyDraft som fälten — alltså sparas den INTE
-  // förrän man klickar Spara ändringar, precis som en manuell ändring.
-  // Adressen är ETT fält här (till skillnad från kundregistrets tre), så
-  // gata/postnummer/ort sätts ihop i den ordning de skrivs på ett kuvert.
-  const companyDetailsLookup = useCompanyLookup((key, value) => {
-    // Uppslaget svarar med gata/postnummer/ort var för sig — och nu tar
-    // formuläret emot dem var för sig också, i stället för att klistra ihop
-    // dem till en rad.
-    if (key === 'address' || key === 'street') setCompanyDraft(d => ({ ...d, address: value }));
+    else if (key === 'address') setCompanyDraft(d => ({ ...d, address: value }));
     else if (key === 'postalCode') setCompanyDraft(d => ({ ...d, postalCode: value }));
     else if (key === 'city') setCompanyDraft(d => ({ ...d, city: value }));
+    else if (key === 'legalForm') setCompanyRegLegalForm(value);
   });
-
-  /** Svenskt momsregistreringsnummer härleds ur organisationsnumret:
-   * SE + de tio siffrorna + 01. Ingen gissning — det är formeln
-   * Skatteverket använder. Fylls bara i om fältet är tomt, så en manuellt
-   * ifylld avvikelse (t.ex. gruppregistrering) aldrig skrivs över. */
-  const vatNrFromOrgNr = (orgNr) => {
-    const digits = String(orgNr || '').replace(/\D/g, '');
-    return digits.length === 10 ? `SE${digits}01` : '';
-  };
-
-  const handleFetchCompanyDetails = () => {
-    const digits = String(companyDraft?.orgNr || '').replace(/\D/g, '');
-    if (digits.length !== 10) return;
-    companyDetailsLookup.lookupByOrgNr(companyDraft.orgNr);
-    const vat = vatNrFromOrgNr(companyDraft.orgNr);
-    if (vat && !companyDraft?.vatNr) setCompanyDraft(d => ({ ...d, vatNr: vat }));
+  // Träff hos Bolagsverket: namn och adress går inte att skriva över.
+  const companyRegFromRegistry = companyRegLookup.orgLookup.status === 'done';
+  // Företagets uppgifter från Bolagsverket: servern hämtar och sparar direkt,
+  // så det finns inget att kontrollera och spara här.
+  const registryCompany = isRegistryCompany(company);
+  const soleTrader = isSoleTraderNumber(company?.orgNr);
+  // Låst fält eller, när en enskild firma saknar uppgiften, ett vanligt fält.
+  const lockableField = (key, label, hint) => (isFieldLocked(company, key)
+    ? <LockedField label={label} value={company?.[key] || '—'} />
+    : <AutoField label={label} value={companyDraft?.[key] || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, [key]: v })} showSaveState={false} hint={hint} />);
+  const [registrySync, setRegistrySync] = useState({ status: 'idle', message: '' });
+  const handleRegistrySync = async () => {
+    if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
+    setRegistrySync({ status: 'loading', message: '' });
+    try {
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      const result = await requestRegistrySync(activeCompanyId, session?.access_token);
+      if (!result?.company) { setRegistrySync({ status: 'error', message: tr('ui.kunde_inte_hamta_fran_bolagsverket') }); return; }
+      setCompanyInfo(c => ({ ...c, ...result.company }));
+      setRegistrySync({ status: 'done', message: result.changed?.length ? tr('ui.foretagets_uppgifter_uppdaterades_bv') : tr('ui.uppgifterna_stammer_med_bv') });
+    } catch (err) {
+      setRegistrySync({ status: 'error', message: err?.message || tr('ui.kunde_inte_hamta_fran_bolagsverket') });
+    }
   };
 
   // Samma "auktoritativt uppslagssvar före lokal siffer-gissning"-prioritet
@@ -2788,7 +2823,7 @@ export default function Settings({
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const hash = window.location.hash.replace('#', '');
-    const section = hash.startsWith('settings/') ? hash.slice('settings/'.length) : hash;
+    const section = resolveSection(hash.startsWith('settings/') ? hash.slice('settings/'.length) : hash);
     if (SETTINGS_TABS.some(t => t.id === section)) setActiveTab(section);
   }, []);
 
@@ -2796,7 +2831,8 @@ export default function Settings({
   // "Företag"-sidan i sidomenyn, som numera ÄR den här sidans Företag-flik
   // i stället för en egen, halvt överlappande kopia).
   useEffect(() => {
-    if (initialSection && SETTINGS_TABS.some(t => t.id === initialSection)) setActiveTab(initialSection);
+    const section = resolveSection(initialSection);
+    if (section && SETTINGS_TABS.some(t => t.id === section)) setActiveTab(section);
   }, [initialSection]);
 
   const handleSetTab = (tab) => {
@@ -3758,7 +3794,7 @@ export default function Settings({
           nog för att faktiskt centrera i stället för att fortsätta
           sträcka sig kant i kant. */}
       <div className={isPhone ? 'settings-shell' : 'settings-shell has-nav'}>
-      {!isPhone && <SettingsNav sections={visibleSections} activeId={activeSection?.id} onPick={handleSetTab} />}
+      {!isPhone && <SettingsNav sections={visibleSections} activeId={activeSection?.id} onPick={handleSetTab} onLogout={onLogout} />}
       <div data-tour="page-settings-nav" className="settings-content" style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
         <div className={isPhone ? undefined : 'settings-body'} style={{ minWidth: 0 }}>
           {subPage && (
@@ -3769,6 +3805,7 @@ export default function Settings({
           {!isPhone && activeSection && (
             <header className="settings-title">
               <h1>{subPage ? subPage.title : activeSection.label}</h1>
+              {!subPage && SECTION_META[activeSection.id]?.desc && <p>{SECTION_META[activeSection.id].desc}</p>}
             </header>
           )}
           {!activeSection && <SettingsHub sections={visibleSections} onPick={handleSetTab} />}
@@ -3814,19 +3851,6 @@ export default function Settings({
               något eget "profil"-kort — se SETTINGS_TABS-kommentaren högre
               upp i filen. Innehållet (Profiluppgifter/Säkerhet/sessioner)
               är oförändrat, bara flikens namn och plats i rutnätet. */}
-          {activeTab === 'profile' && (
-            <div style={{ animation: 'fadeIn 0.2s ease', display: 'grid', gap: 0 }}>
-              <SettingCard title={tr('ui.profiluppgifter')} icon={UserRound} description={tr('ui.dina_uppgifter_visas_for_kollegor_och_i_det_du_g')} style={{ borderRadius: 0 }}>
-                <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
-                  <AutoField label={tr('ui.fornamn')} value={firstName} onChange={(v) => updateUserMeta({ first_name: v })} hint={tr('ui.det_du_vill_bli_kallad')} />
-                  <AutoField label={tr('ui.efternamn')} value={lastName} onChange={(v) => updateUserMeta({ last_name: v })} />
-                  <AutoField label={tr('ui.e_post_inloggning')} type="email" value={user?.email || ''} onChange={(v) => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } supabase.auth.updateUser({ email: v }); }} hint={tr('ui.kraver_att_du_bekraftar_via_e_post_innan_andring')} required />
-                  <AutoField label={tr('ui.telefon')} type="tel" value={phone} onChange={(v) => updateUserMeta({ phone: v })} hint={tr('ui.valfritt_2')} />
-                </div>
-              </SettingCard>
-            </div>
-          )}
-
           {activeTab === 'security' && (
             <div style={{ animation: 'fadeIn 0.2s ease', display: 'grid', gap: 0 }}>
               <SettingCard title={tr('ui.inloggning')} icon={Lock} tone="blue" description={tr('ui.skydda_kontot_och_hall_koll_pa_din_inloggning')} style={{ borderRadius: 0 }}>
@@ -3862,12 +3886,24 @@ export default function Settings({
                   />
                 </div>
               )}
+
+              <SettingCard title={tr('ui.handelselogg')} description={tr('ui.vem_andrade_vad_i_foretaget_och_nar')} style={{ borderRadius: 0 }}>
+                <AuditLogCard company={company} readOnly={readOnly} />
+              </SettingCard>
             </div>
           )}
 
           {/* 2. Företag */}
           {activeTab === 'company' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
+              <SettingCard title={tr('ui.dina_uppgifter')} icon={UserRound} description={tr('ui.dina_uppgifter_visas_for_kollegor_och_i_det_du_g')} style={{ borderRadius: 0 }}>
+                <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
+                  <AutoField label={tr('ui.fornamn')} value={firstName} onChange={(v) => updateUserMeta({ first_name: v })} hint={tr('ui.det_du_vill_bli_kallad')} />
+                  <AutoField label={tr('ui.efternamn')} value={lastName} onChange={(v) => updateUserMeta({ last_name: v })} />
+                  <AutoField label={tr('ui.e_post_inloggning')} type="email" value={user?.email || ''} onChange={(v) => { if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; } supabase.auth.updateUser({ email: v }); }} hint={tr('ui.kraver_att_du_bekraftar_via_e_post_innan_andring')} required />
+                  <AutoField label={tr('ui.telefon')} type="tel" value={phone} onChange={(v) => updateUserMeta({ phone: v })} hint={tr('ui.valfritt_2')} />
+                </div>
+              </SettingCard>
               {/* IdentityCard-banderollen (namn/org.nr/räkenskapsår/moms-
                   chips) borttagen på kundönskemål — dubblerade bara
                   formulärfälten direkt under, och för ett nytt, ännu
@@ -3924,7 +3960,7 @@ export default function Settings({
                         value={companyDraft?.orgNr || ''}
                         onChange={e => {
                           const formatted = formatOrgNr(e.target.value);
-                          setCompanyDraft(d => ({ ...d, orgNr: formatted, name: '' }));
+                          setCompanyDraft(d => ({ ...d, orgNr: formatted, name: '', address: '', postalCode: '', city: '' }));
                           setCompanyRegLegalForm('');
                           companyRegLookup.handleOrgNrChange(formatted);
                         }}
@@ -3938,6 +3974,7 @@ export default function Settings({
                       )}
                     </div>
                     <div style={{ marginTop: '14px' }}>
+                      {companyRegFromRegistry ? <LockedField label={tr('ui.foretagsnamn')} value={companyDraft?.name || '—'} /> : <>
                       <label style={labelStyle}>{tr('ui.foretagsnamn')}</label>
                       <input
                         type="text" style={inputBase} placeholder={tr('ui.ex_mitt_foretag_ab')}
@@ -3953,6 +3990,7 @@ export default function Settings({
                         value={companyDraft?.name === 'Mitt Företag AB' ? '' : (companyDraft?.name || '')}
                         onChange={e => setCompanyDraft(d => ({ ...d, name: e.target.value }))}
                       />
+                      </>}
                       {companyRegDisplayedOrgType && (
                         <div style={{ marginTop: '9px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: BRAND.greenLight, borderRadius: '999px', fontSize: '12.5px', fontWeight: 700, color: BRAND.greenDark }}>
                           <Check size={13} /> {tr('ui.identifierad_som')} {companyRegDisplayedOrgType}
@@ -3967,6 +4005,14 @@ export default function Settings({
                         var klar, trots att uppgifterna behövs på första
                         fakturan. */}
                     <FieldGroup title={tr('ui.adress_2')}>
+                      {companyRegFromRegistry ? (
+                        <div className="form-row-stack" style={{ ...grid2, gridTemplateColumns: '2fr 1fr 1fr', maxWidth: FORM_MAX }}>
+                          <LockedField label={tr('ui.gatuadress')} value={companyDraft?.address || '—'} />
+                          <LockedField label={tr('ui.postnummer')} value={companyDraft?.postalCode || '—'} />
+                          <LockedField label={tr('ui.ort')} value={companyDraft?.city || '—'} />
+                        </div>
+                      ) : (
+                        <>
                       <div style={{ maxWidth: '672px' }}>
                         <AutoField label={tr('ui.gatuadress')} value={companyDraft?.address || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, address: v })} showSaveState={false} />
                       </div>
@@ -3974,6 +4020,8 @@ export default function Settings({
                         <AutoField label={tr('ui.postnummer')} value={companyDraft?.postalCode || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, postalCode: v })} showSaveState={false} />
                         <AutoField label={tr('ui.ort')} value={companyDraft?.city || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, city: v })} showSaveState={false} />
                       </div>
+                        </>
+                      )}
                     </FieldGroup>
 
                     <FieldGroup title={tr('ui.kontakt_2')}>
@@ -3987,64 +4035,37 @@ export default function Settings({
                   </div>
                 ) : (
                   <>
-                    {/* Företagets IDENTITET — namnet och organisationsnumret.
-                        Båda sattes en gång, vid registreringen, ur bolags-
-                        registret och sparades då automatiskt; härifrån är de
-                        låsta. Kundfeedback: "organisationsnumret och företags-
-                        namnet ska sparas automatiskt och inte gå att ändra."
-                        Org.numret var tidigare ett vanligt redigerbart fält
-                        trots att HELA appen använder det som företagets
-                        identitet (fakturor, moms- och AGI-filer till
-                        Skatteverket, SIE-exporten, bolagsuppslagen) — en
-                        felskrivning där gav fel uppgifter i deklarationer utan
-                        att något sa ifrån. Låset sitter på riktigt i
-                        api/company-access.js (servern vägrar skrivningen även
-                        med ett giltigt reauthToken); det här är bara
-                        återspeglingen av samma regel. */}
+                    {/* Allt är låst utom visningsnamnet och momsnumret. Bolagens uppgifter kommer
+                        från Bolagsverket, enskilda firmor skrev sina i onboardingen.
+                        Låset sitter på riktigt i api/company-access.js, det här är
+                        återspeglingen. */}
                     <FieldGroup title={tr('ui.foretag')}>
                     <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
                       <LockedField label={tr('ui.foretagsnamn')} value={company?.name || '—'} />
-                      <LockedField label={tr('ui.organisationsnummer')} value={company?.orgNr || '—'} />
+                      <LockedField label={soleTrader ? tr('ui.onb2_personnummer') : tr('ui.organisationsnummer')} value={company?.orgNr || '—'} />
                     </div>
-                    {/* Förklaringen till låset och "hämta uppgifterna åt mig"
-                        på SAMMA rad — de hör ihop (båda handlar om var
-                        företagets uppgifter kommer ifrån) och tog tidigare
-                        två egna rader med luft emellan.
-                        Hämtar adress och momsnummer ur bolagsregistret i
-                        stället för att man skriver av dem för hand — samma
-                        uppslag som vid registrering och i kundregistret.
-                        Fyller bara i utkastet; inget sparas förrän man
-                        klickar Spara ändringar längst ner. */}
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', maxWidth: FORM_MAX, margin: '-2px 0 14px' }}>
                       <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', flex: '1 1 300px', minWidth: 0, lineHeight: 1.55 }}>
-                        {tr('ui.foretagets_registrerade_uppgifter_de_sparades_au')} <a href="mailto:support@bokix.se" style={{ color: BRAND.green }}>{tr('ui.support_bokix_se')}</a> {tr('ui.om_nagot_blivit_fel')}
+                        {registryCompany
+                          ? <>{tr('ui.uppgifterna_kommer_fran_bv')}{company?.registrySyncedAt ? ` ${tr('ui.senast_kontrollerat', { date: String(company.registrySyncedAt).slice(0, 10) })}` : ''}</>
+                          : <>{tr('ui.foretagets_registrerade_uppgifter_de_sparades_au')} <a href="mailto:support@bokix.se" style={{ color: BRAND.green }}>{tr('ui.support_bokix_se')}</a> {tr('ui.om_nagot_blivit_fel')}</>}
                       </div>
-                      {(!(companyDraft?.address && companyDraft?.postalCode && companyDraft?.city) || ['loading', 'done', 'error', 'firma'].includes(companyDetailsLookup.orgLookup.status)) && <div style={{ flexShrink: 0 }}>
-                        <button
-                          type="button"
-                          onClick={handleFetchCompanyDetails}
-                          disabled={String(companyDraft?.orgNr || '').replace(/\D/g, '').length !== 10 || companyDetailsLookup.orgLookup.status === 'loading'}
-                          style={{
-                            ...btnSecondary,
-                            cursor: String(companyDraft?.orgNr || '').replace(/\D/g, '').length === 10 ? 'pointer' : 'not-allowed',
-                            opacity: String(companyDraft?.orgNr || '').replace(/\D/g, '').length === 10 ? 1 : 0.55,
-                          }}
-                        >
-                          <Building2 size={14} />
-                          {companyDetailsLookup.orgLookup.status === 'loading' ? tr('ui.hamtar') : tr('ui.hamta_bolagsuppgifter')}
-                        </button>
-                        {companyDetailsLookup.orgLookup.status === 'done' && (
-                          <div style={{ fontSize: '12px', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', color: BRAND.greenDark, fontWeight: 600 }}>
-                            <Check size={13} /> {tr('ui.hamtat_kontrollera_falten_och_klicka_spara_andri')}
-                          </div>
-                        )}
-                        {(companyDetailsLookup.orgLookup.status === 'error' || companyDetailsLookup.orgLookup.status === 'firma') && (
-                          <div style={{ fontSize: '12px', marginTop: '8px', color: 'var(--text-secondary)' }}>{companyDetailsLookup.orgLookup.message}</div>
-                        )}
-                      </div>}
+                      {registryCompany && !sharedAccess && (
+                        <div style={{ flexShrink: 0 }}>
+                          <button type="button" onClick={handleRegistrySync} disabled={registrySync.status === 'loading'} style={btnSecondary}>
+                            <Building2 size={14} />
+                            {registrySync.status === 'loading' ? tr('ui.hamtar') : tr('ui.uppdatera_fran_bolagsverket')}
+                          </button>
+                          {registrySync.message && (
+                            <div style={{ fontSize: '12px', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', color: registrySync.status === 'done' ? BRAND.greenDark : 'var(--text-secondary)', fontWeight: registrySync.status === 'done' ? 600 : 400 }}>
+                              {registrySync.status === 'done' && <Check size={13} />} {registrySync.message}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
-                      <AutoField label={tr('ui.momsregistreringsnummer')} value={companyDraft?.vatNr || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, vatNr: v })} showSaveState={false} hint={tr('ui.se_organisationsnumret_01')} />
+                      {lockableField('vatNr', tr('ui.momsregistreringsnummer'), tr('ui.se_organisationsnumret_01'))}
                       {/* Fritt visningsnamn för fakturor — separat från det
                           låsta registrerade namnet ovan (se InvoiceDocument.jsx:s
                           motsvarande fallback). Tomt = använd det registrerade
@@ -4066,20 +4087,26 @@ export default function Settings({
                         används i stället för att stå tom till höger.
                         .form-row-stack staplar dem på mobil. */}
                     <div className="form-row-2" style={{ ...grid2, maxWidth: FORM_MAX }}>
-                      <AutoField
-                        label={tr('ui.f_skattsedel_text_pa_faktura')} value={companyDraft?.fSkatt ?? 'Godkänd för F-skatt'}
-                        onChange={(v) => setCompanyDraft({ ...companyDraft, fSkatt: v })}
-                        hint={tr('ui.skrivs_ut_pa_fakturor_tom_om_det_inte_stammer')}
-                        showSaveState={false}
-                      />
+                      {/* F-skatten finns inte hos Bolagsverket: den sätts när
+                          företaget läggs upp och är låst som resten. */}
+                      {isFieldLocked(company, 'fSkatt') ? (
+                        <LockedField label={tr('ui.f_skatt_pa_fakturan')} value={(company?.fSkatt ?? 'Godkänd för F-skatt') || tr('ui.nej')} />
+                      ) : (
+                        <AutoField
+                          label={tr('ui.f_skattsedel_text_pa_faktura')} value={companyDraft?.fSkatt ?? 'Godkänd för F-skatt'}
+                          onChange={(v) => setCompanyDraft({ ...companyDraft, fSkatt: v })}
+                          hint={tr('ui.skrivs_ut_pa_fakturor_tom_om_det_inte_stammer')}
+                          showSaveState={false}
+                        />
+                      )}
                     </div>
                     </FieldGroup>
 
                     <FieldGroup title={tr('ui.adress_2')}>
                     <div className="form-row-stack" style={{ ...grid2, gridTemplateColumns: '2fr 1fr 1fr', maxWidth: FORM_MAX }}>
-                      <AutoField label={tr('ui.gatuadress')} value={companyDraft?.address || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, address: v })} showSaveState={false} />
-                      <AutoField label={tr('ui.postnummer')} value={companyDraft?.postalCode || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, postalCode: v })} showSaveState={false} />
-                      <AutoField label={tr('ui.ort')} value={companyDraft?.city || ''} onChange={(v) => setCompanyDraft({ ...companyDraft, city: v })} showSaveState={false} />
+                      {lockableField('address', tr('ui.gatuadress'))}
+                      {lockableField('postalCode', tr('ui.postnummer'))}
+                      {lockableField('city', tr('ui.ort'))}
                     </div>
                     </FieldGroup>
                     {/* F-skattsedel skrivs ut på varenda faktura/offert (se InvoiceDocument)
@@ -4185,10 +4212,9 @@ export default function Settings({
               "Säkerhet"-platshållaren borttagen helt — den upprepade bara
               flikens namn utan att tillföra något; den riktiga länken dit
               finns redan i sidhuvudets flikrad. */}
-          {activeTab === 'system' && (
+          {activeTab === 'features' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
-              {/* Accounted-stil: en rad per inställning, etiketten till vänster
-                  och kontrollen till höger. */}
+              <p style={{ margin: '0 0 18px', fontSize: '14px', lineHeight: 1.6, color: 'var(--text-secondary)' }}>{tr('ui.funktioner_beskrivning')}</p>
               {enabledFeatures && (
                 <SettingCard title={tr('ui.funktioner_titel')} description={tr('ui.funktioner_beskrivning')}>
                   {[
@@ -4207,6 +4233,13 @@ export default function Settings({
                   ))}
                 </SettingCard>
               )}
+            </div>
+          )}
+
+          {activeTab === 'system' && (
+            <div style={{ animation: 'fadeIn 0.2s ease' }}>
+              {/* Accounted-stil: en rad per inställning, etiketten till vänster
+                  och kontrollen till höger. */}
               <SettingCard title={tr('ui.moms')} description={tr('ui.hur_ofta_du_redovisar_moms')}>
                 <SettingRow label={tr('ui.momsregistrerat_2')} last={company?.vatRegistered === false}>
                   <select
@@ -4263,9 +4296,6 @@ export default function Settings({
                 </SettingRow>
               </SettingCard>
 
-              <SettingCard title={tr('ui.handelselogg')} description={tr('ui.vem_andrade_vad_i_foretaget_och_nar')}>
-                <AuditLogCard company={company} readOnly={readOnly} />
-              </SettingCard>
             </div>
           )}
 
@@ -4497,13 +4527,13 @@ export default function Settings({
                 </SettingsSection>
 
                 {!isUfCompany(company) && !sharedAccess ? (
-                  <SettingsSection title={tr('ui.betalningsuppgifter')} description={tr('ui.byt_kort_eller_se_fakturor_kvitton_hos_stripe')}>
+                  <SettingsSection title={tr('ui.betalningsuppgifter')} description={tr('ui.plan_betalning_beskrivning')}>
                     <SettingCard>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' }}>
+                      <div className="plan-payment">
                         <BillingPortalButton companyId={company?.requiresOwnPayment ? company.id : null} label={tr('ui.byt_betalkort')} />
-                        <BillingPortalButton companyId={company?.requiresOwnPayment ? company.id : null} label={tr('ui.se_fakturor_kvitton')} showInvoices />
+                        <SubscriptionInvoices companyId={company?.requiresOwnPayment ? company.id : null} enabled={!readOnly} />
+                        <p>{tr('ui.plan_kortbyte_stripe')}</p>
                       </div>
-                      <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '10px 0 0', lineHeight: 1.6 }}>{tr('ui.oppnas_hos_stripe_i_en_ny_flik')}</p>
                     </SettingCard>
                   </SettingsSection>
                 ) : (

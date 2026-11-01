@@ -89,7 +89,7 @@ const waitSaved = async (pred, label) => {
 };
 
 await page.goto(BASE + '/?app=1');
-await page.waitForFunction(() => document.body.innerText.includes('Räkenskapsåret'), null, { timeout: 20000 }).catch(() => fail('startsidan laddade inte'));
+await page.waitForFunction(() => document.body.innerText.includes('Att göra'), null, { timeout: 20000 }).catch(() => fail('startsidan laddade inte'));
 const before = savedVerifications().length;
 console.log('Verifikationer före import:', before);
 
@@ -150,7 +150,7 @@ console.log('Toast:', await page.evaluate(() => document.body.innerText.includes
 
 // Syns de på Verifikationer-sidan?
 await page.reload();
-await page.waitForFunction(() => document.body.innerText.includes('Räkenskapsåret'), null, { timeout: 20000 }).catch(() => {});
+await page.waitForFunction(() => document.body.innerText.includes('Att göra'), null, { timeout: 20000 }).catch(() => {});
 const stillThere = await page.evaluate(() => document.body.innerText.includes('Testimport'));
 console.log('Efter omladdning, "Testimport" någonstans på sidan:', stillThere);
 console.log('Serverskrivningar:', server.writes);

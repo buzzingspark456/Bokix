@@ -35,6 +35,16 @@ describe('normalisering', () => {
 });
 
 describe('provperiod eller inte', () => {
+  it('samma företag igen på samma konto, med ny företagspost: ingen ny provperiod', async () => {
+    const stripe = fakeStripe([{ id: 's1', trial_start: now, metadata: { user_id: 'u1', company_id: 'gammalt', bokix_orgnr: '5561234567' } }]);
+    const d = await trialDecision(stripe, { email: 'a@b.se', orgNr: '5561234567', excludeUserId: 'u1', companyId: 'nytt' });
+    expect(d.allowTrial).toBe(false);
+    expect(d.reasons).toEqual(['orgnr']);
+  });
+  it('samma företagspost på samma konto räknas inte mot sig själv', async () => {
+    const stripe = fakeStripe([{ id: 's1', trial_start: now, metadata: { user_id: 'u1', company_id: 'c1', bokix_orgnr: '5561234567' } }]);
+    expect((await trialDecision(stripe, { email: 'a@b.se', orgNr: '5561234567', excludeUserId: 'u1', companyId: 'c1' })).allowTrial).toBe(true);
+  });
   it('ny person, nytt företag: provperiod', async () => {
     expect((await trialDecision(fakeStripe([]), { email: 'ny@firma.se', orgNr: '5561234567', ip: '1.1.1.1' })).allowTrial).toBe(true);
   });

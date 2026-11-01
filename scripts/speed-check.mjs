@@ -58,11 +58,11 @@ async function measureApp() {
   await page.route('**/api/**', r => r.fulfill({ json: {} }));
   const t0 = Date.now();
   await page.goto(`${BASE}/?app=1`);
-  await page.waitForFunction(() => document.body.innerText.includes('Räkenskapsåret') || document.body.innerText.includes('Resultat'), null, { timeout: 120000 });
+  await page.waitForFunction(() => document.body.innerText.includes('Att göra') || document.body.innerText.includes('Resultat'), null, { timeout: 120000 });
   const ready = Date.now() - t0;
   const t1 = Date.now();
   await page.evaluate(() => { window.location.hash = 'verifications'; });
-  await page.waitForFunction(() => /Verifikation|Bokföring/.test(document.querySelector('main, .main-content, body').innerText) && !document.body.innerText.includes('Räkenskapsåret'), null, { timeout: 60000 }).catch(() => {});
+  await page.waitForFunction(() => /Verifikation|Bokföring/.test(document.querySelector('main, .main-content, body').innerText) && !document.body.innerText.includes('Att göra'), null, { timeout: 60000 }).catch(() => {});
   const nav = Date.now() - t1;
   const bytes = js();
   await ctx.close();

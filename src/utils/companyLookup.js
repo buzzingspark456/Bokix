@@ -81,6 +81,21 @@ export async function searchCompaniesByName(name, limit = 5) {
   return companies || [];
 }
 
+/** Ber servern hämta företagets uppgifter från Bolagsverket och spara dem.
+ * Svarar `{ synced, company, changed }`, där `company` ska läggas på
+ * företaget i appen så att nästa autosparning inte skriver tillbaka det gamla. */
+export async function requestRegistrySync(companyId, accessToken) {
+  const response = await fetch('/api/company-access', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+    // Inget `value`: en server utan den här grenen ska svara fel, aldrig skriva tomt.
+    body: JSON.stringify({ company_id: companyId, field: 'company', registry_sync: true }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload?.error || 'Kunde inte hämta uppgifterna från Bolagsverket just nu.');
+  return payload;
+}
+
 /** Namnet i EU:s momsregister för ett momsregistreringsnummer i vilket
  * EU-land som helst ("IE3206488LH", "SE556430014201"). Returnerar
  * `{ registered, name }`; namnet är tomt när landet inte lämnar ut det.

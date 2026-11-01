@@ -1,5 +1,46 @@
 import { describe, expect, it, vi } from 'vitest';
-import { listSubscriptionCustomerIds, listSubscriptionInvoices } from './_billingInvoices.js';
+import { invoicesForCompany, listSubscriptionCustomerIds, listSubscriptionInvoices } from './_billingInvoices.js';
+import { stripePeriodEnd } from './_subscriptions.js';
+
+describe('stripePeriodEnd', () => {
+  it('läser perioden från raderna när prenumerationen saknar den', () => {
+    expect(stripePeriodEnd({ items: { data: [{ current_period_end: 1793000000 }] } })).toBe(new Date(1793000000 * 1000).toISOString());
+    expect(stripePeriodEnd({ current_period_end: 1793000000, items: { data: [] } })).toBe(new Date(1793000000 * 1000).toISOString());
+    expect(stripePeriodEnd({ items: { data: [] } })).toBeNull();
+  });
+});
+
+describe('invoicesForCompany', () => {
+  const day = (iso) => Date.parse(iso) / 1000;
+  const inv = (id, date, status, company_id = null, subscription = 'sub_nu') => ({ id, created: day(date), status, company_id, subscription });
+
+  it('visar bara det aktiva företagets fakturor', () => {
+    const list = [inv('a', '2026-10-05', 'paid'), inv('b', '2026-10-06', 'paid', 'foretag_2', 'sub_2')];
+    expect(invoicesForCompany(list, null, 'sub_nu').map(i => i.id)).toEqual(['a']);
+    expect(invoicesForCompany(list, 'foretag_2', 'sub_2').map(i => i.id)).toEqual(['b']);
+  });
+
+  it('ger en rad per månad när påbörjade abonnemang lämnat obetalda fakturor', () => {
+    const list = [
+      inv('betald', '2026-10-05', 'paid'),
+      inv('overgiven1', '2026-10-05', 'open', null, 'sub_gammal'),
+      inv('overgiven2', '2026-10-05', 'open', null, 'sub_gammal2'),
+      inv('nytt_forsok', '2026-10-06', 'open'),
+      inv('september', '2026-09-05', 'paid'),
+    ];
+    expect(invoicesForCompany(list, null, 'sub_nu').map(i => i.id)).toEqual(['betald', 'september']);
+  });
+
+  it('visar en obetald faktura på prenumerationen som gäller, men inte övergivna', () => {
+    const list = [inv('obetald', '2026-11-05', 'open'), inv('overgiven', '2026-11-05', 'open', null, 'sub_gammal')];
+    expect(invoicesForCompany(list, null, 'sub_nu').map(i => i.id)).toEqual(['obetald']);
+  });
+
+  it('döljer aldrig en betald faktura, inte ens två samma månad', () => {
+    const list = [inv('en', '2026-10-05', 'paid'), inv('tva', '2026-10-20', 'paid')];
+    expect(invoicesForCompany(list, null, 'sub_nu')).toHaveLength(2);
+  });
+});
 
 describe('listSubscriptionInvoices', () => {
   it('finds every Stripe customer linked to the account metadata', async () => {

@@ -19,6 +19,14 @@
     {
       "path": "/api/cron/company-copy",
       "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/cron/data-retention",
+      "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/reminders",
+      "schedule": "0 6 * * *"
     }
   ],
   "rewrites": [

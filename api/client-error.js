@@ -25,6 +25,9 @@ const NOISE = [
   // Safari döljer tilläggens källkod bakom webkit-masked-url (t.ex.
   // "Cannot destructure property 'tabId'" i setupExtension på iPhone).
   /webkit-masked-url:\/\//i,
+  // Kryptoplånboken i webbläsaren Brave skriver till window.ethereum på varje
+  // sida. Bokix använder inte det, och felet påverkar inte appen.
+  /window\.ethereum/i,
   /Failed to fetch|NetworkError|Load failed|The network connection was lost/i,
   /AbortError/i,
 ];

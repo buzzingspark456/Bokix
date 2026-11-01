@@ -3,29 +3,29 @@ import { ChevronLeft, Printer, TrendingUp, TrendingDown, ArrowUpRight, ArrowDown
 import {
   formatSEK, formatPct, fmtDate, fmtMonthYear, toISO, formatDelta,
   EmptyState, ReportSection, DataTable,
-  CostBreakdownDonut, CostRankingList, BalanceSheetTable,
+  CostBreakdownDonut, CostRankingList,
   formatSharePct,
   ChartTypeToggle, TREND_CHART_TYPES, FLOW_CHART_TYPES, SHARE_CHART_TYPES, KeyFigureGauge,
   ReportDisplayProvider, useReportDisplay, DisplaySettingsMenu,
   CHART_H_MAIN, CHART_H_SIDE,
   ReportSheet, SheetPanel, InlineLegend, StatTile, MarginLinesChart, MARGIN_SERIES,
   PeriodPicker, PeriodHeading, OVERVIEW_PERIODS, RevenueExpenseChart, CashflowComparisonChart,
+  ResultPaceChart, ResultWaterfallChart, BalanceTrendChart, StatementTable, statementChange,
 } from './ReportUI';
 import {
-  sumFlowByType, buildResultSeries, buildMarginSeries, buildCashflowSeries, computeBalanceSheet,
-  computeLedger, computeInvoiceReport, computeKeyFigures, fiscalYearBounds,
+  sumFlowByType, buildResultPace, buildResultSeries, buildMarginSeries, buildCashflowSeries, computeResultStatement, computeBalanceStatement, computeBalanceTrend, computeMonthDeviation, buildResultWaterfall,
+  computeLedger, computeInvoiceReport, computeKeyFigures, fiscalYearBounds, isClosingEntry,
   groupCostsByCategory, groupCostsByAccount, overviewPeriodBounds, companyFiscalYearSetting,
 } from '../../utils/reportCalculations';
-import { computeVatPeriod, vatRutaValue } from '../../utils/vatCalculation';
-import { computeWorksheet } from '../../utils/worksheet';
+import { computeVatPeriod } from '../../utils/vatCalculation';
+import { computeWorksheet, groupWorksheetRows } from '../../utils/worksheet';
 import { computeEquityStatement } from '../../utils/equity';
-import { VAT_RUTOR } from '../../utils/vatConfig';
 import { getReportMeta } from '../../utils/reportDefinitions';
 import { computeEmployeePayroll } from '../../utils/payrollCalculation';
 import { neededTaxTableKeysForYear } from '../../utils/kuExport';
 import { preloadSkattetabell } from '../../utils/skattetabell';
-import { t, dateLocale } from '../../i18n';
-import { numberFormat, dateTimeFormat } from '../../utils/intlCache';
+import { t } from '../../i18n';
+import { numberFormat } from '../../utils/intlCache';
 
 // Procent går genom ReportUI:s formatPct (svensk decimalkomma + hårt
 // mellanslag) — samma format i varje panel, se dess kommentar.
@@ -134,13 +134,16 @@ function aggregatePayroll(payrollRuns, start, end) {
   return { rows, totals, runCount: runs.length };
 }
 
+// Företagsöversikten har en egen period och struntar i sidans periodval.
+const OWN_PERIOD_REPORTS = ['overview'];
+
 /** `display` är företagets sparade presentationsval (färger + enhet, se
  * utils/chartPalette.js) och `onDisplayChange` sparar en ändring. Båda
  * kommer från Reports.jsx, som äger företagsposten — detaljvyn läser och
  * skickar vidare, den äger ingenting själv. */
 export default function ReportDetail({
   reportId, bounds, verifications, accounts, invoices, payrollRuns, contacts, company,
-  isMobile, onBack, display, onDisplayChange,
+  isMobile, onBack, display, onDisplayChange, periodControl,
 }) {
   const meta = getReportMeta(reportId);
   const { start, end, prevStart, prevEnd } = bounds;
@@ -165,7 +168,7 @@ export default function ReportDetail({
                 påstod t.ex. hela räkenskapsåret medan grafen, satt till
                 "Denna månad", visade något helt annat) — döljs därför bara
                 här, Företagsöversikten visar sin egen, korrekta rad istället. */}
-            {reportId !== 'overview' && <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>{periodLabel}</p>}
+            {!OWN_PERIOD_REPORTS.includes(reportId) && <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>{periodLabel}</p>}
           </div>
           {/* Knappen var tidigare permanent inaktiv med texten "Ladda ner
               (kommer snart)" — en död knapp överst på sidan, på den yta
@@ -181,6 +184,7 @@ export default function ReportDetail({
               PDF-generator: en riktig export ska visa exakt det man ser,
               och den koden finns redan i webbläsaren. */}
           <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {!OWN_PERIOD_REPORTS.includes(reportId) && periodControl}
           {onDisplayChange && (
             <DisplaySettingsMenu
               colors={display?.colors} unit={display?.unit}
@@ -200,19 +204,13 @@ export default function ReportDetail({
 
       <div className="report-scroll" style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
         {reportId === 'overview' && <OverviewReport {...{ verifications, accounts, company, isMobile }} />}
-        {reportId === 'result' && <ResultReport {...{ verifications, accounts, start, end, prevStart, prevEnd, isMobile }} />}
-        {reportId === 'balance' && <BalanceReport {...{ verifications, accounts, end }} />}
+        {reportId === 'result' && <ResultReport {...{ verifications, accounts, bounds, isMobile, payrollRuns, company }} />}
+        {reportId === 'balance' && <BalanceReport {...{ verifications, accounts, bounds, isMobile }} />}
         {reportId === 'cashflow' && <CashflowReport {...{ verifications, accounts, start, end, prevStart, prevEnd, isMobile }} />}
-        {reportId === 'keyfigures' && <KeyFiguresReport {...{ verifications, accounts, start, end }} />}
-        {reportId === 'vat' && <VatReport {...{ verifications, start, end }} />}
-        {reportId === 'equity' && <EquityReport {...{ verifications, accounts, start, end }} />}
-        {reportId === 'worksheet' && <WorksheetReport {...{ verifications, accounts, start, end }} />}
+        {reportId === 'closing' && <ClosingReport {...{ verifications, accounts, start, end }} />}
         {reportId === 'ledger' && <LedgerReport {...{ verifications, accounts, start, end }} />}
         {reportId === 'invoices' && <InvoiceReport {...{ invoices, contacts, start, end }} />}
         {reportId === 'payroll' && <PayrollReport {...{ payrollRuns, start, end }} />}
-        {reportId === 'annual' && <AnnualReport {...{ verifications, accounts, company, isMobile }} />}
-        {reportId === 'quarterly' && <QuarterlyReport {...{ verifications, accounts, payrollRuns, company }} />}
-        {reportId === 'monthly' && <MonthlyReport {...{ verifications, accounts }} />}
       </div>
     </div>
     </ReportDisplayProvider>
@@ -517,10 +515,54 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
               />
             </SheetPanel>
           </div>
+
+          {/* Som Oxceed: varje tal med samma period i fjol och förändringen bredvid. */}
+          <div className="sheet-span-12" style={cellBg}>
+            <SheetPanel title={t('ui.rapp_nyckeltal_i_siffror')}>
+              <DataTable
+                columns={[
+                  { key: 'label', label: t('ui.post') },
+                  { key: 'value', label: t('ui.rapp_perioden'), align: 'right', emphasize: true },
+                  ...(comparable ? [
+                    { key: 'prev', label: t('ui.foregaende_ar_stor'), align: 'right' },
+                    { key: 'change', label: t('ui.rapp_forandring'), align: 'right' },
+                  ] : []),
+                ]}
+                rows={keyFigureRows(k, prevK)}
+                rowKey={r => r.label}
+              />
+            </SheetPanel>
+          </div>
         </div>
       </ReportSheet>
     </div>
   );
+}
+
+// Kronor jämförs i procent, procenttal i procentenheter: "+12 %" om en
+// soliditet på 30 % hade läst som 42 % fast den är 33,6 %.
+function keyFigureRows(k, prev) {
+  const money = (label, key) => ({ label, value: formatSEK(k[key]), prev: formatSEK(prev[key]), change: statementChange(k[key], prev[key]) });
+  const share = (label, key) => {
+    const diff = k[key] != null && prev[key] != null ? k[key] - prev[key] : null;
+    return {
+      label, value: fmtPct(k[key]), prev: fmtPct(prev[key]),
+      change: diff == null ? '—' : t('ui.rapp_procentenheter', { v: `${diff >= 0 ? '+' : '−'}${formatPct(Math.abs(diff)).replace(/\s*%$/, '')}` }),
+    };
+  };
+  return [
+    money(t('ui.omsattning'), 'omsattning'),
+    money(t('ui.kostnader'), 'kostnader'),
+    money(t('ui.resultat'), 'resultat'),
+    share(t('ui.vinstmarginal'), 'vinstmarginal'),
+    share(t('ui.soliditet'), 'soliditet'),
+    share(t('ui.kassalikviditet'), 'kassalikviditet'),
+    money(t('ui.eget_kapital'), 'egetKapital'),
+    money(t('ui.kassa_och_bank'), 'kassaOchBank'),
+    money(t('ui.kundfordringar'), 'kundfordringar'),
+    money(t('ui.totala_tillgangar'), 'totalaTillgangar'),
+    money(t('ui.kortfristiga_skulder_konto_2400'), 'kortfristigaSkulder'),
+  ];
 }
 
 // ── 1. Resultaträkning ──────────────────────────────────────────────────
@@ -532,68 +574,135 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
 // (RevenueExpenseChart m.fl.) — ingen ny visualisering uppfanns, bara
 // samma byggstenar applicerade på en enda rapport i stället för alla sex
 // på en gång.
-function ResultReport({ verifications, accounts, start, end, prevStart, prevEnd, isMobile }) {
+// Saldorörelserna per konto, för att kunna fälla ut ett konto i uppställningen.
+// Raderna ska summera till beloppet på kontots rad. Resultaträkningen räknar
+// inte bokslutsverifikationen, och balanskontons saldo börjar med ingående saldo.
+function useAccountLedger(verifications, accounts, start, end, { balance = false } = {}) {
+  return useMemo(() => {
+    const source = balance ? verifications : verifications.filter(v => !isClosingEntry(v));
+    return new Map(computeLedger(source, accounts, start, end).accounts.map((a) => {
+      if (!balance || Math.abs(a.openingBalance) <= 0.5) return [a.code, a.rows];
+      const opening = { verificationId: 'ingaende', description: t('ui.rapp_ingaende_saldo'), debet: Math.max(a.openingBalance, 0), kredit: Math.max(-a.openingBalance, 0) };
+      return [a.code, [opening, ...a.rows]];
+    }));
+  }, [verifications, accounts, start, end, balance]);
+}
+
+function ResultReport({ verifications, accounts, bounds, isMobile, payrollRuns, company }) {
   const { palette, amount } = useReportDisplay();
-  const [chartType, setChartType] = useState('bar');
+  const { start, end } = bounds;
+  // Samma siffror på flera sätt, som i de svenska programmen: varje period
+  // för sig, samlat genom perioden, steg för steg till resultatet, eller som tabell.
+  const [view, setView] = useState('period');
+  const [detail, setDetail] = useState('accounts');
 
-  const omsattning = useMemo(() => sumFlowByType(verifications, accounts, 'intakt', start, end), [verifications, accounts, start, end]);
-  const kostnader = useMemo(() => sumFlowByType(verifications, accounts, 'kostnad', start, end), [verifications, accounts, start, end]);
-  const resultat = omsattning - kostnader;
-  const prevOmsattning = useMemo(() => sumFlowByType(verifications, accounts, 'intakt', prevStart, prevEnd), [verifications, accounts, prevStart, prevEnd]);
-  const prevKostnader = useMemo(() => sumFlowByType(verifications, accounts, 'kostnad', prevStart, prevEnd), [verifications, accounts, prevStart, prevEnd]);
-  const prevResultat = prevOmsattning - prevKostnader;
+  const statement = useMemo(() => computeResultStatement(verifications, accounts, bounds), [verifications, accounts, bounds]);
+  const pace = useMemo(() => buildResultPace(verifications, accounts, bounds), [verifications, accounts, bounds]);
+  // En enda stapel säger ingenting: en månad delas per dag, längre perioder per månad.
+  const granularity = (end - start) / 86400000 <= 31 ? 'day' : 'month';
+  const series = useMemo(() => buildResultSeries(verifications, accounts, start, end, granularity), [verifications, accounts, start, end, granularity]);
+  const ledger = useAccountLedger(verifications, accounts, start, end);
+  const keyFigures = useMemo(() => computeKeyFigures(verifications, accounts, start, end), [verifications, accounts, start, end]);
+  const deviation = useMemo(() => computeMonthDeviation(verifications, accounts), [verifications, accounts]);
+
+  if (!pace.hasActivity) return <ReportSheet><EmptyState text={t('ui.ingen_bokford_data_annu_for_denna_period')} /></ReportSheet>;
+
+  const { omsattning, kostnader, resultat, prevOmsattning, prevKostnader, prevResultat } = statement;
   const marginal = omsattning ? (resultat / omsattning) * 100 : null;
-
-  const series = useMemo(() => buildResultSeries(verifications, accounts, start, end), [verifications, accounts, start, end]);
-  const hasActivity = series.some(m => m.intakt !== 0 || m.kostnad !== 0);
-  const chartData = series.map(m => ({ label: m.label, Intäkter: m.intakt, Utgifter: m.kostnad }));
-
-  if (!hasActivity) return <ReportSheet><EmptyState text={t('ui.ingen_bokford_data_annu_for_denna_period')} /></ReportSheet>;
+  const compare = statement.hasComparison;
+  const deltaFor = (cur, prev, invert) => (compare ? formatDelta(cur, prev, invert) : null);
+  const chartData = series.map(m => ({ label: m.label, title: m.title, Intäkter: m.intakt, Utgifter: m.kostnad }));
+  const resultColor = resultat >= 0 ? palette.profit : palette.loss;
+  const summary = buildAnnualSummary({ omsattning, prevOmsattning, resultat, prevResultat, vinstmarginal: keyFigures.vinstmarginal, soliditet: keyFigures.soliditet });
 
   return (
     <ReportSheet>
       <div className="sheet-grid">
-        <div className="sheet-span-3" style={cellBg}>
-          <StatTile label={t('ui.omsattning')} value={amount.value(omsattning)} icon={TrendingUp} tone={palette.income} delta={formatDelta(omsattning, prevOmsattning)} />
+        <div className="sheet-span-12" style={cellBg}>
+          {/* Texten talar om räkenskapsåret och stämmer bara för den perioden. */}
+          {bounds.isFiscalYear && <p style={{ margin: 0, padding: '18px 28px 0', fontSize: '14px', lineHeight: 1.65, color: 'var(--text-main)' }}>{summary}</p>}
+          {deviation && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', padding: '12px 28px 0', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
+              <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>{t('ui.markant_avvikelse_30_mot_de_tolv_foregaende_mana')} {deviation.label} {t('ui.vart_en_extra_koll_men_inte_nodvandigtvis_fel')}</span>
+            </div>
+          )}
+          <div style={{ height: '18px' }} />
         </div>
         <div className="sheet-span-3" style={cellBg}>
-          <StatTile label={t('ui.kostnader')} value={amount.value(kostnader)} icon={Scale} tone={palette.cost} delta={formatDelta(kostnader, prevKostnader, true)} />
+          <StatTile label={t('ui.omsattning')} value={amount.value(omsattning)} icon={TrendingUp} tone={palette.income} delta={deltaFor(omsattning, prevOmsattning)} />
+        </div>
+        <div className="sheet-span-3" style={cellBg}>
+          <StatTile label={t('ui.kostnader')} value={amount.value(kostnader)} icon={Scale} tone={palette.cost} delta={deltaFor(kostnader, prevKostnader, true)} />
         </div>
         <div className="sheet-span-3" style={cellBg}>
           <StatTile
             label={t('ui.resultat')} value={amount.value(resultat)} icon={resultat >= 0 ? TrendingUp : TrendingDown}
-            tone={resultat >= 0 ? palette.profit : palette.loss} accent={resultat >= 0 ? palette.profit : palette.loss}
-            delta={formatDelta(resultat, prevResultat)}
+            tone={resultColor} accent={resultColor} delta={deltaFor(resultat, prevResultat)}
           />
         </div>
         <div className="sheet-span-3" style={cellBg}>
-          <StatTile label={t('ui.marginal')} value={marginal != null ? fmtPct(marginal) : '—'} icon={Percent} tone={palette.neutral} context="andel av omsättningen" />
+          <StatTile label={t('ui.marginal')} value={marginal != null ? fmtPct(marginal) : '—'} icon={Percent} tone={palette.neutral} context={t('ui.rapp_andel_av_omsattningen')} />
         </div>
 
         <div className="sheet-span-12" style={cellBg}>
           <SheetPanel
-            title={t('ui.intakter_vs_utgifter')} subtitle={t('ui.gront_for_lonsamma_perioder_rott_for_de_som_gick')}
-            legend={<InlineLegend items={[{ label: t('ui.intakter'), color: palette.income }, { label: t('ui.utgifter'), color: palette.cost }]} />}
-            controls={<ChartTypeToggle value={chartType} onChange={setChartType} options={TREND_CHART_TYPES} />}
+            title={t('ui.rapp_utveckling')}
+            legend={view === 'period'
+              ? <InlineLegend items={[{ label: t('ui.intakter'), color: palette.income }, { label: t('ui.kostnader'), color: palette.costBar }]} />
+              : view === 'total'
+                ? <InlineLegend items={[
+                  { label: t('ui.resultat'), color: resultColor },
+                  ...(compare ? [{ label: t('ui.foregaende_ar_stor'), color: 'var(--text-muted)' }] : []),
+                ]} />
+                : null}
+            controls={(
+              <ChartTypeToggle
+                value={view} onChange={setView}
+                options={[
+                  { id: 'period', label: granularity === 'day' ? t('ui.rapp_per_dag') : t('ui.rapp_per_manad') },
+                  { id: 'total', label: t('ui.rapp_ackumulerat') },
+                  { id: 'steps', label: t('ui.rapp_steg_for_steg') },
+                  { id: 'table', label: t('ui.rapp_tabell') },
+                ]}
+              />
+            )}
           >
-            <RevenueExpenseChart data={chartData} isMobile={isMobile} height={CHART_H_MAIN} variant={chartType} />
+            {view === 'period' && <RevenueExpenseChart data={chartData} isMobile={isMobile} height={isMobile ? 240 : 300} variant="diverging" />}
+            {view === 'total' && <ResultPaceChart data={pace.points} height={isMobile ? 240 : 300} />}
+            {view === 'steps' && <ResultWaterfallChart data={buildResultWaterfall(statement.items)} isMobile={isMobile} />}
+            {view === 'table' && (
+              <DataTable
+                columns={[
+                  { key: 'label', label: t('ui.period') },
+                  { key: 'intakt', label: t('ui.intakter'), align: 'right', render: r => formatSEK(r.intakt) },
+                  { key: 'kostnad', label: t('ui.kostnader'), align: 'right', render: r => formatSEK(r.kostnad) },
+                  { key: 'resultat', label: t('ui.resultat'), align: 'right', emphasize: true, render: r => formatSEK(r.intakt - r.kostnad) },
+                ]}
+                rows={series}
+                rowKey={r => r.title}
+                footer={[t('ui.summa'), formatSEK(omsattning), formatSEK(kostnader), formatSEK(resultat)]}
+              />
+            )}
           </SheetPanel>
         </div>
 
         <div className="sheet-span-12" style={cellBg}>
-          <SheetPanel title={t('ui.manad_for_manad')}>
-            <DataTable
-              columns={[
-                { key: 'label', label: t('ui.manad') },
-                { key: 'intakt', label: t('ui.intakter'), align: 'right', render: r => formatSEK(r.intakt) },
-                { key: 'kostnad', label: t('ui.kostnader'), align: 'right', render: r => formatSEK(r.kostnad) },
-                { key: 'resultat', label: t('ui.resultat'), align: 'right', emphasize: true, render: r => formatSEK(r.intakt - r.kostnad) },
-              ]}
-              rows={series}
-              rowKey={r => r.label}
-              footer={['Summa', formatSEK(omsattning), formatSEK(kostnader), formatSEK(resultat)]}
-            />
+          <SheetPanel
+            title={t('ui.resultatrakning')}
+            controls={(
+              <ChartTypeToggle
+                value={detail} onChange={setDetail}
+                options={[{ id: 'accounts', label: t('ui.rapp_konton') }, { id: 'summary', label: t('ui.rapp_sammanfattning') }]}
+              />
+            )}
+          >
+            <StatementTable items={statement.items} showPrev={compare} showAccounts={detail === 'accounts'} ledger={ledger} />
           </SheetPanel>
+        </div>
+
+        <div className="sheet-span-12" style={cellBg}>
+          <QuarterPanel {...{ verifications, accounts, payrollRuns, company }} />
         </div>
       </div>
     </ReportSheet>
@@ -601,39 +710,63 @@ function ResultReport({ verifications, accounts, start, end, prevStart, prevEnd,
 }
 
 // ── 2. Balansräkning ────────────────────────────────────────────────────
-function BalanceReport({ verifications, accounts, end }) {
+function BalanceReport({ verifications, accounts, bounds, isMobile }) {
   const { palette, amount } = useReportDisplay();
-  const balance = useMemo(() => computeBalanceSheet(verifications, accounts, end), [verifications, accounts, end]);
-  const isEmpty = balance.assets.length === 0 && balance.equityAndLiabilities.length === 0;
+  const { start, end, prevEnd } = bounds;
+  const [detail, setDetail] = useState('accounts');
+  const balance = useMemo(() => computeBalanceStatement(verifications, accounts, end, prevEnd), [verifications, accounts, end, prevEnd]);
+  const trend = useMemo(() => computeBalanceTrend(verifications, accounts, start, end), [verifications, accounts, start, end]);
+  const ledger = useAccountLedger(verifications, accounts, start, end, { balance: true });
+  if (balance.isEmpty) return <ReportSheet><EmptyState text={t('ui.inga_bokforda_tillgangs_eller_skuldsaldon_annu')} /></ReportSheet>;
+
   // Balansräkningens grundekvation: tillgångar = eget kapital + skulder,
-  // alltid — ingen tredje, oberoende siffra att räkna fram. Brickan är
-  // bara en visuell kontroll att de faktiskt stämmer, inte ett nytt mått.
+  // alltid. Årets resultat är redan medräknat, så en skillnad här betyder att
+  // något är fel i bokföringen, till exempel en obalanserad verifikation.
   const balanced = Math.abs(balance.totalAssets - balance.totalEquityAndLiabilities) < 1;
-  if (isEmpty) return <ReportSheet><EmptyState text={t('ui.inga_bokforda_tillgangs_eller_skuldsaldon_annu')} /></ReportSheet>;
+  const compare = balance.hasComparison;
+  const deltaFor = (cur, prev, invert) => (compare ? formatDelta(cur, prev, invert) : null);
+  const solidity = balance.totalAssets ? (balance.equity / balance.totalAssets) * 100 : null;
+
   return (
     <ReportSheet>
       <div className="sheet-grid">
-        <div className="sheet-span-6" style={cellBg}>
-          <StatTile label={t('ui.tillgangar')} value={amount.value(balance.totalAssets)} icon={Wallet} tone={palette.income} />
+        <div className="sheet-span-3" style={cellBg}>
+          <StatTile label={t('ui.tillgangar')} value={amount.value(balance.totalAssets)} icon={Wallet} tone={palette.income} delta={deltaFor(balance.totalAssets, balance.prevTotalAssets)} />
         </div>
-        <div className="sheet-span-6" style={cellBg}>
+        <div className="sheet-span-3" style={cellBg}>
+          <StatTile label={t('ui.eget_kapital')} value={amount.value(balance.equity)} icon={Scale} tone={palette.profit} delta={deltaFor(balance.equity, balance.prevEquity)} />
+        </div>
+        <div className="sheet-span-3" style={cellBg}>
+          <StatTile label={t('ui.skulder')} value={amount.value(balance.debts)} icon={Scale} tone={palette.neutral} delta={deltaFor(balance.debts, balance.prevDebts, true)} />
+        </div>
+        <div className="sheet-span-3" style={cellBg}>
           <StatTile
-            label={t('ui.eget_kapital_och_skulder')} value={amount.value(balance.totalEquityAndLiabilities)} icon={Scale} tone={palette.neutral}
+            label={t('ui.soliditet')} value={solidity != null ? fmtPct(solidity) : '—'} icon={Percent} tone={palette.neutral}
             context={balanced ? t('ui.balanserar_mot_tillgangarna') : t('ui.stammer_inte_mot_tillgangarna')}
             accent={balanced ? undefined : 'var(--status-red-text)'}
           />
         </div>
-        {/* Ingen extra avslutande punkt efter fmtDate(end) — svenska korta
-            månadsförkortningar ("aug.", "sep.") har redan en egen punkt, en
-            till gav en synlig dubbelpunkt ("28 aug.."). */}
-        <div className="sheet-span-6" style={cellBg}>
-          <SheetPanel title={t('ui.tillgangar')} subtitle={t('ui.per', { v0: fmtDate(end) })}>
-            <BalanceSheetTable rows={balance.assets} total={balance.totalAssets} />
+
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel
+            title={t('ui.rapp_utveckling')}
+            legend={<InlineLegend items={[{ label: t('ui.eget_kapital'), color: palette.profit }, { label: t('ui.skulder'), color: palette.muted }]} />}
+          >
+            <BalanceTrendChart data={trend} height={isMobile ? 220 : 260} />
           </SheetPanel>
         </div>
-        <div className="sheet-span-6" style={cellBg}>
-          <SheetPanel title={t('ui.eget_kapital_och_skulder')} subtitle={t('ui.per', { v0: fmtDate(end) })}>
-            <BalanceSheetTable rows={balance.equityAndLiabilities} total={balance.totalEquityAndLiabilities} />
+
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel
+            title={t('ui.balansrakning')} subtitle={t('ui.per', { v0: fmtDate(end) })}
+            controls={(
+              <ChartTypeToggle
+                value={detail} onChange={setDetail}
+                options={[{ id: 'accounts', label: t('ui.rapp_konton') }, { id: 'summary', label: t('ui.rapp_sammanfattning') }]}
+              />
+            )}
+          >
+            <StatementTable items={balance.items} showPrev={compare} showAccounts={detail === 'accounts'} ledger={ledger} />
           </SheetPanel>
         </div>
       </div>
@@ -694,92 +827,6 @@ function CashflowReport({ verifications, accounts, start, end, prevStart, prevEn
   );
 }
 
-// ── 4. Nyckeltal ────────────────────────────────────────────────────────
-function KeyFiguresReport({ verifications, accounts, start, end }) {
-  const { palette } = useReportDisplay();
-  const k = useMemo(() => computeKeyFigures(verifications, accounts, start, end), [verifications, accounts, start, end]);
-  if (!k.hasData) return <ReportSheet><EmptyState text={t('ui.ingen_bokford_data_annu_for_denna_period')} /></ReportSheet>;
-  return (
-    <ReportSheet>
-      <div className="sheet-grid">
-        {/* Samma KeyFigureGauge (ring per mått) som Översiktens egen
-            "Nyckeltal"-panel — samma tre mått, samma visuella form, bara
-            som en egen, full rapport i stället för en delyta bland fem
-            andra. */}
-        <div className="sheet-span-12" style={cellBg}>
-          <SheetPanel title={t('ui.nyckeltal')} subtitle={t('ui.tre_fristaende_matt_pa_hur_foretaget_star_inte_t')}>
-            <KeyFigureGauge
-              figures={[
-                { label: t('ui.vinstmarginal'), value: k.vinstmarginal, display: fmtPct(k.vinstmarginal), color: palette.profit, help: t('ui.resultat_i_forhallande_till_omsattning_hogre_ar') },
-                { label: t('ui.kassalikviditet'), value: k.kassalikviditet, display: fmtPct(k.kassalikviditet), color: palette.cash, help: t('ui.kassa_bank_kundfordringar_kortfristiga_skulder_f') },
-                { label: t('ui.soliditet'), value: k.soliditet, display: fmtPct(k.soliditet), color: palette.neutral, help: t('ui.eget_kapital_i_forhallande_till_totala_tillganga') },
-              ]}
-            />
-          </SheetPanel>
-        </div>
-        <div className="sheet-span-12" style={cellBg}>
-          <SheetPanel title={t('ui.underlag')}>
-            <DataTable
-              columns={[{ key: 'label', label: t('ui.post') }, { key: 'value', label: t('ui.belopp'), align: 'right', emphasize: true }]}
-              rows={[
-                { label: t('ui.omsattning'), value: formatSEK(k.omsattning) },
-                { label: t('ui.kostnader'), value: formatSEK(k.kostnader) },
-                { label: t('ui.resultat'), value: formatSEK(k.resultat) },
-                { label: t('ui.eget_kapital'), value: formatSEK(k.egetKapital) },
-                { label: t('ui.totala_tillgangar'), value: formatSEK(k.totalaTillgangar) },
-                { label: t('ui.kortfristiga_skulder_konto_2400'), value: formatSEK(k.kortfristigaSkulder) },
-                { label: t('ui.kassa_och_bank'), value: formatSEK(k.kassaOchBank) },
-                { label: t('ui.kundfordringar'), value: formatSEK(k.kundfordringar) },
-              ]}
-              rowKey={r => r.label}
-            />
-          </SheetPanel>
-        </div>
-      </div>
-    </ReportSheet>
-  );
-}
-
-// ── 5. Momsrapport ──────────────────────────────────────────────────────
-function VatReport({ verifications, start, end }) {
-  const { palette, amount } = useReportDisplay();
-  const vat = useMemo(() => computeVatPeriod({ verifications, periodStart: toISO(start), periodEnd: toISO(end) }), [verifications, start, end]);
-  const valueForRuta = (ruta) => vatRutaValue(ruta, vat) ?? 0;
-  const hasActivity = vat.outputVatTotal !== 0 || vat.inputVat !== 0 || vat.reverseVatTotal !== 0;
-  if (!hasActivity) return <ReportSheet><EmptyState text={t('ui.ingen_momspliktig_aktivitet_bokford_for_denna_pe')} /></ReportSheet>;
-  return (
-    <ReportSheet>
-      <div className="sheet-grid">
-        <div className="sheet-span-4" style={cellBg}>
-          <StatTile label={t('ui.utgaende_moms')} value={amount.value(vat.outputVatTotal + (vat.reverseVatTotal || 0))} icon={ArrowUpRight} tone={palette.income} />
-        </div>
-        <div className="sheet-span-4" style={cellBg}>
-          <StatTile label={t('ui.ingaende_moms')} value={amount.value(vat.inputVat)} icon={ArrowDownRight} tone={palette.cost} />
-        </div>
-        <div className="sheet-span-4" style={cellBg}>
-          <StatTile
-            label={vat.netToPay >= 0 ? t('ui.att_betala') : t('ui.att_fa_tillbaka')} value={amount.value(Math.abs(vat.netToPay))}
-            icon={Scale} tone={vat.netToPay >= 0 ? palette.cost : palette.profit}
-          />
-        </div>
-        <div className="sheet-span-12" style={cellBg}>
-          <SheetPanel title={t('ui.momsrapport')} subtitle={t('ui.underlag_till_momsdeklarationen_ruta_for_ruta_sa')}>
-            <DataTable
-              columns={[
-                { key: 'ruta', label: t('ui.ruta'), width: '70px' },
-                { key: 'label', label: t('ui.beskrivning') },
-                { key: 'value', label: t('ui.belopp'), align: 'right', emphasize: true, render: r => formatSEK(r.value) },
-              ]}
-              rows={VAT_RUTOR.map(r => ({ ...r, value: valueForRuta(r) })).filter(r => !String(r.kind).startsWith('reverse') || r.value !== 0)}
-              rowKey={r => r.ruta}
-            />
-          </SheetPanel>
-        </div>
-      </div>
-    </ReportSheet>
-  );
-}
-
 // ── 6. Huvudbok ─────────────────────────────────────────────────────────
 function LedgerReport({ verifications, accounts, start, end }) {
   const ledger = useMemo(() => computeLedger(verifications, accounts, start, end), [verifications, accounts, start, end]);
@@ -817,8 +864,9 @@ function LedgerReport({ verifications, accounts, start, end }) {
 }
 
 // ── Arbetsblad ──────────────────────────────────────────────────────────
-// Sex kolumnpar (debet/kredit): råbalans, justeringar, justerad råbalans,
-// resultaträkning, balansräkning. Räkningen ligger i utils/worksheet.js.
+// Från råbalansen till resultat- och balansräkningen, konto för konto. Grupperat
+// som rapporterna med en delsumma per grupp. Justeringskolumnerna visas bara när
+// det finns justeringar: utan dem är de bara samma siffror en gång till.
 const wsNum = (v) => (v ? numberFormat('sv-SE', { maximumFractionDigits: 0 }).format(v) : '');
 const WS_GROUPS = [
   { key: 'raw', label: t('ui.rabalans') },
@@ -827,110 +875,155 @@ const WS_GROUPS = [
   { key: 'income', label: t('ui.resultatrakning') },
   { key: 'balance', label: t('ui.balansrakning') },
 ];
+const WS_GROUP_LABELS = {
+  assets: t('ui.tillgangar'),
+  equityAndLiabilities: t('ui.eget_kapital_och_skulder'),
+  income: t('ui.intakter'),
+  costs: t('ui.kostnader'),
+};
 
 function WorksheetReport({ verifications, accounts, start, end }) {
+  const { palette, amount } = useReportDisplay();
   const ws = useMemo(() => computeWorksheet(verifications, accounts, toISO(start), toISO(end)), [verifications, accounts, start, end]);
   if (ws.rows.length === 0) return <ReportSheet><EmptyState text={t('ui.inga_bokforda_transaktioner_for_denna_period')} /></ReportSheet>;
 
-  const th = { padding: '8px 10px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textAlign: 'right', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' };
-  const td = { padding: '7px 10px', fontSize: '13px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' };
-  const groupBorder = { borderLeft: '1px solid var(--border)' };
+  const columns = ws.hasAdjustments ? WS_GROUPS : WS_GROUPS.filter(g => g.key !== 'adjustments' && g.key !== 'adjusted');
+  const groups = groupWorksheetRows(ws.rows);
   const resultLabel = ws.yearResult >= 0 ? t('ui.arets_vinst') : t('ui.arets_forlust');
+  const inBalance = ws.rawInBalance && ws.balanceInBalance;
+  const flagged = new Set(ws.negativeReceivables.map(r => r.code));
+  const toSides = (v) => (v >= 0 ? { debet: 0, kredit: v } : { debet: -v, kredit: 0 });
+
+  const pair = (key, side) => (
+    <React.Fragment key={key}>
+      <td className="ws-first">{wsNum(side?.debet)}</td>
+      <td>{wsNum(side?.kredit)}</td>
+    </React.Fragment>
+  );
+  const resultRow = (key, label, cells) => (
+    <tr key={key} className="ws-result">
+      <td>{label}</td>
+      {columns.map(c => pair(c.key, cells[c.key]))}
+    </tr>
+  );
 
   return (
     <ReportSheet>
-      <SheetPanel
-        title={t('ui.arbetsblad')}
-        subtitle={t('ui.belopp_i_hela_kronor', { v0: ws.hasAdjustments ? 'Justeringarna är avskrivningar, periodiseringar och lagerjusteringar.' : 'Inga bokslutsjusteringar bokförda ännu. Bokför avskrivningar och periodiseringar under Skatt och bokslut.' })}
-      >
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
-          <StatTile label={resultLabel} value={formatSEK(Math.abs(ws.yearResult))} icon={ws.yearResult >= 0 ? TrendingUp : TrendingDown} tone={ws.yearResult >= 0 ? undefined : 'var(--status-red-text)'} />
+      <div className="sheet-grid">
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile label={resultLabel} value={amount.value(Math.abs(ws.yearResult))} icon={ws.yearResult >= 0 ? TrendingUp : TrendingDown} tone={ws.yearResult >= 0 ? palette.profit : palette.loss} />
+        </div>
+        <div className="sheet-span-4" style={cellBg}>
           <StatTile
-            label={t('ui.kontroll')}
-            value={ws.rawInBalance && ws.balanceInBalance ? t('ui.stammer') : t('ui.stammer_inte')}
-            icon={Scale}
-            context={ws.rawInBalance && ws.balanceInBalance ? t('ui.dk_gar_ihop') : t('ui.dk_gar_inte_ihop')}
-            accent={ws.rawInBalance && ws.balanceInBalance ? undefined : 'var(--status-red-text)'}
+            label={t('ui.justeringar')} value={ws.hasAdjustments ? amount.value(ws.adjustmentsTotal) : '0 kr'} icon={Scale} tone={palette.neutral}
+            context={ws.hasAdjustments ? t('ui.rapp_justeringar_finns') : t('ui.rapp_inga_justeringar')}
           />
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: '980px' }}>
-            <thead>
-              <tr>
-                <th rowSpan={2} style={{ ...th, textAlign: 'left' }}>{t('ui.konto_2')}</th>
-                {WS_GROUPS.map(g => <th key={g.key} colSpan={2} style={{ ...th, textAlign: 'center', ...groupBorder }}>{g.label}</th>)}
-              </tr>
-              <tr>
-                {WS_GROUPS.map(g => (
-                  <React.Fragment key={g.key}>
-                    <th style={{ ...th, ...groupBorder }}>{t('ui.debet')}</th>
-                    <th style={th}>{t('ui.kredit')}</th>
-                  </React.Fragment>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {ws.rows.map(r => (
-                <tr key={r.code} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                  <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal' }}>{r.code} {r.name}</td>
-                  {WS_GROUPS.map(g => (
-                    <React.Fragment key={g.key}>
-                      <td style={{ ...td, ...groupBorder }}>{wsNum(r[g.key].debet)}</td>
-                      <td style={td}>{wsNum(r[g.key].kredit)}</td>
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile
+            label={t('ui.kontroll')} value={inBalance ? t('ui.stammer') : t('ui.stammer_inte')} icon={Scale} tone={inBalance ? palette.profit : palette.loss}
+            context={inBalance ? t('ui.dk_gar_ihop') : t('ui.dk_gar_inte_ihop')}
+            accent={inBalance ? undefined : 'var(--status-red-text)'}
+          />
+        </div>
+
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel title={t('ui.arbetsblad')} subtitle={t('ui.rapp_arbetsblad_forklaring')}>
+            {ws.negativeReceivables.map(r => (
+              <div key={r.code} className="ws-note">
+                <AlertTriangle size={15} aria-hidden="true" />
+                <span>{t('ui.rapp_kundfordringar_kredit', { konto: `${r.code} ${r.name}`, belopp: formatSEK(r.amount) })}</span>
+              </div>
+            ))}
+            <div className="ws-scroll">
+              <table className="ws-table" style={{ minWidth: ws.hasAdjustments ? '980px' : '680px' }}>
+                <thead>
+                  <tr>
+                    <th rowSpan={2} scope="col" className="ws-account">{t('ui.konto_2')}</th>
+                    {columns.map(g => <th key={g.key} colSpan={2} scope="colgroup" className="ws-first ws-center">{g.label}</th>)}
+                  </tr>
+                  <tr>
+                    {columns.map(g => (
+                      <React.Fragment key={g.key}>
+                        <th scope="col" className="ws-first">{t('ui.debet')}</th>
+                        <th scope="col">{t('ui.kredit')}</th>
+                      </React.Fragment>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {groups.map(group => (
+                    <React.Fragment key={group.key}>
+                      <tr className="ws-group"><td colSpan={1 + columns.length * 2}>{WS_GROUP_LABELS[group.key]}</td></tr>
+                      {group.rows.map(r => (
+                        <tr key={r.code} className={flagged.has(r.code) ? 'ws-flagged' : undefined}>
+                          <td><span className="ws-code">{r.code}</span>{r.name}</td>
+                          {columns.map(c => pair(c.key, r[c.key]))}
+                        </tr>
+                      ))}
+                      <tr className="ws-sum">
+                        <td>{t('ui.summa')} {WS_GROUP_LABELS[group.key].toLowerCase()}</td>
+                        {columns.map(c => pair(c.key, group.totals[c.key]))}
+                      </tr>
                     </React.Fragment>
                   ))}
-                </tr>
-              ))}
-              {(ws.yearResult !== 0 || ws.priorResult !== 0) && (
-                <tr style={{ borderBottom: '1px solid var(--border-light)', fontStyle: 'italic' }}>
-                  <td style={{ ...td, textAlign: 'left' }}>{ws.priorResult !== 0 ? t('ui.och_tidigare_ars_resultat', { resultLabel }) : resultLabel}</td>
-                  <td colSpan={6} style={{ ...td, ...groupBorder }} />
-                  <td style={{ ...td, ...groupBorder }}>{wsNum(ws.incomeBalanced.debet - ws.totals.income.debet)}</td>
-                  <td style={td}>{wsNum(ws.incomeBalanced.kredit - ws.totals.income.kredit)}</td>
-                  <td style={{ ...td, ...groupBorder }}>{wsNum(ws.balanceWithResult.debet - ws.totals.balance.debet)}</td>
-                  <td style={td}>{wsNum(ws.balanceWithResult.kredit - ws.totals.balance.kredit)}</td>
-                </tr>
-              )}
-              <tr style={{ fontWeight: 800, borderTop: '2px solid var(--border)' }}>
-                <td style={{ ...td, textAlign: 'left' }}>{t('ui.summa')}</td>
-                {['raw', 'adjustments', 'adjusted'].map(k => (
-                  <React.Fragment key={k}>
-                    <td style={{ ...td, ...groupBorder }}>{wsNum(ws.totals[k].debet)}</td>
-                    <td style={td}>{wsNum(ws.totals[k].kredit)}</td>
-                  </React.Fragment>
-                ))}
-                <td style={{ ...td, ...groupBorder }}>{wsNum(ws.incomeBalanced.debet)}</td>
-                <td style={td}>{wsNum(ws.incomeBalanced.kredit)}</td>
-                <td style={{ ...td, ...groupBorder }}>{wsNum(ws.balanceWithResult.debet)}</td>
-                <td style={td}>{wsNum(ws.balanceWithResult.kredit)}</td>
-              </tr>
-            </tbody>
-          </table>
+                </tbody>
+                <tfoot>
+                  {ws.priorResult !== 0 && resultRow('prior', t('ui.rapp_tidigare_ars_resultat'), { raw: toSides(ws.priorResult), adjusted: toSides(ws.priorResult), balance: toSides(ws.priorResult) })}
+                  {ws.yearResult !== 0 && resultRow('year', resultLabel, {
+                    income: { debet: ws.incomeBalanced.debet - ws.totals.income.debet, kredit: ws.incomeBalanced.kredit - ws.totals.income.kredit },
+                    balance: toSides(ws.yearResult),
+                  })}
+                  <tr className="ws-total">
+                    <td>{t('ui.summa')}</td>
+                    {columns.map(c => pair(c.key, {
+                      raw: ws.rawWithPrior, adjustments: ws.totals.adjustments, adjusted: ws.adjustedWithPrior, income: ws.incomeBalanced, balance: ws.balanceWithResult,
+                    }[c.key]))}
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </SheetPanel>
         </div>
-      </SheetPanel>
+      </div>
     </ReportSheet>
   );
 }
 
 // ── Förändring av eget kapital ──────────────────────────────────────────
 function EquityReport({ verifications, accounts, start, end }) {
+  const { palette, amount } = useReportDisplay();
   const eq = useMemo(() => computeEquityStatement(verifications, accounts, toISO(start), toISO(end)), [verifications, accounts, start, end]);
   const hasData = eq.rows.some(r => !r.synthetic) || eq.yearResult !== 0;
   if (!hasData) return <ReportSheet><EmptyState text={t('ui.inget_eget_kapital_bokfort_for_denna_period')} /></ReportSheet>;
   return (
     <ReportSheet>
-      <SheetPanel title={t('ui.forandring_av_eget_kapital')} subtitle={t('ui.ingaende_saldo_forandring_under_perioden_och_utg')}>
-        <DataTable
-          columns={[
-            { key: 'name', label: t('ui.konto_2'), render: r => (r.code ? `${r.code} ${r.name}` : r.name) },
-            { key: 'opening', label: t('ui.ingaende'), align: 'right', render: r => formatSEK(r.opening) },
-            { key: 'movement', label: t('ui.forandring'), align: 'right', render: r => formatSEK(r.movement) },
-            { key: 'closing', label: t('ui.utgaende'), align: 'right', emphasize: true, render: r => formatSEK(r.closing) },
-          ]}
-          rows={[...eq.rows, { code: 'total', name: 'Summa eget kapital', opening: eq.totals.opening, movement: eq.totals.movement, closing: eq.totals.closing }]}
-          rowKey={(r, i) => `${r.code}_${i}`}
-        />
-      </SheetPanel>
+      <div className="sheet-grid">
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile label={t('ui.ingaende')} value={amount.value(eq.totals.opening)} icon={Wallet} tone={palette.neutral} />
+        </div>
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile label={t('ui.forandring')} value={amount.value(eq.totals.movement)} icon={eq.totals.movement >= 0 ? TrendingUp : TrendingDown} tone={eq.totals.movement >= 0 ? palette.profit : palette.loss} />
+        </div>
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile label={t('ui.utgaende')} value={amount.value(eq.totals.closing)} icon={Wallet} tone={palette.profit} />
+        </div>
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel title={t('ui.forandring_av_eget_kapital')} subtitle={t('ui.ingaende_saldo_forandring_under_perioden_och_utg')}>
+            <DataTable
+              columns={[
+                { key: 'name', label: t('ui.konto_2'), render: r => (r.code ? `${r.code} ${r.name}` : r.name) },
+                { key: 'opening', label: t('ui.ingaende'), align: 'right', render: r => formatSEK(r.opening) },
+                { key: 'movement', label: t('ui.forandring'), align: 'right', render: r => formatSEK(r.movement) },
+                { key: 'closing', label: t('ui.utgaende'), align: 'right', emphasize: true, render: r => formatSEK(r.closing) },
+              ]}
+              rows={eq.rows}
+              rowKey={(r, i) => `${r.code}_${i}`}
+              footer={[t('ui.summa'), formatSEK(eq.totals.opening), formatSEK(eq.totals.movement), formatSEK(eq.totals.closing)]}
+            />
+          </SheetPanel>
+        </div>
+      </div>
     </ReportSheet>
   );
 }
@@ -1021,99 +1114,15 @@ function PayrollReport({ payrollRuns, start, end }) {
   );
 }
 
-// ── 9. Årsrapport ───────────────────────────────────────────────────────
-// Ignorerar avsiktligt sidans valda period — en årsrapport är per
-// definition hela räkenskapsåret, oavsett vad som råkar vara valt i
-// listvyns period-väljare (samma resonemang som Taxes.jsx alltid använder
-// innevarande räkenskapsår, oberoende av Rapport och analys' egen filter).
-function AnnualReport({ verifications, accounts, company, isMobile }) {
-  const { palette, amount } = useReportDisplay();
-  const [chartType, setChartType] = useState('bar');
-  // Kodgranskning: `now`/fyStart/fyEnd räknades tidigare om som VANLIGA
-  // const:ar i komponentkroppen (inte i en useMemo), men listades ändå som
-  // useMemo-beroenden nedan — `new Date()` är ett NYTT objekt varje render,
-  // så jämförelsen mot förra rendern var aldrig lika och memoiseringen
-  // gjorde alltså ingenting alls (räknade om k/prevK/series/prevSeries på
-  // VARJE render, inte bara när verifications/accounts faktiskt ändrades).
-  // Hela datumintervallet i en enda useMemo, med `now` beräknad INUTI den
-  // — stabilt över omrenderingar tills company.fiscalYear faktiskt ändras.
-  // fiscalYearBounds (reportCalculations.js) återanvänds istället för att
-  // (som innan) räkna ut samma sak för hand igen här.
-  const { fyStart, fyEnd, prevStart, prevEnd } = useMemo(() => {
-    const now = new Date();
-    const { start: fyStart, end: fyNaturalEnd } = fiscalYearBounds(companyFiscalYearSetting(company), now);
-    const fyEnd = fyNaturalEnd < now ? fyNaturalEnd : now;
-    const prevStart = new Date(fyStart.getFullYear() - 1, fyStart.getMonth(), fyStart.getDate());
-    const prevEnd = new Date(fyEnd.getFullYear() - 1, fyEnd.getMonth(), fyEnd.getDate());
-    return { fyStart, fyEnd, prevStart, prevEnd };
-  }, [company?.fiscalYear]);
-
-  const k = useMemo(() => computeKeyFigures(verifications, accounts, fyStart, fyEnd), [verifications, accounts, fyStart, fyEnd]);
-  const prevK = useMemo(() => computeKeyFigures(verifications, accounts, prevStart, prevEnd), [verifications, accounts, prevStart, prevEnd]);
-  const series = useMemo(() => buildResultSeries(verifications, accounts, fyStart, fyEnd), [verifications, accounts, fyStart, fyEnd]);
-  const hasActivity = series.some(m => m.intakt !== 0 || m.kostnad !== 0);
-
-  if (!hasActivity) return <ReportSheet><EmptyState text={t('ui.ingen_bokford_data_annu_for_innevarande_rakenska')} /></ReportSheet>;
-
-  const summary = buildAnnualSummary({
-    omsattning: k.omsattning, prevOmsattning: prevK.omsattning,
-    resultat: k.resultat, prevResultat: prevK.resultat,
-    vinstmarginal: k.vinstmarginal, soliditet: k.soliditet,
-  });
-  const revenueExpenseData = series.map(m => ({ label: m.label, Intäkter: m.intakt, Utgifter: m.kostnad }));
-
-  return (
-    <ReportSheet>
-      <div className="sheet-grid">
-        <div className="sheet-span-12" style={cellBg}>
-          <SheetPanel title={t('ui.rakenskapsaret', { v0: fyStart.getFullYear(), v1: fyStart.getFullYear() !== fyEnd.getFullYear() ? `–${fyEnd.getFullYear()}` : '' })} subtitle={`${fmtDate(fyStart)} – ${fmtDate(fyEnd)}`}>
-            <p style={{ fontSize: '14px', color: 'var(--text-main)', lineHeight: 1.7, margin: 0 }}>{summary}</p>
-          </SheetPanel>
-        </div>
-
-        <div className="sheet-span-3" style={cellBg}>
-          <StatTile label={t('ui.omsattning')} value={amount.value(k.omsattning)} icon={TrendingUp} tone={palette.income} delta={formatDelta(k.omsattning, prevK.omsattning)} />
-        </div>
-        <div className="sheet-span-3" style={cellBg}>
-          <StatTile
-            label={t('ui.resultat')} value={amount.value(k.resultat)} icon={k.resultat >= 0 ? TrendingUp : TrendingDown}
-            tone={k.resultat >= 0 ? palette.profit : palette.loss} accent={k.resultat >= 0 ? palette.profit : palette.loss}
-            delta={formatDelta(k.resultat, prevK.resultat)}
-          />
-        </div>
-        <div className="sheet-span-3" style={cellBg}>
-          <StatTile label={t('ui.vinstmarginal')} value={fmtPct(k.vinstmarginal)} icon={Percent} tone={palette.neutral} />
-        </div>
-        <div className="sheet-span-3" style={cellBg}>
-          <StatTile label={t('ui.soliditet')} value={fmtPct(k.soliditet)} icon={Scale} tone={palette.neutral} />
-        </div>
-
-        <div className="sheet-span-12" style={cellBg}>
-          <SheetPanel
-            title={t('ui.resultat_per_manad')}
-            legend={<InlineLegend items={[{ label: t('ui.intakter'), color: palette.income }, { label: t('ui.utgifter'), color: palette.cost }]} />}
-            controls={<ChartTypeToggle value={chartType} onChange={setChartType} options={TREND_CHART_TYPES} />}
-          >
-            <RevenueExpenseChart data={revenueExpenseData} isMobile={isMobile} height={CHART_H_MAIN} variant={chartType} />
-          </SheetPanel>
-        </div>
-      </div>
-    </ReportSheet>
-  );
-}
-
-// ── 10. Kvartalsrapport ─────────────────────────────────────────────────
-function QuarterlyReport({ verifications, accounts, payrollRuns, company }) {
-  const { palette, amount } = useReportDisplay();
-  // Samma fix/resonemang som AnnualReport ovan: `now`/fyStart i en enda
-  // useMemo (stabil tills company.fiscalYear ändras, inte ett nytt
-  // Date-objekt varje render) + fiscalYearBounds återanvänd istället för
-  // handuträknad igen.
+// ── Kvartal ─────────────────────────────────────────────────────────────
+// Räkenskapsåret kvartal för kvartal med moms och arbetsgivaravgifter, ligger
+// sist i Resultaträkningen. Alltid innevarande räkenskapsår, oavsett vald period.
+function QuarterPanel({ verifications, accounts, payrollRuns, company }) {
   const { fyStart, now } = useMemo(() => {
     const now = new Date();
     const { start: fyStart } = fiscalYearBounds(companyFiscalYearSetting(company), now);
     return { fyStart, now };
-  }, [company?.fiscalYear]);
+  }, [company]);
 
   const tablesReady = usePayrollPreload(payrollRuns);
 
@@ -1128,165 +1137,38 @@ function QuarterlyReport({ verifications, accounts, payrollRuns, company }) {
       const kostnader = sumFlowByType(verifications, accounts, 'kostnad', qStart, qEnd);
       const vat = computeVatPeriod({ verifications, periodStart: toISO(qStart), periodEnd: toISO(qEnd) });
       const payroll = tablesReady ? aggregatePayroll(payrollRuns, qStart, qEnd) : { totals: { employerFee: 0 } };
-      list.push({ label: t('ui.kvartal_2', { v0: q + 1 }), start: qStart, end: qEnd, omsattning, kostnader, resultat: omsattning - kostnader, momsAttBetala: vat.netToPay, arbetsgivaravgifter: payroll.totals.employerFee });
+      list.push({ label: t('ui.kvartal_2', { v0: q + 1 }), omsattning, resultat: omsattning - kostnader, momsAttBetala: vat.netToPay, arbetsgivaravgifter: payroll.totals.employerFee });
     }
     return list;
   }, [verifications, accounts, payrollRuns, tablesReady, fyStart, now]);
 
-  if (quarters.every(q => q.omsattning === 0 && q.kostnader === 0)) {
-    return <ReportSheet><EmptyState text={t('ui.ingen_bokford_data_annu_for_innevarande_rakenska')} /></ReportSheet>;
-  }
-
-  const totalOmsattning = quarters.reduce((s, q) => s + q.omsattning, 0);
-  const totalResultat = quarters.reduce((s, q) => s + q.resultat, 0);
-  const chartData = quarters.map(q => ({ label: q.label, Intäkter: q.omsattning, Utgifter: q.kostnader }));
-
   return (
-    <ReportSheet>
-      <div className="sheet-grid">
-        <div className="sheet-span-6" style={cellBg}>
-          <StatTile label={t('ui.omsattning_hittills_i_ar')} value={amount.value(totalOmsattning)} icon={TrendingUp} tone={palette.income} />
-        </div>
-        <div className="sheet-span-6" style={cellBg}>
-          <StatTile
-            label={t('ui.resultat_hittills_i_ar')} value={amount.value(totalResultat)} icon={totalResultat >= 0 ? TrendingUp : TrendingDown}
-            tone={totalResultat >= 0 ? palette.profit : palette.loss} accent={totalResultat >= 0 ? palette.profit : palette.loss}
-          />
-        </div>
-
-        <div className="sheet-span-12" style={cellBg}>
-          <SheetPanel
-            title={t('ui.omsattning_per_kvartal')} subtitle={t('ui.rakenskapsaret_som_startade', { v0: fmtDate(fyStart) })}
-            legend={<InlineLegend items={[{ label: t('ui.intakter'), color: palette.income }, { label: t('ui.utgifter'), color: palette.cost }]} />}
-          >
-            <RevenueExpenseChart data={chartData} isMobile={false} height={CHART_H_SIDE} variant="bar" />
-          </SheetPanel>
-        </div>
-
-        <div className="sheet-span-12" style={cellBg}>
-          <SheetPanel title={t('ui.kvartal_for_kvartal')}>
-            <DataTable
-              columns={[
-                { key: 'label', label: t('ui.kvartal'), emphasize: true },
-                { key: 'omsattning', label: t('ui.omsattning'), align: 'right', render: r => formatSEK(r.omsattning) },
-                { key: 'resultat', label: t('ui.resultat'), align: 'right', emphasize: true, render: r => formatSEK(r.resultat) },
-                { key: 'momsAttBetala', label: t('ui.moms_att_betala'), align: 'right', render: r => formatSEK(r.momsAttBetala) },
-                { key: 'arbetsgivaravgifter', label: t('ui.arbetsgivaravgifter'), align: 'right', render: r => tablesReady ? formatSEK(r.arbetsgivaravgifter) : '…' },
-                {
-                  key: 'trend', label: t('ui.utveckling'), align: 'right', render: (r, i) => {
-                    if (i === 0) return '—';
-                    const prev = quarters[i - 1];
-                    const delta = formatDelta(r.resultat, prev.resultat);
-                    if (!delta) return '—';
-                    return (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: delta.good === null ? 'var(--text-muted)' : delta.good ? 'var(--status-green-text)' : 'var(--status-red-text)', fontWeight: 600 }}>
-                        {delta.good !== null && (delta.good ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />)}
-                        {delta.text.split(' mot')[0]}
-                      </span>
-                    );
-                  },
-                },
-              ]}
-              rows={quarters}
-              rowKey={r => r.label}
-            />
-          </SheetPanel>
-        </div>
-      </div>
-    </ReportSheet>
+    <SheetPanel title={t('ui.kvartal_for_kvartal')} subtitle={t('ui.rakenskapsaret_som_startade', { v0: fmtDate(fyStart) })}>
+      <DataTable
+        columns={[
+          { key: 'label', label: t('ui.kvartal'), emphasize: true },
+          { key: 'omsattning', label: t('ui.omsattning'), align: 'right', render: r => formatSEK(r.omsattning) },
+          { key: 'resultat', label: t('ui.resultat'), align: 'right', emphasize: true, render: r => formatSEK(r.resultat) },
+          { key: 'momsAttBetala', label: t('ui.moms_att_betala'), align: 'right', render: r => formatSEK(r.momsAttBetala) },
+          { key: 'arbetsgivaravgifter', label: t('ui.arbetsgivaravgifter'), align: 'right', render: r => (tablesReady ? formatSEK(r.arbetsgivaravgifter) : '…') },
+        ]}
+        rows={quarters}
+        rowKey={r => r.label}
+      />
+    </SheetPanel>
   );
 }
 
-// ── 11. Månadsrapport ───────────────────────────────────────────────────
-function MonthlyReport({ verifications, accounts }) {
-  const { palette, amount } = useReportDisplay();
-  const months = useMemo(() => {
-    const now = new Date();
-    const list = [];
-    for (let i = 12; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const mStart = new Date(d.getFullYear(), d.getMonth(), 1);
-      const mNaturalEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-      const mEnd = mNaturalEnd < now ? mNaturalEnd : now;
-      const omsattning = sumFlowByType(verifications, accounts, 'intakt', mStart, mEnd);
-      const kostnader = sumFlowByType(verifications, accounts, 'kostnad', mStart, mEnd);
-      list.push({ label: dateTimeFormat(dateLocale(), { month: 'short', year: '2-digit' }).format(d), start: mStart, end: mEnd, omsattning, kostnader, resultat: omsattning - kostnader });
-    }
-    return list;
-  }, [verifications, accounts]);
-
-  const latest = months[months.length - 1];
-  const prior = months.slice(0, -1);
-  const avgPriorResultat = prior.length ? prior.reduce((s, m) => s + m.resultat, 0) / prior.length : 0;
-  const avgPriorOmsattning = prior.length ? prior.reduce((s, m) => s + m.omsattning, 0) / prior.length : 0;
-
-  const hasActivity = months.some(m => m.omsattning !== 0 || m.kostnader !== 0);
-  if (!hasActivity) return <ReportSheet><EmptyState text={t('ui.ingen_bokford_data_annu')} /></ReportSheet>;
-
-  // Avvikelse: >30% avvikelse mot snittet av de 12 föregående månaderna
-  // flaggas — en tydlig, förklarad tröskel istället för en gissad "känsla".
-  const deviationFlag = (value, avg) => {
-    if (!avg) return null;
-    const pct = ((value - avg) / Math.abs(avg)) * 100;
-    if (Math.abs(pct) < 30) return null;
-    return { pct, up: pct > 0 };
-  };
-  const omsDeviation = deviationFlag(latest.omsattning, avgPriorOmsattning);
-  const resDeviation = deviationFlag(latest.resultat, avgPriorResultat);
-  const chartData = months.map(m => ({ label: m.label, Intäkter: m.omsattning, Utgifter: m.kostnader }));
-
+// ── Bokslutsunderlag ────────────────────────────────────────────────────
+function ClosingReport(props) {
+  const [tab, setTab] = useState('worksheet');
   return (
-    <ReportSheet>
-      <div className="sheet-grid">
-        <div className="sheet-span-6" style={cellBg}>
-          <StatTile
-            label={t('ui.omsattning_senaste_manaden')} value={amount.value(latest.omsattning)} icon={TrendingUp} tone={palette.income}
-            delta={omsDeviation ? { text: t('ui.mot_snittet', { v0: omsDeviation.up ? '+' : '', v1: formatPct(omsDeviation.pct, 0) }), good: omsDeviation.up } : null}
-            context={!omsDeviation ? `snitt ${formatSEK(avgPriorOmsattning)}` : undefined}
-          />
-        </div>
-        <div className="sheet-span-6" style={cellBg}>
-          <StatTile
-            label={t('ui.resultat_senaste_manaden')} value={amount.value(latest.resultat)} icon={latest.resultat >= 0 ? TrendingUp : TrendingDown}
-            tone={latest.resultat >= 0 ? palette.profit : palette.loss} accent={latest.resultat >= 0 ? palette.profit : palette.loss}
-            delta={resDeviation ? { text: t('ui.mot_snittet', { v0: resDeviation.up ? '+' : '', v1: formatPct(resDeviation.pct, 0) }), good: resDeviation.up } : null}
-            context={!resDeviation ? `snitt ${formatSEK(avgPriorResultat)}` : undefined}
-          />
-        </div>
-
-        {(omsDeviation || resDeviation) && (
-          <div className="sheet-span-12" style={cellBg}>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', padding: '14px 28px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
-              <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-              <span>{t('ui.markant_avvikelse_30_mot_de_tolv_foregaende_mana')} {latest.label} {t('ui.vart_en_extra_koll_men_inte_nodvandigtvis_fel')}</span>
-            </div>
-          </div>
-        )}
-
-        <div className="sheet-span-12" style={cellBg}>
-          <SheetPanel
-            title={t('ui.de_senaste_13_manaderna')} subtitle={t('ui.jamfort_med_snittet_av_de_tolv_foregaende_manade')}
-            legend={<InlineLegend items={[{ label: t('ui.intakter'), color: palette.income }, { label: t('ui.utgifter'), color: palette.cost }]} />}
-          >
-            <RevenueExpenseChart data={chartData} isMobile={false} height={CHART_H_MAIN} variant="bar" />
-          </SheetPanel>
-        </div>
-
-        <div className="sheet-span-12" style={cellBg}>
-          <SheetPanel title={t('ui.de_senaste_13_manaderna_i_siffror')}>
-            <DataTable
-              columns={[
-                { key: 'label', label: t('ui.manad') },
-                { key: 'omsattning', label: t('ui.omsattning'), align: 'right', render: r => formatSEK(r.omsattning) },
-                { key: 'kostnader', label: t('ui.kostnader'), align: 'right', render: r => formatSEK(r.kostnader) },
-                { key: 'resultat', label: t('ui.resultat'), align: 'right', emphasize: true, render: r => formatSEK(r.resultat) },
-              ]}
-              rows={[...months].reverse()}
-              rowKey={r => r.label}
-            />
-          </SheetPanel>
-        </div>
-      </div>
-    </ReportSheet>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <ChartTypeToggle
+        value={tab} onChange={setTab} label={t('ui.rapp_bokslutsunderlag')}
+        options={[{ id: 'worksheet', label: t('ui.arbetsblad') }, { id: 'equity', label: t('ui.forandring_av_eget_kapital') }]}
+      />
+      {tab === 'worksheet' ? <WorksheetReport {...props} /> : <EquityReport {...props} />}
+    </div>
   );
 }
