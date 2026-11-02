@@ -6,7 +6,7 @@ import { BRAND } from '../../../utils/brandColors';
 import { toolBySlug } from './toolsConfig';
 import ToolShell, { ToolNote } from './ToolShell';
 import { ocrFile } from '../../../utils/ocrReceipt';
-import { analyzeReceipt, buildReceiptPlan } from '../../../utils/receiptScan';
+import { analyzeReceipt, bookingPreview, buildReceiptPlan } from '../../../utils/receiptScan';
 import { freeGoogleReadLeft, readFreeWithGoogle } from '../../../utils/ocrFree';
 import { DEFAULT_ACCOUNTS } from '../../AccountsData';
 import { MIN_SCAN_MS, REVEAL_STEP_MS, SCAN_MESSAGES, photoHintText } from '../../shared/ScanExperience';
@@ -19,7 +19,7 @@ const tool = toolBySlug('skanna-kvitto');
 // någonstans, precis som resten av sidan.
 const ACCOUNT_NAME = Object.fromEntries(DEFAULT_ACCOUNTS.map(a => [a.code, a.name]));
 
-const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
 
 // Grov, ärlig uppskattning av var i hela läsningen (fil → text → klar) ett
 // givet statusmeddelande från ocrReceipt.js:s onProgress-callback ligger,
@@ -53,6 +53,22 @@ function fmtAmount(n) {
 }
 
 const FIELD_NAMES = { supplier: 'Leverantör', date: 'Datum', receiptNumber: 'Nummer', amount: 'Belopp', vatRate: 'Moms', costAccount: 'Konto' };
+
+// Fakturans övriga uppgifter. Raderna visas bara när de står på dokumentet,
+// ett butikskvitto ska inte fyllas med "Hittades inte".
+function buildExtraFields({ details, netAmount, parsed }) {
+  const rows = [];
+  const push = (label, value, guess) => {
+    if (value) rows.push({ label, field: { found: true, state: guess ? 'guess' : 'found', value, note: '' } });
+  };
+  if (netAmount !== null) push('Exkl. moms', `${fmtAmount(netAmount)} ${parsed.currency || 'kr'}`);
+  push('Org.nr', details?.orgNr, details?.orgNrGuessed);
+  push('Förfallo', details?.dueDate);
+  push('OCR', details?.ocrNumber, details?.ocrNumberGuessed);
+  push('Bankgiro', details?.bankgiro, details?.bankgiroGuessed);
+  push('Plusgiro', details?.plusgiro, details?.plusgiroGuessed);
+  return rows;
+}
 
 function buildFields(analysis, plan) {
   const { parsed, supplierName, amountSek, foreignInfo } = analysis;
@@ -220,11 +236,16 @@ export default function ScanReceiptPage() {
       setBeamPct(100);
       const { parsed } = analysis;
       const unreadable = Boolean(parsed.unreadable);
-      const fields = buildFields(analysis, buildReceiptPlan(analysis, null));
+      const plan = buildReceiptPlan(analysis, null);
+      const fields = buildFields(analysis, plan);
+      const costAccount = plan.find(step => step.key === 'costAccount')?.suggest?.code || null;
       const found = !unreadable && !parsed.notReceipt ? analysis.boxes : null;
       setBoxes(found);
       setEngine(read.lines !== undefined ? 'google' : 'local');
-      setResult({ fields, notReceipt: !unreadable && Boolean(parsed.notReceipt), unreadable, photoHint: analysis.hint });
+      setResult({
+        fields, notReceipt: !unreadable && Boolean(parsed.notReceipt), unreadable, photoHint: analysis.hint,
+        extras: buildExtraFields(analysis), booking: bookingPreview(analysis, costAccount), readText: analysis.readText,
+      });
       setStatus('done');
       fields.forEach((field, i) => {
         setTimeout(() => {
@@ -381,6 +402,16 @@ export default function ScanReceiptPage() {
             .bx-scan-row.is-found .bx-scan-state { color: var(--mkt-accent-green-fg); }
             .bx-scan-row.is-guess .bx-scan-state, .bx-scan-row.is-suggest .bx-scan-state { color: #b45309; }
             html[data-theme="dark"] .bx-scan-row.is-guess .bx-scan-state, html[data-theme="dark"] .bx-scan-row.is-suggest .bx-scan-state { color: #fbbf24; }
+            .bx-scan-extras { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--mkt-border-soft); }
+            .bx-scan-book { margin-top: 18px; }
+            .bx-scan-book h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: ${INK}; }
+            .bx-scan-book table { width: 100%; border-collapse: collapse; font-size: 13px; color: ${INK_SOFT}; font-variant-numeric: tabular-nums; }
+            .bx-scan-book th { padding: 6px 0; text-align: right; font-size: 12px; font-weight: 500; color: ${MUTED}; border-bottom: 1px solid var(--mkt-border-soft); }
+            .bx-scan-book td { padding: 7px 0 7px 12px; text-align: right; border-bottom: 1px solid var(--mkt-border-soft); }
+            .bx-scan-book th:first-child, .bx-scan-book td:first-child { padding-left: 0; padding-right: 12px; text-align: left; }
+            .bx-scan-text { margin-top: 16px; font-size: 13px; color: ${MUTED}; }
+            .bx-scan-text summary { cursor: pointer; font-weight: 600; width: fit-content; color: ${INK_SOFT}; }
+            .bx-scan-text pre { margin: 8px 0 0; padding: 12px; max-height: 260px; overflow: auto; border: 1px solid var(--mkt-border-soft); border-radius: 10px; font-size: 12px; line-height: 1.5; color: ${INK_SOFT}; white-space: pre-wrap; overflow-wrap: anywhere; }
             .bx-scan-note { margin: 16px 0 0; font-size: 13px; line-height: 1.6; color: ${INK_SOFT}; }
             .bx-scan-note.is-warn { color: #b45309; font-weight: 600; }
             html[data-theme="dark"] .bx-scan-note.is-warn { color: #fbbf24; }
@@ -417,6 +448,37 @@ export default function ScanReceiptPage() {
               />
             ))}
           </div>
+
+          {status === 'done' && result && revealedCount >= result.fields.length && result.extras.length > 0 && (
+            <div className="bx-scan-extras">
+              {result.extras.map(row => <ScanRow key={row.label} label={row.label} field={row.field} revealed />)}
+            </div>
+          )}
+
+          {status === 'done' && result?.booking && revealedCount >= result.fields.length && (
+            <div className="bx-scan-book">
+              <h3>Så blir den bokförd i Bokix</h3>
+              <table>
+                <thead><tr><th>Konto</th><th>Debet</th><th>Kredit</th></tr></thead>
+                <tbody>
+                  {result.booking.map(row => (
+                    <tr key={row.account || 'kostnad'}>
+                      <td>{row.account ? `${row.account} ${ACCOUNT_NAME[row.account] || ''}` : 'Kostnadskonto väljer du'}</td>
+                      <td>{row.debit ? fmtAmount(row.debit) : ''}</td>
+                      <td>{row.credit ? fmtAmount(row.credit) : ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {status === 'done' && result?.readText && revealedCount >= result.fields.length && !result.unreadable && (
+            <details className="bx-scan-text">
+              <summary>Visa texten som lästes</summary>
+              <pre>{result.readText}</pre>
+            </details>
+          )}
 
           {status === 'done' && result && revealedCount >= result.fields.length && (
             (result.notReceipt || result.unreadable || result.photoHint) ? (

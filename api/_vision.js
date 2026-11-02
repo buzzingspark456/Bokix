@@ -14,9 +14,9 @@ const MAX_BASE64_CHARS = 3_500_000;
 const VISION_TIMEOUT_MS = 15000;
 
 // Läsningar per kalendermånad för appen och gratisverktyget tillsammans.
-// Beslut 2026-10-24: 20 000. De första 1 000 är gratis hos Google, resten
+// Beslut 2026-11-02: 50 000. De första 1 000 är gratis hos Google, resten
 // kostar runt 1,50 USD per 1 000. Går att ändra med OCR_VISION_MONTHLY_LIMIT.
-export const MONTHLY_LIMIT = Number(process.env.OCR_VISION_MONTHLY_LIMIT) || 20000;
+export const MONTHLY_LIMIT = Number(process.env.OCR_VISION_MONTHLY_LIMIT) || 50000;
 export const monthQuotaKey = (now = new Date()) => `ocr-vision-month:${now.toISOString().slice(0, 7)}`;
 export const MONTH_WINDOW_MS = 32 * 24 * 60 * 60 * 1000;
 

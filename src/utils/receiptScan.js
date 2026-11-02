@@ -3,7 +3,8 @@
 // utländsk valuta och planen för vilka fält som fylls i och hur säkert.
 // Delas av appens kvittovy (Expenses.jsx) och gratisverktyget Skanna kvitto
 // (ScanReceiptPage.jsx), så att de alltid ger samma resultat för samma kvitto.
-import { parseReceiptText } from './ocrReceipt';
+import { parseReceiptText, READING_SEPARATOR } from './ocrReceipt';
+import { readInvoiceDetails } from './invoiceDetails';
 import { locateFieldBoxes } from './ocrFieldBoxes';
 import { sellerTaxIds, prettifyCompanyName } from './supplierRegistry';
 import { lookupVatName } from './companyLookup';
@@ -17,12 +18,20 @@ const REGISTRY_TIMEOUT_MS = 7000;
  * Tolkar en läsning ({ text, confidence, weakTokens, quality, layout }).
  * `ownCompany` ({ orgNr, vatNr }) hindrar att köparens egna nummer slås upp
  * som säljarens. `onMessage` får statustexten medan registret och kursen hämtas.
- * Svarar { parsed, boxes, registryName, supplierName, hint, amountSek, foreignInfo }.
+ * Svarar { parsed, boxes, registryName, supplierName, hint, amountSek, foreignInfo,
+ * details, netAmount, readText }. `details` är fakturauppgifterna
+ * (invoiceDetails.js), `readText` texten som lästes, för Visa texten som lästes.
  */
 export async function analyzeReceipt(read, { ownCompany = {}, onMessage = () => {} } = {}) {
   const { text, confidence, weakTokens, quality, layout } = read;
   const parsed = parseReceiptText(text, { confidence, weakTokens });
   const boxes = layout ? locateFieldBoxes(layout, parsed) : null;
+  const readText = String(text || '').split(READING_SEPARATOR)[0].trim();
+  const details = parsed.notReceipt
+    ? null
+    : readInvoiceDetails(readText, { own: ownCompany, invoiceDate: parsed.date });
+  const netAmount = !parsed.notReceipt && parsed.amount && parsed.vatAmount !== null && parsed.vatAmount !== undefined
+    ? Math.round((parsed.amount - parsed.vatAmount) * 100) / 100 : null;
 
   // Leverantören inte säkert känd: slå upp säljarens momsnummer eller
   // organisationsnummer i EU:s momsregister. Registrets namn är det
@@ -60,7 +69,7 @@ export async function analyzeReceipt(read, { ownCompany = {}, onMessage = () => 
     foreignInfo = { code: parsed.currency, amount: parsed.amount, converted };
   }
 
-  return { parsed, boxes: boxes && Object.keys(boxes).length > 0 ? boxes : null, registryName, supplierName, hint, amountSek, foreignInfo };
+  return { parsed, boxes: boxes && Object.keys(boxes).length > 0 ? boxes : null, registryName, supplierName, hint, amountSek, foreignInfo, details, netAmount, readText };
 }
 
 /**
@@ -109,4 +118,57 @@ export function buildReceiptPlan({ parsed, registryName, supplierName, amountSek
         ? { code: parsed.accountCode, source: parsed.accountSource, choices: parsed.accountChoices || null } : null,
     },
   ];
+}
+
+/**
+ * Verifikationen som kvittot skulle bli, för gratisverktyget. Bara när beloppet
+ * och momsen stod på dokumentet; omvänd moms, retur och utländsk valuta
+ * räknas fram i appen och visas inte här. En faktura med förfallodatum blir
+ * en leverantörsskuld, ett kvitto är redan betalt. Utan känt konto står
+ * kostnadsraden utan konto, så att användaren ser att det ska väljas.
+ */
+export function bookingPreview({ parsed, details, netAmount }, costAccount = null) {
+  if (parsed.notReceipt || parsed.currency || parsed.reverseCharge || parsed.creditNote) return null;
+  if (!parsed.amount || netAmount === null || !parsed.vatVerified) return null;
+  const unpaid = parsed.documentKind === 'invoice' && Boolean(details?.dueDate);
+  const paidFrom = unpaid ? '2440' : (parsed.paymentMethod === 'cash' ? '1910' : '1930');
+  const rows = [{ account: costAccount, debit: netAmount }];
+  if (parsed.vatAmount > 0) rows.push({ account: '2641', debit: parsed.vatAmount });
+  rows.push({ account: paidFrom, credit: parsed.amount });
+  return rows;
+}
+
+const foldName = (s) => String(s || '').trim().toLowerCase();
+const onlyDigits = (s) => String(s || '').replace(/\D/g, '');
+
+/**
+ * Vad en avläst faktura fyller i på en leverantörsfaktura. Leverantören söks
+ * bland kontakterna (org.nr först, sedan namnet), och kontot följer samma
+ * regel som kvitton: det fylls bara i när företaget bokfört leverantören
+ * förut, annars blir det ett förslag. Svarar null för något som inte är en
+ * faktura eller ett kvitto.
+ */
+export function supplierInvoiceFill(analysis, { contacts = [], expenses = [] } = {}) {
+  const { parsed, details, supplierName, netAmount } = analysis;
+  if (parsed.notReceipt || parsed.unreadable) return null;
+  const suppliers = contacts.filter(c => c.type === 'supplier');
+  const org = onlyDigits(details?.orgNr);
+  const supplier = (org && suppliers.find(c => onlyDigits(c.orgNr).slice(-10) === org))
+    || suppliers.find(c => foldName(c.name) === foldName(supplierName))
+    || null;
+  const earlier = supplier
+    ? expenses.filter(e => e.supplierId === supplier.id && e.rows?.[0]?.account)
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))[0]
+    : null;
+  const reverse = Boolean(parsed.reverseCharge);
+  const account = earlier?.rows[0].account || (reverse ? parsed.accountCode : null) || null;
+  const suggestion = !account && parsed.accountCode && !parsed.accountGuessed ? parsed.accountCode : null;
+  const mixed = !reverse && Boolean(parsed.vatRates);
+  const rate = reverse ? 0 : parsed.vatRate;
+  let net = null;
+  if (parsed.amount && !mixed) {
+    if (reverse) net = parsed.amount;
+    else net = netAmount ?? Math.round((parsed.amount / (1 + rate / 100)) * 100) / 100;
+  }
+  return { supplier, supplierName, account, suggestion, net, rate, mixed, reverse, details };
 }

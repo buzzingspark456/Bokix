@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp } from '../icons';
 import { useTranslation } from '../../i18n';
 import { haptic } from '../../utils/haptics';
@@ -18,6 +18,29 @@ import SwipeRow from './SwipeRow';
 // inte här — se kommentaren vid .lt-cell för varför (inline style vinner
 // alltid över mobilens @media-override annars).
 const HEAD_CELL_PADDING = '12px 16px';
+
+// Hur många rader som ritas åt gången. Ett stort företag har tusentals
+// fakturor, och "Visa alla" på 5 400 rader gav 160 000 element och låste
+// webbläsaren. Resten ritas när man närmar sig slutet av listan.
+const ROWS_AT_ONCE = 200;
+
+function MoreRows({ left, onMore }) {
+  const { t } = useTranslation();
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!ref.current || typeof IntersectionObserver === 'undefined') return undefined;
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) onMore();
+    }, { rootMargin: '600px' });
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [left, onMore]);
+  return (
+    <div ref={ref} className="lt-more">
+      <button type="button" onClick={onMore}>{t('ui.visa_fler_rader', { count: left })}</button>
+    </div>
+  );
+}
 
 /**
  * Delad listtabell.
@@ -85,6 +108,9 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
   const { t } = useTranslation();
   const resolvedEmptyMessage = emptyMessage ?? t('shared.listTable.emptyMessage');
   const colSpan = columns.length + (selectable ? 1 : 0);
+  const [shownCount, setShownCount] = useState(ROWS_AT_ONCE);
+  const showMore = useCallback(() => setShownCount(n => n + ROWS_AT_ONCE), []);
+  const shownRows = rows.length > shownCount ? rows.slice(0, shownCount) : rows;
 
   // Markering på telefon, som i iPhones Mail och Filer: inga kryssrutor
   // förrän man håller fingret på en rad. Då markeras raden, kryssrutorna
@@ -214,7 +240,7 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
                 {resolvedEmptyMessage}
               </td>
             </tr>
-          ) : rows.map((row, i) => {
+          ) : shownRows.map((row, i) => {
             const key = rowKey(row);
             const expanded = Boolean(isExpanded?.(row));
             return (
@@ -229,7 +255,7 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
                 <tr
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   style={{
-                    borderBottom: expanded ? 'none' : (i < rows.length - 1 ? '1px solid var(--border-light)' : 'none'),
+                    borderBottom: expanded ? 'none' : (i < shownRows.length - 1 ? '1px solid var(--border-light)' : 'none'),
                     background: expanded ? 'var(--status-green-bg)' : undefined,
                     cursor: onRowClick ? 'pointer' : 'default', transition: 'background 0.1s',
                     ...rowStyle?.(row),
@@ -268,7 +294,7 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
                   ))}
                 </tr>
                 {expanded && renderExpanded && (
-                  <tr style={{ borderBottom: i < rows.length - 1 ? '1px solid var(--border-light)' : 'none' }}>
+                  <tr style={{ borderBottom: i < shownRows.length - 1 ? '1px solid var(--border-light)' : 'none' }}>
                     <td colSpan={colSpan} className="td-detail" style={{ padding: 0, background: 'var(--status-green-bg)' }}>
                       {renderExpanded(row)}
                     </td>
@@ -293,7 +319,7 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
         <div className="lt-mobile-list" data-selecting={mobileSelecting ? 'true' : undefined}>
           {rows.length === 0 ? (
             <div className="lt-mobile-empty">{resolvedEmptyMessage}</div>
-          ) : rows.map((row, i) => {
+          ) : shownRows.map((row, i) => {
             const key = rowKey(row);
             const expanded = Boolean(isExpanded?.(row));
             const m = mobileList(row, i);
@@ -357,6 +383,7 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
           })}
         </div>
       )}
+      {rows.length > shownCount && <MoreRows left={rows.length - shownCount} onMore={showMore} />}
     </div>
   );
 }

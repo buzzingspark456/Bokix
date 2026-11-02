@@ -129,6 +129,9 @@ export const ACCOUNT_KEYWORD_RULES = [
   // förbrukningsmaterial (5460, nedan), inte städning, därför de exakta orden.
   { re: /städning|städtjänst|städservice|städfirma|storstädning|flyttstädning|lokalvård/, code: '5061' },
   { re: /sophämtning|renhållningsavgift|avfallshämtning|avfallsavgift/, code: '5062' },
+  // 5480 Arbetskläder. Kläder ska vara arbetskläder för att vara avdragsgilla,
+  // så det är ett förslag att kontrollera, aldrig ett ifyllt konto.
+  { re: /arbetskläder|arbetsbyxor|arbetsjacka|arbetsskor|skyddsskor|skyddskläder|skyddshandskar|varselkläder|varseljacka|byxor|jeans|jacka|tröja|t-shirt/, code: '5480' },
   { re: /snöröjning|snöskottning|halkbekämpning/, code: '5064' },
   { re: /trädgårdsskötsel|gräsklippning/, code: '5065' },
   // 5030 Värme, 5040 Vatten och avlopp.

@@ -19,7 +19,7 @@ function markUsed() {
  */
 export async function readFreeWithGoogle(file, captchaToken) {
   if (!freeGoogleReadLeft()) return { used: true };
-  const { documentForCloud } = await import('./ocrReceipt');
+  const { documentForCloud, laterPdfPagesText } = await import('./ocrReceipt');
   const doc = await documentForCloud(file).catch(() => null);
   if (!doc) return null;
   const controller = new AbortController();
@@ -38,7 +38,8 @@ export async function readFreeWithGoogle(file, captchaToken) {
     markUsed();
     const text = typeof payload?.text === 'string' && payload.text.trim() ? payload.text : null;
     if (!text) return null;
-    return { text, lines: Array.isArray(payload.lines) ? payload.lines : null };
+    const laterPages = await laterPdfPagesText(file);
+    return { text: laterPages ? `${text}\n${laterPages}` : text, lines: Array.isArray(payload.lines) ? payload.lines : null };
   } catch {
     return null;
   } finally {

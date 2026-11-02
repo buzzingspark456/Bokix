@@ -14,7 +14,7 @@
  * (Bank.jsx), som annars hade fått en egen, garanterat framtida-omatchad
  * kopia av samma regler.
  */
-import { KNOWN_SUPPLIERS, ACCOUNT_KEYWORD_RULES } from './accountCategories';
+import { KNOWN_SUPPLIERS, ACCOUNT_KEYWORD_RULES, FOOD_CHOICES } from './accountCategories';
 import { REVERSE_PURCHASE_ACCOUNTS } from './vatConfig';
 import { getSignedStorageUrl } from './signedUrls';
 import { loadPdfjs } from './pdfjs';
@@ -215,7 +215,7 @@ export function pdfItemsToText(items) {
 /**
  * Extraherar text ur en digital PDF i webbläsaren med pdfjs-dist.
  */
-async function extractTextFromPdf(blob, onProgress) {
+async function extractTextFromPdf(blob, onProgress, { firstPage = 1 } = {}) {
   try {
     onProgress?.('Läser digital PDF…');
     const pdfjsLib = await loadPdfjs();
@@ -229,7 +229,7 @@ async function extractTextFromPdf(blob, onProgress) {
     const pdf = await loadingTask.promise;
     let fullText = '';
     const maxPages = Math.min(pdf.numPages, 5); // Kvitton är oftast 1-2 sidor
-    for (let i = 1; i <= maxPages; i++) {
+    for (let i = firstPage; i <= maxPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       const pageText = pdfItemsToText(textContent.items);
@@ -1882,6 +1882,22 @@ export async function documentForCloud(input, { maxEdge = 2000, quad = null } = 
   return asJpeg(canvas);
 }
 
+/**
+ * Text från sida 2-5 i en digital PDF. Google läser bara första sidan, och på
+ * en lång faktura står totalen och betaluppgifterna ofta sist. Tomt för
+ * bilder och skannade PDF:er, och en sida utan belopp (villkor) tas inte med.
+ */
+export async function laterPdfPagesText(input) {
+  try {
+    const { blob, isPdf } = await loadDocumentBlob(input);
+    if (!isPdf) return '';
+    const text = await extractTextFromPdf(blob, null, { firstPage: 2 });
+    return pdfTextLooksUsable(text) ? text : '';
+  } catch {
+    return '';
+  }
+}
+
 /** Hämtar dokumentet (fil, data-URL eller lagrad URL) och avgör om det är en PDF. */
 async function loadDocumentBlob(input, onProgress) {
   let blob;
@@ -3089,7 +3105,9 @@ function flagSuspiciousInteger(lines, result) {
   if (!result.amount || result.amountVerified || result.amountGuessed || !Number.isInteger(result.amount)) return result;
   const decimals = lines.reduce((n, l) => n + (String(l).match(/\d[.,]\d{2}\b/g) || []).length, 0);
   const written = lines.some(l => String(l).includes(String(result.amount) + ',00') || String(l).includes(String(result.amount) + '.00'));
-  return decimals >= 3 && !written ? { ...result, amountGuessed: true } : result;
+  // 899.00 utan punkt blir 89900: ett stort jämnt tal utan en enda decimal på hela kvittot.
+  const lostPoint = decimals === 0 && result.amount >= 10000 && result.amount % 100 === 0;
+  return (decimals >= 3 || lostPoint) && !written ? { ...result, amountGuessed: true } : result;
 }
 
 /**
@@ -3825,26 +3843,28 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   // ── 4. Momssats ──────────────────────────────────────────────────────────
   const isForeignService = /supabase|vercel|stripe|github|\baws\b|amazon web services|google cloud|openai|adobe|digitalocean|heroku|jetbrains|slack|\bzoom\b|figma|notion/i.test(headerText);
 
-  if (vatRate === null) {
-    const vatLineRe = /moms|merv.rdes|vat|tax|mva/i;
-    for (const line of lines) {
-      const pct = line.match(/(\d{1,2})\s*%/);
-      if (pct && vatLineRe.test(line)) {
-        const v = parseInt(pct[1], 10);
-        if ([25, 12, 6, 0].includes(v)) {
-          vatRate = v;
-          break;
-        }
+  // Satsen på kvittot går alltid före listans. Listan säger bara vad kedjan
+  // brukar ta: Lidl säljer också byxor på 25 %, och där blev 12 % fel och såg
+  // dessutom avläst ut. Utan en sats på kvittot är listans sats en gissning.
+  // Utländska molntjänster (0 %) är undantaget, där är nollan regeln.
+  const supplierVat = vatRate;
+  const vatLineRe = /moms|merv.rdes|vat|tax|mva/i;
+  let readVat = null;
+  for (const line of lines) {
+    const pct = line.match(/(\d{1,2})\s*%/);
+    if (pct && vatLineRe.test(line)) {
+      const v = parseInt(pct[1], 10);
+      if ([25, 12, 6, 0].includes(v)) {
+        readVat = v;
+        break;
       }
     }
   }
+  if (readVat !== null) vatRate = readVat;
 
-  // Bara sant om vatRate INTE hittades någonstans ovan (varken hos en känd
-  // leverantör eller på en "moms NN%"-rad) och därför föll tillbaka på
-  // standardantagandet (25 %, eller 0 % för ett igenkänt utländskt
-  // molntjänstabonnemang) — en förvald siffra, inte en avläst.
-  let vatRateGuessed = vatRate === null;
-  if (vatRateGuessed) {
+  // Sant när satsen inte stod på kvittot: en förvald siffra, inte en avläst.
+  let vatRateGuessed = vatRate === null || (readVat === null && supplierVat > 0);
+  if (vatRate === null) {
     vatRate = isForeignService ? 0 : 25;
   }
 
@@ -3852,25 +3872,24 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   // Delad lista (utils/accountCategories.js) — samma regler bankimporten
   // (Bank.jsx) föreslår konton med.
   let accountSource = accountCode ? 'supplier' : null;
-  if (!accountCode) {
+  let accountGuessed = false;
+  // Inget matchar, men det ÄR ett kvitto eller en faktura: 6990 Övriga externa
+  // kostnader, märkt som en gissning, i stället för inget konto alls. Ett
+  // riktigt förslag från leverantörens tidigare kvitton läggs på av anroparen
+  // (Expenses.jsx), som har företagets historik.
+  const accountFromRules = () => {
     for (const { re, code } of ACCOUNT_KEYWORD_RULES) {
       if (strictRule(re).test(keywordText)) {
         accountCode = code;
         accountSource = 'keyword';
-        break;
+        return;
       }
     }
-  }
-  // Inget matchade, men det ÄR ett kvitto eller en faktura: föreslå 6990
-  // Övriga externa kostnader, märkt som en gissning, i stället för inget
-  // konto alls. Ett riktigt förslag från leverantörens tidigare kvitton läggs
-  // på av anroparen (Expenses.jsx), som har företagets historik.
-  let accountGuessed = false;
-  if (!accountCode) {
     accountCode = '6990';
     accountGuessed = true;
     accountSource = 'fallback';
-  }
+  };
+  if (!accountCode) accountFromRules();
 
   // ── 5b. Tjänst från utlandet: omvänd skattskyldighet ─────────────────────
   // Ett inköp av en tjänst från utlandet får ett eget inköpskonto (4535 EU,
@@ -3929,6 +3948,13 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     }
   }
   if (vatCheck.vatRate !== null) { vatRate = vatCheck.vatRate; }
+  // Hela kvittot från en matbutik är 25 %: då är det inte mat, utan till
+  // exempel kläder eller verktyg, och matförslagen stämmer inte. Kontot
+  // bestäms av vad som står på kvittot i stället.
+  if (accountChoices === FOOD_CHOICES && vatCheck.verified && !vatCheck.mixed && vatRate === 25) {
+    accountChoices = null;
+    accountFromRules();
+  }
   // Netto + moms = totalt. Står både ett belopp exklusive moms och ett
   // momsbelopp på dokumentet ska de summera till totalen. Gör de det är
   // beloppet kontrollerat. Gör de det inte, men summan finns som ett annat

@@ -55,6 +55,39 @@ export const OCR_ITEMS = [
   { key: 'costAccount', label: tr('ui.konto_2') },
 ];
 
+/** Texten dokumentet lästes som, hopfälld. Så ser man varför ett fält blev som det blev. */
+export function ReadText({ text }) {
+  if (!text) return null;
+  return (
+    <details className="rc-read-text">
+      <summary>{tr('ui.visa_texten_som_lastes')}</summary>
+      <pre>{text}</pre>
+    </details>
+  );
+}
+
+/** Uppgifterna från fakturan som inte bokförs: vart pengarna ska och när. */
+export function ReadDetails({ details }) {
+  if (!details) return null;
+  const rows = [
+    { label: tr('ui.org_nr_kort'), value: details.orgNr, guess: details.orgNrGuessed },
+    { label: tr('ui.forfallodatum'), value: details.dueDate },
+    { label: tr('ui.ocr_nummer'), value: details.ocrNumber, guess: details.ocrNumberGuessed },
+    { label: tr('ui.bankgiro'), value: details.bankgiro, guess: details.bankgiroGuessed },
+    { label: tr('ui.plusgiro_kort'), value: details.plusgiro, guess: details.plusgiroGuessed },
+  ].filter(row => row.value);
+  return (
+    <dl className="rc-read-details">
+      {rows.map(row => (
+        <div key={row.label}>
+          <dt>{row.label}</dt>
+          <dd><b>{row.value}</b>{row.guess && <span>{tr('ui.kontrollera')}</span>}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 /** Skannerlinjen som sveper uppifrån och ned över dokumentet medan det läses. */
 export function ScanOverlay({ detail, flush = false }) {
   const [i, setI] = useState(0);

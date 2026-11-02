@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense, lazy, startTransition } from 'react';
 import useFitLevel from './utils/useFitLevel';
 import { visiblePages, accessForPage, canWriteField } from './utils/pageAccess';
 import { STRIPE_BALANCE_ACCOUNT } from './utils/stripeLedger';
@@ -1471,7 +1471,14 @@ function App() {
   // Snabbväxlingen i headern (sol/måne-ikonen): väljer alltid ett EXPLICIT
   // läge utifrån det just nu tillämpade (aldrig 'system') — att klicka en
   // ikon med två lägen är inte platsen att förklara ett tredje.
-  const toggleTheme = () => setThemePreference(theme === 'dark' ? 'light' : 'dark');
+  // Färgen byts direkt på sidan. Att rita om appen får vänta bakom: på ett stort
+  // företag tog det två sekunder, och då kändes knappen trasig.
+  const chooseTheme = (preference) => {
+    if (preference === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', preference);
+    startTransition(() => setThemePreference(preference));
+  };
+  const toggleTheme = () => chooseTheme(theme === 'dark' ? 'light' : 'dark');
 
   // Statusfältets färg följer appens eget tema, inte bara telefonens (se
   // theme-color i index.html): den som valt mörkt läge i Bokix på en ljus
@@ -5794,6 +5801,7 @@ function App() {
         return (
           <SupplierInvoices
             key={company?.id || data.activeCompanyId}
+            company={company}
             headerTabs={supplierTabs}
             expenses={expenses}
             accounts={accounts}
@@ -6002,7 +6010,7 @@ function App() {
             onOpenRotRutImport={() => handleGlobalAction({ type: 'rotrut_import' }, 'invoices')}
             onAttachVerificationFiles={handleAttachVerificationFiles}
             themePreference={themePreference}
-            onSetThemePreference={setThemePreference}
+            onSetThemePreference={chooseTheme}
             density={density}
             onSetDensity={setDensity}
             initialSection={settingsInitialSection}
@@ -6653,6 +6661,9 @@ function App() {
               ...('vatPeriod' in answers ? { vatPeriod: answers.vatPeriod, vatPeriodConfirmedAt: now } : {}),
               ...('fSkatt' in answers ? { fSkatt: answers.fSkatt, fSkattConfirmedAt: now } : {}),
             }));
+            // Ett svar är ett svar: frågan kommer inte tillbaka under besöket, även
+            // om en sparning eller hämtning på ett stort konto hinner emellan.
+            setVatPromptLater(ids => [...ids, data.activeCompanyId]);
           }}
           onLater={() => setVatPromptLater(ids => [...ids, data.activeCompanyId])}
         />

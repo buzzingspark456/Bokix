@@ -1,6 +1,6 @@
 // Kvittoläsning med Google Cloud Vision (/api/ocr-vision, EU). Beslut
 // 2026-10-24: i appen läses kvitton, både foton och PDF:er, BARA av Vision,
-// upp till 20 000 läsningar i månaden (räknas på servern). Är kvoten slut
+// upp till 50 000 läsningar i månaden (räknas på servern). Är kvoten slut
 // (429) eller svarar Vision inte blir det "Kunde inte läsas"; den egna
 // läsningen (Tesseract) tar inte över. Texten tolkas av parseReceiptText.
 import { supabase } from '../supabaseClient';
@@ -33,7 +33,7 @@ export async function readWithCloud(input, { quad = null } = {}) {
   if (quotaReached) { lastCloudStatus = 'kvot slut'; return null; }
   let doc = null;
   try {
-    const { documentForCloud } = await import('./ocrReceipt');
+    const { documentForCloud, laterPdfPagesText } = await import('./ocrReceipt');
     doc = await documentForCloud(input, { quad });
     if (!doc) { lastCloudStatus = 'inte skickad (för stor eller okänd fil)'; return null; }
     const { data: { session } = {} } = await supabase.auth.getSession();
@@ -60,7 +60,8 @@ export async function readWithCloud(input, { quad = null } = {}) {
       if (!text) return null;
       // Radernas läge gäller hela fotot; med egna hörn skickades bara ett
       // uträtat utsnitt, och då stämmer lägena inte mot fotot i kvittovyn.
-      return { text, lines: !quad && Array.isArray(payload.lines) ? payload.lines : null };
+      const laterPages = await laterPdfPagesText(input);
+      return { text: laterPages ? `${text}\n${laterPages}` : text, lines: !quad && Array.isArray(payload.lines) ? payload.lines : null };
     } finally {
       clearTimeout(timer);
     }

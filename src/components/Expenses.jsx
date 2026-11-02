@@ -18,7 +18,7 @@ import { OCR_DRAFT_VERSION } from '../utils/ocrReceipt';
 import { readDocumentText } from '../utils/ocrCache';
 import { captureEvent } from '../utils/posthog';
 import { analyzeReceipt, buildReceiptPlan } from '../utils/receiptScan';
-import { ScanOverlay, OcrChecklist, photoHintText, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
+import { ScanOverlay, OcrChecklist, ReadDetails, ReadText, photoHintText, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
 import { convertToSek } from '../utils/currencyConversion';
 import { historyForSupplier, historyFromVerifications } from '../utils/receiptHistory';
 import { reverseChargePurchaseInfo, describeReverseCharge } from '../utils/reverseCharge';
@@ -238,6 +238,12 @@ function OcrBadge() {
   );
 }
 
+// Samma brytpunkt som stegen i index.css (.rc-step-read, .rc-step-account).
+const PHONE_STEPS_QUERY = '(max-width: 860px)';
+
+// Texten som lästes sparas på kvittots utkast. Ett kvitto är långt under det här.
+const MAX_SAVED_TEXT = 8000;
+
 function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allReceipts, verifications = [], status, onSave, onSaveOcrDraft, onDelete, onReverse, onClose, vatExempt = false, ownCompany = null }) {
   // "Rättad" är också ett låst tillstånd — samma skäl som "Bokförd": en
   // rättelseverifikation ändrar inte originalet, så fälten som redan
@@ -294,6 +300,10 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const [fxError, setFxError] = useState('');
   // Vad numret på kvittot var: fakturanummer, kvittonummer, ordernummer m.fl.
   const [numberLabel, setNumberLabel] = useState(receipt.receiptNumberLabel || draft?.numberLabel || '');
+  const [readDetails, setReadDetails] = useState(currentDraft?.details || null);
+  // Telefon: först kvittots uppgifter, sedan kontot på en egen skärm.
+  const [phoneStep, setPhoneStep] = useState('read');
+  const [readText, setReadText] = useState(currentDraft?.readText || '');
   // Kontot avläsningen föreslår men inte fyller i: { code, source } | null.
   const [suggestedAccount, setSuggestedAccount] = useState(draft?.suggestedAccount || null);
   // Gör körningar avbrytbara: hinner användaren byta fil eller köra om
@@ -359,6 +369,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     setFx(null);
     setFxError('');
     setNumberLabel('');
+    setReadDetails(null);
+    setReadText('');
     setSuggestedAccount(null);
     setNotReceipt(false);
     setUnreadable(false);
@@ -433,6 +445,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         supplierFromRegistry: Boolean(registryName),
         ocrVat: draftVat,
         boxes: boxes && Object.keys(boxes).length > 0 ? boxes : null,
+        details: analysis.details,
+        readText: analysis.readText.slice(0, MAX_SAVED_TEXT),
       });
 
       setOcrStatus('done');
@@ -463,6 +477,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
           });
           if (!foreignInfo.converted) setFxError(tr('ui.kursen_gick_inte_att_hamta_automatiskt_fyll_i_ku'));
         }
+        setReadDetails(analysis.details);
+        setReadText(analysis.readText.slice(0, MAX_SAVED_TEXT));
         setNotReceipt(nr);
         setUnreadable(Boolean(parsed.unreadable));
         setPhotoHint(hint);
@@ -492,6 +508,33 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   // av en avläsning användaren själv startade tidigare, inte en ny.
   const canScan = hasReceiptFile && !readOnly;
   const hasScanned = Boolean(currentDraft) || Object.keys(revealed).length > 0 || ocrStatus !== 'idle';
+
+  // På telefon har man just fotat kvittot för att få det avläst, så där startar
+  // avläsningen av sig själv (användaren 2026-11-02). Datorn har kvar knappen.
+  const autoReadRef = useRef(false);
+  useEffect(() => {
+    if (autoReadRef.current || !canScan || hasScanned || !isUnprocessedAtOpen) return;
+    if (!window.matchMedia(PHONE_STEPS_QUERY).matches) return;
+    autoReadRef.current = true;
+    runOcr(receipt.receiptUrl, { force: true });
+  }, [canScan, hasScanned, isUnprocessedAtOpen, runOcr, receipt.receiptUrl]);
+
+  // Den som hellre skriver själv ska inte behöva vänta på avläsningen.
+  const skipScan = () => {
+    ocrRunIdRef.current += 1;
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+    setOcrStatus('idle');
+    setOcrMessage('');
+    setRevealed({});
+    setRevealing(false);
+  };
+
+  const goToPhoneStep = (step) => {
+    setPhoneStep(step);
+    document.querySelector('.receipt-modal-box')?.scrollTo(0, 0);
+    document.querySelector('.receipt-modal-overlay')?.scrollTo(0, 0);
+  };
 
   // Justera kanter, öppen ovanpå kvittovyn (shared/CornerEditor.jsx).
   const [editingCorners, setEditingCorners] = useState(false);
@@ -592,7 +635,12 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
       newErrors.vatAmount = tr('ui.moms_for_hog');
     }
     if (fx && !foreignForSave(fx)) newErrors.fx = 'Fyll i belopp och kurs, eller ta bort valutan.';
-    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      // Felet står på första skärmen: visa den, annars händer inget synligt.
+      if (Object.keys(newErrors).some(key => key !== 'costAccount')) goToPhoneStep('read');
+      return;
+    }
 
     // Samma dublettvarning som tidigare fanns i "Spara och bokför"-flödet —
     // jämför mot alla kvitton UTOM sig själv, annars flaggar ett kvitto sig
@@ -631,10 +679,10 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     <div className="receipt-modal-overlay" role="dialog" aria-modal="true" aria-label={tr('ui.kvittodetaljer')} style={{ position: 'fixed', inset: 0, zIndex: 1150, display: 'flex' }}>
       <div className="receipt-modal-box">
 
-        {/* ── Vänster: kvittot ──
-            Dokumentet ligger till vänster och uppgifterna till höger, som i
-            de bokföringsprogram där kvittot är själva arbetsytan. Medan
-            kvittot läses ligger skannerlinjen ovanpå (ScanOverlay). */}
+        {/* ── Kvittot ──
+            Uppgifterna till vänster och dokumentet till höger, som på
+            Bokföring, Offert och Kundfaktura (ordningen sätts i index.css).
+            Medan kvittot läses ligger skannerlinjen ovanpå (ScanOverlay). */}
         <div className="rc-doc">
           <DocumentPane
             url={receipt.receiptUrl}
@@ -662,7 +710,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         )}
 
         {/* ── Höger: uppgifterna ── */}
-        <div className="rc-form">
+        <div className={`rc-form${readOnly ? '' : ` rc-step-${phoneStep}`}`}>
           <div className="rc-form-head">
             <div style={{ minWidth: 0 }}>
               <h2 style={{ margin: 0, fontSize: '16.5px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{tr('ui.kvittodetaljer')}</h2>
@@ -720,6 +768,14 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             {!readOnly && (ocrStatus === 'scanning' || revealing || Object.keys(revealed).length > 0) && (
               <OcrChecklist scanning={ocrStatus === 'scanning'} revealed={revealed} />
             )}
+            {!readOnly && ocrStatus === 'scanning' && (
+              <button type="button" className="rc-skip-scan" onClick={skipScan}>{tr('ui.fyll_i_sjalv')}</button>
+            )}
+            {!readOnly && !revealing && <ReadDetails details={readDetails} />}
+            {!readOnly && !revealing && readDetails?.dueDate && (
+              <p className="rc-hint rc-read-hint">{tr('ui.faktura_betalas_senare')}</p>
+            )}
+            {!readOnly && !revealing && <ReadText text={readText} />}
 
             {!readOnly && !revealing && reverseInfo && (
               <div className="rc-verify rc-verify-warn">
@@ -963,7 +1019,12 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 </div>
               </div>
 
-              <div className={`rc-span${flashField === 'costAccount' ? ' rc-flash' : ''}`}>
+              <div className="rc-span rc-later rc-step-title">
+                <h3>{tr('ui.vilket_konto_ska_det_bokforas_pa')}</h3>
+                <p>{tr('ui.ta_forslaget_eller_valj_sjalv')}</p>
+              </div>
+
+              <div className={`rc-span rc-later${flashField === 'costAccount' ? ' rc-flash' : ''}`}>
                 <label style={labelSt}>{tr('ui.konto_2')} {ocrFields.has('costAccount') && <OcrBadge />}</label>
                 {readOnly ? (
                   <div style={{ ...inputSt, background: 'var(--bg-muted)', color: 'var(--text-main)' }}>
@@ -985,7 +1046,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               </div>
 
               {projects.length > 0 && (
-                <div className="rc-span">
+                <div className="rc-span rc-later">
                   <label style={labelSt}>{tr('ui.projekt_valfritt')}</label>
                   <select value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))} style={{ ...inputSt, background: 'var(--bg-card)' }}>
                     <option value="">{tr('ui.inget_projekt')}</option>
@@ -999,7 +1060,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   Expenses-listan nedanför). Fältet visas bara när det
                   faktiskt finns någon mapp att lägga kvittot i. */}
               {folders.length > 0 && (
-                <div className="rc-span">
+                <div className="rc-span rc-later">
                   <label style={labelSt}>{tr('ui.mapp_valfritt')}</label>
                   <select value={form.folderId} onChange={e => setForm(f => ({ ...f, folderId: e.target.value }))} style={{ ...inputSt, background: 'var(--bg-card)' }}>
                     <option value="">{tr('ui.ingen_mapp')}</option>
@@ -1008,7 +1069,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 </div>
               )}
 
-              <div className="rc-span">
+              <div className="rc-span rc-later">
                 <label style={labelSt}>{tr('ui.anteckningar_valfritt')}</label>
                 <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder={tr('ui.vad_var_det_har_kopet_till')} style={{ ...inputSt, resize: 'vertical', fontFamily: 'inherit' }} />
               </div>
@@ -1037,9 +1098,11 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               </button>
             ) : <span />}
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button type="button" onClick={onClose} style={{ padding: '9px 16px', background: 'var(--border-light)', border: 'none', borderRadius: '9px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit' }}>{tr('ui.stang')}</button>
+              {!readOnly && <button type="button" className="rc-btn-back" onClick={() => goToPhoneStep('read')}>{tr('ui.tillbaka')}</button>}
+              <button type="button" className="rc-btn-close" onClick={onClose} style={{ padding: '9px 16px', background: 'var(--border-light)', border: 'none', borderRadius: '9px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit' }}>{tr('ui.stang')}</button>
+              {!readOnly && <button type="button" className="rc-btn-next" disabled={busy} onClick={() => goToPhoneStep('account')}>{tr('ui.nasta_steg')}</button>}
               {status !== 'reversed' && (
-                <button type="button" onClick={handleSave} disabled={busy} title={busy ? tr('ui.vanta_tills_kvittot_ar_avlast') : undefined} style={{ padding: '9px 18px', background: BRAND.green, border: 'none', borderRadius: '9px', fontWeight: 600, color: 'white', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.55 : 1, fontSize: '13px', fontFamily: 'inherit', boxShadow: '0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent)' }}>
+                <button type="button" className="rc-btn-save" onClick={handleSave} disabled={busy} title={busy ? tr('ui.vanta_tills_kvittot_ar_avlast') : undefined} style={{ padding: '9px 18px', background: BRAND.green, border: 'none', borderRadius: '9px', fontWeight: 600, color: 'white', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.55 : 1, fontSize: '13px', fontFamily: 'inherit', boxShadow: '0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent)' }}>
                   {readOnly ? tr('ui.spara_andringar') : tr('ui.spara_och_bokfor')}
                 </button>
               )}
