@@ -12,7 +12,7 @@ import { JsonLd, SITE_URL } from '../../utils/seo';
 // './marketing/MarketingLayout'` fortsätta oförändrade.
 import { TOOLS, TOOLS_HUB_PATH, TOOL_GROUPS } from './tools/toolsConfig';
 import BokixWordmark from '../shared/BokixWordmark';
-import { BOKIX_SUMMARY, BOKIX_PROFILES } from '../../content/marketing/bokixFacts';
+import { BOKIX_SUMMARY, BOKIX_PROFILES, BOKIX_LOGO, BOKIX_NOT_BOKIO } from '../../content/marketing/bokixFacts';
 import { ORG_TYPE_PAGES } from '../../content/marketing/orgTypes';
 export { BokixWordmark };
 
@@ -32,10 +32,12 @@ const ORGANIZATION_SCHEMA = {
   '@id': `${SITE_URL}/#organization`,
   name: 'Bokix',
   url: SITE_URL,
-  logo: `${SITE_URL}/icon-512.png`,
+  logo: BOKIX_LOGO,
+  image: BOKIX_LOGO,
   slogan: 'Bokföring utan gissningar.',
   sameAs: BOKIX_PROFILES,
   description: BOKIX_SUMMARY,
+  disambiguatingDescription: BOKIX_NOT_BOKIO,
   areaServed: { '@type': 'Country', name: 'Sverige' },
   knowsAbout: ['Bokföring', 'Fakturering', 'Moms', 'Momsdeklaration', 'Lön', 'Bokslut', 'Årsredovisning', 'Enskild firma', 'Aktiebolag', 'BAS-kontoplanen', 'SIE4'],
   email: 'bokixab@gmail.com',

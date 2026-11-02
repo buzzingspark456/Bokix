@@ -18,7 +18,7 @@ import { PRICING_TIERS } from './marketing/pricingTiers';
 import { PageMeta, JsonLd, SITE_URL } from '../utils/seo';
 import { FAQ_SCHEMA, FAQ_TOP } from './marketing/faqData';
 import { LANDING_CONTENT } from '../content/marketing/landing';
-import { BOKIX_FEATURES, BOKIX_PROFILES } from '../content/marketing/bokixFacts';
+import { BOKIX_FEATURES, BOKIX_PROFILES, BOKIX_LOGO, BOKIX_NOT_BOKIO } from '../content/marketing/bokixFacts';
 // Lazy: DemoWorkspace monterar en RIKTIG kopia av hela den inloggade
 // appens komponentträd (Dashboard, Invoices, Bokföring, Skatt, m.fl.) för
 // den interaktiva produktdemon längre ner på sidan (utanför den första
@@ -114,8 +114,10 @@ function buildOrganizationSchema(description) {
     '@id': `${SITE_URL}/#organization`,
     name: 'Bokix',
     url: SITE_URL,
-    logo: `${SITE_URL}/icon-512.png`,
+    logo: BOKIX_LOGO,
+    image: BOKIX_LOGO,
     description,
+    disambiguatingDescription: BOKIX_NOT_BOKIO,
     sameAs: BOKIX_PROFILES,
   };
 }
@@ -136,7 +138,9 @@ function buildSoftwareSchema(description) {
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web',
   url: SITE_URL,
+  image: BOKIX_LOGO,
   description,
+  disambiguatingDescription: BOKIX_NOT_BOKIO,
   // Kopplar ihop de två posterna — samma "vem gör det här" som Google
   // annars hade fått gissa sig till separat för produkten kontra företaget.
   provider: { '@id': `${SITE_URL}/#organization` },

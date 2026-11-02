@@ -2,6 +2,8 @@
 
 > Bokix är ett svenskt bokföringsprogram på webben för småföretag. Bokföring, fakturering, kvitton, moms, lön och bokslut finns i samma verktyg, och det är byggt för att man inte ska behöva kunna bokföring.
 
+Bokix (bokix.se) är ett eget svenskt bokföringsprogram och inte samma sak som Bokio (bokio.se). Företagen har ingen koppling till varandra, och Bokix logga är ett grönt och blått B på mörk botten: https://www.bokix.se/bokix-logo.png
+
 Bokix körs i webbläsaren på https://www.bokix.se, på dator och telefon, utan något att installera. Priset är 129 kr/mån utan anställda och 179 kr/mån med anställda (med årsplan 109 respektive 149 kr/mån). Bokix är inte momsregistrerat, så ingen moms tillkommer, och allt ingår i priset. 30 dagar gratis, ingen bindningstid på månadsplanen.
 
 Bokix stöder enskild firma, aktiebolag, handelsbolag, kommanditbolag och ekonomisk förening, och bokför enligt reglerna för respektive bolagsform utifrån organisationsnumret. Appen finns på svenska och engelska. Data lagras i Sverige, i Stockholm.
