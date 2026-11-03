@@ -3218,6 +3218,79 @@ export function reconcileByCashArithmetic(lines, result) {
   return { ...result, amount, amountVerified: true, amountGuessed: false };
 }
 
+/**
+ * Momsraderna per sats: tabellrader ("12,00 10,38 86,42 96,80") och
+ * momsrader ("Varav moms 12% 10,38", även "Moms 12 10,38" utan procenttecken).
+ * Exporterad för testerna.
+ */
+export function vatRowsByRate(lines) {
+  const rows = new Map();
+  const money = (t) => parseMoneyToken(t);
+  for (const raw of lines) {
+    const line = String(raw);
+    const table = line.match(/(?:^|\s)(25|12|6)(?:[.,]00)?\s*%?\s+(\d[\d  ]*[.,]\d{2})\s+(\d[\d  ]*[.,]\d{2})\s+(\d[\d  ]*[.,]\d{2})\s*$/);
+    if (table) {
+      // Kolumnerna står som Moms Netto Brutto eller Netto Moms Brutto: momsen är den mindre.
+      const [a, b, gross] = [money(table[2]), money(table[3]), money(table[4])];
+      if (a === null || b === null || gross === null || gross === 0 || Math.abs(a + b - gross) >= 0.02) continue;
+      rows.set(Number(table[1]), { vat: Math.min(a, b), gross });
+      continue;
+    }
+    const vatLine = line.match(/moms\D{0,12}?(25|12|6)\s*%?\s+(\d[\d  ]*[.,]\d{2})\s*(?:kr)?\s*$/i);
+    if (vatLine && !rows.has(Number(vatLine[1]))) {
+      const vat = money(vatLine[2]);
+      if (vat) rows.set(Number(vatLine[1]), { vat, gross: Math.round(vat * (100 + Number(vatLine[1])) / Number(vatLine[1]) * 100) / 100, derived: true });
+    }
+  }
+  return rows;
+}
+
+/**
+ * Kvitto med flera momssatser (mat 12 % och tvål 25 %): totalraden gäller och
+ * momsen är summan av raderna. Annars räknade tolkningen fram en egen total ur
+ * en enda momsrad (19,90 ur tvålens moms i stället för "Att betala 116,80").
+ */
+function reconcileMultiRate(lines, result) {
+  if (result.notReceipt || result.currency || result.reverseCharge) return result;
+  const rows = vatRowsByRate(lines);
+  if (rows.size < 2) return result;
+  const vatSum = Math.round([...rows.values()].reduce((a, r) => a + r.vat, 0) * 100) / 100;
+  // Bruttot per sats (ur tabellen, eller tillbakaräknat ur momsen) ska bli totalen.
+  // Annars stämmer raderna inte, och avvikelsen ska synas.
+  const grossSum = Math.round([...rows.values()].reduce((a, r) => a + r.gross, 0) * 100) / 100;
+  const tolerance = [...rows.values()].some(r => r.derived) ? 0.05 * rows.size + 0.05 : 0.02;
+  // Totalen står vid sin rubrik; finns tabellens summa används den som kontroll.
+  let total = null;
+  for (const line of lines) {
+    if (!/\b(?:totalt?|att betala|summa|total)\b/i.test(line) || isNotTotalLine(line)) continue;
+    const v = lastAmountOnLine(line);
+    if (v !== null && v > vatSum && Math.abs(v - grossSum) <= tolerance) { total = v; break; }
+  }
+  if (total === null && ![...rows.values()].some(r => r.derived)) total = grossSum;
+  if (total === null) return result;
+  const rates = [...rows.keys()].sort((a, b) => b - a);
+  return { ...result, amount: total, amountVerified: true, amountGuessed: false, vatAmount: vatSum, vatVerified: true, vatMismatch: false, vatRateGuessed: false, vatRates: rates, vatRate: rates[0] };
+}
+
+/**
+ * Öresavrundning: "Att betala 49,90 / Öresavrundning 0,10" betalas och bokförs
+ * som 50,00. Bara när det ger jämna kronor (eller femöringar på utländska
+ * kvitton) och totalen inte redan är avrundad.
+ */
+function reconcileRounding(lines, result) {
+  if (!result.amount || result.notReceipt || result.currency) return result;
+  const line = lines.find(l => /(?:[öo]res)?avrundning|rounding|[öo]resutj[äa]mning/i.test(l));
+  const found = line ? lastAmountOnLine(line) : null;
+  const r = found !== null && /-\s*\d+[.,]\d{2}\s*$/.test(String(line).trim()) ? -Math.abs(found) : found;
+  if (r === null || r === 0 || Math.abs(r) >= 1) return result;
+  const cents = Math.round(result.amount * 100);
+  const after = cents + Math.round(r * 100);
+  const isRound = (c) => c % 100 === 0 || c % 5 === 0;
+  if (!isRound(after) || isRound(cents) && cents % 100 === 0) return result;
+  if (cents % 5 === 0 && after % 100 !== 0) return result;
+  return { ...result, amount: after / 100 };
+}
+
 function reconcileWithVatTable(lines, result) {
   if (result.currency || result.reverseCharge || result.creditNote) return result;
   const triples = vatTableTriples(lines);
@@ -3300,6 +3373,7 @@ export function expandSummaryRow(lines) {
       rest = rest.slice(hit.length).trim();
     }
     if (rest || labels.length < 3 || i + 1 >= lines.length) continue;
+    if (labels.includes('moms') && (labels.includes('netto') || labels.includes('brutto'))) continue;
     const values = String(lines[i + 1]).match(/-?\d{1,3}(?:[  ]\d{3})*[.,]\d{2}/g) || [];
     if (values.length !== labels.length) continue;
     const original = String(lines[i]).replace(/\s+/g, ' ').trim();
@@ -3580,8 +3654,25 @@ export function parseReceiptText(text, options = {}) {
  * Bara ett O som sitter ihop med siffror byts, så ord som "TOTAL" och "Org.nr"
  * lämnas orörda. Exporterad för testerna.
  */
+// Momsrader där Google läst procenttecknet som en siffra: "Varav moms 129"
+// (12 %), "Moms 254" (25 %), "Moms 69" (6 %). Bara direkt efter ordet moms och
+// bara när det inte är ett belopp med ören.
+function fixVatPercent(line) {
+  return /moms|vat/i.test(line)
+    ? line.replace(/(\bmoms\b[^\d\n]{0,4})(25|12|6)[49](?![\d,.%])/i, '$1$2%')
+    : line;
+}
+
+// "Moms 25% 2 575 88": Google tappade decimalkommat. Ett tal i slutet av en
+// summarad med tusental och två ören efter ett mellanslag får tillbaka kommat.
+function fixLostDecimalComma(line) {
+  if (!/moms|belopp|summa|totalt?|att betala|exkl|netto|delsumma/i.test(line) || /\d[.,]\d{2}\s*(?:kr|sek)?\s*$/i.test(line)) return line;
+  return line.replace(/(\d{1,3}(?: \d{3})+|\d{3,4}) (\d{2})(\s*(?:kr|sek)?)\s*$/i, '$1,$2$3');
+}
+
 export function fixDigitLetters(line) {
-  return String(line).replace(/([$€£])(?=\d)/g, '$1 ').replace(/(?<=\d[.,]?)[Oo](?=[\d.,]|\s|$|%)|[Oo](?=[.,]\d)|(?<=\d)[Oo](?=\d)/g, '0');
+  return fixLostDecimalComma(fixVatPercent(String(line)))
+    .replace(/([$€£])(?=\d)/g, '$1 ').replace(/(?<=\d[.,]?)[Oo](?=[\d.,]|\s|$|%)|[Oo](?=[.,]\d)|(?<=\d)[Oo](?=\d)/g, '0');
 }
 
 function parseOneReading(text, { confidence = null, weakTokens = null, today = new Date() } = {}) {
@@ -3691,6 +3782,12 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     const mc = line.match(/\b(\d{2})(\d{2})(\d{2})\s+[0-2]\d[0-5]\d[0-5]\d\b/);
     if (mc) {
       const iso = `20${mc[1]}-${mc[2]}-${mc[3]}`;
+      if (isRealDate(iso)) compactDates.push(iso);
+    }
+    // ÅÅMMDD först på kassaraden: "260702 Kassa 3 Kvittonr 123456".
+    const mk = line.match(/^(\d{2})(\d{2})(\d{2})\s+(?:kassa|kvitto|kvittonr|bong|tid|[0-2]?\d[:.][0-5]\d)/i);
+    if (mk) {
+      const iso = `20${mk[1]}-${mk[2]}-${mk[3]}`;
       if (isRealDate(iso)) compactDates.push(iso);
     }
     // ÅÅÅÅMMDD efter en datumetikett ("Datum 20240526").
@@ -4245,7 +4342,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   }
   const numberFound = findReceiptNumberDetailed(lines);
 
-  return flagSuspiciousInteger(lines, reconcileByCashArithmetic(lines, reconcileWithCash(lines, reconcileWithVatTable(lines, {
+  return flagSuspiciousInteger(lines, reconcileByCashArithmetic(lines, reconcileWithCash(lines, reconcileRounding(lines, reconcileMultiRate(lines, reconcileWithVatTable(lines, {
     date, dateGuessed, dateText, amount, amountGuessed: amountVerified ? false : amountGuessed, amountVerified, vatRate,
     vatRateGuessed: vatCheck.verified ? false : (vatRateGuessed || vatCheck.mismatch),
     vatAmount: vatCheck.vatAmount, vatVerified: vatCheck.verified, vatMismatch: vatCheck.mismatch,
@@ -4262,5 +4359,5 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     notReceipt: false, documentKind: doc.isInvoice ? 'invoice' : 'receipt',
     paymentMethod: detectPaymentMethod(text, { isInvoice: doc.isInvoice }).method,
     reverseCharge, reverseChargeUnclear,
-  }))));
+  }))))));
 }
