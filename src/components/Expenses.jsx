@@ -5,6 +5,7 @@ import {
 } from './icons';
 import { AccountSearch } from './shared/SearchInputs';
 import AccountInlinePicker from './shared/AccountInlinePicker';
+import { isGroupAccount } from '../utils/accountGroups';
 import { DocumentPane } from './shared/DocumentViewer';
 import CornerEditor from './shared/CornerEditor';
 import { TextSuggestInput } from './shared/SearchInputs';
@@ -237,9 +238,6 @@ function OcrBadge() {
     </span>
   );
 }
-
-// Samma brytpunkt som stegen i index.css (.rc-step-read, .rc-step-account).
-const PHONE_STEPS_QUERY = '(max-width: 860px)';
 
 // Texten som lästes sparas på kvittots utkast. Ett kvitto är långt under det här.
 const MAX_SAVED_TEXT = 8000;
@@ -509,16 +507,6 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const canScan = hasReceiptFile && !readOnly;
   const hasScanned = Boolean(currentDraft) || Object.keys(revealed).length > 0 || ocrStatus !== 'idle';
 
-  // På telefon har man just fotat kvittot för att få det avläst, så där startar
-  // avläsningen av sig själv (användaren 2026-11-02). Datorn har kvar knappen.
-  const autoReadRef = useRef(false);
-  useEffect(() => {
-    if (autoReadRef.current || !canScan || hasScanned || !isUnprocessedAtOpen) return;
-    if (!window.matchMedia(PHONE_STEPS_QUERY).matches) return;
-    autoReadRef.current = true;
-    runOcr(receipt.receiptUrl, { force: true });
-  }, [canScan, hasScanned, isUnprocessedAtOpen, runOcr, receipt.receiptUrl]);
-
   // Den som hellre skriver själv ska inte behöva vänta på avläsningen.
   const skipScan = () => {
     ocrRunIdRef.current += 1;
@@ -573,7 +561,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const frequentAccounts = useMemo(() => {
     const counts = new Map();
     (allReceipts || []).forEach(r => {
-      if (r.costAccount && r.id !== receipt.id) counts.set(r.costAccount, (counts.get(r.costAccount) || 0) + 1);
+      if (r.costAccount && r.id !== receipt.id && !isGroupAccount(r.costAccount)) counts.set(r.costAccount, (counts.get(r.costAccount) || 0) + 1);
     });
     return [...counts.entries()]
       .sort((x, y) => y[1] - x[1])

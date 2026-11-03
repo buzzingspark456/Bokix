@@ -117,6 +117,20 @@ export const KNOWN_SUPPLIERS = [
 /** Nyckelordsregler för konto, när ingen känd leverantör matchade. Samma
  *  "första träff vinner"-princip. Varje `code` verifierad mot
  *  AccountsData.js (se filkommentaren ovan för vilka som rättades). */
+/**
+ * Vad som köptes, för butiker som säljer allt möjligt (Elgiganten, Clas Ohlson,
+ * ICA). Butiken säger inte vilket konto det är: en dator, ett batteri och ett
+ * tv-spel är tre olika saker. `code: null` betyder att varan oftast är privat
+ * (spel och spelkonsoler), och då föreslås inget konto alls.
+ */
+export const ITEM_ACCOUNT_RULES = [
+  { re: /playstation|\bps[45]\b|xbox|nintendo|spelkonsol|spelkontroll|dualsense|tv-spel|gamingstol/, code: null },
+  { re: /bärbar dator|laptop|macbook|stationär dator|\bdator\b|bildskärm|datorskärm|monitor|tangentbord|datormus|\bmus\b|router|headset|hörlurar|webbkamera|surfplatta|ipad|skrivare|mobiltelefon|smartphone|iphone|dockningsstation|projektor/, code: '5410' },
+  { re: /kabel|sladd|batteri|batterier|laddare|adapter|\busb\b|minneskort|förlängningssladd|glödlampa|eluttag|grenuttag|tejp|skruv|spik/, code: '5460' },
+  { re: /toner|bläckpatron|kopieringspapper|skrivarpapper|pärm|kontorsmaterial|kuvert|häftapparat|post-it|whiteboard/, code: '6110' },
+  { re: /programvara|antivirus|office 365|microsoft 365/, code: '5420' },
+];
+
 export const ACCOUNT_KEYWORD_RULES = [
   // ── Specifika regler först ────────────────────────────────────────────
   // Kravet här är att texten själv säger vad det gäller. Ett ord som kan
@@ -198,7 +212,7 @@ export const ACCOUNT_KEYWORD_RULES = [
   // UPPGRADERAT: 5000 är gruppkontot "Lokalkostnader", 5020 "El" är
   // exakt raden för en elräkning.
   { re: /elräkning|elnät|vattenfall|e\.on|fortum/, code: '5020' },
-  { re: /verktyg|maskin|utrustning/, code: '5400' },
+  { re: /verktyg|maskin|utrustning/, code: '5410' },
 ];
 
 /**

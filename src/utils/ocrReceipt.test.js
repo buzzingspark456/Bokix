@@ -643,7 +643,7 @@ Totalt: SEK 899,00`
     expect(r.receiptNumber).toBe('2302039269')
     expect(r.receiptNumberLabel).toBe('Ordernummer')
     expect(r.supplier).toBe('Elgiganten')
-    expect(r.accountCode).toBe('5410')
+    expect(r.accountGuessed).toBe(true) // ett tv-spel ger inget kontoförslag
     expect(r.vatRate).toBe(25)
   })
   it('rubriker och belopp på nästa rad blir inget nummer', () => {
@@ -692,7 +692,7 @@ SEK 899,00`
     expect(r.supplier).toBe('Elgiganten')
     expect(r.amount).toBe(899)
     expect(r.vatRate).toBe(25)
-    expect(r.accountCode).toBe('5410')
+    expect(r.accountGuessed).toBe(true) // ett tv-spel ger inget kontoförslag
     expect(r.date).toBe('2026-05-26')
   })
   it('en kortterminals referens (hex-hash) är inget kvittonummer', () => {

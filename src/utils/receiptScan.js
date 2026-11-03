@@ -80,7 +80,11 @@ export async function analyzeReceipt(read, { ownCompany = {}, onMessage = () => 
  * aldrig ett ifyllt konto. `hist` är företagets historik för leverantören,
  * eller null (gratisverktyget har ingen).
  */
-export function buildReceiptPlan({ parsed, registryName, supplierName, amountSek }, hist = null) {
+export function buildReceiptPlan({ parsed, registryName, supplierName, amountSek }, history = null) {
+  // I en butik som säljer allt möjligt säger förra kvittot inget om det här:
+  // stod varan på kvittot gäller den, inte vad som bokfördes förra gången.
+  const hist = history && parsed.accountFromItems && history.costAccount !== parsed.accountCode
+    ? { ...history, costAccount: null } : history;
   // Inget kvitto eller ingen faktura (ett CV, ett brev): inget fylls i.
   const nr = Boolean(parsed.notReceipt);
   const reverse = parsed.reverseCharge;

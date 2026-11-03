@@ -338,7 +338,8 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       // användaren tar med en knapp, aldrig något som skrivs in och ser avläst
       // ut. Kundfeedback, uttryckligt: ett konto som ser säkert ut men är en
       // gissning är värre än ett tomt fält.
-      const costAccount = reverse ? parsed.accountCode : (hist?.costAccount || '');
+      const histAccount = parsed.accountFromItems && hist?.costAccount !== parsed.accountCode ? '' : (hist?.costAccount || '');
+      const costAccount = reverse ? parsed.accountCode : histAccount;
       const suggestion = !nr && !costAccount && parsed.accountCode && !parsed.accountGuessed && accounts.some(a => a.code === parsed.accountCode)
         ? parsed.accountCode : null;
       const choices = suggestion && parsed.accountChoices

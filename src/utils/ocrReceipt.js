@@ -14,7 +14,7 @@
  * (Bank.jsx), som annars hade fått en egen, garanterat framtida-omatchad
  * kopia av samma regler.
  */
-import { KNOWN_SUPPLIERS, ACCOUNT_KEYWORD_RULES, FOOD_CHOICES } from './accountCategories';
+import { KNOWN_SUPPLIERS, ACCOUNT_KEYWORD_RULES, ITEM_ACCOUNT_RULES, FOOD_CHOICES } from './accountCategories';
 import { REVERSE_PURCHASE_ACCOUNTS } from './vatConfig';
 import { getSignedStorageUrl } from './signedUrls';
 import { loadPdfjs } from './pdfjs';
@@ -3890,6 +3890,20 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     accountSource = 'fallback';
   };
   if (!accountCode) accountFromRules();
+  // Butik som säljer allt möjligt: varan på kvittot styr kontot, inte butiken.
+  // En vara som oftast är privat (tv-spel) ger inget förslag alls.
+  let accountFromItems = false;
+  if (accountChoices) {
+    const itemText = supplier ? keywordText.split(supplier.toLowerCase()).join(' ') : keywordText;
+    const item = ITEM_ACCOUNT_RULES.find(({ re }) => strictRule(re).test(itemText));
+    if (item) {
+      accountFromItems = true;
+      accountChoices = null;
+      accountSource = 'items';
+      if (item.code) accountCode = item.code;
+      else { accountCode = '6990'; accountGuessed = true; }
+    }
+  }
 
   // ── 5b. Tjänst från utlandet: omvänd skattskyldighet ─────────────────────
   // Ett inköp av en tjänst från utlandet får ett eget inköpskonto (4535 EU,
@@ -3951,7 +3965,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   // Hela kvittot från en matbutik är 25 %: då är det inte mat, utan till
   // exempel kläder eller verktyg, och matförslagen stämmer inte. Kontot
   // bestäms av vad som står på kvittot i stället.
-  if (accountChoices === FOOD_CHOICES && vatCheck.verified && !vatCheck.mixed && vatRate === 25) {
+  if (!accountFromItems && accountChoices === FOOD_CHOICES && vatCheck.verified && !vatCheck.mixed && vatRate === 25) {
     accountChoices = null;
     accountFromRules();
   }
@@ -4003,6 +4017,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     receiptNumberGuessed: Boolean(numberFound?.uncertain),
     supplier, supplierMatched, supplierConfirmed: supplierMatched || supplierFromHeading || supplierHasOrgNumber(lines, supplier), supplierIsLegalName, supplierFromWebAddress, accountCode, accountGuessed, accountSource, currency,
     accountChoices: accountSource === 'supplier' ? accountChoices : null,
+    accountFromItems,
     notReceipt: false, documentKind: doc.isInvoice ? 'invoice' : 'receipt',
     paymentMethod: detectPaymentMethod(text, { isInvoice: doc.isInvoice }).method,
     reverseCharge, reverseChargeUnclear,
