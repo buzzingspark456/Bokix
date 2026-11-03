@@ -457,6 +457,8 @@
     }
   },
   "ui": {
+    "valj_momssats_fran_kvittot": "Choose the VAT rate printed on the receipt.",
+    "momsen_kunde_inte_lasas": "The VAT could not be read on the receipt. Choose the VAT rate printed on the receipt.",
     "fyll_i_sjalv": "Skip and fill in myself",
     "visa_fler_rader": "Show more ({{count}} left)",
     "nasta_steg": "Next",

@@ -88,7 +88,11 @@ export function buildReceiptPlan({ parsed, registryName, supplierName, amountSek
   // Inget kvitto eller ingen faktura (ett CV, ett brev): inget fylls i.
   const nr = Boolean(parsed.notReceipt);
   const reverse = parsed.reverseCharge;
-  const vatFromHistory = !reverse && Boolean(hist && parsed.vatRateGuessed && hist.vatRate !== null);
+  // Förra kvittot säger inget om momsen i en butik som säljer allt möjligt.
+  const variedStore = Boolean(parsed.accountChoices || parsed.accountFromItems);
+  const vatFromHistory = !reverse && !variedStore && Boolean(hist && parsed.vatRateGuessed && hist.vatRate !== null);
+  // Satsen stod inte på kvittot: ingen sats väljs, användaren väljer själv.
+  const vatUnread = !reverse && !vatFromHistory && Boolean(parsed.vatRateGuessed) && !parsed.vatRates;
   // Moms i flera satser (mat 12 % och hushåll 25 %): momsbeloppet på
   // kvittot bokförs som det står, i stället för en sats som blir fel.
   const mixedVat = !nr && !reverse && !parsed.currency && Boolean(parsed.vatRates && parsed.vatAmount);
@@ -99,10 +103,10 @@ export function buildReceiptPlan({ parsed, registryName, supplierName, amountSek
     { key: 'amount', found: !nr && Boolean(amountSek), state: parsed.amountGuessed ? 'guess' : 'found', patch: { amount: amountToInput(amountSek), refund: Boolean(parsed.creditNote) } },
     {
       key: 'vatRate', found: !nr && parsed.vatRate !== null && parsed.vatRate !== undefined,
-      state: reverse ? 'found' : (vatFromHistory ? 'history' : (parsed.vatRateGuessed ? 'guess' : 'found')),
+      state: reverse ? 'found' : (vatFromHistory ? 'history' : (vatUnread ? 'missing' : 'found')),
       patch: mixedVat
         ? { vatRate: 'mixed', vatAmount: amountToInput(parsed.vatAmount) }
-        : { vatRate: vatFromHistory ? hist.vatRate : parsed.vatRate },
+        : { vatRate: vatUnread ? '' : (vatFromHistory ? hist.vatRate : parsed.vatRate) },
     },
     {
       // Tjänst från utlandet: kontot följer av dokumentet (4535 EU, 4531

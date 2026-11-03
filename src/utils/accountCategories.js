@@ -125,7 +125,7 @@ export const KNOWN_SUPPLIERS = [
  */
 export const ITEM_ACCOUNT_RULES = [
   { re: /playstation|\bps[45]\b|xbox|nintendo|spelkonsol|spelkontroll|dualsense|tv-spel|gamingstol/, code: null },
-  { re: /bärbar dator|laptop|macbook|stationär dator|\bdator\b|bildskärm|datorskärm|monitor|tangentbord|datormus|\bmus\b|router|headset|hörlurar|webbkamera|surfplatta|ipad|skrivare|mobiltelefon|smartphone|iphone|dockningsstation|projektor/, code: '5410' },
+  { re: /bärbar dator|laptop|macbook|stationär dator|\bdator\b|bildskärm|datorskärm|monitor|tangentbord|datormus|\bmus\b|router|headset|hörlurar|webbkamera|surfplatta|ipad|skrivare|mobiltelefon(?!i)|smartphone|iphone|dockningsstation|projektor/, code: '5410' },
   { re: /kabel|sladd|batteri|batterier|laddare|adapter|\busb\b|minneskort|förlängningssladd|glödlampa|eluttag|grenuttag|tejp|skruv|spik/, code: '5460' },
   { re: /toner|bläckpatron|kopieringspapper|skrivarpapper|pärm|kontorsmaterial|kuvert|häftapparat|post-it|whiteboard/, code: '6110' },
   { re: /programvara|antivirus|office 365|microsoft 365/, code: '5420' },

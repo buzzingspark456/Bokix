@@ -457,6 +457,8 @@
     }
   },
   "ui": {
+    "valj_momssats_fran_kvittot": "Välj momssatsen som står på kvittot.",
+    "momsen_kunde_inte_lasas": "Momsen gick inte att läsa på kvittot. Välj momssatsen som står på kvittot.",
     "fyll_i_sjalv": "Hoppa över och fyll i själv",
     "visa_fler_rader": "Visa fler ({{count}} kvar)",
     "nasta_steg": "Nästa",

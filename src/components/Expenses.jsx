@@ -618,6 +618,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     if (!form.supplier.trim()) newErrors.supplier = tr('ui.inkopsstalle_kravs');
     if (isNaN(amount) || amount <= 0) newErrors.amount = 'Ange ett giltigt belopp.';
     if (!form.costAccount) newErrors.costAccount = tr('ui.valj_ett_konto');
+    if (form.vatRate === '' && !vatExempt && !reverseInfo) newErrors.vatRate = tr('ui.valj_momssats_fran_kvittot');
     // Moms över 25 % av nettot (20 % av totalen) finns inte i Sverige.
     if (mixedVat && !(mixedVatAmount > 0 && mixedVatAmount <= amount * 0.2 + 0.005)) {
       newErrors.vatAmount = tr('ui.moms_for_hog');
@@ -824,6 +825,13 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 <span>{tr('ui.momsen_stammer_mot_beloppen_pa_kvittot')}{formatSEK2(ocrVat.vatAmount)} {tr('ui.moms_4')} {Number(form.vatRate)} %).</span>
               </div>
             )}
+            {/* Momsen stod inte läsbart på kvittot: satsen är bara ett förslag. */}
+            {!vatExempt && !readOnly && !revealing && ocrVat && !ocrVat.verified && !ocrVat.mismatch && !ocrVat.rates && (revealed.vatRate === 'missing' || form.vatRate === '') && (
+              <div className="rc-verify rc-verify-warn">
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>{tr('ui.momsen_kunde_inte_lasas')}</span>
+              </div>
+            )}
             {!vatExempt && !readOnly && !revealing && ocrVat && ocrVat.mismatch && (
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
@@ -951,7 +959,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 <label style={labelSt}>{tr('ui.momssats')} {ocrFields.has('vatRate') && <OcrBadge />}</label>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   {[25, 12, 6, 0, 'mixed'].map(v => {
-                    const on = v === 'mixed' ? form.vatRate === 'mixed' : form.vatRate !== 'mixed' && Number(form.vatRate) === v;
+                    /* Ingen sats vald förrän kvittot sagt den eller användaren valt. */
+                    const on = v === 'mixed' ? form.vatRate === 'mixed' : form.vatRate !== 'mixed' && form.vatRate !== '' && Number(form.vatRate) === v;
                     return (
                       <button
                         key={v} type="button" disabled={readOnly}
@@ -975,6 +984,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                     );
                   })}
                 </div>
+                {errors.vatRate && <div style={errSt}>{errors.vatRate}</div>}
                 {mixedVat && (
                   <div style={{ marginTop: '10px' }}>
                     <label style={labelSt}>{tr('ui.moms_i_kronor')}</label>

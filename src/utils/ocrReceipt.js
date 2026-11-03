@@ -96,6 +96,7 @@ function parseMoneyToken(raw) {
 const MONEY_GROUPED = '(?:\\d{1,3}(?:[ \\u00A0]\\d{3})+|\\d+)';
 const MONEY_DECIMAL_SOURCE = `${MONEY_GROUPED}[,.]\\s?\\d{2}\\b|${MONEY_GROUPED}[,.]\\d\\b`;
 const MONEY_DECIMAL_RE = new RegExp(MONEY_DECIMAL_SOURCE, 'g');
+const HAS_MONEY_DECIMAL_RE = new RegExp(MONEY_DECIMAL_SOURCE);
 // Rena heltalsbelopp på minst 3 siffror, ev. tusentalsgrupperat ("5,000",
 // "5000") — krävs för valutor utan decimaler (yen, och ofta yuan på större
 // B2B-fakturor). Ett ensamt en/tvåsiffrigt heltal matchas medvetet INTE
@@ -2578,7 +2579,7 @@ const NAME_JUNK_RE = /\b(?:tax invoice|invoice|receipt|kvittokopia|shopping hour
  */
 export function legalNameFromLines(lines) {
   const list = (lines || []).map(l => String(l).trim());
-  const BUYER_RE = /faktura\s*till|fakturaadress|leveransadress|\bkund\b|customer|bill\s*to|ship\s*to|sold\s*to|mottagare|k[öo]pare/i;
+  const BUYER_RE = /faktur(?:a|era|eras)\s*till|fakturaadress|leveransadress|\bkund\b|customer|bill\s*to|ship\s*to|sold\s*to|mottagare|k[öo]pare/i;
   const BANK_RE = /\bbank\b|bankgiro|plusgiro|swift|\biban\b|clearing|\bbic\b/i;
   for (let i = 0; i < list.length; i++) {
     let line = list[i]
@@ -2642,7 +2643,7 @@ const WEB_DISPLAY = {
   github: 'GitHub', openai: 'OpenAI', digitalocean: 'DigitalOcean', hubspot: 'HubSpot', wordpress: 'WordPress', godaddy: 'GoDaddy',
   clasohlson: 'Clas Ohlson', netonnet: 'NetOnNet', aws: 'AWS', ikea: 'IKEA', hm: 'H&M',
 };
-const WEB_BUYER_RE = /faktura\s*till|fakturaadress|leveransadress|\bkund\b|customer|bill\s*to|billed\s*to|ship\s*to|sold\s*to|mottagare|k[öo]pare|invoice\s*to/i;
+const WEB_BUYER_RE = /faktur(?:a|era|eras)\s*till|fakturaadress|leveransadress|\bkund\b|customer|bill\s*to|billed\s*to|ship\s*to|sold\s*to|mottagare|k[öo]pare|invoice\s*to/i;
 const WEB_TLD = '(?:se|com|nu|net|org|io|co|eu|dk|no|fi|de|uk|ie|nl|fr|app|dev|ai|shop|store|info|biz)';
 const WEB_EMAIL_RE = new RegExp(`[a-z0-9._%+-]+@(?:[a-z0-9-]+\\.)*([a-z0-9-]+)\\.${WEB_TLD}\\b`, 'g');
 const WEB_URL_RE = new RegExp(`(?:https?:\\/\\/|www\\.)(?:[a-z0-9-]+\\.)*?([a-z0-9-]+)\\.${WEB_TLD}\\b`, 'g');
@@ -3363,6 +3364,16 @@ export function parseReceiptText(text, options = {}) {
   return single.supplierMatched ? single : { ...single, supplier: correctNameSpelling(single.supplier, text) };
 }
 
+/**
+ * Ett suddigt foto ger bokstaven O i stället för siffran 0 inne i tal: "6,0O",
+ * "5,O8", "89,7O". Då gick momsraden inte att läsa och satsen blev en gissning.
+ * Bara ett O som sitter ihop med siffror byts, så ord som "TOTAL" och "Org.nr"
+ * lämnas orörda. Exporterad för testerna.
+ */
+export function fixDigitLetters(line) {
+  return String(line).replace(/(?<=\d[.,]?)[Oo](?=[\d.,]|\s|$|%)|[Oo](?=[.,]\d)|(?<=\d)[Oo](?=\d)/g, '0');
+}
+
 function parseOneReading(text, { confidence = null, weakTokens = null, today = new Date() } = {}) {
   if (!text || typeof text !== 'string') {
     return { ...EMPTY_PARSE };
@@ -3375,7 +3386,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   // kvitto eller en faktura.
   if (isUnreadableText(text)) return { ...EMPTY_PARSE, notReceipt: true, unreadable: true, documentKind: 'unreadable' };
 
-  const lines = joinLoneTotalLabels(expandColumnTables(text.split('\n').map(l => l.trim()).filter(Boolean)));
+  const lines = joinLoneTotalLabels(expandColumnTables(text.split('\n').map(l => fixDigitLetters(l.trim())).filter(Boolean)));
   // Text som kontoreglerna får läsa: kvittots egna rader UTAN finstilt och
   // kontaktuppgifter. Butikens villkorstext ("Inget byte eller öppet köp av
   // livsmedel, hygienartiklar, djurmat…") och telefonnumret i sidhuvudet står
@@ -3616,7 +3627,8 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     let maxLine = null;
     for (const line of lines) {
       if (NOT_AMOUNT_LINE_RE.test(line)) continue;
-      const skipWhole = ID_LIKE_LINE_RE.test(line) || DATE_LIKE_LINE_RE.test(line) || !CURRENCY_MARK_RE.test(line);
+      // På en rad med belopp i ören är ett heltal ett antal ("1 $0.00 $0.00"), inte totalen.
+      const skipWhole = ID_LIKE_LINE_RE.test(line) || DATE_LIKE_LINE_RE.test(line) || !CURRENCY_MARK_RE.test(line) || HAS_MONEY_DECIMAL_RE.test(line);
       const matches = [
         ...(line.match(MONEY_DECIMAL_RE) || []),
         // Ett heltal med en valutamarkering på raden ("15 kr") är ett belopp
@@ -3878,6 +3890,13 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   // riktigt förslag från leverantörens tidigare kvitton läggs på av anroparen
   // (Expenses.jsx), som har företagets historik.
   const accountFromRules = () => {
+    // Varan först, för en okänd butik också: en dator är en dator var den än köps.
+    const item = ITEM_ACCOUNT_RULES.find(({ re }) => strictRule(re).test(keywordText));
+    if (item) {
+      accountFromItems = true;
+      if (item.code) { accountCode = item.code; accountSource = 'items'; } else { accountCode = '6990'; accountGuessed = true; accountSource = 'items'; }
+      return;
+    }
     for (const { re, code } of ACCOUNT_KEYWORD_RULES) {
       if (strictRule(re).test(keywordText)) {
         accountCode = code;
@@ -3889,10 +3908,10 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     accountGuessed = true;
     accountSource = 'fallback';
   };
+  let accountFromItems = false;
   if (!accountCode) accountFromRules();
   // Butik som säljer allt möjligt: varan på kvittot styr kontot, inte butiken.
   // En vara som oftast är privat (tv-spel) ger inget förslag alls.
-  let accountFromItems = false;
   if (accountChoices) {
     const itemText = supplier ? keywordText.split(supplier.toLowerCase()).join(' ') : keywordText;
     const item = ITEM_ACCOUNT_RULES.find(({ re }) => strictRule(re).test(itemText));
