@@ -3,7 +3,7 @@
 // kvittovyn, leverantörsfakturan och gratisverktyget via analyzeReceipt.
 // Svenska kontrollsiffror avgör hur säkert ett nummer är: stämmer de är
 // numret avläst, annars ska användaren kontrollera det (*Guessed).
-import { isRealDate } from './ocrReceipt';
+import { isRealDate, pairLabelColumns, splitBankDetails } from './ocrReceipt';
 
 const digitsOf = (s) => String(s || '').replace(/\D/g, '');
 
@@ -132,7 +132,7 @@ function findSellerOrgNr(lines, own) {
  * förfallodatum. Svarar null när inget hittades.
  */
 export function readInvoiceDetails(text, { own = {}, invoiceDate = null } = {}) {
-  const lines = String(text || '').split('\n').map(l => l.trim()).filter(Boolean);
+  const lines = pairLabelColumns(splitBankDetails(String(text || '').split('\n').map(l => l.trim()).filter(Boolean)));
   const orgNr = findSellerOrgNr(lines, own);
   const dueDate = findDueDate(lines, invoiceDate);
   const bankgiroRaw = findLabelled(lines, BANKGIRO_RE, BANKGIRO_LABEL_RE, BANKGIRO_ALONE_RE);

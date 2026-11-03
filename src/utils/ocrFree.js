@@ -2,6 +2,8 @@
 // via /api/ocr-free (en gång per person, räknas på servern), därefter läser
 // sidan i webbläsaren. Webbläsaren minns också att läsningen är använd, så
 // att ingen bild skickas i onödan; servern avgör ändå.
+import { rowsFromLayout } from './visionRows';
+
 const USED_KEY = 'bokix_free_ocr_used';
 const TIMEOUT_MS = 20000;
 
@@ -39,7 +41,9 @@ export async function readFreeWithGoogle(file, captchaToken) {
     const text = typeof payload?.text === 'string' && payload.text.trim() ? payload.text : null;
     if (!text) return null;
     const laterPages = await laterPdfPagesText(file);
-    return { text: laterPages ? `${text}\n${laterPages}` : text, lines: Array.isArray(payload.lines) ? payload.lines : null };
+    // Raderna efter var de står på bilden (visionRows.js), som i appen.
+    const firstPage = (Array.isArray(payload.lines) && rowsFromLayout(payload.lines)) || text;
+    return { text: laterPages ? `${firstPage}\n${laterPages}` : firstPage, lines: Array.isArray(payload.lines) ? payload.lines : null };
   } catch {
     return null;
   } finally {

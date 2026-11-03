@@ -340,8 +340,8 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       // gissning är värre än ett tomt fält.
       const histAccount = parsed.accountFromItems && hist?.costAccount !== parsed.accountCode ? '' : (hist?.costAccount || '');
       const costAccount = reverse ? parsed.accountCode : histAccount;
-      const suggestion = !nr && !costAccount && parsed.accountCode && !parsed.accountGuessed && accounts.some(a => a.code === parsed.accountCode)
-        ? parsed.accountCode : null;
+      // Inga kontoförslag ur texten, som i kvittovyn (användaren 2026-11-03).
+      const suggestion = null;
       const choices = suggestion && parsed.accountChoices
         ? parsed.accountChoices.filter(c => accounts.some(a => a.code === c.code))
         : null;

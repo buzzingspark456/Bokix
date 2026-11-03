@@ -5,6 +5,7 @@
 // (ScanReceiptPage.jsx), så att de alltid ger samma resultat för samma kvitto.
 import { parseReceiptText, READING_SEPARATOR } from './ocrReceipt';
 import { readInvoiceDetails } from './invoiceDetails';
+import { rowsFromLayout } from './visionRows';
 import { locateFieldBoxes } from './ocrFieldBoxes';
 import { sellerTaxIds, prettifyCompanyName } from './supplierRegistry';
 import { lookupVatName } from './companyLookup';
@@ -23,7 +24,9 @@ const REGISTRY_TIMEOUT_MS = 7000;
  * (invoiceDetails.js), `readText` texten som lästes, för Visa texten som lästes.
  */
 export async function analyzeReceipt(read, { ownCompany = {}, onMessage = () => {} } = {}) {
-  const { text, confidence, weakTokens, quality, layout } = read;
+  const { confidence, weakTokens, quality, layout } = read;
+  // Google läser kolumn för kolumn: raderna byggs om efter var de står på bilden.
+  const text = (layout && rowsFromLayout(layout)) || read.text;
   const parsed = parseReceiptText(text, { confidence, weakTokens });
   const boxes = layout ? locateFieldBoxes(layout, parsed) : null;
   const readText = String(text || '').split(READING_SEPARATOR)[0].trim();
@@ -122,8 +125,10 @@ export function buildReceiptPlan({ parsed, registryName, supplierName, amountSek
       key: 'costAccount', found: !nr && Boolean(reverse ? parsed.accountCode : hist?.costAccount),
       state: reverse ? 'found' : 'history',
       patch: { costAccount: reverse ? parsed.accountCode : hist?.costAccount },
-      suggest: (!nr && !reverse && !hist?.costAccount && parsed.accountCode && !parsed.accountGuessed)
-        ? { code: parsed.accountCode, source: parsed.accountSource, choices: parsed.accountChoices || null } : null,
+      // Inga förslag ur texten (användaren 2026-11-03): de gjorde det svårare.
+      suggest: null,
+      // Spel och spelkonsoler: inget förslag, men en förklaring till varför.
+      note: !nr && !reverse && !hist?.costAccount && parsed.privateItem ? 'private' : null,
     },
   ];
 }
@@ -170,7 +175,7 @@ export function supplierInvoiceFill(analysis, { contacts = [], expenses = [] } =
     : null;
   const reverse = Boolean(parsed.reverseCharge);
   const account = earlier?.rows[0].account || (reverse ? parsed.accountCode : null) || null;
-  const suggestion = !account && parsed.accountCode && !parsed.accountGuessed ? parsed.accountCode : null;
+  const suggestion = null;
   const mixed = !reverse && Boolean(parsed.vatRates);
   const rate = reverse ? 0 : parsed.vatRate;
   let net = null;

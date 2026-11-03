@@ -32,17 +32,20 @@ describe('kontot efter vad som köptes', () => {
 
   it('en dator blir 5410 Förbrukningsinventarier', () => {
     const r = parseReceiptText(ELGIGANTEN('Lenovo bärbar dator 15,6"'));
-    expect(plan(r).förslag).toBe('5410');
+    expect(r.accountCode).toBe('5410');
+    expect(plan(r).förslag).toBeNull();
   });
 
   it('batterier på Clas Ohlson blir 5460 Förbrukningsmaterial', () => {
     const r = parseReceiptText('Clas Ohlson\n2026-05-26\nBatterier AA 8-pack 89,00\nTotalt 89,00\nMoms 25% 17,80');
-    expect(plan(r).förslag).toBe('5460');
+    expect(r.accountCode).toBe('5460');
+    expect(plan(r).förslag).toBeNull();
   });
 
   it('kopieringspapper blir 6110 Kontorsmaterial', () => {
     const r = parseReceiptText('Clas Ohlson\n2026-05-26\nKopieringspapper A4 500 ark 79,00\nTotalt 79,00\nMoms 25% 15,80');
-    expect(plan(r).förslag).toBe('6110');
+    expect(r.accountCode).toBe('6110');
+    expect(plan(r).förslag).toBeNull();
   });
 
   it('utan känd vara får man välja bland butikens vanliga konton', () => {
@@ -53,7 +56,7 @@ describe('kontot efter vad som köptes', () => {
 
   it('varan går före förra kvittot från samma butik', () => {
     const r = parseReceiptText(ELGIGANTEN('Lenovo bärbar dator'));
-    expect(plan(r, { costAccount: '6110', vatRate: 25 })).toEqual({ ifyllt: null, förslag: '5410' });
+    expect(plan(r, { costAccount: '6110', vatRate: 25 })).toEqual({ ifyllt: null, förslag: null });
   });
 
   it('matbutik med mat behåller företagets egen historik', () => {

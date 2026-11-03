@@ -457,6 +457,7 @@
     }
   },
   "ui": {
+    "privat_vara_valj_konto": "Games and consoles are usually private and not deductible, so Bokix suggests no account. If the purchase is for the business, choose the account yourself.",
     "valj_momssats_fran_kvittot": "Choose the VAT rate printed on the receipt.",
     "momsen_kunde_inte_lasas": "The VAT could not be read on the receipt. Choose the VAT rate printed on the receipt.",
     "fyll_i_sjalv": "Skip and fill in myself",

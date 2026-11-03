@@ -99,6 +99,8 @@ function buildFields(analysis, plan) {
       const code = step.found ? step.patch.costAccount : step.suggest?.code;
       if (!blocked && code) {
         Object.assign(field, { found: true, state: step.found ? step.state : 'suggest', value: `${code} ${ACCOUNT_NAME[code] || ''}`.trim() });
+      } else if (!blocked && step.note === 'private') {
+        Object.assign(field, { found: true, state: 'guess', value: 'Välj själv', note: 'Spel och spelkonsoler är oftast privata' });
       }
     }
     return field;

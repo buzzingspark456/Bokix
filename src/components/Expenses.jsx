@@ -304,6 +304,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const [readText, setReadText] = useState(currentDraft?.readText || '');
   // Kontot avläsningen föreslår men inte fyller i: { code, source } | null.
   const [suggestedAccount, setSuggestedAccount] = useState(draft?.suggestedAccount || null);
+  // Varför inget konto föreslogs, när det finns ett skäl ('private' för tv-spel).
+  const [accountNote, setAccountNote] = useState(draft?.accountNote || null);
   // Gör körningar avbrytbara: hinner användaren byta fil eller köra om
   // läsningen innan en pågående körning (som nu även väntar in en
   // valutakurs över nätet) är klar, ska bara den SENASTE körningens
@@ -370,6 +372,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     setReadDetails(null);
     setReadText('');
     setSuggestedAccount(null);
+    setAccountNote(null);
     setNotReceipt(false);
     setUnreadable(false);
     setPhotoHint(null);
@@ -434,6 +437,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         form: draftForm,
         revealed: draftRevealed,
         suggestedAccount: accountSuggestion,
+        accountNote: plan.find(step => step.key === 'costAccount')?.note || null,
         ocrFields: draftFields,
         numberLabel: parsed.receiptNumber ? (parsed.receiptNumberLabel || '') : '',
         fx: draftFx,
@@ -459,6 +463,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             setFlashKey(`${step.key}:${i}`);
           }
           if (step.suggest) setSuggestedAccount(step.suggest);
+          if (step.note) setAccountNote(step.note);
           setRevealed(prev => ({ ...prev, [step.key]: step.found ? step.state : (step.suggest ? 'suggest' : 'missing') }));
         }, 250 + i * REVEAL_STEP_MS));
       });
@@ -1038,6 +1043,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                       suggestion={suggestedAccount && accounts.some(a => a.code === suggestedAccount.code) ? suggestedAccount : null}
                       invalid={Boolean(errors.costAccount)}
                     />
+                    {accountNote === 'private' && !form.costAccount && <div className="rc-hint">{tr('ui.privat_vara_valj_konto')}</div>}
                     {errors.costAccount && <div style={errSt}>{errors.costAccount}</div>}
                   </>
                 )}

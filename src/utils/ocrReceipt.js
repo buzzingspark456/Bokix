@@ -2494,7 +2494,7 @@ export function isUnreadableText(text) {
 // färst ord — alltså den rätt stavade.
 // "Receipt from Stripe" / "Kvitto från Bokix": namnet efter "från".
 const FROM_HEADING_RE = /^\s*(?:your\s+)?(?:receipt|invoice|kvitto|faktura)\s+(?:from|fr[åa]n)\s+(.{2,60}?)\s*$/i;
-const NAME_SKIP_RE = /^(\d[\d\s/.-]{4,}|\s*|kvitto|receipt|faktura|invoice|org\.?nr|datum|date|order|nr|org)$/i;
+const NAME_SKIP_RE = /^(\d[\d\s/.-]{4,}|\s*|kvitto|receipt|faktura|invoice|kontantfaktura|kreditfaktura|proformafaktura|f[öo]ljesedel|orderbekr[äa]ftelse|offert|kassakvitto|org\.?nr|datum|date|order|nr|org)$/i;
 const NAME_LABEL_RE = /(?:faktura|kvitto|invoice|receipt)\s*(?:nummer|nr|no\.?|datum|date)|f[öo]rfallo\w*|betalningsvillkor|bankgiro|plusgiro|org\.?\s*nr|organisationsnummer|vat\s*(?:id|no|number)|momsreg\w*|\bdatum\b|\bdate\b|\btotal\w*|att betala|\bsumma\b|\bmoms\b|amount\s*(?:paid|due)|date\s*(?:paid|due)|payment\s*method|betalningss[äa]tt|\bsummary\b/i;
 // Adress- och kontaktrader är inte namnet, hur fint de än står i huvudet.
 const NAME_ADDRESS_RE = /\b(?:gatan|gatu|v[äa]gen|gr[äa]nd|torget|\bbox\b|tel(?:efon)?|telnr|\btfn\b|butik|kassa|\bkvitto\b)\b/i;
@@ -2788,7 +2788,7 @@ const looksLikeMoms = (line) => MOMS_RE.test(String(line));
 // Rader som INTE är totalen: belopp exklusive moms, momsen själv, rabatter,
 // växel. "Totalt inkl. moms" är däremot totalen, trots ordet moms.
 function isNotTotalLine(line) {
-  if (/exkl|excl|ex\.?\s*moms|utan moms|f[öo]re moms|netto|before tax|\bnet\b|rabatt|discount|avrundning|v[äa]xel|tillbaka|\bchange\b/i.test(line)) return true;
+  if (/exkl|excl|ex\.?\s*moms|utan moms|f[öo]re moms|netto|before tax|\bnet\b|rabatt|discount|avrundning|v[äa]xel|tillbaka|\bchange\b|\bsub[\s-]*total|delsumma/i.test(line)) return true;
   // En rad med ordet moms är momsen, inte totalen — ÄVEN när den heter "TOTAL
   // MOMS". Det är summan av momsen på kvittot, inte summan att betala, och
   // lästes tidigare som totalbelopp: ett kvitto på 15 kr med 3 kr moms fick
@@ -2802,6 +2802,9 @@ const NET_LINE_RE = /exkl\.?\s*moms|utan moms|excl\.?\s*(?:vat|tax)|netto|f[öo]
 // Rader som står på varje kvitto från butiken oavsett vad som köptes: villkor,
 // öppettider, kontrolluppgifter och kontaktvägar. De får inte styra vilket
 // konto som föreslås — se keywordText i parseReceiptText.
+// Frakt som rubrik eller belopp i summeringen och leveranssättet ("Post") säger
+// inget om vad som köptes: ett kapell blev 5711 Fraktkostnader.
+const SUMMARY_NOT_PURPOSE_RE = /^(?:frakt|porto|exp\.?\s*avgift|post)(?:\s+-?\d[\d  ]*[.,]\d{2})?\s*$|leverans(?:s[äa]tt|villkor)|e-?post|e-?mail|^frakt\s+exkl\.?\s*moms/i;
 const BOILERPLATE_LINE_RE = /[öo]ppet k[öo]p|bytesr[äa]tt|reklamat|villkor|garanti|spara kvittot|kundens ex|v[äa]lkommen|[öo]ppettider|www\.|kontrollkod|kontrollenhe|\btel\.?\s*nr\b|telnr|telefon\s*:|org\.?\s*nr|f[öo]rpackning|hygienartiklar/i;
 
 // Hur det betalades, ur texten på kvittot. En uttrycklig rad ("Betalningssätt:
@@ -3135,6 +3138,86 @@ export function reconcileWithCash(lines, result) {
   return { ...result, amountGuessed: true };
 }
 
+/**
+ * Betalt minus växel är totalen, var beloppen än står. Google läser ofta
+ * kassakvittots rubriker i en kolumn och beloppen i en annan ("TOTAL / CASH /
+ * CHANGE / 33,90 / 50,00 / 16,10"), och då tog tolkningen det betalda beloppet.
+ * Bland alla belopp på kvittot söks a − b = c där c också står på kvittot.
+ * Står flera sådana c väljs det som står flest gånger. Bara när kvittot talar
+ * om kontanter och växel, och bara när momsen inte redan bevisat beloppet.
+ * Exporterad för testerna.
+ */
+export function reconcileByCashArithmetic(lines, result) {
+  if (result.amountVerified || result.notReceipt || result.creditNote) return result;
+  const text = lines.join('\n');
+  const hasCash = /\b(?:cash|kontant(?:er)?|tendered|payment|betalt|paid)\b/i.test(text)
+    && /\b(?:change(?: due)?|v[äa]xel|tillbaka|balance)\b/i.test(text);
+  // Bara belopp med ören, i den ordning de står: små heltal är antal och nummer.
+  const values = [];
+  for (const line of lines) {
+    if (ID_LIKE_LINE_RE.test(line) || DATE_LIKE_LINE_RE.test(line)) continue;
+    for (const tok of String(line).match(MONEY_DECIMAL_RE) || []) {
+      const v = parseMoneyToken(tok);
+      if (v !== null && v > 0 && v < 500000) values.push(Math.round(Math.abs(v) * 100));
+    }
+  }
+  const count = new Map();
+  const lastAt = new Map();
+  values.forEach((v, i) => { count.set(v, (count.get(v) || 0) + 1); lastAt.set(v, i); });
+  // Betalt och växel måste stå vid sina ord (på raden eller raden under),
+  // annars går två varurader lätt ihop till ett påhittat par.
+  const near = (re) => {
+    const out = new Set();
+    lines.forEach((line, i) => {
+      if (!re.test(line)) return;
+      // Raden under bara när etiketten står ensam ("CASH" / "50,00").
+      const own = String(line).match(MONEY_DECIMAL_RE);
+      for (const l of own ? [line] : [lines[i + 1] || '']) {
+        for (const tok of String(l).match(MONEY_DECIMAL_RE) || []) {
+          const v = parseMoneyToken(tok);
+          if (v !== null && v > 0) out.add(Math.round(Math.abs(v) * 100));
+        }
+      }
+    });
+    return out;
+  };
+  const paidValues = hasCash ? near(/\b(?:cash|kontant(?:er)?|tendered|payment|betalt|paid|pai)\b/i) : new Set();
+  const changeValues = hasCash ? near(/\b(?:change(?: due)?|v[äa]xel|tillbaka|balance)\b/i) : new Set();
+  let best = null;
+  for (const paid of paidValues) {
+    for (const change of changeValues) {
+      const total = paid - change;
+      if (total <= 0 || change >= paid || !count.has(total)) continue;
+      const score = 3 + count.get(total);
+      if (!best || score > best.score || (score === best.score && total > best.total)) best = { total, score };
+    }
+  }
+  // Utan kontanter: netto + moms (+ öresavrundning) = totalen. Momsen ska vara
+  // en svensk sats (eller 6 %) av nettot, annars är det två varor som råkar gå ihop.
+  if (!best || best.score < 3) {
+    const rounding = [...count.keys()].filter(v => v <= 5);
+    for (const net of count.keys()) {
+      for (const tax of count.keys()) {
+        if (tax >= net) continue;
+        const ratio = tax / net;
+        if (![0.25, 0.12, 0.06].some(r => Math.abs(ratio - r) <= 0.006)) continue;
+        for (const adj of [0, ...rounding, ...rounding.map(r => -r)]) {
+          const total = net + tax + adj;
+          // Totalen är större än delbeloppen: ett mindre belopp än det redan
+          // lästa är en delrad (mat 12 % på ett kvitto med flera satser).
+          if (!count.has(total) || total === net || total <= Math.round((result.amount || 0) * 100) || result.vatRates) continue;
+          const score = 3 + count.get(total);
+          if (!best || score > best.score || (score === best.score && total > best.total)) best = { total, score };
+        }
+      }
+    }
+  }
+  if (!best || best.score < 3) return result;
+  const amount = best.total / 100;
+  if (result.amount && Math.abs(result.amount - amount) < 0.005) return { ...result, amountVerified: true, amountGuessed: false };
+  return { ...result, amount, amountVerified: true, amountGuessed: false };
+}
+
 function reconcileWithVatTable(lines, result) {
   if (result.currency || result.reverseCharge || result.creditNote) return result;
   const triples = vatTableTriples(lines);
@@ -3185,6 +3268,120 @@ const COLUMN_LABELS = [
  * "Etikett: värde" till efter dem, så att nummer- och datumreglerna känner
  * igen dem. Exporterad för testerna.
  */
+const TABLE_HEADER_RE = /^(?:moms\s*%?|%|sats|belopp|netto|brutto|totalt?|underlag|exkl\.?(?:\s*moms)?|inkl\.?(?:\s*moms)?|vat|net|gross)$/i;
+const TABLE_CELL_RE = /^-?\d{1,3}(?:[  .]\d{3})*(?:[.,]\d{1,2})?\s*%?$/;
+
+/**
+ * Google läser ibland en tabell kolumn för kolumn, en cell per rad:
+ *   Moms / Belopp / Moms / Totalt / 25% / 719.20 / 179.80 / 899.00
+ * Då hör inget belopp ihop med sin rubrik, och momsen blev hela totalen.
+ * Rubrikerna och värdena sätts ihop till rader igen:
+ *   "Moms Belopp Moms Totalt" och "25% 719.20 179.80 899.00".
+ * Exporterad för testerna.
+ */
+/**
+ * Fakturans summaområde på en rad med rubriker och en rad med belopp:
+ *   Frakt Exkl. moms Moms Öresavr Totalt BETALT
+ *   277,60 3 785,72 946,43 -0,15 4 732,00 SEK 4 732,00
+ * Lika många belopp som rubriker blir "Rubrik belopp" per rad, så att
+ * totalen och momsen hittas vid sina rubriker. Exporterad för testerna.
+ */
+const SUMMARY_LABELS = ['exkl. moms', 'exkl moms', 'inkl. moms', 'inkl moms', 'att betala', 'öresavrundning', 'öresavr', 'avrundning', 'delsumma', 'summa', 'netto', 'brutto', 'frakt', 'moms', 'totalt', 'total', 'betalt', 'rabatt', 'avgift'];
+export function expandSummaryRow(lines) {
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    out.push(lines[i]);
+    let rest = String(lines[i]).toLowerCase().replace(/[:|]/g, ' ').replace(/\s+/g, ' ').trim();
+    const labels = [];
+    while (rest) {
+      const hit = SUMMARY_LABELS.find(l => rest.startsWith(l) && (rest.length === l.length || rest[l.length] === ' '));
+      if (!hit) break;
+      labels.push(hit);
+      rest = rest.slice(hit.length).trim();
+    }
+    if (rest || labels.length < 3 || i + 1 >= lines.length) continue;
+    const values = String(lines[i + 1]).match(/-?\d{1,3}(?:[  ]\d{3})*[.,]\d{2}/g) || [];
+    if (values.length !== labels.length) continue;
+    const original = String(lines[i]).replace(/\s+/g, ' ').trim();
+    let pos = 0;
+    labels.forEach((label, k) => {
+      const shown = original.substr(pos, label.length);
+      pos += label.length + 1;
+      out.push(`${shown} ${values[k]}`);
+    });
+    i++;
+  }
+  return out;
+}
+
+/** "Moms 25% 946,43 (3 785,72) IBAN SE04 …": bankuppgifterna läggs på en egen
+ * rad och underlaget inom parentes stryks från momsraden, så att momsen är
+ * 946,43 och inte underlaget eller en bit av kontonumret. */
+export function splitBankDetails(lines) {
+  const out = [];
+  for (const raw of lines) {
+    const line = String(raw);
+    const at = line.search(/\b(?:IBAN|BIC|SWIFT)\b/i);
+    const head = at > 0 ? line.slice(0, at).trim() : line;
+    out.push(/moms|vat/i.test(head) ? head.replace(/\(\s*-?\d{1,3}(?:[  .]\d{3})*[.,]\d{2}\s*\)/g, '').replace(/\s+/g, ' ').trim() : head);
+    if (at > 0) out.push(line.slice(at).trim());
+  }
+  return out;
+}
+
+/**
+ * Google läser fakturans fältblock som en kolumn rubriker och, några rader
+ * senare, en kolumn värden: "Fakturadatum / Fakturanr / OCR / … / 2026-10-12 /
+ * 462 / 46250". Värdena paras ihop med rubrikerna i ordning när lika många
+ * värden med siffror står direkt efter varandra inom några rader.
+ * Exporterad för testerna.
+ */
+export function pairLabelColumns(lines) {
+  const isColumnLabel = (l) => COLUMN_LABELS.includes(String(l).toLowerCase().replace(/[:.]/g, '').trim());
+  const isValue = (l) => /\d/.test(l) && String(l).trim().length <= 24 && !isColumnLabel(l) && !/[a-zåäö]{4,}/i.test(String(l).replace(/^[a-z]{1,3}\d/i, ''));
+  const out = [...lines];
+  const added = [];
+  for (let i = 0; i < lines.length; i++) {
+    let k = 0;
+    while (i + k < lines.length && isColumnLabel(lines[i + k])) k++;
+    if (k < 2) continue;
+    // De sista rubrikerna kan höra till ett fält utan siffror (Vår referens:
+    // ett namn), så färre värden än rubriker paras med de första rubrikerna.
+    let paired = false;
+    for (let n = k; n >= 2 && !paired; n--) {
+      for (let start = i + k; start <= Math.min(lines.length - n, i + k + 6); start++) {
+        if (lines.slice(start, start + n).every(isValue) && !isValue(lines[start + n] || '')) {
+          for (let j = 0; j < n; j++) added.push(`${String(lines[i + j]).replace(/:$/, '')}: ${lines[start + j]}`);
+          paired = true;
+          break;
+        }
+      }
+    }
+    i += k - 1;
+  }
+  return [...out, ...added];
+}
+
+export function joinVerticalTable(lines) {
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    let k = 0;
+    while (i + k < lines.length && TABLE_HEADER_RE.test(String(lines[i + k]).trim())) k++;
+    const hasMoms = lines.slice(i, i + k).some(l => /moms|vat|%/i.test(l));
+    if (k < 3 || !hasMoms) { out.push(lines[i]); continue; }
+    const rows = [];
+    let j = i + k;
+    while (j + k <= lines.length && lines.slice(j, j + k).every(c => TABLE_CELL_RE.test(String(c).trim()))) {
+      rows.push(lines.slice(j, j + k).map(c => String(c).trim()).join(' '));
+      j += k;
+    }
+    if (!rows.length) { out.push(lines[i]); continue; }
+    out.push(lines.slice(i, i + k).map(c => String(c).trim()).join(' '), ...rows);
+    i = j - 1;
+  }
+  return out;
+}
+
 export function expandColumnTables(lines) {
   const out = [];
   for (let i = 0; i < lines.length; i++) {
@@ -3211,8 +3408,8 @@ export function expandColumnTables(lines) {
 // ensamt på raden under. Vision läser PDF-fakturor så (kundfel 2026-10-24:
 // "Att betala / 11 500,00 kr" missades och "Påminnelse / 450.00 SEK" blev
 // beloppet).
-const LONE_TOTAL_LABEL_RE = /^(?:summa att betala|totalt att betala|belopp att betala|att betala|totalt?|summa|total amount|amount due|amount paid|grand total|(?:moms|vat)\s*,?\s*(?:\d{1,2}(?:[.,]\d+)?\s*%)?)\s*:?$/i;
-const LONE_AMOUNT_RE = /^-?\d{1,3}(?:[  .]\d{3})*[.,]\d{2}\s*(?:kr|sek|:-)?$/i;
+const LONE_TOTAL_LABEL_RE = /^(?:summa att betala|totalt att betala|belopp att betala|att betala|totalt?|summa|total amount|amount due|amount paid|grand total|betalt|(?:moms|vat)\s*,?\s*(?:\d{1,2}(?:[.,]\d+)?\s*%)?|(?:total\s*)?moms(?:brutto|netto|belopp)?\s*[1-9]?)\s*:?$/i;
+const LONE_AMOUNT_RE = /^\*?(?:(?:sek|kr|rm|usd|eur|nok|dkk|\$|€)\s*)?-?\d{1,3}(?:[  .]\d{3})*[.,]\d{2}\s*(?:kr|sek|:-)?$/i;
 
 /**
  * "Att betala" + "11 500,00 kr" på två rader blir "Att betala 11 500,00 kr",
@@ -3220,7 +3417,20 @@ const LONE_AMOUNT_RE = /^-?\d{1,3}(?:[  .]\d{3})*[.,]\d{2}\s*(?:kr|sek|:-)?$/i;
  */
 export function joinLoneTotalLabels(lines) {
   const out = [];
+  // Google kan läsa en kolumn etiketter och sedan en kolumn belopp:
+  // "SUMMA: / MOMS 1 / TOTAL MOMS / *15.00 / *3.00 / *3.00". Lika många
+  // etiketter som belopp direkt efter varandra paras ihop i ordning.
+  const isLabel = (l) => LONE_TOTAL_LABEL_RE.test(String(l).trim()) || /^(?:kontant|kort|card|cash|swish|v[äa]xel|betalt?|momsbrutto\s*[1-9]?|exkl\.?\s*moms|inkl\.?\s*moms|[öo]resavr(?:undning)?|avrundning|frakt|netto|brutto|delsumma)\s*:?$/i.test(String(l).trim());
   for (let i = 0; i < lines.length; i++) {
+    let k = 0;
+    while (i + k < lines.length && isLabel(lines[i + k])) k++;
+    let n = 0;
+    while (i + k + n < lines.length && LONE_AMOUNT_RE.test(String(lines[i + k + n]).trim())) n++;
+    if (k >= 2 && n === k) {
+      for (let j = 0; j < k; j++) out.push(`${lines[i + j]} ${lines[i + k + j]}`);
+      i += 2 * k - 1;
+      continue;
+    }
     const next = lines[i + 1];
     if (next !== undefined && LONE_TOTAL_LABEL_RE.test(lines[i]) && LONE_AMOUNT_RE.test(next)) {
       out.push(`${lines[i]} ${next}`);
@@ -3371,7 +3581,7 @@ export function parseReceiptText(text, options = {}) {
  * lämnas orörda. Exporterad för testerna.
  */
 export function fixDigitLetters(line) {
-  return String(line).replace(/(?<=\d[.,]?)[Oo](?=[\d.,]|\s|$|%)|[Oo](?=[.,]\d)|(?<=\d)[Oo](?=\d)/g, '0');
+  return String(line).replace(/([$€£])(?=\d)/g, '$1 ').replace(/(?<=\d[.,]?)[Oo](?=[\d.,]|\s|$|%)|[Oo](?=[.,]\d)|(?<=\d)[Oo](?=\d)/g, '0');
 }
 
 function parseOneReading(text, { confidence = null, weakTokens = null, today = new Date() } = {}) {
@@ -3386,14 +3596,14 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   // kvitto eller en faktura.
   if (isUnreadableText(text)) return { ...EMPTY_PARSE, notReceipt: true, unreadable: true, documentKind: 'unreadable' };
 
-  const lines = joinLoneTotalLabels(expandColumnTables(text.split('\n').map(l => fixDigitLetters(l.trim())).filter(Boolean)));
+  const lines = pairLabelColumns(joinLoneTotalLabels(joinVerticalTable(expandSummaryRow(expandColumnTables(splitBankDetails(text.split('\n').map(l => fixDigitLetters(l.trim())).filter(Boolean)))))));
   // Text som kontoreglerna får läsa: kvittots egna rader UTAN finstilt och
   // kontaktuppgifter. Butikens villkorstext ("Inget byte eller öppet köp av
   // livsmedel, hygienartiklar, djurmat…") och telefonnumret i sidhuvudet står
   // på varje kvitto från butiken och säger ingenting om vad som köptes — ändå
   // föreslog de konto: två läskvitton från Dollarstore blev "6071 Mat och
   // representation" av ordet livsmedel i villkoren.
-  const keywordText = lines.filter(l => !BOILERPLATE_LINE_RE.test(l)).join('\n').toLowerCase();
+  const keywordText = lines.filter(l => !BOILERPLATE_LINE_RE.test(l) && !SUMMARY_NOT_PURPOSE_RE.test(l)).join('\n').toLowerCase();
   // Tesseract var själv osäker på det den läste: siffror ur en sån text är inte
   // värda att fylla i utan att de kan kontrolleras mot något (se längre ned).
   const lowConfidence = typeof confidence === 'number' && confidence < LOW_OCR_CONFIDENCE;
@@ -3843,7 +4053,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     const picked = pickSupplierName(lines);
     const agrees = picked && webSupplier
       && (foldSupplier(picked).includes(foldSupplier(webSupplier)) || foldSupplier(webSupplier).includes(foldSupplier(picked)));
-    const isInvoice = /\b(?:faktura|invoice|fakturanummer)\b/i.test(text);
+    const isInvoice = /faktura\b|\binvoice\b|fakturanummer|fakturanr/i.test(text);
     if (webSupplier && !agrees && (!picked || isInvoice)) {
       supplier = webSupplier;
       supplierFromWebAddress = true;
@@ -3872,6 +4082,16 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
       }
     }
   }
+  // Ingen momsrad med sats, men satsen står på varuraderna ('220282 25% 899.00'):
+  // är det en enda svensk sats på hela kvittot är den läst, inte gissad.
+  if (readVat === null) {
+    const printed = new Set();
+    for (const line of lines) {
+      if (/rabatt|discount|r[äa]nta|\boff\b|kampanj|spara/i.test(line)) continue;
+      for (const m of line.matchAll(/(?<![\d,.])(25|12|6)(?:[.,]0{1,2})?\s*%/g)) printed.add(Number(m[1]));
+    }
+    if (printed.size === 1) readVat = [...printed][0];
+  }
   if (readVat !== null) vatRate = readVat;
 
   // Sant när satsen inte stod på kvittot: en förvald siffra, inte en avläst.
@@ -3894,7 +4114,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     const item = ITEM_ACCOUNT_RULES.find(({ re }) => strictRule(re).test(keywordText));
     if (item) {
       accountFromItems = true;
-      if (item.code) { accountCode = item.code; accountSource = 'items'; } else { accountCode = '6990'; accountGuessed = true; accountSource = 'items'; }
+      if (item.code) { accountCode = item.code; accountSource = 'items'; } else { accountCode = '6990'; accountGuessed = true; accountSource = 'items'; privateItem = true; }
       return;
     }
     for (const { re, code } of ACCOUNT_KEYWORD_RULES) {
@@ -3909,6 +4129,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     accountSource = 'fallback';
   };
   let accountFromItems = false;
+  let privateItem = false;
   if (!accountCode) accountFromRules();
   // Butik som säljer allt möjligt: varan på kvittot styr kontot, inte butiken.
   // En vara som oftast är privat (tv-spel) ger inget förslag alls.
@@ -3920,7 +4141,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
       accountChoices = null;
       accountSource = 'items';
       if (item.code) accountCode = item.code;
-      else { accountCode = '6990'; accountGuessed = true; }
+      else { accountCode = '6990'; accountGuessed = true; privateItem = true; }
     }
   }
 
@@ -4024,7 +4245,7 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
   }
   const numberFound = findReceiptNumberDetailed(lines);
 
-  return flagSuspiciousInteger(lines, reconcileWithCash(lines, reconcileWithVatTable(lines, {
+  return flagSuspiciousInteger(lines, reconcileByCashArithmetic(lines, reconcileWithCash(lines, reconcileWithVatTable(lines, {
     date, dateGuessed, dateText, amount, amountGuessed: amountVerified ? false : amountGuessed, amountVerified, vatRate,
     vatRateGuessed: vatCheck.verified ? false : (vatRateGuessed || vatCheck.mismatch),
     vatAmount: vatCheck.vatAmount, vatVerified: vatCheck.verified, vatMismatch: vatCheck.mismatch,
@@ -4037,8 +4258,9 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
     supplier, supplierMatched, supplierConfirmed: supplierMatched || supplierFromHeading || supplierHasOrgNumber(lines, supplier), supplierIsLegalName, supplierFromWebAddress, accountCode, accountGuessed, accountSource, currency,
     accountChoices: accountSource === 'supplier' ? accountChoices : null,
     accountFromItems,
+    privateItem,
     notReceipt: false, documentKind: doc.isInvoice ? 'invoice' : 'receipt',
     paymentMethod: detectPaymentMethod(text, { isInvoice: doc.isInvoice }).method,
     reverseCharge, reverseChargeUnclear,
-  })));
+  }))));
 }

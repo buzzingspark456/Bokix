@@ -1,0 +1,68 @@
+&
+KapellFirman
+Kundnr
+Er referens
+Ert ordernr
+Leveransvillkor
+Leveranssätt
+8536
+Kund Kundsson
+W1692
+Fritt vårt lager
+Post
+Kontantfaktura
+Kund Kundsson
+Kundvägen 1
+576 94 Stockaryd
+Sverige
+Fakturadatum
+Fakturanr
+OCR
+Vår referens
+Säljare Säljarsson
+Sida 1(1)
+2026-10-12
+462
+46250
+Benämning
+Lev ant Enhet
+-
+Släpvagnskapell huv Måttbeställt PVC-kapell 680 g/m² Längd: 250 Bredd: 150 Höjd:
+1,00 st
+À-pris Summa
+3508,12 3 508,12
+70
+3 års garanti
+Betald 12/10/2026
+Frakt
+277,60
+Exkl. moms
+Moms
+Öresavr
+Totalt
+3 785,72
+946,43
+-0,15
+4 732,00
+Moms 25% 946,43 (3 785,72)
+Adress
+Kapellfirman AB
+Industrivägen 1
+111 22 Stockholm
+Sverige
+Telefon
+0700000000
+E-post
+info@kapellfirman.se
+Webbadress
+www.kapellfirman.se
+BETALT
+SEK 4 732,00
+IBAN SE35 5000 0000 0549 1000 0003
+Bankgiro
+991-2346
+Organisationsnr
+556036-0793
+Momsreg. nr
+SE556036079301
+Godkänd för F-skatt

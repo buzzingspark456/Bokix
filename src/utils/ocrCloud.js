@@ -5,6 +5,7 @@
 // läsningen (Tesseract) tar inte över. Texten tolkas av parseReceiptText.
 import { supabase } from '../supabaseClient';
 import { reportOcrError } from './errorReporting';
+import { rowsFromLayout } from './visionRows';
 
 const CLOUD_TIMEOUT_MS = 20000;
 // Svarade servern att månadens kvot är slut skickas inget mer under besöket,
@@ -61,7 +62,9 @@ export async function readWithCloud(input, { quad = null } = {}) {
       // Radernas läge gäller hela fotot; med egna hörn skickades bara ett
       // uträtat utsnitt, och då stämmer lägena inte mot fotot i kvittovyn.
       const laterPages = await laterPdfPagesText(input);
-      return { text: laterPages ? `${text}\n${laterPages}` : text, lines: !quad && Array.isArray(payload.lines) ? payload.lines : null };
+      // Raderna efter var de står på bilden, så att även en cachad läsning har dem.
+      const firstPage = (Array.isArray(payload.lines) && rowsFromLayout(payload.lines)) || text;
+      return { text: laterPages ? `${firstPage}\n${laterPages}` : firstPage, lines: !quad && Array.isArray(payload.lines) ? payload.lines : null };
     } finally {
       clearTimeout(timer);
     }
