@@ -223,7 +223,10 @@ export default function SieImportModal({ accounts = [], verifications = [], comp
         if (toCommit.length === 0 && i > 0) return;
         onImport(toCommit, i === 0 ? p.accountsToAdd : [], p.sourceTag);
       });
-      const years = onCloseYears ? closableImportedYears(previews.map(p => p.fiscalYear), company) : [];
+      // Bara år som verifikationer faktiskt importerades till kan stängas:
+      // med Bara 2024 ur en fil som också har 2025 ska 2025 inte erbjudas.
+      const importedYears = yearOptions.filter(y => previews.some(p => p.verificationsToImport.some(v => v.date >= y.start && v.date <= y.end)));
+      const years = onCloseYears ? closableImportedYears(importedYears, company) : [];
       // Sista steget: stäng avslutade år och/eller koppla underlag (SIE-filen
       // har aldrig med kvittobilder).
       if (years.length > 0 || onOpenAttachments) {

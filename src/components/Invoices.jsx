@@ -639,6 +639,12 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
   };
 
   const openEmailCompose = () => {
+    // En ny faktura sparas först när mejlet gått: saknas växelkursen går den
+    // inte att spara, så den får inte heller skickas.
+    if (!initial && currency !== 'SEK' && !(Number(String(fxRate).replace(',', '.')) > 0)) {
+      setFxStatus(tr('ui.fyll_i_vaxelkursen_for_fakturan_bokfors_i_kronor', { currency }));
+      return;
+    }
     const to = emailToInput.trim();
     if (!to) { setEmailError(tr('ui.ange_en_mottagaradress')); return; }
     if (!sendableEmail(to)) { setEmailError(tr('ui.det_dar_ser_inte_ut_som_en_giltig_e_postadress')); return; }
