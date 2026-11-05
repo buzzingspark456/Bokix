@@ -16,7 +16,7 @@ import { BankLogo } from './shared/BrandLogos';
 import { BANK_SOURCES, OTHER_BANK_HINT, MAX_BANK_FILE_MB, ACCEPTED_BANK_EXTENSIONS, splitBankPath } from '../utils/bankSources';
 import { guessAccountFromText } from '../utils/accountCategories';
 import { buildBankHistory, suggestFromHistory } from '../utils/bankLearning';
-import { suggestMatch, findSureMatches } from '../utils/bankMatching';
+import { suggestMatch, findSureMatches, receiptCandidates } from '../utils/bankMatching';
 import Reconciliation from './Reconciliation';
 import { bankHeaderLabel } from '../utils/bankHeaderLabels';
 import { t as tr } from '../i18n';
@@ -117,9 +117,13 @@ export default function Bank({
   // Två uppgifter: gå igenom transaktionerna eller kontrollera mot banken.
   // Statusarna (Ej hanterade m.fl.) är filter inuti Transaktioner.
   const [view, setView] = useState('transactions');
-  const [activeTab, setActiveTab] = useState('all');
+  // Finns det rader att hantera öppnas sidan på dem, utan datumgräns: de är
+  // det man ska göra något med, och en gammal ohanterad rad får inte gömmas
+  // av 90-dagarsfiltret (2026-11-05). Annars de senaste 90 dagarna som förut.
+  const hasUnhandled = (bankTransactions || []).some(t => t.status === 'unmatched');
+  const [activeTab, setActiveTab] = useState(hasUnhandled ? 'unmatched' : 'all');
   const [search, setSearch] = useState('');
-  const [dateFrom, setDateFrom] = useState(daysAgoIso(90));
+  const [dateFrom, setDateFrom] = useState(hasUnhandled ? '' : daysAgoIso(90));
   const [dateTo, setDateTo] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -301,6 +305,14 @@ export default function Bank({
     if (!expenseId) return;
     onMarkSupplierInvoicePaid(expenseId, 'bank', row.date, accountById(accountIdOf(row)).ledgerAccount);
     updateRow(row.id, { status: 'matched', matchedType: 'supplier_invoice', matchedId: expenseId, verificationSource: 'supplier_invoice_payment' });
+    setExpandedId(null);
+  };
+
+  // Kvittot är redan bokfört mot bankkontot (eller blir det): raden kopplas
+  // bara, ingen ny verifikation.
+  const handleConfirmReceiptMatch = (row, expenseId) => {
+    if (!expenseId) return;
+    updateRow(row.id, { status: 'matched', matchedType: 'receipt', matchedId: expenseId });
     setExpandedId(null);
   };
 
@@ -521,6 +533,8 @@ export default function Bank({
                 row={t}
                 invoiceCandidates={invoiceCandidates(invoices, contacts)}
                 supplierCandidates={supplierInvoiceCandidates(expenses, contacts)}
+                receipts={receiptCandidates(t, expenses, bankTransactions)}
+                onConfirmReceiptMatch={id => handleConfirmReceiptMatch(t, id)}
                 accounts={accounts}
                 vatPeriods={vatPeriods}
                 ledgerAccount={accountById(accountIdOf(t)).ledgerAccount}
@@ -716,12 +730,13 @@ function BankAccountsModal({ accounts, bankTransactions, onAdd, onRename, onDele
 }
 
 // ── Radexpansion: matchningsförslag + "Bokför direkt" + "Ignorera" ───────
-function BankRowDetail({ row, historySuggestion, matchSuggestion, invoiceCandidates, supplierCandidates, accounts, vatPeriods, ledgerAccount = '1930', onConfirmInvoiceMatch, onConfirmSupplierMatch, onQuickBook, onIgnore, onDelete }) {
+function BankRowDetail({ row, historySuggestion, matchSuggestion, invoiceCandidates, supplierCandidates, receipts = [], accounts, vatPeriods, ledgerAccount = '1930', onConfirmInvoiceMatch, onConfirmSupplierMatch, onConfirmReceiptMatch, onQuickBook, onIgnore, onDelete }) {
   const isInflow = row.amount > 0;
   const candidates = isInflow ? invoiceCandidates : supplierCandidates;
   // Förvald med den faktura som troligast hör till raden (bankMatching.js).
   const [selectedId, setSelectedId] = useState(() => (matchSuggestion && candidates.some(c => c.id === matchSuggestion.id) ? matchSuggestion.id : ''));
-  const [showQuickBook, setShowQuickBook] = useState(Boolean(historySuggestion?.accountCode));
+  // Finns ett kvitto på samma köp är det det som gäller, inte ett nytt konto.
+  const [showQuickBook, setShowQuickBook] = useState(Boolean(historySuggestion?.accountCode) && receipts.length === 0);
   const [qbDate, setQbDate] = useState(row.date);
   const [qbDesc, setQbDesc] = useState(row.description || '');
   const [qbSeries, setQbSeries] = useState('A');
@@ -744,6 +759,28 @@ function BankRowDetail({ row, historySuggestion, matchSuggestion, invoiceCandida
 
   return (
     <div style={{ padding: '16px 20px', background: 'var(--bg-muted)', borderTop: '1px solid var(--border-light)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* Kvittot för samma köp (bankMatching.receiptCandidates). Kvittot
+          bokförs mot bankkontot, så raden kopplas och bokförs inte en gång
+          till (2026-11-05: dubbelbokning undviks, ett klick). */}
+      {receipts.length > 0 && (
+        <div className="bank-receipt-match">
+          <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>{tr('ui.bank_kvitto_som_stammer')}</div>
+          {receipts.slice(0, 3).map(r => (
+            <div key={r.id} className="bank-receipt-row">
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{r.supplier || tr('ui.kvitto')} · {fmt(r.amount)} kr</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{formatDate(r.date)} · {r.booked ? tr('ui.bank_kvitto_bokfort') : tr('ui.bank_kvitto_ej_bokfort')}</div>
+              </div>
+              <button type="button" onClick={() => onConfirmReceiptMatch(r.id)} style={{ padding: '8px 16px', background: BRAND.green, color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+                <CheckCircle2 size={13} style={{ verticalAlign: '-2px', marginRight: '4px' }} /> {tr('ui.bank_koppla_till_kvittot')}
+              </button>
+            </div>
+          ))}
+          <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '6px 0 0' }}>
+            {receipts[0].booked ? tr('ui.bank_kvitto_bokfort_text') : tr('ui.bank_kvitto_ej_bokfort_text')}
+          </p>
+        </div>
+      )}
       {candidates.length > 0 && (
         <div>
           <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>
@@ -768,7 +805,7 @@ function BankRowDetail({ row, historySuggestion, matchSuggestion, invoiceCandida
         </div>
       )}
 
-      {candidates.length === 0 && !showQuickBook && (
+      {candidates.length === 0 && receipts.length === 0 && !showQuickBook && (
         <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>{tr('ui.ingen_matchande_obetald_faktura_hittades')}</p>
       )}
 

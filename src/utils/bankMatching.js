@@ -65,3 +65,30 @@ export function findSureMatches(rows, { invoices, expenses }) {
   hits.forEach(h => count.set(h.match.id, (count.get(h.match.id) || 0) + 1));
   return hits.filter(h => count.get(h.match.id) === 1);
 }
+
+// ── Kvitton ──────────────────────────────────────────────────────────────
+// Ett kvitto bokförs mot bankkontot (1930), så kortköpet på kontoutdraget är
+// redan med i bokföringen när kvittot är bokfört. Bankraden ska då kopplas
+// till kvittot, inte bokföras en gång till. Kortköp dras oftast 0–3 dagar
+// efter köpet; sju dagar åt båda hållen täcker helger och utlandsköp.
+const RECEIPT_DAYS = 7;
+const dayDiff = (a, b) => Math.abs((Date.parse(a) - Date.parse(b)) / 86400000);
+
+/**
+ * Kvitton som kan höra till en utgående bankrad: samma belopp (±1 kr),
+ * datum inom en vecka, inte redan kopplade till en annan bankrad. Närmast i
+ * datum först. Svarar [{ id, supplier, amount, date, booked }].
+ */
+export function receiptCandidates(row, expenses, bankTransactions = []) {
+  if (!row || !(row.amount < 0) || !row.date) return [];
+  const amount = Math.abs(row.amount);
+  const taken = new Set((bankTransactions || [])
+    .filter(t => t.id !== row.id && t.matchedType === 'receipt' && t.matchedId)
+    .map(t => t.matchedId));
+  return (expenses || [])
+    .filter(e => e.type !== 'supplier_invoice' && !taken.has(e.id) && e.date
+      && Math.abs((Number(e.amount) || 0) - amount) <= AMOUNT_TOLERANCE
+      && dayDiff(e.date, row.date) <= RECEIPT_DAYS)
+    .sort((a, b) => dayDiff(a.date, row.date) - dayDiff(b.date, row.date))
+    .map(e => ({ id: e.id, supplier: e.supplier || e.description || '', amount: Number(e.amount) || 0, date: e.date, booked: Boolean(e.costAccount) }));
+}

@@ -871,14 +871,16 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
           för att bara skiljas åt av en tunn kantlinje — annars är det för
           lätt att klicka fel på grannknappen. */}
       {!showSummary && <div className={`quote-toolbar invoice-toolbar doc-toolbar${initial ? '' : ' is-new'}`} style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', flexShrink: 0, overflowX: 'auto', position: 'relative' }}>
-        {topBarBtn(tr('ui.registrera_betalning'), <CreditCard size={13} />, () => setShowPaymentBox(v => !v), showPaymentBox ? activeToolbarPillStyle : {}, !initial, !initial ? tr('ui.spara_fakturan_forst') : undefined, 'tb-pay')}
-        {topBarBtn(
+        {/* En ny faktura har ingen betalning att registrera eller ångra: knapparna
+            syns först när fakturan finns (2026-11-05, färre gråa knappar). */}
+        {initial && topBarBtn(tr('ui.registrera_betalning'), <CreditCard size={13} />, () => setShowPaymentBox(v => !v), showPaymentBox ? activeToolbarPillStyle : {}, false, undefined, 'tb-pay')}
+        {initial && topBarBtn(
           'Markera som obetald',
           <Tag size={13} />,
           async () => { if (await confirmDialog(tr('ui.markera_faktura_som_obetald_den_registrerade_bet', { nextNum }))) onUnmarkPaid?.(initial.id); },
           {},
-          !initial || initial?.status !== 'paid',
-          !initial ? tr('ui.spara_fakturan_forst') : (initial?.status !== 'paid' ? tr('ui.fakturan_ej_betald') : tr('ui.angrar_betalningen')),
+          initial?.status !== 'paid',
+          initial?.status !== 'paid' ? tr('ui.fakturan_ej_betald') : tr('ui.angrar_betalningen'),
           'tb-unpay'
         )}
         {topBarBtn('Kommentar', <MessageSquare size={13} />, () => setShowCommentBox(v => !v), showCommentBox ? activeToolbarPillStyle : (commentDraft ? { color: 'var(--status-amber-text)', borderColor: 'var(--status-amber-bg)' } : {}), false, undefined, 'tb-comment')}
@@ -892,12 +894,11 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
         <input
           type="email" value={emailToInput} onChange={e => { setEmailToInput(e.target.value); setEmailError(''); }}
           placeholder={tr('ui.mottagarens_epost_se')} title={tr('ui.mottagarens_e_postadress_forifylld_fran_kundkort')}
-          disabled={!initial}
           className="toolbar-email-input"
           style={{
             padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12.5px', width: '190px',
             flexShrink: 0, fontFamily: 'inherit',
-            background: !initial ? 'var(--bg-muted)' : 'var(--bg-card)', color: !initial ? 'var(--text-muted)' : 'var(--text-main)',
+            background: 'var(--bg-card)', color: 'var(--text-main)',
           }}
         />
         {topBarBtn(
@@ -913,8 +914,10 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
           // openEmailCompose har redan en egen, tydlig felruta för en tom
           // adress (emailError, raden ovanför) — den ska få köras, inte
           // hindras av att knappen aldrig går att trycka på.
-          emailBusy || !initial,
-          !initial ? tr('ui.spara_fakturan_forst') : (!emailToInput.trim() ? tr('ui.ange_en_mottagaradress') : tr('ui.skicka_faktura_till', { n: nextNum, to: emailToInput.trim() })),
+          // En ny faktura kan skickas direkt: när mejlet gått iväg sparas den
+          // som skickad (handleSave('sent') i sendEmail), som Skapa faktura.
+          emailBusy,
+          !emailToInput.trim() ? tr('ui.ange_en_mottagaradress') : tr('ui.skicka_faktura_till', { n: nextNum, to: emailToInput.trim() }),
           'tb-send'
         )}
         {pdfError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{pdfError}</span>}
@@ -1699,7 +1702,7 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
                   "se bifogad faktura" i tron att den inte finns. */}
               <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                 {tr('ui.foljer_med_automatiskt_fakturan_som_pdf_och_en_r')}
-                {company?.stripeAccountId && (
+                {company?.stripeAccountId && initial?.id && (
                   <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginTop: '10px', cursor: 'pointer', color: 'var(--text-main)' }}>
                     <input
                       type="checkbox"

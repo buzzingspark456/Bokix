@@ -884,7 +884,8 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
             </div>
           )}
           <div role="tablist" aria-label={tr('ui.satt_att_bokfora')} style={{ display: 'inline-flex', padding: '3px', gap: '2px', border: '1px solid var(--border)', borderRadius: '999px', background: 'var(--bg-muted)', marginBottom: '16px' }}>
-            {[['simple', 'Enkelt'], ['advanced', 'Debet och kredit']].map(([id, text]) => (
+            {/* Debet och kredit till vänster, Enkelt till höger (användaren 2026-11-05). */}
+            {[['advanced', 'Debet och kredit'], ['simple', 'Enkelt']].map(([id, text]) => (
               <button
                 key={id} type="button" role="tab" aria-selected={mode === id} onClick={() => changeMode(id)}
                 style={{ padding: '6px 14px', borderRadius: '999px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, background: mode === id ? 'var(--bg-card)' : 'transparent', color: mode === id ? 'var(--text-main)' : 'var(--text-secondary)', boxShadow: mode === id ? '0 1px 2px rgba(0,0,0,0.08)' : 'none' }}

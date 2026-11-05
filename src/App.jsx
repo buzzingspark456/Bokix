@@ -5049,7 +5049,12 @@ function App() {
     showUndo({
       message: tr('ui.undo_kvitto_borttaget'),
       onUndo: () => setExpenses(prev => restoreAt(prev, expense, index)),
-      onCommit: () => { if (expense.receiptUrl) deleteFileFromStorage(expense.receiptUrl); },
+      // En bankrad som var kopplad till kvittot blir ohanterad igen, annars
+      // kom köpet aldrig med i bokföringen.
+      onCommit: () => {
+        if (expense.receiptUrl) deleteFileFromStorage(expense.receiptUrl);
+        setBankTransactions(prev => prev.map(t => (t.matchedType === 'receipt' && t.matchedId === expenseId ? { ...t, status: 'unmatched', matchedType: undefined, matchedId: undefined } : t)));
+      },
     });
   };
 

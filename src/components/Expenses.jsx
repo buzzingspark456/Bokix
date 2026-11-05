@@ -765,11 +765,6 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             {!readOnly && ocrStatus === 'scanning' && (
               <button type="button" className="rc-skip-scan" onClick={skipScan}>{tr('ui.fyll_i_sjalv')}</button>
             )}
-            {!readOnly && !revealing && <ReadDetails details={readDetails} />}
-            {!readOnly && !revealing && readDetails?.dueDate && (
-              <p className="rc-hint rc-read-hint">{tr('ui.faktura_betalas_senare')}</p>
-            )}
-            {!readOnly && !revealing && <ReadText text={readText} />}
 
             {!readOnly && !revealing && reverseInfo && (
               <div className="rc-verify rc-verify-warn">
@@ -1024,7 +1019,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
 
               <div className="rc-span rc-later rc-step-title">
                 <h3>{tr('ui.vilket_konto_ska_det_bokforas_pa')}</h3>
-                <p>{tr('ui.ta_forslaget_eller_valj_sjalv')}</p>
+                <p>{tr('ui.sok_eller_valj_konto_i_listan')}</p>
               </div>
 
               <div className={`rc-span rc-later${flashField === 'costAccount' ? ' rc-flash' : ''}`}>
@@ -1077,6 +1072,15 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 <label style={labelSt}>{tr('ui.anteckningar_valfritt')}</label>
                 <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder={tr('ui.vad_var_det_har_kopet_till')} style={{ ...inputSt, resize: 'vertical', fontFamily: 'inherit' }} />
               </div>
+            </div>
+            {/* Det som lästes men inte bokförs (org.nr, betaluppgifter, texten)
+                står under fälten, så att kontot syns utan att rulla (2026-11-05). */}
+            <div className="rc-read-extra">
+              {!readOnly && !revealing && <ReadDetails details={readDetails} />}
+              {!readOnly && !revealing && readDetails?.dueDate && (
+                <p className="rc-hint rc-read-hint">{tr('ui.faktura_betalas_senare')}</p>
+              )}
+              {!readOnly && !revealing && <ReadText text={readText} />}
             </div>
           </div>
 

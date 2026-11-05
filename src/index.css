@@ -2998,6 +2998,13 @@ textarea.form-control {
 /* Helskärmsknappen behövs bara när kvittot ligger ovanför formuläret. */
 .dv-expand { display: none; }
 @media (max-width: 860px) { .dv-expand { display: inline-flex; } }
+/* Telefon: verktygsraden över kvittot får inte gå utanför kanten (Öppna klipptes
+   av). Bara ikoner, namnet finns i title/aria-label (2026-11-05). */
+@media (max-width: 480px) {
+  .dv-bar .dv-btn { font-size: 0; gap: 0; min-width: 36px; height: 36px; }
+  .dv-bar .dv-btn svg { width: 17px; height: 17px; }
+  .dv-bar { padding-left: 10px; padding-right: 8px; }
+}
 .dv-zoom {
   min-width: 46px;
   text-align: center;
@@ -3617,6 +3624,9 @@ textarea.form-control {
 .rc-btn-next:disabled { opacity: 0.55; cursor: default; }
 .rc-btn-back { background: var(--border-light); color: var(--text-main); }
 /* Telefon: kvittots uppgifter först, kontot på en egen skärm. */
+/* Org.nr, betaluppgifter och texten som lästes, under fälten. */
+.rc-read-extra { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.rc-read-extra:empty { display: none; }
 @media (max-width: 860px) {
   .rc-step-read .rc-later,
   .rc-step-read .rc-btn-save,
@@ -9078,3 +9088,9 @@ input:disabled, textarea:disabled, select:disabled, button:disabled { cursor: no
   .contacts-table .responsive-table th:nth-child(2),
   .contacts-table .responsive-table td:nth-child(2) { display: none; }
 }
+
+/* Bank: kvittot som hör till en bankrad (2026-11-05). */
+.bank-receipt-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 12px; margin-bottom: 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; }
+
+/* SIE-import: periodvalet i förhandsgranskningen (2026-11-05). */
+.sie-period { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border-light); }

@@ -9,6 +9,7 @@ import { checkSieImport, applySieFixes } from '../utils/sieImportCheck';
 import { fileFiscalYear, sortFilesByYear, closableImportedYears } from '../utils/sieImportYears';
 import { fiscalYearLabel } from '../utils/sieAttachments';
 import { numberFormat } from '../utils/intlCache';
+import DateField from './shared/DateField';
 
 // ── SIE4-import — ladda upp fil → kontomappning → förhandsgranskning →
 // commit. Samma fyrstegsstruktur (modal-overlay/-content/-footer, steg-
@@ -55,6 +56,11 @@ export default function SieImportModal({ accounts = [], verifications = [], comp
   const [fixesByFile, setFixesByFile] = useState({});
   // Avslutade år som kan stängas direkt efter importen (sista steget).
   const [closableYears, setClosableYears] = useState([]);
+  // Vilka verifikationer som importeras: allt, ett räkenskapsår eller egna
+  // datum (2026-11-05: många vill bara ha 2025 ur en fil som också har 2026).
+  const [period, setPeriod] = useState('all');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
 
   const loadSieModule = async () => {
     if (sieMod) return sieMod;
@@ -121,6 +127,25 @@ export default function SieImportModal({ accounts = [], verifications = [], comp
     return { accountsToAdd, codeRemap };
   }, [accountRows]);
 
+  const yearOptions = useMemo(() => {
+    const byKey = new Map();
+    for (const { parsed } of files) {
+      for (const v of parsed.verifications) {
+        const fy = parsed.fiscalYears.find(y => y.start <= v.date && v.date <= y.end);
+        const start = fy ? fy.start : `${v.date.slice(0, 4)}-01-01`;
+        const end = fy ? fy.end : `${v.date.slice(0, 4)}-12-31`;
+        byKey.set(`${start}|${end}`, { start, end, label: fiscalYearLabel(start, end) });
+      }
+    }
+    return [...byKey.values()].sort((a, b) => a.start.localeCompare(b.start));
+  }, [files]);
+  const range = useMemo(() => {
+    if (period === 'custom') return { from: customFrom || '', to: customTo || '' };
+    const fy = yearOptions.find(y => `${y.start}|${y.end}` === period);
+    return fy ? { from: fy.start, to: fy.end } : { from: '', to: '' };
+  }, [period, customFrom, customTo, yearOptions]);
+  const inRange = (date) => (!range.from || date >= range.from) && (!range.to || date <= range.to);
+
   const previews = useMemo(() => files.map(({ name: fileName, parsed }, index) => {
     const fixes = fixesByFile[index] || {};
     const { accountsToAdd, codeRemap } = mappingResult;
@@ -131,7 +156,7 @@ export default function SieImportModal({ accounts = [], verifications = [], comp
     // verifikatnummer börjar om varje år, så underlagskopplingen
     // (SieAttachmentsModal) måste veta vilket år "A31" hör till.
     const fiscalYearOf = (date) => parsed.fiscalYears.find(fy => fy.start <= date && date <= fy.end);
-    const importVerifications = parsed.verifications.map(v => ({
+    const importVerifications = parsed.verifications.filter(v => inRange(v.date)).map(v => ({
       series: v.series,
       date: v.date,
       description: v.description,
@@ -141,7 +166,9 @@ export default function SieImportModal({ accounts = [], verifications = [], comp
     }));
 
     const fiscalYearZero = fileFiscalYear(parsed);
-    const openingVerification = sieMod && fiscalYearZero
+    // Ingående balans hör till räkenskapsårets första dag: den följer med när
+    // den dagen ligger i perioden.
+    const openingVerification = sieMod && fiscalYearZero && inRange(fiscalYearZero.start)
       ? sieMod.buildOpeningVerification(parsed.openingBalances, fiscalYearZero.start, { accountsByCode })
       : null;
     if (openingVerification) {
@@ -158,7 +185,9 @@ export default function SieImportModal({ accounts = [], verifications = [], comp
       unbalanced: Boolean(check.unbalanced && !fixes.skipUnbalanced),
     };
     const dupTag = fingerprintFile({ name: fileName }, parsed.meta);
-    const alreadyImported = verifications.some(v => (v.sourceId || '').startsWith(dupTag));
+    // Samma fil kan importeras i omgångar (2025 nu, 2026 sedan): bara samma
+    // period räknas som en dubblett.
+    const alreadyImported = verifications.some(v => (v.sourceId || '').startsWith(dupTag) && inRange(v.date));
 
     return {
       accountsToAdd,
@@ -172,7 +201,8 @@ export default function SieImportModal({ accounts = [], verifications = [], comp
       sourceTag: dupTag,
       fiscalYear: fiscalYearZero,
     };
-  }), [files, mappingResult, accounts, sieMod, verifications, fixesByFile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [files, mappingResult, accounts, sieMod, verifications, fixesByFile, range]);
 
   const setFixesFor = (index) => (updater) => setFixesByFile(prev => ({
     ...prev,
@@ -264,6 +294,27 @@ export default function SieImportModal({ accounts = [], verifications = [], comp
 
         {step === 2 && (
           <AccountMappingStep rows={accountRows} setRows={setAccountRows} existingAccounts={accounts} />
+        )}
+
+        {step === 3 && (yearOptions.length > 1 || period !== 'all') && (
+          <div className="sie-period">
+            <label htmlFor="sie-period" style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '6px' }}>{t('ui.sie_period_titel')}</label>
+            <select id="sie-period" value={period} onChange={e => setPeriod(e.target.value)} style={{ padding: '8px 10px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit', minWidth: '220px' }}>
+              <option value="all">{t('ui.sie_period_allt')}</option>
+              {yearOptions.map(y => <option key={y.start} value={`${y.start}|${y.end}`}>{t('ui.sie_period_bara', { year: y.label })}</option>)}
+              <option value="custom">{t('ui.sie_period_egna_datum')}</option>
+            </select>
+            {period === 'custom' && (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px' }}>
+                <DateField value={customFrom} onChange={e => setCustomFrom(e.target.value)} placeholder={t('ui.fran_datum')} style={{ padding: '8px 10px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px' }} />
+                <span style={{ color: 'var(--text-muted)' }}>–</span>
+                <DateField value={customTo} onChange={e => setCustomTo(e.target.value)} placeholder={t('ui.till_datum')} style={{ padding: '8px 10px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px' }} />
+              </div>
+            )}
+            {period === 'custom' && customFrom && !yearOptions.some(y => y.start === customFrom) && (
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0 0', lineHeight: 1.5 }}>{t('ui.sie_period_ib_not')}</p>
+            )}
+          </div>
         )}
 
         {step === 3 && previews.length === 1 && (

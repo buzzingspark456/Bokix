@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X, Check, Pencil } from '../icons';
 import { accountMatches, groupAccountsByClass } from '../../utils/accountSearch';
 import { t } from '../../i18n';
+import { isGroupAccount } from '../../utils/accountGroups';
 
 // ── Kontoväljaren i kvittovyn ───────────────────────────────────────────
 // Kundfeedback: kontot som avläsningen föreslog kunde vara fel, och för att
@@ -64,13 +65,16 @@ export default function AccountInlinePicker({ value, onChange, accounts: allAcco
   // dränks de i hela planen. Skriver man något söks hela planen, så inget
   // konto är oåtkomligt. "Visa alla konton" öppnar hela planen utan sökning.
   // Reservfall: en kontoplan där inget konto har `active` satt visar allt.
-  const activeAccounts = useMemo(() => accounts.filter(a => a.active || a.system), [accounts]);
-  const basePool = activeAccounts.length > 0 ? activeAccounts : accounts;
+  // Gruppkonton (5400, 5800 …) samlar underkonton och ska inte bokföras på:
+  // de står inte i listan, men går att söka fram (2026-11-05).
+  const bookable = useMemo(() => accounts.filter(a => !isGroupAccount(a.code)), [accounts]);
+  const activeAccounts = useMemo(() => bookable.filter(a => a.active || a.system), [bookable]);
+  const basePool = activeAccounts.length > 0 ? activeAccounts : bookable;
   const trimmed = query.trim();
   const matches = useMemo(() => {
     if (trimmed) return accounts.filter(a => accountMatches(a, trimmed));
-    return showAll ? accounts : basePool;
-  }, [accounts, basePool, trimmed, showAll]);
+    return showAll ? bookable : basePool;
+  }, [accounts, bookable, basePool, trimmed, showAll]);
   // Ett kvitto är oftast en kostnad, så kostnadsklasserna (5–6, 4, 7) står
   // överst och tillgångar, skulder och intäkter längre ned, fortfarande sökbara.
   const groups = useMemo(() => {
@@ -132,7 +136,7 @@ export default function AccountInlinePicker({ value, onChange, accounts: allAcco
     );
   }
 
-  const canShowMore = !trimmed && !showAll && basePool.length < accounts.length;
+  const canShowMore = !trimmed && !showAll && basePool.length < bookable.length;
 
   const suggested = suggestion ? accounts.find(a => a.code === suggestion.code) : null;
   const suggestionNote = suggestion?.source === 'supplier' ? t('ui.utifran_leverantoren') : suggestion?.source === 'keyword' ? t('ui.utifran_texten_pa_kvittot') : t('ui.utifran_kvittot');
