@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import DateField from './shared/DateField';
 import { isReverseChargePurchaseAccount } from '../utils/reverseCharge';
 import {
-  Plus, Check, X, AlertCircle, Landmark, CreditCard, UploadCloud, FileText, Inbox, Trash2, Search, RefreshCw, Printer, Eye, ScanLine,
+  Plus, Check, X, AlertCircle, Landmark, CreditCard, UploadCloud, FileText, Inbox, Trash2, Search, RefreshCw, Printer, Eye,
 } from './icons';
 import { AccountSearch, ProjectSearch } from './shared/SearchInputs';
 import ListPageHeader, { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle, PAGE_SIZE_OPTIONS } from './shared/ListPageHeader';
@@ -15,10 +15,6 @@ import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { t } from '../i18n';
-import { readDocumentText } from '../utils/ocrCache';
-import { analyzeReceipt, supplierInvoiceFill } from '../utils/receiptScan';
-import { amountToInput } from '../utils/foreignCurrency';
-import { OcrChecklist, ReadDetails, ReadText } from './shared/ScanExperience';
 import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 
 const formatSEK = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
@@ -132,17 +128,6 @@ const MAX_ATTACHMENT_MB = 10;
 const ACCEPTED_ATTACHMENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/heic', 'image/heif'];
 
 const newRowId = () => `row_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-const invoiceScanItems = () => [
-  { key: 'supplier', label: t('ui.leverantor') },
-  { key: 'date', label: t('ui.datum') },
-  { key: 'receiptNumber', label: t('ui.nummer') },
-  { key: 'dueDate', label: t('ui.forfallodatum') },
-  { key: 'ocrNumber', label: t('ui.ocr_nummer') },
-  { key: 'amount', label: t('ui.belopp') },
-  { key: 'vatRate', label: t('ui.moms') },
-  { key: 'costAccount', label: t('ui.konto_2') },
-];
-
 const emptyKonteringRow = () => ({ id: newRowId(), account: '', description: '', netAmount: '', vatRate: 25 });
 
 // ── Toggle-kort (Förval/Omvänd skattskyldighet/Öresavrundning) — en
@@ -227,13 +212,12 @@ function AttachmentField({ file, previewUrl, onSelect, onRemove, error, busy }) 
 // sidan (ersätter listan i samma komponent) istället för att öppnas som en
 // liten modal, och lämnas via en vanlig "← Tillbaka"-knapp — ingen
 // sidnavigering, ingen route-ändring.
-function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], expenses = [], company, user, uploadFn, onSave, onClose }) {
+function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], user, uploadFn, onSave, onClose }) {
   useMobileForm();
   const [supplierId, setSupplierId] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
-  const [ocrNumber, setOcrNumber] = useState('');
   const [rows, setRows] = useState([emptyKonteringRow()]);
   const [paidByOwnerPrivately, setPaidByOwnerPrivately] = useState(false);
   const [reverseCharge, setReverseCharge] = useState(false);
@@ -250,9 +234,6 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], e
   const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState(null);
   const [attachmentError, setAttachmentError] = useState('');
   const [attachmentBusy, setAttachmentBusy] = useState(false);
-  // Avläsningen av filen: { status, revealed, details, readText, newSupplier, suggestion, notice }.
-  const [scan, setScan] = useState(null);
-  const scanRunRef = useRef(0);
 
   useEffect(() => {
     if (!attachment) { setAttachmentPreviewUrl(null); return; }
@@ -272,76 +253,6 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], e
     if (file.size > MAX_ATTACHMENT_MB * 1024 * 1024) { setAttachmentError(t('ui.ar_for_stor_max_mb_2', { name: file.name, MAX_ATTACHMENT_MB })); return; }
     setAttachmentError('');
     setAttachment(file);
-    scanRunRef.current += 1;
-    setScan(null);
-  };
-
-  // Startas med knappen, som på kvitton. Fält man redan fyllt i lämnas orörda;
-  // bara datumet, som är dagens från början, skrivs över.
-  const scanAttachment = async () => {
-    const run = ++scanRunRef.current;
-    setScan({ status: 'scanning', revealed: {} });
-    try {
-      const read = await readDocumentText(attachment, () => {}, {});
-      const analysis = await analyzeReceipt(read, { ownCompany: company });
-      if (scanRunRef.current !== run) return;
-      const fill = supplierInvoiceFill(analysis, { contacts, expenses });
-      if (!fill) { setScan({ status: 'error', notice: t(analysis.parsed.unreadable ? 'ui.fakturan_kunde_inte_lasas' : 'ui.inte_en_faktura') }); return; }
-      const { parsed, details } = analysis;
-      if (fill.supplier && !supplierId) setSupplierId(fill.supplier.id);
-      if (parsed.receiptNumber && !invoiceNumber.trim()) setInvoiceNumber(parsed.receiptNumber);
-      if (details?.ocrNumber && !ocrNumber.trim()) setOcrNumber(details.ocrNumber);
-      if (parsed.date) setDate(parsed.date);
-      if (details?.dueDate && !dueDate) setDueDate(details.dueDate);
-      if (parsed.amount && !statedTotal) setStatedTotal(amountToInput(parsed.amount));
-      if (parsed.currency && CURRENCIES.includes(parsed.currency)) setCurrency(parsed.currency);
-      if (fill.reverse) setReverseCharge(true);
-      if (fill.net && rows.length === 1 && !rows[0].netAmount) {
-        const vatRate = VAT_RATES.includes(fill.rate) ? fill.rate : rows[0].vatRate;
-        setRows([{ ...rows[0], netAmount: amountToInput(fill.net), vatRate, account: rows[0].account || fill.account || '' }]);
-      }
-      const seen = (value, guessed) => (value ? (guessed ? 'guess' : 'found') : 'missing');
-      setScan({
-        status: 'done',
-        revealed: {
-          supplier: fill.supplier ? 'found' : seen(fill.supplierName, true),
-          date: seen(parsed.date, parsed.dateGuessed),
-          receiptNumber: seen(parsed.receiptNumber, parsed.receiptNumberGuessed),
-          dueDate: seen(details?.dueDate),
-          ocrNumber: seen(details?.ocrNumber, details?.ocrNumberGuessed),
-          amount: seen(parsed.amount, parsed.amountGuessed || fill.mixed),
-          vatRate: fill.reverse ? 'found' : seen(parsed.vatRate !== null, parsed.vatRateGuessed || fill.mixed),
-          costAccount: fill.account ? 'history' : (fill.suggestion ? 'suggest' : 'missing'),
-        },
-        details,
-        readText: analysis.readText,
-        newSupplier: !fill.supplier && fill.supplierName ? fill.supplierName : '',
-        suggestion: fill.suggestion,
-        notice: fill.mixed ? t('ui.flera_momssatser_fyll_i_rader') : '',
-      });
-    } catch (err) {
-      if (scanRunRef.current !== run) return;
-      console.error('Avläsningen av fakturan misslyckades:', err);
-      setScan({ status: 'error', notice: t('ui.fakturan_kunde_inte_lasas') });
-    }
-  };
-
-  const addScannedSupplier = () => {
-    const id = `contact_${Date.now()}`;
-    const { orgNr = '', bankgiro = '', plusgiro = '' } = scan.details || {};
-    setContacts(prev => [...prev, {
-      id, type: 'supplier', supplierType: 'se_company', name: scan.newSupplier, orgNr: orgNr || '',
-      bankgiro: bankgiro || '', plusgiro: plusgiro || '',
-      contactPerson: '', email: '', phone: '', address: '', postalCode: '', city: '', country: 'Sverige',
-      defaultCurrency: 'SEK', notes: '', active: true,
-    }]);
-    setSupplierId(id);
-    setScan(s => ({ ...s, newSupplier: '', revealed: { ...s.revealed, supplier: 'found' } }));
-  };
-
-  const pickSuggestedAccount = () => {
-    setRows(r => r.map((row, i) => (i === 0 ? { ...row, account: scan.suggestion } : row)));
-    setScan(s => ({ ...s, suggestion: null }));
   };
 
   const addRow = () => setRows(r => [...r, emptyKonteringRow()]);
@@ -415,7 +326,6 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], e
     onSave({
       supplierId, supplier: supplierName,
       invoiceNumber: invoiceNumber.trim(), date, dueDate: dueDate || undefined,
-      ocrNumber: ocrNumber.trim() || undefined,
       description: `Leverantörsfaktura ${invoiceNumber.trim()}`,
       rows: cleanRows, netAmount: netTotal, vatAmount: vatTotal, amount: Math.round(netTotal + vatTotal),
       reverseCharge, paidByOwnerPrivately, currency,
@@ -472,34 +382,7 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], e
           {/* Underlag */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
             <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 12px' }}>{t('ui.kvitto_eller_fil')} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{t('ui.rekommenderas')}</span></h3>
-            <AttachmentField file={attachment} previewUrl={attachmentPreviewUrl} onSelect={selectAttachment} onRemove={() => { setAttachment(null); setScan(null); scanRunRef.current += 1; }} error={attachmentError} busy={attachmentBusy} />
-            {attachment && !scan && (
-              <div className="rc-scan-offer sup-scan-offer">
-                <div className="rc-scan-offer-text">
-                  <strong>{t('ui.las_av_fakturan')}</strong>
-                  <span>{t('ui.las_av_fakturan_text')}</span>
-                </div>
-                <button type="button" className="rc-scan-offer-btn" onClick={scanAttachment}>
-                  <ScanLine size={15} />
-                  {t('ui.las_av_fakturan')}
-                </button>
-              </div>
-            )}
-            {scan?.status === 'error' && <p className="rc-hint sup-scan-notice">{scan.notice}</p>}
-            {scan && scan.status !== 'error' && (
-              <div className="sup-scan-result">
-                <OcrChecklist scanning={scan.status === 'scanning'} revealed={scan.revealed} items={invoiceScanItems()} />
-                {scan.notice && <p className="rc-hint rc-read-hint">{scan.notice}</p>}
-                {(scan.newSupplier || scan.suggestion) && (
-                  <div className="sup-scan-actions">
-                    {scan.newSupplier && <button type="button" onClick={addScannedSupplier} style={listHeaderButtonStyle('secondary')}>{t('ui.lagg_till_som_leverantor', { name: scan.newSupplier })}</button>}
-                    {scan.suggestion && <button type="button" onClick={pickSuggestedAccount} style={listHeaderButtonStyle('secondary')}>{t('ui.anvand_konto', { code: scan.suggestion, name: accounts.find(a => a.code === scan.suggestion)?.name || '' })}</button>}
-                  </div>
-                )}
-                <ReadDetails details={scan.details} />
-                <ReadText text={scan.readText} />
-              </div>
-            )}
+            <AttachmentField file={attachment} previewUrl={attachmentPreviewUrl} onSelect={selectAttachment} onRemove={() => setAttachment(null)} error={attachmentError} busy={attachmentBusy} />
           </div>
 
           {/* Leverantör */}
@@ -517,10 +400,6 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], e
                 <label style={labelSt}>{t('ui.leverantorens_fakturanummer')}</label>
                 <input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder={t('ui.fakturanr_fran_leverantoren')} style={inputStErr(errors.invoiceNumber)} />
                 {errors.invoiceNumber && <div style={errSt}>{errors.invoiceNumber}</div>}
-              </div>
-              <div>
-                <label style={labelSt}>{t('ui.ocr_betalningsreferens_2')}</label>
-                <input inputMode="numeric" value={ocrNumber} onChange={e => setOcrNumber(e.target.value)} placeholder={t('ui.ocr_nummer')} style={inputSt} />
               </div>
             </div>
             <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
@@ -950,7 +829,7 @@ function PaySupplierInvoiceModal({ invoice, contacts, onNavigate, onConfirm, onC
 // "Ny leverantörsfaktura" och klick på en rad ersätter listan med formulär
 // respektive läsläge i SAMMA komponent — aldrig en route-navigering. ──
 export default function SupplierInvoices({
-  expenses = [], accounts = [], contacts = [], setContacts, projects = [], company, user,
+  expenses = [], accounts = [], contacts = [], setContacts, projects = [], user,
   onAddSupplierInvoice, onMarkSupplierInvoicePaid, onUnmarkSupplierInvoicePaid, onFixExpenseAccount,
   globalAction, clearGlobalAction, onNavigate, headerTabs,
   uploadFn = uploadFileToStorage,
@@ -1271,7 +1150,7 @@ export default function SupplierInvoices({
   if (showForm) {
     mainContent = (
       <SupplierInvoiceForm
-        contacts={contacts} setContacts={setContacts} accounts={accounts} projects={projects} expenses={expenses} company={company} user={user} uploadFn={uploadFn}
+        contacts={contacts} setContacts={setContacts} accounts={accounts} projects={projects} user={user} uploadFn={uploadFn}
         onSave={handleSave} onClose={closeForm}
       />
     );

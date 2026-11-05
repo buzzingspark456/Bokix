@@ -14,7 +14,7 @@ import {
 } from './ReportUI';
 import {
   sumFlowByType, buildResultPace, buildResultSeries, buildMarginSeries, buildCashflowSeries, computeResultStatement, computeBalanceStatement, computeBalanceTrend, computeMonthDeviation, buildResultWaterfall,
-  computeLedger, computeInvoiceReport, computeKeyFigures, fiscalYearBounds, isClosingEntry,
+  computeLedger, computeInvoiceReport, computeKeyFigures, fiscalYearBounds, isClosingEntry, computeCashflowStatement,
   groupCostsByCategory, groupCostsByAccount, overviewPeriodBounds, companyFiscalYearSetting,
 } from '../../utils/reportCalculations';
 import { computeVatPeriod } from '../../utils/vatCalculation';
@@ -774,15 +774,19 @@ function BalanceReport({ verifications, accounts, bounds, isMobile }) {
   );
 }
 
-// ── 3. Kassaflödesanalys ────────────────────────────────────────────────
+// ── 3. Kassaflödesanalys ───────────────────────────────────────────────
+// Som Resultaträkningen: nyckeltal, utvecklingen på kassa och bank, och
+// uppställningen (computeCashflowStatement) med varje konto att fälla ut.
 function CashflowReport({ verifications, accounts, start, end, prevStart, prevEnd }) {
   const { palette, amount } = useReportDisplay();
   const [chartType, setChartType] = useState('area');
+  const [detail, setDetail] = useState('summary');
+  const bounds = useMemo(() => ({ start, end, prevStart, prevEnd }), [start, end, prevStart, prevEnd]);
+  const statement = useMemo(() => computeCashflowStatement(verifications, accounts, bounds), [verifications, accounts, bounds]);
   const points = useMemo(() => buildCashflowSeries(verifications, accounts, start, end), [verifications, accounts, start, end]);
   const prevPoints = useMemo(() => buildCashflowSeries(verifications, accounts, prevStart, prevEnd), [verifications, accounts, prevStart, prevEnd]);
-  const hasActivity = points.some(p => p.balance !== 0) || prevPoints.some(p => p.balance !== 0);
-  const currentCash = points.length ? points[points.length - 1].balance : 0;
-  const startCash = points.length ? points[0].balance : 0;
+  const ledger = useAccountLedger(verifications, accounts, start, end);
+  const hasActivity = points.some(p => p.balance !== 0) || prevPoints.some(p => p.balance !== 0) || statement.flow !== 0;
   const comparable = prevPoints.some(p => p.balance !== 0);
   const chartData = points.map((p, i) => ({
     label: fmtDate(p.date), 'Vald period': p.balance,
@@ -791,14 +795,25 @@ function CashflowReport({ verifications, accounts, start, end, prevStart, prevEn
 
   if (!hasActivity) return <ReportSheet><EmptyState text={t('ui.ingen_kassaflodesdata_for_denna_period')} /></ReportSheet>;
 
+  const tone = (v) => (v >= 0 ? palette.profit : palette.loss);
   return (
     <ReportSheet>
       <div className="sheet-grid">
-        <div className="sheet-span-6" style={cellBg}>
-          <StatTile label={t('ui.saldo_vid_periodens_slut')} value={amount.value(currentCash)} icon={Wallet} tone={palette.cash} accent={currentCash >= 0 ? undefined : 'var(--status-red-text)'} />
+        <div className="sheet-span-3" style={cellBg}>
+          <StatTile label={t('ui.kf_lopande_verksamhet')} value={amount.value(statement.operating)} icon={statement.operating >= 0 ? TrendingUp : TrendingDown} tone={tone(statement.operating)} />
         </div>
-        <div className="sheet-span-6" style={cellBg}>
-          <StatTile label={t('ui.forandring_under_perioden')} value={amount.value(currentCash - startCash)} icon={currentCash >= startCash ? TrendingUp : TrendingDown} tone={currentCash >= startCash ? palette.profit : palette.loss} />
+        <div className="sheet-span-3" style={cellBg}>
+          <StatTile label={t('ui.kf_investeringar')} value={amount.value(statement.investing)} icon={Scale} tone={palette.neutral} />
+        </div>
+        <div className="sheet-span-3" style={cellBg}>
+          <StatTile label={t('ui.kf_finansiering')} value={amount.value(statement.financing)} icon={Scale} tone={palette.neutral} />
+        </div>
+        <div className="sheet-span-3" style={cellBg}>
+          <StatTile
+            label={t('ui.kf_likvida_medel_slut')} value={amount.value(statement.closingCash)} icon={Wallet} tone={palette.cash}
+            context={statement.balanced ? t('ui.kf_stammer_mot_bank') : t('ui.kf_stammer_inte_mot_bank')}
+            accent={statement.balanced ? undefined : 'var(--status-red-text)'}
+          />
         </div>
 
         <div className="sheet-span-12" style={cellBg}>
@@ -814,12 +829,16 @@ function CashflowReport({ verifications, accounts, start, end, prevStart, prevEn
         </div>
 
         <div className="sheet-span-12" style={cellBg}>
-          <SheetPanel title={t('ui.saldo_per_manad')}>
-            <DataTable
-              columns={[{ key: 'label', label: t('ui.datum') }, { key: 'balance', label: t('ui.saldo'), align: 'right', emphasize: true, render: r => formatSEK(r.balance) }]}
-              rows={points}
-              rowKey={r => r.date}
-            />
+          <SheetPanel
+            title={t('ui.kassaflodesanalys')}
+            controls={(
+              <ChartTypeToggle
+                value={detail} onChange={setDetail}
+                options={[{ id: 'summary', label: t('ui.rapp_sammanfattning') }, { id: 'accounts', label: t('ui.rapp_konton') }]}
+              />
+            )}
+          >
+            <StatementTable items={statement.items} showPrev={statement.hasComparison} showAccounts={detail === 'accounts'} ledger={ledger} />
           </SheetPanel>
         </div>
       </div>

@@ -151,37 +151,3 @@ export function bookingPreview({ parsed, details, netAmount }, costAccount = nul
   return rows;
 }
 
-const foldName = (s) => String(s || '').trim().toLowerCase();
-const onlyDigits = (s) => String(s || '').replace(/\D/g, '');
-
-/**
- * Vad en avläst faktura fyller i på en leverantörsfaktura. Leverantören söks
- * bland kontakterna (org.nr först, sedan namnet), och kontot följer samma
- * regel som kvitton: det fylls bara i när företaget bokfört leverantören
- * förut, annars blir det ett förslag. Svarar null för något som inte är en
- * faktura eller ett kvitto.
- */
-export function supplierInvoiceFill(analysis, { contacts = [], expenses = [] } = {}) {
-  const { parsed, details, supplierName, netAmount } = analysis;
-  if (parsed.notReceipt || parsed.unreadable) return null;
-  const suppliers = contacts.filter(c => c.type === 'supplier');
-  const org = onlyDigits(details?.orgNr);
-  const supplier = (org && suppliers.find(c => onlyDigits(c.orgNr).slice(-10) === org))
-    || suppliers.find(c => foldName(c.name) === foldName(supplierName))
-    || null;
-  const earlier = supplier
-    ? expenses.filter(e => e.supplierId === supplier.id && e.rows?.[0]?.account)
-      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))[0]
-    : null;
-  const reverse = Boolean(parsed.reverseCharge);
-  const account = earlier?.rows[0].account || (reverse ? parsed.accountCode : null) || null;
-  const suggestion = null;
-  const mixed = !reverse && Boolean(parsed.vatRates);
-  const rate = reverse ? 0 : parsed.vatRate;
-  let net = null;
-  if (parsed.amount && !mixed) {
-    if (reverse) net = parsed.amount;
-    else net = netAmount ?? Math.round((parsed.amount / (1 + rate / 100)) * 100) / 100;
-  }
-  return { supplier, supplierName, account, suggestion, net, rate, mixed, reverse, details };
-}

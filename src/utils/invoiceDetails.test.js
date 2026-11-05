@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { luhnOk, readInvoiceDetails } from './invoiceDetails';
-import { analyzeReceipt, bookingPreview, supplierInvoiceFill } from './receiptScan';
+import { analyzeReceipt, bookingPreview } from './receiptScan';
 
 const SANDLADAN = `Sandlådan Konsult
 FAKTURA
@@ -124,28 +124,4 @@ Org.nr: 556036-0793 · Godkänd för F-skatt`;
     expect(bookingPreview(await read('Hej, här är mitt CV. Jag har jobbat i tio år.'))).toBeNull();
   });
 
-  it('hittar leverantören på org.nr och tar kontot från förra fakturan', async () => {
-    const contacts = [{ id: 'c1', type: 'supplier', name: 'Annat namn', orgNr: '5560360793' }];
-    const expenses = [
-      { supplierId: 'c1', date: '2026-01-01', rows: [{ account: '6530' }] },
-      { supplierId: 'c1', date: '2026-05-01', rows: [{ account: '6540' }] },
-    ];
-    const fill = supplierInvoiceFill(await read(FAKTURA), { contacts, expenses });
-    expect(fill.supplier.id).toBe('c1');
-    expect(fill.account).toBe('6540');
-    expect(fill.suggestion).toBeNull();
-    expect(fill.net).toBe(8000);
-    expect(fill.rate).toBe(25);
-  });
-
-  it('en ny leverantör får bara ett kontoförslag, inget ifyllt konto', async () => {
-    const fill = supplierInvoiceFill(await read(FAKTURA), {});
-    expect(fill.supplier).toBeNull();
-    expect(fill.account).toBeNull();
-    expect(fill.supplierName).toContain('Sandlådan');
-  });
-
-  it('fyller inte i något från ett brev', async () => {
-    expect(supplierInvoiceFill(await read('Hej, här är mitt CV. Jag har jobbat i tio år.'))).toBeNull();
-  });
 });

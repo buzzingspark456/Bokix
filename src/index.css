@@ -3628,10 +3628,6 @@ textarea.form-control {
   .rc-step-read .rc-btn-next, .rc-step-account .rc-btn-back { display: block; }
   .rc-step-account .rc-step-title { display: block; }
 }
-.sup-scan-offer { margin-top: 12px; }
-.sup-scan-result { margin-top: 12px; }
-.sup-scan-notice { color: var(--text-main); }
-.sup-scan-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .rc-read-text { margin: 0 0 14px; font-size: 12.5px; color: var(--text-muted); }
 .rc-read-text summary { cursor: pointer; font-weight: 600; width: fit-content; }
 .rc-read-text pre { margin: 8px 0 0; padding: 10px 12px; max-height: 240px; overflow: auto; border-radius: 10px; background: var(--bg-muted); color: var(--text-main); font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }

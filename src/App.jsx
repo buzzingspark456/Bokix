@@ -2383,6 +2383,8 @@ function App() {
   // ägarskapet var helt korrekt lokalt. Anropas nu (best effort, kastar
   // aldrig) innan varje åtgärd servern verifierar ägarskap för — just nu
   // "Skicka via e-post" (Invoices.jsx/Quotes.jsx, onSyncBeforeServerCall).
+  // Sätts när en ändring ska sparas direkt i stället för efter den vanliga väntan.
+  const saveSoonRef = useRef(false);
   const syncUserDataNow = async () => {
     if (!user || !isLoggedIn) return;
     try {
@@ -3269,7 +3271,9 @@ function App() {
     if (user && isLoggedIn) {
       // Samma synk som syncUserDataNow (definierad ovan, vid
       // saveUserDataToSupabase) — bara med den vanliga 2-sekundersväntan.
-      timeoutIds.push(setTimeout(() => { syncUserDataNow(); }, 2000));
+      const delay = saveSoonRef.current ? 0 : 2000;
+      saveSoonRef.current = false;
+      timeoutIds.push(setTimeout(() => { syncUserDataNow(); }, delay));
     }
 
     return () => timeoutIds.forEach(clearTimeout);
@@ -5638,7 +5642,6 @@ function App() {
         return (
           <Payroll
             key={company?.id || data.activeCompanyId}
-            company={company}
             employees={employees}
             onSaveEmployee={handleSaveEmployee}
             onImportEmployees={handleImportEmployees}
@@ -6664,6 +6667,9 @@ function App() {
             // Ett svar är ett svar: frågan kommer inte tillbaka under besöket, även
             // om en sparning eller hämtning på ett stort konto hinner emellan.
             setVatPromptLater(ids => [...ids, data.activeCompanyId]);
+            // Svaret sparas direkt, inte efter den vanliga väntan: laddar man om
+            // sidan inom två sekunder ska frågan inte komma tillbaka.
+            saveSoonRef.current = true;
           }}
           onLater={() => setVatPromptLater(ids => [...ids, data.activeCompanyId])}
         />
