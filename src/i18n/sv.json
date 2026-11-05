@@ -457,6 +457,7 @@
     }
   },
   "ui": {
+    "foto_flera_kvitton": "Fotot har två kvitton. Fota ett kvitto i taget, så blir belopp och moms rätt.",
     "kf_lopande_verksamhet": "Den löpande verksamheten",
     "kf_investeringsverksamhet": "Investeringsverksamheten",
     "kf_finansieringsverksamhet": "Finansieringsverksamheten",

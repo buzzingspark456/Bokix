@@ -3,7 +3,7 @@
 // utländsk valuta och planen för vilka fält som fylls i och hur säkert.
 // Delas av appens kvittovy (Expenses.jsx) och gratisverktyget Skanna kvitto
 // (ScanReceiptPage.jsx), så att de alltid ger samma resultat för samma kvitto.
-import { parseReceiptText, READING_SEPARATOR } from './ocrReceipt';
+import { parseReceiptText, READING_SEPARATOR, looksLikeTwoReceipts, TWO_RECEIPTS_PARSE } from './ocrReceipt';
 import { readInvoiceDetails } from './invoiceDetails';
 import { rowsFromLayout } from './visionRows';
 import { locateFieldBoxes } from './ocrFieldBoxes';
@@ -27,7 +27,10 @@ export async function analyzeReceipt(read, { ownCompany = {}, onMessage = () => 
   const { confidence, weakTokens, quality, layout } = read;
   // Google läser kolumn för kolumn: raderna byggs om efter var de står på bilden.
   const text = (layout && rowsFromLayout(layout)) || read.text;
-  const parsed = parseReceiptText(text, { confidence, weakTokens });
+  // Två kvitton bredvid varandra syns bäst i Googles egen läsordning, där
+  // vart kvitto står för sig; i de ombyggda raderna går de ihop.
+  const first = parseReceiptText(text, { confidence, weakTokens });
+  const parsed = !first.notReceipt && text !== read.text && looksLikeTwoReceipts(String(read.text || '').split(READING_SEPARATOR)[0]) ? TWO_RECEIPTS_PARSE() : first;
   const boxes = layout ? locateFieldBoxes(layout, parsed) : null;
   const readText = String(text || '').split(READING_SEPARATOR)[0].trim();
   const details = parsed.notReceipt
@@ -56,8 +59,9 @@ export async function analyzeReceipt(read, { ownCompany = {}, onMessage = () => 
   // Rådet om fotot visas bara när avläsningen inte blev bra: blev beloppet
   // avläst och kontrollerat mot momsen spelar det ingen roll att bilden
   // kunde varit skarpare.
-  const hint = (quality?.advice && (parsed.notReceipt || !parsed.amount || parsed.amountGuessed || parsed.vatMismatch))
-    ? quality.advice : null;
+  const hint = parsed.documentKind === 'multiple' ? 'multiple'
+    : (quality?.advice && (parsed.notReceipt || !parsed.amount || parsed.amountGuessed || parsed.vatMismatch))
+      ? quality.advice : null;
 
   // Utländsk valuta — räkna om till kronor med DAGSKURSEN FÖR KÖPDATUMET
   // (Skatteverkets rekommendation) innan beloppet fylls i. Går omräkningen

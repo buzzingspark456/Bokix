@@ -52,7 +52,7 @@ export const listFilterFieldStyle = {
 };
 
 const tabButtonStyle = (active) => ({
-  padding: '10px 18px', border: 'none', cursor: 'pointer', fontSize: '13px',
+  padding: '8px 16px', border: 'none', cursor: 'pointer', fontSize: '13px',
   fontWeight: active ? 700 : 500,
   color: active ? 'var(--text-main)' : 'var(--text-secondary)',
   background: 'none',
@@ -116,15 +116,15 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
     row.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
   }, [activeTabId]);
   return (
-    <div className="list-page-header" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 20px', paddingBottom: hasTabs ? 0 : '16px', flexShrink: 0 }}>
-      <div className="page-header-row page-header-top" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 0', gap: '16px', flexWrap: 'wrap' }}>
+    <div className="list-page-header" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 20px', paddingBottom: hasTabs ? 0 : '12px', flexShrink: 0 }}>
+      <div className="page-header-row page-header-top" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0 0', gap: '16px', flexWrap: 'wrap' }}>
         <div>
           {/* Kundfeedback ("luft i sidhuvudet", samma princip som Startsidan):
               2px kändes hopklämt mellan rubrik och undertext — 6px (samma
               rytm som Dashboard.jsx:s hälsningsrader) ger läsbar andrum
               utan att blåsa upp den kompakta verktygsrads-höjden här. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--text-main)' }}>{title}</h1>
+            <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-main)' }}>{title}</h1>
             {guide?.guides?.length > 0 && (
               <button type="button" className="lph-guide" onClick={guide.open} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', border: 'none', borderRadius: '999px', background: 'var(--bg-muted)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                 <PlayCircle size={14} /> {t('ui.se_hur')}
@@ -181,7 +181,7 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
         <div
           ref={tabsRef}
           className={'page-header-tabs' + (pills ? ' page-header-tabs--pills' : '') + (tabs.wrap ? ' page-header-tabs--wrap' : '')}
-          style={{ display: 'flex', gap: pills ? '7px' : 0, marginTop: pills ? '10px' : '12px', paddingBottom: pills ? '12px' : 0 }}
+          style={{ display: 'flex', gap: pills ? '7px' : 0, marginTop: pills ? '8px' : '6px', paddingBottom: pills ? '12px' : 0 }}
         >
           {tabs.items.map(t => (
             <button
@@ -290,9 +290,33 @@ export function ListFilterBar({ children, onClear, count, countLabel, pageSize, 
   const items = React.Children.toArray(children);
   const [first, ...rest] = items;
   const hasMore = rest.length > 0 || Boolean(onClear) || hasPageSize;
+  // Utan Rensa-knapp står antalet och Visa-väljaren på sökfältets rad på
+  // datorn, i stället för ensamma på en egen rad (2026-11-05: mer av listan
+  // syns). Telefonen har kvar sin rad bakom Filter.
+  const inline = !onClear && (count != null || hasPageSize);
+  const right = (inRow) => (
+      <div className={inRow ? 'lfb-inline' : undefined} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
+        {count != null && (
+          <span className="lfb-count" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{count} {countLabel}</span>
+        )}
+        {hasPageSize && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
+            {t('shared.filterBar.show')}
+            <select
+              value={pageSize}
+              onChange={e => onPageSizeChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              style={{ ...listFilterFieldStyle, height: '28px', padding: '0 8px', fontSize: '12px' }}
+            >
+              {pageSizeOptions.map(n => <option key={n} value={n}>{n}</option>)}
+              <option value="all">{t('shared.filterBar.all')}</option>
+            </select>
+          </label>
+        )}
+      </div>
+  );
   return (
-    <div className="lfb" data-open={open ? 'true' : 'false'} style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-card)', flexShrink: 0 }}>
-      <div className="lfb-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: hasSecondRow ? '10px' : 0 }}>
+    <div className="lfb" data-open={open ? 'true' : 'false'} style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-card)', flexShrink: 0 }}>
+      <div className="lfb-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: hasSecondRow && !inline ? '8px' : 0 }}>
         <div className="lfb-primary">{first}</div>
         {hasMore && (
           <button type="button" className="lfb-toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>
@@ -302,33 +326,17 @@ export function ListFilterBar({ children, onClear, count, countLabel, pageSize, 
           </button>
         )}
         <div className="lfb-more">{rest}</div>
+        {inline && right(true)}
       </div>
       {count != null && <div className="lfb-count-line">{count} {countLabel}</div>}
       {hasSecondRow && (
-        <div className="lfb-second" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+        <div className={'lfb-second' + (inline ? ' lfb-second--phone' : '')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
           {onClear ? (
-            <button type="button" onClick={onClear} style={listHeaderButtonStyle('secondary')}>
+            <button type="button" onClick={onClear} style={{ ...listHeaderButtonStyle('secondary'), height: '30px', padding: '0 12px' }}>
               <RefreshCw size={14} /> {t('shared.filterBar.clear')}
             </button>
           ) : <span />}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
-            {count != null && (
-              <span className="lfb-count" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{count} {countLabel}</span>
-            )}
-            {hasPageSize && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                {t('shared.filterBar.show')}
-                <select
-                  value={pageSize}
-                  onChange={e => onPageSizeChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                  style={{ ...listFilterFieldStyle, height: '28px', padding: '0 8px', fontSize: '12px' }}
-                >
-                  {pageSizeOptions.map(n => <option key={n} value={n}>{n}</option>)}
-                  <option value="all">{t('shared.filterBar.all')}</option>
-                </select>
-              </label>
-            )}
-          </div>
+          {right(false)}
         </div>
       )}
     </div>

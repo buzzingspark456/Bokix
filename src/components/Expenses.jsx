@@ -781,7 +781,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
                 {unreadable ? (
-                  <span>{tr('ui.bilden_gick_inte_att_lasa_av_sa_inget_har_fyllts')} {photoHintText(photoHint) || tr('ui.ta_om_fotot_narmre_rakare_och_med_battre_ljus_el')}</span>
+                  <span>{photoHint === 'multiple' ? '' : tr('ui.bilden_gick_inte_att_lasa_av_sa_inget_har_fyllts')} {photoHintText(photoHint) || tr('ui.ta_om_fotot_narmre_rakare_och_med_battre_ljus_el')}</span>
                 ) : (
                   <span>{tr('ui.det_har_ser_inte_ut_som_ett_kvitto_eller_en_fakt')}</span>
                 )}

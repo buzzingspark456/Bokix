@@ -6107,6 +6107,9 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 ══════════════════════════════════════════════ */
 .lfb-primary, .lfb-more { display: contents; }
 .lfb-toggle, .lfb-count-line { display: none; }
+/* Antalet och Visa på sökfältets rad på datorn, på egen rad bakom Filter på telefon. */
+@media (min-width: 769px) { .lfb-second--phone { display: none !important; } }
+@media (max-width: 768px) { .lfb-inline { display: none !important; } }
 .date-field { display: inline-flex; position: relative; min-width: 0; }
 .date-field-ph { display: none; }
 .lfb-daterange { display: inline-flex; align-items: center; gap: 8px; }
@@ -6149,16 +6152,16 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   }
 
   /* Filterrad: sökfältet och en Filter-knapp, resten fälls ut. */
-  .lfb { padding: 10px 14px !important; }
+  .lfb { padding: 8px 14px !important; }
   .lfb-row { flex-wrap: wrap !important; margin-bottom: 0 !important; gap: 8px !important; }
   .lfb-primary { display: block; flex: 1 1 0; min-width: 0; }
   .lfb-primary > * { width: 100%; }
-  .lfb-primary input { width: 100% !important; height: 42px !important; }
+  .lfb-primary input { width: 100% !important; height: 40px !important; }
   .lfb-toggle {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    height: 42px;
+    height: 40px;
     padding: 0 14px;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -6201,7 +6204,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .lfb-more .rc-segmented { flex: 1 1 100%; }
   .lfb-daterange { flex: 1 1 100% !important; display: flex !important; gap: 8px; }
   .lfb-daterange > span:not(.date-field) { display: none; }
-  .lfb-count-line { display: block; font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+  .lfb-count-line { display: block; font-size: 12px; color: var(--text-muted); margin-top: 6px; }
   .lfb-second { display: none !important; }
   .lfb[data-open="true"] .lfb-second { display: flex !important; margin-top: 10px; }
   .lfb-count { display: none; }
@@ -6748,15 +6751,15 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
     overflow: visible !important;
     gap: 6px !important;
     margin: 0 !important;
-    padding: 6px 0 12px !important;
+    padding: 2px 0 8px !important;
     background: none !important;
   }
   .page-header-tabs::-webkit-scrollbar { display: none; }
   .page-header-tabs > button {
     flex: 0 0 auto !important;
     justify-content: center;
-    min-height: 34px;
-    padding: 5px 12px !important;
+    min-height: 32px;
+    padding: 4px 12px !important;
     margin: 0 !important;
     border: 1px solid var(--border) !important;
     border-radius: 999px;
@@ -7670,7 +7673,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
     padding: 0 100px 0 0 !important;
   }
   .list-page-header h1 {
-    font-size: 22px !important;
+    font-size: 20px !important;
     letter-spacing: -0.01em;
     white-space: nowrap;
     overflow: hidden;

@@ -39,6 +39,7 @@ export const PHOTO_HINTS = {
   blurry: tr('ui.foto_suddig'),
   dark: tr('ui.foto_mork'),
   far: tr('ui.foto_langt'),
+  multiple: tr('ui.foto_flera_kvitton'),
 };
 
 export function photoHintText(code) {

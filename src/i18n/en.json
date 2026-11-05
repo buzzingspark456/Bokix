@@ -457,6 +457,7 @@
     }
   },
   "ui": {
+    "foto_flera_kvitton": "The photo has two receipts. Take one receipt at a time so the amount and VAT come out right.",
     "kf_lopande_verksamhet": "Operating activities",
     "kf_investeringsverksamhet": "Investing activities",
     "kf_finansieringsverksamhet": "Financing activities",

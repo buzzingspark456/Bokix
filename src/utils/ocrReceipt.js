@@ -3016,6 +3016,31 @@ export function pickReceiptDate(candidates, { today = new Date(), weakTokens = n
   return { date, dateText: primary.raw, dateGuessed: Boolean(lowConfidence || shaky || disagrees || veryOld) };
 }
 
+/**
+ * Två kvitton i samma foto (två butiker bredvid varandra på bordet). Då blandas
+ * beloppen och momsen ihop, så ingenting fylls i. Kräver två köptider minst
+ * tre minuter isär (kortterminalens slip har samma tid som kvittot) och ett
+ * tecken till på ett andra kvitto: avslutningen "Välkommen åter" två gånger
+ * eller två olika organisationsnummer. Exporterad för testerna.
+ */
+export function looksLikeTwoReceipts(text) {
+  const flat = String(text || '').replace(/\s+/g, ' ');
+  const times = new Set();
+  const stamp = /\b(?:\d{4}-\d{2}-\d{2}|\d{2}[./-]\d{2}[./-]\d{2,4})\s+(?:kl\.?\s*)?([01]?\d|2[0-3])[:.]([0-5]\d)\b/g;
+  for (const m of flat.matchAll(stamp)) times.add(Number(m[1]) * 60 + Number(m[2]));
+  const sorted = [...times].sort((a, b) => a - b);
+  const apart = sorted.length > 1 && sorted[sorted.length - 1] - sorted[0] >= 3;
+  if (!apart) return false;
+  const goodbyes = (flat.match(/v[äa]lkommen\s+(?:[åa]ter|tillbaka)/gi) || []).length;
+  const orgNrs = new Set([...flat.matchAll(/\b(\d{6})[- ]?(\d{4})\b/g)]
+    .filter(m => /org/i.test(flat.slice(Math.max(0, m.index - 14), m.index)))
+    .map(m => m[1] + m[2]));
+  return goodbyes >= 2 || orgNrs.size >= 2;
+}
+
+/** Svaret för två kvitton i samma foto: inget fylls i, rådet säger varför. */
+export const TWO_RECEIPTS_PARSE = () => ({ ...EMPTY_PARSE, notReceipt: true, unreadable: true, documentKind: 'multiple' });
+
 const EMPTY_PARSE = {
   date: null, dateGuessed: false, dateText: null, amount: null, amountGuessed: false, amountVerified: false,
   vatRate: 25, vatRateGuessed: true, vatAmount: null, vatVerified: false, vatMismatch: false, vatRates: null,
@@ -3701,6 +3726,9 @@ function parseOneReading(text, { confidence = null, weakTokens = null, today = n
 
   // Ett dokument som inte är ett kvitto eller en faktura fylls aldrig i.
   const doc = classifyDocument(text, lines);
+  if (doc.isReceipt && looksLikeTwoReceipts(text)) {
+    return TWO_RECEIPTS_PARSE();
+  }
   if (!doc.isReceipt) {
     // Ett uttryckligt CV/personligt brev-ord (doc.looksLikeOther) vinner
     // ALLTID, oavsett confidence — orden gick tydligt att läsa, så det är
