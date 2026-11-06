@@ -108,7 +108,7 @@ export function buildOverview({ users, subs, states = {}, messages = [], events 
   const recentSignups = [...customers]
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 8)
-    .map(u => ({ userId: u.id, email: u.email, company: companyOf(u.id), createdAt: u.created_at, status: subByUser[u.id]?.status || null, started: states[u.id] ? hasStarted(summarizeState(states[u.id])) : null }));
+    .map(u => ({ userId: u.id, email: u.email, company: companyOf(u.id), createdAt: u.created_at, status: subByUser[u.id]?.status || null, cancelAtPeriodEnd: !!subByUser[u.id]?.cancel_at_period_end, suspended: !!u.banned_until, emailConfirmed: !!u.email_confirmed_at, started: states[u.id] ? hasStarted(summarizeState(states[u.id])) : null }));
 
   const dayAgo = t - DAY;
   const recentEvents = (events || []).filter(e => new Date(e.created_at).getTime() >= dayAgo);

@@ -45,10 +45,13 @@ export function AdminRow({ initial, primary, secondary, pills, meta = [], action
       {...(onClick ? { role: 'button', tabIndex: 0, onClick, onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } } : {})}
     >
       {!plain && <span className="ixl-avatar" aria-hidden="true">{initial || '?'}</span>}
+      {/* Etiketterna står på namnraden: en rad är två rader hög, inte tre. */}
       <div className="ixl-main">
-        <div className="ixl-primary">{primary}</div>
+        <div className="ixl-primary-line">
+          <span className="ixl-primary">{primary}</span>
+          {pills && <span className="ixl-pills">{pills}</span>}
+        </div>
         {secondary && <div className="ixl-secondary">{secondary}</div>}
-        {pills && <div className="ixl-pills">{pills}</div>}
       </div>
       <div className="ixl-meta">
         {meta.filter(Boolean).map(([label, value], i) => <span key={i}>{label && <span className="ixl-meta-label">{label} </span>}{value}</span>)}

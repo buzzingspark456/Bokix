@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight, CheckCircle2, Users } from '../icons';
-import { AdminList, AdminRow, Pill, SubscriptionPill } from './AdminList';
+import { AdminList, AdminRow, Pill } from './AdminList';
+import { accountStage } from './UsersAdmin';
 import CustomerCard from './CustomerCard';
 import { Page, Loadable, Section, Stats, Stat, Card } from './ui';
 import { dateTimeFormat, numberFormat } from '../../utils/intlCache';
@@ -122,7 +123,7 @@ export default function OverviewAdmin({ overview, onOpenTab }) {
                     primary={x.company || x.email}
                     secondary={x.company ? x.email : 'Inget företag upplagt'}
                     pills={<>
-                      <SubscriptionPill status={x.status} />
+                      {(() => { const st = accountStage({ subscriptionStatus: x.status, cancelAtPeriodEnd: x.cancelAtPeriodEnd, suspended: x.suspended, emailConfirmed: x.emailConfirmed !== false, companyName: x.company }); return <Pill tone={st.tone}>{st.label}</Pill>; })()}
                       {x.started === true && <Pill tone="green">Igång</Pill>}
                       {x.started === false && <Pill tone="amber">Inte igång</Pill>}
                     </>}

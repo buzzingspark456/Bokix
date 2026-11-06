@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X, ExternalLink } from '../icons';
-import { adminGet } from './adminApi';
+import { X, ExternalLink, ShieldOff, RotateCcw } from '../icons';
+import { adminGet, adminPost } from './adminApi';
 import { Pill, SUBSCRIPTION_STATUS } from './AdminList';
 import { Card, Kv, Notice } from './ui';
 import { dateTimeFormat } from '../../utils/intlCache';
 
 // Kundkortet i /internal: allt om ett konto på ett ställe (api/admin,
-// resource 'customer'). Öppnas från Översikt och Användare. Bara läsning;
-// avstängning finns kvar i listan under Användare.
+// resource 'customer'). Öppnas från Översikt och Användare. Läsning, och
+// längst ned att stänga av eller återaktivera kontot (flyttat hit från
+// listan 2026-11-06, så att knappen inte står på varje rad).
 
 const fmtDate = (iso) => (iso ? dateTimeFormat('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso)) : '—');
 const fmtDateTime = (iso) => (iso ? dateTimeFormat('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)) : '—');
@@ -58,9 +59,11 @@ function CompanyBlock({ c }) {
   );
 }
 
-export default function CustomerCard({ userId, onClose }) {
+export default function CustomerCard({ userId, onClose, onChanged }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   const panelRef = useRef(null);
@@ -75,7 +78,24 @@ export default function CustomerCard({ userId, onClose }) {
     window.addEventListener('keydown', onKey);
     panelRef.current?.focus();
     return () => { cancelled = true; window.removeEventListener('keydown', onKey); };
-  }, [userId]);
+  }, [userId, reloadKey]);
+
+  const toggleSuspend = async () => {
+    const a = data?.account;
+    if (!a) return;
+    const verb = a.suspended ? 'återaktivera' : 'stänga av';
+    if (!window.confirm(`Vill du ${verb} kontot ${a.email}?`)) return;
+    setBusy(true);
+    try {
+      await adminPost({ resource: 'users', action: a.suspended ? 'unsuspend' : 'suspend', userId });
+      setReloadKey(k => k + 1);
+      onChanged?.();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const a = data?.account;
   return (
@@ -144,6 +164,16 @@ export default function CustomerCard({ userId, onClose }) {
                     </div>
                   ))}
               </Card>
+
+              {!a.isAdmin && (
+                <div className="cc-danger">
+                  <button type="button" className={`ix-btn${a.suspended ? '' : ' danger'}`} onClick={toggleSuspend} disabled={busy}>
+                    {a.suspended ? <RotateCcw size={13} /> : <ShieldOff size={13} />}
+                    {a.suspended ? 'Återaktivera kontot' : 'Stäng av kontot'}
+                  </button>
+                  <span className="ix-muted">{a.suspended ? 'Kontot kan inte logga in.' : 'Kontot kan inte logga in förrän det återaktiveras. Bokföringen sparas.'}</span>
+                </div>
+              )}
             </>
           )}
         </div>
