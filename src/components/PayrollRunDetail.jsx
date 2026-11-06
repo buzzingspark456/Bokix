@@ -20,6 +20,7 @@ import { AGI_XML_ENABLED } from '../utils/featureFlags';
 import { preloadSkattetabell } from '../utils/skattetabell';
 import { downloadSalaryPaymentFile, getDebtorAccountError } from '../utils/salaryPaymentFile';
 import { t as tr } from '../i18n';
+import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import { summarizeVacation } from '../utils/vacation';
 import { SKV_AGI_URL } from './AgiReportDetails';
 import { numberFormat } from '../utils/intlCache';
@@ -528,6 +529,7 @@ export function VerificationBlock({ title, rows, accounts }) {
 }
 
 export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyncBeforeServerCall, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onDelete, onUpdateRow, onUpdateRun, onRefreshSnapshots }) {
+  const isPhone = useIsMobileViewport();
   // Fakturans logga på lönebeskeden, hämtad en gång som PNG.
   const [payslipLogo, setPayslipLogo] = useState(null);
   useEffect(() => {
@@ -801,7 +803,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
         <StageNav stage={stage} completedSteps={run.completedSteps} onOpen={setStage} />
       </ListPageHeader>
 
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div className="payroll-stage-scroll" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
       <div className="payroll-stage-head" style={{ padding: '18px 24px', background: 'var(--bg-card)' }}>
         <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: 'var(--text-main)' }}>{tr(`payrollStages.${stage}Title`)}</h2>
         <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.55, maxWidth: '760px' }}>{tr(`payrollStages.${stage}Text`, { period: run.period })}</p>
@@ -870,7 +872,9 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
       )}
       <div style={{ margin: '0 -24px -18px', borderTop: '1px solid var(--border-light)' }}>
       {computedRows.map(({ row, computed }) => (
-        <EmployeeRow flat defaultOpen={computedRows.length <= 5 || computed.gross === 0}
+        // Telefon: ihopfällda utom de som saknar lön, så stegknappen inte
+        // hamnar under alla uträkningar (2026-11-06).
+        <EmployeeRow flat defaultOpen={isPhone ? computed.gross === 0 : (computedRows.length <= 5 || computed.gross === 0)}
           vacationLeft={vacationLeftById[row.employeeId]}
           key={row.employeeId} row={row} computed={computed}
           previousComputed={previousComputedByEmployee[row.employeeId]}

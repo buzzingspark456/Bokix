@@ -1119,7 +1119,8 @@ export default function Taxes({
   };
   const nextOverviewItem = overviewItems.find(i => !i.done && i.daysLeft != null);
   const overviewSummary = nextOverviewItem
-    ? tr('ui.nasta_senast', { v0: nextOverviewItem.title.toLowerCase(), daysLabel: nextOverviewItem.daysLabel, dueLabel: nextOverviewItem.dueLabel })
+    ? tr('ui.nasta_senast', { // Bara första bokstaven: "VAT return" ska inte bli "vat return", "AGI" inte "agi".
+      v0: /^[A-ZÅÄÖ][a-zåäö]/.test(nextOverviewItem.title) ? nextOverviewItem.title[0].toLowerCase() + nextOverviewItem.title.slice(1) : nextOverviewItem.title, daysLabel: nextOverviewItem.daysLabel, dueLabel: nextOverviewItem.dueLabel })
     : overviewItems.every(i => i.done) ? tr('ui.allt_ar_inlamnat') : tr('ui.inget_har_en_deadline_just_nu');
   // Efter ett låst bokslut är nästa steg deklarationen.
   const nextFilingSection = declarationSection;

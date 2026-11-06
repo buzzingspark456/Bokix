@@ -9094,3 +9094,19 @@ input:disabled, textarea:disabled, select:disabled, button:disabled { cursor: no
 
 /* SIE-import: periodvalet i förhandsgranskningen (2026-11-05). */
 .sie-period { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border-light); }
+
+/* Lönekörningen på telefon: stegknappen står kvar ovanför den svävande
+   menyraden i stället för längst ned på en lång sida (2026-11-06). */
+@media (max-width: 768px) {
+  /* Sidan rullar, inte en inre ruta: då håller sig knappen mot skärmen. */
+  .payroll-stage-scroll { overflow: visible !important; }
+  .payroll-stage-footer {
+    bottom: calc(var(--mobile-nav-height) + 18px + env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 5;
+    padding: 10px 16px !important;
+    margin: 0 8px;
+    border: 1px solid var(--border) !important;
+    border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.12);
+  }
+}

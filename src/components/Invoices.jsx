@@ -2256,6 +2256,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
   const [pageSize, setPageSize] = useState(30);
   const [showForm, setShowForm] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
+  const isPhoneList = useIsMobileViewport();
   const [invoicePrefill, setInvoicePrefill] = useState(null); // t.ex. från Tidrapportering → "Skapa faktura"
   // "Visa faktura" (radmenyn) ≠ "Redigera" — ett skilt, rent läsläge som
   // bara renderar den riktiga fakturan (InvoiceViewer/InvoiceDocument),
@@ -2435,7 +2436,15 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
     if (editingInvoice) {
       setInvoices(prev => prev.map(i => i.id === editingInvoice.id ? { ...i, ...data } : i));
     } else {
-      onAdd({ ...data, invoiceNumber: getNextInvoiceNumber(invoiceList, company) });
+      const created = onAdd({ ...data, invoiceNumber: getNextInvoiceNumber(invoiceList, company) });
+      // Telefon: den nya fakturan öppnas direkt, med Skicka, PDF och
+      // betalning, i stället för listan längst ned (2026-11-06). Datorn
+      // skickar redan från formuläret och går tillbaka till listan.
+      if (isPhoneList && created?.id && data.status !== 'draft') {
+        closeForm();
+        setTimeout(() => openInvoice(created), 0);
+        return;
+      }
     }
     closeForm();
   };

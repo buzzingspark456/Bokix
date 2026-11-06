@@ -4387,7 +4387,8 @@ function App() {
     if (rotRutDeduction !== 0) { inv.rotRutReceivable = '1513'; inv.rotRutBookedDeduction = rotRutDeduction; }
     setInvoices(prev => [...prev, inv]);
 
-    if (invType === 'quote') return;
+    // Den nya posten tillbaka till anroparen (telefonen öppnar fakturan direkt).
+    if (invType === 'quote') return inv;
 
     // Med ören och med radrabatten, se utils/invoiceBooking.js. En avrundnings-
     // differens på ören bokas av withRoundingBalance i handleAddVerification.
@@ -4401,6 +4402,7 @@ function App() {
       sourceId: inv.id,
       rows: verRows,
     });
+    return inv;
   };
 
   // Konvertering offert → faktura är det ENDA stället en post flyttas mellan

@@ -335,9 +335,9 @@ export default function VatDeclaration({
                       <tr key={r.ruta} style={{ borderTop: '1px solid var(--border-light)', background: isNet ? 'var(--bg-muted)' : 'var(--bg-card)' }}>
                         <td style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-main)' }}>{r.ruta}</td>
                         <td style={{ padding: '12px 16px', color: 'var(--text-main)' }}>
-                          {isNet ? (isRefund ? t('ui.moms_att_aterfa') : t('ui.moms_att_betala')) : r.label}
+                          {isNet ? (isRefund ? t('ui.moms_att_aterfa') : t('ui.moms_att_betala')) : String(r.label).replace(/ %/g, ' %')}
                         </td>
-                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: isNet ? 800 : 600, fontSize: isNet ? '16px' : '14px', color: isNet ? (isRefund ? 'var(--status-green-text)' : 'var(--status-red-text)') : 'var(--text-main)' }}>
+                        <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: isNet ? 800 : 600, fontSize: isNet ? '16px' : '14px', color: isNet ? (isRefund ? 'var(--status-green-text)' : 'var(--status-red-text)') : 'var(--text-main)' }}>
                           {fmt(Math.abs(r.value))} {t('ui.kr')}
                         </td>
                       </tr>
