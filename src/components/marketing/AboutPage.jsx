@@ -31,7 +31,7 @@ const FACTS = [
   { label: 'Namnet', value: BOKIX_NOT_BOKIO },
   { label: 'Programmet', value: 'Körs i webbläsaren på dator och telefon, på svenska och engelska' },
   { label: 'Din data', value: 'Lagras i Stockholm och sparas i sju år, som bokföringslagen kräver' },
-  { label: 'Kontakt', value: 'bokixab@gmail.com', href: 'mailto:bokixab@gmail.com' },
+  { label: 'Kontakt', value: 'info@bokix.se', href: 'mailto:info@bokix.se' },
 ];
 
 const TRUSTPILOT_PAGE_URL = 'https://se.trustpilot.com/review/bokix.se';

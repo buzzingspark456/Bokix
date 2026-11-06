@@ -157,7 +157,7 @@ const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour, onContac
                 skickar med sidan och företaget (App.jsx). Mejllänkarna är
                 kvar för där formuläret inte finns. */}
             <a
-              href="mailto:bokixab@gmail.com?subject=Support%20-%20Bokix"
+              href="mailto:support@bokix.se?subject=Support%20-%20Bokix"
               onClick={onContactSupport ? (e) => { e.preventDefault(); onContactSupport('Support'); } : undefined}
               className="btn btn-primary"
               style={{ width: '100%' }}
@@ -165,7 +165,7 @@ const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour, onContac
               <MessageSquare size={16} /> {t('ui.kontakta_support')}
             </a>
             <a
-              href="mailto:bokixab@gmail.com?subject=Felrapport%20-%20Bokix"
+              href="mailto:support@bokix.se?subject=Felrapport%20-%20Bokix"
               onClick={onContactSupport ? (e) => { e.preventDefault(); onContactSupport('Felrapport'); } : undefined}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px 0', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, textDecoration: 'none', transition: 'color var(--transition)' }}
               onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}

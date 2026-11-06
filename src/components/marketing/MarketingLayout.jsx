@@ -40,10 +40,10 @@ const ORGANIZATION_SCHEMA = {
   disambiguatingDescription: BOKIX_NOT_BOKIO,
   areaServed: { '@type': 'Country', name: 'Sverige' },
   knowsAbout: ['Bokföring', 'Fakturering', 'Moms', 'Momsdeklaration', 'Lön', 'Bokslut', 'Årsredovisning', 'Enskild firma', 'Aktiebolag', 'BAS-kontoplanen', 'SIE4'],
-  email: 'bokixab@gmail.com',
+  email: 'info@bokix.se',
   contactPoint: {
     '@type': 'ContactPoint',
-    email: 'bokixab@gmail.com',
+    email: 'info@bokix.se',
     contactType: 'customer support',
     areaServed: 'SE',
     availableLanguage: ['sv'],
@@ -1641,7 +1641,7 @@ export function MarketingFooter() {
             <Link to="/" className="lp-logo-glow" aria-label="Till startsidan" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
               <BokixWordmark height={30} />
             </Link>
-            <a href="mailto:bokixab@gmail.com" className="lp-footer-link lp-footer-mail">bokixab@gmail.com</a>
+            <a href="mailto:info@bokix.se" className="lp-footer-link lp-footer-mail">info@bokix.se</a>
           </div>
 
           {/* Sidans sista rubrik före footern är alltid en <h2> (CTA-

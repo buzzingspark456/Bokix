@@ -18,8 +18,8 @@ describe('svarsadress', () => {
 
   it('mejl från Bokix får en svarsadress som tar emot mejl', async () => {
     delete process.env.CONTACT_INBOX
-    expect((await sent({ from: 'Bokix <support@bokix.se>', to: ['a@b.se'] })).reply_to).toBe('bokixab@gmail.com')
-    expect((await sent({ from: '"Ab via Bokix" <support@bokix.se>', to: ['a@b.se'] })).reply_to).toBe('bokixab@gmail.com')
+    expect((await sent({ from: 'Bokix <support@bokix.se>', to: ['a@b.se'] })).reply_to).toBe('support@bokix.se')
+    expect((await sent({ from: '"Ab via Bokix" <support@bokix.se>', to: ['a@b.se'] })).reply_to).toBe('support@bokix.se')
   })
 
   it('angiven svarsadress och företagets egen domän rörs inte', async () => {

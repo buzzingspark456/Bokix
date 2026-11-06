@@ -174,7 +174,7 @@ export default function FaqPage() {
                 </div>
               </>
             ) : (
-              <p className="fq-empty">Inga frågor matchar "{query}". Skriv till oss på <a href="mailto:bokixab@gmail.com" style={{ color: 'var(--mkt-accent-green-fg)' }}>bokixab@gmail.com</a>.</p>
+              <p className="fq-empty">Inga frågor matchar "{query}". Skriv till oss på <a href="mailto:support@bokix.se" style={{ color: 'var(--mkt-accent-green-fg)' }}>support@bokix.se</a>.</p>
             )}
           </div>
         </section>

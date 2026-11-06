@@ -135,7 +135,7 @@ async function handlePasswordReset(req, body, res) {
     res.status(200).json({ ok: true });
   } catch (err) {
     console.error('request-password-reset unexpected error:', err);
-    res.status(500).json({ error: 'Något gick fel. Försök igen om en stund, eller kontakta bokixab@gmail.com om det upprepas.' });
+    res.status(500).json({ error: 'Något gick fel. Försök igen om en stund, eller kontakta support@bokix.se om det upprepas.' });
   }
 }
 
@@ -160,7 +160,7 @@ async function handleSendSignupCode(req, body, res) {
   // är, och inloggning påverkas inte (se api/_country.js).
   if (isOutsideSweden(req) && !(await hasValidInvite(email, body?.inviteToken))) {
     await logSystemEvent('signup_blocked_country', `Registrering stoppad från ${requestCountry(req)}`);
-    res.status(403).json({ error: 'Bokix är för svenska företag, och ett nytt konto kan bara skapas från Sverige. Har du fått en inbjudan, öppna inbjudningslänken igen. Frågor: bokixab@gmail.com.', code: 'country' });
+    res.status(403).json({ error: 'Bokix är för svenska företag, och ett nytt konto kan bara skapas från Sverige. Har du fått en inbjudan, öppna inbjudningslänken igen. Frågor: support@bokix.se.', code: 'country' });
     return;
   }
 
@@ -197,7 +197,7 @@ async function handleSendSignupCode(req, body, res) {
   // för att x-is-human aldrig skickades. Rate-limiten ovan (20/IP,
   // 5/e-post/timme) är det faktiska skyddet mot missbruk.
   if (!hasResendApiKey()) {
-    res.status(503).json({ error: 'E-postutskick fungerar inte just nu. Försök igen om en stund, eller kontakta bokixab@gmail.com.' });
+    res.status(503).json({ error: 'E-postutskick fungerar inte just nu. Försök igen om en stund, eller kontakta support@bokix.se.' });
     return;
   }
 
@@ -225,7 +225,7 @@ async function handleSendSignupCode(req, body, res) {
     res.status(200).json({ ok: true, token });
   } catch (err) {
     console.error('handleSendSignupCode unexpected error:', err);
-    res.status(500).json({ error: 'Något gick fel. Försök igen om en stund, eller kontakta bokixab@gmail.com om det upprepas.' });
+    res.status(500).json({ error: 'Något gick fel. Försök igen om en stund, eller kontakta support@bokix.se om det upprepas.' });
   }
 }
 
@@ -328,7 +328,7 @@ async function handleSendReauthCode(req, res) {
   if (!(await checkRateLimit(req, res, { key: 'reauth-code-user', windowMs: 60 * 60 * 1000, max: 10, identifier: user.id }))) return;
 
   if (!hasResendApiKey()) {
-    res.status(503).json({ error: 'E-postutskick fungerar inte just nu. Försök igen om en stund, eller kontakta bokixab@gmail.com.' });
+    res.status(503).json({ error: 'E-postutskick fungerar inte just nu. Försök igen om en stund, eller kontakta support@bokix.se.' });
     return;
   }
 
@@ -356,7 +356,7 @@ async function handleSendReauthCode(req, res) {
     res.status(200).json({ ok: true, token });
   } catch (err) {
     console.error('handleSendReauthCode unexpected error:', err);
-    res.status(500).json({ error: 'Något gick fel. Försök igen om en stund, eller kontakta bokixab@gmail.com om det upprepas.' });
+    res.status(500).json({ error: 'Något gick fel. Försök igen om en stund, eller kontakta support@bokix.se om det upprepas.' });
   }
 }
 

@@ -679,7 +679,7 @@ app.post('/api/stripe/connect', async (req, res) => {
     state = createSignedState({ user_id: owned.ownerUserId, company_id: companyId })
   } catch (err) {
     console.error('Stripe OAuth start error:', err)
-    res.status(500).json({ error: 'Kunde inte starta Stripe-anslutningen. Försök igen om en stund, eller kontakta bokixab@gmail.com.' })
+    res.status(500).json({ error: 'Kunde inte starta Stripe-anslutningen. Försök igen om en stund, eller kontakta support@bokix.se.' })
     return
   }
 
@@ -787,7 +787,7 @@ app.post('/api/zettle/callback', async (req, res) => {
     state = createZettleSignedState({ user_id: owned.ownerUserId, company_id: companyId })
   } catch (err) {
     console.error('Zettle OAuth start error:', err)
-    res.status(500).json({ error: 'Kunde inte starta Zettle-anslutningen. Försök igen om en stund, eller kontakta bokixab@gmail.com.' })
+    res.status(500).json({ error: 'Kunde inte starta Zettle-anslutningen. Försök igen om en stund, eller kontakta support@bokix.se.' })
     return
   }
 

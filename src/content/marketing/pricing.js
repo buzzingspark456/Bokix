@@ -36,7 +36,7 @@ export const PRICING_CONTENT = {
       { q: 'Tillkommer avgifter per kvitto eller faktura?', a: 'Nej. Priset ovan är hela kostnaden oavsett hur många kvitton du skannar eller fakturor du skickar, inga styckpriser, inga tillägg som dyker upp senare.' },
       { q: 'Är jag inlåst om jag vill byta bort från Bokix?', a: 'Nej. Du exporterar hela din bokföring som en SIE4-fil eller en fullständig JSON-säkerhetskopia när du vill, direkt i Inställningar, inget att fråga oss om lov för. SIE4 är samma öppna format alla svenska bokföringsprogram läser.' },
       { q: 'Vilka bolagsformer stöds?', a: 'Bokix känner igen enskild firma, aktiebolag, handelsbolag/kommanditbolag och ekonomisk förening utifrån organisationsnumret, och bokför enligt rätt regler för respektive form.' },
-      { q: 'Ingår support i priset?', a: 'Ja, support ingår i båda nivåerna. Du når oss på bokixab@gmail.com.' },
+      { q: 'Ingår support i priset?', a: 'Ja, support ingår i båda nivåerna. Du når oss på support@bokix.se.' },
     ],
   },
 };

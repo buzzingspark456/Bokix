@@ -182,7 +182,7 @@ export default function StatusPage() {
               <span className="st-dot" />
               <div>
                 <div className="st-banner-title">Statusen kunde inte hämtas just nu</div>
-                <div className="st-banner-sub">Försök igen om en stund. Hör av dig till bokixab@gmail.com om något inte fungerar.</div>
+                <div className="st-banner-sub">Försök igen om en stund. Hör av dig till support@bokix.se om något inte fungerar.</div>
               </div>
             </div>
           )}

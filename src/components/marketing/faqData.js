@@ -31,7 +31,7 @@ export const FAQ_GROUPS = [
       { q: 'Finns det bindningstid?', a: 'Nej, inte på månadsplanen. Du avslutar när du vill. Årsplanen ger ett lägre pris mot att den gäller i minst tre månader, sedan avslutar du den lika fritt.' },
       { q: 'Vad är skillnaden mellan de två priserna?', a: 'Samma bokföring och fakturering i båda. Med anställda lägger till lönekörning med skatteavdrag, lönebesked, AGI-fil till Skatteverket och en betalfil till banken.' },
       { q: 'Finns det några tillägg?', a: 'Nej. Fakturor, moms, bokslut, lager, anläggningsregister och support ingår alltid. Lönen ingår i priset med anställda. Inga avgifter per faktura eller kvitto.' },
-      { q: 'Ingår support?', a: 'Ja, i båda priserna. Du når oss på bokixab@gmail.com eller via kontaktformuläret.' },
+      { q: 'Ingår support?', a: 'Ja, i båda priserna. Du når oss på support@bokix.se eller via kontaktformuläret.' },
     ],
   },
   {

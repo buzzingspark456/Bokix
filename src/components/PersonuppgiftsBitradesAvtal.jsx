@@ -38,7 +38,7 @@ export default function PersonuppgiftsBitradesAvtal() {
     >
       <PolicySection n={1} title="Parter" first>
         <PolicyCallout>
-          Det här avtalet gäller automatiskt mellan dig/ditt företag ("Personuppgiftsansvarig") och Bokix ("Personuppgiftsbiträde") så fort du använder tjänsten för att behandla dina kunders, leverantörers eller anställdas personuppgifter — du behöver inte skriva under något separat för att det ska gälla. Vill du ha ett undertecknat exemplar för egen dokumentation, kontakta bokixab@gmail.com.
+          Det här avtalet gäller automatiskt mellan dig/ditt företag ("Personuppgiftsansvarig") och Bokix ("Personuppgiftsbiträde") så fort du använder tjänsten för att behandla dina kunders, leverantörers eller anställdas personuppgifter — du behöver inte skriva under något separat för att det ska gälla. Vill du ha ett undertecknat exemplar för egen dokumentation, kontakta support@bokix.se.
         </PolicyCallout>
         <p style={policyP}>
           Det här avtalet ("PUB") kompletterar <Link to="/terms" style={link}>Användarvillkoren</Link> och <Link to="/privacy" style={link}>Integritetspolicyn</Link> — vid en eventuell motsägelse gäller det här avtalet för just den personuppgiftsbehandling det beskriver.
@@ -47,7 +47,7 @@ export default function PersonuppgiftsBitradesAvtal() {
           <strong>Personuppgiftsansvarig:</strong> du/ditt företag, det Bokix-konto som ingår avtalet genom att använda tjänsten.
         </p>
         <p style={policyP}>
-          <strong>Personuppgiftsbiträde:</strong> Bokix, Strömsörgatan 19, Skellefteå. Organisationsnummer lämnas på begäran via bokixab@gmail.com.
+          <strong>Personuppgiftsbiträde:</strong> Bokix, Strömsörgatan 19, Skellefteå. Organisationsnummer lämnas på begäran via support@bokix.se.
         </p>
       </PolicySection>
 
@@ -123,7 +123,7 @@ export default function PersonuppgiftsBitradesAvtal() {
 
       <PolicySection n={8} title="Radering och återlämning vid avtalets slut">
         <p style={policyP}>
-          När du avslutar ditt konto slutar Bokix ta betalt och stänger av åtkomsten till det aktiva gränssnittet. Du kan exportera all din data när som helst innan dess (Inställningar → Import och export). Bokföringsdata bevaras därefter i den utsträckning bokföringslagen kräver (till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades) innan den raderas eller anonymiseras — det här avtalet begränsar inte den lagstadgade skyldigheten. Under den tiden ligger bara räkenskapsinformationen och dess underlag kvar, i ett stängt arkiv som bara Bokix servrar når, och den kan begäras ut via bokixab@gmail.com. Uppgifter som inte omfattas av ett sådant lagkrav raderas inom rimlig tid efter kontots avslut.
+          När du avslutar ditt konto slutar Bokix ta betalt och stänger av åtkomsten till det aktiva gränssnittet. Du kan exportera all din data när som helst innan dess (Inställningar → Import och export). Bokföringsdata bevaras därefter i den utsträckning bokföringslagen kräver (till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades) innan den raderas eller anonymiseras — det här avtalet begränsar inte den lagstadgade skyldigheten. Under den tiden ligger bara räkenskapsinformationen och dess underlag kvar, i ett stängt arkiv som bara Bokix servrar når, och den kan begäras ut via support@bokix.se. Uppgifter som inte omfattas av ett sådant lagkrav raderas inom rimlig tid efter kontots avslut.
         </p>
       </PolicySection>
 

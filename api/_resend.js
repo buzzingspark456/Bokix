@@ -96,7 +96,7 @@ export async function resolveSenderAddress(company) {
 // emot mejl. Företagens egna domäner och angivna svarsadresser rörs inte.
 function withBokixReplyTo(payload) {
   if (payload.reply_to || !/@bokix.se>?s*$/i.test(String(payload.from || ''))) return payload;
-  return { ...payload, reply_to: process.env.CONTACT_INBOX || 'bokixab@gmail.com' };
+  return { ...payload, reply_to: process.env.CONTACT_INBOX || 'support@bokix.se' };
 }
 
 export async function sendViaResend(payload, { idempotencyKey } = {}) {
