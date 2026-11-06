@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, CheckCircle2, Users } from '../icons';
-import { AdminList, AdminRow, Pill } from './AdminList';
+import { AdminList, AdminRow, Pill, SubscriptionPill } from './AdminList';
 import { accountStage } from './UsersAdmin';
 import CustomerCard from './CustomerCard';
 import { Page, Loadable, Section, Stats, Stat, Card } from './ui';
