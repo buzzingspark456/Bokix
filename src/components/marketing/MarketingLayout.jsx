@@ -158,7 +158,7 @@ export const NAV_MENUS = [
         title: 'Produkten',
         items: [
           { title: 'Bokföring & fakturering', desc: 'Kvitton, fakturor, moms och bokslut', to: '/funktioner' },
-          { title: 'Faktureringsprogram', desc: 'Egen logga, kortbetalning, ROT och RUT', to: '/faktureringsprogram' },
+          { title: 'Faktureringsprogram', desc: 'Egen logga, ROT och RUT, påminnelser', to: '/faktureringsprogram' },
           { title: 'Lön & arbetsgivare', desc: 'Lönebesked, skatteavdrag och AGI-fil', to: '/lon' },
           { title: 'Lager & artiklar', desc: 'Lagervärde, FIFO och marginal', to: '/bokforingsprogram-med-lager' },
           { title: 'Koppla banken', desc: 'Läs in kontoutdraget från din bank', to: '/koppla-bank' },

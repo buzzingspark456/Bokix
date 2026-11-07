@@ -41,7 +41,7 @@ export const LANDING_CONTENT = {
       subheading: 'Du lägger in underlaget. Bokix bokför, räknar moms och lön och säger till när något behöver ditt val.',
       items: [
         { title: 'Bokföring', desc: 'Kvitton och fakturor bokförs direkt. Det Bokix inte är säker på hamnar i Granskning, aldrig en gissning.' },
-        { title: 'Fakturor', desc: 'Din logotyp, ROT och RUT, och kunden kan betala med kort.' },
+        { title: 'Fakturor', desc: 'Din logotyp, ROT och RUT, och påminnelser när fakturan förfaller.' },
         { title: 'Moms och bokslut', desc: 'Rutorna räknas fram ur bokföringen, och filen är klar att ladda upp.' },
         { title: 'Lön', desc: 'Skatteavdrag, lönebesked med semestersaldo, AGI och betalfil i samma körning.' },
         { title: 'Offerter', desc: 'Blir en faktura med ett klick.' },

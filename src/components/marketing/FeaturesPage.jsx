@@ -12,7 +12,7 @@ import { PageMeta, JsonLd } from '../../utils/seo';
 
 // Rutnätet: wide = dubbel bredd. Bilden visas från överkanten.
 const TILES = [
-  { title: 'Fakturering', body: 'Fakturor med din logga, från din egen e-post. Kortbetalning via Stripe och påminnelser när de förfaller.', shot: 'kundfakturor-t', wide: true, to: '/faktureringsprogram' },
+  { title: 'Fakturering', body: 'Fakturor med din logga, från din egen e-post, med bankgiro och OCR-nummer. Påminnelser när de förfaller.', shot: 'kundfakturor-t', wide: true, to: '/faktureringsprogram' },
   { title: 'Kvitton', body: 'Fota kvittot, så fylls datum, belopp och moms i.', shot: 'kvitton-mobil', phone: true },
   { title: 'Att granska', body: 'Det Bokix inte är säker på hamnar här, med förslag i stället för gissningar.', shot: 'granska-mobil', phone: true },
   { title: 'Moms', body: 'Momsdeklarationen fylls i ur bokföringen, ruta för ruta.', shot: 'moms-mobil', phone: true },

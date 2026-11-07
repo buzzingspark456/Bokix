@@ -33,7 +33,7 @@ export const ORG_TYPE_PAGES = [
     included: [
       'Löpande bokföring i ett enkelt läge, där du väljer vad som hänt i stället för konton.',
       'Kvitton läses av från ett foto: datum, belopp och moms, även flera momssatser på samma kvitto.',
-      'Fakturor och offerter med din logga, ROT- och RUT-avdrag och kortbetalning via Stripe.',
+      'Fakturor och offerter med din logga och ROT- och RUT-avdrag. Kortbetalning via Stripe finns om du vill.',
       'Momsdeklarationen räknas fram per månad, kvartal eller år, som fil att lämna in hos Skatteverket.',
       'NE-bilagan med förslag på beloppen ur bokföringen, som du stämmer av och lämnar in själv.',
       'Egna uttag och insättningar bokförs rätt mot eget kapital, utan att du behöver veta kontonumren.',
@@ -78,7 +78,7 @@ export const ORG_TYPE_PAGES = [
       featuresTitle: 'Det här gör du i Bokix',
       features: [
         { kicker: 'Kvitton', title: 'Fota kvittot, resten fylls i', shot: 'kvitton-c', body: 'Datum, belopp och moms läses av från fotot. Det som är osäkert hamnar i Att granska i stället för att gissas.', points: ['Flera momssatser på samma kvitto', 'Foto, PDF eller en hel mapp på en gång', 'Kvittot sparas med verifikationen i sju år'] },
-        { kicker: 'Fakturering', title: 'Fakturor med din logga', shot: 'kundfakturor-c', body: 'Skicka fakturan med e-post från Bokix. När kunden betalar bokförs betalningen mot fakturan.', points: ['ROT- och RUT-avdrag på fakturan', 'Kortbetalning på fakturan via Stripe', 'Påminnelse när fakturan har förfallit'] },
+        { kicker: 'Fakturering', title: 'Fakturor med din logga', shot: 'kundfakturor-c', body: 'Skicka fakturan med e-post från Bokix. När kunden betalar bokförs betalningen mot fakturan.', points: ['ROT- och RUT-avdrag på fakturan', 'Bankgiro och OCR-nummer på fakturan', 'Påminnelse när fakturan har förfallit'] },
         { kicker: 'Moms', title: 'Momsdeklarationen räknas fram', shot: 'moms-c', body: 'Rutorna fylls i ur bokföringen. Du kontrollerar, granskar och bokför, och laddar ner filen till Skatteverket.', points: ['Per år, kvartal eller månad', 'Kontroll av perioden innan du lämnar in', 'Momsen bokförs mot skattekontot'] },
         { kicker: 'Deklaration', title: 'NE-bilagan ur bokföringen', shot: 'ef-ne-c', body: 'Bokix fyller i det som går från bokföringen. Du skriver över ett fält om det är fel och laddar ner filen.', points: ['SRU-fil att läsa in hos Skatteverket', 'PDF att kontrollera siffrorna mot', 'Du lämnar in med BankID, som privatperson'] },
         { kicker: 'Översikt', title: 'Alla datum på ett ställe', shot: 'ef-skatt-c', body: 'Under Skatt och bokslut ser du vad som ska lämnas in härnäst och hur långt du har kommit.', points: ['Moms, årsbokslut och NE-bilaga i ordning', 'Dagar kvar till varje datum', 'Ett klick till rätt steg'] },
@@ -130,7 +130,7 @@ export const ORG_TYPE_PAGES = [
     highlights: ['Lön med AGI-fil', 'INK2 med SRU-fil', 'Årsredovisning enligt K2', 'Utdelning bokförd rätt'],
     included: [
       'Löpande bokföring med BAS-kontoplanen, med ett enkelt läge för dig som inte kan debet och kredit.',
-      'Kund- och leverantörsfakturor, offerter och kortbetalning på fakturan via Stripe.',
+      'Kund- och leverantörsfakturor och offerter. Kortbetalning via Stripe finns om du vill.',
       'Lön med skattetabeller, arbetsgivaravgift efter ålder, lönebesked, AGI-fil och betalfil till banken.',
       'Momsdeklarationen per månad, kvartal eller år, som fil att lämna in hos Skatteverket.',
       'Bokslut och INK2 med SRU-fil till inkomstdeklarationen.',
@@ -175,7 +175,7 @@ export const ORG_TYPE_PAGES = [
       ],
       featuresTitle: 'Det här gör du i Bokix',
       features: [
-        { kicker: 'Fakturering', title: 'Fakturera och få betalt', shot: 'kundfakturor-c', body: 'Skicka fakturan med e-post direkt från Bokix. När kunden betalar bokförs betalningen mot fakturan.', points: ['Offerten blir en faktura när kunden säger ja', 'Kortbetalning på fakturan via Stripe', 'Påminnelse när fakturan har förfallit'] },
+        { kicker: 'Fakturering', title: 'Fakturera och få betalt', shot: 'kundfakturor-c', body: 'Skicka fakturan med e-post direkt från Bokix. När kunden betalar bokförs betalningen mot fakturan.', points: ['Offerten blir en faktura när kunden säger ja', 'Bankgiro och OCR-nummer på fakturan', 'Påminnelse när fakturan har förfallit'] },
         { kicker: 'Moms', title: 'Momsdeklarationen räknas fram', shot: 'moms-c', body: 'Rutorna fylls i ur bokföringen. Du kontrollerar, granskar och bokför, och laddar ner filen till Skatteverket.', points: ['Per månad, kvartal eller år', 'Kontroll av perioden innan du lämnar in', 'Momsen bokförs mot skattekontot'] },
         { kicker: 'Lön', title: 'Lön utan lönebyrå', shot: 'lonekorning-ny-c', body: 'Välj månad och utbetalningsdag. Bokix räknar skatt och arbetsgivaravgift för varje anställd och bokför lönen.', points: ['Skattetabeller och arbetsgivaravgift efter ålder', 'Lönebesked till de anställda', 'AGI-fil och betalfil till banken'] },
         { kicker: 'Deklaration', title: 'INK2 ur bokföringen', shot: 'ink2-c', body: 'Balans- och resultaträkningen hämtas från bokföringen. Du fyller bara i det som gäller bolagets skatt.', points: ['Räkenskapsschemat ifyllt rad för rad', 'SRU-fil och Skatteverkets blankett ifylld', 'Det som behöver kontrolleras markeras'] },
@@ -281,7 +281,7 @@ export const ORG_TYPE_PAGES = [
       ],
       featuresTitle: 'Det här gör ni i Bokix',
       features: [
-        { kicker: 'Fakturering', title: 'Fakturera och få betalt', shot: 'kundfakturor-c', body: 'Skicka fakturan med e-post från Bokix. När kunden betalar bokförs betalningen mot fakturan.', points: ['Offerten blir en faktura när kunden säger ja', 'Kortbetalning på fakturan via Stripe', 'Påminnelse när fakturan har förfallit'] },
+        { kicker: 'Fakturering', title: 'Fakturera och få betalt', shot: 'kundfakturor-c', body: 'Skicka fakturan med e-post från Bokix. När kunden betalar bokförs betalningen mot fakturan.', points: ['Offerten blir en faktura när kunden säger ja', 'Bankgiro och OCR-nummer på fakturan', 'Påminnelse när fakturan har förfallit'] },
         { kicker: 'Kvitton', title: 'Fota kvittot, resten fylls i', shot: 'kvitton-c', body: 'Datum, belopp och moms läses av från fotot. Det som är osäkert hamnar i Att granska i stället för att gissas.', points: ['Flera momssatser på samma kvitto', 'Foto, PDF eller en hel mapp på en gång', 'Kvittot sparas med verifikationen i sju år'] },
         { kicker: 'Delägare', title: 'Resultatet delas på delägarna', shot: 'hb-delagare-c', body: 'Lägg in delägarna och deras andelar. När året låses bokförs varje delägares andel på hans eller hennes resultatkonto.', points: ['Egen kontoserie per delägare', 'Insättningar och uttag per delägare', 'Underlag till varje delägares N3A'] },
         { kicker: 'Deklaration', title: 'INK4 steg för steg', shot: 'hb-ink4-c', body: 'Räkenskaperna hämtas från bokföringen. Du går igenom justeringar och delägare, och laddar ner SRU-filen.', points: ['Räkenskapsschema (INK4R)', 'Skattemässiga justeringar (INK4S)', 'Delägaruppgifter (INK4DU) för varje delägare'] },
@@ -382,7 +382,7 @@ export const ORG_TYPE_PAGES = [
       ],
       featuresTitle: 'Det här gör ni i Bokix',
       features: [
-        { kicker: 'Fakturering', title: 'Fakturera och få betalt', shot: 'kundfakturor-c', body: 'Skicka fakturan med e-post från Bokix. När kunden betalar bokförs betalningen mot fakturan.', points: ['Offerten blir en faktura när kunden säger ja', 'Kortbetalning på fakturan via Stripe', 'Påminnelse när fakturan har förfallit'] },
+        { kicker: 'Fakturering', title: 'Fakturera och få betalt', shot: 'kundfakturor-c', body: 'Skicka fakturan med e-post från Bokix. När kunden betalar bokförs betalningen mot fakturan.', points: ['Offerten blir en faktura när kunden säger ja', 'Bankgiro och OCR-nummer på fakturan', 'Påminnelse när fakturan har förfallit'] },
         { kicker: 'Lön', title: 'Lön till de anställda', shot: 'lonekorning-ny-c', body: 'Välj månad och utbetalningsdag. Bokix räknar skatt och arbetsgivaravgift för varje anställd och bokför lönen.', points: ['Skattetabeller och arbetsgivaravgift efter ålder', 'Lönebesked till de anställda', 'AGI-fil och betalfil till banken'] },
         { kicker: 'Rapporter', title: 'Siffrorna till styrelsemötet', shot: 'resultatrakning-c', body: 'Resultaträkningen med en kort sammanfattning i ord, att visa styrelsen eller skriva ut till mötet.', points: ['Resultat- och balansräkning', 'Utveckling per månad', 'Skriv ut eller spara som PDF'] },
         { kicker: 'Årsredovisning', title: 'Årsredovisning enligt K2', shot: 'ek-arsredovisning-c', body: 'Siffrorna kommer från bokslutet. Ni skriver förvaltningsberättelsen och förslaget om överskottet, och får en PDF att skriva under.', points: ['Medlemsinsatser i eget kapital', 'Förslag till föreningsstämman', 'PDF som styrelsen skriver under'] },
@@ -490,7 +490,7 @@ ORG_TYPE_PAGES.push({
       featuresTitle: 'Det här gör ni i Bokix',
       features: [
         { kicker: 'Kvitton', title: 'Fota kvittot, resten fylls i', shot: 'kvitton-c', body: 'Datum, belopp och moms läses av från fotot. Det som är osäkert hamnar i Att granska i stället för att gissas.', points: ['Utan moms om föreningen inte är momsregistrerad', 'Foto, PDF eller en hel mapp på en gång', 'Kvittot sparas med verifikationen i sju år'] },
-        { kicker: 'Fakturering', title: 'Medlemsavgifter och sponsring', shot: 'kundfakturor-c', body: 'Skicka fakturan med e-post från Bokix. När den betalas bokförs betalningen mot fakturan.', points: ['Kortbetalning på fakturan via Stripe, om ni vill', 'Påminnelse när fakturan har förfallit', 'Se vilka som har betalat'] },
+        { kicker: 'Fakturering', title: 'Medlemsavgifter och sponsring', shot: 'kundfakturor-c', body: 'Skicka fakturan med e-post från Bokix. När den betalas bokförs betalningen mot fakturan.', points: ['Bankgiro och OCR-nummer på fakturan', 'Påminnelse när fakturan har förfallit', 'Se vilka som har betalat'] },
         { kicker: 'Rapporter', title: 'Siffrorna till styrelsen och årsmötet', shot: 'resultatrakning-c', body: 'Resultaträkningen med en kort sammanfattning i ord, att visa på styrelsemötet eller skriva ut till årsmötet.', points: ['Resultat- och balansräkning', 'Utveckling per månad', 'Skriv ut eller spara som PDF'] },
         { kicker: 'Deklaration', title: 'Bilagorna till INK3', shot: 'ideell-ink3-c', body: 'Svara på några frågor om föreningen, så tar Bokix fram de bilagor som gäller er som SRU-fil.', points: ['Särskild uppgift för allmännyttiga föreningar', 'Räkenskapsschema om det finns skattepliktig verksamhet', 'Första sidan fyller ni i hos Skatteverket'] },
         { kicker: 'Översikt', title: 'Alla datum på ett ställe', shot: 'ideell-skatt-c', body: 'Under Skatt och bokslut ser ni vad som ska göras härnäst och hur långt ni har kommit.', points: ['Årsbokslut och deklaration i ordning', 'Dagar kvar till varje datum', 'Ett klick till rätt steg'] },

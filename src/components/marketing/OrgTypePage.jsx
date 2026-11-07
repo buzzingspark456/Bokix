@@ -84,6 +84,12 @@ export default function OrgTypePage({ path }) {
     description: page.seoDescription,
     url: `${SITE_URL}${page.path}`,
     offers: { '@type': 'Offer', price: '129', priceCurrency: 'SEK' },
+    // Riktiga skärmbilder ur appen (hjältens flikar), så att Google har en
+    // bild att visa i sökresultat och bildsök. Delningsbilden som reserv.
+    image: `${SITE_URL}/og/${page.path.slice(1)}.jpg`,
+    ...(page.product?.heroTabs ? {
+      screenshot: page.product.heroTabs.map(t => ({ '@type': 'ImageObject', url: `${SITE_URL}/product/${t.shot}.jpg`, caption: t.caption })),
+    } : {}),
   };
 
   // Filmen överst får en VideoObject, så att Google kan visa den i sökresultaten.

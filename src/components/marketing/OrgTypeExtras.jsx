@@ -20,7 +20,7 @@ export const DEMO_BY_SLUG = {
   'ideell-forening': BOKFORING,
   nystartat: BOKFORING,
   billigt: BOKFORING,
-  fakturering: { steps: FAKTURERING_DEMO, title: 'Fakturan i appen', lead: 'Från ny faktura till betald, med kortbetalning och bokföring som följer med.' },
+  fakturering: { steps: FAKTURERING_DEMO, title: 'Fakturan i appen', lead: 'Från ny faktura till betald, med bokföringen som följer med.' },
 };
 
 /** Raden under hjälten: sidans viktigaste punkter, utan siffror och kort. */
