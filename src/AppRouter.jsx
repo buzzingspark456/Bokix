@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-
 import LandingPage from './components/LandingPage';
 import CookieBanner from './components/CookieBanner';
 import { allLocalizedRoutes } from './content/marketing/routes';
-import { ALL_ARTICLES } from './content/marketing/news';
+import { ARTICLE_ROUTES } from './content/marketing/articleRoutes';
 import { GUIDE_GROUPS } from './content/marketing/guides';
 import { ORG_TYPE_PAGES } from './content/marketing/orgTypes';
 import { FEATURE_PAGES } from './content/marketing/featurePages';
@@ -332,7 +332,7 @@ export default function AppRouter() {
         <Route path="/nyheter" element={<Suspense fallback={<AppLoadingFallback />}><NewsPage /></Suspense>} />
         <Route path="/status" element={<Suspense fallback={<AppLoadingFallback />}><StatusPage /></Suspense>} />
         {/* Artiklar med `body` i blog.js och news.js — en route per inlägg, härledd ur listan. */}
-        {ALL_ARTICLES.filter(p => p.body).map(p => (
+        {ARTICLE_ROUTES.map(p => (
           <Route key={p.slug} path={p.path} element={<Suspense fallback={<AppLoadingFallback />}><BlogPostPage slug={p.slug} /></Suspense>} />
         ))}
         <Route path="/internal" element={<Suspense fallback={<AppLoadingFallback />}><InternalApp /></Suspense>} />

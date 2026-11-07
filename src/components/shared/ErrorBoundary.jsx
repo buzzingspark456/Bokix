@@ -1,5 +1,8 @@
 import { Component } from 'react'
-import { getLanguage } from '../../i18n/index.js'
+// Språket läses direkt ur det sparade valet, inte via i18n/index.js: den
+// importen drog in alla appens texter (sv.json, ~290 kB) på startsidan, där
+// felrutan är det enda som behöver språket (Lighthouse 2026-11-07).
+const LANGUAGE_KEY = 'bokix_language'
 import { reportClientError } from '../../utils/errorReporting.js'
 import { isChunkLoadError, isReloadingForNewBuild, reloadOnceForNewBuild } from '../../utils/staleBuild.js'
 
@@ -35,7 +38,7 @@ export default class ErrorBoundary extends Component {
     // Omladdning pågår redan (ny deploy): visa inget fel, bara tomt en stund.
     if (isReloadingForNewBuild()) return null
     let lang = 'sv'
-    try { lang = getLanguage() === 'en' ? 'en' : 'sv' } catch { /* standard: svenska */ }
+    try { lang = localStorage.getItem(LANGUAGE_KEY) === 'en' ? 'en' : 'sv' } catch { /* standard: svenska */ }
     const text = TEXT[lang]
     return (
       <main role="alert" style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'system-ui, -apple-system, sans-serif', background: '#fff', color: '#111' }}>

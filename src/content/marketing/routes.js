@@ -8,7 +8,7 @@
 // DEFAULT_LOCALE (sv) ligger alltid oprefixerad på sin bassökväg
 // (`/priser`). Övriga språk prefixas (`/no/priser`). Se localizedPath().
 
-import { ALL_ARTICLES } from './news.js';
+import { ARTICLE_ROUTES } from './articleRoutes.js';
 import { GUIDE_GROUPS } from './guides.js';
 import { ORG_TYPE_PAGES } from './orgTypes.js';
 import { FEATURE_PAGES } from './featurePages.js';
@@ -44,7 +44,7 @@ export const MARKETING_ROUTES = [
   '/verktyg/momsdatum', '/verktyg/arsredovisning',
   // Blogg- och nyhetsartiklarna (med `body`, se blog.js och news.js) —
   // härledda, så ett nytt inlägg dyker upp här av sig självt.
-  ...ALL_ARTICLES.filter(p => p.body).map(p => p.path),
+  ...ARTICLE_ROUTES.map(p => p.path),
 ];
 
 // Vilka av MARKETING_ROUTES som faktiskt har riktig, varumärkesskriven
