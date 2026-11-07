@@ -60,17 +60,17 @@ export const LANDING_CONTENT = {
     trustPoints: ['Byggt efter svensk bokföringslag', 'GDPR', 'BAS-kontoplan'],
     receipts: {
       heading: 'Kvitton läser sig själva',
-      subheading: 'Fota kvittot eller ladda upp en bild eller PDF, så föreslår Bokix datum, belopp, moms och konto automatiskt. Du bekräftar dem. Du gissar aldrig.',
+      subheading: 'Fota kvittot eller ladda upp en bild eller PDF, så läser Bokix av datum, belopp, moms och kvittonummer. Kontot väljer du första gången, sedan fylls det i för samma butik. Inget bokförs förrän du har sett det.',
       cta: 'Testa OCR-läsningen själv',
     },
     bank: {
       heading: 'Banken in i bokföringen',
-      subheading: 'Exportera kontoutdraget ur din internetbank och läs in det i Bokix. Inbetalningar matchas mot dina obetalda fakturor, utbetalningar mot leverantörsfakturorna. Du lämnar aldrig ut någon bankinloggning.',
+      subheading: 'Exportera kontoutdraget ur din internetbank och läs in det i Bokix. Inbetalningar matchas mot dina obetalda fakturor, utbetalningar mot leverantörsfakturorna och kortköp mot kvittot, så att inget bokförs två gånger. Du lämnar aldrig ut någon bankinloggning.',
       cta: 'Se hur bankimporten fungerar',
     },
     switchProgram: {
       heading: 'Ta med dig bokföringen hit',
-      subheading: 'Bokför du i Fortnox, Visma, Spiris, Bokio, Björn Lundén, Wint eller SpeedLedger? Exportera en SIE4-fil därifrån och läs in den i Bokix. Konton, verifikationer och ingående balanser följer med.',
+      subheading: 'Bokför du i Fortnox, Visma, Spiris, Bokio, Björn Lundén, Wint eller SpeedLedger? Exportera en SIE4-fil därifrån och läs in den i Bokix. Konton, verifikationer och ingående balanser följer med, och du väljer om allt ska med eller bara ett visst år.',
       cta: 'Se hur bytet går till',
     },
     pricing: {

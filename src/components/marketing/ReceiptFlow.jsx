@@ -28,7 +28,8 @@ const FIELDS = [
   { label: 'Datum', value: '14 mar 2026' },
   { label: 'Belopp', value: '842,50 kr' },
   { label: 'Moms', value: '168,50 kr' },
-  { label: 'Konto', value: '5611 Drivmedel' },
+  // Kontot fylls bara i när samma butik bokförts förut (inga gissningar).
+  { label: 'Konto', value: '5611 · som förra gången' },
 ];
 
 // Tandad nederkant som clip-path: 14 tänder, 7 px djupa.

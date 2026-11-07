@@ -15,6 +15,7 @@ import { detectOrgType } from './orgType';
 import { invoiceCustomerRemainingSek } from './rotRutConfig';
 import { activeFiscalYear } from './fiscalYear';
 import { numberFormat } from './intlCache';
+import { computeVatPeriod } from './vatCalculation';
 
 // Försenat först, sedan det som närmar sig, sist det som är mindre bråttom.
 export const SEV_RANK = { danger: 0, warning: 1, success: 2 };
@@ -113,11 +114,17 @@ export function buildTodoItems({
   const vatQuarterHasActivity = vatDeadline && verifications.some(v => v.date && v.date >= vatDeadline.start && v.date <= vatDeadline.end);
   if (vatDeadline && vatQuarterHasActivity && vatDeadline.daysLeft <= 7) {
     const late = vatDeadline.daysLeft < 0;
+    // Beloppet att betala (eller få tillbaka) står med, så man ser vad det
+    // gäller utan att öppna momsen (2026-11-07). Som deklarationen: hela kronor.
+    let vatAmount = null;
+    try { vatAmount = Math.round(computeVatPeriod({ verifications, periodStart: vatDeadline.start, periodEnd: vatDeadline.end }).netToPay); } catch { vatAmount = null; }
+    const amountText = vatAmount ? (vatAmount > 0 ? t('dashboard.todo.vatToPay', { amount: fmt(vatAmount) }) : t('dashboard.todo.vatRefund', { amount: fmt(-vatAmount) })) : null;
+    const dueText = late ? t('dashboard.todo.vatLate') : t('dashboard.todo.vatDue', { when: whenIn(vatDeadline.daysLeft) });
     rows.push({
       kind: 'vat_deadline', group: 'tax', sev: late ? 'danger' : 'warning', daysLeft: vatDeadline.daysLeft, late,
       tone: late ? 'bad' : 'warn', action: t('dashboard.todo.actionVat'), target: { tab: 'taxes_vat' },
       title: vatDeadline.quarter ? t('dashboard.todo.vatTitle', { quarter: vatDeadline.quarter }) : t('dashboard.todo.vatTitleLabel', { label: vatDeadline.label }),
-      when: late ? t('dashboard.todo.vatLate') : t('dashboard.todo.vatDue', { when: whenIn(vatDeadline.daysLeft) }),
+      when: amountText ? `${amountText} · ${dueText}` : dueText,
     });
   }
 

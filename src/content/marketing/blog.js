@@ -184,7 +184,7 @@ export const BLOG_POSTS = [
       { t: 'h2', x: 'Så delas jobbet mellan dig och Bokix' },
       { t: 'p', x: 'Din del är den som bara du kan göra: fota kvittot, skriva fakturan och avgöra det som är oklart. Resten sköter Bokix.' },
       { t: 'table', caption: 'Vem gör vad', head: ['Du', 'Bokix'], rows: [
-        ['Fotar kvittot eller laddar upp en pdf', 'Läser av datum, belopp och moms och föreslår konto'],
+        ['Fotar kvittot eller laddar upp en pdf', 'Läser av datum, belopp, moms och kvittonummer'],
         ['Skriver och skickar fakturan', 'Bokför den, matchar kortbetalningen och håller koll på förfallodatum'],
         ['Läser in kontoutdraget från banken', 'Matchar raderna mot dina obetalda fakturor'],
         ['Avgör det som är osäkert', 'Samlar det i Granskning, med anledningen utskriven'],
@@ -196,7 +196,7 @@ export const BLOG_POSTS = [
       { t: 'p', x: 'Du behöver inte skriva in datum och belopp själv:' },
       { t: 'steps', x: [
         { h: 'Fota eller ladda upp', p: 'Ta en bild med mobilen, eller ladda upp en bild eller pdf. Texten läses direkt i webbläsaren.' },
-        { h: 'Bokix föreslår', p: 'Datum, belopp och momssats fylls i. Känner Bokix igen handlaren, till exempel en bensinmack, en matbutik eller ett molntjänstabonnemang, föreslås även rätt bokföringskonto.' },
+        { h: 'Bokix fyller i', p: 'Datum, belopp, momssats och kvittonummer fylls i. Har du bokfört samma butik förut fylls även kontot i, som förra gången. Annars väljer du kontot själv, Bokix gissar inte.' },
         { h: 'Du kontrollerar', p: 'Varje avläst fält har en liten markering, och den försvinner så fort du ändrar fältet själv. Det du ser är alltid ett förslag, aldrig ett påstående.' },
       ] },
       { t: 'callout', kind: 'tips', title: 'Varför ett förslag och inte en automatik?', x: 'En avläsning kan ha fel: en fläck, ett vikt hörn eller en handlare som skriver ut momsen på ett ovanligt sätt. Genom att alltid visa avläsningen som något du kan ändra fångar du felet innan det hamnar i bokföringen. Vill du se hur avläsningen fungerar utan att skapa konto kan du prova det gratis: [Skanna kvitto](/verktyg/skanna-kvitto).' },
@@ -253,7 +253,7 @@ export const BLOG_POSTS = [
     ],
     faq: [
       { q: 'Behöver jag kunna bokföring sedan innan?', a: 'Nej. Verifikationer skapas automatiskt utifrån dina kvitton och fakturor. Det enda som kräver din uppmärksamhet hamnar i Granskning, med tydlig anledning till varför. Resten sköts av Bokix.' },
-      { q: 'Hur läser Bokix av mina kvitton?', a: 'Fota kvittot eller ladda upp en bild eller pdf. Bokix läser texten direkt i webbläsaren och föreslår datum, belopp och momssats, och ett bokföringskonto när handlaren känns igen. Det du ser är alltid ett förslag som du kan ändra.' },
+      { q: 'Hur läser Bokix av mina kvitton?', a: 'Fota kvittot eller ladda upp en bild eller pdf. Bokix läser av datum, belopp, momssats och kvittonummer. Kontot fylls i när du har bokfört samma butik förut. Allt går att ändra innan det bokförs.' },
       { q: 'Vad händer med det Bokix är osäker på?', a: 'Det bokförs inte i tysthet. Det hamnar i Granskning med anledningen utskriven, till exempel en betalning utan tydlig avsändare eller ett kvitto som inte gick att läsa fullt ut, och du avgör hur det ska bokföras.' },
       { q: 'Kan jag koppla banken till Bokix?', a: 'Du exporterar kontoutdraget som en fil ur din internetbank och läser in det i Bokix. Raderna matchas mot dina obetalda kund- och leverantörsfakturor. Du behöver aldrig lämna ut några bankuppgifter eller inloggningar.' },
       { q: 'Ingår moms och lön i priset?', a: 'Ja. Momsdeklarationen ingår i båda prisnivåerna. Lönekörning med skatteavdrag, AGI-fil och betalfil ingår i nivån med personal, 179 kr/mån. Inget av det är ett separat tillägg.' },

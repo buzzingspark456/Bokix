@@ -240,6 +240,7 @@ export const TodoReviewIcon = make(MdOutlineAssignmentTurnedIn, 'TodoReviewIcon'
 export const TodoDraftIcon = make(MdOutlineEditNote, 'TodoDraftIcon');
 export const TodoVatIcon = make(MdOutlinePercent, 'TodoVatIcon');
 export const TodoPayrollIcon = make(MdOutlinePayments, 'TodoPayrollIcon');
+export const TodoBankIcon = make(MdOutlineAccountBalance, 'TodoBankIcon');
 
 // Hem på telefonens bottenrad: ett hus. På datorn heter samma sida Start och har rutnätsikonen.
 export const NavHomeIcon = make(MdOutlineHome, 'NavHomeIcon');

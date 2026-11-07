@@ -41,6 +41,8 @@ Senast uppdaterad: {{DATUM}}
 - Kassaförsäljning via Zettle, bokförd från Granskning
 - Fakturor, offerter och påminnelser skickas från användarens egen Gmail eller egna e-postadress (Bokix får bara skicka, aldrig läsa)
 - Kvitton läses av automatiskt: datum, belopp och moms, även flera momssatser på samma kvitto
+- Kortköp i kontoutdraget kopplas till kvittot, så att samma köp inte bokförs två gånger
+- SIE4-import där man väljer allt i filen, ett visst år eller egna datum
 - Årsredovisning K2 för aktiebolag, SRU-filer och bokslut
 - Artiklar och lager med lagervärdering enligt FIFO eller vägt genomsnitt, påslag och marginal per vara
 - Anläggningsregister där avskrivningarna räknas och bokförs varje månad

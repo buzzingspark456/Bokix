@@ -157,7 +157,7 @@
       "shareOfIncome": "{{pct}} of revenue",
       "margin": "Margin {{pct}}",
       "vsLastYearShort": "vs last year",
-      "cash": "Liquidity",
+      "cash": "In the bank",
       "cashSub": "Bank and cash today"
     },
     "outstanding": {
@@ -217,6 +217,8 @@
       "vatTitle": "VAT return Q{{quarter}}",
       "vatLate": "Overdue",
       "vatDue": "Due {{when}}",
+      "vatToPay": "{{amount}} to pay",
+      "vatRefund": "{{amount}} back",
       "payrollOneTitle": "Payroll {{period}}",
       "payrollManyTitle": "{{count}} payroll runs",
       "payrollDetail": "Waiting for approval",

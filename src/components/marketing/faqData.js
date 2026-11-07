@@ -38,7 +38,7 @@ export const FAQ_GROUPS = [
     id: 'bokforing',
     title: 'Bokföring, moms och bokslut',
     items: [
-      { top: true, q: 'Hur fungerar kvitton?', short: 'Fota kvittot, så läser Bokix av datum, belopp och moms.', a: 'Fota kvittot eller ladda upp en bild eller pdf. Bokix läser av datum, belopp och moms, även när samma kvitto har flera momssatser, och föreslår ett konto. Du ser alltid förslaget innan det bokförs, och papperskvittot får du slänga när du har fotat det.' },
+      { top: true, q: 'Hur fungerar kvitton?', short: 'Fota kvittot, så läser Bokix av datum, belopp och moms.', a: 'Fota kvittot eller ladda upp en bild eller pdf. Bokix läser av datum, belopp, moms och kvittonummer, även när samma kvitto har flera momssatser. Kontot väljer du första gången, sedan fylls det i för samma butik. Du ser alltid allt innan det bokförs, och papperskvittot får du slänga när du har fotat det.' },
       { q: 'Hur gör jag momsdeklarationen?', a: 'Bokix räknar fram momsdeklarationen ruta för ruta, per månad, kvartal eller år. Du laddar ner filen och lämnar in den hos Skatteverket med BankID. Bokix skickar aldrig in något åt dig, och påminner i god tid före varje datum.' },
       { q: 'Klarar Bokix bokslut och årsredovisning?', a: 'Ja. Bokix hjälper dig genom bokslutet, tar fram SRU-filer till inkomstdeklarationen och gör årsredovisningen enligt K2 för aktiebolag som en pdf att skriva under. Själva inlämningen gör du hos Skatteverket och Bolagsverket.' },
       { q: 'Har Bokix lager och lagervärdering?', a: 'Ja. Artikelregister, lagersaldo och lagervärdering med FIFO eller vägt genomsnitt. Varor på dina fakturor dras från lagret, och lagerförändringen bokförs vid bokslutet. Slå på det under Inställningar.' },

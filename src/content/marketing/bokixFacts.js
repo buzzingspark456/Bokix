@@ -39,6 +39,8 @@ export const BOKIX_FACTS = [
 export const BOKIX_FEATURES = [
   'Löpande bokföring med BAS-kontoplanen, med ett enkelt läge utan debet och kredit.',
   'Kvitton läses av från ett foto: datum, belopp och moms, även flera momssatser på samma kvitto.',
+  'Kortköp i kontoutdraget kopplas till kvittot, så att samma köp inte bokförs två gånger.',
+  'SIE4-import där man väljer allt i filen, ett visst år eller egna datum.',
   'Kund- och leverantörsfakturor, offerter, ROT- och RUT-avdrag och fyra fakturamallar med egen logga.',
   'Kortbetalning på fakturan via Stripe, med betalningen bokförd automatiskt.',
   'Alla Stripe-transaktioner (betalningar, avgifter, återbetalningar och utbetalningar) hämtas in varje morgon och bokförs från Granskning. Stripe-saldot bokförs på 1686.',
