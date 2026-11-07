@@ -18,3 +18,25 @@ describe('IP-spärr', () => {
     expect(isIpBlocked('81.230.1.2', '')).toBe(false);
   });
 });
+
+describe('isDisposableEmailDeep', () => {
+  it('fångar en slumpad domän vars e-postserver är 10minutemail', async () => {
+    const { isDisposableEmailDeep } = await import('./_abuse.js');
+    const resolveMx = async () => [{ exchange: 'prd-smtp.10minutemail.com.', priority: 10 }];
+    expect(await isDisposableEmailDeep('dspsogjlpjzuqvbzaj@jbsze.net', { resolveMx })).toBe(true);
+  });
+  it('släpper en vanlig adress', async () => {
+    const { isDisposableEmailDeep } = await import('./_abuse.js');
+    const resolveMx = async () => [{ exchange: 'gmail-smtp-in.l.google.com', priority: 5 }];
+    expect(await isDisposableEmailDeep('anna@gmail.com', { resolveMx })).toBe(false);
+  });
+  it('släpper igenom när uppslaget misslyckas', async () => {
+    const { isDisposableEmailDeep } = await import('./_abuse.js');
+    const resolveMx = async () => { throw new Error('ENOTFOUND'); };
+    expect(await isDisposableEmailDeep('per@foretag.se', { resolveMx })).toBe(false);
+  });
+  it('känd domän fångas utan uppslag', async () => {
+    const { isDisposableEmailDeep } = await import('./_abuse.js');
+    expect(await isDisposableEmailDeep('x@mailinator.com', { resolveMx: async () => { throw new Error('ska inte anropas'); } })).toBe(true);
+  });
+});

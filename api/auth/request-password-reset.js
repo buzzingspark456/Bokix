@@ -8,7 +8,7 @@ import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { buildSignupVerificationHtml, buildReauthCodeHtml } from '../_emailTemplates.js';
 import { translateSupabaseAuthError } from '../../src/utils/translateAuthError.js';
 import { randomInt } from 'node:crypto';
-import { isDisposableEmail } from '../_abuse.js';
+import { isDisposableEmailDeep } from '../_abuse.js';
 import { verifyRecaptcha, hasRecaptchaSecretKey } from '../_recaptcha.js';
 import { getClientIp } from '../_rateLimit.js';
 import { logSystemEvent } from '../_systemEvents.js';
@@ -167,7 +167,7 @@ async function handleSendSignupCode(req, body, res) {
   // Skydd mot massregistrering (2026-10-04): falska konton med nya adresser,
   // och Bokix som avsändare av mejl till främmande inkorgar.
   // 1. Engångsadresser tas inte emot.
-  if (isDisposableEmail(email)) {
+  if (await isDisposableEmailDeep(email)) {
     res.status(400).json({ error: 'Använd en vanlig e-postadress. Tillfälliga adresser kan inte användas för ett konto.' });
     return;
   }

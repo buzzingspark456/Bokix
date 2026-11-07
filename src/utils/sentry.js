@@ -1,6 +1,6 @@
 // Felspårning i webbläsaren med Sentry (användarens beslut 2026-10-24).
-// Bara i produktionsbygget, lokalt gör filen ingenting. Laddas efter sidan
-// (eget paket), så första visningen inte blir långsammare.
+// Bara i produktionsbygget, lokalt gör filen ingenting. Laddas först vid
+// det första felet (eget paket), så vanliga besök aldrig hämtar den.
 //
 // Ingen prestandamätning, ingen skärminspelning, inga cookies, headers,
 // frågeparametrar eller kroppar, ingen användare. Personnummer/org.nr,
@@ -43,7 +43,11 @@ export function captureToSentry(error, source = 'global') {
   try {
     const err = error instanceof Error ? error : new Error(String(error?.message || error || 'Okänt fel'));
     if (sentry) sentry.captureException(err, { tags: { source } });
-    else if (queue.length < 5) queue.push([err, source]);
+    else {
+      if (queue.length < 5) queue.push([err, source]);
+      // Första felet laddar Sentry; kön skickas när den är klar.
+      initSentry();
+    }
   } catch {
     // Rapporteringen får aldrig själv orsaka ett fel.
   }

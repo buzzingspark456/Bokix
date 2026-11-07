@@ -3,7 +3,7 @@
 // Högst fem rapporter per sidladdning och aldrig samma fel två gånger, så
 // en felande loop inte översvämmar något.
 import { isReloadingForNewBuild } from './staleBuild.js';
-import { initSentry, captureToSentry } from './sentry.js';
+import { captureToSentry } from './sentry.js';
 
 const sent = new Set();
 let count = 0;
@@ -69,8 +69,8 @@ export function installGlobalErrorHandlers() {
   if (!import.meta.env.PROD) return;
   window.addEventListener('error', (event) => reportClientError(event.error || event.message));
   window.addEventListener('unhandledrejection', (event) => reportClientError(event.reason));
-  // Sentry laddas när sidan är klar; fel före dess köas i sentry.js.
-  const start = () => initSentry();
-  if ('requestIdleCallback' in window) window.requestIdleCallback(start, { timeout: 4000 });
-  else setTimeout(start, 2000);
+  // Sentry (140 kB) laddas först när ett fel faktiskt inträffar, inte för
+  // varje besökare: på en mobil kostade den över en sekund på startsidan
+  // (Lighthouse 2026-11-07). Felet köas i sentry.js och skickas när paketet
+  // har laddats; /api/client-error får det ändå direkt.
 }

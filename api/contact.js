@@ -7,6 +7,7 @@ import { hasRecaptchaSecretKey, verifyRecaptcha } from './_recaptcha.js';
 import { hasTurnstileSecretKey, verifyTurnstile } from './_turnstile.js';
 import { brandedEmail } from '../src/utils/brandedEmail.js';
 import { withSentry } from './_sentry.js';
+import { isDisposableEmailDeep } from './_abuse.js';
 import {
   BOOKING_TOPIC, BOOKING_MODES, BOOKING_REASONS, bookingReason, bookingMinutes, isSlotFree, isValidSlot, formatSlot, bookingMessage,
   busyFromMessage, bookingIcs, stockholmToday,
@@ -179,6 +180,12 @@ async function handleBooking(req, res, body) {
 
   if (!name || !email) { res.status(400).json({ error: 'Namn och e-post krävs.' }); return; }
   if (!EMAIL_RE.test(email)) { res.status(400).json({ error: 'Ogiltig e-postadress.' }); return; }
+  // Engångsadresser (10minutemail m.fl.) kan inte bekräfta en tid: bokningen
+  // från 2026-11-06 studsade. Be om en riktig adress i stället.
+  if (await isDisposableEmailDeep(email)) {
+    res.status(400).json({ error: 'Använd en vanlig e-postadress, så att vi kan skicka bekräftelsen och möteslänken.' });
+    return;
+  }
   if (mode === 'phone' && !/\d{6,}/.test(phone.replace(/\D/g, ''))) {
     res.status(400).json({ error: 'Skriv ett telefonnummer så att vi kan ringa dig.' });
     return;

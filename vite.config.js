@@ -98,6 +98,10 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    // Stora JSON-filer (sv.json, 334 kB med alla texter) läggs in som
+    // JSON.parse("…") i stället för som ett JavaScript-objekt: webbläsaren
+    // läser det betydligt snabbare, vilket märks på mobil (2026-11-07).
+    json: { stringify: true },
     build: {
       chunkSizeWarningLimit: 2000,
     },
