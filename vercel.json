@@ -405,6 +405,15 @@
   ],
   "headers": [
     {
+      "source": "/(security.txt|.well-known/security.txt)",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        }
+      ]
+    },
+    {
       "source": "/(privacy|terms|cookies|pub|gdpr)",
       "headers": [
         {

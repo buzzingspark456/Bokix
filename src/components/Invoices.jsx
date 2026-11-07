@@ -1119,7 +1119,8 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
                   if (!vatExempt) setRows(r => rowsForCustomer(r, customers.find(c => c.id === id)));
                 }} disabled={isLocked} style={{ ...inp, background: isLocked ? 'var(--border-light)' : 'var(--bg-card)' }}>
                   <option value="">{tr('ui.valj_kund')}</option>
-                  {customers.map(c => <option key={c.id} value={c.id}>{c.id?.slice(-3)} – {c.name}</option>)}
+                  {/* Kundnummer om det finns, aldrig en bit av det interna id:t. */}
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.customerNumber ? `${c.customerNumber} – ${c.name}` : c.name}</option>)}
                 </select>
                 {!vatExempt && foreignSaleRegion(customer) && (
                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.45 }}>

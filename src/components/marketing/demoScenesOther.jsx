@@ -221,7 +221,7 @@ const StripeScene = (
 // exakt, så köpet är ett säkert förslag och bokförs med ett klick.
 const ZettleScene = (
   <Shell active="review" review={1}>
-    <Top title="Granskning" tabs={['Väntar · 1', 'Stripe', 'Zettle · 2', 'Historik']} on="Zettle · 2" />
+    <Top title="Att granska" tabs={['Väntar · 1', 'Stripe', 'Zettle · 2', 'Historik']} on="Zettle · 2" />
     <div className="ax-body" style={{ padding: 0 }}>
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '11px 14px', borderBottom: '1px solid var(--ax-border)' }}>
         <span style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--ax-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><ZettleLogo height={11} /></span>

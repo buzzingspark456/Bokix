@@ -30,7 +30,7 @@ import {
   Package,
   ClipboardCheck,
   Check,
-  Banknote, CalendarClock,
+  Banknote, CalendarClock, Paperclip,
 } from './components/icons';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { BAS_VERSION, upgradeAccountsToBas } from './utils/basUpgrade';
@@ -1659,6 +1659,22 @@ function App() {
   // Samma ämnen som kontaktsidan (ContactPage.jsx TOPICS); value måste
   // finnas i ALLOWED_TOPICS i api/contact.js.
   const [reportErrorTopic, setReportErrorTopic] = useState('Felrapport');
+  // En bild eller PDF att skicka med (2026-11-07), t.ex. en skärmbild av felet.
+  // { name, type, size, data } där data är base64. Kontrolleras igen i api/contact.js.
+  const [reportErrorFile, setReportErrorFile] = useState(null);
+  const reportErrorFileRef = useRef(null);
+  const attachSupportFile = (file) => {
+    if (!file) return;
+    const okType = /^image\/(png|jpe?g|webp|gif|heic|heif)$/i.test(file.type) || file.type === 'application/pdf';
+    if (!okType) { setToast({ message: tr('ui.support_fil_fel_typ'), variant: 'error' }); return; }
+    if (file.size > 3 * 1024 * 1024) { setToast({ message: tr('ui.support_fil_for_stor'), variant: 'error' }); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const data = String(reader.result || '').split(',')[1] || '';
+      setReportErrorFile({ name: file.name || 'skarmbild.png', type: file.type, size: file.size, data });
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Supporten ska slippa fråga var man var: sidan och företaget skickas med
   // under meddelandet (och visas i rutan, så att inget skickas i hemlighet).
@@ -1670,6 +1686,15 @@ function App() {
     const page = label === key ? id : label;
     const active = data.companies?.[data.activeCompanyId]?.company;
     return tr('ui.support_kontext', { page, company: [active?.name, active?.orgNr].filter(Boolean).join(', ') || '–' });
+  };
+
+  // Kort version för rutan: "Start · Exempel AB".
+  const getSupportContextShort = () => {
+    const id = resolveTab(activeTab);
+    const key = id === 'invoices' ? 'nav.customerInvoices' : `nav.${id}`;
+    const label = t(key);
+    const active = data.companies?.[data.activeCompanyId]?.company;
+    return [label === key ? id : label, active?.name].filter(Boolean).join(' · ');
   };
 
   const handleSubmitErrorReport = async () => {
@@ -1690,12 +1715,16 @@ function App() {
           'Content-Type': 'application/json',
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify({ name: senderName, email: user?.email || '', topic: reportErrorTopic, message }),
+        body: JSON.stringify({
+          name: senderName, email: user?.email || '', topic: reportErrorTopic, message,
+          ...(reportErrorFile ? { attachment: { name: reportErrorFile.name, type: reportErrorFile.type, data: reportErrorFile.data } } : {}),
+        }),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload?.error || tr('ui.kunde_inte_skicka', { status: res.status }));
       setReportErrorModal(false);
       setReportErrorText('');
+      setReportErrorFile(null);
       setReportErrorTopic('Felrapport');
       setToast({ message: tr('ui.tack_meddelandet_ar_skickat'), variant: 'success' });
     } catch (err) {
@@ -6732,20 +6761,22 @@ function App() {
 
       {reportErrorModal && (
         <div className="modal-overlay" onClick={() => { if (!reportErrorBusy) setReportErrorModal(false); }}>
-          <div className="modal-content" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
+          <div className="modal-content" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">{tr('ui.kontakta_support')}</h2>
               <button className="modal-close" onClick={() => setReportErrorModal(false)}>
                 <X size={18} />
               </button>
             </div>
-            <form onSubmit={(e) => { e.preventDefault(); handleSubmitErrorReport(); }}>
-              <div className="form-group">
-                <label className="form-label">{tr('ui.vad_galler_det')}</label>
-                <div className="filter-pills contact-topics" role="radiogroup">
+            <form onSubmit={(e) => { e.preventDefault(); handleSubmitErrorReport(); }} className="support-form">
+              {/* 2026-11-07: tre tydliga delar — ämne, meddelande med bilaga,
+                  och vad som följer med (avsändare, sida, företag). */}
+              <fieldset className="support-section">
+                <legend className="form-label">{tr('ui.vad_galler_det')}</legend>
+                <div className="support-topics" role="radiogroup">
                   {[
-                    ['Support', 'ui.amne_hjalp_med_bokix'],
                     ['Felrapport', 'ui.amne_nagot_fungerar_inte'],
+                    ['Support', 'ui.amne_hjalp_med_bokix'],
                     ['Fakturering & pris', 'ui.amne_prenumeration_och_betalning'],
                     ['Säkerhet & integritet', 'ui.amne_personuppgifter_och_sakerhet'],
                     ['Övrigt', 'ui.amne_nagot_annat'],
@@ -6755,34 +6786,70 @@ function App() {
                       type="button"
                       role="radio"
                       aria-checked={reportErrorTopic === value}
-                      className={`filter-pill${reportErrorTopic === value ? ' active' : ''}`}
+                      className={`support-topic${reportErrorTopic === value ? ' active' : ''}`}
                       onClick={() => setReportErrorTopic(value)}
                     >
+                      <span className="support-topic-dot" aria-hidden="true" />
                       {tr(key)}
                     </button>
                   ))}
                 </div>
+              </fieldset>
+
+              <div className="support-section">
+                <label className="form-label" htmlFor="support-message">{reportErrorTopic === 'Felrapport' ? tr('ui.vad_gick_fel') : tr('ui.meddelande')}</label>
+                <div className="support-composer">
+                  <textarea
+                    id="support-message"
+                    rows={5}
+                    placeholder={reportErrorTopic === 'Felrapport' ? tr('ui.beskriv_vad_som_hande_garna_vilken_sida_du_var_p') : tr('ui.skriv_ditt_meddelande')}
+                    value={reportErrorText}
+                    onChange={e => setReportErrorText(e.target.value)}
+                    onPaste={e => {
+                      // En inklistrad skärmbild blir bilagan.
+                      const item = [...(e.clipboardData?.items || [])].find(i => i.kind === 'file' && i.type.startsWith('image/'));
+                      if (item) { e.preventDefault(); attachSupportFile(item.getAsFile()); }
+                    }}
+                    autoFocus
+                    required
+                  />
+                  <input ref={reportErrorFileRef} type="file" accept="image/*,application/pdf" style={{ display: 'none' }}
+                    onChange={e => { attachSupportFile(e.target.files?.[0]); e.target.value = ''; }} />
+                  {reportErrorFile ? (
+                    <div className="support-file">
+                      {reportErrorFile.type.startsWith('image/') && !/hei[cf]/i.test(reportErrorFile.type) ? (
+                        <img src={`data:${reportErrorFile.type};base64,${reportErrorFile.data}`} alt="" className="support-file-thumb" />
+                      ) : (
+                        <span className="support-file-thumb support-file-icon"><Paperclip size={16} /></span>
+                      )}
+                      <span className="support-file-meta">
+                        <span className="support-file-name">{reportErrorFile.name}</span>
+                        <span className="support-file-size">{Math.max(1, Math.round(reportErrorFile.size / 1024))} kB</span>
+                      </span>
+                      <button type="button" className="support-file-remove" onClick={() => setReportErrorFile(null)} disabled={reportErrorBusy} aria-label={tr('ui.ta_bort')}>
+                        <X size={15} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="support-attach-row">
+                      <button type="button" className="support-attach" onClick={() => reportErrorFileRef.current?.click()} disabled={reportErrorBusy}>
+                        <Paperclip size={15} /> {tr('ui.support_bifoga')}
+                      </button>
+                      <span className="support-attach-hint">{tr('ui.support_bifoga_kort')}</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="form-group">
-                <label className="form-label">{reportErrorTopic === 'Felrapport' ? tr('ui.vad_gick_fel') : tr('ui.meddelande')}</label>
-                <textarea
-                  className="form-control"
-                  rows={5}
-                  placeholder={reportErrorTopic === 'Felrapport' ? tr('ui.beskriv_vad_som_hande_garna_vilken_sida_du_var_p') : tr('ui.skriv_ditt_meddelande')}
-                  value={reportErrorText}
-                  onChange={e => setReportErrorText(e.target.value)}
-                  autoFocus
-                  required
-                />
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0 0' }}>{tr('ui.support_kontext_info', { line: getSupportContextLine() })}</p>
-              </div>
+
               {/* Svaret går till kontots e-post (reply_to i api/contact.js,
-                  adressen tas från inloggningen, inte från klienten). */}
-              <div className="contact-sender">
-                <span className="contact-sender-label">{tr('ui.skickas_fran_din_e_post')}</span>
-                <span className="contact-sender-email">{user?.email}</span>
-                <span className="form-hint">{tr('ui.vi_svarar_till_den_har_adressen')}</span>
-              </div>
+                  adressen tas från inloggningen, inte från klienten). Sidan och
+                  företaget följer med under meddelandet. */}
+              <dl className="support-meta">
+                <div><dt>{tr('ui.support_fran')}</dt><dd>{user?.email}</dd></div>
+                <div><dt>{tr('ui.support_skickat_fran')}</dt><dd>{getSupportContextShort()}</dd></div>
+                <p className="support-meta-note">{tr('ui.vi_svarar_till_den_har_adressen')}</p>
+              </dl>
+
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setReportErrorModal(false)} disabled={reportErrorBusy}>
                   {tr('ui.avbryt')}

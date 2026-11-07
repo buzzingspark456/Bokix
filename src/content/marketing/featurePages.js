@@ -66,6 +66,44 @@ export const FEATURE_PAGES = [
       { label: 'Videoguide: skapa en faktura', to: '/guider/skapa-faktura' },
       { label: 'Dröjsmålsräntekalkylator', to: '/verktyg/drojsmalsranta' },
     ],
+    // Produktsidan (2026-11-07): riktiga bilder ur appen, se productKit.jsx.
+    product: {
+      h1Tail: 'Skicka fakturan. Bokföringen sköter sig själv.',
+      lead: 'Fakturor och offerter med din logga, från din egen e-post. När kunden betalar bokförs betalningen mot fakturan.',
+      heroTabs: [
+        { label: 'Fakturor', shot: 'kundfakturor', caption: 'Kundfakturorna med vad som är obetalt och vad som har förfallit.' },
+        { label: 'Ny faktura', shot: 'ny-faktura', caption: 'En ny faktura: kund, datum, rader och moms på samma sida.' },
+        { label: 'Fakturan', shot: 'faktura', caption: 'Fakturan som kunden får, med bankgiro och OCR-nummer.' },
+        { label: 'Offerter', shot: 'offerter', caption: 'Offerterna, som blir fakturor när kunden säger ja.' },
+        { label: 'Kunder', shot: 'kunder', caption: 'Kundregistret med kontaktuppgifter, så att fakturan fylls i av sig själv.' },
+      ],
+      reasonsTitle: 'Därför fakturerar du i Bokix',
+      reasons: [
+        { title: 'Från din egen e-post', body: 'Koppla Gmail eller en annan e-post, så kommer fakturan från ditt företags adress.' },
+        { title: 'Kortbetalning på fakturan', body: 'Koppla Stripe, så får fakturan en betalknapp. Betalningen och avgiften bokförs när de kommer in.' },
+        { title: 'Inget att föra över', body: 'Fakturering och bokföring är samma program. Varje faktura och betalning bokförs direkt.' },
+      ],
+      featuresTitle: 'Från offert till betald faktura',
+      features: [
+        { kicker: 'Skapa', title: 'En faktura på en minut', shot: 'ny-faktura-c', body: 'Välj kund och artiklar eller skriv fritt. Moms, belopp och förfallodag räknas ut medan du skriver.', points: ['ROT- och RUT-avdrag på fakturan', 'Utländsk valuta och omvänd moms', 'Kontantfaktura när kunden redan har betalat'] },
+        { kicker: 'Utseende', title: 'Fakturan som kunden får', shot: 'faktura', body: 'Förhandsgranska innan du skickar. Välj mall och färg, och lägg till din logga.', points: ['Sex mallar att välja mellan', 'Din logga och en egen accentfärg', 'Bankgiro och OCR-nummer på fakturan'] },
+        { kicker: 'Uppföljning', title: 'Koll på vad som är betalt', shot: 'kundfakturor-c', body: 'Se på en gång vad som är obetalt, förfallet och betalt. Det som har förfallit visas också på startsidan.', points: ['Påminnelse när fakturan har förfallit', 'Delbetalningar och kreditfakturor', 'Betalningen bokförs mot fakturan'] },
+        { kicker: 'Offerter', title: 'Offerten blir en faktura', shot: 'offerter', body: 'Skicka en offert med samma utseende som fakturan. När kunden säger ja skapar du fakturan från offerten.', points: ['Samma rader och priser följer med', 'Status: skickad, accepterad eller utgången', 'Samma mall och logga som fakturan'] },
+      ],
+      compare: {
+        title: 'Word, en faktureringstjänst eller Bokix',
+        lead: 'Det som skiljer är vad som händer efter att fakturan är skickad.',
+        cols: ['I Word eller Excel', 'Separat faktureringstjänst', 'Med Bokix'],
+        rows: [
+          ['Bokföringen', 'Förs över för hand', 'Exporteras till bokföringen', 'Bokförs direkt'],
+          ['Betalningar', 'Stäms av mot banken för hand', 'Beror på tjänsten', 'Bokförs mot fakturan'],
+          ['Kortbetalning', 'Nej', 'Ibland, ofta som tillägg', 'Via Stripe, ingen avgift från Bokix'],
+          ['Påminnelser', 'Skrivs för hand', 'Ja', 'Ja'],
+          ['Moms och bokslut', 'I ett annat program', 'I ett annat program', 'I samma program'],
+        ],
+      },
+      price: { amount: '129 kr', unit: '/mån', text: 'Fakturering och bokföring i samma pris, utan avgift per faktura. 179 kr/mån med anställda. Ingen moms tillkommer. 30 dagar gratis.' },
+    },
   },
   {
     slug: 'lager',
@@ -112,6 +150,42 @@ export const FEATURE_PAGES = [
       { label: 'Bokslut för småföretag: checklista', to: '/blogg/bokslut-checklista' },
       { label: 'Kassaförsäljning och dagsavslut med Zettle', to: '/nyheter/kassaforsaljning-och-dagsavslut-med-zettle' },
     ],
+    // Produktsidan (2026-11-07): riktiga bilder ur appen, se productKit.jsx.
+    product: {
+      h1Tail: 'Se vad du har i lager och vad det är värt.',
+      lead: 'Artiklar, lagersaldo och lagervärde i samma program som bokföringen. Vid bokslutet bokförs lagret åt dig.',
+      heroTabs: [
+        { label: 'Lager', shot: 'lager', caption: 'Lagervärdet per vara, vad som snart tar slut och vad som ska bokföras.' },
+        { label: 'Prissättning', shot: 'prissattning', caption: 'Marginal och påslag per artikel, mot ditt eget mål.' },
+        { label: 'Artiklar', shot: 'artiklar-butik', caption: 'Artikelregistret med pris, inköpspris och moms.' },
+        { label: 'Fakturor', shot: 'kundfakturor', caption: 'Varor på fakturan dras från lagret.' },
+      ],
+      reasonsTitle: 'Därför sköter du lagret i Bokix',
+      reasons: [
+        { title: 'Lagervärdet räknas åt dig', body: 'Först in, först ut (FIFO) eller vägt genomsnitt, med lägsta värdets princip per artikel.' },
+        { title: 'Sålda varor dras av sig själva', body: 'Varor på fakturorna dras från lagret. Ändras en faktura räknas saldot om direkt.' },
+        { title: 'Bokslutet för lagret', body: 'Bokix räknar fram lagerförändringen och bokför den mot lagerkontot när året är slut.' },
+      ],
+      featuresTitle: 'Det här gör du i Bokix',
+      features: [
+        { kicker: 'Lager', title: 'Vad du har och vad det är värt', shot: 'lager-c', body: 'Lagervärdet per vara, och en Att göra-lista med det som snart tar slut och det som ska bokföras.', points: ['Beställningspunkt per vara', 'Inleverans, uttag och inventering', 'Inventeringslista att skriva ut'] },
+        { kicker: 'Prissättning', title: 'Rätt pris med rätt marginal', shot: 'prissattning-c', body: 'Sätt en målmarginal, så ser du vilka varor som når den och vilka som borde kosta mer.', points: ['Marginal och påslag per artikel', 'Artiklar under målet markeras', 'Räkna på pris, rabatt, nollpunkt och timpris'] },
+        { kicker: 'Artiklar', title: 'Ett artikelregister för allt', shot: 'artiklar-butik-c', body: 'Varor och tjänster med pris, inköpspris, enhet och moms. Välj dem på fakturan i stället för att skriva.', points: ['Streckkod (EAN) per artikel', 'Importera och exportera som lista', 'Varor på fakturan dras från lagret'] },
+      ],
+      compare: {
+        title: 'Excel, ett lagersystem eller Bokix',
+        lead: 'För ett litet företag med varor räcker ofta ett lager i bokföringsprogrammet.',
+        cols: ['I Excel', 'Separat lagersystem', 'Med Bokix'],
+        rows: [
+          ['Lagervärde', 'Räknas för hand', 'Ja', 'FIFO eller genomsnitt'],
+          ['Sålda varor', 'Dras för hand', 'Ja, om det är kopplat', 'Dras från fakturorna'],
+          ['Bokslutet för lagret', 'Räknas och bokförs för hand', 'Förs över till bokföringen', 'Bokförs åt dig'],
+          ['Marginal per vara', 'Egna formler', 'Ibland', 'Ja, mot ditt mål'],
+          ['Kostnad', 'Inget program, men mycket tid', 'Eget abonnemang', 'Ingår i 129 kr/mån'],
+        ],
+      },
+      price: { amount: '129 kr', unit: '/mån', text: 'Lager och artiklar ingår, utan tillägg. 179 kr/mån med anställda. Ingen moms tillkommer. 30 dagar gratis.' },
+    },
   },
   {
     slug: 'anlaggningsregister',
@@ -218,7 +292,7 @@ export const FEATURE_PAGES = [
     eyebrow: 'Bokföringsprogram för nystartade företag',
     title: 'Bokföringsprogram för nya företag',
     lead: 'Skriv in organisationsnumret, så är du igång på några minuter.',
-    highlights: ['Uppgifterna hämtas åt dig', 'Ingen förkunskap behövs', 'Det osäkra hamnar i Granskning', '30 dagar gratis'],
+    highlights: ['Uppgifterna hämtas åt dig', 'Ingen förkunskap behövs', 'Det osäkra hamnar i Att granska', '30 dagar gratis'],
     factsTitle: 'Bra att veta när du startar företag',
     factsLead: 'Det första året är det mesta nytt. Det här är bra att ha koll på från början.',
     includedTitle: 'Det här hjälper dig i början',
@@ -226,7 +300,7 @@ export const FEATURE_PAGES = [
       'Företagets namn, adress och bolagsform hämtas från organisationsnumret.',
       'Räkenskapsår och momsperiod föreslås, och kan ändras om du valt något annat hos Skatteverket.',
       'Ett enkelt läge där du väljer vad som hänt, till exempel ett köp eller en försäljning, i stället för konton.',
-      'Kvitton läses av från ett foto, och det Bokix inte är säker på hamnar i Granskning i stället för att gissas.',
+      'Kvitton läses av från ett foto, och det Bokix inte är säker på hamnar i Att granska i stället för att gissas.',
       'En Att göra-lista som visar när moms och deklarationer ska lämnas in.',
       'Videoguider för det vanligaste: kund, faktura, kvitto, moms och lön.',
     ],
@@ -241,7 +315,7 @@ export const FEATURE_PAGES = [
       { title: 'F-skatt och moms', body: 'F-skatt och momsregistrering ansöker du om hos Skatteverket, enklast via verksamt.se. Vilken momsperiod du får styr hur ofta du deklarerar.' },
     ],
     faq: [
-      { q: 'Behöver jag kunna bokföring för att använda Bokix?', a: 'Nej. I det enkla läget väljer du vad som hänt, och Bokix väljer konton och moms. Det som är osäkert hamnar i Granskning.' },
+      { q: 'Behöver jag kunna bokföring för att använda Bokix?', a: 'Nej. I det enkla läget väljer du vad som hänt, och Bokix väljer konton och moms. Det som är osäkert hamnar i Att granska.' },
       { q: 'När ska jag börja bokföra?', a: 'Från första affärshändelsen, till exempel när du sätter in startkapitalet eller gör det första inköpet.' },
       { q: 'Vilka bolagsformer fungerar?', a: 'Enskild firma, aktiebolag, handelsbolag, kommanditbolag och ekonomisk förening.' },
       { q: 'Vad kostar Bokix?', a: PRICE + ' De första 30 dagarna är gratis.' },
@@ -251,6 +325,64 @@ export const FEATURE_PAGES = [
       { label: 'Bokföringsprogram för aktiebolag', to: '/bokforingsprogram-aktiebolag' },
       { label: 'Videoguider', to: '/guider' },
     ],
+    // Produktsidan (2026-11-07): riktiga bilder ur appen, se productKit.jsx.
+    product: {
+      h1Tail: 'Igång på några minuter, utan förkunskaper.',
+      lead: 'Skriv in organisationsnumret, så hämtas företaget åt dig. Sedan väljer du vad som hänt, och Bokix väljer konton och moms.',
+      heroTabs: [
+        { label: 'Översikt', shot: 'start', caption: 'Startsidan: resultat, pengar på banken och det som ska göras härnäst.' },
+        { label: 'Att göra', shot: 'skatt', caption: 'Vad som ska lämnas in härnäst, med dagar kvar.' },
+        { label: 'Kvitton', shot: 'kvitton', caption: 'Kvittona med vad som är bokfört och vad som behöver granskas.' },
+        { label: 'Fakturan', shot: 'faktura', caption: 'Din första faktura, med bankgiro och OCR-nummer.' },
+        { label: 'Moms', shot: 'moms', caption: 'Momsdeklarationen fylls i ur bokföringen, ruta för ruta.' },
+      ],
+      reasonsTitle: 'Därför passar Bokix när du är ny',
+      reasons: [
+        { title: 'Företaget hämtas åt dig', body: 'Namn, adress och bolagsform hämtas från organisationsnumret. Räkenskapsår och momsperiod föreslås.' },
+        { title: 'Du väljer vad som hänt', body: 'Ett köp, en försäljning eller pengar du satt in. Bokix väljer konton och moms.' },
+        { title: 'Det osäkra gissas inte', body: 'Det Bokix inte är säker på hamnar i Att granska, så att du kan titta på det i stället för att det blir fel.' },
+      ],
+      featuresTitle: 'Det här gör du i Bokix',
+      features: [
+        { kicker: 'Kvitton', title: 'Fota kvittot, resten fylls i', shot: 'kvitton-c', body: 'Datum, belopp och moms läses av från fotot. Spara kvittona från första inköpet, så är allt på plats.', points: ['Flera momssatser på samma kvitto', 'Foto, PDF eller en hel mapp på en gång', 'Kvittot sparas med verifikationen i sju år'] },
+        { kicker: 'Fakturering', title: 'Din första faktura', shot: 'ny-faktura-c', body: 'Välj kund och skriv vad du sålt. Moms och förfallodag räknas ut, och fakturan skickas från din egen e-post.', points: ['Din logga på fakturan', 'Bankgiro och OCR-nummer', 'Betalningen bokförs när den kommer in'] },
+        { kicker: 'Att göra', title: 'Datumen du inte får missa', shot: 'skatt-c', body: 'Under Skatt och bokslut ser du vad som ska lämnas in härnäst och hur många dagar du har kvar.', points: ['Moms, arbetsgivardeklaration och bokslut', 'Dagar kvar till varje datum', 'Ett klick till rätt steg'] },
+        { kicker: 'Moms', title: 'Momsdeklarationen räknas fram', shot: 'moms-c', body: 'Rutorna fylls i ur bokföringen. Du kontrollerar, granskar och bokför, och laddar ner filen till Skatteverket.', points: ['Per månad, kvartal eller år', 'Kontroll av perioden innan du lämnar in', 'Momsen bokförs mot skattekontot'] },
+      ],
+      year: {
+        title: 'Ditt första år',
+        lead: 'Så brukar det första året se ut, oavsett bolagsform.',
+        every: 'Spara kvitton och fakturor från första affärshändelsen. Alla företag är bokföringsskyldiga från start.',
+        quarters: [
+          { label: 'Första dagen', events: [
+            { date: 'Några minuter', title: 'Skapa kontot', bokix: 'Organisationsnumret fyller i företaget. Räkenskapsår och momsperiod föreslås.', key: true },
+          ] },
+          { label: 'Första veckan', events: [
+            { date: 'Startkapitalet', title: 'Bokför det du redan gjort', bokix: 'Startkapitalet och de första kvittona. Bokix visar hur.' },
+            { date: 'Första kunden', title: 'Skicka din första faktura', bokix: 'Med din logga och från din egen e-post.', key: true },
+          ] },
+          { label: 'Första perioden', events: [
+            { date: 'Efter perioden', title: 'Första momsdeklarationen', bokix: 'Fylls i ur bokföringen. Datumet står under Skatt och bokslut.', key: true },
+          ] },
+          { label: 'När året är slut', events: [
+            { date: 'Bokslut', title: 'Första bokslutet', bokix: 'Steg för steg, med det som gäller din bolagsform: NE-bilaga, INK2 eller INK4.', key: true },
+          ] },
+        ],
+        note: 'Det första räkenskapsåret får vara kortare eller längre än tolv månader, som längst 18 månader.',
+      },
+      compare: {
+        title: 'Själv, med byrå eller med Bokix',
+        lead: 'Många nya företag börjar i Excel och byter när det blir för mycket. Det är enklare att börja rätt.',
+        cols: ['I Excel', 'Med redovisningsbyrå', 'Med Bokix'],
+        rows: [
+          ['Kostnad', 'Inget program, men mycket tid', 'Arvode per timme eller månad', '129 kr/mån, 30 dagar gratis'],
+          ['Förkunskaper', 'Du behöver kunna konton', 'Inga', 'Inga, du väljer vad som hänt'],
+          ['Moms och deklaration', 'Du räknar själv', 'Byrån gör det', 'Räknas fram, du lämnar in'],
+          ['Koll på siffrorna', 'När du själv har uppdaterat', 'När byrån har skickat rapporten', 'Hela tiden, på startsidan'],
+        ],
+      },
+      price: { amount: '129 kr', unit: '/mån', text: 'De första 30 dagarna är gratis. Sedan 129 kr/mån, 179 kr/mån med anställda. Ingen moms tillkommer och ingen bindningstid på månadsplanen.' },
+    },
   },
   // ── Alternativ till Fortnox ──────────────────────────────────────────
   // Ärlig jämförelse: om Fortnox står bara allmänt kända saker (direkt
@@ -329,3 +461,67 @@ export const HERO_VIDEO_DURATION = 'PT10S';
 export const heroVideoFile = (page) => page.path.slice(1);
 
 export const FEATURE_BY_PATH = Object.fromEntries(FEATURE_PAGES.map(p => [p.path, p]));
+
+// Lön och arbetsgivare (/lon), 2026-11-07: samma produktsida som de andra
+// (ProductOrgPage), men en egen sida och inte med bland FEATURE_PAGES.
+export const PAYROLL_PRODUCT_PAGE = {
+  slug: 'lon',
+  path: '/lon',
+  short: 'Lön',
+  seoTitle: 'Löneprogram: lönekörning, AGI-fil och lönebesked | Bokix',
+  seoDescription: 'Lönekörning med skattetabeller och arbetsgivaravgift efter ålder, AGI-fil till Skatteverket, lönebesked som PDF och betalfil till banken. Bokförs direkt.',
+  eyebrow: 'Lön och arbetsgivare',
+  title: 'Löneprogram',
+  ctaTitle: 'Kör din första lön i Bokix',
+  faq: [
+    { q: 'Ingår lönen i abonnemanget?', a: 'Ja. Med anställda kostar Bokix 179 kr/mån, oavsett hur många anställda du har. Det finns ingen avgift per lönebesked eller per anställd.' },
+    { q: 'Hur lämnar jag arbetsgivardeklarationen?', a: 'Bokix skapar AGI-filen när lönekörningen är klar. Du loggar in hos Skatteverket med BankID och laddar upp filen i e-tjänsten Arbetsgivardeklaration.' },
+    { q: 'Fungerar betalfilen med min bank?', a: 'Betalfilen följer standarden ISO 20022 (pain.001), som de stora svenska bankerna tar emot. Kontrollera med din bank att filöverföring är påslaget.' },
+    { q: 'Hur får de anställda sina lönebesked?', a: 'Som PDF med e-post. Filen är skyddad med de fyra sista siffrorna i den anställdas personnummer.' },
+    { q: 'Kan jag räkna på en lön innan jag anställer?', a: 'Ja, i den fria lönekalkylatorn ser du nettolön, arbetsgivaravgift och vad lönen kostar företaget.' },
+  ],
+  related: [
+    { label: 'Lönekalkylator', to: '/verktyg/lonekalkylator' },
+    { label: 'Videoguide: lägg till en anställd', to: '/guider/ny-anstalld' },
+  ],
+  product: {
+    hero: { type: 'payslip', payslip: {
+      name: 'Johanna Exempel', period: 'November 2026',
+      rows: [{ label: 'Månadslön', amount: 38500 }, { label: 'Skatt, tabell 33', amount: -8039 }],
+      net: 30461,
+      costRows: [{ label: 'Bruttolön', amount: 38500 }, { label: 'Arbetsgivaravgift 31,42 %', amount: 12097 }, { label: 'Semesterlön och avgift', amount: 5472 }],
+      totalCost: 56069,
+    } },
+    signature: {
+      kicker: 'Varje månad', title: 'Din lönemånad',
+      lead: 'Fyra steg, och filerna är klara när du behöver dem.',
+      type: 'flow',
+      steps: [
+        { title: 'Lönekörningen', body: 'Välj månad och utbetalningsdag. Skatt och avgifter räknas för varje anställd.' },
+        { title: 'Lönedagen', body: 'Betalfilen läses in i banken, och lönebeskeden skickas med e-post.' },
+        { title: 'Bokföringen', body: 'Bruttolön, skatt, arbetsgivaravgift och nettolön bokförs på rätt konton.' },
+        { title: 'Den 12:e', body: 'AGI-filen laddas upp hos Skatteverket, och skatten betalas till skattekontot.' },
+      ],
+    },
+    h1Tail: 'Lönen, skatten och filerna på samma ställe.',
+    lead: 'Välj månad och utbetalningsdag. Bokix räknar skatt och arbetsgivaravgift, tar fram AGI-filen och betalfilen och bokför lönen.',
+    featuresTitle: 'Det här gör du i Bokix',
+    features: [
+      { kicker: 'Lönekörning', title: 'Lönen steg för steg', shot: 'lonekorning-ny-c', body: 'Välj månad och utbetalningsdag, så tas alla aktiva anställda med. Lägg till tillägg och avdrag per person.', points: ['Månadslön och timlön', 'Traktamente, milersättning och förmåner', 'Lönebesked som PDF med e-post'] },
+      { kicker: 'Semester', title: 'Koll på semestern', shot: 'semester-c', body: 'Se hur många dagar varje anställd har kvar och vad de kostar, med semesterlön och arbetsgivaravgift.', points: ['Semesterlagens regler', 'Sparade dagar till nästa år', 'Semester tas ut i lönekörningen'] },
+      { kicker: 'Anställda', title: 'Allt om de anställda på ett ställe', shot: 'anstalld-c', body: 'Personuppgifter, anställning, lön, skattetabell och bankkonto för utbetalningen.', points: ['Skattetabell och kolumn per anställd', 'Bankkonto till betalfilen', 'Export av alla anställda'] },
+    ],
+    compare: {
+      title: 'För hand, lönebyrå eller Bokix',
+      lead: 'En lönebyrå passar om du vill lämna bort allt. Bokix passar om du har några anställda och vill köra lönen själv.',
+      cols: ['För hand', 'Med lönebyrå', 'Med Bokix'],
+      rows: [
+        ['Kostnad', 'Inget program, men mycket tid', 'Avgift per lönebesked eller månad', '179 kr/mån, oavsett antal anställda'],
+        ['Skatt och avgifter', 'Slås upp i tabeller', 'Byrån räknar', 'Räknas åt dig'],
+        ['AGI och betalfil', 'Fylls i för hand', 'Byrån gör det', 'Filerna skapas varje månad'],
+        ['Bokföringen', 'Förs in för hand', 'Byrån skickar underlag', 'Bokförs direkt'],
+      ],
+    },
+    price: { amount: '179 kr', unit: '/mån', text: 'Med anställda, oavsett hur många. Bokföring, fakturor och moms ingår också. 149 kr/mån med årsplan. Ingen moms tillkommer. 30 dagar gratis.' },
+  },
+};

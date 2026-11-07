@@ -153,7 +153,7 @@ const BokforingScene = (
 // "Kontera … som 5410", etiketten Osäkert förslag, Godkänn / Avvisa.
 const GranskningScene = (
   <Shell active="review" review={1}>
-    <Top title="Granskning" tabs={['Väntar · 1', 'Stripe', 'Zettle', 'Historik']} on="Väntar · 1" />
+    <Top title="Att granska" tabs={['Väntar · 1', 'Stripe', 'Zettle', 'Historik']} on="Väntar · 1" />
     <div className="ax-body" style={{ padding: 0 }}>
       <div className="dp-collapse" style={{ ...d(2.6), '--h': '200px' }}>
         <ReviewItem

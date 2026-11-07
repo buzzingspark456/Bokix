@@ -53,6 +53,28 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // namn/e-post redan ifyllda istället för att behöva skriva dem.
 const ALLOWED_TOPICS = ['Support', 'Fakturering & pris', 'Säkerhet & integritet', 'Felrapport', 'Övrigt'];
 
+// En bifogad fil från appens Kontakta support (2026-11-07): bara för
+// inloggade, bara bilder och PDF, högst 3 MB. Följer med mejlet till
+// supporten som bilaga; Inkorgen får en rad om att det finns en fil.
+const ATTACHMENT_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/heic', 'image/heif', 'application/pdf'];
+const ATTACHMENT_MAX_BYTES = 3 * 1024 * 1024;
+
+// { filename, content } för Resend, null om ingen fil, eller { error }.
+function readAttachment(raw) {
+  if (!raw) return null;
+  const type = typeof raw.type === 'string' ? raw.type.toLowerCase() : '';
+  const data = typeof raw.data === 'string' ? raw.data.replace(/^data:[^,]*,/, '') : '';
+  if (!ATTACHMENT_TYPES.includes(type) || !data || !/^[A-Za-z0-9+/=\s]+$/.test(data)) {
+    return { error: 'Filen kan inte skickas. Välj en bild eller en PDF.' };
+  }
+  const bytes = Buffer.from(data, 'base64');
+  if (!bytes.length) return { error: 'Filen är tom.' };
+  if (bytes.length > ATTACHMENT_MAX_BYTES) return { error: 'Filen är för stor. Högst 3 MB.' };
+  const ext = type === 'application/pdf' ? 'pdf' : type.split('/')[1].replace('jpeg', 'jpg');
+  const base = String(raw.name || 'bilaga').replace(/\.[^.]*$/, '').replace(/[^\p{L}\p{N} _-]/gu, '').trim().slice(0, 60) || 'bilaga';
+  return { filename: `${base}.${ext}`, content: bytes.toString('base64'), size: bytes.length };
+}
+
 function adminClient() {
   const url = process.env.VITE_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -283,6 +305,12 @@ async function handler(req, res) {
     const email = user?.email || (typeof body?.email === 'string' ? body.email.trim() : '');
     const topic = ALLOWED_TOPICS.includes(body?.topic) ? body.topic : 'Övrigt';
     const message = typeof body?.message === 'string' ? body.message.trim() : '';
+    // Bilaga bara från inloggade (appen), aldrig från det publika formuläret.
+    const attachment = user ? readAttachment(body?.attachment) : null;
+    if (attachment?.error) {
+      res.status(400).json({ error: attachment.error });
+      return;
+    }
 
     if (!name || !email || !message) {
       res.status(400).json({ error: 'Namn, e-post och meddelande krävs.' });
@@ -323,7 +351,8 @@ async function handler(req, res) {
     // Sparas först i admin-panelens Inkorg (contact_messages), så att inget
     // meddelande försvinner om mejlet inte går iväg. Saknas tabellen eller
     // nyckeln fortsätter det som förut, med bara mejlet.
-    const saved = await saveContactMessage({ name, email, topic, message });
+    const attachmentNote = attachment ? `\n\nBifogad fil: ${attachment.filename} (${Math.max(1, Math.round(attachment.size / 1024))} kB), finns i mejlet till supporten.` : '';
+    const saved = await saveContactMessage({ name, email, topic, message: message + attachmentNote });
 
     if (!resendApiKey) {
       if (saved) { res.status(200).json({ id: saved }); return; }
@@ -341,8 +370,9 @@ async function handler(req, res) {
         from: getEmailFrom(),
         to: [getContactInbox()],
         subject: `Kontaktformulär (${topic}) — ${name}`,
-        html: buildEmailHtml({ name, email, topic, message }),
+        html: buildEmailHtml({ name, email, topic, message: message + attachmentNote }),
         reply_to: email,
+        ...(attachment ? { attachments: [{ filename: attachment.filename, content: attachment.content }] } : {}),
       }),
     });
     const data = await result.json().catch(() => ({}));

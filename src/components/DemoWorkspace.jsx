@@ -2,7 +2,7 @@ import { seriesForSource, getNextNumber as getNextVerificationNumber } from '../
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useFitLevel from '../utils/useFitLevel';
 import {
-  Menu, X, HelpCircle, LogOut, Bell, Sun, Moon, ChevronDown, ChevronRight, FolderTree, FileCheck, Shield, Calculator, AlertTriangle, UsersRound, Receipt, FileText,
+  Menu, X, HelpCircle, LogOut, Bell, Sun, Moon, ChevronDown, ChevronRight, FolderTree, FileCheck, Shield, Calculator, AlertTriangle, UsersRound,
   LayoutDashboard, Users, Package, NavHomeIcon, NavQuotesIcon, NavInvoicesIcon, Inbox, NavReceiptsIcon, Briefcase, ClipboardCheck, BookOpen, Landmark, BarChart3,
   Settings as SettingsIcon, Banknote, CalendarClock,
 } from './icons';
@@ -54,34 +54,32 @@ import { useNavigate } from 'react-router-dom';
 // jämfört med en riktig inloggning.
 const demoUser = { id: 'demo-user', email: 'du@bokix.se', user_metadata: { first_name: 'Du', last_name: '', show_dashboard_greeting: false } };
 
-// Samma grupper, ordning, namn och ikoner som riktiga appens sidomeny (App.jsx):
-// Start och Granskning överst, sedan Verksamhet, Ekonomi, Rapporter och
-// Administration. Granskning syns bara när något väntar (se visibleGroups nedan).
+// Samma grupper, ordning, namn och ikoner som riktiga appens sidomeny (App.jsx,
+// nav.* i sv.json): Start och Att granska överst, sedan Pengar in, Pengar ut och
+// Koll på ekonomin. Inställningar står längst ned bredvid Hjälp, som i appen.
+// Att granska syns bara när något väntar (se visibleGroups nedan).
 const SIDEBAR_GROUPS = [
   { items: [
     { id: 'dashboard', label: 'Start', icon: LayoutDashboard },
-    { id: 'review', label: 'Granskning', icon: ClipboardCheck },
+    { id: 'review', label: 'Att granska', icon: ClipboardCheck },
   ] },
-  { title: 'Verksamhet', items: [
+  { title: 'Pengar in', items: [
     { id: 'contacts', label: 'Kunder', icon: Users },
-    { id: 'articles', label: 'Artiklar', icon: Package },
     { id: 'quotes', label: 'Offerter', icon: NavQuotesIcon },
     { id: 'invoices', label: 'Kundfakturor', icon: NavInvoicesIcon },
+    { id: 'articles', label: 'Artiklar och lager', icon: Package },
+    { id: 'projects', label: 'Projekt och tid', icon: Briefcase },
   ] },
-  { title: 'Ekonomi', items: [
+  { title: 'Pengar ut', items: [
     { id: 'expenses', label: 'Kvitton', icon: NavReceiptsIcon },
     { id: 'supplier_invoices', label: 'Leverantörsfakturor', icon: Inbox },
+    { id: 'payroll', label: 'Anställda och lön', icon: UsersRound },
+  ] },
+  { title: 'Koll på ekonomin', items: [
     { id: 'bank', label: 'Bank', icon: Landmark },
     { id: 'verifications', label: 'Bokföring', icon: BookOpen },
-  ] },
-  { title: 'Rapporter', items: [
-    { id: 'reports', label: 'Rapport och analys', icon: BarChart3 },
+    { id: 'reports', label: 'Rapporter', icon: BarChart3 },
     { id: 'taxes', label: 'Skatt och bokslut', icon: Shield },
-  ] },
-  { title: 'Administration', items: [
-    { id: 'projects', label: 'Projekt', icon: Briefcase },
-    { id: 'payroll', label: 'Anställda och lön', icon: UsersRound },
-    { id: 'settings', label: 'Inställningar', icon: SettingsIcon },
   ] },
 ];
 
@@ -98,7 +96,9 @@ const MOBILE_BOTTOM_IDS = MOBILE_BOTTOM_ITEMS.map(i => i.id);
 const MOBILE_SHEET_SECTIONS = SIDEBAR_GROUPS
   .filter(g => g.title)
   .map(g => ({ ...g, items: g.items.filter(i => !MOBILE_BOTTOM_IDS.includes(i.id)) }))
-  .filter(g => g.items.length > 0);
+  .filter(g => g.items.length > 0)
+  // Inställningar sist, som i appens Meny på telefon.
+  .concat([{ title: null, items: [{ id: 'settings', label: 'Inställningar', icon: SettingsIcon }] }]);
 
 // `initialTab`: vilken flik demot öppnas på (Sida: "Kvitton läser sig
 // själva"-sektionen på startsidan ska länka till en RIKTIG OCR-demo, inte
@@ -115,7 +115,18 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   // (index.css :root[data-theme="dark"]), men den regeln kan inte träffa
   // HÄR eftersom headerraderna nedan är inline-stylade, inte CSS-klasser.
   const [theme, toggleTheme] = useMarketingTheme();
-  const seed = useMemo(() => createDemoSeed(), []);
+  // window.__bokixDemoCompany sätts bara av scripts/capture-product-shots.mjs,
+  // för bilder av andra bolagsformer (bolagsformen läses ur org.nr).
+  const seed = useMemo(() => {
+    const s = createDemoSeed();
+    const override = typeof window !== 'undefined' ? window.__bokixDemoCompany : null;
+    if (override) {
+      const { __articles, ...company } = override;
+      s.company = { ...s.company, ...company };
+      if (__articles) s.articles = __articles;
+    }
+    return s;
+  }, []);
   // Demons sidomeny krymper själv tills alla sidor och Hjälp/Logga ut syns (se useFitLevel.js).
   const demoNavRef = useRef(null);
   const navFit = useFitLevel(demoNavRef, 4);
@@ -308,7 +319,8 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
       case 'contacts':
         return <Contacts contacts={demoContacts} setContacts={setDemoContacts} accounts={seed.accounts} invoices={demoInvoices} expenses={demoExpenses} globalAction={globalAction} clearGlobalAction={clearGlobalAction} />;
       case 'articles':
-        return <Articles articles={demoArticles} setArticles={setDemoArticles} accounts={seed.accounts} />;
+        // Med company och setCompanyInfo syns även flikarna Lager och Prissättning, som i appen.
+        return <Articles articles={demoArticles} setArticles={setDemoArticles} accounts={seed.accounts} company={settingsCompany} setCompanyInfo={setSettingsCompany} verifications={demoVerifications} invoices={demoInvoices} expenses={demoExpenses} onAddVerification={blocked} />;
       case 'quotes':
         return (
           <Quotes
@@ -517,12 +529,13 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
         <div style={{ flex: 1, minHeight: 0 }} />
 
         <div style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.16)' }}>
+          <button onClick={() => openTab('settings')} style={{ padding: `${fitStyle.foot}px 24px`, width: '100%', textAlign: 'left', background: activeDemoTab === 'settings' ? 'rgba(255,255,255,0.14)' : 'none', border: 'none', color: activeDemoTab === 'settings' ? '#ffffff' : 'rgba(255,255,255,0.88)', fontSize: `${fitStyle.font}px`, fontWeight: activeDemoTab === 'settings' ? 700 : 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'inherit', boxShadow: activeDemoTab === 'settings' ? 'inset 3px 0 0 #ffd23f' : 'none' }}>
+            <SettingsIcon size={17} /> Inställningar
+          </button>
           <button onClick={blocked} style={{ padding: `${fitStyle.foot}px 24px`, width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: `${fitStyle.font}px`, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'inherit' }}>
             <HelpCircle size={17} /> Hjälp och support
           </button>
-          <button onClick={blocked} style={{ padding: `${fitStyle.foot}px 24px`, width: '100%', textAlign: 'left', background: 'none', border: 'none', color: '#fca5a5', fontSize: `${fitStyle.font}px`, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'inherit' }}>
-            <LogOut size={17} /> Logga ut
-          </button>
+
         </div>
       </div>
 
@@ -714,15 +727,15 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
               <button type="button" className={`mobile-sheet-review${activeDemoTab === 'review' ? ' active' : ''}`} onClick={() => openTab('review')}>
                 <span className="mobile-sheet-row-icon"><ClipboardCheck size={20} /></span>
                 <span className="mobile-sheet-review-text">
-                  <span className="mobile-sheet-review-title">Granskning</span>
+                  <span className="mobile-sheet-review-title">Att granska</span>
                   <span className="mobile-sheet-review-sub">{reviewCount} {reviewCount === 1 ? 'sak väntar' : 'saker väntar'} på dig</span>
                 </span>
                 <span className="mobile-sheet-review-badge">{reviewCount}</span>
               </button>
             )}
             {MOBILE_SHEET_SECTIONS.map(sec => (
-              <div className="mobile-sheet-section" key={sec.title}>
-                <div className="mobile-sheet-section-title">{sec.title}</div>
+              <div className="mobile-sheet-section" key={sec.title || 'settings'}>
+                {sec.title && <div className="mobile-sheet-section-title">{sec.title}</div>}
                 <div className="mobile-sheet-list">
                   {sec.items.map(item => (
                     <button key={item.id} type="button" className={`mobile-sheet-row${activeDemoTab === item.id ? ' active' : ''}`} onClick={() => openTab(item.id)}>

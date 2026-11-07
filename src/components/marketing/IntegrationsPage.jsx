@@ -1,174 +1,53 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import MarketingLayout, { Reveal } from './MarketingLayout';
-import { KitStyles, SubHero, KitSection, CenterSection, SpecList, KitCta, PrimaryButton, GhostLink } from './subpageKit';
-import IntegrationFeed from './IntegrationFeed';
-import DemoPlayer, { DemoStyles } from './DemoPlayer';
-import { makeIntegrationDemo } from './demoScenesOther';
-import { StripeIconLogo, ZettleLogo, GmailLogo, BolagsverketLogo, SkatteverketLogo, BasLogo } from '../shared/BrandLogos';
-import FormatExchange from './FormatExchange';
+import { KitStyles, KitCta, PrimaryButton, GhostLink } from './subpageKit';
+import { PRODUCT_KIT_CSS } from './productKit';
+import { StripeIconLogo, ZettleLogo, GmailLogo } from '../shared/BrandLogos';
 import { PageMeta, JsonLd } from '../../utils/seo';
 
-// ── Integrationer och filformat (/integrationer) ────────────────────────
-// Startsidans kopplingsdiagram visar FYRA logotyper i en snygg graf. Den
-// här sidan är svaret på nästa fråga: "ja, men vad betyder det konkret —
-// kan jag flytta in min gamla bokföring, och kan jag flytta ut den igen?"
-//
-// Två regler för innehållet här, samma som pricingTiers.js redan följer:
-//   1. Bara sådant som FAKTISKT finns i produkten. Varje rad nedan går att
-//      peka ut i koden (sieImport.js, salaryPaymentFile.js,
-//      vatDeclarationExport.js, bankImport.js, companyLookup.js …).
-//   2. Det vi INTE har står också, med namn. En besökare som kommer från
-//      Fortnox letar efter bankkoppling — får hen inte veta att den
-//      saknas här, får hen veta det efter att ha registrerat sig, och då
-//      är det ett svek i stället för ett aktivt val.
+// ── Integrationer (/integrationer), 2026-11-07 ──────────────────────────
+// Bara de kopplingar som finns, inget utfyllnadsmaterial (användarens
+// önskemål: "vi har inte många integrationer, visa inte mer bara för att
+// det ska bli mer"). Fyra kopplingar och det vi inte har.
 
 const CONNECTIONS = [
   {
-    key: 'stripe',
-    Logo: StripeIconLogo,
-    logoHeight: 26,
     name: 'Stripe',
-    kind: 'Kortbetalning och transaktioner',
-    body: 'Kunden betalar fakturan med kort, Apple Pay eller Google Pay direkt från fakturalänken, och fakturan bokförs som betald. Säljer du också via Stripe, i en webbshop, med betallänkar eller prenumerationer, hämtas alla transaktioner in varje morgon: betalningar, Stripes avgifter, återbetalningar och utbetalningar till banken. Avgifter och utbetalningar bokförs med ett klick, och för försäljningen väljer du momssats.',
+    logo: <StripeIconLogo height={40} />,
+    body: 'Kunden betalar fakturan med kort. Betalningar, avgifter och utbetalningar till banken hämtas in och bokförs.',
   },
   {
-    key: 'zettle',
-    Logo: ZettleLogo,
-    logoHeight: 22,
-    name: 'Zettle by PayPal',
-    kind: 'Kassaförsäljning',
-    body: 'Säljer du i butik, på marknad eller i mässmontern kopplas kassaförsäljningen in i samma bokföring som fakturorna, i stället för att bokföras separat i efterhand.',
+    name: 'Zettle',
+    logo: <ZettleLogo height={26} />,
+    body: 'Kassaförsäljningen från butiken hämtas in och bokförs i samma bokföring som fakturorna.',
   },
   {
-    key: 'gmail',
-    Logo: GmailLogo,
-    logoHeight: 24,
-    name: 'Gmail',
-    kind: 'E-post',
-    body: 'Koppla ditt Gmail-konto så går fakturor, offerter och påminnelser från din egen adress, och svaren hamnar i din inkorg. Bokix får bara rätt att skicka e-post, aldrig att läsa den. Mejl på egen domän kopplas med ett app-lösenord.',
+    name: 'Din egen e-post',
+    logo: <GmailLogo height={30} />,
+    body: 'Fakturor, offerter och påminnelser skickas från din adress, och svaren hamnar i din inkorg.',
+    chips: ['Gmail', 'Outlook och Microsoft 365', 'one.com', 'Loopia', 'Annan via SMTP'],
   },
   {
-    key: 'bolagsverket',
-    Logo: BolagsverketLogo,
-    logoHeight: 34,
-    name: 'Bolagsverket',
-    kind: 'Företagsuppgifter',
-    body: 'Företagsnamn, bolagsform, adress och registreringsuppgifter hämtas automatiskt från organisationsnumret när du skapar ditt konto. Bolagsformen avgör i sin tur vilka bokföringsregler som gäller, du slipper välja regelverk själv.',
-  },
-  {
-    key: 'skatteverket',
-    Logo: SkatteverketLogo,
-    logoHeight: 34,
-    name: 'Skatteverket',
-    kind: 'Deklarationsunderlag',
-    body: 'Bokix bygger Skatteverkets egna filformat: eSKD för momsdeklarationen och SRU för inkomstdeklarationens räkenskapsscheman. Filerna laddar du själv upp och signerar hos Skatteverket, ingenting skickas i ditt namn automatiskt.',
-  },
-  {
-    key: 'bas',
-    Logo: BasLogo,
-    logoHeight: 30,
-    name: 'BAS-kontoplanen',
-    kind: 'Standard',
-    body: 'Hela den svenska BAS-kontoplanen ligger inbyggd och sökbar. Det är samma kontoplan din revisor, din bank och nästa bokföringsprogram utgår från, vilket är förutsättningen för att en SIE-fil ska betyda samma sak överallt.',
+    name: 'Kalender',
+    logo: <span className="ig-cal"><i>DEC</i>12</span>,
+    body: 'Datum för moms, arbetsgivardeklaration och förfallna fakturor i din kalender, via en prenumerationslänk.',
   },
 ];
 
-const INTEGRATION_DEMO = makeIntegrationDemo(CONNECTIONS);
 
-const IMPORTS = [
-  {
-    label: 'SIE4-fil',
-    title: 'SIE4-fil från ditt gamla program',
-    body: 'Kontoplan, verifikationer och ingående saldon läses in ur filen. SIE4 är en svensk standard, så Bokix läser filen, inte programmet den kom ur.',
-    meta: 'SIE4I och SIE4E · .se-fil',
-  },
-  {
-    label: 'Kontoutdrag',
-    title: 'Kontoutdrag från banken',
-    body: 'Ladda upp bankens CSV- eller Excel-export så tolkas kolumnerna automatiskt, oavsett om banken exporterar semikolon, kommatecken, en signerad beloppskolumn eller separata uttag och insättningar. Den föreslagna kolumnmappningen visas för godkännande innan något importeras.',
-    meta: 'CSV och XLSX · UTF-8 eller Windows-1252',
-  },
-  {
-    label: 'Kvitton och fakturor',
-    title: 'Kvitton och leverantörsfakturor',
-    body: 'Ladda upp underlaget och registrera posten direkt mot rätt konto. Underlaget ligger kvar kopplat till verifikationen, så det går att ta fram vid en granskning utan att leta i en pärm.',
-    meta: 'PDF, JPG och PNG',
-  },
-  {
-    label: 'Kundregister',
-    title: 'Kunder och artiklar',
-    body: 'Kundregister och artikellistor kan läsas in från CSV i stället för att skrivas in en rad i taget vid uppstart.',
-    meta: 'CSV',
-  },
-];
-
-const EXPORTS = [
-  {
-    label: 'SIE4-export',
-    title: 'SIE4-export av hela bokföringen',
-    body: 'Hela räkenskapsåret med kontoplan, verifikationer samt ingående och utgående balanser. Ge filen till din revisor, eller ta med den till ett annat program. Din bokföring är din, alltid.',
-    meta: 'SIE4E · .se-fil',
-  },
-  {
-    label: 'eSKD',
-    title: 'Momsdeklaration som eSKD-fil',
-    body: 'Momsdeklarationen byggs som Skatteverkets eget XML-format och laddas upp direkt i e-tjänsten, i stället för att siffrorna knappas in för hand ruta för ruta.',
-    meta: 'eSKD · XML',
-  },
-  {
-    label: 'Betalfil',
-    title: 'Betalfil till banken',
-    body: 'Nettolönerna i en lönekörning som en riktig ISO 20022-fil (pain.001), samma format de flesta svenska företagsbanker tar emot för filbaserade utbetalningar. Kräver IBAN och BIC per anställd.',
-    meta: 'ISO 20022 pain.001.001.03 · XML',
-  },
-  {
-    label: 'SRU',
-    title: 'Räkenskapsscheman som SRU',
-    body: 'Balans- och resultaträkning enligt INK2R, med fältkoder ur BAS-intressenternas officiella kopplingstabell, som SRU-filer till inkomstdeklarationen.',
-    meta: 'INFO.SRU och BLANKETTER.SRU',
-  },
-  {
-    label: 'PDF',
-    title: 'PDF på allt du skickar vidare',
-    body: 'Fakturor, lönebesked, AGI-sammanställningar, kontrolluppgifter och rapporter. PDF:en är alltid identisk med förhandsvisningen du godkände.',
-    meta: 'PDF',
-  },
-  {
-    label: 'CSV',
-    title: 'Rapporter och register som CSV',
-    body: 'Listvyer och rapporter går att ta ut som CSV för egen analys i Excel eller Google Kalkylark.',
-    meta: 'CSV med BOM, öppnas rätt i svensk Excel',
-  },
-];
-
-// Det vi inte har. Står på sidan med flit — se filkommentaren ovan.
 const NOT_YET = [
-  {
-    title: 'Direkt bankkoppling (PSD2)',
-    body: 'Bokix hämtar inte transaktioner automatiskt från din bank. Du importerar kontoutdraget som fil i stället, vilket tar någon minut i månaden. Vi säger hellre det rakt ut än beskriver en filimport som en "bankintegration".',
-  },
-  {
-    title: 'Automatisk inlämning till Skatteverket',
-    body: 'Bokix bygger filerna, men skickar dem aldrig i ditt namn. Uppladdning och signering gör du själv i Skatteverkets e-tjänst, en deklaration ska aldrig lämnas in utan att någon faktiskt tittat på den.',
-  },
-  {
-    title: 'Öppet API',
-    body: 'Det finns inget publikt API att bygga egna integrationer mot i dag. SIE- och CSV-exporterna är vägen ut för den som vill flytta data till ett eget system.',
-  },
+  { title: 'Bankkoppling', body: 'Transaktionerna hämtas inte direkt från banken.' },
+  { title: 'E-faktura via Peppol', body: 'Fakturorna skickas som PDF med e-post.' },
+  { title: 'Öppet API', body: 'Det finns inget publikt API i dag.' },
 ];
 
 const SCHEMA = {
   '@context': 'https://schema.org',
   '@type': 'ItemList',
-  name: 'Integrationer och filformat i Bokix',
-  itemListElement: [...CONNECTIONS.map(c => ({ name: c.name, description: c.body })), ...IMPORTS, ...EXPORTS].map((x, i) => ({
-    '@type': 'ListItem',
-    position: i + 1,
-    item: { '@type': 'Thing', name: x.name || x.title, description: x.body },
-  })),
+  name: 'Integrationer i Bokix',
+  itemListElement: CONNECTIONS.map((x, i) => ({ '@type': 'ListItem', position: i + 1, item: { '@type': 'Thing', name: x.name, description: x.body } })),
 };
-
 
 export default function IntegrationsPage() {
   const navigate = useNavigate();
@@ -177,49 +56,82 @@ export default function IntegrationsPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Integrationer: Stripe, Zettle, Gmail och SIE | Bokix"
-        description="Vad Bokix kopplas ihop med: Stripe, Zettle och Gmail, SIE4-import och export, kontoutdrag från banken, Skatteverkets eSKD och SRU samt betalfil."
+        title="Integrationer: Stripe, Zettle, e-post och kalender | Bokix"
+        description="Bokix kopplas till Stripe, Zettle, din egen e-post och din kalender. Skatteverket, banken och andra program via filer: SIE4, kontoutdrag och deklarationsfiler."
         path="/integrationer"
       />
       <JsonLd data={SCHEMA} />
       <KitStyles />
-      <DemoStyles />
+      <style>{PRODUCT_KIT_CSS + IG_CSS}</style>
 
-      <SubHero
-        eyebrow="Integrationer"
-        title="Kopplat till det du redan använder"
-        lead="Betalningar, myndigheter och de filformat svensk bokföring faktiskt bygger på. Plus en ärlig lista över det vi ännu inte har."
-        actions={<>
-          <PrimaryButton onClick={enterApp}>Prova gratis</PrimaryButton>
-          <GhostLink href="#inte">Det här har vi inte</GhostLink>
-        </>}
-        visual={<IntegrationFeed />}
-      />
+      <section className="pk-hero ig-hero">
+        <Reveal className="pk-hero-text">
+          <h1 className="pk-h1-wrap">
+            <span className="pk-eyebrow">Integrationer</span>
+            <span className="kx-h1 pk-h1">Fyra kopplingar som gör jobbet.</span>
+          </h1>
+          <p className="pk-hero-lead">Betalningar, kassan, din e-post och din kalender. Allt kopplas under Inställningar, Integrationer.</p>
+        </Reveal>
+      </section>
 
-      <CenterSection title="Kopplingar" lead="Fem saker Bokix pratar med. Så här ser det ut när de gör sitt jobb.">
-        <DemoPlayer steps={INTEGRATION_DEMO} label="Demo: Bokix kopplingar" />
-      </CenterSection>
-
-      <section className="kx-section" style={{ background: 'var(--mkt-ivory)' }}>
-        <div style={{ maxWidth: '940px', margin: '0 auto' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '34px' }}>
-            <h2 className="kx-h2">Tio filformat, in och ut</h2>
-            <p className="kx-sub">Välj ett så står det vad det är och vad det används till.</p>
-          </Reveal>
-          <Reveal scale delay={60}>
-            <FormatExchange imports={IMPORTS} exports={EXPORTS} />
-          </Reveal>
+      <section className="pk-section ig-main">
+        <div className="ig-list">
+          {CONNECTIONS.map((c, i) => (
+            <Reveal key={c.name} delay={i * 60} className="ig-row">
+              <span className="ig-logo">{c.logo}</span>
+              <div className="ig-row-text">
+                <h2 className="ig-name">{c.name}</h2>
+                <p className="ig-body">{c.body}</p>
+                {c.chips && (
+                  <div className="ig-chips">{c.chips.map(ch => <span key={ch}>{ch}</span>)}</div>
+                )}
+              </div>
+            </Reveal>
+          ))}
         </div>
       </section>
 
-      <KitSection id="inte" title="Det här har vi inte" lead="Du ska kunna välja bort oss på rätt grund, inte upptäcka det efter att du flyttat in din bokföring.">
-        <SpecList items={NOT_YET} />
-      </KitSection>
+      <section className="pk-section">
+        <div className="pk-wrap ig-not-wrap">
+          <h2 className="ig-not-title">Det här har vi inte än</h2>
+          <ul className="ig-not">
+            {NOT_YET.map(n => <li key={n.title}><strong>{n.title}.</strong> {n.body}</li>)}
+          </ul>
+        </div>
+      </section>
 
-      <KitCta title="Byter du från ett annat program?" lead="Exportera en SIE4-fil ur ditt nuvarande program och läs in den i Bokix. Kontoplan, verifikationer och ingående saldon följer med.">
-        <PrimaryButton onClick={enterApp}>Prova gratis</PrimaryButton>
-        <GhostLink to="/byt-bokforingsprogram">Så går bytet till</GhostLink>
+      <KitCta title="Koppla det du använder" lead="30 dagar gratis, sedan från 129 kr/mån. Alla kopplingar ingår.">
+        <PrimaryButton onClick={enterApp}>Prova gratis i 30 dagar</PrimaryButton>
+        <GhostLink to="/funktioner">Se alla funktioner</GhostLink>
       </KitCta>
     </MarketingLayout>
   );
 }
+
+const IG_CSS = `
+.ig-hero { padding-bottom: 56px; }
+.ig-main { border-top: 0; padding-top: 0; }
+.ig-list { max-width: 820px; margin: 0 auto; border-top: 1px solid var(--mkt-border-soft); }
+.ig-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 28px; align-items: start; padding: 32px 0; border-bottom: 1px solid var(--mkt-border-soft); }
+.ig-logo { display: inline-flex; align-items: center; justify-content: center; width: 72px; height: 72px; border-radius: 18px; background: #fff; border: 1px solid #eceae4; overflow: hidden; }
+.ig-logo > svg, .ig-logo > img { max-width: 52px; max-height: 48px; width: auto; }
+html[data-theme="dark"] #lp-root .ig-logo { background: #22382a; border-color: #2f4a35; }
+.ig-cal { display: flex; flex-direction: column; align-items: center; font-size: 26px; font-weight: 800; line-height: 1; color: #1c2420; }
+.ig-cal i { font-style: normal; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; color: #d14b3c; margin-bottom: 4px; }
+html[data-theme="dark"] #lp-root .ig-cal { color: #eef3ea; }
+.ig-name { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; color: var(--mkt-ink); margin: 4px 0 8px; }
+.ig-body { font-size: 16.5px; line-height: 1.6; color: var(--mkt-ink-soft); margin: 0; max-width: 600px; }
+.ig-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.ig-chips span { font-size: 13.5px; font-weight: 600; color: var(--mkt-ink-soft); padding: 5px 12px; border-radius: 999px; border: 1px solid var(--mkt-card-border); background: var(--mkt-card-bg); }
+.ig-not-wrap { max-width: 820px; }
+.ig-not-title { font-size: 20px; font-weight: 700; color: var(--mkt-ink); margin: 0 0 14px; }
+.ig-not { margin: 0; padding: 0; list-style: none; }
+.ig-not li { padding: 12px 0; border-top: 1px solid var(--mkt-border-soft); font-size: 16px; line-height: 1.55; color: var(--mkt-ink-soft); }
+.ig-not strong { color: var(--mkt-ink); }
+@media (max-width: 640px) {
+  .ig-row { grid-template-columns: 56px minmax(0, 1fr); gap: 18px; padding: 24px 0; }
+  .ig-logo { width: 56px; height: 56px; border-radius: 14px; }
+  .ig-logo > svg, .ig-logo > img { max-width: 40px; max-height: 36px; }
+  .ig-name { font-size: 19px; }
+}
+`;

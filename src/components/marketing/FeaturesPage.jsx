@@ -1,108 +1,65 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import MarketingLayout, { Reveal } from './MarketingLayout';
-import FeatureChainFlow from './FeatureChainFlow';
-import InvoiceFlow from './InvoiceFlow';
-import DemoPlayer, { DemoStyles } from './DemoPlayer';
-import { BOKFORING_DEMO, FAKTURERING_DEMO, SKATT_DEMO, LON_DEMO } from './demoScenesFeatures';
-import { KitStyles, SubHero, KitSection, SpecList, PointList, KitCta, PrimaryButton, GhostLink } from './subpageKit';
+import { KitStyles, KitCta, PrimaryButton, GhostLink } from './subpageKit';
+import { ProductShot, ShotImg, SectionHead, PRODUCT_KIT_CSS } from './productKit';
 import { PageMeta, JsonLd } from '../../utils/seo';
 
-// Bokföring & fakturering (/funktioner). Omgjord 2026-09-26 (kundönskemål:
-// solida ytor, inga ikoner, en egen animation per sida): hjälten visar en
-// faktura som betalas och bokförs (InvoiceFlow), sedan en tvåspaltig rad per
-// huvuddel (subpageKit.jsx). Skärmbilderna är riktiga, tagna ur appen med
-// exempeldata. Sedan 2026-09-26 visar varje del en demo (DemoPlayer +
-// demoScenesFeatures.jsx) i stället för en skärmbild, på kundens begäran.
-const SECTIONS = [
-  {
-    id: 'bokforing', demo: BOKFORING_DEMO, title: 'Bokföring',
-    desc: 'Löpande bokföring som sköter sig själv när den kan, och flaggar tydligt när den inte kan.',
-    points: [
-      'Verifikationer bokförs automatiskt utifrån kvitton, fakturor och lönekörningar',
-      'Full kontoplan (BAS) med sökbara konton',
-      'Granskning samlar allt som saknar kontering på ett ställe, med kontoförslag ur dina egna tidigare bokföringar',
-      'SIE4-import av en befintlig bokföring, och SIE4-export när du vill ta med dig allt',
-      'Låsning av räkenskapsår vid bokslut',
-    ],
-  },
-  {
-    id: 'fakturering', demo: FAKTURERING_DEMO, title: 'Fakturering',
-    desc: 'Kund- och leverantörsfakturor i samma flöde, med ditt eget varumärke på fakturan.',
-    points: [
-      'Sex fakturamallar (Standard, Modern, Ren, Blankett, Affär, Enkel) med egen logotyp och accentfärg',
-      'Leverantörsfakturor registreras snabbt och bokförs automatiskt när konto är valt',
-      'Kortbetalningar direkt på fakturan via Stripe',
-      'Stripe-försäljning, avgifter och utbetalningar hämtas in varje morgon',
-      'ROT- och RUT-avdrag räknas på arbetskostnaden och visas både på fakturan och i underlaget till Skatteverket',
-      'Automatiska betalningspåminnelser till kunden när en faktura passerat förfallodatum',
-      'Utskick från din egen e-postdomän, inte en delad avsändaradress',
-      'PDF-export som alltid matchar exakt det du ser i förhandsvisningen',
-    ],
-  },
-  {
-    id: 'skatt', demo: SKATT_DEMO, title: 'Skatt och bokslut',
-    desc: 'Det som faktiskt ska in rätt hos Skatteverket, förberett åt dig men aldrig skickat automatiskt utan din signatur.',
-    points: [
-      'Momsdeklaration ruta för ruta, som PDF, och som eSKD-fil att ladda upp hos Skatteverket',
-      'AGI-fil per lönekörning att ladda upp hos Skatteverket, med arbetsgivaravgift efter ålder',
-      'Kontrolluppgifter (KU) sammanställda per anställd och år',
-      'Inkomstdeklaration 2: räkenskapsschema (INK2R) ifyllt ur bokföringen, med SRU-filer',
-      'Påminnelse i god tid före varje moms- och AGI-deadline',
-      'Ett bokslutsflöde som stämmer av och låser räkenskapsåret',
-    ],
-  },
-  {
-    id: 'personal', aliasId: 'lon', demo: LON_DEMO, title: 'Lön & personal',
-    desc: 'Lönekörning med rätt skatteavdrag från start, inte en gissning som rättas i efterhand.',
-    points: [
-      'Automatiskt skatteavdrag enligt Skatteverkets skattetabeller',
-      'Lönebesked som PDF per anställd',
-      'Semesteravsättning och arbetsgivaravgifter beräknade per körning',
-      'Betalfil till banken för nettolönerna (ISO 20022 pain.001)',
-      'Flera anställda i samma lönekörning, en tydlig sammanställning för hela företaget',
-    ],
-  },
+// ── Funktioner (/funktioner), tredje versionen 2026-11-07 ────────────────
+// Användaren valde "gör om helt": stor rubrik, en bred bild av appen och
+// sedan funktionerna som ett rutnät med stora riktiga bilder (som Stripe).
+// Bilderna kommer från scripts/capture-product-shots.mjs.
+
+// Rutnätet: wide = dubbel bredd. Bilden visas från överkanten.
+const TILES = [
+  { title: 'Fakturering', body: 'Fakturor med din logga, från din egen e-post. Kortbetalning via Stripe och påminnelser när de förfaller.', shot: 'kundfakturor-t', wide: true, to: '/faktureringsprogram' },
+  { title: 'Kvitton', body: 'Fota kvittot, så fylls datum, belopp och moms i.', shot: 'kvitton-mobil', phone: true },
+  { title: 'Att granska', body: 'Det Bokix inte är säker på hamnar här, med förslag i stället för gissningar.', shot: 'granska-mobil', phone: true },
+  { title: 'Moms', body: 'Momsdeklarationen fylls i ur bokföringen, ruta för ruta.', shot: 'moms-mobil', phone: true },
+  { title: 'Lön', body: 'Skattetabeller, AGI-fil, betalfil och semester.', shot: 'lonekorning-ny-mobil', phone: true, to: '/lon' },
+  { title: 'Bokslut och deklaration', body: 'Årsbokslutet steg för steg, och sedan det som gäller din bolagsform: NE-bilaga, INK2 med årsredovisning, INK4 eller INK3.', shot: 'ink2-t', wide: true, to: '/bokforingsprogram-aktiebolag' },
+  { title: 'Rapporter', body: 'Resultat, balans, kassaflöde och huvudbok.', shot: 'rapporter-mobil', phone: true },
 ];
 
-// Resten av appens sidor. De fyra sektionerna ovan är produktens tyngdpunkt,
-// men sidan påstod sig visa "allt som ingår" och hoppade ändå över halva
-// vänstermenyn (Bank, Offerter, Projekt, Kunder, Rapport och analys,
-// kontodelen) — kundönskemål: ha med allt Bokix faktiskt erbjuder. De får
-// ett kompakt rutnät i stället för egna illustrerade sektioner, eftersom de
-// är verkliga men mindre delar: ingen ny illustration behöver hittas på, och
-// listan går att fylla på utan att sidans rytm bryts.
-//
-// Varje rad nedan motsvarar en RIKTIG sida eller funktion i appen
-// (App.jsx:s meny) — inget som "planeras".
+// Telefonbilderna (390 px bred skärm i tre gångers upplösning) är skarpa
+// i de smala rutorna; datorbilderna blir för små där.
+const PHONE_SIZE = { w: 1170, h: 2373 };
+// De breda rutornas bilder (-t) tas i ett 1000 px brett fönster.
+const TILE_SIZE = { w: 1576, h: 1084 };
+
+// Resten av appen, kort.
 const MORE = [
-  { motif: 'bank', title: 'Bank', body: 'Läs in kontoutdraget, matcha raderna, bokför.' },
-  { motif: 'kvitton', title: 'Utgifter och kvitton', body: 'Underlaget sitter kvar på verifikationen.' },
-  { motif: 'offerter', title: 'Offerter', body: 'Blir faktura med ett klick när kunden tackat ja.' },
-  { motif: 'projekt', title: 'Projekt', body: 'Se vilket uppdrag som faktiskt bär sig.' },
-  { motif: 'kunder', title: 'Kunder och kontakter', body: 'Fylls i från organisationsnumret.' },
-  { motif: 'rapporter', title: 'Rapport och analys', body: 'Resultat, balans, kassaflöde, huvudbok, nyckeltal.' },
-  { motif: 'konto', title: 'Konto och behörighet', body: 'Tvåfaktor, tre användare, flera företag.' },
-  { motif: 'format', title: 'Filformat och export', body: 'SIE4, eSKD, SRU, ISO 20022, PDF och CSV.', to: '/integrationer' },
+  { title: 'Kunder', body: 'Uppgifterna hämtas från organisationsnumret.' },
+  { title: 'Offerter', body: 'Blir en faktura när kunden säger ja.' },
+  { title: 'Leverantörsfakturor', body: 'Det du ska betala, och när.' },
+  { title: 'Bank', body: 'Kontoutdraget matchas mot fakturor och kvitton.' },
+  { title: 'Bokföring', body: 'Enkelt läge, eller debet och kredit.' },
+  { title: 'Artiklar och lager', body: 'Lagervärde och marginal. Slås på vid behov.', to: '/bokforingsprogram-med-lager' },
+  { title: 'Projekt och tid', body: 'Tid och resultat per uppdrag. Slås på vid behov.' },
+  { title: 'Integrationer', body: 'Stripe, Zettle, din e-post och kalendern.', to: '/integrationer' },
 ];
 
-// ItemList-schema byggt direkt av SECTIONS + MORE ovan — exakt det sidan
-// visar, aldrig en egen dubblettlista. Ger Google/AI-svarsmotorer en
-// strukturerad lista över vad produkten faktiskt gör, inte bara brödtext.
-// MORE är med av samma skäl som den finns på sidan: en lista som utelämnar
-// halva produkten är sämre indata än ingen lista alls.
-const FEATURE_LIST_SCHEMA = {
+const SCHEMA = {
   '@context': 'https://schema.org',
   '@type': 'ItemList',
-  itemListElement: [
-    ...SECTIONS.map(s => ({ name: s.title, description: [s.desc, ...s.points].join(' ') })),
-    ...MORE.map(m => ({ name: m.title, description: m.body })),
-  ].map((entry, i) => ({
-    '@type': 'ListItem',
-    position: i + 1,
-    item: { '@type': 'Thing', ...entry },
-  })),
+  name: 'Funktioner i Bokix',
+  itemListElement: [...TILES, ...MORE].map((m, i) => ({ '@type': 'ListItem', position: i + 1, item: { '@type': 'Thing', name: m.title, description: m.body } })),
 };
+
+function Tile({ t, i }) {
+  const inner = (<>
+    <div className="ft-tile-text">
+      <h3>{t.title}{t.to && <span className="ft-arrow" aria-hidden="true">→</span>}</h3>
+      <p>{t.body}</p>
+    </div>
+    <div className={'ft-tile-img' + (t.phone ? ' is-phone' : '')}><ShotImg name={t.shot} alt={t.title} size={t.phone ? PHONE_SIZE : TILE_SIZE} /></div>
+  </>);
+  return (
+    <Reveal delay={(i % 3) * 60} className={'ft-tile' + (t.wide ? ' is-wide' : '')}>
+      {t.to ? <Link to={t.to} className="ft-tile-link">{inner}</Link> : inner}
+    </Reveal>
+  );
+}
 
 export default function FeaturesPage() {
   const navigate = useNavigate();
@@ -111,76 +68,96 @@ export default function FeaturesPage() {
     <MarketingLayout>
       <PageMeta
         title="Funktioner: bokföring, fakturering, lön och moms | Bokix"
-        description="Allt som ingår i Bokix: bokföring med BAS-kontoplan, fakturor med ROT/RUT, offerter, projekt, bankimport, lön, moms, AGI och elva rapporter."
+        description="Allt som ingår i Bokix: kvitton, fakturor och offerter, bank, bokföring med BAS-kontoplanen, lön, moms, bokslut, deklarationer och rapporter."
         path="/funktioner"
       />
-      <JsonLd data={FEATURE_LIST_SCHEMA} />
+      <JsonLd data={SCHEMA} />
       <KitStyles />
-      <DemoStyles />
-      <style>{`
-        .bx-ft-points { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 40px; max-width: 820px; margin: 44px auto 0; }
-        @media (max-width: 700px) { .bx-ft-points { grid-template-columns: 1fr; } .bx-ft-points .kx-list + .kx-list { border-top: none; } }
-      `}</style>
+      <style>{PRODUCT_KIT_CSS + FT_CSS}</style>
 
-      <SubHero
-        eyebrow="Bokföring & fakturering"
-        title="Du fakturerar. Bokföringen följer med."
-        lead="Kvitton, fakturor, moms och bokslut i ett och samma verktyg. Det som går att bokföra automatiskt gör det, och det som är osäkert hamnar i Granskning med ett förslag i stället för en gissning."
-        actions={<>
-          <PrimaryButton onClick={enterApp}>Prova gratis</PrimaryButton>
-          <GhostLink to="/priser">Se priser</GhostLink>
-        </>}
-        visual={<InvoiceFlow />}
-      />
+      <section className="pk-hero ft-hero">
+        <Reveal className="pk-hero-text">
+          <h1 className="pk-h1-wrap">
+            <span className="pk-eyebrow">Funktioner</span>
+            <span className="kx-h1 pk-h1">Hela företagets ekonomi i ett program.</span>
+          </h1>
+          <p className="pk-hero-lead">Kvitton, fakturor, bank, lön, moms och bokslut. Det som går att bokföra av sig självt gör det, och det som är osäkert får du titta på.</p>
+          <div className="kx-actions pk-hero-actions">
+            <PrimaryButton onClick={enterApp}>Prova gratis i 30 dagar</PrimaryButton>
+            <GhostLink to="/priser">Se priser</GhostLink>
+          </div>
+          <p className="pk-hero-note">Allt ingår, från 129 kr/mån. Bokföringen lagras i Sverige och sparas i sju år.</p>
+        </Reveal>
+        <Reveal delay={120} className="ft-hero-shot">
+          <ProductShot name="start" alt="Startsidan i Bokix" eager />
+        </Reveal>
+      </section>
 
-      {/* ── Sambandet: en händelse, tre ställen ── */}
-      <section className="kx-section" style={{ background: 'var(--mkt-ivory)' }}>
-        <div style={{ maxWidth: '1020px', margin: '0 auto' }}>
-          <Reveal style={{ textAlign: 'center', marginBottom: '36px' }}>
-            <h2 className="kx-h2">Allt hänger ihop</h2>
-            <p className="kx-sub" style={{ maxWidth: '520px', margin: '0 auto' }}>
-              Det är därför det är ett verktyg och inte fyra. Du gör en sak, resten följer med.
-            </p>
-          </Reveal>
-          <Reveal scale delay={60}>
-            <FeatureChainFlow />
-          </Reveal>
+      <section className="pk-section is-alt">
+        <div className="ft-wrap">
+          <SectionHead title="Det här finns i Bokix" lead="Bilderna är tagna ur appen, med ett exempelföretag." />
+          <div className="ft-grid">
+            {TILES.map((t, i) => <Tile key={t.title} t={t} i={i} />)}
+          </div>
         </div>
       </section>
 
-      {SECTIONS.map((sec, i) => (
-        <section key={sec.id} id={sec.id} className="kx-section" style={{ background: i % 2 ? 'var(--mkt-ivory)' : 'var(--mkt-page-bg)', scrollMarginTop: '84px' }}>
-          {sec.aliasId && <div id={sec.aliasId} />}
-          <Reveal style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 40px' }}>
-            <h2 className="kx-h2" style={{ fontSize: 'clamp(28px, 4vw, 42px)' }}>{sec.title}</h2>
-            <p className="kx-sub" style={{ fontSize: '17px' }}>{sec.desc}</p>
-          </Reveal>
-          <Reveal scale delay={60}>
-            <DemoPlayer steps={sec.demo} stepMs={7000} label={`Demo: ${sec.title}`} />
-          </Reveal>
-          <Reveal delay={80} className="bx-ft-points">
-            <PointList items={sec.points.slice(0, Math.ceil(sec.points.length / 2))} />
-            <PointList items={sec.points.slice(Math.ceil(sec.points.length / 2))} />
-          </Reveal>
-          {sec.id === 'personal' && (
-            <p style={{ textAlign: 'center', marginTop: '24px' }}>
-              <Link to="/lon" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 700, textDecoration: 'none' }}>Mer om lön och arbetsgivare →</Link>
-            </p>
-          )}
-        </section>
-      ))}
+      <section className="pk-section">
+        <div className="ft-wrap">
+          <SectionHead title="Och resten" />
+          <div className="ft-more">
+            {MORE.map((m, i) => (
+              <Reveal key={m.title} delay={(i % 4) * 50} className="ft-more-item">
+                <h3>{m.to ? <Link to={m.to}>{m.title}</Link> : m.title}</h3>
+                <p>{m.body}</p>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
 
-      <KitSection title="Och resten av verktyget" lead="Samma pris, inget tillägg. Allt nedan finns i appen i dag." alt>
-        <SpecList items={MORE.map(m => ({ title: m.title, body: m.body }))} />
-        <p className="kx-row-body" style={{ marginTop: '18px' }}>
-          <Link to="/integrationer" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 700, textDecoration: 'none' }}>Se alla filformat och kopplingar →</Link>
-        </p>
-      </KitSection>
-
-      <KitCta title="Allt ovan ingår" lead="Inga tillägg per funktion. Två priser, beroende på om du har personal på lönelistan.">
-        <PrimaryButton onClick={enterApp}>Prova gratis</PrimaryButton>
+      <KitCta title="Allt ovan ingår" lead="129 kr/mån utan anställda, 179 kr/mån med anställda. 30 dagar gratis och ingen bindningstid på månadsplanen.">
+        <PrimaryButton onClick={enterApp}>Prova gratis i 30 dagar</PrimaryButton>
         <GhostLink to="/priser">Se priser</GhostLink>
       </KitCta>
     </MarketingLayout>
   );
 }
+
+const FT_CSS = `
+.ft-hero { padding-bottom: 88px; }
+.ft-hero-shot { max-width: 1180px; margin: 56px auto 0; }
+.ft-wrap { max-width: 1200px; margin: 0 auto; }
+.ft-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.ft-tile { display: flex; flex-direction: column; min-height: 440px; border-radius: 22px; overflow: hidden; background: var(--mkt-card-bg); border: 1px solid var(--mkt-card-border); transition: transform 0.25s ease, box-shadow 0.25s ease; }
+.ft-tile.is-wide { grid-column: span 2; }
+.ft-tile:hover { transform: translateY(-3px); box-shadow: 0 30px 60px -40px rgba(16,24,20,0.35); }
+.ft-tile-link { display: flex; flex-direction: column; flex: 1; color: inherit; text-decoration: none; }
+.ft-tile-text { padding: 28px 28px 22px; }
+.ft-tile-text h3 { display: flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 700; letter-spacing: -0.015em; color: var(--mkt-ink); margin: 0 0 8px; }
+.ft-arrow { color: var(--mkt-accent-green-fg); transition: transform 0.2s ease; }
+.ft-tile:hover .ft-arrow { transform: translateX(4px); }
+.ft-tile-text p { font-size: 15.5px; line-height: 1.55; color: var(--mkt-ink-soft); margin: 0; max-width: 520px; text-wrap: pretty; }
+.ft-tile-img { flex: 1; min-height: 240px; margin: 0 0 0 28px; border-top-left-radius: 14px; border: 1px solid var(--mkt-card-border); border-right: 0; border-bottom: 0; overflow: hidden; position: relative; }
+.ft-tile-img .pk-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: left top; }
+.ft-tile-img.is-phone { margin: 0 28px; border-radius: 18px 18px 0 0; border-right: 1px solid var(--mkt-card-border); }
+.ft-tile-img.is-phone .pk-img { height: auto; top: -10.8%; bottom: auto; }
+.ft-more { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px 32px; }
+.ft-more-item { border-top: 1px solid var(--mkt-border-soft); padding-top: 18px; }
+.ft-more-item h3 { font-size: 17px; font-weight: 700; color: var(--mkt-ink); margin: 0 0 6px; }
+.ft-more-item h3 a { color: inherit; text-decoration: none; border-bottom: 1px solid var(--mkt-btn-border); }
+.ft-more-item h3 a:hover { color: var(--mkt-accent-green-fg); border-bottom-color: currentColor; }
+.ft-more-item p { font-size: 15px; line-height: 1.5; color: var(--mkt-ink-soft); margin: 0; }
+@media (max-width: 960px) {
+  .ft-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ft-more { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .ft-grid { grid-template-columns: 1fr; }
+  .ft-tile.is-wide { grid-column: auto; }
+  .ft-tile { min-height: 380px; }
+  .ft-tile-text { padding: 22px 22px 18px; }
+  .ft-tile-img { margin-left: 22px; }
+  .ft-more { grid-template-columns: 1fr; gap: 20px; }
+}
+`;

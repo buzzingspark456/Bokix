@@ -40,7 +40,7 @@ export const ORG_TYPE_PAGES = [
     ],
     steps: [
       { title: 'Skapa kontot med organisationsnumret', body: 'Bokix hämtar företagets uppgifter och väljer räkenskapsår och momsperiod åt dig. Det tar några minuter.' },
-      { title: 'Lägg in kvitton och fakturor löpande', body: 'Fota kvittot eller skicka fakturan från Bokix. Det som är osäkert hamnar i Granskning i stället för att gissas.' },
+      { title: 'Lägg in kvitton och fakturor löpande', body: 'Fota kvittot eller skicka fakturan från Bokix. Det som är osäkert hamnar i Att granska i stället för att gissas.' },
       { title: 'Deklarera moms och gör bokslutet', body: 'Momsen och NE-bilagan räknas fram ur bokföringen. Du laddar ned filerna och lämnar in hos Skatteverket med BankID.' },
     ],
     facts: [
@@ -58,6 +58,64 @@ export const ORG_TYPE_PAGES = [
       { label: 'Enskild firma: bokföring, egenavgifter och NE-bilaga', to: '/blogg/enskild-firma-bokforing-ne' },
       { label: 'Egenavgiftskalkylator', to: '/verktyg/egenavgifter' },
     ],
+    // Produktsidan (2026-11-07): riktiga bilder ur appen, se productKit.jsx.
+    product: {
+      h1Tail: 'Kvitton, fakturor och NE-bilagan i ett program.',
+      lead: 'Fota kvittot och skicka fakturan under året. När året är slut räknar Bokix fram momsen och ger förslag till NE-bilagan.',
+      heroTabs: [
+        { label: 'Översikt', shot: 'start', caption: 'Startsidan: resultat, pengar på banken och det som ska göras härnäst.' },
+        { label: 'Kvitton', shot: 'kvitton', caption: 'Kvittona med vad som är bokfört och vad som behöver granskas.' },
+        { label: 'Fakturor', shot: 'kundfakturor', caption: 'Kundfakturorna med vad som är obetalt och vad som har förfallit.' },
+        { label: 'Moms', shot: 'moms', caption: 'Momsdeklarationen fylls i ur bokföringen, ruta för ruta.' },
+        { label: 'NE-bilaga', shot: 'ef-ne', caption: 'NE-bilagan förifylld ur bokföringen, som SRU-fil och PDF.' },
+      ],
+      reasonsTitle: 'Därför passar Bokix en enskild firma',
+      reasons: [
+        { title: 'Du behöver inte kunna debet och kredit', body: 'I det enkla läget väljer du vad som hänt, till exempel en försäljning eller ett köp. Bokix väljer konton.' },
+        { title: 'Egna uttag bokförs rätt', body: 'Pengar du tar ut eller sätter in själv bokförs mot eget kapital, utan att du behöver kunna kontonumren.' },
+        { title: 'NE-bilagan ur bokföringen', body: 'När bokslutet är klart föreslår Bokix beloppen i NE-bilagan. Du kontrollerar och lämnar in.' },
+      ],
+      featuresTitle: 'Det här gör du i Bokix',
+      features: [
+        { kicker: 'Kvitton', title: 'Fota kvittot, resten fylls i', shot: 'kvitton-c', body: 'Datum, belopp och moms läses av från fotot. Det som är osäkert hamnar i Att granska i stället för att gissas.', points: ['Flera momssatser på samma kvitto', 'Foto, PDF eller en hel mapp på en gång', 'Kvittot sparas med verifikationen i sju år'] },
+        { kicker: 'Fakturering', title: 'Fakturor med din logga', shot: 'kundfakturor-c', body: 'Skicka fakturan med e-post från Bokix. När kunden betalar bokförs betalningen mot fakturan.', points: ['ROT- och RUT-avdrag på fakturan', 'Kortbetalning på fakturan via Stripe', 'Påminnelse när fakturan har förfallit'] },
+        { kicker: 'Moms', title: 'Momsdeklarationen räknas fram', shot: 'moms-c', body: 'Rutorna fylls i ur bokföringen. Du kontrollerar, granskar och bokför, och laddar ner filen till Skatteverket.', points: ['Per år, kvartal eller månad', 'Kontroll av perioden innan du lämnar in', 'Momsen bokförs mot skattekontot'] },
+        { kicker: 'Deklaration', title: 'NE-bilagan ur bokföringen', shot: 'ef-ne-c', body: 'Bokix fyller i det som går från bokföringen. Du skriver över ett fält om det är fel och laddar ner filen.', points: ['SRU-fil att läsa in hos Skatteverket', 'PDF att kontrollera siffrorna mot', 'Du lämnar in med BankID, som privatperson'] },
+        { kicker: 'Översikt', title: 'Alla datum på ett ställe', shot: 'ef-skatt-c', body: 'Under Skatt och bokslut ser du vad som ska lämnas in härnäst och hur långt du har kommit.', points: ['Moms, årsbokslut och NE-bilaga i ordning', 'Dagar kvar till varje datum', 'Ett klick till rätt steg'] },
+      ],
+      year: {
+        title: 'Ditt år med enskild firma',
+        lead: 'Det här ska göras under ett vanligt år. Bokix visar dina egna datum under Skatt och bokslut.',
+        every: 'Preliminärskatten (F-skatt) dras från skattekontot den 12:e, i januari och augusti den 17:e.',
+        quarters: [
+          { label: 'Januari–mars', events: [
+            { date: 'Januari', title: 'Bokslut för förra året', bokix: 'Årsbokslutet steg för steg: bank, kundfakturor, leverantörer, periodisering och lager.', key: true },
+          ] },
+          { label: 'April–juni', events: [
+            { date: '2 maj', title: 'Inkomstdeklaration 1 med NE-bilaga', bokix: 'Förslag på beloppen, SRU-fil och PDF. Du lämnar in med BankID.', key: true },
+            { date: '12 maj', title: 'Moms för hela förra året', bokix: 'Deklarationen fylls i ur bokföringen.', key: true },
+          ] },
+          { label: 'Juli–september', events: [], empty: 'Löpande bokföring: kvitton, fakturor och bank.' },
+          { label: 'Oktober–december', events: [
+            { date: '31 december', title: 'Räkenskapsåret slutar', bokix: 'En enskild firma har nästan alltid kalenderår. Året låses när bokslutet är klart.' },
+          ] },
+        ],
+        note: 'Exemplet gäller moms per år, som är vanligt när omsättningen är högst en miljon kronor. Infaller ett datum på en helg flyttas det till nästa vardag.',
+      },
+      compare: {
+        title: 'Själv, med byrå eller med Bokix',
+        lead: 'En byrå passar om du vill lämna bort allt. Bokix passar om du vill ha koll själv och betala lite.',
+        cols: ['I Excel', 'Med redovisningsbyrå', 'Med Bokix'],
+        rows: [
+          ['Kostnad', 'Inget program, men mycket tid', 'Arvode per timme eller månad', '129 kr/mån'],
+          ['Kvitton', 'Sparas i en pärm eller mapp', 'Skickas till byrån', 'Fotas och läses av, sparas i sju år'],
+          ['Moms', 'Du räknar och fyller i själv', 'Byrån gör det', 'Räknas fram ur bokföringen, du lämnar in'],
+          ['NE-bilagan', 'Du räknar fram beloppen själv', 'Byrån gör det', 'Förslag ur bokföringen, som SRU-fil'],
+          ['Koll på siffrorna', 'När du själv har uppdaterat', 'När byrån har skickat rapporten', 'Hela tiden, på startsidan'],
+        ],
+      },
+      price: { amount: '129 kr', unit: '/mån', text: 'Allt ovan ingår. 179 kr/mån om du har anställda. 109 respektive 149 kr/mån med årsplan. Ingen moms tillkommer. 30 dagar gratis.' },
+    },
   },
   {
     slug: 'aktiebolag',
@@ -98,6 +156,70 @@ export const ORG_TYPE_PAGES = [
       { label: 'Lön eller utdelning i aktiebolag: så väljer du', to: '/blogg/lon-eller-utdelning-ab' },
       { label: 'Utdelningskalkylator 2026', to: '/verktyg/utdelning' },
     ],
+    // Produktsidan (2026-11-07): riktiga bilder ur appen, se productKit.jsx.
+    product: {
+      h1Tail: 'Hela bolagets år i ett program.',
+      lead: 'Fakturor, lön och moms under året. Bokslut, INK2 och årsredovisning när året är slut. Bokix räknar fram siffrorna, du granskar och lämnar in.',
+      heroTabs: [
+        { label: 'Översikt', shot: 'start', caption: 'Startsidan: resultat, pengar på banken och det som ska göras härnäst.' },
+        { label: 'Fakturor', shot: 'kundfakturor', caption: 'Kundfakturorna med vad som är obetalt och vad som har förfallit.' },
+        { label: 'Moms', shot: 'moms', caption: 'Momsdeklarationen fylls i ur bokföringen, ruta för ruta.' },
+        { label: 'Lön', shot: 'lonekorning-ny', caption: 'En lönekörning för alla anställda, med skatt och arbetsgivaravgift uträknade.' },
+        { label: 'INK2', shot: 'ink2', caption: 'Inkomstdeklaration 2 med räkenskapsschemat ifyllt ur bokföringen.' },
+      ],
+      reasonsTitle: 'Därför passar Bokix ett aktiebolag',
+      reasons: [
+        { title: 'Lön och utdelning i samma program', body: 'Lönekörningen ger AGI-fil och betalfil. Utdelningen som stämman beslutar bokförs som skuld tills den betalas ut.' },
+        { title: 'Bokslutet i fyra steg', body: 'Årsbokslut, årsredovisning, utdelning och INK2 i ordning, och Bokix visar vad som saknas innan du går vidare.' },
+        { title: 'Bolaget hämtas från Bolagsverket', body: 'Skriv organisationsnumret, så fylls namn och adress i. Räkenskapsår och momsperiod väljs när kontot skapas.' },
+      ],
+      featuresTitle: 'Det här gör du i Bokix',
+      features: [
+        { kicker: 'Fakturering', title: 'Fakturera och få betalt', shot: 'kundfakturor-c', body: 'Skicka fakturan med e-post direkt från Bokix. När kunden betalar bokförs betalningen mot fakturan.', points: ['Offerten blir en faktura när kunden säger ja', 'Kortbetalning på fakturan via Stripe', 'Påminnelse när fakturan har förfallit'] },
+        { kicker: 'Moms', title: 'Momsdeklarationen räknas fram', shot: 'moms-c', body: 'Rutorna fylls i ur bokföringen. Du kontrollerar, granskar och bokför, och laddar ner filen till Skatteverket.', points: ['Per månad, kvartal eller år', 'Kontroll av perioden innan du lämnar in', 'Momsen bokförs mot skattekontot'] },
+        { kicker: 'Lön', title: 'Lön utan lönebyrå', shot: 'lonekorning-ny-c', body: 'Välj månad och utbetalningsdag. Bokix räknar skatt och arbetsgivaravgift för varje anställd och bokför lönen.', points: ['Skattetabeller och arbetsgivaravgift efter ålder', 'Lönebesked till de anställda', 'AGI-fil och betalfil till banken'] },
+        { kicker: 'Deklaration', title: 'INK2 ur bokföringen', shot: 'ink2-c', body: 'Balans- och resultaträkningen hämtas från bokföringen. Du fyller bara i det som gäller bolagets skatt.', points: ['Räkenskapsschemat ifyllt rad för rad', 'SRU-fil och Skatteverkets blankett ifylld', 'Det som behöver kontrolleras markeras'] },
+        { kicker: 'Årsredovisning', title: 'Årsredovisning enligt K2', shot: 'arsredovisning-c', body: 'Siffrorna kommer från bokslutet. Du skriver förvaltningsberättelsen och vinstdispositionen, och får en PDF att skriva under.', points: ['Förvaltningsberättelse med förslag ur bokföringen', 'Vinstdisposition och underskrifter', 'PDF som styrelsen skriver under'] },
+      ],
+      year: {
+        title: 'Ditt år som aktiebolag',
+        lead: 'Det här ska göras under ett vanligt år. Bokix visar dina egna datum under Skatt och bokslut.',
+        every: 'Lön och arbetsgivardeklaration. Den lämnas och betalas den 12:e månaden efter löneutbetalningen, i januari och augusti den 17:e.',
+        quarters: [
+          { label: 'Januari–mars', events: [
+            { date: 'Januari', title: 'Bokslut för förra året', bokix: 'Årsbokslutet steg för steg: bank, kundfakturor, leverantörer, periodisering och lager.', key: true },
+            { date: '12 februari', title: 'Moms för oktober–december', bokix: 'Deklarationen fylls i ur bokföringen.' },
+          ] },
+          { label: 'April–juni', events: [
+            { date: '12 maj', title: 'Moms för januari–mars', bokix: 'Deklarationen fylls i ur bokföringen.' },
+            { date: 'Senast 30 juni', title: 'Bolagsstämma', bokix: 'Stämman fastställer årsredovisningen och beslutar om utdelning, som Bokix bokför.', key: true },
+          ] },
+          { label: 'Juli–september', events: [
+            { date: 'Senast 31 juli', title: 'Årsredovisningen till Bolagsverket', bokix: 'PDF enligt K2. Du lämnar in den själv.', key: true },
+            { date: '1 augusti', title: 'Inkomstdeklaration 2', bokix: 'SRU-fil och blankett ifylld. Datumet gäller när du lämnar in digitalt.', key: true },
+            { date: '17 augusti', title: 'Moms för april–juni', bokix: 'Deklarationen fylls i ur bokföringen.' },
+          ] },
+          { label: 'Oktober–december', events: [
+            { date: '12 november', title: 'Moms för juli–september', bokix: 'Deklarationen fylls i ur bokföringen.' },
+            { date: '31 december', title: 'Räkenskapsåret slutar', bokix: 'Året låses när bokslutet är klart, så att inget ändras i efterhand.' },
+          ] },
+        ],
+        note: 'Exemplet gäller räkenskapsår som kalenderår och moms per kvartal. Infaller ett datum på en helg flyttas det till nästa vardag.',
+      },
+      compare: {
+        title: 'Själv, med byrå eller med Bokix',
+        lead: 'En byrå passar om du vill lämna bort allt. Bokix passar om du vill ha koll själv och betala lite.',
+        cols: ['I Excel', 'Med redovisningsbyrå', 'Med Bokix'],
+        rows: [
+          ['Kostnad', 'Inget program, men mycket tid', 'Arvode per timme eller månad', '129 kr/mån, 179 kr/mån med anställda'],
+          ['Moms och AGI', 'Du räknar och fyller i själv', 'Byrån gör det', 'Räknas fram ur bokföringen, du lämnar in'],
+          ['Bokslut, INK2 och årsredovisning', 'Svårt utan förkunskaper', 'Byrån gör det', 'Steg för steg, med PDF och SRU-fil'],
+          ['Koll på siffrorna', 'När du själv har uppdaterat', 'När byrån har skickat rapporten', 'Hela tiden, på startsidan'],
+          ['Vem som gör jobbet', 'Du', 'Byrån', 'Du, och du kan bjuda in din konsult'],
+        ],
+      },
+      price: { amount: '129 kr', unit: '/mån', text: 'Allt ovan ingår. 179 kr/mån med anställda, 109 respektive 149 kr/mån med årsplan. Ingen moms tillkommer. 30 dagar gratis.' },
+    },
   },
   {
     slug: 'handelsbolag',
@@ -140,6 +262,64 @@ export const ORG_TYPE_PAGES = [
       { label: 'Byt bokföringsprogram med en SIE4-fil', to: '/byt-bokforingsprogram' },
       { label: 'Bokslut för småföretag: checklista', to: '/blogg/bokslut-checklista' },
     ],
+    // Produktsidan (2026-11-07): riktiga bilder ur appen, se productKit.jsx.
+    product: {
+      h1Tail: 'Bokföringen för bolaget, underlaget för varje delägare.',
+      lead: 'Fakturor, kvitton och moms under året. I bokslutet delas resultatet på delägarna, och Bokix tar fram bilagorna till INK4.',
+      heroTabs: [
+        { label: 'Översikt', shot: 'start', caption: 'Startsidan: resultat, pengar på banken och det som ska göras härnäst.' },
+        { label: 'Fakturor', shot: 'kundfakturor', caption: 'Kundfakturorna med vad som är obetalt och vad som har förfallit.' },
+        { label: 'Moms', shot: 'moms', caption: 'Momsdeklarationen fylls i ur bokföringen, ruta för ruta.' },
+        { label: 'Delägare', shot: 'hb-delagare', caption: 'Delägarna med sina andelar, och underlaget till varje delägares N3A.' },
+        { label: 'INK4', shot: 'hb-ink4', caption: 'Bilagorna till inkomstdeklaration 4, steg för steg och som SRU-fil.' },
+      ],
+      reasonsTitle: 'Därför passar Bokix ett handelsbolag',
+      reasons: [
+        { title: 'Tre användare ingår', body: 'Båda delägarna och er revisor kan arbeta i samma bokföring, utan extra kostnad.' },
+        { title: 'Ett kapitalkonto per delägare', body: 'Varje delägare får en egen kontoserie för insättningar, uttag och sin andel av resultatet.' },
+        { title: 'Bilagorna till INK4 som fil', body: 'INK4R, INK4S och INK4DU för varje delägare tas fram ur bokföringen, som SRU-fil.' },
+      ],
+      featuresTitle: 'Det här gör ni i Bokix',
+      features: [
+        { kicker: 'Fakturering', title: 'Fakturera och få betalt', shot: 'kundfakturor-c', body: 'Skicka fakturan med e-post från Bokix. När kunden betalar bokförs betalningen mot fakturan.', points: ['Offerten blir en faktura när kunden säger ja', 'Kortbetalning på fakturan via Stripe', 'Påminnelse när fakturan har förfallit'] },
+        { kicker: 'Kvitton', title: 'Fota kvittot, resten fylls i', shot: 'kvitton-c', body: 'Datum, belopp och moms läses av från fotot. Det som är osäkert hamnar i Att granska i stället för att gissas.', points: ['Flera momssatser på samma kvitto', 'Foto, PDF eller en hel mapp på en gång', 'Kvittot sparas med verifikationen i sju år'] },
+        { kicker: 'Delägare', title: 'Resultatet delas på delägarna', shot: 'hb-delagare-c', body: 'Lägg in delägarna och deras andelar. När året låses bokförs varje delägares andel på hans eller hennes resultatkonto.', points: ['Egen kontoserie per delägare', 'Insättningar och uttag per delägare', 'Underlag till varje delägares N3A'] },
+        { kicker: 'Deklaration', title: 'INK4 steg för steg', shot: 'hb-ink4-c', body: 'Räkenskaperna hämtas från bokföringen. Du går igenom justeringar och delägare, och laddar ner SRU-filen.', points: ['Räkenskapsschema (INK4R)', 'Skattemässiga justeringar (INK4S)', 'Delägaruppgifter (INK4DU) för varje delägare'] },
+        { kicker: 'Moms', title: 'Momsdeklarationen räknas fram', shot: 'moms-c', body: 'Rutorna fylls i ur bokföringen. Du kontrollerar, granskar och bokför, och laddar ner filen till Skatteverket.', points: ['Per år, kvartal eller månad', 'Kontroll av perioden innan du lämnar in', 'Momsen bokförs mot skattekontot'] },
+      ],
+      year: {
+        title: 'Ert år som handelsbolag',
+        lead: 'Det här ska göras under ett vanligt år. Bokix visar era egna datum under Skatt och bokslut.',
+        every: 'Bolaget betalar ingen inkomstskatt. Varje delägare betalar preliminärskatt på sin andel av resultatet, på sitt eget skattekonto.',
+        quarters: [
+          { label: 'Januari–mars', events: [
+            { date: 'Januari', title: 'Bokslut för förra året', bokix: 'Årsbokslutet steg för steg. När året låses bokförs resultatet på delägarnas konton.', key: true },
+            { date: '26 februari', title: 'Moms för hela förra året', bokix: 'Deklarationen fylls i ur bokföringen.', key: true },
+          ] },
+          { label: 'April–juni', events: [
+            { date: 'Början av maj', title: 'INK4 för bolaget, N3A för delägarna', bokix: 'Bilagorna till INK4 som SRU-fil, och underlaget till varje delägares N3A.', key: true },
+          ] },
+          { label: 'Juli–september', events: [], empty: 'Löpande bokföring: kvitton, fakturor och bank.' },
+          { label: 'Oktober–december', events: [
+            { date: '31 december', title: 'Räkenskapsåret slutar', bokix: 'Året låses när bokslutet är klart, så att inget ändras i efterhand.' },
+          ] },
+        ],
+        note: 'Exemplet gäller räkenskapsår som kalenderår och moms per år. Exakta datum för INK4 står hos Skatteverket. Infaller ett datum på en helg flyttas det till nästa vardag.',
+      },
+      compare: {
+        title: 'Själv, med byrå eller med Bokix',
+        lead: 'En byrå passar om ni vill lämna bort allt. Bokix passar om ni vill ha koll själva och betala lite.',
+        cols: ['I Excel', 'Med redovisningsbyrå', 'Med Bokix'],
+        rows: [
+          ['Kostnad', 'Inget program, men mycket tid', 'Arvode per timme eller månad', '129 kr/mån, tre användare ingår'],
+          ['Delägarnas andelar', 'Räknas för hand', 'Byrån gör det', 'Fördelas i bokslutet, per delägare'],
+          ['INK4 med bilagor', 'Svårt utan förkunskaper', 'Byrån gör det', 'Steg för steg, som SRU-fil'],
+          ['Arbeta tillsammans', 'En fil som skickas runt', 'Byrån har bokföringen', 'Samma bokföring, samtidigt'],
+          ['Koll på siffrorna', 'När någon har uppdaterat', 'När byrån har skickat rapporten', 'Hela tiden, på startsidan'],
+        ],
+      },
+      price: { amount: '129 kr', unit: '/mån', text: 'Allt ovan ingår, och tre användare. 179 kr/mån med anställda, 109 respektive 149 kr/mån med årsplan. Ingen moms tillkommer. 30 dagar gratis.' },
+    },
   },
   {
     slug: 'ekonomisk-forening',
@@ -183,6 +363,69 @@ export const ORG_TYPE_PAGES = [
       { label: 'Momsdeklaration steg för steg', to: '/blogg/moms-deklaration-steg-for-steg' },
       { label: 'Bokslut för småföretag: checklista', to: '/blogg/bokslut-checklista' },
     ],
+    // Produktsidan (2026-11-07): riktiga bilder ur appen, se productKit.jsx.
+    product: {
+      h1Tail: 'Kassör, styrelse och revisor i samma bokföring.',
+      lead: 'Fakturor, lön och moms under året. Bokslut, INK2 och årsredovisning enligt K2 till föreningsstämman.',
+      heroTabs: [
+        { label: 'Översikt', shot: 'start', caption: 'Startsidan: resultat, pengar på banken och det som ska göras härnäst.' },
+        { label: 'Fakturor', shot: 'kundfakturor', caption: 'Kundfakturorna med vad som är obetalt och vad som har förfallit.' },
+        { label: 'Moms', shot: 'moms', caption: 'Momsdeklarationen fylls i ur bokföringen, ruta för ruta.' },
+        { label: 'Årsredovisning', shot: 'ek-arsredovisning', caption: 'Årsredovisningen enligt K2 med föreningens egna poster, steg för steg.' },
+        { label: 'INK2', shot: 'ink2', caption: 'Inkomstdeklaration 2 med räkenskapsschemat ifyllt ur bokföringen.' },
+      ],
+      reasonsTitle: 'Därför passar Bokix en ekonomisk förening',
+      reasons: [
+        { title: 'Tre användare ingår', body: 'Kassören, ordföranden och revisorn kan arbeta i samma bokföring, utan extra kostnad.' },
+        { title: 'Årsredovisning för en förening', body: 'Medlemsinsatser, förslag till föreningsstämman och styrelsens underskrifter, enligt K2.' },
+        { title: 'Återbäring till medlemmarna', body: 'Bokix räknar fram återbäringen per medlem, bokför beslut och utbetalning och tar med avdraget i INK2.' },
+      ],
+      featuresTitle: 'Det här gör ni i Bokix',
+      features: [
+        { kicker: 'Fakturering', title: 'Fakturera och få betalt', shot: 'kundfakturor-c', body: 'Skicka fakturan med e-post från Bokix. När kunden betalar bokförs betalningen mot fakturan.', points: ['Offerten blir en faktura när kunden säger ja', 'Kortbetalning på fakturan via Stripe', 'Påminnelse när fakturan har förfallit'] },
+        { kicker: 'Lön', title: 'Lön till de anställda', shot: 'lonekorning-ny-c', body: 'Välj månad och utbetalningsdag. Bokix räknar skatt och arbetsgivaravgift för varje anställd och bokför lönen.', points: ['Skattetabeller och arbetsgivaravgift efter ålder', 'Lönebesked till de anställda', 'AGI-fil och betalfil till banken'] },
+        { kicker: 'Rapporter', title: 'Siffrorna till styrelsemötet', shot: 'resultatrakning-c', body: 'Resultaträkningen med en kort sammanfattning i ord, att visa styrelsen eller skriva ut till mötet.', points: ['Resultat- och balansräkning', 'Utveckling per månad', 'Skriv ut eller spara som PDF'] },
+        { kicker: 'Årsredovisning', title: 'Årsredovisning enligt K2', shot: 'ek-arsredovisning-c', body: 'Siffrorna kommer från bokslutet. Ni skriver förvaltningsberättelsen och förslaget om överskottet, och får en PDF att skriva under.', points: ['Medlemsinsatser i eget kapital', 'Förslag till föreningsstämman', 'PDF som styrelsen skriver under'] },
+        { kicker: 'Deklaration', title: 'INK2 ur bokföringen', shot: 'ink2-c', body: 'Balans- och resultaträkningen hämtas från bokföringen. Ni fyller bara i det som gäller föreningens skatt.', points: ['Räkenskapsschemat ifyllt rad för rad', 'SRU-fil och Skatteverkets blankett ifylld', 'Avdraget för återbäring följer med'] },
+      ],
+      year: {
+        title: 'Ert år som ekonomisk förening',
+        lead: 'Det här ska göras under ett vanligt år. Bokix visar era egna datum under Skatt och bokslut.',
+        every: 'Har föreningen anställda: lön och arbetsgivardeklaration, som lämnas och betalas den 12:e månaden efter löneutbetalningen, i januari och augusti den 17:e.',
+        quarters: [
+          { label: 'Januari–mars', events: [
+            { date: 'Januari', title: 'Bokslut för förra året', bokix: 'Årsbokslutet steg för steg: bank, kundfakturor, leverantörer, periodisering och lager.', key: true },
+            { date: '12 februari', title: 'Moms för oktober–december', bokix: 'Deklarationen fylls i ur bokföringen.' },
+          ] },
+          { label: 'April–juni', events: [
+            { date: '12 maj', title: 'Moms för januari–mars', bokix: 'Deklarationen fylls i ur bokföringen.' },
+            { date: 'Senast 30 juni', title: 'Föreningsstämma', bokix: 'Stämman fastställer årsredovisningen och beslutar om överskottet och eventuell återbäring.', key: true },
+          ] },
+          { label: 'Juli–september', events: [
+            { date: '1 augusti', title: 'Inkomstdeklaration 2', bokix: 'SRU-fil och blankett ifylld. Datumet gäller när ni lämnar in digitalt.', key: true },
+            { date: '17 augusti', title: 'Moms för april–juni', bokix: 'Deklarationen fylls i ur bokföringen.' },
+          ] },
+          { label: 'Oktober–december', events: [
+            { date: '12 november', title: 'Moms för juli–september', bokix: 'Deklarationen fylls i ur bokföringen.' },
+            { date: '31 december', title: 'Räkenskapsåret slutar', bokix: 'Året låses när bokslutet är klart, så att inget ändras i efterhand.' },
+          ] },
+        ],
+        note: 'Exemplet gäller räkenskapsår som kalenderår och moms per kvartal. Om årsredovisningen ska skickas till Bolagsverket beror på föreningens storlek. Infaller ett datum på en helg flyttas det till nästa vardag.',
+      },
+      compare: {
+        title: 'Själva, med byrå eller med Bokix',
+        lead: 'En byrå passar om ni vill lämna bort allt. Bokix passar om kassören vill ha koll själv och föreningen vill betala lite.',
+        cols: ['I Excel', 'Med redovisningsbyrå', 'Med Bokix'],
+        rows: [
+          ['Kostnad', 'Inget program, men mycket tid', 'Arvode per timme eller månad', '129 kr/mån, tre användare ingår'],
+          ['När kassören byts', 'Filer och pärmar lämnas över', 'Byrån har bokföringen', 'Bjud in den nya kassören'],
+          ['Revisionen', 'Revisorn får papper eller filer', 'Byrån tar fram underlaget', 'Revisorn granskar samma bokföring'],
+          ['INK2 och årsredovisning', 'Svårt utan förkunskaper', 'Byrån gör det', 'Steg för steg, med PDF och SRU-fil'],
+          ['Koll på siffrorna', 'När någon har uppdaterat', 'När byrån har skickat rapporten', 'Hela tiden, på startsidan'],
+        ],
+      },
+      price: { amount: '129 kr', unit: '/mån', text: 'Allt ovan ingår, och tre användare. 179 kr/mån med anställda, 109 respektive 149 kr/mån med årsplan. Ingen moms tillkommer. 30 dagar gratis.' },
+    },
   },
 ];
 
@@ -227,6 +470,66 @@ ORG_TYPE_PAGES.push({
     { label: 'Bokslut för småföretag: checklista', to: '/blogg/bokslut-checklista' },
     { label: 'Momsdeklaration steg för steg', to: '/blogg/moms-deklaration-steg-for-steg' },
   ],
+      // Produktsidan (2026-11-07): riktiga bilder ur appen, se productKit.jsx.
+    product: {
+      h1Tail: 'Ordning på föreningens pengar, klart till årsmötet.',
+      lead: 'Kassören bokför, styrelsen ser hur det går och revisorn granskar samma bokföring. Med eller utan moms.',
+      heroTabs: [
+        { label: 'Översikt', shot: 'start', caption: 'Startsidan: resultat, pengar på banken och det som ska göras härnäst.' },
+        { label: 'Kvitton', shot: 'kvitton', caption: 'Kvittona med vad som är bokfört och vad som behöver granskas.' },
+        { label: 'Fakturor', shot: 'kundfakturor', caption: 'Fakturor för medlemsavgifter, sponsring och uthyrning.' },
+        { label: 'Rapporter', shot: 'resultatrakning', caption: 'Resultaträkningen att visa styrelsen och på årsmötet.' },
+        { label: 'INK3', shot: 'ideell-ink3', caption: 'Bilagorna till inkomstdeklaration 3 som SRU-fil.' },
+      ],
+      reasonsTitle: 'Därför passar Bokix en ideell förening',
+      reasons: [
+        { title: 'Kassören behöver inte vara ekonom', body: 'I det enkla läget väljer kassören vad som hänt, till exempel en medlemsavgift eller ett inköp. Bokix väljer konton.' },
+        { title: 'Revisorn granskar i samma bokföring', body: 'Tre användare ingår. Bjud in revisorn, så slipper ni skicka pärmar och filer.' },
+        { title: 'Lätt att lämna över', body: 'När kassören byts bjuder ni in den nya. Allt underlag ligger kvar i sju år.' },
+      ],
+      featuresTitle: 'Det här gör ni i Bokix',
+      features: [
+        { kicker: 'Kvitton', title: 'Fota kvittot, resten fylls i', shot: 'kvitton-c', body: 'Datum, belopp och moms läses av från fotot. Det som är osäkert hamnar i Att granska i stället för att gissas.', points: ['Utan moms om föreningen inte är momsregistrerad', 'Foto, PDF eller en hel mapp på en gång', 'Kvittot sparas med verifikationen i sju år'] },
+        { kicker: 'Fakturering', title: 'Medlemsavgifter och sponsring', shot: 'kundfakturor-c', body: 'Skicka fakturan med e-post från Bokix. När den betalas bokförs betalningen mot fakturan.', points: ['Kortbetalning på fakturan via Stripe, om ni vill', 'Påminnelse när fakturan har förfallit', 'Se vilka som har betalat'] },
+        { kicker: 'Rapporter', title: 'Siffrorna till styrelsen och årsmötet', shot: 'resultatrakning-c', body: 'Resultaträkningen med en kort sammanfattning i ord, att visa på styrelsemötet eller skriva ut till årsmötet.', points: ['Resultat- och balansräkning', 'Utveckling per månad', 'Skriv ut eller spara som PDF'] },
+        { kicker: 'Deklaration', title: 'Bilagorna till INK3', shot: 'ideell-ink3-c', body: 'Svara på några frågor om föreningen, så tar Bokix fram de bilagor som gäller er som SRU-fil.', points: ['Särskild uppgift för allmännyttiga föreningar', 'Räkenskapsschema om det finns skattepliktig verksamhet', 'Första sidan fyller ni i hos Skatteverket'] },
+        { kicker: 'Översikt', title: 'Alla datum på ett ställe', shot: 'ideell-skatt-c', body: 'Under Skatt och bokslut ser ni vad som ska göras härnäst och hur långt ni har kommit.', points: ['Årsbokslut och deklaration i ordning', 'Dagar kvar till varje datum', 'Ett klick till rätt steg'] },
+      ],
+      year: {
+        title: 'Föreningens år',
+        lead: 'Så brukar året se ut för en ideell förening med kalenderår som räkenskapsår.',
+        every: 'Löpande bokföring: kvitton, medlemsavgifter och bank. Har föreningen anställda: lön och arbetsgivardeklaration varje månad.',
+        quarters: [
+          { label: 'Januari–mars', events: [
+            { date: 'Januari', title: 'Bokslut för förra året', bokix: 'Årsbokslutet steg för steg, med resultat- och balansräkning.', key: true },
+            { date: 'Efter bokslutet', title: 'Revisorn granskar', bokix: 'Revisorn bjuds in och granskar samma bokföring.' },
+          ] },
+          { label: 'April–juni', events: [
+            { date: 'Enligt stadgarna', title: 'Årsmöte', bokix: 'Resultat- och balansräkningen att visa. Årsmötet beslutar om ansvarsfrihet för styrelsen.', key: true },
+          ] },
+          { label: 'Juli–september', events: [
+            { date: '1 augusti', title: 'Inkomstdeklaration 3', bokix: 'Bilagorna som SRU-fil. Datumet gäller när ni lämnar in digitalt.', key: true },
+          ] },
+          { label: 'Oktober–december', events: [
+            { date: '31 december', title: 'Räkenskapsåret slutar', bokix: 'Året låses när bokslutet är klart, så att inget ändras i efterhand.' },
+          ] },
+        ],
+        note: 'När årsmötet hålls står i föreningens stadgar. Är föreningen momsregistrerad tillkommer momsdeklarationen, som Bokix fyller i ur bokföringen.',
+      },
+      compare: {
+        title: 'Själva, med byrå eller med Bokix',
+        lead: 'En byrå passar om ni vill lämna bort allt. Bokix passar om kassören vill ha koll själv och föreningen vill betala lite.',
+        cols: ['I Excel', 'Med redovisningsbyrå', 'Med Bokix'],
+        rows: [
+          ['Kostnad', 'Inget program, men mycket tid', 'Arvode per timme eller månad', '129 kr/mån, tre användare ingår'],
+          ['När kassören byts', 'Filer och pärmar lämnas över', 'Byrån har bokföringen', 'Bjud in den nya kassören'],
+          ['Revisionen', 'Revisorn får papper eller filer', 'Byrån tar fram underlaget', 'Revisorn granskar samma bokföring'],
+          ['Till årsmötet', 'Rapporten görs för hand', 'Byrån skickar rapporten', 'Resultat- och balansräkning direkt'],
+          ['Kvitton', 'Sparas i en pärm', 'Skickas till byrån', 'Fotas och sparas i sju år'],
+        ],
+      },
+      price: { amount: '129 kr', unit: '/mån', text: 'Allt ovan ingår, och tre användare. 179 kr/mån med anställda, 109 respektive 149 kr/mån med årsplan. Ingen moms tillkommer. 30 dagar gratis.' },
+    },
 });
 
 export const ORG_TYPE_BY_PATH = Object.fromEntries(ORG_TYPE_PAGES.map(p => [p.path, p]));
