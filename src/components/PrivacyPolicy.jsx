@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
     <PolicyLayout
       title="Integritetspolicy"
       path="/privacy"
-      updated="2026-10-26"
+      updated="2026-11-09"
       metaTitle="Integritetspolicy | Bokix"
       metaDescription="Vilken personuppgiftsinformation Bokix samlar in, varför, hur länge den sparas och vilka rättigheter du har enligt GDPR."
     >
@@ -43,7 +43,8 @@ export default function PrivacyPolicy() {
             ['Bokföringsdata', 'Verifikationer, fakturor, kvitton, kund- och leverantörsuppgifter, kontoplan', 'Du, löpande i tjänsten'],
             ['Personaluppgifter (lönemodulen)', 'Anställdas namn, personnummer, lön, skattetabell, bankkontonummer', 'Du, vid registrering av anställda'],
             ['Kassaförsäljning', 'Försäljningar från din Zettle-kassa: belopp, moms, datum och betalsätt', 'Zettle, bara om du själv kopplat det'],
-            ['Kontaktformuläret', 'Namn, e-postadress och ditt meddelande', 'Du, när du skriver till oss'],
+            ['Kontaktformuläret och supporten', 'Namn, e-postadress, ditt meddelande och en eventuell bild eller PDF du bifogar i appen', 'Du, när du skriver till oss'],
+            ['Bokning av genomgång', 'Namn, e-postadress, telefon och den tid du valt', 'Du, när du bokar'],
             ['Betalningsuppgifter', 'Kortuppgifter hanteras aldrig av oss direkt, de går genom Stripe (se avsnitt 4)', 'Stripe'],
             ['Teknisk data', 'IP-adress, webbläsartyp, tidsstämplar för inloggning (säkerhet och felsökning)', 'Automatiskt'],
           ]}
@@ -68,7 +69,9 @@ export default function PrivacyPolicy() {
           <li style={policyLi}><strong>Vercel</strong> — driftar och hostar hela tjänsten (webbappen och de serverfunktioner som hanterar t.ex. betalningar och e-post). All trafik till Bokix passerar genom Vercels infrastruktur.</li>
           <li style={policyLi}><strong>Sentry</strong> (Functional Software) — felrapporter när appen kraschar i webbläsaren eller ett fel uppstår på servern: felmeddelandet, var i koden felet uppstod, sidans eller funktionens adress utan parametrar och webbläsartyp. Inga kunduppgifter, ingen bokföringsdata, inga cookies och inget användar-id skickas, och e-postadresser, personnummer och organisationsnummer tas bort ur texterna innan de skickas.</li>
           <li style={policyLi}><strong>Vercel BotID</strong> — automatiserad bot-/missbruksdetektering på formulär (t.ex. registrering), en del av Vercel-plattformen ovan.</li>
-          <li style={policyLi}><strong>Google reCAPTCHA</strong> — kontrollerar på kontaktformuläret att det är en människa som skickar. Google får då teknisk information om din webbläsare och ditt besök.</li>
+          <li style={policyLi}><strong>Cloudflare Turnstile</strong> — kontrollerar vid registrering, på kontaktformuläret och vid bokning att det är en människa och inte en robot. Cloudflare får då teknisk information om din webbläsare och ditt besök, och använder den inte för spårning eller reklam.</li>
+          <li style={policyLi}><strong>Cloudflare R2</strong> — en krypterad säkerhetskopia av tjänstens databas och uppladdade filer tas varje natt och lagras hos Cloudflare inom EU. Kopian är krypterad innan den lämnar oss, så Cloudflare kan inte läsa innehållet.</li>
+          <li style={policyLi}><strong>one.com</strong> — vår e-post. Det du skickar till support@bokix.se, via kontaktformuläret eller supporten i appen, inklusive en bifogad bild eller PDF, hamnar i vår inkorg hos one.com.</li>
           <li style={policyLi}><strong>Google Cloud Vision</strong> — läser texten på kvitton och underlag du laddar upp, både foton och PDF. Bara bilden eller filen skickas, behandlas inom EU och sparas inte hos Google. På webbplatsens gratisverktyg Skanna kvitto läses besökarens första kvitto på samma sätt; för att det ska ske en gång per besökare sparar vi en hashad (oläslig) form av IP-adressen i högst ett år, aldrig adressen i klartext. Efter det läses kvitton i besökarens egen webbläsare.</li>
           <li style={policyLi}><strong>Bolagsverket, FöretagsAPI och VIES</strong> — när du söker upp ett företag (ditt eget, en kund eller en leverantör) skickas organisationsnumret, momsnumret eller det namn du söker på dit för att hämta namn och adress ur offentliga register. Inget annat skickas.</li>
           <li style={policyLi}><strong>Zettle</strong> — <em>endast om du själv kopplar din Zettle-kassa</em>. Bokix hämtar då dina försäljningar därifrån för att bokföra dem. Du kan koppla från när du vill under Inställningar.</li>
@@ -110,7 +113,7 @@ export default function PrivacyPolicy() {
           Själva lagringen av din bokföring — databasen och de filer du laddar upp — sker i Sverige, i Stockholm (se avsnitt 4). Kopplar du din egen Gmail-adress (avsnitt 5) hanteras det utskicket av Google, ett amerikanskt bolag, på samma villkor som övriga leverantörer nedan.
         </p>
         <p style={policyP}>
-          Flera av underleverantörerna i avsnitt 4 (bland annat Stripe, Resend, Vercel, Sentry, Google reCAPTCHA och analysverktygen) är amerikanska bolag och kan behandla uppgifter i, eller från, USA. När det sker gör vi det bara med ett giltigt överföringsverktyg på plats — till exempel att leverantören är ansluten till EU-U.S. Data Privacy Framework, eller att vi har standardavtalsklausuler (SCC) med dem — i enlighet med respektive leverantörs egna dataskyddsvillkor. Vill du se vilket verktyg som gäller för en specifik leverantör, kontakta oss på <a href="mailto:support@bokix.se" style={link}>support@bokix.se</a>.
+          Flera av underleverantörerna i avsnitt 4 (bland annat Stripe, Resend, Vercel, Sentry, Cloudflare och analysverktygen) är amerikanska bolag och kan behandla uppgifter i, eller från, USA. När det sker gör vi det bara med ett giltigt överföringsverktyg på plats — till exempel att leverantören är ansluten till EU-U.S. Data Privacy Framework, eller att vi har standardavtalsklausuler (SCC) med dem — i enlighet med respektive leverantörs egna dataskyddsvillkor. Vill du se vilket verktyg som gäller för en specifik leverantör, kontakta oss på <a href="mailto:support@bokix.se" style={link}>support@bokix.se</a>.
         </p>
       </PolicySection>
 
@@ -118,9 +121,8 @@ export default function PrivacyPolicy() {
         <ul style={policyUl}>
           <li style={policyLi}>Kontouppgifter sparas så länge du har ett aktivt konto, och raderas eller anonymiseras inom rimlig tid efter att kontot avslutats.</li>
           <li style={policyLi}>Bokföringsdata (verifikationer, fakturor, kvitton) sparas till och med det sjunde året efter utgången av det kalenderår då räkenskapsåret avslutades, i enlighet med bokföringslagens arkiveringskrav (7 kap. 2 § BFL), även om du säger upp kontot eller raderar ett företag. Det som sparas då är bara det lagen kräver, i ett stängt arkiv som bara våra servrar når. Utkast, oanvända kontakter och annat som inte är räkenskapsinformation sparas inte i arkivet.</li>
-          <li style={policyLi}>Säkerhetskopior: varje natt tas en kopia av kontot, som sparas i 14 dagar. En månadskopia av det bokförda sparas lika länge som arkivet ovan.</li>
-          <li style={policyLi}>Ett UF-konto stängs när UF-året är avslutat. Bokföringen sparas ändå i arkivet i sju år, som för alla andra.</li>
-          <li style={policyLi}>Meddelanden via kontaktformuläret raderas automatiskt ett år efter att de skickades.</li>
+          <li style={policyLi}>Säkerhetskopior: varje natt tas en kopia av kontot, som sparas i 14 dagar. En månadskopia av det bokförda sparas lika länge som arkivet ovan. Den krypterade nattkopian hos Cloudflare R2 (avsnitt 4) sparas i 35 dagar, och en kopia av en fil som raderats i tjänsten tas bort därifrån efter 30 dagar.</li>
+          <li style={policyLi}>Meddelanden via kontaktformuläret och supporten raderas automatiskt ur tjänsten ett år efter att de skickades. Mejlet med en eventuell bilaga finns kvar i vår inkorg hos one.com tills vi raderar det.</li>
           <li style={policyLi}>Teknisk logg-data sparas kortare tid, normalt några veckor, och används enbart för drift och säkerhet.</li>
           <li style={policyLi}>Uppladdade filer (kvitton, underlag, logotyper) som ingen post i tjänsten längre hänvisar till raderas automatiskt efter sju dagar, av ett jobb som körs varje dygn.</li>
           <li style={policyLi}>Ett konto där prenumerationen aldrig startats raderas automatiskt sju dagar efter registreringen, inklusive de företags- och kontaktuppgifter som fyllts i. Konton med bokförd information raderas aldrig på det här sättet.</li>
@@ -144,7 +146,7 @@ export default function PrivacyPolicy() {
           Lösenord lagras aldrig i klartext. Data överförs krypterat (HTTPS/TLS). Åtkomst till din bokföringsdata skyddas av behörighetskontroller på databasnivå (Row Level Security) så att endast du kan läsa och skriva din egen data.
         </p>
         <p style={policyP}>
-          Du kan slå på tvåstegsverifiering för ditt konto under Inställningar → Säkerhet. Lösenord och nycklar till din egen e-post (avsnitt 5) lagras krypterade och kan bara läsas av våra servrar. Texten på kvitton och underlag du laddar upp (foton och PDF) läses av Google Cloud Vision, som får en nedskalad kopia av bilden eller själva PDF-filen, se avsnitt 4. Går läsningen inte att göra hos Google fyller du i uppgifterna själv; kvittot skickas inte någon annanstans.
+          Du kan slå på tvåstegsverifiering och logga in med Face ID eller fingeravtryck under Inställningar → Säkerhet. Använder du inte Bokix på 30 dagar loggas du ut automatiskt. Lösenord och nycklar till din egen e-post (avsnitt 5) lagras krypterade och kan bara läsas av våra servrar. Texten på kvitton och underlag du laddar upp (foton och PDF) läses av Google Cloud Vision, som får en nedskalad kopia av bilden eller själva PDF-filen, se avsnitt 4. Går läsningen inte att göra hos Google fyller du i uppgifterna själv; kvittot skickas inte någon annanstans.
         </p>
       </PolicySection>
 

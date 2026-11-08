@@ -41,7 +41,6 @@ const BankPage = lazy(() => import('./components/marketing/BankPage'));
 // (utils/ufMode.js). Samma fyra ställen som varje annan statisk
 // marknadssida: här, i PRERENDER_ROUTES/PAGES (entry-server.jsx), i
 // vercel.json:s rewrites och i public/sitemap.xml.
-const UfPage = lazy(() => import('./components/marketing/UfPage'));
 // Fria verktyg (/verktyg + räknarna), ordlistan, integrationssidan och
 // säkerhetssidan — alla publika, alla lazy av samma skäl som ovan: en
 // besökare som bara ska till startsidan ska inte hämta dem.
@@ -311,7 +310,7 @@ export default function AppRouter() {
           <Route key={p.path} path={p.path} element={<Suspense fallback={<AppLoadingFallback />}><OrgTypePage path={p.path} /></Suspense>} />
         ))}
         <Route path="/koppla-bank" element={<Suspense fallback={<AppLoadingFallback />}><BankPage /></Suspense>} />
-        <Route path="/uf" element={<Suspense fallback={<AppLoadingFallback />}><UfPage /></Suspense>} />
+        <Route path="/uf" element={<Navigate to="/" replace />} />
         <Route path="/integrationer" element={<Suspense fallback={<AppLoadingFallback />}><IntegrationsPage /></Suspense>} />
         <Route path="/sakerhet" element={<Suspense fallback={<AppLoadingFallback />}><SecurityPage /></Suspense>} />
         <Route path="/lon" element={<Suspense fallback={<AppLoadingFallback />}><PayrollPage /></Suspense>} />

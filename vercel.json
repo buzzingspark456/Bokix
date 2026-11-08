@@ -87,10 +87,6 @@
       "destination": "/koppla-bank/index.html"
     },
     {
-      "source": "/uf",
-      "destination": "/uf/index.html"
-    },
-    {
       "source": "/integrationer",
       "destination": "/integrationer/index.html"
     },
@@ -137,10 +133,6 @@
     {
       "source": "/blogg/sie4-flytta-bokforing",
       "destination": "/blogg/sie4-flytta-bokforing/index.html"
-    },
-    {
-      "source": "/blogg/bokforing-uf-foretag",
-      "destination": "/blogg/bokforing-uf-foretag/index.html"
     },
     {
       "source": "/blogg/moms-deklaration-steg-for-steg",
@@ -462,6 +454,16 @@
     }
   ],
   "redirects": [
+    {
+      "source": "/uf",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/blogg/bokforing-uf-foretag",
+      "destination": "/blogg",
+      "permanent": true
+    },
     {
       "source": "/screenshots/bokix-anstallda-och-lon.jpg",
       "destination": "/product/bokix-lonekorning-ny.jpg",

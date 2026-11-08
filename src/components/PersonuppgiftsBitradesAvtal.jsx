@@ -32,7 +32,7 @@ export default function PersonuppgiftsBitradesAvtal() {
     <PolicyLayout
       title="Personuppgiftsbiträdesavtal"
       path="/pub"
-      updated="2026-10-23"
+      updated="2026-11-09"
       metaTitle="Personuppgiftsbiträdesavtal (PUB) | Bokix"
       metaDescription="Villkoren för Bokix behandling av personuppgifter för din räkning, enligt artikel 28 i GDPR — gäller automatiskt för alla företagskunder."
     >
@@ -91,6 +91,8 @@ export default function PersonuppgiftsBitradesAvtal() {
             ['Stripe', 'Betalningar (dina kortbetalningar från kunder, samt Bokix egen fakturering)'],
             ['Resend', 'Utskick av fakturor/offerter du väljer att mejla via Bokix'],
             ['Vercel (inkl. BotID)', 'Drift/hosting av tjänsten samt bot-/missbruksskydd'],
+            ['Cloudflare R2', 'Krypterad säkerhetskopia av databasen och uppladdade filer, varje natt, inom EU. Krypterad innan den lämnar Bokix. Sparas i 35 dagar.'],
+            ['one.com', 'Bokix e-post. Bara det du själv skickar till supporten, till exempel en skärmbild.'],
             ['Google Cloud Vision', 'Läser texten på kvitton och underlag du laddar upp, både foton och PDF. Bara bilden eller filen skickas, behandlas inom EU och sparas inte.'],
             ['Bolagsverket, FöretagsAPI och VIES', 'Uppslag av namn och adress ur offentliga register när du söker upp en kund eller leverantör. Bara organisationsnumret, momsnumret eller det sökta namnet skickas.'],
             ['Google eller annan e-postleverantör', 'Endast om du själv kopplat din egen e-postadress som avsändare. Utskicket går då genom ditt eget konto. Mot Gmail har Bokix enbart behörighet att skicka, aldrig att läsa.'],
@@ -110,7 +112,8 @@ export default function PersonuppgiftsBitradesAvtal() {
         <ul style={policyUl}>
           <li style={policyLi}>Kryptering av data under överföring (HTTPS/TLS) och lösenord som aldrig lagras i klartext.</li>
           <li style={policyLi}>Radnivåsäkerhet (Row Level Security) i databasen, så att varje konto bara kan läsa och skriva sin egen data — även Bokix egen personal saknar direkt åtkomst till enskilda kunders data i normal drift.</li>
-          <li style={policyLi}>Möjlighet till tvåfaktorsautentisering (2FA) på ditt konto.</li>
+          <li style={policyLi}>Möjlighet till tvåfaktorsautentisering (2FA) och inloggning med Face ID eller fingeravtryck på ditt konto.</li>
+          <li style={policyLi}>En krypterad säkerhetskopia varje natt hos en annan leverantör än databasen (Cloudflare R2, inom EU).</li>
           <li style={policyLi}>Behörighetsstyrd åtkomst hos underbiträden (t.ex. separata, begränsade API-nycklar per funktion snarare än en enda allomfattande nyckel).</li>
         </ul>
       </PolicySection>

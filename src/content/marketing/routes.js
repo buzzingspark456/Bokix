@@ -32,7 +32,7 @@ export const LOCALES = Object.keys(LOCALE_META);
 // fanns separat i entry-server.jsx/AppRouter.jsx.
 export const MARKETING_ROUTES = [
   '/', '/funktioner', '/priser', '/om-oss', '/kontakt',
-  '/byt-bokforingsprogram', '/koppla-bank', '/uf',
+  '/byt-bokforingsprogram', '/koppla-bank',
   // Bokföringsprogram per bolagsform (orgTypes.js).
   ...ORG_TYPE_PAGES.map(p => p.path),
   // Funktionssidor och sökordssidor (featurePages.js), samma komponent.

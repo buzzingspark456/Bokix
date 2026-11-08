@@ -266,7 +266,9 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   // därför ett eget steg med företagsnamn + skola, och lösenordssteget
   // skapar kontot UTAN att skicka någon vidare till Stripe. Förvalet kommer
   // från /uf-sidans knappar (initialUf).
-  const [isUfSignup, setIsUfSignup] = useState(Boolean(initialUf));
+  // UF togs bort 2026-11-09: inga nya UF-konton. Befintliga fungerar som förut
+  // tills de stängs (utils/ufClose.js). initialUf ignoreras därför.
+  const [isUfSignup, setIsUfSignup] = useState(false);
   const [regCompany, setRegCompany] = useState('');
   const [regUfSchool, setRegUfSchool] = useState('');
 
