@@ -279,7 +279,9 @@ export function ListSearchRow({ value, onChange, placeholder, right }) {
  */
 export const PAGE_SIZE_OPTIONS = [15, 30, 50, 100];
 
-export function ListFilterBar({ children, onClear, count, countLabel, pageSize, onPageSizeChange, pageSizeOptions = PAGE_SIZE_OPTIONS, activeFilters = 0 }) {
+// collapsed (standard): filtren ligger bakom Filter-knappen även på stor skärm (2026-11-08,
+// Verifikationer: "ska inte synas förrän man trycker på Filter").
+export function ListFilterBar({ children, onClear, count, countLabel, pageSize, onPageSizeChange, pageSizeOptions = PAGE_SIZE_OPTIONS, activeFilters = 0, collapsed = true }) {
   const [open, setOpen] = useState(false);
   const hasPageSize = pageSize != null && onPageSizeChange;
   const hasSecondRow = Boolean(onClear) || count != null || hasPageSize;
@@ -315,7 +317,7 @@ export function ListFilterBar({ children, onClear, count, countLabel, pageSize, 
       </div>
   );
   return (
-    <div className="lfb" data-open={open ? 'true' : 'false'} style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-card)', flexShrink: 0 }}>
+    <div className={'lfb' + (collapsed ? ' lfb--collapsed' : '')} data-open={open ? 'true' : 'false'} style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-card)', flexShrink: 0 }}>
       <div className="lfb-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: hasSecondRow && !inline ? '8px' : 0 }}>
         <div className="lfb-primary">{first}</div>
         {hasMore && (

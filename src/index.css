@@ -9156,3 +9156,28 @@ input:disabled, textarea:disabled, select:disabled, button:disabled { cursor: no
   .support-topic:last-child:nth-child(odd) { grid-column: auto; }
   .support-meta > div { grid-template-columns: 1fr; gap: 0; }
 }
+
+/* Filterraden med collapsed (Verifikationer, 2026-11-08): på stor skärm syns
+   bara sökfältet och Filter-knappen tills man trycker. Samma utseende som
+   halvskärmen (769–1199 px) ovan. */
+@media (min-width: 1200px) {
+  .lfb--collapsed .lfb-row { flex-wrap: wrap !important; gap: 8px !important; }
+  .lfb--collapsed .lfb-primary { display: block; flex: 0 1 360px; min-width: 0; }
+  .lfb--collapsed .lfb-primary > * { width: 100%; }
+  .lfb--collapsed .lfb-primary input { width: 100% !important; }
+  .lfb--collapsed .lfb-toggle {
+    display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--text-main);
+    font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; flex-shrink: 0;
+  }
+  .lfb--collapsed[data-open="true"] .lfb-toggle { background: var(--bg-muted); }
+  .lfb--collapsed .lfb-toggle-badge {
+    min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: #fff;
+    font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  }
+  .lfb--collapsed .lfb-more { display: none; }
+  .lfb--collapsed[data-open="true"] .lfb-more { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 100%; width: 100%; margin-top: 2px; }
+  .lfb--collapsed .lfb-second { display: none !important; }
+  .lfb--collapsed[data-open="true"] .lfb-second { display: flex !important; margin-top: 10px; }
+  .lfb--collapsed .lfb-second--phone { display: none !important; }
+}

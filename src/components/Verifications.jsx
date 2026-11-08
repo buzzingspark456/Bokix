@@ -1367,7 +1367,8 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
   // månad ('01'-'12') visar bara DEN kalendermånaden från alla år,
   // grupperat per år istället. flatView slår av rubrikerna helt.
   const [monthFilter, setMonthFilter] = useState('all');
-  const [flatView, setFlatView] = useState(false);
+  // Lista är standard (användaren 2026-11-08), Grupperat är valet till höger.
+  const [flatView, setFlatView] = useState(true);
 
   // Kontoplan-fliken är nu en helt självständig komponent (shared/
   // AccountsPanel.jsx, delad med Inställningar > System > Kontoplan) med
@@ -1546,6 +1547,7 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
             activeFilters={(dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (series !== 'all' ? 1 : 0) + (monthFilter !== 'all' ? 1 : 0)}
+            collapsed
           >
             <div style={{ position: 'relative' }}>
               <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -1569,8 +1571,8 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
               {MONTH_NAMES.map(m => <option key={m.v} value={m.v}>{m.label} {tr('ui.alla_ar')}</option>)}
             </select>
             <div className="rc-segmented">
-              <button type="button" onClick={() => setFlatView(false)} className={!flatView ? 'active' : ''}>{tr('ui.grupperat')}</button>
               <button type="button" onClick={() => setFlatView(true)} className={flatView ? 'active' : ''}>{tr('ui.lista')}</button>
+              <button type="button" onClick={() => setFlatView(false)} className={!flatView ? 'active' : ''}>{tr('ui.grupperat')}</button>
             </div>
           </ListFilterBar>
 
