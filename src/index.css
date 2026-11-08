@@ -9181,3 +9181,13 @@ input:disabled, textarea:disabled, select:disabled, button:disabled { cursor: no
   .lfb--collapsed[data-open="true"] .lfb-second { display: flex !important; margin-top: 10px; }
   .lfb--collapsed .lfb-second--phone { display: none !important; }
 }
+
+/* Ingen Filter-knapp på dator när det inte finns något att fälla ut, och
+   telefonens antalsrad syns aldrig på dator (2026-11-08, Offerter). */
+@media (min-width: 769px) {
+  .lfb .lfb-toggle.lfb-toggle--phone-only { display: none !important; }
+  .lfb .lfb-second.lfb-second--phone, .lfb[data-open="true"] .lfb-second.lfb-second--phone { display: none !important; }
+}
+
+/* Rensa i filterraden på datorn, i den nedre raden på telefon (2026-11-08). */
+@media (max-width: 768px) { .lfb-clear-inline { display: none !important; } }

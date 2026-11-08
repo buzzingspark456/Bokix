@@ -609,7 +609,6 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
   const newBtnText = c(isCustomerTab ? 'list.newCustomer' : 'list.newSupplier');
   // "1 kund" / "3 kunder" (och motsvarande för leverantörer).
   const countWord = (n) => c(isCustomerTab ? (n === 1 ? 'list.customerOne' : 'list.customerMany') : (n === 1 ? 'list.supplierOne' : 'list.supplierMany'));
-  const entityCount = contacts.filter(c => c.type === activeTab).length;
 
   // ── Export/import av register (CSV) ──
   // Exporterar HELA aktiv flik (inte bara det sökfiltrerade urvalet) — en
@@ -682,7 +681,6 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
       {/* ── Header & Tabs ── */}
       <ListPageHeader
         title={headerTitle || title}
-        subtitle={`${entityCount} ${countWord(entityCount)}`}
         actions={viewState === 'list' ? [
           { key: 'export', label: c('actions.export'), icon: Download, onClick: handleExportCsv, title: c('actions.exportTitle', { what: title.toLowerCase() }) },
           { key: 'import', label: c('actions.import'), icon: Upload, onClick: handleImportClick, title: c('actions.importTitle', { what: title.toLowerCase() }) },

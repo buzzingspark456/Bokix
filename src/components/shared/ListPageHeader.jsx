@@ -292,10 +292,14 @@ export function ListFilterBar({ children, onClear, count, countLabel, pageSize, 
   const items = React.Children.toArray(children);
   const [first, ...rest] = items;
   const hasMore = rest.length > 0 || Boolean(onClear) || hasPageSize;
+  // Bara sökfält + antal (t.ex. Offerter): på datorn finns inget att fälla
+  // ut, så Filter-knappen visas bara på telefon (lfb-toggle--phone-only).
   // Utan Rensa-knapp står antalet och Visa-väljaren på sökfältets rad på
   // datorn, i stället för ensamma på en egen rad (2026-11-05: mer av listan
   // syns). Telefonen har kvar sin rad bakom Filter.
-  const inline = !onClear && (count != null || hasPageSize);
+  // collapsed: antalet står alltid på sökfältets rad på datorn, och Rensa
+  // ligger sist bland filtren, så att inget hamnar på en egen rad.
+  const inline = (collapsed || !onClear) && (count != null || hasPageSize);
   const right = (inRow) => (
       <div className={inRow ? 'lfb-inline' : undefined} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
         {count != null && (
@@ -321,14 +325,21 @@ export function ListFilterBar({ children, onClear, count, countLabel, pageSize, 
       <div className="lfb-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: hasSecondRow && !inline ? '8px' : 0 }}>
         <div className="lfb-primary">{first}</div>
         {hasMore && (
-          <button type="button" className="lfb-toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+          <button type="button" className={'lfb-toggle' + (rest.length === 0 && !onClear ? ' lfb-toggle--phone-only' : '')} onClick={() => setOpen(o => !o)} aria-expanded={open}>
             <SlidersHorizontal size={16} />
             {t('shared.filterBar.filter')}
             {activeFilters > 0 && <span className="lfb-toggle-badge">{activeFilters}</span>}
           </button>
         )}
-        <div className="lfb-more">{rest}</div>
         {inline && right(true)}
+        <div className="lfb-more">
+          {rest}
+          {collapsed && onClear && (
+            <button type="button" className="lfb-clear-inline" onClick={onClear} style={{ ...listHeaderButtonStyle('secondary'), height: '36px', padding: '0 12px' }}>
+              <RefreshCw size={14} /> {t('shared.filterBar.clear')}
+            </button>
+          )}
+        </div>
       </div>
       {count != null && <div className="lfb-count-line">{count} {countLabel}</div>}
       {hasSecondRow && (

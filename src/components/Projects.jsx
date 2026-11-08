@@ -885,6 +885,10 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
 
       {activeTab === 'projects' && !openProject && projects.length > 0 && (
         <ListFilterBar>
+          <div style={{ position: 'relative' }}>
+            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input type="text" className="ws-input" style={{ height: '34px', paddingLeft: '32px', fontSize: '13px' }} placeholder={tr('ui.sok_projekt_eller_kund')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          </div>
           <div className="ws-seg">
             {[{ id: 'active', label: tr('proj.ongoing') }, { id: 'archived', label: tr('proj.finished') }, { id: 'all', label: tr('ui.alla') }].map(f => (
               <button key={f.id} type="button" className={statusFilter === f.id ? 'on' : ''} onClick={() => setStatusFilter(f.id)}>{f.label}</button>
@@ -896,15 +900,11 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
               {departmentNames.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           )}
-          <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '180px', maxWidth: '320px' }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input type="text" className="ws-input" style={{ height: '34px', paddingLeft: '32px', fontSize: '13px' }} placeholder={tr('ui.sok_projekt_eller_kund')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-          </div>
         </ListFilterBar>
       )}
 
       {activeTab === 'time' && (
-        <ListFilterBar>
+        <ListFilterBar collapsed={false}>
           <div className="ws-seg">
             {[{ id: 'week', label: tr('ui.vecka') }, { id: 'reports', label: tr('proj.monthReports') }].map(x => (
               <button key={x.id} type="button" className={timeSubTab === x.id ? 'on' : ''} onClick={() => setTimeSubTab(x.id)}>{x.label}</button>
