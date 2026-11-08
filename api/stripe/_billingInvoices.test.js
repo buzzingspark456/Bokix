@@ -36,6 +36,12 @@ describe('invoicesForCompany', () => {
     expect(invoicesForCompany(list, null, 'sub_nu').map(i => i.id)).toEqual(['obetald']);
   });
 
+  it('visar 0 kr-fakturan för prenumerationen som gäller, en per månad', () => {
+    const zero = (id, date, subscription = 'sub_nu') => ({ ...inv(id, date, 'paid', null, subscription), amount_due: 0, amount_paid: 0 });
+    const list = [zero('prov', '2026-11-05'), zero('prov_igen', '2026-11-06'), zero('overgiven', '2026-11-05', 'sub_gammal')];
+    expect(invoicesForCompany(list, null, 'sub_nu').map(i => i.id)).toEqual(['prov']);
+  });
+
   it('döljer aldrig en betald faktura, inte ens två samma månad', () => {
     const list = [inv('en', '2026-10-05', 'paid'), inv('tva', '2026-10-20', 'paid')];
     expect(invoicesForCompany(list, null, 'sub_nu')).toHaveLength(2);
@@ -109,7 +115,7 @@ describe('listSubscriptionInvoices', () => {
     });
   });
 
-  it('hides zero-amount trial invoices, drafts and voided invoices', async () => {
+  it('keeps zero-amount trial invoices but hides drafts and voided invoices', async () => {
     const list = vi.fn().mockResolvedValueOnce({
       data: [
         { id: 'in_trial_1', created: 400, status: 'paid', amount_due: 0, amount_paid: 0, currency: 'sek' },
@@ -123,7 +129,7 @@ describe('listSubscriptionInvoices', () => {
     });
 
     const invoices = await listSubscriptionInvoices({ invoices: { list } }, ['cus_a']);
-    expect(invoices.map(invoice => invoice.id)).toEqual(['in_real', 'in_open']);
+    expect(invoices.map(invoice => invoice.id)).toEqual(['in_trial_1', 'in_trial_2', 'in_real', 'in_open']);
   });
 
   it('does not silently accept an incomplete page', async () => {

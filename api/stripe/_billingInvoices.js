@@ -31,6 +31,13 @@ export function invoicesForCompany(invoices, companyId, currentSubscriptionId) {
   const paidMonths = new Set(mine.filter(i => i.status === 'paid').map(month));
   const shownUnpaid = new Set();
   return mine.filter((invoice) => {
+    // 0 kr: bara den gällande prenumerationens, en per månad.
+    if (invoice.amount_due === 0 && invoice.amount_paid === 0) {
+      const key = 'zero-' + month(invoice);
+      if (invoice.subscription !== currentSubscriptionId || shownUnpaid.has(key)) return false;
+      shownUnpaid.add(key);
+      return true;
+    }
     if (invoice.status === 'paid') return true;
     const key = month(invoice);
     if (invoice.subscription !== currentSubscriptionId || paidMonths.has(key) || shownUnpaid.has(key)) return false;
@@ -49,12 +56,11 @@ export async function listSubscriptionInvoices(stripe, customerIds) {
       for (const invoice of page.data) {
         if (seen.has(invoice.id)) continue;
         seen.add(invoice.id);
-        // Bara riktiga fakturor till kunden. Stripe skapar en faktura på 0 kr
-        // varje gång en provperiod startar, och utkast och makulerade fakturor
-        // har aldrig skickats; med flera påbörjade abonnemang blev det fyra
-        // "Betald · 0,00 kr" samma dag.
+        // Utkast och makulerade fakturor har aldrig skickats. Fakturor på 0 kr
+        // (provperioden) tas med sedan 2026-11-08, som hos Supabase och
+        // Cloudflare; invoicesForCompany visar bara den gällande
+        // prenumerationens, så att påbörjade abonnemang inte ger flera rader.
         if (invoice.status === 'draft' || invoice.status === 'void') continue;
-        if (!invoice.amount_due && !invoice.amount_paid) continue;
         // Nyare Stripe-versioner har prenumerationen under parent.
         const details = invoice.parent?.subscription_details || invoice.subscription_details;
         const subscription = details?.subscription || invoice.subscription;
