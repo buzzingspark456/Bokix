@@ -20,4 +20,6 @@ export const ARTICLE_ROUTES = [
   { slug: "ta-betalt-med-kort-och-stripe", path: "/nyheter/ta-betalt-med-kort-och-stripe" },
   { slug: "kassaforsaljning-och-dagsavslut-med-zettle", path: "/nyheter/kassaforsaljning-och-dagsavslut-med-zettle" },
   { slug: "skicka-fakturor-fran-din-egen-gmail", path: "/nyheter/skicka-fakturor-fran-din-egen-gmail" },
+  { slug: "skicka-en-skarmbild-till-supporten", path: "/nyheter/skicka-en-skarmbild-till-supporten" },
+  { slug: "logga-in-med-face-id", path: "/nyheter/logga-in-med-face-id" },
 ];

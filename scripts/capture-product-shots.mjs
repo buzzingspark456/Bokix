@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Produktsidornas bilder ur appen (public/product/<namn>.jpg och <namn>-mork.jpg).
+// Produktsidornas bilder ur appen (public/product/bokix-<namn>.jpg och bokix-<namn>-mork.jpg).
 //
 // Inte ritade kopior: vyerna tas ur startsidans demo, som kör appens riktiga
 // komponenter med exempelföretaget. Dubbel upplösning, ljust och mörkt läge.
@@ -146,11 +146,11 @@ for (const theme of ['light', 'dark']) {
         await page.waitForTimeout(300);
         const dark = theme === 'dark' ? '-mork' : '';
         if (mode.kind === 'full') {
-          const file = `${OUT_DIR}/${shot.name}${dark}.jpg`;
+          const file = `${OUT_DIR}/bokix-${shot.name}${dark}.jpg`;
           await body.screenshot({ path: file, type: 'jpeg', quality: 84 });
           console.log('✓', file, Math.round(fs.statSync(file).size / 1024) + ' kB');
         } else if (mode.kind === 'phone') {
-          const file = `${OUT_DIR}/${shot.name}-mobil${dark}.jpg`;
+          const file = `${OUT_DIR}/bokix-${shot.name}-mobil${dark}.jpg`;
           const box = await body.boundingBox();
           const vp = page.viewportSize();
           await page.screenshot({ path: file, type: 'jpeg', quality: 84, clip: { x: box.x, y: box.y, width: box.width, height: Math.min(box.height, vp.height - box.y) } });
@@ -158,7 +158,7 @@ for (const theme of ['light', 'dark']) {
         } else {
           const box = await panel.locator('.lp-demo-content').first().boundingBox();
           const height = Math.min(box.height, Math.round(box.width * 11 / 16));
-          const file = `${OUT_DIR}/${shot.name}-${mode.kind === 'tile' ? 't' : 'c'}${dark}.jpg`;
+          const file = `${OUT_DIR}/bokix-${shot.name}-${mode.kind === 'tile' ? 't' : 'c'}${dark}.jpg`;
           await page.screenshot({ path: file, type: 'jpeg', quality: 84, clip: { x: box.x, y: box.y, width: box.width, height } });
           console.log('✓', file, Math.round(box.width * 2) + 'x' + height * 2);
         }

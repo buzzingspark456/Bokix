@@ -264,6 +264,20 @@ function generateSitemap() {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">\n${body}\n</urlset>\n`;
   fs.writeFileSync(path.join(distDir, 'sitemap.xml'), xml);
   console.log(`✓ sitemap.xml (${urls.length} URL:er, ${urls.filter(u => u.images.length).length} med bilder, ${urls.filter(u => u.video).length} med video)`);
+  generateNewsSitemap();
+}
+
+/** dist/sitemap-news.xml för Googles flik Nyheter (2026-11-08). Google News
+ * vill bara ha nyheter från de senaste två dygnen i den här filen; äldre
+ * nyheter finns kvar i sitemap.xml. Byggs vid varje driftsättning, så en ny
+ * nyhet i news.js hamnar här samma dag som den publiceras. */
+function generateNewsSitemap() {
+  const cutoff = Date.now() - 2 * 24 * 60 * 60 * 1000;
+  const fresh = ALL_ARTICLES.filter(p => p.news && p.body && !p.hidden && new Date(`${p.datePublished}T12:00:00+01:00`).getTime() >= cutoff);
+  const body = fresh.map(p => `  <url>\n    <loc>${xmlEscape(`${SITE_URL}${p.path}`)}</loc>\n    <news:news>\n      <news:publication><news:name>Bokix</news:name><news:language>sv</news:language></news:publication>\n      <news:publication_date>${schemaDate(p.datePublished)}</news:publication_date>\n      <news:title>${xmlEscape(p.title)}</news:title>\n    </news:news>${p.image ? `\n    <image:image><image:loc>${xmlEscape(`${SITE_URL}${p.image}`)}</image:loc></image:image>` : ''}\n  </url>`).join('\n');
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${body}${body ? '\n' : ''}</urlset>\n`;
+  fs.writeFileSync(path.join(distDir, 'sitemap-news.xml'), xml);
+  console.log(`✓ sitemap-news.xml (${fresh.length} nyheter från de senaste två dygnen)`);
 }
 
 // Artikeltext som ren text: **fet** och [länk](url) blir läsbar text.

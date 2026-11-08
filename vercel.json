@@ -463,6 +463,181 @@
   ],
   "redirects": [
     {
+      "source": "/screenshots/bokix-anstallda-och-lon.jpg",
+      "destination": "/product/bokix-lonekorning-ny.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-anstallda-och-lon.png",
+      "destination": "/product/bokix-lonekorning-ny.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-personal-anstallda.jpg",
+      "destination": "/product/bokix-lonekorning-ny.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-personal-anstallda.png",
+      "destination": "/product/bokix-lonekorning-ny.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-artiklar-lager.jpg",
+      "destination": "/product/bokix-lager.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-artiklar-lager.png",
+      "destination": "/product/bokix-lager.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-fakturering-kundfakturor.jpg",
+      "destination": "/product/bokix-kundfakturor.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-fakturering-kundfakturor.png",
+      "destination": "/product/bokix-kundfakturor.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kundfakturor.jpg",
+      "destination": "/product/bokix-kundfakturor.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kundfakturor.png",
+      "destination": "/product/bokix-kundfakturor.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-granskning-kvitton.jpg",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-granskning-kvitton.png",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-granskning-stripe.jpg",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-granskning-stripe.png",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-granskning-zettle.jpg",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-granskning-zettle.png",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kvitton-hantering-dark.jpg",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kvitton-hantering-dark.png",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kvitton-hantering.jpg",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kvitton-hantering.png",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kvitton.jpg",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kvitton.png",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kunder.jpg",
+      "destination": "/product/bokix-kunder.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kunder.png",
+      "destination": "/product/bokix-kunder.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-offerter.jpg",
+      "destination": "/product/bokix-offerter.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-offerter.png",
+      "destination": "/product/bokix-offerter.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-momsdeklaration.jpg",
+      "destination": "/product/bokix-moms.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-momsdeklaration.png",
+      "destination": "/product/bokix-moms.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-skatt-momsdeklaration.jpg",
+      "destination": "/product/bokix-moms.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-skatt-momsdeklaration.png",
+      "destination": "/product/bokix-moms.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-rapporter-resultat.jpg",
+      "destination": "/product/bokix-resultatrakning.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-rapporter-resultat.png",
+      "destination": "/product/bokix-resultatrakning.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-skatt-och-bokslut.jpg",
+      "destination": "/product/bokix-skatt.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-skatt-och-bokslut.png",
+      "destination": "/product/bokix-skatt.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/:path*",
+      "destination": "/product/bokix-start.jpg",
+      "permanent": true
+    },
+    {
       "source": "/status",
       "destination": "https://status.bokix.se/sv",
       "permanent": true

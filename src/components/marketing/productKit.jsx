@@ -15,15 +15,18 @@ const SIZE_FULL = { w: 2880, h: 1694 };
 const SIZE_CONTENT = { w: 1936, h: 1332 };
 
 function shotSrc(name, dark) {
-  return `/product/${name}${dark ? '-mork' : ''}.jpg`;
+  // "bokix-" i filnamnet hjälper bildsöket när någon söker på Bokix.
+  return `/product/bokix-${name}${dark ? '-mork' : ''}.jpg`;
 }
 
 /** En bild ur appen: ljus och mörk variant, CSS visar den som passar temat. */
 export function ShotImg({ name, alt, eager = false, size: sizeOverride }) {
   const size = sizeOverride || (name.endsWith('-c') ? SIZE_CONTENT : SIZE_FULL);
   const common = { width: size.w, height: size.h, decoding: 'async', loading: eager ? 'eager' : 'lazy' };
+  // "… i Bokix" i alt-texten, så att bildsöket kopplar bilden till Bokix.
+  const fullAlt = alt && !/bokix/i.test(alt) ? `${alt} i Bokix` : alt;
   return (<>
-    <img className="pk-img pk-img-light" src={shotSrc(name, false)} alt={alt} {...common} />
+    <img className="pk-img pk-img-light" src={shotSrc(name, false)} alt={fullAlt} {...common} />
     <img className="pk-img pk-img-dark" src={shotSrc(name, true)} alt="" aria-hidden="true" {...common} loading="lazy" />
   </>);
 }
@@ -131,7 +134,7 @@ export function FeatureBlock({ kicker, title, body, points, shot, alt, flip = fa
         {link && <Link to={link.to} className="pk-more">{link.label} <span aria-hidden="true">→</span></Link>}
       </Reveal>
       <Reveal delay={90} className="pk-feature-shot">
-        <ProductShot name={shot} alt={alt || title} />
+        <ProductShot name={shot} alt={alt || kicker || title} />
       </Reveal>
     </div>
   );

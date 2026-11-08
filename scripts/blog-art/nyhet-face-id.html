@@ -1,0 +1,16 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="cover.css"><style>
+/* Riktig bild ur appen (Inställningar → Säkerhet, delen Face ID och
+   fingeravtryck) på ett papper, med Bokix-loggan. */
+.art { background: #d9eadf; }
+.tile { left: 96px; top: 96px; width: 220px; height: 154px; background: #fffdf8; border-radius: 40px; display: flex; align-items: center; justify-content: center; transform: rotate(-5deg); box-shadow: 0 2px 0 rgba(0,0,0,0.04), 0 34px 48px -26px rgba(20,60,40,0.5); }
+.tile svg { width: 160px; height: auto; }
+.card { left: 250px; top: 236px; width: 860px; height: 340px; overflow: hidden; border-radius: 22px; transform: rotate(-1.5deg); background: #fff; box-shadow: 0 2px 0 rgba(0,0,0,0.05), 0 40px 60px -30px rgba(20,60,40,0.55); }
+/* Skärmbilden är 1440x900 (2x). Visa delen Inloggning + Face ID i full storlek. */
+.card img { position: absolute; width: 1440px; left: -486px; top: -150px; }
+.ring { left: 960px; top: 40px; width: 170px; height: 170px; border-radius: 50%; background: #1f7a4a; border: 6px solid #fffdf8; display: flex; align-items: center; justify-content: center; transform: rotate(6deg); box-shadow: 0 24px 34px -18px rgba(20,60,40,0.6); }
+</style></head><body><div class="art">
+<div class="abs tile"><svg viewBox="0 0 125 40"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#0ea5e9"/><stop offset="50%" stop-color="#14b8a6"/><stop offset="100%" stop-color="#84cc16"/></linearGradient></defs><path d="{{WORDMARK_PATH}}" fill="url(#g)"/></svg></div>
+<div class="abs card"><img src="shot-sakerhet-full.png" alt=""></div>
+<div class="abs ring"><svg width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9.5v1M15 9.5v1M12 9.5v3.5h-1M9.5 15.5c1.5 1.2 3.5 1.2 5 0"/></svg></div>
+<div class="grain"></div>
+</div></body></html>

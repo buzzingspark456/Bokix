@@ -249,6 +249,75 @@ export const NEWS_POSTS = [
       { t: 'p', x: 'Se hur det går till i videoguiden [Skicka en faktura](/guider/skicka-faktura).' },
     ],
   },
+  {
+    news: true,
+    slug: 'skicka-en-skarmbild-till-supporten',
+    path: '/nyheter/skicka-en-skarmbild-till-supporten',
+    category: 'Support',
+    title: 'Skicka en skärmbild till supporten',
+    seoTitle: 'Skicka en skärmbild till Bokix support',
+    seoDescription: 'Nu kan du bifoga en skärmbild eller PDF när du kontaktar Bokix support i appen. Klistra in bilden direkt, så ser vi vad du ser.',
+    excerpt: 'Bifoga en bild eller PDF, så ser vi vad du ser.',
+    image: '/blog/nyhet-skarmbild-till-supporten.jpg',
+    imageAlt: 'Rutan Kontakta support i Bokix med en bifogad skärmbild',
+    datePublished: '2026-11-08',
+    dateModified: '2026-11-08',
+    readTime: '~1 min läsning',
+    body: [
+      { t: 'p', x: 'När något krånglar är en bild ofta enklare än en lång beskrivning. Nu kan du **bifoga en skärmbild eller en PDF** när du kontaktar supporten i Bokix.' },
+
+      { t: 'h2', x: 'Så skickar du en bild' },
+      { t: 'steps', x: [
+        { h: 'Öppna Kontakta support', p: 'Tryck på din profil uppe till höger och välj Rapportera fel, eller använd Hjälp och support.' },
+        { h: 'Beskriv vad som hänt', p: 'Välj vad det gäller och skriv några rader.' },
+        { h: 'Bifoga bilden', p: 'Tryck på Bifoga en bild eller fil, eller klistra in en skärmbild direkt i textrutan.' },
+      ] },
+
+      { t: 'h2', x: 'Bra att veta' },
+      { t: 'ul', x: [
+        'Bilder och PDF fungerar, upp till 3 MB.',
+        'Sidan du var på och vilket företag det gäller följer med, så att vi slipper fråga.',
+        'Vi svarar till din e-post, och du får en kopia av det du skickade.',
+      ] },
+      { t: 'callout', kind: 'tips', title: 'Visa hela skärmen', x: 'Ta gärna med hela sidan på bilden, inte bara felmeddelandet. Då ser vi var i Bokix du var.' },
+    ],
+  },
+  {
+    news: true,
+    slug: 'logga-in-med-face-id',
+    path: '/nyheter/logga-in-med-face-id',
+    category: 'Trygghet',
+    title: 'Logga in med Face ID',
+    seoTitle: 'Logga in i Bokix med Face ID eller fingeravtryck',
+    seoDescription: 'Logga in i Bokix utan lösenord med Face ID, fingeravtryck eller datorns egen upplåsning. Du kan också låsa appen med Face ID.',
+    excerpt: 'Utan lösenord, med Face ID eller fingeravtryck.',
+    image: '/blog/nyhet-face-id.jpg',
+    imageAlt: 'Säkerhetsinställningarna i Bokix med knappen Lägg till Face ID eller fingeravtryck',
+    datePublished: '2026-11-08',
+    dateModified: '2026-11-08',
+    readTime: '~1 min läsning',
+    body: [
+      { t: 'p', x: 'Du kan logga in i Bokix med **Face ID, fingeravtryck eller datorns egen upplåsning**, utan att skriva lösenordet.' },
+
+      { t: 'h2', x: 'Så lägger du till Face ID' },
+      { t: 'steps', x: [
+        { h: 'Öppna Säkerhet', p: 'Gå till Inställningar och välj Säkerhet.' },
+        { h: 'Lägg till enheten', p: 'Tryck på Lägg till Face ID eller fingeravtryck och följ telefonens eller datorns anvisningar.' },
+        { h: 'Logga in nästa gång', p: 'Välj Face ID eller fingeravtryck på inloggningen.' },
+      ] },
+
+      { t: 'h2', x: 'Bra att veta' },
+      { t: 'ul', x: [
+        'Du lägger till Face ID en gång per enhet, till exempel telefonen och datorn.',
+        'Ditt lösenord fungerar fortfarande.',
+        'Bokix sparar aldrig ditt ansikte eller fingeravtryck. Det stannar på din enhet.',
+      ] },
+
+      { t: 'h2', x: 'Lås appen med Face ID' },
+      { t: 'p', x: 'Du kan också låsa Bokix med Face ID. Appen låses när du öppnar den och när den legat i bakgrunden en stund. Slå på det under **Inställningar → Säkerhet**.' },
+      { t: 'callout', kind: 'info', title: 'Inloggad för länge?', x: 'Använder du inte Bokix på 30 dagar loggas du ut automatiskt. Då ligger inte bokföringen öppen på en telefon du tappat bort.' },
+    ],
+  },
 ];
 
 // Allt som får en egen artikelsida: bloggen och nyheterna. Routing,

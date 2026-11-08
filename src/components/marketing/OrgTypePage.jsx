@@ -88,7 +88,7 @@ export default function OrgTypePage({ path }) {
     // bild att visa i sökresultat och bildsök. Delningsbilden som reserv.
     image: `${SITE_URL}/og/${page.path.slice(1)}.jpg`,
     ...(page.product?.heroTabs ? {
-      screenshot: page.product.heroTabs.map(t => ({ '@type': 'ImageObject', url: `${SITE_URL}/product/${t.shot}.jpg`, caption: t.caption })),
+      screenshot: page.product.heroTabs.map(t => ({ '@type': 'ImageObject', url: `${SITE_URL}/product/bokix-${t.shot}.jpg`, caption: t.caption })),
     } : {}),
   };
 
