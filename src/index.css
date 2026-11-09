@@ -7205,7 +7205,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 .stm-move-text { flex: 1; min-width: 0; }
 @container (max-width: 560px) { .stm .stm-opt { display: none; } }
 
-.dash-kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 22px; }
+.dash-kpi-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 22px; }
 .dash-kpi-card {
   display: flex; flex-direction: column; gap: 4px; min-width: 0;
   padding: 11px 14px 10px; border-radius: 12px; background: var(--bg-muted);
@@ -7234,7 +7234,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 .dash-kpi-card.is-tinted .dash-kpi-card-label { color: var(--text-secondary); }
 .dash-kpi-card.is-tinted .dash-kpi-card-sub { color: var(--text-muted); }
 
-/* Smal laptop och halv skärm: fyra smalare rutor. */
+/* Smal laptop och halv skärm: tre smalare rutor. */
 @media (min-width: 641px) and (max-width: 1280px) {
   .dash-kpi-grid { gap: 8px; }
   .dash-kpi-card { padding: 12px 13px 11px; }
@@ -7250,13 +7250,12 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
 }
 /* Telefon: två och två. */
 @media (max-width: 640px) {
-  /* Två och två: resultat och på kontot överst, intäkter och kostnader under. */
+  /* Resultat överst i hela bredden, intäkter och kostnader under. */
   .dash-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 18px; }
-  .dash-kpi-card--cash { order: 1; }
-  .dash-kpi-card--income, .dash-kpi-card--cost { order: 2; }
+  .dash-kpi-card--result { grid-column: 1 / -1; }
   .dash-kpi-card { padding: 12px 13px 11px; }
   .dash-kpi-card-value { font-size: min(19px, 13.5cqi); }
-  .dash-kpi-card--result .dash-kpi-card-value, .dash-kpi-card--cash .dash-kpi-card-value { font-size: min(22px, 13.5cqi); }
+  .dash-kpi-card--result .dash-kpi-card-value { font-size: min(22px, 13.5cqi); }
   .dash-kpi-card-sub { font-size: 11.5px; }
 }
 
@@ -9111,13 +9110,6 @@ input:disabled, textarea:disabled, select:disabled, button:disabled { cursor: no
     box-shadow: 0 6px 20px rgba(15, 23, 42, 0.12);
   }
 }
-
-/* Start på telefon: två tal överst (På kontot, Resultat), 2026-11-07. */
-.dash-glance { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; }
-.dash-glance-item { display: flex; flex-direction: column; gap: 2px; padding: 10px 13px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--border); }
-.dash-glance-item span { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
-.dash-glance-item b { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-main); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.dash-glance-item b.is-negative { color: var(--status-red-text); }
 
 /* Kontakta support i appen (2026-11-07): ämne, meddelande med bilaga, och
    vad som följer med. */

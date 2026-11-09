@@ -25,7 +25,7 @@ import { useTranslation, dateLocale } from '../i18n';
 // på "Intäkter vs Utgifter"-grafen här också — delad komponent/lista och
 // delad datumberäkning istället för en andra, lokal implementation som kan
 // glida isär (se PeriodPicker/OVERVIEW_PERIODS-kommentaren i ReportUI.jsx).
-import { overviewPeriodBounds, buildResultSeries, companyFiscalYearSetting, computeCashBalanceAt } from '../utils/reportCalculations';
+import { overviewPeriodBounds, buildResultSeries, companyFiscalYearSetting } from '../utils/reportCalculations';
 import { layoutRect, layoutViewport } from '../utils/dropdownPlacement';
 import { invoiceCustomerRemainingSek } from '../utils/rotRutConfig';
 import { numberFormat } from '../utils/intlCache';
@@ -623,7 +623,6 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
       : '');
   // Pengarna på bank och kassa i dag (1900–1999), oavsett vald period: det
   // första en småföretagare vill veta (2026-11-07).
-  const cashToday = useMemo(() => computeCashBalanceAt(verifications || [], accounts, new Date()), [verifications, accounts]);
   const kpiSubCost = periodOmsattning > 0 ? t('dashboard.kpi.shareOfIncome', { pct: pctFmt(periodKostnader / periodOmsattning) }) : '';
   const kpiSubResult = resultDelta != null
     ? t('dashboard.kpi.vsLastYearShort')
@@ -796,14 +795,6 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
         )}
       </div>
 
-      {/* Telefon: de två viktigaste talen före Att göra, så att de syns utan
-          att rulla förbi listan (2026-11-07). Samma tal som rutorna längre ned. */}
-      {todoFirst && !isNew && (
-        <div className="dash-glance">
-          <div className="dash-glance-item"><span>{t('dashboard.kpi.cash')}</span><b className={cashToday < 0 ? 'is-negative' : ''}>{fmtKpi(cashToday)}</b></div>
-          <div className="dash-glance-item"><span>{t('dashboard.kpi.result')}</span><b className={periodResultat < 0 ? 'is-negative' : ''}>{fmtKpi(periodResultat)}</b></div>
-        </div>
-      )}
       {todoFirst && (todoCard || todoEmpty)}
 
       {/* ─── ATT GÖRA IDAG — sidans mest konkreta, klickbara lista, nu i full
@@ -891,10 +882,6 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           <KpiCard
             role="cost" label={t('dashboard.kpi.costs')} value={fmtKpi(periodKostnader)} sub={kpiSubCost}
             dot={chart.costBar}
-          />
-          <KpiCard
-            role="cash" label={t('dashboard.kpi.cash')} value={fmtKpi(cashToday)} sub={t('dashboard.kpi.cashSub')}
-            dot={chart.cash || 'var(--text-muted)'} negative={cashToday < 0}
           />
         </div>
 
