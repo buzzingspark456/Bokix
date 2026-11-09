@@ -25,8 +25,8 @@ import { useTranslation, dateLocale } from '../i18n';
 // på "Intäkter vs Utgifter"-grafen här också — delad komponent/lista och
 // delad datumberäkning istället för en andra, lokal implementation som kan
 // glida isär (se PeriodPicker/OVERVIEW_PERIODS-kommentaren i ReportUI.jsx).
-import { overviewPeriodBounds, buildResultSeries, companyFiscalYearSetting } from '../utils/reportCalculations';
 import { layoutRect, layoutViewport } from '../utils/dropdownPlacement';
+import { overviewPeriodBounds, buildResultSeries, companyFiscalYearSetting } from '../utils/reportCalculations';
 import { invoiceCustomerRemainingSek } from '../utils/rotRutConfig';
 import { numberFormat } from '../utils/intlCache';
 
@@ -720,11 +720,9 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     </section>
   ) : null;
 
-  // Diagrammets höjd. På bred dator (två kolumner) fyller det fönstret ner till
-  // kanten: höjden mäts från var diagrammet faktiskt börjar, så det blir rätt
-  // oavsett skärm, zoom och om hälsningen visas. Förut var det en andel av
-  // fönstret, vilket lämnade ett tomt band under kortet på stora skärmar.
-  // Smalare än två kolumner staplas sidan och diagrammet har en fast höjd.
+  // Diagrammets höjd på bred dator: växer mot fönstrets nederkant så att det
+  // inte blir ett stort tomt fält under Räkenskapsåret, men högst 480 så att
+  // kortet inte blir för stort (användaren 2026-11-09). Minst 340.
   const chartSlotRef = useRef(null);
   const [fillH, setFillH] = useState(null);
   const hasOutstanding = outstanding.inCount > 0 || outstanding.outCount > 0;
@@ -742,8 +740,10 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [chartFormat, periodId, todos.length, hasOutstanding, showGreeting]);
-  const chartH = isPhone ? 240 : fillH != null ? Math.max(260, Math.min(820, fillH)) : 300;
+  // hasChartData och isNew: diagrammet finns inte förrän företagets data
+  // laddats; utan dem mättes höjden bara före laddningen.
+  }, [chartFormat, periodId, todos.length, hasOutstanding, showGreeting, hasChartData, isNew]);
+  const chartH = isPhone ? 240 : fillH != null ? Math.max(340, Math.min(480, fillH)) : 340;
 
   return (
     // Bugkritiskt: rotdiven hade varken minHeight eller egen bakgrund, bara
