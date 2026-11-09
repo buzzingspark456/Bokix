@@ -6913,11 +6913,8 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
   .dash-body .dash-lower-grid { display: contents !important; }
   .dash-body .dash-chart-card { grid-column: 1; grid-row: 1 / span 2; align-self: stretch; margin-bottom: 0 !important; }
   .dash-body .dash-todo-card { grid-column: 2; grid-row: 1; margin-bottom: 16px !important; }
-  /* Utestående sträcks ner till diagramkortets nederkant; listan med obetalda
-     fakturor tar höjden som blir över och skrollar om den inte räcker. */
-  .dash-body .dash-outstanding { grid-column: 2; grid-row: 2; align-self: stretch; min-height: 0; }
-  .dash-body .dash-out-list { flex: 1 1 0; min-height: 0; overflow-y: auto; }
-  .dash-body .dash-out-list li:nth-child(n+5) { display: list-item; }
+  /* Utestående: fyra fakturor och Visa alla, utan egen skrollist (2026-11-09). */
+  .dash-body .dash-outstanding { grid-column: 2; grid-row: 2; align-self: start; }
   .dash-body .dash-outstanding-head { padding: 12px 16px !important; }
   .dash-body .dash-outstanding > div:nth-child(2) > button { padding: 14px 16px !important; }
   .dash-body .dash-outstanding-net { padding: 10px 16px !important; }
@@ -8773,12 +8770,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
    Visa alla, som öppnar en skrollbar lista. Bred skärm: listan har alltid
    plats för några rader och skrollar, även när Att göra är lång. */
 .dash-out-list.is-open li:nth-child(n+5) { display: list-item; }
-.dash-out-list.is-open ul { max-height: 420px; overflow-y: auto; }
 .dash-out-more { margin-top: 2px; color: var(--text-main) !important; }
-@media (min-width: 1200px) {
-  .dash-body .dash-out-list { min-height: 210px; }
-  .dash-body .dash-out-more { display: none; }
-}
 /* Har högerkolumnen mer än fönstret rymmer slutar diagramkortet vid
    diagrammet i stället för att sträckas med ett tomt fält; högerkolumnen
    fortsätter nedåt och sidan skrollar. */
@@ -9183,3 +9175,11 @@ input:disabled, textarea:disabled, select:disabled, button:disabled { cursor: no
 
 /* Rensa i filterraden på datorn, i den nedre raden på telefon (2026-11-08). */
 @media (max-width: 768px) { .lfb-clear-inline { display: none !important; } }
+
+/* Startsidan i en kolumn (Inställningar → Utseende → Startsida, 2026-11-09):
+   Att göra överst, sedan Räkenskapsåret och Utestående, lagom bred och centrerad. */
+@media (min-width: 1200px) {
+  .dash-body.dash-body--stack { display: block; max-width: 1440px; margin-left: auto; margin-right: auto; }
+  .dash-body--stack .dash-todo-card, .dash-body--stack .dash-chart-card { margin-bottom: 16px !important; }
+  .dash-body--stack .dash-outstanding { margin-bottom: 0; }
+}

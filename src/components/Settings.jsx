@@ -4675,6 +4675,45 @@ export default function Settings({
                 </SettingCard>
               </SettingsSection>
 
+              {/* Startsidans layout på dator (2026-11-09). Sparas på kontot
+                  (user_metadata.dashboard_layout) som hälsningen, så att den
+                  följer med till andra datorer. Två kolumner är standard. */}
+              <SettingsSection
+                title={t('settings.appearance.dashLayout')}
+                description={t('settings.appearance.dashLayoutHint')}
+              >
+                <SettingCard>
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    {[
+                      { id: 'columns', label: t('settings.appearance.dashLayoutColumns'), hint: t('settings.appearance.dashLayoutColumnsHint') },
+                      { id: 'stack', label: t('settings.appearance.dashLayoutStack'), hint: t('settings.appearance.dashLayoutStackHint') },
+                    ].map(opt => {
+                      const active = (user?.user_metadata?.dashboard_layout === 'stack' ? 'stack' : 'columns') === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => { if (!active) updateUserMeta({ dashboard_layout: opt.id }); }}
+                          aria-pressed={active}
+                          style={{
+                            flex: '1 1 160px', textAlign: 'left', padding: '14px 16px', borderRadius: '12px',
+                            cursor: active ? 'default' : 'pointer', fontFamily: 'inherit',
+                            border: '1.5px solid ' + (active ? BRAND.green : 'var(--border)'),
+                            background: active ? BRAND.greenLight : 'var(--bg-card)',
+                          }}
+                        >
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '9px', fontSize: '14px', fontWeight: 700, color: active ? BRAND.greenDark : 'var(--text-main)' }}>
+                            {opt.label}
+                            {active && <Check size={14} style={{ marginLeft: 'auto' }} />}
+                          </span>
+                          <span style={{ display: 'block', fontSize: '12.5px', color: active ? BRAND.greenDark : 'var(--text-secondary)', marginTop: '4px' }}>{opt.hint}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </SettingCard>
+              </SettingsSection>
+
               <SettingsSection
                 title={t('settings.appearance.language')}
                 description={t('settings.appearance.languageHint')}

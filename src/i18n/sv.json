@@ -306,7 +306,13 @@
       "language": "Språk",
       "languageHint": "Sparas direkt i den här webbläsaren.",
       "languageSv": "Svenska",
-      "languageEn": "Engelska"
+      "languageEn": "Engelska",
+      "dashLayout": "Startsida",
+      "dashLayoutHint": "Hur startsidan visas på datorn.",
+      "dashLayoutColumns": "Två kolumner",
+      "dashLayoutColumnsHint": "Diagrammet till vänster, Att göra och Utestående till höger.",
+      "dashLayoutStack": "En kolumn",
+      "dashLayoutStackHint": "Att göra överst, sedan diagrammet och Utestående."
     }
   },
   "contacts": {

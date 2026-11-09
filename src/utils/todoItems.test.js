@@ -10,7 +10,7 @@ const established = Array.from({ length: 30 }, (_, i) => ({ id: `v${i}`, date: '
 
 describe('buildTodoItems', () => {
   it('förfallen faktura öppnar just den fakturan', () => {
-    const items = buildTodoItems({ ...base, verifications: established, invoices: [{ id: 'f1', status: 'sent', dueDate: '2026-10-01', invoiceNumber: 7, total: 100 }] });
+    const items = buildTodoItems({ ...base, verifications: established, invoices: [{ id: 'f1', status: 'sent', dueDate: '2026-10-01', invoiceNumber: 7, amount: 100 }] });
     const row = items.find(i => i.kind === 'overdue_invoices');
     expect(row.target).toEqual({ tab: 'invoices', action: { type: 'open_invoice', payload: { id: 'f1' } } });
     expect(row.sev).toBe('danger');
@@ -60,7 +60,7 @@ describe('buildTodoItems', () => {
   });
 
   it('dolda rader försvinner och försenat står först', () => {
-    const args = { ...base, verifications: established, invoices: [{ id: 'f1', status: 'sent', dueDate: '2026-10-01', total: 100 }, { id: 'f2', status: 'draft' }] };
+    const args = { ...base, verifications: established, invoices: [{ id: 'f1', status: 'sent', dueDate: '2026-10-01', amount: 100 }, { id: 'f2', status: 'draft' }] };
     const all = buildTodoItems(args);
     expect(all[0].kind).toBe('overdue_invoices');
     const hidden = buildTodoItems({ ...args, dismissedKeys: new Set([all[0].dismissKey]) });
@@ -83,5 +83,17 @@ it("inkomstdeklaration och årsredovisning för förra året, de sista 30 dagarn
     // I mars är båda fristerna mer än 30 dagar bort.
     const march = new Date("2026-03-15T10:00:00");
     expect(kinds(buildTodoItems({ ...base, today: march, company, verifications: [...lastYear, ...established] }))).not.toEqual(expect.arrayContaining(["income_declaration", "annual_report"]));
+  });
+});
+
+describe('fakturor med 0 kr kvar', () => {
+  it('räknas inte som förfallna', async () => {
+    const { buildTodoItems } = await import('./todoItems');
+    const t = (k) => k;
+    const items = buildTodoItems({ t, today: new Date('2026-11-09T12:00:00'), invoices: [
+      { id: 'a', status: 'sent', dueDate: '2026-10-01', amount: 0 },
+      { id: 'b', status: 'sent', dueDate: '2026-10-01', amount: 500, paidAmount: 500 },
+    ] });
+    expect(items.some(i => i.kind === 'overdue_invoices')).toBe(false);
   });
 });

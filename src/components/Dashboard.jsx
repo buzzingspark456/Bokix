@@ -493,7 +493,9 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   const outstanding = useMemo(() => {
     const daysOverdue = calendarDaysOverdue;
 
-    const unpaidInvoices = (invoices || []).filter(i => i.status === 'sent');
+    // Bara det som faktiskt är kvar att betala: en skickad faktura på 0 kr, eller en
+    // som redan betalats eller krediterats fullt, stod annars som obetald med 0 kr.
+    const unpaidInvoices = (invoices || []).filter(i => i.status === 'sent' && invoiceCustomerRemainingSek(i) > 0);
     // Delbetalda fakturor räknas på det som ÅTERSTÅR, inte på hela
     // beloppet — annars säger rutan att man har mer att få in än man har.
     const receivable = unpaidInvoices.reduce((sum, i) => sum + invoiceCustomerRemainingSek(i), 0);
@@ -645,6 +647,9 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // hoppas över HELT (inget tomt div kvar som fortfarande tar sin
   // marginBottom) istället för att bara göra texten osynlig.
   const showGreeting = user?.user_metadata?.show_dashboard_greeting !== false;
+  // Startsidans layout (Inställningar → Utseende): två kolumner är standard,
+  // 'stack' lägger allt i en kolumn med Att göra överst (2026-11-09).
+  const stackLayout = user?.user_metadata?.dashboard_layout === 'stack';
   const isPhone = useIsPhone();
   // Att göra idag: på telefon först på sidan, före Snabbåtgärder (det som väntar
   // på dig är viktigare än genvägarna, och genvägarna tog annars halva skärmen
@@ -721,7 +726,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   ) : null;
 
   // Diagrammets höjd på bred dator: växer mot fönstrets nederkant så att det
-  // inte blir ett stort tomt fält under Räkenskapsåret, men högst 480 så att
+  // inte blir ett stort tomt fält under Räkenskapsåret, men högst 720 så att
   // kortet inte blir för stort (användaren 2026-11-09). Minst 340.
   const chartSlotRef = useRef(null);
   const [fillH, setFillH] = useState(null);
@@ -729,21 +734,37 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   useLayoutEffect(() => {
     const measure = () => {
       const slot = chartSlotRef.current;
-      if (!slot || !window.matchMedia('(min-width: 1200px)').matches) { setFillH(null); return; }
+      if (!slot || stackLayout || !window.matchMedia('(min-width: 1200px)').matches) { setFillH(null); return; }
       const scroller = slot.closest('.main-wrapper');
       const top = layoutRect(slot).top - (scroller ? layoutRect(scroller).top - scroller.scrollTop : 0);
       const viewport = scroller ? scroller.clientHeight : layoutViewport().height;
       // Under diagrammet: kortets innerkant och ram (19), kroppens marginal
       // (16) och sidans botten (24).
-      setFillH(Math.round(viewport - top - 60));
+      let h = viewport - top - 60;
+      // Högerkolumnen (Att göra + Utestående) längre än fönstret, som på en
+      // laptop: diagrammet växer mot kolumnens nederkant (taket nedan gäller),
+      // så att det inte blir ett stort tomt fält under Räkenskapsåret.
+      const body = slot.closest('.dash-body');
+      const todo = body && body.querySelector(':scope > .dash-todo-card');
+      const out = body && body.querySelector('.dash-outstanding');
+      if (body && (todo || out)) {
+        const outMin = out ? layoutRect(out).height : 0;
+        const rightH = (todo ? layoutRect(todo).height + 16 : 0) + outMin;
+        h = Math.max(h, layoutRect(body).top + rightH - layoutRect(slot).top - 19);
+      }
+      setFillH(Math.round(h));
     };
     measure();
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    // Att göra ändrar höjd när man trycker Visa alla eller Minimera.
+    const todoEl = chartSlotRef.current?.closest('.dash-body')?.querySelector(':scope > .dash-todo-card');
+    const ro = todoEl && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => measure()) : null;
+    if (ro) ro.observe(todoEl);
+    return () => { window.removeEventListener('resize', measure); if (ro) ro.disconnect(); };
   // hasChartData och isNew: diagrammet finns inte förrän företagets data
   // laddats; utan dem mättes höjden bara före laddningen.
-  }, [chartFormat, periodId, todos.length, hasOutstanding, showGreeting, hasChartData, isNew]);
-  const chartH = isPhone ? 240 : fillH != null ? Math.max(340, Math.min(480, fillH)) : 340;
+  }, [chartFormat, periodId, todos.length, hasOutstanding, showGreeting, hasChartData, isNew, stackLayout]);
+  const chartH = isPhone ? 240 : stackLayout ? 360 : fillH != null ? Math.max(340, Math.min(720, fillH)) : 340;
 
   return (
     // Bugkritiskt: rotdiven hade varken minHeight eller egen bakgrund, bara
@@ -811,7 +832,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
       {/* På bred dator (index.css, .dash-body) ligger diagrammet till vänster och
           Att göra, Utestående och Moms i en smal kolumn till höger, så att hela
           översikten syns utan att skrolla. Smalare än så staplas allt som förut. */}
-      <div className={`dash-body${isNew || (todos.length === 0 && !hasOutstanding) ? ' dash-body--solo' : (todos.length > 0 ? '' : ' dash-body--no-todo')}`}>
+      <div className={`dash-body${isNew || (todos.length === 0 && !hasOutstanding) ? ' dash-body--solo' : (todos.length > 0 ? '' : ' dash-body--no-todo')}${stackLayout ? ' dash-body--stack' : ''}`}>
       {!todoFirst && todoCard}
 
       {/* ─── GRAF — full bredd. Var tidigare en svag cremeton (Sida 31/32) för
@@ -1015,7 +1036,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             {(outstanding.receivable !== 0 || outstanding.payable !== 0) && (
             <div className="dash-outstanding-net" style={{ padding: '14px 20px', borderTop: '1px solid var(--border-light)', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
               <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('dashboard.outstanding.net')}</span>
-              <span style={{ fontSize: '15px', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: outstanding.net >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
+              <span style={{ fontSize: '15px', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: outstanding.net >= 0 ? 'var(--text-main)' : 'var(--status-red-text)' }}>
                 {fmt(outstanding.net)}
               </span>
             </div>

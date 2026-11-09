@@ -68,7 +68,8 @@ export function buildTodoItems({
   const rows = [];
 
   // Förfallna kundfakturor.
-  const overdueInvoices = invoices.filter(i => i.status === 'sent' && calendarDaysOverdue(i.dueDate, today) > 0);
+  // Fakturor med 0 kr kvar (tomma, eller redan betalda/krediterade) räknas inte.
+  const overdueInvoices = invoices.filter(i => i.status === 'sent' && invoiceCustomerRemainingSek(i) > 0 && calendarDaysOverdue(i.dueDate, today) > 0);
   if (overdueInvoices.length > 0) {
     const one = overdueInvoices.length === 1 ? overdueInvoices[0] : null;
     const customer = one && contacts.find(c => c.id === one.customerId)?.name;

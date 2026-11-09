@@ -306,7 +306,13 @@
       "language": "Language",
       "languageHint": "Saved instantly in this browser.",
       "languageSv": "Swedish",
-      "languageEn": "English"
+      "languageEn": "English",
+      "dashLayout": "Start page",
+      "dashLayoutHint": "How the start page looks on a computer.",
+      "dashLayoutColumns": "Two columns",
+      "dashLayoutColumnsHint": "Chart on the left, To do and Outstanding on the right.",
+      "dashLayoutStack": "One column",
+      "dashLayoutStackHint": "To do at the top, then the chart and Outstanding."
     }
   },
   "contacts": {
