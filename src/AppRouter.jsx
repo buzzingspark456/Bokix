@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
+// Bara lokalt: registreringens frågor fristående (src/dev/DevOnboarding.jsx).
+const DevOnboarding = import.meta.env.DEV ? lazy(() => import('./dev/DevOnboarding')) : null;
 import CookieBanner from './components/CookieBanner';
 import { allLocalizedRoutes } from './content/marketing/routes';
 import { ARTICLE_ROUTES } from './content/marketing/articleRoutes';
@@ -290,6 +292,7 @@ export default function AppRouter() {
       <PageviewTracker />
       <Routes>
         <Route path="/" element={<RootRoute />} />
+        {DevOnboarding && <Route path="/dev/onboarding" element={<Suspense fallback={<AppLoadingFallback />}><DevOnboarding /></Suspense>} />}
         {/* Sitemap (Sida 29) — varje marknadssida en egen riktig route/URL,
             inte ett skroll-ankare på startsidan. Loggan i MarketingLayout
             går alltid till "/" oavsett vilken av dessa man står på. */}

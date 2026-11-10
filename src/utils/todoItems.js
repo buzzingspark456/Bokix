@@ -273,7 +273,6 @@ export function buildTodoItems({
   if (verifications.length < 25) {
     const startSteps = [
       { kind: 'start_company', done: Boolean(company?.orgNr && company?.address && (company?.bankgiro || company?.plusgiro || company?.iban)), tab: 'company', title: t('dashboard.start.companyTitle'), detail: t('dashboard.start.companyDetail') },
-      { kind: 'start_vat', done: company?.vatRegistered === true || company?.vatRegistered === false, tab: 'settings_system', title: t('dashboard.start.vatTitle'), detail: t('dashboard.start.vatDetail') },
       { kind: 'start_receipt', done: expenses.length > 0, tab: 'expenses', title: t('dashboard.start.receiptTitle'), detail: t('dashboard.start.receiptDetail') },
       { kind: 'start_invoice', done: invoices.length > 0, tab: 'invoices', title: t('dashboard.start.invoiceTitle'), detail: t('dashboard.start.invoiceDetail') },
     ];

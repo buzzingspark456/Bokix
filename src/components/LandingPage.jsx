@@ -6,7 +6,7 @@ import {
 } from './icons';
 import { BRAND } from '../utils/brandColors';
 import MarketingLayout, { Reveal } from './marketing/MarketingLayout';
-import LandingFeatureGrid, { OrgTypeCards } from './marketing/LandingFeatureGrid';
+import LandingFeatureGrid from './marketing/LandingFeatureGrid';
 import { SERIF, INK, INK_SOFT, MUTED, CARD_BORDER, ACCENT } from './marketing/marketingTokens';
 import CloudShaderBackground from './marketing/CloudShaderBackground';
 import { GRAD, grad } from './marketing/aurora';
@@ -341,19 +341,6 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
         </div>
       </section>
 
-      {/* ── BOLAGSFORMER — fem kort, se OrgTypeCards. ── */}
-      {/* Varannan sektion har --mkt-section-alt, så att rytmen syns utan
-          linjer mellan sektionerna. */}
-      <section style={{ padding: '80px 24px 88px', background: 'var(--mkt-section-alt)', position: 'relative', overflow: 'hidden' }}>
-        <Reveal style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', textAlign: 'center', position: 'relative' }}>
-          <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(24px, 3.4vw, 34px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '32px' }}>
-            {c.companyTypesHeading}
-          </h2>
-        </Reveal>
-        {/* Fem kort i samma stil som rutnätet ovan, i stället för en rullande
-            rad med färgade prickar. Se OrgTypeCards i LandingFeatureGrid.jsx. */}
-        <OrgTypeCards links={c.companyTypeLinks} />
-      </section>
 
 
       {/* ── TROVÄRDIGHETSRADEN TOGS BORT HÄRIFRÅN (2026-09-22, tredje passet)
@@ -399,7 +386,7 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           mörkgröna botten i mörkt läge i stället. ── */}
       {/* 2026-10-20: tvådelad (lp-split) — rubriken till vänster, spalterna
           till höger. Kvitton och Byt nedanför växlar sida. */}
-      <section style={{ padding: '96px 24px', background: 'var(--mkt-page-bg)', position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '96px 24px', background: 'var(--mkt-section-alt)', position: 'relative', overflow: 'hidden' }}>
         <div className="lp-split">
           <Reveal className="lp-split-text">
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(28px, 3.6vw, 42px)', fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.15, color: INK, marginBottom: '16px' }}>
@@ -448,7 +435,7 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           RIKTIGT eget kvitto och får RIKTIGA värden tillbaka, i stället
           för att öppna hela app-demot med exempeldata. Samma
           utils/ocrReceipt.js som Expenses.jsx, ingen egen kopia. ── */}
-      <section style={{ padding: '96px 24px', background: 'var(--mkt-section-alt)', position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '96px 24px', background: 'var(--mkt-page-bg)', position: 'relative', overflow: 'hidden' }}>
         <div className="lp-split lp-split-rev">
           <Reveal className="lp-split-text">
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(28px, 3.6vw, 42px)', fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.15, color: INK, marginBottom: '16px' }}>
@@ -482,7 +469,7 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           Ivory mot kortbakgrunden i sektionerna före och efter, så de tre
           flödesanimationerna på sidan inte flyter ihop till ett enda långt
           fält. ── */}
-      <section style={{ padding: '96px 24px', background: 'var(--mkt-page-bg)', position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '96px 24px', background: 'var(--mkt-section-alt)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ maxWidth: 'min(92vw, 1240px)', margin: '0 auto', position: 'relative' }}>
           <Reveal style={{ textAlign: 'center', marginBottom: '38px' }}>
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 700, letterSpacing: '-0.01em', color: INK, marginBottom: '12px' }}>
@@ -525,7 +512,7 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
           vägen vidare. Ivory mot kortbakgrunden i sektionen ovanför, och
           en tunn underkant mot prissektionen (som också är ivory) så
           skarven syns. ── */}
-      <section style={{ padding: '96px 24px', background: 'var(--mkt-section-alt)', position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '96px 24px', background: 'var(--mkt-page-bg)', position: 'relative', overflow: 'hidden' }}>
         <div className="lp-split">
           <Reveal className="lp-split-text">
             <h2 style={{ fontFamily: SERIF, fontSize: 'clamp(28px, 3.6vw, 42px)', fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.15, color: INK, marginBottom: '16px' }}>
@@ -551,7 +538,7 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
       {/* Prissektionen är borttagen från startsidan (kundönskemål 2026-09-26: priset ska inte synas här). Priserna finns på /priser. */}
 
       {/* ── FAQ ── */}
-      <section style={{ padding: '88px 24px', background: 'var(--mkt-page-bg)', position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '88px 24px', background: 'var(--mkt-section-alt)', position: 'relative', overflow: 'hidden' }}>
         {/* Kundönskemål (uppföljning): den fulla accordionen var tidigare
             bara dold på mobil (.lp-faq-full/.lp-faq-mobile-cta) — kunden
             bad om samma kompakta "gå till FAQ"-kort på desktop också, inte

@@ -69,7 +69,7 @@ describe('buildTodoItems', () => {
 
   it('nytt konto får Kom igång-rader', () => {
     const items = buildTodoItems({ t, today, company: {} });
-    expect(kinds(items)).toEqual(['start_company', 'start_vat', 'start_receipt', 'start_invoice']);
+    expect(kinds(items)).toEqual(['start_company', 'start_receipt', 'start_invoice']);
   });
 it("inkomstdeklaration och årsredovisning för förra året, de sista 30 dagarna och tills de är inlämnade", () => {
     const july = new Date("2026-07-15T10:00:00");

@@ -1,5 +1,6 @@
 import { seriesForSource, getNextNumber as getNextVerificationNumber } from '../utils/verificationNumbering';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { hiddenFeatureNavIds } from '../utils/optionalFeatures';
 import useFitLevel from '../utils/useFitLevel';
 import {
   Menu, X, HelpCircle, LogOut, Bell, Sun, Moon, ChevronDown, ChevronRight, FolderTree, FileCheck, Shield, Calculator, AlertTriangle, UsersRound,
@@ -124,6 +125,14 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
       const { __articles, ...company } = override;
       s.company = { ...s.company, ...company };
       if (__articles) s.articles = __articles;
+    }
+    // Bara lokalt: ?tom=1 öppnar demon som ett helt nytt konto utan data,
+    // för att prova Kom igång (dashboard/GetStarted.jsx). Kontoplanen är kvar.
+    if (import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('tom')) {
+      for (const k of Object.keys(s)) if (k !== 'accounts' && Array.isArray(s[k])) s[k] = [];
+      s.company = { ...s.company, id: 'tom-demo' };
+      // Börja om som ett nytt konto (Kom igång) varje gång demon öppnas.
+      try { localStorage.setItem('bokix_getstarted_tom-demo', JSON.stringify({ path: 'new' })); localStorage.removeItem('bokix_getstarted_tom-demo_seen'); } catch { /* inget */ }
     }
     return s;
   }, []);
@@ -277,8 +286,11 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   // isMobileSheetItemActive-logik som App.jsx.
   const mobileSheetActive = activeDemoTab === 'review' || MOBILE_SHEET_SECTIONS.some(sec => sec.items.some(item => item.id === activeDemoTab));
   // Som i appen: Granskning syns bara när något väntar (eller när man står på sidan).
+  // Som i appen: Artiklar och Projekt syns bara när de används eller är påslagna
+  // (utils/optionalFeatures.js). Den tomma demon (?tom=1) har dem alltså inte.
+  const demoHiddenNav = hiddenFeatureNavIds(seed);
   const visibleGroups = SIDEBAR_GROUPS
-    .map(g => ({ ...g, items: g.items.filter(i => i.id !== 'review' || reviewCount > 0 || activeDemoTab === 'review') }))
+    .map(g => ({ ...g, items: g.items.filter(i => !demoHiddenNav.includes(i.id) && (i.id !== 'review' || reviewCount > 0 || activeDemoTab === 'review')) }))
     .filter(g => g.items.length > 0);
 
   // Enda platsen en skrivåtgärd (spara/lägg till/betala/bokför …) landar på
@@ -303,6 +315,11 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   // Måste alltid skickas in explicit här, oavsett att inget sparas sen.
   const demoUploadFn = (_userId, file) => Promise.resolve(URL.createObjectURL(file));
 
+  // Kontoinställningar (t.ex. Startsidans layout under Utseende) gäller bara
+  // i demon så länge sidan är öppen; inget sparas.
+  const [demoUserState, setDemoUserState] = useState(demoUser);
+  const updateDemoUserMeta = (patch) => setDemoUserState(u => ({ ...u, user_metadata: { ...u.user_metadata, ...patch } }));
+
   const renderContent = () => {
     switch (activeDemoTab) {
       case 'dashboard':
@@ -313,7 +330,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
             setActiveTab={openTab} company={seed.company} profileIncomplete={false}
             onResumeOnboarding={() => openTab('dashboard')}
             vatPeriods={demoVatPeriods} payrollRuns={seed.payrollRuns}
-            user={demoUser}
+            user={demoUserState}
           />
         );
       case 'contacts':
@@ -446,7 +463,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
             onImport={blocked} onReset={blocked} stripeAccountId={undefined}
             onConnectStripe={blocked} onDisconnectStripe={blocked}
             onConnectEmailDomain={blocked} onCheckEmailDomainStatus={blocked} onDisconnectEmailDomain={blocked}
-            user={demoUser} companyList={[]} activeCompanyId={undefined} onSwitchCompany={blocked} onAddCompany={blocked}
+            user={demoUserState} onUpdateUserMeta={updateDemoUserMeta} companyList={[]} activeCompanyId={undefined} onSwitchCompany={blocked} onAddCompany={blocked}
           />
         );
       default:
@@ -733,7 +750,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
                 <span className="mobile-sheet-review-badge">{reviewCount}</span>
               </button>
             )}
-            {MOBILE_SHEET_SECTIONS.map(sec => (
+            {MOBILE_SHEET_SECTIONS.map(sec => ({ ...sec, items: sec.items.filter(i => !demoHiddenNav.includes(i.id)) })).filter(sec => sec.items.length > 0).map(sec => (
               <div className="mobile-sheet-section" key={sec.title || 'settings'}>
                 {sec.title && <div className="mobile-sheet-section-title">{sec.title}</div>}
                 <div className="mobile-sheet-list">

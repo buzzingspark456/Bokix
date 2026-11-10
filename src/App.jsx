@@ -47,7 +47,7 @@ import { grossInvoiceAmount } from './utils/reportCalculations';
 import { calcRotRutDeduction, invoiceCustomerDue, invoiceCustomerRemaining } from './utils/rotRutConfig';
 import { applyCreditNotes } from './utils/creditNotes';
 import { mergeImportedEmployees } from './utils/employeeCsv';
-import { planFromId } from './utils/plans';
+import { planFromId, planIncludesPayroll } from './utils/plans';
 import { detectOrgType } from './utils/orgType';
 import { captureEvent } from './utils/posthog';
 import { reconcileSieOpenings, applySieOpeningReconcile } from './utils/sieOpeningReconcile';
@@ -2711,7 +2711,7 @@ function App() {
       const ownedMembershipsPromise = supabase.from('company_members').select('company_id').eq('owner_user_id', authUser.id).eq('status', 'active').then(r => r);
       const firstSubscriptionsPromise = supabase
         .from('subscriptions')
-        .select('company_id, status, trial_ends_at, current_period_end, cancel_at_period_end')
+        .select('company_id, status, plan, trial_ends_at, current_period_end, cancel_at_period_end')
         .eq('user_id', authUser.id)
         .then(r => r);
 
@@ -2755,7 +2755,7 @@ function App() {
         subscriptionsPromise = null;
         const { data, error } = pending ? await pending : await supabase
           .from('subscriptions')
-          .select('company_id, status, trial_ends_at, current_period_end, cancel_at_period_end')
+          .select('company_id, status, plan, trial_ends_at, current_period_end, cancel_at_period_end')
           .eq('user_id', authUser.id);
         if (error) return {};
         const map = {};
@@ -3711,6 +3711,11 @@ function App() {
   };
 
   const handleOnboardingComplete = async (profile) => {
+    // Börjar från noll eller flyttar in (steget Start): startsidans Kom igång
+    // (dashboard/GetStarted.jsx) läser valet härifrån.
+    if (profile.startPath && data.activeCompanyId) {
+      try { localStorage.setItem('bokix_getstarted_' + data.activeCompanyId, JSON.stringify({ path: profile.startPath })); } catch { /* inte kritiskt */ }
+    }
     const name = profile.companyName?.trim() || company.name || tr('ui.mitt_foretag_ab');
     const nextState = {
       ...data,
@@ -5647,6 +5652,7 @@ function App() {
             agiReports={agiReports}
             bankTransactions={bankTransactions}
             hiddenNavIds={featureHiddenNavIds}
+            payrollIncluded={planIncludesPayroll((subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan)}
             onOpenItem={handleGlobalAction}
             onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears}
           />
@@ -6056,7 +6062,7 @@ function App() {
           />
         );
       default:
-        return <Dashboard {...commonProps} invoices={invoices} expenses={expenses} contacts={contacts} setActiveTab={handleNavTabChange} company={company} vatPeriods={vatPeriods} payrollRuns={payrollRuns} employees={employees} reviewTotal={reviewTotal} agiReports={agiReports} bankTransactions={bankTransactions} hiddenNavIds={featureHiddenNavIds} onOpenItem={handleGlobalAction} onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears} />;
+        return <Dashboard {...commonProps} invoices={invoices} expenses={expenses} contacts={contacts} setActiveTab={handleNavTabChange} company={company} vatPeriods={vatPeriods} payrollRuns={payrollRuns} employees={employees} reviewTotal={reviewTotal} agiReports={agiReports} bankTransactions={bankTransactions} hiddenNavIds={featureHiddenNavIds} payrollIncluded={planIncludesPayroll((subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan)} onOpenItem={handleGlobalAction} onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears} />;
     }
   };
 

@@ -28,6 +28,7 @@ import { sieImportBatches } from '../utils/sieImportBatches';
 import { lockedPeriodFor } from '../utils/fiscalYear';
 import FiscalYearVatFields, { companySetupFromCompany, companySetupToCompany } from './shared/FiscalYearVatFields';
 import { resultAccountFor } from '../utils/yearEnd';
+import { useDashboardLayout } from '../hooks/useDashboardLayout';
 import { getGreeting } from '../utils/greeting';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { newCalendarKey, calendarFeedUrl, calendarChoices } from '../utils/calendarFeed';
@@ -2661,6 +2662,9 @@ export default function Settings({
   // här filen som annars skulle göra ett Supabase-anrop direkt vid mount
   // (TwoFactorSection nedan), inte bara vid klick.
   readOnly = false,
+  // Demon (DemoWorkspace.jsx) har inget konto att spara på; med den här
+  // sparas kontoinställningar som Startsidans layout bara i demons minne.
+  onUpdateUserMeta,
   // Öppna sidan direkt på en viss flik (App.jsx: sidomenyns Företag-punkt,
   // som tidigare ledde till en EGEN, halvt överlappande företagssida).
   initialSection,
@@ -2875,7 +2879,9 @@ export default function Settings({
   // som Startsidan faktiskt visar, inte en hårdkodad "Hej".
   const { greeting: greetingPreview } = getGreeting();
 
+  const dashLayout = useDashboardLayout(user);
   const updateUserMeta = (patch) => {
+    if (onUpdateUserMeta) { onUpdateUserMeta(patch); return; }
     if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
     supabase.auth.updateUser({ data: patch });
   };
@@ -4677,7 +4683,9 @@ export default function Settings({
 
               {/* Startsidans layout på dator (2026-11-09). Sparas på kontot
                   (user_metadata.dashboard_layout) som hälsningen, så att den
-                  följer med till andra datorer. Två kolumner är standard. */}
+                  följer med till andra datorer. Två kolumner är standard.
+                  Döljs under 1200 px, där startsidan alltid är en kolumn. */}
+              <div className="settings-dashlayout">
               <SettingsSection
                 title={t('settings.appearance.dashLayout')}
                 description={t('settings.appearance.dashLayoutHint')}
@@ -4688,7 +4696,7 @@ export default function Settings({
                       { id: 'columns', label: t('settings.appearance.dashLayoutColumns'), hint: t('settings.appearance.dashLayoutColumnsHint') },
                       { id: 'stack', label: t('settings.appearance.dashLayoutStack'), hint: t('settings.appearance.dashLayoutStackHint') },
                     ].map(opt => {
-                      const active = (user?.user_metadata?.dashboard_layout === 'stack' ? 'stack' : 'columns') === opt.id;
+                      const active = dashLayout === opt.id;
                       return (
                         <button
                           key={opt.id}
@@ -4713,6 +4721,23 @@ export default function Settings({
                   </div>
                 </SettingCard>
               </SettingsSection>
+              </div>
+
+              {/* Kom igång (dashboard/GetStarted.jsx) visas igen efter att ha dolts. */}
+              {user?.user_metadata?.getstarted_dismissed === true && (
+                <SettingsSection title={t('settings.appearance.getStarted')} description={t('settings.appearance.getStartedHint')}>
+                  <SettingCard>
+                    <button
+                      type="button"
+                      onClick={() => updateUserMeta({ getstarted_dismissed: false, getstarted_reset: Date.now() })}
+                      style={{ padding: '10px 16px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      {t('settings.appearance.getStartedShow')}
+                    </button>
+                  </SettingCard>
+                </SettingsSection>
+              )}
+
 
               <SettingsSection
                 title={t('settings.appearance.language')}

@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
+import { useDashboardLayout } from '../hooks/useDashboardLayout';
 import {
   FileText, Receipt,
   ChevronRight, ArrowUpRight, ArrowDownRight,
@@ -13,6 +14,8 @@ import {
 import { buildTodoItems, todoDismissedKey, calendarDaysOverdue } from '../utils/todoItems';
 import { getGreeting } from '../utils/greeting';
 import SieImportModal from './SieImportModal';
+import GetStarted, { readGetStarted, shouldShowGetStarted } from './dashboard/GetStarted';
+import { supabase } from '../supabaseClient';
 import { BRAND } from '../utils/brandColors';
 import { resolveChartPalette } from '../utils/chartPalette';
 import { useIsDarkTheme } from '../hooks/useIsDarkTheme';
@@ -290,7 +293,7 @@ function useIsPhone(maxWidth = 640) {
   return phone;
 }
 
-export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie, onCloseImportedYears, agiReports = [], bankTransactions = [], hiddenNavIds = [], onOpenItem }) {
+export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie, onCloseImportedYears, agiReports = [], bankTransactions = [], hiddenNavIds = [], payrollIncluded = true, onOpenItem }) {
   const { t } = useTranslation();
   const FORMAT_MODES = formatModes(t);
   // Har företaget personal? Avgörs på verkliga anställda och lönekörningar,
@@ -416,11 +419,39 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     if (target.action && onOpenItem) onOpenItem(target.action, target.tab);
     else setActiveTab(target.tab);
   };
+  // ── Kom igång (dashboard/GetStarted.jsx) ── ett nytt konto väljer om det
+  // börjar från noll eller flyttar in; listan ersätter då Kom igång-raderna
+  // i Att göra, den tomma grafen och importrutan längst ner.
+  // Valet görs i registreringen (OnboardingFlow, steget Start) och sparas på
+  // kontot (user_metadata.start_path), så det följer med till andra enheter.
+  // Webbläsarens kopia har överhand; den har även Hoppa över-valen.
+  const gsFromSources = () => {
+    const local = readGetStarted(company?.id);
+    const meta = user?.user_metadata || {};
+    // Visa igen (Inställningar → Utseende) sätter getstarted_reset; en dölj
+    // som gjordes före det gäller inte längre.
+    const reset = Number(meta.getstarted_reset) || 0;
+    const localDismissed = Boolean(local.dismissed) && !(reset && (local.dismissedAt || 0) < reset);
+    return { ...local, path: local.path || meta.start_path || undefined, dismissed: localDismissed || meta.getstarted_dismissed === true };
+  };
+  const [gsState, setGsState] = useState(gsFromSources);
+  useEffect(() => { setGsState(gsFromSources()); }, [company?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const changeGsState = (next) => {
+    setGsState(next);
+    const meta = user?.user_metadata || {};
+    const isRealUser = user?.id && user.id !== 'demo-user';
+    if (isRealUser && (meta.start_path !== next.path || Boolean(meta.getstarted_dismissed) !== Boolean(next.dismissed))) {
+      supabase.auth.updateUser({ data: { start_path: next.path || null, getstarted_dismissed: Boolean(next.dismissed) } }).catch(() => { /* webbläsarens kopia räcker */ });
+    }
+  };
+  const hasAnyData = (verifications || []).length > 0 || (expenses || []).length > 0 || (invoices || []).length > 0;
+  const showGetStarted = Boolean(company?.id) && shouldShowGetStarted(gsState, { hasAnyData });
+
   // ── Att göra ── (utils/todoItems.js, samma lista som notisklockan)
   const todos = buildTodoItems({
     t, company, invoices, expenses, contacts, verifications, payrollRuns, employees, agiReports, bankTransactions,
     vatPeriods, reviewTotal, hiddenNavIds, dismissedKeys: dismissedTodoKeys,
-  }).map(item => ({ ...item, icon: TODO_ICONS[item.kind] || TodoDraftIcon }));
+  }).filter(item => !((showGetStarted || gsState.path || gsState.dismissed) && item.group === 'start')).map(item => ({ ...item, icon: TODO_ICONS[item.kind] || TodoDraftIcon }));
 
   // ── Onboarding ──
   const hasCustomers  = contacts.some(c => c.type === 'customer');
@@ -649,7 +680,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   const showGreeting = user?.user_metadata?.show_dashboard_greeting !== false;
   // Startsidans layout (Inställningar → Utseende): två kolumner är standard,
   // 'stack' lägger allt i en kolumn med Att göra överst (2026-11-09).
-  const stackLayout = user?.user_metadata?.dashboard_layout === 'stack';
+  const stackLayout = useDashboardLayout(user) === 'stack';
   const isPhone = useIsPhone();
   // Att göra idag: på telefon först på sidan, före Snabbåtgärder (det som väntar
   // på dig är viktigare än genvägarna, och genvägarna tog annars halva skärmen
@@ -816,6 +847,19 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
         )}
       </div>
 
+      {showGetStarted && (
+        <GetStarted
+          companyId={company.id}
+          firstName={user?.user_metadata?.first_name || ''}
+          state={gsState}
+          onChange={changeGsState}
+          data={{ company, verifications: verifications || [], expenses: expenses || [], invoices: invoices || [], contacts: contacts || [], employees, bankTransactions, hiddenNavIds, payrollIncluded }}
+          onOpenTab={setActiveTab}
+          onOpenAction={(action, tab) => (onOpenItem ? onOpenItem(action, tab) : setActiveTab(tab))}
+          onImportSie={() => setShowSieImportModal(true)}
+        />
+      )}
+
       {todoFirst && (todoCard || todoEmpty)}
 
       {/* ─── ATT GÖRA IDAG — sidans mest konkreta, klickbara lista, nu i full
@@ -841,7 +885,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           Syns alltid (inte bara `!isNew`) — men visar en lugn tomt-läge-vy
           istället för en platt nollstapel-graf tills det finns något att
           rita ut. ─── */}
-      <div className="dash-chart-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', marginBottom: '18px', minWidth: 0 }}>
+      <div className="dash-chart-card" style={{ ...(showGetStarted && !hasChartData ? { display: 'none' } : null), background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', marginBottom: '18px', minWidth: 0 }}>
         {/* Period-väljare (kundönskemål: "ska vara på startsidan också" +
             "det måste visa datumet") — samma PeriodHeading/PeriodPicker/
             OVERVIEW_PERIODS som Rapport och analys → Företagsöversikt
@@ -1219,7 +1263,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           SIE_IMPORT_DISMISSED_KEY-kommentaren ovan för varför). Samma
           isNew-villkor som checklistan ovan, men sitt eget dismiss-state
           så den inte kopplas till checklistans "alla klara"-firande. */}
-      {isNew && !sieImportDismissed && (
+      {isNew && !showGetStarted && !sieImportDismissed && (
         <div className="dash-sie" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px 20px', marginTop: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
             <div style={{ width: 38, height: 38, borderRadius: '10px', background: 'var(--status-green-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

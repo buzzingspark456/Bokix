@@ -30,7 +30,7 @@ function StripeBadge() {
       <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 15, height: 15, borderRadius: 4, background: '#635BFF', color: 'white', fontSize: '10px', fontWeight: 800, fontFamily: 'Georgia, serif', lineHeight: 1 }}>
         {t('ui.s')}
       </span>
-      <span style={{ fontWeight: 700, color: '#425466' }}>{t('ui.stripe')}</span>
+      <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{t('ui.stripe')}</span>
     </span>
   );
 }
@@ -76,7 +76,7 @@ function passwordStrength(pw) {
   if (score <= 1) return { label: t('ui.svagt_lagg_till_fler_tecken'), color: '#ef4444', pct: 25 };
   if (score === 2) return { label: t('ui.okej'), color: '#f59e0b', pct: 50 };
   if (score <= 3) return { label: t('ui.bra'), color: '#84cc16', pct: 75 };
-  return { label: t('ui.starkt'), color: '#0b6329', pct: 100 };
+  return { label: t('ui.starkt'), color: '#16a34a', pct: 100 };
 }
 
 // Sessionstoken satt av InviteRedeem.jsx när någon öppnar en inbjudningslänk
@@ -509,6 +509,8 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 vat_nr: regProfile.setup?.vatNr || '',
                 vat_period: regProfile.vatPeriod || '',
                 f_skatt: regProfile.fSkatt || '',
+                // Börjar från noll eller flyttar in (OnboardingFlow, steget Start).
+                ...(regProfile.startPath ? { start_path: regProfile.startPath } : {}),
                 setup_done: true,
                 setup_done_at: new Date().toISOString(),
               } : {}),
@@ -919,7 +921,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 {curStep === 'password' && t('ui.skapa_losenord')}
               </h2>
               <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-                {curStep === 'verify' && t('ui.skriv_in_koden_vi_skickade_till', { regEmail })}
+                {/* Kodsteget: kortet nedan säger redan vart koden skickades. */}
                 {/* Bugkritiskt (kundrapport: "det säger betalning/organisationsnummer
                     fast det är ett UF-konto"): den här raden sa "Sedan skickas
                     du vidare till betalning" OAVSETT isUfSignup — men UF-konton

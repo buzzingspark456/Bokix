@@ -32,9 +32,12 @@ const STEPS = [
   { id: 'fiscal', label: t('ui.onb2_steg_rakenskapsar'), screen: 'fiscal' },
   { id: 'vat', label: t('ui.onb2_steg_momsen'), screen: 'vatReg' },
   { id: 'tax', label: t('ui.onb_steg_fskatt'), screen: 'tax' },
+  // Börjar från noll eller flyttar från ett annat program (2026-11-10).
+  // Styr vilken lista startsidan visar (dashboard/GetStarted.jsx).
+  { id: 'start', label: t('ui.onb_steg_start'), screen: 'start' },
   { id: 'done', label: t('ui.onb_steg_klart'), screen: 'done' },
 ];
-const STEP_OF_SCREEN = { company: 0, firma: 0, address: 0, fiscal: 1, vatReg: 2, vatPeriod: 2, tax: 3, done: 4 };
+const STEP_OF_SCREEN = { company: 0, firma: 0, address: 0, fiscal: 1, vatReg: 2, vatPeriod: 2, tax: 3, start: 4, done: 5 };
 
 const VAT_PERIODS = [
   ['quarterly', t('ui.onb2_varje_kvartal'), t('ui.onb2_kort_kvartal')],
@@ -91,6 +94,7 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
   // ska komma från användaren, inte från oss.
   const [vatPeriod, setVatPeriod] = useState('');
   const [fTax, setFTax] = useState(null); // true | false | null
+  const [startPath, setStartPath] = useState(null); // 'new' | 'move' | null
   const [email, setEmail] = useState(addMode?.defaultEmail || '');
   const [attested, setAttested] = useState(false);
 
@@ -258,6 +262,7 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
       fiscalYear: setup.fiscalYear, setup,
       vatPeriod: vatRegistered ? vatPeriod : undefined,
       fSkatt: fTax ? F_TAX_TEXT : '',
+      ...(startPath ? { startPath } : {}),
       ...(isAdding ? { registryVerified: inRegistry } : {}),
     });
   };
@@ -274,7 +279,8 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
     ? t('ui.onb2_kort_ej_moms')
     : (VAT_PERIODS.find(([id]) => id === vatPeriod)?.[2] || '');
   const fTaxLabel = fTax === null ? '' : (fTax ? t('ui.ja') : t('ui.nej'));
-  const answers = [companyValid ? companyName : '', fyLabel, vatLabel, fTaxLabel, ''];
+  const startLabel = startPath === 'move' ? t('ui.onb_start_kort_flytt') : startPath === 'new' ? t('ui.onb_start_kort_noll') : '';
+  const answers = [companyValid ? companyName : '', fyLabel, vatLabel, fTaxLabel, startLabel, ''];
   const currentStep = STEP_OF_SCREEN[screen];
 
   const legalFormLabel = (legalForm && formatLegalForm(legalForm)) || detectOrgType(orgNr) || '';
@@ -575,8 +581,25 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
       <h1 className="onb-q">{t(soleTrader ? 'ui.onb2_har_du_fskatt' : 'ui.onb2_har_fskatt')}</h1>
       <p className="onb-sub"><Help text={fTax === false ? t('ui.onb_fskatt_nej_hjalp') : t('ui.onb_fskatt_hjalp')} /></p>
       <div className="onb-opts" role="group">
-        <Option active={fTax === true} onClick={() => { setFTax(true); advanceSoon('done'); }}>{t('ui.ja')}</Option>
-        <Option active={fTax === false} onClick={() => { setFTax(false); advanceSoon('done'); }}>{t('ui.nej')}</Option>
+        <Option active={fTax === true} onClick={() => { setFTax(true); advanceSoon(isAdding ? 'done' : 'start'); }}>{t('ui.ja')}</Option>
+        <Option active={fTax === false} onClick={() => { setFTax(false); advanceSoon(isAdding ? 'done' : 'start'); }}>{t('ui.nej')}</Option>
+      </div>
+    </>
+  );
+
+  const renderStart = () => (
+    <>
+      <h1 className="onb-q">{t('ui.onb_start_fraga')}</h1>
+      <p className="onb-sub">{t('ui.onb_start_hjalp')}</p>
+      <div className="onb-opts onb-opts-col" role="group">
+        <Option active={startPath === 'new'} onClick={() => { setStartPath('new'); advanceSoon('done'); }}>
+          <span className="onb-opt-title">{t('ui.onb_start_noll')}</span>
+          <span className="onb-opt-detail">{t('ui.onb_start_noll_hjalp')}</span>
+        </Option>
+        <Option active={startPath === 'move'} onClick={() => { setStartPath('move'); advanceSoon('done'); }}>
+          <span className="onb-opt-title">{t('ui.onb_start_flytt')}</span>
+          <span className="onb-opt-detail">{t('ui.onb_start_flytt_hjalp')}</span>
+        </Option>
       </div>
     </>
   );
@@ -591,6 +614,7 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
       [t('ui.rakenskapsar'), fyLabel],
       [t('ui.onb_steg_fskatt'), fTaxLabel],
       [t('ui.onb_moms'), companySetup.vatRegistered === false ? t('ui.inte_momsregistrerat') : vatLabel],
+      [isAdding ? null : t('ui.onb_steg_start'), startLabel],
     ].filter(([label, value]) => label && value);
     const name = String(firstName || '').trim();
     return (
@@ -639,9 +663,9 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
     );
   };
 
-  const body = { company: renderCompany, firma: renderFirma, address: renderAddress, fiscal: renderFiscal, vatReg: renderVatReg, vatPeriod: renderVatPeriod, tax: renderTax, done: renderDone }[screen]();
+  const body = { company: renderCompany, firma: renderFirma, address: renderAddress, fiscal: renderFiscal, vatReg: renderVatReg, vatPeriod: renderVatPeriod, tax: renderTax, start: renderStart, done: renderDone }[screen]();
 
-  const stepReachable = (i) => i < currentStep || (i === 4 && currentStep === 4);
+  const stepReachable = (i) => i < currentStep || (i === 5 && currentStep === 5);
   const openStep = (i) => {
     if (i === currentStep || !stepReachable(i)) return;
     go(i === 2 && companySetup.vatSource === 'vies' && vatRegistered ? 'vatPeriod' : STEPS[i].screen);
@@ -729,6 +753,10 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
         .onb-opt { padding: 15px 22px; border-radius: 13px; border: 1.5px solid var(--border); background: var(--bg-card); color: var(--text-main); font-size: 15.5px; font-weight: 600; cursor: pointer; transition: background .15s ease, border-color .15s ease, color .15s ease, transform .1s ease; }
         @media (hover: hover) { .onb-opt:hover { border-color: var(--text-muted); background: var(--bg-muted); } }
         .onb-opt:active { transform: scale(.98); }
+        .onb-opts-col { flex-direction: column; align-items: stretch; }
+        .onb-opts-col .onb-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; padding: 18px 22px; }
+        .onb-opt-title { font-size: 16px; font-weight: 700; }
+        .onb-opt-detail { font-size: 13.5px; font-weight: 500; color: var(--text-secondary); line-height: 1.45; }
         .onb-opt[aria-pressed="true"] { border-color: var(--onb-green); background: var(--onb-green-bg); color: var(--onb-green-text); }
 
         .onb-search, .onb-fields { display: flex; flex-direction: column; align-items: stretch; gap: 14px; }

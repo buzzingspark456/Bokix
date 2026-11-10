@@ -100,8 +100,7 @@ export default function PricingPage({ locale = 'sv' }) {
   const baseRows = allRows.filter(f => baseTier.features.includes(f));
   const extraRows = allRows.filter(f => !baseTier.features.includes(f));
 
-  // Jämförelsen: ett kort med nivåerna överst (namn, pris, knapp, följer
-  // med vid skroll), funktionerna vänsterställda och Med personal-kolumnen
+  // Jämförelsen: ett kort med nivåerna överst (namn, pris, knapp), funktionerna vänsterställda och Med personal-kolumnen
   // svagt grönt tonad hela vägen ner.
   const tierCell = (t) => `bx-cmp-t${t.featured ? ' pro' : ''}`;
   const renderRow = (f) => (
@@ -188,7 +187,7 @@ export default function PricingPage({ locale = 'sv' }) {
         html[data-theme="dark"] #lp-root .bx-cmp-yes { background: #1f9a4a; }
         .bx-cmp-no { width: 14px; height: 2px; border-radius: 2px; background: var(--mkt-card-border); }
 
-        .bx-cmp-head { position: sticky; top: 84px; z-index: 3; background: var(--mkt-card-bg); border-radius: 28px 28px 0 0; border-bottom: 1px solid var(--mkt-card-border); }
+        .bx-cmp-head { background: var(--mkt-card-bg); border-radius: 28px 28px 0 0; border-bottom: 1px solid var(--mkt-card-border); }
         .bx-cmp-head > * { flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; padding-top: clamp(20px, 3vw, 28px); padding-bottom: clamp(16px, 2.4vw, 22px); text-align: center; }
         .bx-cmp-head .bx-cmp-f { align-items: flex-start; }
         .bx-cmp-head > :last-child { border-top-right-radius: 28px; }
@@ -220,7 +219,6 @@ export default function PricingPage({ locale = 'sv' }) {
           .bx-pr-badge-mob { display: inline-block; }
           .bx-pr-price small { display: block; font-size: 13px; margin-top: 6px; }
           .bx-cmp-head .bx-pr-cta { display: none; }
-          .bx-cmp-head { top: 64px; }
           .bx-pr-cta { min-height: 50px; }
           .bx-pr-cta svg { display: none; }
         }

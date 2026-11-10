@@ -20,7 +20,7 @@ function StripeBadge() {
       <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, borderRadius: 4, background: '#635BFF', color: 'white', fontSize: '11px', fontWeight: 800, fontFamily: 'Georgia, serif', lineHeight: 1 }}>
         {t('ui.s')}
       </span>
-      <span style={{ fontWeight: 700, color: '#425466' }}>{t('ui.stripe')}</span>
+      <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{t('ui.stripe')}</span>
     </span>
   );
 }
