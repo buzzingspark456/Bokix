@@ -146,6 +146,33 @@ export function buildReauthCodeHtml({ code }) {
 const C = { ink: '#14211a', text: '#4a5a51', muted: '#8a968f', green: '#16a34a', greenSoft: '#e9f6ec', line: '#e6ece7', page: '#f2f5f3', amber: '#b45309', amberSoft: '#fdf3e4', blue: '#1d5fbf', blueSoft: '#e8f0fb' };
 const F = "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
 const MONO = "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace";
+// Kvittot är ritat på papper och ska se ut som papper även i mörkt läge, så
+// det har egna färger som de mörka reglerna nedan inte rör.
+const R = { paper: '#fffdf8', ink: '#1b1b1b', muted: '#7a7a7a' };
+
+// Mörkt läge (prefers-color-scheme). Bokix mörka gröna ton, som appen.
+const sel = (prop, val) => `[style^="${prop}:${val}"],[style*=";${prop}:${val}"]`;
+const DARK_CSS = `
+:root { color-scheme: light dark; supported-color-schemes: light dark; }
+@media (prefers-color-scheme: dark) {
+  body, ${sel('background-color', C.page)} { background-color: #0d1711 !important; }
+  ${sel('background-color', '#ffffff')} { background-color: #15241a !important; }
+  ${sel('background-color', C.line)} { background-color: #27392d !important; }
+  ${sel('background-color', C.greenSoft)} { background-color: #153021 !important; }
+  ${sel('background-color', C.amberSoft)} { background-color: #2c2316 !important; }
+  ${sel('background-color', C.blueSoft)} { background-color: #152539 !important; }
+  ${sel('background-color', C.ink)} { background-color: #eef4ef !important; color: #0d1711 !important; }
+  [style*="solid ${C.line}"] { border-color: #27392d !important; }
+  ${sel('color', C.ink)} { color: #eef4ef !important; }
+  ${sel('color', C.text)} { color: #b6c5bb !important; }
+  ${sel('color', C.muted)} { color: #849689 !important; }
+  ${sel('color', C.blue)} { color: #86b4f5 !important; }
+  ${sel('color', C.amber)} { color: #f2ad62 !important; }
+  .bx-card { border-color: #27392d !important; }
+  .bx-acc-green { border-top-color: ${C.green} !important; }
+  .bx-acc-blue { border-top-color: ${C.blue} !important; }
+  .bx-acc-amber { border-top-color: ${C.amber} !important; }
+}`;
 
 const p = (text, extra = '') => `<p style="margin:0 0 14px;font-size:15.5px;line-height:1.65;color:${C.text};${extra}">${text}</p>`;
 const h1 = (text) => `<h1 style="margin:0 0 14px;font-size:28px;line-height:1.18;font-weight:800;letter-spacing:-0.02em;color:${C.ink};">${text}</h1>`;
@@ -159,14 +186,14 @@ const ps = (text) => `<p style="margin:24px 0 0;padding:16px 18px;border-radius:
 const signoff = `<p style="margin:22px 0 0;font-size:15.5px;line-height:1.6;color:${C.ink};">Hälsningar,<br><strong>Bokix</strong></p>`;
 
 function shell({ subject, preheader, accent, body, unsubscribeUrl }) {
-  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light only"><title>${esc(subject)}</title></head>
+  return `<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><title>${esc(subject)}</title><style>${DARK_CSS}</style></head>
 <body style="margin:0;padding:0;background-color:${C.page};">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${esc(preheader)}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${C.page};">
   <tr><td align="center" style="padding:30px 14px 40px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
       <tr><td style="padding:0 6px 16px;"><img src="https://www.bokix.se/email-logo.png" width="100" alt="Bokix" style="display:block;border:0;"></td></tr>
-      <tr><td style="background-color:#ffffff;border-radius:22px;border:1px solid ${C.line};border-top:4px solid ${accent};padding:32px 32px 30px;font-family:${F};">
+      <tr><td class="bx-card bx-acc-${accent === C.blue ? 'blue' : accent === C.amber ? 'amber' : 'green'}" style="background-color:#ffffff;border-radius:22px;border:1px solid ${C.line};border-top:4px solid ${accent};padding:32px 32px 30px;font-family:${F};">
         ${body}
       </td></tr>
       <tr><td style="padding:22px 12px 0;text-align:center;font-family:${F};font-size:12.5px;line-height:1.7;color:${C.muted};">
@@ -248,16 +275,16 @@ function welcomeMove({ hi, href }) {
 
 // ── 3. Kvitto: ett ritat kvitto som blir bokfört ──
 function receipt({ hi, href }) {
-  const line = (a, b, bold) => `<tr><td style="padding:3px 0;font-family:${MONO};font-size:13px;color:${C.ink};${bold ? 'font-weight:700;' : ''}">${a}</td><td align="right" style="padding:3px 0;font-family:${MONO};font-size:13px;color:${C.ink};${bold ? 'font-weight:700;' : ''}">${b}</td></tr>`;
+  const line = (a, b, bold) => `<tr><td style="padding:3px 0;font-family:${MONO};font-size:13px;color:${R.ink};${bold ? 'font-weight:700;' : ''}">${a}</td><td align="right" style="padding:3px 0;font-family:${MONO};font-size:13px;color:${R.ink};${bold ? 'font-weight:700;' : ''}">${b}</td></tr>`;
   return `
     ${h1('Ett foto. Det är allt.')}
     ${p(`${hi}, du har inte lagt in något kvitto än. Så här lite behöver du göra:`)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 4px;border-radius:16px;background-color:${C.amberSoft};">
       <tr><td align="center" style="padding:22px 18px;">
-        <table role="presentation" width="230" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:6px;border:1px dashed #e2c9a3;">
+        <table role="presentation" width="230" cellpadding="0" cellspacing="0" style="background-color:${R.paper};border-radius:6px;border:1px dashed #e2c9a3;">
           <tr><td style="padding:14px 16px 12px;">
-            <div style="text-align:center;font-family:${MONO};font-size:13px;font-weight:700;color:${C.ink};">KONTORSHANDELN</div>
-            <div style="text-align:center;font-family:${MONO};font-size:11.5px;color:${C.muted};margin:2px 0 10px;">14 nov · kvitto 2231</div>
+            <div style="text-align:center;font-family:${MONO};font-size:13px;font-weight:700;color:${R.ink};">KONTORSHANDELN</div>
+            <div style="text-align:center;font-family:${MONO};font-size:11.5px;color:${R.muted};margin:2px 0 10px;">14 nov · kvitto 2231</div>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
               ${line('Pärmar 5 st', '199,00')}
               ${line('Pennor', '50,00')}
