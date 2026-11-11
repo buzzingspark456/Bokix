@@ -293,7 +293,7 @@ function useIsPhone(maxWidth = 640) {
   return phone;
 }
 
-export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie, onCloseImportedYears, agiReports = [], bankTransactions = [], hiddenNavIds = [], payrollIncluded = true, onOpenItem }) {
+export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie, onCloseImportedYears, agiReports = [], bankTransactions = [], hiddenNavIds = [], payrollIncluded = true, onOpenItem, onStartTour }) {
   const { t } = useTranslation();
   const FORMAT_MODES = formatModes(t);
   // Har företaget personal? Avgörs på verkliga anställda och lönekörningar,
@@ -857,6 +857,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           onOpenTab={setActiveTab}
           onOpenAction={(action, tab) => (onOpenItem ? onOpenItem(action, tab) : setActiveTab(tab))}
           onImportSie={() => setShowSieImportModal(true)}
+          onStartTour={onStartTour}
         />
       )}
 

@@ -313,7 +313,8 @@
       "newEmployeeDetail": "So the first payroll withholds the right tax, and the payslip is ready right away.",
       "hideConfirm": "Hide Get started? You can show it again under Settings → Appearance.",
       "cancel": "Cancel",
-      "hide": "Hide"
+      "hide": "Hide",
+      "tour": "Take a quick tour"
     }
   },
   "settings": {

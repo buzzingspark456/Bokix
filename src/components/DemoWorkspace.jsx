@@ -1,6 +1,8 @@
 import { seriesForSource, getNextNumber as getNextVerificationNumber } from '../utils/verificationNumbering';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { hiddenFeatureNavIds } from '../utils/optionalFeatures';
+import { startProductTourWhenReady } from '../utils/productTour';
+import HelpDrawer from './HelpDrawer';
 import useFitLevel from '../utils/useFitLevel';
 import {
   Menu, X, HelpCircle, LogOut, Bell, Sun, Moon, ChevronDown, ChevronRight, FolderTree, FileCheck, Shield, Calculator, AlertTriangle, UsersRound,
@@ -59,6 +61,9 @@ const demoUser = { id: 'demo-user', email: 'du@bokix.se', user_metadata: { first
 // nav.* i sv.json): Start och Att granska överst, sedan Pengar in, Pengar ut och
 // Koll på ekonomin. Inställningar står längst ned bredvid Hjälp, som i appen.
 // Att granska syns bara när något väntar (se visibleGroups nedan).
+// Rundturen (utils/productTour.js) pekar på menygrupperna med samma namn som i appen.
+const TOUR_GROUP_KEYS = { 'Pengar in': 'nav-business', 'Pengar ut': 'nav-finance', 'Koll på ekonomin': 'nav-reports' };
+
 const SIDEBAR_GROUPS = [
   { items: [
     { id: 'dashboard', label: 'Start', icon: LayoutDashboard },
@@ -300,6 +305,8 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   // En ruta i appens stil, inte en webbläsarruta per anrop: "Bokför alla
   // säkra" anropar blocked() en gång per rad, och då kom fyra rutor i rad.
   const [demoNoticeOpen, setDemoNoticeOpen] = useState(false);
+  // Hjälp och support fungerar i demon: texterna öppnar demons egna sidor.
+  const [demoHelpOpen, setDemoHelpOpen] = useState(false);
   const navigate = useNavigate();
   const blocked = () => {
     setDemoNoticeOpen(true);
@@ -331,6 +338,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
             onResumeOnboarding={() => openTab('dashboard')}
             vatPeriods={demoVatPeriods} payrollRuns={seed.payrollRuns}
             user={demoUserState}
+            onStartTour={() => startProductTourWhenReady({ uid: null, navigate: openTab, hiddenTabs: demoHiddenNav })}
           />
         );
       case 'contacts':
@@ -515,6 +523,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
             <React.Fragment key={gi}>
               {gi > 0 && navFit >= 2 && <div style={{ height: '1px', background: 'rgba(255,255,255,0.15)', margin: '2px 20px', flexShrink: 0 }} />}
               {group.title && navFit < 2 && <div className="lp-demo-nav-title">{group.title}</div>}
+              <div data-tour={TOUR_GROUP_KEYS[group.title]} style={{ display: 'flex', flexDirection: 'column' }}>
               {group.items.map(item => {
                 const isActive = activeDemoTab === item.id;
                 const badge = item.id === 'review' ? reviewCount : 0;
@@ -537,6 +546,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
                   </button>
                 );
               })}
+              </div>
             </React.Fragment>
           ))}
         </nav>
@@ -549,7 +559,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
           <button onClick={() => openTab('settings')} style={{ padding: `${fitStyle.foot}px 24px`, width: '100%', textAlign: 'left', background: activeDemoTab === 'settings' ? 'rgba(255,255,255,0.14)' : 'none', border: 'none', color: activeDemoTab === 'settings' ? '#ffffff' : 'rgba(255,255,255,0.88)', fontSize: `${fitStyle.font}px`, fontWeight: activeDemoTab === 'settings' ? 700 : 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'inherit', boxShadow: activeDemoTab === 'settings' ? 'inset 3px 0 0 #ffd23f' : 'none' }}>
             <SettingsIcon size={17} /> Inställningar
           </button>
-          <button onClick={blocked} style={{ padding: `${fitStyle.foot}px 24px`, width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: `${fitStyle.font}px`, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'inherit' }}>
+          <button onClick={() => setDemoHelpOpen(true)} style={{ padding: `${fitStyle.foot}px 24px`, width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: `${fitStyle.font}px`, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'inherit' }}>
             <HelpCircle size={17} /> Hjälp och support
           </button>
 
@@ -588,7 +598,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
           {activeDemoTab === 'dashboard' && (
           <div className="desktop-top-bar lp-hide-mobile" style={{ marginBottom: '4px' }}>
             <div className="desktop-topbar-right">
-              <button className="topbar-icon-btn" onClick={blocked} title="Hjälp & support">
+              <button className="topbar-icon-btn" data-tour="topbar-help" onClick={() => setDemoHelpOpen(true)} title="Hjälp & support">
                 <HelpCircle size={23} />
               </button>
               <button className="topbar-icon-btn" onClick={toggleTheme} title={theme === 'dark' ? 'Ljust läge' : 'Mörkt läge'}>
@@ -768,7 +778,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
                 (bara synlig på skrivbord, se .lp-hide-mobile ovan). Utan de
                 här två raderna fanns ingen väg dit alls på mobil. */}
             <div className="mobile-sheet-list">
-              <button type="button" className="mobile-sheet-row" onClick={() => { blocked(); setMobileSheetOpen(false); }}>
+              <button type="button" className="mobile-sheet-row" onClick={() => { setDemoHelpOpen(true); setMobileSheetOpen(false); }}>
                 <span className="mobile-sheet-row-icon"><HelpCircle size={20} /></span>
                 <span className="mobile-sheet-row-label">Hjälp och support</span>
               </button>
@@ -784,20 +794,26 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
       {/* Appens bekräftelseruta (confirmDialog), som annars bara finns i
           den inloggade appen: utan den blev det webbläsarens confirm(). */}
       <ConfirmDialogHost />
+      <HelpDrawer
+        isOpen={demoHelpOpen}
+        onClose={() => setDemoHelpOpen(false)}
+        currentTab={activeDemoTab}
+        hiddenTabs={demoHiddenNav}
+        onNavigate={(tab) => openTab(String(tab).startsWith('settings') || tab === 'company' ? 'settings' : String(tab).startsWith('taxes') ? 'taxes' : tab)}
+        onStartTour={() => { setDemoHelpOpen(false); openTab('dashboard'); startProductTourWhenReady({ uid: null, navigate: openTab, hiddenTabs: demoHiddenNav }); }}
+        onStartInvoiceTour={() => { setDemoHelpOpen(false); blocked(); }}
+        onContactSupport={() => { setDemoHelpOpen(false); blocked(); }}
+      />
       {demoNoticeOpen && (
         <div className="modal-overlay" onClick={() => setDemoNoticeOpen(false)}>
-          <div className="modal-content" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="demo-notice-title">
-            <div className="modal-header">
-              <h2 className="modal-title" id="demo-notice-title">Det här är en demo</h2>
-            </div>
-            <div style={{ padding: '18px 24px 22px' }}>
-              <p style={{ margin: '0 0 18px', fontSize: '14px', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
-                Inget sparas här. Skapa ett gratis konto, så gör Bokix det här på riktigt med din egen bokföring.
-              </p>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
-                <button type="button" onClick={() => setDemoNoticeOpen(false)} style={{ padding: '9px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 600, fontSize: '14px', cursor: 'pointer', color: 'var(--text-main)', fontFamily: 'inherit' }}>Fortsätt titta</button>
-                <button type="button" onClick={() => navigate('/priser')} style={{ padding: '9px 16px', background: 'var(--accent)', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', color: '#fff', fontFamily: 'inherit' }}>Skapa gratis konto</button>
-              </div>
+          <div className="modal-content demo-notice" style={{ maxWidth: '420px', textAlign: 'left', padding: '26px 26px 22px' }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="demo-notice-title">
+            <h2 id="demo-notice-title" style={{ margin: 0, fontSize: '19px', fontWeight: 750, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>Det här är en demo</h2>
+            <p style={{ margin: '8px 0 22px', fontSize: '14.5px', lineHeight: 1.6, color: 'var(--text-secondary)', textAlign: 'left' }}>
+              Inget sparas här. Skapa ett gratis konto, så gör Bokix det här på riktigt med din egen bokföring.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
+              <button type="button" onClick={() => setDemoNoticeOpen(false)} style={{ padding: '10px 16px', background: 'transparent', border: '1px solid var(--border)', borderRadius: '10px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', color: 'var(--text-main)', fontFamily: 'inherit' }}>Fortsätt titta</button>
+              <button type="button" onClick={() => navigate('/priser')} style={{ padding: '10px 16px', background: 'linear-gradient(180deg, #22a454, #178a43)', border: 'none', borderRadius: '10px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', color: '#fff', fontFamily: 'inherit', boxShadow: '0 8px 18px -10px rgba(23, 138, 67, .8)' }}>Skapa gratis konto</button>
             </div>
           </div>
         </div>

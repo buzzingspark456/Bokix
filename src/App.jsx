@@ -437,7 +437,7 @@ import PaymentRequiredGate from './components/PaymentRequiredGate';
 // markup som hör till renderingen av en helt vanlig flik — en lazy-gräns
 // runt den hade bara lagt till en laddningsruta för ingenting.
 import UfLockedPage from './components/UfLockedPage';
-import { maybeAutoStartTour, startProductTourWhenReady } from './utils/productTour';
+import { startProductTourWhenReady } from './utils/productTour';
 import { startInvoiceTourWhenReady } from './utils/invoiceTour';
 import { mergeCompanies, mergeCompany, makeRecordPatch, buildStateDelta, sharedFieldsToSave } from './utils/stateMerge';
 import { readServerState, rememberServerState, isCacheUsable, noteCachedAt, clearServerState } from './utils/serverStateCache';
@@ -1105,6 +1105,14 @@ const tabAliases = {
   expense_overview: 'expenses',
   receipts:         'expenses',
   settings_system:  'settings',
+  // Hjälpcentrets direktlänkar (src/content/help/articles.js).
+  settings_subscription: 'settings',
+  settings_users:   'settings',
+  settings_invoice: 'settings',
+  settings_integrations: 'settings',
+  settings_appearance: 'settings',
+  settings_security: 'settings',
+  settings_advanced: 'settings',
   supplierInvoices: 'expenses',
   transfers:        'verifications',
   dashboard:        'dashboard',
@@ -1739,7 +1747,7 @@ function App() {
     const rTab = resolveTab(tabId);
     if (taxesSectionAliases[tabId]) setTaxesInitialSection(taxesSectionAliases[tabId]);
     if (verificationsSectionAliases[tabId]) setVerificationsInitialTab(verificationsSectionAliases[tabId]);
-    setSettingsShortcutSection({ company: 'company', settings_system: 'system' }[tabId] || null);
+    setSettingsShortcutSection({ company: 'company', settings_system: 'system', settings_subscription: 'subscription', settings_users: 'users', settings_invoice: 'invoice', settings_integrations: 'integrations', settings_appearance: 'appearance', settings_security: 'security', settings_advanced: 'advanced' }[tabId] || null);
     setActiveTab(rTab);
     // Bokföring-sidans flikar får sitt eget id i adressen (#accruals), så att
     // en omladdning landar på fliken och inte bara på sidan.
@@ -3525,7 +3533,8 @@ function App() {
     // handleNavTabChange skickas med så rundturen kan navigera in på
     // varje sektion på riktigt (se productTour.js:s withNavigation).
     // Gömda funktioner (utils/optionalFeatures.js) hoppas över i rundturen.
-    maybeAutoStartTour(user.id, handleNavTabChange, hiddenFeatureNavIds(data.companies?.[data.activeCompanyId]), user);
+    // Rundturen startar inte längre av sig själv (2026-11-10): Kom igång är
+    // första mötet. Den startas från Kom igång eller Hjälp och support.
   }, [isLoggedIn, showOnboarding, activeNeedsSetup, subscriptionGate, user, data.activeCompanyId, data.companies, subscriptionsMap]);
 
   const handleLogin = () => {
@@ -5653,6 +5662,7 @@ function App() {
             bankTransactions={bankTransactions}
             hiddenNavIds={featureHiddenNavIds}
             payrollIncluded={planIncludesPayroll((subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan)}
+            onStartTour={() => startProductTourWhenReady({ uid: user?.id, navigate: handleNavTabChange, hiddenTabs: hiddenFeatureNavIds(currentCompany) })}
             onOpenItem={handleGlobalAction}
             onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears}
           />
@@ -6239,7 +6249,7 @@ function App() {
                   <ChevronDown className="nav-group-chevron" size={12} style={{ transform: collapsed ? 'rotate(-90deg)' : 'none' }} />
                 </button>
               )}
-              <div className={`nav-group-items${collapsed ? ' is-collapsed' : ''}`}>
+              <div className={`nav-group-items${collapsed ? ' is-collapsed' : ''}`} data-tour={group.key ? `nav-${group.key}` : undefined}>
               {group.items.map((item) => {
                 // Offerter, Kundfakturor, Artiklar och Leverantörsfakturor är egna
                 // sidor: markeras bara på sin egen sida, inte på alla som delar
@@ -6680,6 +6690,9 @@ function App() {
         onStartTour={() => { setIsHelpDrawerOpen(false); handleNavTabChange('dashboard'); startProductTourWhenReady({ uid: user?.id, navigate: handleNavTabChange, hiddenTabs: hiddenFeatureNavIds(currentCompany) }); }}
         onStartInvoiceTour={() => { setIsHelpDrawerOpen(false); handleNavTabChange('invoices'); startInvoiceTourWhenReady({ uid: user?.id }); }}
         onContactSupport={(topic) => { setIsHelpDrawerOpen(false); setReportErrorTopic(topic); setReportErrorModal(true); }}
+        currentTab={resolveTab(activeTab)}
+        hiddenTabs={featureHiddenNavIds}
+        onNavigate={(tab, action) => (action ? handleGlobalAction(action, tab) : handleNavTabChange(tab))}
       />
 
       {/* ── Toast — ersätter blockerande alert() för t.ex. "Stripe är nu

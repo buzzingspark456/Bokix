@@ -55,7 +55,7 @@ export default function PrivacyPolicy() {
         <ul style={policyUl}>
           <li style={policyLi}><strong>Fullgörande av avtal</strong> — för att kunna leverera bokförings-, fakturerings- och löneverktyget du registrerat dig för (kontouppgifter, företagsuppgifter, bokföringsdata).</li>
           <li style={policyLi}><strong>Rättslig förpliktelse</strong> — bokföringsdata du själv skapar i tjänsten omfattas av bokföringslagens krav på arkivering; vi raderar aldrig bokföringsdata i förtid enbart för att du säger upp kontot.</li>
-          <li style={policyLi}><strong>Berättigat intresse</strong> — teknisk data (IP, tidsstämplar) för att upptäcka missbruk, felsöka driftsproblem och hålla tjänsten säker, och en enda inbjudan att lämna ett omdöme om Bokix på Trustpilot (se avsnitt 4).</li>
+          <li style={policyLi}><strong>Berättigat intresse</strong> — teknisk data (IP, tidsstämplar) för att upptäcka missbruk, felsöka driftsproblem och hålla tjänsten säker, en enda inbjudan att lämna ett omdöme om Bokix på Trustpilot (se avsnitt 4), och några få tips-mejl de första två veckorna efter att du skapat kontot, om hur du kommer igång. Varje tips-mejl har en länk där du avregistrerar dig med ett klick.</li>
           <li style={policyLi}><strong>Samtycke</strong> — om du väljer att koppla på integrationer (t.ex. Stripe för kortbetalningar, Zettle för kassan eller din egen e-post som avsändare) behandlas ytterligare uppgifter först när du aktivt ansluter dem, och du kan koppla från när du vill.</li>
         </ul>
       </PolicySection>

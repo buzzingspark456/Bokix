@@ -65,7 +65,7 @@ export function buildSteps(path, { t, company, verifications, expenses, invoices
 
 const reducedMotion = () => typeof window !== 'undefined' && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
 
-export default function GetStarted({ companyId, firstName, state, onChange, data, onOpenTab, onOpenAction, onImportSie }) {
+export default function GetStarted({ companyId, state, onChange, data, onOpenTab, onOpenAction, onImportSie, onStartTour }) {
   const { t } = useTranslation();
   const s = (k, v) => t(`dashboard.getStarted.${k}`, v);
   const save = (next) => { writeGetStarted(companyId, next); onChange(next); };
@@ -176,9 +176,12 @@ export default function GetStarted({ companyId, firstName, state, onChange, data
 
       {isMove && <p className="gs-note">{s('moveNote')}</p>}
       <div className="gs-foot">
-        <button type="button" className="gs-skip" onClick={() => save({ ...state, path: isMove ? 'new' : 'move' })}>
-          {isMove ? s('switchToNew') : s('switchToMove')}
-        </button>
+        <span className="gs-foot-links">
+          <button type="button" className="gs-skip" onClick={() => save({ ...state, path: isMove ? 'new' : 'move' })}>
+            {isMove ? s('switchToNew') : s('switchToMove')}
+          </button>
+          {onStartTour && <button type="button" className="gs-skip" onClick={onStartTour}>{s('tour')}</button>}
+        </span>
         {confirmHide ? (
           <span className="gs-confirm" role="group" aria-label={s('hideConfirm')}>
             <span>{s('hideConfirm')}</span>

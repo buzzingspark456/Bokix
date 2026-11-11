@@ -23,7 +23,7 @@ import { supabase } from '../supabaseClient';
 // missvisande (t.ex. ett steg pekar på ett element som flyttats/döpts om)
 // — en ny version visar rundturen igen automatiskt även för konton som
 // redan sett en äldre version, se hasSeenTour nedan.
-const TOUR_VERSION = 'v3';
+const TOUR_VERSION = 'v4';
 
 function storageKey(uid) {
   return `bokix_tour_done_${TOUR_VERSION}_${uid}`;
@@ -97,122 +97,80 @@ export function waitForElement(selector, timeout = 3000, interval = 80) {
 // (sidomeny/topbar) och i respektive sidas riktiga knappar/fält — CSS-
 // selektorer, inte referenser, så den här filen aldrig behöver importera
 // dem.
+// Omgjord 2026-11-10: kort (5–6 steg) och pekar på menyn i stället för att
+// öppna formulär. Startar aldrig av sig själv längre (Kom igång är första
+// mötet för ett nytt konto); den startas från Kom igång eller Hjälp och support.
+// `when` = steget tas bara med om villkoret stämmer när turen startar.
+const isPhone = () => typeof window !== 'undefined' && Boolean(window.matchMedia?.('(max-width: 768px)').matches);
+const hasGetStarted = () => Boolean(document.querySelector('.gs-card'));
+
 const STEP_DEFS = [
   {
     popover: {
       title: 'Välkommen till Bokix',
-      description: 'En snabb rundtur — hoppa över när du vill.',
+      description: 'Så hittar du rätt, på en halv minut. Hoppa över när du vill.',
     },
   },
   {
     tab: 'dashboard',
-    element: '.dash-kpi-grid',
+    element: '.gs-card',
+    when: hasGetStarted,
     popover: {
-      title: 'Startsida',
-      description: 'Här ser du hur det går: resultat, intäkter och kostnader för perioden du väljer, och bredvid det som väntar på dig.',
+      title: 'Börja här',
+      description: 'Nästa steg står alltid överst, och korten bockas av av sig själva när du gjort dem.',
     },
   },
   {
     tab: 'dashboard',
-    element: '[data-tour="dash-checklist"]',
-    optional: true,
+    element: '.dash-body',
+    when: () => !hasGetStarted(),
     popover: {
-      title: 'Kom igång-listan',
-      description: 'Fyra korta steg som gör kontot klart — bocka av i din egen takt.',
+      title: 'Startsidan',
+      description: 'Hur det går för företaget, och det som väntar på dig.',
     },
   },
   {
-    tab: 'contacts',
-    openSelector: '[data-tour="page-contacts-cta"]',
-    element: '[data-tour="page-contacts-field"]',
-    closeSelector: '[data-tour="page-contacts-cancel"]',
+    element: '[data-tour="nav-business"]',
+    when: () => !isPhone(),
     popover: {
-      title: 'Kunder',
-      description: 'Fyll i namnet — Bokix slår upp organisationsnummer och adress åt dig automatiskt.',
+      title: 'Pengar in',
+      description: 'Kunder, offerter och fakturor. Allt som ger pengar in.',
+      side: 'right',
     },
   },
   {
-    tab: 'invoices',
-    openSelector: '[data-tour="page-invoices-cta"]',
-    element: '[data-tour="page-invoices-field"]',
-    closeSelector: '[data-tour="page-invoices-cancel"]',
+    element: '[data-tour="nav-finance"]',
+    when: () => !isPhone(),
     popover: {
-      title: 'Kundfakturor',
-      description: 'Välj kund och lägg till rader — Bokix räknar moms och totalsumma automatiskt.',
+      title: 'Pengar ut',
+      description: 'Kvitton, leverantörsfakturor och lön. Fota kvittot, så bokför Bokix det.',
+      side: 'right',
     },
   },
   {
-    tab: 'verifications',
-    openSelector: '[data-tour="page-verifications-cta"]',
-    element: '[data-tour="page-verifications-field"]',
-    closeSelector: '[data-tour="page-verifications-cancel"]',
+    element: '[data-tour="nav-reports"]',
+    when: () => !isPhone(),
     popover: {
-      title: 'Bokföring',
-      description: 'Beskriv affärshändelsen — datum, belopp och konton bokförs härifrån.',
+      title: 'Koll på ekonomin',
+      description: 'Bank, bokföring, rapporter och moms, uträknat av det du lagt in.',
+      side: 'right',
     },
   },
   {
-    tab: 'projects',
-    openSelector: '[data-tour="page-projects-cta"]',
-    element: '[data-tour="page-projects-field"]',
-    closeSelector: '[data-tour="page-projects-cancel"]',
+    element: '.mobile-bottom-nav',
+    when: isPhone,
     popover: {
-      title: 'Projekt',
-      description: 'Namnge projektet — tid och kostnader går sedan att koppla hit.',
-    },
-  },
-  {
-    tab: 'review',
-    element: '[data-tour="page-review-content"]',
-    popover: {
-      title: 'Granskning',
-      description: 'Transaktioner som väntar på att kopplas till rätt konto, t.ex. från Stripe, hamnar här.',
-    },
-  },
-  {
-    tab: 'reports',
-    element: '[data-tour="page-reports-list"]',
-    popover: {
-      title: 'Rapport och analys',
-      description: 'Klicka på en rapport för att öppna den fullständigt beräknad, alltid byggd på din riktiga bokföring.',
-    },
-  },
-  {
-    tab: 'taxes',
-    element: '[data-tour="page-taxes-content"]',
-    popover: {
-      title: 'Skatt och bokslut',
-      description: 'Momsdeklaration, bokslut och viktiga datum — uträknat automatiskt utifrån din bokföring.',
-    },
-  },
-  {
-    tab: 'settings',
-    element: '[data-tour="page-settings-nav"]',
-    popover: {
-      title: 'Inställningar',
-      description: 'Företagsuppgifter, användare, prenumeration och utseende — välj del i flikraden högst upp.',
+      title: 'Menyn',
+      description: 'Hem, Bokföring, Kvitton och Rapporter. Allt annat finns under Meny.',
+      side: 'top',
     },
   },
   {
     element: '[data-tour="topbar-help"]',
+    when: () => !isPhone(),
     popover: {
       title: 'Hjälp och support',
-      description: 'Ordlista, kontakt — och den här rundturen igen, när du vill.',
-    },
-  },
-  {
-    openSelector: '[data-tour="topbar-profile"]',
-    element: '[data-tour="topbar-profile-dropdown"]',
-    closeSelector: '[data-tour="topbar-profile"]',
-    popover: {
-      title: 'Ditt konto',
-      description: 'Under din avatar: kontoplaner, viktiga datum, bokslut, momsredovisning och att lägga till fler företag.',
-    },
-  },
-  {
-    popover: {
-      title: 'Klart',
-      description: 'Hitta rundturen igen under Hjälp och support.',
+      description: 'Sök bland hjälptexterna, se hur allt fungerar steg för steg, eller skriv till oss.',
     },
   },
 ];
@@ -227,7 +185,7 @@ const STEP_DEFS = [
  * eftersom startProductTourWhenReady redan garanterat väntat in
  * Dashboard-chunken innan buildSteps() körs. */
 function buildSteps(hiddenTabs = []) {
-  return STEP_DEFS.filter(step => (!step.optional || document.querySelector(step.element)) && !(step.tab && hiddenTabs.includes(step.tab)));
+  return STEP_DEFS.filter(step => (!step.when || step.when()) && (!step.optional || document.querySelector(step.element)) && !(step.tab && hiddenTabs.includes(step.tab)));
 }
 
 /** Går in i `step`: byter flik (om satt), öppnar ev. formulär
@@ -241,6 +199,9 @@ async function enterStep(step, navigate) {
     document.querySelector(step.openSelector)?.click();
   }
   if (step.element) await waitForElement(step.element, 3000);
+  // Ihopfälld menygrupp: fäll ut den så att det som visas syns.
+  const el = step.element && document.querySelector(step.element);
+  if (el?.classList.contains('is-collapsed')) el.previousElementSibling?.click();
 }
 
 /** Lämnar `step`: stänger ett ev. öppnat formulär (closeSelector) så det
@@ -290,20 +251,26 @@ export function startProductTour({ uid, navigate, hiddenTabs = [] } = {}) {
   const driverObj = driver({
     animate: true,
     smoothScroll: true,
-    overlayColor: '#0f172a',
-    overlayOpacity: 0.6,
+    overlayColor: '#0b1a12',
+    overlayOpacity: 0.55,
     stagePadding: 8,
-    stageRadius: 12,
+    stageRadius: 16,
     popoverClass: 'bokix-tour-popover',
     showProgress: true,
     progressText: '{{current}} av {{total}}',
     nextBtnText: 'Nästa',
-    prevBtnText: 'Föregående',
+    prevBtnText: 'Tillbaka',
     doneBtnText: 'Klart',
     steps,
     onNextClick: nav.onNextClick,
     onPrevClick: nav.onPrevClick,
     onCloseClick: nav.onCloseClick,
+    // Prickar i stället för "2 av 6": den aktiva är ett grönt streck, klara är ljusgröna.
+    onPopoverRender: (popover, { state }) => {
+      const at = state.activeIndex ?? 0;
+      popover.progress.innerHTML = steps.map((_, k) => '<span class="bx-tour-dot' + (k === at ? ' on' : k < at ? ' done' : '') + '"></span>').join('');
+      popover.progress.setAttribute('aria-label', 'Steg ' + (at + 1) + ' av ' + steps.length);
+    },
     onDestroyed: () => { try { localStorage.setItem(storageKey(uid), '1'); } catch { /* privat läge */ } },
   });
 

@@ -94,16 +94,16 @@
 }
 
 .bokix-tour-popover .driver-popover-next-btn {
-  background: var(--lime-500);
+  background: #16a34a;
   color: #fff;
-  border-color: var(--lime-500);
-  box-shadow: 0 1px 3px rgba(91, 168, 90, 0.35);
+  border-color: #16a34a;
+  box-shadow: 0 1px 3px rgba(22, 163, 74, 0.35);
 }
 
 .bokix-tour-popover .driver-popover-next-btn:hover {
-  background: var(--lime-600);
-  border-color: var(--lime-600);
-  box-shadow: 0 3px 8px rgba(91, 168, 90, 0.4);
+  background: #15803d;
+  border-color: #15803d;
+  box-shadow: 0 3px 8px rgba(22, 163, 74, 0.4);
 }
 
 .bokix-tour-popover .driver-popover-btn-disabled {
@@ -150,3 +150,35 @@
   border-left-color: transparent;
   border-right-color: transparent;
 }
+
+/* Finputs 2026-11-11: mjukare kort, prickar som framsteg, ingen Tillbaka på
+   första steget, kort intoning när en ny ruta visas. */
+.driver-popover.bokix-tour-popover {
+  border-radius: 18px;
+  padding: 24px 26px 20px;
+  min-width: 320px;
+  max-width: 400px;
+  box-shadow: 0 1px 2px rgba(16, 24, 20, .06), 0 24px 60px -20px rgba(8, 24, 14, .45);
+  animation: bx-tour-in .28s cubic-bezier(.2, .8, .2, 1) both;
+}
+@keyframes bx-tour-in { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .driver-popover.bokix-tour-popover { animation: none; } }
+.bokix-tour-popover .driver-popover-title { font-size: 18px; font-weight: 750; padding-right: 30px; }
+.bokix-tour-popover .driver-popover-description { margin-top: 6px; font-size: 14.5px; line-height: 1.6; }
+.bokix-tour-popover .driver-popover-close-btn {
+  top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 18px; line-height: 1;
+}
+.bokix-tour-popover .driver-popover-close-btn:hover { background: var(--bg-muted); }
+.bokix-tour-popover .driver-popover-footer { margin-top: 20px; align-items: center; }
+.bokix-tour-popover .driver-popover-progress-text { display: inline-flex !important; align-items: center; gap: 5px; }
+.bx-tour-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--border); transition: width .25s ease, background .25s ease; }
+.bx-tour-dot.done { background: color-mix(in srgb, #16a34a 45%, transparent); }
+.bx-tour-dot.on { width: 18px; background: #16a34a; }
+.bokix-tour-popover .driver-popover-footer-btn { padding: 9px 16px; font-size: 14px; border-radius: 10px; }
+.bokix-tour-popover .driver-popover-prev-btn { background: transparent; border-color: transparent; color: var(--text-secondary); }
+.bokix-tour-popover .driver-popover-prev-btn:hover { background: var(--bg-muted); border-color: transparent; color: var(--text-main); }
+.bokix-tour-popover .driver-popover-prev-btn.driver-popover-btn-disabled { display: none !important; }
+.bokix-tour-popover .driver-popover-next-btn { background: linear-gradient(180deg, #22a454, #178a43); border: none; box-shadow: 0 1px 0 rgba(255, 255, 255, .22) inset, 0 8px 18px -10px rgba(23, 138, 67, .8); }
+.bokix-tour-popover .driver-popover-next-btn:hover { background: linear-gradient(180deg, #27b05b, #19924a); }
+.bokix-tour-popover .driver-popover-navigation-btns button + button { margin-left: 6px; }

@@ -313,7 +313,8 @@
       "newEmployeeDetail": "Så drar första lönen rätt skatt, och lönebeskedet blir klart direkt.",
       "hideConfirm": "Dölja Kom igång? Du kan visa den igen under Inställningar → Utseende.",
       "cancel": "Avbryt",
-      "hide": "Dölj"
+      "hide": "Dölj",
+      "tour": "Ta en snabb rundtur"
     }
   },
   "settings": {
