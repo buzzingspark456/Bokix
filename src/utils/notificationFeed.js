@@ -28,6 +28,20 @@ export function writeSeenKeys(companyId, seen, keys) {
   return new Set(all);
 }
 
+/** Notiser som tagits bort med krysset, per företag. */
+const dismissedStorageKey = (companyId) => `bokix_notif_dismissed_${companyId || 'none'}`;
+export function readDismissedKeys(companyId) {
+  try {
+    const v = JSON.parse(localStorage.getItem(dismissedStorageKey(companyId)) || '[]');
+    return new Set(Array.isArray(v) ? v : []);
+  } catch { return new Set(); }
+}
+export function writeDismissedKeys(companyId, dismissed, keys) {
+  const all = [...dismissed, ...keys.filter(k => !dismissed.has(k))].slice(-MAX_SEEN);
+  try { localStorage.setItem(dismissedStorageKey(companyId), JSON.stringify(all)); } catch { /* privat läge */ }
+  return new Set(all);
+}
+
 const isoDay = (at) => String(at || '').slice(0, 10);
 const sek = (n) => `${numberFormat('sv-SE', { maximumFractionDigits: 0 }).format(Math.round(n || 0))} kr`;
 
@@ -46,7 +60,8 @@ export function buildNotificationFeed({ t, invoices = [], integrationEvents = []
     if (inv.status !== 'paid' || inv.paidVia !== 'stripe' || !inv.paidDate || inv.paidDate < isoDay(since)) continue;
     items.push({
       keys: [`paid:${inv.id}`], at: `${inv.paidDate}T12:00:00`, kind: 'paid', tone: 'green',
-      text: t('notifFeed.invoicePaid', { number: inv.invoiceNumber || '', amount: sek(inv.paidAmount) }),
+      title: t('notifFeed.paidTitle', { number: inv.invoiceNumber || '' }),
+      detail: t('notifFeed.paidDetail', { amount: sek(inv.paidAmount) }),
       target: { tab: 'invoices', action: { type: 'open_invoice', payload: { id: inv.id } } },
     });
   }
@@ -64,28 +79,34 @@ export function buildNotificationFeed({ t, invoices = [], integrationEvents = []
     const name = source === 'zettle' ? 'Zettle' : 'Stripe';
     items.push({
       keys: list.map(ev => `${source}:${ev.id}`), at: list.map(ev => ev.at).sort().at(-1), kind: 'integration', tone: 'green',
-      text: list.length === 1 ? t('notifFeed.integrationOne', { name }) : t('notifFeed.integrationMany', { name, count: list.length }),
+      title: list.length === 1 ? t('notifFeed.integrationOneTitle', { name }) : t('notifFeed.integrationManyTitle', { name, count: list.length }),
+      detail: t('notifFeed.integrationDetail'),
       target: { tab: 'review' },
     });
   }
 
   // Deklarationer som snart ska in: en gång per period, från sju dagar innan.
   const deadlineAt = (dueDate) => new Date(new Date(dueDate).getTime() - 7 * DAY).toISOString();
+  // "i dag", "i morgon" eller "om 5 dagar", aldrig "om 0 dagar".
+  const when = (days) => (days <= 0 ? t('notifFeed.dueToday') : days === 1 ? t('notifFeed.dueTomorrow') : t('notifFeed.dueInDays', { days }));
   if (vat && vat.daysLeft <= 7) {
     items.push({
       keys: [`vat:${vat.key}`], at: vat.daysLeft < 0 ? new Date(vat.dueDate).toISOString() : deadlineAt(vat.dueDate), kind: 'deadline', tone: vat.daysLeft < 0 ? 'red' : 'amber',
-      text: vat.daysLeft < 0 ? t('notifFeed.vatLate', { label: vat.label }) : t('notifFeed.vatSoon', { label: vat.label, days: vat.daysLeft }),
+      title: vat.daysLeft < 0 ? t('notifFeed.vatLateTitle') : t('notifFeed.vatSoonTitle', { when: when(vat.daysLeft) }),
+      detail: t('notifFeed.vatDetail', { label: String(vat.label || '').replace(/^./, c => c.toUpperCase()) }),
       target: { tab: 'taxes_vat' },
     });
   }
   if (agi && agi.daysLeft <= 7) {
     items.push({
       keys: [`agi:${agi.periodKey}`], at: deadlineAt(agi.dueDate), kind: 'deadline', tone: 'amber',
-      text: t('notifFeed.agiSoon', { period: agi.periodKey, days: agi.daysLeft }),
+      title: t('notifFeed.agiSoonTitle', { when: when(agi.daysLeft) }),
+      detail: t('notifFeed.agiDetail', { period: agi.periodKey }),
       target: { tab: 'taxes' },
     });
   }
 
+  for (const it of items) it.text = `${it.title}, ${it.detail}`;
   return items.sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, MAX_ITEMS);
 }
 

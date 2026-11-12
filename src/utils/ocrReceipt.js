@@ -1877,8 +1877,11 @@ export async function documentForCloud(input, { maxEdge = 2000, quad = null } = 
   source.close?.();
   // Egna hörn (Justera kanter): bara papperet, uträtat, skickas.
   if (quad) {
+    // warpQuadToCanvas lämnar { canvas, srcLongEdge }: det är canvasen som
+    // ska skickas (felet 2026-11-08: "e.toDataURL is not a function" när
+    // man justerat kanterna innan läsningen).
     const warped = warpQuadToCanvas(canvas, quad, maxEdge);
-    if (warped) return asJpeg(warped);
+    if (warped?.canvas) return asJpeg(warped.canvas);
   }
   return asJpeg(canvas);
 }

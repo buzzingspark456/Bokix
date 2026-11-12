@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { hiddenFeatureNavIds } from '../utils/optionalFeatures';
 import { startProductTourWhenReady } from '../utils/productTour';
 import HelpDrawer from './HelpDrawer';
+import NotificationPanel from './NotificationPanel';
 import useFitLevel from '../utils/useFitLevel';
 import {
   Menu, X, HelpCircle, LogOut, Bell, Sun, Moon, ChevronDown, ChevronRight, FolderTree, FileCheck, Shield, Calculator, AlertTriangle, UsersRound,
@@ -13,7 +14,7 @@ import { BRAND } from '../utils/brandColors';
 import { BokixWordmark, useMarketingTheme } from './marketing/MarketingLayout';
 import { createDemoSeed } from '../utils/landingDemoData';
 import { setPosthogDemoActive } from '../utils/posthog';
-import { buildNotificationFeed, isUnread, notificationWhen } from '../utils/notificationFeed';
+import { buildNotificationFeed, isUnread } from '../utils/notificationFeed';
 import { t as tr } from '../i18n';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { grossInvoiceAmount } from '../utils/reportCalculations';
@@ -168,8 +169,8 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
   const demoNotifications = useMemo(() => buildNotificationFeed({ t: tr, invoices: seed.invoices }), [seed]);
   const [demoSeen, setDemoSeen] = useState(() => new Set());
   const [demoOpenedUnread, setDemoOpenedUnread] = useState(() => new Set());
+  const [demoDismissed, setDemoDismissed] = useState(() => new Set());
   const notificationCount = demoNotifications.filter(n => isUnread(n, demoSeen)).length;
-  const DEMO_NOTIF_ICON = { paid: Banknote, integration: Banknote, deadline: CalendarClock };
   const [activeDemoTab, setActiveDemoTab] = useState(initialTab);
   const [globalAction, setGlobalAction] = useState(null);
   // Mobilens "Meny"-bottensheet (Sida 26 i riktiga appen) — ersätter den
@@ -621,34 +622,16 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
                   </span>
                 )}
                 {notifOpen && (
-                  <div className="profile-dropdown notif-dropdown">
-                    <div className="profile-header" style={{ paddingBottom: 4 }}>
-                      <div className="profile-name">Notiser</div>
-                    </div>
-                    <div className="dropdown-divider"></div>
-                    {demoNotifications.length === 0 ? (
-                      <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>{tr('notifFeed.empty')}</div>
-                    ) : demoNotifications.map((n) => {
-                      const Icon = DEMO_NOTIF_ICON[n.kind] || Bell;
-                      const fresh = demoOpenedUnread.has(n.keys.join('|'));
-                      return (
-                        <button key={n.keys.join('|')} onClick={() => { openTab(n.target?.tab || 'dashboard'); setNotifOpen(false); }} style={{ alignItems: 'flex-start' }}>
-                          <span style={{ width: 26, height: 26, borderRadius: '7px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `var(--status-${n.tone}-bg)`, color: `var(--status-${n.tone}-text)`, opacity: fresh ? 1 : 0.6 }}>
-                            <Icon size={13} />
-                          </span>
-                          <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                            <span style={{ display: 'block', overflowWrap: 'break-word', fontWeight: fresh ? 600 : 400, color: fresh ? 'var(--text-main)' : 'var(--text-secondary)' }}>{n.text}</span>
-                            <span style={{ display: 'block', fontSize: '11.5px', color: 'var(--text-muted)', marginTop: 2 }}>{notificationWhen(tr, n.at)}</span>
-                          </span>
-                          {fresh && <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', flexShrink: 0, marginTop: 6 }} />}
-                        </button>
-                      );
-                    })}
-                    <div className="dropdown-divider"></div>
-                    <button onClick={() => { openTab('dashboard'); setNotifOpen(false); }} style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-                      {tr('notifFeed.todo')}
-                    </button>
-                  </div>
+                  <NotificationPanel
+                    t={tr}
+                    title="Notiser"
+                    notifications={demoNotifications.filter(n => !n.keys.every(k => demoDismissed.has(k)))}
+                    openedUnread={demoOpenedUnread}
+                    onOpen={(n) => { openTab(n.target?.tab || 'dashboard'); setNotifOpen(false); }}
+                    onTodo={() => { openTab('dashboard'); setNotifOpen(false); }}
+                    onDismiss={(n) => setDemoDismissed(d => new Set([...d, ...n.keys]))}
+                    onSettings={() => { openTab('settings'); setNotifOpen(false); }}
+                  />
                 )}
               </div>
 

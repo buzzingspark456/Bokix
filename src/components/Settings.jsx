@@ -29,6 +29,7 @@ import { lockedPeriodFor } from '../utils/fiscalYear';
 import FiscalYearVatFields, { companySetupFromCompany, companySetupToCompany } from './shared/FiscalYearVatFields';
 import { resultAccountFor } from '../utils/yearEnd';
 import { useDashboardLayout } from '../hooks/useDashboardLayout';
+import { previewNotifySound, notifySoundEnabled } from '../utils/notifySound';
 import { getGreeting } from '../utils/greeting';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { newCalendarKey, calendarFeedUrl, calendarChoices } from '../utils/calendarFeed';
@@ -4849,7 +4850,29 @@ export default function Settings({
               den kan bli riktig — en TODO för sig, inte en enkel
               vidarekoppling som de fem andra. */}
           {activeTab === 'notifications' && (
-            <div style={{ animation: 'fadeIn 0.2s ease' }}>
+            <div className="notif-settings" style={{ animation: 'fadeIn 0.2s ease' }}>
+              {/* I appen (2026-11-12): plinget när en ny notis kommer i klockan. */}
+              <SettingsSection
+                title={tr('settings.notif.appTitle')}
+                description={tr('settings.notif.appHint')}
+              >
+                <SettingCard>
+                  <SettingRow
+                    label={tr('settings.notif.sound')}
+                    description={tr('settings.notif.soundHint')}
+                    last
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <button type="button" className="notif-preview" onClick={() => previewNotifySound()}>{tr('settings.notif.preview')}</button>
+                      <ToggleSwitch
+                        checked={notifySoundEnabled(user)}
+                        onChange={(e) => updateUserMeta({ notif_sound: e.target.checked })}
+                      />
+                    </div>
+                  </SettingRow>
+                </SettingCard>
+              </SettingsSection>
+
               <SettingsSection
                 title={tr('ui.automatiska_paminnelser')}
                 description={tr('ui.e_postnotiser_styr_alla_kategorier_nedan_gemensa')}

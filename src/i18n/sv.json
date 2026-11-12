@@ -362,6 +362,13 @@
       "getStarted": "Kom igång",
       "getStartedHint": "Listan med de första stegen på startsidan.",
       "getStartedShow": "Visa Kom igång igen"
+    },
+    "notif": {
+      "appTitle": "I appen",
+      "appHint": "Klockan uppe till höger visar betalningar och deklarationer som närmar sig.",
+      "sound": "Ljud när något nytt kommer",
+      "soundHint": "Ett kort ding när en ny notis dyker upp medan Bokix är öppet.",
+      "preview": "Lyssna"
     }
   },
   "contacts": {
@@ -4682,7 +4689,28 @@
     "yesterday": "I går",
     "empty": "Inget nytt just nu",
     "todo": "Att göra på Startsidan",
-    "markAll": "Allt är läst"
+    "markAll": "Allt är läst",
+    "paidTitle": "Faktura {{number}} är betald",
+    "paidDetail": "{{amount}} via Betala nu",
+    "integrationOneTitle": "Ny händelse från {{name}}",
+    "integrationManyTitle": "{{count}} nya händelser från {{name}}",
+    "integrationDetail": "Väntar på att bokföras",
+    "vatSoonTitle": "Momsdeklarationen ska in {{when}}",
+    "vatLateTitle": "Momsdeklarationen är försenad",
+    "vatDetail": "{{label}}",
+    "agiSoonTitle": "Arbetsgivardeklarationen ska in {{when}}",
+    "agiDetail": "Löner för {{period}}",
+    "dueToday": "i dag",
+    "dueTomorrow": "i morgon",
+    "dueInDays": "om {{days}} dagar",
+    "newCount": "{{count}} nya",
+    "fresh": "Nytt",
+    "earlier": "Tidigare",
+    "emptyTitle": "Allt är lugnt",
+    "emptyText": "Här syns betalningar och deklarationer som närmar sig.",
+    "newOne": "1 ny",
+    "dismiss": "Ta bort",
+    "settings": "Inställningar för notiser"
   },
   "arAssoc": {
     "arDue": "Föreningsstämma senast {{date}}",

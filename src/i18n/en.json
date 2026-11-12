@@ -362,6 +362,13 @@
       "getStarted": "Get started",
       "getStartedHint": "The list of first steps on the start page.",
       "getStartedShow": "Show Get started again"
+    },
+    "notif": {
+      "appTitle": "In the app",
+      "appHint": "The bell in the top right shows payments and upcoming declarations.",
+      "sound": "Sound for new notifications",
+      "soundHint": "A short ding when a new notification arrives while Bokix is open.",
+      "preview": "Listen"
     }
   },
   "contacts": {
@@ -4682,7 +4689,28 @@
     "yesterday": "Yesterday",
     "empty": "Nothing new right now",
     "todo": "To do on the Home page",
-    "markAll": "All read"
+    "markAll": "All read",
+    "paidTitle": "Invoice {{number}} is paid",
+    "paidDetail": "{{amount}} via Pay now",
+    "integrationOneTitle": "New event from {{name}}",
+    "integrationManyTitle": "{{count}} new events from {{name}}",
+    "integrationDetail": "Waiting to be booked",
+    "vatSoonTitle": "VAT return due {{when}}",
+    "vatLateTitle": "VAT return is overdue",
+    "vatDetail": "{{label}}",
+    "agiSoonTitle": "Employer declaration due {{when}}",
+    "agiDetail": "Payroll for {{period}}",
+    "dueToday": "today",
+    "dueTomorrow": "tomorrow",
+    "dueInDays": "in {{days}} days",
+    "newCount": "{{count}} new",
+    "fresh": "New",
+    "earlier": "Earlier",
+    "emptyTitle": "All quiet",
+    "emptyText": "Payments and upcoming declarations show up here.",
+    "newOne": "1 new",
+    "dismiss": "Remove",
+    "settings": "Notification settings"
   },
   "arAssoc": {
     "arDue": "General meeting by {{date}}",

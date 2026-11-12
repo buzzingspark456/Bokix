@@ -9357,3 +9357,98 @@ input:disabled, textarea:disabled, select:disabled, button:disabled { cursor: no
 .hc-word { padding: 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg-card); }
 .hc-word .hc-term-d { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 @media (max-width: 480px) { .hc-words { grid-template-columns: minmax(0, 1fr); } .hc-videos { grid-auto-columns: 72%; } }
+
+/* Videoguidens spelare (HelpDrawer.jsx): stor ruta mitt på skärmen. */
+.hc-vm { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(6, 14, 9, .72); backdrop-filter: blur(4px); animation: hc-vm-fade .18s ease both; }
+@keyframes hc-vm-fade { from { opacity: 0; } to { opacity: 1; } }
+.hc-vm-box { width: min(1100px, 100%); max-height: calc(100vh - 48px); overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border); border-radius: 22px; padding: 22px 24px 20px; box-shadow: 0 40px 100px -30px rgba(0, 0, 0, .6); animation: hc-vm-in .24s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes hc-vm-in { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+.hc-vm-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.hc-vm-eyebrow { font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.hc-vm-title { margin: 3px 0 0; font-size: 22px; font-weight: 750; letter-spacing: -0.01em; color: var(--text-main); }
+.hc-vm-close { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.hc-vm-close:hover { background: var(--bg-muted); }
+.hc-vm-player { width: 100%; aspect-ratio: 1600 / 940; display: block; border-radius: 14px; background: #101913; border: 1px solid var(--border); }
+.hc-vm-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; margin-top: 14px; }
+.hc-vm-lead { margin: 0; font-size: 15px; line-height: 1.55; color: var(--text-secondary); flex: 1; min-width: 240px; }
+.hc-vm-next { display: inline-flex; align-items: center; gap: 4px; padding: 10px 16px; border-radius: 10px; border: none; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 700; color: #fff; background: linear-gradient(180deg, #22a454, #178a43); }
+.hc-vm-next:hover { filter: brightness(1.06); }
+.hc-vm-more { display: grid; grid-auto-flow: column; grid-auto-columns: 190px; gap: 12px; overflow-x: auto; margin-top: 18px; padding: 16px 0 4px; border-top: 1px solid var(--border-light, var(--border)); }
+@media (max-width: 640px) {
+  .hc-vm { padding: 0; align-items: stretch; }
+  .hc-vm-box { border-radius: 0; max-height: 100vh; padding: 16px; }
+  .hc-vm-title { font-size: 19px; }
+  .hc-vm-more { grid-auto-columns: 62%; }
+}
+@media (prefers-reduced-motion: reduce) { .hc-vm, .hc-vm-box { animation: none; } }
+
+/* Filmen i panelen med Förstora-knapp, och inga synliga rullningslister. */
+.hc-pv { position: relative; }
+.hc-pv-big { position: absolute; top: 10px; right: 10px; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; border: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; color: #fff; background: rgba(10, 20, 14, .72); backdrop-filter: blur(6px); }
+.hc-pv-big:hover { background: rgba(10, 20, 14, .9); }
+img.hc-player { object-fit: cover; }
+.hc-videos, .hc-vm-more, .hc-vm-box { scrollbar-width: none; -ms-overflow-style: none; }
+.hc-videos::-webkit-scrollbar, .hc-vm-more::-webkit-scrollbar, .hc-vm-box::-webkit-scrollbar { display: none; }
+/* Panelerna (Drawer.jsx) skrollar utan synlig rullningslist. */
+.drawer-body { scrollbar-width: none; -ms-overflow-style: none; }
+.drawer-body::-webkit-scrollbar { display: none; }
+/* Pilar på filmraden i hjälpen. */
+.hc-row { position: relative; }
+.hc-arrow { position: absolute; top: calc((100% - 30px) / 2 - 18px); width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 16px -6px rgba(0,0,0,.35); z-index: 2; transition: transform .15s, background .15s; }
+.hc-arrow:hover { background: var(--bg-muted); transform: scale(1.06); }
+.hc-arrow-left { left: -6px; }
+.hc-arrow-right { right: -6px; }
+.hc-vm-more + .hc-arrow, .hc-vm-more ~ .hc-arrow { top: calc(16px + (100% - 46px) / 2 - 18px); }
+/* Stora filmrutan: filmen krymper med fönsterhöjden så att raden under alltid syns. */
+.hc-vm-player { width: auto; max-width: 100%; max-height: calc(100vh - 390px); margin: 0 auto; }
+.hc-vm-more { grid-auto-columns: 170px; }
+@media (max-width: 640px) { .hc-vm-player { width: 100%; max-height: none; } }
+
+/* Notispanelen (App.jsx renderNotifPanel), omgjord 2026-11-12. */
+.notif-dropdown.np { width: 380px; max-width: calc(100vw - 24px); padding: 0; border-radius: 18px; overflow: hidden; box-shadow: 0 1px 2px rgba(16,24,20,.06), 0 24px 60px -20px rgba(8,24,14,.35); }
+.np-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px 12px; border-bottom: 1px solid var(--border-light, var(--border)); }
+.np-h { font-size: 16px; font-weight: 750; color: var(--text-main); letter-spacing: -0.01em; flex: 1; }
+.np-badge { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: #16a34a; color: #fff; }
+.np-list { max-height: min(60vh, 460px); overflow-y: auto; padding: 6px 8px 8px; scrollbar-width: none; }
+.np-list::-webkit-scrollbar { display: none; }
+.np-group { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); padding: 10px 10px 4px; }
+.notif-dropdown.np .np-item { width: 100%; display: flex; align-items: flex-start; gap: 12px; padding: 11px 10px; margin: 0; border: none; border-radius: 12px; background: none; cursor: pointer; text-align: left; font-family: inherit; transition: background .15s; }
+.notif-dropdown.np .np-item:hover { background: var(--bg-muted); }
+.notif-dropdown.np .np-item.fresh { background: color-mix(in srgb, var(--status-green-bg) 55%, transparent); }
+.notif-dropdown.np .np-item.fresh:hover { background: var(--status-green-bg); }
+.np-icon { width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.np-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.np-title { font-size: 14px; font-weight: 650; color: var(--text-main); line-height: 1.35; overflow-wrap: break-word; }
+.np-item:not(.fresh) .np-title { font-weight: 550; color: var(--text-secondary); }
+.np-detail { font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
+.np-when { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.np-dot { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; flex-shrink: 0; margin-top: 6px; box-shadow: 0 0 0 3px color-mix(in srgb, #16a34a 20%, transparent); }
+.np-empty { padding: 30px 24px 26px; text-align: center; }
+.np-empty-icon { width: 44px; height: 44px; border-radius: 50%; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; background: var(--status-green-bg); color: var(--status-green-text); }
+.np-empty-title { font-size: 15px; font-weight: 700; color: var(--text-main); }
+.np-empty-text { font-size: 13px; color: var(--text-secondary); margin-top: 4px; line-height: 1.5; }
+.notif-dropdown.np .np-foot { width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 13px; margin: 0; border: none; border-top: 1px solid var(--border-light, var(--border)); border-radius: 0; background: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 700; color: var(--status-green-text); }
+.notif-dropdown.np .np-foot:hover { background: var(--bg-muted); }
+/* Klockan gungar till när en ny notis kommer. */
+.topbar-icon-btn.bell-ring svg { transform-origin: 50% 8%; animation: bell-ring 0.9s cubic-bezier(.36,.07,.19,.97) 1; }
+@keyframes bell-ring { 0%,100% { transform: rotate(0); } 15% { transform: rotate(14deg); } 30% { transform: rotate(-12deg); } 45% { transform: rotate(9deg); } 60% { transform: rotate(-6deg); } 75% { transform: rotate(3deg); } }
+@media (prefers-reduced-motion: reduce) { .topbar-icon-btn.bell-ring svg { animation: none; } }
+/* Notiser-sidan i Inställningar: mer luft. */
+.notif-settings .settings-row-ctl { align-self: center; }
+.notif-settings section + section { margin-top: 22px; }
+.notif-preview { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); font-family: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+.notif-preview:hover { border-color: color-mix(in srgb, #16a34a 50%, var(--border)); color: var(--status-green-text); }
+/* Notispanelen: kryss per notis, kugghjul, fetstil (2026-11-12). */
+.notif-dropdown.np .np-item { position: relative; padding: 0; display: block; }
+.notif-dropdown.np .np-main { width: 100%; display: flex; align-items: flex-start; gap: 12px; padding: 11px 38px 11px 10px; margin: 0; border: none; border-radius: 12px; background: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; }
+.notif-dropdown.np .np-main:hover { background: transparent; }
+.np-title strong, .np-detail strong { font-weight: 750; color: var(--text-main); }
+.np-when { display: inline-flex; align-items: center; gap: 6px; }
+.np-when .np-dot { margin-top: 0; width: 7px; height: 7px; }
+.notif-dropdown.np .np-x { position: absolute; top: 9px; right: 8px; width: 28px; height: 28px; margin: 0; padding: 0; border: none; border-radius: 8px; background: transparent; color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity .15s, background .15s, color .15s; }
+.notif-dropdown.np .np-item:hover .np-x, .notif-dropdown.np .np-x:focus-visible { opacity: 1; }
+.notif-dropdown.np .np-x:hover { background: var(--bg-card); color: var(--text-main); }
+@media (hover: none) { .notif-dropdown.np .np-x { opacity: 1; } }
+.notif-dropdown.np .np-gear { width: 32px; height: 32px; margin: -4px -6px -4px 0; padding: 0; border: none; border-radius: 9px; background: transparent; color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.notif-dropdown.np .np-gear:hover { background: var(--bg-muted); color: var(--text-main); }
+.notif-dropdown.np .np-item.fresh .np-icon { background: var(--bg-card) !important; box-shadow: 0 1px 2px rgba(16,24,20,.06); }

@@ -53,7 +53,7 @@ import { captureEvent } from './utils/posthog';
 import { reconcileSieOpenings, applySieOpeningReconcile } from './utils/sieOpeningReconcile';
 import { sieImportTagOf } from './utils/sieImportBatches';
 import { OPTIONAL_FEATURES, isFeatureOn, hiddenFeatureNavIds } from './utils/optionalFeatures';
-import { buildNotificationFeed, readSeenKeys, writeSeenKeys, isUnread, notificationWhen } from './utils/notificationFeed';
+import { buildNotificationFeed, readSeenKeys, writeSeenKeys, isUnread, readDismissedKeys, writeDismissedKeys } from './utils/notificationFeed';
 import { nextVatDeadline, nextAgiDeadline, vatContextFor } from './utils/declarationDeadlines';
 import { guidesForPage } from './utils/pageGuides';
 import { GuideContext } from './components/shared/GuideContext';
@@ -438,6 +438,8 @@ import PaymentRequiredGate from './components/PaymentRequiredGate';
 // runt den hade bara lagt till en laddningsruta för ingenting.
 import UfLockedPage from './components/UfLockedPage';
 import { startProductTourWhenReady } from './utils/productTour';
+import { unlockNotifySound, playNotifySound, notifySoundEnabled, notifySoundChoice } from './utils/notifySound';
+import NotificationPanel from './components/NotificationPanel';
 import { startInvoiceTourWhenReady } from './utils/invoiceTour';
 import { mergeCompanies, mergeCompany, makeRecordPatch, buildStateDelta, sharedFieldsToSave } from './utils/stateMerge';
 import { readServerState, rememberServerState, isCacheUsable, noteCachedAt, clearServerState } from './utils/serverStateCache';
@@ -487,6 +489,28 @@ const SKELETON_VARIANT_BY_TAB = {
   settings: 'settings',
   company: 'settings',
 };
+// Plingar och låter klockan gunga när en ny notis dyker upp medan appen är
+// öppen (inte vid inloggning eller företagsbyte). Egen komponent eftersom
+// notiserna räknas fram efter App:s tidiga returer.
+function NotifSoundWatcher({ notifications, seenKeys, companyId, soundOn, soundId, onRing }) {
+  const knownRef = useRef(null);
+  const sig = notifications.map(n => n.keys.join('|')).join(',');
+  useEffect(() => {
+    const keys = notifications.flatMap(n => n.keys);
+    const known = knownRef.current;
+    if (!known || known.company !== companyId) {
+      knownRef.current = { company: companyId, keys: new Set(keys) };
+      return;
+    }
+    const fresh = keys.filter(k => !known.keys.has(k) && !seenKeys.has(k));
+    keys.forEach(k => known.keys.add(k));
+    if (!fresh.length) return;
+    onRing();
+    if (soundOn) playNotifySound(soundId);
+  }, [sig, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 function skeletonVariantForTab(tab) {
   return SKELETON_VARIANT_BY_TAB[resolveNavGroup(tab)] || 'list';
 }
@@ -1113,6 +1137,7 @@ const tabAliases = {
   settings_appearance: 'settings',
   settings_security: 'settings',
   settings_advanced: 'settings',
+  settings_notifications: 'settings',
   supplierInvoices: 'expenses',
   transfers:        'verifications',
   dashboard:        'dashboard',
@@ -1565,6 +1590,8 @@ function App() {
   // Sedda notiser per företag (utils/notificationFeed.js) och vilka som var
   // nya när klockan öppnades, så att de syns som nya tills den stängs.
   const [seenNotifKeys, setSeenNotifKeys] = useState(() => new Set());
+  const [dismissedNotifKeys, setDismissedNotifKeys] = useState(() => new Set());
+  useEffect(() => { setDismissedNotifKeys(readDismissedKeys(data.activeCompanyId)); }, [data.activeCompanyId]);
   const [notifOpenedUnread, setNotifOpenedUnread] = useState(() => new Set());
   useEffect(() => { setSeenNotifKeys(readSeenKeys(data.activeCompanyId)); setNotifOpenedUnread(new Set()); }, [data.activeCompanyId]);
   const [isHelpDrawerOpen, setIsHelpDrawerOpen] = useState(false);
@@ -1747,7 +1774,7 @@ function App() {
     const rTab = resolveTab(tabId);
     if (taxesSectionAliases[tabId]) setTaxesInitialSection(taxesSectionAliases[tabId]);
     if (verificationsSectionAliases[tabId]) setVerificationsInitialTab(verificationsSectionAliases[tabId]);
-    setSettingsShortcutSection({ company: 'company', settings_system: 'system', settings_subscription: 'subscription', settings_users: 'users', settings_invoice: 'invoice', settings_integrations: 'integrations', settings_appearance: 'appearance', settings_security: 'security', settings_advanced: 'advanced' }[tabId] || null);
+    setSettingsShortcutSection({ company: 'company', settings_system: 'system', settings_subscription: 'subscription', settings_users: 'users', settings_invoice: 'invoice', settings_integrations: 'integrations', settings_appearance: 'appearance', settings_security: 'security', settings_advanced: 'advanced', settings_notifications: 'notifications' }[tabId] || null);
     setActiveTab(rTab);
     // Bokföring-sidans flikar får sitt eget id i adressen (#accruals), så att
     // en omladdning landar på fliken och inte bara på sidan.
@@ -3437,6 +3464,20 @@ function App() {
   // De senaste ogranskade raderna, till notisklockan.
   const [integrationEvents, setIntegrationEvents] = useState([]);
   const onReviewTab = resolveTab(activeTab) === 'review';
+  // Notiserna ska komma medan appen är öppen, inte bara vid inloggning: en
+  // gång i minuten (bara när fliken syns) hämtas händelser och ändringar.
+  const [notifTick, setNotifTick] = useState(0);
+  const [bellRing, setBellRing] = useState(0);
+  useEffect(() => { unlockNotifySound(); }, []);
+  useEffect(() => {
+    if (!isLoggedIn) return undefined;
+    const id = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      setNotifTick(n => n + 1);
+      refreshFromServerRef.current?.().catch(() => {});
+    }, 60000);
+    return () => clearInterval(id);
+  }, [isLoggedIn]);
   useEffect(() => {
     if (!user?.id || !supabaseEnabled || !data.activeCompanyId) { setIntegrationReviewCount(0); setIntegrationEvents([]); return undefined; }
     let cancelled = false;
@@ -3465,7 +3506,7 @@ function App() {
       ]);
     })();
     return () => { cancelled = true; };
-  }, [user?.id, supabaseEnabled, data.activeCompanyId, onReviewTab]);
+  }, [user?.id, supabaseEnabled, data.activeCompanyId, onReviewTab, notifTick]);
 
   // Sidomenyns grupper kan fällas ihop genom att klicka på rubriken. Valet sparas
   // i webbläsaren. Alla grupper är uppfällda som standard, och gruppen som
@@ -5423,7 +5464,8 @@ function App() {
     const submitted = agiReports.some(r => r.period === d.periodKey && r.status === 'submitted');
     return booked && !submitted && d.daysLeft <= 7 ? d : null;
   })();
-  const notifications = buildNotificationFeed({ t, invoices, integrationEvents, vat: vatSoon, agi: agiSoon });
+  const notifications = buildNotificationFeed({ t, invoices, integrationEvents, vat: vatSoon, agi: agiSoon })
+    .filter(n => !n.keys.every(k => dismissedNotifKeys.has(k)));
   const notificationCount = notifications.filter(n => isUnread(n, seenNotifKeys)).length;
   const toggleNotifMenu = () => {
     setIsProfileMenuOpen(false);
@@ -5437,36 +5479,18 @@ function App() {
     else handleNavTabChange(n.target?.tab || 'dashboard');
     setIsNotifMenuOpen(false);
   };
-  const NOTIF_ICON = { paid: Banknote, integration: Banknote, deadline: CalendarClock };
+  // Notispanelen: components/NotificationPanel.jsx (samma i demon).
   const renderNotifPanel = () => (
-    <div className="profile-dropdown notif-dropdown">
-      <div className="profile-header" style={{ paddingBottom: 4 }}>
-        <div className="profile-name">{tr('ui.notiser')}</div>
-      </div>
-      <div className="dropdown-divider"></div>
-      {notifications.length === 0 ? (
-        <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>{t('notifFeed.empty')}</div>
-      ) : notifications.map((n) => {
-        const Icon = NOTIF_ICON[n.kind] || Bell;
-        const fresh = notifOpenedUnread.has(n.keys.join('|'));
-        return (
-          <button key={n.keys.join('|')} onClick={() => openNotification(n)} style={{ alignItems: 'flex-start' }}>
-            <span style={{ width: 26, height: 26, borderRadius: '7px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `var(--status-${n.tone}-bg)`, color: `var(--status-${n.tone}-text)`, opacity: fresh ? 1 : 0.6 }}>
-              <Icon size={13} />
-            </span>
-            <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-              <span style={{ display: 'block', overflowWrap: 'break-word', fontWeight: fresh ? 600 : 400, color: fresh ? 'var(--text-main)' : 'var(--text-secondary)' }}>{n.text}</span>
-              <span style={{ display: 'block', fontSize: '11.5px', color: 'var(--text-muted)', marginTop: 2 }}>{notificationWhen(t, n.at)}</span>
-            </span>
-            {fresh && <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', flexShrink: 0, marginTop: 6 }} />}
-          </button>
-        );
-      })}
-      <div className="dropdown-divider"></div>
-      <button onClick={() => { handleNavTabChange('dashboard'); setIsNotifMenuOpen(false); }} style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-        {t('notifFeed.todo')}
-      </button>
-    </div>
+    <NotificationPanel
+      t={t}
+      title={tr('ui.notiser')}
+      notifications={notifications}
+      openedUnread={notifOpenedUnread}
+      onOpen={openNotification}
+      onTodo={() => { handleNavTabChange('dashboard'); setIsNotifMenuOpen(false); }}
+      onDismiss={(n) => setDismissedNotifKeys(d => writeDismissedKeys(data.activeCompanyId, d, n.keys))}
+      onSettings={() => { handleNavTabChange('settings_notifications'); setIsNotifMenuOpen(false); }}
+    />
   );
 
   // ── Render content ──
@@ -6368,7 +6392,7 @@ function App() {
               {theme === 'dark' ? <Sun size={23} /> : <Moon size={23} />}
             </button>
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-              <button className="topbar-icon-btn" title={tr('ui.notiser')} onClick={toggleNotifMenu}>
+              <button key={`bell-${bellRing}`} className={bellRing ? 'topbar-icon-btn bell-ring' : 'topbar-icon-btn'} title={tr('ui.notiser')} onClick={toggleNotifMenu}>
                 <Bell size={23} />
               </button>
               {notificationCount > 0 && (
@@ -6466,7 +6490,7 @@ function App() {
             {/* Tema-knappen (måne/sol) ligger i profilmenyn på telefon: i en
                 app står bara det man använder hela tiden i toppfältet. */}
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-              <button className="topbar-icon-btn" title={tr('ui.notiser')} onClick={toggleNotifMenu}>
+              <button key={`bell-${bellRing}`} className={bellRing ? 'topbar-icon-btn bell-ring' : 'topbar-icon-btn'} title={tr('ui.notiser')} onClick={toggleNotifMenu}>
                 <Bell size={23} />
               </button>
               {notificationCount > 0 && (
@@ -6684,6 +6708,7 @@ function App() {
       )}
 
       {/* ── Help Drawer ── */}
+      <NotifSoundWatcher notifications={notifications} seenKeys={seenNotifKeys} companyId={data.activeCompanyId} soundOn={notifySoundEnabled(user)} soundId={notifySoundChoice(user)} onRing={() => setBellRing(n => n + 1)} />
       <HelpDrawer
         isOpen={isHelpDrawerOpen}
         onClose={() => setIsHelpDrawerOpen(false)}

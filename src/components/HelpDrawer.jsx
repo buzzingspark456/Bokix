@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { Search, Book, Sparkles, FileText, MessageSquare, AlertCircle, ArrowLeft, ChevronRight, ExternalLink, Receipt, BookOpen, Upload, Cog, Landmark, Inbox, UsersRound, Percent, Lock, BarChart3, Download, CreditCard, Image, Fingerprint, Users, Building2, Laptop, PlayCircle, HelpCircle } from './icons';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Search, Book, Sparkles, FileText, MessageSquare, AlertCircle, ArrowLeft, ChevronRight, ExternalLink, Receipt, BookOpen, Upload, Cog, Landmark, Inbox, UsersRound, Percent, Lock, BarChart3, Download, CreditCard, Image, Fingerprint, Users, Building2, Laptop, PlayCircle, HelpCircle, X, Maximize2, ChevronLeft } from './icons';
 import Drawer from './Drawer';
 import { t } from '../i18n';
 import { HELP_ARTICLES, HELP_CATEGORIES, articlesForTab, searchArticles } from '../content/help/articles';
@@ -92,6 +93,72 @@ function VideoCard({ video, onPlay, wide = false }) {
   );
 }
 
+function VideoModal({ video, onClose, onPlay }) {
+  useEffect(() => {
+    // Fångas före panelens egen Esc (Drawer.jsx lyssnar på window), så att
+    // Esc bara stänger filmen.
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
+    document.addEventListener('keydown', onKey, true);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey, true); document.body.style.overflow = prev; };
+  }, [onClose]);
+  const file = isDark() ? `${video.slug}-dark` : video.slug;
+  const group = GUIDE_GROUPS.find(g => g.guides.some(v => v.slug === video.slug));
+  const idx = VIDEOS.findIndex(v => v.slug === video.slug);
+  const next = VIDEOS[(idx + 1) % VIDEOS.length];
+  return createPortal(
+    <div className="hc-vm" role="dialog" aria-modal="true" aria-label={`Videoguide: ${video.title}`} onClick={onClose}>
+      <div className="hc-vm-box" onClick={e => e.stopPropagation()}>
+        <div className="hc-vm-head">
+          <div style={{ minWidth: 0 }}>
+            {group && <div className="hc-vm-eyebrow">{group.title}</div>}
+            <h2 className="hc-vm-title">{video.title}</h2>
+          </div>
+          <button type="button" className="hc-vm-close" onClick={onClose} aria-label="Stäng"><X size={20} /></button>
+        </div>
+        <video key={file} className="hc-vm-player" src={`/videos/${file}.mp4`} poster={`/videos/${file}.jpg`} controls autoPlay playsInline preload="metadata" />
+        <div className="hc-vm-foot">
+          <p className="hc-vm-lead">{video.lead}</p>
+          {next && next.slug !== video.slug && (
+            <button type="button" className="hc-vm-next" onClick={() => onPlay(next)}>
+              Nästa: {next.title} <ChevronRight size={16} />
+            </button>
+          )}
+        </div>
+        <VideoRow videos={VIDEOS.filter(v => v.slug !== video.slug)} onPlay={onPlay} className="hc-vm-more" />
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function VideoRow({ videos, onPlay, className = 'hc-videos' }) {
+  const ref = useRef(null);
+  const [edge, setEdge] = useState({ left: false, right: false });
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    setEdge({ left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
+  }, []);
+  useEffect(() => {
+    update();
+    const el = ref.current;
+    if (!el) return undefined;
+    el.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => { el.removeEventListener('scroll', update); window.removeEventListener('resize', update); };
+  }, [update, videos]);
+  const go = (dir) => { const el = ref.current; if (el) el.scrollBy({ left: dir * el.clientWidth * 0.85, behavior: 'smooth' }); };
+  return (
+    <div className="hc-row">
+      <div ref={ref} className={className}>{videos.map(v => <VideoCard key={v.slug} video={v} onPlay={onPlay} />)}</div>
+      {edge.left && <button type="button" className="hc-arrow hc-arrow-left" onClick={() => go(-1)} aria-label="Föregående filmer"><ChevronLeft size={18} /></button>}
+      {edge.right && <button type="button" className="hc-arrow hc-arrow-right" onClick={() => go(1)} aria-label="Fler filmer"><ChevronRight size={18} /></button>}
+    </div>
+  );
+}
+
 function FaqItem({ item }) {
   return (
     <details className="hc-faq">
@@ -135,8 +202,9 @@ const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour, onContac
     return GLOSSARY.filter(g => norm(g.term).includes(q) || norm(g.def).includes(q));
   }, [search]);
 
-  const reset = () => { setView('home'); setSearch(''); setArticle(null); setCategory(null); setVideo(null); };
-  const playVideo = (v) => { setFrom(view); setVideo(v); setView('video'); };
+  const reset = () => { setView('home'); setSearch(''); setArticle(null); setCategory(null); setVideo(null); setBigVideo(false); };
+  const [bigVideo, setBigVideo] = useState(false);
+  const playVideo = (v) => { if (view !== 'video') setFrom(view); setVideo(v); setView('video'); };
   const handleClose = () => { reset(); onClose(); };
   const openArticle = (a) => { setFrom(view); setArticle(a); setView('article'); };
   const openCategory = (id) => { setCategory(id); setView('category'); };
@@ -221,17 +289,29 @@ const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour, onContac
     );
   } else if (view === 'video' && video) {
     const file = isDark() ? `${video.slug}-dark` : video.slug;
+    const idx = VIDEOS.findIndex(v => v.slug === video.slug);
+    const next = VIDEOS[(idx + 1) % VIDEOS.length];
     body = (
       <div className="hc-stack">
         {back(from === 'video' ? 'home' : from)}
-        <video key={file} className="hc-player" src={`/videos/${file}.mp4`} poster={`/videos/${file}.jpg`} controls autoPlay playsInline preload="metadata" aria-label={`Videoguide: ${video.title}`} />
+        <div className="hc-pv">
+          {bigVideo ? (
+            <img className="hc-player" src={`/videos/${file}.jpg`} alt="" />
+          ) : (
+            <video key={file} className="hc-player" src={`/videos/${file}.mp4`} poster={`/videos/${file}.jpg`} controls autoPlay playsInline preload="metadata" aria-label={`Videoguide: ${video.title}`} />
+          )}
+          <button type="button" className="hc-pv-big" onClick={() => setBigVideo(true)} aria-label="Förstora filmen"><Maximize2 size={15} /> Förstora</button>
+        </div>
         <div>
           <h2 className="hc-h1" style={{ fontSize: '21px' }}>{video.title}</h2>
           <p className="hc-lead">{video.lead}</p>
         </div>
+        {next && next.slug !== video.slug && (
+          <button type="button" className="hc-vm-next" style={{ alignSelf: 'flex-start' }} onClick={() => playVideo(next)}>Nästa: {next.title} <ChevronRight size={16} /></button>
+        )}
         <section>
           <div className="hc-eyebrow">Fler videoguider</div>
-          <div className="hc-videos">{VIDEOS.filter(v => v.slug !== video.slug).slice(0, 6).map(v => <VideoCard key={v.slug} video={v} onPlay={playVideo} />)}</div>
+          <VideoRow videos={VIDEOS.filter(v => v.slug !== video.slug)} onPlay={playVideo} />
         </section>
         {supportCard}
       </div>
@@ -308,7 +388,7 @@ const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour, onContac
             {videoHits.length > 0 && (
               <section>
                 <div className="hc-eyebrow">Videoguider</div>
-                <div className="hc-videos">{videoHits.map(v => <VideoCard key={v.slug} video={v} onPlay={playVideo} />)}</div>
+                <VideoRow videos={videoHits} onPlay={playVideo} />
               </section>
             )}
             {faqHits.length > 0 && (
@@ -353,11 +433,6 @@ const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour, onContac
             </section>
 
             <section>
-              <div className="hc-section-head"><div className="hc-eyebrow">Videoguider</div><button type="button" className="hc-more" onClick={() => setView('videos')}>Alla {VIDEOS.length}</button></div>
-              <div className="hc-videos">{VIDEOS.slice(0, 6).map(v => <VideoCard key={v.slug} video={v} onPlay={playVideo} />)}</div>
-            </section>
-
-            <section>
               <div className="hc-section-head"><div className="hc-eyebrow">Vanliga frågor</div><button type="button" className="hc-more" onClick={() => setView('faq')}>Alla {FAQ.length}</button></div>
               <div className="hc-faqs">{FAQ.slice(0, 5).map(i => <FaqItem key={i.q} item={i} />)}</div>
             </section>
@@ -379,6 +454,11 @@ const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour, onContac
                 <button type="button" className="hc-chip" onClick={() => { setView('glossary'); setSearch(''); }}><Book size={15} /> {t('ui.ordlista')}</button>
               </div>
             </section>
+
+            <section>
+              <div className="hc-section-head"><div className="hc-eyebrow">Videoguider</div><button type="button" className="hc-more" onClick={() => setView('videos')}>Alla {VIDEOS.length}</button></div>
+              <VideoRow videos={VIDEOS} onPlay={playVideo} />
+            </section>
           </>
         )}
 
@@ -388,9 +468,12 @@ const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour, onContac
   }
 
   return (
-    <Drawer isOpen={isOpen} onClose={handleClose} title={view === 'home' ? t('ui.hjalp_och_support') : ''} width="500px">
-      {body}
-    </Drawer>
+    <>
+      <Drawer isOpen={isOpen} onClose={handleClose} title={view === 'home' ? t('ui.hjalp_och_support') : ''} width="500px">
+        {body}
+      </Drawer>
+      {video && bigVideo && <VideoModal video={video} onClose={() => setBigVideo(false)} onPlay={setVideo} />}
+    </>
   );
 };
 
