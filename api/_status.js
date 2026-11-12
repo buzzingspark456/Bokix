@@ -52,7 +52,8 @@ export function eventStatus(count, { degradedAt = 3, downAt = 10 } = {}) {
 
 // Stripes egen statussida (status.stripe.com) → status.
 export function stripeIndicator(indicator) {
-  if (!indicator || indicator === 'none') return 'ok';
+  // Planerat underhåll hos leverantören (t.ex. Sentry) är inget avbrott.
+  if (!indicator || indicator === 'none' || indicator === 'maintenance') return 'ok';
   if (indicator === 'minor') return 'degraded';
   return 'down';
 }
