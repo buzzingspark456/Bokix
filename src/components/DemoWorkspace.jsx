@@ -423,7 +423,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
         return (
           <Verifications
             user={demoUser} verifications={demoVerifications} accounts={seed.accounts} balances={balances}
-            contacts={demoContacts} projects={demoProjects} templates={seed.verificationTemplates}
+            contacts={demoContacts} projects={demoProjects} templates={seed.verificationTemplates} invoices={demoInvoices} expenses={demoExpenses}
             onSaveTemplate={blocked} onAdd={addDemoVerification}
             setVerifications={setDemoVerifications} setAccounts={noop} vatPeriods={demoVatPeriods}
             highlightVerificationId={null} onClearHighlight={noop} uploadFn={demoUploadFn}
@@ -450,7 +450,7 @@ export default function DemoWorkspace({ initialTab = 'dashboard' } = {}) {
       case 'reports':
         return (
           <Reports
-            accounts={seed.accounts} verifications={demoVerifications} invoices={demoInvoices}
+            accounts={seed.accounts} verifications={demoVerifications} invoices={demoInvoices} expenses={demoExpenses}
             payrollRuns={seed.payrollRuns} contacts={demoContacts}
             company={settingsCompany} setCompanyInfo={setSettingsCompany}
             onNavigate={openTab}

@@ -20,15 +20,28 @@ export const REPORT_SECTIONS = [
       { id: 'result', name: t('ui.resultatrakning'), description: t('ui.intakter_minus_kostnader_for_vald_period') },
       { id: 'balance', name: t('ui.balansrakning'), description: t('ui.tillgangar_skulder_och_eget_kapital_vid_perioden') },
       { id: 'cashflow', name: t('ui.kassaflodesanalys'), description: t('ui.likviditetens_forandring_under_perioden') },
+    ],
+  },
+  {
+    // Kunder och leverantörer (2026-11-13): reskontra med åldersanalys,
+    // avstämd mot 1510/2440, som Fortnox och Spiris har.
+    id: 'parties',
+    label: t('rpt.sektion_kunder_leverantorer'),
+    reports: [
+      { id: 'receivables', name: t('rpt.kundreskontra'), description: t('rpt.kundreskontra_beskrivning') },
+      { id: 'payables', name: t('rpt.leverantorsreskontra'), description: t('rpt.leverantorsreskontra_beskrivning') },
       { id: 'invoices', name: t('ui.fakturarapporter'), description: t('ui.fakturerat_betalt_och_utestaende_per_kund_2') },
       { id: 'payroll', name: t('ui.lonerapporter'), description: t('ui.bruttolon_skatt_och_arbetsgivaravgifter_per_anst_2'), requires: 'payroll' },
     ],
   },
   {
     id: 'closing',
-    label: t('ui.rapp_bokslut_underlag'),
+    label: t('rpt.sektion_bokforing'),
     reports: [
+      { id: 'journal', name: t('rpt.verifikationslista'), description: t('rpt.verifikationslista_beskrivning') },
       { id: 'ledger', name: t('ui.huvudbok'), description: t('ui.saldo_och_alla_transaktioner_per_konto') },
+      // Momsrapporten finns under Moms och skatt; raden öppnar den där.
+      { id: 'vat', name: t('rpt.momsrapport'), description: t('rpt.momsrapport_beskrivning'), navigate: 'taxes_vat' },
       { id: 'closing', name: t('ui.rapp_bokslutsunderlag'), description: t('ui.rapp_bokslutsunderlag_beskrivning') },
     ],
   },

@@ -72,3 +72,25 @@ describe('isSoleTraderNumber', () => {
     expect(isSoleTraderNumber('')).toBe(false);
   });
 });
+
+describe('handelsbolag och kalenderår', async () => {
+  const { isPartnershipNumber, calendarYearRequired } = await import('./fiscalYearSetup')
+  it('känner igen handelsbolagens nummer (börjar med 9)', () => {
+    expect(isPartnershipNumber('969712-3456')).toBe(true)
+    expect(isPartnershipNumber('16969712-3456')).toBe(true)
+    expect(isPartnershipNumber('556036-0793')).toBe(false)
+    expect(isPartnershipNumber('920927-3029')).toBe(false)
+  })
+  it('kalenderår krävs för enskild firma och HB med personer som delägare', () => {
+    expect(calendarYearRequired('920927-3029')).toBe(true)
+    expect(calendarYearRequired('969712-3456')).toBe(true)
+    expect(calendarYearRequired('969712-3456', true)).toBe(false)
+    expect(calendarYearRequired('556036-0793')).toBe(false)
+  })
+  it('brutet år och första år som inte slutar 31 december ger fel när kalenderår krävs', () => {
+    expect(fiscalYearFields({ mode: 'other', startMonth: 7, calendarOnly: true }).error).toBeTruthy()
+    expect(fiscalYearFields({ mode: 'first', firstStart: '2026-09-01', firstEnd: '2027-06-30', calendarOnly: true }).error).toBeTruthy()
+    expect(fiscalYearFields({ mode: 'first', firstStart: '2026-09-01', firstEnd: '2027-12-31', calendarOnly: true }).error).toBeUndefined()
+    expect(fiscalYearFields({ mode: 'other', startMonth: 7 }).error).toBeUndefined()
+  })
+})

@@ -7,7 +7,7 @@ import { useCompanyLookup } from '../hooks/useCompanyLookup';
 import { checkVatRegistration } from '../utils/companyLookup';
 import { detectOrgType, formatLegalForm, formatOrgNr } from '../utils/orgType';
 import { EMPTY_COMPANY_SETUP, companySetupFromCompany, companySetupToCompany } from './shared/FiscalYearVatFields';
-import { firstYearEndOptions, defaultFirstYearEnd, todayIso, fiscalYearFields, suggestFiscalYear, isSoleTraderNumber } from '../utils/fiscalYearSetup';
+import { firstYearEndOptions, defaultFirstYearEnd, todayIso, fiscalYearFields, suggestFiscalYear, isSoleTraderNumber, isPartnershipNumber, calendarYearRequired } from '../utils/fiscalYearSetup';
 import { isValidSwedishOrgNr } from '../utils/personnummer';
 import { keyDatesForSetup } from '../utils/setupDates';
 import { dateTimeFormat } from '../utils/intlCache';
@@ -127,7 +127,10 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
   const canContinue = companyValid && !(isAdding && (duplicate || deregistered)) && (!isAdding || firma || inRegistry || registryDown);
   const industry = lastCompany?.sni?.[0]?.text || '';
   const vatRegistered = companySetup.vatRegistered === true;
-  const fyValid = Boolean(companySetup.mode) && !fiscalYearFields(companySetup).error;
+  // Handelsbolag med personer som delägare: bara kalenderår (calendarYearRequired).
+  const partnership = !firma && isPartnershipNumber(orgDigits);
+  const calendarOnly = calendarYearRequired(orgDigits, companySetup.legalPartnersOnly);
+  const fyValid = Boolean(companySetup.mode) && !fiscalYearFields({ ...companySetup, calendarOnly }).error;
 
   // Räkenskapsåret ur registret när en träff valts, så länge användaren inte själv valt.
   useEffect(() => {
@@ -136,7 +139,8 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
     setCompanySetup(cur => {
       if (cur.fySource === 'user') return cur;
       if (!suggestion) return { ...cur, mode: '', fySource: '', fyNote: '' };
-      return { ...EMPTY_COMPANY_SETUP, ...cur, ...suggestion.choice, fySource: 'registry', fyNote: suggestion.note };
+      const legal = isPartnershipNumber(lastCompany.orgNumber) && suggestion.choice.mode === 'other' ? { legalPartnersOnly: true } : {};
+      return { ...EMPTY_COMPANY_SETUP, ...cur, ...suggestion.choice, ...legal, fySource: 'registry', fyNote: suggestion.note };
     });
   }, [lastCompany]);
 
@@ -486,7 +490,16 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
       const [from, to] = yearSpan(companySetup.mode === 'calendar' ? 1 : Number(companySetup.startMonth));
       lead = t('ui.onb2_fy_enligt_bv', { from: monthName(from), to: monthName(to) });
     }
-    const endOptions = firstYearEndOptions(companySetup.firstStart).filter(d => !soleTrader || d.endsWith('-12-31'));
+    const endOptions = firstYearEndOptions(companySetup.firstStart).filter(d => !calendarOnly || d.endsWith('-12-31'));
+    const partnerCheck = partnership && (
+      <label className="onb-sub" style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', margin: 0, cursor: 'pointer', textAlign: 'left' }}>
+        <input
+          type="checkbox" checked={Boolean(companySetup.legalPartnersOnly)} style={{ marginTop: '4px', width: '18px', height: '18px', flexShrink: 0 }}
+          onChange={(e) => { const on = e.target.checked; setCompanySetup(cur => ({ ...cur, legalPartnersOnly: on, fySource: 'user', ...(!on && cur.firstEnd && !cur.firstEnd.endsWith('-12-31') ? { firstEnd: defaultFirstYearEnd(cur.firstStart) } : {}) })); }}
+        />
+        <span><strong>{t('ui.hb_bara_bolag_som_delagare')}</strong><br />{t('ui.hb_kalenderar_annars')}</span>
+      </label>
+    );
 
     return (
       <>
@@ -507,6 +520,7 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
             <select id="onb-fy-month" className="onb-select" value={companySetup.startMonth} onChange={(e) => setCompanySetup(cur => ({ ...cur, startMonth: Number(e.target.value), fySource: 'user' }))}>
               {Array.from({ length: 11 }, (_, i) => i + 2).map(m => <option key={m} value={m}>1 {monthName(m)}</option>)}
             </select>
+            {partnerCheck}
             <div className="onb-row"><button type="button" className="onb-primary" disabled={!fyValid} onClick={() => go(afterFiscal())}>{t('ui.fortsatt')} <ArrowRight size={18} /></button></div>
           </div>
         )}
@@ -528,6 +542,7 @@ export default function OnboardingFlow({ onComplete, initialCompanyData, firstNa
               </div>
             </div>
             <p className="onb-sub" style={{ margin: 0 }}>{t('ui.forsta_aret_far_vara_kortare_eller_upp_till_18_m')}</p>
+            {partnerCheck}
             <div className="onb-row"><button type="button" className="onb-primary" disabled={!fyValid} onClick={() => go(afterFiscal())}>{t('ui.fortsatt')} <ArrowRight size={18} /></button></div>
           </div>
         )}

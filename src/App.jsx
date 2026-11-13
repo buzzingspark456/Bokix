@@ -3786,6 +3786,7 @@ function App() {
             fiscalYear: profile.fiscalYear || data.companies[data.activeCompanyId].company.fiscalYear,
             ...(profile.setup ? {
               firstFiscalYear: profile.setup.firstFiscalYear,
+              ...(profile.setup.legalPartnersOnly !== undefined ? { legalPartnersOnly: profile.setup.legalPartnersOnly } : {}),
               vatRegistered: profile.setup.vatRegistered,
               vatNr: profile.setup.vatNr || data.companies[data.activeCompanyId].company.vatNr || '',
             } : {}),
@@ -5943,6 +5944,8 @@ function App() {
             verifications={verifications}
             accounts={accounts}
             balances={balances}
+            invoices={invoices}
+            expenses={expenses}
             contacts={contacts}
             projects={projects}
             templates={verificationTemplates}
@@ -5982,6 +5985,8 @@ function App() {
             verifications={verifications}
             accounts={accounts}
             balances={balances}
+            invoices={invoices}
+            expenses={expenses}
             contacts={contacts}
             projects={projects}
             templates={verificationTemplates}
@@ -6040,6 +6045,7 @@ function App() {
             accounts={accounts}
             verifications={verifications}
             invoices={invoices}
+            expenses={expenses}
             payrollRuns={payrollRuns}
             contacts={contacts}
             company={company}

@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   Plus, Search, ChevronRight, ChevronDown,
   AlertCircle, RotateCcw, RefreshCw,
-  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, BookOpen, CheckCircle2, Paperclip, Camera, Eye, EyeOff, Sparkles,
+  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, BookOpen, CheckCircle2, Paperclip, Camera, Eye, EyeOff, Sparkles, Download,
 } from './icons';
+import { exportVerificationsToExcel } from '../utils/excelExport';
 import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { BRAND } from '../utils/brandColors';
@@ -1335,7 +1336,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
 }
 
 // ─── Main Bokföring Component ──────────────────────────────────────────────────
-export default function Bokforing({ seriesNames, verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, partners, uploadFn = uploadFileToStorage, initialTab, vatExempt = false, extraTabs = [], onTabChange }) {
+export default function Bokforing({ seriesNames, verifications = [], accounts = [], balances = {}, contacts = [], projects = [], invoices = [], expenses = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, partners, uploadFn = uploadFileToStorage, initialTab, vatExempt = false, extraTabs = [], onTabChange }) {
   const [activeTab, setActiveTab] = useState(() => (initialTab && ['verifications', 'accounts', ...extraTabs.map(tab => tab.id)].includes(initialTab) ? initialTab : 'verifications'));
   // Samma mönster som Taxes.jsx:s initialSection — App.jsx:s
   // verificationsInitialTab (profilmenyns "Kontoplaner" ska landa på
@@ -1520,6 +1521,15 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
         actions={
           activeTab === 'verifications' ? [
             { key: 'next', type: 'note', label: tr('ui.nasta'), value: nextNumber },
+            // Exportera till Excel: de verifikationer som syns med filtren
+            // (period, serie, månad, sökning), en rad per kontorad.
+            ...(filteredVers.some(v => (v.status || 'booked') !== 'draft') ? [{
+              key: 'export-excel', label: tr('ui.exportera_till_excel'), icon: Download, title: tr('ui.exportera_till_excel_hint'),
+              onClick: async () => {
+                try { await exportVerificationsToExcel(filteredVers, { accounts, contacts, projects, invoices, expenses }); }
+                catch (e) { console.error(e); confirmDialog(tr('ui.exportera_till_excel_fel'), { title: tr('ui.exportera_till_excel'), confirmLabel: 'OK', cancelLabel: null }); }
+              },
+            }] : []),
             { key: 'new-ver', label: tr('ui.ny_verifikation'), icon: Plus, onClick: () => { setEditingVer(null); setShowForm(true); }, variant: 'primary', dataTour: 'page-verifications-cta' },
           ] : []
           // Kontoplan-fliken har sin egen "Nytt konto"-knapp i AccountsPanel

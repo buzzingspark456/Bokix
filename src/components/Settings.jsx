@@ -34,6 +34,8 @@ import { getGreeting } from '../utils/greeting';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { newCalendarKey, calendarFeedUrl, calendarChoices } from '../utils/calendarFeed';
 import { downloadSie4 } from '../utils/sieExport';
+import { exportVerificationsToExcel, fiscalYearChoices, verificationsInRange } from '../utils/excelExport';
+import { companyFiscalYearSetting, fiscalYearBounds } from '../utils/reportCalculations';
 import { planFromId, PLAN_TIERS } from '../utils/plans';
 import { ACCESS_PAGES, ACCESS_LEVELS, defaultPageAccess, accessForPage, canWriteField, ACCOUNTANT_PRESET, accountantPageAccess } from '../utils/pageAccess';
 import { isUfCompany, ufSettingsSections, ufFreePeriod, UF_FREE_MONTHS } from '../utils/ufMode';
@@ -733,11 +735,12 @@ function FiscalYearSetting({ company, setCompanyInfo, readOnly }) {
     valueRef.current = v;
     setValue(v);
     if (!fromUser) return;
-    const { fiscalYear, firstFiscalYear } = companySetupToCompany(v, company?.orgNr);
+    const { fiscalYear, firstFiscalYear, legalPartnersOnly } = companySetupToCompany(v, company?.orgNr);
     if (!fiscalYear) return;
     if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
-    if (fiscalYear === company?.fiscalYear && JSON.stringify(firstFiscalYear) === JSON.stringify(company?.firstFiscalYear || null)) return;
-    setCompanyInfo({ ...company, fiscalYear, firstFiscalYear });
+    const legal = legalPartnersOnly === undefined ? {} : { legalPartnersOnly };
+    if (fiscalYear === company?.fiscalYear && JSON.stringify(firstFiscalYear) === JSON.stringify(company?.firstFiscalYear || null) && (legalPartnersOnly === undefined || legalPartnersOnly === Boolean(company?.legalPartnersOnly))) return;
+    setCompanyInfo({ ...company, fiscalYear, firstFiscalYear, ...legal });
     setSaved(true);
     if (savedTimer.current) clearTimeout(savedTimer.current);
     savedTimer.current = setTimeout(() => setSaved(false), 2000);
@@ -2949,6 +2952,19 @@ export default function Settings({
     downloadSie4(company, accounts, verifications);
   };
 
+  // Exportera till Excel: ett räkenskapsår eller hela bokföringen, en rad
+  // per kontorad (samma fil som knappen i Bokföring, se excelExport.js).
+  const excelYears = useMemo(() => fiscalYearChoices(verifications, companyFiscalYearSetting(company), fiscalYearBounds), [verifications, company]);
+  const [excelYear, setExcelYear] = useState('');
+  const [excelBusy, setExcelBusy] = useState(false);
+  const excelChoice = excelYear === 'all' ? null : (excelYears.find(y => y.from === excelYear) || excelYears[0] || null);
+  const handleExportExcel = async () => {
+    setExcelBusy(true);
+    try { await exportVerificationsToExcel(verificationsInRange(verifications, excelChoice), { accounts, contacts, projects, invoices, expenses }); }
+    catch (e) { console.error(e); confirmDialog(tr('ui.exportera_till_excel_fel'), { title: tr('ui.exportera_till_excel'), confirmLabel: 'OK' }); }
+    finally { setExcelBusy(false); }
+  };
+
   const handleImportFile = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -4385,6 +4401,28 @@ export default function Settings({
               )}
 
               <SettingCard title={tr('ui.exportera')} flush>
+                {excelYears.length > 0 && (
+                  <SettingsLinkRow
+                    title={tr('ui.excel_fil')}
+                    description={tr('ui.excel_fil_beskrivning')}
+                    right={(
+                      <span className="excel-ctl" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <select
+                          aria-label={tr('ui.excel_period')}
+                          value={excelChoice ? excelChoice.from : 'all'}
+                          onChange={e => setExcelYear(e.target.value)}
+                          style={{ ...inputBase, width: 'auto', padding: '6px 10px', fontSize: '13px' }}
+                        >
+                          {excelYears.map(y => <option key={y.from} value={y.from}>{tr('ui.excel_rakenskapsar', { year: y.label })}</option>)}
+                          <option value="all">{tr('ui.excel_hela_bokforingen')}</option>
+                        </select>
+                        <button type="button" onClick={handleExportExcel} disabled={excelBusy} aria-label={tr('ui.exportera_till_excel')} title={tr('ui.exportera_till_excel')} style={{ background: 'none', border: 'none', padding: '4px', cursor: excelBusy ? 'wait' : 'pointer', color: 'var(--text-secondary)', display: 'flex' }}>
+                          <Download size={18} />
+                        </button>
+                      </span>
+                    )}
+                  />
+                )}
                 <SettingsLinkRow
                   title={tr('ui.sie4_fil')}
                   description={tr('ui.ge_filen_till_din_revisor_eller_ta_med_bokforing')}

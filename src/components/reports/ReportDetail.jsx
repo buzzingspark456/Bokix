@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, Printer, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Percent, Scale, Wallet, Loader2, AlertTriangle } from '../icons';
+import { ChevronLeft, Printer, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Percent, Scale, Wallet, Loader2, AlertTriangle, CheckCircle2, Download } from '../icons';
+import { computeJournal, computeReceivables, computePayables, AGE_BUCKETS } from '../../utils/reportLedgers';
+import { exportVerificationsToExcel, verificationsInRange, downloadXlsx } from '../../utils/excelExport';
 import {
   formatSEK, formatPct, fmtDate, fmtMonthYear, toISO, formatDelta,
   EmptyState, ReportSection, DataTable,
@@ -142,12 +144,35 @@ const OWN_PERIOD_REPORTS = ['overview'];
  * kommer från Reports.jsx, som äger företagsposten — detaljvyn läser och
  * skickar vidare, den äger ingenting själv. */
 export default function ReportDetail({
-  reportId, bounds, verifications, accounts, invoices, payrollRuns, contacts, company,
+  reportId, bounds, verifications, accounts, invoices, expenses = [], payrollRuns, contacts, company,
   isMobile, onBack, display, onDisplayChange, periodControl,
 }) {
   const meta = getReportMeta(reportId);
   const { start, end, prevStart, prevEnd } = bounds;
-  const periodLabel = `${bounds.label} · ${fmtMonthYear(start)}–${fmtMonthYear(end)}`;
+  // Reskontran gäller en dag (periodens slut), inte en period.
+  const openItems = reportId === 'receivables' || reportId === 'payables';
+  const periodLabel = openItems ? t('rpt.per_datum', { date: toISO(end) }) : `${bounds.label} · ${fmtMonthYear(start)}–${fmtMonthYear(end)}`;
+  const [excelBusy, setExcelBusy] = useState(false);
+  // Excel: grundbok och huvudbok ger bokföringens rader för perioden,
+  // reskontran sina öppna poster.
+  const excelExport = (reportId === 'journal' || reportId === 'ledger')
+    ? () => exportVerificationsToExcel(verificationsInRange(verifications, { from: toISO(start), to: toISO(end) }), { accounts, contacts, invoices, expenses })
+    : openItems ? () => {
+      const r = reportId === 'receivables' ? computeReceivables(invoices, contacts, end, verifications) : computePayables(expenses, contacts, end, verifications);
+      const items = r.parties.flatMap(p => p.items);
+      const asDate = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); };
+      const sheet = {
+        name: reportId === 'receivables' ? 'Kundreskontra' : 'Leverantörsreskontra',
+        columns: [
+          { key: 'number', label: 'Faktura', width: 12 }, { key: 'partyName', label: reportId === 'receivables' ? 'Kund' : 'Leverantör', width: 28 },
+          { key: 'date', label: 'Fakturadatum', width: 12, type: 'date' }, { key: 'dueDate', label: 'Förfallodag', width: 12, type: 'date' },
+          { key: 'daysOverdue', label: 'Dagar sen', width: 10 }, { key: 'open', label: 'Belopp', width: 14, type: 'amount' },
+        ],
+        rows: items.map(i => ({ ...i, date: asDate(i.date), dueDate: asDate(i.dueDate) })),
+      };
+      return downloadXlsx(`${reportId === 'receivables' ? 'kundreskontra' : 'leverantorsreskontra'}_${r.asOf}.xlsx`, [sheet]);
+    } : null;
+  const runExcel = async () => { setExcelBusy(true); try { await excelExport(); } catch (e) { console.error(e); } finally { setExcelBusy(false); } };
 
   return (
     <ReportDisplayProvider colors={display?.colors} unit={display?.unit}>
@@ -191,6 +216,11 @@ export default function ReportDetail({
               onChange={onDisplayChange}
             />
           )}
+          {excelExport && (
+            <button type="button" onClick={runExcel} disabled={excelBusy} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)', cursor: excelBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+              <Download size={14} /> {t('rpt.excel')}
+            </button>
+          )}
           <button
             onClick={() => window.print()}
             title={t('ui.oppnar_webblasarens_utskrift_valj_spara_som_pdf')}
@@ -209,6 +239,8 @@ export default function ReportDetail({
         {reportId === 'cashflow' && <CashflowReport {...{ verifications, accounts, start, end, prevStart, prevEnd, isMobile }} />}
         {reportId === 'closing' && <ClosingReport {...{ verifications, accounts, start, end }} />}
         {reportId === 'ledger' && <LedgerReport {...{ verifications, accounts, start, end }} />}
+        {reportId === 'journal' && <JournalReport {...{ verifications, accounts, start, end }} />}
+        {openItems && <OpenItemsReport kind={reportId} {...{ invoices, expenses, contacts, verifications, end }} />}
         {reportId === 'invoices' && <InvoiceReport {...{ invoices, contacts, start, end }} />}
         {reportId === 'payroll' && <PayrollReport {...{ payrollRuns, start, end }} />}
       </div>
@@ -1189,5 +1221,154 @@ function ClosingReport(props) {
       />
       {tab === 'worksheet' ? <WorksheetReport {...props} /> : <EquityReport {...props} />}
     </div>
+  );
+}
+
+// ── Verifikationslista (grundbok) ───────────────────────────────────────
+// Bokföringen i datumordning, med kontroller överst: att varje verifikation
+// balanserar och att nummerserierna saknar luckor (se utils/reportLedgers.js).
+function CheckLine({ ok, children }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13.5px', color: 'var(--text-main)', lineHeight: 1.5 }}>
+      <span style={{ color: ok ? 'var(--status-green-text)' : 'var(--status-amber-text, #b45309)', display: 'flex', marginTop: '2px' }}>{ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}</span>
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function JournalReport({ verifications, accounts, start, end }) {
+  const j = useMemo(() => computeJournal(verifications, accounts, start, end), [verifications, accounts, start, end]);
+  if (j.count === 0) return <ReportSheet><EmptyState text={t('ui.inga_bokforda_transaktioner_for_denna_period')} /></ReportSheet>;
+  const rows = [];
+  for (const e of j.entries) {
+    rows.push({ key: `${e.id}_h`, head: true, number: e.number, date: e.date, text: e.description });
+    e.rows.forEach((r, i) => rows.push({ key: `${e.id}_${i}`, account: r.account, text: [r.name, r.text].filter(Boolean).join(' · '), debet: r.debet, kredit: r.kredit }));
+  }
+  const balanced = Math.abs(j.totalDebet - j.totalKredit) < 0.005 && j.unbalanced.length === 0;
+  return (
+    <ReportSheet>
+      <div className="sheet-grid">
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel title={t('rpt.kontroller')}>
+            <div style={{ display: 'grid', gap: '8px' }}>
+              <CheckLine ok>{t('rpt.journal_antal', { count: j.count })}</CheckLine>
+              <CheckLine ok={balanced}>
+                {balanced
+                  ? t('rpt.journal_balanserar', { v: formatSEK(j.totalDebet) })
+                  : t('rpt.journal_obalans', { list: j.unbalanced.map(u => `${u.number} (${formatSEK(u.diff)})`).join(', ') })}
+              </CheckLine>
+              <CheckLine ok={j.gaps.length === 0}>
+                {j.gaps.length === 0
+                  ? t('rpt.journal_inga_luckor')
+                  : t('rpt.journal_luckor', { list: j.gaps.map(g => `${g.series}: ${g.missing.slice(0, 8).join(', ')}${g.missing.length > 8 ? ' …' : ''}`).join('; ') })}
+              </CheckLine>
+            </div>
+          </SheetPanel>
+        </div>
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel title={t('rpt.verifikationslista')} subtitle={t('rpt.verifikationslista_hint')}>
+            <DataTable
+              columns={[
+                { key: 'number', label: t('rpt.ver'), width: '84px', render: r => (r.head ? <strong style={{ color: 'var(--text-main)' }}>{r.number}</strong> : '') },
+                { key: 'date', label: t('ui.datum'), width: '100px', render: r => (r.head ? <span style={{ whiteSpace: 'nowrap' }}>{r.date}</span> : '') },
+                { key: 'account', label: t('rpt.konto'), width: '70px', render: r => r.account || '' },
+                { key: 'text', label: t('rpt.text'), render: r => (r.head ? <strong style={{ color: 'var(--text-main)' }}>{r.text}</strong> : r.text) },
+                { key: 'debet', label: t('ui.debet'), align: 'right', render: r => (r.debet ? formatSEK(r.debet) : '') },
+                { key: 'kredit', label: t('ui.kredit'), align: 'right', render: r => (r.kredit ? formatSEK(r.kredit) : '') },
+              ]}
+              rows={rows}
+              rowKey={r => r.key}
+              footer={[t('rpt.summa'), '', '', '', formatSEK(j.totalDebet), formatSEK(j.totalKredit)]}
+            />
+          </SheetPanel>
+        </div>
+      </div>
+    </ReportSheet>
+  );
+}
+
+// ── Kund- och leverantörsreskontra ──────────────────────────────────────
+// Öppna poster vid periodens slut, fördelade efter hur länge de varit
+// förfallna, och avstämda mot 1510/2440 vid samma datum.
+const ageLabels = () => ({ notDue: t('rpt.ej_forfallet'), d30: t('rpt.d30'), d60: t('rpt.d60'), d90: t('rpt.d90'), d90plus: t('rpt.d90plus') });
+
+function OpenItemsReport({ kind, invoices, expenses, contacts, verifications, end }) {
+  // Exakta belopp (inte tkr): reskontran ska gå att stämma av krona för krona.
+  const { palette } = useReportDisplay();
+  const customer = kind === 'receivables';
+  const r = useMemo(
+    () => (customer ? computeReceivables(invoices, contacts, end, verifications) : computePayables(expenses, contacts, end, verifications)),
+    [customer, invoices, expenses, contacts, end, verifications],
+  );
+  const labels = ageLabels();
+  const overdue = r.totals.total - r.totals.notDue;
+  const matches = Math.abs(r.difference) < 1;
+  const accountName = customer ? t('rpt.kundfordringar') : t('rpt.leverantorsskulder');
+  return (
+    <ReportSheet>
+      <div className="sheet-grid">
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile label={customer ? t('rpt.att_fa') : t('rpt.att_betala')} value={formatSEK(r.totals.total)} icon={Wallet} tone={customer ? palette.income : palette.cost} context={t(r.count === 1 ? 'rpt.poster_en' : 'rpt.poster', { count: r.count })} />
+        </div>
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile label={t('rpt.forfallet')} value={formatSEK(overdue)} icon={AlertTriangle} tone={palette.cost} context={r.totals.d90plus ? t('rpt.varav_over_90', { v: formatSEK(r.totals.d90plus) }) : undefined} />
+        </div>
+        <div className="sheet-span-4" style={cellBg}>
+          <StatTile
+            label={t('rpt.mot_bokforingen', { account: r.ledgerAccount })}
+            value={matches ? t('rpt.stammer') : formatSEK(r.difference)}
+            icon={matches ? CheckCircle2 : AlertTriangle}
+            tone={matches ? palette.profit : palette.cost}
+            context={t('rpt.saldo_konto', { name: accountName, v: formatSEK(r.ledgerBalance) })}
+          />
+        </div>
+        {(!matches || r.unbooked > 0) && (
+          <div className="sheet-span-12" style={cellBg}>
+            <SheetPanel title={t('rpt.avstamning')}>
+              <div style={{ display: 'grid', gap: '8px' }}>
+                {r.unbooked > 0 && <CheckLine ok={false}>{t('rpt.obokforda', { v: formatSEK(r.unbooked) })}</CheckLine>}
+                {!matches && <CheckLine ok={false}>{t(customer ? 'rpt.diff_kund' : 'rpt.diff_lev', { diff: formatSEK(r.difference), account: r.ledgerAccount })}</CheckLine>}
+              </div>
+            </SheetPanel>
+          </div>
+        )}
+        {r.count === 0 ? (
+          <div className="sheet-span-12" style={cellBg}><EmptyState text={customer ? t('rpt.inga_obetalda_kund') : t('rpt.inga_obetalda_lev')} /></div>
+        ) : (
+          <>
+            <div className="sheet-span-12" style={cellBg}>
+              <SheetPanel title={customer ? t('rpt.per_kund') : t('rpt.per_leverantor')} subtitle={t('rpt.alder_hint', { date: r.asOf })}>
+                <DataTable
+                  columns={[
+                    { key: 'name', label: customer ? t('ui.kund') : t('rpt.leverantor'), emphasize: true, render: p => p.name || t('ui.okand') },
+                    ...AGE_BUCKETS.map(b => ({ key: b.key, label: labels[b.key], align: 'right', render: p => (p[b.key] ? formatSEK(p[b.key]) : '') })),
+                    { key: 'total', label: t('rpt.totalt'), align: 'right', emphasize: true, render: p => formatSEK(p.total) },
+                  ]}
+                  rows={r.parties}
+                  rowKey={(p, i) => `${p.name}_${i}`}
+                  footer={[t('rpt.summa'), ...AGE_BUCKETS.map(b => (r.totals[b.key] ? formatSEK(r.totals[b.key]) : '')), formatSEK(r.totals.total)]}
+                />
+              </SheetPanel>
+            </div>
+            <div className="sheet-span-12" style={cellBg}>
+              <SheetPanel title={t('rpt.oppna_fakturor')}>
+                <DataTable
+                  columns={[
+                    { key: 'number', label: t('rpt.faktura'), render: i => i.number || '—' },
+                    { key: 'partyName', label: customer ? t('ui.kund') : t('rpt.leverantor'), render: i => i.partyName || t('ui.okand') },
+                    { key: 'date', label: t('rpt.fakturadatum'), render: i => <span style={{ whiteSpace: 'nowrap' }}>{i.date}</span> },
+                    { key: 'dueDate', label: t('rpt.forfallodag'), render: i => <span style={{ whiteSpace: 'nowrap' }}>{i.dueDate}</span> },
+                    { key: 'daysOverdue', label: t('rpt.dagar_sen'), align: 'right', render: i => (i.daysOverdue > 0 ? String(i.daysOverdue) : '') },
+                    { key: 'open', label: t('rpt.belopp'), align: 'right', emphasize: true, render: i => `${formatSEK(i.open)}${i.unbooked ? ` · ${t('rpt.ej_bokford')}` : ''}${i.currency ? ` (${i.currency})` : ''}` },
+                  ]}
+                  rows={r.parties.flatMap(p => p.items)}
+                  rowKey={i => i.id}
+                />
+              </SheetPanel>
+            </div>
+          </>
+        )}
+      </div>
+    </ReportSheet>
   );
 }

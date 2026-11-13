@@ -899,7 +899,9 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             skild (18px) från graf-rubrikraden under — två separata beslut
             (VILKEN period, VILKEN graf) ska inte läsas ihop till ett. */}
         <div className="dash-period-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
-          <PeriodHeading label={periodBounds.label} start={periodBounds.start} end={periodBounds.end} />
+          {/* "Hur det går" (2026-11-13): rubriken säger vad kortet svarar på;
+              perioden står i datumraden under och i knapparna till höger. */}
+          <PeriodHeading label={t('dashboard.howItGoes')} start={periodBounds.start} end={periodBounds.end} />
           <div className="dash-period-controls">
             {/* Bara två perioder, I år och Senaste 12 mån, som små knappar i samma
                 stil som tkr/kr (2026-10-03). Denna månad och Sedan start finns i

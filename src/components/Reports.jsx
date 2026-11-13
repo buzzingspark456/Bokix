@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronRight, FileBarChart } from './icons';
+import { ChevronRight } from './icons';
 import ListPageHeader from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import ReportDetail from './reports/ReportDetail';
@@ -39,7 +39,7 @@ function relativeOpenedLabel(iso) {
 }
 
 export default function Reports({
-  accounts = [], verifications = [], invoices = [], payrollRuns = [], contacts = [],
+  accounts = [], verifications = [], invoices = [], expenses = [], payrollRuns = [], contacts = [],
   company = {}, setCompanyInfo, onNavigate, hiddenReportIds = NO_HIDDEN_REPORTS,
 }) {
   const isMobile = useIsMobileViewport();
@@ -60,6 +60,8 @@ export default function Reports({
   const lastOpened = company?.reportLastOpened || {};
 
   const openReport = (reportId) => {
+    const meta = sections.flatMap(sec => sec.reports).find(r => r.id === reportId);
+    if (meta?.navigate) { onNavigate?.(meta.navigate); return; }
     setOpenReportId(reportId);
     setCompanyInfo?.(prev => ({
       ...prev,
@@ -94,7 +96,7 @@ export default function Reports({
         reportId={openReportId}
         bounds={bounds}
         periodControl={periodControl}
-        verifications={verifications} accounts={accounts} invoices={invoices}
+        verifications={verifications} accounts={accounts} invoices={invoices} expenses={expenses}
         payrollRuns={payrollRuns} contacts={contacts} company={company}
         isMobile={isMobile}
         // Presentationsvalen (diagramfärger + beloppsenhet) sparas på
@@ -128,47 +130,29 @@ export default function Reports({
           (20px) → ListTable (0px) redan har på Verifikationer. */}
       <div data-tour="page-reports-list" style={{ flex: 1, overflowY: 'auto' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '24px' }}>
-          {sections.map((section, i) => (
-            <div key={section.id} className="rpt-section">
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px', padding: '0 20px', marginTop: i === 0 ? '16px' : 0 }}>
-                {section.label}
-              </div>
-              <ListTable
-                rowKey={r => r.id}
-                onRowClick={r => openReport(r.id)}
-                rows={section.reports}
-                // Telefon: namnet, en rad om vad rapporten visar och när den
-                // senast öppnades, i stället för tabellens rubriker per kort.
-                mobileList={r => ({
-                  primary: r.name,
-                  meta: r.description,
-                  amount: relativeOpenedLabel(lastOpened[r.id]) || null,
-                })}
-                columns={[
-                  {
-                    // Fast bredd: annars hamnar Beskrivning olika långt in i varje grupp.
-                    key: 'name', label: t('ui.rapport'), width: '300px', fontWeight: 700, color: 'var(--text-main)', render: r => (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ width: 30, height: 30, borderRadius: '8px', background: 'var(--border-light)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <FileBarChart size={14} />
-                        </div>
-                        {r.name}
-                      </div>
-                    ),
-                  },
-                  { key: 'description', label: t('ui.beskrivning'), wrap: true },
-                  { key: 'lastOpened', label: t('ui.senast_oppnad'), width: '140px', render: r => relativeOpenedLabel(lastOpened[r.id]) || '—' },
-                  { key: 'chevron', label: '', align: 'right', width: '32px', render: () => <ChevronRight size={16} color="var(--text-muted)" /> },
-                ]}
-              />
-            </div>
-          ))}
+          {/* En tabell med grupprubriker (2026-11-13): kolumnrubrikerna en gång,
+              ingen likadan ikon på varje rad. */}
+          <ListTable
+            rowKey={r => r.id}
+            onRowClick={r => openReport(r.id)}
+            rows={sections.flatMap(section => section.reports.map(r => ({ ...r, sectionId: section.id, sectionLabel: section.label })))}
+            groupBy={r => r.sectionId}
+            renderGroupHeader={(key, rows) => <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{rows[0]?.sectionLabel}</span>}
+            // Telefon: namnet, en rad om vad rapporten visar och när den
+            // senast öppnades, i stället för tabellens rubriker per kort.
+            mobileList={r => ({
+              primary: r.name,
+              meta: r.description,
+              amount: relativeOpenedLabel(lastOpened[r.id]) || null,
+            })}
+            columns={[
+              { key: 'name', label: t('ui.rapport'), width: '260px', fontWeight: 700, color: 'var(--text-main)' },
+              { key: 'description', label: t('ui.beskrivning'), wrap: true },
+              { key: 'lastOpened', label: t('ui.senast_oppnad'), width: '140px', render: r => relativeOpenedLabel(lastOpened[r.id]) || '—' },
+              { key: 'chevron', label: '', align: 'right', width: '32px', render: () => <ChevronRight size={16} color="var(--text-muted)" /> },
+            ]}
+          />
 
-          {onNavigate && (
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, padding: '0 20px' }}>
-              {t('ui.underlaget_kommer_fran_din_bokforing_och_dina_fa')}
-            </p>
-          )}
         </div>
       </div>
     </div>

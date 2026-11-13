@@ -9452,3 +9452,12 @@ img.hc-player { object-fit: cover; }
 .notif-dropdown.np .np-gear { width: 32px; height: 32px; margin: -4px -6px -4px 0; padding: 0; border: none; border-radius: 9px; background: transparent; color: var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .notif-dropdown.np .np-gear:hover { background: var(--bg-muted); color: var(--text-main); }
 .notif-dropdown.np .np-item.fresh .np-icon { background: var(--bg-card) !important; box-shadow: 0 1px 2px rgba(16,24,20,.06); }
+
+/* Excel-raden i Import och export: på telefon hamnar valet under texten. */
+@media (max-width: 768px) {
+  .settings-link-row:has(.excel-ctl) { flex-wrap: wrap; }
+  .settings-link-row:has(.excel-ctl) .settings-link-text { flex: 1 1 100%; }
+  .settings-link-row:has(.excel-ctl) .settings-link-right { flex-basis: 100%; margin-top: 10px; }
+  .excel-ctl { width: 100%; }
+  .excel-ctl select { flex: 1; font-size: 16px !important; }
+}
