@@ -20,6 +20,7 @@ import { readDocumentText } from '../utils/ocrCache';
 import { captureEvent } from '../utils/posthog';
 import { analyzeReceipt, buildReceiptPlan } from '../utils/receiptScan';
 import { ScanOverlay, OcrChecklist, ReadDetails, ReadText, photoHintText, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
+import { buyerDetailsCheck } from '../utils/receiptBuyer';
 import { convertToSek } from '../utils/currencyConversion';
 import { historyForSupplier, historyFromVerifications } from '../utils/receiptHistory';
 import { reverseChargePurchaseInfo, describeReverseCharge } from '../utils/reverseCharge';
@@ -798,6 +799,14 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               </div>
             )}
 
+            {/* Över 4 000 kr: momsavdraget kräver en fullständig faktura med
+                köparens namn och adress (utils/receiptBuyer.js). */}
+            {!vatExempt && !readOnly && !revealing && hasAmount && buyerDetailsCheck({ grossAmount, vatAmount: ocrVat?.vatAmount, vatRate: form.vatRate, readText, company: ownCompany }) === 'missing' && (
+              <div className="rc-verify rc-verify-warn">
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>{tr('ui.kvitto_over_4000', { name: ownCompany?.name || tr('ui.ditt_foretag_litet') })}</span>
+              </div>
+            )}
             {/* Momskontrollen mot beloppen på kvittot. Verifierad bara när
                 momsbeloppet på kvittot faktiskt stämmer mot vald sats. */}
             {/* Ett returkvitto ser ut som ett vanligt kvitto men går åt andra
@@ -1453,6 +1462,9 @@ export default function Expenses({
               {tr('ui.valj_en_hel_mapp')}
             </button>
           </div>
+          {/* BFL 7 kap. 6 § (sedan 1 juli 2024): papperet får förstöras när
+              bilden är överförd utan risk att uppgifter ändras eller försvinner. */}
+          <p style={{ margin: '8px 2px 0', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{tr('ui.slang_papperskvittot')}</p>
 
           {fileErrors.length > 0 && (
             <div style={{ background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 16px', marginTop: '12px' }}>

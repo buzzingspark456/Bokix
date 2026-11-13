@@ -24,8 +24,9 @@ export const HELP_ARTICLES = [
       'Dra in kvittot eller klicka på Ladda upp kvitton (bild eller PDF). I mobilen kan du fota det direkt.',
       'Bokix läser av belopp, datum och moms och föreslår ett konto.',
       'Kontrollera och spara. Är Bokix osäker på kontot står det Kontrollera, och då väljer du själv.',
+      'Papperskvittot får du slänga när bilden är skarp och visar hela kvittot. Bilden är då underlaget, och Bokix sparar den i 7 år.',
     ],
-    keywords: 'utgift kostnad foto bild pdf moms konto',
+    keywords: 'utgift kostnad foto bild pdf moms konto slänga papper spara arkiv sju år',
   },
   {
     id: 'faktura', category: 'start', tab: 'invoices', action: { type: 'new_invoice' }, open: 'Skapa en faktura',

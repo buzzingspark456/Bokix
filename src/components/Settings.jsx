@@ -35,6 +35,7 @@ import { confirmDialog } from './shared/ConfirmDialog';
 import { newCalendarKey, calendarFeedUrl, calendarChoices } from '../utils/calendarFeed';
 import { downloadSie4 } from '../utils/sieExport';
 import { exportVerificationsToExcel, fiscalYearChoices, verificationsInRange } from '../utils/excelExport';
+import { downloadUnderlagZip } from '../utils/underlagExport';
 import { companyFiscalYearSetting, fiscalYearBounds } from '../utils/reportCalculations';
 import { planFromId, PLAN_TIERS } from '../utils/plans';
 import { ACCESS_PAGES, ACCESS_LEVELS, defaultPageAccess, accessForPage, canWriteField, ACCOUNTANT_PRESET, accountantPageAccess } from '../utils/pageAccess';
@@ -2965,6 +2966,24 @@ export default function Settings({
     finally { setExcelBusy(false); }
   };
 
+  // Ladda ner alla underlag: zip med en fil per verifikation och en
+  // förteckning (utils/underlagExport.js).
+  const [zipYear, setZipYear] = useState('');
+  const [zipProgress, setZipProgress] = useState(null); // null | { done, total } | { result }
+  const zipChoice = zipYear === 'all' ? null : (excelYears.find(y => y.from === zipYear) || excelYears[0] || null);
+  const handleExportUnderlag = async () => {
+    setZipProgress({ done: 0, total: 0 });
+    try {
+      const range = zipChoice ? { from: zipChoice.from, to: zipChoice.to } : null;
+      const label = zipChoice ? zipChoice.label.replace('/', '-') : 'alla';
+      const result = await downloadUnderlagZip(verifications, range, label, (done, total) => setZipProgress({ done, total }));
+      setZipProgress({ result });
+    } catch (e) {
+      console.error(e); setZipProgress(null);
+      confirmDialog(tr('ui.underlag_zip_fel'), { title: tr('ui.underlag_zip'), confirmLabel: 'OK' });
+    }
+  };
+
   const handleImportFile = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -4417,6 +4436,31 @@ export default function Settings({
                           <option value="all">{tr('ui.excel_hela_bokforingen')}</option>
                         </select>
                         <button type="button" onClick={handleExportExcel} disabled={excelBusy} aria-label={tr('ui.exportera_till_excel')} title={tr('ui.exportera_till_excel')} style={{ background: 'none', border: 'none', padding: '4px', cursor: excelBusy ? 'wait' : 'pointer', color: 'var(--text-secondary)', display: 'flex' }}>
+                          <Download size={18} />
+                        </button>
+                      </span>
+                    )}
+                  />
+                )}
+                {excelYears.length > 0 && (
+                  <SettingsLinkRow
+                    title={tr('ui.underlag_zip')}
+                    description={zipProgress?.result
+                      ? tr('ui.underlag_zip_klar', { files: zipProgress.result.fileCount, missing: zipProgress.result.missing, failed: zipProgress.result.failed })
+                      : zipProgress && zipProgress.total > 0 ? tr('ui.underlag_zip_hamtar', { done: zipProgress.done, total: zipProgress.total })
+                      : tr('ui.underlag_zip_beskrivning')}
+                    right={(
+                      <span className="excel-ctl" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <select
+                          aria-label={tr('ui.excel_period')}
+                          value={zipChoice ? zipChoice.from : 'all'}
+                          onChange={e => { setZipYear(e.target.value); setZipProgress(null); }}
+                          style={{ ...inputBase, width: 'auto', padding: '6px 10px', fontSize: '13px' }}
+                        >
+                          {excelYears.map(y => <option key={y.from} value={y.from}>{tr('ui.excel_rakenskapsar', { year: y.label })}</option>)}
+                          <option value="all">{tr('ui.excel_hela_bokforingen')}</option>
+                        </select>
+                        <button type="button" onClick={handleExportUnderlag} disabled={Boolean(zipProgress && !zipProgress.result)} aria-label={tr('ui.underlag_zip')} title={tr('ui.underlag_zip')} style={{ background: 'none', border: 'none', padding: '4px', cursor: zipProgress && !zipProgress.result ? 'wait' : 'pointer', color: 'var(--text-secondary)', display: 'flex' }}>
                           <Download size={18} />
                         </button>
                       </span>

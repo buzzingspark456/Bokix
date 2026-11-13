@@ -4035,7 +4035,15 @@
     "excel_rakenskapsar": "Financial year {{year}}",
     "excel_hela_bokforingen": "All bookkeeping",
     "hb_bara_bolag_som_delagare": "All partners are companies (for example limited companies)",
-    "hb_kalenderar_annars": "A trading partnership with any individual as partner must use the calendar year, and the first year must end on 31 December."
+    "hb_kalenderar_annars": "A trading partnership with any individual as partner must use the calendar year, and the first year must end on 31 December.",
+    "slang_papperskvittot": "You may throw away the paper receipt once the image is sharp and shows the whole receipt. Bokix keeps the image for 7 years.",
+    "kvitto_over_4000": "Above SEK 4,000 the receipt must be an invoice with the buyer's name and address for the VAT to be deductible. Bokix did not find {{name}} on the receipt. Ask the seller for an invoice if it is missing.",
+    "ditt_foretag_litet": "your company",
+    "underlag_zip": "All supporting documents",
+    "underlag_zip_beskrivning": "Receipts and invoices as a zip file, named after the voucher (A031.pdf), with an index in Excel. For your accountant, or if you switch software.",
+    "underlag_zip_hamtar": "Fetching {{done}} of {{total}} files …",
+    "underlag_zip_klar": "Done: {{files}} files. {{missing}} vouchers have no supporting document, {{failed}} files could not be fetched. See Forteckning.xlsx in the zip file.",
+    "underlag_zip_fel": "The zip file could not be created. Please try again shortly."
   },
   "glossary": {
     "g01": {
@@ -5246,6 +5254,9 @@
     "dagar_sen": "Days late",
     "belopp": "Amount",
     "ej_bokford": "not booked",
-    "poster_en": "1 invoice"
+    "poster_en": "1 invoice",
+    "journal_underlag_ok": "All vouchers have supporting documents.",
+    "journal_underlag_saknas": "{{count}} vouchers have no supporting document: {{list}}. Attach the receipt or invoice, or note where it is kept.",
+    "och_fler": "and {{count}} more"
   }
 }

@@ -4035,7 +4035,15 @@
     "excel_rakenskapsar": "Räkenskapsår {{year}}",
     "excel_hela_bokforingen": "Hela bokföringen",
     "hb_bara_bolag_som_delagare": "Alla delägare är bolag (till exempel aktiebolag)",
-    "hb_kalenderar_annars": "Ett handelsbolag med någon person som delägare måste ha kalenderår, och första året måste sluta 31 december."
+    "hb_kalenderar_annars": "Ett handelsbolag med någon person som delägare måste ha kalenderår, och första året måste sluta 31 december.",
+    "slang_papperskvittot": "Du får slänga papperskvittot när bilden är skarp och visar hela kvittot. Bokix sparar bilden i 7 år.",
+    "kvitto_over_4000": "Över 4 000 kr behöver kvittot vara en faktura med köparens namn och adress för att momsen ska få dras av. Bokix hittade inte {{name}} på kvittot. Be säljaren om en faktura om det saknas.",
+    "ditt_foretag_litet": "ditt företag",
+    "underlag_zip": "Alla underlag",
+    "underlag_zip_beskrivning": "Kvitton och fakturor som zip-fil, namngivna efter verifikationen (A031.pdf), med en förteckning i Excel. Till revisorn, eller om du byter program.",
+    "underlag_zip_hamtar": "Hämtar {{done}} av {{total}} filer …",
+    "underlag_zip_klar": "Klart: {{files}} filer. {{missing}} verifikationer saknar underlag, {{failed}} filer gick inte att hämta. Se Forteckning.xlsx i zip-filen.",
+    "underlag_zip_fel": "Det gick inte att skapa zip-filen. Försök igen om en stund."
   },
   "glossary": {
     "g01": {
@@ -5246,6 +5254,9 @@
     "dagar_sen": "Dagar sen",
     "belopp": "Belopp",
     "ej_bokford": "ej bokförd",
-    "poster_en": "1 faktura"
+    "poster_en": "1 faktura",
+    "journal_underlag_ok": "Alla verifikationer har underlag.",
+    "journal_underlag_saknas": "{{count}} verifikationer saknar underlag: {{list}}. Bifoga kvittot eller fakturan, eller skriv var underlaget finns.",
+    "och_fler": "och {{count}} till"
   }
 }

@@ -76,3 +76,22 @@ describe('reskontra', () => {
     expect(accountBalanceAt(vers, '1510', '2026-09-30')).toBe(10000)
   })
 })
+
+describe('underlag', async () => {
+  const { hasUnderlag, computeJournal } = await import('./reportLedgers')
+  it('fil, plats, rättelse och Bokix egna verifikationer räknas som underlag', () => {
+    expect(hasUnderlag({ attachmentUrl: 'x' })).toBe(true)
+    expect(hasUnderlag({ originalLocation: 'Pärm 2026' })).toBe(true)
+    expect(hasUnderlag({ description: 'Rätta: A3 – Lunch' })).toBe(true)
+    expect(hasUnderlag({ source: 'invoice' })).toBe(true)
+    expect(hasUnderlag({ source: 'expense' })).toBe(false)
+    expect(hasUnderlag({ description: 'Manuell' })).toBe(false)
+  })
+  it('listas i verifikationslistan', () => {
+    const j = computeJournal([
+      { id: '1', number: 'A1', date: '2026-01-02', description: 'Utan', rows: [{ account: '1930', debet: 1 }, { account: '3001', kredit: 1 }] },
+      { id: '2', number: 'A2', date: '2026-01-03', description: 'Med', attachmentUrl: 'f', rows: [{ account: '1930', debet: 1 }, { account: '3001', kredit: 1 }] },
+    ], [], new Date(2026, 0, 1), new Date(2026, 11, 31))
+    expect(j.missingUnderlag.map(m => m.number)).toEqual(['A1'])
+  })
+})

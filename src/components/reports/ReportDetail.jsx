@@ -1257,10 +1257,15 @@ function JournalReport({ verifications, accounts, start, end }) {
                   ? t('rpt.journal_balanserar', { v: formatSEK(j.totalDebet) })
                   : t('rpt.journal_obalans', { list: j.unbalanced.map(u => `${u.number} (${formatSEK(u.diff)})`).join(', ') })}
               </CheckLine>
+              <CheckLine ok={j.missingUnderlag.length === 0}>
+                {j.missingUnderlag.length === 0
+                  ? t('rpt.journal_underlag_ok')
+                  : t('rpt.journal_underlag_saknas', { count: j.missingUnderlag.length, list: j.missingUnderlag.slice(0, 10).map(m => m.number).join(', ') + (j.missingUnderlag.length > 10 ? ` ${t('rpt.och_fler', { count: j.missingUnderlag.length - 10 })}` : '') })}
+              </CheckLine>
               <CheckLine ok={j.gaps.length === 0}>
                 {j.gaps.length === 0
                   ? t('rpt.journal_inga_luckor')
-                  : t('rpt.journal_luckor', { list: j.gaps.map(g => `${g.series}: ${g.missing.slice(0, 8).join(', ')}${g.missing.length > 8 ? ' …' : ''}`).join('; ') })}
+                  : t('rpt.journal_luckor', { list: j.gaps.map(g => `${g.series}: ${g.missing.slice(0, 8).join(', ')}${g.missing.length > 8 ? ` ${t('rpt.och_fler', { count: g.missing.length - 8 })}` : ''}`).join('; ') })}
               </CheckLine>
             </div>
           </SheetPanel>

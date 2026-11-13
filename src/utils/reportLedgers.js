@@ -28,6 +28,30 @@ function splitNumber(number) {
   return m ? { series: m[1] || 'A', n: Number(m[2]) } : null;
 }
 
+// Verifikationer som Bokix själv skapar ur något som redan är underlaget
+// (fakturan, lönebeskedet, momsdeklarationen, Stripe/Zettle, avskrivningen,
+// bokslutet) eller som kommer från ett annat program (underlaget finns där).
+const SYSTEM_SOURCES = new Set([
+  'invoice', 'invoice_payment', 'payroll', 'payroll_reversal', 'vat_declaration',
+  'stripe', 'stripe_ledger', 'zettle', 'zettle_ledger', 'rotrut_import', 'rotrut_payout', 'rotrut_rejected',
+  'accrual', 'depreciation', 'asset_disposal', 'dividend', 'year_end_close', 'year_open_transfer',
+  'equity_reclass', 'partner_allocation', 'patronage_refund', 'inventory', 'skattekonto_import',
+  'bank_import', 'expense_reversal', 'supplier_invoice_payment', 'sie_import',
+]);
+
+/**
+ * Har verifikationen ett underlag? En bifogad fil, en uppgift om var
+ * underlaget finns (BFL 5 kap. 7 §), en rättelse av en annan verifikation,
+ * eller en verifikation som Bokix skapat ur själva underlaget.
+ */
+export function hasUnderlag(v) {
+  if (!v) return false;
+  if (v.attachmentUrl || (Array.isArray(v.attachments) && v.attachments.length)) return true;
+  if (String(v.originalLocation || '').trim()) return true;
+  if (/^Rätta:/.test(String(v.description || ''))) return true;
+  return SYSTEM_SOURCES.has(v.source);
+}
+
 /**
  * Verifikationslistan för perioden [start, end]. Varje verifikation med sina
  * rader, i datum- och nummerordning, plus kontroller:
@@ -80,7 +104,8 @@ export function computeJournal(verifications, accounts, start, end) {
     if (missing.length) gaps.push({ series, missing });
   }
 
-  return { entries, totalDebet: round2(totalDebet), totalKredit: round2(totalKredit), unbalanced, gaps, count: entries.length };
+  const missingUnderlag = inPeriod.filter(v => !hasUnderlag(v)).map(v => ({ id: v.id, number: v.number || '', date: day(v.date), description: v.description || '' }));
+  return { entries, totalDebet: round2(totalDebet), totalKredit: round2(totalKredit), unbalanced, gaps, missingUnderlag, count: entries.length };
 }
 
 /** Saldo på ett konto (debet − kredit) till och med ett datum. */
