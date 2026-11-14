@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import { Search, RefreshCw, SlidersHorizontal, Plus, MoreHorizontal, PlayCircle } from '../icons';
 import { GuideContext } from './GuideContext';
+import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 import { t } from '../../i18n';
 
 // Sida 43: en enda delad sidhuvud-komponent för alla listsidor (Kunder,
@@ -102,6 +103,14 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
   // Se hur: filmen för sidan (App.jsx sätter GuideContext, utils/pageGuides.js).
   const guide = useContext(GuideContext);
   const pills = Boolean(hasTabs && tabs.variant === 'pills');
+  // Kompakt sidhuvud (2026-11-14): på bred skärm står flikarna på samma rad
+  // som rubriken, och undertexten visas inte när det finns flikar. Listan
+  // börjar då ungefär 45 px högre upp på varje listsida. Smalare skärmar och
+  // sidor med många flikar (piller, radbrytning) behåller två rader.
+  // Undertexten (t.ex. "Fakturor du skickar till dina kunder") visas bara på
+  // smalare skärmar; på bred skärm säger rubriken och listan samma sak.
+  const narrow = useIsMobileViewport(1100);
+  const inlineTabs = hasTabs && !pills && !tabs.wrap && !narrow;
   // Telefon: flikraden är en rad man sveper i sidled (index.css). Den valda
   // fliken skrollas fram så den aldrig står gömd bakom kanten. Bara raden
   // själv flyttas, aldrig sidan (scrollIntoView hade kunnat skrolla sidan).
@@ -115,10 +124,28 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
     const target = left - (row.clientWidth - btn.offsetWidth) / 2;
     row.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
   }, [activeTabId]);
+  const tabButtons = hasTabs && tabs.items.map(t => (
+    <button
+      key={t.id}
+      type="button"
+      onClick={() => tabs.onChange(t.id)}
+      aria-current={tabs.activeId === t.id ? 'page' : undefined}
+      className={inlineTabs ? 'lph-inline-tab' : undefined}
+      style={pills ? tabPillStyle(tabs.activeId === t.id) : tabButtonStyle(tabs.activeId === t.id)}
+    >
+      {t.icon && <t.icon size={14} />}
+      {t.shortLabel
+        ? <><span className="tab-label-long">{t.label}</span><span className="tab-label-short">{t.shortLabel}</span></>
+        : t.label}{typeof t.badge === 'number' && t.badge > 0 ? ` · ${t.badge}` : ''}
+    </button>
+  ));
   return (
-    <div className="list-page-header" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 20px', paddingBottom: hasTabs ? 0 : '12px', flexShrink: 0 }}>
-      <div className="page-header-row page-header-top" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0 0', gap: '16px', flexWrap: 'wrap' }}>
-        <div>
+    <div className={'list-page-header' + (inlineTabs ? ' lph-compact' : '')} style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 20px', paddingBottom: hasTabs ? 0 : '12px', flexShrink: 0 }}>
+      <div className="page-header-row page-header-top" style={inlineTabs
+        ? { display: 'flex', alignItems: 'stretch', justifyContent: 'space-between', gap: '16px', minHeight: '54px' }
+        : { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0 0', gap: '16px', flexWrap: 'wrap' }}>
+        <div className={inlineTabs ? 'lph-title-with-tabs' : undefined}>
+          <div className={inlineTabs ? 'lph-title-block' : undefined}>
           {/* Kundfeedback ("luft i sidhuvudet", samma princip som Startsidan):
               2px kändes hopklämt mellan rubrik och undertext — 6px (samma
               rytm som Dashboard.jsx:s hälsningsrader) ger läsbar andrum
@@ -131,7 +158,9 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
               </button>
             )}
           </div>
-          {subtitle && <p className="page-header-subtitle" style={{ margin: '6px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>{subtitle}</p>}
+          {subtitle && narrow && <p className="page-header-subtitle" style={{ margin: '6px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>{subtitle}</p>}
+          </div>
+          {inlineTabs && <nav ref={tabsRef} className="lph-inline-tabs" aria-label={title}>{tabButtons}</nav>}
         </div>
         {actions.length > 0 && (
           // `page-header-actions`: på telefon läggs knapparna på en egen rad
@@ -145,7 +174,7 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
           // sekundära knapparna (exportera, guide m.m.) flyttar in bakom en
           // "⋯"-knapp (lph-more) i stället för att fylla sidhuvudet. På
           // datorn syns allt som förut.
-          <div className={'page-header-actions' + (actions.filter(a => a.type !== 'note').length > 1 ? ' page-header-actions--many' : '')} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className={'page-header-actions' + (actions.filter(a => a.type !== 'note').length > 1 ? ' page-header-actions--many' : '')} style={{ display: 'flex', alignItems: 'center', gap: '8px', ...(inlineTabs ? { alignSelf: 'center' } : null) }}>
             {actions.map((a, i) => a.type === 'note' ? (
               <span key={a.key ?? i} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                 {a.label} {a.value && <strong style={{ color: 'var(--text-main)' }}>{a.value}</strong>}
@@ -177,26 +206,13 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
 
       {children}
 
-      {hasTabs && (
+      {hasTabs && !inlineTabs && (
         <div
           ref={tabsRef}
           className={'page-header-tabs' + (pills ? ' page-header-tabs--pills' : '') + (tabs.wrap ? ' page-header-tabs--wrap' : '')}
           style={{ display: 'flex', gap: pills ? '7px' : 0, marginTop: pills ? '8px' : '6px', paddingBottom: pills ? '12px' : 0 }}
         >
-          {tabs.items.map(t => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => tabs.onChange(t.id)}
-              aria-current={tabs.activeId === t.id ? 'page' : undefined}
-              style={pills ? tabPillStyle(tabs.activeId === t.id) : tabButtonStyle(tabs.activeId === t.id)}
-            >
-              {t.icon && <t.icon size={14} />}
-              {t.shortLabel
-                ? <><span className="tab-label-long">{t.label}</span><span className="tab-label-short">{t.shortLabel}</span></>
-                : t.label}{typeof t.badge === 'number' && t.badge > 0 ? ` · ${t.badge}` : ''}
-            </button>
-          ))}
+          {tabButtons}
         </div>
       )}
     </div>

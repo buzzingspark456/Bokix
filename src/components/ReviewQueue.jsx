@@ -7,7 +7,6 @@ import { confirmDialog } from './shared/ConfirmDialog';
 import { supabase } from '../supabaseClient';
 import { VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './AccountsData';
 import { t } from '../i18n';
-import { StripeLogo, ZettleLogo } from './shared/BrandLogos';
 import { categorizeStripeItem, buildStripeVerification, isSafeStripeItem, STRIPE_FEE_ACCOUNT, BANK_ACCOUNT } from '../utils/stripeLedger';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { numberFormat, dateTimeFormat } from '../utils/intlCache';
@@ -65,13 +64,15 @@ const REVIEW_LIST_CSS = `
   .rq-meta { font-size: 11px; font-weight: 700; letter-spacing: 0.055em; text-transform: uppercase; color: var(--text-muted); line-height: 1.5; }
   .rq-title { font-size: 14.5px; font-weight: 600; color: var(--text-main); margin-top: 5px; line-height: 1.45; }
   .rq-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
-  .rq-src { display: flex; gap: 14px; align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
-  .rq-src-logo { width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--bg-card); border: 1px solid var(--border); overflow: hidden; color: var(--text-secondary); }
-  .rq-src-title { font-size: 15px; font-weight: 700; color: var(--text-main); }
-  .rq-src-text { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-top: 2px; }
+  /* Kompakt källrad (2026-11-14): logga, rubrik och förklaring på en rad. */
+  .rq-src { display: flex; gap: 12px; align-items: center; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
+  .rq-src-logo { width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--bg-card); border: 1px solid var(--border); overflow: hidden; color: var(--text-secondary); }
+  .rq-src-title { display: inline; font-size: 13.5px; font-weight: 700; color: var(--text-main); margin-right: 8px; }
+  .rq-src-text { display: inline; font-size: 12.5px; color: var(--text-muted); line-height: 1.45; }
   .rq-src-stats { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; flex-shrink: 0; }
-  .rq-stat { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
-  .rq-src-wordmark { display: flex; align-items: center; height: 28px; margin-bottom: 4px; }
+  .rq-stat { padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .rq-src-wordmark { display: inline-flex; align-items: center; height: 18px; margin-right: 10px; vertical-align: middle; }
+  .rq-src-wordmark svg, .rq-src-wordmark img { height: 18px; width: auto; }
   .rq-section { position: sticky; top: 0; z-index: 2; padding: 9px 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.055em; text-transform: uppercase; color: var(--text-muted); background: var(--bg-muted); border-bottom: 1px solid var(--border-light); }
   .rq-row + .rq-section { border-top: 1px solid var(--border-light); }
   .rq-more { display: block; width: 100%; padding: 12px; border: none; border-top: 1px solid var(--border-light); background: var(--bg-card); color: var(--accent-text); font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; }
@@ -91,7 +92,7 @@ const REVIEW_LIST_CSS = `
   :root[data-theme="dark"] .rq-src .lp-logo-light { display: none; }
   :root[data-theme="dark"] .rq-src .lp-logo-dark { display: inline-block; }
   @media (max-width: 640px) {
-    .rq-src { flex-wrap: wrap; padding: 14px; gap: 12px; }
+    .rq-src { flex-wrap: wrap; padding: 10px 14px; gap: 8px 10px; }
     .rq-src-stats { justify-content: flex-start; width: 100%; }
     .rq-section { padding: 8px 14px; }
     .rq-account-picker { flex-direction: column; align-items: stretch !important; }
@@ -217,24 +218,8 @@ function ReviewRowShell({
  * gång, i egen ruta, i stället för liten på varje rad), vad Bokix gör med
  * dem och hur många som är klara, behöver ett val eller är manuella.
  */
-function SourcePanel({ logo, wordmark, title, text, stats }) {
-  return (
-    <div className="rq-src">
-      {/* Stripe och Zettle: tjänstens eget ordmärke som rubrik, utan ruta. */}
-      {!wordmark && <span className="rq-src-logo">{logo}</span>}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {wordmark ? <div className="rq-src-wordmark" role="heading" aria-level={2} aria-label={title}>{wordmark}</div> : <div className="rq-src-title">{title}</div>}
-        <div className="rq-src-text">{text}</div>
-      </div>
-      <div className="rq-src-stats">
-        {stats.filter(stat => stat.n > 0).map(stat => {
-          const tone = BADGE_TONES[stat.tone];
-          return <span key={stat.label} className="rq-stat" style={{ background: tone.bg, color: tone.fg }}>{stat.label}</span>;
-        })}
-      </div>
-    </div>
-  );
-}
+// Källraden (logga + förklaring) överst i varje flik togs bort 2026-11-14:
+// fliknamnet och grupprubrikerna säger redan samma sak.
 
 /** Raderna i grupper (Klart att bokföra, Behöver ditt val, ...); tomma
  * grupper hoppas över. Långa grupper visar 20 rader åt gången, så 50 eller
@@ -1239,16 +1224,6 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
         ) : (
           <div className="rq-list">
             <div className="rq-card">
-              <SourcePanel
-                logo={<Receipt size={22} />}
-                title={t('ui.rq_src_vantar_titel')}
-                text={t('ui.rq_src_vantar_text')}
-                stats={[
-                  { n: pendingSafe.length, tone: 'green', label: t('ui.rq_stat_klara', { n: pendingSafe.length }) },
-                  { n: pendingCheck.length, tone: 'amber', label: t('ui.rq_stat_val', { n: pendingCheck.length }) },
-                  { n: pendingMissing.length, tone: 'neutral', label: t('ui.rq_stat_saknar_konto', { n: pendingMissing.length }) },
-                ]}
-              />
               <GroupedRows groups={[
                 { label: t('ui.rq_sec_klart'), items: pendingSafe, render: renderPending },
                 { label: t('ui.rq_sec_kontrollera'), items: pendingCheck, render: renderPending },
@@ -1284,16 +1259,6 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
         ) : (
           <div className="rq-list">
             <div className="rq-card">
-              <SourcePanel
-                wordmark={<StripeLogo height={26} />}
-                title="Stripe"
-                text={t('ui.rq_src_stripe_text')}
-                stats={[
-                  { n: stripeSafe.length, tone: 'green', label: t('ui.rq_stat_klara', { n: stripeSafe.length }) },
-                  { n: stripeChoice.length, tone: 'amber', label: t('ui.rq_stat_val', { n: stripeChoice.length }) },
-                  { n: stripeManual.length, tone: 'neutral', label: t(stripeManual.length === 1 ? 'ui.rq_stat_manuell' : 'ui.rq_stat_manuella', { n: stripeManual.length }) },
-                ]}
-              />
               <GroupedRows groups={[
                 { label: t('ui.rq_sec_klart'), items: stripeSafe, render: renderStripe },
                 { label: t('ui.rq_sec_val'), items: stripeChoice, render: renderStripe },
@@ -1326,16 +1291,6 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
         ) : (
           <div className="rq-list">
             <div className="rq-card">
-              <SourcePanel
-                wordmark={<ZettleLogo height={28} />}
-                title="Zettle"
-                text={t('ui.rq_src_zettle_text')}
-                stats={[
-                  { n: zettleSafe.length, tone: 'green', label: t('ui.rq_stat_klara', { n: zettleSafe.length }) },
-                  { n: zettleChoice.length, tone: 'amber', label: t('ui.rq_stat_val', { n: zettleChoice.length }) },
-                  { n: zettleRefunds.length, tone: 'neutral', label: t(zettleRefunds.length === 1 ? 'ui.rq_stat_manuell' : 'ui.rq_stat_manuella', { n: zettleRefunds.length }) },
-                ]}
-              />
               <GroupedRows groups={[
                 { label: t('ui.rq_sec_klart'), items: zettleSafe, render: renderZettle },
                 { label: t('ui.rq_sec_val'), items: zettleChoice, render: renderZettle },

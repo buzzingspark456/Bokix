@@ -32,3 +32,12 @@ describe('underlag i zip', () => {
     expect(text).not.toContain('A4-2.png\u0000\u0007')
   })
 })
+
+describe('okopplade underlag i zip', () => {
+  it('läggs i mappen Okopplade', async () => {
+    const r = await buildUnderlagZip([], null, { XLSX, fetchFile: async () => new Uint8Array([1]), documents: [{ id: 'd1', url: 'u/x.pdf', name: 'hyra mars.pdf', uploadedAt: '2026-03-02T10:00:00Z' }, { id: 'd2', url: 'u/y.pdf', name: 'kopplad.pdf', linkedVerificationId: 'v1' }] })
+    const text = new TextDecoder().decode(r.zip)
+    expect(text).toContain('Okopplade/001_hyra mars.pdf')
+    expect(text).not.toContain('kopplad.pdf')
+  })
+})

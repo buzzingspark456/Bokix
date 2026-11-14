@@ -273,7 +273,7 @@ function InvoiceMobileSummary({ invoice, customerName, nextNum, ocr, totals, cus
   );
 }
 
-function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles, projects = [], onSyncBeforeServerCall }) {
+function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onRegisterPayment, onUnmarkPaid, onUpdateNote, onMarkEmailed, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles, projects = [], onSyncBeforeServerCall }) {
   // En bokförd faktura (allt utom utkast) får inte längre ändra belopp/rader/kund —
   // korrigeringar sker via kreditfaktura. Datum och kommentar går fortfarande att ändra.
   const isLocked = Boolean(initial) && (initial.status || 'draft') !== 'draft';
@@ -671,7 +671,7 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
         rotRutApartment: rotRutType === 'rot' ? rotRutApartment.trim() || undefined : undefined,
       });
 
-  const handleSave = (status = 'draft') => {
+  const handleSave = (status = 'draft', extra = {}) => {
     const rate = Number(String(fxRate).replace(',', '.'));
     if (currency !== 'SEK' && !(rate > 0)) {
       setFxStatus(tr('ui.fyll_i_vaxelkursen_for_fakturan_bokfors_i_kronor', { currency }));
@@ -681,7 +681,7 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
     // "Spara"-knapp) så en kommentar man skrivit på en NY, ännu osparad
     // faktura faktiskt följer med — annars gick den förlorad eftersom
     // Kommentar-knappen tidigare var helt avstängd innan första sparningen.
-    onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, projectId: projectId || undefined, priceInclVat, rotRutType: rotRutType !== 'none' && currency === 'SEK' ? rotRutType : undefined, ...(currency === 'SEK' ? rotRutFields() : {}), internalNote: commentDraft, invoiceTemplateSnapshot, currency, fxRate: currency !== 'SEK' ? rate : undefined });
+    onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, projectId: projectId || undefined, priceInclVat, rotRutType: rotRutType !== 'none' && currency === 'SEK' ? rotRutType : undefined, ...(currency === 'SEK' ? rotRutFields() : {}), internalNote: commentDraft, invoiceTemplateSnapshot, currency, fxRate: currency !== 'SEK' ? rate : undefined , ...extra });
   };
 
   const handlePrint = async () => {
@@ -792,7 +792,11 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
       captureEvent('faktura_skickad');
       // Precis som "✓ Skapa faktura"-knappen — ett utkast som faktiskt
       // skickas till kunden är per definition inte längre ett utkast.
-      if ((initial?.status || 'draft') === 'draft') handleSave('sent');
+      // Mejlutskicket sparas på fakturan (2026-11-14): visas i historiken
+      // och gör det möjligt att se hur ofta fakturor mejlas från Bokix.
+      const emailEntry = { at: new Date().toISOString(), to };
+      if ((initial?.status || 'draft') === 'draft') handleSave('sent', { emailLog: [...(initial?.emailLog || []), emailEntry] });
+      else if (initial?.id) onMarkEmailed?.(initial.id, emailEntry);
     } catch (err) {
       console.error(err);
       setEmailError(err.message || tr('ui.kunde_inte_skicka_e_post'));
@@ -2494,6 +2498,9 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
   const handleUpdateInvoiceNote = (id, internalNote) => {
     setInvoices(prev => prev.map(i => i.id === id ? { ...i, internalNote } : i));
   };
+  const handleMarkEmailed = (id, entry) => {
+    setInvoices(prev => prev.map(i => i.id === id ? { ...i, emailLog: [...(i.emailLog || []), entry] } : i));
+  };
 
   const toggleSelect = (id) => {
     if (id === DEMO_INVOICE_ID) return; // exempelfakturan (Fakturaguiden) ska inte gå att massmarkera/betala
@@ -2790,6 +2797,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
         onRegisterPayment={onRegisterPayment}
         onUnmarkPaid={onUnmarkPaid}
         onUpdateNote={handleUpdateInvoiceNote}
+        onMarkEmailed={handleMarkEmailed}
         verifications={verifications}
         invoiceList={invoiceList}
         nav={nav}

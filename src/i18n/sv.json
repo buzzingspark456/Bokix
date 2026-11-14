@@ -263,7 +263,12 @@
       "annualReportDue": "Till Bolagsverket {{when}}",
       "yearEndTitle": "Stäng räkenskapsåret {{year}}",
       "yearEndDetail": "Bokslut och lås året under Skatt och bokslut",
-      "vatTitleLabel": "Momsdeklaration {{label}}"
+      "vatTitleLabel": "Momsdeklaration {{label}}",
+      "actionDocuments": "Koppla underlag",
+      "documentsOneTitle": "1 underlag väntar på att kopplas",
+      "documentsManyTitle": "{{count}} underlag väntar på att kopplas",
+      "documentsDetail": "Sparade utan avläsning för över 30 dagar sedan",
+      "vatFiledBook": "Inlämnad, bokför momsen när perioden är klar"
     },
     "unit": {
       "label": "Visa belopp i",
@@ -314,7 +319,10 @@
       "hideConfirm": "Dölja Kom igång? Du kan visa den igen under Inställningar → Utseende.",
       "cancel": "Avbryt",
       "hide": "Dölj",
-      "tour": "Ta en snabb rundtur"
+      "tour": "Ta en snabb rundtur",
+      "stepEmail": "Skicka fakturor från din egen mejl",
+      "stepEmailDetail": "Koppla Gmail eller företagets mejladress, så kommer fakturorna från dig och svaren till din inkorg.",
+      "stepEmailDone": "Fakturor skickas från {{email}}"
     }
   },
   "settings": {
@@ -5257,6 +5265,63 @@
     "poster_en": "1 faktura",
     "journal_underlag_ok": "Alla verifikationer har underlag.",
     "journal_underlag_saknas": "{{count}} verifikationer saknar underlag: {{list}}. Bifoga kvittot eller fakturan, eller skriv var underlaget finns.",
-    "och_fler": "och {{count}} till"
+    "och_fler": "och {{count}} till",
+    "journal_okopplade": "{{count}} underlag är sparade men inte kopplade till någon verifikation. Koppla dem under Kvitton.",
+    "journal_okopplade_en": "1 underlag är sparat men inte kopplat till någon verifikation. Koppla det under Kvitton."
+  },
+  "docs": {
+    "spara_utan": "Spara utan att läsa av",
+    "spara_utan_hint": "Filen sparas som underlag utan att Bokix läser av den. Koppla den till en verifikation senare.",
+    "rubrik": "Underlag att koppla ({{count}})",
+    "rubrik_hint": "Sparade utan avläsning. Koppla till en verifikation, eller läs av som kvitto.",
+    "sparad": "Sparad {{date}}",
+    "gammal": "över 30 dagar, koppla den",
+    "koppla": "Koppla",
+    "las_av": "Läs av som kvitto",
+    "ta_bort": "Ta bort",
+    "ta_bort_fraga": "Ta bort {{name}}? Filen raderas och går inte att få tillbaka.",
+    "koppla_titel": "Koppla till verifikation",
+    "sok_verifikation": "Sök nummer, text, datum eller belopp",
+    "forslag": "Förslag: verifikationer utan underlag",
+    "inga_traffar": "Inga verifikationer matchar.",
+    "inga_forslag": "Alla verifikationer har redan underlag. Sök för att koppla ändå.",
+    "har_underlag": "har underlag",
+    "spara_utan_lank": "Spara en fil utan att läsa av den",
+    "drop_hint": "Dra hit filer eller klicka. PDF, JPG, PNG eller HEIC, max {{mb}} MB. Papperskvittot får slängas när bilden är skarp.",
+    "valj_mapp": "Välj en hel mapp",
+    "rubrik_kort": "Underlag att koppla",
+    "gammal_kort": "Över 30 dagar",
+    "fler_val": "Fler val",
+    "visa": "Visa",
+    "chip": "Att koppla"
+  },
+  "task": {
+    "vat_titel_kvartal": "Momsdeklaration kvartal {{quarter}}",
+    "vat_titel": "Momsdeklaration {{label}}",
+    "period": "Perioden {{start}} – {{end}}",
+    "att_betala": "Att betala",
+    "att_fa_tillbaka": "Att få tillbaka",
+    "inlamnad": "Inlämnad",
+    "vat_sen": "Försenad",
+    "idag": "I dag",
+    "imorgon": "I morgon",
+    "om_dagar": "Om {{days}} dagar",
+    "senast": "Lämnas och betalas senast {{date}}",
+    "utgaende": "Utgående moms",
+    "ingaende": "Ingående moms",
+    "steg1": "Kontrollera och bokför momsen",
+    "steg1_text": "Bokix har räknat ut momsen. Öppna deklarationen, kontrollera rutorna och bokför perioden.",
+    "steg1_klar": "Perioden är bokförd.",
+    "oppna_moms": "Öppna momsdeklarationen",
+    "steg2": "Lämna in hos Skatteverket",
+    "steg2_text": "Ladda ner filen i momsdeklarationen och lämna in den i Skatteverkets e-tjänst. Markera sedan här att den är inlämnad.",
+    "steg2_klar": "Markerad som inlämnad {{date}}.",
+    "markera_inlamnad": "Markera som inlämnad",
+    "angra_inlamnad": "Ångra, inte inlämnad",
+    "direkt_senare": "Att skicka direkt till Skatteverket från Bokix kommer senare.",
+    "steg3_betala": "Betala till skattekontot",
+    "steg3_tillbaka": "Pengarna kommer till skattekontot",
+    "steg3_betala_text": "Betala {{amount}} till ditt skattekonto senast {{date}}, bankgiro 5050-1055 med OCR-numret som står på ditt skattekonto.",
+    "steg3_tillbaka_text": "Skatteverket betalar tillbaka till ditt skattekonto. Du kan begära utbetalning därifrån."
   }
 }

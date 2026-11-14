@@ -15,6 +15,7 @@ import { detectOrgType } from './orgType';
 import { invoiceCustomerRemainingSek } from './rotRutConfig';
 import { activeFiscalYear } from './fiscalYear';
 import { numberFormat } from './intlCache';
+import { staleDocuments } from './looseDocuments';
 import { computeVatPeriod } from './vatCalculation';
 
 // Försenat först, sedan det som närmar sig, sist det som är mindre bråttom.
@@ -58,7 +59,7 @@ const fmtKr = (val) => {
  */
 export function buildTodoItems({
   t, company = {}, invoices = [], expenses = [], contacts = [], verifications = [],
-  payrollRuns = [], employees = [], agiReports = [], bankTransactions = [],
+  payrollRuns = [], employees = [], agiReports = [], bankTransactions = [], documents = [],
   vatPeriods = {}, reviewTotal = 0, hiddenNavIds = [], dismissedKeys = new Set(), today = new Date(),
 }) {
   const fmt = fmtKr;
@@ -118,14 +119,25 @@ export function buildTodoItems({
     // Beloppet att betala (eller få tillbaka) står med, så man ser vad det
     // gäller utan att öppna momsen (2026-11-07). Som deklarationen: hela kronor.
     let vatAmount = null;
-    try { vatAmount = Math.round(computeVatPeriod({ verifications, periodStart: vatDeadline.start, periodEnd: vatDeadline.end }).netToPay); } catch { vatAmount = null; }
+    let vatCalc = null;
+    try { vatCalc = computeVatPeriod({ verifications, periodStart: vatDeadline.start, periodEnd: vatDeadline.end }); vatAmount = Math.round(vatCalc.netToPay); } catch { vatAmount = null; }
+    // Markerad som inlämnad i uppgiftspanelen eller i Skatt och bokslut
+    // (company.taxFilings): kvar tills momsen är bokförd, men lugnare.
+    const filed = Boolean(company?.taxFilings?.[`vat:${vatDeadline.key}`]);
     const amountText = vatAmount ? (vatAmount > 0 ? t('dashboard.todo.vatToPay', { amount: fmt(vatAmount) }) : t('dashboard.todo.vatRefund', { amount: fmt(-vatAmount) })) : null;
     const dueText = late ? t('dashboard.todo.vatLate') : t('dashboard.todo.vatDue', { when: whenIn(vatDeadline.daysLeft) });
     rows.push({
-      kind: 'vat_deadline', group: 'tax', sev: late ? 'danger' : 'warning', daysLeft: vatDeadline.daysLeft, late,
-      tone: late ? 'bad' : 'warn', action: t('dashboard.todo.actionVat'), target: { tab: 'taxes_vat' },
+      kind: 'vat_deadline', group: 'tax', sev: filed ? 'success' : late ? 'danger' : 'warning', daysLeft: vatDeadline.daysLeft, late: late && !filed,
+      tone: filed ? 'brand' : late ? 'bad' : 'warn', action: t('dashboard.todo.actionVat'), target: { tab: 'taxes_vat' },
       title: vatDeadline.quarter ? t('dashboard.todo.vatTitle', { quarter: vatDeadline.quarter }) : t('dashboard.todo.vatTitleLabel', { label: vatDeadline.label }),
-      when: amountText ? `${amountText} · ${dueText}` : dueText,
+      when: filed ? t('dashboard.todo.vatFiledBook') : amountText ? `${amountText} · ${dueText}` : dueText,
+      // Uppgiftspanelen (dashboard/VatTaskPanel.jsx) öppnas med det här.
+      task: {
+        type: 'vat', key: vatDeadline.key, start: vatDeadline.start, end: vatDeadline.end, dueDate: vatDeadline.dueDate,
+        daysLeft: vatDeadline.daysLeft, amount: vatAmount || 0, booked: Boolean(vatPeriods?.[vatDeadline.key]),
+        output: vatCalc ? Math.round(vatCalc.outputVatTotal || 0) : 0, input: vatCalc ? Math.round(vatCalc.inputVat || 0) : 0,
+        title: vatDeadline.quarter ? t('task.vat_titel_kvartal', { quarter: vatDeadline.quarter }) : t('task.vat_titel', { label: vatDeadline.label }),
+      },
     });
   }
 
@@ -186,6 +198,19 @@ export function buildTodoItems({
         : receipts
           ? (receipts === 1 ? t('dashboard.todo.reviewDetailReceiptOne') : t('dashboard.todo.reviewDetailReceipts', { count: receipts }))
           : t('dashboard.todo.reviewDetailPayments', { count: payments }),
+    });
+  }
+
+  // Underlag sparade utan avläsning som legat över 30 dagar okopplade
+  // (utils/looseDocuments.js). Lagen kräver att verifikationen visar var
+  // underlaget finns, så de ska kopplas.
+  const staleDocs = staleDocuments(documents, today);
+  if (staleDocs.length > 0 && shows('expenses')) {
+    rows.push({
+      kind: 'documents_unlinked', group: 'bookkeeping', sev: 'success', tone: 'brand',
+      action: t('dashboard.todo.actionDocuments'), target: { tab: 'expenses' },
+      title: staleDocs.length === 1 ? t('dashboard.todo.documentsOneTitle') : t('dashboard.todo.documentsManyTitle', { count: staleDocs.length }),
+      detail: t('dashboard.todo.documentsDetail'),
     });
   }
 

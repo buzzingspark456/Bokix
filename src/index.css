@@ -9461,3 +9461,91 @@ img.hc-player { object-fit: cover; }
   .excel-ctl { width: 100%; }
   .excel-ctl select { flex: 1; font-size: 16px !important; }
 }
+
+
+/* ── Kvitton: uppladdning och Underlag att koppla (2026-11-14) ── */
+.rc-drop-link { background: none; border: none; padding: 0; font: inherit; color: var(--text-secondary); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.rc-drop-link:hover { color: var(--text-main); }
+.rc-paper-note, .rc-raw-link { display: none; }
+
+.dl-card { margin-top: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); }
+.dl-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--border-light); }
+.dl-title { font-size: 13.5px; font-weight: 700; color: var(--text-main); }
+.dl-count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--bg-muted); color: var(--text-secondary); font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.dl-sub { margin-left: auto; font-size: 12.5px; color: var(--text-muted); }
+.dl-list { list-style: none; margin: 0; padding: 4px 0; }
+.dl-row { display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 16px; }
+.dl-row + .dl-row { border-top: 1px solid var(--border-light); }
+.dl-file { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; background: none; border: none; padding: 0; text-align: left; cursor: pointer; font-family: inherit; color: var(--text-main); }
+.dl-thumb { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--bg-muted); color: var(--text-secondary); }
+.dl-thumb.is-pdf { background: var(--status-red-bg); color: var(--status-red-text); }
+.dl-ext { font-size: 9.5px; font-weight: 800; letter-spacing: .04em; }
+.dl-name-wrap { display: flex; flex-direction: column; min-width: 0; }
+.dl-name { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dl-file:hover .dl-name { text-decoration: underline; text-underline-offset: 2px; }
+.dl-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.dl-stale { padding: 1px 7px; border-radius: 999px; background: var(--status-red-bg); color: var(--status-red-text); font-size: 11px; font-weight: 700; }
+.dl-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.dl-link { height: 32px; padding: 0 14px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.dl-link:hover { border-color: var(--accent); }
+.dl-menu-wrap { position: relative; }
+.dl-more { width: 32px; height: 32px; border-radius: 9px; border: none; background: none; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.dl-more:hover, .dl-more[aria-expanded="true"] { background: var(--bg-muted); color: var(--text-main); }
+.dl-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 190px; padding: 5px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); box-shadow: 0 10px 30px rgba(0,0,0,.14); }
+.dl-menu-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border: none; border-radius: 8px; background: none; color: var(--text-main); font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; text-align: left; }
+.dl-menu-item:hover { background: var(--bg-muted); }
+.dl-menu-item.is-danger { color: var(--status-red-text); }
+
+.dl-modal { max-width: 560px; }
+.dl-modal-file { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 13px; color: var(--text-secondary); }
+.dl-modal-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dl-search { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); color: var(--text-muted); margin-bottom: 12px; }
+.dl-search:focus-within { border-color: var(--accent); }
+.dl-search input { flex: 1; min-width: 0; border: none; outline: none; background: none; font: inherit; font-size: 14px; color: var(--text-main); }
+.dl-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin: 2px 0 6px; }
+.dl-results { display: grid; gap: 4px; max-height: 52vh; overflow-y: auto; }
+.dl-empty { font-size: 13px; color: var(--text-muted); padding: 14px 2px; }
+.dl-result { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid transparent; border-radius: 10px; background: none; cursor: pointer; text-align: left; font-family: inherit; color: var(--text-main); }
+.dl-result:hover { background: var(--bg-muted); border-color: var(--border); }
+.dl-result-num { font-weight: 800; font-size: 13px; font-variant-numeric: tabular-nums; }
+.dl-result-text { display: flex; flex-direction: column; min-width: 0; }
+.dl-result-desc { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dl-result-meta { font-size: 12px; color: var(--text-muted); }
+.dl-result-amount { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 768px) {
+  .rc-paper-note { display: block; margin: 8px 2px 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; }
+  .rc-raw-link { display: inline-block; margin: 4px 2px 0; padding: 4px 0; background: none; border: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .dl-sub { display: none; }
+  .dl-row { padding: 10px 8px 10px 12px; }
+}
+
+/* Kvittolistan: miniatyrer och underlag i listan (2026-11-14). */
+.rc-row-thumb { overflow: hidden; }
+.rc-row-thumb.is-photo { background: var(--bg-muted); border: 1px solid var(--border-light); }
+.rc-row-thumb.is-pdf { background: var(--status-red-bg); color: var(--status-red-text); font-size: 11px; font-weight: 800; letter-spacing: .05em; }
+.rc-row-thumb.is-letter { background: var(--bg-muted); color: var(--text-secondary); font-size: 19px; font-weight: 700; }
+.rc-docs-slot { padding: 10px 14px 0; }
+.rc-docs-slot .dl-card { margin-top: 0; }
+
+/* Kompakt sidhuvud: rubrik och flikar på en rad (ListPageHeader, 2026-11-14). */
+.lph-compact .lph-title-with-tabs { display: flex; align-items: stretch; gap: 28px; min-width: 0; }
+.lph-compact .lph-title-block { display: flex; align-items: center; }
+.lph-compact .lph-inline-tabs { display: flex; align-items: stretch; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.lph-compact .lph-inline-tabs::-webkit-scrollbar { display: none; }
+.lph-compact .lph-inline-tab { display: inline-flex; align-items: center; gap: 6px; height: 100%; padding: 0 12px !important; white-space: nowrap; }
+
+/* Kvitton: etiketten Att koppla öppnar underlagen som egen sektion. */
+.rc-docs-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 11px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--bg-card); color: var(--text-main); font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.rc-docs-chip:hover { border-color: var(--text-muted); }
+.rc-docs-chip.is-active { background: var(--text-main); border-color: var(--text-main); color: var(--bg-card); }
+.rc-docs-chip-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--status-red-bg); color: var(--status-red-text); font-size: 10.5px; display: inline-flex; align-items: center; justify-content: center; }
+.rc-docs-chip.is-active .rc-docs-chip-count { background: var(--bg-card); color: var(--text-main); }
+.dl-card .dl-head { padding: 14px 18px; }
+
+/* Mycket breda skärmar (2026-11-14): hela listsidan (sidhuvud och lista)
+   stannar vid 1760 px och centreras, så att beloppen inte hamnar långt från
+   namnen. Samma på alla listsidor; påverkar inget på vanliga skärmar. */
+@media (min-width: 2040px) {
+  .page-content-with-spacer:has(.list-page-header) > * { max-width: 1760px; width: 100%; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+}

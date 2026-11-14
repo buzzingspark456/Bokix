@@ -2630,7 +2630,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
 
 export default function Settings({
   company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], quotes = [], expenses = [],
-  contacts = [], projects = [], onImport, onReset, onBulkImportSie, onRepairSieOpenings, onDeleteSieImport, onCloseImportedYears, onOpenRotRutImport, enabledFeatures = null, onAttachVerificationFiles, stripeAccountId, onConnectStripe, onDisconnectStripe,
+  contacts = [], projects = [], documents = [], onImport, onReset, onBulkImportSie, onRepairSieOpenings, onDeleteSieImport, onCloseImportedYears, onOpenRotRutImport, enabledFeatures = null, onAttachVerificationFiles, stripeAccountId, onConnectStripe, onDisconnectStripe,
   zettleConnected = false, onConnectZettle,
   user,
   // Hjälp och Logga ut ligger i Inställningar på telefon (på dator finns de
@@ -2976,7 +2976,7 @@ export default function Settings({
     try {
       const range = zipChoice ? { from: zipChoice.from, to: zipChoice.to } : null;
       const label = zipChoice ? zipChoice.label.replace('/', '-') : 'alla';
-      const result = await downloadUnderlagZip(verifications, range, label, (done, total) => setZipProgress({ done, total }));
+      const result = await downloadUnderlagZip(verifications, range, label, (done, total) => setZipProgress({ done, total }), documents);
       setZipProgress({ result });
     } catch (e) {
       console.error(e); setZipProgress(null);
@@ -3214,6 +3214,15 @@ export default function Settings({
   const [ownSenderGoogle, setOwnSenderGoogle] = useState(false);
   const [ownSenderStatusError, setOwnSenderStatusError] = useState('');
   const [ownSenderLoaded, setOwnSenderLoaded] = useState(false);
+  // Kom igång (dashboard/GetStarted.jsx) bockar av "Skicka fakturor från din
+  // egen mejl" när avsändaren är kopplad. Statusen finns bara på servern, så
+  // adressen speglas på företaget när den lästs in här (2026-11-14).
+  useEffect(() => {
+    if (!ownSenderLoaded || readOnly || !setCompanyInfo) return;
+    const email = ownSender?.fromEmail || '';
+    if (email === (company?.ownSenderEmail || '')) return;
+    setCompanyInfo(prev => ({ ...prev, ownSenderEmail: email || undefined }));
+  }, [ownSenderLoaded, ownSender?.fromEmail]); // eslint-disable-line react-hooks/exhaustive-deps
   const [ownSenderBusy, setOwnSenderBusy] = useState(false);
   const [ownSenderError, setOwnSenderError] = useState('');
   const [ownSenderForm, setOwnSenderForm] = useState({

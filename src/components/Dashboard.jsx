@@ -32,6 +32,7 @@ import { layoutRect, layoutViewport } from '../utils/dropdownPlacement';
 import { overviewPeriodBounds, buildResultSeries, companyFiscalYearSetting } from '../utils/reportCalculations';
 import { invoiceCustomerRemainingSek } from '../utils/rotRutConfig';
 import { numberFormat } from '../utils/intlCache';
+import VatTaskPanel from './dashboard/VatTaskPanel';
 
 // Intäkter-vs-Utgifter-grafens färger kommer numera från paletten
 // (utils/chartPalette.js, se `chart` i komponenten): förvalet är samma
@@ -189,7 +190,7 @@ function ChartDataTable({ data, fmt, hasPrevYearData, comparisonLabel }) {
 const TODO_ICONS = {
   overdue_invoices: TodoOverdueIcon, supplier_due: TodoOverdueIcon, vat_deadline: TodoVatIcon, agi_deadline: TodoVatIcon,
   year_end: TodoVatIcon, income_declaration: TodoVatIcon, annual_report: TodoVatIcon, start_vat: TodoVatIcon, payroll_pending: TodoPayrollIcon, employees_tax: TodoPayrollIcon,
-  review: TodoReviewIcon, bank_unmatched: TodoBankIcon, draft_invoices: TodoDraftIcon,
+  review: TodoReviewIcon, bank_unmatched: TodoBankIcon, draft_invoices: TodoDraftIcon, documents_unlinked: TodoReviewIcon,
 };
 
 /* ── Nyckeltalsruta: Resultat, Intäkter, Kostnader och Likviditet som fyra
@@ -293,7 +294,7 @@ function useIsPhone(maxWidth = 640) {
   return phone;
 }
 
-export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie, onCloseImportedYears, agiReports = [], bankTransactions = [], hiddenNavIds = [], payrollIncluded = true, onOpenItem, onStartTour }) {
+export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie, onCloseImportedYears, agiReports = [], bankTransactions = [], documents = [], hiddenNavIds = [], payrollIncluded = true, onOpenItem, onStartTour, onToggleTaxFiling }) {
   const { t } = useTranslation();
   const FORMAT_MODES = formatModes(t);
   // Har företaget personal? Avgörs på verkliga anställda och lönekörningar,
@@ -414,6 +415,9 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
 
   // En rad eller faktura öppnar just den saken (App.jsx handleGlobalAction),
   // annars sidan.
+  // Uppgiftspanelen: Att göra-rader med en uppgift (momsen) öppnas i en
+  // panel i stället för att hoppa till en annan sida.
+  const [openTask, setOpenTask] = useState(null);
   const openTarget = (target) => {
     if (!target) return;
     if (target.action && onOpenItem) onOpenItem(target.action, target.tab);
@@ -449,7 +453,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
 
   // ── Att göra ── (utils/todoItems.js, samma lista som notisklockan)
   const todos = buildTodoItems({
-    t, company, invoices, expenses, contacts, verifications, payrollRuns, employees, agiReports, bankTransactions,
+    t, company, invoices, expenses, contacts, verifications, payrollRuns, employees, agiReports, bankTransactions, documents,
     vatPeriods, reviewTotal, hiddenNavIds, dismissedKeys: dismissedTodoKeys,
   }).filter(item => !((showGetStarted || gsState.path || gsState.dismissed) && item.group === 'start')).map(item => ({ ...item, icon: TODO_ICONS[item.kind] || TodoDraftIcon }));
 
@@ -730,7 +734,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             {showGroupTitles && <h3 className="dash-todo-group-title">{t(`dashboard.todo.group.${g.id}`)}</h3>}
             <ul className="dash-todo-group-list">
               {g.items.map(todo => (
-                <TodayRow key={todo.dismissKey} item={todo} onClick={() => openTarget(todo.target)} onDismiss={() => dismissTodo(todo.dismissKey)} />
+                <TodayRow key={todo.dismissKey} item={todo} onClick={() => (todo.task ? setOpenTask(todo.task) : openTarget(todo.target))} onDismiss={() => dismissTodo(todo.dismissKey)} />
               ))}
             </ul>
           </section>
@@ -816,6 +820,14 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     // synlig linje som motiverar den, ett stort odifferentierat tomrum
     // innan hälsningen — bara toppen trimmad, sidorna/botten oförändrade.
     <div className="dash-root" style={{ maxWidth: '100%', margin: '0 auto', width: '100%', minHeight: isPhone ? 0 : '100%', boxSizing: 'border-box', background: 'var(--bg-page)', padding: '24px', paddingTop: '8px' }}>
+      <VatTaskPanel
+        isOpen={Boolean(openTask)}
+        task={openTask}
+        filedAt={openTask && company?.taxFilings?.[`vat:${openTask.key}`]?.at ? new Date(company.taxFilings[`vat:${openTask.key}`].at).toLocaleDateString('sv-SE') : null}
+        onClose={() => setOpenTask(null)}
+        onOpenVat={() => { setOpenTask(null); setActiveTab('taxes_vat'); }}
+        onToggleFiled={onToggleTaxFiling && openTask ? () => onToggleTaxFiling(`vat:${openTask.key}`) : undefined}
+      />
       <style>{`
         @media (max-width: 900px) {
           .dash-lower-grid { grid-template-columns: 1fr !important; }

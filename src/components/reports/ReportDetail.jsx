@@ -144,7 +144,7 @@ const OWN_PERIOD_REPORTS = ['overview'];
  * kommer från Reports.jsx, som äger företagsposten — detaljvyn läser och
  * skickar vidare, den äger ingenting själv. */
 export default function ReportDetail({
-  reportId, bounds, verifications, accounts, invoices, expenses = [], payrollRuns, contacts, company,
+  reportId, bounds, verifications, accounts, invoices, expenses = [], documents = [], payrollRuns, contacts, company,
   isMobile, onBack, display, onDisplayChange, periodControl,
 }) {
   const meta = getReportMeta(reportId);
@@ -239,7 +239,7 @@ export default function ReportDetail({
         {reportId === 'cashflow' && <CashflowReport {...{ verifications, accounts, start, end, prevStart, prevEnd, isMobile }} />}
         {reportId === 'closing' && <ClosingReport {...{ verifications, accounts, start, end }} />}
         {reportId === 'ledger' && <LedgerReport {...{ verifications, accounts, start, end }} />}
-        {reportId === 'journal' && <JournalReport {...{ verifications, accounts, start, end }} />}
+        {reportId === 'journal' && <JournalReport {...{ verifications, accounts, start, end }} unlinkedCount={(documents || []).filter(d => d && d.url && !d.linkedVerificationId).length} />}
         {openItems && <OpenItemsReport kind={reportId} {...{ invoices, expenses, contacts, verifications, end }} />}
         {reportId === 'invoices' && <InvoiceReport {...{ invoices, contacts, start, end }} />}
         {reportId === 'payroll' && <PayrollReport {...{ payrollRuns, start, end }} />}
@@ -1236,7 +1236,7 @@ function CheckLine({ ok, children }) {
   );
 }
 
-function JournalReport({ verifications, accounts, start, end }) {
+function JournalReport({ verifications, accounts, start, end, unlinkedCount = 0 }) {
   const j = useMemo(() => computeJournal(verifications, accounts, start, end), [verifications, accounts, start, end]);
   if (j.count === 0) return <ReportSheet><EmptyState text={t('ui.inga_bokforda_transaktioner_for_denna_period')} /></ReportSheet>;
   const rows = [];
@@ -1262,6 +1262,7 @@ function JournalReport({ verifications, accounts, start, end }) {
                   ? t('rpt.journal_underlag_ok')
                   : t('rpt.journal_underlag_saknas', { count: j.missingUnderlag.length, list: j.missingUnderlag.slice(0, 10).map(m => m.number).join(', ') + (j.missingUnderlag.length > 10 ? ` ${t('rpt.och_fler', { count: j.missingUnderlag.length - 10 })}` : '') })}
               </CheckLine>
+              {unlinkedCount > 0 && <CheckLine ok={false}>{t(unlinkedCount === 1 ? 'rpt.journal_okopplade_en' : 'rpt.journal_okopplade', { count: unlinkedCount })}</CheckLine>}
               <CheckLine ok={j.gaps.length === 0}>
                 {j.gaps.length === 0
                   ? t('rpt.journal_inga_luckor')

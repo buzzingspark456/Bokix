@@ -58,8 +58,16 @@ const asDate = (iso) => { const [y, m, d] = String(iso).split('-').map(Number); 
  * att byta ut i test). Filer som inte går att hämta står i förteckningen.
  * Returnerar { zip: Uint8Array, fileCount, failed }.
  */
-export async function buildUnderlagZip(verifications, range, { XLSX, fetchFile, onProgress } = {}) {
-  const { files, index } = collectUnderlag(verifications, range);
+export async function buildUnderlagZip(verifications, range, { XLSX, fetchFile, onProgress, documents = [] } = {}) {
+  const collected = collectUnderlag(verifications, range);
+  const index = collected.index;
+  // Underlag som inte kopplats till någon verifikation än (utils/looseDocuments.js)
+  // följer med i mappen Okopplade, så att inget saknas för revisorn.
+  const loose = (documents || []).filter(d => d && d.url && !d.linkedVerificationId).map((d, i) => ({
+    url: d.url, fileName: `Okopplade/${String(i + 1).padStart(3, '0')}_${String(d.name || 'underlag').replace(/[\/:*?"<>|]+/g, '_')}`,
+    number: '', date: String(d.uploadedAt || '').slice(0, 10), description: 'Ej kopplat till verifikation',
+  }));
+  const files = [...collected.files, ...loose];
   const zipFiles = [];
   const rows = [];
   let failed = 0;
@@ -91,7 +99,7 @@ export async function buildUnderlagZip(verifications, range, { XLSX, fetchFile, 
 }
 
 /** Webbläsarversionen: hämtar via signerade länkar och laddar ner zip:en. */
-export async function downloadUnderlagZip(verifications, range, fileLabel, onProgress) {
+export async function downloadUnderlagZip(verifications, range, fileLabel, onProgress, documents = []) {
   const XLSX = await import('xlsx');
   const fetchFile = async (url) => {
     const signed = await getSignedStorageUrl(url);
@@ -99,7 +107,7 @@ export async function downloadUnderlagZip(verifications, range, fileLabel, onPro
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return new Uint8Array(await res.arrayBuffer());
   };
-  const result = await buildUnderlagZip(verifications, range, { XLSX, fetchFile, onProgress });
+  const result = await buildUnderlagZip(verifications, range, { XLSX, fetchFile, onProgress, documents });
   const blob = new Blob([result.zip], { type: 'application/zip' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

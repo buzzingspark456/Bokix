@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from '../../i18n';
-import { Check, ChevronRight, Upload, FileText, Receipt, Users, Landmark, Building2, UsersRound } from '../icons';
+import { Check, ChevronRight, Upload, FileText, Receipt, Users, Landmark, Building2, UsersRound, Mail } from '../icons';
 
 // Kom igång för ett nytt konto (2026-11-10). Ersätter tre saker som
 // tidigare låg om varandra på startsidan: Kom igång-raderna i Att göra, den
@@ -40,13 +40,18 @@ const TONES = {
 };
 
 export function buildSteps(path, { t, company, verifications, expenses, invoices, contacts, employees, bankTransactions, hiddenNavIds, payrollIncluded = true }) {
-  const s = (k) => t(`dashboard.getStarted.${k}`);
+  const s = (k, v) => t(`dashboard.getStarted.${k}`, v);
   const account = { id: 'account', icon: Check, tone: 'green', title: s('stepAccount'), detail: company?.name || '', done: true };
+  // Fakturor från kundens egen adress (Gmail eller företagets mejl) i stället
+  // för Bokix avsändare. Klar när Inställningar → Kopplingar har sett en
+  // kopplad avsändare (company.ownSenderEmail, se Settings.jsx).
+  const emailStep = { id: 'email', icon: Mail, tone: 'blue', title: s('stepEmail'), detail: company?.ownSenderEmail ? s('stepEmailDone', { email: company.ownSenderEmail }) : s('stepEmailDetail'), done: Boolean(company?.ownSenderEmail), tab: 'settings_integrations', min: 2 };
   if (path === 'move') {
     return [
       account,
       { id: 'sie', icon: Upload, tone: 'green', title: s('moveSie'), detail: s('moveSieDetail'), done: verifications.length > 0, action: 'sie', min: 5 },
       { id: 'contacts', icon: Users, tone: 'blue', title: s('moveContacts'), detail: s('moveContactsDetail'), done: contacts.length > 0, tab: 'contacts', min: 3 },
+      emailStep,
       // Anställda bara för den som betalar för lön (Med personal, utils/plans.js).
       payrollIncluded && !hiddenNavIds.includes('payroll') && { id: 'employees', icon: UsersRound, tone: 'pink', title: s('moveEmployees'), detail: s('moveEmployeesDetail'), done: employees.length > 0, tab: 'payroll', min: 5 },
       !hiddenNavIds.includes('bank') && { id: 'bank', icon: Landmark, tone: 'amber', title: s('moveBank'), detail: s('moveBankDetail'), done: bankTransactions.length > 0, tab: 'bank', min: 3 },
@@ -56,6 +61,7 @@ export function buildSteps(path, { t, company, verifications, expenses, invoices
   return [
     account,
     { id: 'company', icon: Building2, tone: 'blue', title: s('newCompany'), detail: s('newCompanyDetail'), done: Boolean(company?.orgNr && company?.address && (company?.bankgiro || company?.plusgiro || company?.iban)), tab: 'company', min: 1 },
+    emailStep,
     { id: 'receipt', icon: Receipt, tone: 'amber', title: s('newReceipt'), detail: s('newReceiptDetail'), done: expenses.length > 0, tab: 'expenses', min: 1 },
     { id: 'invoice', icon: FileText, tone: 'green', title: s('newInvoice'), detail: s('newInvoiceDetail'), done: invoices.length > 0, tab: 'invoices', openAction: { type: 'new_invoice' }, min: 2 },
     // Bara för den som betalar för lön (Med personal).

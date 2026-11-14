@@ -21,6 +21,8 @@ import { captureEvent } from '../utils/posthog';
 import { analyzeReceipt, buildReceiptPlan } from '../utils/receiptScan';
 import { ScanOverlay, OcrChecklist, ReadDetails, ReadText, photoHintText, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
 import { buyerDetailsCheck } from '../utils/receiptBuyer';
+import { newDocument } from '../utils/looseDocuments';
+import DocumentsToLink from './DocumentsToLink';
 import { convertToSek } from '../utils/currencyConversion';
 import { historyForSupplier, historyFromVerifications } from '../utils/receiptHistory';
 import { reverseChargePurchaseInfo, describeReverseCharge } from '../utils/reverseCharge';
@@ -1132,12 +1134,28 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   );
 }
 
-function ReceiptThumbImg({ url }) {
+// Miniatyren i kvittolistan (omgjord 2026-11-14): själva kvittot när det är
+// en bild, en PDF-ruta för PDF:er, och leverantörens första bokstav när
+// det inte finns någon fil, i stället för samma ikon på varje rad. En bild
+// som inte går att visa (t.ex. HEIC i vissa webbläsare) faller tillbaka
+// på bokstaven.
+function ReceiptThumbImg({ url, onFail }) {
   const activeUrl = useSignedUrl(url);
   if (!activeUrl) return null;
   return (
-    <img key={activeUrl} src={activeUrl} alt={tr('ui.kvitto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.currentTarget.style.display = 'none'; }} />
+    <img key={activeUrl} src={activeUrl} alt={tr('ui.kvitto')} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={onFail} />
   );
+}
+function ReceiptThumb({ receipt }) {
+  const [failed, setFailed] = useState(false);
+  const url = receipt.receiptUrl;
+  const type = receipt.receiptType || '';
+  const isPdf = type === 'application/pdf' || /\.pdf(\?|$)/i.test(url || '');
+  const looksImage = type.startsWith('image/') || (!type && /\.(jpe?g|png|webp|heic|gif)(\?|$)/i.test(url || ''));
+  if (url && looksImage && !failed) return <div className="rc-row-thumb is-photo"><ReceiptThumbImg url={url} onFail={() => setFailed(true)} /></div>;
+  if (url && isPdf) return <div className="rc-row-thumb is-pdf"><span>PDF</span></div>;
+  const letter = String(receipt.supplier || receipt.description || '?').trim().charAt(0).toUpperCase() || '?';
+  return <div className="rc-row-thumb is-letter" aria-hidden="true">{letter}</div>;
 }
 
 export default function Expenses({
@@ -1152,6 +1170,8 @@ export default function Expenses({
   // dra in och se fungera utan att någon fil faktiskt når Supabase Storage
   // från en icke-inloggad besökare.
   uploadFn = uploadFileToStorage,
+  // Underlag att koppla (2026-11-14): sparade utan avläsning.
+  documents = [], onAddDocument, onLinkDocument, onDeleteDocument,
 }) {
   // -- Receipts State --
   const [isDragging, setIsDragging] = useState(false);
@@ -1160,6 +1180,11 @@ export default function Expenses({
   // URL:en till ett kvitto som just laddats upp och ska öppnas så fort det
   // finns i listan. Se effekten längre ner.
   const [autoOpenUrl, setAutoOpenUrl] = useState(null);
+  // Kvittolistan eller Underlag att koppla (egen sektion, 2026-11-14).
+  const [showDocuments, setShowDocuments] = useState(false);
+  const unlinkedCount = documents.filter(d => d && d.url && !d.linkedVerificationId).length;
+  // Sista underlaget kopplat: tillbaka till kvittona.
+  useEffect(() => { if (showDocuments && unlinkedCount === 0) setShowDocuments(false); }, [showDocuments, unlinkedCount]);
   const intervalsRef = useRef({});
 
   // -- Flikar, sök + statusfilter (Sida 27) --
@@ -1371,7 +1396,7 @@ export default function Expenses({
       });
   };
 
-  const handleFiles = (files) => {
+  const validateFiles = (files) => {
     const errors = [];
     if (files.length > MAX_FILES) {
       errors.push(tr('ui.max_filer_at_gangen_bara_de_forsta_laddas_upp', { MAX_FILES, MAX_FILES1: MAX_FILES }));
@@ -1388,8 +1413,35 @@ export default function Expenses({
       }
     });
     setFileErrors(errors);
+    if (valid.length === 0) return [];
+    if (!user?.id) { setFileErrors(prev => [...prev, tr('ui.inloggad_for_kvitton')]); return []; }
+    return valid;
+  };
+
+  // Spara utan att läsa av: filen laddas upp och hamnar i Underlag att
+  // koppla, ingen avläsning (sparar också Googles kvot).
+  const handleRawFiles = (files) => {
+    validateFiles(files).forEach(file => {
+      uploadFn(user.id, file, 'documents')
+        .then(url => onAddDocument?.(newDocument({ url, name: file.name, type: file.type }, user.id)))
+        .catch(err => setFileErrors(prev => [...prev, tr('ui.kunde_inte_laddas_upp', { name: file.name, message: err.message })]));
+    });
+  };
+  // Läs av som kvitto: samma fil blir ett kvitto och öppnas, då läses den av.
+  const readDocumentAsReceipt = (doc) => {
+    onAdd?.({
+      type: 'receipt', date: new Date().toISOString().split('T')[0], description: '', supplier: '',
+      amount: 0, netAmount: 0, vatAmount: 0, vatRate: 25, costAccount: '',
+      receiptUrl: doc.url, receiptType: doc.type || '',
+      uploadedBy: user?.id ? { id: user.id, name: [user?.user_metadata?.first_name, user?.user_metadata?.last_name].filter(Boolean).join(' '), email: user?.email || '' } : null,
+    });
+    onDeleteDocument?.(doc.id, { keepFile: true });
+    setAutoOpenUrl(doc.url);
+  };
+
+  const handleFiles = (files) => {
+    const valid = validateFiles(files);
     if (valid.length === 0) return;
-    if (!user?.id) { setFileErrors(prev => [...prev, tr('ui.inloggad_for_kvitton')]); return; }
     // En hel mapp med kvitton ska inte kasta upp en modal per fil — då är
     // man i "tömma telefonen"-läget och vill se listan växa. Ett ensamt
     // kvitto är däremot alltid ett kvitto man tänkt fylla i på en gång.
@@ -1433,8 +1485,10 @@ export default function Expenses({
               <Paperclip size={18} /> {tr('ui.valj_fil')}
             </button>
           </div>
-          {/* Uppladdningszonen — en enda yta för både enskilda filer och en
-              hel mapp (Sida 34), istället för separata konkurrerande ytor. */}
+          {/* Uppladdningen (omgjord 2026-11-14): en yta, en rad om vad som
+              går att ladda upp och att papperet får slängas, och ett val om
+              Bokix ska läsa av filen. Avstängt hamnar filerna i Underlag att
+              koppla. En hel mapp är en liten länk, den används sällan. */}
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -1447,24 +1501,30 @@ export default function Expenses({
             {/* Mappval kräver ett eget, separat <input> — webkitdirectory kan
                 inte slås på/av dynamiskt på samma inputelement som filval. */}
             <input type="file" id="receipt-upload-folder" style={{ display: 'none' }} multiple webkitdirectory="" directory="" onChange={handleFileInput} />
+            <input type="file" id="receipt-upload-raw" style={{ display: 'none' }} multiple accept={ACCEPT_ATTR} onClick={e => e.stopPropagation()} onChange={e => { if (e.target.files?.length) { handleRawFiles(Array.from(e.target.files)); setShowDocuments(true); } e.target.value = ''; }} />
             <span className="rc-drop-icon"><UploadCloud size={19} color={BRAND.greenDark} /></span>
             <span className="rc-drop-text">
               <span className="rc-drop-title">{isDragging ? tr('ui.slapp_filerna_har') : tr('ui.ladda_upp_kvitton')}</span>
               <span className="rc-drop-hint">
-                {tr('ui.dra_och_slapp_eller_klicka_for_att_valja_pdf_jpg')} {MAX_FILE_MB} {tr('ui.mb')}
+                {tr('docs.drop_hint', { mb: MAX_FILE_MB })}{' '}
+                <button type="button" className="rc-drop-link" onClick={e => { e.stopPropagation(); document.getElementById('receipt-upload-folder').click(); }}>{tr('docs.valj_mapp')}</button>
+                {onAddDocument && (
+                  <>
+                    {' · '}
+                    <button type="button" className="rc-drop-link" title={tr('docs.spara_utan_hint')} onClick={e => { e.stopPropagation(); document.getElementById('receipt-upload-raw').click(); }}>{tr('docs.spara_utan')}</button>
+                  </>
+                )}
               </span>
             </span>
-            <button
-              type="button"
-              className="rc-drop-folder"
-              onClick={e => { e.stopPropagation(); document.getElementById('receipt-upload-folder').click(); }}
-            >
-              {tr('ui.valj_en_hel_mapp')}
-            </button>
           </div>
           {/* BFL 7 kap. 6 § (sedan 1 juli 2024): papperet får förstöras när
-              bilden är överförd utan risk att uppgifter ändras eller försvinner. */}
-          <p style={{ margin: '8px 2px 0', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{tr('ui.slang_papperskvittot')}</p>
+              bilden är överförd utan risk att uppgifter ändras eller försvinner.
+              Står i uppladdningsytan på dator; på telefon (där ytan är en smal
+              rad utan text) står den här. */}
+          <p className="rc-paper-note">{tr('ui.slang_papperskvittot')}</p>
+          {onAddDocument && (
+            <button type="button" className="rc-raw-link" onClick={() => document.getElementById('receipt-upload-raw').click()}>{tr('docs.spara_utan_lank')}</button>
+          )}
 
           {fileErrors.length > 0 && (
             <div style={{ background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 16px', marginTop: '12px' }}>
@@ -1562,6 +1622,20 @@ export default function Expenses({
 
             {/* Status- och mappchips: en rad som går att svepa på telefon. */}
             <div className="rc-chips">
+            {onLinkDocument && unlinkedCount > 0 && (
+              <>
+                <button
+                  type="button"
+                  className={`rc-docs-chip${showDocuments ? ' is-active' : ''}`}
+                  onClick={() => setShowDocuments(v => !v)}
+                  aria-pressed={showDocuments}
+                >
+                  {tr('docs.chip')}
+                  <span className="rc-docs-chip-count">{unlinkedCount}</span>
+                </button>
+                <span className="rc-toolbar-divider" />
+              </>
+            )}
             {Object.values(statusCounts).some(c => c > 0) && (
               <>
                 {(showUploaderTabs) && <span className="rc-toolbar-divider" />}
@@ -1572,7 +1646,7 @@ export default function Expenses({
                   return (
                     <button
                       key={key}
-                      onClick={() => setStatusFilter(f => f === key ? null : key)}
+                      onClick={() => { setShowDocuments(false); setStatusFilter(f => f === key ? null : key); }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
                         background: meta.bg, border: `1.5px solid ${isActive ? meta.color : 'transparent'}`,
@@ -1594,7 +1668,7 @@ export default function Expenses({
                 det faktiskt finns en mapp att filtrera på; mapp-knappen är
                 alltid synlig men bara EN liten knapp, inte en egen rad —
                 den enda platsen som tar plats när ingen mapp finns än. */}
-            <span className="rc-toolbar-divider" />
+            {folders.length > 0 && <span className="rc-toolbar-divider" />}
             {folders.map(folder => {
               const count = folderCounts.get(folder.id) || 0;
               if (count === 0 && folderFilter !== folder.id) return null;
@@ -1629,6 +1703,9 @@ export default function Expenses({
                 <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: 'var(--status-chip-bg)', color: 'var(--text-secondary)' }}>{folderCounts.get('__unfiled__')}</span>
               </button>
             )}
+            {/* Mappar (2026-11-14): de flesta behöver dem inte, så knappen visas bara
+                för den som redan har skapat mappar och behöver hantera dem. */}
+            {folders.length > 0 && (
             <button
               ref={folderManagerAnchorRef}
               type="button"
@@ -1637,12 +1714,13 @@ export default function Expenses({
               style={{
                 display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
                 background: folderManagerOpen ? 'var(--bg-muted)' : 'none',
-                border: '1.5px dashed var(--border)', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
+                border: 'none', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
                 color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
               <FolderPlus size={13} /> {folders.length === 0 ? tr('ui.skapa_en_mapp') : tr('ui.mappar')}
             </button>
+            )}
             </div>
             <AnchoredDropdown anchorRef={folderManagerAnchorRef} panelRef={folderManagerPanelRef} open={folderManagerOpen} minWidth={230} maxHeight={340}>
               <div style={{ padding: '10px' }}>
@@ -1715,7 +1793,20 @@ export default function Expenses({
           sitter flush mot sidhuvudet och sidomenyn, precis som Kontakter/Offerter/
           Bokföring (facit). När kvitton finns har listan sin egen padding. */}
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-        {receiptsList.length === 0 ? (
+        {/* Underlag att koppla är en egen sektion (etiketten Att koppla i
+            verktygsraden), inte ett kort ovanför kvittona. */}
+        {onLinkDocument && showDocuments && unlinkedCount > 0 && (
+          <div className="rc-docs-slot">
+            <DocumentsToLink
+              documents={documents}
+              verifications={verifications}
+              onLink={onLinkDocument}
+              onReadAsReceipt={readDocumentAsReceipt}
+              onDelete={(id) => onDeleteDocument?.(id)}
+            />
+          </div>
+        )}
+        {showDocuments && unlinkedCount > 0 ? null : receiptsList.length === 0 ? (
           <EmptyReceiptsState
             isFilteredEmpty={q || allReceipts.length > 0}
             text={
@@ -1776,8 +1867,6 @@ export default function Expenses({
                       // Vem som laddade upp är bara intressant när det finns fler
                       // än en person att skilja på (samma resonemang som ovan).
                       const uploaderName = showUploaderTabs && effectiveTab === 'all' ? displayUploaderName(r.uploadedBy) : null;
-                      const isImage = r.receiptType?.startsWith('image/') && r.receiptUrl;
-                      const isPdf = r.receiptType === 'application/pdf' && r.receiptUrl;
                       return (
                         <div
                           key={r.id}
@@ -1788,15 +1877,7 @@ export default function Expenses({
                           onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailReceiptId(r.id); } }}
                           className="rc-row"
                         >
-                          <div className="rc-row-thumb">
-                            {isImage ? (
-                              <ReceiptThumbImg url={r.receiptUrl} />
-                            ) : isPdf ? (
-                              <FileText size={20} color={BRAND.greenDark} />
-                            ) : (
-                              <Receipt size={20} color="var(--text-muted)" />
-                            )}
-                          </div>
+                          <ReceiptThumb receipt={r} />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.supplier || r.description || tr('ui.namnlost_kvitto')}</div>
                             <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{formatDate(r.date)}{categoryName ? ` · ${categoryName}` : ''}{folderName ? ` · ${folderName}` : ''}</div>

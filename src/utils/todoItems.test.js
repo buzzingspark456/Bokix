@@ -97,3 +97,15 @@ describe('fakturor med 0 kr kvar', () => {
     expect(items.some(i => i.kind === 'overdue_invoices')).toBe(false);
   });
 });
+
+describe('underlag att koppla i Att göra', async () => {
+  const { buildTodoItems } = await import('./todoItems')
+  const t = (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k)
+  it('visas när ett okopplat underlag legat över 30 dagar', () => {
+    const today = new Date('2026-11-14T12:00:00Z')
+    const docs = [{ id: 'd1', url: 'u', uploadedAt: '2026-10-01T10:00:00Z' }, { id: 'd2', url: 'u2', uploadedAt: '2026-11-13T10:00:00Z' }]
+    const rows = buildTodoItems({ t, documents: docs, today })
+    expect(rows.find(r => r.kind === 'documents_unlinked')).toMatchObject({ target: { tab: 'expenses' }, title: 'dashboard.todo.documentsOneTitle' })
+    expect(buildTodoItems({ t, documents: [docs[1]], today }).some(r => r.kind === 'documents_unlinked')).toBe(false)
+  })
+})

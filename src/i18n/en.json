@@ -263,7 +263,12 @@
       "annualReportDue": "To Bolagsverket {{when}}",
       "yearEndTitle": "Close the fiscal year {{year}}",
       "yearEndDetail": "Year-end closing and lock under Tax and year-end",
-      "vatTitleLabel": "VAT return {{label}}"
+      "vatTitleLabel": "VAT return {{label}}",
+      "actionDocuments": "Link documents",
+      "documentsOneTitle": "1 document waiting to be linked",
+      "documentsManyTitle": "{{count}} documents waiting to be linked",
+      "documentsDetail": "Saved without reading more than 30 days ago",
+      "vatFiledBook": "Filed, book the VAT when the period is done"
     },
     "unit": {
       "label": "Show amounts in",
@@ -314,7 +319,10 @@
       "hideConfirm": "Hide Get started? You can show it again under Settings → Appearance.",
       "cancel": "Cancel",
       "hide": "Hide",
-      "tour": "Take a quick tour"
+      "tour": "Take a quick tour",
+      "stepEmail": "Send invoices from your own email",
+      "stepEmailDetail": "Connect Gmail or your business address, so invoices come from you and replies reach your inbox.",
+      "stepEmailDone": "Invoices are sent from {{email}}"
     }
   },
   "settings": {
@@ -5257,6 +5265,63 @@
     "poster_en": "1 invoice",
     "journal_underlag_ok": "All vouchers have supporting documents.",
     "journal_underlag_saknas": "{{count}} vouchers have no supporting document: {{list}}. Attach the receipt or invoice, or note where it is kept.",
-    "och_fler": "and {{count}} more"
+    "och_fler": "and {{count}} more",
+    "journal_okopplade": "{{count}} documents are saved but not linked to any voucher. Link them under Receipts.",
+    "journal_okopplade_en": "1 document is saved but not linked to any voucher. Link it under Receipts."
+  },
+  "docs": {
+    "spara_utan": "Save without reading",
+    "spara_utan_hint": "The file is saved as a supporting document without Bokix reading it. Link it to a voucher later.",
+    "rubrik": "Documents to link ({{count}})",
+    "rubrik_hint": "Saved without reading. Link to a voucher, or read as a receipt.",
+    "sparad": "Saved {{date}}",
+    "gammal": "over 30 days, link it",
+    "koppla": "Link",
+    "las_av": "Read as receipt",
+    "ta_bort": "Remove",
+    "ta_bort_fraga": "Remove {{name}}? The file is deleted and cannot be restored.",
+    "koppla_titel": "Link to voucher",
+    "sok_verifikation": "Search number, text, date or amount",
+    "forslag": "Suggestions: vouchers without documents",
+    "inga_traffar": "No vouchers match.",
+    "inga_forslag": "All vouchers already have documents. Search to link anyway.",
+    "har_underlag": "has document",
+    "spara_utan_lank": "Save a file without reading it",
+    "drop_hint": "Drop files here or click. PDF, JPG, PNG or HEIC, max {{mb}} MB. The paper receipt may be thrown away once the image is sharp.",
+    "valj_mapp": "Choose a whole folder",
+    "rubrik_kort": "Documents to link",
+    "gammal_kort": "Over 30 days",
+    "fler_val": "More options",
+    "visa": "View",
+    "chip": "To link"
+  },
+  "task": {
+    "vat_titel_kvartal": "VAT return quarter {{quarter}}",
+    "vat_titel": "VAT return {{label}}",
+    "period": "Period {{start}} – {{end}}",
+    "att_betala": "To pay",
+    "att_fa_tillbaka": "To get back",
+    "inlamnad": "Filed",
+    "vat_sen": "Late",
+    "idag": "Today",
+    "imorgon": "Tomorrow",
+    "om_dagar": "In {{days}} days",
+    "senast": "File and pay by {{date}}",
+    "utgaende": "Output VAT",
+    "ingaende": "Input VAT",
+    "steg1": "Check and book the VAT",
+    "steg1_text": "Bokix has calculated the VAT. Open the return, check the boxes and book the period.",
+    "steg1_klar": "The period is booked.",
+    "oppna_moms": "Open the VAT return",
+    "steg2": "File with the Swedish Tax Agency",
+    "steg2_text": "Download the file in the VAT return and file it in the Tax Agency e-service. Then mark it as filed here.",
+    "steg2_klar": "Marked as filed {{date}}.",
+    "markera_inlamnad": "Mark as filed",
+    "angra_inlamnad": "Undo, not filed",
+    "direkt_senare": "Filing directly with the Tax Agency from Bokix is coming later.",
+    "steg3_betala": "Pay to the tax account",
+    "steg3_tillbaka": "The money goes to the tax account",
+    "steg3_betala_text": "Pay {{amount}} to your tax account by {{date}}, bankgiro 5050-1055 with the OCR number shown on your tax account.",
+    "steg3_tillbaka_text": "The Tax Agency refunds to your tax account. You can request a payout from there."
   }
 }

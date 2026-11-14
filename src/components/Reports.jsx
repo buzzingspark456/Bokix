@@ -39,7 +39,7 @@ function relativeOpenedLabel(iso) {
 }
 
 export default function Reports({
-  accounts = [], verifications = [], invoices = [], expenses = [], payrollRuns = [], contacts = [],
+  accounts = [], verifications = [], invoices = [], expenses = [], documents = [], payrollRuns = [], contacts = [],
   company = {}, setCompanyInfo, onNavigate, hiddenReportIds = NO_HIDDEN_REPORTS,
 }) {
   const isMobile = useIsMobileViewport();
@@ -96,7 +96,7 @@ export default function Reports({
         reportId={openReportId}
         bounds={bounds}
         periodControl={periodControl}
-        verifications={verifications} accounts={accounts} invoices={invoices} expenses={expenses}
+        verifications={verifications} accounts={accounts} invoices={invoices} expenses={expenses} documents={documents}
         payrollRuns={payrollRuns} contacts={contacts} company={company}
         isMobile={isMobile}
         // Presentationsvalen (diagramfärger + beloppsenhet) sparas på

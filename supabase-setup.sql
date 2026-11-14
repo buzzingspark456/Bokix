@@ -1034,7 +1034,9 @@ BEGIN
     -- Bank – CSV/Excel-import (Bank.jsx). Hålls manuellt i synk mot
     -- COMPANY_WRITABLE_FIELDS i src/utils/companyFields.js — den här
     -- SQL-funktionen kan inte importera JS.
-    'bankTransactions'
+    'bankTransactions',
+    -- Underlag att koppla (supabase-2026-11-14-underlag.sql).
+    'documents'
   ) THEN
     RAISE EXCEPTION 'Ogiltigt fält för set_company_field: %', p_field;
   END IF;

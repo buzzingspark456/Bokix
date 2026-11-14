@@ -28,4 +28,8 @@ export const COMPANY_WRITABLE_FIELDS = [
   // sparar en whitelist-synk här OCH i supabase-setup.sql eftersom
   // 'company' redan är skrivbart.
   'bankTransactions',
+  // Underlag att koppla: filer sparade utan avläsning (2026-11-14). Ligger
+  // på företagsraden, inte som egen tabell; set_company_field-vitlistan i
+  // supabase-2026-11-14-underlag.sql.
+  'documents',
 ];

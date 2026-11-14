@@ -65,6 +65,7 @@ import { vatSettlementRows } from './utils/vatCalculation';
 import { isReverseChargePurchaseAccount, withReverseChargeRows } from './utils/reverseCharge';
 import { COMPANY_WRITABLE_FIELDS } from './utils/companyFields.js';
 import { deleteFileFromStorage } from './utils/fileUpload';
+import { linkDocument } from './utils/looseDocuments';
 import { collectStorageUrls } from './utils/storageUrls';
 import { computeEmployeePayroll, summarizePayrollRun, FEE_RULES_VERSION } from './utils/payrollCalculation';
 import BokixWordmark, { BokixMark } from './components/shared/BokixWordmark';
@@ -3995,6 +3996,28 @@ function App() {
   const setTimeReportStatuses = (fn) => updateCompanyField('timeReportStatuses', fn);
   const setBillableTimeEntries = (fn) => updateCompanyField('billableTimeEntries', fn);
   const setBankTransactions = (fn) => updateCompanyField('bankTransactions', (prev) => (typeof fn === 'function' ? fn(prev || []) : fn));
+  // Underlag att koppla (2026-11-14, utils/looseDocuments.js): filer sparade
+  // utan avläsning, tills de kopplas till en verifikation.
+  const setDocuments = (fn) => updateCompanyField('documents', (prev) => (typeof fn === 'function' ? fn(prev || []) : fn));
+  const handleAddDocument = (doc) => setDocuments(prev => [...prev, doc]);
+  // Inlämnad hos Skatteverket, markerat i uppgiftspanelen (samma company.taxFilings
+  // som Skatt och bokslut → Översikt).
+  const handleToggleTaxFiling = (key) => setCompanyInfo(prev => {
+    const next = { ...(prev.taxFilings || {}) };
+    if (next[key]) delete next[key]; else next[key] = { at: new Date().toISOString() };
+    return { ...prev, taxFilings: next };
+  });
+  const handleLinkDocument = (docId, verificationId) => {
+    const r = linkDocument(currentCompany.verifications || [], currentCompany.documents || [], docId, verificationId);
+    setVerifications(r.verifications);
+    setDocuments(r.documents);
+  };
+  // keepFile: filen blev ett kvitto och ska finnas kvar i lagringen.
+  const handleDeleteDocument = (docId, { keepFile = false } = {}) => {
+    const doc = (currentCompany.documents || []).find(d => d.id === docId);
+    setDocuments(prev => prev.filter(d => d.id !== docId));
+    if (doc?.url && !keepFile) deleteFileFromStorage(doc.url);
+  };
 
   const handleSaveVerificationTemplate = ({ name, description, projectId, costCenter, rows }) => {
     updateCompanyField('verificationTemplates', [
@@ -5685,6 +5708,8 @@ function App() {
             reviewTotal={reviewTotal}
             agiReports={agiReports}
             bankTransactions={bankTransactions}
+            documents={currentCompany.documents || []}
+            onToggleTaxFiling={handleToggleTaxFiling}
             hiddenNavIds={featureHiddenNavIds}
             payrollIncluded={planIncludesPayroll((subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan)}
             onStartTour={() => startProductTourWhenReady({ uid: user?.id, navigate: handleNavTabChange, hiddenTabs: hiddenFeatureNavIds(currentCompany) })}
@@ -5827,6 +5852,10 @@ function App() {
             onSaveOcrDraft={handleSaveOcrDraft}
             onDeleteExpense={handleDeleteExpense}
             onReverseExpense={handleReverseExpense}
+            documents={currentCompany.documents || []}
+            onAddDocument={handleAddDocument}
+            onLinkDocument={handleLinkDocument}
+            onDeleteDocument={handleDeleteDocument}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
             pageTitle={tr('ui.kostnader')}
@@ -5850,6 +5879,10 @@ function App() {
             onSaveOcrDraft={handleSaveOcrDraft}
             onDeleteExpense={handleDeleteExpense}
             onReverseExpense={handleReverseExpense}
+            documents={currentCompany.documents || []}
+            onAddDocument={handleAddDocument}
+            onLinkDocument={handleLinkDocument}
+            onDeleteDocument={handleDeleteDocument}
             pageTitle={tr('ui.kvitton')}
           />
         );
@@ -6046,6 +6079,7 @@ function App() {
             verifications={verifications}
             invoices={invoices}
             expenses={expenses}
+            documents={currentCompany.documents || []}
             payrollRuns={payrollRuns}
             contacts={contacts}
             company={company}
@@ -6067,6 +6101,7 @@ function App() {
             expenses={expenses}
             contacts={contacts}
             projects={projects}
+            documents={currentCompany.documents || []}
             onImport={handleImportData}
             onReset={handleResetData}
             stripeAccountId={company.stripeAccountId}
@@ -6102,7 +6137,7 @@ function App() {
           />
         );
       default:
-        return <Dashboard {...commonProps} invoices={invoices} expenses={expenses} contacts={contacts} setActiveTab={handleNavTabChange} company={company} vatPeriods={vatPeriods} payrollRuns={payrollRuns} employees={employees} reviewTotal={reviewTotal} agiReports={agiReports} bankTransactions={bankTransactions} hiddenNavIds={featureHiddenNavIds} payrollIncluded={planIncludesPayroll((subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan)} onOpenItem={handleGlobalAction} onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears} />;
+        return <Dashboard {...commonProps} invoices={invoices} expenses={expenses} contacts={contacts} setActiveTab={handleNavTabChange} company={company} vatPeriods={vatPeriods} payrollRuns={payrollRuns} employees={employees} reviewTotal={reviewTotal} agiReports={agiReports} bankTransactions={bankTransactions} documents={currentCompany.documents || []} onToggleTaxFiling={handleToggleTaxFiling} hiddenNavIds={featureHiddenNavIds} payrollIncluded={planIncludesPayroll((subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan)} onOpenItem={handleGlobalAction} onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears} />;
     }
   };
 
