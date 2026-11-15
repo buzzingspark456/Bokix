@@ -202,7 +202,11 @@ async function handler(req, res) {
       attachmentFilename,
       extraAttachments,
     });
+    // Lyckade utskick loggas (2026-11-15) så att /internal → Systemstatus kan
+    // räkna hur många mejl som går iväg. Aldrig adress eller innehåll.
+    const what = inviteId ? 'Inbjudan' : 'Faktura/offert/påminnelse';
     if (own.used && own.ok) {
+      await logSystemEvent('email_sent', `${what} via egen adress`);
       res.status(200).json({ id: own.id, sentFrom: 'own' });
       return;
     }
@@ -233,6 +237,7 @@ async function handler(req, res) {
       return;
     }
 
+    await logSystemEvent('email_sent', `${what} via Bokix`);
     res.status(200).json({ id: result.data.id, sentFrom: 'bokix' });
   } catch (error) {
     console.error('Email send error:', error);

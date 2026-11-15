@@ -518,7 +518,7 @@ export async function handleOverview(admin, res) {
   const { data: nameRows } = await admin.from('user_data').select('user_id, company_name').not('company_name', 'is', null);
   const companyNames = Object.fromEntries((nameRows || []).map(r => [r.user_id, r.company_name]));
   const { data: messages } = await admin.from('contact_messages').select('handled_at').is('handled_at', null).limit(500);
-  const { data: events } = await admin.from('system_events').select('kind, created_at').not('kind', 'in', '(backup_ok,shadow_read,login_slow)').gte('created_at', new Date(Date.now() - 86400000).toISOString()).limit(500);
+  const { data: events } = await admin.from('system_events').select('kind, created_at').not('kind', 'in', '(backup_ok,shadow_read,login_slow,email_sent)').gte('created_at', new Date(Date.now() - 86400000).toISOString()).limit(500);
   const payments = await loadPayments(admin, users).catch(() => null);
   res.status(200).json({
     ...buildOverview({ users, subs, states, companyNames, messages: messages || [], events: events || [], isAdmin: isAdminEmail }),
@@ -751,8 +751,16 @@ async function handleSystem(admin, res) {
   }));
 
   const systemEvents = await safe(async () => {
-    const { data, error } = await admin.from('system_events').select('kind, detail, created_at').not('kind', 'in', '(backup_ok,shadow_read)').gte('created_at', since).order('created_at', { ascending: false }).limit(50);
+    const { data, error } = await admin.from('system_events').select('kind, detail, created_at').not('kind', 'in', '(backup_ok,shadow_read,email_sent)').gte('created_at', since).order('created_at', { ascending: false }).limit(50);
     return error ? null : data;
+  }, null);
+  // Skickade mejl de senaste sju dagarna (email_sent loggas av
+  // api/email/send-invoice.js sedan 2026-11-15), per väg.
+  const emailSent = await safe(async () => {
+    const { data, error } = await admin.from('system_events').select('detail').eq('kind', 'email_sent').gte('created_at', since).limit(5000);
+    if (error) return null;
+    const rows = data || [];
+    return { total: rows.length, own: rows.filter(r => /egen adress/.test(r.detail || '')).length, invites: rows.filter(r => /^Inbjudan/.test(r.detail || '')).length };
   }, null);
   const apiErrors = await safe(async () => {
     const { data } = await admin.from('security_events').select('type, email, detail, created_at').eq('type', 'admin_api_error').gte('created_at', since).order('created_at', { ascending: false }).limit(20);
@@ -776,6 +784,7 @@ async function handleSystem(admin, res) {
     config,
     sentry,
     systemEvents,
+    emailSent,
     apiErrors,
     atRisk,
     unhandledMessages: unhandled,

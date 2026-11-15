@@ -1310,6 +1310,8 @@
     "fakturarader_raknas_med_lagg_inte_in_samma_forsa": "{{length}} fakturarader räknas med. Lägg inte in samma försäljning som uttag för hand.",
     "fakturarapporter": "Fakturarapporter",
     "fakturatext": "Fakturatext",
+    "skickad_med_e_post": "Skickad med e-post",
+    "skickad_till": "till {{to}}",
     "fakturatyp": "Fakturatyp",
     "fakturauppgifter": "Fakturauppgifter",
     "fakturera": "Fakturera",

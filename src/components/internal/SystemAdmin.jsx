@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowRight, CheckCircle2, XCircle, Database, Plug, ExternalLink, AlertTriangle } from '../icons';
 import { useAdminData } from './useAdminData';
-import { Page, Loadable, Section, Card, Notice, Event, Kv, Meter } from './ui';
+import { Page, Loadable, Section, Card, Notice, Event, Kv, Meter, Stats, Stat } from './ui';
 import { dateTimeFormat } from '../../utils/intlCache';
 
 // Systemstatus: det som behöver åtgärdas överst, sedan tjänster, lagring,
@@ -111,6 +111,13 @@ export default function SystemAdmin({ onOpenTab }) {
             </Section>
 
             <Section title="Mejl" note="Senaste sju dagarna" id="sys-mail">
+              {data.emailSent && (
+                <Stats cols={3}>
+                  <Stat label="Skickade" value={data.emailSent.total} sub={data.emailSent.invites ? 'varav ' + data.emailSent.invites + ' inbjudningar' : 'fakturor, offerter och påminnelser'} />
+                  <Stat label="Från kundens egen adress" value={data.emailSent.own} />
+                  <Stat label="Gick inte iväg" value={emailProblems.filter(e => e.kind === 'email_failed').length} tone={emailProblems.some(e => e.kind === 'email_failed') ? 'amber' : undefined} />
+                </Stats>
+              )}
               <Card flush><EventList events={events === null ? null : emailProblems} empty="Inga misslyckade utskick." /></Card>
             </Section>
 

@@ -1310,6 +1310,8 @@
     "fakturarader_raknas_med_lagg_inte_in_samma_forsa": "{{length}} invoice rows are included. Do not also enter the same sale as a withdrawal by hand.",
     "fakturarapporter": "Invoice reports",
     "fakturatext": "Invoice text",
+    "skickad_med_e_post": "Sent by email",
+    "skickad_till": "to {{to}}",
     "fakturatyp": "Invoice type",
     "fakturauppgifter": "Invoice details",
     "fakturera": "Invoice",

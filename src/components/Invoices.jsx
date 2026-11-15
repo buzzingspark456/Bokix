@@ -1612,6 +1612,24 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
             />
           </div>
 
+          {/* Mejlutskicken (emailLog, sparas sedan 2026-11-14): när och till
+              vem fakturan skickats från Bokix, senaste först. */}
+          {initial?.emailLog?.length > 0 && (
+            <div style={{ padding: '20px 32px', borderBottom: '1px solid var(--border-light)' }}>
+              <div style={lbl}>{tr('ui.skickad_med_e_post')}</div>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                {[...initial.emailLog].reverse().map((e, i) => (
+                  <li key={(e.at || "") + i} style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    <span style={{ color: 'var(--text-main)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                      {(() => { try { return dateTimeFormat(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(e.at)); } catch { return e.at; } })()}
+                    </span>
+                    {e.to && <span style={{ overflowWrap: 'anywhere' }}>{tr('ui.skickad_till', { to: e.to })}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Spara/bokför — sista raden i formuläret, samma placering och
               knappstil som QuoteEditor:s "Avbryt/Spara offert". */}
           {(initial?.status || 'draft') === 'draft' && (
