@@ -69,3 +69,27 @@ describe('buildOverview', () => {
     expect(o.errorsLastDay).toEqual({ total: 1, byKind: { ocr_error: 1 } });
   });
 });
+
+describe('avstängda konton i översikten', () => {
+  it('räknas inte och syns inte i listorna', async () => {
+    const { buildOverview, isSuspended } = await import('./_customers.js');
+    const now = new Date('2026-11-15T12:00:00Z');
+    const users = [
+      { id: 'a', email: 'a@x.se', created_at: '2026-11-10T00:00:00Z' },
+      { id: 'b', email: 'b@x.se', created_at: '2026-11-11T00:00:00Z', banned_until: '2126-01-01T00:00:00Z' },
+      { id: 'c', email: 'c@x.se', created_at: '2026-11-12T00:00:00Z', banned_until: '2026-01-01T00:00:00Z' },
+    ];
+    const subs = [
+      { user_id: 'a', company_id: '', status: 'trialing', trial_ends_at: '2026-11-17T00:00:00Z' },
+      { user_id: 'b', company_id: '', status: 'past_due' },
+      { user_id: 'gone', company_id: '', status: 'past_due' },
+    ];
+    expect(isSuspended(users[1], now)).toBe(true);
+    expect(isSuspended(users[2], now)).toBe(false);
+    const o = buildOverview({ users, subs, now });
+    expect(o.accounts.total).toBe(2);
+    expect(o.recentSignups.map(x => x.userId)).toEqual(['c', 'a']);
+    expect(o.subscriptions.atRisk).toBe(0);
+    expect(o.trialsEnding.map(x => x.userId)).toEqual(['a']);
+  });
+});

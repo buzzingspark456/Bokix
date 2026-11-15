@@ -8,7 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { planFromId } from '../../src/utils/plans.js';
 import * as featureFlags from '../../src/utils/featureFlags.js';
-import { buildOverview, summarizeState } from './_customers.js';
+import { buildOverview, summarizeState, isSuspended } from './_customers.js';
 import { detectOrgType } from '../../src/utils/orgType.js';
 import { buildStatus, COMPONENT_IDS } from '../_status.js';
 import { withSentry } from '../_sentry.js';
@@ -448,9 +448,12 @@ async function loadPayments(admin, allUsersIn) {
 
   const allUsers = allUsersIn || await fetchAllUsers(admin);
   const emailById = Object.fromEntries(allUsers.map(u => [u.id, u.email]));
+  // Avstängda och raderade konton är inga kunder: deras prenumerationsrader
+  // visas inte och räknas inte (2026-11-15).
+  const liveIds = new Set(allUsers.filter(u => !isSuspended(u)).map(u => u.id));
   const discounts = await loadStripeDiscounts((subs || []).filter(s => s.stripe_subscription_id && s.status !== 'canceled').map(s => s.stripe_subscription_id));
 
-  const rows = (subs || []).map(s => {
+  const rows = (subs || []).filter(s => liveIds.has(s.user_id)).map(s => {
     const plan = planFromId(s.plan);
     const listPrice = plan?.price ?? 179;
     const discount = discounts[s.stripe_subscription_id] || null;
@@ -638,7 +641,7 @@ async function handleSecurity(admin, res) {
     .map(u => ({ email: u.email, lastSignInAt: u.last_sign_in_at }));
 
   const unconfirmed = allUsers
-    .filter(u => !u.email_confirmed_at)
+    .filter(u => !u.email_confirmed_at && !isSuspended(u))
     .map(u => ({ email: u.email, createdAt: u.created_at }));
 
   // Senaste 50 händelserna, nyast först — se logSecurityEvent nedan för

@@ -64,6 +64,13 @@ export function hasStarted(companies) {
 
 const DAY = 86400000;
 
+/** Avstängd i GoTrue (banned_until i framtiden). Avstängda konton är inga
+ * kunder: de räknas inte och visas inte i översiktens listor (2026-11-15),
+ * bara under Användare → Avstängda. */
+export function isSuspended(u, now = new Date()) {
+  return Boolean(u?.banned_until) && new Date(u.banned_until).getTime() > now.getTime();
+}
+
 /**
  * Översiktens siffror och listor. `users` är auth-användare, `subs`
  * prenumerationsrader, `states` { userId: state } för de nya kontona,
@@ -73,10 +80,11 @@ export function buildOverview({ users, subs, states = {}, messages = [], events 
   const t = now.getTime();
   const subByUser = {};
   (subs || []).forEach(s => { if (!subByUser[s.user_id] || s.company_id === '') subByUser[s.user_id] = s; });
-  const customers = (users || []).filter(u => !isAdmin(u.email));
+  const customers = (users || []).filter(u => !isAdmin(u.email) && !isSuspended(u, now));
   const emailOf = Object.fromEntries((users || []).map(u => [u.id, u.email]));
-  // Grundarnas egna prenumerationer räknas inte.
-  const own = (subs || []).filter(s => !isAdmin(emailOf[s.user_id] || ''));
+  const activeIds = new Set(customers.map(u => u.id));
+  // Grundarnas egna, avstängda och raderade kontons prenumerationer räknas inte.
+  const own = (subs || []).filter(s => activeIds.has(s.user_id));
   const since = (days) => customers.filter(u => u.created_at && t - new Date(u.created_at).getTime() <= days * DAY).length;
 
   const byStatus = {};

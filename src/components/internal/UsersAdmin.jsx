@@ -47,7 +47,7 @@ const GROUPS = [
   ['ended', 'Slutat', 'Har sagt upp eller vars prenumeration har löpt ut.'],
   ['suspended', 'Avstängda', 'Avstängda av er. Återaktivera från kundkortet.'],
   ['own', 'Egna konton', 'Grundarnas konton. Räknas inte i siffrorna.'],
-  ['all', 'Alla', 'Alla konton.'],
+  ['all', 'Alla', 'Alla konton utom avstängda.'],
 ];
 
 export default function UsersAdmin() {
@@ -57,7 +57,8 @@ export default function UsersAdmin() {
   const [openId, setOpenId] = useState(null);
 
   const all = useMemo(() => (users || []).map(u => ({ ...u, stage: accountStage(u) })), [users]);
-  const inGroup = (g) => all.filter(u => g === 'all' || u.stage.group === g);
+  // Alla = alla utom avstängda; de finns bara under Avstängda (och i sök).
+  const inGroup = (g) => all.filter(u => (g === 'all' ? u.stage.group !== 'suspended' : u.stage.group === g));
   const customers = inGroup('customers');
   const count = (label) => customers.filter(u => u.stage.label === label).length;
   const newThisMonth = all.filter(u => !u.isAdmin && daysAgo(u.createdAt) !== null && daysAgo(u.createdAt) < 30).length;
