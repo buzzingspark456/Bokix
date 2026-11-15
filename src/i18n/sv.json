@@ -5323,6 +5323,17 @@
     "steg3_betala": "Betala till skattekontot",
     "steg3_tillbaka": "Pengarna kommer till skattekontot",
     "steg3_betala_text": "Betala {{amount}} till ditt skattekonto senast {{date}}, bankgiro 5050-1055 med OCR-numret som står på ditt skattekonto.",
-    "steg3_tillbaka_text": "Skatteverket betalar tillbaka till ditt skattekonto. Du kan begära utbetalning därifrån."
+    "steg3_tillbaka_text": "Skatteverket betalar tillbaka till ditt skattekonto. Du kan begära utbetalning därifrån.",
+    "agi_titel": "Arbetsgivardeklaration {{month}}",
+    "agi_period": "Löner utbetalda i {{month}}",
+    "agi_att_betala": "Skatt och avgifter att betala",
+    "avdragen_skatt": "Avdragen skatt",
+    "arbetsgivaravgifter": "Arbetsgivaravgifter",
+    "bruttolon": "Bruttolön",
+    "agi_steg1": "Kontrollera arbetsgivardeklarationen",
+    "agi_steg1_text": "Lönen är bokförd. Öppna arbetsgivardeklarationen och kontrollera beloppen per anställd.",
+    "oppna_agi": "Öppna arbetsgivardeklarationen",
+    "agi_steg2_text": "Ladda ner AGI-filen och lämna in den i Skatteverkets e-tjänst för arbetsgivardeklaration. Markera sedan här att den är inlämnad.",
+    "agi_steg3_text": "Betala {{amount}} till ditt skattekonto senast {{date}}, bankgiro 5050-1055 med OCR-numret som står på ditt skattekonto."
   }
 }

@@ -38,6 +38,27 @@ describe('buildTodoItems', () => {
     expect(items.find(i => i.kind === 'employees_tax').title).toContain('Bo Berg');
   });
 
+  it('AGI-raden öppnar uppgiftspanelen med månadens period', () => {
+    const items = buildTodoItems({
+      ...base, verifications: established,
+      payrollRuns: [{ id: 'r1', period: '2026-09', completedSteps: ['calculated', 'booked'] }],
+    });
+    const row = items.find(i => i.kind === 'agi_deadline');
+    expect(row.target).toEqual({ tab: 'taxes_agi' });
+    expect(row.task).toMatchObject({ type: 'agi', key: '2026-09', booked: true, amount: 0 });
+  });
+
+  it('AGI-beloppet tas ur lönens bokförda verifikationer', () => {
+    const items = buildTodoItems({
+      ...base,
+      verifications: [...established,
+        { id: 'p1', date: '2026-09-25', source: 'payroll', sourceId: 'r1_lon', rows: [{ account: '7210', debet: 40000 }, { account: '2710', kredit: 10000 }, { account: '1930', kredit: 30000 }] },
+        { id: 'p2', date: '2026-09-25', source: 'payroll', sourceId: 'r1_agifter', rows: [{ account: '7510', debet: 12568 }, { account: '2731', kredit: 12568 }] }],
+      payrollRuns: [{ id: 'r1', period: '2026-09', completedSteps: ['calculated', 'booked'] }],
+    });
+    expect(items.find(i => i.kind === 'agi_deadline').task).toMatchObject({ tax: 10000, employerFee: 12568, amount: 22568 });
+  });
+
   it('AGI syns inte när den är inlämnad', () => {
     const items = buildTodoItems({
       ...base, verifications: established,

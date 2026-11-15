@@ -1120,6 +1120,7 @@ const tabAliases = {
   // resolveTab (nedan) faller redan tillbaka på id:t självt när det saknas
   // här, så ingen alias-rad behövs längre.
   taxes_vat:        'taxes',
+  taxes_agi:        'taxes',
   taxes_yearend:    'taxes',
   time:             'projects',
   accounts:         'verifications',
@@ -1644,7 +1645,7 @@ function App() {
   // 'taxes' (profilmenyns "Viktiga datum", inget mer specifikt val) pekar
   // numera på Taxes.jsx:s egen "Viktiga datum"-flik ('dates') istället för
   // Moms — den fliken existerar nu specifikt för det, se Taxes.jsx.
-  const taxesSectionAliases = { taxes: 'dates', taxes_vat: 'vat', taxes_yearend: 'yearend' };
+  const taxesSectionAliases = { taxes: 'dates', taxes_vat: 'vat', taxes_agi: 'agi', taxes_yearend: 'yearend' };
   const [taxesInitialSection, setTaxesInitialSection] = useState('dates');
   // Inställningssidans avsnitt när man kommer via en genväg ('company',
   // 'settings_system'). Nollställs vid all annan navigering, så att menyns
@@ -5295,6 +5296,21 @@ function App() {
     }
   };
 
+  // Uppgiftspanelen på startsidan: markera månadens AGI som inlämnad (eller
+  // ångra). Samma väg som lönekörningens AGI-steg, så rapporten, körningen
+  // och Skatt och bokslut visar samma sak.
+  const handleSetAgiSubmitted = (period, submitted) => {
+    if (submitted) {
+      const run = payrollRuns.find(r => r.period === period && r.completedSteps?.includes('booked'));
+      if (run && !run.completedSteps.includes('agi')) { handleAdvanceRunStep(run.id, 'agi'); return; }
+      const existing = agiReports.find(r => r.period === period);
+      if (existing && existing.status !== 'submitted') handleMarkAgiSubmitted(existing.id);
+      return;
+    }
+    setAgiReports(prev => prev.map(r => (r.period === period && r.status === 'submitted' ? { ...r, status: 'draft', submittedAt: undefined } : r)));
+    setPayrollRuns(prev => prev.map(r => (r.period === period && r.completedSteps?.includes('agi') ? { ...r, completedSteps: r.completedSteps.filter(st => st !== 'agi') } : r)));
+  };
+
   const handleDeleteAgiReport = (reportId) => {
     setAgiReports(prev => prev.filter(r => r.id !== reportId));
   };
@@ -5721,6 +5737,7 @@ function App() {
         return (
           <Dashboard
             {...commonProps}
+            onSetAgiSubmitted={handleSetAgiSubmitted}
             invoices={invoices}
             expenses={expenses}
             contacts={contacts}
@@ -6165,7 +6182,7 @@ function App() {
           />
         );
       default:
-        return <Dashboard {...commonProps} invoices={invoices} expenses={expenses} contacts={contacts} setActiveTab={handleNavTabChange} company={company} vatPeriods={vatPeriods} payrollRuns={payrollRuns} employees={employees} reviewTotal={reviewTotal} agiReports={agiReports} bankTransactions={bankTransactions} documents={currentCompany.documents || []} onToggleTaxFiling={handleToggleTaxFiling} hiddenNavIds={featureHiddenNavIds} payrollIncluded={planIncludesPayroll((subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan)} onOpenItem={handleGlobalAction} onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears} />;
+        return <Dashboard {...commonProps} invoices={invoices} expenses={expenses} contacts={contacts} setActiveTab={handleNavTabChange} company={company} vatPeriods={vatPeriods} payrollRuns={payrollRuns} employees={employees} reviewTotal={reviewTotal} agiReports={agiReports} bankTransactions={bankTransactions} documents={currentCompany.documents || []} onToggleTaxFiling={handleToggleTaxFiling} onSetAgiSubmitted={handleSetAgiSubmitted} hiddenNavIds={featureHiddenNavIds} payrollIncluded={planIncludesPayroll((subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan)} onOpenItem={handleGlobalAction} onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears} />;
     }
   };
 

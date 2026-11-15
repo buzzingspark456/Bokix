@@ -5323,6 +5323,17 @@
     "steg3_betala": "Pay to the tax account",
     "steg3_tillbaka": "The money goes to the tax account",
     "steg3_betala_text": "Pay {{amount}} to your tax account by {{date}}, bankgiro 5050-1055 with the OCR number shown on your tax account.",
-    "steg3_tillbaka_text": "The Tax Agency refunds to your tax account. You can request a payout from there."
+    "steg3_tillbaka_text": "The Tax Agency refunds to your tax account. You can request a payout from there.",
+    "agi_titel": "Employer declaration {{month}}",
+    "agi_period": "Salaries paid in {{month}}",
+    "agi_att_betala": "Tax and contributions to pay",
+    "avdragen_skatt": "Tax withheld",
+    "arbetsgivaravgifter": "Employer contributions",
+    "bruttolon": "Gross salary",
+    "agi_steg1": "Check the employer declaration",
+    "agi_steg1_text": "The payroll is booked. Open the employer declaration and check the amounts per employee.",
+    "oppna_agi": "Open the employer declaration",
+    "agi_steg2_text": "Download the AGI file and submit it in the Swedish Tax Agency's e-service for employer declarations. Then mark it as submitted here.",
+    "agi_steg3_text": "Pay {{amount}} to your tax account by {{date}}, bankgiro 5050-1055 with the OCR number shown on your tax account."
   }
 }

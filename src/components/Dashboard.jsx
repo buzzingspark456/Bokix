@@ -294,7 +294,7 @@ function useIsPhone(maxWidth = 640) {
   return phone;
 }
 
-export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie, onCloseImportedYears, agiReports = [], bankTransactions = [], documents = [], hiddenNavIds = [], payrollIncluded = true, onOpenItem, onStartTour, onToggleTaxFiling }) {
+export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie, onCloseImportedYears, agiReports = [], bankTransactions = [], documents = [], hiddenNavIds = [], payrollIncluded = true, onOpenItem, onStartTour, onToggleTaxFiling, onSetAgiSubmitted }) {
   const { t } = useTranslation();
   const FORMAT_MODES = formatModes(t);
   // Har företaget personal? Avgörs på verkliga anställda och lönekörningar,
@@ -418,6 +418,12 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // Uppgiftspanelen: Att göra-rader med en uppgift (momsen) öppnas i en
   // panel i stället för att hoppa till en annan sida.
   const [openTask, setOpenTask] = useState(null);
+  // AGI räknas som inlämnad när månadens rapport är det (samma som Skatt och
+  // bokslut och lönekörningen).
+  const agiSubmittedAt = (period) => {
+    const r = (agiReports || []).find(x => x.period === period && x.status === 'submitted');
+    return r ? new Date(r.submittedAt || Date.now()).toLocaleDateString('sv-SE') : null;
+  };
   const openTarget = (target) => {
     if (!target) return;
     if (target.action && onOpenItem) onOpenItem(target.action, target.tab);
@@ -823,10 +829,12 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
       <VatTaskPanel
         isOpen={Boolean(openTask)}
         task={openTask}
-        filedAt={openTask && company?.taxFilings?.[`vat:${openTask.key}`]?.at ? new Date(company.taxFilings[`vat:${openTask.key}`].at).toLocaleDateString('sv-SE') : null}
+        filedAt={openTask?.type === 'agi' ? agiSubmittedAt(openTask.key) : openTask && company?.taxFilings?.[`vat:${openTask.key}`]?.at ? new Date(company.taxFilings[`vat:${openTask.key}`].at).toLocaleDateString('sv-SE') : null}
         onClose={() => setOpenTask(null)}
-        onOpenVat={() => { setOpenTask(null); setActiveTab('taxes_vat'); }}
-        onToggleFiled={onToggleTaxFiling && openTask ? () => onToggleTaxFiling(`vat:${openTask.key}`) : undefined}
+        onOpenVat={() => { const tab = openTask?.type === 'agi' ? 'taxes_agi' : 'taxes_vat'; setOpenTask(null); setActiveTab(tab); }}
+        onToggleFiled={openTask?.type === 'agi'
+          ? (onSetAgiSubmitted ? () => onSetAgiSubmitted(openTask.key, !agiSubmittedAt(openTask.key)) : undefined)
+          : (onToggleTaxFiling && openTask ? () => onToggleTaxFiling(`vat:${openTask.key}`) : undefined)}
       />
       <style>{`
         @media (max-width: 900px) {

@@ -17,6 +17,7 @@ import { activeFiscalYear } from './fiscalYear';
 import { numberFormat } from './intlCache';
 import { staleDocuments } from './looseDocuments';
 import { computeVatPeriod } from './vatCalculation';
+import { computeEmployeePayroll, summarizePayrollRun } from './payrollCalculation';
 
 // Försenat först, sedan det som närmar sig, sist det som är mindre bråttom.
 export const SEV_RANK = { danger: 0, warning: 1, success: 2 };
@@ -148,11 +149,38 @@ export function buildTodoItems({
     const hasBookedPayroll = payrollRuns.some(r => r.period === agi.periodKey && r.completedSteps?.includes('booked'));
     const submitted = agiReports.some(r => r.period === agi.periodKey && r.status === 'submitted');
     if (hasBookedPayroll && !submitted && agi.daysLeft <= 7) {
+      // Skatt och arbetsgivaravgifter för månadens bokförda körningar, för
+      // uppgiftspanelen (dashboard/VatTaskPanel.jsx, 2026-11-15).
+      let totals = null;
+      try {
+        totals = payrollRuns
+          .filter(r => r.period === agi.periodKey && r.completedSteps?.includes('booked') && Array.isArray(r.rows))
+          .map(r => summarizePayrollRun(r.rows.map(row => computeEmployeePayroll(row.employeeSnapshot, row))))
+          .reduce((a, b) => ({ gross: a.gross + b.gross, tax: a.tax + b.tax, employerFee: a.employerFee + b.employerFee }), { gross: 0, tax: 0, employerFee: 0 });
+      } catch { totals = null; }
+      // Skatten och avgifterna som faktiskt bokades (2710, 273x) går före
+      // omräkningen, som kräver inläst skattetabell.
+      const runIds = payrollRuns.filter(r => r.period === agi.periodKey && r.completedSteps?.includes('booked')).map(r => r.id);
+      const payrollVers = verifications.filter(v => v.source === 'payroll' && runIds.some(id => String(v.sourceId || '').startsWith(`${id}_`)));
+      if (payrollVers.length) {
+        const credit = (test) => payrollVers.reduce((sum, v) => sum + (v.rows || []).filter(r => test(String(r.account))).reduce((a, r) => a + (Number(r.kredit) || 0) - (Number(r.debet) || 0), 0), 0);
+        totals = { gross: totals?.gross || 0, tax: credit(acc => acc === '2710'), employerFee: credit(acc => acc.startsWith('273')) };
+      }
+      const agiAmount = totals ? Math.round(totals.tax) + Math.round(totals.employerFee) : 0;
+      const dueText = t('dashboard.todo.vatDue', { when: whenIn(agi.daysLeft) });
+      const [py, pm] = agi.periodKey.split('-').map(Number);
+      const monthLabel = new Date(py, pm - 1, 1).toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
       rows.push({
         kind: 'agi_deadline', group: 'tax', sev: 'warning', daysLeft: agi.daysLeft,
-        tone: 'warn', action: t('dashboard.todo.actionAgi'), target: { tab: 'taxes' },
+        tone: 'warn', action: t('dashboard.todo.actionAgi'), target: { tab: 'taxes_agi' },
         title: t('dashboard.todo.agiTitle', { period: agi.periodKey }),
-        when: t('dashboard.todo.vatDue', { when: whenIn(agi.daysLeft) }),
+        when: agiAmount > 0 ? `${t('dashboard.todo.vatToPay', { amount: fmt(agiAmount) })} · ${dueText}` : dueText,
+        task: {
+          type: 'agi', key: agi.periodKey, dueDate: agi.dueDate, daysLeft: agi.daysLeft, booked: true,
+          amount: agiAmount, tax: totals ? Math.round(totals.tax) : 0, employerFee: totals ? Math.round(totals.employerFee) : 0,
+          gross: totals ? Math.round(totals.gross) : 0, month: monthLabel,
+          title: t('task.agi_titel', { month: monthLabel }),
+        },
       });
     }
   }
