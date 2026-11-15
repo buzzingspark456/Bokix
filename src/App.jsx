@@ -4498,19 +4498,54 @@ function App() {
     // Den nya posten tillbaka till anroparen (telefonen öppnar fakturan direkt).
     if (invType === 'quote') return inv;
 
-    // Med ören och med radrabatten, se utils/invoiceBooking.js. En avrundnings-
-    // differens på ören bokas av withRoundingBalance i handleAddVerification.
-    // En faktura i annan valuta bokförs i kronor med fakturans kurs (fxRate).
-    const verRows = invoiceBookingRows(inv.rows, { revenueAccounts: REVENUE_ACCOUNTS, vatAccounts: VAT_ACCOUNTS, rate: invoiceFxRate(inv), rotRutDeduction });
-
-    handleAddVerification({
-      date: inv.date,
-      description: `Faktura ${inv.invoiceNumber}`,
-      source: 'invoice',
-      sourceId: inv.id,
-      rows: verRows,
-    });
+    // Ett utkast bokförs inte (2026-11-15): det bokförs när det lämnar
+    // utkastläget, med de belopp det har då (bookInvoiceIfNeeded nedan).
+    // Förut bokades varje ny faktura direkt, även "Spara som utkast", och en
+    // senare ändring av utkastet uppdaterade aldrig verifikationen.
+    if ((inv.status || 'draft') !== 'draft') bookInvoiceIfNeeded(inv);
     return inv;
+  };
+
+  // Bokför en faktura som lämnat utkastläget. Finns ingen verifikation än
+  // bokförs fakturan med sina belopp. Finns redan en (utkast som bokades med
+  // det gamla beteendet och sedan ändrades) bokförs bara skillnaden som en
+  // ändringsverifikation, så att kundfordran, intäkter och moms alltid
+  // stämmer med fakturan. Små öresskillnader (3740) räknas inte.
+  const bookInvoiceIfNeeded = (inv) => {
+    if (!inv || inv.isDemo || (inv.type || 'invoice') !== 'invoice' || (inv.status || 'draft') === 'draft') return;
+    const sek = (inv.currency || 'SEK') === 'SEK';
+    const rotRutDeduction = inv.rotRutType && !inv.rotRutStatus && sek ? calcRotRutDeduction(inv.rotRutType, inv.rows).deduction : 0;
+    if ((inv.rotRutBookedDeduction || 0) !== rotRutDeduction && inv.rotRutType && !inv.rotRutStatus) {
+      setInvoices(prev => prev.map(i => (i.id === inv.id ? { ...i, rotRutReceivable: rotRutDeduction ? '1513' : i.rotRutReceivable, rotRutBookedDeduction: rotRutDeduction || undefined } : i)));
+    }
+    const expected = invoiceBookingRows(inv.rows, { revenueAccounts: REVENUE_ACCOUNTS, vatAccounts: VAT_ACCOUNTS, rate: invoiceFxRate(inv), rotRutDeduction });
+    const existing = verifications.filter(v => v.source === 'invoice' && v.sourceId === inv.id && (v.status || 'booked') !== 'draft');
+    if (existing.length === 0) {
+      handleAddVerification({ date: inv.date, description: `Faktura ${inv.invoiceNumber}`, source: 'invoice', sourceId: inv.id, rows: expected });
+      return;
+    }
+    const net = new Map();
+    const add = (account, amount) => net.set(String(account), (net.get(String(account)) || 0) + amount);
+    expected.forEach(r => add(r.account, getDebet(r) - getKredit(r)));
+    existing.forEach(v => (v.rows || []).forEach(r => add(r.account, -(getDebet(r) - getKredit(r)))));
+    const diffRows = [...net.entries()]
+      .filter(([account, amount]) => account !== '3740' && Math.abs(amount) >= 0.5)
+      .map(([account, amount]) => ({ account, debet: amount > 0 ? Math.round(amount * 100) / 100 : 0, kredit: amount < 0 ? Math.round(-amount * 100) / 100 : 0 }));
+    if (diffRows.length === 0) return;
+    handleAddVerification({ date: new Date().toISOString().split('T')[0], description: `Ändring faktura ${inv.invoiceNumber}`, source: 'invoice', sourceId: inv.id, rows: diffRows });
+  };
+
+  // Fakturalistan ändrar fakturor med setInvoices. En faktura som där går
+  // från utkast till skickad eller betald bokförs (bookInvoiceIfNeeded).
+  const setInvoicesAndBook = (fn) => {
+    // Den sparade listan (utan applyCreditNotes), samma som setInvoices får.
+    const prevList = currentCompany.invoices || [];
+    const next = typeof fn === 'function' ? fn(prevList) : fn;
+    setInvoices(fn);
+    for (const inv of next || []) {
+      const before = prevList.find(p => p.id === inv.id);
+      if ((inv.status || 'draft') !== 'draft' && (!before || (before.status || 'draft') === 'draft')) bookInvoiceIfNeeded(inv);
+    }
   };
 
   // Konvertering offert → faktura är det ENDA stället en post flyttas mellan
@@ -4534,6 +4569,9 @@ function App() {
 
     const updatedInvoice = {
       ...quote,
+      id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      quoteId: quote.id,
+      quoteNumber: quote.invoiceNumber,
       type: 'invoice',
       status: 'draft',
       date: today,
@@ -4544,30 +4582,16 @@ function App() {
       rows: (quote.rows || []).map(r => ({ discount: 0, account: '3001', ...r })),
     };
 
-    setQuotes(prev => prev.filter(q => q.id !== quoteId));
+    // Offerten finns kvar med status Fakturerad och en länk till fakturan
+    // (2026-11-15), i stället för att försvinna. Fakturan blir ett utkast som
+    // bokförs först när det skapas på riktigt (bookInvoiceIfNeeded).
+    setQuotes(prev => prev.map(q => (q.id === quoteId ? { ...q, status: 'invoiced', invoiceId: updatedInvoice.id, invoicedAt: today } : q)));
     setInvoices(prev => [...prev, updatedInvoice]);
-
-    // Med ören och med radrabatten, se utils/invoiceBooking.js. En avrundnings-
-    // differens på ören bokas av withRoundingBalance i handleAddVerification.
-    const book = (rate) => handleAddVerification({
-      date: updatedInvoice.date,
-      description: `Faktura ${updatedInvoice.invoiceNumber}`,
-      source: 'invoice',
-      sourceId: updatedInvoice.id,
-      rows: invoiceBookingRows(updatedInvoice.rows, { revenueAccounts: REVENUE_ACCOUNTS, vatAccounts: VAT_ACCOUNTS, rate }),
-    });
     // En offert i annan valuta får dagens kurs när den blir faktura.
     if (updatedInvoice.currency && updatedInvoice.currency !== 'SEK' && !(Number(updatedInvoice.fxRate) > 0)) {
       convertToSek(1, updatedInvoice.currency, updatedInvoice.date).then(res => {
-        if (!res?.rate) {
-          setToast({ message: tr('ui.fakturan_ar_skapad_men_inte_bokford_vaxelkursen', { currency: updatedInvoice.currency }), variant: 'error' });
-          return;
-        }
-        setInvoices(prev => prev.map(i => (i.id === updatedInvoice.id ? { ...i, fxRate: res.rate } : i)));
-        book(res.rate);
+        if (res?.rate) setInvoices(prev => prev.map(i => (i.id === updatedInvoice.id ? { ...i, fxRate: res.rate } : i)));
       });
-    } else {
-      book(invoiceFxRate(updatedInvoice));
     }
 
     return updatedInvoice;
@@ -4606,6 +4630,9 @@ function App() {
   const handleRegisterInvoicePayment = (invoiceId, amount, date, bankLedgerAccount = '1930', { sekReceived, amountIsSek = false } = {}) => {
     const inv = invoices.find(i => i.id === invoiceId);
     if (!inv || !amount || amount <= 0) return;
+    // Ett utkast som betalas bokförs först, annars krediteras 1510 utan att
+    // fordran någonsin bokats.
+    if ((inv.status || 'draft') === 'draft') bookInvoiceIfNeeded({ ...inv, status: 'sent' });
     const fx = invoiceFxRate(inv);
     const foreign = fx !== 1;
 
@@ -5810,6 +5837,7 @@ function App() {
             setArticles={setArticles}
             verifications={verifications}
             onAdd={handleAddInvoice}
+            // setInvoicesAndBook: utkast som skapas, skickas eller markeras bokförs.
             onMarkPaid={handleMarkInvoicePaid}
             onRegisterPayment={handleRegisterInvoicePayment}
             onRotRutRequested={handleRotRutRequested}
@@ -5822,7 +5850,7 @@ function App() {
             onGetPaymentLinkUrl={getInvoicePaymentLinkUrl}
             activeCompanyId={data.activeCompanyId}
             stripeAccountId={company.stripeAccountId}
-            setInvoices={setInvoices}
+            setInvoices={setInvoicesAndBook}
             company={company}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}

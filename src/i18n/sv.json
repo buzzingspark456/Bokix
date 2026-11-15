@@ -4051,7 +4051,8 @@
     "underlag_zip_beskrivning": "Kvitton och fakturor som zip-fil, namngivna efter verifikationen (A031.pdf), med en förteckning i Excel. Till revisorn, eller om du byter program.",
     "underlag_zip_hamtar": "Hämtar {{done}} av {{total}} filer …",
     "underlag_zip_klar": "Klart: {{files}} filer. {{missing}} verifikationer saknar underlag, {{failed}} filer gick inte att hämta. Se Forteckning.xlsx i zip-filen.",
-    "underlag_zip_fel": "Det gick inte att skapa zip-filen. Försök igen om en stund."
+    "underlag_zip_fel": "Det gick inte att skapa zip-filen. Försök igen om en stund.",
+    "offert_fakturerad": "Fakturerad"
   },
   "glossary": {
     "g01": {

@@ -16,6 +16,7 @@ import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { t } from '../i18n';
 import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 import { sendableEmail } from '../utils/validators';
+import { getNextQuoteNumber } from '../utils/quoteNumbering';
 
 const fmtSEK = (val) => numberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
 const fmtDateSv = (d) => { if (!d) return ''; try { return dateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; } };
@@ -57,10 +58,6 @@ const DEFAULT_OTHER_TERMS = [
   'Ansvarsbegränsning: Ansvar begränsas till offertens totala belopp.',
 ].join('\n');
 
-const getNextQuoteNumber = (quotesList) => {
-  const nums = quotesList.map(q => Number(String(q.invoiceNumber || '').replace('OFF-', ''))).filter(n => !isNaN(n));
-  return `OFF-${(nums.length > 0 ? Math.max(...nums) : 1000) + 1}`;
-};
 
 /** "Förfallen" är inget en människa sätter — den räknas fram (skickad men
  * giltighetstiden har passerat) precis som förfallna fakturor i
@@ -73,6 +70,7 @@ const getDisplayStatus = (q) => {
 const getStatusStyle = (status) => {
   switch (status) {
     case 'accepted': return { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)', label: t('ui.accepterad') };
+    case 'invoiced': return { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)', label: t('ui.offert_fakturerad') };
     case 'sent': return { bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)', label: t('ui.skickad_2') };
     case 'rejected': return { bg: 'var(--status-red-bg)', color: 'var(--status-red-text)', label: t('ui.avvisad') };
     case 'expired': return { bg: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', label: t('ui.forfallen') };
@@ -115,7 +113,7 @@ const toolbarBtnStyle = (active) => ({
  * förhandsgranskning som öppnas på begäran. Samma lösning återanvänds här
  * rakt av — samma CSS-klass, samma mönster, samma mobilanpassning.
  */
-function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], company, user, articles = [], onSave, onClose, onConvert, onSyncBeforeServerCall }) {
+function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], company, user, articles = [], onSave, onClose, onConvert, onOpenInvoice, onSyncBeforeServerCall }) {
   useMobileForm();
   const [customerId, setCustomerId] = useState(quote?.customerId || '');
   const [customerName, setCustomerName] = useState(quote?.customerName || '');
@@ -531,7 +529,10 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
         {/* Konvertering är alltid tillgänglig oavsett status — se motiveringen
             i Quotes-listan: det är ägarens eget omdöme, inte något appen ska
             gate:a bakom ett visst statusläge. */}
-        {quote && onConvert && (
+        {quote && quote.status === 'invoiced' && quote.invoiceId && onOpenInvoice && (
+          <button type="button" className="tb-status" onClick={() => onOpenInvoice(quote.invoiceId)} style={toolbarBtnStyle(false)}><FileText size={13} /> {t('ui.visa_fakturan')}</button>
+        )}
+        {quote && quote.status !== 'invoiced' && onConvert && (
           <button type="button" className="tb-status" onClick={onConvert} style={{ ...toolbarBtnStyle(false), color: 'var(--accent-text)', borderColor: 'var(--status-green-bg)' }}><FileText size={13} /> {t('ui.konvertera_till_faktura')}</button>
         )}
         <div style={{ flex: 1, minWidth: '8px' }} />
@@ -1065,18 +1066,23 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
   // handleConvertQuoteToInvoice) — precis som i Fortnox/Bokio, så att en
   // offert aldrig kan räknas som bokföringsunderlag av misstag. Konvertering
   // är därför inte längre "byt type-fält på samma post" utan en riktig flytt:
-  // App.jsx tar bort offerten ur `quotes`, skapar en ny post i `invoices`
-  // med ett RIKTIGT nästa fakturanummer ur samma serie som Invoices.jsx
-  // använder, och bokför den (precis som en direkt-skapad faktura). Alltid
-  // tillgänglig oavsett status — ägarens eget omdöme, inte appens.
+  // App.jsx skapar ett fakturautkast i `invoices` med ett RIKTIGT nästa
+  // fakturanummer och märker offerten Fakturerad med länk till fakturan.
+  // Utkastet bokförs först när det skapas på riktigt. Öppnar fakturan.
   const handleConvert = async (quote, e) => {
     e?.stopPropagation();
     if (!(await confirmDialog(t('ui.konvertera_denna_offert_till_en_faktura'), { title: t('ui.konvertera_till_faktura'), confirmLabel: t('ui.konvertera') }))) return;
     if (!onConvert) return;
-    onConvert(quote.id);
+    const created = onConvert(quote.id);
     setIsFormOpen(false);
     setEditingId(null);
-    if (handleGlobalAction) handleGlobalAction(null, 'invoices');
+    if (handleGlobalAction) handleGlobalAction(created?.id ? { type: 'open_invoice', payload: { id: created.id } } : null, 'invoices');
+  };
+
+  const openInvoice = (invoiceId) => {
+    setIsFormOpen(false);
+    setEditingId(null);
+    if (handleGlobalAction) handleGlobalAction({ type: 'open_invoice', payload: { id: invoiceId } }, 'invoices');
   };
 
   const openNew = () => {
@@ -1139,6 +1145,7 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
         onSave={handleSaveQuote}
         onClose={closeForm}
         onConvert={editingQuote ? (e) => handleConvert(editingQuote, e) : null}
+        onOpenInvoice={openInvoice}
         onSyncBeforeServerCall={onSyncBeforeServerCall}
       />
     );
@@ -1274,9 +1281,15 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
                       faktiskt vill ha en faktura, inte något appen ska hindra
                       baserat på var i statusflödet offerten råkar stå. Se samma
                       resonemang vid motsvarande knapp i QuoteEditor ovan. */}
+                  {q.status === 'invoiced' && q.invoiceId ? (
+                  <button onClick={(e) => { e.stopPropagation(); openInvoice(q.invoiceId); }} title={t('ui.visa_fakturan')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                    <FileText size={16} />
+                  </button>
+                  ) : (
                   <button onClick={(e) => handleConvert(q, e)} title={t('ui.konvertera_till_faktura')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--accent-text)' }}>
                     <FileText size={16} />
                   </button>
+                  )}
                   <button onClick={(e) => handleDelete(q.id, e)} title={t('ui.ta_bort')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
                     <Trash2 size={16} />
                   </button>

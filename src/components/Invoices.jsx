@@ -671,7 +671,10 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
         rotRutApartment: rotRutType === 'rot' ? rotRutApartment.trim() || undefined : undefined,
       });
 
-  const handleSave = (status = 'draft', extra = {}) => {
+  const handleSave = (requestedStatus = 'draft', extra = {}) => {
+    // Skickade och betalda fakturor behåller sin status när de sparas
+    // (kommentar m.m.); förut blev en betald faktura obetald av Spara.
+    const status = initial?.status && initial.status !== 'draft' ? initial.status : requestedStatus;
     const rate = Number(String(fxRate).replace(',', '.'));
     if (currency !== 'SEK' && !(rate > 0)) {
       setFxStatus(tr('ui.fyll_i_vaxelkursen_for_fakturan_bokfors_i_kronor', { currency }));
@@ -1611,6 +1614,7 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
 
           {/* Spara/bokför — sista raden i formuläret, samma placering och
               knappstil som QuoteEditor:s "Avbryt/Spara offert". */}
+          {(initial?.status || 'draft') === 'draft' && (
           <div className="mform-foot" style={{ padding: '20px 32px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
             <button type="button" onClick={() => handleSave('draft')} style={outlineToolbarBtnStyle}>
               {tr('ui.spara_som_utkast')}
@@ -1619,6 +1623,7 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
               <Check size={14} /> {tr('ui.bokfor_2')}
             </button>
           </div>
+          )}
           <MobileFormBar>
             {(initial?.status || 'draft') === 'draft' && (
               <button type="button" className="mform-bar-secondary" onClick={() => handleSave('draft')}>{tr('ui.spara_som_utkast')}</button>

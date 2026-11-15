@@ -4051,7 +4051,8 @@
     "underlag_zip_beskrivning": "Receipts and invoices as a zip file, named after the voucher (A031.pdf), with an index in Excel. For your accountant, or if you switch software.",
     "underlag_zip_hamtar": "Fetching {{done}} of {{total}} files …",
     "underlag_zip_klar": "Done: {{files}} files. {{missing}} vouchers have no supporting document, {{failed}} files could not be fetched. See Forteckning.xlsx in the zip file.",
-    "underlag_zip_fel": "The zip file could not be created. Please try again shortly."
+    "underlag_zip_fel": "The zip file could not be created. Please try again shortly.",
+    "offert_fakturerad": "Invoiced"
   },
   "glossary": {
     "g01": {
