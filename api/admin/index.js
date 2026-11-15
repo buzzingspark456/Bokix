@@ -515,11 +515,13 @@ export async function handleOverview(admin, res) {
     const { data: blobRows } = await admin.from('user_data').select('user_id, state').in('user_id', ids);
     (await withTablesState(admin, blobRows || [])).forEach(r => { states[r.user_id] = r.state; });
   }
+  const { data: nameRows } = await admin.from('user_data').select('user_id, company_name').not('company_name', 'is', null);
+  const companyNames = Object.fromEntries((nameRows || []).map(r => [r.user_id, r.company_name]));
   const { data: messages } = await admin.from('contact_messages').select('handled_at').is('handled_at', null).limit(500);
   const { data: events } = await admin.from('system_events').select('kind, created_at').not('kind', 'in', '(backup_ok,shadow_read,login_slow)').gte('created_at', new Date(Date.now() - 86400000).toISOString()).limit(500);
   const payments = await loadPayments(admin, users).catch(() => null);
   res.status(200).json({
-    ...buildOverview({ users, subs, states, messages: messages || [], events: events || [], isAdmin: isAdminEmail }),
+    ...buildOverview({ users, subs, states, companyNames, messages: messages || [], events: events || [], isAdmin: isAdminEmail }),
     mrr: payments?.mrr ?? null,
     payingCount: payments?.payingCount ?? null,
   });

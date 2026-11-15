@@ -36,18 +36,19 @@ export function accountStage(u) {
   if (s === 'active') return { group: 'customers', label: 'Betalar', tone: 'green', rank: 1 };
   if (s === 'trialing') return { group: 'customers', label: 'Provperiod', tone: 'blue', rank: 2 };
   if (s === 'canceled' || s === 'incomplete_expired') return { group: 'ended', label: 'Slutat', tone: 'gray' };
+  if (!u.companyName) return { group: 'noCompany', label: u.emailConfirmed ? 'Inget företag' : 'E-post obekräftad', tone: 'gray' };
   if (!u.emailConfirmed) return { group: 'notStarted', label: 'E-post obekräftad', tone: 'amber' };
-  if (!u.companyName) return { group: 'notStarted', label: 'Inget företag', tone: 'gray' };
   return { group: 'notStarted', label: 'Ingen prenumeration', tone: 'gray' };
 }
 
 const GROUPS = [
   ['customers', 'Kunder', 'Betalar, provar, behöver uppföljning eller slutar.'],
-  ['notStarted', 'Ej startat', 'Har registrerat sig men aldrig startat en prenumeration. Inbjudna revisorer utan eget företag hamnar här.'],
+  ['notStarted', 'Ej startat', 'Har lagt upp ett företag men aldrig startat en prenumeration.'],
   ['ended', 'Slutat', 'Har sagt upp eller vars prenumeration har löpt ut.'],
+  ['noCompany', 'Inget företag', 'Avbrutna registreringar och inbjudna revisorer utan eget företag. Räknas inte i siffrorna.'],
   ['suspended', 'Avstängda', 'Avstängda av er. Återaktivera från kundkortet.'],
   ['own', 'Egna konton', 'Grundarnas konton. Räknas inte i siffrorna.'],
-  ['all', 'Alla', 'Alla konton utom avstängda.'],
+  ['all', 'Alla', 'Alla konton utom avstängda och de utan företag.'],
 ];
 
 export default function UsersAdmin() {
@@ -57,11 +58,12 @@ export default function UsersAdmin() {
   const [openId, setOpenId] = useState(null);
 
   const all = useMemo(() => (users || []).map(u => ({ ...u, stage: accountStage(u) })), [users]);
-  // Alla = alla utom avstängda; de finns bara under Avstängda (och i sök).
-  const inGroup = (g) => all.filter(u => (g === 'all' ? u.stage.group !== 'suspended' : u.stage.group === g));
+  // Alla = alla utom avstängda och de utan företag; de finns bara i sina egna
+  // grupper (och i sök).
+  const inGroup = (g) => all.filter(u => (g === 'all' ? !['suspended', 'noCompany'].includes(u.stage.group) : u.stage.group === g));
   const customers = inGroup('customers');
   const count = (label) => customers.filter(u => u.stage.label === label).length;
-  const newThisMonth = all.filter(u => !u.isAdmin && daysAgo(u.createdAt) !== null && daysAgo(u.createdAt) < 30).length;
+  const newThisMonth = all.filter(u => !['own', 'suspended', 'noCompany'].includes(u.stage.group) && daysAgo(u.createdAt) !== null && daysAgo(u.createdAt) < 30).length;
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();

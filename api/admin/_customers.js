@@ -76,11 +76,15 @@ export function isSuspended(u, now = new Date()) {
  * prenumerationsrader, `states` { userId: state } för de nya kontona,
  * `messages` kontaktmeddelanden och `events` systemhändelser.
  */
-export function buildOverview({ users, subs, states = {}, messages = [], events = [], isAdmin = () => false, now = new Date() }) {
+export function buildOverview({ users, subs, states = {}, companyNames = {}, messages = [], events = [], isAdmin = () => false, now = new Date() }) {
   const t = now.getTime();
   const subByUser = {};
   (subs || []).forEach(s => { if (!subByUser[s.user_id] || s.company_id === '') subByUser[s.user_id] = s; });
-  const customers = (users || []).filter(u => !isAdmin(u.email) && !isSuspended(u, now));
+  // Konton utan eget företag och utan prenumeration (avbruten registrering,
+  // inbjudna revisorer) är inga kunder: de räknas inte och visas inte heller
+  // (2026-11-15), bara under Användare → Inget företag.
+  const hasCompany = (id) => Boolean(companyNames[id]) || summarizeState(states[id]).length > 0;
+  const customers = (users || []).filter(u => !isAdmin(u.email) && !isSuspended(u, now) && (subByUser[u.id] || hasCompany(u.id)));
   const emailOf = Object.fromEntries((users || []).map(u => [u.id, u.email]));
   const activeIds = new Set(customers.map(u => u.id));
   // Grundarnas egna, avstängda och raderade kontons prenumerationer räknas inte.
