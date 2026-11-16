@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { calcCarBenefit, CAR_BENEFIT_YEARS } from '../utils/carBenefit';
 import {
   Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2, ExternalLink, RefreshCw, Trash2,
   Upload, Send,
@@ -144,6 +145,36 @@ function SummaryCards({ totals, flat = false }) {
  * kollektiv- eller anställningsavtal, inte ur lagen, och systemet ska
  * aldrig påstå att det vet vad som gäller hos just er.
  */
+/** Bilförmånen räknad efter Skatteverkets formel (utils/carBenefit.js).
+ * Uppgifterna sparas på raden och månadsvärdet blir radens belopp. */
+function CarBenefitCalc({ line, year, onApply }) {
+  const car = line.car || {};
+  const set = (patch) => {
+    const next = { ...car, ...patch };
+    const r = calcCarBenefit({ year, newCarPrice: next.price, extras: next.extras, vehicleTax: next.tax, fuel: next.fuel || 'annat' });
+    onApply({ car: next, ...(r ? { rate: r.monthly, quantity: 1 } : {}) });
+  };
+  const r = calcCarBenefit({ year, newCarPrice: car.price, extras: car.extras, vehicleTax: car.tax, fuel: car.fuel || 'annat' });
+  const inp = { width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit', boxSizing: 'border-box' };
+  const lbl = { display: 'grid', gap: '3px', fontSize: '11.5px', color: 'var(--text-secondary)' };
+  if (!CAR_BENEFIT_YEARS[year]) return <div style={{ fontSize: '11.5px', color: 'var(--status-amber-text)', marginTop: '8px' }}>{tr('payrollUi.carNoYear', { year })}</div>;
+  return (
+    <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px' }}>
+      <label style={lbl}>{tr('payrollUi.carPrice')}<input type="number" min="0" value={car.price ?? ''} onChange={e => set({ price: e.target.value })} style={inp} /></label>
+      <label style={lbl}>{tr('payrollUi.carExtras')}<input type="number" min="0" value={car.extras ?? ''} onChange={e => set({ extras: e.target.value })} style={inp} /></label>
+      <label style={lbl}>{tr('payrollUi.carTax')}<input type="number" min="0" value={car.tax ?? ''} onChange={e => set({ tax: e.target.value })} style={inp} /></label>
+      <label style={lbl}>{tr('payrollUi.carFuel')}
+        <select value={car.fuel || 'annat'} onChange={e => set({ fuel: e.target.value })} style={inp}>
+          <option value="annat">{tr('payrollUi.carFuelOther')}</option>
+          <option value="el">{tr('payrollUi.carFuelEl')}</option>
+          <option value="laddhybrid">{tr('payrollUi.carFuelPhev')}</option>
+        </select>
+      </label>
+      {r && <div style={{ gridColumn: '1 / -1', fontSize: '12px', color: 'var(--text-secondary)' }}>{tr('payrollUi.carResult', { year: fmt(r.yearly), month: fmt(r.monthly) })}</div>}
+    </div>
+  );
+}
+
 function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
   const employee = row.employeeSnapshot;
   const lines = row.lines || [];
@@ -250,6 +281,9 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.5 }}>
                   {type.unit} {tr('ui.pris_3')} {type.help}
                 </div>
+                {line.payTypeId === 'car_benefit' && !locked && (
+                  <CarBenefitCalc line={line} year={Number(String(row.period || '').slice(0, 4))} onApply={(patch) => patchLine(line.id, patch)} />
+                )}
               </div>
             );
           })}
@@ -306,6 +340,11 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, fla
               <AlertTriangle size={12} color="var(--status-amber-text)" /> {tr('payrollUi.noBank')}
             </div>
           )}
+          {computed.oneTimeMissing && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--status-amber-text)', marginTop: '4px', fontWeight: 600 }}>
+              <AlertTriangle size={12} color="var(--status-amber-text)" /> {tr('payrollUi.oneTimeMissing')}
+            </div>
+          )}
         </div>
         <div className="payroll-emp-right" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           {/* Timmarna är det man fyller i varje månad för en timanställd:
@@ -332,6 +371,18 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, fla
         <div style={{ padding: flat ? '4px 24px 16px' : '4px 18px 16px', borderTop: '1px solid var(--border-light)' }}>
           {computed.steps.map((s, i) => <CalculationRow key={i} {...s} />)}
           <PayLinesEditor row={row} computed={computed} onUpdateRow={onUpdateRow} locked={locked} />
+          {(computed.payLines || []).some(l => l.oneTime && l.amount > 0) && (
+            <label style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginTop: '12px', fontSize: '13px', color: 'var(--text-main)' }}>
+              {tr('payrollUi.oneTimeLabel')}
+              <input
+                type="number" min="0" max="100" step="1" inputMode="decimal" disabled={locked} value={row.oneTimeTaxPercent ?? ''}
+                onChange={e => onUpdateRow(row.employeeId, { oneTimeTaxPercent: e.target.value })}
+                style={{ width: '70px', padding: '7px 9px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', textAlign: 'right', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit' }}
+                aria-label={tr('payrollUi.oneTimeLabel')}
+              /> %
+              <a href="https://www.skatteverket.se/foretag/arbetsgivare/arbetsgivaravgifterochskatteavdrag/skatteavdrag/engangsbelopp.4.361dc8c15312eff6fd3225e.html" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12.5px', color: 'var(--accent-text)' }}>{tr('payrollUi.oneTimeLink')}</a>
+            </label>
+          )}
         </div>
       )}
     </div>

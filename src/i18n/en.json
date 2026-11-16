@@ -4476,6 +4476,18 @@
     "formRemove": "Remove the adjustment"
   },
   "payrollUi": {
+    "carPrice": "New car price (kr)",
+    "carExtras": "Extra equipment (kr)",
+    "carTax": "Vehicle tax per year (kr)",
+    "carFuel": "Fuel",
+    "carFuelOther": "Petrol, diesel or hybrid",
+    "carFuelEl": "Electric or hydrogen",
+    "carFuelPhev": "Plug-in hybrid",
+    "carResult": "Benefit value {{year}} kr per year, {{month}} kr per month (Swedish Tax Agency formula).",
+    "carNoYear": "Bokix does not have the Tax Agency values for car benefit {{year}} yet. Use the Tax Agency calculator and enter the amount.",
+    "oneTimeMissing": "A bonus is a one-off payment: enter the one-off tax rate so the tax is right.",
+    "oneTimeLabel": "Tax on one-off payment (bonus)",
+    "oneTimeLink": "The rate in the Swedish Tax Agency table",
     "netHint": "paid out",
     "totalHint": "salary, tax, contributions and holiday",
     "noHours": "No hours yet. Enter them on the right or import them.",

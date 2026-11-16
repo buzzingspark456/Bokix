@@ -4476,6 +4476,18 @@
     "formRemove": "Ta bort jämkningen"
   },
   "payrollUi": {
+    "carPrice": "Nybilspris (kr)",
+    "carExtras": "Extrautrustning (kr)",
+    "carTax": "Fordonsskatt per år (kr)",
+    "carFuel": "Drivmedel",
+    "carFuelOther": "Bensin, diesel eller elhybrid",
+    "carFuelEl": "El eller vätgas",
+    "carFuelPhev": "Laddhybrid",
+    "carResult": "Förmånsvärde {{year}} kr per år, {{month}} kr per månad (Skatteverkets formel).",
+    "carNoYear": "Bokix har inte Skatteverkets värden för bilförmån {{year}} än. Räkna med Skatteverkets bilförmånsberäkning och skriv in beloppet.",
+    "oneTimeMissing": "Bonus är ett engångsbelopp: ange procentsatsen för engångsbelopp så att skatten blir rätt.",
+    "oneTimeLabel": "Skatt på engångsbelopp (bonus)",
+    "oneTimeLink": "Procentsatsen i Skatteverkets tabell",
     "netHint": "betalas ut",
     "totalHint": "lön, skatt, avgifter och semester",
     "noHours": "Inga timmar än. Fyll i timmarna till höger eller importera dem.",
