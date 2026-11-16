@@ -10,7 +10,7 @@ import {
 import { supabase } from '../supabaseClient';
 import { passkeysAvailable, isPasskeyCancel, isPasskeyAlreadyOnDevice, appLockEnabledFor, setAppLock, rememberPasskeyOnDevice } from '../utils/sessionPolicy';
 import { sendInvoiceEmail } from '../emailApi';
-import { cancelStripeSubscription, reactivateStripeSubscription, openBillingPortal, getSubscriptionInvoices, syncStripeSubscription } from '../stripeApi';
+import { cancelStripeSubscription, reactivateStripeSubscription, openBillingPortal, getSubscriptionInvoices, syncStripeSubscription, billingCcEmail } from '../stripeApi';
 import BokixWordmark from './shared/BokixWordmark';
 import { BRAND } from '../utils/brandColors';
 import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
@@ -2291,6 +2291,40 @@ function SubscriptionInvoices({ companyId, enabled }) {
         </div>
       )}
     </>
+  );
+}
+
+/** Fakturamejl (2026-11-16): en extra adress, t.ex. redovisningskonsultens,
+ * som får en kopia av varje kvitto från Bokix. Inbjudna ser aldrig
+ * betalning, så det här är ägarens sätt att dela kvittona. */
+function BillingCcEmail({ companyId, enabled }) {
+  const [value, setValue] = useState('');
+  const [saved, setSaved] = useState(null);
+  const [state, setState] = useState('');
+  useEffect(() => {
+    let alive = true;
+    setSaved(null); setState('');
+    if (!enabled) return undefined;
+    billingCcEmail(companyId).then(e => { if (alive) { setValue(e); setSaved(e); } }).catch(() => { if (alive) setSaved(''); });
+    return () => { alive = false; };
+  }, [companyId, enabled]);
+  const save = async () => {
+    setState('busy');
+    try { const e = await billingCcEmail(companyId, value.trim()); setValue(e); setSaved(e); setState('ok'); }
+    catch (err) { setState(err.message || tr('ui.kunde_inte_spara')); }
+  };
+  const dirty = saved !== null && value.trim() !== saved;
+  return (
+    <div style={{ display: 'grid', gap: '6px', width: '100%' }}>
+      <label htmlFor="billing-cc" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('ui.plan_kvittokopia')}</label>
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <input id="billing-cc" type="email" value={value} onChange={e => { setValue(e.target.value); setState(''); }} disabled={!enabled || saved === null} placeholder={tr('ui.namn_exempel_se')} style={{ ...inputBase, flex: '1 1 220px', minWidth: 0 }} />
+        <button type="button" onClick={save} disabled={!dirty || state === 'busy'} style={{ ...btnSecondary, opacity: !dirty || state === 'busy' ? 0.6 : 1 }}>{state === 'busy' ? tr('ui.sparar') : tr('ui.spara')}</button>
+      </div>
+      <div style={{ fontSize: '12.5px', color: state && state !== 'ok' && state !== 'busy' ? 'var(--status-red-text)' : 'var(--text-muted)' }}>
+        {state === 'ok' ? tr('ui.plan_kvittokopia_sparad') : state && state !== 'busy' ? state : tr('ui.plan_kvittokopia_hjalp')}
+      </div>
+    </div>
   );
 }
 
@@ -4630,6 +4664,7 @@ export default function Settings({
                       <div className="plan-payment">
                         <BillingPortalButton companyId={company?.requiresOwnPayment ? company.id : null} label={tr('ui.byt_betalkort')} />
                         <SubscriptionInvoices companyId={company?.requiresOwnPayment ? company.id : null} enabled={!readOnly} />
+                        <BillingCcEmail companyId={company?.requiresOwnPayment ? company.id : null} enabled={!readOnly} />
                         <p>{tr('ui.plan_kortbyte_stripe')}</p>
                       </div>
                     </SettingCard>

@@ -11,6 +11,7 @@ import { requireAuthedUser } from '../_auth.js';
 import { readOwnerCompany } from '../_companyStore.js';
 import { hasExistingSubscription, getSubscriptionRow, getStripeCustomerId, getStripeCustomerIds, upsertSubscription, subscriptionFieldsFromStripe, stripePeriodEnd, PAID_STATUSES } from './_subscriptions.js';
 import { listSubscriptionCustomerIds, listSubscriptionInvoices, invoicesForCompany } from './_billingInvoices.js';
+import { sendableEmail } from '../../src/utils/validators.js';
 import { isValidSwedishOrgNr } from '../../src/utils/personnummer.js';
 
 // Läses INTE in som modul-nivå-konstant — samma gotcha som _resend.js/
@@ -159,6 +160,46 @@ export default async function handler(req, res) {
       const subRow = await getSubscriptionRow(authedUser.id, companyId);
       const invoices = invoicesForCompany(await listSubscriptionInvoices(stripe, customerIds), companyId, subRow?.stripe_subscription_id);
       res.status(200).json({ invoices });
+      return;
+    }
+
+    // ── Fakturamejl (2026-11-16, kundönskemål från en inbjuden revisor):
+    // en extra adress som får en kopia av varje kvitto från Bokix. Sparas
+    // som metadata (billing_cc) på företagets Stripe-kund, så ingen ny
+    // tabell behövs; webhooken (invoice.paid) läser den. Utan body.email
+    // läses adressen, med tom sträng tas den bort. Bara den inloggade
+    // ägaren, aldrig inbjudna (de ser inte betalning, se Settings.jsx).
+    if (body.action === 'billing-cc') {
+      const authedUser = await requireAuthedUser(req, res);
+      if (!authedUser) return;
+      const companyId = body.company_id || null;
+      let customerId = await getStripeCustomerId(authedUser.id, companyId);
+      if (!customerId) {
+        const subRow = await getSubscriptionRow(authedUser.id, companyId);
+        if (subRow?.stripe_subscription_id) {
+          try {
+            const sub = await stripe.subscriptions.retrieve(subRow.stripe_subscription_id);
+            customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id || null;
+          } catch { /* ingen kund ännu */ }
+        }
+      }
+      if (!customerId) {
+        res.status(404).json({ error: 'Vi hittar ingen prenumeration för det här företaget än.' });
+        return;
+      }
+      if (body.email === undefined) {
+        const customer = await stripe.customers.retrieve(customerId);
+        res.status(200).json({ email: customer?.metadata?.billing_cc || '' });
+        return;
+      }
+      const raw = String(body.email || '').trim();
+      const email = raw ? sendableEmail(raw) : '';
+      if (raw && !email) {
+        res.status(400).json({ error: 'Adressen ser inte ut som en giltig e-postadress.' });
+        return;
+      }
+      await stripe.customers.update(customerId, { metadata: { billing_cc: email || '' } });
+      res.status(200).json({ email: email || '' });
       return;
     }
 

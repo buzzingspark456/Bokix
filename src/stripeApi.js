@@ -123,6 +123,14 @@ export async function openBillingPortal(companyId = null) {
   return url;
 }
 
+// Fakturamejl (action 'billing-cc'): utan email läses adressen, annars sparas den ('' tar bort).
+export async function billingCcEmail(companyId = null, email) {
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Du måste vara inloggad.');
+  const res = await requestStripeApi('create-subscription-checkout', { action: 'billing-cc', company_id: companyId || undefined, ...(email !== undefined ? { email } : {}) }, session.access_token);
+  return res.email || '';
+}
+
 export async function getSubscriptionInvoices(companyId = null) {
   const { data: { session } = {} } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('Du måste vara inloggad för att se fakturor och kvitton.');
