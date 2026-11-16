@@ -29,3 +29,23 @@ describe('extern representation', () => {
     expect(r.account).toBe('6072');
   });
 });
+
+describe('personalfest och intern representation', () => {
+  it('julbord för 10: 7632, momsen högst 300 kr per person', () => {
+    // 10 × 500 kr exkl. moms, 12 % = 600 kr moms, taket 360 kr
+    const r = representationBooking({ kind: 'meal', persons: 10, net: 5000, vat: 600, vatRate: 12, account: '7631' });
+    expect(r.account).toBe('7632');
+    expect(r.deductibleVat).toBe(360);
+    expect(r.cost).toBe(5240);
+  });
+  it('lokal och musik upp till 180 kr per person: 7631', () => {
+    const r = representationBooking({ kind: 'extras', persons: 10, net: 1500, vat: 375, vatRate: 25, account: '7631' });
+    expect(r.account).toBe('7631');
+    expect(r.deductibleVat).toBe(375); // taket 450
+  });
+  it('kringkostnader över 180 kr per person: 7632', () => {
+    const r = representationBooking({ kind: 'extras', persons: 5, net: 2000, vat: 500, vatRate: 25, account: '7631' });
+    expect(r.account).toBe('7632');
+    expect(r.deductibleVat).toBe(225);
+  });
+});

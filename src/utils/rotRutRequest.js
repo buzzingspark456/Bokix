@@ -40,7 +40,7 @@ export const buyerId = toTwelveDigits;
 /** Beloppen för en faktura, i hela kronor som Skatteverket vill ha dem. */
 export function rotRutAmounts(inv) {
   const rows = inv?.rows || [];
-  const { deduction } = calcRotRutDeduction(inv?.rotRutType, rows);
+  const { deduction } = calcRotRutDeduction(inv?.rotRutType, rows, inv?.rotRutCap);
   const labor = Math.round(rows.filter(r => r.rotRutLabor).reduce((s, r) => s + rowGross(r), 0));
   const material = Math.round(rows.filter(r => !r.rotRutLabor).reduce((s, r) => s + rowGross(r), 0));
   return { labor, material, deduction, paid: labor - deduction };

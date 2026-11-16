@@ -559,6 +559,7 @@
     "repr_valj_typ": "Välj typ",
     "repr_maltid": "Måltid (lunch, middag)",
     "repr_fika": "Fika eller enklare förtäring",
+    "repr_extras": "Lokal, musik eller underhållning",
     "repr_personer": "Antal personer",
     "repr_saknas": "Välj typ av representation och antal personer. Det styr hur mycket moms och kostnad som är avdragsgill.",
     "repr_info_avdragsgill": "Avdragsgill: bokförs på {{account}}. Momsavdrag {{vat}} (högst {{cap}} för så många personer).",
@@ -4143,6 +4144,8 @@
     }
   },
   "rotRut": {
+    "capped": "Kunden har redan fått {{used}} kr i husavdrag i år. Avdraget på den här fakturan begränsas till {{room}} kr så att taket inte överskrids.",
+    "room": "Kunden har fått {{used}} kr i husavdrag i år. Kvar av taket: {{room}} kr.",
     "button": "ROT/RUT till Skatteverket",
     "buttonTitle": "Skapa fil för begäran om utbetalning av ROT- och RUT-avdrag",
     "title": "ROT och RUT till Skatteverket",

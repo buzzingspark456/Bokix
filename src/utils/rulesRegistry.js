@@ -34,7 +34,7 @@ export const RULES = [
     usedIn: 'Uppläggning av företag, momsfrågor', source: { name: 'Skatteverket: Momsbefrielse', url: SKV('/momsbefrielse') },
     verifiedAt: '2026-11-16', checkEveryDays: 365 },
 
-  { id: 'representation', area: 'Moms', title: 'Representation (kundmåltider, fika)', value: 'Moms på högst 300 kr exkl. moms per person; måltider ej avdragsgilla (6072), enklare förtäring upp till 60 kr per person (6071)',
+  { id: 'representation', area: 'Moms', title: 'Representation och personalfest', value: 'Moms på högst 300 kr exkl. moms per person för mat (180 kr för kringkostnader); måltider ej avdragsgilla (6072/7632), fika upp till 60 kr och kringkostnader upp till 180 kr per person avdragsgilla',
     usedIn: 'Kvitton på 6071/6072', source: { name: 'Skatteverket: Avdrag för moms vid representation', url: SKV('/foretag/moms/kopavarorochtjanster/avdragformomsvidrepresentation.4.15532c7b1442f256baec84b.html') },
     verifiedAt: '2026-11-16', checkEveryDays: 365 },
 

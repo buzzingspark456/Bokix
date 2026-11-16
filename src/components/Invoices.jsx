@@ -36,7 +36,7 @@ import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import { grossInvoiceAmount as grossOf } from '../utils/reportCalculations';
 import { hasSeenInvoiceTour, startInvoiceTour } from '../utils/invoiceTour';
 import { waitForElement } from '../utils/productTour';
-import { ROT_RUT_RATES, ROT_RUT_COMBINED_CAP, calcRotRutDeduction, invoiceCustomerRemaining } from '../utils/rotRutConfig';
+import { ROT_RUT_RATES, ROT_RUT_COMBINED_CAP, calcRotRutDeduction, invoiceCustomerRemaining, rotRutUsedThisYear, rotRutRoom } from '../utils/rotRutConfig';
 import { workTypesFor, RUT_FLAT_RATE_TYPES } from '../utils/rotRutRequest';
 import RotRutRequestModal from './RotRutRequestModal';
 import { t as tr, dateLocale } from '../i18n';
@@ -506,7 +506,10 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
   // en kund som bytt typ i efterhand — visar hellre en tydlig varning än
   // att tyst rensa bort ett val som redan sparats på fakturan.
   const customerIsIndividual = customer?.customerType === 'se_individual';
-  const rotRut = calcRotRutDeduction(rotRutType, rows);
+  // Taket per kund och år: det kunden redan fått på andra fakturor i år.
+  const rotRutUsed = rotRutUsedThisYear(invoiceList, { customerId, year: String(invoiceDate || '').slice(0, 4), excludeId: initial?.id });
+  const rotRutCap = ['rot', 'rut'].includes(rotRutType) ? rotRutRoom(rotRutUsed, rotRutType) : undefined;
+  const rotRut = calcRotRutDeduction(rotRutType, rows, rotRutCap);
   const amountAfterRotRut = totals.total - rotRut.deduction;
   const customerHasPersonnummer = Boolean(customer?.orgNr?.trim());
 
@@ -662,8 +665,9 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
   };
 
   const rotRutFields = () => (rotRutType === 'none'
-    ? { rotRutWorkType: undefined, rotRutHours: undefined, rotRutProperty: undefined, rotRutBrfOrgNr: undefined, rotRutApartment: undefined }
+    ? { rotRutCap: undefined, rotRutWorkType: undefined, rotRutHours: undefined, rotRutProperty: undefined, rotRutBrfOrgNr: undefined, rotRutApartment: undefined }
     : {
+        rotRutCap,
         rotRutWorkType: workTypesFor(rotRutType).includes(rotRutWorkType) ? rotRutWorkType : undefined,
         rotRutHours: rotRutHours === '' ? undefined : Number(rotRutHours),
         rotRutProperty: rotRutType === 'rot' ? rotRutProperty.trim() || undefined : undefined,
@@ -1244,6 +1248,13 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
                     {!customerHasPersonnummer && (
                       <p style={{ margin: '0 0 4px', color: 'var(--status-red-text)', fontWeight: 600 }}>
                         {tr('ui.kunden_saknar_personnummer_kravs_for_en')} {ROT_RUT_RATES[rotRutType].label}{tr('ui.begaran_hos_skatteverket_lagg_till_det_under_kon')}
+                      </p>
+                    )}
+                    {customerId && (rotRutUsed.rot + rotRutUsed.rut > 0 || rotRut.capped) && (
+                      <p style={{ margin: '0 0 4px', color: rotRut.capped ? 'var(--status-red-text)' : 'var(--text-secondary)', fontWeight: rotRut.capped ? 600 : 500 }}>
+                        {rotRut.capped
+                          ? tr('rotRut.capped', { used: numberFormat('sv-SE').format(rotRutUsed.rot + rotRutUsed.rut), room: numberFormat('sv-SE').format(rotRutCap) })
+                          : tr('rotRut.room', { used: numberFormat('sv-SE').format(rotRutUsed.rot + rotRutUsed.rut), room: numberFormat('sv-SE').format(rotRutCap) })}
                       </p>
                     )}
                     <p style={{ margin: 0 }}>
@@ -1967,7 +1978,7 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
     const gross = (Number(r.qty) || 0) * (Number(r.unitPrice) || 0) * (1 - (Number(r.discount) || 0) / 100);
     return { net: acc.net + gross, vat: acc.vat + gross * ((Number(r.vatRate) || 0) / 100), total: acc.total + gross * (1 + (Number(r.vatRate) || 0) / 100) };
   }, { net: 0, vat: 0, total: 0 });
-  const rotRut = calcRotRutDeduction(invoice.rotRutType, rows);
+  const rotRut = calcRotRutDeduction(invoice.rotRutType, rows, invoice.rotRutCap);
 
   const statusStyle = {
     paid: { bg: BRAND.greenLight, color: BRAND.greenDark, label: paidLabel(invoice) },
@@ -2089,7 +2100,7 @@ function PaymentLinkModal({ activeCompanyId, invoice, customer, company, onGetPa
     const gross = (Number(r.qty) || 0) * (Number(r.unitPrice) || 0) * (1 - (Number(r.discount) || 0) / 100);
     return { net: acc.net + gross, vat: acc.vat + gross * ((Number(r.vatRate) || 0) / 100), total: acc.total + gross * (1 + (Number(r.vatRate) || 0) / 100) };
   }, { net: 0, vat: 0, total: 0 });
-  const rotRut = calcRotRutDeduction(invoice.rotRutType, rows);
+  const rotRut = calcRotRutDeduction(invoice.rotRutType, rows, invoice.rotRutCap);
   const tpl = invoice.invoiceTemplateSnapshot || {};
   const documentProps = {
     invoice: { invoiceNumber: invoice.invoiceNumber, date: invoice.date, dueDate: invoice.dueDate, terms: invoice.terms },

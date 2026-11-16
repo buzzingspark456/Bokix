@@ -4494,7 +4494,7 @@ function App() {
     // Kontot sparas på fakturan så att utbetalningen senare krediterar rätt
     // konto (äldre fakturor bokade hela fordran på 1510).
     const rotRutDeduction = invType !== 'quote' && inv.rotRutType && !inv.rotRutStatus && (inv.currency || 'SEK') === 'SEK'
-      ? calcRotRutDeduction(inv.rotRutType, inv.rows).deduction : 0;
+      ? calcRotRutDeduction(inv.rotRutType, inv.rows, inv.rotRutCap).deduction : 0;
     if (rotRutDeduction !== 0) { inv.rotRutReceivable = '1513'; inv.rotRutBookedDeduction = rotRutDeduction; }
     setInvoices(prev => [...prev, inv]);
 
@@ -4517,7 +4517,7 @@ function App() {
   const bookInvoiceIfNeeded = (inv) => {
     if (!inv || inv.isDemo || (inv.type || 'invoice') !== 'invoice' || (inv.status || 'draft') === 'draft') return;
     const sek = (inv.currency || 'SEK') === 'SEK';
-    const rotRutDeduction = inv.rotRutType && !inv.rotRutStatus && sek ? calcRotRutDeduction(inv.rotRutType, inv.rows).deduction : 0;
+    const rotRutDeduction = inv.rotRutType && !inv.rotRutStatus && sek ? calcRotRutDeduction(inv.rotRutType, inv.rows, inv.rotRutCap).deduction : 0;
     if ((inv.rotRutBookedDeduction || 0) !== rotRutDeduction && inv.rotRutType && !inv.rotRutStatus) {
       setInvoices(prev => prev.map(i => (i.id === inv.id ? { ...i, rotRutReceivable: rotRutDeduction ? '1513' : i.rotRutReceivable, rotRutBookedDeduction: rotRutDeduction || undefined } : i)));
     }
@@ -4755,7 +4755,7 @@ function App() {
     invoiceIds.forEach(id => {
       const inv = invoices.find(i => i.id === id);
       if (!inv?.rotRutType) return;
-      const amount = inv.rotRutBookedDeduction ?? calcRotRutDeduction(inv.rotRutType, inv.rows).deduction;
+      const amount = inv.rotRutBookedDeduction ?? calcRotRutDeduction(inv.rotRutType, inv.rows, inv.rotRutCap).deduction;
       if (amount <= 0) return;
       handleAddVerification({
         date,
@@ -4829,7 +4829,7 @@ function App() {
   const handleRotRutRejected = (invoiceId, date) => {
     const inv = invoices.find(i => i.id === invoiceId);
     if (!inv?.rotRutType) return;
-    const amount = inv.rotRutBookedDeduction ?? calcRotRutDeduction(inv.rotRutType, inv.rows).deduction;
+    const amount = inv.rotRutBookedDeduction ?? calcRotRutDeduction(inv.rotRutType, inv.rows, inv.rotRutCap).deduction;
     if (amount > 0 && inv.rotRutReceivable === '1513') {
       handleAddVerification({
         date,
@@ -5109,7 +5109,7 @@ function App() {
     const repr = formValues.representation && REPRESENTATION_ACCOUNTS.has(formValues.costAccount) ? formValues.representation : null;
     if (repr) {
       const sign = amount < 0 ? -1 : 1;
-      const r = representationBooking({ kind: repr.kind, persons: repr.persons, net: Math.abs(netAmount), vat: Math.abs(vatAmount), vatRate: mixedVat !== null ? 'mixed' : vatRate });
+      const r = representationBooking({ kind: repr.kind, persons: repr.persons, net: Math.abs(netAmount), vat: Math.abs(vatAmount), vatRate: mixedVat !== null ? 'mixed' : vatRate, account: formValues.costAccount });
       bookedAccount = r.account;
       bookedNet = sign * r.cost;
       vatAmount = sign * r.deductibleVat;

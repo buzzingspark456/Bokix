@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
-import { REPRESENTATION_ACCOUNTS, representationBooking } from '../utils/representation';
+import { REPRESENTATION_ACCOUNTS, representationBooking, representationKinds } from '../utils/representation';
 import { isVatExempt } from '../utils/vatRegistration';
 import {
   UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop, SlidersHorizontal,
@@ -632,7 +632,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     if (isNaN(amount) || amount <= 0) newErrors.amount = 'Ange ett giltigt belopp.';
     if (!form.costAccount) newErrors.costAccount = tr('ui.valj_ett_konto');
     if (form.vatRate === '' && !vatExempt && !reverseInfo) newErrors.vatRate = tr('ui.valj_momssats_fran_kvittot');
-    if (REPRESENTATION_ACCOUNTS.has(form.costAccount) && !vatExempt && (!form.reprKind || !(Number(form.reprPersons) >= 1))) newErrors.repr = tr('ui.repr_saknas');
+    if (REPRESENTATION_ACCOUNTS.has(form.costAccount) && !vatExempt && (!representationKinds(form.costAccount).includes(form.reprKind) || !(Number(form.reprPersons) >= 1))) newErrors.repr = tr('ui.repr_saknas');
     // Moms över 25 % av nettot (20 % av totalen) finns inte i Sverige.
     if (mixedVat && !(mixedVatAmount > 0 && mixedVatAmount <= amount * 0.2 + 0.005)) {
       newErrors.vatAmount = tr('ui.moms_for_hog');
@@ -1068,14 +1068,13 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '8px' }}>
                     <select value={form.reprKind} disabled={readOnly} onChange={e => setForm(f => ({ ...f, reprKind: e.target.value }))} style={{ ...inputSt, background: 'var(--bg-card)' }} aria-label={tr('ui.repr_typ')}>
                       <option value="">{tr('ui.repr_valj_typ')}</option>
-                      <option value="meal">{tr('ui.repr_maltid')}</option>
-                      <option value="simple">{tr('ui.repr_fika')}</option>
+                      {representationKinds(form.costAccount).map(k => <option key={k} value={k}>{tr(k === 'meal' ? 'ui.repr_maltid' : k === 'simple' ? 'ui.repr_fika' : 'ui.repr_extras')}</option>)}
                     </select>
                     <input type="number" min="1" step="1" inputMode="numeric" disabled={readOnly} value={form.reprPersons} onChange={e => setForm(f => ({ ...f, reprPersons: e.target.value }))} placeholder={tr('ui.repr_personer')} aria-label={tr('ui.repr_personer')} style={inputSt} />
                   </div>
                   {errors.repr && <div style={errSt}>{errors.repr}</div>}
                   {form.reprKind && Number(form.reprPersons) > 0 && hasAmount && (() => {
-                    const r = representationBooking({ kind: form.reprKind, persons: form.reprPersons, net: grossAmount - vatAmount, vat: vatAmount, vatRate: mixedVat ? 'mixed' : vatRate });
+                    const r = representationBooking({ kind: form.reprKind, persons: form.reprPersons, net: grossAmount - vatAmount, vat: vatAmount, vatRate: mixedVat ? 'mixed' : vatRate, account: form.costAccount });
                     return <div className="rc-hint">{tr(r.deductible ? 'ui.repr_info_avdragsgill' : 'ui.repr_info_ej', { vat: formatSEK2(r.deductibleVat), cap: formatSEK2(r.vatCap), account: r.account })}</div>;
                   })()}
                 </div>
