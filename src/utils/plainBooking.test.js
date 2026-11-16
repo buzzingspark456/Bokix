@@ -219,3 +219,16 @@ describe('flera momssatser på samma kvitto', () => {
     expect(buildSimpleBooking({ kind: 'expense', amount: '100', vatRate: 'mixed', vatAmount: '30', account: '4010' }).rows).toEqual([])
   })
 })
+
+describe('momsen tas från kvittot', async () => {
+  const { buildSimpleBooking } = await import('./plainBooking');
+  it('ingen vald momssats bokförs inte som 0 %, användaren får välja', () => {
+    const r = buildSimpleBooking({ kind: 'expense', amount: '112', vatRate: '', account: '5460', payAccount: '1930' });
+    expect(r.rows).toEqual([]);
+    expect(r.errors[0]).toMatch(/momssatsen/);
+  });
+  it('vald sats från kvittot bokförs som vanligt', () => {
+    const r = buildSimpleBooking({ kind: 'expense', amount: '106', vatRate: 6, account: '5460', payAccount: '1930' });
+    expect(r.rows.find(x => x.account === '2641').debet).toBe(6);
+  });
+});

@@ -103,6 +103,8 @@ export function buildSimpleBooking(fields, { orgType, vatExempt = false } = {}) 
   const ownerAccounts = hasOwnerAccounts(orgType) ? ownerAccountsFor(orgType, f.partnerIndex) : null;
 
   if (f.kind === 'expense') {
+    // Momsen tas från kvittot; gick den inte att läsa väljer användaren (2026-11-16).
+    if (f.vatRate === '' || f.vatRate === null || f.vatRate === undefined) return fail('Välj momssatsen som står på kvittot.');
     const rate = Number(f.vatRate) || 0;
     const pay = f.payPrivate && ownerAccounts ? ownerAccounts.deposit : (f.payAccount || DEFAULT_BANK);
     if (!f.account) return fail('Välj vad du har köpt.');
@@ -131,6 +133,7 @@ export function buildSimpleBooking(fields, { orgType, vatExempt = false } = {}) 
   }
 
   if (f.kind === 'income') {
+    if (f.vatRate === '' || f.vatRate === null || f.vatRate === undefined) return fail('Välj en momssats.');
     const rate = Number(f.vatRate) || 0;
     const pay = f.payAccount || DEFAULT_BANK;
     const account = f.account || REVENUE[rate];

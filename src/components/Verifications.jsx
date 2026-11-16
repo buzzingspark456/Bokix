@@ -330,8 +330,11 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       // följer av dokumentet, inte av vad som bokförts tidigare. Tidigare
       // bokningar kan ha gjorts utan omvänd moms och ska inte följas här.
       const reverse = parsed.reverseCharge;
-      const vatRate = reverse ? 0 : (vatFromHistory ? hist.vatRate : (parsed.vatRate ?? 25));
       const mixedVat = !nr && !reverse && !parsed.currency && Boolean(parsed.vatRates && parsed.vatAmount);
+      // Momsen tas från kvittot. Gick satsen inte att läsa (och leverantören
+      // inte bokförts förut) fylls ingen sats i: användaren väljer själv.
+      const vatUnread = !reverse && !vatFromHistory && !mixedVat && Boolean(parsed.vatRateGuessed);
+      const vatRate = reverse ? 0 : (vatFromHistory ? hist.vatRate : (vatUnread ? null : (parsed.vatRate ?? null)));
       // Samma regel som kvittovyn (Expenses.jsx): kostnadskontot fylls bara i
       // när det är känt — samma leverantör bokförd förut (historik), eller
       // omvänd skattskyldighet där kontot följer av dokumentet. Ett konto från
@@ -354,8 +357,8 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         { key: 'date', found: !nr && Boolean(parsed.date), state: parsed.dateGuessed ? 'guess' : 'found', apply: () => setDate(parsed.date) },
         { key: 'amount', found: !nr && gross > 0, state: parsed.amountGuessed ? 'guess' : 'found', apply: () => {} },
         {
-          key: 'vatRate', found: !nr && gross > 0 && parsed.vatRate !== null && parsed.vatRate !== undefined,
-          state: reverse ? 'found' : (vatFromHistory ? 'history' : (parsed.vatRateGuessed ? 'guess' : 'found')), apply: () => {},
+          key: 'vatRate', found: !nr && gross > 0 && (mixedVat || vatRate !== null),
+          state: reverse ? 'found' : (vatFromHistory ? 'history' : 'found'), apply: () => {},
         },
         {
           key: 'costAccount', found: !nr && gross > 0 && Boolean(costAccount),
@@ -371,12 +374,16 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         // Inte momsregistrerat: momsen får inte dras av, hela beloppet är kostnad.
         const net = vatExempt ? gross : mixedVat ? Math.round((gross - parsed.vatAmount) * 100) / 100
           : vatRate > 0 ? Math.round((gross / (1 + vatRate / 100)) * 100) / 100 : gross;
+        // Okänd moms med debet och kredit: kostnad och moms lämnas tomma att
+        // fylla i från kvittot, bara betalningen är känd.
+        const unknownVat = !vatExempt && vatRate === null && !mixedVat;
         const vat = Math.round((gross - net) * 100) / 100;
         const nameOf = (code, fallback) => accounts.find(a => a.code === code)?.name || fallback;
         // Radernas belopp som tal. Vid omvänd skattskyldighet läggs momsraderna
         // (2645 i debet, 2614 i kredit) till av withReverseChargeRows.
-        let numeric = [{ account: costAccount, debet: net, kredit: 0, desc: parsed.supplier || '' }];
-        if (vat > 0) numeric.push({ account: '2641', debet: vat, kredit: 0, desc: '' });
+        let numeric = [{ account: costAccount, debet: unknownVat ? 0 : net, kredit: 0, desc: parsed.supplier || '' }];
+        if (unknownVat) numeric.push({ account: '2641', debet: 0, kredit: 0, desc: '' });
+        else if (vat > 0) numeric.push({ account: '2641', debet: vat, kredit: 0, desc: '' });
         numeric.push({ account: pay.code, debet: 0, kredit: gross, desc: '' });
         if (reverse) numeric = withReverseChargeRows(numeric);
         const newRows = numeric.map(r => ({
@@ -387,7 +394,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         if (modeRef.current === 'simple') {
           setSimple(prev => ({
             ...prev, kind: 'expense', amount: gross.toFixed(2),
-            ...(mixedVat ? { vatRate: 'mixed', vatAmount: parsed.vatAmount.toFixed(2) } : { vatRate: VAT_RATES.includes(vatRate) ? vatRate : 25 }),
+            ...(mixedVat ? { vatRate: 'mixed', vatAmount: parsed.vatAmount.toFixed(2) } : { vatRate: VAT_RATES.includes(vatRate) ? vatRate : '' }),
             account: costAccount, payAccount: pay.code, payPrivate: false,
           }));
         } else {

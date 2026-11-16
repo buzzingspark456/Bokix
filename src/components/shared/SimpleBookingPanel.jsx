@@ -65,7 +65,8 @@ export default function SimpleBookingPanel({ fields, setFields, accounts, orgTyp
     </select>
   );
   const vatSelect = (withMixed) => (
-    <select value={fields.vatRate} onChange={e => set({ vatRate: e.target.value === 'mixed' ? 'mixed' : Number(e.target.value) })} style={inp}>
+    <select value={fields.vatRate ?? ''} onChange={e => set({ vatRate: e.target.value === 'mixed' ? 'mixed' : e.target.value === '' ? '' : Number(e.target.value) })} style={inp}>
+      {(fields.vatRate === '' || fields.vatRate == null) && <option value="">{t('ui.valj_momssats_fran_kvittot')}</option>}
       {VAT_RATES.map(r => <option key={r} value={r}>{r === 0 ? t('ui.ingen_moms') : t('ui.moms_7', { r })}</option>)}
       {withMixed && <option value="mixed">{t('ui.flera_momssatser')}</option>}
     </select>
