@@ -38,6 +38,16 @@ export const EMPLOYER_FEE_STANDARD = 0.3142;
 export const EMPLOYER_FEE_PENSION_ONLY = 0.1021;
 export const YOUTH_FEE = { rate: 0.2081, monthlyCap: 25000, from: '2026-04', to: '2027-09' };
 
+/** Ögonblicksbilden av en anställd i en lönekörning. Skatteavdraget ska
+ * räknas med skattetabellen för det år lönen BETALAS UT (Skatteverket), inte
+ * året då den anställda lades upp: en januarilön 2027 ska använda 2027 års
+ * tabell. Året sätts därför från utbetalningsdagen (annars perioden). */
+export function payrollSnapshot(employee, { payDate, period } = {}) {
+  const year = Number(String(payDate || period || '').slice(0, 4));
+  if (!employee?.taxTable || !Number.isInteger(year) || year < 2000) return { ...employee };
+  return { ...employee, taxTable: { ...employee.taxTable, year } };
+}
+
 /** Födelseår ur ett personnummer (10 eller 12 siffror, med eller utan
  * bindestreck; plustecken betyder fyllda 100). null om det inte går. */
 export function birthYearFromSsn(ssn, referenceYear) {

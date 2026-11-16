@@ -68,6 +68,7 @@ import { deleteFileFromStorage } from './utils/fileUpload';
 import { linkDocument } from './utils/looseDocuments';
 import { collectStorageUrls } from './utils/storageUrls';
 import { computeEmployeePayroll, summarizePayrollRun, FEE_RULES_VERSION } from './utils/payrollCalculation';
+import { payrollSnapshot } from './utils/payrollConfig';
 import BokixWordmark, { BokixMark } from './components/shared/BokixWordmark';
 import MobileTopTitle from './components/shared/MobileTopTitle';
 import { installMobileKeyboard } from './utils/mobileKeyboard';
@@ -5251,7 +5252,7 @@ function App() {
       period,
       hoursWorked: 0,
       additions: 0, absenceDeduction: 0, grossDeduction: 0, benefits: 0, netDeduction: 0,
-      employeeSnapshot: { ...e },
+      employeeSnapshot: payrollSnapshot(e, { payDate, period }),
       // Åldersanpassad arbetsgivaravgift (payrollConfig.employerFeeFor).
       feeRules: FEE_RULES_VERSION,
     }));
@@ -5351,7 +5352,7 @@ function App() {
       ...r,
       rows: r.rows.map(row => {
         const current = updated.find(e => e.id === row.employeeId);
-        return current && byId.has(current.id) ? { ...row, employeeSnapshot: { ...row.employeeSnapshot, ...byId.get(current.id) } } : row;
+        return current && byId.has(current.id) ? { ...row, employeeSnapshot: payrollSnapshot({ ...row.employeeSnapshot, ...byId.get(current.id) }, r) } : row;
       }),
     })));
   };
@@ -5364,7 +5365,7 @@ function App() {
         rows: r.rows.map(row => {
           const current = (currentEmployees || employees).find(e => e.id === row.employeeId);
           // En körning som inte räknats än får också de nya avgiftsreglerna.
-          return current ? { ...row, employeeSnapshot: { ...current }, feeRules: FEE_RULES_VERSION } : row;
+          return current ? { ...row, employeeSnapshot: payrollSnapshot(current, r), feeRules: FEE_RULES_VERSION } : row;
         }),
       };
     }));
