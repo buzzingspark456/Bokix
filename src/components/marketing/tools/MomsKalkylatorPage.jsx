@@ -123,7 +123,7 @@ export default function MomsKalkylatorPage() {
         },
         {
           q: 'Vilken momssats gäller för mig?',
-          a: '25 % är normalskattesatsen och gäller de flesta varor och tjänster. 12 % gäller bland annat livsmedel, restaurang och hotell. 6 % gäller böcker, tidningar, persontransport och kultur. Är du osäker på en specifik tjänst är det Skatteverkets branschvisa vägledning som gäller.',
+          a: '25 % är normalskattesatsen och gäller de flesta varor och tjänster. 12 % gäller bland annat restaurang (mat som äts på plats) och hotell. 6 % gäller livsmedel (tillfälligt från 1 april 2026 till och med 2027, annars 12 %), böcker, tidningar, persontransport och kultur. Är du osäker på en specifik tjänst är det Skatteverkets branschvisa vägledning som gäller.',
         },
         {
           q: 'Måste jag ta ut moms?',

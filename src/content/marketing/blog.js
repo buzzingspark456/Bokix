@@ -55,7 +55,7 @@ export const BLOG_POSTS = [
         ['3001 Försäljning 25 % moms', '', '400'],
         ['2611 Utgående moms 25 %', '', '100'],
       ] },
-      { t: 'p', x: 'Säljer du böcker eller livsmedel gäller 6 eller 12 %. Säljer du till företag i andra EU-länder kan det vara omvänd moms. Läs mer i [momsdeklaration steg för steg](/blogg/moms-deklaration-steg-for-steg).' },
+      { t: 'p', x: 'Säljer du böcker eller livsmedel gäller 6 % (för livsmedel tillfälligt till och med 2027, annars 12 %). Säljer du till företag i andra EU-länder kan det vara omvänd moms. Läs mer i [momsdeklaration steg för steg](/blogg/moms-deklaration-steg-for-steg).' },
 
       { t: 'h2', x: 'Stripes kortavgift är utan moms' },
       { t: 'p', x: 'Avgiften för att ta emot en kortbetalning är en finansiell tjänst. Den har ingen moms, varken att dra av eller att redovisa som omvänd moms.' },
