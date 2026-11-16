@@ -18,6 +18,7 @@ import { getAuthStorage, isStandaloneApp } from './utils/authStorage';
 const FeaturesPage = lazy(() => import('./components/marketing/FeaturesPage'));
 const PricingPage = lazy(() => import('./components/marketing/PricingPage'));
 const AboutPage = lazy(() => import('./components/marketing/AboutPage'));
+const RulesPage = lazy(() => import('./components/marketing/RulesPage'));
 const ContactPage = lazy(() => import('./components/marketing/ContactPage'));
 const BookingPage = lazy(() => import('./components/marketing/BookingPage'));
 const GmailConnectCallback = lazy(() => import('./components/GmailConnectCallback'));
@@ -299,6 +300,7 @@ export default function AppRouter() {
         <Route path="/funktioner" element={<Suspense fallback={<AppLoadingFallback />}><FeaturesPage /></Suspense>} />
         <Route path="/priser" element={<Suspense fallback={<AppLoadingFallback />}><PricingPage /></Suspense>} />
         <Route path="/om-oss" element={<Suspense fallback={<AppLoadingFallback />}><AboutPage /></Suspense>} />
+        <Route path="/belopp-och-regler" element={<Suspense fallback={<AppLoadingFallback />}><RulesPage /></Suspense>} />
         <Route path="/kontakt" element={<Suspense fallback={<AppLoadingFallback />}><ContactPage /></Suspense>} />
         <Route path="/boka-genomgang" element={<Suspense fallback={<AppLoadingFallback />}><BookingPage /></Suspense>} />
         {/* Googles callback efter "Logga in med Google" i Inställningar.
