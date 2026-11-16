@@ -3,6 +3,7 @@ import { AlertTriangle } from './icons';
 import { EntitySearch, ProjectSearch } from './shared/SearchInputs';
 import { SWEDISH_MUNICIPALITIES } from '../utils/kommuner';
 import { suggestTaxTables, KOMMUN_SKATTETABELLER_ÅR } from '../utils/kommunSkattetabell';
+import { kommunSkattesats, KOMMUN_SKATTESATSER_ÅR } from '../utils/kommunSkattesatser';
 import { validatePersonnummer, formatPersonnummerInput } from '../utils/personnummer';
 import { EMPLOYMENT_TYPES, SALARY_FORMS, TAX_FORMS, TAX_TABLE_COLUMNS, VACATION_RULES, MIN_VACATION_DAYS } from '../utils/payrollConfig';
 import { isValidIban } from '../utils/salaryPaymentFile';
@@ -264,6 +265,11 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
                     ? tr('ui.valj_den_som_stammer_for_den_anstallda_i_forslag', { municipality: form.municipality, KOMMUN_SKATTETABELLER_ÅR })
                     : tr('ui.valj_folkbokforingskommun_ovan_sa_foreslar_vi_ta')}
                 </p>
+                {kommunSkattesats(form.municipality) != null && (
+                  <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '-4px 0 10px' }}>
+                    {tr('ui.kommun_skattesats', { municipality: form.municipality, year: KOMMUN_SKATTESATSER_ÅR, rate: String(kommunSkattesats(form.municipality)).replace('.', ',') })}
+                  </p>
+                )}
                 {choices.length > 0 && (
                   <div className="tax-table-choices" role="radiogroup" aria-label={tr('ui.skattetabell')}>
                     {choices.map(c => (

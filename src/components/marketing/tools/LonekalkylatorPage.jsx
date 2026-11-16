@@ -4,7 +4,7 @@ import { INK, INK_SOFT, MUTED } from '../marketingTokens';
 import { calcEmployerCost, STANDARD_EMPLOYER_FEE_RATE, VACATION_PROVISION_RATE } from '../../../utils/freeToolCalculations';
 import { PAYROLL_ACCOUNTS } from '../../../utils/payrollConfig';
 import { toolBySlug } from './toolsConfig';
-import ToolShell, { ToolField, ToolNumber, ToolSegmented, ToolResultPanel, ToolResultRow, ToolNote, formatKr } from './ToolShell';
+import ToolShell, { ToolField, ToolNumber, ToolSegmented, ToolResultPanel, ToolResultRow, ToolNote, formatKr, ToolKommun, KOMMUN_ÅR } from './ToolShell';
 
 const tool = toolBySlug('lonekalkylator');
 
@@ -14,6 +14,7 @@ const vacationPercent = (VACATION_PROVISION_RATE * 100).toFixed(0);
 export default function LonekalkylatorPage() {
   const [gross, setGross] = useState('35000');
   const [taxRate, setTaxRate] = useState('30');
+  const [kommun, setKommun] = useState('');
   const [vacation, setVacation] = useState(true);
 
   const r = calcEmployerCost({ gross, taxRate, vacation });
@@ -28,6 +29,10 @@ export default function LonekalkylatorPage() {
         <>
           <ToolField label="Bruttolön per månad" suffix="kr" hint="Lönen före skatt, som den står i anställningsavtalet.">
             <ToolNumber value={gross} onChange={setGross} placeholder="0" />
+          </ToolField>
+
+          <ToolField label="Kommun" hint={`Ger den anställdas kommunalskatt från Skatteverkets satser för ${KOMMUN_ÅR}.`}>
+            <ToolKommun value={kommun} onChange={(k, rate) => { setKommun(k); if (rate != null) setTaxRate(String(rate)); }} />
           </ToolField>
 
           <ToolField
