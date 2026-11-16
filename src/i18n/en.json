@@ -4476,6 +4476,7 @@
     "formRemove": "Remove the adjustment"
   },
   "payrollUi": {
+    "oneTimeAuto": "Calculated with the Tax Agency one-off table: {{pct}} %. Enter another rate if the Tax Agency has decided so.",
     "carPrice": "New car price (kr)",
     "carExtras": "Extra equipment (kr)",
     "carTax": "Vehicle tax per year (kr)",

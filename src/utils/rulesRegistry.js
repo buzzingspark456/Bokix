@@ -56,7 +56,7 @@ export const RULES = [
     validTo: '2026-12-31',
     usedIn: 'Bilförmån i lönekörningen', source: { name: 'Skatteverket: Bilförmånsberäkning', url: SKV('/foretag/arbetsgivare/lonochersattning/formaner/bilforman/bilformansberakning.4.3016b5d91791bf5467919bd.html') },
     verifiedAt: '2026-11-16', checkBy: '2026-12-15' },
-  { id: 'one-time-tax', area: 'Lön och arbetsgivare', title: 'Skatt på engångsbelopp (bonus)', value: 'Procentsats enligt Skatteverkets tabell för engångsbelopp, anges per lönekörning',
+  { id: 'one-time-tax', area: 'Lön och arbetsgivare', title: 'Skatt på engångsbelopp (bonus)', value: 'Skatteverkets engångstabeller 2026 (kolumn 1–6) inbyggda; 30 % utan vanlig lön',
     usedIn: 'Lönekörning', source: { name: 'Skatteverket: Engångsbelopp', url: SKV('/foretag/arbetsgivare/arbetsgivaravgifterochskatteavdrag/skatteavdrag/engangsbelopp.4.361dc8c15312eff6fd3225e.html') },
     verifiedAt: '2026-11-16', checkBy: '2026-12-15' },
   { id: 'mileage', area: 'Lön och arbetsgivare', title: 'Skattefri milersättning och traktamente', value: 'Egen bil 25 kr/mil, traktamente 300 kr per hel dag (2026)',

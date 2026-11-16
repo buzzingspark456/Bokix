@@ -4476,6 +4476,7 @@
     "formRemove": "Ta bort jämkningen"
   },
   "payrollUi": {
+    "oneTimeAuto": "Räknat med Skatteverkets engångstabell: {{pct}} %. Skriv en annan sats om Skatteverket beslutat det.",
     "carPrice": "Nybilspris (kr)",
     "carExtras": "Extrautrustning (kr)",
     "carTax": "Fordonsskatt per år (kr)",

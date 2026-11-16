@@ -205,8 +205,10 @@ describe('engångsbelopp (bonus)', () => {
     const employee = { salaryForm: 'manadslon', monthlySalary: 30000, employmentRate: 100, taxTable: { tabellnr: '99', kolumn: 1, year: 2026 } };
     const base = { period: '2026-11', lines: [{ payTypeId: 'bonus', quantity: 1, rate: 10000 }] };
     const without = computeEmployeePayroll(employee, base);
-    expect(without.oneTimeMissing).toBe(true);
-    expect(without.tax).toBe(10000);
+    // Utan egen sats: Skatteverkets engångstabell, kolumn 1, årslön 360 000 kr = 26 %
+    expect(without.oneTimeMissing).toBe(false);
+    expect(without.oneTimeAutoPct).toBe(26);
+    expect(without.tax).toBe(7500 + 2600);
     const withPct = computeEmployeePayroll(employee, { ...base, oneTimeTaxPercent: '34' });
     expect(withPct.oneTimeMissing).toBe(false);
     expect(withPct.tax).toBe(7500 + 3400);

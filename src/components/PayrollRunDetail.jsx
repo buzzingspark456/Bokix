@@ -375,11 +375,12 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, fla
             <label style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginTop: '12px', fontSize: '13px', color: 'var(--text-main)' }}>
               {tr('payrollUi.oneTimeLabel')}
               <input
-                type="number" min="0" max="100" step="1" inputMode="decimal" disabled={locked} value={row.oneTimeTaxPercent ?? ''}
+                type="number" min="0" max="100" step="1" inputMode="decimal" disabled={locked} value={row.oneTimeTaxPercent ?? ''} placeholder={computed.oneTimeAutoPct != null ? String(computed.oneTimeAutoPct) : ''}
                 onChange={e => onUpdateRow(row.employeeId, { oneTimeTaxPercent: e.target.value })}
                 style={{ width: '70px', padding: '7px 9px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', textAlign: 'right', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit' }}
                 aria-label={tr('payrollUi.oneTimeLabel')}
               /> %
+              {computed.oneTimeAutoPct != null && (row.oneTimeTaxPercent === '' || row.oneTimeTaxPercent == null) && <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>{tr('payrollUi.oneTimeAuto', { pct: computed.oneTimeAutoPct })}</span>}
               <a href="https://www.skatteverket.se/foretag/arbetsgivare/arbetsgivaravgifterochskatteavdrag/skatteavdrag/engangsbelopp.4.361dc8c15312eff6fd3225e.html" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12.5px', color: 'var(--accent-text)' }}>{tr('payrollUi.oneTimeLink')}</a>
             </label>
           )}
