@@ -72,3 +72,16 @@ describe('kontoregler: gissar inte på det som kan betyda flera saker', () => {
     expect(parseReceiptText(kvitto('Fraktkostnad paket')).accountCode).toBe('5711');
   });
 });
+
+describe('sänkt matmoms', async () => {
+  const { foodVatRate, guessAccountFromText } = await import('./accountCategories');
+  it('6 % från 1 april 2026 till och med 2027, annars 12 %', () => {
+    expect(foodVatRate('2026-03-31')).toBe(12);
+    expect(foodVatRate('2026-04-01')).toBe(6);
+    expect(foodVatRate('2027-12-31')).toBe(6);
+    expect(foodVatRate('2028-01-01')).toBe(12);
+  });
+  it('livsmedelsbutik föreslår dagens livsmedelsmoms', () => {
+    expect(guessAccountFromText('ICA Supermarket').vatRate).toBe(foodVatRate());
+  });
+});
