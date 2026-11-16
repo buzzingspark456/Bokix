@@ -69,6 +69,7 @@ import { linkDocument } from './utils/looseDocuments';
 import { collectStorageUrls } from './utils/storageUrls';
 import { computeEmployeePayroll, summarizePayrollRun, FEE_RULES_VERSION } from './utils/payrollCalculation';
 import { payrollSnapshot } from './utils/payrollConfig';
+import { REPRESENTATION_ACCOUNTS, representationBooking } from './utils/representation';
 import BokixWordmark, { BokixMark } from './components/shared/BokixWordmark';
 import MobileTopTitle from './components/shared/MobileTopTitle';
 import { installMobileKeyboard } from './utils/mobileKeyboard';
@@ -5100,15 +5101,28 @@ function App() {
     const netAmount = mixedVat !== null
       ? Math.round((amount - mixedVat) * 100) / 100
       : vatRate > 0 ? Math.round((amount / (1 + vatRate / 100)) * 100) / 100 : amount;
-    const vatAmount = Math.round((amount - netAmount) * 100) / 100;
+    let vatAmount = Math.round((amount - netAmount) * 100) / 100;
+    let bookedNet = netAmount;
+    let bookedAccount = formValues.costAccount;
+    // Extern representation: momsen bara upp till taket per person, och
+    // måltider på 6072 (ej avdragsgill). Se utils/representation.js.
+    const repr = formValues.representation && REPRESENTATION_ACCOUNTS.has(formValues.costAccount) ? formValues.representation : null;
+    if (repr) {
+      const sign = amount < 0 ? -1 : 1;
+      const r = representationBooking({ kind: repr.kind, persons: repr.persons, net: Math.abs(netAmount), vat: Math.abs(vatAmount), vatRate: mixedVat !== null ? 'mixed' : vatRate });
+      bookedAccount = r.account;
+      bookedNet = sign * r.cost;
+      vatAmount = sign * r.deductibleVat;
+    }
 
     const updated = {
       ...exp,
       date: formValues.date,
       supplier: formValues.supplier,
       description: formValues.supplier,
-      amount, netAmount, vatAmount, vatRate,
-      costAccount: formValues.costAccount,
+      amount, netAmount: bookedNet, vatAmount, vatRate,
+      costAccount: bookedAccount,
+      representation: repr || undefined,
       projectId: formValues.projectId || undefined,
       folderId: formValues.folderId || undefined,
       receiptNumber: formValues.receiptNumber || undefined,
