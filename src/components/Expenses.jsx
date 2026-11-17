@@ -250,8 +250,8 @@ const MAX_SAVED_TEXT = 8000;
 // Uppgifterna som läses ur underlaget utöver det som bokförs (2026-11-17,
 // efter Accounteds Extraherade fält). Sparas på kvittot som `identifiers`.
 const ID_FIELDS = [
-  { key: 'orgNr', label: 'underlag.orgNr' },
-  { key: 'vatNr', label: 'underlag.vatNr' },
+  { key: 'orgNr', label: 'underlag.orgNr', always: true },
+  { key: 'vatNr', label: 'underlag.vatNr', always: true },
   { key: 'bankgiro', label: 'underlag.bankgiro' },
   { key: 'ocrNumber', label: 'underlag.ocr' },
   { key: 'iban', label: 'underlag.iban', span: true },
@@ -279,6 +279,29 @@ function idsForSave(ids) {
 function uploadedDate(receipt) {
   const ts = Number(String(receipt?.id || '').replace(/^exp_/, ''));
   return ts > 1.5e12 ? new Date(ts).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+}
+
+/** En ruta ovanpå arbetsytan (kontoväljaren). Esc stänger bara rutan. */
+function UwDialog({ title, sub, onClose, children, wide = false }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); } };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [onClose]);
+  return (
+    <div className="uw-match-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className={`uw-match${wide ? '' : ' uw-dialog-narrow'}`} role="dialog" aria-modal="true" aria-label={title}>
+        <div className="uw-match-head">
+          <div>
+            <h3>{title}</h3>
+            {sub && <p>{sub}</p>}
+          </div>
+          <button type="button" className="uw-match-x" onClick={onClose} aria-label={tr('ui.stang')}><X size={18} /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 /** Matcha mot transaktion: välj bankraden som hör till underlaget. */
@@ -400,6 +423,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   // Vem betalade: företagets konto (1930) eller ägaren privat (utlägg).
   const [paidBy, setPaidBy] = useState(receipt.paidBy === 'owner' ? 'owner' : 'company');
   const [matchOpen, setMatchOpen] = useState(false);
+  // Kontoväljaren i arbetsytan öppnas som en ruta. När avläsningen är klar
+  // och inget konto är säkert öppnas den av sig själv, med förslaget överst.
+  const [accountOpen, setAccountOpen] = useState(false);
   // Gör körningar avbrytbara: hinner användaren byta fil eller köra om
   // läsningen innan en pågående körning (som nu även väntar in en
   // valutakurs över nätet) är klar, ska bara den SENASTE körningens
@@ -449,6 +475,12 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const historyRef = useRef(() => null);
   historyRef.current = (supplier) => historyForSupplier(allReceipts, supplier, receipt.id) || historyFromVerifications(verifications, supplier);
   const busy = ocrStatus === 'scanning' || revealing;
+  const wasRevealingRef = useRef(false);
+  useEffect(() => {
+    if (wasRevealingRef.current && !revealing && inline && !readOnly && !form.costAccount && !notReceipt) setAccountOpen(true);
+    wasRevealingRef.current = revealing;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealing]);
   const flashField = flashKey ? flashKey.split(':')[0] : null;
 
   const runOcr = useCallback(async (input, { force = false, quad = null } = {}) => {
@@ -812,12 +844,6 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
                 {readOnly ? tr('ui.bokfort_underlag') : ocrStatus === 'scanning' ? tr('ui.laser_kvittot_det_tar_nagra_sekunder') : revealing ? tr('ui.fyller_i_uppgifterna') : unreadable ? tr('ui.bilden_gick_inte_att_lasa_av') : notReceipt ? tr('ui.det_har_verkar_inte_vara_ett_kvitto_eller_en_fak') : ocrStatus === 'done' ? tr('ui.avlasningen_ar_klar_granska_och_justera') : tr('ui.fyll_i_uppgifterna_fran_kvittot')}
               </p>
-              {inline && (
-                <div className="uw-meta">
-                  <span>{tr('underlag.uploaded')}{receipt.uploadedBy?.name ? ` ${tr('underlag.by')} ${receipt.uploadedBy.name}` : ''}{uploadedDate(receipt) ? ` · ${uploadedDate(receipt)}` : ''}</span>
-                  <span><b>{tr('underlag.type')}</b>{readDetails?.dueDate ? tr('underlag.typeInvoice') : tr('underlag.typeReceipt')}</span>
-                </div>
-              )}
 
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
@@ -849,6 +875,12 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               )}
               <button onClick={onClose} aria-label={tr('ui.stang')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex' }}><X size={18} /></button>
             </div>
+            {inline && (
+              <div className="uw-meta">
+                <span>{tr('underlag.uploaded')}{receipt.uploadedBy?.name ? ` ${tr('underlag.by')} ${receipt.uploadedBy.name}` : ''}{uploadedDate(receipt) ? ` · ${uploadedDate(receipt)}` : ''}</span>
+                <span><b>{tr('underlag.type')}</b>{readDetails?.dueDate ? tr('underlag.typeInvoice') : tr('underlag.typeReceipt')}</span>
+              </div>
+            )}
           </div>
 
           <div className={`rc-form-body${ocrStatus === 'scanning' ? ' rc-scanning' : ''}`}>
@@ -1072,7 +1104,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 />
                 {numberLabel && form.receiptNumber && <div className="rc-hint">{tr('ui.avlast_som')} {numberLabel.toLowerCase()}</div>}
               </div>
-              {ID_FIELDS.filter(f => (inline && !f.onlyFilled) || ids[f.key]).map(f => (
+              {ID_FIELDS.filter(f => (inline && !f.onlyFilled && (f.always || readDetails?.dueDate)) || ids[f.key]).map(f => (
                 <div key={f.key} className={f.span ? 'rc-span' : undefined}>
                   <label style={labelSt}>{tr(f.label)} {idsFromOcr.has(f.key) && <OcrBadge />}</label>
                   <input
@@ -1163,6 +1195,24 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   <div style={{ ...inputSt, background: 'var(--bg-muted)', color: 'var(--text-main)' }}>
                     {accountLabel ? `${accountLabel.code} – ${accountLabel.name}` : form.costAccount || '—'}
                   </div>
+                ) : inline ? (
+                  <>
+                    <button type="button" className={`uw-account${errors.costAccount ? ' invalid' : ''}`} onClick={() => setAccountOpen(true)}>
+                      {accountLabel || form.costAccount
+                        ? <span className="uw-account-val"><b>{form.costAccount}</b> {accountLabel?.name || ''}</span>
+                        : <span className="uw-account-empty">{tr('underlag.noAccount')}</span>}
+                      <span className="uw-account-btn">{form.costAccount ? tr('underlag.change') : tr('underlag.pickAccount')}</span>
+                    </button>
+                    {!form.costAccount && suggestedAccount && accounts.some(a => a.code === suggestedAccount.code) && (
+                      <button type="button" className="uw-account-suggest" onClick={() => { setForm(f => ({ ...f, costAccount: suggestedAccount.code })); setErrors(e => ({ ...e, costAccount: undefined })); }}>
+                        <span>{tr('underlag.suggestion')}</span>
+                        <b>{suggestedAccount.code}</b> {accounts.find(a => a.code === suggestedAccount.code)?.name}
+                        <em>{tr('underlag.use')}</em>
+                      </button>
+                    )}
+                    {accountNote === 'private' && !form.costAccount && <div className="rc-hint">{tr('ui.privat_vara_valj_konto')}</div>}
+                    {errors.costAccount && <div style={errSt}>{errors.costAccount}</div>}
+                  </>
                 ) : (
                   <>
                     <AccountInlinePicker
@@ -1307,6 +1357,24 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         </div>
 
       </div>
+      {accountOpen && (
+        <UwDialog title={tr('underlag.pickAccount')} sub={tr('underlag.accountSub')} onClose={() => setAccountOpen(false)}>
+          <div className="uw-account-picker">
+            <AccountInlinePicker
+              value=""
+              onChange={code => {
+                setForm(f => ({ ...f, costAccount: code }));
+                setOcrFields(s => { const n = new Set(s); n.delete('costAccount'); return n; });
+                setErrors(e => ({ ...e, costAccount: undefined }));
+                setAccountOpen(false);
+              }}
+              accounts={accounts}
+              quick={frequentAccounts}
+              suggestion={suggestedAccount && accounts.some(a => a.code === suggestedAccount.code) ? suggestedAccount : null}
+            />
+          </div>
+        </UwDialog>
+      )}
       {matchOpen && (
         <MatchBankModal
           supplier={form.supplier}

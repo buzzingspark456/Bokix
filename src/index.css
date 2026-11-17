@@ -9679,3 +9679,21 @@ img.hc-player { object-fit: cover; }
 .uw-badge { display: inline-block; margin-left: 8px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; font-size: 11.5px; font-weight: 500; color: var(--text-muted); vertical-align: 1px; }
 .uw-badge.strong { border-color: transparent; background: var(--status-amber-bg, #fdf3d7); color: var(--status-amber-text, #8a5a00); }
 .receipt-modal-overlay.is-inline .rc-form-head { flex-wrap: nowrap; align-items: flex-start; }
+
+/* Kontot i arbetsytan: en rad med knapp, väljaren i en ruta (2026-11-17). */
+.uw-account { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); font-family: inherit; text-align: left; cursor: pointer; }
+.uw-account:hover { border-color: var(--text-muted); }
+.uw-account.invalid { border-color: var(--status-red-text, #ef4444); }
+.uw-account-val { font-size: 15px; color: var(--text-main); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uw-account-val b { font-weight: 600; margin-right: 6px; font-variant-numeric: tabular-nums; }
+.uw-account-empty { font-size: 15px; color: var(--text-muted); }
+.uw-account-btn { flex-shrink: 0; font-size: 13px; font-weight: 600; color: var(--text-main); text-decoration: underline; text-underline-offset: 3px; }
+.uw-account-suggest { display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 8px; padding: 9px 12px; border: 1px dashed var(--border); border-radius: 8px; background: var(--bg-muted); font-family: inherit; font-size: 13.5px; color: var(--text-main); text-align: left; cursor: pointer; }
+.uw-account-suggest span { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-right: 4px; }
+.uw-account-suggest em { margin-left: auto; font-style: normal; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.uw-dialog-narrow { width: min(560px, 100%); }
+.uw-account-picker { min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-bottom: 12px; }
+.uw-account-picker .acp { border: none; padding: 0; background: none; }
+.uw-account-picker .acp-list { max-height: min(46vh, 420px); }
+.receipt-modal-overlay.is-inline .rc-form-head { flex-wrap: wrap; align-items: center; row-gap: 0; }
+.receipt-modal-overlay.is-inline .rc-form-head .uw-meta { flex-basis: 100%; }

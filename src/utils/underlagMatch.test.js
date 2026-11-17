@@ -50,3 +50,15 @@ describe('VAT-nr och IBAN ur fakturan', () => {
     expect(d?.vatNr || null).toBe(null);
   });
 });
+
+describe('Org.nr när avläsningen förvanskat ordet', () => {
+  it('hittar 738200-2850 på "Ors Nr"-raden i Coop-kvittot', () => {
+    const d = readInvoiceDetails('Kagerod\nKassör 129-Tindra\nOrs Nr 738200-2850 B SEK\nATT BETALA 198,78');
+    expect(d.orgNr).toBe('738200-2850');
+    expect(d.orgNrGuessed).toBe(false);
+  });
+  it('tar inte ett personnummer eller ett nummer som inte klarar kontrollsiffran', () => {
+    expect(readInvoiceDetails('Kund 850315-1234')?.orgNr || null).toBe(null);
+    expect(readInvoiceDetails('Ref 738200-2851')?.orgNr || null).toBe(null);
+  });
+});

@@ -121,6 +121,20 @@ function findSellerOrgNr(lines, own) {
     if (inBuyerBlock && !marked) return;
     candidates.push({ digits, score: marked ? 1 : 0 });
   });
+  // Avläsningen förvanskar ofta ordet ("Ors Nr", "0rg.nr"). Då räcker ett
+  // nummer skrivet ÅÅMMDD-NNNN som klarar kontrollsiffran och har tredje
+  // siffran minst 2 (organisationsnummer, aldrig ett personnummer), utanför
+  // köparens block.
+  if (!candidates.length) {
+    lines.forEach((line, i) => {
+      const m = /(?:^|[^\d-])(\d{6})-(\d{4})(?![\d-])/.exec(line);
+      if (!m) return;
+      const digits = m[1] + m[2];
+      if (Number(digits[2]) < 2 || !luhnOk(digits) || ownDigits.includes(digits)) return;
+      if (lines.slice(Math.max(0, i - BUYER_BLOCK_LINES), i + 1).some(l => BUYER_HEAD_RE.test(l))) return;
+      candidates.push({ digits, score: /n\s*r|no\b/i.test(line) ? 1 : 0 });
+    });
+  }
   if (!candidates.length) return null;
   const best = candidates.reduce((a, b) => (b.score > a.score ? b : a));
   return `${best.digits.slice(0, 6)}-${best.digits.slice(6)}`;
@@ -159,7 +173,7 @@ function findSellerVatNr(lines, own, orgNr) {
   }
   // Ett svenskt org.nr ger momsnumret direkt, men bara om texten säger att
   // säljaren är momsregistrerad.
-  if (orgNr && lines.some(l => /momsreg|vat\s*(?:no|nr|reg|number)/i.test(l))) return `SE${orgNr.replace(/\D/g, '')}01`;
+  if (orgNr && lines.some(l => /momsreg|vat\s*(?:no|nr|reg|number)|\bmoms\b/i.test(l))) return `SE${orgNr.replace(/\D/g, '')}01`;
   return null;
 }
 

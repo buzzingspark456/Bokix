@@ -4190,7 +4190,14 @@
     "daysOff": "Date ±{{n}} days",
     "dayOff": "Date ±1 day",
     "exactAmount": "Exact amount",
-    "saveWithoutBank": "Save and book without bank row"
+    "saveWithoutBank": "Save and book without bank row",
+    "account": "Account",
+    "noAccount": "No account chosen",
+    "pickAccount": "Choose account",
+    "change": "Change",
+    "accountSub": "What was the purchase? The suggestion comes from the supplier or the text on the receipt.",
+    "suggestion": "Suggestion",
+    "use": "Use"
   },
   "rotRut": {
     "capped": "The customer has already received {{used}} kr in household deductions this year. The deduction on this invoice is limited to {{room}} kr so the cap is not exceeded.",

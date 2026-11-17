@@ -4190,7 +4190,14 @@
     "daysOff": "Datum ±{{n}} dagar",
     "dayOff": "Datum ±1 dag",
     "exactAmount": "Exakt belopp",
-    "saveWithoutBank": "Spara och bokför utan bankrad"
+    "saveWithoutBank": "Spara och bokför utan bankrad",
+    "account": "Konto",
+    "noAccount": "Inget konto valt",
+    "pickAccount": "Välj konto",
+    "change": "Ändra",
+    "accountSub": "Vad gällde köpet? Förslaget kommer från leverantören eller texten på kvittot.",
+    "suggestion": "Förslag",
+    "use": "Använd"
   },
   "rotRut": {
     "capped": "Kunden har redan fått {{used}} kr i husavdrag i år. Avdraget på den här fakturan begränsas till {{room}} kr så att taket inte överskrids.",
