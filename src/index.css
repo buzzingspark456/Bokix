@@ -2950,7 +2950,7 @@ textarea.form-control {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: #14201a;
+  background: #2b2c2e;
 }
 .dv-bar {
   display: flex;
@@ -3107,7 +3107,7 @@ textarea.form-control {
   inset: 0;
   z-index: 1150;
   display: flex;
-  background: #14201a;
+  background: #2b2c2e;
 }
 /* height/min-height: auto så att den staplade mobilvyns 52vh-höjd på
    .dv-doc inte gäller i helskärm (då fick kvittot bara halva skärmen). */
@@ -3188,7 +3188,7 @@ textarea.form-control {
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
-  background: #14201a;
+  background: #2b2c2e;
 }
 .rc-doc > .dv-doc { flex: 1 1 auto; }
 
