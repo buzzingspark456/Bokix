@@ -9549,3 +9549,44 @@ img.hc-player { object-fit: cover; }
 @media (min-width: 2040px) {
   .page-content-with-spacer:has(.list-page-header) > * { max-width: 1760px; width: 100%; margin-left: auto; margin-right: auto; box-sizing: border-box; }
 }
+
+/* ── Underlag: arbetsyta på bred skärm (2026-11-17, efter Accounteds inkorg) ──
+   Listan till vänster, dokumentet i mitten och fälten till höger. */
+.uw-split {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  height: calc(calc(100dvh / var(--app-zoom, 1)) - 32px);
+  margin: -8px 0 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+.uw-list { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border); background: var(--bg-card); }
+.uw-list-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 12px 8px; }
+.uw-back, .uw-upload { border: none; background: none; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; padding: 6px 4px; }
+.uw-back:hover, .uw-upload:hover { color: var(--text-main); }
+.uw-tabs { display: flex; gap: 6px; padding: 0 12px 10px; flex-wrap: wrap; }
+.uw-tabs button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); background: transparent; font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+.uw-tabs button span { font-size: 11px; opacity: 0.75; }
+.uw-tabs button.on { background: var(--text-main); border-color: var(--text-main); color: var(--bg-card); }
+.uw-rows { flex: 1 1 auto; overflow-y: auto; scrollbar-width: none; border-top: 1px solid var(--border-light); }
+.uw-rows::-webkit-scrollbar { display: none; }
+.uw-row { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; padding: 12px 14px; border: none; border-bottom: 1px solid var(--border-light); background: transparent; font-family: inherit; cursor: pointer; border-left: 3px solid transparent; }
+.uw-row:hover { background: var(--bg-muted); }
+.uw-row.on { background: var(--bg-muted); border-left-color: var(--accent); }
+.uw-row-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.uw-row-name { font-size: 14px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.uw-row-sub { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--text-muted); padding-left: 16px; }
+.uw-row-amt { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.uw-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--text-muted); }
+.uw-dot-unhandled { background: var(--status-amber-text, #b7791f); }
+.uw-dot-pending { background: var(--text-muted); }
+.uw-dot-booked { background: var(--accent, #1f9a4a); }
+.uw-dot-reversed { background: var(--border); }
+.uw-empty { padding: 24px 14px; font-size: 13px; color: var(--text-muted); }
+.uw-detail { min-width: 0; min-height: 0; display: flex; }
+.uw-detail > .receipt-modal-overlay { flex: 1 1 auto; min-width: 0; }
+/* I arbetsytan: dokumentet i mitten och fälten till höger. */
+.receipt-modal-overlay.is-inline .rc-doc { order: 1; }
+.receipt-modal-overlay.is-inline .rc-form { order: 2; flex-basis: clamp(380px, 38%, 520px); border-right: none; border-left: 1px solid var(--border); }

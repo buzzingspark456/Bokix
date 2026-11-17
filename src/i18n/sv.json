@@ -10,7 +10,7 @@
     "supplierInvoices": "Leverantörsfakturor",
     "articles": "Artiklar och lager",
     "invoices": "Fakturering",
-    "expenses": "Kvitton",
+    "expenses": "Underlag",
     "projects": "Projekt och tid",
     "review": "Att granska",
     "verifications": "Bokföring",
@@ -27,7 +27,7 @@
     "dashboard": "Start",
     "contacts": "Kunder",
     "sales": "Försäljning",
-    "expenses": "Kvitton",
+    "expenses": "Underlag",
     "verifications": "Bokföring",
     "review": "Granska",
     "projects": "Projekt",
@@ -4145,6 +4145,15 @@
       "term": "Årsredovisning",
       "def": "Det formella dokument som sammanfattar bokslutet och (för bland annat aktiebolag) lämnas in till Bolagsverket."
     }
+  },
+  "underlag": {
+    "todo": "Att göra",
+    "booked": "Bokförda",
+    "all": "Alla",
+    "allList": "Alla underlag",
+    "upload": "Ladda upp",
+    "empty": "Inget här.",
+    "unnamed": "Utan namn"
   },
   "rotRut": {
     "capped": "Kunden har redan fått {{used}} kr i husavdrag i år. Avdraget på den här fakturan begränsas till {{room}} kr så att taket inte överskrids.",

@@ -246,7 +246,7 @@ function OcrBadge() {
 // Texten som lästes sparas på kvittots utkast. Ett kvitto är långt under det här.
 const MAX_SAVED_TEXT = 8000;
 
-function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allReceipts, verifications = [], status, onSave, onSaveOcrDraft, onDelete, onReverse, onClose, vatExempt = false, ownCompany = null }) {
+function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allReceipts, verifications = [], status, onSave, onSaveOcrDraft, onDelete, onReverse, onClose, onSaved, inline = false, vatExempt = false, ownCompany = null }) {
   // "Rättad" är också ett låst tillstånd — samma skäl som "Bokförd": en
   // rättelseverifikation ändrar inte originalet, så fälten som redan
   // bokfördes ska förbli precis vad de var när det begicks, inte gå att
@@ -541,7 +541,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const [editingCorners, setEditingCorners] = useState(false);
 
   useEffect(() => {
-    const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
+    const handleEsc = (e) => { if (e.key === 'Escape' && !e.defaultPrevented) onClose(); };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
@@ -670,7 +670,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
       notes: form.notes.trim() || undefined,
       representation: REPRESENTATION_ACCOUNTS.has(form.costAccount) && !vatExempt ? { kind: form.reprKind, persons: Math.floor(Number(form.reprPersons)) } : undefined,
     });
-    onClose();
+    (onSaved || onClose)();
   };
 
   const statusMeta = STATUS_META[status];
@@ -680,7 +680,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     // man håller på med det. Overlayen är därför opak (det finns inget
     // bakom att skymta) och stängs inte längre av ett bakgrundsklick —
     // det finns ingen bakgrund att klicka på. Esc och Stäng gäller.
-    <div className="receipt-modal-overlay" role="dialog" aria-modal="true" aria-label={tr('ui.kvittodetaljer')} style={{ position: 'fixed', inset: 0, zIndex: 1150, display: 'flex' }}>
+    <div className={`receipt-modal-overlay${inline ? ' is-inline' : ''}`} role={inline ? 'region' : 'dialog'} aria-modal={inline ? undefined : 'true'} aria-label={tr('ui.kvittodetaljer')} style={inline ? { position: 'relative', height: '100%', display: 'flex' } : { position: 'fixed', inset: 0, zIndex: 1150, display: 'flex' }}>
       <div className="receipt-modal-box">
 
         {/* ── Kvittot ──
@@ -1164,6 +1164,50 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
 // det inte finns någon fil, i stället för samma ikon på varje rad. En bild
 // som inte går att visa (t.ex. HEIC i vissa webbläsare) faller tillbaka
 // på bokstaven.
+/** Underlagslistan i arbetsytan (2026-11-17, efter Accounteds inkorg):
+ * flikar Att göra / Bokförda / Alla och en tät lista; vald rad öppnas
+ * bredvid i stället för i helskärm. */
+function UnderlagList({ receipts, selectedId, onSelect, statusOf, onClose, onUpload }) {
+  const [tab, setTab] = useState('todo');
+  const counts = { todo: 0, booked: 0, all: receipts.length };
+  receipts.forEach(r => { const s = statusOf(r); if (s === 'unhandled' || s === 'pending') counts.todo++; else if (s === 'booked') counts.booked++; });
+  const shown = receipts.filter(r => { const s = statusOf(r); return tab === 'all' || (tab === 'todo' ? (s === 'unhandled' || s === 'pending') : s === 'booked'); });
+  const tabs = [['todo', tr('underlag.todo')], ['booked', tr('underlag.booked')], ['all', tr('underlag.all')]];
+  return (
+    <aside className="uw-list" aria-label={tr('nav.expenses')}>
+      <div className="uw-list-head">
+        <button type="button" className="uw-back" onClick={onClose}>← {tr('underlag.allList')}</button>
+        {onUpload && <button type="button" className="uw-upload" onClick={onUpload}>+ {tr('underlag.upload')}</button>}
+      </div>
+      <div className="uw-tabs" role="tablist">
+        {tabs.map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : undefined} onClick={() => setTab(id)}>
+            {label} <span>{counts[id]}</span>
+          </button>
+        ))}
+      </div>
+      <div className="uw-rows">
+        {shown.length === 0 && <div className="uw-empty">{tr('underlag.empty')}</div>}
+        {shown.map(r => {
+          const s = statusOf(r);
+          return (
+            <button key={r.id} type="button" className={`uw-row${r.id === selectedId ? ' on' : ''}`} onClick={() => onSelect(r.id)}>
+              <span className="uw-row-top">
+                <span className={`uw-dot uw-dot-${s}`} aria-hidden="true" />
+                <span className="uw-row-name">{r.supplier || r.description || tr('underlag.unnamed')}</span>
+              </span>
+              <span className="uw-row-sub">
+                <span>{r.date || ''}</span>
+                <span className="uw-row-amt">{r.amount ? formatSEK(Math.abs(r.amount)) : ''}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </aside>
+  );
+}
+
 function ReceiptThumbImg({ url, onFail }) {
   const activeUrl = useSignedUrl(url);
   if (!activeUrl) return null;
@@ -1349,6 +1393,18 @@ export default function Expenses({
   const [shownCount, setShownCount] = useState(RECEIPTS_PAGE);
   useEffect(() => { setShownCount(RECEIPTS_PAGE); }, [q, effectiveTab, monthFilter, statusFilter, folderFilter]);
   const detailReceipt = detailReceiptId ? allReceipts.find(r => r.id === detailReceiptId) : null;
+  // Arbetsytan (lista + underlag bredvid) på skärmar från 1100 px.
+  const [wide, setWide] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1100);
+  useEffect(() => {
+    const onResize = () => setWide(window.innerWidth >= 1100);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  // Efter sparning: nästa underlag som ska göras, annars tillbaka till listan.
+  const nextAfter = (id) => {
+    const todo = receiptsList.filter(r => r.id !== id && ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex)));
+    setDetailReceiptId(todo[0]?.id || null);
+  };
 
   // ── Drag & drop / filhantering ──
   // Sätt bara state när det FAKTISKT ändras — dragover fyras av
@@ -1483,6 +1539,41 @@ export default function Expenses({
     setFixingId(null);
     setFixAccount('');
   };
+
+  if (wide && detailReceipt) {
+    return (
+      <div className="uw-split">
+        <UnderlagList
+          receipts={receiptsList}
+          selectedId={detailReceipt.id}
+          onSelect={setDetailReceiptId}
+          statusOf={(r) => getReceiptStatus(r, verIndex)}
+          onClose={() => setDetailReceiptId(null)}
+        />
+        <div className="uw-detail">
+          <ReceiptDetailModal
+            inline
+            vatExempt={isVatExempt(company)}
+            ownCompany={company}
+            key={detailReceipt.id}
+            receipt={detailReceipt}
+            accounts={accounts}
+            projects={projects}
+            folders={folders}
+            allReceipts={allReceipts}
+            verifications={verifications}
+            status={getReceiptStatus(detailReceipt, verIndex)}
+            onSave={(id, values) => onSaveReceiptDetails?.(id, values)}
+            onSaveOcrDraft={(id, draft) => onSaveOcrDraft?.(id, draft)}
+            onDelete={(id) => onDeleteExpense?.(id)}
+            onReverse={(id) => onReverseExpense?.(id)}
+            onClose={() => setDetailReceiptId(null)}
+            onSaved={() => nextAfter(detailReceipt.id)}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>

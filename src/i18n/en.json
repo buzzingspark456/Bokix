@@ -10,7 +10,7 @@
     "supplierInvoices": "Supplier invoices",
     "articles": "Products & stock",
     "invoices": "Invoicing",
-    "expenses": "Receipts",
+    "expenses": "Documents",
     "projects": "Projects & time",
     "review": "To review",
     "verifications": "Bookkeeping",
@@ -27,7 +27,7 @@
     "dashboard": "Home",
     "contacts": "Customers",
     "sales": "Sales",
-    "expenses": "Receipts",
+    "expenses": "Documents",
     "verifications": "Bookkeeping",
     "review": "Review",
     "projects": "Projects",
@@ -4145,6 +4145,15 @@
       "term": "Annual report",
       "def": "The formal document that summarises the year-end closing and (for limited companies, among others) is filed with the Swedish Companies Registration Office."
     }
+  },
+  "underlag": {
+    "todo": "To do",
+    "booked": "Booked",
+    "all": "All",
+    "allList": "All documents",
+    "upload": "Upload",
+    "empty": "Nothing here.",
+    "unnamed": "Unnamed"
   },
   "rotRut": {
     "capped": "The customer has already received {{used}} kr in household deductions this year. The deduction on this invoice is limited to {{room}} kr so the cap is not exceeded.",

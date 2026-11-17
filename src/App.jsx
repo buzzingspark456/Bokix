@@ -5615,7 +5615,7 @@ function App() {
   const mobileNavItems = [
     { id: 'dashboard',     label: t('navShort.dashboard'), icon: NavHomeIcon },
     { id: 'verifications', label: tr('ui.bokforing'), icon: BookOpen },
-    { id: 'expenses',      label: tr('ui.kvitton'),   icon: NavReceiptsIcon },
+    { id: 'expenses',      label: tr('nav.expenses'),   icon: NavReceiptsIcon },
     { id: 'reports',       label: t('navShort.reports'), icon: BarChart3 },
   ];
   // Telefonens Meny har samma grupper som sidomenyn på datorn, utan det som redan
@@ -5943,7 +5943,7 @@ function App() {
             onAddDocument={handleAddDocument}
             onLinkDocument={handleLinkDocument}
             onDeleteDocument={handleDeleteDocument}
-            pageTitle={tr('ui.kvitton')}
+            pageTitle={tr('nav.expenses')}
           />
         );
       case 'supplier_invoices': {
