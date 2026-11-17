@@ -177,11 +177,25 @@ function findSellerVatNr(lines, own, orgNr) {
   return null;
 }
 
+// Sidfoten är ofta en tabell: "Adress  Telefon  Bankgiro  Organisationsnr"
+// på en rad och värdena på raderna under. Då står bankgirot (NNN-NNNN eller
+// NNNN-NNNN, med giltig kontrollsiffra) på någon av de tre raderna efter.
+function bankgiroBelowHeader(lines) {
+  const i = lines.findIndex(l => /bank\s?giro/i.test(l));
+  if (i === -1) return null;
+  for (const line of lines.slice(i + 1, i + 4)) {
+    for (const m of line.matchAll(/(?:^|[^\d-])(\d{3,4}-\d{4})(?![\d-])/g)) {
+      if (luhnOk(m[1])) return m[1];
+    }
+  }
+  return null;
+}
+
 export function readInvoiceDetails(text, { own = {}, invoiceDate = null } = {}) {
   const lines = pairLabelColumns(splitBankDetails(String(text || '').split('\n').map(l => l.trim()).filter(Boolean)));
   const orgNr = findSellerOrgNr(lines, own);
   const dueDate = findDueDate(lines, invoiceDate);
-  const bankgiroRaw = findLabelled(lines, BANKGIRO_RE, BANKGIRO_LABEL_RE, BANKGIRO_ALONE_RE);
+  const bankgiroRaw = findLabelled(lines, BANKGIRO_RE, BANKGIRO_LABEL_RE, BANKGIRO_ALONE_RE) || bankgiroBelowHeader(lines);
   const plusgiroRaw = findLabelled(lines, PLUSGIRO_RE, PLUSGIRO_LABEL_RE, PLUSGIRO_ALONE_RE);
   const bankgiro = bankgiroRaw ? formatBankgiro(bankgiroRaw) : null;
   const plusgiro = plusgiroRaw ? formatPlusgiro(plusgiroRaw) : null;

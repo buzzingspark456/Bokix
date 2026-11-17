@@ -62,3 +62,15 @@ describe('Org.nr när avläsningen förvanskat ordet', () => {
     expect(readInvoiceDetails('Ref 738200-2851')?.orgNr || null).toBe(null);
   });
 });
+
+describe('Faktura med sidfot i kolumner (Gumboda Kapell)', () => {
+  const text = 'Kontantfaktura\nFakturadatum 2026-10-12\nFakturanr 462\nOCR 46250\nPatrik Klasson\nStockaryd Björkäng\n576 94 Stockaryd\nMoms 25% 946,43 (3 785,72) IBAN SE04 9660 0000 0966 0632 7484\nAdress Telefon Bankgiro Organisationsnr\nAlwake kapell Kåge 0702-123456 294-4379 559450-5249\nKågevägen 1 info@gumbodakapell.se Momsreg.nr\n934 32 Kåge www.gumbodakapell.se SE559450524901';
+  it('läser org.nr, VAT-nr, bankgiro, IBAN och OCR', () => {
+    const d = readInvoiceDetails(text);
+    expect(d.orgNr).toBe('559450-5249');
+    expect(d.vatNr).toBe('SE559450524901');
+    expect(d.bankgiro).toBe('294-4379');
+    expect(d.iban).toBe('SE04 9660 0000 0966 0632 7484');
+    expect(d.ocrNumber).toBe('46250');
+  });
+});
