@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { SALES_ACCOUNT_BY_RATE } from '../utils/vatConfig';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { isVatExempt } from '../utils/vatRegistration';
 import { foreignSaleRegion, rowsForCustomer } from '../utils/foreignSales';
@@ -1539,8 +1540,12 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
                                 som resten av appen använder, med hela kontoplanen
                                 ett klick bort. Låst faktura: bara kontot, ingen
                                 väljare — fältet ska inte gå att ändra då. */}
-                            {isLocked
-                              ? <input disabled value={row.account || '3001'} style={inp} />
+                            {/* Rader med moms bokförs alltid på 3001/3002/3003 efter momssatsen
+                                (invoiceBooking.js, och momsdeklarationen räknar dem), så
+                                kontot visas låst för dem. Bara momsfria rader (export,
+                                omvänd skattskyldighet m.m.) väljer konto själva. */}
+                            {isLocked || Number(row.vatRate) > 0
+                              ? <input disabled value={Number(row.vatRate) > 0 ? (SALES_ACCOUNT_BY_RATE[Number(row.vatRate)] || '3001') : (row.account || '3001')} title={Number(row.vatRate) > 0 ? tr('ui.konto_foljer_momssatsen') : undefined} style={inp} />
                               : <AccountSearch value={row.account || '3001'} onChange={code => updateRow(i, 'account', code)} accounts={accounts} placeholder={tr('ui.sok_konto')} />}
                           </div>
                         </div>

@@ -554,6 +554,7 @@
     "kf_stammer_inte_mot_bank": "Does not match cash and bank",
     "privat_vara_valj_konto": "Games and consoles are usually private and not deductible, so Bokix suggests no account. If the purchase is for the business, choose the account yourself.",
     "valj_momssats_fran_kvittot": "Choose the VAT rate printed on the receipt.",
+    "konto_foljer_momssatsen": "Rows with VAT are booked on the sales account for the VAT rate (3001, 3002 or 3003). Choose 0 % to set your own account, for example export.",
     "kommun_skattesats": "Tax rate in {{municipality}} {{year}}: {{rate}} % (municipal, regional and burial fee, excluding church fee).",
     "repr_rubrik": "Entertainment",
     "repr_typ": "Type of entertainment",

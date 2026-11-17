@@ -1,6 +1,6 @@
 import { getDebet, getKredit } from './verificationAmounts';
 import {
-  SALES_ACCOUNT_BY_RATE, OUTPUT_VAT_ACCOUNT_BY_RATE, INPUT_VAT_ACCOUNT,
+  SALES_ACCOUNT_BY_RATE, OUTPUT_VAT_ACCOUNT_BY_RATE, INPUT_VAT_ACCOUNT, OWN_USE_RATE_BY_ACCOUNT, MARGIN_SCHEME_ACCOUNTS,
   REVERSE_PURCHASE_KINDS, REVERSE_VAT_KINDS, EXEMPT_SALES_RUTA_BY_ACCOUNT, VAT_SETTLEMENT_ACCOUNT,
 } from './vatConfig';
 import { hasReverseVatRows, isReverseChargePurchaseAccount, isReverseVatAccount, missingReverseChargeRows, reverseChargePurchaseInfo } from './reverseCharge';
@@ -53,6 +53,8 @@ export function computeVatPeriod({ verifications = [], periodStart, periodEnd })
   const purchaseByRuta = zeroRutor(PURCHASE_RUTOR);
   // Försäljning utan svensk moms (ruta 35-42).
   const exemptSalesByRuta = zeroRutor(EXEMPT_SALES_RUTOR);
+  let ownUse = 0; // ruta 06
+  let marginBase = 0; // ruta 07
   // Utgående moms per konto (kredit positivt) och ingående per konto (debet positivt).
   const vatAccounts = {};
   const addVat = (acc, v) => { vatAccounts[acc] = (vatAccounts[acc] || 0) + v; };
@@ -68,6 +70,10 @@ export function computeVatPeriod({ verifications = [], periodStart, periodEnd })
       let touched = true;
       if (RATE_BY_SALES_ACCOUNT[row.account] !== undefined && row.account !== SALES_ACCOUNT_BY_RATE[0]) {
         underlagByRate[RATE_BY_SALES_ACCOUNT[row.account]] += credit;
+      } else if (OWN_USE_RATE_BY_ACCOUNT[row.account] !== undefined) {
+        ownUse += credit;
+      } else if (MARGIN_SCHEME_ACCOUNTS.includes(String(row.account))) {
+        marginBase += credit;
       } else if (EXEMPT_SALES_RUTA_BY_ACCOUNT[row.account]) {
         exemptSalesByRuta[EXEMPT_SALES_RUTA_BY_ACCOUNT[row.account]] += credit;
       } else if (RATE_BY_VAT_ACCOUNT[row.account] !== undefined) {
@@ -90,7 +96,7 @@ export function computeVatPeriod({ verifications = [], periodStart, periodEnd })
 
   return summarize({
     periodStart, periodEnd,
-    underlagByRate, outputVatByRate, purchaseByRuta, exemptSalesByRuta, vatAccounts, inputVatDomestic,
+    underlagByRate, outputVatByRate, purchaseByRuta, exemptSalesByRuta, vatAccounts, inputVatDomestic, ownUse, marginBase,
     touchedVerificationIds: [...touchedVerificationIds],
     periodVerifications: periodVers,
   });
@@ -138,6 +144,8 @@ export function roundedVatPeriod(calc) {
     outputVatByRate: roundMap(calc.outputVatByRate || zeroRates()),
     purchaseByRuta: roundMap(calc.purchaseByRuta || zeroRutor(PURCHASE_RUTOR)),
     exemptSalesByRuta: roundMap(calc.exemptSalesByRuta || zeroRutor(EXEMPT_SALES_RUTOR)),
+    ownUse: roundKr(calc.ownUse || 0),
+    marginBase: roundKr(calc.marginBase || 0),
     vatAccounts: roundMap(calc.vatAccounts),
     inputVatDomestic: roundKr(calc.inputVatDomestic ?? calc.inputVat),
   });
@@ -152,6 +160,8 @@ export function vatRutaValue(ruta, data) {
     case 'reverseOutput': return (data.reverseVatByRate || {})[ruta.rate] || 0;
     case 'importOutput': return (data.importVatByRate || {})[ruta.rate] || 0;
     case 'exemptSales': return (data.exemptSalesByRuta || {})[ruta.ruta] || 0;
+    case 'ownUse': return data.ownUse || 0;
+    case 'margin': return data.marginBase || 0;
     case 'input': return data.inputVat;
     case 'net': return data.netToPay;
     default: return null;
@@ -245,7 +255,7 @@ export function validateVatPeriod({ verifications = [], invoices = [], expenses 
   // perioden, men ingen enda verifikation som rör moms- eller försäljningskonton
   const hasSourceDocsInPeriod = [...invoices, ...expenses].some(d => inPeriod(d.date, periodStart, periodEnd) && (d.status || 'booked') !== 'draft');
   const hasAnyVatTouchingVerification = periodVers.some(v => isBookedVerification(v) && (v.rows || []).some(r =>
-    SALES_ACCOUNTS_TAXED.includes(r.account) || Object.values(OUTPUT_VAT_ACCOUNT_BY_RATE).includes(r.account) || r.account === INPUT_VAT_ACCOUNT
+    SALES_ACCOUNTS_TAXED.includes(r.account) || OWN_USE_RATE_BY_ACCOUNT[r.account] !== undefined || MARGIN_SCHEME_ACCOUNTS.includes(String(r.account)) || Object.values(OUTPUT_VAT_ACCOUNT_BY_RATE).includes(r.account) || r.account === INPUT_VAT_ACCOUNT
     || isReverseChargePurchaseAccount(r.account) || isReverseVatAccount(r.account) || EXEMPT_SALES_RUTA_BY_ACCOUNT[r.account]
   ));
   if (hasSourceDocsInPeriod && !hasAnyVatTouchingVerification) {

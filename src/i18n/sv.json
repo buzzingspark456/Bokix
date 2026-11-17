@@ -554,6 +554,7 @@
     "kf_stammer_inte_mot_bank": "Stämmer inte mot kassa och bank",
     "privat_vara_valj_konto": "Spel och spelkonsoler är oftast privata och dras inte av, så Bokix föreslår inget konto. Gäller köpet företaget, välj kontot själv.",
     "valj_momssats_fran_kvittot": "Välj momssatsen som står på kvittot.",
+    "konto_foljer_momssatsen": "Rader med moms bokförs på försäljningskontot för momssatsen (3001, 3002 eller 3003). Välj 0 % för att ange eget konto, till exempel export.",
     "kommun_skattesats": "Skattesats i {{municipality}} {{year}}: {{rate}} % (kommun, region och begravningsavgift, utan kyrkoavgift).",
     "repr_rubrik": "Representation",
     "repr_typ": "Typ av representation",

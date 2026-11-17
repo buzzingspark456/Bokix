@@ -38,7 +38,7 @@ import jsPDF from 'jspdf';
 // Taggarna i den ordning Skatteverket anger dem, med rutan de hör till.
 // Ruta 49 (MomsBetala) skrivs sist, separat.
 const ESKD_TAGS = [
-  ['ForsMomsEjAnnan', '05'],
+  ['ForsMomsEjAnnan', '05'], ['UttagMoms', '06'], ['UlagMargbesk', '07'],
   ['MomsUtgHog', '10'], ['MomsUtgMedel', '11'], ['MomsUtgLag', '12'],
   ['InkopVaruAnnatEg', '20'], ['InkopTjanstAnnatEg', '21'], ['InkopTjanstUtomEg', '22'],
   ['InkopVaruSverige', '23'], ['InkopTjanstSverige', '24'],
@@ -61,6 +61,8 @@ function eskdValue(ruta, r) {
     case '60': case '61': case '62': return (r.importVatByRate || {})[rate] || 0;
     case '21': return r.purchaseByRuta?.['21'] ?? r.reversePurchaseEu ?? 0;
     case '22': return r.purchaseByRuta?.['22'] ?? r.reversePurchaseNonEu ?? 0;
+    case '06': return r.ownUse || 0;
+    case '07': return r.marginBase || 0;
     case '48': return r.inputVat;
     default: return r.purchaseByRuta?.[ruta] ?? r.exemptSalesByRuta?.[ruta] ?? 0;
   }
