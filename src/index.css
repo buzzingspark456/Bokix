@@ -9620,3 +9620,19 @@ img.hc-player { object-fit: cover; }
 }
 .receipt-modal-overlay.is-inline .rc-ocr-badge svg { display: none; }
 .receipt-modal-overlay.is-inline .rc-grid { row-gap: 18px; }
+
+/* Kvittodetaljer i arbetsytan, rensad (2026-11-17): ingen undertext,
+   avläsningen som en enkel rad, ingen Stäng-knapp (krysset finns), valuta
+   och retur som små länkar i stället för egna block. */
+.receipt-modal-overlay.is-inline .rc-form-head p { display: none; }
+.receipt-modal-overlay.is-inline .rc-form-head { padding-top: 16px; padding-bottom: 14px; }
+.receipt-modal-overlay.is-inline .rc-scan-offer { border: none; background: none; padding: 0 0 14px; margin-bottom: 18px; border-bottom: 1px solid var(--border-light); border-radius: 0; flex-wrap: nowrap; }
+.receipt-modal-overlay.is-inline .rc-scan-offer-text span { display: none; }
+.receipt-modal-overlay.is-inline .rc-scan-offer-text { min-width: 0; }
+.receipt-modal-overlay.is-inline .rc-scan-offer-text strong { font-size: 14px; font-weight: 600; }
+.receipt-modal-overlay.is-inline .rc-btn-close { display: none; }
+.receipt-modal-overlay.is-inline .rc-grid .rc-link { font-size: 13px; color: var(--text-muted); text-decoration: none; }
+.receipt-modal-overlay.is-inline .rc-grid .rc-link:hover { color: var(--text-main); text-decoration: underline; }
+.receipt-modal-overlay.is-inline .rc-grid .rc-check { font-size: 13px; color: var(--text-muted); }
+.receipt-modal-overlay.is-inline .rc-form-foot { padding: 14px 22px; }
+.receipt-modal-overlay.is-inline .rc-btn-save { background: var(--text-main) !important; color: var(--bg-card) !important; box-shadow: none !important; padding: 11px 22px !important; font-size: 14px !important; }
