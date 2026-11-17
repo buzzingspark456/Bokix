@@ -421,7 +421,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const [ids, setIds] = useState(() => receipt.identifiers ? { ...receipt.identifiers } : pickIds(currentDraft?.details));
   const [idsFromOcr, setIdsFromOcr] = useState(() => idsReadFrom(currentDraft?.details, receipt.identifiers || pickIds(currentDraft?.details)));
   // Vem betalade: företagets konto (1930) eller ägaren privat (utlägg).
-  const [paidBy, setPaidBy] = useState(receipt.paidBy === 'owner' ? 'owner' : 'company');
+  // Ett nytt underlag har inget val: det avgör kontot (1930 eller utlägg) och
+  // väljs därför själv innan det bokförs. Ett sparat har företaget.
+  const [paidBy, setPaidBy] = useState(receipt.paidBy === 'owner' ? 'owner' : (receipt.costAccount ? 'company' : ''));
   const [matchOpen, setMatchOpen] = useState(false);
   // Kontoväljaren i arbetsytan öppnas som en ruta. När avläsningen är klar
   // och inget konto är säkert öppnas den av sig själv, med förslaget överst.
@@ -758,8 +760,12 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
       newErrors.vatAmount = tr('ui.moms_for_hog');
     }
     if (fx && !foreignForSave(fx)) newErrors.fx = 'Fyll i belopp och kurs, eller ta bort valutan.';
+    // Arbetsytan: vem som betalade avgör kontot. Matchas en bankrad var det företaget.
+    if (inline && !readOnly && !paidBy && !opts.bankRowId) newErrors.paidBy = tr('underlag.paidByMissing');
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      // Arbetsytan: visa det första som saknas.
+      if (inline) setTimeout(() => document.querySelector('.receipt-modal-overlay.is-inline .rc-form [data-missing="1"], .receipt-modal-overlay.is-inline .uw-account.invalid')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 30);
       // Felet står på första skärmen: visa den, annars händer inget synligt.
       if (Object.keys(newErrors).some(key => key !== 'costAccount')) goToPhoneStep('read');
       return;
@@ -1024,12 +1030,12 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               <div className={flashField === 'date' ? 'rc-flash' : undefined} {...boxProps('date')}>
                 <label style={labelSt}>{tr('ui.datum')} {ocrFields.has('date') && <OcrBadge />}</label>
                 <input type="date" disabled={readOnly} value={form.date} onChange={e => { setForm(f => ({ ...f, date: e.target.value })); setOcrFields(s => { const n = new Set(s); n.delete('date'); return n; }); }} style={inputStErr(errors.date)} />
-                {errors.date && <div style={errSt}>{errors.date}</div>}
+                {errors.date && <div style={errSt} data-missing="1">{errors.date}</div>}
               </div>
               <div className={flashField === 'amount' ? 'rc-flash' : undefined} {...boxProps('amount')}>
                 <label style={labelSt}>{tr('ui.belopp_ink_moms_kr')} {ocrFields.has('amount') && <OcrBadge />}</label>
                 <AmountInput disabled={readOnly} value={form.amount} onChange={v => { setForm(f => ({ ...f, amount: v })); setOcrFields(s => { const n = new Set(s); n.delete('amount'); return n; }); setOcrVat(null); onSekEdited(v); }} style={inputStErr(errors.amount)} />
-                {errors.amount && <div style={errSt}>{errors.amount}</div>}
+                {errors.amount && <div style={errSt} data-missing="1">{errors.amount}</div>}
               </div>
 
               {fx ? (
@@ -1068,7 +1074,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                       {fxBusy ? tr('ui.hamtar_kursen') : tr('ui.hamta_dagskurs_for', { v0: form.date || 'köpdatumet' })}
                     </button>
                   )}
-                  {(fxError || errors.fx) && <div style={errSt}>{fxError || errors.fx}</div>}
+                  {(fxError || errors.fx) && <div style={errSt} data-missing="1">{fxError || errors.fx}</div>}
                 </div>
               ) : !readOnly && (
                 <div className="rc-span">
@@ -1095,7 +1101,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   style={inputStErr(errors.supplier)}
                   emptyHint={tr('ui.stallen_dyker_upp')}
                 />
-                {errors.supplier && <div style={errSt}>{errors.supplier}</div>}
+                {errors.supplier && <div style={errSt} data-missing="1">{errors.supplier}</div>}
                 {supplierFromRegistry && ocrFields.has('supplier') && (
                   <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px' }}>{tr('ui.namn_fran_momsregistret')}</div>
                 )}
@@ -1159,7 +1165,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                     );
                   })}
                 </div>
-                {errors.vatRate && <div style={errSt}>{errors.vatRate}</div>}
+                {errors.vatRate && <div style={errSt} data-missing="1">{errors.vatRate}</div>}
                 {mixedVat && (
                   <div style={{ marginTop: '10px' }}>
                     <label style={labelSt}>{tr('ui.moms_i_kronor')}</label>
@@ -1169,7 +1175,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                       style={inputStErr(errors.vatAmount)}
                     />
                     {errors.vatAmount
-                      ? <div style={errSt}>{errors.vatAmount}</div>
+                      ? <div style={errSt} data-missing="1">{errors.vatAmount}</div>
                       : <div className="rc-hint">{tr('ui.summan_av_all_moms_pa_kvittot_till_exempel_12_pa')}</div>}
                   </div>
                 )}
@@ -1219,7 +1225,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                       </button>
                     )}
                     {accountNote === 'private' && !form.costAccount && <div className="rc-hint">{tr('ui.privat_vara_valj_konto')}</div>}
-                    {errors.costAccount && <div style={errSt}>{errors.costAccount}</div>}
+                    {errors.costAccount && <div style={errSt} data-missing="1">{errors.costAccount}</div>}
                   </>
                 ) : (
                   <>
@@ -1232,7 +1238,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                       invalid={Boolean(errors.costAccount)}
                     />
                     {accountNote === 'private' && !form.costAccount && <div className="rc-hint">{tr('ui.privat_vara_valj_konto')}</div>}
-                    {errors.costAccount && <div style={errSt}>{errors.costAccount}</div>}
+                    {errors.costAccount && <div style={errSt} data-missing="1">{errors.costAccount}</div>}
                   </>
                 )}
               </div>
@@ -1247,7 +1253,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                     </select>
                     <input type="number" min="1" step="1" inputMode="numeric" disabled={readOnly} value={form.reprPersons} onChange={e => setForm(f => ({ ...f, reprPersons: e.target.value }))} placeholder={tr('ui.repr_personer')} aria-label={tr('ui.repr_personer')} style={inputSt} />
                   </div>
-                  {errors.repr && <div style={errSt}>{errors.repr}</div>}
+                  {errors.repr && <div style={errSt} data-missing="1">{errors.repr}</div>}
                   {form.reprKind && Number(form.reprPersons) > 0 && hasAmount && (() => {
                     const r = representationBooking({ kind: form.reprKind, persons: form.reprPersons, net: grossAmount - vatAmount, vat: vatAmount, vatRate: mixedVat ? 'mixed' : vatRate, account: form.costAccount });
                     return <div className="rc-hint">{tr(r.deductible ? 'ui.repr_info_avdragsgill' : 'ui.repr_info_ej', { vat: formatSEK2(r.deductibleVat), cap: formatSEK2(r.vatCap), account: r.account })}</div>;
@@ -1298,17 +1304,19 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
           {inline && (() => {
             // Kopplad bankrad, och om det finns utgående rader att matcha mot.
             const linked = (bankTransactions || []).find(t => t.matchedType === 'receipt' && t.matchedId === receipt.id);
-            const canMatch = status !== 'reversed' && paidBy === 'company' && !linked
+            const canMatch = status !== 'reversed' && paidBy !== 'owner' && !linked
               && (bankTransactions || []).some(t => t.amount < 0 && (t.status || 'unmatched') === 'unmatched');
             return (
               <div className="uw-foot">
                 {!readOnly && status !== 'reversed' && (
-                  <label className="uw-paidby">
+                  <label className={`uw-paidby${errors.paidBy ? ' invalid' : ''}`}>
                     <span>{tr('underlag.whoPaid')}</span>
-                    <select value={paidBy} onChange={e => setPaidBy(e.target.value)}>
+                    <select value={paidBy} onChange={e => { setPaidBy(e.target.value); setErrors(er => ({ ...er, paidBy: undefined })); }}>
+                      <option value="" disabled>{tr('underlag.paidChoose')}</option>
                       <option value="company">{tr('underlag.paidCompany')}</option>
                       <option value="owner">{tr('underlag.paidOwner')}</option>
                     </select>
+                    {errors.paidBy && <em>{errors.paidBy}</em>}
                   </label>
                 )}
                 {linked && <div className="uw-linked">{tr('underlag.linked')} {linked.description || ''} · {linked.date} · {formatSEK2(linked.amount)}</div>}
@@ -1369,6 +1377,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         <UwDialog title={tr('underlag.pickAccount')} sub={tr('underlag.accountSub')} onClose={() => setAccountOpen(false)}>
           <div className="uw-account-picker">
             <AccountInlinePicker
+              autoFocus
               value=""
               onChange={code => {
                 setForm(f => ({ ...f, costAccount: code }));

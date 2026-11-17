@@ -4189,6 +4189,8 @@
     "sameDay": "Samma dag",
     "daysOff": "Datum ±{{n}} dagar",
     "dayOff": "Datum ±1 dag",
+    "paidChoose": "Välj…",
+    "paidByMissing": "Välj vem som betalade, det avgör kontot.",
     "ownOnly": "Bokix hittade bara ditt eget företags org.nr ({{orgNr}}) på underlaget, så org.nr och VAT-nr lämnas tomma. Är det en faktura ni själva skickat är det en försäljning: lägg den under Kundfakturor i stället.",
     "exactAmount": "Exakt belopp",
     "saveWithoutBank": "Spara och bokför utan bankrad",

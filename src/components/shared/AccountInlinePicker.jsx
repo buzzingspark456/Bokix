@@ -22,7 +22,7 @@ import { isGroupAccount } from '../../utils/accountGroups';
 
 const GROUP_ORDER = ['5-6', '4', '7', '1', '8', '2', '3'];
 
-export default function AccountInlinePicker({ value, onChange, accounts: allAccounts = [], quick = [], suggestion = null, invalid = false }) {
+export default function AccountInlinePicker({ value, onChange, accounts: allAccounts = [], quick = [], suggestion = null, invalid = false, autoFocus = false }) {
   // En importerad kontoplan kan ha samma kod två gånger. Listan behåller en
   // rad per kod (den aktiva om det finns en), annars får React dubbla nycklar
   // och lämnar kvar rader som inte längre hör till sökningen.
@@ -44,6 +44,8 @@ export default function AccountInlinePicker({ value, onChange, accounts: allAcco
   // Fokus (och därmed tangentbordet på telefon) flyttas bara hit när man själv
   // tryckt på "Byt konto", inte varje gång listan visas av sig själv.
   const focusOnOpen = useRef(false);
+  // I en ruta (Underlag → Välj konto) står markören i sökfältet direkt.
+  useEffect(() => { if (autoFocus) inputRef.current?.focus({ preventScroll: true }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Kontot sätts utifrån (avläsningen, ett snabbval): visa det som valt. Tas
   // det bort utifrån: visa listan igen.
