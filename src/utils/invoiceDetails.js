@@ -191,6 +191,13 @@ function bankgiroBelowHeader(lines) {
   return null;
 }
 
+function mentionsOwnNumber(lines, own) {
+  const ownDigits = [tenDigits(own?.orgNr), tenDigits(String(own?.vatNr || '').replace(/01$/, ''))].filter(d => d.length === 10);
+  if (!ownDigits.length) return false;
+  const flat = lines.join(' ').replace(/(\d)[-\s](?=\d)/g, '$1');
+  return ownDigits.some(d => flat.includes(d));
+}
+
 export function readInvoiceDetails(text, { own = {}, invoiceDate = null } = {}) {
   const lines = pairLabelColumns(splitBankDetails(String(text || '').split('\n').map(l => l.trim()).filter(Boolean)));
   const orgNr = findSellerOrgNr(lines, own);
@@ -204,8 +211,13 @@ export function readInvoiceDetails(text, { own = {}, invoiceDate = null } = {}) 
   const ocrNumber = found && found !== digitsOf(bankgiro) ? found : null;
   const iban = findIban(lines);
   const vatNr = findSellerVatNr(lines, own, orgNr);
-  if (!orgNr && !dueDate && !bankgiro && !plusgiro && !ocrNumber && !iban && !vatNr) return null;
+  // Bara företagets eget nummer på underlaget: säljs det av företaget självt
+  // (en egen faktura) eller är säljarens nummer oläsligt. Panelen säger det,
+  // i stället för att fälten bara blir tomma.
+  const ownOnly = !orgNr && !vatNr && mentionsOwnNumber(lines, own);
+  if (!orgNr && !dueDate && !bankgiro && !plusgiro && !ocrNumber && !iban && !vatNr && !ownOnly) return null;
   return {
+    ownOnly,
     orgNr, orgNrGuessed: Boolean(orgNr) && !luhnOk(orgNr),
     vatNr, iban,
     dueDate,

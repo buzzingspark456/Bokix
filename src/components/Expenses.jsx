@@ -938,6 +938,14 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               </div>
             )}
 
+            {/* Bara företagets eget org.nr på underlaget (utils/invoiceDetails.js):
+                oftast en egen faktura, alltså en försäljning och inte ett inköp. */}
+            {!readOnly && !revealing && readDetails?.ownOnly && (
+              <div className="rc-verify rc-verify-warn">
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>{tr('underlag.ownOnly', { orgNr: ownCompany?.orgNr || '' })}</span>
+              </div>
+            )}
             {/* Över 4 000 kr: momsavdraget kräver en fullständig faktura med
                 köparens namn och adress (utils/receiptBuyer.js). */}
             {!vatExempt && !readOnly && !revealing && hasAmount && buyerDetailsCheck({ grossAmount, vatAmount: ocrVat?.vatAmount, vatRate: form.vatRate, readText, company: ownCompany }) === 'missing' && (

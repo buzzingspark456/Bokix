@@ -4189,6 +4189,7 @@
     "sameDay": "Same day",
     "daysOff": "Date ±{{n}} days",
     "dayOff": "Date ±1 day",
+    "ownOnly": "Bokix only found your own company's org. no. ({{orgNr}}) on the document, so org. no. and VAT no. are left empty. If it is an invoice you sent yourselves, it is a sale: add it under Customer invoices instead.",
     "exactAmount": "Exact amount",
     "saveWithoutBank": "Save and book without bank row",
     "account": "Account",

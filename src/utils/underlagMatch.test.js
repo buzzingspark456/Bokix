@@ -74,3 +74,17 @@ describe('Faktura med sidfot i kolumner (Gumboda Kapell)', () => {
     expect(d.ocrNumber).toBe('46250');
   });
 });
+
+describe('Underlag från företaget självt', () => {
+  const text = 'Kontantfaktura\nAdress Telefon Bankgiro Organisationsnr\nAlwake kapell Kåge 0730313589 294-4379 559450-5249\nMomsreg. nr\nSE559450524901';
+  it('säger till när bara företagets eget nummer finns', () => {
+    const d = readInvoiceDetails(text, { own: { orgNr: '559450-5249' } });
+    expect(d.orgNr).toBe(null);
+    expect(d.vatNr).toBe(null);
+    expect(d.ownOnly).toBe(true);
+  });
+  it('inte när säljarens nummer också finns', () => {
+    const d = readInvoiceDetails(text, { own: { orgNr: '556794-7535' } });
+    expect(d.ownOnly).toBe(false);
+  });
+});
