@@ -20,6 +20,7 @@ import { OCR_DRAFT_VERSION } from '../utils/ocrReceipt';
 import { readDocumentText } from '../utils/ocrCache';
 import { captureEvent } from '../utils/posthog';
 import { analyzeReceipt, buildReceiptPlan } from '../utils/receiptScan';
+import { bankRowsForReceipt } from '../utils/bankMatching';
 import { ScanOverlay, OcrChecklist, ReadDetails, ReadText, photoHintText, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
 import { buyerDetailsCheck } from '../utils/receiptBuyer';
 import { newDocument } from '../utils/looseDocuments';
@@ -246,7 +247,86 @@ function OcrBadge() {
 // Texten som lästes sparas på kvittots utkast. Ett kvitto är långt under det här.
 const MAX_SAVED_TEXT = 8000;
 
-function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allReceipts, verifications = [], status, onSave, onSaveOcrDraft, onDelete, onReverse, onClose, onSaved, inline = false, vatExempt = false, ownCompany = null }) {
+// Uppgifterna som läses ur underlaget utöver det som bokförs (2026-11-17,
+// efter Accounteds Extraherade fält). Sparas på kvittot som `identifiers`.
+const ID_FIELDS = [
+  { key: 'orgNr', label: 'underlag.orgNr' },
+  { key: 'vatNr', label: 'underlag.vatNr' },
+  { key: 'bankgiro', label: 'underlag.bankgiro' },
+  { key: 'ocrNumber', label: 'underlag.ocr' },
+  { key: 'iban', label: 'underlag.iban', span: true },
+  { key: 'plusgiro', label: 'underlag.plusgiro', span: true, onlyFilled: true },
+];
+function pickIds(details) {
+  const out = {};
+  if (!details) return out;
+  ID_FIELDS.forEach(({ key }) => { if (details[key]) out[key] = String(details[key]); });
+  return out;
+}
+// Fälten som kom ur avläsningen och inte är osäkra (Luhn-kontrollen) får pricken.
+function idsReadFrom(details, ids) {
+  const s = new Set();
+  if (!details) return s;
+  ID_FIELDS.forEach(({ key }) => { if (details[key] && ids[key] === String(details[key]) && !details[`${key}Guessed`]) s.add(key); });
+  return s;
+}
+function idsForSave(ids) {
+  const out = {};
+  ID_FIELDS.forEach(({ key }) => { const v = String(ids[key] || '').trim(); if (v) out[key] = v; });
+  return Object.keys(out).length ? out : undefined;
+}
+// Uppladdningstiden står i id:t (exp_<millisekunder>).
+function uploadedDate(receipt) {
+  const ts = Number(String(receipt?.id || '').replace(/^exp_/, ''));
+  return ts > 1.5e12 ? new Date(ts).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+}
+
+/** Matcha mot transaktion: välj bankraden som hör till underlaget. */
+function MatchBankModal({ supplier, amount, date, bankTransactions, onPick, onClose }) {
+  const [q, setQ] = useState('');
+  const rows = useMemo(() => bankRowsForReceipt({ amount, date }, bankTransactions, q), [amount, date, bankTransactions, q]);
+  useEffect(() => {
+    // Före kvittovyns egen Esc, så att bara den här rutan stängs.
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); } };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [onClose]);
+  return (
+    <div className="uw-match-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="uw-match" role="dialog" aria-modal="true" aria-label={tr('underlag.match')}>
+        <div className="uw-match-head">
+          <div>
+            <h3>{tr('underlag.match')}</h3>
+            <p>{tr('underlag.matchSub')}</p>
+          </div>
+          <button type="button" className="uw-match-x" onClick={onClose} aria-label={tr('ui.stang')}><X size={18} /></button>
+        </div>
+        <div className="uw-match-sum">
+          <span>{tr('nav.expenses')}</span>
+          <b>{supplier || tr('underlag.unnamed')}</b>
+          <b>{amount > 0 ? formatSEK2(amount) : ''}</b>
+          <span>{date || ''}</span>
+        </div>
+        <input className="uw-match-search" type="search" autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder={tr('underlag.matchSearch')} />
+        <div className="uw-match-count"><span>{tr('underlag.matchSuggested')}</span><span>{rows.length} {tr('underlag.st')}</span></div>
+        <div className="uw-match-list">
+          {rows.length === 0 && <div className="uw-match-empty">{tr('underlag.matchEmpty')}</div>}
+          {rows.slice(0, 60).map(({ row, exact, days }) => (
+            <button key={row.id} type="button" className="uw-match-row" onClick={() => onPick(row.id)}>
+              <span className="uw-match-main">
+                <span className="uw-match-name">{row.description || row.text || '–'} <span className={`uw-badge${exact ? ' strong' : ''}`}>{exact ? tr('underlag.matchGood') : tr('underlag.matchWeak')}</span></span>
+                <span className="uw-match-sub">{row.date}{days < 999 ? ` · ${days === 0 ? tr('underlag.sameDay') : (days === 1 ? tr('underlag.dayOff') : tr('underlag.daysOff', { n: days }))}` : ''}{exact ? ` · ${tr('underlag.exactAmount')}` : ''}</span>
+              </span>
+              <span className="uw-match-amt">{formatSEK2(row.amount)}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allReceipts, verifications = [], status, onSave, onSaveOcrDraft, onDelete, onReverse, onClose, onSaved, inline = false, vatExempt = false, ownCompany = null, bankTransactions = [], onLinkBankRow }) {
   // "Rättad" är också ett låst tillstånd — samma skäl som "Bokförd": en
   // rättelseverifikation ändrar inte originalet, så fälten som redan
   // bokfördes ska förbli precis vad de var när det begicks, inte gå att
@@ -314,6 +394,12 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const [suggestedAccount, setSuggestedAccount] = useState(draft?.suggestedAccount || null);
   // Varför inget konto föreslogs, när det finns ett skäl ('private' för tv-spel).
   const [accountNote, setAccountNote] = useState(draft?.accountNote || null);
+  // Org.nr, VAT-nr, bankgiro, IBAN och OCR (ID_FIELDS ovan).
+  const [ids, setIds] = useState(() => receipt.identifiers ? { ...receipt.identifiers } : pickIds(currentDraft?.details));
+  const [idsFromOcr, setIdsFromOcr] = useState(() => idsReadFrom(currentDraft?.details, receipt.identifiers || pickIds(currentDraft?.details)));
+  // Vem betalade: företagets konto (1930) eller ägaren privat (utlägg).
+  const [paidBy, setPaidBy] = useState(receipt.paidBy === 'owner' ? 'owner' : 'company');
+  const [matchOpen, setMatchOpen] = useState(false);
   // Gör körningar avbrytbara: hinner användaren byta fil eller köra om
   // läsningen innan en pågående körning (som nu även väntar in en
   // valutakurs över nätet) är klar, ska bara den SENASTE körningens
@@ -489,6 +575,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
           if (!foreignInfo.converted) setFxError(tr('ui.kursen_gick_inte_att_hamta_automatiskt_fyll_i_ku'));
         }
         setReadDetails(analysis.details);
+        setIds(prev => ({ ...prev, ...pickIds(analysis.details) }));
+        setIdsFromOcr(idsReadFrom(analysis.details, pickIds(analysis.details)));
         setReadText(analysis.readText.slice(0, MAX_SAVED_TEXT));
         setNotReceipt(nr);
         setUnreadable(Boolean(parsed.unreadable));
@@ -624,7 +712,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     setOcrVat(null);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (opts = {}) => {
     const newErrors = {};
     const amount = parseAmount(form.amount);
     if (!form.date) newErrors.date = tr('ui.datum_kravs');
@@ -669,7 +757,10 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
       costAccount: form.costAccount, projectId: form.projectId || undefined, folderId: form.folderId || undefined,
       notes: form.notes.trim() || undefined,
       representation: REPRESENTATION_ACCOUNTS.has(form.costAccount) && !vatExempt ? { kind: form.reprKind, persons: Math.floor(Number(form.reprPersons)) } : undefined,
+      identifiers: idsForSave(ids),
+      paidBy: paidBy === 'owner' ? 'owner' : undefined,
     });
+    if (opts.bankRowId) onLinkBankRow?.(opts.bankRowId, receipt.id);
     (onSaved || onClose)();
   };
 
@@ -717,10 +808,17 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         <div className={`rc-form${readOnly ? '' : ` rc-step-${phoneStep}`}`}>
           <div className="rc-form-head">
             <div style={{ minWidth: 0 }}>
-              <h2 style={{ margin: 0, fontSize: '16.5px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{tr('ui.kvittodetaljer')}</h2>
+              <h2 style={{ margin: 0, fontSize: '16.5px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{inline ? tr('underlag.detailsTitle') : tr('ui.kvittodetaljer')}</h2>
               <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
                 {readOnly ? tr('ui.bokfort_underlag') : ocrStatus === 'scanning' ? tr('ui.laser_kvittot_det_tar_nagra_sekunder') : revealing ? tr('ui.fyller_i_uppgifterna') : unreadable ? tr('ui.bilden_gick_inte_att_lasa_av') : notReceipt ? tr('ui.det_har_verkar_inte_vara_ett_kvitto_eller_en_fak') : ocrStatus === 'done' ? tr('ui.avlasningen_ar_klar_granska_och_justera') : tr('ui.fyll_i_uppgifterna_fran_kvittot')}
               </p>
+              {inline && (
+                <div className="uw-meta">
+                  <span>{tr('underlag.uploaded')}{receipt.uploadedBy?.name ? ` ${tr('underlag.by')} ${receipt.uploadedBy.name}` : ''}{uploadedDate(receipt) ? ` · ${uploadedDate(receipt)}` : ''}</span>
+                  <span><b>{tr('underlag.type')}</b>{readDetails?.dueDate ? tr('underlag.typeInvoice') : tr('underlag.typeReceipt')}</span>
+                </div>
+              )}
+
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
               {/* Läs av igen. Den första avläsningen startas från kortet i
@@ -876,6 +974,12 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             )}
 
 
+            {inline && (
+              <div className="uw-fields-head">
+                {tr('underlag.fieldsHead')}
+                {ocrFields.size + idsFromOcr.size > 0 && <span>{tr('underlag.filled', { n: ocrFields.size + idsFromOcr.size })}</span>}
+              </div>
+            )}
             <div className="rc-grid">
               <div className={flashField === 'date' ? 'rc-flash' : undefined} {...boxProps('date')}>
                 <label style={labelSt}>{tr('ui.datum')} {ocrFields.has('date') && <OcrBadge />}</label>
@@ -968,6 +1072,19 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 />
                 {numberLabel && form.receiptNumber && <div className="rc-hint">{tr('ui.avlast_som')} {numberLabel.toLowerCase()}</div>}
               </div>
+              {ID_FIELDS.filter(f => (inline && !f.onlyFilled) || ids[f.key]).map(f => (
+                <div key={f.key} className={f.span ? 'rc-span' : undefined}>
+                  <label style={labelSt}>{tr(f.label)} {idsFromOcr.has(f.key) && <OcrBadge />}</label>
+                  <input
+                    disabled={readOnly}
+                    value={ids[f.key] || ''}
+                    placeholder="–"
+                    maxLength={40}
+                    onChange={e => { const v = e.target.value; setIds(p => ({ ...p, [f.key]: v })); setIdsFromOcr(s => { const n = new Set(s); n.delete(f.key); return n; }); }}
+                    style={inputSt}
+                  />
+                </div>
+              ))}
               {vatExempt ? (
                 <div className="rc-span rc-hint" style={{ marginTop: 0 }}>
                   {tr('ui.foretaget_ar_inte_momsregistrerat_sa_momsen_pa_k')}
@@ -1112,7 +1229,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             {/* Det som lästes men inte bokförs (org.nr, betaluppgifter, texten)
                 står under fälten, så att kontot syns utan att rulla (2026-11-05). */}
             <div className="rc-read-extra">
-              {!readOnly && !revealing && <ReadDetails details={readDetails} />}
+              {!readOnly && !revealing && <ReadDetails details={readDetails?.dueDate ? { dueDate: readDetails.dueDate } : null} />}
               {!readOnly && !revealing && readDetails?.dueDate && (
                 <p className="rc-hint rc-read-hint">{tr('ui.faktura_betalas_senare')}</p>
               )}
@@ -1120,7 +1237,42 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             </div>
           </div>
 
-          <div className="rc-form-foot">
+          {inline && (() => {
+            // Kopplad bankrad, och om det finns utgående rader att matcha mot.
+            const linked = (bankTransactions || []).find(t => t.matchedType === 'receipt' && t.matchedId === receipt.id);
+            const canMatch = status !== 'reversed' && paidBy === 'company' && !linked
+              && (bankTransactions || []).some(t => t.amount < 0 && (t.status || 'unmatched') === 'unmatched');
+            return (
+              <div className="uw-foot">
+                {!readOnly && status !== 'reversed' && (
+                  <label className="uw-paidby">
+                    <span>{tr('underlag.whoPaid')}</span>
+                    <select value={paidBy} onChange={e => setPaidBy(e.target.value)}>
+                      <option value="company">{tr('underlag.paidCompany')}</option>
+                      <option value="owner">{tr('underlag.paidOwner')}</option>
+                    </select>
+                  </label>
+                )}
+                {linked && <div className="uw-linked">{tr('underlag.linked')} {linked.description || ''} · {linked.date} · {formatSEK2(linked.amount)}</div>}
+                {canMatch && <button type="button" className="uw-btn-primary" disabled={busy} onClick={() => setMatchOpen(true)}>{tr('underlag.match')}</button>}
+                {status !== 'reversed' && (
+                  <button type="button" className={canMatch ? 'uw-btn-secondary' : 'uw-btn-primary'} disabled={busy} onClick={() => handleSave()} title={busy ? tr('ui.vanta_tills_kvittot_ar_avlast') : undefined}>
+                    {readOnly ? tr('ui.spara_andringar') : canMatch ? tr('underlag.saveWithoutBank') : tr('ui.spara_och_bokfor')}
+                  </button>
+                )}
+                {status === 'booked' ? (
+                  <button type="button" className="uw-btn-link" onClick={async () => { if (await confirmDialog(tr('ui.skapa_en_rattelseverifikation_som_nollar_ut_kont'))) { onReverse(receipt.id); onClose(); } }}>
+                    <RotateCcw size={13} /> {tr('ui.ratta_bokforing')}
+                  </button>
+                ) : status !== 'reversed' ? (
+                  <button type="button" className="uw-btn-link danger" onClick={() => { onDelete(receipt.id); onClose(); }}>
+                    <Trash2 size={13} /> {tr('ui.ta_bort')}
+                  </button>
+                ) : null}
+              </div>
+            );
+          })()}
+          {!inline && <div className="rc-form-foot">
             {status === 'booked' ? (
               // Bokförd — kan inte raderas (Bokföringslagen), men rättas med
               // en ny länkad motverifikation (handleReverseExpense i App.jsx),
@@ -1151,10 +1303,25 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 </button>
               )}
             </div>
-          </div>
+          </div>}
         </div>
 
       </div>
+      {matchOpen && (
+        <MatchBankModal
+          supplier={form.supplier}
+          amount={grossAmount}
+          date={form.date}
+          bankTransactions={bankTransactions}
+          onClose={() => setMatchOpen(false)}
+          onPick={(rowId) => {
+            setMatchOpen(false);
+            // Bokfört: bara kopplingen. Annars sparas och bokförs kvittot först.
+            if (readOnly) { onLinkBankRow?.(rowId, receipt.id); return; }
+            handleSave({ bankRowId: rowId });
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1247,6 +1414,8 @@ export default function Expenses({
   uploadFn = uploadFileToStorage,
   // Underlag att koppla (2026-11-14): sparade utan avläsning.
   documents = [], onAddDocument, onLinkDocument, onDeleteDocument,
+  // Underlag → Matcha mot transaktion.
+  bankTransactions = [], onLinkBankRow,
 }) {
   // -- Receipts State --
   const [isDragging, setIsDragging] = useState(false);
@@ -1578,6 +1747,8 @@ export default function Expenses({
         <div className="uw-detail">
           <ReceiptDetailModal
             inline
+            bankTransactions={bankTransactions}
+            onLinkBankRow={onLinkBankRow}
             vatExempt={isVatExempt(company)}
             ownCompany={company}
             key={detailReceipt.id}

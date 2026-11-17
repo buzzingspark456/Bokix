@@ -131,6 +131,38 @@ function findSellerOrgNr(lines, own) {
  * företaget självt, `invoiceDate` hindrar att ett tidigare datum blir
  * förfallodatum. Svarar null när inget hittades.
  */
+// IBAN: landskod, två kontrollsiffror och kontonumret, med eller utan
+// mellanrum. Bara ett som klarar kontrollen (mod 97) räknas.
+const IBAN_RE = /\b([A-Z]{2}\d{2}(?:\s?[A-Z0-9]{4}){3,7}(?:\s?[A-Z0-9]{1,4})?)\b/;
+function ibanOk(raw) {
+  const s = raw.replace(/\s/g, '').toUpperCase();
+  if (s.length < 15 || s.length > 34) return false;
+  const moved = (s.slice(4) + s.slice(0, 4)).replace(/[A-Z]/g, c => String(c.charCodeAt(0) - 55));
+  let rest = 0;
+  for (const d of moved) rest = (rest * 10 + Number(d)) % 97;
+  return rest === 1;
+}
+function findIban(lines) {
+  for (const line of lines) {
+    const m = IBAN_RE.exec(line.toUpperCase());
+    if (m && ibanOk(m[1])) return m[1].replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim();
+  }
+  return null;
+}
+// Säljarens momsregistreringsnummer (SE + tio siffror + 01). Företagets
+// eget räknas bort, samma som org.nr.
+function findSellerVatNr(lines, own, orgNr) {
+  const ownDigits = [String(own?.orgNr || '').replace(/\D/g, '').slice(-10), String(own?.vatNr || '').replace(/\D/g, '').slice(0, 10)].filter(d => d.length === 10);
+  for (const line of lines) {
+    const m = SE_VAT_RE.exec(line);
+    if (m && !ownDigits.includes(m[1])) return `SE${m[1]}01`;
+  }
+  // Ett svenskt org.nr ger momsnumret direkt, men bara om texten säger att
+  // säljaren är momsregistrerad.
+  if (orgNr && lines.some(l => /momsreg|vat\s*(?:no|nr|reg|number)/i.test(l))) return `SE${orgNr.replace(/\D/g, '')}01`;
+  return null;
+}
+
 export function readInvoiceDetails(text, { own = {}, invoiceDate = null } = {}) {
   const lines = pairLabelColumns(splitBankDetails(String(text || '').split('\n').map(l => l.trim()).filter(Boolean)));
   const orgNr = findSellerOrgNr(lines, own);
@@ -142,9 +174,12 @@ export function readInvoiceDetails(text, { own = {}, invoiceDate = null } = {}) 
   const found = findOcrNumber(lines);
   // Ett bankgiro bredvid ordet referens är inte ett OCR-nummer.
   const ocrNumber = found && found !== digitsOf(bankgiro) ? found : null;
-  if (!orgNr && !dueDate && !bankgiro && !plusgiro && !ocrNumber) return null;
+  const iban = findIban(lines);
+  const vatNr = findSellerVatNr(lines, own, orgNr);
+  if (!orgNr && !dueDate && !bankgiro && !plusgiro && !ocrNumber && !iban && !vatNr) return null;
   return {
     orgNr, orgNrGuessed: Boolean(orgNr) && !luhnOk(orgNr),
+    vatNr, iban,
     dueDate,
     ocrNumber, ocrNumberGuessed: Boolean(ocrNumber) && !luhnOk(ocrNumber),
     bankgiro, bankgiroGuessed: Boolean(bankgiro) && !luhnOk(bankgiro),

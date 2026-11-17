@@ -49,6 +49,7 @@ import { applyCreditNotes } from './utils/creditNotes';
 import { mergeImportedEmployees } from './utils/employeeCsv';
 import { planFromId, planIncludesPayroll } from './utils/plans';
 import { detectOrgType } from './utils/orgType';
+import { ownerPaidAccount } from './utils/paidBy';
 import { captureEvent } from './utils/posthog';
 import { reconcileSieOpenings, applySieOpeningReconcile } from './utils/sieOpeningReconcile';
 import { sieImportTagOf } from './utils/sieImportBatches';
@@ -5086,6 +5087,14 @@ function App() {
     setExpenses(prev => prev.map(e => (e.id === expenseId ? { ...e, ocrDraft: draft } : e)));
   };
 
+  // Underlag → Matcha mot transaktion: bankraden kopplas till kvittot, som
+  // redan bokförts mot 1930. Ingen ny verifikation (samma som Bank-sidans
+  // Koppla till kvittot).
+  const handleLinkReceiptToBank = (rowId, expenseId) => {
+    if (!rowId || !expenseId) return;
+    setBankTransactions(prev => prev.map(t => (t.id === rowId ? { ...t, status: 'matched', matchedType: 'receipt', matchedId: expenseId } : t)));
+  };
+
   const handleSaveReceiptDetails = (expenseId, formValues) => {
     const exp = expenses.find(e => e.id === expenseId);
     if (!exp) return;
@@ -5132,6 +5141,10 @@ function App() {
       // sker i kronor (amount).
       foreignCurrency: formValues.foreignCurrency || undefined,
       notes: formValues.notes || undefined,
+      // Uppgifterna som lästes ur underlaget (org.nr, VAT-nr, bankgiro, IBAN, OCR).
+      identifiers: formValues.identifiers || undefined,
+      // Ägaren betalade privat (utlägg): krediteras 2018/2893/2890 i stället för 1930.
+      paidBy: formValues.paidBy === 'owner' ? 'owner' : undefined,
       // Utkastet från avläsningen behövs inte längre när kvittot är sparat.
       ocrDraft: undefined,
     };
@@ -5150,7 +5163,7 @@ function App() {
     const fxNote = describeForeign(updated.foreignCurrency);
     const verRows = [{ account: updated.costAccount, debet: cents(updated.netAmount), kredit: 0, projectId: updated.projectId, ...(fxNote ? { desc: fxNote } : {}) }];
     if (updated.vatAmount !== 0) verRows.push({ account: '2641', debet: cents(updated.vatAmount), kredit: 0 });
-    verRows.push({ account: '1930', debet: 0, kredit: cents(updated.amount) });
+    verRows.push({ account: updated.paidBy === 'owner' ? ownerPaidAccount(company?.orgNr) : '1930', debet: 0, kredit: cents(updated.amount) });
     // En retur har negativt belopp: varje rad byter sida, så att pengarna
     // kommer in på 1930 och kostnaden och momsen minskar.
     const sided = (r) => (r.debet < 0 || r.kredit < 0 ? { ...r, debet: Math.max(0, -r.kredit), kredit: Math.max(0, -r.debet) } : r);
@@ -5943,6 +5956,8 @@ function App() {
             onAddDocument={handleAddDocument}
             onLinkDocument={handleLinkDocument}
             onDeleteDocument={handleDeleteDocument}
+            bankTransactions={bankTransactions}
+            onLinkBankRow={handleLinkReceiptToBank}
             pageTitle={tr('nav.expenses')}
           />
         );
