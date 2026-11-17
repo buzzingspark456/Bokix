@@ -231,6 +231,11 @@ const STATUS_SINGULAR = { unhandled: tr('ui.ej_hanterad'), pending: tr('ui.pagae
 
 // Liten badge som visas intill fältets label när OCR fyllt i det.
 // Försvinner så fort användaren redigerar fältet manuellt.
+// Osäkert avläst: kontrollera fältet själv.
+function CheckBadge() {
+  return <span className="rc-check-badge">{tr('ui.kontrollera')}</span>;
+}
+
 function OcrBadge() {
   return (
     <span className="rc-ocr-badge" title={tr('ui.ocr')} style={{
@@ -823,7 +828,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             expandable
             emptyText={tr('ui.ingen_fil_ar_sparad_for_det_har_kvittot_uppgifte')}
             highlight={activeBox && fieldBoxes?.[activeBox] ? { box: fieldBoxes[activeBox], label: BOX_LABELS[activeBox] } : null}
-            imageTools={canScan && (
+            imageTools={canScan && !hasScanned && (
               <button type="button" className="dv-btn" disabled={busy} onClick={() => setEditingCorners(true)} title={tr('ui.dra_hornen_till_kvittots_horn')}>
                 <Crop size={14} /> {tr('ui.justera_kanter')}
               </button>
@@ -853,9 +858,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
 
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-              {/* Läs av igen. Den första avläsningen startas från kortet i
-                  formuläret nedan, så knapparna inte säger samma sak två gånger. */}
-              {canScan && hasScanned && (
+              {/* En avläsning per underlag (2026-11-17): det som blev osäkert
+                  rättas för hand. Läs av igen bara när avläsningen misslyckades. */}
+              {canScan && hasScanned && ocrStatus === 'error' && (
                 <button
                   type="button"
                   title={ocrStatus === 'scanning' ? (ocrMessage || tr('ui.laser')) : tr('ui.las_av_kvittot_automatiskt_med_ocr')}
@@ -870,8 +875,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                     fontFamily: 'inherit',
                   }}
                 >
-                  <ScanLine size={14} style={{ animation: ocrStatus === 'scanning' ? 'spin 1s linear infinite' : 'none' }} />
-                  {ocrStatus === 'scanning' ? tr('ui.laser') : (currentDraft || Object.keys(revealed).length > 0 ? tr('ui.las_av_igen') : tr('ui.las_av'))}
+                  <RotateCcw size={13} />
+                  {tr('ui.las_av_igen')}
                 </button>
               )}
               {statusMeta && (
@@ -900,12 +905,11 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   <span>{tr('ui.belopp_moms_datum_och_leverantor_fylls_i_automat')}</span>
                 </div>
                 <button type="button" className="rc-scan-offer-btn" onClick={() => runOcr(receipt.receiptUrl, { force: true })}>
-                  <ScanLine size={15} />
                   {tr('ui.las_av_kvittot')}
                 </button>
               </div>
             )}
-            {!readOnly && (ocrStatus === 'scanning' || revealing || Object.keys(revealed).length > 0) && (
+            {!readOnly && (ocrStatus === 'scanning' || revealing || (!inline && Object.keys(revealed).length > 0)) && (
               <OcrChecklist scanning={ocrStatus === 'scanning'} revealed={revealed} />
             )}
             {!readOnly && ocrStatus === 'scanning' && (
@@ -954,7 +958,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             )}
             {/* Över 4 000 kr: momsavdraget kräver en fullständig faktura med
                 köparens namn och adress (utils/receiptBuyer.js). */}
-            {!vatExempt && !readOnly && !revealing && hasAmount && buyerDetailsCheck({ grossAmount, vatAmount: ocrVat?.vatAmount, vatRate: form.vatRate, readText, company: ownCompany }) === 'missing' && (
+            {!vatExempt && !readOnly && !revealing && hasAmount && !readDetails?.ownOnly && buyerDetailsCheck({ grossAmount, vatAmount: ocrVat?.vatAmount, vatRate: form.vatRate, readText, company: ownCompany }) === 'missing' && (
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
                 <span>{tr('ui.kvitto_over_4000', { name: ownCompany?.name || tr('ui.ditt_foretag_litet') })}</span>
@@ -1028,12 +1032,12 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             )}
             <div className="rc-grid">
               <div className={flashField === 'date' ? 'rc-flash' : undefined} {...boxProps('date')}>
-                <label style={labelSt}>{tr('ui.datum')} {ocrFields.has('date') && <OcrBadge />}</label>
+                <label style={labelSt}>{tr('ui.datum')} {ocrFields.has('date') ? <OcrBadge /> : !readOnly && revealed.date === 'guess' && <CheckBadge />}</label>
                 <input type="date" disabled={readOnly} value={form.date} onChange={e => { setForm(f => ({ ...f, date: e.target.value })); setOcrFields(s => { const n = new Set(s); n.delete('date'); return n; }); }} style={inputStErr(errors.date)} />
                 {errors.date && <div style={errSt} data-missing="1">{errors.date}</div>}
               </div>
               <div className={flashField === 'amount' ? 'rc-flash' : undefined} {...boxProps('amount')}>
-                <label style={labelSt}>{tr('ui.belopp_ink_moms_kr')} {ocrFields.has('amount') && <OcrBadge />}</label>
+                <label style={labelSt}>{tr('ui.belopp_ink_moms_kr')} {ocrFields.has('amount') ? <OcrBadge /> : !readOnly && revealed.amount === 'guess' && <CheckBadge />}</label>
                 <AmountInput disabled={readOnly} value={form.amount} onChange={v => { setForm(f => ({ ...f, amount: v })); setOcrFields(s => { const n = new Set(s); n.delete('amount'); return n; }); setOcrVat(null); onSekEdited(v); }} style={inputStErr(errors.amount)} />
                 {errors.amount && <div style={errSt} data-missing="1">{errors.amount}</div>}
               </div>
@@ -1091,7 +1095,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 </div>
               )}
               <div className={`rc-span${flashField === 'supplier' ? ' rc-flash' : ''}`} {...boxProps('supplier')}>
-                <label style={labelSt}>{tr('ui.inkopsstalle_leverantor')} {ocrFields.has('supplier') && <OcrBadge />}</label>
+                <label style={labelSt}>{tr('ui.inkopsstalle_leverantor')} {ocrFields.has('supplier') ? <OcrBadge /> : !readOnly && revealed.supplier === 'guess' && <CheckBadge />}</label>
                 <TextSuggestInput
                   disabled={readOnly}
                   value={form.supplier}
@@ -1107,7 +1111,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 )}
               </div>
               <div className={`rc-span${flashField === 'receiptNumber' ? ' rc-flash' : ''}`} {...boxProps('receiptNumber')}>
-                <label style={labelSt}>{tr('ui.kvitto_faktura_eller_ordernummer_valfritt')} {ocrFields.has('receiptNumber') && <OcrBadge />}</label>
+                <label style={labelSt}>{tr('ui.kvitto_faktura_eller_ordernummer_valfritt')} {ocrFields.has('receiptNumber') ? <OcrBadge /> : !readOnly && revealed.receiptNumber === 'guess' && <CheckBadge />}</label>
                 <input
                   disabled={readOnly}
                   value={form.receiptNumber}
@@ -1137,7 +1141,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 </div>
               ) : (
               <div className={`rc-span${flashField === 'vatRate' ? ' rc-flash' : ''}`} {...boxProps('vatAmount')}>
-                <label style={labelSt}>{tr('ui.momssats')} {ocrFields.has('vatRate') && <OcrBadge />}</label>
+                <label style={labelSt}>{tr('ui.momssats')} {ocrFields.has('vatRate') ? <OcrBadge /> : !readOnly && revealed.vatRate === 'guess' && <CheckBadge />}</label>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   {[25, 12, 6, 0, 'mixed'].map(v => {
                     /* Ingen sats vald förrän kvittot sagt den eller användaren valt. */
@@ -1204,7 +1208,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               </div>
 
               <div className={`rc-span rc-later${flashField === 'costAccount' ? ' rc-flash' : ''}`}>
-                <label style={labelSt}>{tr('ui.konto_2')} {ocrFields.has('costAccount') && <OcrBadge />}</label>
+                <label style={labelSt}>{tr('ui.konto_2')} {ocrFields.has('costAccount') ? <OcrBadge /> : !readOnly && revealed.costAccount === 'guess' && <CheckBadge />}</label>
                 {readOnly ? (
                   <div style={{ ...inputSt, background: 'var(--bg-muted)', color: 'var(--text-main)' }}>
                     {accountLabel ? `${accountLabel.code} – ${accountLabel.name}` : form.costAccount || '—'}
