@@ -206,7 +206,7 @@ function InvoiceMobileSummary({ invoice, customerName, nextNum, ocr, totals, cus
     ...(verificationNumber ? [[tr('ui.verifikation'), verificationNumber]] : []),
   ];
   const actions = [
-    { icon: <Send size={18} />, label: emailBusy ? 'Skickar…' : (emailSent ? `${tr('ui.isum_skicka')} · ${tr('ui.isum_skickad').toLowerCase()}` : tr('ui.isum_skicka')), onClick: onEmail, disabled: emailBusy },
+    { icon: <Send size={18} />, label: emailBusy ? tr('ui.skickar') : (emailSent || invoice?.emailLog?.length ? tr('ui.skicka_igen') : tr('ui.isum_skicka')), onClick: onEmail, disabled: emailBusy },
     { icon: <Download size={18} />, label: pdfBusy ? tr('ui.skapar_pdf') : tr('ui.isum_dela_pdf'), onClick: onPdf, disabled: pdfBusy },
     { icon: <Eye size={18} />, label: tr('ui.forhandsgranska'), onClick: onPreview },
     { icon: <MessageSquare size={18} />, label: tr('ui.isum_kommentar'), onClick: onComment },
@@ -919,7 +919,8 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
           }}
         />
         {topBarBtn(
-          emailBusy ? 'Skickar…' : 'Skicka via e-post',
+          // Redan mejlad: knappen heter Skicka igen (kunden har tappat bort den).
+          emailBusy ? tr('ui.skickar') : (initial?.emailLog?.length || emailSent ? tr('ui.skicka_igen') : tr('ui.skicka_via_e_post')),
           <Send size={13} />,
           openEmailCompose,
           {},

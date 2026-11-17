@@ -1438,7 +1438,9 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
       const matchesNumber = v.number?.toLowerCase().includes(s);
       const matchesDesc = v.description?.toLowerCase().includes(s);
       const matchesAmount = amountStr.includes(s.replace(',', '.'));
-      if (!matchesNumber && !matchesDesc && !matchesAmount) return false;
+      // Kontonummer (t.ex. 1630): alla verifikationer med en rad på kontot.
+      const matchesAccount = /^\d{4}$/.test(s.trim()) && (v.rows || []).some(r => String(r.account) === s.trim());
+      if (!matchesNumber && !matchesDesc && !matchesAmount && !matchesAccount) return false;
     }
     if (dateFrom && v.date < dateFrom) return false;
     if (dateTo && v.date > dateTo) return false;
