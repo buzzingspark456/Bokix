@@ -9590,3 +9590,33 @@ img.hc-player { object-fit: cover; }
 /* I arbetsytan: dokumentet i mitten och fälten till höger. */
 .receipt-modal-overlay.is-inline .rc-doc { order: 1; }
 .receipt-modal-overlay.is-inline .rc-form { order: 2; flex-basis: clamp(380px, 38%, 520px); border-right: none; border-left: 1px solid var(--border); }
+
+/* Arbetsytan alltid på dator (2026-11-17): sök, tom mitt och tom högerspalt. */
+.uw-search { padding: 0 12px 10px; }
+.uw-search input { width: 100%; box-sizing: border-box; padding: 8px 11px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--text-main); font-family: inherit; font-size: 13.5px; outline: none; }
+.uw-search input:focus { border-color: var(--text-muted); }
+.uw-detail-empty { display: grid; grid-template-columns: minmax(0, 1fr) clamp(380px, 38%, 520px); }
+.uw-empty-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; text-align: center; color: var(--text-muted); background: var(--bg-muted); }
+.uw-empty-mid.on { outline: 2px dashed var(--accent); outline-offset: -12px; }
+.uw-empty-mid strong { font-size: 15px; font-weight: 600; color: var(--text-main); margin-top: 6px; }
+.uw-empty-mid span { font-size: 13px; }
+.uw-empty-btn { margin-top: 10px; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.uw-empty-btn:hover { border-color: var(--text-muted); }
+.uw-empty-side { border-left: 1px solid var(--border); padding: 32px 24px; text-align: center; font-size: 13.5px; color: var(--text-muted); }
+
+/* Fälten till höger i Accounted-stil, men större text. */
+.receipt-modal-overlay.is-inline .rc-grid label:not(.rc-check) {
+  display: flex !important; align-items: center; justify-content: space-between;
+  font-size: 12px !important; font-weight: 600 !important; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-muted) !important; margin-bottom: 6px !important;
+}
+.receipt-modal-overlay.is-inline .rc-grid input:not([type="checkbox"]),
+.receipt-modal-overlay.is-inline .rc-grid select {
+  font-size: 15px !important; padding: 10px 12px !important; border-radius: 8px !important;
+}
+.receipt-modal-overlay.is-inline .rc-ocr-badge {
+  width: 7px; height: 7px; padding: 0 !important; margin-left: 8px !important;
+  font-size: 0 !important; background: var(--accent, #1f9a4a) !important; border-radius: 50% !important; overflow: hidden;
+}
+.receipt-modal-overlay.is-inline .rc-ocr-badge svg { display: none; }
+.receipt-modal-overlay.is-inline .rc-grid { row-gap: 18px; }

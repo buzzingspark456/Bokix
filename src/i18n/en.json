@@ -4150,10 +4150,16 @@
     "todo": "To do",
     "booked": "Booked",
     "all": "All",
-    "allList": "All documents",
+    "allList": "Show as list",
     "upload": "Upload",
     "empty": "Nothing here.",
-    "unnamed": "Unnamed"
+    "unnamed": "Unnamed",
+    "search": "Search documents",
+    "pickTitle": "Pick a document in the list",
+    "pickHint": "Or drag and drop a file here to upload.",
+    "uploadFile": "Upload a file",
+    "pickSide": "Pick a document to see its details.",
+    "workspace": "Show workspace"
   },
   "rotRut": {
     "capped": "The customer has already received {{used}} kr in household deductions this year. The deduction on this invoice is limited to {{room}} kr so the cap is not exceeded.",

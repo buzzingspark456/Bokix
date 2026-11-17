@@ -232,7 +232,7 @@ const STATUS_SINGULAR = { unhandled: tr('ui.ej_hanterad'), pending: tr('ui.pagae
 // Försvinner så fort användaren redigerar fältet manuellt.
 function OcrBadge() {
   return (
-    <span style={{
+    <span className="rc-ocr-badge" title={tr('ui.ocr')} style={{
       display: 'inline-flex', alignItems: 'center', gap: '3px',
       fontSize: '10px', fontWeight: 700, letterSpacing: '0.02em',
       padding: '1px 6px', borderRadius: '999px', verticalAlign: 'middle', marginLeft: '5px',
@@ -1169,15 +1169,21 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
  * bredvid i stället för i helskärm. */
 function UnderlagList({ receipts, selectedId, onSelect, statusOf, onClose, onUpload }) {
   const [tab, setTab] = useState('todo');
+  const [q, setQ] = useState('');
   const counts = { todo: 0, booked: 0, all: receipts.length };
   receipts.forEach(r => { const s = statusOf(r); if (s === 'unhandled' || s === 'pending') counts.todo++; else if (s === 'booked') counts.booked++; });
-  const shown = receipts.filter(r => { const s = statusOf(r); return tab === 'all' || (tab === 'todo' ? (s === 'unhandled' || s === 'pending') : s === 'booked'); });
+  const needle = q.trim().toLowerCase();
+  const shown = receipts.filter(r => { const s = statusOf(r); return tab === 'all' || (tab === 'todo' ? (s === 'unhandled' || s === 'pending') : s === 'booked'); })
+    .filter(r => !needle || [r.supplier, r.description, r.date, r.amount != null ? String(r.amount) : ''].some(v => String(v || '').toLowerCase().includes(needle)));
   const tabs = [['todo', tr('underlag.todo')], ['booked', tr('underlag.booked')], ['all', tr('underlag.all')]];
   return (
     <aside className="uw-list" aria-label={tr('nav.expenses')}>
       <div className="uw-list-head">
-        <button type="button" className="uw-back" onClick={onClose}>← {tr('underlag.allList')}</button>
+        <button type="button" className="uw-back" onClick={onClose}>{tr('underlag.allList')}</button>
         {onUpload && <button type="button" className="uw-upload" onClick={onUpload}>+ {tr('underlag.upload')}</button>}
+      </div>
+      <div className="uw-search">
+        <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={tr('underlag.search')} aria-label={tr('underlag.search')} />
       </div>
       <div className="uw-tabs" role="tablist">
         {tabs.map(([id, label]) => (
@@ -1400,6 +1406,9 @@ export default function Expenses({
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+  // Den gamla listan finns kvar bakom "Visa som lista". Valet sparas i webbläsaren.
+  const [listView, setListViewState] = useState(() => { try { return localStorage.getItem('bokix.underlagView') === 'list'; } catch { return false; } });
+  const setListView = (v) => { setListViewState(v); try { localStorage.setItem('bokix.underlagView', v ? 'list' : 'workspace'); } catch { /* inget */ } };
   // Efter sparning: nästa underlag som ska göras, annars tillbaka till listan.
   const nextAfter = (id) => {
     const todo = receiptsList.filter(r => r.id !== id && ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex)));
@@ -1540,16 +1549,32 @@ export default function Expenses({
     setFixAccount('');
   };
 
-  if (wide && detailReceipt) {
+  if (wide && (detailReceipt || !listView)) {
     return (
       <div className="uw-split">
+        <input type="file" id="uw-upload" style={{ display: 'none' }} multiple accept={ACCEPT_ATTR} onChange={handleFileInput} />
         <UnderlagList
           receipts={receiptsList}
-          selectedId={detailReceipt.id}
+          selectedId={detailReceipt?.id}
           onSelect={setDetailReceiptId}
           statusOf={(r) => getReceiptStatus(r, verIndex)}
-          onClose={() => setDetailReceiptId(null)}
+          onClose={() => { setDetailReceiptId(null); setListView(true); }}
+          onUpload={() => document.getElementById('uw-upload').click()}
         />
+        {!detailReceipt ? (
+          <div className="uw-detail uw-detail-empty">
+            <div
+              className={`uw-empty-mid${isDragging ? ' on' : ''}`}
+              onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
+            >
+              <Paperclip size={28} />
+              <strong>{tr('underlag.pickTitle')}</strong>
+              <span>{tr('underlag.pickHint')}</span>
+              <button type="button" className="uw-empty-btn" onClick={() => document.getElementById('uw-upload').click()}>+ {tr('underlag.uploadFile')}</button>
+            </div>
+            <div className="uw-empty-side">{tr('underlag.pickSide')}</div>
+          </div>
+        ) : (
         <div className="uw-detail">
           <ReceiptDetailModal
             inline
@@ -1571,6 +1596,7 @@ export default function Expenses({
             onSaved={() => nextAfter(detailReceipt.id)}
           />
         </div>
+        )}
       </div>
     );
   }
@@ -1586,7 +1612,7 @@ export default function Expenses({
           med listan direkt istället för att kliva genom fyra separata
           block (rubrik, uppladdning, sökrad, filterrad) innan man ens ser
           ett kvitto. */}
-      <ListPageHeader title={pageTitle || tr('ui.kvitton')} subtitle={pageSubtitle}>
+      <ListPageHeader title={pageTitle || tr('ui.kvitton')} subtitle={pageSubtitle} actions={wide ? [{ key: 'ws', label: tr('underlag.workspace'), onClick: () => setListView(false), variant: 'primary' }] : []}>
         <div style={{ marginTop: '14px' }}>
           {/* Telefon: i stället för dra-och-släpp-ytan (som inte går att dra
               något till på en telefon) en stor kameraknapp som öppnar kameran

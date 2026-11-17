@@ -4150,10 +4150,16 @@
     "todo": "Att göra",
     "booked": "Bokförda",
     "all": "Alla",
-    "allList": "Alla underlag",
+    "allList": "Visa som lista",
     "upload": "Ladda upp",
     "empty": "Inget här.",
-    "unnamed": "Utan namn"
+    "unnamed": "Utan namn",
+    "search": "Sök bland underlag",
+    "pickTitle": "Välj ett underlag i listan",
+    "pickHint": "Eller dra och släpp en fil här för att ladda upp.",
+    "uploadFile": "Ladda upp en fil",
+    "pickSide": "Välj ett underlag för att se uppgifterna.",
+    "workspace": "Visa arbetsyta"
   },
   "rotRut": {
     "capped": "Kunden har redan fått {{used}} kr i husavdrag i år. Avdraget på den här fakturan begränsas till {{room}} kr så att taket inte överskrids.",
