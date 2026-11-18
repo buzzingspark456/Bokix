@@ -5694,7 +5694,7 @@ function App() {
     const submitted = agiReports.some(r => r.period === d.periodKey && r.status === 'submitted');
     return booked && !submitted && d.daysLeft <= 7 ? d : null;
   })();
-  const notifications = buildNotificationFeed({ t, invoices, expenses: isNewUnderlagUser(user?.email) ? expenses : [], integrationEvents, vat: vatSoon, agi: agiSoon })
+  const notifications = buildNotificationFeed({ t, invoices, expenses: isNewUnderlagUser(user?.email) && (() => { try { return localStorage.getItem('bokix.inboxNotify') !== '0'; } catch { return true; } })() ? expenses : [], integrationEvents, vat: vatSoon, agi: agiSoon })
     .filter(n => !n.keys.every(k => dismissedNotifKeys.has(k)));
   const notificationCount = notifications.filter(n => isUnread(n, seenNotifKeys)).length;
   const toggleNotifMenu = () => {

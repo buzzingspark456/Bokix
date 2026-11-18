@@ -3,7 +3,7 @@ import { REPRESENTATION_ACCOUNTS, representationBooking, representationKinds } f
 import { isVatExempt } from '../utils/vatRegistration';
 import {
   UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop, SlidersHorizontal,
-  Mail, Copy, Inbox,
+  Mail, Copy, Inbox, Cog,
 } from './icons';
 import { supabase } from '../supabaseClient';
 import { AccountSearch } from './shared/SearchInputs';
@@ -1731,10 +1731,10 @@ function UnderlagNav({ view, onView, counts }) {
     ['underlag', tr('nav.underlag'), FileText, counts.todo],
     ['mail', tr('underlag.navMail'), Mail, counts.mail],
     ['senders', tr('underlag.navSenders'), CheckCircle2, null],
-    ['mailbox', tr('underlag.navMailbox'), Inbox, null],
     ['trash', tr('underlag.navTrash'), Trash2, counts.trash],
+    ['mailbox', tr('underlag.navSettings'), Cog, null],
   ];
-  // Tre grupper som Fortnox: underlagen, inkorgen, papperskorgen.
+  // Grupper: underlagen och avsändarna, papperskorgen, inställningarna.
   const groups = [items.slice(0, 3), items.slice(3, 4), items.slice(4)];
   return (
     <nav className="ut-nav-side" aria-label={tr('nav.underlag')}>
@@ -1854,7 +1854,7 @@ function SendersView({ info, onSaveSenders, receipts = [], ownEmail = '' }) {
           <span>{tr('underlag.sendersBlocked', { from: info.lastBlockedFrom })}{info.lastBlockedAt ? ` · ${new Date(info.lastBlockedAt).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</span>
           <button type="button" onClick={() => allow(stopped)}>{tr('underlag.sendersAllow')}</button>
           <button type="button" className="ut-alert-ghost" onClick={() => block(stopped)}>{tr('underlag.block')}</button>
-          <button type="button" className="ut-alert-x" onClick={hideStopped} aria-label={tr('underlag.hide')} title={tr('underlag.hide')}><X size={14} /></button>
+          <button type="button" className="ut-alert-x" onClick={hideStopped} aria-label={tr('underlag.hide')} title={tr('underlag.hide')}><X size={15} /> {tr('underlag.hide')}</button>
         </div>
       )}
       <div className="ut-snd-card">
@@ -1912,49 +1912,57 @@ function SendersView({ info, onSaveSenders, receipts = [], ownEmail = '' }) {
   );
 }
 
-/** Företagsbrevlåda: adressen stort, sedan vägarna in. */
-function MailboxView({ info, onUpload, onSenders }) {
+/** Inställningar för inkorgen (2026-11-18): adressen, Gmail och notiser på en
+ * lugn inställningssida i stället för en egen vy med kort. */
+function MailboxView({ info, notify = true, onNotify }) {
   const gmailConnected = Boolean(info?.gmailCodeAt && info?.lastReceivedAt && Date.parse(info.lastReceivedAt) - Date.parse(info.gmailCodeAt) > 60 * 1000);
   const [gmailOpen, setGmailOpen] = useState(false);
+  const row = (title, sub, right, extra) => (
+    <div className="ut-set-row">
+      <div className="ut-set-text"><b>{title}</b>{sub && <span>{sub}</span>}</div>
+      <div className="ut-set-right">{right}</div>
+      {extra}
+    </div>
+  );
   return (
     <div className="ut">
       <div className="ut-head">
-        <h1>{tr('underlag.navMailbox')}</h1>
-        <p>{tr('underlag.mailboxSub')}</p>
+        <h1>{tr('underlag.navSettings')}</h1>
+        <p>{tr('underlag.settingsIntro')}</p>
       </div>
-      <div className="ut-hero">
-        <span className="ut-hero-ico"><Mail size={22} /></span>
-        <div className="ut-hero-text">
-          <small>{tr('underlag.mbxAddress')}</small>
-          {info?.address ? <code>{info.address}</code> : <em>{tr('underlag.mbxAddressMissing')}</em>}
-          <span>{tr('underlag.mbxHeroHint')}</span>
-          <span className="ut-hero-last">{info?.lastReceivedAt ? tr('underlag.mbxLast', { when: new Date(info.lastReceivedAt).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }) }) : tr('underlag.mbxNoneYet')}</span>
-        </div>
-        {info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />}
+      <div className="ut-set">
+        <h2>{tr('underlag.setAddressTitle')}</h2>
+        {row(
+          info?.address ? <code className="ut-set-code">{info.address}</code> : tr('underlag.mbxAddressMissing'),
+          <>{tr('underlag.mbxHeroHint')} {info?.lastReceivedAt ? tr('underlag.mbxLast', { when: new Date(info.lastReceivedAt).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }) }) : tr('underlag.mbxNoneYet')}</>,
+          info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />,
+        )}
       </div>
-      <h2 className="ut-h2">{tr('underlag.mbxOtherWays')}</h2>
-      <div className="ut-ways">
-        <div className="ut-way">
-          <span className="ut-way-ico ut-way-gmail">G</span>
-          <b>{tr('underlag.mbxGmail')}</b>
-          <span>{gmailConnected ? tr('underlag.mbxGmailOn') : tr('underlag.mbxGmailSub')}</span>
-          {gmailConnected
+      <div className="ut-set">
+        <h2>{tr('underlag.setForwardTitle')}</h2>
+        {row(
+          <><span className="ut-set-g">G</span>{tr('underlag.mbxGmail')}</>,
+          gmailConnected ? tr('underlag.mbxGmailOn') : tr('underlag.mbxGmailSub'),
+          gmailConnected
             ? <span className="uw-mbx-on">{tr('underlag.mbxConnected')}</span>
-            : <a className="ut-way-btn" href={GMAIL_FORWARDING_URL} target="_blank" rel="noopener noreferrer" onClick={() => setGmailOpen(true)}>{tr('underlag.mbxConnect')}</a>}
-          {!gmailConnected && (gmailOpen || info?.gmailCode) && (
-            <ol className="ut-steps">
+            : <a className="ut-way-btn" href={GMAIL_FORWARDING_URL} target="_blank" rel="noopener noreferrer" onClick={() => setGmailOpen(true)}>{tr('underlag.mbxConnect')}</a>,
+          !gmailConnected && (gmailOpen || info?.gmailCode) && (
+            <ol className="ut-steps ut-set-steps">
               <li>{tr('underlag.mbxStepA')}</li>
               <li>{tr('underlag.mbxStep2')} {info?.gmailCode ? <b className="uw-mbx-code">{info.gmailCode}</b> : <em>{tr('underlag.mbxCodeWait')}</em>}</li>
               <li>{tr('underlag.mbxStepB')} <a href={GMAIL_FILTERS_URL} target="_blank" rel="noopener noreferrer">{tr('underlag.mbxFilters')}</a></li>
             </ol>
-          )}
-        </div>
-        <div className="ut-way">
-          <span className="ut-way-ico"><UploadCloud size={18} /></span>
-          <b>{tr('underlag.mbxUpload')}</b>
-          <span>{tr('underlag.mbxUploadSub')}</span>
-          <button type="button" className="ut-way-btn" onClick={onUpload}>{tr('underlag.upload')}</button>
-        </div>
+          ),
+        )}
+        {row(tr('underlag.setOtherMail'), tr('underlag.setOtherMailSub'), null)}
+      </div>
+      <div className="ut-set">
+        <h2>{tr('underlag.setNotifyTitle')}</h2>
+        {row(
+          tr('underlag.setNotifyBell'),
+          tr('underlag.setNotifyBellSub'),
+          <label className="ut-switch"><input type="checkbox" checked={notify} onChange={e => onNotify?.(e.target.checked)} /><span /></label>,
+        )}
       </div>
     </div>
   );
@@ -2404,6 +2412,9 @@ export default function Expenses({
     return () => window.removeEventListener('resize', onResize);
   }, []);
   const [mailboxOpen, setMailboxOpen] = useState(false);
+  // Notis i klockan för nya mejl (Inställningar för inkorgen), per webbläsare.
+  const [inboxNotify, setInboxNotifyState] = useState(() => { try { return localStorage.getItem('bokix.inboxNotify') !== '0'; } catch { return true; } });
+  const setInboxNotify = (v) => { setInboxNotifyState(v); try { localStorage.setItem('bokix.inboxNotify', v ? '1' : '0'); window.dispatchEvent(new Event('bokix-inbox-notify')); } catch { /* inget */ } };
   // Papperskorgen: äldre än 30 dagar tas bort för gott (filen också).
   useEffect(() => {
     const old = (receiptTrash || []).filter(r => r.trashedAt && Date.now() - Date.parse(r.trashedAt) > 30 * 86400000);
@@ -2621,7 +2632,7 @@ export default function Expenses({
                 <SendersView info={inboxInfo} onSaveSenders={saveSenders} receipts={[...allReceipts, ...receiptTrash]} ownEmail={user?.email || ''} />
               )}
               {uwView === 'mailbox' && (
-                <MailboxView info={inboxInfo} onUpload={() => document.getElementById('uw-upload').click()} onSenders={() => setUwView('senders')} />
+                <MailboxView info={inboxInfo} notify={inboxNotify} onNotify={setInboxNotify} />
               )}
               {uwView === 'trash' && (
                 <TrashView items={receiptTrash} onRestore={onRestoreExpense} onPurge={onPurgeTrash} />
