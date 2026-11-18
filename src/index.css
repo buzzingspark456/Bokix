@@ -9899,3 +9899,21 @@ img.hc-player { object-fit: cover; }
 .ut-split { flex: 1 1 auto; min-height: 0; grid-template-columns: minmax(0, 1fr) !important; border: 1px solid var(--border) !important; border-radius: 12px !important; overflow: hidden; }
 .ut-upload { background: #0b6329; }
 .ut-upload:hover { background: #0e7531; filter: none; }
+
+/* Vänstermenyn i Underlag, som Fortnox (2026-11-18). */
+.ut-shell { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 24px; height: 100%; min-height: 0; }
+.ut-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.ut-nav-side { display: flex; flex-direction: column; gap: 2px; padding: 14px 0 0; border-right: 1px solid var(--border-light); padding-right: 14px; }
+.ut-nav-side button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: none; border-radius: 8px; background: none; font-family: inherit; font-size: 13.5px; font-weight: 500; color: var(--text-secondary); text-align: left; cursor: pointer; }
+.ut-nav-side button:hover { background: var(--bg-muted); color: var(--text-main); }
+.ut-nav-side button.on { background: var(--bg-muted); color: var(--text-main); font-weight: 600; }
+.ut-nav-side button span { flex: 1; min-width: 0; }
+.ut-nav-side button em { font-style: normal; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--border-light); font-size: 11.5px; font-weight: 700; text-align: center; color: var(--text-secondary); }
+.ut-nav-side button:nth-child(3) { margin-top: 0; }
+.ut-nav-side button:nth-child(4), .ut-nav-side button:nth-child(5) { margin-top: 12px; }
+.ut-card { margin-top: 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); overflow: hidden; max-width: 760px; }
+.ut-card .uw-mbx { margin: 0; border-top: none; }
+.ut-card .uw-mbx-row:last-child { border-bottom: none; }
+.ut-table-static tbody tr { cursor: default; }
+.ut-actions { text-align: right; white-space: nowrap; }
+.ut-link-danger { color: var(--status-red-text, #b42318); }

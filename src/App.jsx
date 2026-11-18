@@ -5176,6 +5176,32 @@ function App() {
     setExpenses(prev => prev.map(e => (e.id === expenseId ? { ...e, ocrDraft: draft } : e)));
   };
 
+  // Papperskorgen i Underlag (2026-11-18, som Fortnox): ett obokfört underlag
+  // som tas bort flyttas till company.receiptTrash och går att återställa.
+  // Ligger på företagsinfon (redan skrivbar), utan avläsningens text och
+  // rutor så att raden hålls liten. Efter 30 dagar tas det bort för gott.
+  const handleTrashExpense = (expenseId) => {
+    const alreadyBooked = verifications.some(v => (v.source === 'expense' || v.source === 'expense_fix') && v.sourceId === expenseId);
+    if (alreadyBooked) return;
+    const expense = expenses.find(e => e.id === expenseId);
+    if (!expense) return;
+    const slim = { ...expense, trashedAt: new Date().toISOString(), ocrDraft: expense.ocrDraft ? { ...expense.ocrDraft, readText: undefined, boxes: undefined } : undefined };
+    setExpenses(prev => prev.filter(e => e.id !== expenseId));
+    setCompanyInfo(prev => ({ ...prev, receiptTrash: [slim, ...(prev.receiptTrash || []).filter(r => r.id !== expenseId)].slice(0, 200) }));
+    setBankTransactions(prev => prev.map(t => (t.matchedType === 'receipt' && t.matchedId === expenseId ? { ...t, status: 'unmatched', matchedType: undefined, matchedId: undefined } : t)));
+  };
+  const handleRestoreExpense = (expenseId) => {
+    const item = (company?.receiptTrash || []).find(r => r.id === expenseId);
+    if (!item) return;
+    const { trashedAt: _t, ...back } = item;
+    setCompanyInfo(prev => ({ ...prev, receiptTrash: (prev.receiptTrash || []).filter(r => r.id !== expenseId) }));
+    setExpenses(prev => (prev.some(e => e.id === expenseId) ? prev : [...prev, back]));
+  };
+  const handlePurgeTrash = (ids) => {
+    const set = new Set(ids);
+    (company?.receiptTrash || []).filter(r => set.has(r.id)).forEach(r => { if (r.receiptUrl) deleteFileFromStorage(r.receiptUrl); });
+    setCompanyInfo(prev => ({ ...prev, receiptTrash: (prev.receiptTrash || []).filter(r => !set.has(r.id)) }));
+  };
   // Underlag → Matcha mot transaktion: bankraden kopplas till kvittot, som
   // redan bokförts mot 1930. Ingen ny verifikation (samma som Bank-sidans
   // Koppla till kvittot).
@@ -6048,6 +6074,10 @@ function App() {
             bankTransactions={bankTransactions}
             onLinkBankRow={handleLinkReceiptToBank}
             companyId={data.activeCompanyId}
+            receiptTrash={company?.receiptTrash || []}
+            onTrashExpense={handleTrashExpense}
+            onRestoreExpense={handleRestoreExpense}
+            onPurgeTrash={handlePurgeTrash}
             pageTitle={tr('nav.expenses')}
           />
         );

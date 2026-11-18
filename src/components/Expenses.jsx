@@ -373,7 +373,7 @@ function CopyButton({ text, label }) {
 const GMAIL_FORWARDING_URL = 'https://mail.google.com/mail/u/0/#settings/fwdandpop';
 const GMAIL_FILTERS_URL = 'https://mail.google.com/mail/u/0/#settings/filters';
 
-function MailboxDialog({ info, onClose, onUpload, onSaveSenders }) {
+function MailboxPanel({ info, onUpload, onSaveSenders, part = 'all' }) {
   const [gmailOpen, setGmailOpen] = useState(false);
   const [senderInput, setSenderInput] = useState('');
   const [senderError, setSenderError] = useState('');
@@ -395,9 +395,11 @@ function MailboxDialog({ info, onClose, onUpload, onSaveSenders }) {
   // Kopplad: Gmails bekräftelse kom, och sedan ett mejl till (vidarebefordrat).
   const gmailConnected = Boolean(info?.gmailCodeAt && info?.lastReceivedAt
     && Date.parse(info.lastReceivedAt) - Date.parse(info.gmailCodeAt) > 60 * 1000);
+  const showBox = part !== 'senders';
+  const showSenders = part !== 'mailbox';
   return (
-    <UwDialog title={tr('underlag.mailboxTitle')} sub={tr('underlag.mailboxSub')} onClose={onClose}>
-      <div className="uw-mbx">
+      <div className={`uw-mbx uw-mbx-${part}`}>
+        {showBox && <>
         <div className="uw-mbx-row">
           <span className="uw-mbx-ico"><Mail size={17} /></span>
           <span className="uw-mbx-text">
@@ -425,7 +427,8 @@ function MailboxDialog({ info, onClose, onUpload, onSaveSenders }) {
             </ol>
           )}
         </div>
-        {info?.address && (
+        </>}
+        {showSenders && info?.address && (
           <div className="uw-mbx-row uw-mbx-col">
             <div className="uw-mbx-line">
               <span className="uw-mbx-ico"><CheckCircle2 size={17} /></span>
@@ -452,16 +455,26 @@ function MailboxDialog({ info, onClose, onUpload, onSaveSenders }) {
             )}
           </div>
         )}
+        {showSenders && !info?.address && <p className="uw-mbx-note">{tr('underlag.mbxAddressMissing')}</p>}
+        {showBox && <>
         <div className="uw-mbx-row">
           <span className="uw-mbx-ico"><UploadCloud size={17} /></span>
           <span className="uw-mbx-text">
             <b>{tr('underlag.mbxUpload')}</b>
             <span>{tr('underlag.mbxUploadSub')}</span>
           </span>
-          <button type="button" className="uw-mbx-btn" onClick={() => { onClose(); onUpload(); }}>{tr('underlag.upload')}</button>
+          <button type="button" className="uw-mbx-btn" onClick={onUpload}>{tr('underlag.upload')}</button>
         </div>
         {info?.lastReceivedAt && <p className="uw-mbx-note">{tr('underlag.mbxLast', { when: new Date(info.lastReceivedAt).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }) })}</p>}
+        </>}
       </div>
+  );
+}
+
+function MailboxDialog({ info, onClose, onUpload, onSaveSenders }) {
+  return (
+    <UwDialog title={tr('underlag.mailboxTitle')} sub={tr('underlag.mailboxSub')} onClose={onClose}>
+      <MailboxPanel info={info} onSaveSenders={onSaveSenders} onUpload={() => { onClose(); onUpload(); }} />
     </UwDialog>
   );
 }
@@ -1655,9 +1668,103 @@ function readState(r, status, readingId) {
   return r.receiptUrl ? { key: 'none', text: tr('underlag.rsNotRead') } : { key: 'none', text: tr('underlag.rsNoFile') };
 }
 
+/** Vänstermenyn i Underlag (2026-11-18, som Fortnox). */
+function UnderlagNav({ view, onView, counts }) {
+  const items = [
+    ['underlag', tr('nav.expenses'), FileText, counts.todo],
+    ['mail', tr('underlag.navMail'), Mail, counts.mail],
+    ['senders', tr('underlag.navSenders'), CheckCircle2, null],
+    ['mailbox', tr('underlag.navMailbox'), Inbox, null],
+    ['trash', tr('underlag.navTrash'), Trash2, counts.trash],
+  ];
+  return (
+    <nav className="ut-nav-side" aria-label={tr('nav.expenses')}>
+      {items.map(([id, label, Icon, n]) => (
+        <button key={id} type="button" className={view === id ? 'on' : undefined} onClick={() => onView(id)}>
+          <Icon size={16} />
+          <span>{label}</span>
+          {n > 0 && <em>{n}</em>}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+/** En egen sida i Underlag med rubrik och kort (avsändare, brevlåda). */
+function UnderlagPage({ title, intro, children }) {
+  return (
+    <div className="ut">
+      <div className="ut-head">
+        <h1>{title}</h1>
+        {intro && <p>{intro}</p>}
+      </div>
+      <div className="ut-card">{children}</div>
+    </div>
+  );
+}
+
+/** Papperskorgen: borttagna underlag går att återställa i 30 dagar. */
+function TrashView({ items, onRestore, onPurge }) {
+  const sorted = [...items].sort((a, b) => String(b.trashedAt || '').localeCompare(String(a.trashedAt || '')));
+  const emptyAll = async () => {
+    if (!sorted.length) return;
+    if (await confirmDialog(tr('underlag.trashEmptyConfirm', { n: sorted.length }))) onPurge?.(sorted.map(r => r.id));
+  };
+  const purgeOne = async (r) => {
+    if (await confirmDialog(tr('underlag.trashPurgeConfirm'))) onPurge?.([r.id]);
+  };
+  return (
+    <div className="ut">
+      <div className="ut-head">
+        <h1>{tr('underlag.navTrash')}</h1>
+        <p>{tr('underlag.trashIntro')}</p>
+      </div>
+      <div className="ut-count">
+        <span>{tr('underlag.total', { n: sorted.length })}</span>
+        {sorted.length > 0 && <button type="button" className="ut-del" onClick={emptyAll}><Trash2 size={14} /> {tr('underlag.trashEmpty')}</button>}
+      </div>
+      <div className="ut-table-wrap">
+        <table className="ut-table ut-table-static">
+          <thead>
+            <tr>
+              <th>{tr('underlag.colDoc')}</th>
+              <th className="ut-c-num">{tr('underlag.colAmount')}</th>
+              <th>{tr('underlag.colTrashed')}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.length === 0 && <tr><td colSpan={4} className="ut-empty">{tr('underlag.trashNone')}</td></tr>}
+            {sorted.map(r => {
+              const amount = r.amount ? Math.abs(r.amount) : parseAmount(r.ocrDraft?.form?.amount);
+              return (
+                <tr key={r.id}>
+                  <td>
+                    <span className="ut-doc">
+                      <span className="ut-thumb"><ReceiptThumb receipt={r} /></span>
+                      <span className="ut-doc-text"><b>{r.supplier || r.ocrDraft?.form?.supplier || r.inbox?.fileName || tr('underlag.unnamed')}</b>{r.inbox?.subject && <small>{r.inbox.subject}</small>}</span>
+                    </span>
+                  </td>
+                  <td className="ut-c-num">{amount > 0 ? formatSEK(amount) : '–'}</td>
+                  <td className="ut-muted">{r.trashedAt ? new Date(r.trashedAt).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</td>
+                  <td className="ut-actions">
+                    <button type="button" className="ut-link" onClick={() => onRestore?.(r.id)}><RotateCcw size={14} /> {tr('underlag.restore')}</button>
+                    <button type="button" className="ut-link ut-link-danger" onClick={() => purgeOne(r)}>{tr('underlag.purge')}</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 /** Underlag som tabell, som Fortnox (2026-11-18): kryssrutor, kolumner för
  * belopp, inkommet, avläsning, källa och avsändare. En rad öppnar underlaget. */
-function UnderlagTable({ receipts, statusOf, readingId, onOpen, onDeleteMany, onUpload, onMailIn, inboxAddress }) {
+function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDeleteMany, onUpload, onMailIn, inboxAddress, onlyEmail = false }) {
+  const receipts = onlyEmail ? allRows.filter(r => r.inbox?.source === 'email') : allRows;
   const [tab, setTab] = useState('todo');
   const [q, setQ] = useState('');
   const [picked, setPicked] = useState(() => new Set());
@@ -1674,7 +1781,7 @@ function UnderlagTable({ receipts, statusOf, readingId, onOpen, onDeleteMany, on
   const deletePicked = async () => {
     const ids = [...picked].filter(id => pickable.some(r => r.id === id));
     if (!ids.length) return;
-    if (!(await confirmDialog(tr('underlag.deleteManyConfirm', { n: ids.length })))) return;
+    if (!(await confirmDialog(tr('underlag.trashManyConfirm', { n: ids.length })))) return;
     onDeleteMany?.(ids);
     setPicked(new Set());
   };
@@ -1682,8 +1789,8 @@ function UnderlagTable({ receipts, statusOf, readingId, onOpen, onDeleteMany, on
   return (
     <div className="ut">
       <div className="ut-head">
-        <h1>{tr('nav.expenses')}</h1>
-        <p>{tr('underlag.tableIntro')}</p>
+        <h1>{onlyEmail ? tr('underlag.navMail') : tr('nav.expenses')}</h1>
+        <p>{onlyEmail ? tr('underlag.mailIntro') : tr('underlag.tableIntro')}</p>
       </div>
       <div className="ut-bar">
         <button type="button" className="ut-upload" onClick={onUpload}><UploadCloud size={16} /> {tr('underlag.uploadDocs')}</button>
@@ -1807,6 +1914,8 @@ export default function Expenses({
   bankTransactions = [], onLinkBankRow,
   // Underlag → företagets inkorgsadress (api/inbox).
   companyId = null,
+  // Papperskorgen (company.receiptTrash).
+  receiptTrash = [], onTrashExpense, onRestoreExpense, onPurgeTrash,
 }) {
   // -- Receipts State --
   const [isDragging, setIsDragging] = useState(false);
@@ -1989,9 +2098,17 @@ export default function Expenses({
     return () => window.removeEventListener('resize', onResize);
   }, []);
   const [mailboxOpen, setMailboxOpen] = useState(false);
+  // Papperskorgen: äldre än 30 dagar tas bort för gott (filen också).
+  useEffect(() => {
+    const old = (receiptTrash || []).filter(r => r.trashedAt && Date.now() - Date.parse(r.trashedAt) > 30 * 86400000);
+    if (old.length) onPurgeTrash?.(old.map(r => r.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(receiptTrash || []).length]);
+  // Vänstermenyn i Underlag, som Fortnox: underlag, mejl, avsändare, brevlåda, papperskorg.
+  const [uwView, setUwView] = useState('underlag');
   // Ordningen i tabellen när ett underlag öppnades: föregående och nästa.
   const [navIds, setNavIds] = useState([]);
-  const { info: inboxInfo, saveSenders } = useInboxAddress(wide ? companyId : null, { poll: mailboxOpen });
+  const { info: inboxInfo, saveSenders } = useInboxAddress(wide ? companyId : null, { poll: mailboxOpen || uwView === 'mailbox' });
   // Den gamla listan finns kvar bakom "Visa som lista". Valet sparas i webbläsaren.
   const [listView, setListViewState] = useState(() => { try { return localStorage.getItem('bokix.underlagView') === 'list'; } catch { return false; } });
   const setListView = (v) => { setListViewState(v); try { localStorage.setItem('bokix.underlagView', v ? 'list' : 'workspace'); } catch { /* inget */ } };
@@ -2143,16 +2260,46 @@ export default function Expenses({
         {mailboxOpen && <MailboxDialog info={inboxInfo} onSaveSenders={saveSenders} onClose={() => setMailboxOpen(false)} onUpload={() => document.getElementById('uw-upload').click()} />}
         <input type="file" id="uw-upload" style={{ display: 'none' }} multiple accept={ACCEPT_ATTR} onChange={handleFileInput} />
         {!detailReceipt ? (
-          <UnderlagTable
-            receipts={receiptsList}
-            statusOf={(r) => getReceiptStatus(r, verIndex)}
-            readingId={autoReading}
-            onOpen={(id, ids) => { setNavIds(ids); setDetailReceiptId(id); }}
-            onDeleteMany={(ids) => ids.forEach(id => onDeleteExpense?.(id))}
-            onUpload={() => document.getElementById('uw-upload').click()}
-            onMailIn={() => setMailboxOpen(true)}
-            inboxAddress={inboxInfo?.address}
-          />
+          <div className="ut-shell">
+            <UnderlagNav
+              view={uwView}
+              onView={setUwView}
+              counts={{
+                todo: receiptsList.filter(r => ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex))).length,
+                mail: receiptsList.filter(r => r.inbox?.source === 'email' && ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex))).length,
+                trash: receiptTrash.length,
+              }}
+            />
+            <div className="ut-main">
+              {(uwView === 'underlag' || uwView === 'mail') && (
+                <UnderlagTable
+                  key={uwView}
+                  onlyEmail={uwView === 'mail'}
+                  receipts={receiptsList}
+                  statusOf={(r) => getReceiptStatus(r, verIndex)}
+                  readingId={autoReading}
+                  onOpen={(id, ids) => { setNavIds(ids); setDetailReceiptId(id); }}
+                  onDeleteMany={(ids) => ids.forEach(id => (onTrashExpense ? onTrashExpense(id) : onDeleteExpense?.(id)))}
+                  onUpload={() => document.getElementById('uw-upload').click()}
+                  onMailIn={() => setUwView('mailbox')}
+                  inboxAddress={inboxInfo?.address}
+                />
+              )}
+              {uwView === 'senders' && (
+                <UnderlagPage title={tr('underlag.navSenders')} intro={tr('underlag.sendersIntro')}>
+                  <MailboxPanel part="senders" info={inboxInfo} onSaveSenders={saveSenders} onUpload={() => document.getElementById('uw-upload').click()} />
+                </UnderlagPage>
+              )}
+              {uwView === 'mailbox' && (
+                <UnderlagPage title={tr('underlag.navMailbox')} intro={tr('underlag.mailboxSub')}>
+                  <MailboxPanel part="mailbox" info={inboxInfo} onSaveSenders={saveSenders} onUpload={() => document.getElementById('uw-upload').click()} />
+                </UnderlagPage>
+              )}
+              {uwView === 'trash' && (
+                <TrashView items={receiptTrash} onRestore={onRestoreExpense} onPurge={onPurgeTrash} />
+              )}
+            </div>
+          </div>
         ) : (
           <>
             <div className="ut-detail-top">
@@ -2183,7 +2330,7 @@ export default function Expenses({
                   status={getReceiptStatus(detailReceipt, verIndex)}
                   onSave={(id, values) => onSaveReceiptDetails?.(id, values)}
                   onSaveOcrDraft={(id, draft) => onSaveOcrDraft?.(id, draft)}
-                  onDelete={(id) => onDeleteExpense?.(id)}
+                  onDelete={(id) => (onTrashExpense ? onTrashExpense(id) : onDeleteExpense?.(id))}
                   onReverse={(id) => onReverseExpense?.(id)}
                   onClose={() => setDetailReceiptId(null)}
                   onSaved={() => nextAfter(detailReceipt.id)}
