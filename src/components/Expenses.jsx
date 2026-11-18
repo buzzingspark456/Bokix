@@ -3,7 +3,9 @@ import { REPRESENTATION_ACCOUNTS, representationBooking, representationKinds } f
 import { isVatExempt } from '../utils/vatRegistration';
 import {
   UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop, SlidersHorizontal,
+  Mail, Copy, Inbox,
 } from './icons';
+import { supabase } from '../supabaseClient';
 import { AccountSearch } from './shared/SearchInputs';
 import AccountInlinePicker from './shared/AccountInlinePicker';
 import { isGroupAccount } from '../utils/accountGroups';
@@ -282,7 +284,7 @@ function idsForSave(ids) {
 }
 // Uppladdningstiden står i id:t (exp_<millisekunder>).
 function uploadedDate(receipt) {
-  const ts = Number(String(receipt?.id || '').replace(/^exp_/, ''));
+  const ts = Number((/^exp_(\d{13})/.exec(String(receipt?.id || '')) || [])[1]);
   return ts > 1.5e12 ? new Date(ts).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
 }
 
@@ -306,6 +308,92 @@ function UwDialog({ title, sub, onClose, children, wide = false }) {
         {children}
       </div>
     </div>
+  );
+}
+
+// Företagets inkorgsadress (api/inbox/index.js). Hämtas när Underlag öppnas
+// och, medan Lägg till brevlåda är öppen, var 20:e sekund (Gmails kod).
+function useInboxAddress(companyId, { poll = false } = {}) {
+  const [info, setInfo] = useState(null);
+  const load = useCallback(async () => {
+    if (!companyId) return;
+    try {
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const res = await fetch('/api/inbox', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ companyId, action: 'get' }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.address) setInfo(json);
+    } catch { /* inkorgen är en bonus, inget fel visas */ }
+  }, [companyId]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!poll) return undefined;
+    const timer = setInterval(load, 20000);
+    return () => clearInterval(timer);
+  }, [poll, load]);
+  return info;
+}
+
+function CopyButton({ text, label }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      type="button"
+      className="uw-copy"
+      onClick={() => { try { navigator.clipboard?.writeText(text); } catch { /* inget */ } setDone(true); setTimeout(() => setDone(false), 1600); }}
+      title={tr('underlag.copy')}
+    >
+      <Copy size={13} /> {done ? tr('underlag.copied') : (label || tr('underlag.copy'))}
+    </button>
+  );
+}
+
+/** Lägg till brevlåda: vägarna in i Underlag. */
+function MailboxDialog({ info, onClose, onUpload }) {
+  const [gmailOpen, setGmailOpen] = useState(false);
+  return (
+    <UwDialog title={tr('underlag.mailboxTitle')} sub={tr('underlag.mailboxSub')} onClose={onClose}>
+      <div className="uw-mbx">
+        <div className="uw-mbx-row">
+          <span className="uw-mbx-ico"><Mail size={17} /></span>
+          <span className="uw-mbx-text">
+            <b>{tr('underlag.mbxAddress')}</b>
+            {info?.address ? <code>{info.address}</code> : <em>{tr('underlag.mbxAddressMissing')}</em>}
+          </span>
+          {info?.address && <CopyButton text={info.address} />}
+        </div>
+        <div className="uw-mbx-row uw-mbx-col">
+          <div className="uw-mbx-line">
+            <span className="uw-mbx-ico uw-mbx-gmail">G</span>
+            <span className="uw-mbx-text">
+              <b>{tr('underlag.mbxGmail')}</b>
+              <span>{tr('underlag.mbxGmailSub')}</span>
+            </span>
+            <button type="button" className="uw-mbx-btn" onClick={() => setGmailOpen(o => !o)}>{gmailOpen ? tr('underlag.mbxHide') : tr('underlag.mbxShow')}</button>
+          </div>
+          {gmailOpen && (
+            <ol className="uw-mbx-steps">
+              <li>{tr('underlag.mbxStep1')}</li>
+              <li>{tr('underlag.mbxStep2')} {info?.gmailCode ? <b className="uw-mbx-code">{info.gmailCode}</b> : <em>{tr('underlag.mbxCodeWait')}</em>}</li>
+              <li>{tr('underlag.mbxStep3')}</li>
+            </ol>
+          )}
+        </div>
+        <div className="uw-mbx-row">
+          <span className="uw-mbx-ico"><UploadCloud size={17} /></span>
+          <span className="uw-mbx-text">
+            <b>{tr('underlag.mbxUpload')}</b>
+            <span>{tr('underlag.mbxUploadSub')}</span>
+          </span>
+          <button type="button" className="uw-mbx-btn" onClick={() => { onClose(); onUpload(); }}>{tr('underlag.upload')}</button>
+        </div>
+        {info?.lastReceivedAt && <p className="uw-mbx-note">{tr('underlag.mbxLast', { when: new Date(info.lastReceivedAt).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }) })}</p>}
+      </div>
+    </UwDialog>
   );
 }
 
@@ -1423,6 +1511,19 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
 /** Underlagslistan i arbetsytan (2026-11-17, efter Accounteds inkorg):
  * flikar Att göra / Bokförda / Alla och en tät lista; vald rad öppnas
  * bredvid i stället för i helskärm. */
+// "12 min sedan" när uppladdningstiden finns (exp_<ms>), annars dagen.
+function relTime(r) {
+  const ts = Number((/^exp_(\d{13})/.exec(String(r?.id || '')) || [])[1]);
+  if (ts > 1.5e12 && !r.costAccount) {
+    const min = Math.round((Date.now() - ts) / 60000);
+    if (min < 1) return tr('underlag.justNow');
+    if (min < 60) return tr('underlag.minAgo', { n: min });
+    if (min < 24 * 60) return tr('underlag.hAgo', { n: Math.round(min / 60) });
+    if (min < 7 * 24 * 60) return tr('underlag.dAgo', { n: Math.round(min / 1440) });
+  }
+  return relDay(r?.date);
+}
+
 // I dag / i går / datum, som i en inkorg.
 function relDay(date) {
   if (!date) return '';
@@ -1465,7 +1566,7 @@ function UnderlagList({ receipts, selectedId, onSelect, statusOf, onClose, onUpl
               <span className="uw-row-text">
                 <span className="uw-row-name">{r.supplier || r.description || tr('underlag.unnamed')}</span>
                 <span className="uw-row-sub">
-                  <span><span className={`uw-dot uw-dot-${s}`} aria-hidden="true" />{relDay(r.date)}</span>
+                  <span><span className={`uw-dot uw-dot-${s}`} aria-hidden="true" />{r.inbox?.source === 'email' && <Mail size={12} className="uw-row-src" />}{relTime(r)}</span>
                   <span className="uw-row-amt">{r.amount ? formatSEK(Math.abs(r.amount)) : ''}</span>
                 </span>
               </span>
@@ -1512,6 +1613,8 @@ export default function Expenses({
   documents = [], onAddDocument, onLinkDocument, onDeleteDocument,
   // Underlag → Matcha mot transaktion.
   bankTransactions = [], onLinkBankRow,
+  // Underlag → företagets inkorgsadress (api/inbox).
+  companyId = null,
 }) {
   // -- Receipts State --
   const [isDragging, setIsDragging] = useState(false);
@@ -1671,6 +1774,8 @@ export default function Expenses({
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+  const [mailboxOpen, setMailboxOpen] = useState(false);
+  const inboxInfo = useInboxAddress(wide ? companyId : null, { poll: mailboxOpen });
   // Den gamla listan finns kvar bakom "Visa som lista". Valet sparas i webbläsaren.
   const [listView, setListViewState] = useState(() => { try { return localStorage.getItem('bokix.underlagView') === 'list'; } catch { return false; } });
   const setListView = (v) => { setListViewState(v); try { localStorage.setItem('bokix.underlagView', v ? 'list' : 'workspace'); } catch { /* inget */ } };
@@ -1817,12 +1922,20 @@ export default function Expenses({
   if (wide && (detailReceipt || !listView)) {
     return (
       <div className={`uw-wrap${isDragging ? ' uw-dropping' : ''}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+      {mailboxOpen && <MailboxDialog info={inboxInfo} onClose={() => setMailboxOpen(false)} onUpload={() => document.getElementById('uw-upload').click()} />}
       <div className="uw-top">
         <div className="uw-top-title">
+          <Inbox size={18} className="uw-top-ico" />
           <h1>{pageTitle || tr('nav.expenses')}</h1>
-          {(() => { const n = receiptsList.filter(r => ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex))).length; return n > 0 ? <span>{tr('underlag.todoCount', { n })}</span> : null; })()}
+          {inboxInfo?.address && (
+            <span className="uw-top-addr">
+              <code>{inboxInfo.address}</code>
+              <CopyButton text={inboxInfo.address} label=" " />
+            </span>
+          )}
         </div>
         <div className="uw-top-actions">
+          <button type="button" className="uw-top-link" onClick={() => setMailboxOpen(true)}>+ {tr('underlag.mailboxTitle')}</button>
           <button type="button" className="uw-top-link" onClick={() => { setDetailReceiptId(null); setListView(true); }}>{tr('underlag.allList')}</button>
           <button type="button" className="uw-top-upload" onClick={() => document.getElementById('uw-upload').click()}><UploadCloud size={15} /> {tr('underlag.upload')}</button>
         </div>
@@ -1840,7 +1953,7 @@ export default function Expenses({
         {!detailReceipt ? (
           <div className="uw-detail uw-detail-empty">
             <div className={`uw-empty-mid${isDragging ? ' on' : ''}`}>
-              <span className="uw-empty-ico"><UploadCloud size={22} /></span>
+              <span className="uw-empty-ico"><Inbox size={24} /></span>
               <strong>{tr('underlag.pickTitle')}</strong>
               <span>{tr('underlag.pickHint')}</span>
               <button type="button" className="uw-empty-btn" onClick={() => document.getElementById('uw-upload').click()}>+ {tr('underlag.uploadFile')}</button>
