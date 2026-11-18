@@ -1691,6 +1691,18 @@ function readState(r, status, readingId) {
   return r.receiptUrl ? { key: 'none', text: tr('underlag.rsNotRead') } : { key: 'none', text: tr('underlag.rsNoFile') };
 }
 
+/** Tomt läge i en tabell: ikon, rubrik och en rad om vad man kan göra. */
+function UtEmpty({ icon: Icon = Inbox, title, text, action }) {
+  return (
+    <div className="ut-empty-box">
+      <span className="ut-empty-ico"><Icon size={26} /></span>
+      <strong>{title}</strong>
+      {text && <span>{text}</span>}
+      {action}
+    </div>
+  );
+}
+
 /** Vänstermenyn i Underlag (2026-11-18, som Fortnox). */
 function UnderlagNav({ view, onView, counts }) {
   const items = [
@@ -1700,14 +1712,20 @@ function UnderlagNav({ view, onView, counts }) {
     ['mailbox', tr('underlag.navMailbox'), Inbox, null],
     ['trash', tr('underlag.navTrash'), Trash2, counts.trash],
   ];
+  // Tre grupper som Fortnox: underlagen, inkorgen, papperskorgen.
+  const groups = [items.slice(0, 3), items.slice(3, 4), items.slice(4)];
   return (
     <nav className="ut-nav-side" aria-label={tr('nav.expenses')}>
-      {items.map(([id, label, Icon, n]) => (
-        <button key={id} type="button" className={view === id ? 'on' : undefined} onClick={() => onView(id)}>
-          <Icon size={16} />
-          <span>{label}</span>
-          {n > 0 && <em>{n}</em>}
-        </button>
+      {groups.map((g, gi) => (
+        <div key={gi} className="ut-nav-group">
+          {g.map(([id, label, Icon, n]) => (
+            <button key={id} type="button" className={view === id ? 'on' : undefined} onClick={() => onView(id)} aria-current={view === id ? 'page' : undefined}>
+              <Icon size={16} />
+              <span>{label}</span>
+              {n > 0 && <em>{n}</em>}
+            </button>
+          ))}
+        </div>
       ))}
     </nav>
   );
@@ -1742,22 +1760,26 @@ function TrashView({ items, onRestore, onPurge }) {
         <h1>{tr('underlag.navTrash')}</h1>
         <p>{tr('underlag.trashIntro')}</p>
       </div>
-      <div className="ut-count">
-        <span>{tr('underlag.total', { n: sorted.length })}</span>
-        {sorted.length > 0 && <button type="button" className="ut-del" onClick={emptyAll}><Trash2 size={14} /> {tr('underlag.trashEmpty')}</button>}
+      <div className="ut-bar">
+        <button type="button" className="ut-link ut-link-danger" onClick={emptyAll} disabled={!sorted.length}><Trash2 size={15} /> {tr('underlag.trashEmpty')}</button>
+        <span className="ut-bar-text ut-bar-muted">{tr('underlag.trashAuto')}</span>
       </div>
+      <div className="ut-count"><span>{tr('underlag.total', { n: sorted.length })}</span></div>
       <div className="ut-table-wrap">
         <table className="ut-table ut-table-static">
           <thead>
             <tr>
               <th>{tr('underlag.colDoc')}</th>
               <th className="ut-c-num">{tr('underlag.colAmount')}</th>
+              <th>{tr('underlag.colArrived')}</th>
               <th>{tr('underlag.colTrashed')}</th>
+              <th>{tr('underlag.colSource')}</th>
+              <th>{tr('underlag.colSender')}</th>
               <th />
             </tr>
           </thead>
           <tbody>
-            {sorted.length === 0 && <tr><td colSpan={4} className="ut-empty">{tr('underlag.trashNone')}</td></tr>}
+            {sorted.length === 0 && <tr><td colSpan={7} className="ut-empty"><UtEmpty icon={Trash2} title={tr('underlag.trashNone')} text={tr('underlag.trashNoneText')} /></td></tr>}
             {sorted.map(r => {
               const amount = r.amount ? Math.abs(r.amount) : parseAmount(r.ocrDraft?.form?.amount);
               return (
@@ -1769,7 +1791,10 @@ function TrashView({ items, onRestore, onPurge }) {
                     </span>
                   </td>
                   <td className="ut-c-num">{amount > 0 ? formatSEK(amount) : '–'}</td>
-                  <td className="ut-muted">{r.trashedAt ? new Date(r.trashedAt).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</td>
+                  <td className="ut-muted">{arrivedLabel(r)}</td>
+                  <td className="ut-muted">{r.trashedAt ? new Date(r.trashedAt).toLocaleDateString('sv-SE') : ''}</td>
+                  <td className="ut-muted">{sourceLabel(r).text}</td>
+                  <td className="ut-muted ut-sender">{(r.inbox?.source === 'email' ? r.inbox.from : r.uploadedBy?.name) || '–'}</td>
                   <td className="ut-actions">
                     <button type="button" className="ut-link" onClick={() => onRestore?.(r.id)}><RotateCcw size={14} /> {tr('underlag.restore')}</button>
                     <button type="button" className="ut-link ut-link-danger" onClick={() => purgeOne(r)}>{tr('underlag.purge')}</button>
@@ -1786,7 +1811,7 @@ function TrashView({ items, onRestore, onPurge }) {
 
 /** Underlag som tabell, som Fortnox (2026-11-18): kryssrutor, kolumner för
  * belopp, inkommet, avläsning, källa och avsändare. En rad öppnar underlaget. */
-function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDeleteMany, onUpload, onMailIn, inboxAddress, onlyEmail = false }) {
+function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDeleteMany, onUpload, onMailIn, onSenders, inboxAddress, onlyEmail = false }) {
   const receipts = onlyEmail ? allRows.filter(r => r.inbox?.source === 'email') : allRows;
   const [tab, setTab] = useState('todo');
   const [q, setQ] = useState('');
@@ -1816,9 +1841,14 @@ function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDelet
         <p>{onlyEmail ? tr('underlag.mailIntro') : tr('underlag.tableIntro')}</p>
       </div>
       <div className="ut-bar">
-        <button type="button" className="ut-upload" onClick={onUpload}><UploadCloud size={16} /> {tr('underlag.uploadDocs')}</button>
+        {onlyEmail ? (
+          <span className="ut-bar-text">{inboxAddress ? <><Mail size={15} /> <code>{inboxAddress}</code><CopyButton text={inboxAddress} label=" " /></> : tr('underlag.mbxAddressMissing')}</span>
+        ) : (
+          <button type="button" className="ut-upload" onClick={onUpload}><UploadCloud size={16} /> {tr('underlag.uploadDocs')}</button>
+        )}
         <div className="ut-bar-right">
-          {inboxAddress && <span className="ut-addr"><code>{inboxAddress}</code><CopyButton text={inboxAddress} label=" " /></span>}
+          {!onlyEmail && inboxAddress && <span className="ut-addr"><code>{inboxAddress}</code><CopyButton text={inboxAddress} label=" " /></span>}
+          {onlyEmail && onSenders && <button type="button" className="ut-link" onClick={onSenders}><CheckCircle2 size={15} /> {tr('underlag.manageSenders')}</button>}
           <button type="button" className="ut-link" onClick={onMailIn}><Mail size={15} /> {tr('underlag.mailIn')}</button>
         </div>
       </div>
@@ -1849,7 +1879,7 @@ function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDelet
               <th className="ut-c-check">
                 <input type="checkbox" checked={allPicked} disabled={!pickable.length} onChange={() => setPicked(allPicked ? new Set() : new Set(pickable.map(r => r.id)))} aria-label={tr('underlag.pickAll')} />
               </th>
-              <th>{tr('underlag.colDoc')}</th>
+              <th>{onlyEmail ? tr('underlag.colSubject') : tr('underlag.colDoc')}</th>
               <th className="ut-c-num">{tr('underlag.colAmount')}</th>
               <th>{tr('underlag.colArrived')}</th>
               <th>{tr('underlag.colRead')}</th>
@@ -1860,7 +1890,15 @@ function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDelet
           </thead>
           <tbody>
             {shown.length === 0 && (
-              <tr><td colSpan={8} className="ut-empty">{tab === 'todo' ? tr('underlag.emptyTodo') : tr('underlag.empty')}</td></tr>
+              <tr><td colSpan={8} className="ut-empty">
+                {needle
+                  ? <UtEmpty icon={Search} title={tr('underlag.noHits')} text={tr('underlag.noHitsText')} />
+                  : onlyEmail
+                    ? <UtEmpty icon={Mail} title={tr('underlag.noMail')} text={inboxAddress ? tr('underlag.noMailText', { address: inboxAddress }) : ''} />
+                    : tab === 'todo'
+                      ? <UtEmpty icon={CheckCircle2} title={tr('underlag.allDone')} text={tr('underlag.emptyTodo')} action={<button type="button" className="ut-upload ut-upload-sm" onClick={onUpload}><UploadCloud size={15} /> {tr('underlag.uploadDocs')}</button>} />
+                      : <UtEmpty title={tr('underlag.empty')} />}
+              </td></tr>
             )}
             {shown.map(r => {
               const s = statusOf(r);
@@ -1879,8 +1917,9 @@ function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDelet
                     <span className="ut-doc">
                       <span className="ut-thumb"><ReceiptThumb receipt={r} /></span>
                       <span className="ut-doc-text">
-                        <b>{name}</b>
-                        {r.inbox?.subject && <small>{r.inbox.subject}</small>}
+                        {onlyEmail && r.inbox?.subject
+                          ? <><b>{r.inbox.subject}</b><small>{name}</small></>
+                          : <><b>{name}</b>{r.inbox?.subject && <small>{r.inbox.subject}</small>}</>}
                       </span>
                     </span>
                   </td>
@@ -2307,6 +2346,7 @@ export default function Expenses({
                   onDeleteMany={(ids) => ids.forEach(id => (onTrashExpense ? onTrashExpense(id) : onDeleteExpense?.(id)))}
                   onUpload={() => document.getElementById('uw-upload').click()}
                   onMailIn={() => setUwView('mailbox')}
+                  onSenders={() => setUwView('senders')}
                   inboxAddress={inboxInfo?.address}
                 />
               )}
