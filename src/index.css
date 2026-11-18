@@ -9785,3 +9785,6 @@ img.hc-player { object-fit: cover; }
 .uw-mbx-steps { margin: 0 0 0 48px; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
 .uw-mbx-code { display: inline-block; margin-left: 4px; padding: 1px 8px; border-radius: 6px; background: var(--bg-muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text-main); letter-spacing: 0.05em; }
 .uw-mbx-note { margin: 0; padding: 12px 24px 4px; font-size: 12.5px; color: var(--text-muted); }
+.uw-mbx-btn { text-decoration: none; display: inline-flex; align-items: center; }
+.uw-mbx-on { flex-shrink: 0; padding: 5px 12px; border-radius: 999px; background: var(--status-green-bg); color: var(--status-green-text); font-size: 12.5px; font-weight: 600; }
+.uw-mbx-steps a { color: var(--text-main); font-weight: 600; }

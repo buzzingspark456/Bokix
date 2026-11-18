@@ -353,8 +353,15 @@ function CopyButton({ text, label }) {
 }
 
 /** Lägg till brevlåda: vägarna in i Underlag. */
+// Gmails egna inställningssidor: vidarebefordran och filter.
+const GMAIL_FORWARDING_URL = 'https://mail.google.com/mail/u/0/#settings/fwdandpop';
+const GMAIL_FILTERS_URL = 'https://mail.google.com/mail/u/0/#settings/filters';
+
 function MailboxDialog({ info, onClose, onUpload }) {
   const [gmailOpen, setGmailOpen] = useState(false);
+  // Kopplad: Gmails bekräftelse kom, och sedan ett mejl till (vidarebefordrat).
+  const gmailConnected = Boolean(info?.gmailCodeAt && info?.lastReceivedAt
+    && Date.parse(info.lastReceivedAt) - Date.parse(info.gmailCodeAt) > 60 * 1000);
   return (
     <UwDialog title={tr('underlag.mailboxTitle')} sub={tr('underlag.mailboxSub')} onClose={onClose}>
       <div className="uw-mbx">
@@ -371,15 +378,17 @@ function MailboxDialog({ info, onClose, onUpload }) {
             <span className="uw-mbx-ico uw-mbx-gmail">G</span>
             <span className="uw-mbx-text">
               <b>{tr('underlag.mbxGmail')}</b>
-              <span>{tr('underlag.mbxGmailSub')}</span>
+              <span>{gmailConnected ? tr('underlag.mbxGmailOn') : tr('underlag.mbxGmailSub')}</span>
             </span>
-            <button type="button" className="uw-mbx-btn" onClick={() => setGmailOpen(o => !o)}>{gmailOpen ? tr('underlag.mbxHide') : tr('underlag.mbxShow')}</button>
+            {gmailConnected
+              ? <span className="uw-mbx-on">{tr('underlag.mbxConnected')}</span>
+              : <a className="uw-mbx-btn" href={GMAIL_FORWARDING_URL} target="_blank" rel="noopener noreferrer" onClick={() => setGmailOpen(true)}>{tr('underlag.mbxConnect')}</a>}
           </div>
-          {gmailOpen && (
+          {!gmailConnected && (gmailOpen || info?.gmailCode) && (
             <ol className="uw-mbx-steps">
-              <li>{tr('underlag.mbxStep1')}</li>
+              <li>{tr('underlag.mbxStepA')}</li>
               <li>{tr('underlag.mbxStep2')} {info?.gmailCode ? <b className="uw-mbx-code">{info.gmailCode}</b> : <em>{tr('underlag.mbxCodeWait')}</em>}</li>
-              <li>{tr('underlag.mbxStep3')}</li>
+              <li>{tr('underlag.mbxStepB')} <a href={GMAIL_FILTERS_URL} target="_blank" rel="noopener noreferrer">{tr('underlag.mbxFilters')}</a></li>
             </ol>
           )}
         </div>
