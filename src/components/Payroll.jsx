@@ -24,6 +24,7 @@ const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: 
 export default function Payroll({
   company, employees = [], onSaveEmployee, onImportEmployees, onApplyFos, onSyncBeforeServerCall, accounts = [], projects = [],
   payrollRuns = [], onCreateRun, onUpdateRunRow, onUpdateRun, onAdvanceRunStep, onBookRun, onMarkRunPaid, onDeleteRun, onRefreshRunSnapshots, agiReports = [],
+  outlays = [],
 }) {
   const [activeTab, setActiveTab] = useState('employees');
   const [search, setSearch] = useState('');
@@ -128,6 +129,7 @@ export default function Payroll({
         run={selectedRun}
         previousRun={previousRun}
         allRuns={payrollRuns}
+        outlays={outlays}
         onSyncBeforeServerCall={onSyncBeforeServerCall}
         accounts={accounts}
         company={company}

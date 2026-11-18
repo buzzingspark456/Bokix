@@ -88,3 +88,18 @@ describe('Underlag från företaget självt', () => {
     expect(d.ownOnly).toBe(false);
   });
 });
+
+describe('Utlägg för anställda', () => {
+  it('lönearten Utlägg är skattefri och bokförs mot 2820', async () => {
+    const { summarizePayLines, getPayType } = await import('./payTypes');
+    expect(getPayType('expense_refund')).toMatchObject({ kind: 'taxFree', account: '2820' });
+    const s = summarizePayLines([{ payTypeId: 'expense_refund', quantity: 1, rate: 193.75, note: 'Coop' }], {});
+    expect(s.taxFree).toBe(194);
+    expect(s.additions).toBe(0);
+    expect(s.lines[0].amount).toBe(193.75);
+  });
+  it('ett anställds utlägg föreslås inte för en bankrad', () => {
+    const row = { id: 'x', date: '2026-06-24', amount: -396 };
+    expect(receiptCandidates(row, [{ id: 'r', date: '2026-06-23', amount: 396, paidBy: 'employee' }])).toEqual([]);
+  });
+});

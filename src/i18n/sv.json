@@ -4266,6 +4266,10 @@
     "trashEmptyConfirm": "Ta bort {{n}} underlag för gott? Det går inte att ångra.",
     "trashPurgeConfirm": "Ta bort underlaget för gott? Det går inte att ångra.",
     "oldDate": "Datumet är från {{year}}, mer än ett år bakåt. Kontrollera att året stämmer innan du bokför.",
+    "paidEmployee": "En anställd (utlägg)",
+    "paidEmployeeWho": "Vem lade ut?",
+    "paidEmployeeNote": "Betalas tillbaka i nästa lönekörning, utan skatt.",
+    "paidByEmployeeMissing": "Välj vem som lade ut pengarna.",
     "justNow": "Nyss",
     "minAgo": "{{n}} min sedan",
     "hAgo": "{{n}} h sedan",
@@ -4618,6 +4622,8 @@
     "formRemove": "Ta bort jämkningen"
   },
   "payrollUi": {
+    "outlaysPending": "{{n}} utlägg att betala tillbaka, {{sum}} kr",
+    "outlaysAdd": "Lägg till i lönen",
     "oneTimeAuto": "Räknat med Skatteverkets engångstabell: {{pct}} %. Skriv en annan sats om Skatteverket beslutat det.",
     "carPrice": "Nybilspris (kr)",
     "carExtras": "Extrautrustning (kr)",

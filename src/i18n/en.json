@@ -4266,6 +4266,10 @@
     "trashEmptyConfirm": "Delete {{n}} documents for good? This cannot be undone.",
     "trashPurgeConfirm": "Delete the document for good? This cannot be undone.",
     "oldDate": "The date is from {{year}}, more than a year back. Check the year before booking.",
+    "paidEmployee": "An employee (outlay)",
+    "paidEmployeeWho": "Who paid?",
+    "paidEmployeeNote": "Paid back in the next payroll run, tax free.",
+    "paidByEmployeeMissing": "Choose who paid.",
     "justNow": "Just now",
     "minAgo": "{{n}} min ago",
     "hAgo": "{{n}} h ago",
@@ -4618,6 +4622,8 @@
     "formRemove": "Remove the adjustment"
   },
   "payrollUi": {
+    "outlaysPending": "{{n}} outlays to pay back, {{sum}} kr",
+    "outlaysAdd": "Add to payroll",
     "oneTimeAuto": "Calculated with the Tax Agency one-off table: {{pct}} %. Enter another rate if the Tax Agency has decided so.",
     "carPrice": "New car price (kr)",
     "carExtras": "Extra equipment (kr)",

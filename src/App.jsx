@@ -5259,7 +5259,10 @@ function App() {
       // Uppgifterna som lästes ur underlaget (org.nr, VAT-nr, bankgiro, IBAN, OCR).
       identifiers: formValues.identifiers || undefined,
       // Ägaren betalade privat (utlägg): krediteras 2018/2893/2890 i stället för 1930.
-      paidBy: formValues.paidBy === 'owner' ? 'owner' : undefined,
+      paidBy: formValues.paidBy === 'owner' || formValues.paidBy === 'employee' ? formValues.paidBy : undefined,
+      // Anställds utlägg: betalas tillbaka i lönekörningen (löneart Utlägg).
+      paidByEmployeeId: formValues.paidBy === 'employee' ? formValues.paidByEmployeeId : undefined,
+      paidByEmployeeName: formValues.paidBy === 'employee' ? formValues.paidByEmployeeName : undefined,
       // Utkastet från avläsningen behövs inte längre när kvittot är sparat.
       ocrDraft: undefined,
     };
@@ -5278,7 +5281,9 @@ function App() {
     const fxNote = describeForeign(updated.foreignCurrency);
     const verRows = [{ account: updated.costAccount, debet: cents(updated.netAmount), kredit: 0, projectId: updated.projectId, ...(fxNote ? { desc: fxNote } : {}) }];
     if (updated.vatAmount !== 0) verRows.push({ account: '2641', debet: cents(updated.vatAmount), kredit: 0 });
-    verRows.push({ account: updated.paidBy === 'owner' ? ownerPaidAccount(company?.orgNr) : '1930', debet: 0, kredit: cents(updated.amount) });
+    // Betalt av: företaget 1930, ägaren privat 2018/2893/2890, en anställd 2820.
+    const payAccount = updated.paidBy === 'owner' ? ownerPaidAccount(company?.orgNr) : updated.paidBy === 'employee' ? '2820' : '1930';
+    verRows.push({ account: payAccount, debet: 0, kredit: cents(updated.amount) });
     // En retur har negativt belopp: varje rad byter sida, så att pengarna
     // kommer in på 1930 och kostnaden och momsen minskar.
     const sided = (r) => (r.debet < 0 || r.kredit < 0 ? { ...r, debet: Math.max(0, -r.kredit), kredit: Math.max(0, -r.debet) } : r);
@@ -5948,6 +5953,7 @@ function App() {
             onDeleteRun={handleDeleteRun}
             onRefreshRunSnapshots={handleRefreshRunSnapshots}
             agiReports={agiReports}
+            outlays={expenses.filter(e => e.paidBy === 'employee' && e.costAccount && e.paidByEmployeeId)}
           />
         );
       case 'taxes':
@@ -6075,6 +6081,7 @@ function App() {
             onLinkBankRow={handleLinkReceiptToBank}
             companyId={data.activeCompanyId}
             receiptTrash={company?.receiptTrash || []}
+            employees={employees}
             onTrashExpense={handleTrashExpense}
             onRestoreExpense={handleRestoreExpense}
             onPurgeTrash={handlePurgeTrash}

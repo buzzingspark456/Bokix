@@ -9920,3 +9920,9 @@ img.hc-player { object-fit: cover; }
 /* Valuta och retur längst ner bland fälten i arbetsytan (sällan använda). */
 .receipt-modal-overlay.is-inline .rc-grid > .rc-span:has(> .rc-link), .receipt-modal-overlay.is-inline .rc-grid > .rc-span:has(> .rc-check) { order: 40; }
 .receipt-modal-overlay.is-inline .rc-grid > .rc-later:has(textarea) { order: 41; }
+
+/* Utlägg: anställd i Vem betalade, och i lönekörningen (2026-11-18). */
+.uw-paidby select + select { margin-top: 6px; }
+.uw-paidby-note { font-size: 12px; font-weight: 400; color: var(--text-muted); }
+.pr-outlays { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding: 10px 12px; border-radius: 10px; background: var(--status-amber-bg, #fdf3d7); color: var(--status-amber-text, #8a5a00); font-size: 13px; font-weight: 600; }
+.pr-outlays button { flex-shrink: 0; padding: 6px 12px; border: none; border-radius: 999px; background: var(--text-main); color: var(--bg-card); font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }

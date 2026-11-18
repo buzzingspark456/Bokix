@@ -524,7 +524,7 @@ function MatchBankModal({ supplier, amount, date, bankTransactions, onPick, onCl
   );
 }
 
-function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allReceipts, verifications = [], status, onSave, onSaveOcrDraft, onDelete, onReverse, onClose, onSaved, inline = false, vatExempt = false, ownCompany = null, bankTransactions = [], onLinkBankRow }) {
+function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allReceipts, verifications = [], status, onSave, onSaveOcrDraft, onDelete, onReverse, onClose, onSaved, inline = false, vatExempt = false, ownCompany = null, bankTransactions = [], onLinkBankRow, employees = [] }) {
   // "Rättad" är också ett låst tillstånd — samma skäl som "Bokförd": en
   // rättelseverifikation ändrar inte originalet, så fälten som redan
   // bokfördes ska förbli precis vad de var när det begicks, inte gå att
@@ -601,7 +601,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   // Vem betalade: företagets konto (1930) eller ägaren privat (utlägg).
   // Ett nytt underlag har inget val: det avgör kontot (1930 eller utlägg) och
   // väljs därför själv innan det bokförs. Ett sparat har företaget.
-  const [paidBy, setPaidBy] = useState(receipt.paidBy === 'owner' ? 'owner' : (receipt.costAccount ? 'company' : ''));
+  const [paidBy, setPaidBy] = useState(receipt.paidBy === 'owner' || receipt.paidBy === 'employee' ? receipt.paidBy : (receipt.costAccount ? 'company' : ''));
+  // En anställd betalade (utlägg): vem, så att lönekörningen kan betala tillbaka.
+  const [paidByEmployeeId, setPaidByEmployeeId] = useState(receipt.paidByEmployeeId || '');
   const [matchOpen, setMatchOpen] = useState(false);
   // Kontoväljaren i arbetsytan öppnas som en ruta. När avläsningen är klar
   // och inget konto är säkert öppnas den av sig själv, med förslaget överst.
@@ -940,6 +942,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     if (fx && !foreignForSave(fx)) newErrors.fx = 'Fyll i belopp och kurs, eller ta bort valutan.';
     // Arbetsytan: vem som betalade avgör kontot. Matchas en bankrad var det företaget.
     if (inline && !readOnly && !paidBy && !opts.bankRowId) newErrors.paidBy = tr('underlag.paidByMissing');
+    if (inline && !readOnly && paidBy === 'employee' && !paidByEmployeeId) newErrors.paidBy = tr('underlag.paidByEmployeeMissing');
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       // Arbetsytan: visa det första som saknas.
@@ -974,7 +977,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
       notes: form.notes.trim() || undefined,
       representation: REPRESENTATION_ACCOUNTS.has(form.costAccount) && !vatExempt ? { kind: form.reprKind, persons: Math.floor(Number(form.reprPersons)) } : undefined,
       identifiers: idsForSave(ids),
-      paidBy: paidBy === 'owner' ? 'owner' : undefined,
+      paidBy: paidBy === 'owner' || paidBy === 'employee' ? paidBy : undefined,
+      paidByEmployeeId: paidBy === 'employee' ? paidByEmployeeId : undefined,
+      paidByEmployeeName: paidBy === 'employee' ? ([employees.find(x => x.id === paidByEmployeeId)?.firstName, employees.find(x => x.id === paidByEmployeeId)?.lastName].filter(Boolean).join(' ')) : undefined,
     });
     if (opts.bankRowId) onLinkBankRow?.(opts.bankRowId, receipt.id);
     (onSaved || onClose)();
@@ -1488,7 +1493,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
           {inline && (() => {
             // Kopplad bankrad, och om det finns utgående rader att matcha mot.
             const linked = (bankTransactions || []).find(t => t.matchedType === 'receipt' && t.matchedId === receipt.id);
-            const canMatch = status !== 'reversed' && paidBy !== 'owner' && !linked
+            const canMatch = status !== 'reversed' && paidBy !== 'owner' && paidBy !== 'employee' && !linked
               && (bankTransactions || []).some(t => t.amount < 0 && (t.status || 'unmatched') === 'unmatched');
             return (
               <div className="uw-foot">
@@ -1499,7 +1504,15 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                       <option value="" disabled>{tr('underlag.paidChoose')}</option>
                       <option value="company">{tr('underlag.paidCompany')}</option>
                       <option value="owner">{tr('underlag.paidOwner')}</option>
+                      {employees.length > 0 && <option value="employee">{tr('underlag.paidEmployee')}</option>}
                     </select>
+                    {paidBy === 'employee' && (
+                      <select value={paidByEmployeeId} onChange={e => { setPaidByEmployeeId(e.target.value); setErrors(er => ({ ...er, paidBy: undefined })); }} aria-label={tr('underlag.paidEmployeeWho')}>
+                        <option value="" disabled>{tr('underlag.paidEmployeeWho')}</option>
+                        {employees.map(emp => <option key={emp.id} value={emp.id}>{[emp.firstName, emp.lastName].filter(Boolean).join(' ') || emp.name || emp.id}</option>)}
+                      </select>
+                    )}
+                    {paidBy === 'employee' && <span className="uw-paidby-note">{tr('underlag.paidEmployeeNote')}</span>}
                     {errors.paidBy && <em>{errors.paidBy}</em>}
                   </label>
                 )}
@@ -1926,6 +1939,8 @@ export default function Expenses({
   companyId = null,
   // Papperskorgen (company.receiptTrash).
   receiptTrash = [], onTrashExpense, onRestoreExpense, onPurgeTrash,
+  // Anställda: Vem betalade → En anställd (utlägg).
+  employees = [],
 }) {
   // -- Receipts State --
   const [isDragging, setIsDragging] = useState(false);
@@ -2326,6 +2341,7 @@ export default function Expenses({
               <div className="uw-detail">
                 <ReceiptDetailModal
                   inline
+                  employees={employees}
                   bankTransactions={bankTransactions}
                   onLinkBankRow={onLinkBankRow}
                   vatExempt={isVatExempt(company)}

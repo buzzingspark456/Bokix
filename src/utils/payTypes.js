@@ -168,6 +168,14 @@ export const PAY_TYPES = [
     help: 'Skattefri upp till Skatteverkets schablon per mil för egen bil i tjänsten. Kräver körjournal. Belopp därutöver är lön och läggs som ett tillägg i stället.',
   },
   {
+    // Utlägg som en anställd gjort för företaget (Underlag → Vem betalade →
+    // En anställd). Kvittot bokfördes mot 2820; raden betalar tillbaka och
+    // nollar skulden. Skattefritt, ingen arbetsgivaravgift, inte i AGI.
+    id: 'expense_refund', name: 'Utlägg', kind: 'taxFree', unit: 'st',
+    basis: 'manual', defaultQuantity: 1, account: '2820',
+    help: 'Pengar den anställda lagt ut för företaget, enligt kvitto. Betalas tillbaka utan skatt.',
+  },
+  {
     id: 'per_diem', name: 'Traktamente', kind: 'taxFree', unit: 'dagar',
     basis: 'manual', account: '7321',
     help: 'Skattefritt upp till Skatteverkets schablonbelopp vid tjänsteresa med övernattning utanför den vanliga verksamhetsorten.',
@@ -198,7 +206,7 @@ export const PAY_TYPE_GROUPS = [
   { label: 'Rörlig ersättning', ids: ['bonus', 'sick_pay'] },
   { label: 'Frånvaro', ids: ['absence_unpaid', 'karensavdrag'] },
   { label: 'Förmåner', ids: ['car_benefit', 'meal_benefit', 'other_benefit'] },
-  { label: 'Skattefritt', ids: ['mileage', 'per_diem'] },
+  { label: 'Skattefritt', ids: ['mileage', 'per_diem', 'expense_refund'] },
   { label: 'Avdrag efter skatt', ids: ['garnishment', 'net_deduction_other'] },
 ];
 

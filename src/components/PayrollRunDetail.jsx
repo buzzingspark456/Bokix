@@ -175,7 +175,7 @@ function CarBenefitCalc({ line, year, onApply }) {
   );
 }
 
-function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
+function PayLinesEditor({ row, computed, onUpdateRow, locked, pendingOutlays = [] }) {
   const employee = row.employeeSnapshot;
   const lines = row.lines || [];
   const [adding, setAdding] = useState('');
@@ -196,6 +196,15 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
     setAdding('');
   };
 
+  // Utlägg från Underlag (Vem betalade → En anställd) som inte ligger i någon
+  // lönekörning än: en rad per kvitto, med kvittots belopp.
+  const mine = pendingOutlays.filter(e => e.paidByEmployeeId === row.employeeId);
+  const addOutlays = () => updateLines([...lines, ...mine.map((e, i) => ({
+    id: `pl_${Date.now()}_${i}`, payTypeId: 'expense_refund', quantity: 1,
+    rate: Math.round(Math.abs(Number(e.amount) || 0) * 100) / 100,
+    note: [e.supplier, e.date].filter(Boolean).join(' '), expenseId: e.id,
+  }))]);
+
   const patchLine = (id, patch) => updateLines(lines.map(l => (l.id === id ? { ...l, ...patch } : l)));
   const removeLine = (id) => updateLines(lines.filter(l => l.id !== id));
 
@@ -203,6 +212,12 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
 
   return (
     <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px dashed var(--border)' }}>
+      {!locked && mine.length > 0 && (
+        <div className="pr-outlays">
+          <span>{tr('payrollUi.outlaysPending', { n: mine.length, sum: mine.reduce((s, e) => s + Math.abs(Number(e.amount) || 0), 0).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) })}</span>
+          <button type="button" onClick={addOutlays}>{tr('payrollUi.outlaysAdd')}</button>
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: lines.length ? '10px' : '6px', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.lonearter')}</span>
         {!locked && (
@@ -292,7 +307,7 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
     </div>
   );
 }
-function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, flat = false, defaultOpen = false, vacationLeft = null }) {
+function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, flat = false, defaultOpen = false, vacationLeft = null, pendingOutlays = [] }) {
   const [expanded, setExpanded] = useState(defaultOpen);
   const isZero = computed.gross === 0 && computed.net === 0 && computed.tax === 0;
   const diff = previousComputed ? computed.net - previousComputed.net : null;
@@ -370,7 +385,7 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, fla
       {expanded && (
         <div style={{ padding: flat ? '4px 24px 16px' : '4px 18px 16px', borderTop: '1px solid var(--border-light)' }}>
           {computed.steps.map((s, i) => <CalculationRow key={i} {...s} />)}
-          <PayLinesEditor row={row} computed={computed} onUpdateRow={onUpdateRow} locked={locked} />
+          <PayLinesEditor row={row} computed={computed} onUpdateRow={onUpdateRow} locked={locked} pendingOutlays={pendingOutlays} />
           {(computed.payLines || []).some(l => l.oneTime && l.amount > 0) && (
             <label style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginTop: '12px', fontSize: '13px', color: 'var(--text-main)' }}>
               {tr('payrollUi.oneTimeLabel')}
@@ -580,7 +595,7 @@ export function VerificationBlock({ title, rows, accounts }) {
   );
 }
 
-export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyncBeforeServerCall, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onDelete, onUpdateRow, onUpdateRun, onRefreshSnapshots }) {
+export default function PayrollRunDetail({ run, previousRun, allRuns = [], outlays = [], onSyncBeforeServerCall, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onDelete, onUpdateRow, onUpdateRun, onRefreshSnapshots }) {
   const isPhone = useIsMobileViewport();
   // Fakturans logga på lönebeskeden, hämtad en gång som PNG.
   const [payslipLogo, setPayslipLogo] = useState(null);
@@ -647,6 +662,13 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
     return run.rows.map(row => ({ row, computed: computeEmployeePayroll(row.employeeSnapshot, row) }));
   }, [run.rows, tablesReady]);
   const totals = useMemo(() => summarizePayrollRun(computedRows.map(r => r.computed)), [computedRows]);
+  // Anställdas utlägg som inte ligger i någon lönekörning än (raden har expenseId).
+  const pendingOutlays = useMemo(() => {
+    const taken = new Set();
+    (allRuns || []).forEach(r => (r.rows || []).forEach(rw => (rw.lines || []).forEach(l => { if (l.expenseId) taken.add(l.expenseId); })));
+    (run.rows || []).forEach(rw => (rw.lines || []).forEach(l => { if (l.expenseId) taken.add(l.expenseId); }));
+    return (outlays || []).filter(e => !taken.has(e.id));
+  }, [allRuns, run.rows, outlays]);
   // Semesterdagar kvar per anställd (utils/vacation.js), visas i Lön och timmar.
   const vacationLeftById = useMemo(() => Object.fromEntries(run.rows.map(r => [
     r.employeeId,
@@ -928,6 +950,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
         // hamnar under alla uträkningar (2026-11-06).
         <EmployeeRow flat defaultOpen={isPhone ? computed.gross === 0 : (computedRows.length <= 5 || computed.gross === 0)}
           vacationLeft={vacationLeftById[row.employeeId]}
+          pendingOutlays={pendingOutlays}
           key={row.employeeId} row={row} computed={computed}
           previousComputed={previousComputedByEmployee[row.employeeId]}
           accounts={accounts} onUpdateRow={onUpdateRow}

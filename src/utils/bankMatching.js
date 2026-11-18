@@ -87,7 +87,7 @@ export function receiptCandidates(row, expenses, bankTransactions = []) {
     .filter(t => t.id !== row.id && t.matchedType === 'receipt' && t.matchedId)
     .map(t => t.matchedId));
   return (expenses || [])
-    .filter(e => e.type !== 'supplier_invoice' && e.paidBy !== 'owner' && !taken.has(e.id) && e.date
+    .filter(e => e.type !== 'supplier_invoice' && e.paidBy !== 'owner' && e.paidBy !== 'employee' && !taken.has(e.id) && e.date
       && Math.abs((Number(e.amount) || 0) - amount) <= AMOUNT_TOLERANCE
       && dayDiff(e.date, row.date) <= RECEIPT_DAYS)
     .sort((a, b) => dayDiff(a.date, row.date) - dayDiff(b.date, row.date))
