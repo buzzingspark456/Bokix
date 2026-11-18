@@ -10081,3 +10081,22 @@ img.hc-player { object-fit: cover; }
 .ut-alert-x { display: inline-flex; padding: 5px !important; border-radius: 50% !important; background: none !important; color: inherit !important; opacity: 0.7; }
 .ut-alert-x:hover { opacity: 1; background: color-mix(in srgb, currentColor 12%, transparent) !important; }
 .ut-chiplist-top { margin-top: 12px; }
+
+/* Granska avsändare med flikar (2026-11-18). */
+.ut-snd-card { margin-top: 16px; padding: 18px 20px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); }
+.ut-snd-tabs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--bg-muted); }
+.ut-snd-tabs button { padding: 7px 14px; border: none; border-radius: 8px; background: none; font-family: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+.ut-snd-tabs button span { margin-left: 4px; font-size: 11.5px; opacity: 0.7; }
+.ut-snd-tabs button.on { background: var(--bg-card); color: var(--text-main); box-shadow: 0 1px 2px rgba(0,0,0,0.08), 0 0 0 1px var(--border-light); }
+.ut-snd-lead { margin: 12px 0 0; font-size: 13.5px; color: var(--text-secondary); }
+.ut-snd-own { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; padding: 5px 10px; border-radius: 999px; background: var(--status-green-bg, #e7f6ec); color: var(--status-green-text, #146c34); font-size: 12.5px; font-weight: 500; }
+.ut-add-full { max-width: none; margin: 14px 0 0; }
+.ut-snd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 28px; margin-top: 18px; }
+.ut-snd-sec h3 { margin: 0 0 8px; font-size: 12.5px; font-weight: 600; color: var(--text-muted); }
+.ut-snd-sec ul { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--border-light); }
+.ut-snd-sec li { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--border-light); font-size: 13.5px; color: var(--text-main); }
+.ut-snd-addr { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ut-snd-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent, #1f9a4a); flex-shrink: 0; }
+.ut-snd-dot.blocked { background: var(--status-red-text, #b42318); }
+.ut-snd-empty { margin: 0; padding: 10px 0; font-size: 13px; color: var(--text-muted); border-top: 1px solid var(--border-light); }
+.ut-alert-ghost { background: none !important; color: inherit !important; border: 1px solid currentColor !important; }

@@ -1766,19 +1766,44 @@ function UnderlagPage({ title, intro, children }) {
   );
 }
 
-/** Granska avsändare: vem som får mejla in, och vem som faktiskt har gjort det. */
-function SendersView({ info, onSaveSenders, receipts = [] }) {
+/** Granska avsändare (2026-11-18, efter Fortnox Hantera avsändare): flikarna
+ * Godkända och Blockerade, enskilda adresser och hela domäner, de som mejlat
+ * in. Blockerade sparas som "!adress" i samma lista (api/inbox/_inbox.js). */
+function SendersView({ info, onSaveSenders, receipts = [], ownEmail = '' }) {
+  const [tab, setTab] = useState('allowed');
   const [input, setInput] = useState('');
   const [err, setErr] = useState('');
-  const allowed = info?.allowedSenders || [];
+  const list = info?.allowedSenders || [];
+  const allowed = list.filter(x => !x.startsWith('!'));
+  const blockedList = list.filter(x => x.startsWith('!')).map(x => x.slice(1));
   const normalize = (v) => {
     const x = String(v || '').trim().toLowerCase().replace(/^.*<([^>]+)>.*$/, '$1');
     if (/^[^\s@]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(x)) return x;
     const d = x.replace(/^@/, '');
     return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d) ? `@${d}` : null;
   };
-  const isAllowed = (addr) => !allowed.length || allowed.some(a => (a.startsWith('@') ? addr.endsWith(a) : addr === a));
-  // De som mejlat in: adress, antal och senaste.
+  const matches = (addr, e) => (e.startsWith('@') ? addr.endsWith(e) : addr === e);
+  const own = String(ownEmail || '').toLowerCase();
+  const statusOf = (addr) => {
+    if (own && addr === own) return 'own';
+    if (blockedList.some(e => matches(addr, e))) return 'blocked';
+    if (!allowed.length || allowed.some(e => matches(addr, e))) return 'allowed';
+    return 'stopped';
+  };
+  const save = async (next) => {
+    if (await onSaveSenders?.([...new Set(next)])) return true;
+    setErr(tr('underlag.sendersFail')); return false;
+  };
+  const allow = (v) => save([...list.filter(x => x !== `!${v}`), v]);
+  const block = (v) => save([...list.filter(x => x !== v), `!${v}`]);
+  const removeEntry = (v, wasBlocked) => save(list.filter(x => x !== (wasBlocked ? `!${v}` : v)));
+  const submit = async (e) => {
+    e.preventDefault();
+    const v = normalize(input);
+    if (!v) { setErr(tr('underlag.sendersBad')); return; }
+    setErr('');
+    if (await (tab === 'blocked' ? block(v) : allow(v))) setInput('');
+  };
   const seen = useMemo(() => {
     const map = new Map();
     receipts.filter(r => r.inbox?.source === 'email' && r.inbox.from).forEach(r => {
@@ -1791,54 +1816,66 @@ function SendersView({ info, onSaveSenders, receipts = [] }) {
     });
     return [...map.values()].sort((a, b) => b.last - a.last);
   }, [receipts]); // eslint-disable-line react-hooks/exhaustive-deps
-  const add = async (raw) => {
-    const v = normalize(raw);
-    if (!v) { setErr(tr('underlag.sendersBad')); return; }
-    setErr('');
-    if (await onSaveSenders?.([...new Set([...allowed, v])])) setInput('');
-    else setErr(tr('underlag.sendersFail'));
-  };
-  const remove = (v) => onSaveSenders?.(allowed.filter(x => x !== v));
-  const blocked = info?.lastBlockedFrom ? normalize(info.lastBlockedFrom) : null;
-  // "Senast stoppat" går att dölja; visas igen när något nytt stoppas.
+  // Senast stoppat: dölj, godkänn eller blockera.
+  const stopped = info?.lastBlockedFrom ? normalize(info.lastBlockedFrom) : null;
   const hideKey = 'bokix.blockedHidden';
+  const stamp = String(info?.lastBlockedAt || info?.lastBlockedFrom || '');
   const [hiddenAt, setHiddenAt] = useState(() => { try { return localStorage.getItem(hideKey) || ''; } catch { return ''; } });
-  const hideBlocked = () => { const v = String(info?.lastBlockedAt || info?.lastBlockedFrom || ''); setHiddenAt(v); try { localStorage.setItem(hideKey, v); } catch { /* inget */ } };
-  const blockedHidden = hiddenAt && hiddenAt === String(info?.lastBlockedAt || info?.lastBlockedFrom || '');
+  const hideStopped = () => { setHiddenAt(stamp); try { localStorage.setItem(hideKey, stamp); } catch { /* inget */ } };
+  const showStopped = stopped && !list.includes(stopped) && !list.includes(`!${stopped}`) && hiddenAt !== stamp;
+  const current = tab === 'blocked' ? blockedList : allowed;
+  const people = current.filter(x => !x.startsWith('@'));
+  const domains = current.filter(x => x.startsWith('@'));
+  const section = (title, items, empty) => (
+    <div className="ut-snd-sec">
+      <h3>{title}</h3>
+      {items.length === 0 ? <p className="ut-snd-empty">{empty}</p> : (
+        <ul>
+          {items.map(v => (
+            <li key={v}>
+              <span className={`ut-snd-dot ${tab}`} aria-hidden="true" />
+              <span className="ut-snd-addr">{v}</span>
+              <button type="button" className="ut-link" onClick={() => removeEntry(v, tab === 'blocked')}>{tr('ui.ta_bort')}</button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
   return (
     <div className="ut">
       <div className="ut-head">
         <h1>{tr('underlag.navSenders')}</h1>
-        <p>{tr('underlag.sendersIntro')}</p>
+        <p>{tr('underlag.sendersIntro2')}</p>
       </div>
-      <div className="ut-bar">
-        <span className={`ut-mode ${allowed.length ? 'on' : ''}`}>
-          {allowed.length ? <CheckCircle2 size={15} /> : <Mail size={15} />}
-          {allowed.length ? tr('underlag.sendersModeList', { n: allowed.length }) : tr('underlag.sendersModeAll')}
-        </span>
-        <form className="ut-add" onSubmit={e => { e.preventDefault(); add(input); }}>
-          <input value={input} onChange={e => { setInput(e.target.value); setErr(''); }} placeholder={tr('underlag.sendersPh')} aria-label={tr('underlag.sendersAdd')} />
-          <button type="submit" disabled={!input.trim()}>{tr('underlag.sendersAdd')}</button>
-        </form>
-      </div>
-      {err && <p className="ut-err">{err}</p>}
-      {blocked && !allowed.includes(blocked) && !blockedHidden && (
+      {showStopped && (
         <div className="ut-alert">
           <AlertCircle size={15} />
           <span>{tr('underlag.sendersBlocked', { from: info.lastBlockedFrom })}{info.lastBlockedAt ? ` · ${new Date(info.lastBlockedAt).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</span>
-          <button type="button" onClick={() => add(blocked)}>{tr('underlag.sendersAllow')}</button>
-          <button type="button" className="ut-alert-x" onClick={hideBlocked} aria-label={tr('underlag.hide')} title={tr('underlag.hide')}><X size={14} /></button>
+          <button type="button" onClick={() => allow(stopped)}>{tr('underlag.sendersAllow')}</button>
+          <button type="button" className="ut-alert-ghost" onClick={() => block(stopped)}>{tr('underlag.block')}</button>
+          <button type="button" className="ut-alert-x" onClick={hideStopped} aria-label={tr('underlag.hide')} title={tr('underlag.hide')}><X size={14} /></button>
         </div>
       )}
-      {allowed.length > 0 && (
-        <>
-          <div className="ut-chiplist ut-chiplist-top">
-            {allowed.map(v => (
-              <span key={v} className="ut-schip"><CheckCircle2 size={13} />{v}<button type="button" onClick={() => remove(v)} aria-label={tr('ui.ta_bort')}><X size={12} /></button></span>
-            ))}
-          </div>
-        </>
-      )}
+      <div className="ut-snd-card">
+        <div className="ut-snd-tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={tab === 'allowed'} className={tab === 'allowed' ? 'on' : undefined} onClick={() => { setTab('allowed'); setErr(''); }}>{tr('underlag.tabAllowed')} <span>{allowed.length}</span></button>
+          <button type="button" role="tab" aria-selected={tab === 'blocked'} className={tab === 'blocked' ? 'on' : undefined} onClick={() => { setTab('blocked'); setErr(''); }}>{tr('underlag.tabBlocked')} <span>{blockedList.length}</span></button>
+        </div>
+        <p className="ut-snd-lead">{tab === 'blocked' ? tr('underlag.blockedLead') : (allowed.length ? tr('underlag.allowedLeadList') : tr('underlag.allowedLeadAll'))}</p>
+        {tab === 'allowed' && own && (
+          <div className="ut-snd-own"><CheckCircle2 size={14} /> {tr('underlag.ownAlways', { email: own })}</div>
+        )}
+        <form className="ut-add ut-add-full" onSubmit={submit}>
+          <input value={input} onChange={e => { setInput(e.target.value); setErr(''); }} placeholder={tr('underlag.sendersPh')} aria-label={tr('underlag.sendersAdd')} />
+          <button type="submit" disabled={!input.trim()}>{tab === 'blocked' ? tr('underlag.block') : tr('underlag.sendersAdd')}</button>
+        </form>
+        {err && <p className="ut-err">{err}</p>}
+        <div className="ut-snd-grid">
+          {section(tr('underlag.secPeople'), people, tab === 'blocked' ? tr('underlag.noneBlocked') : tr('underlag.noneAllowed'))}
+          {section(tr('underlag.secDomains'), domains, tr('underlag.noneDomains'))}
+        </div>
+      </div>
       <h2 className="ut-h2">{tr('underlag.sendersSeenTitle')}</h2>
       <div className="ut-table-wrap">
         <table className="ut-table ut-table-static">
@@ -1854,16 +1891,16 @@ function SendersView({ info, onSaveSenders, receipts = [] }) {
           <tbody>
             {seen.length === 0 && <tr><td colSpan={5} className="ut-empty"><UtEmpty icon={Mail} title={tr('underlag.sendersNone')} text={info?.address ? tr('underlag.noMailText', { address: info.address }) : ''} /></td></tr>}
             {seen.map(s => {
-              const ok = isAllowed(s.addr);
+              const st = statusOf(s.addr);
               return (
                 <tr key={s.addr}>
                   <td><span className="ut-doc-text"><b>{s.name || s.addr}</b>{s.name && <small>{s.addr}</small>}</span></td>
                   <td className="ut-c-num">{s.count}</td>
                   <td className="ut-muted">{s.last ? new Date(s.last).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '–'}</td>
-                  <td><span className={`ut-pill ${ok ? 'ok' : 'stop'}`}>{ok ? tr('underlag.statusAllowed') : tr('underlag.statusStopped')}</span></td>
+                  <td><span className={`ut-pill ${st === 'blocked' || st === 'stopped' ? 'stop' : 'ok'}`}>{tr(`underlag.st_${st}`)}</span></td>
                   <td className="ut-actions">
-                    {allowed.length > 0 && !ok && <button type="button" className="ut-link" onClick={() => add(s.addr)}>{tr('underlag.sendersAllow')}</button>}
-                    {allowed.length === 0 && <button type="button" className="ut-link" onClick={() => add(s.addr)}>{tr('underlag.sendersOnlyThese')}</button>}
+                    {(st === 'stopped' || st === 'blocked') && <button type="button" className="ut-link" onClick={() => allow(s.addr)}>{tr('underlag.sendersAllow')}</button>}
+                    {st !== 'blocked' && st !== 'own' && <button type="button" className="ut-link ut-link-danger" onClick={() => block(s.addr)}>{tr('underlag.block')}</button>}
                   </td>
                 </tr>
               );
@@ -2074,6 +2111,7 @@ function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDelet
                 <input type="checkbox" checked={allPicked} disabled={!pickable.length} onChange={() => setPicked(allPicked ? new Set() : new Set(pickable.map(r => r.id)))} aria-label={tr('underlag.pickAll')} />
               </th>
               <th>{onlyEmail ? tr('underlag.colSubject') : tr('underlag.colDoc')}</th>
+              <th>{tr('underlag.type')}</th>
               <th className="ut-c-num">{tr('underlag.colAmount')}</th>
               <th>{tr('underlag.colArrived')}</th>
               <th>{tr('underlag.colRead')}</th>
@@ -2087,11 +2125,11 @@ function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDelet
               <tr key={u.id} className="ut-uploading">
                 <td className="ut-c-check" />
                 <td><span className="ut-doc"><span className="ut-thumb"><span className="rc-row-thumb is-letter"><UploadCloud size={15} /></span></span><span className="ut-doc-text"><b>{u.file?.name || tr('underlag.unnamed')}</b><small>{tr('underlag.uploadingNow')}</small></span></span></td>
-                <td colSpan={6}><span className="ut-up-bar"><i style={{ width: `${Math.round((u.progress || 0) * (u.progress > 1 ? 1 : 100))}%` }} /></span></td>
+                <td colSpan={7}><span className="ut-up-bar"><i style={{ width: `${Math.round((u.progress || 0) * (u.progress > 1 ? 1 : 100))}%` }} /></span></td>
               </tr>
             ))}
             {shown.length === 0 && uploading.length === 0 && (
-              <tr><td colSpan={8} className="ut-empty">
+              <tr><td colSpan={9} className="ut-empty">
                 {needle
                   ? <UtEmpty icon={Search} title={tr('underlag.noHits')} text={tr('underlag.noHitsText')} />
                   : onlyEmail
@@ -2124,6 +2162,7 @@ function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDelet
                       </span>
                     </span>
                   </td>
+                  <td className="ut-muted">{r.ocrDraft?.details?.dueDate || r.type === 'supplier_invoice' ? tr('underlag.typeInvoice') : r.ocrDraft || r.costAccount ? tr('underlag.typeReceipt') : '–'}</td>
                   <td className="ut-c-num">{amount > 0 ? formatSEK(amount) : '–'}</td>
                   <td className="ut-muted">{arrivedLabel(r)}</td>
                   <td><span className={`ut-read ut-read-${rs.key}`}>{rs.text}</span></td>
@@ -2579,7 +2618,7 @@ export default function Expenses({
                 />
               )}
               {uwView === 'senders' && (
-                <SendersView info={inboxInfo} onSaveSenders={saveSenders} receipts={[...allReceipts, ...receiptTrash]} />
+                <SendersView info={inboxInfo} onSaveSenders={saveSenders} receipts={[...allReceipts, ...receiptTrash]} ownEmail={user?.email || ''} />
               )}
               {uwView === 'mailbox' && (
                 <MailboxView info={inboxInfo} onUpload={() => document.getElementById('uw-upload').click()} onSenders={() => setUwView('senders')} />

@@ -32,3 +32,17 @@ describe('buildNotificationFeed', () => {
     expect(isUnread(feed[0], new Set(['stripe:1']))).toBe(true);
   });
 });
+
+describe('mejlade underlag i klockan', () => {
+  it('en notis per dag med avsändarens domän', async () => {
+    const { buildNotificationFeed: feed } = await import('./notificationFeed');
+    const t = (k, o) => `${k}:${o?.from || ''}:${o?.count || ''}`;
+    const now = new Date('2026-11-18T12:00:00Z');
+    const items = feed({ t, now, expenses: [
+      { id: 'a', inbox: { from: 'Gusto <kvitto@gusto.se>', receivedAt: '2026-11-18T10:00:00Z' } },
+      { id: 'b', inbox: { from: 'kvitto@gusto.se', receivedAt: '2026-11-18T11:00:00Z' } },
+    ] }).filter(n => n.kind === 'inbox');
+    expect(items).toHaveLength(1);
+    expect(items[0].text).toBe('notifFeed.inboxMany:gusto.se:2');
+  });
+});

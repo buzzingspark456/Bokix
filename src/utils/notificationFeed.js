@@ -51,9 +51,29 @@ const sek = (n) => `${numberFormat('sv-SE', { maximumFractionDigits: 0 }).format
  * @param vat             { key, label, quarter, dueDate, daysLeft } när momsen snart ska in, annars null
  * @param agi             { periodKey, dueDate, daysLeft } när AGI snart ska in, annars null
  */
-export function buildNotificationFeed({ t, invoices = [], integrationEvents = [], vat = null, agi = null, now = new Date() }) {
+export function buildNotificationFeed({ t, invoices = [], expenses = [], integrationEvents = [], vat = null, agi = null, now = new Date() }) {
   const since = new Date(now.getTime() - KEEP_DAYS * DAY).toISOString();
   const items = [];
+
+  // Underlag som mejlats till företagets adress, en notis per dag (2026-11-18).
+  const inboxByDay = new Map();
+  for (const e of expenses) {
+    const at = e.inbox?.receivedAt;
+    if (!at || at < since) continue;
+    const day = isoDay(at);
+    if (!inboxByDay.has(day)) inboxByDay.set(day, []);
+    inboxByDay.get(day).push(e);
+  }
+  for (const [, list] of inboxByDay) {
+    const senders = [...new Set(list.map(e => String(e.inbox.from || '').split('@').pop().replace(/>$/, '').trim()).filter(Boolean))];
+    items.push({
+      keys: list.map(e => `inbox:${e.id}`), at: list.map(e => e.inbox.receivedAt).sort().at(-1), kind: 'inbox', tone: 'blue',
+      text: list.length === 1
+        ? t('notifFeed.inboxOne', { from: senders[0] || t('notifFeed.unknownSender') })
+        : t(senders.length > 1 ? 'notifFeed.inboxManySenders' : 'notifFeed.inboxMany', { count: list.length, from: senders[0] || t('notifFeed.unknownSender') }),
+      target: { tab: 'expenses' },
+    });
+  }
 
   // Kunden betalade via Betala nu.
   for (const inv of invoices) {

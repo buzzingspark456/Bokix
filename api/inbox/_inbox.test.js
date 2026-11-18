@@ -81,3 +81,19 @@ describe('Gmails bekräftelse', () => {
     expect(gmailConfirmationCode('someone@example.com', '(#123456789)', '')).toBe(null);
   });
 });
+
+import { senderAllowed as sa2, normalizeSender as ns2 } from './_inbox.js';
+describe('blockerade och egna avsändare', () => {
+  it('blockerad stoppas även när alla annars får', () => {
+    expect(sa2('Spam <x@spam.se>', ['!@spam.se'])).toBe(false);
+    expect(sa2('a@telia.se', ['!@spam.se'])).toBe(true);
+  });
+  it('egen adress går alltid igenom', () => {
+    expect(sa2('Jag <me@gmail.com>', ['@telia.se'], ['me@gmail.com'])).toBe(true);
+    expect(sa2('Jag <me@gmail.com>', ['!me@gmail.com'], ['me@gmail.com'])).toBe(true);
+  });
+  it('normaliserar blockerade', () => {
+    expect(ns2('!@Spam.se')).toBe('!@spam.se');
+    expect(ns2('!inget')).toBe(null);
+  });
+});

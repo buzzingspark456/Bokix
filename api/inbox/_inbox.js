@@ -97,7 +97,10 @@ export function safeFileName(name, type) {
 
 /** Normaliserar en post, eller null om den inte är en adress eller domän. */
 export function normalizeSender(entry) {
-  const s = String(entry || '').trim().toLowerCase().replace(/^mailto:/, '');
+  // "!x" = blockerad avsändare (2026-11-18): sparas i samma lista.
+  const raw = String(entry || '').trim();
+  if (raw.startsWith('!')) { const inner = normalizeSender(raw.slice(1)); return inner ? `!${inner}` : null; }
+  const s = raw.toLowerCase().replace(/^mailto:/, '');
   if (/^[^\s@]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(s)) return s;
   const domain = s.replace(/^@/, '');
   if (/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain)) return `@${domain}`;
@@ -110,14 +113,18 @@ export function bareAddress(from) {
   return (m ? m[1] : String(from || '').trim()).toLowerCase();
 }
 
-export function senderAllowed(from, allowed) {
-  const list = (allowed || []).map(normalizeSender).filter(Boolean);
-  if (list.length === 0) return true;
+export function senderAllowed(from, allowed, alwaysAllowed = []) {
+  const all = (allowed || []).map(normalizeSender).filter(Boolean);
   const addr = bareAddress(from);
   const domain = addr.split('@')[1] || '';
-  return list.some(e => (e.startsWith('@')
-    ? domain === e.slice(1) || domain.endsWith(`.${e.slice(1)}`)
-    : addr === e));
+  const hit = (e) => (e.startsWith('@') ? domain === e.slice(1) || domain.endsWith(`.${e.slice(1)}`) : addr === e);
+  // Företagets egna användare är alltid godkända.
+  if ((alwaysAllowed || []).map(a => String(a || '').toLowerCase()).includes(addr)) return true;
+  // Blockerad går före allt annat.
+  if (all.filter(e => e.startsWith('!')).some(e => hit(e.slice(1)))) return false;
+  const list = all.filter(e => !e.startsWith('!'));
+  if (list.length === 0) return true;
+  return list.some(hit);
 }
 
 /**

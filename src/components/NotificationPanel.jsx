@@ -1,12 +1,12 @@
 import React from 'react';
-import { Bell, Banknote, CalendarClock, ChevronRight, X, Cog } from './icons';
+import { Bell, Banknote, CalendarClock, ChevronRight, X, Cog, Mail } from './icons';
 import { notificationWhen } from '../utils/notificationFeed';
 
 // Notispanelen under klockan (2026-11-12). Delas av appen (App.jsx) och
 // demon (DemoWorkspace.jsx), så att de alltid ser likadana ut.
 // Nytt och Tidigare, rubrik + detalj, färgad ikon per sort, Att göra längst
 // ner. Stilarna ligger i index.css (.np-*).
-const ICON = { paid: Banknote, integration: Banknote, deadline: CalendarClock };
+const ICON = { paid: Banknote, integration: Banknote, deadline: CalendarClock, inbox: Mail };
 
 // Belopp ("72 500 kr") och fakturanummer ("Faktura 1011") i fetstil, så att
 // det viktiga syns direkt.

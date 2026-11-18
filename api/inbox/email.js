@@ -94,7 +94,13 @@ export default async function handler(req, res) {
 
   // Godkända avsändare: en adress med en lista tar bara emot från den.
   // Stoppade mejl laddas inte ner; det senaste visas i appen.
-  const inboxes = found.filter(i => senderAllowed(fromEmail, i.allowed_senders));
+  // Ägarens egen inloggningsadress är alltid godkänd.
+  const ownerEmails = {};
+  for (const i of found) {
+    if (ownerEmails[i.owner_user_id] !== undefined) continue;
+    try { ownerEmails[i.owner_user_id] = (await admin.auth.admin.getUserById(i.owner_user_id))?.data?.user?.email || ''; } catch { ownerEmails[i.owner_user_id] = ''; }
+  }
+  const inboxes = found.filter(i => senderAllowed(fromEmail, i.allowed_senders, [ownerEmails[i.owner_user_id]]));
   const blocked = found.filter(i => !inboxes.includes(i));
   if (blocked.length) {
     await admin.from('inbox_addresses')
