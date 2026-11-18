@@ -9950,3 +9950,20 @@ img.hc-player { object-fit: cover; }
 .ut-nav-group:last-child { border-bottom: none; }
 .ut-nav-side button:nth-child(4), .ut-nav-side button:nth-child(5) { margin-top: 0; }
 .ut-card { max-width: 820px; }
+
+/* Upplevelsen (2026-11-18): framsteg, släppyta, uppladdning i tabellen, piltangenter. */
+.ut-progress { display: flex; align-items: center; gap: 12px; margin-top: 12px; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.ut-progress-bar { position: relative; width: 160px; height: 6px; border-radius: 999px; background: var(--border-light); overflow: hidden; }
+.ut-progress-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--accent, #1f9a4a); transition: width 400ms ease; }
+.ut-drop { position: absolute; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 24px; background: color-mix(in srgb, var(--bg-page) 82%, transparent); backdrop-filter: blur(2px); pointer-events: none; }
+.ut-drop-box { display: flex; flex-direction: column; align-items: center; gap: 8px; width: min(520px, 100%); padding: 48px 24px; border: 2px dashed var(--accent, #1f9a4a); border-radius: 18px; background: var(--bg-card); text-align: center; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12); }
+.ut-drop-box strong { margin-top: 6px; font-size: 18px; color: var(--text-main); }
+.ut-drop-box span { font-size: 13.5px; color: var(--text-muted); }
+.ut-wrap { position: relative; }
+.ut-uploading td { background: color-mix(in srgb, var(--accent) 5%, var(--bg-card)); cursor: default; }
+.ut-up-bar { display: block; position: relative; width: min(320px, 100%); height: 6px; border-radius: 999px; background: var(--border-light); overflow: hidden; }
+.ut-up-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--accent, #1f9a4a); transition: width 200ms ease; }
+.ut-keys { display: inline-flex; gap: 3px; margin-right: 4px; }
+.ut-keys kbd { min-width: 18px; padding: 1px 5px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--bg-card); font-family: inherit; font-size: 11px; text-align: center; color: var(--text-muted); }
+.ut-table tbody tr:not(.ut-uploading) td:nth-child(2) b { transition: color 120ms ease; }
+.ut-table tbody tr:hover td:nth-child(2) b { color: var(--accent-text, var(--text-main)); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }

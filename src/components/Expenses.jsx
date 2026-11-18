@@ -1811,7 +1811,7 @@ function TrashView({ items, onRestore, onPurge }) {
 
 /** Underlag som tabell, som Fortnox (2026-11-18): kryssrutor, kolumner för
  * belopp, inkommet, avläsning, källa och avsändare. En rad öppnar underlaget. */
-function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDeleteMany, onUpload, onMailIn, onSenders, inboxAddress, onlyEmail = false }) {
+function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDeleteMany, onUpload, onMailIn, onSenders, inboxAddress, onlyEmail = false, uploading = [] }) {
   const receipts = onlyEmail ? allRows.filter(r => r.inbox?.source === 'email') : allRows;
   const [tab, setTab] = useState('todo');
   const [q, setQ] = useState('');
@@ -1839,6 +1839,21 @@ function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDelet
       <div className="ut-head">
         <h1>{onlyEmail ? tr('underlag.navMail') : tr('nav.expenses')}</h1>
         <p>{onlyEmail ? tr('underlag.mailIntro') : tr('underlag.tableIntro')}</p>
+        {!onlyEmail && (() => {
+          // Den här månaden: hur många underlag som är klara av alla som kommit in.
+          const month = new Date().toISOString().slice(0, 7);
+          const inMonth = receipts.filter(r => String(r.date || '').slice(0, 7) === month || counts.todo && ['unhandled', 'pending'].includes(statusOf(r)));
+          const done = inMonth.filter(r => statusOf(r) === 'booked').length;
+          const total = done + counts.todo;
+          if (!total) return null;
+          const monthName = new Date().toLocaleDateString('sv-SE', { month: 'long' });
+          return (
+            <div className="ut-progress" title={tr('underlag.progressTitle')}>
+              <span className="ut-progress-bar"><i style={{ width: `${Math.round((done / total) * 100)}%` }} /></span>
+              <span>{counts.todo === 0 ? tr('underlag.progressDone', { month: monthName }) : tr('underlag.progress', { done, total, month: monthName })}</span>
+            </div>
+          );
+        })()}
       </div>
       <div className="ut-bar">
         {onlyEmail ? (
@@ -1889,7 +1904,14 @@ function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDelet
             </tr>
           </thead>
           <tbody>
-            {shown.length === 0 && (
+            {!onlyEmail && uploading.map(u => (
+              <tr key={u.id} className="ut-uploading">
+                <td className="ut-c-check" />
+                <td><span className="ut-doc"><span className="ut-thumb"><span className="rc-row-thumb is-letter"><UploadCloud size={15} /></span></span><span className="ut-doc-text"><b>{u.file?.name || tr('underlag.unnamed')}</b><small>{tr('underlag.uploadingNow')}</small></span></span></td>
+                <td colSpan={6}><span className="ut-up-bar"><i style={{ width: `${Math.round((u.progress || 0) * (u.progress > 1 ? 1 : 100))}%` }} /></span></td>
+              </tr>
+            ))}
+            {shown.length === 0 && uploading.length === 0 && (
               <tr><td colSpan={8} className="ut-empty">
                 {needle
                   ? <UtEmpty icon={Search} title={tr('underlag.noHits')} text={tr('underlag.noHitsText')} />
@@ -2170,6 +2192,20 @@ export default function Expenses({
   }, [(receiptTrash || []).length]);
   // Vänstermenyn i Underlag, som Fortnox: underlag, mejl, avsändare, brevlåda, papperskorg.
   const [uwView, setUwView] = useState('underlag');
+  // ← och → bläddrar mellan underlagen när man inte skriver i ett fält.
+  const goNavRef = useRef(null);
+  useEffect(() => {
+    if (!detailReceiptId) return undefined;
+    const onKey = (e) => {
+      const tag = (e.target?.tagName || '').toLowerCase();
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || ['input', 'textarea', 'select'].includes(tag) || e.target?.isContentEditable) return;
+      if (document.querySelector('.uw-match-overlay, .confirm-dialog-overlay')) return;
+      if (e.key === 'ArrowRight') { e.preventDefault(); goNavRef.current?.(1); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); goNavRef.current?.(-1); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [detailReceiptId]);
   // Ordningen i tabellen när ett underlag öppnades: föregående och nästa.
   const [navIds, setNavIds] = useState([]);
   const { info: inboxInfo, saveSenders } = useInboxAddress(wide ? companyId : null, { poll: mailboxOpen || uwView === 'mailbox' });
@@ -2319,8 +2355,18 @@ export default function Expenses({
   if (wide && (detailReceipt || !listView)) {
     const navPos = detailReceipt ? navIds.indexOf(detailReceipt.id) : -1;
     const goNav = (step) => { const id = navIds[navPos + step]; if (id) setDetailReceiptId(id); };
+    goNavRef.current = goNav;
     return (
       <div className={`uw-wrap ut-wrap${isDragging ? ' uw-dropping' : ''}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+        {isDragging && (
+          <div className="ut-drop" aria-hidden="true">
+            <div className="ut-drop-box">
+              <span className="ut-empty-ico"><UploadCloud size={28} /></span>
+              <strong>{tr('underlag.dropTitle')}</strong>
+              <span>{tr('underlag.dropText')}</span>
+            </div>
+          </div>
+        )}
         {mailboxOpen && <MailboxDialog info={inboxInfo} onSaveSenders={saveSenders} onClose={() => setMailboxOpen(false)} onUpload={() => document.getElementById('uw-upload').click()} />}
         <input type="file" id="uw-upload" style={{ display: 'none' }} multiple accept={ACCEPT_ATTR} onChange={handleFileInput} />
         {!detailReceipt ? (
@@ -2339,6 +2385,7 @@ export default function Expenses({
                 <UnderlagTable
                   key={uwView}
                   onlyEmail={uwView === 'mail'}
+                  uploading={uploadingFiles}
                   receipts={receiptsList}
                   statusOf={(r) => getReceiptStatus(r, verIndex)}
                   readingId={autoReading}
@@ -2371,6 +2418,7 @@ export default function Expenses({
               <button type="button" className="ut-back" onClick={() => setDetailReceiptId(null)}>← {tr('nav.expenses')}</button>
               {navPos >= 0 && navIds.length > 1 && (
                 <span className="ut-nav">
+                  <span className="ut-keys" aria-hidden="true"><kbd>←</kbd><kbd>→</kbd></span>
                   <span>{tr('underlag.navPos', { i: navPos + 1, n: navIds.length })}</span>
                   <button type="button" onClick={() => goNav(-1)} disabled={navPos <= 0} aria-label={tr('underlag.prev')}>‹</button>
                   <button type="button" onClick={() => goNav(1)} disabled={navPos >= navIds.length - 1} aria-label={tr('underlag.next')}>›</button>
