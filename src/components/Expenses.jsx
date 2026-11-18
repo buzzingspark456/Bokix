@@ -851,7 +851,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         <div className={`rc-form${readOnly ? '' : ` rc-step-${phoneStep}`}`}>
           <div className="rc-form-head">
             <div style={{ minWidth: 0 }}>
-              <h2 style={{ margin: 0, fontSize: '16.5px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{inline ? tr('underlag.detailsTitle') : tr('ui.kvittodetaljer')}</h2>
+              <h2 style={{ margin: 0, fontSize: '16.5px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{inline ? (form.supplier.trim() || tr('underlag.unnamed')) : tr('ui.kvittodetaljer')}</h2>
               <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
                 {readOnly ? tr('ui.bokfort_underlag') : ocrStatus === 'scanning' ? tr('ui.laser_kvittot_det_tar_nagra_sekunder') : revealing ? tr('ui.fyller_i_uppgifterna') : unreadable ? tr('ui.bilden_gick_inte_att_lasa_av') : notReceipt ? tr('ui.det_har_verkar_inte_vara_ett_kvitto_eller_en_fak') : ocrStatus === 'done' ? tr('ui.avlasningen_ar_klar_granska_och_justera') : tr('ui.fyll_i_uppgifterna_fran_kvittot')}
               </p>
@@ -1423,6 +1423,17 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
 /** Underlagslistan i arbetsytan (2026-11-17, efter Accounteds inkorg):
  * flikar Att göra / Bokförda / Alla och en tät lista; vald rad öppnas
  * bredvid i stället för i helskärm. */
+// I dag / i går / datum, som i en inkorg.
+function relDay(date) {
+  if (!date) return '';
+  const d = new Date(`${date}T12:00:00`);
+  const today = new Date(); today.setHours(12, 0, 0, 0);
+  const diff = Math.round((today - d) / 86400000);
+  if (diff === 0) return tr('underlag.today');
+  if (diff === 1) return tr('underlag.yesterday');
+  return date;
+}
+
 function UnderlagList({ receipts, selectedId, onSelect, statusOf, onClose, onUpload }) {
   const [tab, setTab] = useState('todo');
   const [q, setQ] = useState('');
@@ -1434,10 +1445,6 @@ function UnderlagList({ receipts, selectedId, onSelect, statusOf, onClose, onUpl
   const tabs = [['todo', tr('underlag.todo')], ['booked', tr('underlag.booked')], ['all', tr('underlag.all')]];
   return (
     <aside className="uw-list" aria-label={tr('nav.expenses')}>
-      <div className="uw-list-head">
-        <button type="button" className="uw-back" onClick={onClose}>{tr('underlag.allList')}</button>
-        {onUpload && <button type="button" className="uw-upload" onClick={onUpload}>+ {tr('underlag.upload')}</button>}
-      </div>
       <div className="uw-search">
         <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={tr('underlag.search')} aria-label={tr('underlag.search')} />
       </div>
@@ -1454,13 +1461,13 @@ function UnderlagList({ receipts, selectedId, onSelect, statusOf, onClose, onUpl
           const s = statusOf(r);
           return (
             <button key={r.id} type="button" className={`uw-row${r.id === selectedId ? ' on' : ''}`} onClick={() => onSelect(r.id)}>
-              <span className="uw-row-top">
-                <span className={`uw-dot uw-dot-${s}`} aria-hidden="true" />
+              <span className="uw-row-thumb"><ReceiptThumb receipt={r} /></span>
+              <span className="uw-row-text">
                 <span className="uw-row-name">{r.supplier || r.description || tr('underlag.unnamed')}</span>
-              </span>
-              <span className="uw-row-sub">
-                <span>{r.date || ''}</span>
-                <span className="uw-row-amt">{r.amount ? formatSEK(Math.abs(r.amount)) : ''}</span>
+                <span className="uw-row-sub">
+                  <span><span className={`uw-dot uw-dot-${s}`} aria-hidden="true" />{relDay(r.date)}</span>
+                  <span className="uw-row-amt">{r.amount ? formatSEK(Math.abs(r.amount)) : ''}</span>
+                </span>
               </span>
             </button>
           );
@@ -1809,6 +1816,17 @@ export default function Expenses({
 
   if (wide && (detailReceipt || !listView)) {
     return (
+      <div className={`uw-wrap${isDragging ? ' uw-dropping' : ''}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+      <div className="uw-top">
+        <div className="uw-top-title">
+          <h1>{pageTitle || tr('nav.expenses')}</h1>
+          {(() => { const n = receiptsList.filter(r => ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex))).length; return n > 0 ? <span>{tr('underlag.todoCount', { n })}</span> : null; })()}
+        </div>
+        <div className="uw-top-actions">
+          <button type="button" className="uw-top-link" onClick={() => { setDetailReceiptId(null); setListView(true); }}>{tr('underlag.allList')}</button>
+          <button type="button" className="uw-top-upload" onClick={() => document.getElementById('uw-upload').click()}><UploadCloud size={15} /> {tr('underlag.upload')}</button>
+        </div>
+      </div>
       <div className="uw-split">
         <input type="file" id="uw-upload" style={{ display: 'none' }} multiple accept={ACCEPT_ATTR} onChange={handleFileInput} />
         <UnderlagList
@@ -1821,11 +1839,8 @@ export default function Expenses({
         />
         {!detailReceipt ? (
           <div className="uw-detail uw-detail-empty">
-            <div
-              className={`uw-empty-mid${isDragging ? ' on' : ''}`}
-              onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
-            >
-              <Paperclip size={28} />
+            <div className={`uw-empty-mid${isDragging ? ' on' : ''}`}>
+              <span className="uw-empty-ico"><UploadCloud size={22} /></span>
               <strong>{tr('underlag.pickTitle')}</strong>
               <span>{tr('underlag.pickHint')}</span>
               <button type="button" className="uw-empty-btn" onClick={() => document.getElementById('uw-upload').click()}>+ {tr('underlag.uploadFile')}</button>
@@ -1857,6 +1872,7 @@ export default function Expenses({
           />
         </div>
         )}
+      </div>
       </div>
     );
   }
