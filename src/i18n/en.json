@@ -4213,6 +4213,7 @@
     "mbxUpload": "Upload or take a photo",
     "mbxUploadSub": "Drag in files, or photograph the receipt with your phone.",
     "mbxLast": "Last email received: {{when}}",
+    "reading": "Reading …",
     "justNow": "Just now",
     "minAgo": "{{n}} min ago",
     "hAgo": "{{n}} h ago",

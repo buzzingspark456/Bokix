@@ -4213,6 +4213,7 @@
     "mbxUpload": "Ladda upp eller fota",
     "mbxUploadSub": "Dra in filer, eller fota kvittot med telefonen.",
     "mbxLast": "Senast mottaget mejl: {{when}}",
+    "reading": "Läses av …",
     "justNow": "Nyss",
     "minAgo": "{{n}} min sedan",
     "hAgo": "{{n}} h sedan",

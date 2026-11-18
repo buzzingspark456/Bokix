@@ -29,6 +29,7 @@ import { newDocument } from '../utils/looseDocuments';
 import DocumentsToLink from './DocumentsToLink';
 import { convertToSek } from '../utils/currencyConversion';
 import { historyForSupplier, historyFromVerifications } from '../utils/receiptHistory';
+import { needsAutoRead, autoReadTried, markAutoReadTried } from '../utils/autoRead';
 import { reverseChargePurchaseInfo, describeReverseCharge } from '../utils/reverseCharge';
 import { CURRENCIES, parseNumber, sekFrom, impliedRate, rateToInput, amountToInput, foreignForSave } from '../utils/foreignCurrency';
 import { t as tr, dateLocale } from '../i18n';
@@ -1517,6 +1518,51 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
 // det inte finns någon fil, i stället för samma ikon på varje rad. En bild
 // som inte går att visa (t.ex. HEIC i vissa webbläsare) faller tillbaka
 // på bokstaven.
+// Avläsning direkt när underlaget kommer in: se utils/autoRead.js.
+/** Läser underlaget och bygger samma utkast som Läs av i kvittovyn. */
+async function autoReadDraft(receipt, { ownCompany, allReceipts, verifications }) {
+  const { text, confidence, weakTokens, quality, layout } = await readDocumentText(receipt.receiptUrl, () => {}, {});
+  const analysis = await analyzeReceipt({ text, confidence, weakTokens, quality, layout }, { ownCompany, onMessage: () => {} });
+  const { parsed, registryName, supplierName, hint, foreignInfo } = analysis;
+  const nr = Boolean(parsed.notReceipt);
+  const hist = nr ? null : (historyForSupplier(allReceipts, supplierName, receipt.id) || historyFromVerifications(verifications, supplierName));
+  const plan = buildReceiptPlan(analysis, hist);
+  const form = {};
+  const revealed = {};
+  const ocrFields = [];
+  plan.forEach(step => {
+    if (step.found) { Object.assign(form, step.patch); if (step.state === 'found') ocrFields.push(step.key); }
+    revealed[step.key] = step.found ? step.state : (step.suggest ? 'suggest' : 'missing');
+  });
+  const boxes = layout ? analysis.boxes : null;
+  return {
+    v: OCR_DRAFT_VERSION,
+    scannedAt: new Date().toISOString(),
+    auto: true,
+    form,
+    revealed,
+    suggestedAccount: plan.find(step => step.key === 'costAccount')?.suggest || null,
+    accountNote: plan.find(step => step.key === 'costAccount')?.note || null,
+    ocrFields,
+    numberLabel: parsed.receiptNumber ? (parsed.receiptNumberLabel || '') : '',
+    fx: foreignInfo ? {
+      code: foreignInfo.code,
+      amount: amountToInput(foreignInfo.amount),
+      rate: foreignInfo.converted ? rateToInput(foreignInfo.converted.rate) : '',
+      rateDate: foreignInfo.converted?.date || null,
+      source: foreignInfo.converted ? 'ecb' : 'manual',
+    } : null,
+    notReceipt: nr,
+    unreadable: Boolean(parsed.unreadable),
+    photoHint: hint,
+    supplierFromRegistry: Boolean(registryName),
+    ocrVat: nr ? null : { verified: parsed.vatVerified, mismatch: parsed.vatMismatch, vatAmount: parsed.vatAmount, amountVerified: parsed.amountVerified, rates: parsed.vatRates, creditNote: parsed.creditNote },
+    boxes: boxes && Object.keys(boxes).length > 0 ? boxes : null,
+    details: analysis.details,
+    readText: analysis.readText.slice(0, MAX_SAVED_TEXT),
+  };
+}
+
 /** Underlagslistan i arbetsytan (2026-11-17, efter Accounteds inkorg):
  * flikar Att göra / Bokförda / Alla och en tät lista; vald rad öppnas
  * bredvid i stället för i helskärm. */
@@ -1544,7 +1590,7 @@ function relDay(date) {
   return date;
 }
 
-function UnderlagList({ receipts, selectedId, onSelect, statusOf, onClose, onUpload }) {
+function UnderlagList({ receipts, selectedId, onSelect, statusOf, onClose, onUpload, readingId = null }) {
   const [tab, setTab] = useState('todo');
   const [q, setQ] = useState('');
   const counts = { todo: 0, booked: 0, all: receipts.length };
@@ -1573,10 +1619,10 @@ function UnderlagList({ receipts, selectedId, onSelect, statusOf, onClose, onUpl
             <button key={r.id} type="button" className={`uw-row${r.id === selectedId ? ' on' : ''}`} onClick={() => onSelect(r.id)}>
               <span className="uw-row-thumb"><ReceiptThumb receipt={r} /></span>
               <span className="uw-row-text">
-                <span className="uw-row-name">{r.supplier || r.description || tr('underlag.unnamed')}</span>
+                <span className="uw-row-name">{r.supplier || r.description || r.ocrDraft?.form?.supplier || tr('underlag.unnamed')}</span>
                 <span className="uw-row-sub">
                   <span><span className={`uw-dot uw-dot-${s}`} aria-hidden="true" />{r.inbox?.source === 'email' && <Mail size={12} className="uw-row-src" />}{relTime(r)}</span>
-                  <span className="uw-row-amt">{r.amount ? formatSEK(Math.abs(r.amount)) : ''}</span>
+                  <span className="uw-row-amt">{r.id === readingId ? <em className="uw-reading">{tr('underlag.reading')}</em> : r.amount ? formatSEK(Math.abs(r.amount)) : (parseAmount(r.ocrDraft?.form?.amount) > 0 ? formatSEK(parseAmount(r.ocrDraft.form.amount)) : '')}</span>
                 </span>
               </span>
             </button>
@@ -1776,6 +1822,28 @@ export default function Expenses({
   const [shownCount, setShownCount] = useState(RECEIPTS_PAGE);
   useEffect(() => { setShownCount(RECEIPTS_PAGE); }, [q, effectiveTab, monthFilter, statusFilter, folderFilter]);
   const detailReceipt = detailReceiptId ? allReceipts.find(r => r.id === detailReceiptId) : null;
+  // Nya underlag läses av ett i taget så fort Underlag är öppet (se
+  // needsAutoRead). Den som håller på att läsas visas som "Läses av" i listan.
+  const [autoReading, setAutoReading] = useState(null);
+  const autoBusyRef = useRef(false);
+  const autoCtxRef = useRef({});
+  autoCtxRef.current = { ownCompany: company, allReceipts, verifications, onSaveOcrDraft, detailId: detailReceiptId };
+  useEffect(() => {
+    if (autoBusyRef.current || !onSaveOcrDraft) return;
+    const tried = autoReadTried();
+    const next = allReceipts.find(r => needsAutoRead(r) && !tried.has(r.id) && r.id !== detailReceiptId);
+    if (!next) return;
+    autoBusyRef.current = true;
+    markAutoReadTried(next.id);
+    setAutoReading(next.id);
+    autoReadDraft(next, autoCtxRef.current)
+      .then(draft => {
+        // Öppnade man underlaget under tiden läser kvittovyn själv: skriv inte över.
+        if (autoCtxRef.current.detailId !== next.id) autoCtxRef.current.onSaveOcrDraft?.(next.id, draft);
+      })
+      .catch(err => console.warn('Avläsningen av ett nytt underlag misslyckades', err?.message))
+      .finally(() => { autoBusyRef.current = false; setAutoReading(null); });
+  }, [allReceipts, detailReceiptId, autoReading]); // eslint-disable-line react-hooks/exhaustive-deps
   // Arbetsytan (lista + underlag bredvid) på skärmar från 1100 px.
   const [wide, setWide] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1100);
   useEffect(() => {
@@ -1958,6 +2026,7 @@ export default function Expenses({
           statusOf={(r) => getReceiptStatus(r, verIndex)}
           onClose={() => { setDetailReceiptId(null); setListView(true); }}
           onUpload={() => document.getElementById('uw-upload').click()}
+          readingId={autoReading}
         />
         {!detailReceipt ? (
           <div className="uw-detail uw-detail-empty">
