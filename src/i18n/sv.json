@@ -4265,6 +4265,7 @@
     "trashManyConfirm": "Flytta {{n}} underlag till papperskorgen? De går att återställa i 30 dagar.",
     "trashEmptyConfirm": "Ta bort {{n}} underlag för gott? Det går inte att ångra.",
     "trashPurgeConfirm": "Ta bort underlaget för gott? Det går inte att ångra.",
+    "oldDate": "Datumet är från {{year}}, mer än ett år bakåt. Kontrollera att året stämmer innan du bokför.",
     "justNow": "Nyss",
     "minAgo": "{{n}} min sedan",
     "hAgo": "{{n}} h sedan",

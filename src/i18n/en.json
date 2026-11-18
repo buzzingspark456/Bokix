@@ -4265,6 +4265,7 @@
     "trashManyConfirm": "Move {{n}} documents to the trash? They can be restored for 30 days.",
     "trashEmptyConfirm": "Delete {{n}} documents for good? This cannot be undone.",
     "trashPurgeConfirm": "Delete the document for good? This cannot be undone.",
+    "oldDate": "The date is from {{year}}, more than a year back. Check the year before booking.",
     "justNow": "Just now",
     "minAgo": "{{n}} min ago",
     "hAgo": "{{n}} h ago",

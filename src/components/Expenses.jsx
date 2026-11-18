@@ -545,7 +545,10 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     amount: receipt.amount ? amountToInput(Math.abs(receipt.amount)) : (draft?.form?.amount || ''),
     // Retur eller återbetalning: beloppet skrivs som på kvittot men sparas negativt.
     refund: receipt.amount ? receipt.amount < 0 : Boolean(draft?.form?.refund),
-    vatRate: receipt.vatRate ?? draft?.form?.vatRate ?? 25,
+    // Ett oläst underlag har 25 % som förval från uppladdningen. Har det
+    // lästs av (draft) gäller avläsningens sats, annars blev t.ex. matmomsen
+    // 12 % fel när underlaget lästs av direkt vid ankomst (2026-11-18).
+    vatRate: draft?.form?.vatRate ?? receipt.vatRate ?? 25,
     // Bara när vatRate är 'mixed': momsen i kronor, summan av kvittots satser.
     vatAmount: receipt.vatRate === 'mixed' ? amountToInput(Math.abs(receipt.vatAmount)) : (draft?.form?.vatAmount || ''),
     // Ett utkast från en äldre avläsning kan innehålla ett gissat konto
@@ -1054,7 +1057,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   {STATUS_SINGULAR[status] || statusMeta.label}
                 </span>
               )}
-              <button onClick={onClose} aria-label={tr('ui.stang')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex' }}><X size={18} /></button>
+              {!inline && <button onClick={onClose} aria-label={tr('ui.stang')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex' }}><X size={18} /></button>}
             </div>
             {inline && (
               <div className="uw-meta">
@@ -1118,6 +1121,13 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               </div>
             )}
 
+            {/* Datumet mer än ett år bakåt: oftast fel läst år (2022 i stället för 2026). */}
+            {!readOnly && !revealing && form.date && Date.now() - Date.parse(form.date) > 365 * 86400000 && (
+              <div className="rc-verify rc-verify-warn">
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>{tr('underlag.oldDate', { year: form.date.slice(0, 4) })}</span>
+              </div>
+            )}
             {/* Bara företagets eget org.nr på underlaget (utils/invoiceDetails.js):
                 oftast en egen faktura, alltså en försäljning och inte ett inköp. */}
             {!readOnly && !revealing && readDetails?.ownOnly && (

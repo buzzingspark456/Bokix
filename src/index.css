@@ -9917,3 +9917,6 @@ img.hc-player { object-fit: cover; }
 .ut-table-static tbody tr { cursor: default; }
 .ut-actions { text-align: right; white-space: nowrap; }
 .ut-link-danger { color: var(--status-red-text, #b42318); }
+/* Valuta och retur längst ner bland fälten i arbetsytan (sällan använda). */
+.receipt-modal-overlay.is-inline .rc-grid > .rc-span:has(> .rc-link), .receipt-modal-overlay.is-inline .rc-grid > .rc-span:has(> .rc-check) { order: 40; }
+.receipt-modal-overlay.is-inline .rc-grid > .rc-later:has(textarea) { order: 41; }
