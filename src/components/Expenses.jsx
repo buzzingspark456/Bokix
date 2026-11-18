@@ -2187,6 +2187,8 @@ export default function Expenses({
   receiptTrash = [], onTrashExpense, onRestoreExpense, onPurgeTrash,
   // Anställda: Vem betalade → En anställd (utlägg).
   employees = [],
+  // Nya Underlag bara för konton som slagits på (App.jsx isNewUnderlagUser).
+  newUnderlag = false,
 }) {
   // -- Receipts State --
   const [isDragging, setIsDragging] = useState(false);
@@ -2346,7 +2348,7 @@ export default function Expenses({
   const autoCtxRef = useRef({});
   autoCtxRef.current = { ownCompany: company, allReceipts, verifications, onSaveOcrDraft, detailId: detailReceiptId };
   useEffect(() => {
-    if (autoBusyRef.current || !onSaveOcrDraft) return;
+    if (!newUnderlag || autoBusyRef.current || !onSaveOcrDraft) return;
     const tried = autoReadTried();
     const next = allReceipts.find(r => needsAutoRead(r) && !tried.has(r.id) && r.id !== detailReceiptId);
     if (!next) return;
@@ -2393,7 +2395,7 @@ export default function Expenses({
   }, [detailReceiptId]);
   // Ordningen i tabellen när ett underlag öppnades: föregående och nästa.
   const [navIds, setNavIds] = useState([]);
-  const { info: inboxInfo, saveSenders } = useInboxAddress(wide ? companyId : null, { poll: mailboxOpen || uwView === 'mailbox' });
+  const { info: inboxInfo, saveSenders } = useInboxAddress(wide && newUnderlag ? companyId : null, { poll: mailboxOpen || uwView === 'mailbox' });
   // Den gamla listan finns kvar bakom "Visa som lista". Valet sparas i webbläsaren.
   const [listView, setListViewState] = useState(() => { try { return localStorage.getItem('bokix.underlagView') === 'list'; } catch { return false; } });
   const setListView = (v) => { setListViewState(v); try { localStorage.setItem('bokix.underlagView', v ? 'list' : 'workspace'); } catch { /* inget */ } };
@@ -2537,7 +2539,7 @@ export default function Expenses({
     setFixAccount('');
   };
 
-  if (wide && (detailReceipt || !listView)) {
+  if (newUnderlag && wide && (detailReceipt || !listView)) {
     const navPos = detailReceipt ? navIds.indexOf(detailReceipt.id) : -1;
     const goNav = (step) => { const id = navIds[navPos + step]; if (id) setDetailReceiptId(id); };
     goNavRef.current = goNav;
@@ -2649,7 +2651,7 @@ export default function Expenses({
           med listan direkt istället för att kliva genom fyra separata
           block (rubrik, uppladdning, sökrad, filterrad) innan man ens ser
           ett kvitto. */}
-      <ListPageHeader title={pageTitle || tr('ui.kvitton')} subtitle={pageSubtitle} actions={wide ? [{ key: 'ws', label: tr('underlag.workspace'), onClick: () => setListView(false), variant: 'primary' }] : []}>
+      <ListPageHeader title={pageTitle || tr('ui.kvitton')} subtitle={pageSubtitle} actions={wide && newUnderlag ? [{ key: 'ws', label: tr('underlag.workspace'), onClick: () => setListView(false), variant: 'primary' }] : []}>
         <div style={{ marginTop: '14px' }}>
           {/* Telefon: i stället för dra-och-släpp-ytan (som inte går att dra
               något till på en telefon) en stor kameraknapp som öppnar kameran

@@ -1234,6 +1234,21 @@ const isFreeAccountEmail = (email) => {
   return Boolean(normalized) && FREE_ACCOUNT_EMAIL_HASHES.includes(cyrb53(normalized));
 };
 
+// Nya Underlag (arbetsyta, inkorg, papperskorg, utlägg) visas först bara för
+// grundarens konto (2026-11-18). Hash, inte adressen, av samma skäl som ovan.
+// Andra kan slå på det i sin webbläsare med ?nyttunderlag=1 (av med =0).
+const NEW_UNDERLAG_EMAIL_HASHES = ['1hingei7r5i'];
+const isNewUnderlagUser = (email) => {
+  try {
+    const q = new URLSearchParams(window.location.search).get('nyttunderlag');
+    if (q === '1') localStorage.setItem('bokix.nyttUnderlag', '1');
+    if (q === '0') localStorage.removeItem('bokix.nyttUnderlag');
+    if (localStorage.getItem('bokix.nyttUnderlag') === '1') return true;
+  } catch { /* privat läge */ }
+  const normalized = String(email || '').trim().toLowerCase();
+  return Boolean(normalized) && NEW_UNDERLAG_EMAIL_HASHES.includes(cyrb53(normalized));
+};
+
 // ──────────────────────────────────────────────
 // APP COMPONENT
 // ──────────────────────────────────────────────
@@ -5748,7 +5763,7 @@ function App() {
   const mobileNavItems = [
     { id: 'dashboard',     label: t('navShort.dashboard'), icon: NavHomeIcon },
     { id: 'verifications', label: tr('ui.bokforing'), icon: BookOpen },
-    { id: 'expenses',      label: tr('nav.expenses'),   icon: NavReceiptsIcon },
+    { id: 'expenses',      label: isNewUnderlagUser(user?.email) ? tr('nav.underlag') : tr('nav.expenses'),   icon: NavReceiptsIcon },
     { id: 'reports',       label: t('navShort.reports'), icon: BarChart3 },
   ];
   // Telefonens Meny har samma grupper som sidomenyn på datorn, utan det som redan
@@ -5762,7 +5777,7 @@ function App() {
       { id: 'projects', label: t('nav.projects'), icon: Briefcase },
     ] },
     { key: 'finance', title: t('nav.groupFinance'), items: [
-      { id: 'expenses', label: t('nav.expenses'), icon: NavReceiptsIcon },
+      { id: 'expenses', label: isNewUnderlagUser(user?.email) ? t('nav.underlag') : t('nav.expenses'), icon: NavReceiptsIcon },
       { id: 'supplier_invoices', label: t('nav.supplierInvoices'), icon: NavSupplierInvoicesIcon, exact: true },
       { id: 'payroll', label: t('nav.payroll'), icon: NavPayrollIcon },
     ] },
@@ -6085,7 +6100,8 @@ function App() {
             onTrashExpense={handleTrashExpense}
             onRestoreExpense={handleRestoreExpense}
             onPurgeTrash={handlePurgeTrash}
-            pageTitle={tr('nav.expenses')}
+            pageTitle={isNewUnderlagUser(user?.email) ? tr('nav.underlag') : tr('nav.expenses')}
+            newUnderlag={isNewUnderlagUser(user?.email)}
           />
         );
       case 'supplier_invoices': {
@@ -6484,7 +6500,7 @@ function App() {
               key: 'finance',
               title: t('nav.groupFinance'),
               items: [
-                { id: 'expenses', label: t('nav.expenses'), short: t('navShort.expenses'), icon: NavReceiptsIcon },
+                { id: 'expenses', label: isNewUnderlagUser(user?.email) ? t('nav.underlag') : t('nav.expenses'), short: isNewUnderlagUser(user?.email) ? t('navShort.underlag') : t('navShort.expenses'), icon: NavReceiptsIcon },
                 { id: 'supplier_invoices', label: t('nav.supplierInvoices'), short: t('navShort.supplierInvoices'), icon: NavSupplierInvoicesIcon, exact: true },
                 { id: 'payroll', label: t('nav.payroll'), short: t('navShort.payroll'), icon: NavPayrollIcon },
               ],
