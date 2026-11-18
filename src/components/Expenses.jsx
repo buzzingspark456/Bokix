@@ -336,7 +336,22 @@ function useInboxAddress(companyId, { poll = false } = {}) {
     const timer = setInterval(load, 20000);
     return () => clearInterval(timer);
   }, [poll, load]);
-  return info;
+  // Godkända avsändare (som Fortnox Granska avsändare): tom lista = alla.
+  const saveSenders = useCallback(async (senders) => {
+    if (!companyId) return false;
+    try {
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      const res = await fetch('/api/inbox', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+        body: JSON.stringify({ companyId, action: 'senders', senders }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.address) { setInfo(json); return true; }
+    } catch { /* visas nedan */ }
+    return false;
+  }, [companyId]);
+  return { info, saveSenders };
 }
 
 function CopyButton({ text, label }) {
@@ -358,8 +373,25 @@ function CopyButton({ text, label }) {
 const GMAIL_FORWARDING_URL = 'https://mail.google.com/mail/u/0/#settings/fwdandpop';
 const GMAIL_FILTERS_URL = 'https://mail.google.com/mail/u/0/#settings/filters';
 
-function MailboxDialog({ info, onClose, onUpload }) {
+function MailboxDialog({ info, onClose, onUpload, onSaveSenders }) {
   const [gmailOpen, setGmailOpen] = useState(false);
+  const [senderInput, setSenderInput] = useState('');
+  const [senderError, setSenderError] = useState('');
+  const senders = info?.allowedSenders || [];
+  const normalize = (v) => {
+    const x = String(v || '').trim().toLowerCase();
+    if (/^[^\s@]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(x)) return x;
+    const d = x.replace(/^@/, '');
+    return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d) ? `@${d}` : null;
+  };
+  const addSender = async (raw) => {
+    const v = normalize(raw);
+    if (!v) { setSenderError(tr('underlag.sendersBad')); return; }
+    setSenderError('');
+    if (await onSaveSenders?.([...new Set([...senders, v])])) setSenderInput('');
+    else setSenderError(tr('underlag.sendersFail'));
+  };
+  const removeSender = (v) => onSaveSenders?.(senders.filter(x => x !== v));
   // Kopplad: Gmails bekräftelse kom, och sedan ett mejl till (vidarebefordrat).
   const gmailConnected = Boolean(info?.gmailCodeAt && info?.lastReceivedAt
     && Date.parse(info.lastReceivedAt) - Date.parse(info.gmailCodeAt) > 60 * 1000);
@@ -393,6 +425,33 @@ function MailboxDialog({ info, onClose, onUpload }) {
             </ol>
           )}
         </div>
+        {info?.address && (
+          <div className="uw-mbx-row uw-mbx-col">
+            <div className="uw-mbx-line">
+              <span className="uw-mbx-ico"><CheckCircle2 size={17} /></span>
+              <span className="uw-mbx-text">
+                <b>{tr('underlag.sendersTitle')}</b>
+                <span>{senders.length ? tr('underlag.sendersSome') : tr('underlag.sendersAll')}</span>
+              </span>
+            </div>
+            <div className="uw-snd">
+              {senders.map(v => (
+                <span key={v} className="uw-snd-chip">{v}<button type="button" onClick={() => removeSender(v)} aria-label={tr('ui.ta_bort')}><X size={12} /></button></span>
+              ))}
+              <form className="uw-snd-add" onSubmit={e => { e.preventDefault(); addSender(senderInput); }}>
+                <input value={senderInput} onChange={e => setSenderInput(e.target.value)} placeholder={tr('underlag.sendersPh')} />
+                <button type="submit" disabled={!senderInput.trim()}>{tr('underlag.sendersAdd')}</button>
+              </form>
+            </div>
+            {senderError && <em className="uw-snd-err">{senderError}</em>}
+            {info.lastBlockedFrom && !senders.includes(normalize((/<([^>]+)>/.exec(info.lastBlockedFrom) || [])[1] || info.lastBlockedFrom)) && (
+              <div className="uw-snd-blocked">
+                <span>{tr('underlag.sendersBlocked', { from: info.lastBlockedFrom })}</span>
+                <button type="button" onClick={() => addSender((/<([^>]+)>/.exec(info.lastBlockedFrom) || [])[1] || info.lastBlockedFrom)}>{tr('underlag.sendersAllow')}</button>
+              </div>
+            )}
+          </div>
+        )}
         <div className="uw-mbx-row">
           <span className="uw-mbx-ico"><UploadCloud size={17} /></span>
           <span className="uw-mbx-text">
@@ -1590,19 +1649,53 @@ function relDay(date) {
   return date;
 }
 
-function UnderlagList({ receipts, selectedId, onSelect, statusOf, onClose, onUpload, readingId = null }) {
+// Varifrån underlaget kom och från vem, som Fortnox kolumner Källa och
+// Avsändare (2026-11-18): "Mejl · gusto.se" eller "App · Abdullah".
+function sourceLabel(r) {
+  if (r.inbox?.source === 'email') {
+    const from = String(r.inbox.from || r.uploadedBy?.email || '');
+    const m = /<([^>]+)>/.exec(from);
+    const addr = (m ? m[1] : from).trim();
+    return { kind: 'mail', text: tr('underlag.srcMail'), who: addr.split('@')[1] || addr };
+  }
+  const name = String(r.uploadedBy?.name || '').trim().split(' ')[0];
+  return { kind: 'app', text: tr('underlag.srcApp'), who: name };
+}
+
+function UnderlagList({ receipts, selectedId, onSelect, statusOf, onClose, onUpload, readingId = null, onDeleteMany }) {
   const [tab, setTab] = useState('todo');
   const [q, setQ] = useState('');
+  // Markera flera (som Fortnox kryssrutor): ta bort på en gång. Bara obokförda.
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState(() => new Set());
   const counts = { todo: 0, booked: 0, all: receipts.length };
   receipts.forEach(r => { const s = statusOf(r); if (s === 'unhandled' || s === 'pending') counts.todo++; else if (s === 'booked') counts.booked++; });
   const needle = q.trim().toLowerCase();
   const shown = receipts.filter(r => { const s = statusOf(r); return tab === 'all' || (tab === 'todo' ? (s === 'unhandled' || s === 'pending') : s === 'booked'); })
-    .filter(r => !needle || [r.supplier, r.description, r.date, r.amount != null ? String(r.amount) : ''].some(v => String(v || '').toLowerCase().includes(needle)));
+    .filter(r => !needle || [r.supplier, r.description, r.date, r.amount != null ? String(r.amount) : '', r.ocrDraft?.form?.supplier, r.inbox?.from, r.inbox?.subject, r.inbox?.fileName, r.uploadedBy?.name]
+      .some(v => String(v || '').toLowerCase().includes(needle)));
   const tabs = [['todo', tr('underlag.todo')], ['booked', tr('underlag.booked')], ['all', tr('underlag.all')]];
+  const deletable = (r) => ['unhandled', 'pending'].includes(statusOf(r));
+  const togglePick = (id) => setPicked(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const stopPicking = () => { setPicking(false); setPicked(new Set()); };
+  const pickable = shown.filter(deletable);
+  const allPicked = pickable.length > 0 && pickable.every(r => picked.has(r.id));
+  const deletePicked = async () => {
+    const ids = [...picked];
+    if (!ids.length) return;
+    if (!(await confirmDialog(tr('underlag.deleteManyConfirm', { n: ids.length })))) return;
+    onDeleteMany?.(ids);
+    stopPicking();
+  };
   return (
     <aside className="uw-list" aria-label={tr('nav.expenses')}>
       <div className="uw-search">
         <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={tr('underlag.search')} aria-label={tr('underlag.search')} />
+        {onDeleteMany && pickable.length > 0 && (
+          <button type="button" className={`uw-pick-toggle${picking ? ' on' : ''}`} onClick={() => (picking ? stopPicking() : setPicking(true))}>
+            {picking ? tr('underlag.pickDone') : tr('underlag.pick')}
+          </button>
+        )}
       </div>
       <div className="uw-tabs" role="tablist">
         {tabs.map(([id, label]) => (
@@ -1611,24 +1704,51 @@ function UnderlagList({ receipts, selectedId, onSelect, statusOf, onClose, onUpl
           </button>
         ))}
       </div>
+      {picking && (
+        <label className="uw-pick-all">
+          <input type="checkbox" checked={allPicked} onChange={() => setPicked(allPicked ? new Set() : new Set(pickable.map(r => r.id)))} />
+          <span>{tr('underlag.pickAll')}</span>
+        </label>
+      )}
       <div className="uw-rows">
         {shown.length === 0 && <div className="uw-empty">{tr('underlag.empty')}</div>}
         {shown.map(r => {
           const s = statusOf(r);
+          const src = sourceLabel(r);
+          const canPick = picking && deletable(r);
           return (
-            <button key={r.id} type="button" className={`uw-row${r.id === selectedId ? ' on' : ''}`} onClick={() => onSelect(r.id)}>
+            <button
+              key={r.id}
+              type="button"
+              className={`uw-row${r.id === selectedId && !picking ? ' on' : ''}${picked.has(r.id) ? ' picked' : ''}`}
+              onClick={() => (picking ? (canPick && togglePick(r.id)) : onSelect(r.id))}
+              aria-pressed={picking ? picked.has(r.id) : undefined}
+            >
+              {picking && <span className={`uw-check${picked.has(r.id) ? ' on' : ''}${canPick ? '' : ' off'}`} aria-hidden="true" />}
               <span className="uw-row-thumb"><ReceiptThumb receipt={r} /></span>
               <span className="uw-row-text">
-                <span className="uw-row-name">{r.supplier || r.description || r.ocrDraft?.form?.supplier || tr('underlag.unnamed')}</span>
-                <span className="uw-row-sub">
-                  <span><span className={`uw-dot uw-dot-${s}`} aria-hidden="true" />{r.inbox?.source === 'email' && <Mail size={12} className="uw-row-src" />}{relTime(r)}</span>
+                <span className="uw-row-top">
+                  <span className="uw-row-name">{r.supplier || r.description || r.ocrDraft?.form?.supplier || tr('underlag.unnamed')}</span>
                   <span className="uw-row-amt">{r.id === readingId ? <em className="uw-reading">{tr('underlag.reading')}</em> : r.amount ? formatSEK(Math.abs(r.amount)) : (parseAmount(r.ocrDraft?.form?.amount) > 0 ? formatSEK(parseAmount(r.ocrDraft.form.amount)) : '')}</span>
+                </span>
+                <span className="uw-row-sub" title={r.inbox?.from || r.uploadedBy?.name || ''}>
+                  <span className={`uw-dot uw-dot-${s}`} aria-hidden="true" />
+                  <span>{relTime(r)}</span>
+                  <span className="uw-row-sep">·</span>
+                  {src.kind === 'mail' ? <Mail size={12} className="uw-row-src" /> : null}
+                  <span className="uw-row-who">{src.who ? `${src.text} · ${src.who}` : src.text}</span>
                 </span>
               </span>
             </button>
           );
         })}
       </div>
+      {picking && (
+        <div className="uw-pick-bar">
+          <span>{tr('underlag.pickedCount', { n: picked.size })}</span>
+          <button type="button" className="uw-pick-del" disabled={!picked.size} onClick={deletePicked}><Trash2 size={14} /> {tr('ui.ta_bort')}</button>
+        </div>
+      )}
     </aside>
   );
 }
@@ -1852,7 +1972,7 @@ export default function Expenses({
     return () => window.removeEventListener('resize', onResize);
   }, []);
   const [mailboxOpen, setMailboxOpen] = useState(false);
-  const inboxInfo = useInboxAddress(wide ? companyId : null, { poll: mailboxOpen });
+  const { info: inboxInfo, saveSenders } = useInboxAddress(wide ? companyId : null, { poll: mailboxOpen });
   // Den gamla listan finns kvar bakom "Visa som lista". Valet sparas i webbläsaren.
   const [listView, setListViewState] = useState(() => { try { return localStorage.getItem('bokix.underlagView') === 'list'; } catch { return false; } });
   const setListView = (v) => { setListViewState(v); try { localStorage.setItem('bokix.underlagView', v ? 'list' : 'workspace'); } catch { /* inget */ } };
@@ -1999,7 +2119,7 @@ export default function Expenses({
   if (wide && (detailReceipt || !listView)) {
     return (
       <div className={`uw-wrap${isDragging ? ' uw-dropping' : ''}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
-      {mailboxOpen && <MailboxDialog info={inboxInfo} onClose={() => setMailboxOpen(false)} onUpload={() => document.getElementById('uw-upload').click()} />}
+      {mailboxOpen && <MailboxDialog info={inboxInfo} onSaveSenders={saveSenders} onClose={() => setMailboxOpen(false)} onUpload={() => document.getElementById('uw-upload').click()} />}
       <div className="uw-top">
         <div className="uw-top-title">
           <Inbox size={18} className="uw-top-ico" />
@@ -2027,6 +2147,7 @@ export default function Expenses({
           onClose={() => { setDetailReceiptId(null); setListView(true); }}
           onUpload={() => document.getElementById('uw-upload').click()}
           readingId={autoReading}
+          onDeleteMany={(ids) => ids.forEach(id => onDeleteExpense?.(id))}
         />
         {!detailReceipt ? (
           <div className="uw-detail uw-detail-empty">
