@@ -604,6 +604,9 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const [paidBy, setPaidBy] = useState(receipt.paidBy === 'owner' || receipt.paidBy === 'employee' ? receipt.paidBy : (receipt.costAccount ? 'company' : ''));
   // En anställd betalade (utlägg): vem, så att lönekörningen kan betala tillbaka.
   const [paidByEmployeeId, setPaidByEmployeeId] = useState(receipt.paidByEmployeeId || '');
+  // Org.nr, VAT-nr, bankgiro, OCR och IBAN ligger hopfällda i arbetsytan, så att
+  // panelen får plats utan att man behöver rulla.
+  const [showIds, setShowIds] = useState(false);
   const [matchOpen, setMatchOpen] = useState(false);
   // Kontoväljaren i arbetsytan öppnas som en ruta. När avläsningen är klar
   // och inget konto är säkert öppnas den av sig själv, med förslaget överst.
@@ -1066,8 +1069,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             </div>
             {inline && (
               <div className="uw-meta">
-                <span>{tr('underlag.uploaded')}{receipt.uploadedBy?.name ? ` ${tr('underlag.by')} ${receipt.uploadedBy.name}` : ''}{uploadedDate(receipt) ? ` · ${uploadedDate(receipt)}` : ''}</span>
-                <span><b>{tr('underlag.type')}</b>{readDetails?.dueDate ? tr('underlag.typeInvoice') : tr('underlag.typeReceipt')}</span>
+                <span>{tr('underlag.uploaded')}{receipt.uploadedBy?.name ? ` ${tr('underlag.by')} ${receipt.uploadedBy.name}` : ''}{uploadedDate(receipt) ? ` · ${uploadedDate(receipt)}` : ''} · <b>{readDetails?.dueDate ? tr('underlag.typeInvoice') : tr('underlag.typeReceipt')}</b></span>
               </div>
             )}
           </div>
@@ -1126,6 +1128,13 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               </div>
             )}
 
+            {/* Faktura som ska betalas senare: kort not i arbetsytan (detaljerna under Fler uppgifter). */}
+            {inline && !readOnly && !revealing && readDetails?.dueDate && (
+              <div className="rc-verify rc-verify-info">
+                <Clock size={14} style={{ flexShrink: 0 }} />
+                <span>{tr('underlag.dueNote', { date: readDetails.dueDate })}</span>
+              </div>
+            )}
             {/* Datumet mer än ett år bakåt: oftast fel läst år (2022 i stället för 2026). */}
             {!readOnly && !revealing && form.date && Date.now() - Date.parse(form.date) > 365 * 86400000 && (
               <div className="rc-verify rc-verify-warn">
@@ -1279,7 +1288,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   {form.refund && <div className="rc-hint">{tr('ui.pengarna_kommer_tillbaka_kostnaden_och_momsen_mi')}</div>}
                 </div>
               )}
-              <div className={`rc-span${flashField === 'supplier' ? ' rc-flash' : ''}`} {...boxProps('supplier')}>
+              <div className={`rc-span rc-f-supplier${flashField === 'supplier' ? ' rc-flash' : ''}`} {...boxProps('supplier')}>
                 <label style={labelSt}>{tr('ui.inkopsstalle_leverantor')} {ocrFields.has('supplier') ? <OcrBadge /> : !readOnly && revealed.supplier === 'guess' && <CheckBadge />}</label>
                 <TextSuggestInput
                   disabled={readOnly}
@@ -1295,8 +1304,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px' }}>{tr('ui.namn_fran_momsregistret')}</div>
                 )}
               </div>
-              <div className={`rc-span${flashField === 'receiptNumber' ? ' rc-flash' : ''}`} {...boxProps('receiptNumber')}>
-                <label style={labelSt}>{tr('ui.kvitto_faktura_eller_ordernummer_valfritt')} {ocrFields.has('receiptNumber') ? <OcrBadge /> : !readOnly && revealed.receiptNumber === 'guess' && <CheckBadge />}</label>
+              <div className={`rc-span rc-f-number${flashField === 'receiptNumber' ? ' rc-flash' : ''}`} {...boxProps('receiptNumber')}>
+                <label style={labelSt}>{inline ? tr('underlag.numberShort') : tr('ui.kvitto_faktura_eller_ordernummer_valfritt')} {ocrFields.has('receiptNumber') ? <OcrBadge /> : !readOnly && revealed.receiptNumber === 'guess' && <CheckBadge />}</label>
                 <input
                   disabled={readOnly}
                   value={form.receiptNumber}
@@ -1307,7 +1316,18 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 />
                 {numberLabel && form.receiptNumber && <div className="rc-hint">{tr('ui.avlast_som')} {numberLabel.toLowerCase()}</div>}
               </div>
-              {ID_FIELDS.filter(f => (inline && !f.onlyFilled && (f.always || readDetails?.dueDate)) || ids[f.key]).map(f => (
+              {inline && (() => {
+                const filled = ID_FIELDS.filter(f => ids[f.key]);
+                return (
+                  <button type="button" className={`rc-span uw-ids-toggle${showIds ? ' on' : ''}`} onClick={() => setShowIds(v => !v)} aria-expanded={showIds}>
+                    <span className="uw-ids-caret" aria-hidden="true">›</span>
+                    <b>{tr('underlag.moreDetails')}</b>
+                    <span className="uw-ids-sum">{filled.length ? filled.map(f => tr(f.label)).join(' · ') : tr('underlag.moreDetailsNone')}</span>
+                    {idsFromOcr.size > 0 && <em>{tr('underlag.filled', { n: idsFromOcr.size })}</em>}
+                  </button>
+                );
+              })()}
+              {(!inline || showIds) && ID_FIELDS.filter(f => (inline && !f.onlyFilled && (f.always || readDetails?.dueDate)) || ids[f.key]).map(f => (
                 <div key={f.key} className={f.span ? 'rc-span' : undefined}>
                   <label style={labelSt}>{tr(f.label)} {idsFromOcr.has(f.key) && <OcrBadge />}</label>
                   <input
@@ -1326,7 +1346,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 </div>
               ) : (
               <div className={`rc-span${flashField === 'vatRate' ? ' rc-flash' : ''}`} {...boxProps('vatAmount')}>
-                <label style={labelSt}>{tr('ui.momssats')} {ocrFields.has('vatRate') ? <OcrBadge /> : !readOnly && revealed.vatRate === 'guess' && <CheckBadge />}</label>
+                <label style={labelSt}>{tr('ui.momssats')} {inline && !vatExempt && !readOnly && !revealing && ocrVat?.verified ? <span className="uw-ok-badge" title={tr('ui.momsen_stammer_mot_beloppen_pa_kvittot')}>✓ {tr('underlag.vatMatches')}</span> : ocrFields.has('vatRate') ? <OcrBadge /> : !readOnly && revealed.vatRate === 'guess' && <CheckBadge />}</label>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   {[25, 12, 6, 0, 'mixed'].map(v => {
                     /* Ingen sats vald förrän kvittot sagt den eller användaren valt. */
@@ -1451,7 +1471,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               )}
 
               {projects.length > 0 && (
-                <div className="rc-span rc-later">
+                <div className="rc-span rc-later rc-f-project">
                   <label style={labelSt}>{tr('ui.projekt_valfritt')}</label>
                   <select value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))} style={{ ...inputSt, background: 'var(--bg-card)' }}>
                     <option value="">{tr('ui.inget_projekt')}</option>
@@ -1474,14 +1494,14 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 </div>
               )}
 
-              <div className="rc-span rc-later">
+              <div className={`rc-span rc-later rc-f-notes${projects.length > 0 ? ' rc-f-half' : ''}`}>
                 <label style={labelSt}>{tr('ui.anteckningar_valfritt')}</label>
-                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder={tr('ui.vad_var_det_har_kopet_till')} style={{ ...inputSt, resize: 'vertical', fontFamily: 'inherit' }} />
+                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={inline ? 1 : 2} placeholder={tr('ui.vad_var_det_har_kopet_till')} style={{ ...inputSt, resize: 'vertical', fontFamily: 'inherit' }} />
               </div>
             </div>
             {/* Det som lästes men inte bokförs (org.nr, betaluppgifter, texten)
                 står under fälten, så att kontot syns utan att rulla (2026-11-05). */}
-            <div className="rc-read-extra">
+            <div className={`rc-read-extra${inline && !showIds ? ' rc-read-hidden' : ''}`}>
               {!readOnly && !revealing && <ReadDetails details={readDetails?.dueDate ? { dueDate: readDetails.dueDate } : null} />}
               {!readOnly && !revealing && readDetails?.dueDate && (
                 <p className="rc-hint rc-read-hint">{tr('ui.faktura_betalas_senare')}</p>
@@ -1517,10 +1537,11 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   </label>
                 )}
                 {linked && <div className="uw-linked">{tr('underlag.linked')} {linked.description || ''} · {linked.date} · {formatSEK2(linked.amount)}</div>}
+                <div className="uw-foot-btns">
                 {canMatch && <button type="button" className="uw-btn-primary" disabled={busy} onClick={() => setMatchOpen(true)}>{tr('underlag.match')}</button>}
                 {status !== 'reversed' && (
                   <button type="button" className={canMatch ? 'uw-btn-secondary' : 'uw-btn-primary'} disabled={busy} onClick={() => handleSave()} title={busy ? tr('ui.vanta_tills_kvittot_ar_avlast') : undefined}>
-                    {readOnly ? tr('ui.spara_andringar') : canMatch ? tr('underlag.saveWithoutBank') : tr('ui.spara_och_bokfor')}
+                    {readOnly ? tr('ui.spara_andringar') : canMatch ? tr('underlag.saveWithoutBankShort') : tr('ui.spara_och_bokfor')}
                   </button>
                 )}
                 {status === 'booked' ? (
@@ -1528,10 +1549,11 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                     <RotateCcw size={13} /> {tr('ui.ratta_bokforing')}
                   </button>
                 ) : status !== 'reversed' ? (
-                  <button type="button" className="uw-btn-link danger" onClick={() => { onDelete(receipt.id); onClose(); }}>
-                    <Trash2 size={13} /> {tr('ui.ta_bort')}
+                  <button type="button" className="uw-btn-icon danger" onClick={() => { onDelete(receipt.id); onClose(); }} title={tr('ui.ta_bort')} aria-label={tr('ui.ta_bort')}>
+                    <Trash2 size={16} />
                   </button>
                 ) : null}
+                </div>
               </div>
             );
           })()}
