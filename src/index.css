@@ -10074,3 +10074,10 @@ img.hc-player { object-fit: cover; }
 .ut-steps a { color: var(--text-main); font-weight: 600; }
 .ut-way > .ut-way-btn, .ut-way > .uw-copy, .ut-way > .uw-mbx-on { margin-top: auto; }
 .ut-way > span:not(.ut-way-ico):not(.uw-mbx-on) { flex: 0 0 auto; margin-bottom: 8px; }
+
+.ut-hero-text span.ut-hero-last { margin-top: 2px; font-size: 12px; }
+.ut-hero-text > span:not(.ut-hero-last) { font-size: 13px; color: var(--text-secondary); }
+.ut-ways { grid-template-columns: repeat(auto-fill, minmax(260px, 360px)); }
+.ut-alert-x { display: inline-flex; padding: 5px !important; border-radius: 50% !important; background: none !important; color: inherit !important; opacity: 0.7; }
+.ut-alert-x:hover { opacity: 1; background: color-mix(in srgb, currentColor 12%, transparent) !important; }
+.ut-chiplist-top { margin-top: 12px; }

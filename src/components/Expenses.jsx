@@ -500,7 +500,7 @@ function MatchBankModal({ supplier, amount, date, bankTransactions, onPick, onCl
           <button type="button" className="uw-match-x" onClick={onClose} aria-label={tr('ui.stang')}><X size={18} /></button>
         </div>
         <div className="uw-match-sum">
-          <span>{tr('nav.expenses')}</span>
+          <span>{tr('nav.underlag')}</span>
           <b>{supplier || tr('underlag.unnamed')}</b>
           <b>{amount > 0 ? formatSEK2(amount) : ''}</b>
           <span>{date || ''}</span>
@@ -1728,7 +1728,7 @@ function UtEmpty({ icon: Icon = Inbox, title, text, action }) {
 /** Vänstermenyn i Underlag (2026-11-18, som Fortnox). */
 function UnderlagNav({ view, onView, counts }) {
   const items = [
-    ['underlag', tr('nav.expenses'), FileText, counts.todo],
+    ['underlag', tr('nav.underlag'), FileText, counts.todo],
     ['mail', tr('underlag.navMail'), Mail, counts.mail],
     ['senders', tr('underlag.navSenders'), CheckCircle2, null],
     ['mailbox', tr('underlag.navMailbox'), Inbox, null],
@@ -1737,7 +1737,7 @@ function UnderlagNav({ view, onView, counts }) {
   // Tre grupper som Fortnox: underlagen, inkorgen, papperskorgen.
   const groups = [items.slice(0, 3), items.slice(3, 4), items.slice(4)];
   return (
-    <nav className="ut-nav-side" aria-label={tr('nav.expenses')}>
+    <nav className="ut-nav-side" aria-label={tr('nav.underlag')}>
       {groups.map((g, gi) => (
         <div key={gi} className="ut-nav-group">
           {g.map(([id, label, Icon, n]) => (
@@ -1800,6 +1800,11 @@ function SendersView({ info, onSaveSenders, receipts = [] }) {
   };
   const remove = (v) => onSaveSenders?.(allowed.filter(x => x !== v));
   const blocked = info?.lastBlockedFrom ? normalize(info.lastBlockedFrom) : null;
+  // "Senast stoppat" går att dölja; visas igen när något nytt stoppas.
+  const hideKey = 'bokix.blockedHidden';
+  const [hiddenAt, setHiddenAt] = useState(() => { try { return localStorage.getItem(hideKey) || ''; } catch { return ''; } });
+  const hideBlocked = () => { const v = String(info?.lastBlockedAt || info?.lastBlockedFrom || ''); setHiddenAt(v); try { localStorage.setItem(hideKey, v); } catch { /* inget */ } };
+  const blockedHidden = hiddenAt && hiddenAt === String(info?.lastBlockedAt || info?.lastBlockedFrom || '');
   return (
     <div className="ut">
       <div className="ut-head">
@@ -1817,17 +1822,17 @@ function SendersView({ info, onSaveSenders, receipts = [] }) {
         </form>
       </div>
       {err && <p className="ut-err">{err}</p>}
-      {blocked && !allowed.includes(blocked) && (
+      {blocked && !allowed.includes(blocked) && !blockedHidden && (
         <div className="ut-alert">
           <AlertCircle size={15} />
           <span>{tr('underlag.sendersBlocked', { from: info.lastBlockedFrom })}{info.lastBlockedAt ? ` · ${new Date(info.lastBlockedAt).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</span>
           <button type="button" onClick={() => add(blocked)}>{tr('underlag.sendersAllow')}</button>
+          <button type="button" className="ut-alert-x" onClick={hideBlocked} aria-label={tr('underlag.hide')} title={tr('underlag.hide')}><X size={14} /></button>
         </div>
       )}
       {allowed.length > 0 && (
         <>
-          <h2 className="ut-h2">{tr('underlag.sendersAllowedTitle')}</h2>
-          <div className="ut-chiplist">
+          <div className="ut-chiplist ut-chiplist-top">
             {allowed.map(v => (
               <span key={v} className="ut-schip"><CheckCircle2 size={13} />{v}<button type="button" onClick={() => remove(v)} aria-label={tr('ui.ta_bort')}><X size={12} /></button></span>
             ))}
@@ -1885,11 +1890,12 @@ function MailboxView({ info, onUpload, onSenders }) {
         <div className="ut-hero-text">
           <small>{tr('underlag.mbxAddress')}</small>
           {info?.address ? <code>{info.address}</code> : <em>{tr('underlag.mbxAddressMissing')}</em>}
-          <span>{info?.lastReceivedAt ? tr('underlag.mbxLast', { when: new Date(info.lastReceivedAt).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }) }) : tr('underlag.mbxNoneYet')}</span>
+          <span>{tr('underlag.mbxHeroHint')}</span>
+          <span className="ut-hero-last">{info?.lastReceivedAt ? tr('underlag.mbxLast', { when: new Date(info.lastReceivedAt).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }) }) : tr('underlag.mbxNoneYet')}</span>
         </div>
         {info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />}
       </div>
-      <h2 className="ut-h2">{tr('underlag.mbxWaysTitle')}</h2>
+      <h2 className="ut-h2">{tr('underlag.mbxOtherWays')}</h2>
       <div className="ut-ways">
         <div className="ut-way">
           <span className="ut-way-ico ut-way-gmail">G</span>
@@ -1907,22 +1913,10 @@ function MailboxView({ info, onUpload, onSenders }) {
           )}
         </div>
         <div className="ut-way">
-          <span className="ut-way-ico"><Mail size={18} /></span>
-          <b>{tr('underlag.mbxSuppliers')}</b>
-          <span>{tr('underlag.mbxSuppliersSub')}</span>
-          {info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />}
-        </div>
-        <div className="ut-way">
           <span className="ut-way-ico"><UploadCloud size={18} /></span>
           <b>{tr('underlag.mbxUpload')}</b>
           <span>{tr('underlag.mbxUploadSub')}</span>
           <button type="button" className="ut-way-btn" onClick={onUpload}>{tr('underlag.upload')}</button>
-        </div>
-        <div className="ut-way">
-          <span className="ut-way-ico"><CheckCircle2 size={18} /></span>
-          <b>{tr('underlag.navSenders')}</b>
-          <span>{(info?.allowedSenders || []).length ? tr('underlag.sendersModeList', { n: info.allowedSenders.length }) : tr('underlag.sendersModeAll')}</span>
-          <button type="button" className="ut-way-btn ghost" onClick={onSenders}>{tr('underlag.manageSenders')}</button>
         </div>
       </div>
     </div>
@@ -2022,7 +2016,7 @@ function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDelet
   return (
     <div className="ut">
       <div className="ut-head">
-        <h1>{onlyEmail ? tr('underlag.navMail') : tr('nav.expenses')}</h1>
+        <h1>{onlyEmail ? tr('underlag.navMail') : tr('nav.underlag')}</h1>
         <p>{onlyEmail ? tr('underlag.mailIntro') : tr('underlag.tableIntro')}</p>
         {!onlyEmail && (() => {
           // Den här månaden: hur många underlag som är klara av alla som kommit in.
@@ -2598,7 +2592,7 @@ export default function Expenses({
         ) : (
           <>
             <div className="ut-detail-top">
-              <button type="button" className="ut-back" onClick={() => setDetailReceiptId(null)}>← {tr('nav.expenses')}</button>
+              <button type="button" className="ut-back" onClick={() => setDetailReceiptId(null)}>← {tr('nav.underlag')}</button>
               {navPos >= 0 && navIds.length > 1 && (
                 <span className="ut-nav">
                   <span className="ut-keys" aria-hidden="true"><kbd>←</kbd><kbd>→</kbd></span>
