@@ -1625,30 +1625,6 @@ async function autoReadDraft(receipt, { ownCompany, allReceipts, verifications }
 /** Underlagslistan i arbetsytan (2026-11-17, efter Accounteds inkorg):
  * flikar Att göra / Bokförda / Alla och en tät lista; vald rad öppnas
  * bredvid i stället för i helskärm. */
-// "12 min sedan" när uppladdningstiden finns (exp_<ms>), annars dagen.
-function relTime(r) {
-  const ts = Number((/^exp_(\d{13})/.exec(String(r?.id || '')) || [])[1]);
-  if (ts > 1.5e12 && !r.costAccount) {
-    const min = Math.round((Date.now() - ts) / 60000);
-    if (min < 1) return tr('underlag.justNow');
-    if (min < 60) return tr('underlag.minAgo', { n: min });
-    if (min < 24 * 60) return tr('underlag.hAgo', { n: Math.round(min / 60) });
-    if (min < 7 * 24 * 60) return tr('underlag.dAgo', { n: Math.round(min / 1440) });
-  }
-  return relDay(r?.date);
-}
-
-// I dag / i går / datum, som i en inkorg.
-function relDay(date) {
-  if (!date) return '';
-  const d = new Date(`${date}T12:00:00`);
-  const today = new Date(); today.setHours(12, 0, 0, 0);
-  const diff = Math.round((today - d) / 86400000);
-  if (diff === 0) return tr('underlag.today');
-  if (diff === 1) return tr('underlag.yesterday');
-  return date;
-}
-
 // Varifrån underlaget kom och från vem, som Fortnox kolumner Källa och
 // Avsändare (2026-11-18): "Mejl · gusto.se" eller "App · Abdullah".
 function sourceLabel(r) {
@@ -1662,11 +1638,28 @@ function sourceLabel(r) {
   return { kind: 'app', text: tr('underlag.srcApp'), who: name };
 }
 
-function UnderlagList({ receipts, selectedId, onSelect, statusOf, onClose, onUpload, readingId = null, onDeleteMany }) {
+// Inkommet, som Fortnox: "22 sep. 11:57" när uppladdningstiden finns.
+function arrivedLabel(r) {
+  const ts = Number((/^exp_(\d{13})/.exec(String(r?.id || '')) || [])[1]);
+  if (ts > 1.5e12) return new Date(ts).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return r?.date || '';
+}
+
+// Avläsningens läge per underlag (kolumnen Avläsning).
+function readState(r, status, readingId) {
+  if (status === 'booked' || status === 'reversed') return { key: 'done', text: tr('underlag.rsBooked') };
+  if (r.id === readingId) return { key: 'busy', text: tr('underlag.reading') };
+  const d = r.ocrDraft;
+  if (d?.notReceipt) return { key: 'warn', text: tr('underlag.rsNotReceipt') };
+  if (d) return Object.values(d.revealed || {}).some(v => v === 'guess') ? { key: 'warn', text: tr('ui.kontrollera') } : { key: 'ok', text: tr('underlag.rsRead') };
+  return r.receiptUrl ? { key: 'none', text: tr('underlag.rsNotRead') } : { key: 'none', text: tr('underlag.rsNoFile') };
+}
+
+/** Underlag som tabell, som Fortnox (2026-11-18): kryssrutor, kolumner för
+ * belopp, inkommet, avläsning, källa och avsändare. En rad öppnar underlaget. */
+function UnderlagTable({ receipts, statusOf, readingId, onOpen, onDeleteMany, onUpload, onMailIn, inboxAddress }) {
   const [tab, setTab] = useState('todo');
   const [q, setQ] = useState('');
-  // Markera flera (som Fortnox kryssrutor): ta bort på en gång. Bara obokförda.
-  const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState(() => new Set());
   const counts = { todo: 0, booked: 0, all: receipts.length };
   receipts.forEach(r => { const s = statusOf(r); if (s === 'unhandled' || s === 'pending') counts.todo++; else if (s === 'booked') counts.booked++; });
@@ -1674,82 +1667,106 @@ function UnderlagList({ receipts, selectedId, onSelect, statusOf, onClose, onUpl
   const shown = receipts.filter(r => { const s = statusOf(r); return tab === 'all' || (tab === 'todo' ? (s === 'unhandled' || s === 'pending') : s === 'booked'); })
     .filter(r => !needle || [r.supplier, r.description, r.date, r.amount != null ? String(r.amount) : '', r.ocrDraft?.form?.supplier, r.inbox?.from, r.inbox?.subject, r.inbox?.fileName, r.uploadedBy?.name]
       .some(v => String(v || '').toLowerCase().includes(needle)));
-  const tabs = [['todo', tr('underlag.todo')], ['booked', tr('underlag.booked')], ['all', tr('underlag.all')]];
   const deletable = (r) => ['unhandled', 'pending'].includes(statusOf(r));
-  const togglePick = (id) => setPicked(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const stopPicking = () => { setPicking(false); setPicked(new Set()); };
   const pickable = shown.filter(deletable);
   const allPicked = pickable.length > 0 && pickable.every(r => picked.has(r.id));
+  const togglePick = (id) => setPicked(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const deletePicked = async () => {
-    const ids = [...picked];
+    const ids = [...picked].filter(id => pickable.some(r => r.id === id));
     if (!ids.length) return;
     if (!(await confirmDialog(tr('underlag.deleteManyConfirm', { n: ids.length })))) return;
     onDeleteMany?.(ids);
-    stopPicking();
+    setPicked(new Set());
   };
+  const chips = [['todo', tr('underlag.todo')], ['booked', tr('underlag.booked')], ['all', tr('underlag.all')]];
   return (
-    <aside className="uw-list" aria-label={tr('nav.expenses')}>
-      <div className="uw-search">
-        <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={tr('underlag.search')} aria-label={tr('underlag.search')} />
-        {onDeleteMany && pickable.length > 0 && (
-          <button type="button" className={`uw-pick-toggle${picking ? ' on' : ''}`} onClick={() => (picking ? stopPicking() : setPicking(true))}>
-            {picking ? tr('underlag.pickDone') : tr('underlag.pick')}
-          </button>
-        )}
+    <div className="ut">
+      <div className="ut-head">
+        <h1>{tr('nav.expenses')}</h1>
+        <p>{tr('underlag.tableIntro')}</p>
       </div>
-      <div className="uw-tabs" role="tablist">
-        {tabs.map(([id, label]) => (
-          <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : undefined} onClick={() => setTab(id)}>
-            {label} <span>{counts[id]}</span>
-          </button>
-        ))}
-      </div>
-      {picking && (
-        <label className="uw-pick-all">
-          <input type="checkbox" checked={allPicked} onChange={() => setPicked(allPicked ? new Set() : new Set(pickable.map(r => r.id)))} />
-          <span>{tr('underlag.pickAll')}</span>
-        </label>
-      )}
-      <div className="uw-rows">
-        {shown.length === 0 && <div className="uw-empty">{tr('underlag.empty')}</div>}
-        {shown.map(r => {
-          const s = statusOf(r);
-          const src = sourceLabel(r);
-          const canPick = picking && deletable(r);
-          return (
-            <button
-              key={r.id}
-              type="button"
-              className={`uw-row${r.id === selectedId && !picking ? ' on' : ''}${picked.has(r.id) ? ' picked' : ''}`}
-              onClick={() => (picking ? (canPick && togglePick(r.id)) : onSelect(r.id))}
-              aria-pressed={picking ? picked.has(r.id) : undefined}
-            >
-              {picking && <span className={`uw-check${picked.has(r.id) ? ' on' : ''}${canPick ? '' : ' off'}`} aria-hidden="true" />}
-              <span className="uw-row-thumb"><ReceiptThumb receipt={r} /></span>
-              <span className="uw-row-text">
-                <span className="uw-row-top">
-                  <span className="uw-row-name">{r.supplier || r.description || r.ocrDraft?.form?.supplier || tr('underlag.unnamed')}</span>
-                  <span className="uw-row-amt">{r.id === readingId ? <em className="uw-reading">{tr('underlag.reading')}</em> : r.amount ? formatSEK(Math.abs(r.amount)) : (parseAmount(r.ocrDraft?.form?.amount) > 0 ? formatSEK(parseAmount(r.ocrDraft.form.amount)) : '')}</span>
-                </span>
-                <span className="uw-row-sub" title={r.inbox?.from || r.uploadedBy?.name || ''}>
-                  <span className={`uw-dot uw-dot-${s}`} aria-hidden="true" />
-                  <span>{relTime(r)}</span>
-                  <span className="uw-row-sep">·</span>
-                  {src.kind === 'mail' ? <Mail size={12} className="uw-row-src" /> : null}
-                  <span className="uw-row-who">{src.who ? `${src.text} · ${src.who}` : src.text}</span>
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      {picking && (
-        <div className="uw-pick-bar">
-          <span>{tr('underlag.pickedCount', { n: picked.size })}</span>
-          <button type="button" className="uw-pick-del" disabled={!picked.size} onClick={deletePicked}><Trash2 size={14} /> {tr('ui.ta_bort')}</button>
+      <div className="ut-bar">
+        <button type="button" className="ut-upload" onClick={onUpload}><UploadCloud size={16} /> {tr('underlag.uploadDocs')}</button>
+        <div className="ut-bar-right">
+          {inboxAddress && <span className="ut-addr"><code>{inboxAddress}</code><CopyButton text={inboxAddress} label=" " /></span>}
+          <button type="button" className="ut-link" onClick={onMailIn}><Mail size={15} /> {tr('underlag.mailIn')}</button>
         </div>
-      )}
-    </aside>
+      </div>
+      <div className="ut-filters">
+        <div className="ut-chips">
+          {chips.map(([id, label]) => (
+            <button key={id} type="button" className={`ut-chip${tab === id ? ' on' : ''}`} onClick={() => { setTab(id); setPicked(new Set()); }}>{label} ({counts[id]})</button>
+          ))}
+        </div>
+        <div className="ut-search">
+          <Search size={15} />
+          <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={tr('underlag.search')} aria-label={tr('underlag.search')} />
+        </div>
+      </div>
+      <div className="ut-count">
+        {picked.size > 0 ? (
+          <>
+            <span>{tr('underlag.pickedCount', { n: picked.size })}</span>
+            <button type="button" className="ut-del" onClick={deletePicked}><Trash2 size={14} /> {tr('ui.ta_bort')}</button>
+            <button type="button" className="ut-link" onClick={() => setPicked(new Set())}>{tr('ui.avbryt')}</button>
+          </>
+        ) : <span>{tr('underlag.total', { n: shown.length })}</span>}
+      </div>
+      <div className="ut-table-wrap">
+        <table className="ut-table">
+          <thead>
+            <tr>
+              <th className="ut-c-check">
+                <input type="checkbox" checked={allPicked} disabled={!pickable.length} onChange={() => setPicked(allPicked ? new Set() : new Set(pickable.map(r => r.id)))} aria-label={tr('underlag.pickAll')} />
+              </th>
+              <th>{tr('underlag.colDoc')}</th>
+              <th className="ut-c-num">{tr('underlag.colAmount')}</th>
+              <th>{tr('underlag.colArrived')}</th>
+              <th>{tr('underlag.colRead')}</th>
+              <th>{tr('underlag.colSource')}</th>
+              <th>{tr('underlag.colSender')}</th>
+              <th>{tr('underlag.colStatus')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.length === 0 && (
+              <tr><td colSpan={8} className="ut-empty">{tab === 'todo' ? tr('underlag.emptyTodo') : tr('underlag.empty')}</td></tr>
+            )}
+            {shown.map(r => {
+              const s = statusOf(r);
+              const src = sourceLabel(r);
+              const rs = readState(r, s, readingId);
+              const meta = STATUS_META[s];
+              const amount = r.amount ? Math.abs(r.amount) : parseAmount(r.ocrDraft?.form?.amount);
+              const name = r.supplier || r.description || r.ocrDraft?.form?.supplier || r.inbox?.fileName || tr('underlag.unnamed');
+              const sender = r.inbox?.source === 'email' ? (r.inbox.from || '') : (r.uploadedBy?.name || '');
+              return (
+                <tr key={r.id} className={picked.has(r.id) ? 'picked' : undefined} onClick={() => onOpen(r.id, shown.map(x => x.id))}>
+                  <td className="ut-c-check" onClick={e => e.stopPropagation()}>
+                    <input type="checkbox" checked={picked.has(r.id)} disabled={!deletable(r)} onChange={() => togglePick(r.id)} aria-label={name} />
+                  </td>
+                  <td>
+                    <span className="ut-doc">
+                      <span className="ut-thumb"><ReceiptThumb receipt={r} /></span>
+                      <span className="ut-doc-text">
+                        <b>{name}</b>
+                        {r.inbox?.subject && <small>{r.inbox.subject}</small>}
+                      </span>
+                    </span>
+                  </td>
+                  <td className="ut-c-num">{amount > 0 ? formatSEK(amount) : '–'}</td>
+                  <td className="ut-muted">{arrivedLabel(r)}</td>
+                  <td><span className={`ut-read ut-read-${rs.key}`}>{rs.text}</span></td>
+                  <td className="ut-muted">{src.kind === 'mail' ? <><Mail size={13} /> {src.text}</> : src.text}</td>
+                  <td className="ut-muted ut-sender" title={sender}>{sender || '–'}</td>
+                  <td>{meta && <span className="ut-status" style={{ background: meta.bg, color: meta.color }}>{STATUS_SINGULAR[s] || meta.label}</span>}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -1972,6 +1989,8 @@ export default function Expenses({
     return () => window.removeEventListener('resize', onResize);
   }, []);
   const [mailboxOpen, setMailboxOpen] = useState(false);
+  // Ordningen i tabellen när ett underlag öppnades: föregående och nästa.
+  const [navIds, setNavIds] = useState([]);
   const { info: inboxInfo, saveSenders } = useInboxAddress(wide ? companyId : null, { poll: mailboxOpen });
   // Den gamla listan finns kvar bakom "Visa som lista". Valet sparas i webbläsaren.
   const [listView, setListViewState] = useState(() => { try { return localStorage.getItem('bokix.underlagView') === 'list'; } catch { return false; } });
@@ -2117,74 +2136,62 @@ export default function Expenses({
   };
 
   if (wide && (detailReceipt || !listView)) {
+    const navPos = detailReceipt ? navIds.indexOf(detailReceipt.id) : -1;
+    const goNav = (step) => { const id = navIds[navPos + step]; if (id) setDetailReceiptId(id); };
     return (
-      <div className={`uw-wrap${isDragging ? ' uw-dropping' : ''}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
-      {mailboxOpen && <MailboxDialog info={inboxInfo} onSaveSenders={saveSenders} onClose={() => setMailboxOpen(false)} onUpload={() => document.getElementById('uw-upload').click()} />}
-      <div className="uw-top">
-        <div className="uw-top-title">
-          <Inbox size={18} className="uw-top-ico" />
-          <h1>{pageTitle || tr('nav.expenses')}</h1>
-          {inboxInfo?.address && (
-            <span className="uw-top-addr">
-              <code>{inboxInfo.address}</code>
-              <CopyButton text={inboxInfo.address} label=" " />
-            </span>
-          )}
-        </div>
-        <div className="uw-top-actions">
-          <button type="button" className="uw-top-link" onClick={() => setMailboxOpen(true)}>+ {tr('underlag.mailboxTitle')}</button>
-          <button type="button" className="uw-top-link" onClick={() => { setDetailReceiptId(null); setListView(true); }}>{tr('underlag.allList')}</button>
-          <button type="button" className="uw-top-upload" onClick={() => document.getElementById('uw-upload').click()}><UploadCloud size={15} /> {tr('underlag.upload')}</button>
-        </div>
-      </div>
-      <div className="uw-split">
+      <div className={`uw-wrap ut-wrap${isDragging ? ' uw-dropping' : ''}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+        {mailboxOpen && <MailboxDialog info={inboxInfo} onSaveSenders={saveSenders} onClose={() => setMailboxOpen(false)} onUpload={() => document.getElementById('uw-upload').click()} />}
         <input type="file" id="uw-upload" style={{ display: 'none' }} multiple accept={ACCEPT_ATTR} onChange={handleFileInput} />
-        <UnderlagList
-          receipts={receiptsList}
-          selectedId={detailReceipt?.id}
-          onSelect={setDetailReceiptId}
-          statusOf={(r) => getReceiptStatus(r, verIndex)}
-          onClose={() => { setDetailReceiptId(null); setListView(true); }}
-          onUpload={() => document.getElementById('uw-upload').click()}
-          readingId={autoReading}
-          onDeleteMany={(ids) => ids.forEach(id => onDeleteExpense?.(id))}
-        />
         {!detailReceipt ? (
-          <div className="uw-detail uw-detail-empty">
-            <div className={`uw-empty-mid${isDragging ? ' on' : ''}`}>
-              <span className="uw-empty-ico"><Inbox size={24} /></span>
-              <strong>{tr('underlag.pickTitle')}</strong>
-              <span>{tr('underlag.pickHint')}</span>
-              <button type="button" className="uw-empty-btn" onClick={() => document.getElementById('uw-upload').click()}>+ {tr('underlag.uploadFile')}</button>
-            </div>
-            <div className="uw-empty-side">{tr('underlag.pickSide')}</div>
-          </div>
-        ) : (
-        <div className="uw-detail">
-          <ReceiptDetailModal
-            inline
-            bankTransactions={bankTransactions}
-            onLinkBankRow={onLinkBankRow}
-            vatExempt={isVatExempt(company)}
-            ownCompany={company}
-            key={detailReceipt.id}
-            receipt={detailReceipt}
-            accounts={accounts}
-            projects={projects}
-            folders={folders}
-            allReceipts={allReceipts}
-            verifications={verifications}
-            status={getReceiptStatus(detailReceipt, verIndex)}
-            onSave={(id, values) => onSaveReceiptDetails?.(id, values)}
-            onSaveOcrDraft={(id, draft) => onSaveOcrDraft?.(id, draft)}
-            onDelete={(id) => onDeleteExpense?.(id)}
-            onReverse={(id) => onReverseExpense?.(id)}
-            onClose={() => setDetailReceiptId(null)}
-            onSaved={() => nextAfter(detailReceipt.id)}
+          <UnderlagTable
+            receipts={receiptsList}
+            statusOf={(r) => getReceiptStatus(r, verIndex)}
+            readingId={autoReading}
+            onOpen={(id, ids) => { setNavIds(ids); setDetailReceiptId(id); }}
+            onDeleteMany={(ids) => ids.forEach(id => onDeleteExpense?.(id))}
+            onUpload={() => document.getElementById('uw-upload').click()}
+            onMailIn={() => setMailboxOpen(true)}
+            inboxAddress={inboxInfo?.address}
           />
-        </div>
+        ) : (
+          <>
+            <div className="ut-detail-top">
+              <button type="button" className="ut-back" onClick={() => setDetailReceiptId(null)}>← {tr('nav.expenses')}</button>
+              {navPos >= 0 && navIds.length > 1 && (
+                <span className="ut-nav">
+                  <span>{tr('underlag.navPos', { i: navPos + 1, n: navIds.length })}</span>
+                  <button type="button" onClick={() => goNav(-1)} disabled={navPos <= 0} aria-label={tr('underlag.prev')}>‹</button>
+                  <button type="button" onClick={() => goNav(1)} disabled={navPos >= navIds.length - 1} aria-label={tr('underlag.next')}>›</button>
+                </span>
+              )}
+            </div>
+            <div className="uw-split ut-split">
+              <div className="uw-detail">
+                <ReceiptDetailModal
+                  inline
+                  bankTransactions={bankTransactions}
+                  onLinkBankRow={onLinkBankRow}
+                  vatExempt={isVatExempt(company)}
+                  ownCompany={company}
+                  key={detailReceipt.id}
+                  receipt={detailReceipt}
+                  accounts={accounts}
+                  projects={projects}
+                  folders={folders}
+                  allReceipts={allReceipts}
+                  verifications={verifications}
+                  status={getReceiptStatus(detailReceipt, verIndex)}
+                  onSave={(id, values) => onSaveReceiptDetails?.(id, values)}
+                  onSaveOcrDraft={(id, draft) => onSaveOcrDraft?.(id, draft)}
+                  onDelete={(id) => onDeleteExpense?.(id)}
+                  onReverse={(id) => onReverseExpense?.(id)}
+                  onClose={() => setDetailReceiptId(null)}
+                  onSaved={() => nextAfter(detailReceipt.id)}
+                />
+              </div>
+            </div>
+          </>
         )}
-      </div>
       </div>
     );
   }
