@@ -4942,6 +4942,7 @@
     "download": "Ladda ner och skriv under"
   },
   "notifFeed": {
+    "inboxDetail": "Öppna Underlag",
     "inboxOne": "Nytt underlag via mejl från {{from}}",
     "inboxMany": "{{count}} nya underlag via mejl från {{from}}",
     "inboxManySenders": "{{count}} nya underlag via mejl, bland annat från {{from}}",

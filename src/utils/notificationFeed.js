@@ -68,9 +68,10 @@ export function buildNotificationFeed({ t, invoices = [], expenses = [], integra
     const senders = [...new Set(list.map(e => String(e.inbox.from || '').split('@').pop().replace(/>$/, '').trim()).filter(Boolean))];
     items.push({
       keys: list.map(e => `inbox:${e.id}`), at: list.map(e => e.inbox.receivedAt).sort().at(-1), kind: 'inbox', tone: 'blue',
-      text: list.length === 1
+      title: list.length === 1
         ? t('notifFeed.inboxOne', { from: senders[0] || t('notifFeed.unknownSender') })
         : t(senders.length > 1 ? 'notifFeed.inboxManySenders' : 'notifFeed.inboxMany', { count: list.length, from: senders[0] || t('notifFeed.unknownSender') }),
+      detail: t('notifFeed.inboxDetail'),
       target: { tab: 'expenses' },
     });
   }

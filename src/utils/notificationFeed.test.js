@@ -43,6 +43,6 @@ describe('mejlade underlag i klockan', () => {
       { id: 'b', inbox: { from: 'kvitto@gusto.se', receivedAt: '2026-11-18T11:00:00Z' } },
     ] }).filter(n => n.kind === 'inbox');
     expect(items).toHaveLength(1);
-    expect(items[0].text).toBe('notifFeed.inboxMany:gusto.se:2');
+    expect(items[0].title).toBe('notifFeed.inboxMany:gusto.se:2');
   });
 });

@@ -4942,6 +4942,7 @@
     "download": "Download and sign"
   },
   "notifFeed": {
+    "inboxDetail": "Open Documents",
     "inboxOne": "New document by email from {{from}}",
     "inboxMany": "{{count}} new documents by email from {{from}}",
     "inboxManySenders": "{{count}} new documents by email, including from {{from}}",
