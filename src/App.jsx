@@ -1307,7 +1307,7 @@ function App() {
   // Sidomenyn krymper själv steg för steg (data-fit, index.css) tills hela listan ryms utan
   // skroll, också i ett riktigt lågt fönster (hög skärmskalning eller inzoomad sida).
   const sidebarNavRef = useRef(null);
-  const sidebarFit = useFitLevel(sidebarNavRef, 3);
+  const sidebarFit = useFitLevel(sidebarNavRef, 3, navRail ? 'rail' : 'full');
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   // Face ID-spärren (utils/sessionPolicy.js, components/AppLock.jsx).
   const [appLocked, setAppLocked] = useState(false);

@@ -10178,3 +10178,18 @@ img.hc-player { object-fit: cover; }
 .ut-nav-side button svg { width: 15px; height: 15px; flex-shrink: 0; opacity: 0.8; }
 .ut-nav-side button.on svg { opacity: 1; }
 .ut-nav-side button em { min-width: 18px; padding: 0 6px; font-size: 11px; line-height: 17px; }
+
+/* Hopfälld meny på laptop (2026-11-19): ikonerna behåller sin storlek, och
+   när höjden inte räcker blir etiketten en rad (fit 1) och sedan bara ikon
+   med namnet som tooltip (fit 2–3), så att menyn aldrig behöver skrollas. */
+@media (min-width: 941px) {
+  html[data-nav-rail] .sidebar .nav-item svg { width: 19px !important; height: 19px !important; }
+  html[data-nav-rail] .sidebar[data-fit="1"] .nav-item { padding: 6px 2px 5px !important; }
+  html[data-nav-rail] .sidebar[data-fit="1"] .nav-short { font-size: 10.5px; line-height: 1.1; }
+  html[data-nav-rail] .sidebar[data-fit="2"] .nav-short,
+  html[data-nav-rail] .sidebar[data-fit="3"] .nav-short { display: none !important; }
+  html[data-nav-rail] .sidebar[data-fit="2"] .nav-item { padding: 9px 2px !important; }
+  html[data-nav-rail] .sidebar[data-fit="3"] .nav-item { padding: 7px 2px !important; }
+  html[data-nav-rail] .sidebar[data-fit="2"] .nav-badge,
+  html[data-nav-rail] .sidebar[data-fit="3"] .nav-badge { top: 3px; right: 16px; }
+}
