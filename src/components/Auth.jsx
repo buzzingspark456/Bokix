@@ -11,6 +11,7 @@ import { translateSupabaseAuthError } from '../utils/translateAuthError';
 import { passkeyLoginOffered, rememberPasskeyOnDevice, isPasskeyCancel, setAppLock } from '../utils/sessionPolicy';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
+import { attemptsFor, recordFailure, clearAttempts, isWrongCredentials, SHOW_FORGOT_AFTER } from '../utils/loginAttempts';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
 import { planFromId } from '../utils/plans';
 import { UF_FREE_MONTHS } from '../utils/ufMode';
@@ -141,6 +142,22 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   // ej (se handleForgotPassword) — att svara olika hade läckt vilka
   // e-postadresser som är registrerade i Bokix.
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  // Felaktiga försök (utils/loginAttempts.js): Glömt lösenord visas efter tre,
+  // formuläret spärras en stund efter fem.
+  const [attempts, setAttempts] = useState({ fails: 0, lockedUntil: 0 });
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => { setAttempts(attemptsFor(loginEmail)); }, [loginEmail]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!attempts.lockedUntil) return undefined;
+    const timer = setInterval(() => {
+      setNowTick(Date.now());
+      if (Date.now() >= attempts.lockedUntil) setAttempts(attemptsFor(loginEmail));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [attempts.lockedUntil]); // eslint-disable-line react-hooks/exhaustive-deps
+  const locked = attempts.lockedUntil > nowTick;
+  const lockLeft = locked ? Math.ceil((attempts.lockedUntil - nowTick) / 1000) : 0;
+  const showForgotLink = attempts.fails >= SHOW_FORGOT_AFTER || locked;
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -346,6 +363,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     setLoading(true);
     try {
       if (!loginEmail || !loginPassword) throw new Error(t('ui.fyll_i_alla_falt'));
+      if (attemptsFor(loginEmail).lockedUntil > Date.now()) { setAttempts(attemptsFor(loginEmail)); return; }
       markLoginStart('password');
       const { error } = await withCaptcha(loginCaptchaRef, (captchaToken) => {
         markLoginStep('captcha');
@@ -357,9 +375,13 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       });
       if (error) throw error;
       markLoginStep('auth');
+      clearAttempts(loginEmail);
       offerToSavePassword(loginEmail, loginPassword);
     } catch (err) {
-      setErrorMsg(translateSupabaseAuthError(err.message));
+      const rec = isWrongCredentials(err?.message) ? recordFailure(loginEmail) : null;
+      if (rec) { setAttempts(attemptsFor(loginEmail)); setNowTick(Date.now()); }
+      // Spärrad: rutan säger redan vad som hänt, inget rött fel ovanpå.
+      setErrorMsg(rec?.lockedUntil ? '' : translateSupabaseAuthError(err.message));
       newCaptchaRound();
     } finally {
       setLoading(false);
@@ -868,18 +890,32 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <label style={labelStyle}>{t('ui.losenord')}</label>
+                  {showForgotLink && (
                   <button type="button" onClick={() => { setShowForgotPassword(true); setErrorMsg(''); setForgotEmail(loginEmail); }} className="auth-link" style={{ background: 'none', border: 'none', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '6px' }}>
                     {t('ui.glomt_losenord')}
                   </button>
+                  )}
                 </div>
                 <div style={{ position: 'relative' }}>
                   <Lock size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 15, left: 16, pointerEvents: 'none' }} />
                   <input className="auth-input" type="password" id="login-password" name="password" autoComplete="current-password" style={{ ...inputStyle, paddingLeft: '48px' }} placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
                 </div>
               </div>
+              {locked ? (
+                <div className="auth-lock-note" role="alert">
+                  <b>{t('ui.login_locked_title')}</b>
+                  <span>{t('ui.login_locked_text', { time: `${Math.floor(lockLeft / 60)}:${String(lockLeft % 60).padStart(2, '0')}` })}</span>
+                  <button type="button" onClick={() => { setShowForgotPassword(true); setErrorMsg(''); setForgotEmail(loginEmail); }}>{t('ui.login_reset_instead')}</button>
+                </div>
+              ) : attempts.fails >= SHOW_FORGOT_AFTER && (
+                <div className="auth-attempt-note">
+                  {t('ui.login_attempts_left', { n: 5 - attempts.fails })}{' '}
+                  <button type="button" onClick={() => { setShowForgotPassword(true); setErrorMsg(''); setForgotEmail(loginEmail); }}>{t('ui.login_reset_instead')}</button>
+                </div>
+              )}
               <Turnstile key={`l${captchaRound}`} ref={loginCaptchaRef} onDemand />
               {errorMsg && <div style={{ padding: '12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>}
-              <button className="auth-btn-primary" type="submit" disabled={loading} style={{ width: '100%', padding: '20px 22px', background: BRAND.green, border: 'none', borderRadius: '13px', fontSize: '18px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
+              <button className="auth-btn-primary" type="submit" disabled={loading || locked} style={{ width: '100%', padding: '20px 22px', background: BRAND.green, border: 'none', borderRadius: '13px', fontSize: '18px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
                 {loading ? t('ui.loggar_in') : t('ui.logga_in')} <ArrowRight size={18} />
               </button>
             </form>
