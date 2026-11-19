@@ -10184,12 +10184,17 @@ img.hc-player { object-fit: cover; }
    med namnet som tooltip (fit 2–3), så att menyn aldrig behöver skrollas. */
 @media (min-width: 941px) {
   html[data-nav-rail] .sidebar .nav-item svg { width: 19px !important; height: 19px !important; }
-  html[data-nav-rail] .sidebar[data-fit="1"] .nav-item { padding: 6px 2px 5px !important; }
+  html[data-nav-rail] .sidebar[data-fit="1"] .nav-item { padding: 7px 2px 6px !important; margin: 2px 6px; }
   html[data-nav-rail] .sidebar[data-fit="1"] .nav-short { font-size: 10.5px; line-height: 1.1; }
   html[data-nav-rail] .sidebar[data-fit="2"] .nav-short,
   html[data-nav-rail] .sidebar[data-fit="3"] .nav-short { display: none !important; }
-  html[data-nav-rail] .sidebar[data-fit="2"] .nav-item { padding: 9px 2px !important; }
-  html[data-nav-rail] .sidebar[data-fit="3"] .nav-item { padding: 7px 2px !important; }
+  html[data-nav-rail] .sidebar[data-fit="2"] .nav-item { padding: 10px 2px !important; margin: 3px 6px; }
+  html[data-nav-rail] .sidebar[data-fit="3"] .nav-item { padding: 6px 2px !important; margin: 1px 6px; }
   html[data-nav-rail] .sidebar[data-fit="2"] .nav-badge,
   html[data-nav-rail] .sidebar[data-fit="3"] .nav-badge { top: 3px; right: 16px; }
 }
+
+/* Menyn visar aldrig en skrollist, inte ens om den i ett mycket lågt fönster
+   skulle behöva skrollas (2026-11-19). */
+.sidebar, .sidebar .nav-links { scrollbar-width: none; }
+.sidebar::-webkit-scrollbar, .sidebar .nav-links::-webkit-scrollbar { display: none; }
