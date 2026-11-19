@@ -15,9 +15,50 @@ export function isStandaloneApp() {
   }
 }
 
+// "Kom ihåg mig i 7 dagar" (2026-11-19): med kryss sparas inloggningen i
+// localStorage och gäller även när webbläsaren stängs, i högst sju dagar
+// från inloggningen. Sedan krävs lösenordet igen. Utan kryss: sessionStorage
+// som förut. Hemskärmsappen sparar alltid i localStorage.
+export const REMEMBER_DAYS = 7;
+const REMEMBER_KEY = 'bokix_remember_until';
+
+export function rememberUntil() {
+  try { return Number(window.localStorage.getItem(REMEMBER_KEY)) || 0; } catch { return 0; }
+}
+export function setRemember(on, now = Date.now()) {
+  try {
+    if (on) window.localStorage.setItem(REMEMBER_KEY, String(now + REMEMBER_DAYS * 86400000));
+    else window.localStorage.removeItem(REMEMBER_KEY);
+  } catch { /* privat läge: då gäller fliken */ }
+}
+/** Sätter samma sista dag som en annan adress hade (www → app.bokix.se). */
+export function setRememberUntil(ts) {
+  try { if (Number(ts) > Date.now()) window.localStorage.setItem(REMEMBER_KEY, String(Number(ts))); } catch { /* inget */ }
+}
+const rememberActive = () => rememberUntil() > Date.now();
+
+// Väljer lagring vid varje anrop, så att kryssrutan gäller redan för den
+// inloggning som görs direkt efter att den satts.
+const dynamicStorage = {
+  getItem(key) {
+    if (rememberActive()) return window.localStorage.getItem(key) ?? window.sessionStorage.getItem(key);
+    // Sju dagar har gått: den sparade inloggningen tas bort, lösenordet krävs.
+    if (rememberUntil()) { try { window.localStorage.removeItem(key); window.localStorage.removeItem(REMEMBER_KEY); } catch { /* inget */ } }
+    return window.sessionStorage.getItem(key);
+  },
+  setItem(key, value) {
+    if (rememberActive()) { window.localStorage.setItem(key, value); window.sessionStorage.removeItem(key); }
+    else window.sessionStorage.setItem(key, value);
+  },
+  removeItem(key) {
+    window.sessionStorage.removeItem(key);
+    try { window.localStorage.removeItem(key); } catch { /* inget */ }
+  },
+};
+
 export function getAuthStorage() {
   if (typeof window === 'undefined') return undefined;
-  return isStandaloneApp() ? window.localStorage : window.sessionStorage;
+  return isStandaloneApp() ? window.localStorage : dynamicStorage;
 }
 
 // ── Återställningslänken ("Glömt lösenord?") ─────────────────────────────

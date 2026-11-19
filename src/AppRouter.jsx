@@ -11,7 +11,7 @@ import { GUIDE_GROUPS } from './content/marketing/guides';
 import { ORG_TYPE_PAGES } from './content/marketing/orgTypes';
 import { FEATURE_PAGES } from './content/marketing/featurePages';
 import { capturePosthogPageview } from './utils/posthog.js';
-import { getAuthStorage, isStandaloneApp } from './utils/authStorage';
+import { getAuthStorage, isStandaloneApp, rememberUntil, setRememberUntil } from './utils/authStorage';
 
 // ── Marknads-/juridiksidorna — flyttade hit rakt av från App.jsx (se
 // kommentaren vid App-komponentens topp där för VARFÖR). Samma lazy()-
@@ -149,7 +149,7 @@ function getSupabaseSessionKey() {
 export function shouldLoadAppImmediately() {
   if (typeof window === 'undefined') return false;
   // app.bokix.se: inloggning som följde med från www.bokix.se (utils/appHost.js).
-  try { if (isAppHost()) adoptTransferredSession(getAuthStorage(), getSupabaseSessionKey()); } catch { /* inget */ }
+  try { if (isAppHost()) adoptTransferredSession(getAuthStorage(), getSupabaseSessionKey(), setRememberUntil); } catch { /* inget */ }
   try {
     const sessionKey = getSupabaseSessionKey();
     if (sessionKey && getAuthStorage()?.getItem(sessionKey)) return true;
@@ -211,7 +211,7 @@ function forwardToApp(intent = null) {
       try { localStorage.removeItem(key); sessionStorage.removeItem(key); } catch { /* inget */ }
     }
   } catch { /* ingen sparad inloggning */ }
-  window.location.replace(appUrl({ search: window.location.search, hash: window.location.hash, intent, session }));
+  window.location.replace(appUrl({ search: window.location.search, hash: window.location.hash, intent, session, rememberUntil: rememberUntil() }));
 }
 
 function RootRoute({ locale = 'sv' }) {

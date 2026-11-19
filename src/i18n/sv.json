@@ -2989,6 +2989,7 @@
     "login_locked_text": "Av säkerhetsskäl kan du försöka igen om {{time}}.",
     "login_reset_instead": "Återställ lösenordet",
     "login_attempts_left": "Fel lösenord. {{n}} försök kvar innan inloggningen spärras en stund.",
+    "remember_me": "Kom ihåg mig i {{days}} dagar",
     "skapa_nytt_losenord": "Skapa nytt lösenord",
     "skapa_och_fortsatt_till_betalning": "Skapa och fortsätt till betalning",
     "skapa_och_hantera_mappar": "Skapa och hantera mappar",

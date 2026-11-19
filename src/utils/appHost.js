@@ -36,7 +36,7 @@ export function shouldForwardToApp() {
  * Adressen på app.bokix.se. `intent` = { authMode, plan, uf, invite } från
  * marknadssidornas knappar. `session` = sparad Supabase-session på www.
  */
-export function appUrl({ search = '', hash = '', intent = null, session = null } = {}) {
+export function appUrl({ search = '', hash = '', intent = null, session = null, rememberUntil = 0 } = {}) {
   const params = new URLSearchParams(search);
   params.delete('apphost');
   if (intent?.authMode) params.set('auth', intent.authMode === 'signup' ? 'signup' : 'login');
@@ -54,6 +54,7 @@ export function appUrl({ search = '', hash = '', intent = null, session = null }
       expires_at: String(session.expires_at || ''),
       token_type: session.token_type || 'bearer',
       type: 'bokix_transfer',
+      ...(rememberUntil > Date.now() ? { remember_until: String(rememberUntil) } : {}),
     });
     h = `#${p.toString()}`;
   }
@@ -81,7 +82,7 @@ export function readAppIntent(search) {
  * sparar den där supabase-js läser den, innan appen startar. Tar bort den
  * ur adressen. Svarar true om en inloggning togs emot.
  */
-export function adoptTransferredSession(storage, key) {
+export function adoptTransferredSession(storage, key, onRemember = () => {}) {
   if (typeof window === 'undefined' || !storage || !key) return false;
   const hash = window.location.hash || '';
   if (!/type=bokix_transfer/.test(hash)) return false;
@@ -91,6 +92,7 @@ export function adoptTransferredSession(storage, key) {
   const clean = window.location.pathname + window.location.search;
   window.history.replaceState(window.history.state, '', clean);
   if (!access || !refresh) return false;
+  if (p.get('remember_until')) onRemember(Number(p.get('remember_until')));
   const expiresAt = Number(p.get('expires_at')) || Math.round(Date.now() / 1000) + (Number(p.get('expires_in')) || 3600);
   let user = null;
   try { user = JSON.parse(atob(access.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); } catch { /* läses av supabase-js */ }

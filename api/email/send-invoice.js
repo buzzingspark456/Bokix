@@ -137,7 +137,7 @@ async function handler(req, res) {
       ownerUserId = user.id;
       companyData = invite.companyData || {};
       const inviterName = [user.user_metadata?.first_name, user.user_metadata?.last_name].filter(Boolean).join(' ') || user.email;
-      const origin = /^https:\/\/(www\.)?bokix\.se$|^http:\/\/localhost(:\d+)?$/.test(String(req.headers?.origin || '')) ? req.headers.origin : 'https://www.bokix.se';
+      const origin = /^https:\/\/(www\.|app\.)?bokix\.se$|^http:\/\/localhost(:\d+)?$/.test(String(req.headers?.origin || '')) ? req.headers.origin : 'https://www.bokix.se';
       ({ subject, html } = buildInviteEmail({ invite, companyName: companyData?.company?.name, inviterName, origin }));
       replyTo = undefined;
       attachmentBase64 = undefined;

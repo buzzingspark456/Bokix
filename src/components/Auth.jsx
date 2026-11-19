@@ -9,6 +9,7 @@ import { supabase } from '../supabaseClient';
 import { sendSignupCode, verifySignupCode, confirmSignupEmail } from '../utils/signupVerification';
 import { translateSupabaseAuthError } from '../utils/translateAuthError';
 import { passkeyLoginOffered, rememberPasskeyOnDevice, isPasskeyCancel, setAppLock } from '../utils/sessionPolicy';
+import { setRemember, isStandaloneApp, REMEMBER_DAYS } from '../utils/authStorage';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
 import { attemptsFor, recordFailure, clearAttempts, isWrongCredentials, SHOW_FORGOT_AFTER } from '../utils/loginAttempts';
@@ -142,6 +143,8 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   // ej (se handleForgotPassword) — att svara olika hade läckt vilka
   // e-postadresser som är registrerade i Bokix.
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  // Kom ihåg mig i 7 dagar (utils/authStorage.js), ikryssad från början.
+  const [rememberMe, setRememberMe] = useState(true);
   // Felaktiga försök (utils/loginAttempts.js): Glömt lösenord visas efter tre,
   // formuläret spärras en stund efter fem.
   const [attempts, setAttempts] = useState({ fails: 0, lockedUntil: 0 });
@@ -365,6 +368,8 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       if (!loginEmail || !loginPassword) throw new Error(t('ui.fyll_i_alla_falt'));
       if (attemptsFor(loginEmail).lockedUntil > Date.now()) { setAttempts(attemptsFor(loginEmail)); return; }
       markLoginStart('password');
+      // Avgör var inloggningen sparas innan den görs.
+      setRemember(rememberMe);
       const { error } = await withCaptcha(loginCaptchaRef, (captchaToken) => {
         markLoginStep('captcha');
         return supabase.auth.signInWithPassword({
@@ -396,6 +401,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     try {
       // Supabase kräver captcha även för passkey-inloggning när den är påslagen.
       markLoginStart('passkey');
+      setRemember(rememberMe);
       let res;
       try {
         res = await withCaptcha(loginCaptchaRef, (captchaToken) => {
@@ -916,6 +922,12 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                   <input className="auth-input" type="password" id="login-password" name="password" autoComplete="current-password" style={{ ...inputStyle, paddingLeft: '48px' }} placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
                 </div>
               </div>
+              {!isStandaloneApp() && (
+                <label className="auth-remember">
+                  <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
+                  <span>{t('ui.remember_me', { days: REMEMBER_DAYS })}</span>
+                </label>
+              )}
               {locked ? (
                 <div className="auth-lock-note" role="alert">
                   <b>{t('ui.login_locked_title')}</b>

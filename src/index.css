@@ -10138,3 +10138,5 @@ img.hc-player { object-fit: cover; }
 .auth-sent-letter { animation: authLetter 1.6s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes authLetter { from { transform: translateY(26px); } to { transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .auth-sent-letter { animation: none; } }
+.auth-remember { display: inline-flex; align-items: center; gap: 9px; font-size: 13.5px; color: var(--text-secondary); cursor: pointer; user-select: none; }
+.auth-remember input { width: 17px; height: 17px; accent-color: #1f9a4a; cursor: pointer; }
