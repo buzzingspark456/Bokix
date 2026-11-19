@@ -35,7 +35,8 @@ export function appendQueryParam(url, key, value) {
 // STRIPE_SUCCESS_URL pekade på bokix.vercel.app, som bara omdirigerar hit,
 // ett onödigt extra hopp precis efter betalningen. Lokalt och i förhands-
 // versioner gäller miljövariabeln som förut.
-export const PRODUCTION_SITE_URL = 'https://www.bokix.se/';
+// Appen ligger på app.bokix.se sedan 2026-11-19: tillbaka direkt dit.
+export const PRODUCTION_SITE_URL = 'https://app.bokix.se/';
 export function stripeReturnBase(raw, { env = process.env } = {}) {
   if (env.VERCEL_ENV === 'production') return PRODUCTION_SITE_URL;
   return normalizeAbsoluteUrl(raw, 'http://localhost:5173');

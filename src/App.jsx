@@ -50,6 +50,7 @@ import { mergeImportedEmployees } from './utils/employeeCsv';
 import { planFromId, planIncludesPayroll } from './utils/plans';
 import { detectOrgType } from './utils/orgType';
 import { ownerPaidAccount } from './utils/paidBy';
+import { isAppHost, SITE_ORIGIN } from './utils/appHost';
 import { captureEvent } from './utils/posthog';
 import { reconcileSieOpenings, applySieOpeningReconcile } from './utils/sieOpeningReconcile';
 import { sieImportTagOf } from './utils/sieImportBatches';
@@ -1329,7 +1330,8 @@ function App() {
   // ovanför tangentbordet — se utils/mobileKeyboard.js.
   useEffect(() => installMobileKeyboard(), []);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [showLanding, setShowLanding] = useState(true);
+  // app.bokix.se visar inloggningen, aldrig startsidan (utils/appHost.js).
+  const [showLanding, setShowLanding] = useState(() => !isAppHost());
   // 'signup' | 'login' — vilken Auth-flik som ska visas när showLanding
   // blir false. Sätts av VILKEN knapp som klickades (se enterApp-effekten
   // och LandingPage-anropet nedan), inte alltid samma förval.
@@ -6401,7 +6403,7 @@ function App() {
             ) : !isLoggedIn ? (
               showLanding
                 ? <LandingPage onEnterApp={(mode, plan) => { if (mode === 'signup' && !plan) { navigate('/priser'); return; } setShowLanding(false); setAuthMode(mode === 'signup' ? 'signup' : 'login'); if (plan) setSelectedPlan(plan); }} />
-                : <Auth onLogin={handleLogin} onBackToLanding={inInstalledApp ? () => {} : () => setShowLanding(true)} initialMode={authMode} plan={selectedPlan} initialUf={signupAsUf} />
+                : <Auth onLogin={handleLogin} onBackToLanding={inInstalledApp ? () => {} : isAppHost() ? () => { window.location.href = SITE_ORIGIN; } : () => setShowLanding(true)} initialMode={authMode} plan={selectedPlan} initialUf={signupAsUf} />
             ) : showOnboarding ? (
               // Bugkritiskt: `showOnboarding`/handleOnboardingComplete/
               // handleSkipOnboarding fanns redan helt färdigkopplade (även

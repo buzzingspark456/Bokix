@@ -67,7 +67,8 @@ async function hasValidInvite(email, inviteToken) {
 // till nästa steg. Det avslutande kontot skapas fortfarande med ETT enda
 // supabase.auth.signUp()-anrop i Auth.jsx, helt oförändrat — den här koden
 // är bara en spärr FÖRE det anropet, inte en ny kontoskapande-väg.
-const SITE_URL = 'https://www.bokix.se';
+// Appen ligger på app.bokix.se sedan 2026-11-19 (utils/appHost.js).
+const SITE_URL = 'https://app.bokix.se';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SIGNUP_CODE_MAX_AGE_MS = 10 * 60 * 1000;
 // Reauthentication (Settings.jsx: byt lösenord/spara företagsuppgifter,

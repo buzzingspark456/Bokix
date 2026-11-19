@@ -14,7 +14,7 @@
 export const APP_HOST = 'app.bokix.se';
 export const APP_ORIGIN = `https://${APP_HOST}`;
 export const SITE_ORIGIN = 'https://www.bokix.se';
-export const APP_HOST_LIVE = false;
+export const APP_HOST_LIVE = true;
 
 const host = () => (typeof window === 'undefined' ? '' : window.location.hostname);
 export const isAppHost = () => host() === APP_HOST;
@@ -53,7 +53,7 @@ export function appUrl({ search = '', hash = '', intent = null, session = null }
       expires_in: String(Math.max(60, Math.round((Number(session.expires_at || 0) * 1000 - Date.now()) / 1000)) || 3600),
       expires_at: String(session.expires_at || ''),
       token_type: session.token_type || 'bearer',
-      type: 'magiclink',
+      type: 'bokix_transfer',
     });
     h = `#${p.toString()}`;
   }
@@ -74,4 +74,30 @@ export function readAppIntent(search) {
   };
   ['auth', 'plan', 'uf', 'invite'].forEach(k => params.delete(k));
   return { intent, search: params.toString() ? `?${params.toString()}` : '' };
+}
+
+/**
+ * app.bokix.se: tar emot inloggningen från www (#…&type=bokix_transfer) och
+ * sparar den där supabase-js läser den, innan appen startar. Tar bort den
+ * ur adressen. Svarar true om en inloggning togs emot.
+ */
+export function adoptTransferredSession(storage, key) {
+  if (typeof window === 'undefined' || !storage || !key) return false;
+  const hash = window.location.hash || '';
+  if (!/type=bokix_transfer/.test(hash)) return false;
+  const p = new URLSearchParams(hash.slice(1));
+  const access = p.get('access_token');
+  const refresh = p.get('refresh_token');
+  const clean = window.location.pathname + window.location.search;
+  window.history.replaceState(window.history.state, '', clean);
+  if (!access || !refresh) return false;
+  const expiresAt = Number(p.get('expires_at')) || Math.round(Date.now() / 1000) + (Number(p.get('expires_in')) || 3600);
+  let user = null;
+  try { user = JSON.parse(atob(access.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); } catch { /* läses av supabase-js */ }
+  storage.setItem(key, JSON.stringify({
+    access_token: access, refresh_token: refresh, token_type: p.get('token_type') || 'bearer',
+    expires_in: Math.max(0, expiresAt - Math.round(Date.now() / 1000)), expires_at: expiresAt,
+    user: user ? { id: user.sub, email: user.email, aud: user.aud, role: user.role, app_metadata: user.app_metadata || {}, user_metadata: user.user_metadata || {} } : null,
+  }));
+  return true;
 }

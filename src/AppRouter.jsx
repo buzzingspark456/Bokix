@@ -5,7 +5,7 @@ import LandingPage from './components/LandingPage';
 const DevOnboarding = import.meta.env.DEV ? lazy(() => import('./dev/DevOnboarding')) : null;
 import CookieBanner from './components/CookieBanner';
 import { allLocalizedRoutes } from './content/marketing/routes';
-import { isAppHost, shouldForwardToApp, appUrl, readAppIntent } from './utils/appHost';
+import { isAppHost, shouldForwardToApp, appUrl, readAppIntent, adoptTransferredSession } from './utils/appHost';
 import { ARTICLE_ROUTES } from './content/marketing/articleRoutes';
 import { GUIDE_GROUPS } from './content/marketing/guides';
 import { ORG_TYPE_PAGES } from './content/marketing/orgTypes';
@@ -148,6 +148,8 @@ function getSupabaseSessionKey() {
 // marknadsbunten, ingenting mer.
 export function shouldLoadAppImmediately() {
   if (typeof window === 'undefined') return false;
+  // app.bokix.se: inloggning som följde med från www.bokix.se (utils/appHost.js).
+  try { if (isAppHost()) adoptTransferredSession(getAuthStorage(), getSupabaseSessionKey()); } catch { /* inget */ }
   try {
     const sessionKey = getSupabaseSessionKey();
     if (sessionKey && getAuthStorage()?.getItem(sessionKey)) return true;
@@ -192,7 +194,11 @@ function AppViewportLock() {
 }
 
 // www.bokix.se → app.bokix.se med adress, avsikt och inloggning (utils/appHost.js).
+let forwarding = false;
 function forwardToApp(intent = null) {
+  // Bara en gång: en andra körning (StrictMode) hade skickat vidare utan inloggningen.
+  if (forwarding) return;
+  forwarding = true;
   let session = null;
   try {
     const key = getSupabaseSessionKey();
@@ -212,7 +218,7 @@ function RootRoute({ locale = 'sv' }) {
   const location = useLocation();
   const navigate = useNavigate();
   // app.bokix.se är alltid appen.
-  const [wantsApp, setWantsApp] = useState(() => isAppHost() || shouldLoadAppImmediately());
+  const [wantsApp, setWantsApp] = useState(() => shouldLoadAppImmediately() || isAppHost());
   const forward = shouldForwardToApp();
 
   useEffect(() => {
