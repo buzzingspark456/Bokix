@@ -297,7 +297,6 @@ function SettingsHub({ sections, onPick }) {
               <button key={section.id} type="button" className="settings-mnav-row" onClick={() => onPick(section.id)}>
                 <span className="settings-mnav-text">
                   <span className="settings-mnav-label">{section.label}</span>
-                  {SECTION_META[section.id]?.desc && <span className="settings-mnav-desc">{SECTION_META[section.id].desc}</span>}
                 </span>
                 <ChevronRight size={18} className="settings-mnav-chev" />
               </button>
@@ -3846,7 +3845,7 @@ export default function Settings({
             {tr('ui.installningar')}
           </span>
         )}
-        subtitle={activeSection ? (SECTION_META[activeSection.id]?.desc || '') : undefined}
+        subtitle={undefined}
         actions={activeSection
           ? [{ key: 'back', label: tr('ui.alla_installningar'), icon: ArrowLeft, onClick: () => handleSetTab(null) }]
           : []}
@@ -3890,7 +3889,6 @@ export default function Settings({
           {!isPhone && activeSection && (
             <header className="settings-title">
               <h1>{subPage ? subPage.title : activeSection.label}</h1>
-              {!subPage && SECTION_META[activeSection.id]?.desc && <p>{SECTION_META[activeSection.id].desc}</p>}
             </header>
           )}
           {!activeSection && <SettingsHub sections={visibleSections} onPick={handleSetTab} />}

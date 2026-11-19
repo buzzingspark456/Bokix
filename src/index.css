@@ -10140,3 +10140,6 @@ img.hc-player { object-fit: cover; }
 @media (prefers-reduced-motion: reduce) { .auth-sent-letter { animation: none; } }
 .auth-remember { display: inline-flex; align-items: center; gap: 9px; font-size: 13.5px; color: var(--text-secondary); cursor: pointer; user-select: none; }
 .auth-remember input { width: 17px; height: 17px; accent-color: #1f9a4a; cursor: pointer; }
+
+/* Profilmenyn: genvägar (2026-11-19). */
+.profile-links { display: flex; flex-direction: column; }

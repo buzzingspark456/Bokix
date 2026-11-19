@@ -31,6 +31,7 @@ import {
   ClipboardCheck,
   Check,
   Banknote, CalendarClock, Paperclip,
+  CreditCard, ShieldCheck,
 } from './components/icons';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { BAS_VERSION, upgradeAccountsToBas } from './utils/basUpgrade';
@@ -6688,6 +6689,15 @@ function App() {
                     </div>
                   </div>
                   <div className="dropdown-divider"></div>
+                  {/* Genvägar till det man oftast letar efter under sitt konto
+                      (2026-11-19, grundarens önskan: menyn kändes tom). */}
+                  <>
+                    <button onClick={() => { handleNavTabChange('settings'); setIsProfileMenuOpen(false); }}><SettingsIcon size={14} /> {tr('ui.installningar')}</button>
+                    {ownsAnyCompany && <button onClick={() => { handleNavTabChange('settings_subscription'); setIsProfileMenuOpen(false); }}><CreditCard size={14} /> {tr('ui.prenumeration')}</button>}
+                    {ownsAnyCompany && <button onClick={() => { handleNavTabChange('settings_users'); setIsProfileMenuOpen(false); }}><Users size={14} /> {tr('ui.anvandare_behorigheter')}</button>}
+                    <button onClick={() => { handleNavTabChange('settings_security'); setIsProfileMenuOpen(false); }}><ShieldCheck size={14} /> {tr('ui.sakerhet')}</button>
+                  </>
+                  <div className="dropdown-divider"></div>
                   {renderCompanySwitcher()}
                   {/* Kundfeedback: "Profil" och "Inställningar" var redundanta
                       här — Inställningar finns redan som en egen punkt i
@@ -6785,6 +6795,15 @@ function App() {
                   <button onClick={() => { toggleTheme(); setIsProfileMenuOpen(false); }}>
                     {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} {theme === 'dark' ? tr('ui.ljust_lage') : tr('ui.morkt_lage')}
                   </button>
+                  <div className="dropdown-divider"></div>
+                  {/* Genvägar till det man oftast letar efter under sitt konto
+                      (2026-11-19, grundarens önskan: menyn kändes tom). */}
+                  <>
+                    <button onClick={() => { handleNavTabChange('settings'); setIsProfileMenuOpen(false); }}><SettingsIcon size={14} /> {tr('ui.installningar')}</button>
+                    {ownsAnyCompany && <button onClick={() => { handleNavTabChange('settings_subscription'); setIsProfileMenuOpen(false); }}><CreditCard size={14} /> {tr('ui.prenumeration')}</button>}
+                    {ownsAnyCompany && <button onClick={() => { handleNavTabChange('settings_users'); setIsProfileMenuOpen(false); }}><Users size={14} /> {tr('ui.anvandare_behorigheter')}</button>}
+                    <button onClick={() => { handleNavTabChange('settings_security'); setIsProfileMenuOpen(false); }}><ShieldCheck size={14} /> {tr('ui.sakerhet')}</button>
+                  </>
                   <div className="dropdown-divider"></div>
                   {renderCompanySwitcher()}
                   {/* Kundfeedback: "Profil" och "Inställningar" var redundanta
