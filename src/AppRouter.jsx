@@ -5,6 +5,7 @@ import LandingPage from './components/LandingPage';
 const DevOnboarding = import.meta.env.DEV ? lazy(() => import('./dev/DevOnboarding')) : null;
 import CookieBanner from './components/CookieBanner';
 import { allLocalizedRoutes } from './content/marketing/routes';
+import { isAppHost, shouldForwardToApp, appUrl, readAppIntent } from './utils/appHost';
 import { ARTICLE_ROUTES } from './content/marketing/articleRoutes';
 import { GUIDE_GROUPS } from './content/marketing/guides';
 import { ORG_TYPE_PAGES } from './content/marketing/orgTypes';
@@ -190,14 +191,47 @@ function AppViewportLock() {
   return null;
 }
 
+// www.bokix.se → app.bokix.se med adress, avsikt och inloggning (utils/appHost.js).
+function forwardToApp(intent = null) {
+  let session = null;
+  try {
+    const key = getSupabaseSessionKey();
+    const raw = key && getAuthStorage()?.getItem(key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      session = parsed?.currentSession || parsed;
+      // Förnyelsetoken får bara användas på ett ställe: den lämnar www nu.
+      getAuthStorage().removeItem(key);
+      try { localStorage.removeItem(key); sessionStorage.removeItem(key); } catch { /* inget */ }
+    }
+  } catch { /* ingen sparad inloggning */ }
+  window.location.replace(appUrl({ search: window.location.search, hash: window.location.hash, intent, session }));
+}
+
 function RootRoute({ locale = 'sv' }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [wantsApp, setWantsApp] = useState(shouldLoadAppImmediately);
+  // app.bokix.se är alltid appen.
+  const [wantsApp, setWantsApp] = useState(() => isAppHost() || shouldLoadAppImmediately());
+  const forward = shouldForwardToApp();
 
   useEffect(() => {
     if (location.state?.enterApp) setWantsApp(true);
   }, [location.state]);
+
+  // app.bokix.se: marknadssidornas knappar skickar ?auth=signup&plan=… hit.
+  useEffect(() => {
+    if (!isAppHost()) return;
+    const r = readAppIntent(location.search);
+    if (r) navigate({ pathname: '/', search: r.search, hash: location.hash }, { replace: true, state: r.intent });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // www.bokix.se: den som ska in i appen skickas till app.bokix.se.
+  useEffect(() => {
+    if (forward && wantsApp) forwardToApp(location.state?.enterApp ? location.state : null);
+  }, [forward, wantsApp]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (forward && wantsApp) return <AppLoadingFallback />;
 
   if (wantsApp) {
     return (

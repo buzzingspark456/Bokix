@@ -31,6 +31,16 @@
   ],
   "rewrites": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "app.bokix.se"
+        }
+      ],
+      "destination": "/app-shell.html"
+    },
+    {
       "source": "/api/stripe/create-subscription-checkout",
       "destination": "/api/stripe/create-checkout-session"
     },
@@ -451,9 +461,35 @@
           "value": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob: https://www.googletagmanager.com https://challenges.cloudflare.com https://*.clarity.ms https://c.bing.com https://*.posthog.com https://www.google.com https://www.gstatic.com https://cdn.jsdelivr.net; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' data: blob: https://*.ingest.de.sentry.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.supabase.co wss://*.supabase.co https://*.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://challenges.cloudflare.com https://*.clarity.ms https://c.bing.com https://api.frankfurter.dev https://*.posthog.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://www.google.com; frame-src blob: https://*.supabase.co https://challenges.cloudflare.com https://www.google.com https://recaptcha.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
         }
       ]
+    },
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "app.bokix.se"
+        }
+      ],
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
     }
   ],
   "redirects": [
+    {
+      "source": "/:path((?!api/|assets/|invite|internal|koppla-mejl|dev/|privacy|terms|cookies|pub|gdpr|manifest|icon|apple-touch|favicon|email-logo|sw\\.js|robots\\.txt|app-shell)[^.]+)",
+      "has": [
+        {
+          "type": "host",
+          "value": "app.bokix.se"
+        }
+      ],
+      "destination": "https://www.bokix.se/:path",
+      "permanent": false
+    },
     {
       "source": "/uf",
       "destination": "/",

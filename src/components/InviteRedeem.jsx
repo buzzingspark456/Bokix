@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { shouldForwardToApp, APP_ORIGIN } from '../utils/appHost';
 
 // Samma nyckel som App.jsx (redeemPendingInvite) och Auth.jsx
 // (hasPendingInvite) läser — satt EN gång här, konsumeras/rensas där.
@@ -22,6 +23,8 @@ export default function InviteRedeem() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // www.bokix.se: inbjudan löses in på app.bokix.se (utils/appHost.js).
+    if (shouldForwardToApp()) { window.location.replace(`${APP_ORIGIN}/invite${window.location.search}`); return; }
     const token = searchParams.get('token');
     if (token && typeof window !== 'undefined') {
       sessionStorage.setItem(PENDING_INVITE_KEY, token);
