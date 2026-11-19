@@ -10143,3 +10143,29 @@ img.hc-player { object-fit: cover; }
 
 /* Profilmenyn: genvägar (2026-11-19). */
 .profile-links { display: flex; flex-direction: column; }
+
+/* Underlag i fokus (2026-11-19, som Fortnox): huvudmenyn göms och öppnas
+   som en panel med Meny-knappen. */
+.ut-detail-left { display: inline-flex; align-items: center; gap: 10px; }
+.ut-head h1 + .ut-progress { margin-top: 10px; }
+
+/* Fäll ihop menyn (2026-11-19): samma ikonfält som på halv skärm, valt av
+   användaren på en större skärm. Knappen längst ner växlar. */
+.nav-rail-toggle { padding: var(--sb-pad, 13px) 24px; width: 100%; text-align: left; background: none; border: none; color: rgba(255,255,255,0.7); font-size: var(--sb-font, 15px); font-weight: 500; cursor: pointer; font-family: inherit; }
+.nav-rail-toggle:hover { color: #fff; background: rgba(255,255,255,0.06); }
+@media (min-width: 941px) {
+  html[data-nav-rail] { --sidebar-width: 88px; }
+  html[data-nav-rail] .sidebar { width: 88px; }
+  html[data-nav-rail] .sidebar .logo-container { padding: 18px 0 12px !important; display: flex; justify-content: center; }
+  html[data-nav-rail] .sidebar .logo-container .bokix-logo-btn { display: none !important; }
+  html[data-nav-rail] .sidebar-monogram { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; border: none; background: none; cursor: pointer; padding: 0; }
+  html[data-nav-rail] .sidebar-monogram:hover { background: rgba(255, 255, 255, 0.08); }
+  html[data-nav-rail] .sidebar-monogram svg { display: block; width: auto; height: 68%; }
+  html[data-nav-rail] .sidebar .nav-label, html[data-nav-rail] .sidebar .nav-group-title { display: none !important; }
+  html[data-nav-rail] .sidebar .nav-item { position: relative; width: calc(100% - 12px) !important; margin: 1px 6px; border-radius: 12px; padding: 8px 2px 7px !important; justify-content: center !important; gap: 0 !important; }
+  html[data-nav-rail] .sidebar .nav-item > span { justify-content: center; flex-direction: column; gap: 4px !important; }
+  html[data-nav-rail] .sidebar .nav-short { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; max-width: 72px; font-size: 11px; font-weight: 600; line-height: 1.15; text-align: center; white-space: normal; hyphens: manual; overflow: hidden; }
+  html[data-nav-rail] .sidebar .nav-badge { position: absolute; top: 5px; right: 14px; min-width: 16px !important; height: 16px !important; padding: 0 4px !important; font-size: 10px !important; }
+  html[data-nav-rail] .sidebar .nav-group-divider { margin-left: 18px !important; margin-right: 18px !important; }
+  html[data-nav-rail] .sidebar .nav-group-items.is-collapsed { display: block !important; max-height: none !important; }
+}

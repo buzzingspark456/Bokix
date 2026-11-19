@@ -3,7 +3,7 @@ import { REPRESENTATION_ACCOUNTS, representationBooking, representationKinds } f
 import { isVatExempt } from '../utils/vatRegistration';
 import {
   UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop, SlidersHorizontal,
-  Mail, Copy, Inbox, Cog,
+  Mail, Copy, Inbox, Cog, Menu,
 } from './icons';
 import { supabase } from '../supabaseClient';
 import { AccountSearch } from './shared/SearchInputs';
@@ -1069,7 +1069,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             </div>
             {inline && (
               <div className="uw-meta">
-                <span>{tr('underlag.uploaded')}{receipt.uploadedBy?.name ? ` ${tr('underlag.by')} ${receipt.uploadedBy.name}` : ''}{uploadedDate(receipt) ? ` · ${uploadedDate(receipt)}` : ''} · <b>{readDetails?.dueDate ? tr('underlag.typeInvoice') : tr('underlag.typeReceipt')}</b></span>
+                <span>{tr('underlag.uploaded')}{receipt.uploadedBy?.name ? ` ${tr('underlag.by')} ${receipt.uploadedBy.name}` : ''}{uploadedDate(receipt) ? ` · ${uploadedDate(receipt)}` : ''} · <b>{readDetails?.dueDate || readDetails?.bankgiro || readDetails?.ocrNumber || /faktura|invoice/i.test(numberLabel || '') ? tr('underlag.typeInvoice') : tr('underlag.typeReceipt')}</b></span>
               </div>
             )}
           </div>
@@ -1696,6 +1696,16 @@ function sourceLabel(r) {
   return { kind: 'app', text: tr('underlag.srcApp'), who: name };
 }
 
+// Kvitto eller faktura: förfallodatum, fakturanummer eller betaluppgifter
+// (bankgiro, OCR) betyder faktura.
+function docKind(r) {
+  const d = r?.ocrDraft?.details || {};
+  const label = String(r?.receiptNumberLabel || r?.ocrDraft?.numberLabel || '');
+  if (r?.type === 'supplier_invoice' || d.dueDate || d.bankgiro || d.plusgiro || d.ocrNumber || /faktura|invoice/i.test(label)) return 'invoice';
+  if (r?.ocrDraft || r?.costAccount) return 'receipt';
+  return null;
+}
+
 // Inkommet, som Fortnox: "22 sep. 11:57" när uppladdningstiden finns.
 function arrivedLabel(r) {
   const ts = Number((/^exp_(\d{13})/.exec(String(r?.id || '')) || [])[1]);
@@ -1726,7 +1736,7 @@ function UtEmpty({ icon: Icon = Inbox, title, text, action }) {
 }
 
 /** Vänstermenyn i Underlag (2026-11-18, som Fortnox). */
-function UnderlagNav({ view, onView, counts }) {
+function UnderlagNav({ view, onView, counts, onOpenMenu }) {
   const items = [
     ['underlag', tr('nav.underlag'), FileText, counts.todo],
     ['mail', tr('underlag.navMail'), Mail, counts.mail],
@@ -2062,7 +2072,7 @@ function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDelet
     <div className="ut">
       <div className="ut-head">
         <h1>{onlyEmail ? tr('underlag.navMail') : tr('nav.underlag')}</h1>
-        <p>{onlyEmail ? tr('underlag.mailIntro') : tr('underlag.tableIntro')}</p>
+        {onlyEmail && <p>{tr('underlag.mailIntro')}</p>}
         {!onlyEmail && (() => {
           // Den här månaden: hur många underlag som är klara av alla som kommit in.
           const month = new Date().toISOString().slice(0, 7);
@@ -2086,7 +2096,6 @@ function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDelet
           <button type="button" className="ut-upload" onClick={onUpload}><UploadCloud size={16} /> {tr('underlag.uploadDocs')}</button>
         )}
         <div className="ut-bar-right">
-          {!onlyEmail && inboxAddress && <span className="ut-addr"><code>{inboxAddress}</code><CopyButton text={inboxAddress} label=" " /></span>}
           {onlyEmail && onSenders && <button type="button" className="ut-link" onClick={onSenders}><CheckCircle2 size={15} /> {tr('underlag.manageSenders')}</button>}
           <button type="button" className="ut-link" onClick={onMailIn}><Mail size={15} /> {tr('underlag.mailIn')}</button>
         </div>
@@ -2170,7 +2179,7 @@ function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDelet
                       </span>
                     </span>
                   </td>
-                  <td className="ut-muted">{r.ocrDraft?.details?.dueDate || r.type === 'supplier_invoice' ? tr('underlag.typeInvoice') : r.ocrDraft || r.costAccount ? tr('underlag.typeReceipt') : '–'}</td>
+                  <td className="ut-muted">{docKind(r) === 'invoice' ? tr('underlag.typeInvoice') : docKind(r) === 'receipt' ? tr('underlag.typeReceipt') : '–'}</td>
                   <td className="ut-c-num">{amount > 0 ? formatSEK(amount) : '–'}</td>
                   <td className="ut-muted">{arrivedLabel(r)}</td>
                   <td><span className={`ut-read ut-read-${rs.key}`}>{rs.text}</span></td>
@@ -2230,6 +2239,8 @@ export default function Expenses({
   employees = [],
   // Nya Underlag bara för konton som slagits på (App.jsx isNewUnderlagUser).
   newUnderlag = false,
+  // Huvudmenyn är gömd i arbetsytan: Meny öppnar den (som Fortnox).
+  onOpenMenu,
 }) {
   // -- Receipts State --
   const [isDragging, setIsDragging] = useState(false);
@@ -2603,6 +2614,7 @@ export default function Expenses({
         {!detailReceipt ? (
           <div className="ut-shell">
             <UnderlagNav
+              onOpenMenu={onOpenMenu}
               view={uwView}
               onView={setUwView}
               counts={{
@@ -2642,7 +2654,9 @@ export default function Expenses({
         ) : (
           <>
             <div className="ut-detail-top">
-              <button type="button" className="ut-back" onClick={() => setDetailReceiptId(null)}>← {tr('nav.underlag')}</button>
+              <span className="ut-detail-left">
+                <button type="button" className="ut-back" onClick={() => setDetailReceiptId(null)}>← {tr('nav.underlag')}</button>
+              </span>
               {navPos >= 0 && navIds.length > 1 && (
                 <span className="ut-nav">
                   <span className="ut-keys" aria-hidden="true"><kbd>←</kbd><kbd>→</kbd></span>
@@ -2746,7 +2760,6 @@ export default function Expenses({
               bilden är överförd utan risk att uppgifter ändras eller försvinner.
               Står i uppladdningsytan på dator; på telefon (där ytan är en smal
               rad utan text) står den här. */}
-          <p className="rc-paper-note">{tr('ui.slang_papperskvittot')}</p>
           {onAddDocument && (
             <button type="button" className="rc-raw-link" onClick={() => document.getElementById('receipt-upload-raw').click()}>{tr('docs.spara_utan_lank')}</button>
           )}

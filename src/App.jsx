@@ -31,7 +31,7 @@ import {
   ClipboardCheck,
   Check,
   Banknote, CalendarClock, Paperclip,
-  CreditCard, ShieldCheck,
+  CreditCard, ShieldCheck, ChevronLeft,
 } from './components/icons';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { BAS_VERSION, upgradeAccountsToBas } from './utils/basUpgrade';
@@ -1297,6 +1297,13 @@ function App() {
   }, [activeTab]);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Smal meny (bara ikoner) som man själv slår på, på alla sidor (2026-11-19).
+  const [navRail, setNavRail] = useState(() => { try { return localStorage.getItem('bokix.navRail') === '1'; } catch { return false; } });
+  useEffect(() => {
+    if (navRail) document.documentElement.setAttribute('data-nav-rail', '1');
+    else document.documentElement.removeAttribute('data-nav-rail');
+    try { localStorage.setItem('bokix.navRail', navRail ? '1' : '0'); } catch { /* privat läge */ }
+  }, [navRail]);
   // Sidomenyn krymper själv steg för steg (data-fit, index.css) tills hela listan ryms utan
   // skroll, också i ett riktigt lågt fönster (hög skärmskalning eller inzoomad sida).
   const sidebarNavRef = useRef(null);
@@ -6101,6 +6108,7 @@ function App() {
             onRestoreExpense={handleRestoreExpense}
             onPurgeTrash={handlePurgeTrash}
             pageTitle={isNewUnderlagUser(user?.email) ? tr('nav.underlag') : tr('nav.expenses')}
+            onOpenMenu={() => setSidebarOpen(true)}
             newUnderlag={isNewUnderlagUser(user?.email)}
           />
         );
@@ -6591,6 +6599,18 @@ function App() {
         {/* Fastsatt botten-sektion: Inställningar och Hjälp och support. Logga ut
             ligger i profilmenyn och längst ned i Inställningars meny. */}
         <div className="sidebar-footer-actions" style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+          <button
+            type="button"
+            className="nav-item nav-rail-toggle"
+            title={navRail ? tr('ui.nav_expand') : tr('ui.nav_collapse')}
+            aria-label={navRail ? tr('ui.nav_expand') : tr('ui.nav_collapse')}
+            onClick={() => setNavRail(v => !v)}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
+              <ChevronLeft size={18} style={{ flexShrink: 0, opacity: 0.85, transform: navRail ? 'rotate(180deg)' : 'none', transition: 'transform 200ms ease' }} />
+              <span className="nav-label">{tr('ui.nav_collapse')}</span>
+            </span>
+          </button>
           <button
             type="button"
             data-tour="nav-settings"
