@@ -10169,3 +10169,12 @@ img.hc-player { object-fit: cover; }
   html[data-nav-rail] .sidebar .nav-group-divider { margin-left: 18px !important; margin-right: 18px !important; }
   html[data-nav-rail] .sidebar .nav-group-items.is-collapsed { display: block !important; max-height: none !important; }
 }
+
+/* Undermenyn i Underlag smalare och lättare, som Fortnox (2026-11-19). */
+.ut-shell { grid-template-columns: 176px minmax(0, 1fr); gap: 22px; }
+.ut-nav-side { padding: 6px 12px 0 0; }
+.ut-nav-group { gap: 1px; padding: 6px 0; }
+.ut-nav-side button { gap: 9px; padding: 7px 9px; border-radius: 7px; font-size: 13px; }
+.ut-nav-side button svg { width: 15px; height: 15px; flex-shrink: 0; opacity: 0.8; }
+.ut-nav-side button.on svg { opacity: 1; }
+.ut-nav-side button em { min-width: 18px; padding: 0 6px; font-size: 11px; line-height: 17px; }
