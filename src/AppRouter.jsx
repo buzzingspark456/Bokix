@@ -234,7 +234,11 @@ function RootRoute({ locale = 'sv' }) {
 
   // www.bokix.se: den som ska in i appen skickas till app.bokix.se.
   useEffect(() => {
-    if (forward && wantsApp) forwardToApp(location.state?.enterApp ? location.state : null);
+    if (!(forward && wantsApp)) return;
+    const st = location.state?.enterApp ? location.state : null;
+    // Registrering utan valt abonnemang: välj nivå på /priser här på www först.
+    if (st?.authMode === 'signup' && !st.plan && !st.uf && !st.invite) { setWantsApp(false); navigate('/priser', { replace: true }); return; }
+    forwardToApp(st);
   }, [forward, wantsApp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (forward && wantsApp) return <AppLoadingFallback />;
@@ -287,6 +291,16 @@ function RootRoute({ locale = 'sv' }) {
 // sidladdning redan beter sig, till skillnad från loggans EGEN smooth-
 // scroll vid klick på samma sida (MarketingLayout.jsx), som är en annan,
 // avsiktligt mjukare animation för ett annat fall (redan på sidan).
+// Sökvägar som hör till appen på app.bokix.se; allt annat hör till www.
+const APP_HOST_PATHS = /^\/(?:$|invite|internal|koppla-mejl|dev\/|privacy|terms|cookies|pub|gdpr)/;
+function AppHostGuard() {
+  const { pathname, search, hash } = useLocation();
+  useEffect(() => {
+    if (isAppHost() && !APP_HOST_PATHS.test(pathname)) window.location.replace(`https://www.bokix.se${pathname}${search}${hash}`);
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 function ScrollToTop() {
   const { pathname, hash } = useLocation();
   useEffect(() => {
@@ -329,6 +343,7 @@ const LOCALIZED_PAGE_COMPONENTS = {
 export default function AppRouter() {
   return (
     <>
+      <AppHostGuard />
       <ScrollToTop />
       <PageviewTracker />
       <Routes>

@@ -840,10 +840,25 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{t('ui.ange_din_e_postadress_sa_skickar_vi_en_aterstall')}</p>
               </div>
               {forgotSent ? (
-                <div style={{ padding: '32px 28px', background: 'var(--status-green-bg)', borderRadius: '16px', border: '1px solid var(--status-green-bg)', textAlign: 'center' }}>
-                  <div className="auth-pulse" style={{ width: 64, height: 64, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
-                    <Mail size={26} color="white" />
-                  </div>
+                <div className="auth-sent">
+                  {/* Ett kuvert med ett brev på väg upp, i Bokix färger (2026-11-19). */}
+                  <svg className="auth-sent-env" viewBox="0 0 120 96" width="120" height="96" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="envBack" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1f9a4a" /><stop offset="1" stopColor="#0b6329" /></linearGradient>
+                      <linearGradient id="envFront" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2bb35a" /><stop offset="1" stopColor="#14803d" /></linearGradient>
+                    </defs>
+                    <rect x="10" y="34" width="100" height="58" rx="10" fill="url(#envBack)" />
+                    <g className="auth-sent-letter">
+                      <rect x="24" y="12" width="72" height="58" rx="6" fill="#fff" />
+                      <rect x="34" y="24" width="40" height="5" rx="2.5" fill="#cfe9d8" />
+                      <rect x="34" y="34" width="52" height="5" rx="2.5" fill="#e6f4ea" />
+                      <rect x="34" y="44" width="30" height="5" rx="2.5" fill="#e6f4ea" />
+                    </g>
+                    <path d="M10 44 L60 72 L110 44 L110 82 Q110 92 100 92 L20 92 Q10 92 10 82 Z" fill="url(#envFront)" />
+                    <path d="M10 86 L50 62 M110 86 L70 62" stroke="#0b6329" strokeOpacity="0.35" strokeWidth="2" fill="none" />
+                    <circle cx="98" cy="38" r="13" fill="#fff" />
+                    <path d="M92 38.5 l4 4 l8 -8.5" stroke="#1f9a4a" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                   <div style={{ fontFamily: "'Newsreader', Georgia, serif", fontWeight: 600, fontSize: '21px', color: 'var(--text-main)', marginBottom: '10px' }}>{t('ui.kolla_din_inkorg')}</div>
                   <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
                     {t('ui.om_det_finns_ett_konto_med_den_adressen_har_vi_s')}

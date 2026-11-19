@@ -320,14 +320,10 @@ function PasswordRecoveryScreen({ onSubmit, onCancel }) {
   return (
     <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BRAND.greenLight, padding: '24px', fontFamily: "'Inter', sans-serif" }}>
       <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '22px', padding: '36px 32px', boxShadow: '0 12px 40px -8px rgba(15,23,42,0.18)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', boxSizing: 'border-box' }}>
-        <BokixWordmark height={40} />
-        <div style={{
-          width: 56, height: 56, borderRadius: '16px', flexShrink: 0,
-          background: `linear-gradient(160deg, ${BRAND.green}, #0e3a2a)`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 8px 20px -6px color-mix(in srgb, var(--accent) 60%, transparent)',
-        }}>
-          <Lock size={26} color="white" strokeWidth={2.2} />
+        {/* Loggan med ett litet lås i hörnet: kontot är skyddat (2026-11-19). */}
+        <div className="pw-brand" aria-hidden="true">
+          <BokixWordmark height={46} />
+          <span className="pw-brand-lock"><Lock size={15} color="white" strokeWidth={2.4} /></span>
         </div>
 
         <div style={{ textAlign: 'center' }}>

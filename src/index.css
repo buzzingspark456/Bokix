@@ -10129,3 +10129,12 @@ img.hc-player { object-fit: cover; }
 .auth-lock-note button, .auth-attempt-note button { align-self: flex-start; padding: 0; border: none; background: none; font-family: inherit; font-size: 13.5px; font-weight: 700; color: inherit; text-decoration: underline; cursor: pointer; }
 .auth-attempt-note { font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
 .auth-attempt-note button { color: var(--text-main); font-size: 13px; }
+
+/* Skapa nytt lösenord: lås på loggan. Kolla din inkorg: kuvert (2026-11-19). */
+.pw-brand { position: relative; display: inline-flex; padding: 4px 18px 0 0; }
+.pw-brand-lock { position: absolute; top: -4px; right: 0; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(160deg, #1f9a4a, #0b6329); box-shadow: 0 0 0 3px var(--bg-card), 0 6px 14px -4px rgba(11, 99, 41, 0.55); }
+.auth-sent { padding: 30px 26px 24px; border-radius: 18px; text-align: center; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--bg-card)), var(--bg-card)); border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border)); }
+.auth-sent-env { display: block; margin: 0 auto 16px; filter: drop-shadow(0 10px 18px rgba(11, 99, 41, 0.25)); }
+.auth-sent-letter { animation: authLetter 1.6s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes authLetter { from { transform: translateY(26px); } to { transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .auth-sent-letter { animation: none; } }
