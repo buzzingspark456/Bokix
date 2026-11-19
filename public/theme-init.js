@@ -64,3 +64,9 @@
   } catch (e) { /* samma reservläge som ovan */ }
 
 })();
+
+// app.bokix.se är alltid appen (utils/appHost.js): dölj startsidans
+// förrenderade HTML direkt, så att den inte blinkar till innan appen laddat.
+try {
+  if (location.hostname === 'app.bokix.se') document.documentElement.setAttribute('data-apphost', '1');
+} catch (e) { /* inget */ }
