@@ -10605,3 +10605,58 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
 @keyframes sub-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .sub-overlay .sub-page { max-width: 1000px; margin: 0 auto; padding: 32px 24px 48px; }
 @media (max-width: 640px) { .sub-overlay .sub-page { padding: 16px 12px 32px; } }
+
+/* Underlag på telefon och smal skärm (2026-11-20): undermenyn som en rad med
+   flikar, tabellen som kort, verktygen staplade. */
+@media (max-width: 1099px) {
+  .ut-wrap { padding: 0 !important; }
+  .ut-shell { display: block !important; padding: 0 !important; }
+  .ut-nav-side { display: flex !important; gap: 6px; overflow-x: auto; padding: 4px 14px 10px !important; margin: 0 -2px; border: none !important; scrollbar-width: none; position: sticky; top: 0; z-index: 5; background: var(--bg-page, #f5f7f6); }
+  .ut-nav-side::-webkit-scrollbar { display: none; }
+  .ut-nav-side .ut-nav-group { display: contents; }
+  .ut-nav-side .ut-menu-btn { display: none !important; }
+  .ut-nav-side button { flex: 0 0 auto; width: auto !important; padding: 7px 12px !important; border: 1px solid var(--border) !important; border-radius: 999px !important; background: var(--bg-card) !important; font-size: 13px !important; }
+  .ut-nav-side button.on { background: var(--text-main) !important; border-color: var(--text-main) !important; color: var(--bg-card) !important; }
+  .ut-nav-side button.on svg { color: var(--bg-card); }
+  .ut-nav-side button span { overflow: visible; }
+  .ut-main { padding: 0 14px 90px; }
+  .ut { padding-top: 0; max-width: none; }
+  .ut-head h1 { font-size: 22px; }
+  .ut-head p { font-size: 13px; }
+  .ut-head-row { flex-direction: column; gap: 6px; }
+  .ut-head-links { padding-top: 0; gap: 4px; flex-wrap: wrap; }
+  .ut-toolbar { padding: 8px; }
+  .ut-toolbar .ut-upload { flex: 1 1 100%; justify-content: center; padding: 11px 15px; font-size: 14px; }
+  .ut-toolbar .ut-chips { padding-left: 0; margin-left: 0; border-left: none; overflow-x: auto; flex-wrap: nowrap; }
+  .ut-toolbar .ut-search { margin-left: 0; width: 100%; }
+  .ut-toolbar .ut-mail-filters { display: flex; flex-wrap: wrap; gap: 10px; width: 100%; }
+  /* Tabellen som kort */
+  .ut-table-wrap { border: none !important; background: none !important; box-shadow: none !important; overflow: visible !important; }
+  .ut-table, .ut-table tbody { display: block; width: 100%; }
+  .ut-table thead { display: none; }
+  .ut-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "doc amount" "doc status"; align-items: center; gap: 4px 12px; margin-bottom: 8px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); }
+  .ut-table tr td { display: none; padding: 0 !important; border: none !important; background: none !important; }
+  .ut-table tr td:nth-child(2) { display: block; grid-area: doc; min-width: 0; }
+  .ut-table tr td:nth-child(4) { display: block; grid-area: amount; text-align: right; font-weight: 700; }
+  .ut-table tr td:last-child { display: block; grid-area: status; justify-self: end; }
+  .ut-table tr td.ut-empty { display: block; grid-column: 1 / -1; }
+  .ut-table tr:has(td.ut-empty) { display: block; border: none; background: none; padding: 0; }
+  .ut-table tr.ut-uploading td:nth-child(3) { display: block; grid-column: 1 / -1; }
+  .ut-table-static tr td:nth-child(3), .ut-table-static tr td:nth-child(2) { display: block; }
+  .ut-doc { gap: 10px; }
+  .ut-doc-text b { font-size: 14.5px; }
+  .ut-unread-dot { left: -8px; }
+  .ut-count { padding: 0 2px; }
+  /* Papperskorg, Saknas och Avsändare: raden i kortform */
+  .ut-table-static tr { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: none; }
+  .ut-table-static tr td { display: block; }
+  .ut-table-static tr td.ut-actions { grid-column: 1 / -1; justify-self: start; }
+  .ut-settings .ut-sx { padding: 18px 0; }
+}
+@media (max-width: 1099px) {
+  .ut-nav-side { flex-direction: row !important; flex-wrap: nowrap !important; align-items: center; }
+  .ut-nav-side button { display: inline-flex !important; flex: 0 0 auto !important; gap: 6px !important; }
+  .ut-nav-side button span { flex: 0 0 auto !important; white-space: nowrap; }
+  .ut-nav-side button em { margin-left: 2px; }
+  .ut-nav-side .ut-nav-group, .ut-nav-side .ut-nav-group:last-child { margin: 0 !important; padding: 0 !important; border: none !important; }
+}

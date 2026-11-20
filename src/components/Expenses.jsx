@@ -2723,7 +2723,7 @@ export default function Expenses({
   // Ordningen i tabellen när ett underlag öppnades: föregående och nästa.
   const [navIds, setNavIds] = useState([]);
   const [mailInOpen, setMailInOpen] = useState(false);
-  const { info: inboxInfo, saveSenders, reload: reloadInbox } = useInboxAddress(wide && newUnderlag ? companyId : null, { poll: mailboxOpen || uwView === 'mailbox' });
+  const { info: inboxInfo, saveSenders, reload: reloadInbox } = useInboxAddress(newUnderlag ? companyId : null, { poll: mailboxOpen || uwView === 'mailbox' });
   // Den gamla listan finns kvar bakom "Visa som lista". Valet sparas i webbläsaren.
   const [listView, setListViewState] = useState(() => { try { return localStorage.getItem('bokix.underlagView') === 'list'; } catch { return false; } });
   const setListView = (v) => { setListViewState(v); try { localStorage.setItem('bokix.underlagView', v ? 'list' : 'workspace'); } catch { /* inget */ } };
@@ -2867,7 +2867,9 @@ export default function Expenses({
     setFixAccount('');
   };
 
-  if (newUnderlag && wide && (detailReceipt || !listView)) {
+  // Telefon och smal skärm (2026-11-20): samma Underlag, men ett öppnat
+  // underlag visas i den vanliga helskärmsrutan i stället för bredvid listan.
+  if (newUnderlag && (wide ? (detailReceipt || !listView) : !detailReceipt)) {
     const navPos = detailReceipt ? navIds.indexOf(detailReceipt.id) : -1;
     const goNav = (step) => { const id = navIds[navPos + step]; if (id) setDetailReceiptId(id); };
     goNavRef.current = goNav;
@@ -2905,7 +2907,7 @@ export default function Expenses({
                 <div className={`ut-pv-wrap${previewReceipt ? ' on' : ''}`}>
                 <UnderlagTable
                   previewId={previewReceipt?.id || null}
-                  onPreview={setPreviewId}
+                  onPreview={wide ? setPreviewId : undefined}
                   key={uwView}
                   onlyEmail={uwView === 'mail'}
                   uploading={uploadingFiles}
