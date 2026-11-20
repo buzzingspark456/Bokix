@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronRight } from './icons';
-import ListPageHeader from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import ReportDetail from './reports/ReportDetail';
 import { getPeriodBounds, companyFiscalYearSetting } from '../utils/reportCalculations';
@@ -47,6 +46,9 @@ export default function Reports({
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [openReportId, setOpenReportId] = useState(null);
+  // Sidan öppnar på den viktigaste rapporten, med flikar till de vanligaste
+  // och Fler rapporter för resten (2026-11-20, grundarens önskan).
+  const [tab, setTab] = useState('overview');
 
   const bounds = useMemo(() => getPeriodBounds(period, {
     fiscalYearStart: companyFiscalYearSetting(company), customStart, customEnd,
@@ -90,6 +92,28 @@ export default function Reports({
     </div>
   );
 
+  const visibleIds = new Set(sections.flatMap(sec => sec.reports.map(r => r.id)));
+  const TABS = [['overview', t('rpt.tabOverview')], ['result', t('rpt.tabResult')], ['balance', t('rpt.tabBalance')], ['ledger', t('rpt.tabLedger')]]
+    .filter(([id]) => visibleIds.has(id));
+  const tabBar = (
+    <div className="rp-top no-print">
+      <h1 className="rp-title">{t('nav.reports')}</h1>
+      <div className="rp-tabs" role="tablist">
+        {[...TABS, ['more', t('rpt.tabMore')]].map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id && !openReportId} className={tab === id && !openReportId ? 'on' : undefined} onClick={() => { setOpenReportId(null); setTab(id); }}>{label}</button>
+        ))}
+      </div>
+    </div>
+  );
+  const detailProps = {
+    bounds, periodControl, verifications, accounts, invoices, expenses, documents, payrollRuns, contacts, company, isMobile,
+    display: company?.reportDisplay,
+    onDisplayChange: (patch) => setCompanyInfo?.(prev => ({ ...prev, reportDisplay: { ...(prev.reportDisplay || {}), ...patch } })),
+  };
+  if (!openReportId && tab !== 'more' && visibleIds.has(tab)) {
+    return <ReportDetail key={tab} reportId={tab} tabs={tabBar} {...detailProps} onBack={() => setTab('more')} />;
+  }
+
   if (openReportId) {
     return (
       <ReportDetail
@@ -108,18 +132,17 @@ export default function Reports({
           ...prev,
           reportDisplay: { ...(prev.reportDisplay || {}), ...patch },
         }))}
-        onBack={() => setOpenReportId(null)}
+        onBack={() => { setOpenReportId(null); setTab('more'); }}
       />
     );
   }
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
-      <ListPageHeader
-        title={t('nav.reports')}
-      >
-        <div style={{ marginTop: '10px' }}>{periodControl}</div>
-      </ListPageHeader>
+      <div className="rp-head">
+        {tabBar}
+        <div style={{ marginTop: '12px' }}>{periodControl}</div>
+      </div>
 
       {/* Kundfeedback ("no space"-genomgången, uppföljning): ingen padding
           kvar på ytterraden — första sektionen sitter nu flush direkt under

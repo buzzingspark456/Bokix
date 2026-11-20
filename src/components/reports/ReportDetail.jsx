@@ -146,6 +146,9 @@ const OWN_PERIOD_REPORTS = ['overview'];
 export default function ReportDetail({
   reportId, bounds, verifications, accounts, invoices, expenses = [], documents = [], payrollRuns, contacts, company,
   isMobile, onBack, display, onDisplayChange, periodControl,
+  // Flikarna överst på Rapporter (2026-11-20). Då visas de i stället för
+  // Alla rapporter-länken och rubriken.
+  tabs = null,
 }) {
   const meta = getReportMeta(reportId);
   const { start, end, prevStart, prevEnd } = bounds;
@@ -178,12 +181,14 @@ export default function ReportDetail({
     <ReportDisplayProvider colors={display?.colors} unit={display?.unit}>
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 20px', flexShrink: 0 }}>
+        {tabs || (
         <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12.5px', fontWeight: 600, padding: 0, marginBottom: '10px' }}>
           <ChevronLeft size={14} /> {t('ui.alla_rapporter')}
         </button>
+        )}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <h1 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>{meta?.name || t('ui.rapport')}</h1>
+            {!tabs && <h1 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>{meta?.name || t('ui.rapport')}</h1>}
             {/* Företagsöversikten (reportId === 'overview') har en EGEN,
                 oberoende periodväljare (PeriodHeading/PeriodPicker, se
                 OverviewReport nedan) — den här raden byggs av sidans

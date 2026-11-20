@@ -5562,6 +5562,11 @@
     "doneBooked": "The pay run has been deleted and the correction vouchers have been created."
   },
   "rpt": {
+    "tabOverview": "Overview",
+    "tabResult": "Income",
+    "tabBalance": "Balance",
+    "tabLedger": "Ledger",
+    "tabMore": "More reports",
     "sektion_kunder_leverantorer": "Customers and suppliers",
     "sektion_bokforing": "Bookkeeping and closing",
     "kundreskontra": "Accounts receivable",

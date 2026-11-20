@@ -5562,6 +5562,11 @@
     "doneBooked": "Lönekörningen är borttagen och rättelseverifikationerna är skapade."
   },
   "rpt": {
+    "tabOverview": "Översikt",
+    "tabResult": "Resultat",
+    "tabBalance": "Balans",
+    "tabLedger": "Huvudbok",
+    "tabMore": "Fler rapporter",
     "sektion_kunder_leverantorer": "Kunder och leverantörer",
     "sektion_bokforing": "Bokföring och bokslut",
     "kundreskontra": "Kundreskontra",
