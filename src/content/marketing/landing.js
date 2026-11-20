@@ -41,7 +41,7 @@ export const LANDING_CONTENT = {
       subheading: 'Du lägger in underlaget. Bokix bokför, räknar moms och lön och säger till när något behöver ditt val.',
       items: [
         { title: 'Bokföring', desc: 'Kvitton och fakturor bokförs direkt. Det Bokix inte är säker på hamnar i Granskning, aldrig en gissning.' },
-        { title: 'Fakturor', desc: 'Din logotyp, ROT och RUT, och påminnelser när fakturan förfaller.' },
+        { title: 'Fakturor', desc: 'Din logotyp, ROT och RUT, och en påminnelse med ett klick när kunden inte betalat.' },
         { title: 'Moms och bokslut', desc: 'Rutorna räknas fram ur bokföringen, och filen är klar att ladda upp.' },
         { title: 'Lön', desc: 'Skatteavdrag, lönebesked med semestersaldo, AGI och betalfil i samma körning.' },
         { title: 'Offerter', desc: 'Blir en faktura med ett klick.' },
@@ -53,7 +53,7 @@ export const LANDING_CONTENT = {
     },
     connections: {
       heading: 'Kopplat till tjänsterna du redan använder',
-      subheading: 'Betalningar, kassa och myndigheter: Bokix pratar med rätt system istället för att du ska hålla ordning själv.',
+      subheading: 'Kortbetalningar och kassaförsäljning bokförs av sig själva, företagsuppgifterna hämtas från Bolagsverket och filerna till Skatteverket har rätt format.',
       labels: { stripe: 'Kortbetalning och försäljning', zettle: 'Kassaförsäljning', bolagsverket: 'Företagsuppslag', skatteverket: 'Rätt filformat' },
       groups: { Betalningar: 'Betalningar', Myndigheter: 'Myndigheter' },
     },
@@ -61,7 +61,7 @@ export const LANDING_CONTENT = {
     receipts: {
       heading: 'Kvitton läser sig själva',
       subheading: 'Fota kvittot eller ladda upp en bild eller PDF, så läser Bokix av datum, belopp, moms och kvittonummer. Kontot väljer du första gången, sedan fylls det i för samma butik. Inget bokförs förrän du har sett det.',
-      cta: 'Testa OCR-läsningen själv',
+      cta: 'Testa med ett eget kvitto',
     },
     bank: {
       heading: 'Banken in i bokföringen',

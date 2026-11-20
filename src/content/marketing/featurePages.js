@@ -317,7 +317,7 @@ export const FEATURE_PAGES = [
     faq: [
       { q: 'Behöver jag kunna bokföring för att använda Bokix?', a: 'Nej. I det enkla läget väljer du vad som hänt, och Bokix väljer konton och moms. Det som är osäkert hamnar i Att granska.' },
       { q: 'När ska jag börja bokföra?', a: 'Från första affärshändelsen, till exempel när du sätter in startkapitalet eller gör det första inköpet.' },
-      { q: 'Vilka bolagsformer fungerar?', a: 'Enskild firma, aktiebolag, handelsbolag, kommanditbolag och ekonomisk förening.' },
+      { q: 'Vilka bolagsformer fungerar?', a: 'Enskild firma, aktiebolag, handelsbolag, kommanditbolag, ekonomisk förening och ideell förening.' },
       { q: 'Vad kostar Bokix?', a: PRICE + ' De första 30 dagarna är gratis.' },
     ],
     related: [
