@@ -3,7 +3,7 @@ import { REPRESENTATION_ACCOUNTS, representationBooking, representationKinds } f
 import { isVatExempt } from '../utils/vatRegistration';
 import {
   UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop, SlidersHorizontal,
-  Mail, Copy, Inbox, Cog, Menu, Check, ChevronLeft, ChevronRight, Info, MailOpen,
+  Mail, Copy, Inbox, Cog, Menu, Check, Maximize2, ChevronLeft, ChevronRight, Info, MailOpen,
 } from './icons';
 import { supabase } from '../supabaseClient';
 import { AccountSearch } from './shared/SearchInputs';
@@ -2198,7 +2198,7 @@ function TrashView({ items, onRestore, onPurge }) {
 
 /** Underlag som tabell, som Fortnox (2026-11-18): kryssrutor, kolumner för
  * belopp, inkommet, avläsning, källa och avsändare. En rad öppnar underlaget. */
-function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readingId, onOpen, onDeleteMany, onUpload, onMailIn, onSenders, onRefresh, inboxAddress, onlyEmail = false, uploading = [] }) {
+function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readingId, onOpen, onPreview, previewId = null, onDeleteMany, onUpload, onMailIn, onSenders, onRefresh, inboxAddress, onlyEmail = false, uploading = [] }) {
   const receipts = onlyEmail ? allRows.filter(r => r.inbox?.source === 'email') : allRows;
   // Underlag visar bara det som inte är bokfört (som Fortnox); bokförda finns i Bokföring.
   // Mejl visar alla brev, med Olästa och Visa hanterade.
@@ -2233,6 +2233,25 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
     onDeleteMany?.(ids);
     setPicked(new Set());
   };
+  // Förhandsvisningen: ↑/↓ byter underlag, Enter öppnar det, Esc stänger.
+  const shownIds = shown.map(r => r.id);
+  const shownKey = shownIds.join('|');
+  useEffect(() => {
+    if (!onPreview || !previewId) return undefined;
+    const onKey = (e) => {
+      const tag = (e.target?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable) return;
+      const i = shownIds.indexOf(previewId);
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const next = shownIds[Math.min(shownIds.length - 1, Math.max(0, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+        if (next) onPreview(next);
+      } else if (e.key === 'Enter') { e.preventDefault(); onOpen(previewId, shownIds); }
+      else if (e.key === 'Escape') { onPreview(null); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [previewId, shownKey, onPreview]); // eslint-disable-line react-hooks/exhaustive-deps
   const refresh = async () => { if (refreshing) return; setRefreshing(true); try { await onRefresh?.(); } finally { setTimeout(() => setRefreshing(false), 600); } };
   return (
     <div className="ut">
@@ -2353,7 +2372,7 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
               const name = r.supplier || r.description || r.ocrDraft?.form?.supplier || r.inbox?.fileName || tr('underlag.unnamed');
               const sender = r.inbox?.source === 'email' ? (r.inbox.from || '') : (r.uploadedBy?.name || '');
               return (
-                <tr key={r.id} className={[picked.has(r.id) && 'picked', isUnread(r) && 'ut-unread'].filter(Boolean).join(' ') || undefined} onClick={() => onOpen(r.id, shown.map(x => x.id))}>
+                <tr key={r.id} className={[picked.has(r.id) && 'picked', isUnread(r) && 'ut-unread', previewId === r.id && 'is-previewed'].filter(Boolean).join(' ') || undefined} onClick={() => (onPreview ? onPreview(r.id) : onOpen(r.id, shown.map(x => x.id)))} onDoubleClick={() => onOpen(r.id, shown.map(x => x.id))}>
                   <td className="ut-c-check" onClick={e => e.stopPropagation()}>
                     <input type="checkbox" checked={picked.has(r.id)} disabled={!deletable(r)} onChange={() => togglePick(r.id)} aria-label={name} />
                   </td>
@@ -2389,6 +2408,40 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
         </table>
       </div>
     </div>
+  );
+}
+
+/** Förhandsvisning till höger i Underlag (2026-11-20): dokumentet med zoom,
+ * de viktigaste uppgifterna och Öppna och bokför. Hela arbetsytan öppnas därifrån. */
+function UnderlagPreview({ receipt: r, step, onOpen, onClose, onTrash }) {
+  const amount = r.amount ? Math.abs(r.amount) : parseAmount(r.ocrDraft?.form?.amount);
+  const name = r.supplier || r.description || r.ocrDraft?.form?.supplier || r.inbox?.fileName || tr('underlag.unnamed');
+  const kind = docKind(r);
+  const from = r.inbox?.source === 'email' ? r.inbox.from : r.uploadedBy?.name;
+  return (
+    <aside className="ut-pv" aria-label={tr('underlag.preview')}>
+      <div className="ut-pv-head">
+        <div className="ut-pv-title">
+          <b title={name}>{name}</b>
+          <span>{[kind === 'invoice' ? tr('underlag.typeInvoice') : kind === 'receipt' ? tr('underlag.typeReceipt') : null, amount > 0 ? formatSEK(amount) : null, arrivedLabel(r)].filter(Boolean).join(' · ')}</span>
+        </div>
+        <div className="ut-pv-actions">
+          {onTrash && <button type="button" className="ut-pv-icon" onClick={onTrash} title={tr('ui.ta_bort')} aria-label={tr('ui.ta_bort')}><Trash2 size={16} /></button>}
+          <button type="button" className="ut-pv-icon" onClick={onOpen} title={tr('underlag.expand')} aria-label={tr('underlag.expand')}><Maximize2 size={16} /></button>
+          <button type="button" className="ut-pv-icon" onClick={onClose} title={tr('ui.stang')} aria-label={tr('ui.stang')}><X size={17} /></button>
+        </div>
+      </div>
+      <div className="ut-pv-doc">
+        <DocumentPane url={r.receiptUrl} type={r.receiptType} name={r.inbox?.fileName} expandable emptyText={tr('underlag.pvNoFile')} />
+      </div>
+      <div className="ut-pv-foot">
+        <div className="ut-pv-meta">
+          {step && <span className={`ut-status ut-step-${step}`}>{tr(`underlag.step_${step}`)}</span>}
+          {from && <span className="ut-pv-from" title={from}>{r.inbox?.source === 'email' ? <Mail size={13} /> : <UploadCloud size={13} />} {senderName(from)}</span>}
+        </div>
+        <button type="button" className="ut-pv-open" onClick={onOpen}>{tr('underlag.openAndBook')} <ChevronRight size={16} /></button>
+      </div>
+    </aside>
   );
 }
 
@@ -2448,6 +2501,8 @@ export default function Expenses({
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState([]);
   const [detailReceiptId, setDetailReceiptId] = useState(null);
+  // Förhandsvisningen till höger i Underlag (klick på en rad).
+  const [previewId, setPreviewId] = useState(null);
   useEffect(() => {
     if (globalAction?.type !== 'open_underlag') return;
     const id = globalAction.payload?.id;
@@ -2602,6 +2657,10 @@ export default function Expenses({
   const [shownCount, setShownCount] = useState(RECEIPTS_PAGE);
   useEffect(() => { setShownCount(RECEIPTS_PAGE); }, [q, effectiveTab, monthFilter, statusFilter, folderFilter]);
   const detailReceipt = detailReceiptId ? allReceipts.find(r => r.id === detailReceiptId) : null;
+  const previewReceipt = previewId ? allReceipts.find(r => r.id === previewId) : null;
+  useEffect(() => {
+    if (onMarkSeen && previewReceipt?.inbox?.source === 'email' && !previewReceipt.inbox.seenAt) onMarkSeen([previewReceipt.id]);
+  }, [previewReceipt?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (onMarkSeen && detailReceipt?.inbox?.source === 'email' && !detailReceipt.inbox.seenAt) onMarkSeen([detailReceipt.id]);
   }, [detailReceipt?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2646,6 +2705,7 @@ export default function Expenses({
   }, [(receiptTrash || []).length]);
   // Vänstermenyn i Underlag, som Fortnox: underlag, mejl, avsändare, brevlåda, papperskorg.
   const [uwView, setUwView] = useState('underlag');
+  useEffect(() => { setPreviewId(null); }, [uwView]);
   // ← och → bläddrar mellan underlagen när man inte skriver i ett fält.
   const goNavRef = useRef(null);
   useEffect(() => {
@@ -2842,7 +2902,10 @@ export default function Expenses({
             />
             <div className="ut-main">
               {(uwView === 'underlag' || uwView === 'mail') && (
+                <div className={`ut-pv-wrap${previewReceipt ? ' on' : ''}`}>
                 <UnderlagTable
+                  previewId={previewReceipt?.id || null}
+                  onPreview={setPreviewId}
                   key={uwView}
                   onlyEmail={uwView === 'mail'}
                   uploading={uploadingFiles}
@@ -2859,6 +2922,17 @@ export default function Expenses({
                   onMarkSeen={onMarkSeen}
                   inboxAddress={inboxInfo?.address}
                 />
+                {previewReceipt && (
+                  <UnderlagPreview
+                    key={previewReceipt.id}
+                    receipt={previewReceipt}
+                    step={['unhandled', 'pending'].includes(getReceiptStatus(previewReceipt, verIndex)) ? underlagStep(previewReceipt, expenses) : null}
+                    onOpen={() => { setNavIds(receiptsList.map(x => x.id)); setDetailReceiptId(previewReceipt.id); setPreviewId(null); }}
+                    onClose={() => setPreviewId(null)}
+                    onTrash={['unhandled', 'pending'].includes(getReceiptStatus(previewReceipt, verIndex)) ? async () => { if (await confirmDialog(tr('underlag.trashManyConfirm', { n: 1 }))) { (onTrashExpense ? onTrashExpense(previewReceipt.id) : onDeleteExpense?.(previewReceipt.id)); setPreviewId(null); } } : null}
+                  />
+                )}
+                </div>
               )}
               {uwView === 'senders' && (
                 <SendersView info={inboxInfo} onSaveSenders={saveSenders} receipts={[...allReceipts, ...receiptTrash]} ownEmail={user?.email || ''} />
