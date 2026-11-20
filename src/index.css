@@ -10580,7 +10580,7 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
   .responsive-table th { padding: 10px 16px !important; font-size: 11.5px !important; font-weight: 600 !important; letter-spacing: 0.04em !important; color: var(--text-muted) !important; }
 }
 .responsive-table tbody tr { transition: background 0.12s ease; }
-.responsive-table tbody tr[style*="cursor: pointer"]:hover { background: var(--bg-muted) !important; filter: none !important; }
+.responsive-table tbody tr[style*="cursor: pointer"]:hover { box-shadow: inset 0 0 0 9999px rgba(15, 23, 42, 0.04); filter: none !important; }
 .responsive-table tbody td.lt-cell { font-variant-numeric: tabular-nums; }
 
 /* Ändra plan som egen sida (2026-11-20). */
@@ -10693,3 +10693,27 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
   .ut-fab { display: inline-flex; }
 }
 @media (min-width: 769px) { .ut-fab { display: none !important; } }
+
+/* Offert: kundens svar som en tydlig remsa (2026-11-20). */
+.q-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 24px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
+.q-status-text { flex: 1; min-width: 220px; font-size: 13.5px; color: var(--text-secondary); }
+.q-status-text b { display: inline-flex; align-items: center; gap: 5px; margin-right: 4px; color: var(--text-main); }
+.q-status-accepted, .q-status-invoiced { background: var(--status-green-bg); }
+.q-status-accepted .q-status-text b, .q-status-invoiced .q-status-text b { color: var(--status-green-text); }
+.q-status-rejected { background: var(--status-red-bg); }
+.q-status-rejected .q-status-text b { color: var(--status-red-text); }
+.q-status-expired { background: var(--status-amber-bg); }
+.q-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text-main); font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.q-btn-yes { border-color: transparent; background: #15803d; color: #fff; }
+.q-btn-yes:hover { background: #166534; }
+.q-btn-no { border-color: var(--status-red-text); color: var(--status-red-text); }
+.q-btn-no:hover { background: var(--status-red-bg); }
+.q-btn-primary { border-color: transparent; background: var(--accent, #0b6329); color: #fff; }
+.q-link { padding: 0; border: none; background: none; color: var(--text-secondary); font-family: inherit; font-size: 13px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.q-lbl { display: block; margin-bottom: 6px; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+.q-att { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--border-light); border-radius: 8px; background: var(--bg-muted); font-size: 12.5px; color: var(--text-main); }
+.q-att span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q-att small { color: var(--text-muted); }
+.q-att button { display: flex; padding: 2px; border: none; background: none; color: var(--text-muted); cursor: pointer; }
+.q-note { padding: 11px 13px; border-radius: 10px; background: var(--bg-muted); font-size: 12.5px; line-height: 1.55; color: var(--text-secondary); }
+@media (max-width: 640px) { .q-status { padding: 12px 16px; } .q-btn { flex: 1 1 auto; justify-content: center; } }

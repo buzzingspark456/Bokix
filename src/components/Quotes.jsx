@@ -67,6 +67,14 @@ const getDisplayStatus = (q) => {
   return q.status || 'draft';
 };
 
+// Radernas bakgrund i listan, som kundfakturorna: grön för accepterad och
+// fakturerad, gul för väntar på svar, röd för avvisad och utgången.
+const QUOTE_ROW_BG = {
+  accepted: 'var(--row-paid-bg)', invoiced: 'var(--row-paid-bg)',
+  sent: 'var(--row-unpaid-bg)', expired: 'var(--row-overdue-bg)', rejected: 'var(--row-overdue-bg)',
+  draft: 'var(--bg-muted)',
+};
+
 const getStatusStyle = (status) => {
   switch (status) {
     case 'accepted': return { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)', label: t('ui.accepterad') };
@@ -113,7 +121,7 @@ const toolbarBtnStyle = (active) => ({
  * förhandsgranskning som öppnas på begäran. Samma lösning återanvänds här
  * rakt av — samma CSS-klass, samma mönster, samma mobilanpassning.
  */
-function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], company, user, articles = [], onSave, onClose, onConvert, onOpenInvoice, onSyncBeforeServerCall }) {
+function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], company, user, articles = [], onSave, onClose, onConvert, onOpenInvoice, onSyncBeforeServerCall, onPersist }) {
   useMobileForm();
   const [customerId, setCustomerId] = useState(quote?.customerId || '');
   const [customerName, setCustomerName] = useState(quote?.customerName || '');
@@ -231,7 +239,10 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [emailSent, setEmailSent] = useState(false);
-  const [emailToInput, setEmailToInput] = useState('');
+  const [emailToInput, setEmailToInput] = useState(quote?.customerEmail || '');
+  // Skicka via e-post öppnar en ruta (2026-11-20), som fakturorna.
+  const [showCompose, setShowCompose] = useState(false);
+  const [emailSubject, setEmailSubject] = useState('');
 
   const previewRef = useRef(null);
   // Osynlig, alltid monterad kopia med fast 794px-bredd — PDF/mejl fångar
@@ -330,6 +341,23 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
     ...overrides,
   });
 
+  // Status sparas direkt (2026-11-20). Tidigare ändrades den bara på skärmen
+  // och försvann om man inte tryckte Spara.
+  const changeStatus = (next) => {
+    setStatus(next);
+    const stamp = new Date().toISOString().slice(0, 10);
+    const extra = next === 'accepted' ? { acceptedAt: stamp } : next === 'rejected' ? { rejectedAt: stamp } : {};
+    if (quote && onPersist) onPersist(buildSaveData({ status: next, ...extra }));
+  };
+  const defaultQuoteMessage = () => t('ui.offert_mejl_standard', { nr: previewNumber, amount: `${fmtSEK(totals.total)} ${currency}`, date: fmtDateSv(dueDate) });
+  const openCompose = () => {
+    setEmailError(''); setEmailSent(false);
+    if (!emailToInput.trim()) setEmailToInput(customerEmail || customer?.email || '');
+    setEmailSubject(`Offert ${previewNumber} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`);
+    if (!emailMessage.trim()) setEmailMessage(defaultQuoteMessage());
+    setShowCompose(true);
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     onSave(buildSaveData());
@@ -383,7 +411,12 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
       const attachmentsHtml = readyAttachments.length > 0
         ? `<p>Bilagor:</p><ul>${readyAttachments.map(a => `<li><a href="${a.url}">${escapeHtml(a.name)}</a></li>`).join('')}</ul>`
         : '';
-      const html = `
+      // Eget meddelande (från rutan) skickas som det står; annars hälsning och avslutning runt standardstycket.
+      const html = emailMessage.trim() ? `
+        ${messageHtml}
+        ${attachmentsHtml}
+        <p>Med vänlig hälsning<br/>${(company?.invoiceDisplayName || company?.name) || ''}</p>
+      ` : `
         <p>Hej${customer?.contactPerson ? ' ' + customer.contactPerson : ''},</p>
         ${messageHtml}
         ${attachmentsHtml}
@@ -399,7 +432,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
       await onSyncBeforeServerCall?.();
       await sendInvoiceEmail({
         to,
-        subject: `Offert ${previewNumber} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`,
+        subject: emailSubject.trim() || `Offert ${previewNumber} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`,
         html,
         replyTo: company?.email || undefined,
         attachmentBase64,
@@ -412,9 +445,10 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
         company_id: activeCompanyId,
       });
       setEmailSent(true);
+      setShowCompose(false);
       // Ett utkast som faktiskt skickas till kunden är per definition inte
-      // längre ett utkast.
-      setStatus('sent');
+      // längre ett utkast. Sparas direkt.
+      if (quote && (!quote.status || quote.status === 'draft' || status === 'draft')) changeStatus('sent'); else setStatus(s => (s === 'draft' ? 'sent' : s));
       // Kundfeedback: "skicka via post ska funka" — en helt ny, ännu
       // osparad offert krävde tidigare ett separat "Spara offert"-klick
       // FÖRST (knappen var disabled med bara en tooltip som förklaring),
@@ -514,56 +548,21 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
 
       {/* ── Åtgärdsrad: statusflöde, konvertering, e-post, PDF, förhandsgranska ── */}
       <div className={`quote-toolbar doc-toolbar${quote ? '' : ' is-new'}`} style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        {quote && (!quote.status || quote.status === 'draft') && (
-          <button type="button" className="tb-status" onClick={() => setStatus('sent')} style={toolbarBtnStyle(status === 'sent')}>{t('ui.markera_som_skickad')}</button>
-        )}
-        {quote && status === 'sent' && (
-          <>
-            <button type="button" className="tb-status" onClick={() => setStatus('accepted')} style={{ ...toolbarBtnStyle(false), color: 'var(--status-green-text)', borderColor: 'var(--status-green-bg)' }}>{t('ui.markera_som_accepterad')}</button>
-            <button type="button" className="tb-status" onClick={() => setStatus('rejected')} style={{ ...toolbarBtnStyle(false), color: 'var(--status-red-text)', borderColor: 'var(--status-red-bg)' }}>{t('ui.markera_som_avvisad')}</button>
-          </>
-        )}
-        {quote && (status === 'accepted' || status === 'rejected') && (
-          <button type="button" className="tb-status" onClick={() => setStatus('draft')} style={toolbarBtnStyle(false)}>{t('ui.aterstall_till_utkast')}</button>
-        )}
-        {/* Konvertering är alltid tillgänglig oavsett status — se motiveringen
-            i Quotes-listan: det är ägarens eget omdöme, inte något appen ska
-            gate:a bakom ett visst statusläge. */}
         {quote && quote.status === 'invoiced' && quote.invoiceId && onOpenInvoice && (
           <button type="button" className="tb-status" onClick={() => onOpenInvoice(quote.invoiceId)} style={toolbarBtnStyle(false)}><FileText size={13} /> {t('ui.visa_fakturan')}</button>
         )}
-        {quote && quote.status !== 'invoiced' && onConvert && (
-          <button type="button" className="tb-status" onClick={onConvert} style={{ ...toolbarBtnStyle(false), color: 'var(--accent-text)', borderColor: 'var(--status-green-bg)' }}><FileText size={13} /> {t('ui.konvertera_till_faktura')}</button>
+        {quote && quote.status !== 'invoiced' && displayStatus !== 'accepted' && onConvert && (
+          <button type="button" className="tb-status" onClick={(e) => onConvert(e, buildSaveData())} style={{ ...toolbarBtnStyle(false), color: 'var(--accent-text)', borderColor: 'var(--status-green-bg)' }}><FileText size={13} /> {t('ui.konvertera_till_faktura')}</button>
         )}
         <div style={{ flex: 1, minWidth: '8px' }} />
         {emailError && <span style={{ fontSize: '11px', color: 'var(--status-red-text)', flexShrink: 0 }}>{emailError}</span>}
         {emailSent && !emailError && <span style={{ fontSize: '11px', color: 'var(--status-green-text)', fontWeight: 600, flexShrink: 0 }}>{t('ui.skickad')}</span>}
-        <input
-          type="email" className="toolbar-email-input" value={emailToInput} onChange={e => { setEmailToInput(e.target.value); setEmailError(''); }}
-          placeholder={t('ui.mottagarens_epost_se')} title={t('ui.mottagarens_e_postadress')}
-          // Bugkritiskt: `background: 'white'` var hårdkodat här och
-          // krockade med `color: 'var(--text-main)'` — i mörkt läge är
-          // --text-main nästan vit (#eef3ea, till för mörka bakgrunder),
-          // så texten blev vit på vitt och osynlig. inputStyle sätter redan
-          // rätt temamedvetna bakgrund (var(--bg-card)); den ska inte
-          // skrivas över här.
-          style={{ ...inputStyle, width: '210px', padding: '9px 12px', fontSize: '13.5px', flexShrink: 0 }}
-        />
-        {/* Bugkritiskt, samma fel som fakturans motsvarande knapp
-            (Invoices.jsx, tb-send): disabled på !emailToInput.trim() gjorde
-            knappen ett HELT tyst dött klick på en tom adress — inget
-            felmeddelande, inget nätverksanrop alls (bekräftat i Vercels
-            runtime-loggar: noll träffar mot /api/email/send-invoice trots
-            att kunden testat). handleSendEmail har redan sin egen tydliga
-            felruta (emailError, raden ovanför) för en tom adress — bara
-            emailBusy ska spärra klicket, resten sköts av den. */}
         <button
-          type="button" className="tb-send" onClick={handleSendEmail}
+          type="button" className="tb-send" onClick={openCompose}
           disabled={emailBusy}
-          title={!emailToInput.trim() ? t('ui.ange_en_mottagaradress_2') : t('ui.skicka_offert_till', { previewNumber, v1: emailToInput.trim() })}
           style={{ ...toolbarBtnStyle(false), opacity: emailBusy ? 0.5 : 1, cursor: emailBusy ? 'not-allowed' : 'pointer' }}
         >
-          <Send size={15} /> {emailBusy ? t('ui.skickar_2') : t('ui.skicka_via_e_post')}
+          <Send size={15} /> {emailBusy ? t('ui.skickar_2') : (quote?.status && quote.status !== 'draft' ? t('ui.skicka_igen') : t('ui.skicka_via_e_post'))}
         </button>
         {pdfError && <span style={{ fontSize: '11px', color: 'var(--status-red-text)', flexShrink: 0 }}>{pdfError}</span>}
         <button type="button" className="tb-pdf" onClick={handleDownloadPdf} disabled={pdfBusy} style={{ ...toolbarBtnStyle(false), opacity: pdfBusy ? 0.6 : 1 }}>
@@ -573,6 +572,95 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
           <Eye size={15} /> {t('ui.forhandsgranska')}
         </button>
       </div>
+
+      {/* ── Svaret från kunden (2026-11-20): tydligt vad som gäller och vad nästa steg är. ── */}
+      {quote && (
+        <div className={`q-status q-status-${displayStatus}`}>
+          {(displayStatus === 'draft') && (
+            <>
+              <span className="q-status-text"><b>{t('ui.q_utkast')}</b> {t('ui.q_utkast_text')}</span>
+              <button type="button" className="q-btn" onClick={() => changeStatus('sent')}>{t('ui.markera_som_skickad')}</button>
+            </>
+          )}
+          {(displayStatus === 'sent' || displayStatus === 'expired') && (
+            <>
+              <span className="q-status-text"><b>{displayStatus === 'expired' ? t('ui.q_utgangen') : t('ui.q_vantar')}</b> {t('ui.q_vantar_text')}</span>
+              <button type="button" className="q-btn q-btn-yes" onClick={() => changeStatus('accepted')}><Check size={15} /> {t('ui.q_accepterade')}</button>
+              <button type="button" className="q-btn q-btn-no" onClick={() => changeStatus('rejected')}><X size={15} /> {t('ui.q_tackade_nej')}</button>
+            </>
+          )}
+          {displayStatus === 'accepted' && (
+            <>
+              <span className="q-status-text"><b><Check size={15} /> {t('ui.q_accepterad_rubrik')}</b> {quote.acceptedAt ? t('ui.q_den', { date: fmtDateSv(quote.acceptedAt) }) : ''} {t('ui.q_accepterad_text')}</span>
+              {onConvert && <button type="button" className="q-btn q-btn-primary" onClick={(e) => onConvert(e, buildSaveData())}><FileText size={15} /> {t('ui.skapa_faktura')}</button>}
+              <button type="button" className="q-link" onClick={() => changeStatus('sent')}>{t('ui.q_andra_svar')}</button>
+            </>
+          )}
+          {displayStatus === 'rejected' && (
+            <>
+              <span className="q-status-text"><b><X size={15} /> {t('ui.q_avvisad_rubrik')}</b> {quote.rejectedAt ? t('ui.q_den', { date: fmtDateSv(quote.rejectedAt) }) : ''} {t('ui.q_avvisad_text')}</span>
+              <button type="button" className="q-link" onClick={() => changeStatus('sent')}>{t('ui.q_andra_svar')}</button>
+            </>
+          )}
+          {displayStatus === 'invoiced' && (
+            <>
+              <span className="q-status-text"><b><FileText size={15} /> {t('ui.offert_fakturerad')}</b> {t('ui.q_fakturerad_text')}</span>
+              {quote.invoiceId && onOpenInvoice && <button type="button" className="q-btn" onClick={() => onOpenInvoice(quote.invoiceId)}>{t('ui.visa_fakturan')}</button>}
+            </>
+          )}
+        </div>
+      )}
+
+      {showCompose && (
+        <div className="modal-overlay" onClick={() => !emailBusy && setShowCompose(false)}>
+          <div className="modal-content" style={{ maxWidth: '620px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{t('ui.skicka_offert')} {previewNumber}</h2>
+              <button className="modal-close" onClick={() => setShowCompose(false)} disabled={emailBusy}><X size={18} /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label className="q-lbl">{t('ui.till_2')}</label>
+                <input className="form-control" type="email" value={emailToInput} onChange={e => { setEmailToInput(e.target.value); setEmailError(''); }} placeholder={t('ui.mottagarens_epost_se')} />
+              </div>
+              <div>
+                <label className="q-lbl">{t('ui.amne')}</label>
+                <input className="form-control" value={emailSubject} onChange={e => setEmailSubject(e.target.value)} />
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px' }}>
+                  <label className="q-lbl">{t('ui.meddelande')}</label>
+                  <button type="button" className="q-link" onClick={() => setEmailMessage(defaultQuoteMessage())}>{t('ui.aterstall_standardtexten')}</button>
+                </div>
+                <textarea className="form-control" value={emailMessage} onChange={e => setEmailMessage(e.target.value)} rows={7} style={{ resize: 'vertical', lineHeight: 1.6 }} />
+              </div>
+              <div>
+                <label className="q-lbl">{t('ui.bilagor_i_mejlet')}</label>
+                <input type="file" ref={attachmentsFileInputRef} style={{ display: 'none' }} multiple accept={ATTACHMENT_ACCEPT_ATTR} onChange={e => { handleAddFiles(e.target.files); e.target.value = ''; }} />
+                {attachments.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
+                    {attachments.map(a => (
+                      <div key={a.id} className="q-att">
+                        <Paperclip size={13} />
+                        <span>{a.name} <small>({((a.size || 0) / (1024 * 1024)).toFixed(1)} {t('ui.mb_2')}</small>{a.error && <>: {a.error}</>}</span>
+                        <button type="button" onClick={() => removeAttachment(a.id)} title={t('ui.ta_bort')}><X size={13} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {attachmentsError && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginBottom: '8px' }}>{attachmentsError}</div>}
+                <button type="button" onClick={() => attachmentsFileInputRef.current?.click()} style={{ ...outlineBtnStyle, padding: '6px 12px', fontSize: '12px' }}><Paperclip size={13} /> {t('ui.lagg_till_fil')}</button>
+              </div>
+              <div className="q-note">{t('ui.q_pdf_foljer_med', { max: MAX_ATTACHMENTS_TOTAL_MB })}</div>
+              {emailError && <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', fontWeight: 600 }}>{emailError}</div>}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowCompose(false)} disabled={emailBusy}>{t('ui.avbryt')}</button>
+              <button className="btn btn-primary" onClick={handleSendEmail} disabled={emailBusy}><Send size={14} /> {emailBusy ? t('ui.skickar_2') : t('ui.skicka')}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Formulär — täcker HELA sidan (bredd och höjd), inte ett smalt
              centrerat kort med tom grå/kräm bakgrund runt om. Exakt samma
@@ -815,47 +903,6 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
 
           {detailsOpen && (
           <>
-          {/* ── Meddelande i mejlet — eget fält, INTE en del av PDF:en. Den
-                 distinktionen måste synas i hjälptexten, annars är det
-                 otydligt för användaren var texten faktiskt hamnar. ── */}
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>{t('ui.meddelande_i_mejlet')}</h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>{t('ui.visas_i_foljemejlet_inte_i_pdf_en')}</p>
-            <textarea
-              style={{ ...inputStyle, resize: 'vertical', minHeight: '86px', lineHeight: 1.6, fontFamily: 'inherit', maxWidth: '640px' }}
-              value={emailMessage} onChange={e => setEmailMessage(e.target.value)}
-              placeholder={t('ui.hej_bifogat_finner_du_var_offert')}
-            />
-          </div>
-
-          {/* ── Bilagor i mejlet: följer med utskicket och raderas direkt efteråt
-                 (se kommentaren vid ATTACHMENT_ACCEPTED_TYPES). ── */}
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>{t('ui.bilagor_i_mejlet')}</h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>{t('ui.filerna_foljer_med_som_bilagor_i_mejlet_tillsamm')} {MAX_ATTACHMENTS_TOTAL_MB} {t('ui.mb')}</p>
-            <input type="file" ref={attachmentsFileInputRef} style={{ display: 'none' }} multiple accept={ATTACHMENT_ACCEPT_ATTR} onChange={e => { handleAddFiles(e.target.files); e.target.value = ''; }} />
-            {attachments.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px', maxWidth: '480px' }}>
-                {attachments.map(a => (
-                  <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: 'var(--bg-muted)', border: '1px solid var(--border-light)', borderRadius: '8px', fontSize: '12.5px' }}>
-                    <Paperclip size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: a.error ? 'var(--status-red-text)' : 'var(--text-main)' }}>
-                      {a.name} <span style={{ color: 'var(--text-muted)' }}>({((a.size || 0) / (1024 * 1024)).toFixed(1)} {t('ui.mb_2')}</span>
-                      {a.error && <>: {a.error}</>}
-                    </span>
-                    <button type="button" onClick={() => removeAttachment(a.id)} title={t('ui.ta_bort')} style={{ padding: '2px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', flexShrink: 0 }}>
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {attachmentsError && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginBottom: '10px' }}>{attachmentsError}</div>}
-            <button type="button" onClick={() => attachmentsFileInputRef.current?.click()} style={{ ...outlineBtnStyle, padding: '6px 12px', fontSize: '12px' }}>
-              <Paperclip size={13} /> {t('ui.lagg_till_fil')}
-            </button>
-          </div>
-
           {/* ── Vad som inte ingår (valfritt) — skilt från Övriga villkor:
                  det här är projektspecifika avgränsningar, inte generella
                  juridiska standardpunkter. ── */}
@@ -1069,11 +1116,11 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
   // App.jsx skapar ett fakturautkast i `invoices` med ett RIKTIGT nästa
   // fakturanummer och märker offerten Fakturerad med länk till fakturan.
   // Utkastet bokförs först när det skapas på riktigt. Öppnar fakturan.
-  const handleConvert = async (quote, e) => {
+  const handleConvert = async (quote, e, latest = null) => {
     e?.stopPropagation();
     if (!(await confirmDialog(t('ui.konvertera_denna_offert_till_en_faktura'), { title: t('ui.konvertera_till_faktura'), confirmLabel: t('ui.konvertera') }))) return;
     if (!onConvert) return;
-    const created = onConvert(quote.id);
+    const created = onConvert(quote.id, latest);
     setIsFormOpen(false);
     setEditingId(null);
     if (handleGlobalAction) handleGlobalAction(created?.id ? { type: 'open_invoice', payload: { id: created.id } } : null, 'invoices');
@@ -1144,7 +1191,8 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
         activeCompanyId={activeCompanyId}
         onSave={handleSaveQuote}
         onClose={closeForm}
-        onConvert={editingQuote ? (e) => handleConvert(editingQuote, e) : null}
+        onConvert={editingQuote ? (e, latest) => handleConvert(editingQuote, e, latest) : null}
+        onPersist={(data) => editingId && setQuotes(prev => prev.map(q => (q.id === editingId ? { ...q, ...data } : q)))}
         onOpenInvoice={openInvoice}
         onSyncBeforeServerCall={onSyncBeforeServerCall}
       />
@@ -1226,6 +1274,7 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
         <ListTable
           rowKey={q => q.id}
           onRowClick={openEdit}
+          rowStyle={q => ({ background: QUOTE_ROW_BG[getDisplayStatus(q)] || undefined })}
           rows={visible}
           mobileList={q => {
             const s = getStatusStyle(getDisplayStatus(q));

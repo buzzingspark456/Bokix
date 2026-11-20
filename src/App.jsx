@@ -4708,8 +4708,10 @@ function App() {
   // flytta posten tyst utan verifikation (vilket den gamla, aldrig
   // ihopkopplade versionen av denna funktion också gjorde fel — den skrev
   // om posten på plats i `invoices` som om offerter redan låg där).
-  const handleConvertQuoteToInvoice = (quoteId) => {
-    const quote = quotes.find(q => q.id === quoteId);
+  const handleConvertQuoteToInvoice = (quoteId, latest = null) => {
+    // `latest`: osparade ändringar i den öppna offerten följer med (2026-11-20).
+    const stored = quotes.find(q => q.id === quoteId);
+    const quote = stored && latest ? { ...stored, ...latest } : stored;
     if (!quote) return null;
 
     const invoiceNumber = getNextInvoiceNumber(invoices, company);
@@ -4738,7 +4740,7 @@ function App() {
     // Offerten finns kvar med status Fakturerad och en länk till fakturan
     // (2026-11-15), i stället för att försvinna. Fakturan blir ett utkast som
     // bokförs först när det skapas på riktigt (bookInvoiceIfNeeded).
-    setQuotes(prev => prev.map(q => (q.id === quoteId ? { ...q, status: 'invoiced', invoiceId: updatedInvoice.id, invoicedAt: today } : q)));
+    setQuotes(prev => prev.map(q => (q.id === quoteId ? { ...q, ...(latest || {}), status: 'invoiced', invoiceId: updatedInvoice.id, invoicedAt: today } : q)));
     setInvoices(prev => [...prev, updatedInvoice]);
     // En offert i annan valuta får dagens kurs när den blir faktura.
     if (updatedInvoice.currency && updatedInvoice.currency !== 'SEK' && !(Number(updatedInvoice.fxRate) > 0)) {

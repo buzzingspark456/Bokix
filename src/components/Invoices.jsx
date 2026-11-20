@@ -649,9 +649,7 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
       setFxStatus(tr('ui.fyll_i_vaxelkursen_for_fakturan_bokfors_i_kronor', { currency }));
       return;
     }
-    const to = emailToInput.trim();
-    if (!to) { setEmailError(tr('ui.ange_en_mottagaradress')); return; }
-    if (!sendableEmail(to)) { setEmailError(tr('ui.det_dar_ser_inte_ut_som_en_giltig_e_postadress')); return; }
+    // Adressen fylls i och kontrolleras i rutan (2026-11-20), inte i verktygsraden.
     let sparad = '';
     try { sparad = window.localStorage.getItem(messageStorageKey) || ''; } catch { /* privat läge */ }
     setEmailMessage(sparad || defaultEmailMessage());
@@ -909,16 +907,6 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
         <div className="toolbar-spacer" style={{ flex: 1, minWidth: '8px' }} />
         {emailError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{emailError}</span>}
         {emailSent && !emailError && <span style={{ fontSize: '11px', color: 'var(--status-green-text)', alignSelf: 'center', marginRight: 8 }}>{tr('ui.skickad')}</span>}
-        <input
-          type="email" value={emailToInput} onChange={e => { setEmailToInput(e.target.value); setEmailError(''); }}
-          placeholder={tr('ui.mottagarens_epost_se')} title={tr('ui.mottagarens_e_postadress_forifylld_fran_kundkort')}
-          className="toolbar-email-input"
-          style={{
-            padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12.5px', width: '190px',
-            flexShrink: 0, fontFamily: 'inherit',
-            background: 'var(--bg-card)', color: 'var(--text-main)',
-          }}
-        />
         {topBarBtn(
           // Redan mejlad: knappen heter Skicka igen (kunden har tappat bort den).
           emailBusy ? tr('ui.skickar') : (initial?.emailLog?.length || emailSent ? tr('ui.skicka_igen') : tr('ui.skicka_via_e_post')),
