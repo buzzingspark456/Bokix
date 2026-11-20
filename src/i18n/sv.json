@@ -531,6 +531,11 @@
     }
   },
   "ui": {
+    "q_menu_oppna": "Visa offert",
+    "q_kopiera": "Kopiera offert",
+    "q_menu_aria": "Fler åtgärder för offert {{n}}",
+    "q_filter_vantar": "Väntar på svar",
+    "q_filter_utgangen": "Utgången",
     "offert_mejl_standard": "Hej!\n\nHär kommer offert {{nr}} på {{amount}}. Offerten gäller till och med {{date}}.\n\nHör gärna av dig om du har frågor.",
     "skicka_offert": "Skicka offert",
     "q_utkast": "Utkast.",

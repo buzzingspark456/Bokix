@@ -531,6 +531,11 @@
     }
   },
   "ui": {
+    "q_menu_oppna": "View quote",
+    "q_kopiera": "Copy quote",
+    "q_menu_aria": "More actions for quote {{n}}",
+    "q_filter_vantar": "Awaiting reply",
+    "q_filter_utgangen": "Expired",
     "offert_mejl_standard": "Hi!\n\nHere is quote {{nr}} for {{amount}}. The quote is valid until {{date}}.\n\nLet us know if you have any questions.",
     "skicka_offert": "Send quote",
     "q_utkast": "Draft.",

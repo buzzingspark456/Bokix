@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { isVatExempt } from '../utils/vatRegistration';
-import { NavQuotesIcon, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Search, ChevronDown, ChevronRight, Printer } from './icons';
+import { NavQuotesIcon, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Search, ChevronDown, ChevronRight, Printer, Pencil, Copy, CheckCircle2, XCircle, RotateCcw } from './icons';
 import PaperFit from './shared/PaperFit';
 import DocSplit from './shared/DocSplit';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
@@ -9,6 +9,8 @@ import { exportInvoicePdf, getInvoicePdfBase64, printInvoicePdf } from '../utils
 import { sendInvoiceEmail } from '../emailApi';
 import { BRAND } from '../utils/brandColors';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
+import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, STRONG_DRAFT } from './shared/invoiceStatusStyle';
+import RowActionMenu from './shared/RowActionMenu';
 import ListTable from './shared/ListTable';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { showUndo, restoreAt } from './shared/undoToast';
@@ -70,19 +72,20 @@ const getDisplayStatus = (q) => {
 // Radernas bakgrund i listan, som kundfakturorna: grön för accepterad och
 // fakturerad, gul för väntar på svar, röd för avvisad och utgången.
 const QUOTE_ROW_BG = {
-  accepted: 'var(--row-paid-bg)', invoiced: 'var(--row-paid-bg)',
-  sent: 'var(--row-unpaid-bg)', expired: 'var(--row-overdue-bg)', rejected: 'var(--row-overdue-bg)',
+  accepted: 'var(--row-paid-bg)', invoiced: 'var(--status-green-bg)',
+  sent: 'var(--row-unpaid-bg)', expired: 'var(--row-overdue-bg)', rejected: 'var(--status-red-bg)',
   draft: 'var(--bg-muted)',
 };
 
 const getStatusStyle = (status) => {
+  // Samma toner som filterraden och kundfakturorna (2026-11-20).
   switch (status) {
-    case 'accepted': return { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)', label: t('ui.accepterad') };
+    case 'accepted': return { bg: STRONG_PAID.bg, color: STRONG_PAID.text, label: t('ui.accepterad') };
     case 'invoiced': return { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)', label: t('ui.offert_fakturerad') };
-    case 'sent': return { bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)', label: t('ui.skickad_2') };
+    case 'sent': return { bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text, label: t('ui.q_filter_vantar') };
     case 'rejected': return { bg: 'var(--status-red-bg)', color: 'var(--status-red-text)', label: t('ui.avvisad') };
-    case 'expired': return { bg: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', label: t('ui.forfallen') };
-    default: return { bg: 'var(--border-light)', color: 'var(--text-secondary)', label: t('ui.utkast') };
+    case 'expired': return { bg: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text, label: t('ui.q_filter_utgangen') };
+    default: return { bg: STRONG_DRAFT.bg, color: STRONG_DRAFT.text, label: t('ui.utkast') };
   }
 };
 
@@ -1077,6 +1080,8 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
 
 export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConvert, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction, articles = [], onSyncBeforeServerCall }) {
   const [searchTerm, setSearchTerm] = useState('');
+  // Statusfilter som Kundfakturor (2026-11-20), anpassat till offerter.
+  const [statusFilter, setStatusFilter] = useState('all');
   // Kundönskemål: "en knapp där man kan se femton, trettio, femtio" — samma
   // visa-N-åt-gången-väljare som Kunder/Fakturering (ListFilterBar).
   const [pageSize, setPageSize] = useState(30);
@@ -1091,12 +1096,23 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [globalAction, clearGlobalAction]);
 
-  const filtered = quotes.filter(q => {
+  const searched = quotes.filter(q => {
     if (!searchTerm) return true;
     const s = searchTerm.toLowerCase();
     const customerName = contacts.find(c => c.id === q.customerId)?.name || q.customerName || '';
     return customerName.toLowerCase().includes(s) || (q.invoiceNumber || '').toLowerCase().includes(s);
   });
+  const statusCounts = searched.reduce((acc, q) => { const k = getDisplayStatus(q); acc[k] = (acc[k] || 0) + 1; return acc; }, {});
+  const filtered = statusFilter === 'all' ? searched : searched.filter(q => getDisplayStatus(q) === statusFilter);
+  const statusOptions = [
+    { value: 'all', label: t('ui.alla') },
+    { value: 'draft', label: t('ui.utkast'), bg: STRONG_DRAFT.bg, color: STRONG_DRAFT.text, border: STRONG_DRAFT.border },
+    { value: 'sent', label: t('ui.q_filter_vantar'), bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text },
+    { value: 'expired', label: t('ui.q_filter_utgangen'), bg: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text },
+    { value: 'accepted', label: t('ui.accepterad'), bg: STRONG_PAID.bg, color: STRONG_PAID.text },
+    { value: 'rejected', label: t('ui.avvisad'), bg: 'var(--status-red-bg)', color: 'var(--status-red-text)' },
+    { value: 'invoiced', label: t('ui.offert_fakturerad'), bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' },
+  ];
   const visible = pageSize === 'all' ? filtered : filtered.slice(0, pageSize);
 
   const handleDelete = async (id, e) => {
@@ -1166,6 +1182,40 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
     closeForm();
   };
 
+  // Tre-punktsmenyn i listan (2026-11-20), som kundfakturorna men för offerter.
+  const setQuoteStatus = (q, next, e) => {
+    e?.stopPropagation?.();
+    const stamp = new Date().toISOString().slice(0, 10);
+    const extra = next === 'accepted' ? { acceptedAt: stamp } : next === 'rejected' ? { rejectedAt: stamp } : {};
+    setQuotes(prev => prev.map(x => (x.id === q.id ? { ...x, status: next, ...extra } : x)));
+  };
+  const duplicateQuote = (q) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const valid = new Date(); valid.setDate(valid.getDate() + 30);
+    const { id, invoiceId, invoicedAt, acceptedAt, rejectedAt, emailLog, ...rest } = q;
+    const copy = { ...rest, id: `q_${Date.now()}`, type: 'quote', invoiceNumber: getNextQuoteNumber(quotes), status: 'draft', date: today, dueDate: valid.toISOString().slice(0, 10) };
+    setQuotes(prev => [copy, ...(prev || [])]);
+    setEditingId(copy.id);
+    setIsFormOpen(true);
+  };
+  const buildQuoteMenu = (q) => {
+    const st = getDisplayStatus(q);
+    const items = [{ key: 'open', label: t('ui.q_menu_oppna'), icon: Eye, onClick: () => openEdit(q) }];
+    if (st !== 'invoiced') items.push({ key: 'edit', label: t('ui.redigera'), icon: Pencil, onClick: () => openEdit(q) });
+    if (st === 'sent' || st === 'expired') {
+      items.push({ key: 'accept', label: t('ui.q_accepterade'), icon: CheckCircle2, onClick: (e) => setQuoteStatus(q, 'accepted', e) });
+      items.push({ key: 'reject', label: t('ui.q_tackade_nej'), icon: XCircle, onClick: (e) => setQuoteStatus(q, 'rejected', e) });
+    }
+    if (st === 'accepted' || st === 'rejected') items.push({ key: 'undo', label: t('ui.q_andra_svar'), icon: RotateCcw, onClick: (e) => setQuoteStatus(q, 'sent', e) });
+    if (st === 'invoiced' && q.invoiceId) items.push({ key: 'invoice', label: t('ui.visa_fakturan'), icon: FileText, onClick: () => openInvoice(q.invoiceId) });
+    else if (onConvert) items.push({ key: 'convert', label: t('ui.skapa_faktura'), icon: FileText, onClick: (e) => handleConvert(q, e) });
+    items.push({ key: 'copy', label: t('ui.q_kopiera'), icon: Copy, onClick: () => duplicateQuote(q) });
+    if (st === 'draft') { items.push({ divider: true }); items.push({ key: 'sent', label: t('ui.markera_som_skickad'), icon: Send, onClick: (e) => setQuoteStatus(q, 'sent', e) }); }
+    items.push({ divider: true });
+    items.push({ key: 'delete', label: t('ui.ta_bort'), icon: Trash2, variant: 'danger', onClick: (e) => handleDelete(q.id, e) });
+    return items;
+  };
+
   const getTotal = (q) => {
     return (q.rows || []).reduce((sum, r) => {
       const net = (r.qty || 1) * (r.unitPrice || 0) * (1 - (r.discount || 0) / 100);
@@ -1226,6 +1276,32 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
           <input type="text" placeholder={t('ui.sok_offert_eller_kund')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={listSearchInputStyle} />
         </div>
       </ListFilterBar>
+      {quotes.length > 0 && (
+        <div className="inv-pills" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, flexWrap: 'wrap' }}>
+          {statusOptions.map(opt => {
+            const count = opt.value === 'all' ? searched.length : (statusCounts[opt.value] || 0);
+            if (count === 0 && opt.value !== statusFilter && opt.value !== 'all') return null;
+            const isActive = statusFilter === opt.value;
+            const neutral = opt.value === 'all';
+            return (
+              <button
+                key={opt.value} type="button" onClick={() => setStatusFilter(opt.value)} aria-pressed={isActive}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '7px', padding: '4px 12px', minHeight: '30px', boxSizing: 'border-box', whiteSpace: 'nowrap',
+                  background: neutral ? (isActive ? 'var(--bg-muted)' : 'transparent') : opt.bg,
+                  border: opt.border || '1px solid transparent',
+                  boxShadow: isActive ? '0 0 0 2px var(--bg-card), 0 0 0 3.5px ' + (neutral ? 'var(--text-secondary)' : opt.color) : 'none',
+                  borderRadius: '999px', fontSize: '12px', fontWeight: isActive ? 700 : 600,
+                  color: neutral ? 'var(--text-secondary)' : opt.color, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                {opt.label}
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: opt.color === '#ffffff' ? 'rgba(0,0,0,0.22)' : 'rgba(0,0,0,0.08)', color: neutral ? 'var(--text-secondary)' : opt.color }}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Ingen padding längre — matchar "facit" (Bokföring/Verifikationer):
           tabellen sitter flush direkt under filterraden. Tomt-läget nedan
@@ -1323,26 +1399,8 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
             },
             { key: 'total', label: t('ui.belopp'), align: 'right', fontWeight: 500, render: q => `${getTotal(q).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr` },
             {
-              key: 'actions', label: t('ui.atgarder'), align: 'right', render: q => (
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                  {/* Alltid tillgänglig oavsett status (utkast/skickad/accepterad/
-                      avvisad/förfallen) — det är ägarens eget omdöme om en kund
-                      faktiskt vill ha en faktura, inte något appen ska hindra
-                      baserat på var i statusflödet offerten råkar stå. Se samma
-                      resonemang vid motsvarande knapp i QuoteEditor ovan. */}
-                  {q.status === 'invoiced' && q.invoiceId ? (
-                  <button onClick={(e) => { e.stopPropagation(); openInvoice(q.invoiceId); }} title={t('ui.visa_fakturan')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                    <FileText size={16} />
-                  </button>
-                  ) : (
-                  <button onClick={(e) => handleConvert(q, e)} title={t('ui.konvertera_till_faktura')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--accent-text)' }}>
-                    <FileText size={16} />
-                  </button>
-                  )}
-                  <button onClick={(e) => handleDelete(q.id, e)} title={t('ui.ta_bort')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+              key: 'actions', label: '', align: 'right', width: '48px', render: q => (
+                <span onClick={e => e.stopPropagation()}><RowActionMenu ariaLabel={t('ui.q_menu_aria', { n: q.invoiceNumber || '' })} items={buildQuoteMenu(q)} /></span>
               ),
             },
           ]}
