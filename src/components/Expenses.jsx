@@ -27,6 +27,7 @@ import { ScanOverlay, OcrChecklist, ReadDetails, ReadText, photoHintText, MIN_SC
 import { buyerDetailsCheck } from '../utils/receiptBuyer';
 import { newDocument } from '../utils/looseDocuments';
 import DocumentsToLink from './DocumentsToLink';
+import { GmailLogo } from './shared/BrandLogos';
 import { convertToSek } from '../utils/currencyConversion';
 import { historyForSupplier, historyFromVerifications } from '../utils/receiptHistory';
 import { needsAutoRead, autoReadTried, markAutoReadTried } from '../utils/autoRead';
@@ -1933,61 +1934,82 @@ function SendersView({ info, onSaveSenders, receipts = [], ownEmail = '' }) {
 
 /** Inställningar för inkorgen (2026-11-18): adressen, Gmail och notiser på en
  * lugn inställningssida i stället för en egen vy med kort. */
-function MailboxView({ info, notify = true, onNotify }) {
+function MailboxView({ info, notify = true, onNotify, onSenders, onUpload }) {
   const gmailConnected = Boolean(info?.gmailCodeAt && info?.lastReceivedAt && Date.parse(info.lastReceivedAt) - Date.parse(info.gmailCodeAt) > 60 * 1000);
   const [gmailOpen, setGmailOpen] = useState(false);
-  const row = (title, sub, right, extra) => (
-    <div className="ut-set-row">
-      <div className="ut-set-text"><b>{title}</b>{sub && <span>{sub}</span>}</div>
-      <div className="ut-set-right">{right}</div>
-      {extra}
-    </div>
-  );
+  const list = info?.allowedSenders || [];
+  const blocked = list.filter(x => String(x).startsWith('!')).length;
+  const approved = list.length - blocked;
+  const last = info?.lastReceivedAt ? new Date(info.lastReceivedAt).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }) : null;
   return (
     <div className="ut">
       <div className="ut-head">
         <h1>{tr('underlag.navSettings')}</h1>
         <p>{tr('underlag.settingsIntro')}</p>
       </div>
-      <div className="ut-set">
-        <h2>{tr('underlag.setAddressTitle')}</h2>
-        {row(
-          info?.address ? <code className="ut-set-code">{info.address}</code> : tr('underlag.mbxAddressMissing'),
-          <>{tr('underlag.mbxHeroHint')} {info?.lastReceivedAt ? tr('underlag.mbxLast', { when: new Date(info.lastReceivedAt).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }) }) : tr('underlag.mbxNoneYet')}</>,
-          info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />,
-        )}
+
+      <div className="ut-hero">
+        <span className="ut-hero-ico"><Mail size={20} /></span>
+        <div className="ut-hero-text">
+          <span className="ut-hero-label">{tr('underlag.setAddressTitle')}</span>
+          {info?.address ? <code className="ut-hero-addr">{info.address}</code> : <b>{tr('underlag.mbxAddressMissing')}</b>}
+          <span className="ut-hero-sub">{last ? tr('underlag.mbxLast', { when: last }) : tr('underlag.mbxNoneYet')}</span>
+        </div>
+        {info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />}
       </div>
-      <div className="ut-set">
-        <h2>{tr('underlag.setForwardTitle')}</h2>
-        {row(
-          <><span className="ut-set-g">G</span>{tr('underlag.mbxGmail')}</>,
-          gmailConnected ? tr('underlag.mbxGmailOn') : tr('underlag.mbxGmailSub'),
-          gmailConnected
-            ? <span className="uw-mbx-on">{tr('underlag.mbxConnected')}</span>
-            : <a className="ut-way-btn" href={GMAIL_FORWARDING_URL} target="_blank" rel="noopener noreferrer" onClick={() => setGmailOpen(true)}>{tr('underlag.mbxConnect')}</a>,
-          !gmailConnected && (gmailOpen || info?.gmailCode) && (
-            <ol className="ut-steps ut-set-steps">
-              <li>{tr('underlag.mbxStepA')}</li>
-              <li>{tr('underlag.mbxStep2')} {info?.gmailCode ? <b className="uw-mbx-code">{info.gmailCode}</b> : <em>{tr('underlag.mbxCodeWait')}</em>}</li>
-              <li>{tr('underlag.mbxStepB')} <a href={GMAIL_FILTERS_URL} target="_blank" rel="noopener noreferrer">{tr('underlag.mbxFilters')}</a></li>
-            </ol>
-          ),
-        )}
-        {row(tr('underlag.setOtherMail'), tr('underlag.setOtherMailSub'), null)}
+
+      <h2 className="ut-set-h">{tr('underlag.setWaysTitle')}</h2>
+      <div className="ut-ways">
+        <div className={`ut-way${gmailConnected ? ' is-on' : ''}`}>
+          <div className="ut-way-top">
+            <span className="ut-way-logo"><GmailLogo height={22} /></span>
+            {gmailConnected && <span className="ut-way-on"><CheckCircle2 size={13} /> {tr('underlag.mbxConnected')}</span>}
+          </div>
+          <b>{tr('underlag.mbxGmail')}</b>
+          <span>{gmailConnected ? tr('underlag.mbxGmailOn') : tr('underlag.mbxGmailSub')}</span>
+          {!gmailConnected && (
+            <a className="ut-way-btn" href={GMAIL_FORWARDING_URL} target="_blank" rel="noopener noreferrer" onClick={() => setGmailOpen(true)}>{tr('underlag.mbxConnectGmail')}</a>
+          )}
+        </div>
+        <div className="ut-way">
+          <div className="ut-way-top"><span className="ut-way-logo is-icon"><Mail size={20} /></span></div>
+          <b>{tr('underlag.setOtherMail')}</b>
+          <span>{tr('underlag.setOtherMailSub')}</span>
+          {info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />}
+        </div>
+        <div className="ut-way">
+          <div className="ut-way-top"><span className="ut-way-logo is-icon"><Camera size={20} /></span></div>
+          <b>{tr('underlag.setPhone')}</b>
+          <span>{tr('underlag.setPhoneSub')}</span>
+          {onUpload && <button type="button" className="ut-way-btn ghost" onClick={onUpload}>{tr('underlag.uploadDocs')}</button>}
+        </div>
       </div>
+      {!gmailConnected && (gmailOpen || info?.gmailCode) && (
+        <div className="ut-set ut-gmail-steps">
+          <h2><GmailLogo height={14} /> {tr('underlag.setGmailSteps')}</h2>
+          <ol className="ut-steps">
+            <li>{tr('underlag.mbxStepA')}</li>
+            <li>{tr('underlag.mbxStep2')} {info?.gmailCode ? <b className="uw-mbx-code">{info.gmailCode}</b> : <em>{tr('underlag.mbxCodeWait')}</em>}</li>
+            <li>{tr('underlag.mbxStepB')} <a href={GMAIL_FILTERS_URL} target="_blank" rel="noopener noreferrer">{tr('underlag.mbxFilters')}</a></li>
+          </ol>
+        </div>
+      )}
+
+      <h2 className="ut-set-h">{tr('underlag.setMore')}</h2>
       <div className="ut-set">
-        <h2>{tr('underlag.setNotifyTitle')}</h2>
-        {row(
-          tr('underlag.setNotifyBell'),
-          tr('underlag.setNotifyBellSub'),
-          <label className="ut-switch"><input type="checkbox" checked={notify} onChange={e => onNotify?.(e.target.checked)} /><span /></label>,
-        )}
+        <div className="ut-set-row">
+          <div className="ut-set-text"><b>{tr('underlag.navSenders')}</b><span>{tr('underlag.setSendersSub', { approved, blocked })}</span></div>
+          <div className="ut-set-right">{onSenders && <button type="button" className="ut-way-btn ghost" onClick={onSenders}>{tr('underlag.setManage')}</button>}</div>
+        </div>
+        <div className="ut-set-row">
+          <div className="ut-set-text"><b>{tr('underlag.setNotifyBell')}</b><span>{tr('underlag.setNotifyBellSub')}</span></div>
+          <div className="ut-set-right"><label className="ut-switch"><input type="checkbox" checked={notify} onChange={e => onNotify?.(e.target.checked)} /><span /></label></div>
+        </div>
       </div>
     </div>
   );
 }
 
-/** Papperskorgen: borttagna underlag går att återställa i 30 dagar. */
 /** Saknar underlag (2026-11-20): bokförda verifikationer utan kvitto eller
  * faktura. Ladda upp filen direkt på raden, eller ange att originalet finns på papper. */
 function MissingView({ verifications, onAttach, onPaper }) {
@@ -2057,6 +2079,7 @@ function MissingView({ verifications, onAttach, onPaper }) {
   );
 }
 
+/** Papperskorgen: borttagna underlag går att återställa i 30 dagar. */
 function TrashView({ items, onRestore, onPurge }) {
   const sorted = [...items].sort((a, b) => String(b.trashedAt || '').localeCompare(String(a.trashedAt || '')));
   const emptyAll = async () => {
@@ -2752,7 +2775,7 @@ export default function Expenses({
                 <SendersView info={inboxInfo} onSaveSenders={saveSenders} receipts={[...allReceipts, ...receiptTrash]} ownEmail={user?.email || ''} />
               )}
               {uwView === 'mailbox' && (
-                <MailboxView info={inboxInfo} notify={inboxNotify} onNotify={setInboxNotify} />
+                <MailboxView info={inboxInfo} notify={inboxNotify} onNotify={setInboxNotify} onSenders={() => setUwView('senders')} onUpload={() => document.getElementById('uw-upload').click()} />
               )}
               {uwView === 'missing' && (
                 <MissingView

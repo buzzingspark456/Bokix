@@ -1300,15 +1300,24 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Smal meny (bara ikoner) som man själv slår på, på alla sidor (2026-11-19).
   const [navRail, setNavRail] = useState(() => { try { return localStorage.getItem('bokix.navRail') === '1'; } catch { return false; } });
+  // I Underlag fälls menyn ihop av sig själv, som Fortnox (2026-11-20). Det valet
+  // sparas inte: lämnar man Underlag kommer det egna valet tillbaka.
+  const [autoRail, setAutoRail] = useState(false);
+  const [railOverride, setRailOverride] = useState(false);
+  useEffect(() => { setRailOverride(false); }, [autoRail]);
+  const effectiveRail = navRail || (autoRail && !railOverride);
+  const toggleNavRail = () => { if (autoRail && !navRail) setRailOverride(v => !v); else setNavRail(v => !v); };
   useEffect(() => {
-    if (navRail) document.documentElement.setAttribute('data-nav-rail', '1');
+    if (effectiveRail) document.documentElement.setAttribute('data-nav-rail', '1');
     else document.documentElement.removeAttribute('data-nav-rail');
+  }, [effectiveRail]);
+  useEffect(() => {
     try { localStorage.setItem('bokix.navRail', navRail ? '1' : '0'); } catch { /* privat läge */ }
   }, [navRail]);
   // Sidomenyn krymper själv steg för steg (data-fit, index.css) tills hela listan ryms utan
   // skroll, också i ett riktigt lågt fönster (hög skärmskalning eller inzoomad sida).
   const sidebarNavRef = useRef(null);
-  const sidebarFit = useFitLevel(sidebarNavRef, 3, navRail ? 'rail' : 'full');
+  const sidebarFit = useFitLevel(sidebarNavRef, 3, effectiveRail ? 'rail' : 'full');
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   // Face ID-spärren (utils/sessionPolicy.js, components/AppLock.jsx).
   const [appLocked, setAppLocked] = useState(false);
@@ -1472,6 +1481,9 @@ function App() {
   }, [location.pathname]);
 
   const [user, setUser] = useState(null);
+  // Underlag fäller ihop huvudmenyn (se autoRail ovan).
+  const wantAutoRail = isNewUnderlagUser(user?.email) && activeTab === 'expenses';
+  useEffect(() => { setAutoRail(wantAutoRail); }, [wantAutoRail]);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(() => localStorage.getItem('bokix_onboarding_completed') === 'true');
@@ -6630,12 +6642,12 @@ function App() {
           <button
             type="button"
             className="nav-item nav-rail-toggle"
-            title={navRail ? tr('ui.nav_expand') : tr('ui.nav_collapse')}
-            aria-label={navRail ? tr('ui.nav_expand') : tr('ui.nav_collapse')}
-            onClick={() => setNavRail(v => !v)}
+            title={effectiveRail ? tr('ui.nav_expand') : tr('ui.nav_collapse')}
+            aria-label={effectiveRail ? tr('ui.nav_expand') : tr('ui.nav_collapse')}
+            onClick={toggleNavRail}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
-              <ChevronLeft size={18} style={{ flexShrink: 0, opacity: 0.85, transform: navRail ? 'rotate(180deg)' : 'none', transition: 'transform 200ms ease' }} />
+              <ChevronLeft size={18} style={{ flexShrink: 0, opacity: 0.85, transform: effectiveRail ? 'rotate(180deg)' : 'none', transition: 'transform 200ms ease' }} />
               <span className="nav-label">{tr('ui.nav_collapse')}</span>
             </span>
           </button>
