@@ -325,14 +325,20 @@ export default async function handler(req, res) {
           })
         : { atPeriodEnd: true, cancelAt: null };
 
+      // Stripe tar bara EN av cancel_at och cancel_at_period_end per anrop
+      // ("Received both ... Please pass in only one", 2026-11-20). Vid
+      // återaktivering nollas den som faktiskt är satt på prenumerationen.
+      let reactivateFields = {};
+      if (body.action === 'reactivate') {
+        const live = await stripe.subscriptions.retrieve(subRow.stripe_subscription_id);
+        reactivateFields = live.cancel_at_period_end ? { cancel_at_period_end: false } : { cancel_at: null };
+      }
       const updated = await stripe.subscriptions.update(subRow.stripe_subscription_id, {
-        ...(body.action === 'cancel' && cancellation.cancelAt
-          ? { cancel_at: Math.floor(cancellation.cancelAt.getTime() / 1000) }
-          : { cancel_at_period_end: body.action === 'cancel' }),
-        // Återaktivering måste nolla BÅDA vägarna ut: en prenumeration som
-        // sagts upp med cancel_at (minimitiden) släpps inte av att bara
-        // cancel_at_period_end sätts till false.
-        ...(body.action === 'reactivate' ? { cancel_at: null, cancel_at_period_end: false } : {}),
+        ...(body.action === 'cancel'
+          ? (cancellation.cancelAt
+            ? { cancel_at: Math.floor(cancellation.cancelAt.getTime() / 1000) }
+            : { cancel_at_period_end: true })
+          : reactivateFields),
         // Varför kunden avslutar (valfritt): Stripes egna fält för uppsägningsorsak.
         ...(body.action === 'cancel' && (CANCEL_FEEDBACK.has(body.feedback) || body.comment)
           ? { cancellation_details: { ...(CANCEL_FEEDBACK.has(body.feedback) ? { feedback: body.feedback } : {}), ...(body.comment ? { comment: String(body.comment).slice(0, 500) } : {}) } }
