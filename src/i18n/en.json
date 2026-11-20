@@ -4368,6 +4368,8 @@
     "colVer": "No.",
     "colDate": "Date",
     "colText": "Description",
+    "markAllRead": "Mark all as read",
+    "unread": "Unread",
     "justNow": "Just now",
     "minAgo": "{{n}} min ago",
     "hAgo": "{{n}} h ago",

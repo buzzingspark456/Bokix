@@ -3,7 +3,7 @@ import { REPRESENTATION_ACCOUNTS, representationBooking, representationKinds } f
 import { isVatExempt } from '../utils/vatRegistration';
 import {
   UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop, SlidersHorizontal,
-  Mail, Copy, Inbox, Cog, Menu,
+  Mail, Copy, Inbox, Cog, Menu, Check,
 } from './icons';
 import { supabase } from '../supabaseClient';
 import { AccountSearch } from './shared/SearchInputs';
@@ -2123,7 +2123,7 @@ function TrashView({ items, onRestore, onPurge }) {
 
 /** Underlag som tabell, som Fortnox (2026-11-18): kryssrutor, kolumner för
  * belopp, inkommet, avläsning, källa och avsändare. En rad öppnar underlaget. */
-function UnderlagTable({ receipts: allRows, statusOf, stepOf, readingId, onOpen, onDeleteMany, onUpload, onMailIn, onSenders, inboxAddress, onlyEmail = false, uploading = [] }) {
+function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readingId, onOpen, onDeleteMany, onUpload, onMailIn, onSenders, inboxAddress, onlyEmail = false, uploading = [] }) {
   const receipts = onlyEmail ? allRows.filter(r => r.inbox?.source === 'email') : allRows;
   const [tab, setTab] = useState('todo');
   const [q, setQ] = useState('');
@@ -2145,6 +2145,8 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, readingId, onOpen,
     onDeleteMany?.(ids);
     setPicked(new Set());
   };
+  const isUnread = (r) => Boolean(onMarkSeen) && r.inbox?.source === 'email' && !r.inbox.seenAt;
+  const unreadIds = receipts.filter(isUnread).map(r => r.id);
   const chips = [['todo', tr('underlag.todo')], ['booked', tr('underlag.booked')], ['all', tr('underlag.all')]];
   return (
     <div className="ut">
@@ -2174,6 +2176,7 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, readingId, onOpen,
           <button type="button" className="ut-upload" onClick={onUpload}><UploadCloud size={16} /> {tr('underlag.uploadDocs')}</button>
         )}
         <div className="ut-bar-right">
+          {onlyEmail && onMarkSeen && unreadIds.length > 0 && <button type="button" className="ut-link" onClick={() => onMarkSeen(unreadIds)}><Check size={15} /> {tr('underlag.markAllRead')}</button>}
           {onlyEmail && onSenders && <button type="button" className="ut-link" onClick={onSenders}><CheckCircle2 size={15} /> {tr('underlag.manageSenders')}</button>}
           <button type="button" className="ut-link" onClick={onMailIn}><Mail size={15} /> {tr('underlag.mailIn')}</button>
         </div>
@@ -2243,12 +2246,13 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, readingId, onOpen,
               const name = r.supplier || r.description || r.ocrDraft?.form?.supplier || r.inbox?.fileName || tr('underlag.unnamed');
               const sender = r.inbox?.source === 'email' ? (r.inbox.from || '') : (r.uploadedBy?.name || '');
               return (
-                <tr key={r.id} className={picked.has(r.id) ? 'picked' : undefined} onClick={() => onOpen(r.id, shown.map(x => x.id))}>
+                <tr key={r.id} className={[picked.has(r.id) && 'picked', isUnread(r) && 'ut-unread'].filter(Boolean).join(' ') || undefined} onClick={() => onOpen(r.id, shown.map(x => x.id))}>
                   <td className="ut-c-check" onClick={e => e.stopPropagation()}>
                     <input type="checkbox" checked={picked.has(r.id)} disabled={!deletable(r)} onChange={() => togglePick(r.id)} aria-label={name} />
                   </td>
                   <td>
                     <span className="ut-doc">
+                      {isUnread(r) && <i className="ut-unread-dot" aria-label={tr('underlag.unread')} />}
                       <span className="ut-thumb"><ReceiptThumb receipt={r} /></span>
                       <span className="ut-doc-text">
                         {onlyEmail && r.inbox?.subject
@@ -2328,6 +2332,8 @@ export default function Expenses({
   globalAction, clearGlobalAction,
   // Saknar underlag: fil eller pappersoriginal till en bokförd verifikation.
   onAttachToVerification,
+  // Mejl läst/oläst (inbox.seenAt).
+  onMarkSeen,
 }) {
   // -- Receipts State --
   const [isDragging, setIsDragging] = useState(false);
@@ -2487,6 +2493,9 @@ export default function Expenses({
   const [shownCount, setShownCount] = useState(RECEIPTS_PAGE);
   useEffect(() => { setShownCount(RECEIPTS_PAGE); }, [q, effectiveTab, monthFilter, statusFilter, folderFilter]);
   const detailReceipt = detailReceiptId ? allReceipts.find(r => r.id === detailReceiptId) : null;
+  useEffect(() => {
+    if (onMarkSeen && detailReceipt?.inbox?.source === 'email' && !detailReceipt.inbox.seenAt) onMarkSeen([detailReceipt.id]);
+  }, [detailReceipt?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // Nya underlag läses av ett i taget så fort Underlag är öppet (se
   // needsAutoRead). Den som håller på att läsas visas som "Läses av" i listan.
   const [autoReading, setAutoReading] = useState(null);
@@ -2713,7 +2722,9 @@ export default function Expenses({
               onView={setUwView}
               counts={{
                 todo: receiptsList.filter(r => ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex))).length,
-                mail: receiptsList.filter(r => r.inbox?.source === 'email' && ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex))).length,
+                mail: onMarkSeen
+                  ? receiptsList.filter(r => r.inbox?.source === 'email' && !r.inbox.seenAt).length
+                  : receiptsList.filter(r => r.inbox?.source === 'email' && ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex))).length,
                 trash: receiptTrash.length,
                 missing: onAttachToVerification ? missingCount : null,
               }}
@@ -2733,6 +2744,7 @@ export default function Expenses({
                   onUpload={() => document.getElementById('uw-upload').click()}
                   onMailIn={() => setUwView('mailbox')}
                   onSenders={() => setUwView('senders')}
+                  onMarkSeen={onMarkSeen}
                   inboxAddress={inboxInfo?.address}
                 />
               )}

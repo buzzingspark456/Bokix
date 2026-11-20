@@ -4368,6 +4368,8 @@
     "colVer": "Ver.nr",
     "colDate": "Datum",
     "colText": "Beskrivning",
+    "markAllRead": "Markera alla som lästa",
+    "unread": "Oläst",
     "justNow": "Nyss",
     "minAgo": "{{n}} min sedan",
     "hAgo": "{{n}} h sedan",

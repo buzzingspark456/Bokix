@@ -10217,3 +10217,9 @@ img.hc-player { object-fit: cover; }
 /* Undermenyn: namnen på en rad. */
 .ut-nav-side button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ut-nav-side button em { flex-shrink: 0; }
+
+/* Mejl läst/oläst (2026-11-20): olästa rader i fetstil med en grön prick. */
+.ut-doc { position: relative; }
+.ut-unread-dot { position: absolute; left: -12px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: var(--primary, #0b6329); }
+.ut-table tr.ut-unread .ut-doc-text b { font-weight: 750; color: var(--text-main); }
+.ut-table tr.ut-unread .ut-doc-text small { color: var(--text-main); }

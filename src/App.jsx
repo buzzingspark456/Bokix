@@ -5202,6 +5202,18 @@ function App() {
   // Avläsningen av ett kvitto sparas på kvittot som ett utkast (ocrDraft) så
   // att det visas direkt nästa gång kvittot öppnas, utan ny avläsning. Det är
   // inte ifyllda fält: kvittot förblir "ej hanterat" tills man själv sparar.
+  // Mejl i Underlag: läst när det öppnats (inbox.seenAt), som en inkorg.
+  const handleMarkInboxSeen = (ids, seen = true) => {
+    const set = new Set(ids || []);
+    if (!set.size) return;
+    const at = new Date().toISOString();
+    setExpenses(prev => prev.map(e => {
+      if (!set.has(e.id) || e.inbox?.source !== 'email' || Boolean(e.inbox.seenAt) === seen) return e;
+      const inbox = { ...e.inbox };
+      if (seen) inbox.seenAt = at; else delete inbox.seenAt;
+      return { ...e, inbox };
+    }));
+  };
   const handleSaveOcrDraft = (expenseId, draft) => {
     setExpenses(prev => prev.map(e => (e.id === expenseId ? { ...e, ocrDraft: draft } : e)));
   };
@@ -6124,6 +6136,7 @@ function App() {
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
             onAttachToVerification={isNewUnderlagUser(user?.email) ? handleAttachToVerification : undefined}
+            onMarkSeen={isNewUnderlagUser(user?.email) ? handleMarkInboxSeen : undefined}
           />
         );
       case 'supplier_invoices': {
