@@ -219,7 +219,7 @@ export const NavSalesIcon = make(MdOutlineStorefront, 'NavSalesIcon');
 // pil in. Inga dollartecken.
 export const NavQuotesIcon = make(MdOutlineEditNote, 'NavQuotesIcon');
 export const NavInvoicesIcon = make(MdOutlineTask, 'NavInvoicesIcon');
-export const NavCustomerInvoicesIcon = make(MdOutlineUploadFile, 'NavCustomerInvoicesIcon');
+export const NavCustomerInvoicesIcon = make(MdOutlineDescription, 'NavCustomerInvoicesIcon');
 export const NavSupplierInvoicesIcon = make(MdOutlinePayments, 'NavSupplierInvoicesIcon');
 // Skatt och bokslut: en checklista, som sidans Att göra-lista.
 // Rapporter: staplar utan ram (grundarens val E, 2026-11-20).
