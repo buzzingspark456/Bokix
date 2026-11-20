@@ -10317,3 +10317,48 @@ img.hc-player { object-fit: cover; }
 .ut-from span { display: inline-block; max-width: 180px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
 .rqt-account { max-width: 380px; }
 .rqt-main { grid-template-columns: 18px minmax(160px, 1fr) 96px minmax(220px, 380px) auto; }
+
+/* Underlag som Fortnox, omgång 2 (2026-11-20) */
+.ut-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.ut-head-row > div:first-child { min-width: 0; }
+.ut-head-links { display: flex; align-items: center; gap: 14px; flex-shrink: 0; padding-top: 6px; }
+.ut-pillbtn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border: 1px solid var(--accent, #0b6329); border-radius: 999px; background: var(--bg-card); color: var(--accent-text, #0b6329); font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.ut-pillbtn:hover { background: var(--status-green-bg); }
+.ut-iconbtn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin-left: 6px; border: none; border-radius: 8px; background: none; color: var(--text-muted); cursor: pointer; vertical-align: middle; }
+.ut-iconbtn:hover { background: var(--status-red-bg, #fdecec); color: var(--status-red-text, #b42318); }
+.ut-link:disabled { opacity: 0.45; cursor: default; }
+@keyframes ut-spin { to { transform: rotate(-360deg); } }
+.ut-spin { animation: ut-spin 0.8s linear infinite; }
+.ut-mail-filters { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.ut-seg { display: inline-flex; padding: 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); }
+.ut-seg button { height: 30px; padding: 0 16px; border: none; border-radius: 999px; background: none; color: var(--text-main); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.ut-seg button.on { background: var(--accent, #0b6329); color: #fff; }
+.ut-toggle { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; color: var(--text-main); cursor: pointer; }
+.ut-days { font-variant-numeric: tabular-nums; }
+.ut-days.is-soon { color: var(--status-red-text, #b42318); font-weight: 600; }
+.ut-rev-note:empty { display: none; }
+.ut-set-h3 { max-width: 820px; margin: 18px 0 10px; font-size: 15px; font-weight: 700; color: var(--text-main); }
+.ut-set-senders { max-width: 820px; }
+.ut-set-senders .ut-snd-card { margin-top: 0; }
+/* Mejla in underlag-rutan */
+.ut-mi { display: flex; flex-direction: column; gap: 18px; }
+.ut-mi-addr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 14px 16px; border-radius: 12px; background: var(--bg-muted); }
+.ut-mi-addr > span { flex-basis: 100%; font-size: 12px; font-weight: 700; color: var(--text-muted); }
+.ut-mi-addr code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; font-weight: 600; color: var(--text-main); overflow-wrap: anywhere; }
+.ut-mi-addr .uw-copy { margin-left: auto; border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; background: var(--bg-card); color: var(--text-main); }
+.ut-mi section h3 { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: var(--text-main); }
+.ut-mi section p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--text-secondary); }
+.ut-mi-gmail { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; }
+.ut-mi-gmail > div { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.ut-mi-gmail b { font-size: 13.5px; color: var(--text-main); }
+.ut-mi-gmail > div span { font-size: 12.5px; color: var(--text-muted); }
+.ut-mi-gmail .ut-way-btn { margin-top: 0; }
+.ut-mi .ut-steps { margin: 10px 0 0; }
+.ut-mi-other { margin-top: 10px !important; }
+.ut-link-inline { display: inline; padding: 0; font-size: inherit; }
+.ut-mi-foot { display: flex; justify-content: flex-end; padding-top: 4px; border-top: 1px solid var(--border-light); }
+.ut-mi-foot .ut-pillbtn { margin-top: 12px; }
+
+.ut-shell { grid-template-columns: 160px minmax(0, 1fr); }
+.ut-filters + .ut-table-wrap { margin-top: 14px; }
+.ut-actions .ut-pillbtn + .ut-link { margin-left: 10px; }

@@ -3,7 +3,7 @@ import { REPRESENTATION_ACCOUNTS, representationBooking, representationKinds } f
 import { isVatExempt } from '../utils/vatRegistration';
 import {
   UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop, SlidersHorizontal,
-  Mail, Copy, Inbox, Cog, Menu, Check,
+  Mail, Copy, Inbox, Cog, Menu, Check, Info, MailOpen,
 } from './icons';
 import { supabase } from '../supabaseClient';
 import { AccountSearch } from './shared/SearchInputs';
@@ -353,7 +353,7 @@ function useInboxAddress(companyId, { poll = false } = {}) {
     } catch { /* visas nedan */ }
     return false;
   }, [companyId]);
-  return { info, saveSenders };
+  return { info, saveSenders, reload: load };
 }
 
 function CopyButton({ text, label }) {
@@ -1796,7 +1796,8 @@ function UnderlagPage({ title, intro, children }) {
 /** Granska avsändare (2026-11-18, efter Fortnox Hantera avsändare): flikarna
  * Godkända och Blockerade, enskilda adresser och hela domäner, de som mejlat
  * in. Blockerade sparas som "!adress" i samma lista (api/inbox/_inbox.js). */
-function SendersView({ info, onSaveSenders, receipts = [], ownEmail = '' }) {
+function SendersView({ info, onSaveSenders, receipts = [], ownEmail = '', mode = 'review' }) {
+  const [revTab, setRevTab] = useState('todo');
   const [tab, setTab] = useState('allowed');
   const [input, setInput] = useState('');
   const [err, setErr] = useState('');
@@ -1869,21 +1870,7 @@ function SendersView({ info, onSaveSenders, receipts = [], ownEmail = '' }) {
       )}
     </div>
   );
-  return (
-    <div className="ut">
-      <div className="ut-head">
-        <h1>{tr('underlag.navSenders')}</h1>
-        <p>{tr('underlag.sendersIntro2')}</p>
-      </div>
-      {showStopped && (
-        <div className="ut-alert">
-          <AlertCircle size={15} />
-          <span>{tr('underlag.sendersBlocked', { from: info.lastBlockedFrom })}{info.lastBlockedAt ? ` · ${new Date(info.lastBlockedAt).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</span>
-          <button type="button" onClick={() => allow(stopped)}>{tr('underlag.sendersAllow')}</button>
-          <button type="button" className="ut-alert-ghost" onClick={() => block(stopped)}>{tr('underlag.block')}</button>
-          <button type="button" className="ut-alert-x" onClick={hideStopped} aria-label={tr('underlag.hide')} title={tr('underlag.hide')}><X size={15} /> {tr('underlag.hide')}</button>
-        </div>
-      )}
+  const manageCard = (
       <div className="ut-snd-card">
         <div className="ut-snd-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === 'allowed'} className={tab === 'allowed' ? 'on' : undefined} onClick={() => { setTab('allowed'); setErr(''); }}>{tr('underlag.tabAllowed')} <span>{allowed.length}</span></button>
@@ -1903,7 +1890,32 @@ function SendersView({ info, onSaveSenders, receipts = [], ownEmail = '' }) {
           {section(tr('underlag.secDomains'), domains, tr('underlag.noneDomains'))}
         </div>
       </div>
-      <h2 className="ut-h2">{tr('underlag.sendersSeenTitle')}</h2>
+  );
+  if (mode === 'manage') return manageCard;
+  const toReview = seen.filter(x => ['stopped', 'blocked'].includes(statusOf(x.addr)));
+  const seenShown = revTab === 'todo' ? seen.filter(x => statusOf(x.addr) === 'stopped') : seen;
+  return (
+    <div className="ut">
+      <div className="ut-head">
+        <h1>{tr('underlag.navSenders')}</h1>
+        <p>{tr('underlag.sendersReviewIntro')}</p>
+      </div>
+      {showStopped && (
+        <div className="ut-alert">
+          <AlertCircle size={15} />
+          <span>{tr('underlag.sendersBlocked', { from: info.lastBlockedFrom })}{info.lastBlockedAt ? ` · ${new Date(info.lastBlockedAt).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</span>
+          <button type="button" onClick={() => allow(stopped)}>{tr('underlag.sendersAllow')}</button>
+          <button type="button" className="ut-alert-ghost" onClick={() => block(stopped)}>{tr('underlag.block')}</button>
+          <button type="button" className="ut-alert-x" onClick={hideStopped} aria-label={tr('underlag.hide')} title={tr('underlag.hide')}><X size={15} /> {tr('underlag.hide')}</button>
+        </div>
+      )}
+      <div className="ut-filters">
+        <div className="ut-chips">
+          <button type="button" className={`ut-chip${revTab === 'todo' ? ' on' : ''}`} onClick={() => setRevTab('todo')}>{tr('underlag.revTodo')} ({seen.filter(x => statusOf(x.addr) === 'stopped').length})</button>
+          <button type="button" className={`ut-chip${revTab === 'all' ? ' on' : ''}`} onClick={() => setRevTab('all')}>{tr('underlag.revAll')} ({seen.length})</button>
+        </div>
+        <span className="ut-bar-muted ut-rev-note">{toReview.length ? '' : tr('underlag.revNoneNote')}</span>
+      </div>
       <div className="ut-table-wrap">
         <table className="ut-table ut-table-static">
           <thead>
@@ -1916,8 +1928,8 @@ function SendersView({ info, onSaveSenders, receipts = [], ownEmail = '' }) {
             </tr>
           </thead>
           <tbody>
-            {seen.length === 0 && <tr><td colSpan={5} className="ut-empty"><UtEmpty icon={Mail} title={tr('underlag.sendersNone')} text={info?.address ? tr('underlag.noMailText', { address: info.address }) : ''} /></td></tr>}
-            {seen.map(s => {
+            {seenShown.length === 0 && <tr><td colSpan={5} className="ut-empty"><UtEmpty icon={CheckCircle2} title={revTab === 'todo' ? tr('underlag.revNone') : tr('underlag.sendersNone')} text={revTab === 'todo' ? tr('underlag.revNoneText') : (info?.address ? tr('underlag.noMailText', { address: info.address }) : '')} /></td></tr>}
+            {seenShown.map(s => {
               const st = statusOf(s.addr);
               return (
                 <tr key={s.addr}>
@@ -1926,7 +1938,7 @@ function SendersView({ info, onSaveSenders, receipts = [], ownEmail = '' }) {
                   <td className="ut-muted">{s.last ? new Date(s.last).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '–'}</td>
                   <td><span className={`ut-pill ${st === 'blocked' || st === 'stopped' ? 'stop' : 'ok'}`}>{tr(`underlag.st_${st}`)}</span></td>
                   <td className="ut-actions">
-                    {(st === 'stopped' || st === 'blocked') && <button type="button" className="ut-link" onClick={() => allow(s.addr)}>{tr('underlag.sendersAllow')}</button>}
+                    {(st === 'stopped' || st === 'blocked') && <button type="button" className="ut-pillbtn" onClick={() => allow(s.addr)}><Check size={14} /> {tr('underlag.sendersAllow')}</button>}
                     {st !== 'blocked' && st !== 'own' && <button type="button" className="ut-link ut-link-danger" onClick={() => block(s.addr)}>{tr('underlag.block')}</button>}
                   </td>
                 </tr>
@@ -1941,79 +1953,83 @@ function SendersView({ info, onSaveSenders, receipts = [], ownEmail = '' }) {
 
 /** Inställningar för inkorgen (2026-11-18): adressen, Gmail och notiser på en
  * lugn inställningssida i stället för en egen vy med kort. */
-function MailboxView({ info, notify = true, onNotify, onSenders, onUpload }) {
-  const gmailConnected = Boolean(info?.gmailCodeAt && info?.lastReceivedAt && Date.parse(info.lastReceivedAt) - Date.parse(info.gmailCodeAt) > 60 * 1000);
-  const [gmailOpen, setGmailOpen] = useState(false);
-  const list = info?.allowedSenders || [];
-  const blocked = list.filter(x => String(x).startsWith('!')).length;
-  const approved = list.length - blocked;
-  const last = info?.lastReceivedAt ? new Date(info.lastReceivedAt).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }) : null;
+function MailboxView({ info, notify = true, onNotify, onSaveSenders, receipts = [], ownEmail = '' }) {
   return (
     <div className="ut">
       <div className="ut-head">
-        <h1>{tr('underlag.navSettings')}</h1>
-        <p>{tr('underlag.settingsIntro')}</p>
+        <h1>{tr('underlag.setTitle')}</h1>
+        <p>{tr('underlag.setIntro')}</p>
       </div>
-
-      <div className="ut-hero">
-        <span className="ut-hero-ico"><Mail size={20} /></span>
-        <div className="ut-hero-text">
-          <span className="ut-hero-label">{tr('underlag.setAddressTitle')}</span>
-          {info?.address ? <code className="ut-hero-addr">{info.address}</code> : <b>{tr('underlag.mbxAddressMissing')}</b>}
-          <span className="ut-hero-sub">{last ? tr('underlag.mbxLast', { when: last }) : tr('underlag.mbxNoneYet')}</span>
-        </div>
-        {info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />}
-      </div>
-
-      <h2 className="ut-set-h">{tr('underlag.setWaysTitle')}</h2>
-      <div className="ut-ways">
-        <div className={`ut-way${gmailConnected ? ' is-on' : ''}`}>
-          <div className="ut-way-top">
-            <span className="ut-way-logo"><GmailLogo height={22} /></span>
-            {gmailConnected && <span className="ut-way-on"><CheckCircle2 size={13} /> {tr('underlag.mbxConnected')}</span>}
-          </div>
-          <b>{tr('underlag.mbxGmail')}</b>
-          <span>{gmailConnected ? tr('underlag.mbxGmailOn') : tr('underlag.mbxGmailSub')}</span>
-          {!gmailConnected && (
-            <a className="ut-way-btn" href={GMAIL_FORWARDING_URL} target="_blank" rel="noopener noreferrer" onClick={() => setGmailOpen(true)}>{tr('underlag.mbxConnectGmail')}</a>
-          )}
-        </div>
-        <div className="ut-way">
-          <div className="ut-way-top"><span className="ut-way-logo is-icon"><Mail size={20} /></span></div>
-          <b>{tr('underlag.setOtherMail')}</b>
-          <span>{tr('underlag.setOtherMailSub')}</span>
-          {info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />}
-        </div>
-        <div className="ut-way">
-          <div className="ut-way-top"><span className="ut-way-logo is-icon"><Camera size={20} /></span></div>
-          <b>{tr('underlag.setPhone')}</b>
-          <span>{tr('underlag.setPhoneSub')}</span>
-          {onUpload && <button type="button" className="ut-way-btn ghost" onClick={onUpload}>{tr('underlag.uploadDocs')}</button>}
-        </div>
-      </div>
-      {!gmailConnected && (gmailOpen || info?.gmailCode) && (
-        <div className="ut-set ut-gmail-steps">
-          <h2><GmailLogo height={14} /> {tr('underlag.setGmailSteps')}</h2>
-          <ol className="ut-steps">
-            <li>{tr('underlag.mbxStepA')}</li>
-            <li>{tr('underlag.mbxStep2')} {info?.gmailCode ? <b className="uw-mbx-code">{info.gmailCode}</b> : <em>{tr('underlag.mbxCodeWait')}</em>}</li>
-            <li>{tr('underlag.mbxStepB')} <a href={GMAIL_FILTERS_URL} target="_blank" rel="noopener noreferrer">{tr('underlag.mbxFilters')}</a></li>
-          </ol>
-        </div>
-      )}
-
-      <h2 className="ut-set-h">{tr('underlag.setMore')}</h2>
+      <h2 className="ut-set-h">{tr('underlag.setNotifyTitle')}</h2>
       <div className="ut-set">
-        <div className="ut-set-row">
-          <div className="ut-set-text"><b>{tr('underlag.navSenders')}</b><span>{tr('underlag.setSendersSub', { approved, blocked })}</span></div>
-          <div className="ut-set-right">{onSenders && <button type="button" className="ut-way-btn ghost" onClick={onSenders}>{tr('underlag.setManage')}</button>}</div>
-        </div>
         <div className="ut-set-row">
           <div className="ut-set-text"><b>{tr('underlag.setNotifyBell')}</b><span>{tr('underlag.setNotifyBellSub')}</span></div>
           <div className="ut-set-right"><label className="ut-switch"><input type="checkbox" checked={notify} onChange={e => onNotify?.(e.target.checked)} /><span /></label></div>
         </div>
       </div>
+      <h2 className="ut-set-h">{tr('underlag.setMailTitle')}</h2>
+      <div className="ut-set">
+        <div className="ut-set-row">
+          <div className="ut-set-text"><b>{tr('underlag.setAddressTitle')}</b><span>{info?.address ? <code className="ut-set-code">{info.address}</code> : tr('underlag.mbxAddressMissing')}</span></div>
+          <div className="ut-set-right">{info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />}</div>
+        </div>
+      </div>
+      <h3 className="ut-set-h3">{tr('underlag.setManageSenders')}</h3>
+      <div className="ut-set-senders">
+        <SendersView mode="manage" info={info} onSaveSenders={onSaveSenders} receipts={receipts} ownEmail={ownEmail} />
+      </div>
     </div>
+  );
+}
+
+/** Mejla in underlag (2026-11-20, som Fortnox): adressen, vad Mejl gör,
+ * vidarebefordring med Gmail och andra, borttagna filer. Knapp till Inställningar. */
+function MailInDialog({ info, onClose, onSettings, onTrash }) {
+  const gmailConnected = Boolean(info?.gmailCodeAt && info?.lastReceivedAt && Date.parse(info.lastReceivedAt) - Date.parse(info.gmailCodeAt) > 60 * 1000);
+  const [gmailOpen, setGmailOpen] = useState(false);
+  return (
+    <UwDialog title={tr('underlag.mailIn')} sub={tr('underlag.miLead')} onClose={onClose}>
+      <div className="ut-mi">
+        <div className="ut-mi-addr">
+          <span>{tr('underlag.miYourAddress')}</span>
+          {info?.address ? <code>{info.address}</code> : <b>{tr('underlag.mbxAddressMissing')}</b>}
+          {info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />}
+        </div>
+        <section>
+          <h3>{tr('underlag.miWhatTitle')}</h3>
+          <p>{tr('underlag.miWhatText')}</p>
+        </section>
+        <section>
+          <h3>{tr('underlag.miForwardTitle')}</h3>
+          <p>{tr('underlag.miForwardText')}</p>
+          <div className="ut-mi-gmail">
+            <span className="ut-way-logo"><GmailLogo height={20} /></span>
+            <div>
+              <b>{tr('underlag.mbxGmail')}</b>
+              <span>{gmailConnected ? tr('underlag.mbxGmailOn') : tr('underlag.mbxGmailSub')}</span>
+            </div>
+            {gmailConnected
+              ? <span className="ut-way-on"><CheckCircle2 size={13} /> {tr('underlag.mbxConnected')}</span>
+              : <a className="ut-way-btn" href={GMAIL_FORWARDING_URL} target="_blank" rel="noopener noreferrer" onClick={() => setGmailOpen(true)}>{tr('underlag.mbxConnectGmail')}</a>}
+          </div>
+          {!gmailConnected && (gmailOpen || info?.gmailCode) && (
+            <ol className="ut-steps">
+              <li>{tr('underlag.mbxStepA')}</li>
+              <li>{tr('underlag.mbxStep2')} {info?.gmailCode ? <b className="uw-mbx-code">{info.gmailCode}</b> : <em>{tr('underlag.mbxCodeWait')}</em>}</li>
+              <li>{tr('underlag.mbxStepB')} <a href={GMAIL_FILTERS_URL} target="_blank" rel="noopener noreferrer">{tr('underlag.mbxFilters')}</a></li>
+            </ol>
+          )}
+          <p className="ut-mi-other">{tr('underlag.miOtherText')}</p>
+        </section>
+        <section>
+          <h3>{tr('underlag.miDeletedTitle')}</h3>
+          <p>{tr('underlag.miDeletedText')} <button type="button" className="ut-link ut-link-inline" onClick={onTrash}>{tr('underlag.miTrash')}</button></p>
+        </section>
+        <div className="ut-mi-foot">
+          <button type="button" className="ut-pillbtn" onClick={onSettings}><Cog size={14} /> {tr('underlag.setTitle')}</button>
+        </div>
+      </div>
+    </UwDialog>
   );
 }
 
@@ -2114,7 +2130,7 @@ function TrashView({ items, onRestore, onPurge }) {
               <th>{tr('underlag.colDoc')}</th>
               <th className="ut-c-num">{tr('underlag.colAmount')}</th>
               <th>{tr('underlag.colArrived')}</th>
-              <th>{tr('underlag.colTrashed')}</th>
+              <th>{tr('underlag.colExpires')}</th>
               <th>{tr('underlag.colSource')}</th>
               <th>{tr('underlag.colSender')}</th>
               <th />
@@ -2134,12 +2150,16 @@ function TrashView({ items, onRestore, onPurge }) {
                   </td>
                   <td className="ut-c-num">{amount > 0 ? formatSEK(amount) : '–'}</td>
                   <td className="ut-muted">{arrivedLabel(r)}</td>
-                  <td className="ut-muted">{r.trashedAt ? new Date(r.trashedAt).toLocaleDateString('sv-SE') : ''}</td>
+                  <td className="ut-muted">{(() => {
+                    if (!r.trashedAt) return '';
+                    const left = Math.max(0, 30 - Math.floor((Date.now() - Date.parse(r.trashedAt)) / 86400000));
+                    return <span className={`ut-days${left <= 5 ? ' is-soon' : ''}`}>{left === 0 ? tr('underlag.today') : left === 1 ? tr('underlag.dayLeft') : tr('underlag.daysLeft', { n: left })}</span>;
+                  })()}</td>
                   <td className="ut-muted">{sourceLabel(r).text}</td>
                   <td className="ut-muted ut-sender">{(r.inbox?.source === 'email' ? r.inbox.from : r.uploadedBy?.name) || '–'}</td>
                   <td className="ut-actions">
-                    <button type="button" className="ut-link" onClick={() => onRestore?.(r.id)}><RotateCcw size={14} /> {tr('underlag.restore')}</button>
-                    <button type="button" className="ut-link ut-link-danger" onClick={() => purgeOne(r)}>{tr('underlag.purge')}</button>
+                    <button type="button" className="ut-pillbtn" onClick={() => onRestore?.(r.id)}><RotateCcw size={14} /> {tr('underlag.restore')}</button>
+                    <button type="button" className="ut-iconbtn" onClick={() => purgeOne(r)} title={tr('underlag.purge')} aria-label={tr('underlag.purge')}><Trash2 size={15} /></button>
                   </td>
                 </tr>
               );
@@ -2153,17 +2173,30 @@ function TrashView({ items, onRestore, onPurge }) {
 
 /** Underlag som tabell, som Fortnox (2026-11-18): kryssrutor, kolumner för
  * belopp, inkommet, avläsning, källa och avsändare. En rad öppnar underlaget. */
-function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readingId, onOpen, onDeleteMany, onUpload, onMailIn, onSenders, inboxAddress, onlyEmail = false, uploading = [] }) {
+function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readingId, onOpen, onDeleteMany, onUpload, onMailIn, onSenders, onRefresh, inboxAddress, onlyEmail = false, uploading = [] }) {
   const receipts = onlyEmail ? allRows.filter(r => r.inbox?.source === 'email') : allRows;
-  const [tab, setTab] = useState('todo');
+  // Underlag visar bara det som inte är bokfört (som Fortnox); bokförda finns i Bokföring.
+  // Mejl visar alla brev, med Olästa och Visa hanterade.
+  const tab = 'todo';
+  const [kind, setKind] = useState(null);
+  const [onlyUnread, setOnlyUnread] = useState(false);
+  const [showHandled, setShowHandled] = useState(true);
   const [q, setQ] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const [picked, setPicked] = useState(() => new Set());
-  const counts = { todo: 0, booked: 0, all: receipts.length };
-  receipts.forEach(r => { const s = statusOf(r); if (s === 'unhandled' || s === 'pending') counts.todo++; else if (s === 'booked') counts.booked++; });
+  const isTodo = (r) => { const st = statusOf(r); return st === 'unhandled' || st === 'pending'; };
+  const isUnread = (r) => Boolean(onMarkSeen) && r.inbox?.source === 'email' && !r.inbox.seenAt;
+  const unreadIds = receipts.filter(isUnread).map(r => r.id);
+  const counts = { todo: receipts.filter(isTodo).length };
+  const todoRows = receipts.filter(isTodo);
+  const kindCount = { receipt: todoRows.filter(r => docKind(r) === 'receipt').length, invoice: todoRows.filter(r => docKind(r) === 'invoice').length };
   const needle = q.trim().toLowerCase();
-  const shown = receipts.filter(r => { const s = statusOf(r); return tab === 'all' || (tab === 'todo' ? (s === 'unhandled' || s === 'pending') : s === 'booked'); })
-    .filter(r => !needle || [r.supplier, r.description, r.date, r.amount != null ? String(r.amount) : '', r.ocrDraft?.form?.supplier, r.inbox?.from, r.inbox?.subject, r.inbox?.fileName, r.uploadedBy?.name]
-      .some(v => String(v || '').toLowerCase().includes(needle)));
+  const shown = receipts
+    .filter(r => (onlyEmail ? ((showHandled || isTodo(r)) && (!onlyUnread || isUnread(r))) : isTodo(r) && (!kind || docKind(r) === kind)))
+    .filter(r => !needle || (onlyEmail
+      ? [r.inbox?.from, r.inbox?.subject]
+      : [r.supplier, r.description, r.date, r.amount != null ? String(r.amount) : '', r.ocrDraft?.form?.supplier, r.inbox?.from, r.inbox?.subject, r.inbox?.fileName, r.uploadedBy?.name]
+    ).some(v => String(v || '').toLowerCase().includes(needle)));
   const deletable = (r) => ['unhandled', 'pending'].includes(statusOf(r));
   const pickable = shown.filter(deletable);
   const allPicked = pickable.length > 0 && pickable.every(r => picked.has(r.id));
@@ -2175,51 +2208,70 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
     onDeleteMany?.(ids);
     setPicked(new Set());
   };
-  const isUnread = (r) => Boolean(onMarkSeen) && r.inbox?.source === 'email' && !r.inbox.seenAt;
-  const unreadIds = receipts.filter(isUnread).map(r => r.id);
-  const chips = [['todo', tr('underlag.todo')], ['booked', tr('underlag.booked')], ['all', tr('underlag.all')]];
+  const refresh = async () => { if (refreshing) return; setRefreshing(true); try { await onRefresh?.(); } finally { setTimeout(() => setRefreshing(false), 600); } };
   return (
     <div className="ut">
-      <div className="ut-head">
-        <h1>{onlyEmail ? tr('underlag.navMail') : tr('nav.underlag')}</h1>
-        {onlyEmail && <p>{tr('underlag.mailIntro')}</p>}
-        {!onlyEmail && (() => {
-          // Den här månaden: hur många underlag som är klara av alla som kommit in.
-          const month = new Date().toISOString().slice(0, 7);
-          const inMonth = receipts.filter(r => String(r.date || '').slice(0, 7) === month || counts.todo && ['unhandled', 'pending'].includes(statusOf(r)));
-          const done = inMonth.filter(r => statusOf(r) === 'booked').length;
-          const total = done + counts.todo;
-          if (!total) return null;
-          const monthName = new Date().toLocaleDateString('sv-SE', { month: 'long' });
-          return (
-            <div className="ut-progress" title={tr('underlag.progressTitle')}>
-              <span className="ut-progress-bar"><i style={{ width: `${Math.round((done / total) * 100)}%` }} /></span>
-              <span>{counts.todo === 0 ? tr('underlag.progressDone', { month: monthName }) : tr('underlag.progress', { done, total, month: monthName })}</span>
-            </div>
-          );
-        })()}
+      <div className="ut-head ut-head-row">
+        <div>
+          <h1>{onlyEmail ? tr('underlag.navMail') : tr('nav.underlag')}</h1>
+          <p>{onlyEmail ? tr('underlag.mailIntro2') : tr('underlag.introUnderlag')}</p>
+        </div>
+        <div className="ut-head-links">
+          <button type="button" className="ut-link" onClick={onMailIn}><Info size={15} /> {tr('underlag.mailIn')}</button>
+          {onlyEmail
+            ? onSenders && <button type="button" className="ut-pillbtn" onClick={onSenders}><Cog size={14} /> {tr('underlag.manageAllSenders')}</button>
+            : onRefresh && <button type="button" className="ut-link" onClick={refresh} disabled={refreshing}><RotateCcw size={15} className={refreshing ? 'ut-spin' : undefined} /> {tr('underlag.refresh')}</button>}
+        </div>
       </div>
+      {!onlyEmail && (() => {
+        // Den här månaden: hur många underlag som är klara av alla som kommit in.
+        const month = new Date().toISOString().slice(0, 7);
+        const inMonth = receipts.filter(r => String(r.date || '').slice(0, 7) === month || (counts.todo && isTodo(r)));
+        const done = inMonth.filter(r => statusOf(r) === 'booked').length;
+        const total = done + counts.todo;
+        if (!total) return null;
+        const monthName = new Date().toLocaleDateString('sv-SE', { month: 'long' });
+        return (
+          <div className="ut-progress" title={tr('underlag.progressTitle')}>
+            <span className="ut-progress-bar"><i style={{ width: `${Math.round((done / total) * 100)}%` }} /></span>
+            <span>{counts.todo === 0 ? tr('underlag.progressDone', { month: monthName }) : tr('underlag.progress', { done, total, month: monthName })}</span>
+          </div>
+        );
+      })()}
       <div className="ut-bar">
         {onlyEmail ? (
-          <span className="ut-bar-text">{inboxAddress ? <><Mail size={15} /> <code>{inboxAddress}</code><CopyButton text={inboxAddress} label=" " /></> : tr('underlag.mbxAddressMissing')}</span>
+          <>
+            <button type="button" className="ut-link" onClick={() => onMarkSeen?.(unreadIds)} disabled={!unreadIds.length}><MailOpen size={15} /> {tr('underlag.markAllRead')}</button>
+            <span className="ut-bar-text ut-bar-muted">{inboxAddress ? <><code>{inboxAddress}</code><CopyButton text={inboxAddress} label=" " /></> : tr('underlag.mbxAddressMissing')}</span>
+          </>
         ) : (
           <button type="button" className="ut-upload" onClick={onUpload}><UploadCloud size={16} /> {tr('underlag.uploadDocs')}</button>
         )}
-        <div className="ut-bar-right">
-          {onlyEmail && onMarkSeen && unreadIds.length > 0 && <button type="button" className="ut-link" onClick={() => onMarkSeen(unreadIds)}><Check size={15} /> {tr('underlag.markAllRead')}</button>}
-          {onlyEmail && onSenders && <button type="button" className="ut-link" onClick={onSenders}><CheckCircle2 size={15} /> {tr('underlag.manageSenders')}</button>}
-          <button type="button" className="ut-link" onClick={onMailIn}><Mail size={15} /> {tr('underlag.mailIn')}</button>
-        </div>
+        {onlyEmail && onRefresh && (
+          <div className="ut-bar-right">
+            <button type="button" className="ut-link" onClick={refresh} disabled={refreshing}><RotateCcw size={15} className={refreshing ? 'ut-spin' : undefined} /> {tr('underlag.refresh')}</button>
+          </div>
+        )}
       </div>
       <div className="ut-filters">
-        <div className="ut-chips">
-          {chips.map(([id, label]) => (
-            <button key={id} type="button" className={`ut-chip${tab === id ? ' on' : ''}`} onClick={() => { setTab(id); setPicked(new Set()); }}>{label} ({counts[id]})</button>
-          ))}
-        </div>
+        {onlyEmail ? (
+          <div className="ut-mail-filters">
+            <div className="ut-seg" role="tablist">
+              <button type="button" role="tab" aria-selected={!onlyUnread} className={!onlyUnread ? 'on' : undefined} onClick={() => setOnlyUnread(false)}>{tr('underlag.allMail')}</button>
+              <button type="button" role="tab" aria-selected={onlyUnread} className={onlyUnread ? 'on' : undefined} onClick={() => setOnlyUnread(true)}>{tr('underlag.unreadMail')}{unreadIds.length > 0 ? ` (${unreadIds.length})` : ''}</button>
+            </div>
+            <label className="ut-toggle"><span className="ut-switch"><input type="checkbox" checked={showHandled} onChange={e => setShowHandled(e.target.checked)} /><span /></span>{tr('underlag.showHandled')}</label>
+          </div>
+        ) : (
+          <div className="ut-chips">
+            {[[null, tr('underlag.revAll'), counts.todo], ['receipt', tr('underlag.kindReceipts'), kindCount.receipt], ['invoice', tr('underlag.kindInvoices'), kindCount.invoice]].map(([id, label, n]) => (
+              <button key={id || 'all'} type="button" className={`ut-chip${kind === id ? ' on' : ''}`} onClick={() => { setKind(id); setPicked(new Set()); }}>{label} ({n})</button>
+            ))}
+          </div>
+        )}
         <div className="ut-search">
           <Search size={15} />
-          <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={tr('underlag.search')} aria-label={tr('underlag.search')} />
+          <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={onlyEmail ? tr('underlag.searchSender') : tr('underlag.search')} aria-label={onlyEmail ? tr('underlag.searchSender') : tr('underlag.search')} />
         </div>
       </div>
       <div className="ut-count">
@@ -2260,7 +2312,7 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
                 {needle
                   ? <UtEmpty icon={Search} title={tr('underlag.noHits')} text={tr('underlag.noHitsText')} />
                   : onlyEmail
-                    ? <UtEmpty icon={Mail} title={tr('underlag.noMail')} text={inboxAddress ? tr('underlag.noMailText', { address: inboxAddress }) : ''} />
+                    ? <UtEmpty icon={Mail} title={tr('underlag.noMailHere')} text={inboxAddress ? tr('underlag.noMailText', { address: inboxAddress }) : ''} />
                     : tab === 'todo'
                       ? <UtEmpty icon={CheckCircle2} title={tr('underlag.allDone')} text={tr('underlag.emptyTodo')} action={<button type="button" className="ut-upload ut-upload-sm" onClick={onUpload}><UploadCloud size={15} /> {tr('underlag.uploadDocs')}</button>} />
                       : <UtEmpty title={tr('underlag.empty')} />}
@@ -2584,7 +2636,8 @@ export default function Expenses({
   }, [detailReceiptId]);
   // Ordningen i tabellen när ett underlag öppnades: föregående och nästa.
   const [navIds, setNavIds] = useState([]);
-  const { info: inboxInfo, saveSenders } = useInboxAddress(wide && newUnderlag ? companyId : null, { poll: mailboxOpen || uwView === 'mailbox' });
+  const [mailInOpen, setMailInOpen] = useState(false);
+  const { info: inboxInfo, saveSenders, reload: reloadInbox } = useInboxAddress(wide && newUnderlag ? companyId : null, { poll: mailboxOpen || uwView === 'mailbox' });
   // Den gamla listan finns kvar bakom "Visa som lista". Valet sparas i webbläsaren.
   const [listView, setListViewState] = useState(() => { try { return localStorage.getItem('bokix.underlagView') === 'list'; } catch { return false; } });
   const setListView = (v) => { setListViewState(v); try { localStorage.setItem('bokix.underlagView', v ? 'list' : 'workspace'); } catch { /* inget */ } };
@@ -2743,6 +2796,7 @@ export default function Expenses({
             </div>
           </div>
         )}
+        {mailInOpen && <MailInDialog info={inboxInfo} onClose={() => setMailInOpen(false)} onSettings={() => { setMailInOpen(false); setUwView('mailbox'); }} onTrash={() => { setMailInOpen(false); setUwView('trash'); }} />}
         {mailboxOpen && <MailboxDialog info={inboxInfo} onSaveSenders={saveSenders} onClose={() => setMailboxOpen(false)} onUpload={() => document.getElementById('uw-upload').click()} />}
         <input type="file" id="uw-upload" style={{ display: 'none' }} multiple accept={ACCEPT_ATTR} onChange={handleFileInput} />
         {!detailReceipt ? (
@@ -2773,8 +2827,9 @@ export default function Expenses({
                   onOpen={(id, ids) => { setNavIds(ids); setDetailReceiptId(id); }}
                   onDeleteMany={(ids) => ids.forEach(id => (onTrashExpense ? onTrashExpense(id) : onDeleteExpense?.(id)))}
                   onUpload={() => document.getElementById('uw-upload').click()}
-                  onMailIn={() => setUwView('mailbox')}
-                  onSenders={() => setUwView('senders')}
+                  onMailIn={() => setMailInOpen(true)}
+                  onSenders={() => setUwView('mailbox')}
+                  onRefresh={async () => { window.dispatchEvent(new Event('bokix:inbox-pull')); await reloadInbox?.(); }}
                   onMarkSeen={onMarkSeen}
                   inboxAddress={inboxInfo?.address}
                 />
@@ -2783,7 +2838,7 @@ export default function Expenses({
                 <SendersView info={inboxInfo} onSaveSenders={saveSenders} receipts={[...allReceipts, ...receiptTrash]} ownEmail={user?.email || ''} />
               )}
               {uwView === 'mailbox' && (
-                <MailboxView info={inboxInfo} notify={inboxNotify} onNotify={setInboxNotify} onSenders={() => setUwView('senders')} onUpload={() => document.getElementById('uw-upload').click()} />
+                <MailboxView info={inboxInfo} notify={inboxNotify} onNotify={setInboxNotify} onSaveSenders={saveSenders} receipts={[...allReceipts, ...receiptTrash]} ownEmail={user?.email || ''} />
               )}
               {uwView === 'missing' && (
                 <MissingView

@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  MdCalendarMonth, MdCookie, MdEmail, MdAccountBalance, MdMoreHoriz, MdOutlineBadge,
+  MdOutlineDrafts, MdCalendarMonth, MdCookie, MdEmail, MdAccountBalance, MdMoreHoriz, MdOutlineBadge,
   MdOutlineEditNote, MdOutlineTask, MdOutlineHome, MdOutlineStorefront, MdMoreTime, MdPayments, MdPersonAddAlt1, MdPostAdd, MdUploadFile,
   MdOutlineAccessTime, MdOutlineAccountBalance, MdOutlineAccountBalanceWallet, MdOutlineAccountTree,
   MdOutlineAdd, MdOutlineAlarm, MdOutlineApartment,
@@ -124,6 +124,7 @@ export const HelpCircle = make(MdOutlineHelpOutline, 'HelpCircle');
 export const Image = make(MdOutlineImage, 'Image');
 export const Inbox = make(MdOutlineInbox, 'Inbox');
 export const Info = make(MdOutlineInfo, 'Info');
+export const MailOpen = make(MdOutlineDrafts, 'MailOpen');
 export const KeyRound = make(MdOutlineVpnKey, 'KeyRound');
 export const Landmark = make(MdOutlineAccountBalance, 'Landmark');
 export const Laptop = make(MdOutlineLaptop, 'Laptop');

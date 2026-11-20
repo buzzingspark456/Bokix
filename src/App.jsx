@@ -3318,11 +3318,14 @@ function App() {
     const onFocus = () => { if (document.visibilityState === 'visible') pull(); };
     document.addEventListener('visibilitychange', onFocus);
     window.addEventListener('focus', onFocus);
+    // Underlag → Uppdatera hämtar direkt.
+    window.addEventListener('bokix:inbox-pull', pull);
     return () => {
       cancelled = true;
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onFocus);
       window.removeEventListener('focus', onFocus);
+      window.removeEventListener('bokix:inbox-pull', pull);
     };
   }, [user?.id, supabaseEnabled, data.activeCompanyId, inboxOwnerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
