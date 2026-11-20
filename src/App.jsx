@@ -4153,6 +4153,16 @@ function App() {
     if (next[key]) delete next[key]; else next[key] = { at: new Date().toISOString() };
     return { ...prev, taxFilings: next };
   });
+  // Leverantörsfaktura utan fil: underlaget läggs på fakturan och på dess
+  // verifikation, så det syns båda ställena (2026-11-20).
+  const handleAttachSupplierFile = (invoiceId, meta) => {
+    setExpenses(prev => prev.map(e => (e.id === invoiceId ? { ...e, attachmentUrl: meta.url, attachmentName: meta.name, attachmentType: meta.type } : e)));
+    setVerifications(prev => (prev || []).map(v => {
+      if (v.source !== 'supplier_invoice' || v.sourceId !== invoiceId) return v;
+      if (!v.attachmentUrl) return { ...v, attachmentUrl: meta.url, attachmentName: meta.name, attachmentType: meta.type };
+      return { ...v, attachments: [...(Array.isArray(v.attachments) ? v.attachments : []), { url: meta.url, name: meta.name, type: meta.type }] };
+    }));
+  };
   // Saknar underlag (Underlag): fil eller pappersoriginal till en bokförd verifikation.
   const handleAttachToVerification = (verificationId, patch) => setVerifications(prev => (prev || []).map(v => {
     if (v.id !== verificationId) return v;
@@ -6211,6 +6221,8 @@ function App() {
             onMarkSupplierInvoicePaid={handleMarkSupplierInvoicePaid}
             onUnmarkSupplierInvoicePaid={handleUnmarkSupplierInvoicePaid}
             onFixExpenseAccount={handleFixExpenseAccount}
+            verifications={verifications}
+            onAttachSupplierFile={handleAttachSupplierFile}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
             onNavigate={handleNavTabChange}

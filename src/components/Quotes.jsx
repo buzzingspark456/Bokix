@@ -204,7 +204,9 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
   // (InvoiceDocument.jsx: otherTerms.split('\n')). `??` (inte `||`) så att
   // ett medvetet tomt fält (användaren har raderat all text) inte tyst
   // återställs till standardtexten igen.
-  const [otherTerms, setOtherTerms] = useState(quote?.otherTerms ?? DEFAULT_OTHER_TERMS);
+  // Ny offert: tomt (2026-11-20, grundaren). Standardvillkoren läggs till med
+  // en knapp. Äldre offerter utan fältet behåller texten de skickades med.
+  const [otherTerms, setOtherTerms] = useState(quote ? (quote.otherTerms ?? DEFAULT_OTHER_TERMS) : '');
 
   // Kundfeedback: "så mycket grejer, gör det enklare" — de sex sektionerna
   // nedan (mejlmeddelande, bilagor, ej ingår, betalningsvillkor,
@@ -216,7 +218,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
     quote?.emailMessage || (quote?.emailAttachments || []).length > 0 || quote?.notIncluded ||
     quote?.workStartDate || quote?.workEndDate || quote?.workLocation || quote?.deliveryDescription ||
     (quote?.paymentTermsDays != null && Number(quote.paymentTermsDays) !== Number(company?.paymentTermsDays ?? 30)) ||
-    (quote?.otherTerms != null && quote.otherTerms !== DEFAULT_OTHER_TERMS)
+    (quote?.otherTerms != null && quote.otherTerms !== DEFAULT_OTHER_TERMS && quote.otherTerms !== '')
   ));
 
   // Mallval/accentfärg fryses vid FÖRSTA sparningen (samma regel som
@@ -949,7 +951,10 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
           </div>
 
           <div style={{ padding: '24px 32px' }}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.ovriga_villkor')}</label>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px', maxWidth: '640px', marginBottom: '6px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{t('ui.ovriga_villkor')} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{t('ui.valfritt_parentes')}</span></label>
+              {!otherTerms.trim() && <button type="button" className="q-link" onClick={() => setOtherTerms(DEFAULT_OTHER_TERMS)}>{t('ui.q_lagg_till_standardvillkor')}</button>}
+            </div>
             {/* Kundfeedback: "man ser knappt vad som står i Övriga villkor"
                 — DEFAULT_OTHER_TERMS fyller fältet med FYRA rader text
                 (giltighetstid, ansvarsbegränsning m.m.) redan från start,

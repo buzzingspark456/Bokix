@@ -531,6 +531,11 @@
     }
   },
   "ui": {
+    "q_lagg_till_standardvillkor": "Lägg till standardvillkor",
+    "valfritt_parentes": "(valfritt)",
+    "si_lagg_till_underlag": "Lägg till fakturan",
+    "si_underlag_hjalp": "Ladda upp PDF:en eller ett foto av fakturan. Den sparas på fakturan och på verifikationen.",
+    "si_underlag_fel": "Det gick inte att ladda upp filen. Försök igen.",
     "q_menu_oppna": "Visa offert",
     "q_kopiera": "Kopiera offert",
     "q_menu_aria": "Fler åtgärder för offert {{n}}",

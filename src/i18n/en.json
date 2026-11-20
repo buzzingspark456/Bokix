@@ -531,6 +531,11 @@
     }
   },
   "ui": {
+    "q_lagg_till_standardvillkor": "Add standard terms",
+    "valfritt_parentes": "(optional)",
+    "si_lagg_till_underlag": "Add the invoice",
+    "si_underlag_hjalp": "Upload the PDF or a photo of the invoice. It is saved on the invoice and on the voucher.",
+    "si_underlag_fel": "The file could not be uploaded. Try again.",
     "q_menu_oppna": "View quote",
     "q_kopiera": "Copy quote",
     "q_menu_aria": "More actions for quote {{n}}",

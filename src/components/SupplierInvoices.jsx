@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import DateField from './shared/DateField';
 import { isReverseChargePurchaseAccount } from '../utils/reverseCharge';
 import {
-  Plus, Check, X, AlertCircle, Landmark, CreditCard, UploadCloud, FileText, Inbox, Trash2, Search, RefreshCw, Printer, Eye,
-} from './icons';
+  Plus, Check, X, AlertCircle, Landmark, CreditCard, UploadCloud, FileText, Inbox, Trash2, Search, RefreshCw, Printer, Eye, Paperclip } from './icons';
 import { AccountSearch, ProjectSearch } from './shared/SearchInputs';
 import ListPageHeader, { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle, PAGE_SIZE_OPTIONS } from './shared/ListPageHeader';
 import RowActionMenu from './shared/RowActionMenu';
@@ -566,7 +565,20 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
 // navigera bort. Rent läsläge (samma princip som Kundfakturans "Visa
 // faktura"): en redan bokförd faktura ändras inte i efterhand, den rättas
 // via ny kontering (Granska/"Välj konto" i listan) om den saknar sådan än.
-function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose, onPay, onUnmarkPaid }) {
+function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose, onPay, onUnmarkPaid, verifications = [], onAttach }) {
+  // Underlaget: fakturans egen fil, annars filen på verifikationen (t.ex.
+  // uppladdad under Underlag → Saknas) (2026-11-20).
+  const linkedVer = verifications.find(v => v.source === 'supplier_invoice' && v.sourceId === invoice.id);
+  const verFile = linkedVer?.attachmentUrl ? { url: linkedVer.attachmentUrl, name: linkedVer.attachmentName, type: linkedVer.attachmentType } : (linkedVer?.attachments?.[0] || null);
+  const file = invoice.attachmentUrl ? { url: invoice.attachmentUrl, name: invoice.attachmentName, type: invoice.attachmentType } : (invoice.receiptUrl ? { url: invoice.receiptUrl, name: invoice.receiptName, type: invoice.receiptType } : verFile);
+  const [attBusy, setAttBusy] = useState(false);
+  const [attError, setAttError] = useState('');
+  const attInputRef = useRef(null);
+  const pickFile = async (f) => {
+    if (!f || !onAttach) return;
+    setAttBusy(true); setAttError('');
+    try { await onAttach(invoice.id, f); } catch { setAttError(t('ui.si_underlag_fel')); } finally { setAttBusy(false); }
+  };
   const supplier = contacts.find(c => c.id === invoice.supplierId);
   // Bakåtkompatibilitet: äldre poster (innan flerradskontering fanns) har
   // bara ett enda `costAccount`/`netAmount`/`vatAmount` istället för `rows`.
@@ -587,8 +599,9 @@ function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose,
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
-  const attachmentIsImage = invoice.attachmentType?.startsWith('image/');
-  const attachmentIsPdf = invoice.attachmentType === 'application/pdf';
+  const fileType = file?.type || '';
+  const attachmentIsImage = fileType.startsWith('image/') || (!fileType && /\.(jpe?g|png|webp|heic|gif)(\?|$)/i.test(file?.url || ''));
+  const attachmentIsPdf = fileType === 'application/pdf' || (!fileType && /\.pdf(\?|$)/i.test(file?.url || ''));
 
   return (
     <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.15s ease' }}>
@@ -634,9 +647,19 @@ function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose,
             </div>
           )}
 
-          {invoice.attachmentUrl && (
+          {file ? (
             <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-              <SupplierInvoiceAttachment url={invoice.attachmentUrl} name={invoice.attachmentName} isImage={attachmentIsImage} isPdf={attachmentIsPdf} />
+              <SupplierInvoiceAttachment url={file.url} name={file.name} isImage={attachmentIsImage} isPdf={attachmentIsPdf} />
+            </div>
+          ) : onAttach && (
+            <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
+              <input ref={attInputRef} type="file" style={{ display: 'none' }} accept="image/*,application/pdf" onChange={e => { pickFile(e.target.files?.[0]); e.target.value = ''; }} />
+              <button type="button" className="si-att-empty" onClick={() => attInputRef.current?.click()} disabled={attBusy}
+                onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); pickFile(e.dataTransfer.files?.[0]); }}>
+                <Paperclip size={18} />
+                <span><b>{attBusy ? t('ui.laddar_upp') : t('ui.si_lagg_till_underlag')}</b><small>{t('ui.si_underlag_hjalp')}</small></span>
+              </button>
+              {attError && <div style={{ marginTop: '8px', fontSize: '12.5px', color: 'var(--status-red-text)' }}>{attError}</div>}
             </div>
           )}
 
@@ -831,6 +854,7 @@ function PaySupplierInvoiceModal({ invoice, contacts, onNavigate, onConfirm, onC
 export default function SupplierInvoices({
   expenses = [], accounts = [], contacts = [], setContacts, projects = [], user,
   onAddSupplierInvoice, onMarkSupplierInvoicePaid, onUnmarkSupplierInvoicePaid, onFixExpenseAccount,
+  verifications = [], onAttachSupplierFile,
   globalAction, clearGlobalAction, onNavigate, headerTabs,
   uploadFn = uploadFileToStorage,
 }) {
@@ -1161,6 +1185,13 @@ export default function SupplierInvoices({
         onClose={() => { setViewingInvoice(null); }}
         onPay={() => setPayingInvoiceId(viewingInvoice.id)}
         onUnmarkPaid={() => handleUnmarkPaid(viewingInvoice.id)}
+        verifications={verifications}
+        onAttach={onAttachSupplierFile ? async (id, f) => {
+          const url = await uploadFn(user.id, f, 'supplier-invoices');
+          const meta = { url, name: f.name, type: f.type || '' };
+          onAttachSupplierFile(id, meta);
+          setViewingInvoice(v => (v && v.id === id ? { ...v, attachmentUrl: url, attachmentName: f.name, attachmentType: f.type || '' } : v));
+        } : undefined}
       />
     );
   } else {
