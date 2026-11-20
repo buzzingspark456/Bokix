@@ -5562,6 +5562,7 @@
     "doneBooked": "Lönekörningen är borttagen och rättelseverifikationerna är skapade."
   },
   "rpt": {
+    "opened": "Öppnad {{when}}",
     "chartMirrored": "Speglat",
     "chartWithResult": "Med resultat",
     "chartCumulative": "Ackumulerat",

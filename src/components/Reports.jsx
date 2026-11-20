@@ -1,5 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronRight } from './icons';
+import { ChevronRight, TrendingUp, Users, Truck, BarChart3, ListChecks, Percent, ClipboardCheck, NavPayrollIcon, FileText } from './icons';
+
+// En lugn ikon per rapport i Fler rapporter (2026-11-20).
+const REPORT_ICONS = { cashflow: TrendingUp, receivables: Users, payables: Truck, invoices: BarChart3, payroll: NavPayrollIcon, journal: ListChecks, vat: Percent, closing: ClipboardCheck };
 import ReportDetail from './reports/ReportDetail';
 import { getPeriodBounds, companyFiscalYearSetting } from '../utils/reportCalculations';
 import { visibleReportSections } from '../utils/reportDefinitions';
@@ -161,19 +164,21 @@ export default function Reports({
               return (
                 <section key={section.id} className="rp-more-sec">
                   <h2>{section.id === 'main' ? t('rpt.secAnalysis') : section.label}</h2>
-                  <div className="rp-more-grid">
-                    {items.map(r => (
-                      <button key={r.id} type="button" className="rp-card" onClick={() => openReport(r.id)}>
-                        <span className="rp-card-text">
-                          <b>{r.name}</b>
-                          <span>{r.description}</span>
-                        </span>
-                        <span className="rp-card-side">
-                          {lastOpened[r.id] && <small>{relativeOpenedLabel(lastOpened[r.id])}</small>}
-                          <ChevronRight size={16} />
-                        </span>
-                      </button>
-                    ))}
+                  <div className="rp-list">
+                    {items.map(r => {
+                      const Icon = REPORT_ICONS[r.id] || FileText;
+                      return (
+                        <button key={r.id} type="button" className="rp-row" onClick={() => openReport(r.id)}>
+                          <span className="rp-row-ico"><Icon size={17} /></span>
+                          <span className="rp-row-text">
+                            <b>{r.name}</b>
+                            <span>{r.description}</span>
+                          </span>
+                          {lastOpened[r.id] && <span className="rp-row-when">{t('rpt.opened', { when: relativeOpenedLabel(lastOpened[r.id]).toLowerCase() })}</span>}
+                          <ChevronRight size={17} className="rp-row-chev" />
+                        </button>
+                      );
+                    })}
                   </div>
                 </section>
               );
