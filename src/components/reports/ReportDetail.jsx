@@ -8,7 +8,7 @@ import {
   CostBreakdownDonut, CostRankingList,
   formatSharePct,
   ChartTypeToggle, TREND_CHART_TYPES, FLOW_CHART_TYPES, SHARE_CHART_TYPES, KeyFigureGauge,
-  ReportDisplayProvider, useReportDisplay, DisplaySettingsMenu,
+  ReportDisplayProvider, useReportDisplay,
   CHART_H_MAIN, CHART_H_SIDE,
   ReportSheet, SheetPanel, InlineLegend, StatTile, MarginLinesChart, MARGIN_SERIES,
   PeriodPicker, PeriodHeading, OVERVIEW_PERIODS, RevenueExpenseChart, CashflowComparisonChart,
@@ -180,7 +180,7 @@ export default function ReportDetail({
   return (
     <ReportDisplayProvider colors={display?.colors} unit={display?.unit}>
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
-      <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 20px', flexShrink: 0 }}>
+      <div className={tabs ? 'rp-dhead' : undefined} style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '16px 20px', flexShrink: 0 }}>
         {tabs || (
         <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12.5px', fontWeight: 600, padding: 0, marginBottom: '10px' }}>
           <ChevronLeft size={14} /> {t('ui.alla_rapporter')}
@@ -215,12 +215,6 @@ export default function ReportDetail({
               och den koden finns redan i webbläsaren. */}
           <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {!OWN_PERIOD_REPORTS.includes(reportId) && periodControl}
-          {onDisplayChange && (
-            <DisplaySettingsMenu
-              colors={display?.colors} unit={display?.unit}
-              onChange={onDisplayChange}
-            />
-          )}
           {excelExport && (
             <button type="button" onClick={runExcel} disabled={excelBusy} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)', cursor: excelBusy ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
               <Download size={14} /> {t('rpt.excel')}
@@ -446,7 +440,7 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
             <StatTile
               label={t('ui.resultat')} value={amount.value(k.resultat)} icon={k.resultat >= 0 ? TrendingUp : TrendingDown}
               tone={k.resultat >= 0 ? palette.profit : palette.loss}
-              accent={k.resultat >= 0 ? palette.profit : palette.loss}
+              accent={k.resultat >= 0 ? undefined : palette.loss}
               delta={resDelta}
               context={k.vinstmarginal != null ? `marginal ${fmtPct(k.vinstmarginal)}` : resDelta?.context}
             />
@@ -675,7 +669,7 @@ function ResultReport({ verifications, accounts, bounds, isMobile, payrollRuns, 
         <div className="sheet-span-3" style={cellBg}>
           <StatTile
             label={t('ui.resultat')} value={amount.value(resultat)} icon={resultat >= 0 ? TrendingUp : TrendingDown}
-            tone={resultColor} accent={resultColor} delta={deltaFor(resultat, prevResultat)}
+            tone={resultColor} accent={resultat >= 0 ? undefined : palette.loss} delta={deltaFor(resultat, prevResultat)}
           />
         </div>
         <div className="sheet-span-3" style={cellBg}>

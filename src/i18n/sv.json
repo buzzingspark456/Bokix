@@ -5562,6 +5562,9 @@
     "doneBooked": "Lönekörningen är borttagen och rättelseverifikationerna är skapade."
   },
   "rpt": {
+    "secAnalysis": "Analys",
+    "salesPerCustomer": "Försäljning per kund",
+    "payrollJournal": "Lönejournal",
     "tabOverview": "Översikt",
     "tabResult": "Resultat",
     "tabBalance": "Balans",

@@ -264,7 +264,9 @@ export const LOSS_COLOR = { base: '#dc2626', card: ['#ef4444', '#f87171'] };
  * Ordningen följer COST_CATEGORIES i reportCalculations.js. Den största
  * posten är nästan alltid Övriga externa kostnader och har blått. Övrigt är
  * restposten och grå. */
-export const CATEGORY_RAMP = ['#7c5cd6', '#14a3a3', '#e5a11a', '#3fa34d', '#2f76e6', '#9aa3ad'];
+// 2026-11-20 (grundaren): olika färger men inte för brett. En sval familj
+// med tydligt olika ljushet, största posten (index 4) mörkast.
+export const CATEGORY_RAMP = ['#e4572e', '#f28c28', '#f5b335', '#f7d26a', '#b83227', '#c9c0b8'];
 
 /** Nyckeltalskortets gradient för en familj. En familj med egen `card`
  * använder den, och `darkCard` i mörkt läge. */

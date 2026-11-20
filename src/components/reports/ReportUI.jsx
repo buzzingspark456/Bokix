@@ -72,8 +72,8 @@ export const CHART_BAR_SIZE = 32;
 // Diagramhöjder. Kundönskemål: graferna var för små för att läsas ordentligt.
 // `CHART_H_MAIN` är huvuddiagrammet (Intäkter vs utgifter, panelen som bär
 // hela översikten), `CHART_H_SIDE` de mindre panelerna bredvid och under.
-export const CHART_H_MAIN = 340;
-export const CHART_H_SIDE = 270;
+export const CHART_H_MAIN = 290;
+export const CHART_H_SIDE = 240;
 
 // Kvar för Resultat-diagrammets tecken-färgning (en enda stapelserie som
 // pekar upp eller ner — där bär POSITIONEN mot nollinjen identiteten och
@@ -385,16 +385,16 @@ export function InlineLegend({ items }) {
  * med serien i diagrammet strax under utan att jämföra siffror. */
 export function StatTile({ label, value, icon: Icon, delta, context, accent, tone }) {
   return (
-    <div className="stat-tile" style={{ padding: '24px 28px 26px', minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '12px' }}>
-        <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{label}</span>
-        {Icon && (
+    <div className="stat-tile" style={{ padding: '16px 20px 18px', minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>{label}</span>
+        {false && Icon && (
           <span style={{ width: 26, height: 26, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: tone ? `color-mix(in srgb, ${tone} 12%, transparent)` : 'var(--bg-muted)', color: tone || 'var(--text-muted)' }}>
             <Icon size={14} />
           </span>
         )}
       </div>
-      <div className="stat-tile-value" style={{ fontSize: '30px', fontWeight: 700, color: accent || 'var(--text-main)', letterSpacing: '-0.03em', lineHeight: 1.05, marginBottom: '11px' }}>{value}</div>
+      <div className="stat-tile-value" style={{ fontSize: '26px', fontWeight: 700, color: accent || 'var(--text-main)', letterSpacing: '-0.02em', lineHeight: 1.05, marginBottom: '8px', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
       <DeltaPill delta={delta} context={context} />
     </div>
   );

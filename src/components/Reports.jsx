@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronRight } from './icons';
-import ListTable from './shared/ListTable';
 import ReportDetail from './reports/ReportDetail';
 import { getPeriodBounds, companyFiscalYearSetting } from '../utils/reportCalculations';
 import { visibleReportSections } from '../utils/reportDefinitions';
@@ -93,7 +92,7 @@ export default function Reports({
   );
 
   const visibleIds = new Set(sections.flatMap(sec => sec.reports.map(r => r.id)));
-  const TABS = [['overview', t('rpt.tabOverview')], ['result', t('rpt.tabResult')], ['balance', t('rpt.tabBalance')], ['ledger', t('rpt.tabLedger')]]
+  const TABS = [['overview', t('rpt.tabOverview')], ['result', t('ui.resultatrakning')], ['balance', t('ui.balansrakning')], ['ledger', t('ui.huvudbok')]]
     .filter(([id]) => visibleIds.has(id));
   const tabBar = (
     <div className="rp-top no-print">
@@ -155,26 +154,31 @@ export default function Reports({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '24px' }}>
           {/* En tabell med grupprubriker (2026-11-13): kolumnrubrikerna en gång,
               ingen likadan ikon på varje rad. */}
-          <ListTable
-            rowKey={r => r.id}
-            onRowClick={r => openReport(r.id)}
-            rows={sections.flatMap(section => section.reports.map(r => ({ ...r, sectionId: section.id, sectionLabel: section.label })))}
-            groupBy={r => r.sectionId}
-            renderGroupHeader={(key, rows) => <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{rows[0]?.sectionLabel}</span>}
-            // Telefon: namnet, en rad om vad rapporten visar och när den
-            // senast öppnades, i stället för tabellens rubriker per kort.
-            mobileList={r => ({
-              primary: r.name,
-              meta: r.description,
-              amount: relativeOpenedLabel(lastOpened[r.id]) || null,
+          <div className="rp-more">
+            {sections.map(section => {
+              const items = section.reports.filter(r => !TABS.some(([id]) => id === r.id));
+              if (!items.length) return null;
+              return (
+                <section key={section.id} className="rp-more-sec">
+                  <h2>{section.id === 'main' ? t('rpt.secAnalysis') : section.label}</h2>
+                  <div className="rp-more-grid">
+                    {items.map(r => (
+                      <button key={r.id} type="button" className="rp-card" onClick={() => openReport(r.id)}>
+                        <span className="rp-card-text">
+                          <b>{r.name}</b>
+                          <span>{r.description}</span>
+                        </span>
+                        <span className="rp-card-side">
+                          {lastOpened[r.id] && <small>{relativeOpenedLabel(lastOpened[r.id])}</small>}
+                          <ChevronRight size={16} />
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              );
             })}
-            columns={[
-              { key: 'name', label: t('ui.rapport'), width: '260px', fontWeight: 700, color: 'var(--text-main)' },
-              { key: 'description', label: t('ui.beskrivning'), wrap: true },
-              { key: 'lastOpened', label: t('ui.senast_oppnad'), width: '140px', render: r => relativeOpenedLabel(lastOpened[r.id]) || '—' },
-              { key: 'chevron', label: '', align: 'right', width: '32px', render: () => <ChevronRight size={16} color="var(--text-muted)" /> },
-            ]}
-          />
+          </div>
 
         </div>
       </div>

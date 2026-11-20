@@ -30,8 +30,8 @@ export const REPORT_SECTIONS = [
     reports: [
       { id: 'receivables', name: t('rpt.kundreskontra'), description: t('rpt.kundreskontra_beskrivning') },
       { id: 'payables', name: t('rpt.leverantorsreskontra'), description: t('rpt.leverantorsreskontra_beskrivning') },
-      { id: 'invoices', name: t('ui.fakturarapporter'), description: t('ui.fakturerat_betalt_och_utestaende_per_kund_2') },
-      { id: 'payroll', name: t('ui.lonerapporter'), description: t('ui.bruttolon_skatt_och_arbetsgivaravgifter_per_anst_2'), requires: 'payroll' },
+      { id: 'invoices', name: t('rpt.salesPerCustomer'), description: t('ui.fakturerat_betalt_och_utestaende_per_kund_2') },
+      { id: 'payroll', name: t('rpt.payrollJournal'), description: t('ui.bruttolon_skatt_och_arbetsgivaravgifter_per_anst_2'), requires: 'payroll' },
     ],
   },
   {

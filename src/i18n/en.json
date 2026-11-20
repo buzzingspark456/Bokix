@@ -5562,6 +5562,9 @@
     "doneBooked": "The pay run has been deleted and the correction vouchers have been created."
   },
   "rpt": {
+    "secAnalysis": "Analysis",
+    "salesPerCustomer": "Sales per customer",
+    "payrollJournal": "Payroll journal",
     "tabOverview": "Overview",
     "tabResult": "Income",
     "tabBalance": "Balance",
