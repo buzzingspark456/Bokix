@@ -1987,6 +1987,10 @@ function MailboxView({ info, notify = true, onNotify, onSaveSenders, receipts = 
 function MailInDialog({ info, onClose, onSettings, onTrash }) {
   const gmailConnected = Boolean(info?.gmailCodeAt && info?.lastReceivedAt && Date.parse(info.lastReceivedAt) - Date.parse(info.gmailCodeAt) > 60 * 1000);
   const [gmailOpen, setGmailOpen] = useState(false);
+  const [client, setClient] = useState('gmail');
+  const steps = (prefix, n) => (
+    <ol className="ut-steps">{Array.from({ length: n }, (_, i) => <li key={i}>{tr(`underlag.${prefix}${i + 1}`, { address: info?.address || tr('underlag.miYourAddress').toLowerCase() })}</li>)}</ol>
+  );
   return (
     <UwDialog title={tr('underlag.mailIn')} sub={tr('underlag.miLead')} onClose={onClose}>
       <div className="ut-mi">
@@ -2002,6 +2006,12 @@ function MailInDialog({ info, onClose, onSettings, onTrash }) {
         <section>
           <h3>{tr('underlag.miForwardTitle')}</h3>
           <p>{tr('underlag.miForwardText')}</p>
+          <div className="ut-seg ut-mi-tabs" role="tablist">
+            {[['gmail', 'Gmail'], ['outlook', 'Outlook'], ['apple', tr('underlag.miApple')], ['other', tr('underlag.miOther')]].map(([id, label]) => (
+              <button key={id} type="button" role="tab" aria-selected={client === id} className={client === id ? 'on' : undefined} onClick={() => setClient(id)}>{label}</button>
+            ))}
+          </div>
+          {client === 'gmail' && <>
           <div className="ut-mi-gmail">
             <span className="ut-way-logo"><GmailLogo height={20} /></span>
             <div>
@@ -2019,7 +2029,10 @@ function MailInDialog({ info, onClose, onSettings, onTrash }) {
               <li>{tr('underlag.mbxStepB')} <a href={GMAIL_FILTERS_URL} target="_blank" rel="noopener noreferrer">{tr('underlag.mbxFilters')}</a></li>
             </ol>
           )}
-          <p className="ut-mi-other">{tr('underlag.miOtherText')}</p>
+          </>}
+          {client === 'outlook' && <div className="ut-mi-client">{steps('miOl', 4)}<p className="ut-mi-note">{tr('underlag.miOlNote')}</p></div>}
+          {client === 'apple' && <div className="ut-mi-client">{steps('miAp', 4)}<p className="ut-mi-note">{tr('underlag.miApNote')}</p></div>}
+          {client === 'other' && <div className="ut-mi-client">{steps('miOt', 3)}<p className="ut-mi-note">{tr('underlag.miOtNote')}</p></div>}
         </section>
         <section>
           <h3>{tr('underlag.miDeletedTitle')}</h3>
