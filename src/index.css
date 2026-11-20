@@ -10543,3 +10543,6 @@ html[data-nav-rail] .sidebar .nav-badge { background: #fff !important; color: #0
 .rp-dhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .rp-dhead .rp-top { margin-bottom: 0; }
 .rp-dhead > div:last-child { flex: 0 1 auto; }
+
+/* Diagramväxlaren (2026-11-20): segmenterad som flikarna. */
+.chart-toggle { display: inline-flex !important; gap: 2px !important; padding: 3px; border-radius: 999px; background: var(--bg-muted); }

@@ -143,6 +143,17 @@ const OWN_PERIOD_REPORTS = ['overview'];
  * utils/chartPalette.js) och `onDisplayChange` sparar en ändring. Båda
  * kommer från Reports.jsx, som äger företagsposten — detaljvyn läser och
  * skickar vidare, den äger ingenting själv. */
+// Varje person behåller sitt eget val av diagramform (2026-11-20): olika
+// människor gillar olika vyer. Sparas i webbläsaren, okända värden ger förvalet.
+function useChartChoice(key, fallback, options) {
+  const storageKey = `bokix.chart.${key}`;
+  const [value, setValue] = useState(() => {
+    try { const v = localStorage.getItem(storageKey); return options.some(o => o.id === v) ? v : fallback; } catch { return fallback; }
+  });
+  const set = (v) => { setValue(v); try { localStorage.setItem(storageKey, v); } catch { /* privat läge */ } };
+  return [value, set];
+}
+
 export default function ReportDetail({
   reportId, bounds, verifications, accounts, invoices, expenses = [], documents = [], payrollRuns, contacts, company,
   isMobile, onBack, display, onDisplayChange, periodControl,
@@ -294,10 +305,10 @@ function OverviewReport({ verifications, accounts, company, isMobile }) {
   // de former respektive data faktiskt läses bäst i — staplar när två
   // serier jämförs period för period, ring för andelar, linje för en kvot
   // över tid, yta för en nivå som ackumuleras.
-  const [revenueChart, setRevenueChart] = useState('bar');
-  const [costChart, setCostChart] = useState('donut');
-  const [marginChart, setMarginChart] = useState('line');
-  const [cashChart, setCashChart] = useState('area');
+  const [revenueChart, setRevenueChart] = useChartChoice('revenue', 'bar', TREND_CHART_TYPES);
+  const [costChart, setCostChart] = useChartChoice('cost', 'donut', SHARE_CHART_TYPES);
+  const [marginChart, setMarginChart] = useChartChoice('margin', 'line', FLOW_CHART_TYPES);
+  const [cashChart, setCashChart] = useChartChoice('cash', 'line', FLOW_CHART_TYPES);
   // Färger och beloppsenhet kommer från företagets val (ReportDisplayProvider
   // i skalet ovan), inte från modulkonstanter — samma källa som diagrammen
   // själva läser, så bricka, legend och kurva aldrig kan visa olika färg för
@@ -810,7 +821,7 @@ function BalanceReport({ verifications, accounts, bounds, isMobile }) {
 // uppställningen (computeCashflowStatement) med varje konto att fälla ut.
 function CashflowReport({ verifications, accounts, start, end, prevStart, prevEnd }) {
   const { palette, amount } = useReportDisplay();
-  const [chartType, setChartType] = useState('area');
+  const [chartType, setChartType] = useChartChoice('flow', 'line', FLOW_CHART_TYPES);
   const [detail, setDetail] = useState('summary');
   const bounds = useMemo(() => ({ start, end, prevStart, prevEnd }), [start, end, prevStart, prevEnd]);
   const statement = useMemo(() => computeCashflowStatement(verifications, accounts, bounds), [verifications, accounts, bounds]);

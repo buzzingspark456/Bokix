@@ -294,7 +294,7 @@ export function ReportSheet({ children }) {
  * PeriodPicker och listornas flikrader redan använder. */
 export function ChartTypeToggle({ value, onChange, options, label = 'Diagramtyp' }) {
   return (
-    <span role="group" aria-label={label} className="no-print" style={{ display: 'inline-flex', gap: '4px', flexWrap: 'wrap' }}>
+    <span role="group" aria-label={label} className="chart-toggle no-print" style={{ display: 'inline-flex', gap: '4px', flexWrap: 'wrap' }}>
       {options.map(opt => {
         const active = opt.id === value;
         return (
@@ -302,10 +302,11 @@ export function ChartTypeToggle({ value, onChange, options, label = 'Diagramtyp'
             key={opt.id} type="button" onClick={() => onChange(opt.id)} aria-pressed={active}
             style={{
               padding: '5px 12px', borderRadius: '999px', cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: '11.5px', fontWeight: 700, lineHeight: 1.4, whiteSpace: 'nowrap',
-              background: active ? BRAND.green : 'transparent',
-              color: active ? '#fff' : 'var(--text-secondary)',
-              border: `1px solid ${active ? BRAND.green : 'var(--border)'}`,
+              fontSize: '12px', fontWeight: 600, lineHeight: 1.4, whiteSpace: 'nowrap',
+              background: active ? 'var(--bg-card)' : 'transparent',
+              color: active ? 'var(--text-main)' : 'var(--text-secondary)',
+              border: 'none',
+              boxShadow: active ? '0 1px 2px rgba(0,0,0,0.08), 0 0 0 1px var(--border-light)' : 'none',
               transition: 'background 0.15s, color 0.15s, border-color 0.15s',
             }}
           >
@@ -319,14 +320,16 @@ export function ChartTypeToggle({ value, onChange, options, label = 'Diagramtyp'
 
 // Standarduppsättningarna. Ligger här och inte i ReportDetail.jsx så att
 // alla paneler som visar samma SORTS data också erbjuder samma former.
+// 2026-11-20: varje form visar något eget. Linje och Yta var i praktiken
+// samma bild, så Yta är borta. Speglat och Ackumulerat är vyer som
+// rapportprogram brukar ha: kostnaderna under nollinjen, och året som byggs upp.
 export const TREND_CHART_TYPES = [
   { id: 'bar', label: t('ui.staplar') },
-  { id: 'line', label: t('ui.linje') },
-  { id: 'area', label: t('ui.yta') },
-  { id: 'combo', label: t('ui.kombi') },
+  { id: 'diverging', label: t('rpt.chartMirrored') },
+  { id: 'combo', label: t('rpt.chartWithResult') },
+  { id: 'cumulative', label: t('rpt.chartCumulative') },
 ];
 export const FLOW_CHART_TYPES = [
-  { id: 'area', label: t('ui.yta') },
   { id: 'line', label: t('ui.linje') },
   { id: 'bar', label: t('ui.staplar') },
 ];
@@ -342,7 +345,7 @@ export const SHARE_CHART_TYPES = [
 export function SheetPanel({ title, subtitle, legend, controls, children, style }) {
   const hasHead = title || legend || controls;
   return (
-    <div className="sheet-panel" style={{ padding: '26px 28px 28px', minWidth: 0, ...style }}>
+    <div className="sheet-panel" style={{ padding: '20px 22px 22px', minWidth: 0, ...style }}>
       {hasHead && (
         <div className="sheet-panel-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', marginBottom: subtitle ? '5px' : (legend && controls ? '10px' : '18px') }}>
           {title && <span style={{ fontSize: '15.5px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{title}</span>}
@@ -920,6 +923,12 @@ export function ChartSummaryList({ items }) {
  */
 export function RevenueExpenseChart({ data, isMobile, granularity = 'month', height = 280, showLegend = false, variant = 'bar', indexKey = 'label', extraSeries = [], prevKey, prevName, partialLast = false }) {
   const { palette, amount } = useReportDisplay();
+  // Ackumulerat: summan hittills för varje period, ritad som linjer.
+  if (variant === 'cumulative') {
+    let inSum = 0; let outSum = 0;
+    data = data.map(d => ({ ...d, Intäkter: (inSum += d.Intäkter || 0), Utgifter: (outSum += d.Utgifter || 0) }));
+    variant = 'line';
+  }
   const tickData = useMemo(() => {
     const labels = thinLabels(data.map(d => d[indexKey]), isMobile);
     return data.map((d, i) => ({ ...d, [indexKey]: labels[i] }));
