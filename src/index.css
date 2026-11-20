@@ -10660,3 +10660,36 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
   .ut-nav-side button em { margin-left: 2px; }
   .ut-nav-side .ut-nav-group, .ut-nav-side .ut-nav-group:last-child { margin: 0 !important; padding: 0 !important; border: none !important; }
 }
+
+/* Mätaren (2026-11-20): en ring med tal och vad som återstår. */
+.ut-progress { gap: 10px; padding: 6px 14px 6px 6px; }
+.ut-ring { width: 30px; height: 30px; transform: rotate(-90deg); flex-shrink: 0; }
+.ut-ring-bg { fill: none; stroke: var(--border-light); stroke-width: 4; }
+.ut-ring-fg { fill: none; stroke: #1f9a4a; stroke-width: 4; stroke-linecap: round; transition: stroke-dasharray 0.5s ease; }
+.ut-progress-text { display: flex; flex-direction: column; line-height: 1.2; }
+.ut-progress-text b { font-size: 13px; font-weight: 700; color: var(--text-main); }
+.ut-progress-text small { font-size: 11.5px; font-weight: 500; color: var(--text-muted); }
+.ut-progress.is-done .ut-progress-text b { color: #1f7a3a; }
+.ut-progress-bar { display: none; }
+
+/* Telefon (2026-11-20): listan högt upp. Ingen inledningstext, ingen
+   Ladda upp-knapp (kameraknappen flyter i stället), finare flikar. */
+@media (max-width: 1099px) {
+  .ut-head > div > p, .ut-head > p { display: none; }
+  .ut-head-row { flex-direction: row; align-items: center; }
+  .ut-head-links .ut-link span, .ut-head-links .ut-pillbtn { font-size: 12.5px; }
+  .ut-head + .ut-progress, .ut-head-row + .ut-progress { margin-top: 8px; }
+  .ut-nav-side { padding: 8px 14px 10px !important; gap: 4px; }
+  .ut-nav-side button { padding: 7px 13px !important; border: none !important; background: transparent !important; color: var(--text-secondary) !important; font-weight: 600 !important; }
+  .ut-nav-side button svg { display: none; }
+  .ut-nav-side button.on { background: var(--bg-card) !important; color: var(--text-main) !important; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.10), 0 0 0 1px var(--border-light) !important; }
+  .ut-nav-side button em { background: #2fbf63 !important; color: #fff !important; min-width: 18px; padding: 0 5px; border-radius: 999px; font-size: 10.5px; font-style: normal; line-height: 17px; }
+  .ut-nav-side button.on em { background: #0b6329 !important; }
+  .ut-toolbar { margin-top: 12px; border: none; padding: 0; background: none; box-shadow: none; }
+  .ut-toolbar .ut-search { background: var(--bg-card); border: 1px solid var(--border); }
+}
+@media (max-width: 768px) {
+  .ut-toolbar .ut-upload { display: none; }
+  .ut-fab { display: inline-flex; }
+}
+@media (min-width: 769px) { .ut-fab { display: none !important; } }
