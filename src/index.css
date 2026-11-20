@@ -10499,3 +10499,15 @@ img.hc-player { object-fit: cover; }
 .ut-pv-open { display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 12px 0 16px; border: none; border-radius: 999px; background: #0b6329; color: #fff; font-family: inherit; font-size: 13.5px; font-weight: 600; white-space: nowrap; cursor: pointer; flex-shrink: 0; }
 .ut-pv-open:hover { background: #0e7531; }
 @media (max-width: 1150px) { .ut-pv-wrap.on { grid-template-columns: minmax(0, 1fr) minmax(320px, 48%); } }
+
+/* Underlag: ljus yta bakom dokumentet (2026-11-20), i förhandsvisningen och
+   i arbetsytan. Papperet syns tydligt mot ljusgrått, i mörkt läge följer
+   ytan temat. */
+.ut-pv .dv-doc, .ut-split .dv-doc { background: var(--bg-muted); }
+.ut-pv .dv-bar, .ut-split .dv-bar { background: var(--bg-card); border-bottom: 1px solid var(--border-light); color: var(--text-main); }
+.ut-pv .dv-btn, .ut-split .dv-btn { color: var(--text-secondary); }
+.ut-pv .dv-btn:hover:not(:disabled), .ut-split .dv-btn:hover:not(:disabled) { background: var(--bg-muted); color: var(--text-main); }
+.ut-pv .dv-zoom, .ut-split .dv-zoom { color: var(--text-muted); }
+.ut-pv .dv-empty, .ut-split .dv-empty, .ut-pv .dv-pdf-wait, .ut-split .dv-pdf-wait { color: var(--text-muted); }
+.ut-pv .dv-img, .ut-split .dv-img { box-shadow: 0 2px 12px rgba(15, 23, 42, 0.10); }
+.ut-pv-doc { background: var(--bg-muted); }
