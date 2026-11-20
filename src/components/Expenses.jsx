@@ -1865,9 +1865,9 @@ function SendersView({ info, onSaveSenders, receipts = [], ownEmail = '', mode =
         <ul>
           {items.map(v => (
             <li key={v}>
-              <span className={`ut-snd-dot ${tab}`} aria-hidden="true" />
+              <span className={`ut-snd-av ${tab}`} aria-hidden="true">{(v.replace(/^@/, '').charAt(0) || '?').toUpperCase()}</span>
               <span className="ut-snd-addr">{v}</span>
-              <button type="button" className="ut-link" onClick={() => removeEntry(v, tab === 'blocked')}>{tr('ui.ta_bort')}</button>
+              <button type="button" className="ut-snd-x" onClick={() => removeEntry(v, tab === 'blocked')} title={tr('ui.ta_bort')} aria-label={`${tr('ui.ta_bort')} ${v}`}><X size={14} /></button>
             </li>
           ))}
         </ul>
@@ -1958,30 +1958,38 @@ function SendersView({ info, onSaveSenders, receipts = [], ownEmail = '', mode =
 /** Inställningar för inkorgen (2026-11-18): adressen, Gmail och notiser på en
  * lugn inställningssida i stället för en egen vy med kort. */
 function MailboxView({ info, notify = true, onNotify, onSaveSenders, receipts = [], ownEmail = '' }) {
+  const sec = (title, text, children) => (
+    <section className="ut-sx">
+      <div className="ut-sx-side"><h2>{title}</h2><p>{text}</p></div>
+      <div className="ut-sx-main">{children}</div>
+    </section>
+  );
   return (
-    <div className="ut">
+    <div className="ut ut-settings">
       <div className="ut-head">
         <h1>{tr('underlag.setTitle')}</h1>
         <p>{tr('underlag.setIntro')}</p>
       </div>
-      <h2 className="ut-set-h">{tr('underlag.setNotifyTitle')}</h2>
-      <div className="ut-set">
-        <div className="ut-set-row">
-          <div className="ut-set-text"><b>{tr('underlag.setNotifyBell')}</b><span>{tr('underlag.setNotifyBellSub')}</span></div>
-          <div className="ut-set-right"><label className="ut-switch"><input type="checkbox" checked={notify} onChange={e => onNotify?.(e.target.checked)} /><span /></label></div>
+      {sec(tr('underlag.setNotifyTitle'), tr('underlag.sxNotifyText'), (
+        <div className="ut-set">
+          <div className="ut-set-row">
+            <div className="ut-set-text"><b>{tr('underlag.setNotifyBell')}</b><span>{tr('underlag.setNotifyBellSub')}</span></div>
+            <div className="ut-set-right"><label className="ut-switch"><input type="checkbox" checked={notify} onChange={e => onNotify?.(e.target.checked)} /><span /></label></div>
+          </div>
         </div>
-      </div>
-      <h2 className="ut-set-h">{tr('underlag.setMailTitle')}</h2>
-      <div className="ut-set">
-        <div className="ut-set-row">
-          <div className="ut-set-text"><b>{tr('underlag.setAddressTitle')}</b><span>{info?.address ? <code className="ut-set-code">{info.address}</code> : tr('underlag.mbxAddressMissing')}</span></div>
-          <div className="ut-set-right">{info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />}</div>
+      ))}
+      {sec(tr('underlag.setAddressTitle'), tr('underlag.sxAddressText'), (
+        <div className="ut-set">
+          <div className="ut-set-row ut-sx-addr">
+            <span className="ut-hero-ico"><Mail size={18} /></span>
+            <div className="ut-set-text">{info?.address ? <code className="ut-set-code">{info.address}</code> : <b>{tr('underlag.mbxAddressMissing')}</b>}<span>{info?.lastReceivedAt ? tr('underlag.mbxLast', { when: new Date(info.lastReceivedAt).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }) }) : tr('underlag.mbxNoneYet')}</span></div>
+            <div className="ut-set-right">{info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />}</div>
+          </div>
         </div>
-      </div>
-      <h3 className="ut-set-h3">{tr('underlag.setManageSenders')}</h3>
-      <div className="ut-set-senders">
+      ))}
+      {sec(tr('underlag.setManageSenders'), tr('underlag.sxSendersText'), (
         <SendersView mode="manage" info={info} onSaveSenders={onSaveSenders} receipts={receipts} ownEmail={ownEmail} />
-      </div>
+      ))}
     </div>
   );
 }
