@@ -1721,6 +1721,12 @@ function arrivedLabel(r) {
   return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' }) : (r?.date || '');
 }
 
+// Från-kolumnen: bara namnet ur "Gusto <kvitto@gusto.se>", annars adressen.
+function senderName(s) {
+  const m = /^\s*"?([^"<]+?)"?\s*<[^>]+>\s*$/.exec(String(s || ''));
+  return m ? m[1] : String(s || '');
+}
+
 // Avläsningens läge per underlag (kolumnen Avläsning).
 function readState(r, status, readingId) {
   if (status === 'booked' || status === 'reversed') return { key: 'done', text: tr('underlag.rsBooked') };
@@ -1749,7 +1755,7 @@ function UnderlagNav({ view, onView, counts, onOpenMenu }) {
     ['underlag', tr('nav.underlag'), FileText, counts.todo],
     ['mail', tr('underlag.navMail'), Mail, counts.mail],
     ...(counts.missing != null ? [['missing', tr('underlag.navMissingShort'), AlertCircle, counts.missing]] : []),
-    ['senders', tr('underlag.navSenders'), CheckCircle2, null],
+    ['senders', tr('underlag.navSendersShort'), CheckCircle2, null],
     ['trash', tr('underlag.navTrash'), Trash2, counts.trash],
     ['mailbox', tr('underlag.navSettings'), Cog, null],
   ];
@@ -2237,8 +2243,7 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
               <th className="ut-c-num">{tr('underlag.colAmount')}</th>
               <th>{tr('underlag.colArrived')}</th>
               <th>{tr('underlag.colRead')}</th>
-              <th>{tr('underlag.colSource')}</th>
-              <th>{tr('underlag.colSender')}</th>
+              <th>{tr('underlag.colFrom')}</th>
               <th>{tr('underlag.colStatus')}</th>
             </tr>
           </thead>
@@ -2247,11 +2252,11 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
               <tr key={u.id} className="ut-uploading">
                 <td className="ut-c-check" />
                 <td><span className="ut-doc"><span className="ut-thumb"><span className="rc-row-thumb is-letter"><UploadCloud size={15} /></span></span><span className="ut-doc-text"><b>{u.file?.name || tr('underlag.unnamed')}</b><small>{tr('underlag.uploadingNow')}</small></span></span></td>
-                <td colSpan={7}><span className="ut-up-bar"><i style={{ width: `${Math.round((u.progress || 0) * (u.progress > 1 ? 1 : 100))}%` }} /></span></td>
+                <td colSpan={6}><span className="ut-up-bar"><i style={{ width: `${Math.round((u.progress || 0) * (u.progress > 1 ? 1 : 100))}%` }} /></span></td>
               </tr>
             ))}
             {shown.length === 0 && uploading.length === 0 && (
-              <tr><td colSpan={9} className="ut-empty">
+              <tr><td colSpan={8} className="ut-empty">
                 {needle
                   ? <UtEmpty icon={Search} title={tr('underlag.noHits')} text={tr('underlag.noHitsText')} />
                   : onlyEmail
@@ -2289,8 +2294,10 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
                   <td className="ut-c-num">{amount > 0 ? formatSEK(amount) : '–'}</td>
                   <td className="ut-muted">{arrivedLabel(r)}</td>
                   <td><span className={`ut-read ut-read-${rs.key}`}>{rs.text}</span></td>
-                  <td className="ut-muted">{src.kind === 'mail' ? <><Mail size={13} /> {src.text}</> : src.text}</td>
-                  <td className="ut-muted ut-sender" title={sender}>{sender || '–'}</td>
+                  <td className="ut-muted ut-from" title={[src.text, sender].filter(Boolean).join(' · ')}>
+                    {src.kind === 'mail' ? <Mail size={13} /> : <UploadCloud size={13} />}
+                    <span>{senderName(sender) || src.text}</span>
+                  </td>
                   <td>{(() => {
                     // Obokfört: säg vad som återstår, inte bara "Ej hanterad".
                     const step = stepOf && (s === 'unhandled' || s === 'pending') ? stepOf(r) : null;

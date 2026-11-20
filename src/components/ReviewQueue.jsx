@@ -134,6 +134,72 @@ const BADGE_TONES = {
 };
 
 /**
+ * Tunn granskningsrad för underlag (nya Underlag, 2026-11-20): namn, belopp,
+ * konto och knapp på en rad. Pilen fäller ut detaljerna och Öppna underlag.
+ */
+function ThinReviewRow({ item, accounts, onApprove, onReject, exiting, selected, onToggleSelect, onOpenDoc }) {
+  const [open, setOpen] = useState(false);
+  const [changing, setChanging] = useState(false);
+  const [manual, setManual] = useState('');
+  const acc = accounts.find(a => a.code === item.account);
+  const who = item.supplier || item.description || t('ui.okant_inkopsstalle');
+  const kind = item.type === 'supplier_invoice' ? t('ui.leverantorsfaktura_stor') : t('ui.kvitto');
+  const picking = !item.account || changing;
+  return (
+    <div className={`rqt${open ? ' is-open' : ''}`} style={{ opacity: exiting ? 0 : 1, transform: exiting ? 'translateX(24px)' : 'none', transition: 'opacity 0.22s ease, transform 0.22s ease' }}>
+      <div className="rqt-main">
+        <input
+          type="checkbox" className="rqt-check" checked={selected} disabled={!item.account}
+          onChange={onToggleSelect} aria-label={who}
+          title={item.account ? t('ui.markera_for_att_godkanna_flera_pa_en_gang') : t('ui.posten_saknar_konto')}
+        />
+        <button type="button" className="rqt-name" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+          <b>{who}</b>
+          <small>{kind} · {formatDate(item.date)}</small>
+        </button>
+        <span className="rqt-amount">{Number(item.amount) ? formatSEK(item.amount) : '–'}</span>
+        <div className="rqt-account">
+          {picking
+            ? <AccountSearch value={manual} onChange={setManual} accounts={accounts} placeholder={t('ui.sok_konto_2')} />
+            : <span className={`rqt-sugg ${item.confident ? 'is-sure' : 'is-check'}`} title={item.confident ? t('ui.sakert_forslag') : t('ui.osakert_forslag')}>
+                <i />{item.account} {acc?.name || ''}
+              </span>}
+        </div>
+        <div className="rqt-act">
+          {picking ? (
+            <>
+              <button type="button" className="rqt-btn is-primary" disabled={!manual} onClick={() => onReject(item, manual)}><Check size={14} /> {t('underlag.book')}</button>
+              {changing && <button type="button" className="rqt-btn" onClick={() => { setChanging(false); setManual(''); }}>{t('ui.avbryt')}</button>}
+            </>
+          ) : (
+            <>
+              <button type="button" className="rqt-btn is-primary" onClick={() => onApprove(item)}><Check size={14} /> {t('ui.godkann')}</button>
+              <button type="button" className="rqt-btn" onClick={() => setChanging(true)}>{t('underlag.changeAccount')}</button>
+            </>
+          )}
+          <button type="button" className="rqt-toggle" onClick={() => setOpen(o => !o)} aria-label={t('ui.visa_detaljer')} title={t('ui.visa_detaljer')}>
+            {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+        </div>
+      </div>
+      {open && (
+        <div className="rqt-detail">
+          <dl>
+            <div><dt>{t('ui.typ_2').replace(/:\s*$/, '')}</dt><dd>{kind}</dd></div>
+            <div><dt>{t('ui.datum_2').replace(/:\s*$/, '')}</dt><dd>{formatDate(item.date)}</dd></div>
+            <div><dt>{t('ui.belopp_3').replace(/:\s*$/, '')}</dt><dd>{formatSEK(item.amount)}</dd></div>
+            <div><dt>{t('ui.moms_5').replace(/:\s*$/, '')}</dt><dd>{item.vatAmount ? formatSEK(item.vatAmount) : (item.vatRate != null ? `${item.vatRate} %` : '—')}</dd></div>
+            <div><dt>{t('underlag.suggestedFrom')}</dt><dd>{item.account ? t('ui.foreslaget_ur_tidigare') : t('ui.ingen_tidigare_matchning')}</dd></div>
+            {item.inbox?.from && <div><dt>{t('underlag.colSender')}</dt><dd>{item.inbox.from}</dd></div>}
+          </dl>
+          {onOpenDoc && <button type="button" className="rqt-btn" onClick={() => onOpenDoc(item.id)}><FileText size={14} /> {t('underlag.openDoc')}</button>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * Skalet varje granskningsrad delar: markeringsruta, ikon, metarad,
  * åtgärdsmening, statusetikett till höger och knapparna under. Både
  * utgifts- och Stripe-raderna använder det, så de två flikarna aldrig kan
@@ -1147,7 +1213,16 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
   const zettleRefunds = visibleZettleItems.filter(i => ['refund', 'split'].includes(zettleCategory(i)));
   const zettleChoice = visibleZettleItems.filter(i => zettleCategory(i) === 'sale' && !isCertainZettleVat(i));
 
-  const renderPending = item => (
+  const renderPending = item => newUnderlag ? (
+    <ThinReviewRow
+      key={item.id} item={item} accounts={accounts}
+      onApprove={handleApprove} onReject={handleReject}
+      exiting={exitingIds.has(item.id)}
+      selected={selectedIds.has(item.id)}
+      onToggleSelect={() => toggleSelected(item.id)}
+      onOpenDoc={openUnderlag}
+    />
+  ) : (
     <ReviewCard
       key={item.id} item={item} accounts={accounts}
       onApprove={handleApprove} onReject={handleReject}
