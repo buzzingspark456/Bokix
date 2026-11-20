@@ -10582,3 +10582,26 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
 .responsive-table tbody tr { transition: background 0.12s ease; }
 .responsive-table tbody tr[style*="cursor: pointer"]:hover { background: var(--bg-muted) !important; filter: none !important; }
 .responsive-table tbody td.lt-cell { font-variant-numeric: tabular-nums; }
+
+/* Ändra plan som egen sida (2026-11-20). */
+.sub-page { display: flex; flex-direction: column; gap: 14px; max-width: 980px; }
+.sub-back { align-self: flex-start; display: inline-flex; align-items: center; gap: 2px; height: 34px; padding: 0 12px 0 6px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text-main); font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.sub-back:hover { background: var(--bg-muted); }
+.sub-page .sub-panel { padding: 28px 30px; border-radius: 18px; gap: 20px; }
+.sub-page .sub-panel-head h3 { font-size: 24px; letter-spacing: -0.02em; }
+.sub-page .sub-panel-head p { font-size: 14px; }
+.sub-page .sub-panel-head .sub-x { display: none; }
+.sub-page .sub-plans { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.sub-page .sub-plan { padding: 22px; gap: 8px; border-radius: 16px; }
+.sub-page .sub-plan-top b { font-size: 17px; }
+.sub-page .sub-plan-price strong { font-size: 34px; }
+.sub-page .sub-plan li { font-size: 13.5px; }
+.sub-page .sub-pick { height: 38px; padding: 0 20px; font-size: 14px; }
+.sub-page .sub-reasons label { padding: 13px 14px; font-size: 14px; }
+@media (max-width: 640px) { .sub-page .sub-panel { padding: 20px 18px; } }
+
+/* Ändra plan som helsida över hela appen (2026-11-20). */
+.sub-overlay { position: fixed; inset: 0; z-index: 400; overflow-y: auto; background: var(--bg-page, #f5f7f6); animation: sub-in 0.18s ease both; }
+@keyframes sub-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.sub-overlay .sub-page { max-width: 1000px; margin: 0 auto; padding: 32px 24px 48px; }
+@media (max-width: 640px) { .sub-overlay .sub-page { padding: 16px 12px 32px; } }
