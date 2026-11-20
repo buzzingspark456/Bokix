@@ -10369,3 +10369,30 @@ img.hc-player { object-fit: cover; }
 .ut-mi-client .ut-steps { margin: 12px 0 0; }
 .ut-mi-client .ut-steps li { font-size: 13.5px; line-height: 1.55; color: var(--text-main); }
 .ut-mi-note { margin-top: 8px !important; font-size: 12.5px !important; color: var(--text-muted) !important; }
+
+/* Underlag, finare (2026-11-20): innehållet centrerat med maxbredd, verktygen
+   på en rad i ett kort, mätaren som en liten pill. */
+.ut { width: 100%; max-width: 1240px; margin: 0 auto; }
+.ut-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 18px; padding: 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03); }
+.ut-toolbar .ut-bar, .ut-toolbar .ut-filters, .ut-toolbar .ut-bar-right, .ut-toolbar .ut-mail-filters { display: contents; }
+.ut-toolbar .ut-upload { padding: 8px 15px; font-size: 13px; }
+.ut-toolbar .ut-chips { display: flex; gap: 6px; padding-left: 10px; margin-left: 2px; border-left: 1px solid var(--border-light); }
+.ut-toolbar .ut-chip { padding: 6px 12px; font-size: 12.5px; }
+.ut-toolbar .ut-search { margin-left: auto; width: min(300px, 100%); border-color: transparent; background: var(--bg-muted); }
+.ut-toolbar .ut-search:focus-within { border-color: var(--border); background: var(--bg-card); }
+.ut-toolbar .ut-search input { padding: 8px 0; font-size: 13px; }
+.ut-toolbar .ut-bar-muted { margin-right: 0; max-width: 320px; overflow: hidden; }
+.ut-toolbar .ut-link { padding: 6px 8px; border-radius: 8px; }
+.ut-toolbar .ut-link:hover:not(:disabled) { background: var(--bg-muted); }
+.ut-progress { display: inline-flex; align-self: flex-start; align-items: center; gap: 10px; margin-top: 12px; padding: 5px 12px 5px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+.ut-head h1 + .ut-progress, .ut-head-row + .ut-progress { margin-top: 12px; }
+.ut-progress-bar { width: 72px; height: 5px; }
+.ut-count { margin-top: 8px; min-height: 30px; }
+@media (max-width: 1100px) { .ut-toolbar .ut-search { margin-left: 0; width: 100%; } }
+.ut-toolbar .ut-seg { order: 1; }
+.ut-toolbar .ut-toggle { order: 2; margin-right: 6px; }
+.ut-toolbar .ut-link { order: 3; }
+.ut-toolbar .ut-search { order: 9; }
+.ut > .ut-bar { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03); }
+.ut-link-quiet { color: var(--text-muted); font-weight: 500; margin-left: 10px; }
+.ut-link-quiet:hover { color: var(--text-main); }

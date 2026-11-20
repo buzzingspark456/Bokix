@@ -1076,7 +1076,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             </div>
             {inline && (
               <div className="uw-meta">
-                <span>{tr('underlag.uploaded')}{receipt.uploadedBy?.name ? ` ${tr('underlag.by')} ${receipt.uploadedBy.name}` : ''}{uploadedDate(receipt) ? ` · ${uploadedDate(receipt)}` : ''} · <b>{readDetails?.dueDate || readDetails?.bankgiro || readDetails?.ocrNumber || /faktura|invoice/i.test(numberLabel || '') ? tr('underlag.typeInvoice') : tr('underlag.typeReceipt')}</b></span>
+                <span>{tr('underlag.uploaded')}{receipt.uploadedBy?.name ? ` ${tr('underlag.by')} ${receipt.uploadedBy.name}` : ''}{uploadedDate(receipt) ? ` · ${uploadedDate(receipt)}` : ''} · <b>{docKind({ ...receipt, receiptNumberLabel: numberLabel, ocrDraft: { ...(receipt.ocrDraft || {}), details: readDetails || receipt.ocrDraft?.details, readText: readText || receipt.ocrDraft?.readText } }) === 'invoice' ? tr('underlag.typeInvoice') : tr('underlag.typeReceipt')}</b></span>
               </div>
             )}
           </div>
@@ -1705,10 +1705,14 @@ function sourceLabel(r) {
 
 // Kvitto eller faktura: förfallodatum, fakturanummer eller betaluppgifter
 // (bankgiro, OCR) betyder faktura.
+// Även fakturaord i den avlästa texten (fakturadatum, förfallodatum, att
+// betala senast), så att en PDF-faktura utan bankgiro inte blir ett kvitto.
+const INVOICE_TEXT_RE = /fakturanummer|fakturanr|fakturadatum|f[öo]rfallodag|f[öo]rfallodatum|att betala senast|betalas senast|invoice\s*(?:number|no|date)|due date/i;
 function docKind(r) {
   const d = r?.ocrDraft?.details || {};
   const label = String(r?.receiptNumberLabel || r?.ocrDraft?.numberLabel || '');
   if (r?.type === 'supplier_invoice' || d.dueDate || d.bankgiro || d.plusgiro || d.ocrNumber || /faktura|invoice/i.test(label)) return 'invoice';
+  if (INVOICE_TEXT_RE.test(String(r?.ocrDraft?.readText || ''))) return 'invoice';
   if (r?.ocrDraft || r?.costAccount) return 'receipt';
   return null;
 }
@@ -2102,8 +2106,8 @@ function MissingView({ verifications, onAttach, onPaper }) {
                   {busy === v.id
                     ? <span className="ut-muted">{tr('underlag.missUploading')}</span>
                     : <>
-                        <button type="button" className="ut-link" onClick={() => pick(v.id)}><UploadCloud size={14} /> {tr('underlag.missUpload')}</button>
-                        <button type="button" className="ut-link" onClick={() => onPaper?.(v.id)}>{tr('underlag.missPaper')}</button>
+                        <button type="button" className="ut-pillbtn" onClick={() => pick(v.id)}><UploadCloud size={14} /> {tr('underlag.missUpload')}</button>
+                        <button type="button" className="ut-link ut-link-quiet" onClick={() => onPaper?.(v.id)}>{tr('underlag.missPaper')}</button>
                       </>}
                 </td>
               </tr>
@@ -2251,11 +2255,11 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
           </div>
         );
       })()}
+      <div className="ut-toolbar">
       <div className="ut-bar">
         {onlyEmail ? (
           <>
             <button type="button" className="ut-link" onClick={() => onMarkSeen?.(unreadIds)} disabled={!unreadIds.length}><MailOpen size={15} /> {tr('underlag.markAllRead')}</button>
-            <span className="ut-bar-text ut-bar-muted">{inboxAddress ? <><code>{inboxAddress}</code><CopyButton text={inboxAddress} label=" " /></> : tr('underlag.mbxAddressMissing')}</span>
           </>
         ) : (
           <button type="button" className="ut-upload" onClick={onUpload}><UploadCloud size={16} /> {tr('underlag.uploadDocs')}</button>
@@ -2286,6 +2290,7 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
           <Search size={15} />
           <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={onlyEmail ? tr('underlag.searchSender') : tr('underlag.search')} aria-label={onlyEmail ? tr('underlag.searchSender') : tr('underlag.search')} />
         </div>
+      </div>
       </div>
       <div className="ut-count">
         {picked.size > 0 ? (
