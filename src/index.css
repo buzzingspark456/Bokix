@@ -10253,3 +10253,22 @@ img.hc-player { object-fit: cover; }
 @media (max-width: 1100px) { .ut-ways { grid-template-columns: 1fr; } }
 /* Inställningar ligger direkt under Papperskorgen, inte längst ner. */
 .ut-nav-group:last-child { margin-top: 0; }
+
+/* Underlag på laptop (2026-11-20, som Fortnox): huvudmenyn göms helt och
+   öppnas som panel med Meny. Knappen syns bara då. */
+.ut-menu-btn, .ut-nav-side .ut-menu-btn { display: none; }
+@media (min-width: 941px) and (max-width: 1600px) {
+  html[data-underlag-focus] .sidebar { position: fixed; top: 0; left: 0; transform: translateX(-100%); z-index: 250; }
+  html[data-underlag-focus] .sidebar.open { transform: translateX(0); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); }
+  html[data-underlag-focus] .ut-menu-btn { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 7px 14px; border: none; border-radius: 8px; background: #0b6329; color: #fff; font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  html[data-underlag-focus] .ut-menu-btn:hover { background: #0e7531; }
+  html[data-underlag-focus] .ut-nav-side .ut-menu-btn { width: auto; margin: 0 0 12px; }
+  html[data-underlag-focus] .ut-nav-side .ut-menu-btn svg { opacity: 1; }
+}
+
+@media (min-width: 941px) and (max-width: 1600px) {
+  html[data-underlag-focus] .ut-shell { padding-left: 20px; }
+  html[data-underlag-focus] .ut-nav-side { padding-top: 14px; }
+  html[data-underlag-focus] .ut-detail-top { padding-left: 20px; }
+  html[data-underlag-focus] .nav-rail-toggle { display: none; }
+}

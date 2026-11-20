@@ -1758,6 +1758,7 @@ function UnderlagNav({ view, onView, counts, onOpenMenu }) {
   const groups = [items.slice(0, n - 2), items.slice(n - 2, n - 1), items.slice(n - 1)];
   return (
     <nav className="ut-nav-side" aria-label={tr('nav.underlag')}>
+      {onOpenMenu && <button type="button" className="ut-menu-btn" onClick={onOpenMenu}><Menu size={17} /> {tr('underlag.menu')}</button>}
       {groups.map((g, gi) => (
         <div key={gi} className="ut-nav-group">
           {g.map(([id, label, Icon, n]) => (
@@ -2796,6 +2797,7 @@ export default function Expenses({
           <>
             <div className="ut-detail-top">
               <span className="ut-detail-left">
+                {onOpenMenu && <button type="button" className="ut-menu-btn" onClick={onOpenMenu}><Menu size={17} /> {tr('underlag.menu')}</button>}
                 <button type="button" className="ut-back" onClick={() => setDetailReceiptId(null)}>← {tr('nav.underlag')}</button>
               </span>
               {navPos >= 0 && navIds.length > 1 && (

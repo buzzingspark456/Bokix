@@ -1305,7 +1305,22 @@ function App() {
   const [autoRail, setAutoRail] = useState(false);
   const [railOverride, setRailOverride] = useState(false);
   useEffect(() => { setRailOverride(false); }, [autoRail]);
-  const effectiveRail = navRail || (autoRail && !railOverride);
+  // Laptop (941–1600 px): i Underlag göms menyn helt och öppnas med Meny,
+  // som Fortnox. Större skärm: ikonfältet.
+  const [isLaptop, setIsLaptop] = useState(() => typeof window !== 'undefined' && window.matchMedia?.('(min-width: 941px) and (max-width: 1600px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.('(min-width: 941px) and (max-width: 1600px)');
+    if (!mq) return undefined;
+    const on = () => setIsLaptop(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  const underlagFocus = autoRail && isLaptop;
+  const effectiveRail = !underlagFocus && (navRail || (autoRail && !railOverride));
+  useEffect(() => {
+    if (underlagFocus) document.documentElement.setAttribute('data-underlag-focus', '1');
+    else document.documentElement.removeAttribute('data-underlag-focus');
+  }, [underlagFocus]);
   const toggleNavRail = () => { if (autoRail && !navRail) setRailOverride(v => !v); else setNavRail(v => !v); };
   useEffect(() => {
     if (effectiveRail) document.documentElement.setAttribute('data-nav-rail', '1');
