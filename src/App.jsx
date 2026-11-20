@@ -23,7 +23,7 @@ import {
   Bell,
   HelpCircle,
   Briefcase,
-  NavQuotesIcon, NavReceiptsIcon, NavHomeIcon, NavCustomerInvoicesIcon, NavSupplierInvoicesIcon, NavPayrollIcon,
+  NavQuotesIcon, NavReceiptsIcon, NavUnderlagIcon, NavTaxesIcon, NavHomeIcon, NavCustomerInvoicesIcon, NavSupplierInvoicesIcon, NavPayrollIcon,
   LogOut,
   Moon,
   AlertTriangle,
@@ -5823,7 +5823,7 @@ function App() {
   const mobileNavItems = [
     { id: 'dashboard',     label: t('navShort.dashboard'), icon: NavHomeIcon },
     { id: 'verifications', label: tr('ui.bokforing'), icon: BookOpen },
-    { id: 'expenses',      label: isNewUnderlagUser(user?.email) ? tr('nav.underlag') : tr('nav.expenses'),   icon: NavReceiptsIcon },
+    { id: 'expenses',      label: isNewUnderlagUser(user?.email) ? tr('nav.underlag') : tr('nav.expenses'),   icon: isNewUnderlagUser(user?.email) ? NavUnderlagIcon : NavReceiptsIcon },
     { id: 'reports',       label: t('navShort.reports'), icon: BarChart3 },
   ];
   // Telefonens Meny har samma grupper som sidomenyn på datorn, utan det som redan
@@ -5837,7 +5837,7 @@ function App() {
       { id: 'projects', label: t('nav.projects'), icon: Briefcase },
     ] },
     { key: 'finance', title: t('nav.groupFinance'), items: [
-      { id: 'expenses', label: isNewUnderlagUser(user?.email) ? t('nav.underlag') : t('nav.expenses'), icon: NavReceiptsIcon },
+      { id: 'expenses', label: isNewUnderlagUser(user?.email) ? t('nav.underlag') : t('nav.expenses'), icon: isNewUnderlagUser(user?.email) ? NavUnderlagIcon : NavReceiptsIcon },
       { id: 'supplier_invoices', label: t('nav.supplierInvoices'), icon: NavSupplierInvoicesIcon, exact: true },
       { id: 'payroll', label: t('nav.payroll'), icon: NavPayrollIcon },
     ] },
@@ -5845,7 +5845,7 @@ function App() {
       { id: 'bank', label: t('nav.bank'), icon: Landmark },
       { id: 'verifications', label: t('nav.verifications'), icon: BookOpen },
       { id: 'reports', label: t('nav.reports'), icon: BarChart3 },
-      { id: 'taxes', label: t('nav.taxes'), icon: Calculator },
+      { id: 'taxes', label: t('nav.taxes'), icon: NavTaxesIcon },
     ] },
     { key: 'settings', title: null, items: [
       { id: 'settings', label: t('nav.settings'), icon: SettingsIcon },
@@ -6566,7 +6566,7 @@ function App() {
               key: 'finance',
               title: t('nav.groupFinance'),
               items: [
-                { id: 'expenses', label: isNewUnderlagUser(user?.email) ? t('nav.underlag') : t('nav.expenses'), short: isNewUnderlagUser(user?.email) ? t('navShort.underlag') : t('navShort.expenses'), badge: underlagWorkCount, icon: NavReceiptsIcon },
+                { id: 'expenses', label: isNewUnderlagUser(user?.email) ? t('nav.underlag') : t('nav.expenses'), short: isNewUnderlagUser(user?.email) ? t('navShort.underlag') : t('navShort.expenses'), badge: underlagWorkCount, icon: isNewUnderlagUser(user?.email) ? NavUnderlagIcon : NavReceiptsIcon },
                 { id: 'supplier_invoices', label: t('nav.supplierInvoices'), short: t('navShort.supplierInvoices'), icon: NavSupplierInvoicesIcon, exact: true },
                 { id: 'payroll', label: t('nav.payroll'), short: t('navShort.payroll'), icon: NavPayrollIcon },
               ],
@@ -6578,7 +6578,7 @@ function App() {
                 { id: 'bank', label: t('nav.bank'), short: t('navShort.bank'), icon: Landmark },
                 { id: 'verifications', label: t('nav.verifications'), short: t('navShort.verifications'), icon: BookOpen },
                 { id: 'reports', label: t('nav.reports'), short: t('navShort.reports'), icon: BarChart3 },
-                { id: 'taxes', label: t('nav.taxes'), short: t('navShort.taxes'), icon: Calculator },
+                { id: 'taxes', label: t('nav.taxes'), short: t('navShort.taxes'), icon: NavTaxesIcon },
               ],
             },
           ].map(group => ({ ...group, items: group.items.filter(item => !item.hidden && isNavItemShown(item)) }))
@@ -6635,8 +6635,6 @@ function App() {
                     </span>
                     {item.badge > 0 && (
                       <span className="nav-badge" style={{
-                        minWidth: '20px', height: '20px', padding: '0 6px', borderRadius: '999px',
-                        background: '#22c55e', color: 'white', fontSize: '12px', fontWeight: 700,
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                       }}>
                         {item.badge}
