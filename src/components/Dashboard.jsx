@@ -771,7 +771,10 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // kortet inte blir för stort (användaren 2026-11-09). Minst 340.
   const chartSlotRef = useRef(null);
   const [fillH, setFillH] = useState(null);
-  const hasOutstanding = outstanding.inCount > 0 || outstanding.outCount > 0;
+  // Utestående syns alltid efter första fakturan (2026-11-20), även när allt
+  // är betalt: då visar den 0 kr, vilket också är ett besked.
+  const hasOutstanding = outstanding.inCount > 0 || outstanding.outCount > 0
+    || invoices.some(i => i.type !== 'quote') || expenses.some(e => e.type === 'supplier_invoice');
   useLayoutEffect(() => {
     const measure = () => {
       const slot = chartSlotRef.current;
