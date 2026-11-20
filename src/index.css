@@ -10724,3 +10724,12 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
 .si-att-empty span { display: flex; flex-direction: column; gap: 3px; }
 .si-att-empty b { font-size: 14px; color: var(--text-main); }
 .si-att-empty small { font-size: 12.5px; color: var(--text-muted); }
+
+/* Underlag i mobilen (2026-11-20): alla flikar syns, på två rader vid behov,
+   i stället för att några hamnar utanför skärmen. */
+@media (max-width: 1099px) {
+  .ut-nav-side { flex-wrap: wrap !important; overflow-x: visible !important; gap: 6px !important; padding: 8px 14px 10px !important; }
+  .ut-nav-side button { padding: 6px 11px !important; border: 1px solid var(--border) !important; background: var(--bg-card) !important; font-size: 12.5px !important; }
+  .ut-nav-side button.on { background: var(--text-main) !important; border-color: var(--text-main) !important; color: var(--bg-card) !important; box-shadow: none !important; }
+  .ut-nav-side button.on em { background: #2fbf63 !important; }
+}

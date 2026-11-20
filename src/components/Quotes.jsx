@@ -206,7 +206,14 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
   // återställs till standardtexten igen.
   // Ny offert: tomt (2026-11-20, grundaren). Standardvillkoren läggs till med
   // en knapp. Äldre offerter utan fältet behåller texten de skickades med.
-  const [otherTerms, setOtherTerms] = useState(quote ? (quote.otherTerms ?? DEFAULT_OTHER_TERMS) : '');
+  const [otherTerms, setOtherTerms] = useState(() => {
+    // Utkast: tomt om inget eget skrivits (standardtexten räknas inte). En
+    // skickad offert behåller texten den skickades med.
+    if (!quote) return '';
+    const draft = !quote.status || quote.status === 'draft';
+    if (draft && (quote.otherTerms == null || quote.otherTerms === DEFAULT_OTHER_TERMS)) return '';
+    return quote.otherTerms ?? DEFAULT_OTHER_TERMS;
+  });
 
   // Kundfeedback: "så mycket grejer, gör det enklare" — de sex sektionerna
   // nedan (mejlmeddelande, bilagor, ej ingår, betalningsvillkor,
