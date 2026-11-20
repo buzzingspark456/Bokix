@@ -4123,6 +4123,13 @@ function App() {
     if (next[key]) delete next[key]; else next[key] = { at: new Date().toISOString() };
     return { ...prev, taxFilings: next };
   });
+  // Saknar underlag (Underlag): fil eller pappersoriginal till en bokförd verifikation.
+  const handleAttachToVerification = (verificationId, patch) => setVerifications(prev => (prev || []).map(v => {
+    if (v.id !== verificationId) return v;
+    if (patch.originalLocation) return { ...v, originalLocation: patch.originalLocation };
+    if (!v.attachmentUrl) return { ...v, attachmentUrl: patch.url, attachmentName: patch.name, attachmentType: patch.type || '' };
+    return { ...v, attachments: [...(Array.isArray(v.attachments) ? v.attachments : []), { url: patch.url, name: patch.name, type: patch.type }] };
+  }));
   const handleLinkDocument = (docId, verificationId) => {
     const r = linkDocument(currentCompany.verifications || [], currentCompany.documents || [], docId, verificationId);
     setVerifications(r.verifications);
@@ -6116,6 +6123,7 @@ function App() {
             newUnderlag={isNewUnderlagUser(user?.email)}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
+            onAttachToVerification={isNewUnderlagUser(user?.email) ? handleAttachToVerification : undefined}
           />
         );
       case 'supplier_invoices': {

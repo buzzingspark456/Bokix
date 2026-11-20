@@ -1,3 +1,5 @@
+import { hasUnderlag } from './reportLedgers';
+import { getDebet } from './verificationAmounts';
 // Underlag och Granska är ett flöde (2026-11-20):
 //  - Underlag: dokumentet läses av och fylls i (leverantör och belopp).
 //  - Granska: bara kontot återstår, med förslag ur tidigare konteringar.
@@ -32,4 +34,13 @@ export function underlagStep(e, allExpenses = []) {
   if (e?.costAccount) return null;
   if (needsUnderlagWork(e)) return e?.ocrDraft ? 'fill' : 'read';
   return suggestAccount(e, allExpenses).confident ? 'ready' : 'account';
+}
+
+/** Saknar underlag (2026-11-20): bokförda verifikationer utan kvitto eller
+ * faktura, nyast först. `since` (ÅÅÅÅ-MM-DD) begränsar till ett datum och framåt. */
+export function missingUnderlag(verifications = [], since = '') {
+  return (verifications || [])
+    .filter(v => (v.status || 'booked') !== 'draft' && v.date && !hasUnderlag(v) && (!since || String(v.date).slice(0, 10) >= since))
+    .map(v => ({ v, amount: Math.round((v.rows || []).reduce((s, r) => s + getDebet(r), 0) * 100) / 100 }))
+    .sort((a, b) => String(b.v.date).localeCompare(String(a.v.date)) || String(b.v.number || '').localeCompare(String(a.v.number || ''), 'sv', { numeric: true }));
 }

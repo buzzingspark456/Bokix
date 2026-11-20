@@ -10208,3 +10208,12 @@ img.hc-player { object-fit: cover; }
 .rq-waiting span { flex: 1; min-width: 0; }
 .rq-waiting button { flex-shrink: 0; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; background: none; color: var(--text-main); font: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
 .rq-waiting button:hover { background: var(--bg-muted); }
+
+/* Saknar underlag (2026-11-20) */
+.ut-mono { font-variant-numeric: tabular-nums; }
+.ut-miss-text { font-weight: 600; color: var(--text-main); }
+.ut-actions .ut-link + .ut-link { margin-left: 6px; }
+
+/* Undermenyn: namnen på en rad. */
+.ut-nav-side button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ut-nav-side button em { flex-shrink: 0; }

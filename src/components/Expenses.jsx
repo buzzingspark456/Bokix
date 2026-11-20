@@ -30,7 +30,7 @@ import DocumentsToLink from './DocumentsToLink';
 import { convertToSek } from '../utils/currencyConversion';
 import { historyForSupplier, historyFromVerifications } from '../utils/receiptHistory';
 import { needsAutoRead, autoReadTried, markAutoReadTried } from '../utils/autoRead';
-import { underlagStep } from '../utils/underlagStep';
+import { underlagStep, missingUnderlag } from '../utils/underlagStep';
 import { reverseChargePurchaseInfo, describeReverseCharge } from '../utils/reverseCharge';
 import { CURRENCIES, parseNumber, sekFrom, impliedRate, rateToInput, amountToInput, foreignForSave } from '../utils/foreignCurrency';
 import { t as tr, dateLocale } from '../i18n';
@@ -1747,12 +1747,14 @@ function UnderlagNav({ view, onView, counts, onOpenMenu }) {
   const items = [
     ['underlag', tr('nav.underlag'), FileText, counts.todo],
     ['mail', tr('underlag.navMail'), Mail, counts.mail],
+    ...(counts.missing != null ? [['missing', tr('underlag.navMissingShort'), AlertCircle, counts.missing]] : []),
     ['senders', tr('underlag.navSenders'), CheckCircle2, null],
     ['trash', tr('underlag.navTrash'), Trash2, counts.trash],
     ['mailbox', tr('underlag.navSettings'), Cog, null],
   ];
   // Grupper: underlagen och avsändarna, papperskorgen, inställningarna.
-  const groups = [items.slice(0, 3), items.slice(3, 4), items.slice(4)];
+  const n = items.length;
+  const groups = [items.slice(0, n - 2), items.slice(n - 2, n - 1), items.slice(n - 1)];
   return (
     <nav className="ut-nav-side" aria-label={tr('nav.underlag')}>
       {groups.map((g, gi) => (
@@ -1986,6 +1988,75 @@ function MailboxView({ info, notify = true, onNotify }) {
 }
 
 /** Papperskorgen: borttagna underlag går att återställa i 30 dagar. */
+/** Saknar underlag (2026-11-20): bokförda verifikationer utan kvitto eller
+ * faktura. Ladda upp filen direkt på raden, eller ange att originalet finns på papper. */
+function MissingView({ verifications, onAttach, onPaper }) {
+  const [scope, setScope] = useState('year');
+  const [busy, setBusy] = useState(null);
+  const inputRef = useRef(null);
+  const targetRef = useRef(null);
+  const since = scope === 'year' ? new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10) : '';
+  const rows = useMemo(() => missingUnderlag(verifications, since), [verifications, since]);
+  const pick = (id) => { targetRef.current = id; inputRef.current?.click(); };
+  const onFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    const id = targetRef.current;
+    if (!file || !id) return;
+    setBusy(id);
+    try { await onAttach?.(id, file); } catch { alert(tr('underlag.missFailed')); } finally { setBusy(null); }
+  };
+  return (
+    <div className="ut">
+      <div className="ut-head">
+        <h1>{tr('underlag.navMissing')}</h1>
+        <p>{tr('underlag.missIntro')}</p>
+      </div>
+      <input ref={inputRef} type="file" style={{ display: 'none' }} accept={ACCEPT_ATTR} onChange={onFile} />
+      <div className="ut-filters">
+        <div className="ut-chips">
+          {[['year', tr('underlag.missScopeYear')], ['all', tr('underlag.missScopeAll')]].map(([id, label]) => (
+            <button key={id} type="button" className={`ut-chip${scope === id ? ' on' : ''}`} onClick={() => setScope(id)}>{label}</button>
+          ))}
+        </div>
+      </div>
+      <div className="ut-count"><span>{tr('underlag.total', { n: rows.length })}</span></div>
+      <div className="ut-table-wrap">
+        <table className="ut-table ut-table-static">
+          <thead>
+            <tr>
+              <th>{tr('underlag.colVer')}</th>
+              <th>{tr('underlag.colDate')}</th>
+              <th>{tr('underlag.colText')}</th>
+              <th className="ut-c-num">{tr('underlag.colAmount')}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && <tr><td colSpan={5} className="ut-empty"><UtEmpty icon={CheckCircle2} title={tr('underlag.missNone')} text={tr('underlag.missNoneText')} /></td></tr>}
+            {rows.map(({ v, amount }) => (
+              <tr key={v.id}>
+                <td className="ut-muted ut-mono">{v.number || '–'}</td>
+                <td className="ut-muted">{String(v.date).slice(0, 10)}</td>
+                <td><b className="ut-miss-text">{v.description || tr('underlag.unnamed')}</b></td>
+                <td className="ut-c-num">{amount > 0 ? formatSEK(amount) : '–'}</td>
+                <td className="ut-actions">
+                  {busy === v.id
+                    ? <span className="ut-muted">{tr('underlag.missUploading')}</span>
+                    : <>
+                        <button type="button" className="ut-link" onClick={() => pick(v.id)}><UploadCloud size={14} /> {tr('underlag.missUpload')}</button>
+                        <button type="button" className="ut-link" onClick={() => onPaper?.(v.id)}>{tr('underlag.missPaper')}</button>
+                      </>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function TrashView({ items, onRestore, onPurge }) {
   const sorted = [...items].sort((a, b) => String(b.trashedAt || '').localeCompare(String(a.trashedAt || '')));
   const emptyAll = async () => {
@@ -2255,6 +2326,8 @@ export default function Expenses({
   onOpenMenu,
   // Granska → Öppna underlag ({ type: 'open_underlag', payload: { id } }).
   globalAction, clearGlobalAction,
+  // Saknar underlag: fil eller pappersoriginal till en bokförd verifikation.
+  onAttachToVerification,
 }) {
   // -- Receipts State --
   const [isDragging, setIsDragging] = useState(false);
@@ -2378,6 +2451,7 @@ export default function Expenses({
   // Sökningen går på det man faktiskt minns av ett kvitto: var man handlade,
   // vad det gällde, vilket konto det hamnade på eller ungefär vad det kostade.
   const verIndex = useMemo(() => receiptVerificationIndex(verifications), [verifications]);
+  const missingCount = useMemo(() => missingUnderlag(verifications, new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10)).length, [verifications]);
   const accountNames = useMemo(() => new Map(accounts.map(a => [a.code, a.name])), [accounts]);
   // Sökfältet uppdateras direkt, listan när webbläsaren hinner.
   const deferredQuery = useDeferredValue(query);
@@ -2641,6 +2715,7 @@ export default function Expenses({
                 todo: receiptsList.filter(r => ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex))).length,
                 mail: receiptsList.filter(r => r.inbox?.source === 'email' && ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex))).length,
                 trash: receiptTrash.length,
+                missing: onAttachToVerification ? missingCount : null,
               }}
             />
             <div className="ut-main">
@@ -2666,6 +2741,16 @@ export default function Expenses({
               )}
               {uwView === 'mailbox' && (
                 <MailboxView info={inboxInfo} notify={inboxNotify} onNotify={setInboxNotify} />
+              )}
+              {uwView === 'missing' && (
+                <MissingView
+                  verifications={verifications}
+                  onAttach={async (verId, file) => {
+                    const url = await uploadFn(user.id, file, 'documents');
+                    onAttachToVerification?.(verId, { url, name: file.name, type: file.type || '' });
+                  }}
+                  onPaper={(verId) => onAttachToVerification?.(verId, { originalLocation: tr('underlag.missPaperValue') })}
+                />
               )}
               {uwView === 'trash' && (
                 <TrashView items={receiptTrash} onRestore={onRestoreExpense} onPurge={onPurgeTrash} />
