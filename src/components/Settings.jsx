@@ -10,7 +10,7 @@ import {
 import { supabase } from '../supabaseClient';
 import { passkeysAvailable, isPasskeyCancel, isPasskeyAlreadyOnDevice, appLockEnabledFor, setAppLock, rememberPasskeyOnDevice } from '../utils/sessionPolicy';
 import { sendInvoiceEmail } from '../emailApi';
-import { cancelStripeSubscription, reactivateStripeSubscription, openBillingPortal, getSubscriptionInvoices, syncStripeSubscription, billingCcEmail } from '../stripeApi';
+import { cancelStripeSubscription, changeStripePlan, reactivateStripeSubscription, openBillingPortal, getSubscriptionInvoices, syncStripeSubscription, billingCcEmail } from '../stripeApi';
 import BokixWordmark from './shared/BokixWordmark';
 import { BRAND } from '../utils/brandColors';
 import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
@@ -2471,11 +2471,35 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
     if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
     setBusy(true); setError('');
     try {
-      await cancelStripeSubscription(companyId || null);
+      await cancelStripeSubscription(companyId || null, { feedback: cancelReason, comment: cancelComment.trim() });
       await loadSubscription();
       setConfirmCancel(false);
+      setSubView(null);
     } catch (err) {
       setError(err.message || tr('ui.kunde_inte_avsluta_prenumerationen_forsok_igen_o'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Ändra plan (2026-11-20): planerna först, avsluta längst ner med två enkla,
+  // valfria frågor. Inga erbjudanden eller rabatter för att få kunden att stanna.
+  const [subView, setSubView] = useState(null); // null | 'plans' | 'cancel'
+  const [planInterval, setPlanInterval] = useState(null);
+  const [pickedPlan, setPickedPlan] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelComment, setCancelComment] = useState('');
+  const handleChangePlan = async () => {
+    if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
+    if (!pickedPlan) return;
+    setBusy(true); setError('');
+    try {
+      await changeStripePlan(pickedPlan, companyId || null);
+      await loadSubscription();
+      setPickedPlan(null);
+      setSubView(null);
+    } catch (err) {
+      setError(err.message || tr('sub.changeFailed'));
     } finally {
       setBusy(false);
     }
@@ -2609,8 +2633,8 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
                   : <>{tr('ui.fornyas_automatiskt')}{endDate ? <> {fmtDateSv(endDate)}</> : null}.</>}
           </div>
           <div className="plan-card-actions">
-            {!sub.cancel_at_period_end && sub.status !== 'canceled' && !confirmCancel && (
-              <button type="button" className="plan-card-btn" onClick={() => setConfirmCancel(true)}>{tr('ui.avsluta')}</button>
+            {!sub.cancel_at_period_end && sub.status !== 'canceled' && !subView && (
+              <button type="button" className="plan-card-btn" onClick={() => { setSubView('plans'); setPlanInterval(plan?.intervalId || 'monthly'); setPickedPlan(null); }}>{tr('sub.changePlan')}</button>
             )}
             {sub.cancel_at_period_end && (
               <button type="button" className="plan-card-btn is-primary" onClick={handleReactivate} disabled={busy}>
@@ -2640,6 +2664,93 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
           ))}
         </div>
       </div>
+
+      {subView === 'plans' && (() => {
+        const interval = planInterval || 'monthly';
+        const picked = pickedPlan ? planFromId(pickedPlan) : null;
+        return (
+          <div className="sub-panel">
+            <div className="sub-panel-head">
+              <div>
+                <h3>{tr('sub.changePlan')}</h3>
+                <p>{tr('sub.changeLead')}</p>
+              </div>
+              <button type="button" className="sub-x" onClick={() => setSubView(null)} aria-label={tr('ui.stang')}><X size={16} /></button>
+            </div>
+            <div className="sub-seg" role="tablist">
+              {[['monthly', tr('sub.monthly')], ['yearly', tr('sub.yearly')]].map(([id, label]) => (
+                <button key={id} type="button" role="tab" aria-selected={interval === id} className={interval === id ? 'on' : undefined} onClick={() => { setPlanInterval(id); setPickedPlan(null); }}>{label}</button>
+              ))}
+            </div>
+            <div className="sub-plans">
+              {PLAN_TIERS.map(tier => {
+                const p = planFromId(`${tier.id}_${interval}`);
+                const isCurrent = sub.plan === p.id;
+                const isPicked = pickedPlan === p.id;
+                return (
+                  <div key={p.id} className={`sub-plan${isCurrent ? ' is-current' : ''}${isPicked ? ' is-picked' : ''}`}>
+                    <div className="sub-plan-top">
+                      <b>{p.name}</b>
+                      {isCurrent && <span className="sub-tag">{tr('sub.current')}</span>}
+                    </div>
+                    <span className="sub-plan-sub">{p.subtitle}</span>
+                    <div className="sub-plan-price"><strong>{p.price}</strong> {tr('ui.kr_man_2')}</div>
+                    <ul>
+                      <li><Check size={13} /> {tr('ui.plan_rad_bokforing')}</li>
+                      <li><Check size={13} /> {tr('ui.plan_rad_rapporter')}</li>
+                      <li className={p.includesPayroll ? undefined : 'is-off'}>{p.includesPayroll ? <Check size={13} /> : <X size={12} />} {tr('ui.loner_och_arbetsgivardeklaration')}</li>
+                    </ul>
+                    {p.minimumMonths > 0 && <span className="sub-plan-note">{tr('sub.minimum', { n: p.minimumMonths })}</span>}
+                    {!isCurrent && <button type="button" className={`sub-pick${isPicked ? ' on' : ''}`} onClick={() => setPickedPlan(isPicked ? null : p.id)}>{isPicked ? tr('sub.picked') : tr('sub.pick')}</button>}
+                  </div>
+                );
+              })}
+            </div>
+            {picked && (
+              <div className="sub-confirm">
+                <span>{tr('sub.confirmText', { name: picked.name, price: picked.price })} {isTrialing ? tr('sub.confirmTrial') : tr('sub.confirmProration')}</span>
+                <div>
+                  <button type="button" className="sub-btn is-primary" onClick={handleChangePlan} disabled={busy}>{busy ? tr('sub.changing') : tr('sub.confirmBtn')}</button>
+                  <button type="button" className="sub-btn" onClick={() => setPickedPlan(null)} disabled={busy}>{tr('ui.avbryt')}</button>
+                </div>
+              </div>
+            )}
+            <div className="sub-leave">
+              <span>{tr('sub.leaveText')}</span>
+              <button type="button" className="sub-leave-btn" onClick={() => { setSubView('cancel'); setCancelReason(''); setCancelComment(''); }}>{tr('sub.leaveBtn')}</button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {subView === 'cancel' && (
+        <div className="sub-panel">
+          <div className="sub-panel-head">
+            <div>
+              <h3>{tr('sub.cancelTitle')}</h3>
+              <p>{tr('ui.du_behaller_full_atkomst_till_och_med')} {fmtDateSv(endDate)}{tr('ui.redan_betald_tid_aterbetalas_inte_men_inget_mer')}</p>
+            </div>
+            <button type="button" className="sub-x" onClick={() => setSubView(null)} aria-label={tr('ui.stang')}><X size={16} /></button>
+          </div>
+          <fieldset className="sub-reasons">
+            <legend>{tr('sub.reasonQ')}</legend>
+            {[['too_expensive', tr('sub.r_expensive')], ['missing_features', tr('sub.r_missing')], ['switched_service', tr('sub.r_switched')], ['unused', tr('sub.r_unused')], ['too_complex', tr('sub.r_complex')], ['other', tr('sub.r_other')]].map(([id, label]) => (
+              <label key={id} className={cancelReason === id ? 'on' : undefined}>
+                <input type="radio" name="sub-reason" value={id} checked={cancelReason === id} onChange={() => setCancelReason(id)} />
+                <span>{label}</span>
+              </label>
+            ))}
+          </fieldset>
+          <label className="sub-comment">
+            <span>{tr('sub.commentQ')}</span>
+            <textarea rows={3} value={cancelComment} onChange={e => setCancelComment(e.target.value)} maxLength={500} />
+          </label>
+          <div className="sub-cancel-actions">
+            <button type="button" className="sub-btn is-danger" onClick={handleCancel} disabled={busy}>{busy ? tr('ui.avslutar') : tr('sub.cancelBtn')}</button>
+            <button type="button" className="sub-btn" onClick={() => setSubView('plans')} disabled={busy}>{tr('sub.back')}</button>
+          </div>
+        </div>
+      )}
 
       {confirmCancel && (
         <div style={{ padding: '16px 18px', background: 'var(--status-red-bg)', borderRadius: '14px' }}>

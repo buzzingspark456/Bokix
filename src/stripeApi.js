@@ -100,10 +100,17 @@ export async function createStripeSubscriptionCheckout(payload) {
 // riktigt värde riktar avsluta/återaktivera mot just DET företagets EGNA
 // abonnemang istället (Settings.jsx: Prenumeration-fliken skickar numera
 // alltid det aktiva företagets id).
-export async function cancelStripeSubscription(companyId = null) {
+export async function cancelStripeSubscription(companyId = null, { feedback, comment } = {}) {
   const { data: { session } = {} } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('Du måste vara inloggad för att avsluta prenumerationen.');
-  return requestStripeApi('create-subscription-checkout', { action: 'cancel', company_id: companyId || undefined }, session.access_token);
+  return requestStripeApi('create-subscription-checkout', { action: 'cancel', company_id: companyId || undefined, feedback: feedback || undefined, comment: comment || undefined }, session.access_token);
+}
+
+// Byt plan på den befintliga prenumerationen (Inställningar → Ändra plan).
+export async function changeStripePlan(planId, companyId = null) {
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Du måste vara inloggad för att byta plan.');
+  return requestStripeApi('create-subscription-checkout', { action: 'change-plan', plan: planId, company_id: companyId || undefined }, session.access_token);
 }
 
 export async function reactivateStripeSubscription(companyId = null) {

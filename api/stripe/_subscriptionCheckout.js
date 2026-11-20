@@ -1,5 +1,5 @@
 import { applySecurityHeaders } from '../_security.js';
-import { resolvePlan, TRIAL_DAYS, resolveCancellation } from '../../src/utils/plans.js';
+import { resolvePlan, TRIAL_DAYS, resolveCancellation, planFromId, ALL_PLAN_IDS } from '../../src/utils/plans.js';
 import Stripe from 'stripe';
 import { parseJsonBody } from './_parseBody.js';
 import { stripeReturnBase, appendQueryParam } from './_urls.js';
@@ -35,6 +35,9 @@ function getStripe() {
       })
     : null;
 }
+
+// Stripes tillåtna orsaker för cancellation_details.feedback.
+const CANCEL_FEEDBACK = new Set(['too_expensive', 'missing_features', 'switched_service', 'unused', 'too_complex', 'low_quality', 'customer_service', 'other']);
 
 // Beloppet kommer ur den DELADE plankatalogen (src/utils/plans.js), samma
 // fil prissidan renderar ifrån — inte ur en konstant här. Tidigare stod
@@ -251,6 +254,51 @@ export default async function handler(req, res) {
       return;
     }
 
+    // ── Byt plan (Inställningar → Prenumeration → Ändra plan, 2026-11-20).
+    // Samma prenumeration, nytt månadsbelopp ur plankatalogen. Stripe räknar
+    // om skillnaden för resten av perioden (proration) på nästa faktura.
+    // Från årsplan till månadsvis går först när minimitiden passerats, annars
+    // hade minimitiden gått att kringgå.
+    if (body.action === 'change-plan') {
+      const authedUser = await requireAuthedUser(req, res);
+      if (!authedUser) return;
+      const next = ALL_PLAN_IDS.includes(body.plan) ? planFromId(body.plan) : null;
+      if (!next) { res.status(400).json({ error: 'Okänd plan.' }); return; }
+      const subRow = await getSubscriptionRow(authedUser.id, body.company_id || null);
+      if (!subRow?.stripe_subscription_id) { res.status(404).json({ error: 'Ingen prenumeration hittades för det här företaget.' }); return; }
+      if (subRow.plan === next.id) { res.status(200).json({ plan: next.id, unchanged: true }); return; }
+      const current = planFromId(subRow.plan);
+      if (current?.intervalId === 'yearly' && next.intervalId === 'monthly') {
+        const lock = resolveCancellation({ planId: subRow.plan, startedAt: subRow.created_at });
+        if (lock.cancelAt) {
+          res.status(409).json({ error: `Årsplanen har en minsta avtalstid på ${lock.minimumMonths} månader. Du kan byta till månadsvis från ${lock.cancelAt.toISOString().slice(0, 10)}.`, availableFrom: lock.cancelAt.toISOString() });
+          return;
+        }
+      }
+      const live = await stripe.subscriptions.retrieve(subRow.stripe_subscription_id);
+      const item = live.items?.data?.[0];
+      const product = typeof item?.price?.product === 'string' ? item.price.product : item?.price?.product?.id;
+      if (!item || !product) { res.status(409).json({ error: 'Prenumerationen gick inte att läsa. Skriv till oss så hjälper vi dig.' }); return; }
+      const updated = await stripe.subscriptions.update(live.id, {
+        items: [{ id: item.id, price_data: { currency: 'sek', product, unit_amount: next.amountOre, recurring: { interval: next.stripeInterval } } }],
+        proration_behavior: 'create_prorations',
+        metadata: { ...(live.metadata || {}), plan: next.id },
+      });
+      await upsertSubscription({
+        userId: authedUser.id,
+        companyId: body.company_id || null,
+        stripeCustomerId: typeof updated.customer === 'string' ? updated.customer : updated.customer?.id,
+        stripeSubscriptionId: updated.id,
+        status: updated.status,
+        trialEndsAt: updated.trial_end ? new Date(updated.trial_end * 1000).toISOString() : null,
+        currentPeriodEnd: stripePeriodEnd(updated),
+        cancelAtPeriodEnd: !!updated.cancel_at_period_end,
+        plan: next.id,
+      });
+      res.status(200).json({ plan: next.id, status: updated.status });
+      return;
+    }
+
     if (body.action === 'cancel' || body.action === 'reactivate') {
       const authedUser = await requireAuthedUser(req, res);
       if (!authedUser) return; // requireAuthedUser har redan svarat 401
@@ -285,6 +333,10 @@ export default async function handler(req, res) {
         // sagts upp med cancel_at (minimitiden) släpps inte av att bara
         // cancel_at_period_end sätts till false.
         ...(body.action === 'reactivate' ? { cancel_at: null, cancel_at_period_end: false } : {}),
+        // Varför kunden avslutar (valfritt): Stripes egna fält för uppsägningsorsak.
+        ...(body.action === 'cancel' && (CANCEL_FEEDBACK.has(body.feedback) || body.comment)
+          ? { cancellation_details: { ...(CANCEL_FEEDBACK.has(body.feedback) ? { feedback: body.feedback } : {}), ...(body.comment ? { comment: String(body.comment).slice(0, 500) } : {}) } }
+          : {}),
       });
       // Webhooken (customer.subscription.updated) skriver samma nya status
       // till public.subscriptions som vanligt, men kan dröja någon sekund —

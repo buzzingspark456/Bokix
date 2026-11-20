@@ -3,7 +3,7 @@ import { REPRESENTATION_ACCOUNTS, representationBooking, representationKinds } f
 import { isVatExempt } from '../utils/vatRegistration';
 import {
   UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop, SlidersHorizontal,
-  Mail, Copy, Inbox, Cog, Menu, Check, Info, MailOpen,
+  Mail, Copy, Inbox, Cog, Menu, Check, ChevronLeft, ChevronRight, Info, MailOpen,
 } from './icons';
 import { supabase } from '../supabaseClient';
 import { AccountSearch } from './shared/SearchInputs';
@@ -2886,14 +2886,16 @@ export default function Expenses({
             <div className="ut-detail-top">
               <span className="ut-detail-left">
                 {onOpenMenu && <button type="button" className="ut-menu-btn" onClick={onOpenMenu}><Menu size={17} /> {tr('underlag.menu')}</button>}
-                <button type="button" className="ut-back" onClick={() => setDetailReceiptId(null)}>← {tr('nav.underlag')}</button>
+                <button type="button" className="ut-back" onClick={() => setDetailReceiptId(null)}><ChevronLeft size={18} /> {tr('nav.underlag')}</button>
               </span>
               {navPos >= 0 && navIds.length > 1 && (
                 <span className="ut-nav">
-                  <span className="ut-keys" aria-hidden="true"><kbd>←</kbd><kbd>→</kbd></span>
-                  <span>{tr('underlag.navPos', { i: navPos + 1, n: navIds.length })}</span>
-                  <button type="button" onClick={() => goNav(-1)} disabled={navPos <= 0} aria-label={tr('underlag.prev')}>‹</button>
-                  <button type="button" onClick={() => goNav(1)} disabled={navPos >= navIds.length - 1} aria-label={tr('underlag.next')}>›</button>
+                  <span className="ut-keys" title={tr('underlag.navKeys')}><kbd>←</kbd><kbd>→</kbd></span>
+                  <span className="ut-pager">
+                    <button type="button" onClick={() => goNav(-1)} disabled={navPos <= 0} aria-label={tr('underlag.prev')} title={tr('underlag.prev')}><ChevronLeft size={18} /></button>
+                    <span className="ut-pager-pos">{tr('underlag.navPos', { i: navPos + 1, n: navIds.length })}</span>
+                    <button type="button" onClick={() => goNav(1)} disabled={navPos >= navIds.length - 1} aria-label={tr('underlag.next')} title={tr('underlag.next')}><ChevronRight size={18} /></button>
+                  </span>
                 </span>
               )}
             </div>
