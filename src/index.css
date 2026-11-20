@@ -10733,3 +10733,10 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
   .ut-nav-side button.on { background: var(--text-main) !important; border-color: var(--text-main) !important; color: var(--bg-card) !important; box-shadow: none !important; }
   .ut-nav-side button.on em { background: #2fbf63 !important; }
 }
+
+/* Mobilens Ladda upp-meny (2026-11-20). */
+.ut-fab-backdrop { position: fixed; inset: 0; z-index: 139; background: rgba(15, 23, 42, 0.18); }
+.ut-fab-menu { position: fixed; right: 16px; bottom: calc(var(--mobile-nav-height, 64px) + 82px + env(safe-area-inset-bottom, 0px)); z-index: 141; display: flex; flex-direction: column; min-width: 220px; padding: 6px; border-radius: 16px; background: var(--bg-card); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22); animation: sub-in 0.15s ease both; }
+.ut-fab-menu button { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border: none; border-radius: 11px; background: none; color: var(--text-main); font-family: inherit; font-size: 15px; font-weight: 600; text-align: left; cursor: pointer; }
+.ut-fab-menu button:active, .ut-fab-menu button:hover { background: var(--bg-muted); }
+.ut-fab-menu button svg { color: var(--text-secondary); }

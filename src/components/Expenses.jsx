@@ -2509,6 +2509,8 @@ export default function Expenses({
   const [detailReceiptId, setDetailReceiptId] = useState(null);
   // Förhandsvisningen till höger i Underlag (klick på en rad).
   const [previewId, setPreviewId] = useState(null);
+  // Mobilens Ladda upp-knapp: Fota kvitto eller Välj fil.
+  const [fabOpen, setFabOpen] = useState(false);
   useEffect(() => {
     if (globalAction?.type !== 'open_underlag') return;
     const id = globalAction.payload?.id;
@@ -2896,9 +2898,18 @@ export default function Expenses({
         {/* Telefon: en flytande kameraknapp i stället för Ladda upp-knappen. */}
         <input type="file" id="uw-camera" style={{ display: 'none' }} accept="image/*" capture="environment" onChange={handleFileInput} />
         {!wide && !detailReceipt && (uwView === 'underlag' || uwView === 'mail') && (
-          <button type="button" className="rc-phone-camera page-fab ut-fab" onClick={() => document.getElementById('uw-camera').click()}>
-            <Camera size={22} /> {tr('ui.fota_kvitto')}
-          </button>
+          <>
+            {fabOpen && <div className="ut-fab-backdrop" onClick={() => setFabOpen(false)} />}
+            {fabOpen && (
+              <div className="ut-fab-menu" role="menu">
+                <button type="button" role="menuitem" onClick={() => { setFabOpen(false); document.getElementById('uw-camera').click(); }}><Camera size={19} /> {tr('ui.fota_kvitto')}</button>
+                <button type="button" role="menuitem" onClick={() => { setFabOpen(false); document.getElementById('uw-upload').click(); }}><Paperclip size={19} /> {tr('underlag.fabChooseFile')}</button>
+              </div>
+            )}
+            <button type="button" className="rc-phone-camera page-fab ut-fab" aria-expanded={fabOpen} onClick={() => setFabOpen(v => !v)}>
+              {fabOpen ? <X size={22} /> : <UploadCloud size={22} />} {tr('underlag.fabUpload')}
+            </button>
+          </>
         )}
         {!detailReceipt ? (
           <div className="ut-shell">

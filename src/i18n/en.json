@@ -4472,6 +4472,8 @@
     "progressShort": "{{done}} of {{total}} done",
     "progressLeft": "{{n}} left in {{month}}",
     "progressAllDone": "All done",
+    "fabUpload": "Upload",
+    "fabChooseFile": "Choose file or photo",
     "justNow": "Just now",
     "minAgo": "{{n}} min ago",
     "hAgo": "{{n}} h ago",

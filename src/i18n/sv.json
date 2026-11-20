@@ -4472,6 +4472,8 @@
     "progressShort": "{{done}} av {{total}} klara",
     "progressLeft": "{{n}} kvar att göra i {{month}}",
     "progressAllDone": "Allt klart",
+    "fabUpload": "Ladda upp",
+    "fabChooseFile": "Välj fil eller bild",
     "justNow": "Nyss",
     "minAgo": "{{n}} min sedan",
     "hAgo": "{{n}} h sedan",
