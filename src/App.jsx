@@ -23,7 +23,7 @@ import {
   Bell,
   HelpCircle,
   Briefcase,
-  NavQuotesIcon, NavReceiptsIcon, NavUnderlagIcon, NavTaxesIcon, NavHomeIcon, NavCustomerInvoicesIcon, NavSupplierInvoicesIcon, NavPayrollIcon,
+  NavQuotesIcon, NavReceiptsIcon, NavUnderlagIcon, NavTaxesIcon, NavReportsIcon, NavHomeIcon, NavCustomerInvoicesIcon, NavSupplierInvoicesIcon, NavPayrollIcon,
   LogOut,
   Moon,
   AlertTriangle,
@@ -5824,7 +5824,7 @@ function App() {
     { id: 'dashboard',     label: t('navShort.dashboard'), icon: NavHomeIcon },
     { id: 'verifications', label: tr('ui.bokforing'), icon: BookOpen },
     { id: 'expenses',      label: isNewUnderlagUser(user?.email) ? tr('nav.underlag') : tr('nav.expenses'),   icon: isNewUnderlagUser(user?.email) ? NavUnderlagIcon : NavReceiptsIcon },
-    { id: 'reports',       label: t('navShort.reports'), icon: BarChart3 },
+    { id: 'reports',       label: t('navShort.reports'), icon: NavReportsIcon },
   ];
   // Telefonens Meny har samma grupper som sidomenyn på datorn, utan det som redan
   // finns i bottenraden (se visibleMobileSheetSections).
@@ -5844,7 +5844,7 @@ function App() {
     { key: 'reports', title: t('nav.groupReports'), items: [
       { id: 'bank', label: t('nav.bank'), icon: Landmark },
       { id: 'verifications', label: t('nav.verifications'), icon: BookOpen },
-      { id: 'reports', label: t('nav.reports'), icon: BarChart3 },
+      { id: 'reports', label: t('nav.reports'), icon: NavReportsIcon },
       { id: 'taxes', label: t('nav.taxes'), icon: NavTaxesIcon },
     ] },
     { key: 'settings', title: null, items: [
@@ -6577,7 +6577,7 @@ function App() {
               items: [
                 { id: 'bank', label: t('nav.bank'), short: t('navShort.bank'), icon: Landmark },
                 { id: 'verifications', label: t('nav.verifications'), short: t('navShort.verifications'), icon: BookOpen },
-                { id: 'reports', label: t('nav.reports'), short: t('navShort.reports'), icon: BarChart3 },
+                { id: 'reports', label: t('nav.reports'), short: t('navShort.reports'), icon: NavReportsIcon },
                 { id: 'taxes', label: t('nav.taxes'), short: t('navShort.taxes'), icon: NavTaxesIcon },
               ],
             },

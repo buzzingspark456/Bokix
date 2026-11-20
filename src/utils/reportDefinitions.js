@@ -40,6 +40,7 @@ export const REPORT_SECTIONS = [
     reports: [
       { id: 'journal', name: t('rpt.verifikationslista'), description: t('rpt.verifikationslista_beskrivning') },
       { id: 'ledger', name: t('ui.huvudbok'), description: t('ui.saldo_och_alla_transaktioner_per_konto') },
+      { id: 'trialbalance', name: t('rpt.saldobalans'), description: t('rpt.saldobalans_beskrivning') },
       // Momsrapporten finns under Moms och skatt; raden öppnar den där.
       { id: 'vat', name: t('rpt.momsrapport'), description: t('rpt.momsrapport_beskrivning'), navigate: 'taxes_vat' },
       { id: 'closing', name: t('ui.rapp_bokslutsunderlag'), description: t('ui.rapp_bokslutsunderlag_beskrivning') },

@@ -5562,6 +5562,10 @@
     "doneBooked": "Lönekörningen är borttagen och rättelseverifikationerna är skapade."
   },
   "rpt": {
+    "saldobalans": "Saldobalans",
+    "saldobalans_beskrivning": "Ingående saldo, periodens rörelser och utgående saldo för varje konto.",
+    "ingaendeSaldo": "Ingående saldo",
+    "utgaendeSaldo": "Utgående saldo",
     "opened": "Öppnad {{when}}",
     "chartMirrored": "Speglat",
     "chartWithResult": "Med resultat",

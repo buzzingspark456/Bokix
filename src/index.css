@@ -10564,3 +10564,21 @@ html[data-nav-rail] .sidebar .nav-badge { background: #fff !important; color: #0
 .rp-row-chev { flex-shrink: 0; color: var(--text-muted); transition: transform 0.12s ease; }
 .rp-row:hover .rp-row-chev { transform: translateX(2px); color: var(--text-main); }
 @media (max-width: 640px) { .rp-row-when { display: none; } }
+
+/* Siffrorna i menyn igen (2026-11-20): grön så att de märks, men mjukare och
+   något större än den gamla klargröna cirkeln. */
+.sidebar .nav-badge { min-width: 22px; height: 22px; padding: 0 7px; background: #2fbf63; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.10), 0 2px 6px rgba(0, 0, 0, 0.18); color: #fff; font-size: 12px; font-weight: 750; }
+.sidebar .nav-item.active .nav-badge { background: #fff; color: #0b6329; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); }
+html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color: #fff !important; box-shadow: 0 0 0 2px #0b4a22 !important; min-width: 18px !important; height: 18px !important; font-size: 10.5px !important; }
+
+/* Alla listor (2026-11-20): tunnare rader, lugnare rubrikrad och mjuk hover.
+   Gäller ListTable överallt (Bank, Kunder, Offerter, Kundfakturor,
+   Leverantörsfakturor, Artiklar m.fl.) på dator. */
+@media (min-width: 1001px) {
+  .responsive-table .lt-cell { padding: 11px 16px; }
+  .responsive-table thead tr { background: var(--bg-card) !important; }
+  .responsive-table th { padding: 10px 16px !important; font-size: 11.5px !important; font-weight: 600 !important; letter-spacing: 0.04em !important; color: var(--text-muted) !important; }
+}
+.responsive-table tbody tr { transition: background 0.12s ease; }
+.responsive-table tbody tr[style*="cursor: pointer"]:hover { background: var(--bg-muted) !important; filter: none !important; }
+.responsive-table tbody td.lt-cell { font-variant-numeric: tabular-nums; }

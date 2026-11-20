@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronRight, TrendingUp, Users, Truck, BarChart3, ListChecks, Percent, ClipboardCheck, NavPayrollIcon, FileText } from './icons';
+import { ChevronRight, TrendingUp, Users, Truck, BarChart3, ListChecks, Percent, ClipboardCheck, NavPayrollIcon, FileText, BookOpen } from './icons';
 
 // En lugn ikon per rapport i Fler rapporter (2026-11-20).
-const REPORT_ICONS = { cashflow: TrendingUp, receivables: Users, payables: Truck, invoices: BarChart3, payroll: NavPayrollIcon, journal: ListChecks, vat: Percent, closing: ClipboardCheck };
+const REPORT_ICONS = { cashflow: TrendingUp, receivables: Users, payables: Truck, invoices: BarChart3, payroll: NavPayrollIcon, journal: ListChecks, trialbalance: BookOpen, vat: Percent, closing: ClipboardCheck };
 import ReportDetail from './reports/ReportDetail';
 import { getPeriodBounds, companyFiscalYearSetting } from '../utils/reportCalculations';
 import { visibleReportSections } from '../utils/reportDefinitions';

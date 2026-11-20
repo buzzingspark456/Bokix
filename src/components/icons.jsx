@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  MdOutlineDrafts, MdOutlineUploadFile, MdCalendarMonth, MdCookie, MdEmail, MdAccountBalance, MdMoreHoriz, MdOutlineBadge,
+  MdOutlineDrafts, MdOutlineBarChart, MdOutlineUploadFile, MdCalendarMonth, MdCookie, MdEmail, MdAccountBalance, MdMoreHoriz, MdOutlineBadge,
   MdOutlineEditNote, MdOutlineTask, MdOutlineHome, MdOutlineStorefront, MdMoreTime, MdPayments, MdPersonAddAlt1, MdPostAdd, MdUploadFile,
   MdOutlineAccessTime, MdOutlineAccountBalance, MdOutlineAccountBalanceWallet, MdOutlineAccountTree,
   MdOutlineAdd, MdOutlineAlarm, MdOutlineApartment,
@@ -222,6 +222,8 @@ export const NavInvoicesIcon = make(MdOutlineTask, 'NavInvoicesIcon');
 export const NavCustomerInvoicesIcon = make(MdOutlineUploadFile, 'NavCustomerInvoicesIcon');
 export const NavSupplierInvoicesIcon = make(MdOutlinePayments, 'NavSupplierInvoicesIcon');
 // Skatt och bokslut: en checklista, som sidans Att göra-lista.
+// Rapporter: staplar utan ram (grundarens val E, 2026-11-20).
+export const NavReportsIcon = make(MdOutlineBarChart, 'NavReportsIcon');
 export const NavTaxesIcon = make(MdOutlineFactCheck, 'NavTaxesIcon');
 export const NavPayrollIcon = make(MdOutlineBadge, 'NavPayrollIcon');
 

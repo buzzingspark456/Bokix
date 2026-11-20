@@ -249,6 +249,7 @@ export default function ReportDetail({
         {reportId === 'cashflow' && <CashflowReport {...{ verifications, accounts, start, end, prevStart, prevEnd, isMobile }} />}
         {reportId === 'closing' && <ClosingReport {...{ verifications, accounts, start, end }} />}
         {reportId === 'ledger' && <LedgerReport {...{ verifications, accounts, start, end }} />}
+        {reportId === 'trialbalance' && <TrialBalanceReport {...{ verifications, accounts, start, end }} />}
         {reportId === 'journal' && <JournalReport {...{ verifications, accounts, start, end }} unlinkedCount={(documents || []).filter(d => d && d.url && !d.linkedVerificationId).length} />}
         {openItems && <OpenItemsReport kind={reportId} {...{ invoices, expenses, contacts, verifications, end }} />}
         {reportId === 'invoices' && <InvoiceReport {...{ invoices, contacts, start, end }} />}
@@ -919,6 +920,45 @@ function LedgerReport({ verifications, accounts, start, end }) {
             </SheetPanel>
           </div>
         ))}
+      </div>
+    </ReportSheet>
+  );
+}
+
+// ── Saldobalans (2026-11-20) ──
+// Varje konto på en rad: ingående saldo, periodens debet och kredit och
+// utgående saldo. Samma beräkning som huvudboken, bara summerad per konto.
+function TrialBalanceReport({ verifications, accounts, start, end }) {
+  const ledger = useMemo(() => computeLedger(verifications, accounts, start, end), [verifications, accounts, start, end]);
+  const rows = ledger.accounts.map(a => ({
+    code: a.code, name: a.name, opening: a.openingBalance,
+    debet: a.rows.reduce((s, r) => s + r.debet, 0),
+    kredit: a.rows.reduce((s, r) => s + r.kredit, 0),
+    closing: a.closingBalance,
+  }));
+  if (rows.length === 0) return <ReportSheet><EmptyState text={t('ui.inga_bokforda_transaktioner_for_denna_period')} /></ReportSheet>;
+  const sum = (k) => rows.reduce((s, r) => s + r[k], 0);
+  const n = (v) => (Math.abs(v) < 0.005 ? '' : formatSEK(v));
+  return (
+    <ReportSheet>
+      <div className="sheet-grid">
+        <div className="sheet-span-12" style={cellBg}>
+          <SheetPanel title={t('rpt.saldobalans')} subtitle={t('rpt.saldobalans_beskrivning')}>
+            <DataTable
+              columns={[
+                { key: 'code', label: t('rpt.konto'), width: '80px', emphasize: true },
+                { key: 'name', label: t('ui.beskrivning') },
+                { key: 'opening', label: t('rpt.ingaendeSaldo'), align: 'right', render: r => n(r.opening) },
+                { key: 'debet', label: t('ui.debet'), align: 'right', render: r => n(r.debet) },
+                { key: 'kredit', label: t('ui.kredit'), align: 'right', render: r => n(r.kredit) },
+                { key: 'closing', label: t('rpt.utgaendeSaldo'), align: 'right', emphasize: true, render: r => n(r.closing) },
+              ]}
+              rows={rows}
+              rowKey={r => r.code}
+              footer={[t('ui.summa'), '', formatSEK(sum('opening')), formatSEK(sum('debet')), formatSEK(sum('kredit')), formatSEK(sum('closing'))]}
+            />
+          </SheetPanel>
+        </div>
       </div>
     </ReportSheet>
   );

@@ -5562,6 +5562,10 @@
     "doneBooked": "The pay run has been deleted and the correction vouchers have been created."
   },
   "rpt": {
+    "saldobalans": "Trial balance",
+    "saldobalans_beskrivning": "Opening balance, movements for the period and closing balance for every account.",
+    "ingaendeSaldo": "Opening balance",
+    "utgaendeSaldo": "Closing balance",
     "opened": "Opened {{when}}",
     "chartMirrored": "Mirrored",
     "chartWithResult": "With result",
