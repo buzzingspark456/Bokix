@@ -10198,3 +10198,13 @@ img.hc-player { object-fit: cover; }
    skulle behöva skrollas (2026-11-19). */
 .sidebar, .sidebar .nav-links { scrollbar-width: none; }
 .sidebar::-webkit-scrollbar, .sidebar .nav-links::-webkit-scrollbar { display: none; }
+
+/* Underlag och Granska som ett flöde (2026-11-20): status säger vad som återstår. */
+.ut-status.ut-step-read { background: var(--bg-muted, #f1f2f4); color: var(--text-secondary); }
+.ut-status.ut-step-fill, .ut-status.ut-step-account { background: var(--status-amber-bg, #fdf3dc); color: var(--status-amber-text, #8a5a00); }
+.ut-status.ut-step-ready { background: var(--status-green-bg, #e3f4e8); color: var(--status-green-text, #126b36); }
+.rq-waiting { display: flex; align-items: center; gap: 10px; margin: 16px 24px 0; padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card, #fff); font-size: 13.5px; color: var(--text-main); }
+.rq-waiting svg { flex-shrink: 0; color: var(--text-muted); }
+.rq-waiting span { flex: 1; min-width: 0; }
+.rq-waiting button { flex-shrink: 0; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; background: none; color: var(--text-main); font: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+.rq-waiting button:hover { background: var(--bg-muted); }

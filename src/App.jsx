@@ -1,3 +1,4 @@
+import { needsUnderlagWork } from './utils/underlagStep';
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy, startTransition } from 'react';
 import useFitLevel from './utils/useFitLevel';
 import { visiblePages, accessForPage, canWriteField } from './utils/pageAccess';
@@ -5681,7 +5682,10 @@ function App() {
   // Count for review badge (must be before navSections)
   // Granskningskön (Sida "Granskning") = kvitton/leverantörsfakturor utan
   // kontering — samma underlag som ReviewQueue.jsx faktiskt visar.
-  const reviewCount = expenses.filter(e => !e.costAccount).length;
+  // Nya Underlag: underlag utan leverantör eller belopp räknas i Underlag, inte här.
+  const newUnderlagOn = isNewUnderlagUser(user?.email);
+  const reviewCount = expenses.filter(e => !e.costAccount && !(newUnderlagOn && needsUnderlagWork(e))).length;
+  const underlagWorkCount = newUnderlagOn ? expenses.filter(needsUnderlagWork).length : 0;
   // Granskning-sidan har också flikarna Stripe och Zettle. Deras rader räknas
   // i integrationReviewCount (hämtas högre upp) och ingår i det som menyn visar.
   const reviewTotal = reviewCount + integrationReviewCount;
@@ -6110,6 +6114,8 @@ function App() {
             pageTitle={isNewUnderlagUser(user?.email) ? tr('nav.underlag') : tr('nav.expenses')}
             onOpenMenu={() => setSidebarOpen(true)}
             newUnderlag={isNewUnderlagUser(user?.email)}
+            globalAction={globalAction}
+            clearGlobalAction={() => setGlobalAction(null)}
           />
         );
       case 'supplier_invoices': {
@@ -6233,6 +6239,7 @@ function App() {
             onAddVerification={handleAddVerification}
             initialTab={reviewInitialTab}
             handleGlobalAction={handleGlobalAction}
+            newUnderlag={isNewUnderlagUser(user?.email)}
           />
         );
 
@@ -6508,7 +6515,7 @@ function App() {
               key: 'finance',
               title: t('nav.groupFinance'),
               items: [
-                { id: 'expenses', label: isNewUnderlagUser(user?.email) ? t('nav.underlag') : t('nav.expenses'), short: isNewUnderlagUser(user?.email) ? t('navShort.underlag') : t('navShort.expenses'), icon: NavReceiptsIcon },
+                { id: 'expenses', label: isNewUnderlagUser(user?.email) ? t('nav.underlag') : t('nav.expenses'), short: isNewUnderlagUser(user?.email) ? t('navShort.underlag') : t('navShort.expenses'), badge: underlagWorkCount, icon: NavReceiptsIcon },
                 { id: 'supplier_invoices', label: t('nav.supplierInvoices'), short: t('navShort.supplierInvoices'), icon: NavSupplierInvoicesIcon, exact: true },
                 { id: 'payroll', label: t('nav.payroll'), short: t('navShort.payroll'), icon: NavPayrollIcon },
               ],

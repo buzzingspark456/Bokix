@@ -30,6 +30,7 @@ import DocumentsToLink from './DocumentsToLink';
 import { convertToSek } from '../utils/currencyConversion';
 import { historyForSupplier, historyFromVerifications } from '../utils/receiptHistory';
 import { needsAutoRead, autoReadTried, markAutoReadTried } from '../utils/autoRead';
+import { underlagStep } from '../utils/underlagStep';
 import { reverseChargePurchaseInfo, describeReverseCharge } from '../utils/reverseCharge';
 import { CURRENCIES, parseNumber, sekFrom, impliedRate, rateToInput, amountToInput, foreignForSave } from '../utils/foreignCurrency';
 import { t as tr, dateLocale } from '../i18n';
@@ -1060,11 +1061,16 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   {tr('ui.las_av_igen')}
                 </button>
               )}
-              {statusMeta && (
-                <span style={{ padding: '4px 10px', borderRadius: '999px', background: statusMeta.bg, color: statusMeta.color, fontSize: '11.5px', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                  {STATUS_SINGULAR[status] || statusMeta.label}
-                </span>
-              )}
+              {(() => {
+                // Arbetsytan (inline): samma steg som tabellen, t.ex. "Välj konto".
+                const step = inline && (status === 'unhandled' || status === 'pending') ? underlagStep(receipt, allReceipts || []) : null;
+                if (step) return <span className={`ut-status ut-step-${step}`} style={{ padding: '4px 10px', fontSize: '11.5px', whiteSpace: 'nowrap' }}>{tr(`underlag.step_${step}`)}</span>;
+                return statusMeta && (
+                  <span style={{ padding: '4px 10px', borderRadius: '999px', background: statusMeta.bg, color: statusMeta.color, fontSize: '11.5px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    {STATUS_SINGULAR[status] || statusMeta.label}
+                  </span>
+                );
+              })()}
               {!inline && <button onClick={onClose} aria-label={tr('ui.stang')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex' }}><X size={18} /></button>}
             </div>
             {inline && (
@@ -1710,7 +1716,8 @@ function docKind(r) {
 function arrivedLabel(r) {
   const ts = Number((/^exp_(\d{13})/.exec(String(r?.id || '')) || [])[1]);
   if (ts > 1.5e12) return new Date(ts).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-  return r?.date || '';
+  const d = r?.date ? new Date(`${String(r.date).slice(0, 10)}T12:00:00`) : null;
+  return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' }) : (r?.date || '');
 }
 
 // Avläsningens läge per underlag (kolumnen Avläsning).
@@ -2045,7 +2052,7 @@ function TrashView({ items, onRestore, onPurge }) {
 
 /** Underlag som tabell, som Fortnox (2026-11-18): kryssrutor, kolumner för
  * belopp, inkommet, avläsning, källa och avsändare. En rad öppnar underlaget. */
-function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDeleteMany, onUpload, onMailIn, onSenders, inboxAddress, onlyEmail = false, uploading = [] }) {
+function UnderlagTable({ receipts: allRows, statusOf, stepOf, readingId, onOpen, onDeleteMany, onUpload, onMailIn, onSenders, inboxAddress, onlyEmail = false, uploading = [] }) {
   const receipts = onlyEmail ? allRows.filter(r => r.inbox?.source === 'email') : allRows;
   const [tab, setTab] = useState('todo');
   const [q, setQ] = useState('');
@@ -2185,7 +2192,12 @@ function UnderlagTable({ receipts: allRows, statusOf, readingId, onOpen, onDelet
                   <td><span className={`ut-read ut-read-${rs.key}`}>{rs.text}</span></td>
                   <td className="ut-muted">{src.kind === 'mail' ? <><Mail size={13} /> {src.text}</> : src.text}</td>
                   <td className="ut-muted ut-sender" title={sender}>{sender || '–'}</td>
-                  <td>{meta && <span className="ut-status" style={{ background: meta.bg, color: meta.color }}>{STATUS_SINGULAR[s] || meta.label}</span>}</td>
+                  <td>{(() => {
+                    // Obokfört: säg vad som återstår, inte bara "Ej hanterad".
+                    const step = stepOf && (s === 'unhandled' || s === 'pending') ? stepOf(r) : null;
+                    if (step) return <span className={`ut-status ut-step-${step}`}>{tr(`underlag.step_${step}`)}</span>;
+                    return meta && <span className="ut-status" style={{ background: meta.bg, color: meta.color }}>{STATUS_SINGULAR[s] || meta.label}</span>;
+                  })()}</td>
                 </tr>
               );
             })}
@@ -2241,11 +2253,19 @@ export default function Expenses({
   newUnderlag = false,
   // Huvudmenyn är gömd i arbetsytan: Meny öppnar den (som Fortnox).
   onOpenMenu,
+  // Granska → Öppna underlag ({ type: 'open_underlag', payload: { id } }).
+  globalAction, clearGlobalAction,
 }) {
   // -- Receipts State --
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState([]);
   const [detailReceiptId, setDetailReceiptId] = useState(null);
+  useEffect(() => {
+    if (globalAction?.type !== 'open_underlag') return;
+    const id = globalAction.payload?.id;
+    if (id) setDetailReceiptId(id);
+    clearGlobalAction?.();
+  }, [globalAction, clearGlobalAction]);
   // URL:en till ett kvitto som just laddats upp och ska öppnas så fort det
   // finns i listan. Se effekten längre ner.
   const [autoOpenUrl, setAutoOpenUrl] = useState(null);
@@ -2631,6 +2651,7 @@ export default function Expenses({
                   uploading={uploadingFiles}
                   receipts={receiptsList}
                   statusOf={(r) => getReceiptStatus(r, verIndex)}
+                  stepOf={(r) => underlagStep(r, expenses)}
                   readingId={autoReading}
                   onOpen={(id, ids) => { setNavIds(ids); setDetailReceiptId(id); }}
                   onDeleteMany={(ids) => ids.forEach(id => (onTrashExpense ? onTrashExpense(id) : onDeleteExpense?.(id)))}

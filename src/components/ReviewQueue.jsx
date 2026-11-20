@@ -10,6 +10,7 @@ import { t } from '../i18n';
 import { categorizeStripeItem, buildStripeVerification, isSafeStripeItem, STRIPE_FEE_ACCOUNT, BANK_ACCOUNT } from '../utils/stripeLedger';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { numberFormat, dateTimeFormat } from '../utils/intlCache';
+import { suggestAccount, needsUnderlagWork } from '../utils/underlagStep';
 
 const formatSEK = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 const formatMoney = (val, currency) => numberFormat('sv-SE', { style: 'currency', currency: (currency || 'sek').toUpperCase(), maximumFractionDigits: 2 }).format(val || 0);
@@ -291,20 +292,7 @@ const STRIPE_TYPE_LABEL = {
  * "AI-matchning"). Säker (confident) bara om ALLA tidigare poster från samma
  * leverantör landat på exakt samma konto.
  */
-function suggestAccount(item, allExpenses) {
-  const name = (item.supplier || '').trim().toLowerCase();
-  if (!name) return { account: null, confident: false };
-  const matches = allExpenses.filter(e =>
-    e.costAccount && e.type === item.type && (e.supplier || '').trim().toLowerCase() === name
-  );
-  if (matches.length === 0) return { account: null, confident: false };
-  const distinct = [...new Set(matches.map(m => m.costAccount))];
-  if (distinct.length === 1) return { account: distinct[0], confident: true };
-  // Flera olika konton använda tidigare för samma leverantör — inte säkert
-  // nog för automatik, men den senaste kan vara en rimlig utgångspunkt.
-  const latest = [...matches].sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
-  return { account: latest.costAccount, confident: false };
-}
+// suggestAccount finns i utils/underlagStep.js (delas med Underlag).
 
 /**
  * En post som saknar kontering. Raden säger tre saker i den ordning man
@@ -315,7 +303,7 @@ function suggestAccount(item, allExpenses) {
  * finns inget att avvisa, och kundönskemålet var uttryckligen att en
  * leverantörsfaktura utan kontering ska leda till just det valet.
  */
-function ReviewCard({ item, accounts, onApprove, onReject, exiting, selected, onToggleSelect }) {
+function ReviewCard({ item, accounts, onApprove, onReject, exiting, selected, onToggleSelect, onOpenDoc }) {
   const [expanded, setExpanded] = useState(false);
   // Saknas förslag är kontovalet det enda som återstår: visa det direkt.
   const [rejecting, setRejecting] = useState(!item.account);
@@ -409,7 +397,12 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting, selected, on
               <X size={14} /> {t('ui.avvisa')}
             </button>
           )}
-          <button onClick={() => setExpanded(e => !e)} style={{ ...rowButtonStyle('ghost'), marginLeft: 'auto' }}>
+          {onOpenDoc && (
+            <button onClick={() => onOpenDoc(item.id)} style={{ ...rowButtonStyle('ghost'), marginLeft: 'auto' }}>
+              <FileText size={14} /> {t('underlag.openDoc')}
+            </button>
+          )}
+          <button onClick={() => setExpanded(e => !e)} style={{ ...rowButtonStyle('ghost'), marginLeft: onOpenDoc ? 0 : 'auto' }}>
             <Info size={14} /> {t('ui.visa_detaljer')} {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
         </>
@@ -809,7 +802,7 @@ function ZettleLedgerCard({ item, accounts, onBookSale, onBookFinance, onMarkHan
 // efter en lyckad Stripe/Zettle-anslutning, App.jsx: reviewInitialTab)
 // öppna direkt på rätt flik, i stället för att alltid landa på "Väntar"
 // och tvinga ett extra klick för att hitta de nyss hämtade transaktionerna.
-export default function ReviewQueue({ expenses = [], accounts = [], reviewHistory = [], onResolve, user, company, onAddVerification, demoStripeItems, demoZettleItems, initialTab = 'pending', handleGlobalAction }) {
+export default function ReviewQueue({ expenses = [], accounts = [], reviewHistory = [], onResolve, user, company, onAddVerification, demoStripeItems, demoZettleItems, initialTab = 'pending', handleGlobalAction, newUnderlag = false }) {
   const [tab, setTab] = useState(initialTab); // 'pending' | 'stripe' | 'zettle' | 'history'
   const [exitingIds, setExitingIds] = useState(new Set());
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
@@ -820,10 +813,13 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
   // själv vid nästa render, utan att kräva särskild synk-logik.
   const pendingItems = useMemo(() => {
     return expenses
-      .filter(e => !e.costAccount)
+      // Nya Underlag: saknas leverantör eller belopp hör posten hemma i Underlag.
+      .filter(e => !e.costAccount && !(newUnderlag && needsUnderlagWork(e)))
       .map(e => ({ ...e, ...suggestAccount(e, expenses) }))
       .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  }, [expenses]);
+  }, [expenses, newUnderlag]);
+  const underlagWaiting = newUnderlag ? expenses.filter(needsUnderlagWork).length : 0;
+  const openUnderlag = handleGlobalAction && ((id) => handleGlobalAction({ type: 'open_underlag', payload: { id } }, 'expenses'));
 
   const visiblePending = pendingItems.filter(i => !exitingIds.has(i.id));
   const eligibleForBulk = visiblePending.filter(i => i.confident);
@@ -1158,6 +1154,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
       exiting={exitingIds.has(item.id)}
       selected={selectedIds.has(item.id)}
       onToggleSelect={() => toggleSelected(item.id)}
+      onOpenDoc={newUnderlag ? openUnderlag : null}
     />
   );
   const renderStripe = item => (
@@ -1212,6 +1209,13 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
           tabell) behåller sin egen lokala padding. */}
       <div data-tour="page-review-content" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
 
+      {tab === 'pending' && underlagWaiting > 0 && openUnderlag && (
+        <div className="rq-waiting">
+          <FileText size={16} />
+          <span>{t(underlagWaiting === 1 ? 'underlag.waitingOne' : 'underlag.waitingMany', { n: underlagWaiting })}</span>
+          <button type="button" onClick={() => openUnderlag(null)}>{t('underlag.waitingOpen')}</button>
+        </div>
+      )}
       {tab === 'pending' && (
         visiblePending.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(50vh / var(--app-zoom, 1))', padding: '40px', textAlign: 'center' }}>
