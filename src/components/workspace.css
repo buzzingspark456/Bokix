@@ -572,3 +572,25 @@ button.lg-todo-row:hover { border-color: color-mix(in srgb, var(--t-fg) 35%, var
 .pz-tools button span { display: none; }
 .pz-tools button.on { background: var(--bg-card); color: var(--text-main); box-shadow: var(--shadow-xs); border: none; }
 .wsp-head:last-child { margin-bottom: 0; }
+
+/* Att göra som smala rader och listans rubrikrad (2026-11-21). */
+.ws-tasks { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.ws-task { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 14px; border: 1px solid var(--border-light); border-radius: 10px; background: var(--bg-card); font: inherit; color: var(--text-main); text-align: left; box-sizing: border-box; }
+button.ws-task { cursor: pointer; }
+button.ws-task:hover { border-color: var(--border); background: var(--bg-muted); }
+.ws-task-ic { width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--bg-muted); color: var(--text-secondary); }
+.ws-task--warn .ws-task-ic { background: color-mix(in srgb, var(--status-amber-text) 14%, transparent); color: var(--status-amber-text); }
+.ws-task-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ws-task-text strong { font-size: 13.5px; font-weight: 600; }
+.ws-task-text small { font-size: 12.5px; color: var(--text-secondary); }
+.ws-task-actions { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+.ws-task-actions input[type=month], .ws-task-actions input[type=date] { height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--text-main); font: inherit; font-size: 13px; }
+.ws-listbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 22px 0 12px; }
+.ws-listbar-title { font-size: 14px; font-weight: 650; color: var(--text-main); }
+.ws-empty { text-align: center; padding: 36px 16px 20px; }
+.ws-empty strong { display: block; font-size: 15px; font-weight: 650; color: var(--text-main); }
+.ws-empty p { margin: 6px auto 16px; max-width: 420px; font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; }
+@media (max-width: 640px) {
+  .ws-task { flex-wrap: wrap; }
+  .ws-task-actions { width: 100%; justify-content: flex-start; padding-left: 40px; }
+}

@@ -4,7 +4,7 @@ import { Plus, AlertTriangle, CheckCircle2, Trash2, X, RotateCcw } from './icons
 import ListTable from './shared/ListTable';
 import { AccountSearch } from './shared/SearchInputs';
 import { confirmDialog } from './shared/ConfirmDialog';
-import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
+import { Panel, Kpi, KpiGrid, TaskRow, ListBar, usePalette } from './shared/Workspace';
 import {
   ACCRUAL_KINDS, accrualKind, accrualStatus, buildAccrualVerification, buildReversalVerification,
   dueReversals, reversalDateFor,
@@ -51,32 +51,24 @@ function VacationPanel({ employees, payrollRuns, verifications, lockedFor, onAdd
     setMessage(t('ui.justeringen_ar_bokford_2'));
   };
 
+  // En rad (2026-11-21): skulden, vad som är bokfört och knappen. Detaljerna
+  // (konto 2920 och 2940) står i den lilla texten, inte i egna rutor.
+  const needs = verification && !booked;
   return (
-    <Panel
-      title={t('ui.semesterloneskuld')}
-      sub={t('ui.intjanad_ej_uttagen_semester_ar_en_skuld_vid_bok')}
-      actions={<>
-        <label className="accr-date">
-          <span>{t('ui.per_datum')}</span>
-          <input type="date" className="ws-input" value={date} onChange={e => e.target.value && setDate(e.target.value)} />
-        </label>
-        {verification && !booked && <button type="button" className="agi-btn primary" onClick={book}>{t('ui.bokfor_justering')}</button>}
-      </>}
-    >
-      <KpiGrid>
-        <Kpi dot={palette.cost} label={t('accr.vacationPay')} value={fmtKr(adjustment.liability)} sub={t('accr.bookedNow', { account: '2920', kr: fmtKr(adjustment.balance2920) })} />
-        <Kpi dot={palette.cost} label={t('accr.vacationFees')} value={fmtKr(adjustment.liabilityFee)} sub={t('accr.bookedNow', { account: '2940', kr: fmtKr(adjustment.balance2940) })} />
-      </KpiGrid>
-      <div className={`accr-status${verification && !booked ? ' warn' : ''}`}>
-        {verification && !booked ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
-        <span>
-          {booked ? t('ui.justeringen_ar_bokford')
-            : verification ? t('ui.justering_kr_kr_avgifter', { v0: fmt(adjustment.diffLiability), v1: fmt(adjustment.diffFee) })
-              : t('ui.kontona_stammer_med_beraknad_skuld')}
-        </span>
-      </div>
-      {message && <p className="ws-hint" style={{ marginTop: '10px', color: locked ? 'var(--status-red-text)' : 'var(--status-green-text)' }}>{message}</p>}
-    </Panel>
+    <div className="ws-tasks">
+      <TaskRow
+        icon={needs ? AlertTriangle : CheckCircle2}
+        tone={needs ? 'warn' : 'ok'}
+        title={t('accr.vacTitle', { kr: fmtKr(adjustment.liability + adjustment.liabilityFee) })}
+        detail={booked ? t('ui.justeringen_ar_bokford')
+          : needs ? t('accr.vacDiff', { kr: fmtKr(adjustment.diffLiability + adjustment.diffFee) })
+            : t('ui.kontona_stammer_med_beraknad_skuld')}
+      >
+        <input type="date" value={date} aria-label={t('ui.per_datum')} onChange={e => e.target.value && setDate(e.target.value)} />
+        {needs && <button type="button" className="agi-btn primary" onClick={book}>{t('ui.bokfor_justering')}</button>}
+      </TaskRow>
+      {message && <p className="ws-hint" style={{ color: locked ? 'var(--status-red-text)' : 'var(--status-green-text)' }}>{message}</p>}
+    </div>
   );
 }
 
@@ -154,7 +146,7 @@ export default function Accruals({ company, accounts = [], verifications = [], e
       <Panel
         title={t('ui.periodiseringar')}
         sub={t('accr.sub')}
-        actions={<button type="button" className="agi-btn primary" onClick={() => { setForm(emptyForm()); setError(''); }}><Plus size={14} /> {t('ui.ny_periodisering')}</button>}
+        actions={rows.length > 0 && <button type="button" className="agi-btn primary" onClick={() => { setForm(emptyForm()); setError(''); }}><Plus size={14} /> {t('ui.ny_periodisering')}</button>}
       >
         {/* Bara de slag som används, och inga siffror utan periodiseringar (2026-11-21). */}
         {totals.some(x => x.n > 0) && <KpiGrid>
@@ -164,41 +156,37 @@ export default function Accruals({ company, accounts = [], verifications = [], e
         </KpiGrid>}
 
         {due.length > 0 && (
-          <div className="lg-todo">
-            <div className="lg-todo-title">{t('lager.todo')}</div>
-            <button type="button" className="dash-today-btn dash-today-btn--warn lg-todo-row" onClick={bookDueReversals}>
-              <span className="dash-today-lines">
-                <span className="dash-today-kicker">{t('accr.reversalKicker')}</span>
-                <span className="dash-today-title">{due.length === 1 ? t('accr.reversalOne') : t('accr.reversalMany', { n: due.length })}</span>
-                <span className="dash-today-detail">{t('accr.reversalDetail')}</span>
-              </span>
-              <span className="dash-today-ic" aria-hidden="true"><RotateCcw size={20} /></span>
-            </button>
+          <div className="ws-tasks">
+            <TaskRow
+              icon={RotateCcw}
+              title={due.length === 1 ? t('accr.reversalOne') : t('accr.reversalMany', { n: due.length })}
+              detail={t('accr.reversalDetail')}
+            >
+              <button type="button" className="agi-btn primary" onClick={bookDueReversals}>{t('accr.reversalBook')}</button>
+            </TaskRow>
           </div>
         )}
-      </Panel>
 
-      {employees.length > 0 && (
-        <VacationPanel employees={employees} payrollRuns={payrollRuns} verifications={verifications} lockedFor={lockedFor} onAddVerification={onAddVerification} palette={palette} />
-      )}
-
-      <Panel
-        title={t('accr.listTitle')}
-        sub={rows.length === 1 ? t('accr.listOne') : t('accr.listMany', { n: rows.length })}
-        actions={rows.length > 0 && (
-          <div className="ws-seg">
-            {[['all', t('accr.filterAll')], ['active', t('accr.filterActive')], ['reversed', t('accr.filterReversed')]].map(([id, label]) => (
-              <button key={id} type="button" className={filter === id ? 'on' : ''} onClick={() => setFilter(id)}>{label}<span className="lg-count">{count(id)}</span></button>
-            ))}
-          </div>
+        {/* Semesterlöneskulden som en rad, bara när företaget har anställda. */}
+        {employees.length > 0 && (
+          <VacationPanel employees={employees} payrollRuns={payrollRuns} verifications={verifications} lockedFor={lockedFor} onAddVerification={onAddVerification} palette={palette} />
         )}
-      >
+
         {rows.length === 0 ? (
-          <div className="accr-empty">
-            <p>{t('ui.inga_periodiseringar_annu_lagg_till_forutbetald')}</p>
+          <div className="ws-empty">
+            <strong>{t('accr.emptyTitle')}</strong>
+            <p>{t('accr.emptyText')}</p>
             <button type="button" className="agi-btn primary" onClick={() => { setForm(emptyForm()); setError(''); }}><Plus size={14} /> {t('ui.ny_periodisering')}</button>
           </div>
         ) : (
+          <>
+          <ListBar title={rows.length === 1 ? t('accr.listOne') : t('accr.listMany', { n: rows.length })}>
+            <div className="ws-seg">
+              {[['all', t('accr.filterAll')], ['active', t('accr.filterActive')], ['reversed', t('accr.filterReversed')]].map(([id, label]) => (
+                <button key={id} type="button" className={filter === id ? 'on' : ''} onClick={() => setFilter(id)}>{label}<span className="lg-count">{count(id)}</span></button>
+              ))}
+            </div>
+          </ListBar>
           <div className="wsp-flush">
             <ListTable
               bordered={false}
@@ -237,6 +225,7 @@ export default function Accruals({ company, accounts = [], verifications = [], e
               ]}
             />
           </div>
+          </>
         )}
       </Panel>
 

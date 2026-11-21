@@ -4,7 +4,7 @@ import { Plus, Trash2, Pencil, X, CalendarClock, Package, PackageMinus } from '.
 import ListTable from './shared/ListTable';
 import { AccountSearch } from './shared/SearchInputs';
 import { confirmDialog } from './shared/ConfirmDialog';
-import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
+import { Panel, Kpi, KpiGrid, TaskRow, ListBar, usePalette } from './shared/Workspace';
 import {
   ASSET_CATEGORIES, categoryById, monthlyAmount, accumulatedThrough, bookValueAt, scheduleOf,
   pendingDepreciation, buildDepreciationVerification, buildDisposalVerification,
@@ -154,8 +154,8 @@ export default function FixedAssets({ company, accounts = [], verifications = []
     <div className="ws-page ws-edge">
       <Panel
         title={t('ui.anlaggningstillgangar')}
-        sub={inUse.length === 1 ? t('fa.subOne') : t('fa.subMany', { n: inUse.length })}
-        actions={<button type="button" className="agi-btn primary" onClick={() => startNew()}><Plus size={14} /> {t('ui.ny_tillgang')}</button>}
+        sub={rows.length === 0 ? null : inUse.length === 1 ? t('fa.subOne') : t('fa.subMany', { n: inUse.length })}
+        actions={rows.length > 0 && <button type="button" className="agi-btn primary" onClick={() => startNew()}><Plus size={14} /> {t('ui.ny_tillgang')}</button>}
       >
         {/* Inga siffror förrän det finns en tillgång (2026-11-21). */}
         {assets.length > 0 && <KpiGrid>
@@ -166,58 +166,47 @@ export default function FixedAssets({ company, accounts = [], verifications = []
         </KpiGrid>}
 
         {hasTodo && (
-          <div className="lg-todo">
-            <div className="lg-todo-title">{t('lager.todo')}</div>
+          <div className="ws-tasks">
             {assets.length > 0 && pending.months.length > 0 && (
-              <div className="dash-today-btn dash-today-btn--warn lg-todo-row" style={{ cursor: 'default' }}>
-                <span className="dash-today-lines">
-                  <span className="dash-today-kicker">{t('fa.depKicker')}</span>
-                  <span className="dash-today-title">{pending.months.length === 1 ? t('fa.depOne', { kr: fmtKr(pending.total) }) : t('fa.depMany', { n: pending.months.length, kr: fmtKr(pending.total) })}</span>
-                  <span className="dash-today-detail fa-until">
-                    {t('ui.fram_till_och_med')}
-                    <input type="month" value={untilMonth} max={`${Number(thisMonth.slice(0, 4)) + 1}-12`} onChange={e => e.target.value && setUntilMonth(e.target.value)} aria-label={t('ui.fram_till_och_med')} />
-                    {pending.blockedByLock > 0 && t('ui.i_lasta_ar_hoppas_over', { blockedByLock: pending.blockedByLock })}
-                  </span>
-                </span>
-                <button type="button" className="agi-btn primary" onClick={bookPending}><CalendarClock size={14} /> {t('ui.bokfor_avskrivningar')}</button>
-              </div>
-            )}
-            {suggestions.slice(0, 4).map(s => (
-              <button
-                key={`${s.verificationId}_${s.account}`}
-                type="button"
-                className="dash-today-btn dash-today-btn--brand lg-todo-row"
-                onClick={() => startNew({ name: s.description, acquisitionDate: s.date, cost: s.amount, category: s.category, assetAccount: s.account, sourceVerificationId: s.verificationId })}
+              <TaskRow
+                icon={CalendarClock}
+                title={pending.months.length === 1 ? t('fa.depOne', { kr: fmtKr(pending.total) }) : t('fa.depMany', { n: pending.months.length, kr: fmtKr(pending.total) })}
+                detail={pending.blockedByLock > 0 ? t('ui.i_lasta_ar_hoppas_over', { blockedByLock: pending.blockedByLock }) : t('fa.depDetail')}
               >
-                <span className="dash-today-lines">
-                  <span className="dash-today-kicker">{t('fa.suggestKicker')}</span>
-                  <span className="dash-today-title">{s.description || t('ui.verifikation')} · {fmtKr(s.amount)}</span>
-                  <span className="dash-today-detail">{t('fa.suggestDetail', { account: s.account, date: fmtDay(s.date) })}</span>
-                </span>
-                <span className="dash-today-ic" aria-hidden="true"><Package size={20} /></span>
-              </button>
+                <input type="month" value={untilMonth} max={`${Number(thisMonth.slice(0, 4)) + 1}-12`} onChange={e => e.target.value && setUntilMonth(e.target.value)} aria-label={t('ui.fram_till_och_med')} title={t('ui.fram_till_och_med')} />
+                <button type="button" className="agi-btn primary" onClick={bookPending}>{t('ui.bokfor_avskrivningar')}</button>
+              </TaskRow>
+            )}
+            {suggestions.slice(0, 4).map(sg => (
+              <TaskRow
+                key={`${sg.verificationId}_${sg.account}`}
+                icon={Package}
+                tone="brand"
+                title={`${sg.description || t('ui.verifikation')} · ${fmtKr(sg.amount)}`}
+                detail={t('fa.suggestDetail', { account: sg.account, date: fmtDay(sg.date) })}
+                onClick={() => startNew({ name: sg.description, acquisitionDate: sg.date, cost: sg.amount, category: sg.category, assetAccount: sg.account, sourceVerificationId: sg.verificationId })}
+              >
+                <span className="agi-btn">{t('fa.addToRegister')}</span>
+              </TaskRow>
             ))}
           </div>
         )}
-      </Panel>
 
-      <Panel
-        title={t('fa.listTitle')}
-        sub={t('ui.inventarier_med_livslangd_over_tre_ar_och_ett_va')}
-        actions={rows.length > 0 && (
-          <div className="ws-seg">
-            {[['inUse', t('fa.filterInUse')], ['disposed', t('fa.filterDisposed')], ['all', t('accr.filterAll')]].map(([id, label]) => (
-              <button key={id} type="button" className={filter === id ? 'on' : ''} onClick={() => setFilter(id)}>{label}<span className="lg-count">{count(id)}</span></button>
-            ))}
-          </div>
-        )}
-      >
         {rows.length === 0 ? (
-          <div className="accr-empty">
-            <p>{t('ui.inga_anlaggningstillgangar_i_registret_annu_lagg')}</p>
+          <div className="ws-empty">
+            <strong>{t('fa.emptyTitle')}</strong>
+            <p>{t('fa.emptyText')}</p>
             <button type="button" className="agi-btn primary" onClick={() => startNew()}><Plus size={14} /> {t('ui.ny_tillgang')}</button>
           </div>
         ) : (
+          <>
+          <ListBar title={t('fa.listTitle')}>
+            <div className="ws-seg">
+              {[['inUse', t('fa.filterInUse')], ['disposed', t('fa.filterDisposed')], ['all', t('accr.filterAll')]].map(([id, label]) => (
+                <button key={id} type="button" className={filter === id ? 'on' : ''} onClick={() => setFilter(id)}>{label}<span className="lg-count">{count(id)}</span></button>
+              ))}
+            </div>
+          </ListBar>
           <div className="wsp-flush">
             <ListTable
               bordered={false}
@@ -260,6 +249,7 @@ export default function FixedAssets({ company, accounts = [], verifications = []
               ]}
             />
           </div>
+          </>
         )}
       </Panel>
 

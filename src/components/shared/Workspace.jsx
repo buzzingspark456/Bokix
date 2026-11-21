@@ -46,3 +46,32 @@ export function usePalette(company) {
   const dark = useIsDarkTheme();
   return useMemo(() => resolveChartPalette(company?.reportDisplay?.colors, { dark }), [company?.reportDisplay?.colors, dark]);
 }
+
+/**
+ * En sak att göra som en smal rad (2026-11-21): ikon, vad det gäller, en
+ * kort detalj och knappen till höger. Ersätter de stora Att göra-korten på
+ * Periodiseringar och Tillgångar.
+ */
+export function TaskRow({ icon: Icon, title, detail, tone = 'warn', onClick, children }) {
+  const Tag = onClick ? 'button' : 'div';
+  return (
+    <Tag type={onClick ? 'button' : undefined} className={`ws-task ws-task--${tone}`} onClick={onClick}>
+      {Icon && <span className="ws-task-ic" aria-hidden="true"><Icon size={16} /></span>}
+      <span className="ws-task-text">
+        <strong>{title}</strong>
+        {detail && <small>{detail}</small>}
+      </span>
+      {children && <span className="ws-task-actions" onClick={e => e.stopPropagation()}>{children}</span>}
+    </Tag>
+  );
+}
+
+/** Rubrikrad ovanför en lista inne i en panel: antal till vänster, filter till höger. */
+export function ListBar({ title, children }) {
+  return (
+    <div className="ws-listbar">
+      <span className="ws-listbar-title">{title}</span>
+      {children}
+    </div>
+  );
+}

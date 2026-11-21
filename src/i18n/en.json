@@ -4539,7 +4539,6 @@
     "minAgo": "{{n}} min ago",
     "hAgo": "{{n}} h ago",
     "dAgo": "{{n}} d ago",
-    "today": "Today",
     "yesterday": "Yesterday",
     "paidChoose": "Choose…",
     "paidByMissing": "Choose who paid, it decides the account.",
@@ -5590,18 +5589,18 @@
     "allDone": "Done"
   },
   "accr": {
-    "sub": "Costs and income in the right year. Each entry is reversed automatically the day after closing.",
+    "sub": "Move costs and income to the right year.",
     "kpiSub": "Account {{account}} · {{n}} active",
     "reversalKicker": "Reversal",
     "reversalOne": "1 reversal to book",
     "reversalMany": "{{n}} reversals to book",
-    "reversalDetail": "Otherwise the cost or income is counted twice.",
+    "reversalDetail": "Otherwise the amount is counted twice.",
     "vacationPay": "Holiday pay",
     "vacationFees": "Employer contributions",
     "bookedNow": "{{account}} · booked {{kr}}",
     "listTitle": "All accruals",
-    "listOne": "1 entry",
-    "listMany": "{{n}} entries",
+    "listOne": "1 accrual",
+    "listMany": "{{n}} accruals",
     "filterAll": "All",
     "filterActive": "Active",
     "filterReversed": "Reversed",
@@ -5613,7 +5612,12 @@
     "formSub": "Choose what to move to the right year.",
     "theAmount": "The amount",
     "previewBook": "{{kr}} is booked on {{balance}} against {{counter}}.",
-    "previewReverse": "Reversed automatically, so the entry lands in the right year."
+    "previewReverse": "Reversed automatically, so the entry lands in the right year.",
+    "vacTitle": "Holiday pay liability {{kr}}",
+    "vacDiff": "{{kr}} needs booking to match payroll.",
+    "reversalBook": "Book",
+    "emptyTitle": "No accruals",
+    "emptyText": "For example rent paid in advance, or an invoice for this year that arrives after year end."
   },
   "fa": {
     "subOne": "1 asset in use",
@@ -5627,7 +5631,7 @@
     "depOne": "1 month to book · {{kr}}",
     "depMany": "{{n}} months to book · {{kr}}",
     "suggestKicker": "Purchase on asset account",
-    "suggestDetail": "Account {{account}} · {{date}} · not in the register yet",
+    "suggestDetail": "Booked on {{account}} {{date}}, not in the register yet",
     "listTitle": "Assets",
     "filterInUse": "In use",
     "filterDisposed": "Disposed",
@@ -5645,7 +5649,11 @@
     "monthsShort": "mo",
     "life": "Useful life",
     "residual": "Residual value",
-    "kpiMonthly": "Monthly depreciation"
+    "kpiMonthly": "Monthly depreciation",
+    "depDetail": "Depreciation for computers, cars and equipment.",
+    "addToRegister": "Add",
+    "emptyTitle": "No assets",
+    "emptyText": "Larger purchases that last several years, such as a computer or a car. Bokix calculates and books the depreciation every month."
   },
   "payrollDelete": {
     "button": "Delete",
