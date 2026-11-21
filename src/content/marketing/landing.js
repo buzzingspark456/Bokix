@@ -66,6 +66,8 @@ export const LANDING_CONTENT = {
     bank: {
       heading: 'Läs in kontoutdraget, Bokix matchar resten',
       subheading: 'Exportera kontoutdraget ur din internetbank och läs in det i Bokix. Inbetalningar matchas mot dina obetalda fakturor, utbetalningar mot leverantörsfakturorna och kortköp mot kvittot, så att inget bokförs två gånger. Du lämnar aldrig ut någon bankinloggning.',
+      // Grundarens beslut 2026-11-21: säg att direktkopplingen är på gång.
+      soon: 'Direkt koppling till banken är på gång. Tills dess läser du in kontoutdraget som fil.',
       cta: 'Se hur bankimporten fungerar',
     },
     switchProgram: {

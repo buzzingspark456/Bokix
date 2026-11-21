@@ -482,6 +482,9 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
             <p style={{ fontSize: '16.5px', color: MUTED, lineHeight: 1.65, maxWidth: '620px', margin: '0 auto' }}>
               {c.bank.subheading}
             </p>
+            {c.bank.soon && (
+              <p className="lp-soon"><span>{'På gång'}</span>{c.bank.soon}</p>
+            )}
           </Reveal>
 
           <Reveal scale delay={80}>

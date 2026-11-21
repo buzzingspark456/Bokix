@@ -37,7 +37,7 @@ const CONNECTIONS = [
 
 
 const NOT_YET = [
-  { title: 'Bankkoppling', body: 'Transaktionerna hämtas inte direkt från banken.' },
+  { title: 'Bankkoppling', body: 'Tills dess läses kontoutdraget in som fil och matchas mot dina fakturor.', soon: true },
   { title: 'E-faktura via Peppol', body: 'Fakturorna skickas som PDF med e-post.' },
   { title: 'Öppet API', body: 'Det finns inget publikt API i dag.' },
 ];
@@ -95,7 +95,7 @@ export default function IntegrationsPage() {
         <div className="pk-wrap ig-not-wrap">
           <h2 className="ig-not-title">Det här har vi inte än</h2>
           <ul className="ig-not">
-            {NOT_YET.map(n => <li key={n.title}><strong>{n.title}.</strong> {n.body}</li>)}
+            {NOT_YET.map(n => <li key={n.title}>{n.soon && <span className="ig-soon">På gång</span>}<strong>{n.title}.</strong> {n.body}</li>)}
           </ul>
         </div>
       </section>

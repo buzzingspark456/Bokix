@@ -10740,3 +10740,8 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
 .ut-fab-menu button { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border: none; border-radius: 11px; background: none; color: var(--text-main); font-family: inherit; font-size: 15px; font-weight: 600; text-align: left; cursor: pointer; }
 .ut-fab-menu button:active, .ut-fab-menu button:hover { background: var(--bg-muted); }
 .ut-fab-menu button svg { color: var(--text-secondary); }
+
+/* "På gång" på webbplatsen (2026-11-21): direkt bankkoppling. */
+.lp-soon { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; margin: 16px auto 0; padding: 7px 14px 7px 8px; border-radius: 999px; background: var(--mkt-card-bg, #fff); border: 1px solid var(--mkt-border-soft, rgba(0,0,0,0.08)); font-size: 14px; color: var(--mkt-muted, #5b6b62); }
+.lp-soon span, .ig-soon { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: rgba(31, 154, 74, 0.14); color: #1f7a3a; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.ig-soon { margin-right: 8px; vertical-align: 1px; }
