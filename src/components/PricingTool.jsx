@@ -133,7 +133,7 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
   const setView = (v) => { setViewState(v); try { localStorage.setItem('bokix_pricing_view', v); } catch { /* privat läge */ } };
 
   return (
-    <div className="ws-page">
+    <div className="ws-page ws-edge">
       <Panel title={t('pris.yourPrices')}
         sub={rows.length === 0 ? t('pris.yourPricesEmpty') : belowCount > 0 ? t('pris.belowCount', { n: belowCount }) : t('pris.allOk')}
         actions={<>

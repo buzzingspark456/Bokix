@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ShieldCheck, CreditCard, Landmark, HelpCircle, FileText, Receipt, Info, RotateCcw, Paperclip, Pencil } from './icons';
+import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ChevronRight, ShieldCheck, CreditCard, Landmark, HelpCircle, FileText, Receipt, Info, RotateCcw, Paperclip, Pencil } from './icons';
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -1285,11 +1285,11 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
       <div data-tour="page-review-content" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
 
       {tab === 'pending' && underlagWaiting > 0 && openUnderlag && (
-        <div className="rq-waiting">
-          <FileText size={16} />
-          <span>{t(underlagWaiting === 1 ? 'underlag.waitingOne' : 'underlag.waitingMany', { n: underlagWaiting })}</span>
-          <button type="button" onClick={() => openUnderlag(null)}>{t('underlag.waitingOpen')}</button>
-        </div>
+        <button type="button" className="rq-waiting" onClick={() => openUnderlag(null)}>
+          <span className="rq-waiting-dot" aria-hidden="true" />
+          <span className="rq-waiting-text">{t(underlagWaiting === 1 ? 'underlag.waitingOne' : 'underlag.waitingMany', { n: underlagWaiting })}</span>
+          <span className="rq-waiting-go">{t('underlag.waitingOpen')} <ChevronRight size={14} /></span>
+        </button>
       )}
       {tab === 'pending' && (
         visiblePending.length === 0 ? (

@@ -532,3 +532,43 @@ button.lg-todo-row:hover { border-color: color-mix(in srgb, var(--t-fg) 35%, var
   .fa-plan b { font-size: 10.5px; }
   .ws-grid3 { grid-template-columns: 1fr; }
 }
+
+/* ── Lugnare arbetsytor (2026-11-21) ──
+   Lager, Prissättning, Projekt, Tidrapportering, Periodiseringar och
+   Tillgångar. Siffrorna står på en rad med hårfina streck emellan i stället
+   för grå rutor med färgprickar, korten är vita med kant, och väljarna är
+   en enkel segmentrad. Gäller bara arbetsytorna, inte startsidan. */
+.wsp-kpis { gap: 0; border: 1px solid var(--border-light); border-radius: 12px; overflow: hidden; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.wsp-kpis > .dash-kpi-card { background: none; border-radius: 0; padding: 13px 18px 12px; border-left: 1px solid var(--border-light); }
+.wsp-kpis > .dash-kpi-card:first-child { border-left: none; }
+.wsp-kpis .dash-kpi-dot { display: none; }
+.wsp-kpis .dash-kpi-card-label { font-weight: 500; }
+.wsp-kpis .dash-kpi-card-value { font-size: min(22px, 13cqi); }
+@media (max-width: 640px) {
+  .wsp-kpis > .dash-kpi-card:nth-child(odd) { border-left: none; }
+  .wsp-kpis > .dash-kpi-card:nth-child(n+3) { border-top: 1px solid var(--border-light); }
+}
+
+/* Lager: värdet och lagerhälsan i en ram, inte två grå lådor. */
+.lg-hero { gap: 0; border: 1px solid var(--border-light); border-radius: 12px; overflow: hidden; }
+.lg-hero-value, .lg-hero-health { background: none; border-radius: 0; padding: 16px 20px; }
+.lg-hero-health { border-left: 1px solid var(--border-light); }
+.lg-hero .dash-kpi-dot { display: none; }
+.lg-hero-amount { font-size: 30px; font-weight: 700; }
+.lg-health-bar { height: 6px !important; }
+@media (max-width: 900px) { .lg-hero-health { border-left: none; border-top: 1px solid var(--border-light); } }
+
+/* Listrader och kort: vita med kant, grått bara vid hovring. */
+.lg-row:not(.lg-row-head) { background: var(--bg-card); border: 1px solid var(--border-light); }
+.lg-row:not(.lg-row-head):hover { background: var(--bg-muted); border-color: var(--border); }
+.wsp .pj-card { background: var(--bg-card); border: 1px solid var(--border-light); }
+.wsp .pj-card:hover { background: var(--bg-card); border-color: var(--border); }
+.wsp .pj-card-track { background: var(--border-light); }
+
+/* Prissättningens räknare: en segmentrad i stället för fyra grå rutor. */
+.pz-tools { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--bg-muted); border: 1px solid var(--border-light); margin-bottom: 18px; max-width: 100%; overflow-x: auto; }
+.pz-tools button { padding: 7px 14px; border-radius: 8px; border: none; background: none; color: var(--text-secondary); white-space: nowrap; }
+.pz-tools button strong { font-size: 13px; font-weight: 600; }
+.pz-tools button span { display: none; }
+.pz-tools button.on { background: var(--bg-card); color: var(--text-main); box-shadow: var(--shadow-xs); border: none; }
+.wsp-head:last-child { margin-bottom: 0; }

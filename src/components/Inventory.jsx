@@ -261,7 +261,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
   return (
     <>
 
-      <div className="ws-page">
+      <div className="ws-page ws-edge">
         <Panel title={tr('ui.lager')} sub={tr('lager.overviewSub', { date: closingDate, method: methodName, account: kind.stockAccount })}
           actions={<>
             {goods.length > 0 && <button type="button" className="agi-btn" onClick={() => setListOpen(true)}><Download size={14} /> {tr('lager.countList')}</button>}

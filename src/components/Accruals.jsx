@@ -156,11 +156,12 @@ export default function Accruals({ company, accounts = [], verifications = [], e
         sub={t('accr.sub')}
         actions={<button type="button" className="agi-btn primary" onClick={() => { setForm(emptyForm()); setError(''); }}><Plus size={14} /> {t('ui.ny_periodisering')}</button>}
       >
-        <KpiGrid>
-          {totals.map(({ kind: k, n, sum }) => (
+        {/* Bara de slag som används, och inga siffror utan periodiseringar (2026-11-21). */}
+        {totals.some(x => x.n > 0) && <KpiGrid>
+          {totals.filter(x => x.n > 0).map(({ kind: k, n, sum }) => (
             <Kpi key={k.id} dot={kindColor(k.id, palette)} label={k.label} value={fmtKr(sum)} sub={t('accr.kpiSub', { account: k.balanceAccount, n })} />
           ))}
-        </KpiGrid>
+        </KpiGrid>}
 
         {due.length > 0 && (
           <div className="lg-todo">

@@ -10203,11 +10203,13 @@ img.hc-player { object-fit: cover; }
 .ut-status.ut-step-read { background: var(--bg-muted, #f1f2f4); color: var(--text-secondary); }
 .ut-status.ut-step-fill, .ut-status.ut-step-account { background: var(--status-amber-bg, #fdf3dc); color: var(--status-amber-text, #8a5a00); }
 .ut-status.ut-step-ready { background: var(--status-green-bg, #e3f4e8); color: var(--status-green-text, #126b36); }
-.rq-waiting { display: flex; align-items: center; gap: 10px; margin: 16px 24px 0; padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card, #fff); font-size: 13.5px; color: var(--text-main); }
-.rq-waiting svg { flex-shrink: 0; color: var(--text-muted); }
-.rq-waiting span { flex: 1; min-width: 0; }
-.rq-waiting button { flex-shrink: 0; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; background: none; color: var(--text-main); font: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
-.rq-waiting button:hover { background: var(--bg-muted); }
+/* Underlag som väntar (Att granska): en lugn rad, inte en ruta. Hela raden är klickbar. */
+.rq-waiting { display: flex; align-items: center; gap: 10px; width: calc(100% - 40px); margin: 14px 20px 0; padding: 9px 4px; border: none; border-bottom: 1px solid var(--border-light); background: none; font: inherit; font-size: 13px; color: var(--text-secondary); text-align: left; cursor: pointer; }
+.rq-waiting-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--status-amber-text, #b7791f); flex-shrink: 0; }
+.rq-waiting-text { flex: 1; min-width: 0; }
+.rq-waiting-go { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; font-weight: 600; color: var(--text-main); }
+.rq-waiting:hover .rq-waiting-go { color: var(--primary, #15803d); }
+@media (max-width: 768px) { .rq-waiting { width: calc(100% - 28px); margin: 10px 14px 0; } }
 
 /* Saknar underlag (2026-11-20) */
 .ut-mono { font-variant-numeric: tabular-nums; }

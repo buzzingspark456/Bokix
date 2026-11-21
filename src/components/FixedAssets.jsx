@@ -157,12 +157,13 @@ export default function FixedAssets({ company, accounts = [], verifications = []
         sub={inUse.length === 1 ? t('fa.subOne') : t('fa.subMany', { n: inUse.length })}
         actions={<button type="button" className="agi-btn primary" onClick={() => startNew()}><Plus size={14} /> {t('ui.ny_tillgang')}</button>}
       >
-        <KpiGrid>
+        {/* Inga siffror förrän det finns en tillgång (2026-11-21). */}
+        {assets.length > 0 && <KpiGrid>
           <Kpi dot={palette.income} label={t('ui.anskaffningsvarde')} value={fmtKr(summary.cost)} sub={t('fa.kpiCostSub', { n: inUse.length })} />
           <Kpi dot={palette.cost} label={t('fa.kpiAccumulated')} value={fmtKr(summary.accumulated)} sub={summary.cost > 0 ? t('fa.kpiAccumulatedSub', { pct: Math.round((summary.accumulated / summary.cost) * 100) }) : '—'} />
           <Kpi dot={palette.profit} label={t('ui.bokfort_varde')} value={fmtKr(summary.bookValue)} sub={t('fa.kpiBookSub', { month: fmtMonth(thisMonth) })} />
           <Kpi dot={palette.cost} label={t('fa.kpiMonthly')} value={fmtKr(perMonth)} sub={t('fa.kpiMonthlySub', { kr: fmtKr(perMonth * 12) })} />
-        </KpiGrid>
+        </KpiGrid>}
 
         {hasTodo && (
           <div className="lg-todo">
@@ -249,7 +250,7 @@ export default function FixedAssets({ company, accounts = [], verifications = []
                 {
                   key: 'progress', label: t('fa.colDepreciated'), width: 170, render: a => (
                     <div className="fa-progress">
-                      <div className="ws-bar"><span style={{ width: `${depreciatedPct(a)}%`, background: a.state === 'disposed' ? 'var(--text-muted)' : palette.cost }} /></div>
+                      <div className="ws-bar"><span style={{ width: `${depreciatedPct(a)}%`, background: a.state === 'disposed' ? 'var(--text-muted)' : 'var(--text-secondary)' }} /></div>
                       <small>{depreciatedPct(a)} %</small>
                     </div>
                   ),
