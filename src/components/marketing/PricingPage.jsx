@@ -62,7 +62,7 @@ const HIGHLIGHTS = {
 };
 
 // Jämförelsen. Allt som finns i Bokix i dag; lön är den enda skillnaden.
-const ALL = { kind: 'yes', text: 'Obegränsat' };
+const ALL = { kind: 'yes', text: 'Obegränsat', strong: true };
 const IN = { kind: 'yes', text: 'Ingår' };
 const NO = { kind: 'no' };
 const COMPARE = [
@@ -72,7 +72,7 @@ const COMPARE = [
   { title: 'Kundfakturor och offerter', desc: 'Med din logga, ROT och RUT och kortbetalning om du vill.', values: [ALL, ALL] },
   { title: 'Leverantörsfakturor', desc: 'Registrera, betala och bokför.', values: [ALL, ALL] },
   { title: 'Fakturor från egen e-post', desc: 'Skicka från din Gmail eller egen adress.', values: [IN, IN] },
-  { title: 'Kontoutdrag från banken', desc: 'Läses in som fil och matchas mot fakturor och kvitton.', values: [{ kind: 'yes', text: 'Ingår', sub: 'Direkt koppling under utveckling' }, { kind: 'yes', text: 'Ingår', sub: 'Direkt koppling under utveckling' }] },
+  { title: 'Kontoutdrag från banken', desc: 'Läses in som fil och matchas mot fakturor och kvitton.', values: [{ kind: 'yes', text: 'Som fil', soon: 'Direktkoppling under utveckling' }, { kind: 'yes', text: 'Som fil', soon: 'Direktkoppling under utveckling' }] },
   { group: 'Moms, bokslut och skatt' },
   { title: 'Momsdeklaration', desc: 'Räknas fram ur bokföringen, som fil till Skatteverket.', values: [IN, IN] },
   { title: 'Bokslut och deklaration', desc: 'NE-bilaga, INK2, INK3 eller INK4 beroende på bolagsform.', values: [IN, IN] },
@@ -95,8 +95,8 @@ function Value({ v }) {
   if (v.kind === 'no') return <span className="pp-dash" aria-label="Ingår inte" />;
   return (
     <span className="pp-val-wrap">
-      <span className="pp-pill yes">{v.text}</span>
-      {v.sub && <span className="pp-pill-sub">{v.sub}</span>}
+      <span className={`pp-val${v.strong ? ' strong' : ''}`}><span className="pp-check"><Check size={12} color="#fff" strokeWidth={3.4} /></span>{v.text}</span>
+      {v.soon && <span className="pp-soon"><i aria-hidden="true" /><span className="pp-soon-long">{v.soon}</span><span className="pp-soon-short">Under utveckling</span></span>}
     </span>
   );
 }
@@ -172,6 +172,14 @@ export default function PricingPage({ locale = 'sv' }) {
         .pp-pill { display: inline-flex; justify-content: center; min-width: 104px; padding: 8px 16px; border-radius: 999px; font-size: 14.5px; font-weight: 700; white-space: nowrap; }
         .pp-pill.yes { background: color-mix(in srgb, ${G} 20%, transparent); color: var(--mkt-accent-green-fg, ${G}); }
         .pp-pill-sub { font-size: 12.5px; color: ${MUTED}; }
+        .pp-val { display: inline-flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 600; color: ${INK_SOFT}; white-space: nowrap; }
+        .pp-val.strong { color: ${INK}; font-weight: 700; }
+        .pp-check { width: 20px; height: 20px; border-radius: 50%; background: ${G}; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .pp-soon { display: inline-flex; align-items: center; gap: 6px; margin-top: 2px; padding: 2px 9px 2px 7px; border-radius: 999px; border: 1px solid color-mix(in srgb, ${G} 30%, transparent); background: color-mix(in srgb, ${G} 9%, transparent); font-size: 11.5px; font-weight: 600; color: var(--mkt-accent-green-fg, ${G}); white-space: nowrap; }
+        .pp-soon-short { display: none; }
+        .pp-soon i { position: relative; width: 7px; height: 7px; border-radius: 50%; background: #2fbf63; flex-shrink: 0; }
+        .pp-soon i::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: #2fbf63; animation: lp-pulse 1.8s ease-out infinite; }
+        @media (prefers-reduced-motion: reduce) { .pp-soon i::after { animation: none; } }
         .pp-dash { width: 16px; height: 2px; border-radius: 2px; background: var(--mkt-card-border); }
         .pp-end > * { padding: 0 !important; height: 18px; }
         .pp-mtabs { display: none; }
@@ -193,7 +201,9 @@ export default function PricingPage({ locale = 'sv' }) {
           .pp-head { top: 56px; }
           .pp-head .pp-btn { display: none; }
           .pp-head-name { font-size: 17px; }
-          .pp-pill { min-width: 0; padding: 6px 10px; font-size: 12.5px; white-space: normal; }
+          .pp-val { font-size: 13px; white-space: normal; text-align: left; }
+          .pp-soon-long { display: none; }
+          .pp-soon-short { display: inline; }
           .pp-ft b { font-size: 14px; }
           .pp-ft span { font-size: 12.5px; }
         }
