@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  Plus, Search,
+  Plus, Search, ChevronRight, ChevronDown,
   AlertCircle, RotateCcw, RefreshCw,
   UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, BookOpen, CheckCircle2, Paperclip, Camera, Eye, EyeOff, Sparkles, Download,
 } from './icons';
@@ -1344,7 +1344,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
 }
 
 // ─── Main Bokföring Component ──────────────────────────────────────────────────
-export default function Bokforing({ seriesNames, verifications = [], accounts = [], balances = {}, contacts = [], projects = [], invoices = [], expenses = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, partners, uploadFn = uploadFileToStorage, initialTab, vatExempt = false, extraTabs = [], onTabChange, topSlot = null, headerSlot = null, onAttachFiles }) {
+export default function Bokforing({ seriesNames, verifications = [], accounts = [], balances = {}, contacts = [], projects = [], invoices = [], expenses = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, partners, uploadFn = uploadFileToStorage, initialTab, vatExempt = false, extraTabs = [], onTabChange, topSlot = null, headerSlot = null, onAttachFiles, openAsPage = false }) {
   const [activeTab, setActiveTab] = useState(() => (initialTab && ['verifications', 'accounts', ...extraTabs.map(tab => tab.id)].includes(initialTab) ? initialTab : 'verifications'));
   // Samma mönster som Taxes.jsx:s initialSection — App.jsx:s
   // verificationsInitialTab (profilmenyns "Kontoplaner" ska landa på
@@ -1361,6 +1361,8 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
   // Öppnad verifikation (2026-11-21): egen sida som leverantörsfakturan, i
   // stället för en utfälld rad i listan.
   const [viewingId, setViewingId] = useState(null);
+  // Utan openAsPage (alla utom admin än så länge) fälls raden ut som förut.
+  const [expandedId, setExpandedId] = useState(null);
   const [openDocument, setOpenDocument] = useState(null); // underlag i fullstorlek från listan
   const [showForm, setShowForm] = useState(false);
   const [editingVer, setEditingVer] = useState(null);
@@ -1399,8 +1401,13 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
     if (!highlightVerificationId) return;
     setActiveTab('verifications');
     setSearchInput(''); setDateFrom(''); setDateTo(''); setSeries('all');
-    setViewingId(highlightVerificationId);
-    onClearHighlight?.();
+    if (openAsPage) { setViewingId(highlightVerificationId); onClearHighlight?.(); return undefined; }
+    setExpandedId(highlightVerificationId);
+    const t = setTimeout(() => {
+      document.getElementById(`ver-row-${highlightVerificationId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      onClearHighlight?.();
+    }, 80);
+    return () => clearTimeout(t);
   }, [highlightVerificationId]); // eslint-disable-line
 
   const handleSaveVerification = (data) => {
@@ -1674,7 +1681,8 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
             ) : (
             <ListTable
               rowKey={v => v.id}
-              onRowClick={v => setViewingId(v.id)}
+              onRowClick={v => (openAsPage ? setViewingId(v.id) : setExpandedId(expandedId === v.id ? null : v.id))}
+              isExpanded={openAsPage ? undefined : (v => expandedId === v.id)}
               emptyMessage={tr('ui.inga_verifikationer_bokforda')}
               rows={visibleVers}
               groupBy={verGroupKey}
@@ -1682,7 +1690,10 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
               columns={[
                 {
                   key: 'number', label: tr('ui.bokning_rubrik'), fontWeight: 700, color: 'var(--text-main)', render: v => (
-                    <div id={`ver-row-${v.id}`}>{v.number}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} id={`ver-row-${v.id}`}>
+                      {!openAsPage && (expandedId === v.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
+                      {v.number}
+                    </div>
                   ),
                 },
                 { key: 'date', label: tr('ui.datum'), render: v => v.date },
@@ -1741,6 +1752,117 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
                   },
                 },
               ]}
+              renderExpanded={openAsPage ? undefined : (v => !v.rows ? null : (
+                <div style={{ padding: '10px 8px 12px 32px' }}>
+                  <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '4px', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                    <span>{tr('ui.motpart')} <strong style={{ color: 'var(--text-main)' }}>{contacts.find(c => c.id === v.counterpartyId)?.name || '—'}</strong></span>
+                    <span>{tr('ui.upprattad')} <strong style={{ color: 'var(--text-main)' }}>{v.createdAt ? dateTimeFormat('sv-SE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(v.createdAt)) : '—'}</strong></span>
+                    {v.originalLocation && <span>{tr('ui.original_forvaras')} <strong style={{ color: 'var(--text-main)' }}>{v.originalLocation}</strong></span>}
+                  </div>
+                  {/* Underlaget syntes tidigare bara inne i formuläret, så en
+                      bokförd verifikation (och underlag kopplade i efterhand
+                      till en SIE-import) gick inte att se alls. */}
+                  {(v.attachmentUrl || v.extraAttachments?.length > 0) && (
+                    <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', margin: '8px 0 2px' }}>
+                      <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>{tr('ui.underlag_2')}</span>
+                      {[v.attachmentUrl && { url: v.attachmentUrl, name: v.attachmentName, type: v.attachmentType }, ...(v.extraAttachments || [])].filter(Boolean).map((doc, di) => (
+                        <button
+                          key={doc.url} type="button" onClick={() => setOpenDocument(doc)}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', maxWidth: '220px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '999px', cursor: 'pointer', padding: '3px 10px', fontSize: '11.5px', fontWeight: 600, color: 'var(--text-main)', fontFamily: 'inherit' }}
+                        >
+                          <Paperclip size={11} style={{ flexShrink: 0 }} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name || tr('ui.underlag_3', { v0: di + 1 })}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {/* overflow-x:auto (mobil): 4 kolumner i 311px (efter
+                      32px vänsterindrag) — sidledes skroll på just denna
+                      underliggande detaljtabell istället för en kortlist-
+                      omgörning, som vore overkill för en sällan uppfälld panel. */}
+                  <div style={{ margin: '10px 0 4px', maxWidth: '560px' }}>
+                    <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '4px' }}>{tr('ui.sa_har_bokfordes_det')}</div>
+                    {describeVerification(v.rows.map(r => ({ ...r, debet: getDebet(r), kredit: getKredit(r) })), accounts).map((p, pi) => (
+                      <div key={pi} style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', fontSize: '12.5px', padding: '2px 0', color: 'var(--text-main)' }}>
+                        <span><span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>{p.account}</span>{p.text}</span>
+                        <span style={{ fontWeight: 600, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{fmt(p.amount)} {tr('ui.kr')}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', margin: '8px 0' }}>
+                      <thead>
+                        <tr>
+                          {['Konto', 'Kontonamn', 'Debet', 'Kredit'].map(h => (
+                            <th key={h} style={{ padding: '4px 8px', textAlign: h === 'Debet' || h === 'Kredit' ? 'right' : 'left', color: 'var(--text-muted)', fontWeight: 700, fontSize: '11px', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {v.rows.map((r, ri) => {
+                          const rd = getDebet(r), rk = getKredit(r);
+                          return (
+                          <tr key={ri} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                            <td style={{ padding: '5px 8px', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{r.account}</td>
+                            <td style={{ padding: '5px 8px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                              {accounts.find(a => a.code === r.account)?.name || r.accountName || '—'}
+                              {r.desc && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{r.desc}</div>}
+                            </td>
+                            <td style={{ padding: '5px 8px', textAlign: 'right', color: rd > 0 ? 'var(--status-green-text)' : 'var(--border)', fontWeight: rd > 0 ? 600 : 400, whiteSpace: 'nowrap' }}>
+                              {rd > 0 ? fmt(rd) : '—'}
+                            </td>
+                            <td style={{ padding: '5px 8px', textAlign: 'right', color: rk > 0 ? 'var(--status-red-text)' : 'var(--border)', fontWeight: rk > 0 ? 600 : 400, whiteSpace: 'nowrap' }}>
+                              {rk > 0 ? fmt(rk) : '—'}
+                            </td>
+                          </tr>
+                          );
+                        })}
+                        <tr style={{ background: 'var(--status-green-bg)', borderTop: '1px solid var(--status-green-bg)' }}>
+                          <td colSpan={2} style={{ padding: '5px 8px', fontWeight: 700, fontSize: '12px', color: 'var(--status-green-text)', whiteSpace: 'nowrap' }}>{tr('ui.summa')}</td>
+                          <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(v.rows.reduce((s, r) => s + getDebet(r), 0))}</td>
+                          <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(v.rows.reduce((s, r) => s + getKredit(r), 0))}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Samma Fortsätt/Ta bort/Rätta-knappar som radens egen
+                      'actions'-kolumn ovan (oförändrad, fortsatt synlig på
+                      desktop) — dubblerade hit så de fortfarande går att nå
+                      i listradsläget på mobil (ListTable `mobileList`, se
+                      dess JSDoc), som inte har en egen åtgärdskolumn.
+                      Ofarligt att visa på båda ställena samtidigt: samma
+                      handlers, ingen egen state. */}
+                  <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                    {(v.status || 'booked') === 'draft' ? (
+                      <>
+                        <button
+                          onClick={() => { setEditingVer(v); setShowForm(true); }}
+                          style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '4px 10px', fontSize: '11.5px', color: 'var(--text-secondary)' }}
+                        >
+                          {tr('ui.fortsatt')}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDraft(v)}
+                          style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '4px 10px', fontSize: '11.5px', color: 'var(--status-red-text)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <Trash2 size={11} /> {tr('ui.ta_bort')}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          const newRows = v.rows ? v.rows.map(r => ({ ...r, accountName: r.accountName || '', debet: getKredit(r) || 0, kredit: getDebet(r) || 0 })) : [];
+                          setEditingVer({ ...v, description: `Rätta: ${v.number} – ${v.description}`, rows: newRows, number: undefined, status: 'booked', createdAt: undefined });
+                          setShowForm(true);
+                        }}
+                        style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', padding: '4px 10px', fontSize: '11.5px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <RotateCcw size={11} /> {tr('ui.ratta')}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
               mobileList={v => {
                 const isDraft = (v.status || 'booked') === 'draft';
                 const total = fmt(v.rows?.reduce((s, r) => s + getDebet(r), 0) || v.amount || 0);

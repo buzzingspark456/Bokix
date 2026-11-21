@@ -6349,6 +6349,7 @@ function App() {
             // man kommer dit via en länk (t.ex. bokslutets checklista).
             ].filter(tab => isFeatureOn(currentCompany, tab.id) || verificationsInitialTab === tab.id)}
             onAttachFiles={handleAttachVerificationFiles}
+            openAsPage={newUnderlagOn}
             // Kontroll (2026-11-21): på telefon en rad överst i Verifikationer, på
             // datorn en knapp i sidhuvudet med panel från höger. Inte en egen
             // flik. Bara admin tills vidare, som nya Underlag.
