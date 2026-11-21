@@ -594,3 +594,20 @@ button.ws-task:hover { border-color: var(--border); background: var(--bg-muted);
   .ws-task { flex-wrap: wrap; }
   .ws-task-actions { width: 100%; justify-content: flex-start; padding-left: 40px; }
 }
+
+/* Projektsidan och månadsrapporterna (2026-11-21): samma lugna rad med
+   siffror, vita kort och en kalender utan tunga färgblock. */
+.ws-stats { gap: 0; padding: 0; border-color: var(--border-light); border-radius: 12px; box-shadow: none; }
+.ws-stats .ws-stat { background: none; border-radius: 0; border-left: 1px solid var(--border-light) !important; padding: 14px 18px 13px; }
+.ws-stats .ws-stat:first-child { border-left: none !important; }
+@media (max-width: 640px) {
+  .ws-stats .ws-stat:nth-child(odd) { border-left: none !important; }
+  .ws-stats .ws-stat:nth-child(n+3) { border-top: 1px solid var(--border-light); }
+}
+.tr-cal-day { background: var(--bg-card); border: 1px solid var(--border-light); }
+.tr-cal-day.weekend { background: color-mix(in srgb, var(--bg-muted) 45%, var(--bg-card)); }
+.tr-cal-day.has { background: color-mix(in srgb, var(--accent) calc(var(--fill, 20%) * 0.35), var(--bg-card)); border-color: color-mix(in srgb, var(--accent) 22%, var(--border-light)); }
+.tr-cal-day:hover { border-color: var(--border); }
+.tr-cal-day.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.tr-approval { background: var(--bg-card); border: 1px solid var(--border-light); }
+.tr-approval.done { opacity: 0.75; }
