@@ -42,7 +42,7 @@ describe('bokföringsverktygens vyer', () => {
 
   it('Anläggningstillgångar ritar tomt läge utan data', () => {
     const out = html(React.createElement(FixedAssets, { company: {}, accounts, verifications: [], onAddVerification: noop, setCompanyInfo: noop }))
-    expect(out).toContain('Inga anläggningstillgångar')
+    expect(out).toContain('Inga tillgångar')
   })
 
   it('Periodiseringar ritar listan och tomt läge', () => {
