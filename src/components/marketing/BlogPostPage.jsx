@@ -249,19 +249,18 @@ const CSS = `
     font-variant-numeric: tabular-nums;
   }
 
-  .bxp-head { max-width: 992px; margin: 0 auto; }
-  .bxp-h1, .bxp-lede { max-width: 760px; }
-  .bxp-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; font-size: 13.5px; color: ${MUTED}; margin-bottom: 22px; }
+  .bxp-head { max-width: 992px; margin: 0 auto; text-align: center; }
+  .bxp-h1, .bxp-lede { max-width: 760px; margin-left: auto !important; margin-right: auto !important; text-align: center !important; }
+  .bxp-head .bxp-cat { display: table; margin-left: auto; margin-right: auto; }
+  .bxp-crumbs { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 7px; font-size: 13.5px; color: ${MUTED}; margin-bottom: 22px; }
   .bxp-crumbs a { color: ${MUTED}; text-decoration: none; font-weight: 600; }
   .bxp-crumbs a:hover { color: ${INK}; text-decoration: underline; }
   .bxp-cat { display: inline-block; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mkt-accent-green-fg); background: var(--mkt-accent-green-soft); padding: 5px 12px; border-radius: 999px; text-decoration: none; margin-bottom: 18px; }
   .bxp-h1 { font-family: ${SERIF}; font-size: clamp(31px, 5vw, 50px); font-weight: 700; letter-spacing: -0.018em; color: ${INK}; margin: 0 0 18px; line-height: 1.1; }
   .bxp-lede { font-size: clamp(17px, 2.1vw, 20px); line-height: 1.6; color: ${INK_SOFT}; margin: 0 0 24px; }
-  .bxp-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 13.5px; color: ${MUTED}; font-weight: 500; }
-  .bxp-meta img { width: 34px; height: 34px; border-radius: 50%; display: block; border: 1px solid ${CARD_BORDER}; }
-  .bxp-meta strong { color: ${INK}; font-weight: 700; }
+  .bxp-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 14px; font-size: 13.5px; color: ${MUTED}; font-weight: 500; }
   .bxp-meta .dot { width: 3px; height: 3px; border-radius: 50%; background: ${MUTED}; opacity: 0.6; }
-  @media (max-width: 560px) { .bxp-meta .dot { display: none; } .bxp-meta { gap: 6px 16px; } .bxp-meta img { margin-right: -6px; } }
+  @media (max-width: 560px) { .bxp-meta .dot { display: none; } .bxp-meta { gap: 6px 16px; } }
 
   .bxp-hero { max-width: 1040px; margin: 0 auto; padding: 36px 24px 0; }
   .bxp-hero img { width: 100%; height: auto; aspect-ratio: 1200 / 630; display: block; border-radius: 20px; border: 1px solid ${CARD_BORDER}; box-shadow: ${CARD_SHADOW}; background: var(--mkt-card-bg); }
@@ -411,9 +410,6 @@ export default function BlogPostPage({ slug }) {
           <h1 className="bxp-h1">{post.title}</h1>
           <p className="bxp-lede">{post.excerpt}</p>
           <div className="bxp-meta">
-            <img src="/icon-192.png" alt="Bokix logotyp" width="34" height="34" />
-            <strong>Bokix-teamet</strong>
-            <span className="dot" aria-hidden="true" />
             <span>Publicerad {formatDate(post.datePublished)}</span>
             {post.dateModified !== post.datePublished ? <><span className="dot" aria-hidden="true" /><span>Uppdaterad {formatDate(post.dateModified)}</span></> : null}
             <span className="dot" aria-hidden="true" />
