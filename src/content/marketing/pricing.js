@@ -25,7 +25,7 @@ export const PRICING_CONTENT = {
     ctaShort: 'Välj',
     footNote: 'Ingen moms tillkommer, beloppet är det som dras. Inga avgifter per kvitto eller faktura.',
     compareHeading: 'Jämför vad som ingår',
-    compareLead: 'Allt finns i båda. Lön är skillnaden.',
+    compareLead: 'Allt finns i båda. Skillnaden är lön och hur många du kan bjuda in.',
     compareIncluded: 'Det här ingår',
     interval: { monthly: 'Månadsvis', yearly: 'Årsplan', yearlyBadge: 'spara upp till 360 kr/år' },
     freeTrialSuffix: 'gratis i 30 dagar',

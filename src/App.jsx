@@ -2801,7 +2801,7 @@ function App() {
       const ownedMembershipsPromise = supabase.from('company_members').select('company_id').eq('owner_user_id', authUser.id).eq('status', 'active').then(r => r);
       const firstSubscriptionsPromise = supabase
         .from('subscriptions')
-        .select('company_id, status, plan, trial_ends_at, current_period_end, cancel_at_period_end')
+        .select('company_id, status, plan, created_at, trial_ends_at, current_period_end, cancel_at_period_end')
         .eq('user_id', authUser.id)
         .then(r => r);
 
@@ -2845,7 +2845,7 @@ function App() {
         subscriptionsPromise = null;
         const { data, error } = pending ? await pending : await supabase
           .from('subscriptions')
-          .select('company_id, status, plan, trial_ends_at, current_period_end, cancel_at_period_end')
+          .select('company_id, status, plan, created_at, trial_ends_at, current_period_end, cancel_at_period_end')
           .eq('user_id', authUser.id);
         if (error) return {};
         const map = {};
@@ -6388,6 +6388,8 @@ function App() {
       case 'settings':
         return (
           <Settings
+            subscriptionPlan={(subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan || null}
+            subscriptionCreatedAt={(subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).created_at || null}
             onOpenHelp={() => setIsHelpDrawerOpen(true)}
             onLogout={() => setShowLogoutConfirm(true)}
             company={company}

@@ -36,7 +36,7 @@ const FACTS = [
   { title: 'Krypterad hela vägen', body: 'HTTPS överallt, och webbläsaren tvingas minnas det. Data i databasen är krypterad i vila.' },
   { title: 'Tvåfaktor med autentiseringsapp', body: 'TOTP när du vill ha det. Lösenordsbyte kräver dessutom en engångskod på mejlen.' },
   { title: 'Sessionen dör med fliken', body: 'Inloggningen ligger inte kvar på enheten. Bokföring öppnas ofta på lånade datorer.' },
-  { title: 'Inbjudan, inte gissad URL', body: 'Högst tre användare per företag, via engångslänk. Behörigheten kontrolleras i databasen.' },
+  { title: 'Inbjudan, inte gissad URL', body: 'Bara de du bjuder in kommer åt företaget, via en engångslänk. Behörigheten kontrolleras i databasen.' },
   // Se PrivacyPolicy avsnitt 4 och 5: LAGRING, inte behandling. Serverfunktionerna
   // hos Vercel kör utanför EU tills vercel.json får en regions-inställning.
   { title: 'Lagras i Sverige', body: 'Databasen och dina kvitton ligger i ett datacenter i Stockholm.' },

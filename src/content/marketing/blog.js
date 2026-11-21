@@ -466,7 +466,7 @@ export const BLOG_POSTS = [
       { t: 'callout', kind: 'tips', title: 'Aldrig skickat utan din signatur', x: 'Allt som ska in hos Skatteverket förbereds åt dig, men skickas aldrig automatiskt. Du kontrollerar och lämnar in själv.' },
 
       { t: 'h2', x: 'För vilka passar Bokix?' },
-      { t: 'p', x: 'Enskild firma, aktiebolag, handelsbolag, kommanditbolag, ekonomisk och ideell förening samt stiftelse. Bokix känner av bolagsformen från organisationsnumret. Du kan ha flera företag och upp till tre användare.' },
+      { t: 'p', x: 'Enskild firma, aktiebolag, handelsbolag, kommanditbolag, ekonomisk och ideell förening samt stiftelse. Bokix känner av bolagsformen från organisationsnumret. Du kan ha flera företag och bjuda in din redovisningskonsult utan kostnad.' },
 
       { t: 'h2', x: 'Ingen inlåsning' },
       { t: 'p', x: 'Hela bokföringen går att spara som en SIE4-fil, standarden alla svenska program kan läsa. Du behöver inte fråga oss om lov. Läs mer i [Flytta bokföringen med SIE4](/blogg/sie4-flytta-bokforing).' },

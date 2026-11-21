@@ -578,7 +578,7 @@ const SecInvite = (
       <div className="ax-tr" style={{ ...USER_COLS, minHeight: 38 }}><span><b>Du</b><span className="ax-s" style={{ display: 'block', fontSize: 10 }}>du@testkunden.se</span></span><span>Administratör</span><Pill>Aktiv</Pill></div>
       <div className="ax-tr dp-slide" style={{ ...USER_COLS, ...d(3), minHeight: 38, borderBottom: 'none' }}><span><b>Sara</b><span className="ax-s" style={{ display: 'block', fontSize: 10 }}>sara@revisionsbyra.se</span></span><span>Kan bara läsa</span><Pill kind="warn">Inbjuden</Pill></div>
     </div>
-    <div className="ax-m" style={{ fontSize: 10, marginTop: 7 }}>Max 3 användare per företag (du + 2 inbjudna).</div>
+    <div className="ax-m" style={{ fontSize: 10, marginTop: 7 }}>Bjud in 2 personer. Konsult och revisor räknas inte.</div>
     <div className="ax-scrim dp-gone" style={d(2.7)}>
       <div className="ax-modal dp-pop" style={d(0.9)}>
         <div className="ax-modal-head">Bjud in användare<ModalClose /></div>

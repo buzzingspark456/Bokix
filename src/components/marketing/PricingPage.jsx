@@ -57,11 +57,12 @@ function buildSoftwareSchema(description) {
 
 // Det kortet lyfter fram per nivå.
 const HIGHLIGHTS = {
-  solo: ['Obegränsat med kvitton, fakturor och offerter', 'Moms, bokslut och årsredovisning', 'Stripe, Zettle och din egen e-post'],
-  employer: ['Allt i Utan personal', 'Lön, lönebesked och arbetsgivardeklaration', 'Betalfil till banken'],
+  solo: ['Obegränsat med kvitton, fakturor och offerter', 'Moms, bokslut och årsredovisning', 'Bjud in 1 person, konsult och revisor gratis'],
+  employer: ['Allt i Utan personal', 'Lön, lönebesked och arbetsgivardeklaration', 'Bjud in 2 personer, konsult och revisor gratis'],
 };
 
-// Jämförelsen. Allt som finns i Bokix i dag; lön är den enda skillnaden.
+// Jämförelsen. Allt som finns i Bokix i dag; skillnaden är lön och hur
+// många man kan bjuda in (utils/plans.js invitedUserLimit).
 const ALL = { kind: 'yes', text: 'Obegränsat', strong: true };
 const IN = { kind: 'yes', text: 'Ingår' };
 const NO = { kind: 'no' };
@@ -87,7 +88,7 @@ const COMPARE = [
   { title: 'Lager och artiklar', desc: 'Lagervärde, påslag och inventering.', values: [IN, IN] },
   { title: 'Projekt och tid', desc: 'Tid och resultat per uppdrag.', values: [IN, IN] },
   { title: 'Anläggningsregister', desc: 'Avskrivningar varje månad.', values: [IN, IN] },
-  { title: 'Användare', desc: 'Du och de du bjuder in, till exempel din konsult.', values: [{ kind: 'yes', text: 'Upp till 3' }, { kind: 'yes', text: 'Upp till 3' }] },
+  { title: 'Bjud in fler', desc: 'Utöver dig själv. Din redovisningskonsult eller revisor räknas inte och ingår gratis.', values: [{ kind: 'yes', text: '1 person' }, { kind: 'yes', text: '2 personer' }] },
   { title: 'SIE4-export och support', desc: 'Ta med bokföringen när du vill. Hjälp på svenska via mejl.', values: [IN, IN] },
 ];
 

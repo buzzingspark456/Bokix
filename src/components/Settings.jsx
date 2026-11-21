@@ -37,7 +37,7 @@ import { downloadSie4 } from '../utils/sieExport';
 import { exportVerificationsToExcel, fiscalYearChoices, verificationsInRange } from '../utils/excelExport';
 import { downloadUnderlagZip } from '../utils/underlagExport';
 import { companyFiscalYearSetting, fiscalYearBounds } from '../utils/reportCalculations';
-import { planFromId, PLAN_TIERS } from '../utils/plans';
+import { planFromId, PLAN_TIERS, invitedUserLimit, ACCOUNTANT_SEATS } from '../utils/plans';
 import { ACCESS_PAGES, ACCESS_LEVELS, defaultPageAccess, accessForPage, canWriteField, ACCOUNTANT_PRESET, accountantPageAccess } from '../utils/pageAccess';
 import { isUfCompany, ufSettingsSections, ufFreePeriod, UF_FREE_MONTHS } from '../utils/ufMode';
 import { closeUfYear } from '../utils/ufClose';
@@ -1739,7 +1739,7 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
   );
 }
 
-// ── Användare och Åtkomst (max 3 per företag — ägare + upp till 2 inbjudna,
+// ── Användare och Åtkomst (Utan personal 1 inbjuden, Med personal 2, konsult/revisor räknas inte,
 // se supabase-setup.sql: company_members) ──────────────────────────────────
 // companyName/inviterName kommer från fält användaren själv äger och kan
 // sätta till vad som helst (t.ex. "<a href=...>") — utan escaping hade det
@@ -1778,7 +1778,7 @@ const STATUS_COLORS = {
   revoked: { bg: 'var(--border-light)', text: 'var(--text-muted)' },
 };
 
-function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastName, sharedAccess, readOnly = false }) {
+function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastName, sharedAccess, subscriptionPlan = null, subscriptionCreatedAt = null, readOnly = false }) {
   // Roller & behörigheter (företagets sparade FÖRVAL per roll — se
   // defaultPageAccess i utils/pageAccess.js). Bara ägaren ser/ändrar detta;
   // en inbjuden gäst har ingen egen mall att sätta.
@@ -1824,7 +1824,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
     // här för att uppnå det, policyn gör jobbet.
     const { data, error } = await supabase
       .from('company_members')
-      .select('id, invited_email, role, status, invited_at, expires_at, page_access, invite_token')
+      .select('id, invited_email, role, status, invited_at, expires_at, page_access, invite_token, is_accountant')
       .eq('company_id', company.id)
       .order('invited_at', { ascending: true });
     if (!error) setMembers(data || []);
@@ -1833,12 +1833,19 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
 
   useEffect(() => { loadMembers(); }, [company?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // "Max 3 användare" = ägaren + högst 2 aktiva/väntande — samma gräns som
-  // databasens INSERT-policy (company_members) redan hårdkodar, upprepad
-  // här bara för att kunna visa/dölja "Bjud in"-knappen proaktivt istället
-  // för att låta ett insert-försök alltid gå fram till servern och 403:a.
-  const activeOrPendingCount = members.filter(m => m.status !== 'revoked').length;
-  const atCap = activeOrPendingCount >= 2;
+  // Gränsen (2026-11-21): Utan personal 1 inbjuden, Med personal 2, och
+  // konsult/revisor har två egna platser som inte räknas. Samma regel som
+  // databasens INSERT-policy (supabase-2026-11-21-anvandargrans.sql), här
+  // bara för att visa knappen rätt i stället för att låta servern säga nej.
+  const userLimit = invitedUserLimit(subscriptionPlan, subscriptionCreatedAt);
+  const openMembers = members.filter(m => m.status !== 'revoked');
+  const userCount = openMembers.filter(m => !m.is_accountant).length;
+  const accountantCount = openMembers.filter(m => m.is_accountant).length;
+  const usersFull = userCount >= userLimit;
+  const accountantsFull = accountantCount >= ACCOUNTANT_SEATS;
+  const atCap = usersFull && accountantsFull;
+  const inviteIsAccountant = inviteRole === ACCOUNTANT_PRESET;
+  const inviteKindFull = inviteIsAccountant ? accountantsFull : usersFull;
 
   // `viaLink`: skapa bara inbjudan och visa länken, inget mejl (t.ex. när
   // ägaren hellre skickar länken själv till sin redovisningskonsult).
@@ -1848,11 +1855,12 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
     setInviteError(''); setInviteSuccess(''); setInviteLink(null);
     const email = inviteEmail.trim().toLowerCase();
     if (!email || !email.includes('@')) { setInviteError(tr('ui.ange_en_giltig_e_postadress_2')); return; }
+    if (inviteKindFull) { setInviteError(inviteIsAccountant ? tr('ui.anv_grans_konsult_full') : tr('ui.anv_grans_vanlig_full', { n: userLimit })); return; }
     setInviteBusy(true);
     try {
       const { data: inserted, error } = await supabase
         .from('company_members')
-        .insert({ owner_user_id: user.id, company_id: company.id, invited_email: email, role: inviteDbRole, page_access: invitePages })
+        .insert({ owner_user_id: user.id, company_id: company.id, invited_email: email, role: inviteDbRole, page_access: invitePages, is_accountant: inviteIsAccountant })
         .select()
         .single();
       if (error) throw error;
@@ -1950,7 +1958,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
           <button
             onClick={() => setShowInviteForm(v => !v)}
             disabled={atCap && !showInviteForm}
-            title={atCap ? tr('ui.max_3_anvandare_per_foretag_agare_2_inbjudna_ate') : undefined}
+            title={atCap ? tr('ui.anv_grans_full', { n: userLimit }) : undefined}
             style={atCap ? { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--border)', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'not-allowed' } : btnPrimary}
           >
             <Mail size={16} style={{ marginRight: 6, verticalAlign: '-3px' }} /> {showInviteForm ? tr('ui.avbryt') : tr('ui.bjud_in_anvandare')}
@@ -1959,7 +1967,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
       </div>
 
       {isOwner && atCap && !showInviteForm && (
-        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '14px' }}>{tr('ui.max_3_anvandare_per_foretag_ar_natt_du_2_inbjudn')}</p>
+        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '14px' }}>{tr('ui.anv_grans_full', { n: userLimit })}</p>
       )}
 
       {isOwner && showInviteForm && (
@@ -1999,10 +2007,11 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
               onChange={setInvitePages}
             />
           </div>
+          {inviteKindFull && !inviteError && <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '10px' }}>{inviteIsAccountant ? tr('ui.anv_grans_konsult_full') : tr('ui.anv_grans_vanlig_full', { n: userLimit })}</p>}
           {inviteError && <p style={{ color: BRAND.redText, fontSize: '13px', marginTop: '10px' }}>{inviteError}</p>}
           <div style={{ marginTop: '16px', display: 'flex', gap: '10px' }}>
-            <button type="submit" disabled={inviteBusy} style={{ ...btnPrimary, opacity: inviteBusy ? 0.6 : 1 }}>{inviteBusy ? tr('ui.skickar_2') : tr('ui.skicka_inbjudan')}</button>
-            <button type="button" disabled={inviteBusy} onClick={e => handleInvite(e, true)} style={{ ...btnSecondary, display: 'flex', alignItems: 'center', gap: '6px', opacity: inviteBusy ? 0.6 : 1 }}><Copy size={14} />{tr('ui.skapa_lank_i_stallet')}</button>
+            <button type="submit" disabled={inviteBusy || inviteKindFull} style={{ ...btnPrimary, opacity: (inviteBusy || inviteKindFull) ? 0.6 : 1 }}>{inviteBusy ? tr('ui.skickar_2') : tr('ui.skicka_inbjudan')}</button>
+            <button type="button" disabled={inviteBusy || inviteKindFull} onClick={e => handleInvite(e, true)} style={{ ...btnSecondary, display: 'flex', alignItems: 'center', gap: '6px', opacity: (inviteBusy || inviteKindFull) ? 0.6 : 1 }}><Copy size={14} />{tr('ui.skapa_lank_i_stallet')}</button>
             <button type="button" onClick={() => setShowInviteForm(false)} style={btnSecondary}>{tr('ui.avbryt')}</button>
           </div>
         </form>
@@ -2041,7 +2050,10 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
                 {isOwner && <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{user?.email}</div>}
               </div>
             ) : (
-              <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{row.invited_email}</div>
+              <div>
+                <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{row.invited_email}</div>
+                {row.is_accountant && <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>{tr('ui.anv_konsult_ingar')}</div>}
+              </div>
             ),
           },
           {
@@ -2125,7 +2137,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
         <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px' }}>{tr('ui.inga_andra_anvandare_inbjudna_annu')}</p>
       )}
       {isOwner ? (
-        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px', maxWidth: '560px' }}>{tr('ui.max_3_anvandare_per_foretag_du_2_inbjudna_rollen')}</p>
+        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px', maxWidth: '560px' }}>{tr('ui.anv_grans_info', { n: userLimit })}</p>
       ) : (
         <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px', maxWidth: '560px' }}>{tr('ui.du_har_blivit_inbjuden_till_det_har_foretaget_av')}{ROLE_LABELS[sharedAccess.role] || sharedAccess.role}{tr('ui.behorighet')}</p>
       )}
@@ -2446,7 +2458,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
     // det finns mer än en (dvs. så fort ett andra företag köpts).
     const { data } = await supabase
       .from('subscriptions')
-      .select('status, plan, trial_ends_at, current_period_end, cancel_at_period_end')
+      .select('status, plan, created_at, trial_ends_at, current_period_end, cancel_at_period_end')
       .eq('user_id', user.id)
       .eq('company_id', companyId)
       .maybeSingle();
@@ -2757,7 +2769,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
             { text: tr('ui.plan_rad_bokforing'), included: true },
             { text: tr('ui.plan_rad_rapporter'), included: true },
             { text: tr('ui.loner_och_arbetsgivardeklaration'), included: plan ? plan.includesPayroll : true },
-            { text: tr('ui.upp_till_tre_anvandare_per_foretag'), included: true },
+            { text: invitedUserLimit(sub?.plan, sub?.created_at) === 1 ? tr('ui.plan_rad_bjud_in_1') : tr('ui.plan_rad_bjud_in_2'), included: true },
           ].map(row => (
             <div key={row.text} style={{ display: 'flex', alignItems: 'center', gap: '9px', fontSize: '13.5px', color: row.included ? 'var(--text-main)' : 'var(--text-muted)' }}>
               {row.included
@@ -2795,6 +2807,8 @@ export default function Settings({
   contacts = [], projects = [], documents = [], onImport, onReset, onBulkImportSie, onRepairSieOpenings, onDeleteSieImport, onCloseImportedYears, onOpenRotRutImport, enabledFeatures = null, onAttachVerificationFiles, stripeAccountId, onConnectStripe, onDisconnectStripe,
   zettleConnected = false, onConnectZettle,
   user,
+  // Aktiva företagets abonnemang, för användargränsen (utils/plans.js).
+  subscriptionPlan = null, subscriptionCreatedAt = null,
   // Hjälp och Logga ut ligger i Inställningar på telefon (på dator finns de
   // längst ned i sidomenyn). Skickas inte ned i landningssidans demo.
   onOpenHelp, onLogout,
@@ -4761,7 +4775,7 @@ export default function Settings({
                 title={tr('ui.vem_kommer_at_foretaget')}
                 description={tr('ui.upp_till_tva_personer_utover_dig_var_och_en_med')}
               >
-              <UsersAndAccessSection company={company} setCompanyInfo={setCompanyInfo} user={user} firstName={firstName} lastName={lastName} sharedAccess={sharedAccess} readOnly={readOnly} />
+              <UsersAndAccessSection company={company} setCompanyInfo={setCompanyInfo} user={user} firstName={firstName} lastName={lastName} sharedAccess={sharedAccess} subscriptionPlan={subscriptionPlan} subscriptionCreatedAt={subscriptionCreatedAt} readOnly={readOnly} />
               </SettingsSection>
             </div>
           )}

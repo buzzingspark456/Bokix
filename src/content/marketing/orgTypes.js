@@ -231,7 +231,7 @@ export const ORG_TYPE_PAGES = [
     eyebrow: 'Bokföringsprogram för handelsbolag',
     title: 'Bokföringsprogram för handelsbolag',
     lead: 'Bokföringen för hela bolaget, och underlaget till varje delägares deklaration.',
-    highlights: ['Tre användare ingår', 'INK4 som SRU-fil', 'Bokslut per delägare', 'Lön med AGI-fil'],
+    highlights: ['Delägaren och revisorn ingår', 'INK4 som SRU-fil', 'Bokslut per delägare', 'Lön med AGI-fil'],
     included: [
       'Löpande bokföring med BAS-kontoplanen, med ett enkelt läge utan debet och kredit.',
       'Kvitton läses av från ett foto, och fakturor och offerter skickas från Bokix.',
@@ -239,11 +239,11 @@ export const ORG_TYPE_PAGES = [
       'Lön med skattetabeller, lönebesked, AGI-fil och betalfil till banken.',
       'Bokslut där årets resultat förs över till delägarnas kapitalkonton.',
       'Bilagorna till inkomstdeklaration 4 som SRU-fil: räkenskapsschema (INK4R), skattemässiga justeringar (INK4S) och delägaruppgifter (INK4DU) för varje delägare.',
-      'Upp till tre personer i samma bokföring, till exempel båda delägarna och er revisor.',
+      'Båda delägarna och er revisor i samma bokföring, utan extra kostnad.',
     ],
     steps: [
       { title: 'Skapa kontot med organisationsnumret', body: 'Bokix känner igen att det är ett handels- eller kommanditbolag och anpassar skatt och bokslut efter det.' },
-      { title: 'Bjud in delägaren', body: 'Ni kan arbeta i samma bokföring samtidigt. Tre användare ingår i priset.' },
+      { title: 'Bjud in delägaren', body: 'Ni kan arbeta i samma bokföring samtidigt. Revisorn kan också bjudas in, utan kostnad.' },
       { title: 'Gör bokslut och INK4', body: 'Resultatet fördelas på delägarna. Bokix tar fram bilagorna till INK4 som fil, och varje delägare deklarerar sin andel i sin egen deklaration.' },
     ],
     facts: [
@@ -254,7 +254,7 @@ export const ORG_TYPE_PAGES = [
     faq: [
       { q: 'Lämnar ett handelsbolag INK2?', a: 'Nej. Ett handels- eller kommanditbolag betalar ingen egen bolagsskatt och lämnar inkomstdeklaration 4 (INK4) i stället. Resultatet fördelas på delägarna, som deklarerar sin andel i sin egen deklaration.' },
       { q: 'Gör Bokix INK4?', a: 'Bokix tar fram bilagorna till INK4 som SRU-fil: räkenskapsschemat (INK4R), de skattemässiga justeringarna (INK4S) och delägaruppgifterna (INK4DU) med varje delägares andel, tillskott och uttag. Själva INK4 fyller du i Skatteverkets e-tjänst, där du också laddar upp filen.' },
-      { q: 'Kan båda delägarna använda Bokix?', a: 'Ja. Upp till tre personer kan arbeta i samma bokföring, och det ingår i priset.' },
+      { q: 'Kan båda delägarna använda Bokix?', a: 'Ja. Bjud in din delägare, och er revisor om ni har en. Det ingår i priset.' },
       { q: 'Vad kostar Bokix för ett handelsbolag?', a: PRICE + ' De första 30 dagarna är gratis.' },
       { q: 'Kan jag ta med bokföringen från ett annat program?', a: 'Ja. Exportera en SIE4-fil ur ditt nuvarande program och läs in den i Bokix, så följer konton, verifikationer och ingående balanser med.' },
     ],
@@ -275,7 +275,7 @@ export const ORG_TYPE_PAGES = [
       ],
       reasonsTitle: 'Därför passar Bokix ett handelsbolag',
       reasons: [
-        { title: 'Tre användare ingår', body: 'Båda delägarna och er revisor kan arbeta i samma bokföring, utan extra kostnad.' },
+        { title: 'Delägaren och revisorn ingår', body: 'Båda delägarna och er revisor kan arbeta i samma bokföring, utan extra kostnad.' },
         { title: 'Ett kapitalkonto per delägare', body: 'Varje delägare får en egen kontoserie för insättningar, uttag och sin andel av resultatet.' },
         { title: 'Bilagorna till INK4 som fil', body: 'INK4R, INK4S och INK4DU för varje delägare tas fram ur bokföringen, som SRU-fil.' },
       ],
@@ -311,14 +311,14 @@ export const ORG_TYPE_PAGES = [
         lead: 'En byrå passar om ni vill lämna bort allt. Bokix passar om ni vill ha koll själva och betala lite.',
         cols: ['I Excel', 'Med redovisningsbyrå', 'Med Bokix'],
         rows: [
-          ['Kostnad', 'Inget program, men mycket tid', 'Arvode per timme eller månad', '129 kr/mån, tre användare ingår'],
+          ['Kostnad', 'Inget program, men mycket tid', 'Arvode per timme eller månad', '129 kr/mån, revisorn ingår'],
           ['Delägarnas andelar', 'Räknas för hand', 'Byrån gör det', 'Fördelas i bokslutet, per delägare'],
           ['INK4 med bilagor', 'Svårt utan förkunskaper', 'Byrån gör det', 'Steg för steg, som SRU-fil'],
           ['Arbeta tillsammans', 'En fil som skickas runt', 'Byrån har bokföringen', 'Samma bokföring, samtidigt'],
           ['Koll på siffrorna', 'När någon har uppdaterat', 'När byrån har skickat rapporten', 'Hela tiden, på startsidan'],
         ],
       },
-      price: { amount: '129 kr', unit: '/mån', text: 'Allt ovan ingår, och tre användare. 179 kr/mån med anställda, 109 respektive 149 kr/mån med årsplan. Ingen moms tillkommer. 30 dagar gratis.' },
+      price: { amount: '129 kr', unit: '/mån', text: 'Allt ovan ingår, och revisorn kan bjudas in utan kostnad. 179 kr/mån med anställda, 109 respektive 149 kr/mån med årsplan. Ingen moms tillkommer. 30 dagar gratis.' },
     },
   },
   {
@@ -331,7 +331,7 @@ export const ORG_TYPE_PAGES = [
     eyebrow: 'Bokföringsprogram för ekonomisk förening',
     title: 'Bokföringsprogram för ekonomisk förening',
     lead: 'Kassör, styrelse och revisor i samma bokföring, ända fram till årsredovisningen.',
-    highlights: ['Tre användare ingår', 'INK2 med SRU-fil', 'Årsredovisning enligt K2', 'Rapporter till styrelsen'],
+    highlights: ['Revisorn ingår gratis', 'INK2 med SRU-fil', 'Årsredovisning enligt K2', 'Rapporter till styrelsen'],
     included: [
       'Löpande bokföring med BAS-kontoplanen, med ett enkelt läge utan debet och kredit.',
       'Fakturor och offerter, och kvitton som läses av från ett foto.',
@@ -344,7 +344,7 @@ export const ORG_TYPE_PAGES = [
     ],
     steps: [
       { title: 'Skapa kontot med organisationsnumret', body: 'Bokix hämtar föreningens uppgifter och väljer räkenskapsår och momsperiod åt dig.' },
-      { title: 'Bjud in kassören eller revisorn', body: 'Upp till tre personer kan arbeta i samma bokföring.' },
+      { title: 'Bjud in kassören eller revisorn', body: 'Ni kan arbeta i samma bokföring. Revisorn ingår utan kostnad.' },
       { title: 'Gör bokslut, INK2 och årsredovisning', body: 'Bokix räknar fram INK2 och årsredovisningen ur bokföringen. Styrelsen skriver under och föreningsstämman fastställer den.' },
     ],
     facts: [
@@ -355,7 +355,7 @@ export const ORG_TYPE_PAGES = [
     faq: [
       { q: 'Passar Bokix en ekonomisk förening?', a: 'Ja. Den löpande bokföringen, moms, lön, bokslut med INK2 och årsredovisning enligt K2 finns i Bokix. Årsredovisningen använder föreningens egna poster, som medlemsinsatser, och föreningsstämman i stället för årsstämma.' },
       { q: 'Måste föreningen skicka årsredovisningen till Bolagsverket?', a: 'Det beror på föreningens storlek, till exempel antal anställda och tillgångarnas värde. Kolla vad som gäller för er på bolagsverket.se. Bokix gör årsredovisningen, men skickar inte in den åt er.' },
-      { q: 'Kan flera i styrelsen använda Bokix?', a: 'Ja. Upp till tre personer kan arbeta i samma bokföring, och det ingår i priset.' },
+      { q: 'Kan flera i styrelsen använda Bokix?', a: 'Ja. Du kan bjuda in en person till, och revisorn räknas inte. Det ingår i priset.' },
       { q: 'Vad kostar Bokix för en ekonomisk förening?', a: PRICE + ' De första 30 dagarna är gratis.' },
       { q: 'Fungerar Bokix för en ideell förening?', a: 'Ja, för bokföring, moms, lön, årsbokslut och bilagorna till inkomstdeklarationen (INK3). Läs mer på sidan för ideella föreningar: bokix.se/bokforingsprogram-ideell-forening.' },
     ],
@@ -376,7 +376,7 @@ export const ORG_TYPE_PAGES = [
       ],
       reasonsTitle: 'Därför passar Bokix en ekonomisk förening',
       reasons: [
-        { title: 'Tre användare ingår', body: 'Kassören, ordföranden och revisorn kan arbeta i samma bokföring, utan extra kostnad.' },
+        { title: 'Kassör, ordförande och revisor', body: 'Kassören, ordföranden och revisorn kan arbeta i samma bokföring, utan extra kostnad.' },
         { title: 'Årsredovisning för en förening', body: 'Medlemsinsatser, förslag till föreningsstämman och styrelsens underskrifter, enligt K2.' },
         { title: 'Återbäring till medlemmarna', body: 'Bokix räknar fram återbäringen per medlem, bokför beslut och utbetalning och tar med avdraget i INK2.' },
       ],
@@ -417,14 +417,14 @@ export const ORG_TYPE_PAGES = [
         lead: 'En byrå passar om ni vill lämna bort allt. Bokix passar om kassören vill ha koll själv och föreningen vill betala lite.',
         cols: ['I Excel', 'Med redovisningsbyrå', 'Med Bokix'],
         rows: [
-          ['Kostnad', 'Inget program, men mycket tid', 'Arvode per timme eller månad', '129 kr/mån, tre användare ingår'],
+          ['Kostnad', 'Inget program, men mycket tid', 'Arvode per timme eller månad', '129 kr/mån, revisorn ingår'],
           ['När kassören byts', 'Filer och pärmar lämnas över', 'Byrån har bokföringen', 'Bjud in den nya kassören'],
           ['Revisionen', 'Revisorn får papper eller filer', 'Byrån tar fram underlaget', 'Revisorn granskar samma bokföring'],
           ['INK2 och årsredovisning', 'Svårt utan förkunskaper', 'Byrån gör det', 'Steg för steg, med PDF och SRU-fil'],
           ['Koll på siffrorna', 'När någon har uppdaterat', 'När byrån har skickat rapporten', 'Hela tiden, på startsidan'],
         ],
       },
-      price: { amount: '129 kr', unit: '/mån', text: 'Allt ovan ingår, och tre användare. 179 kr/mån med anställda, 109 respektive 149 kr/mån med årsplan. Ingen moms tillkommer. 30 dagar gratis.' },
+      price: { amount: '129 kr', unit: '/mån', text: 'Allt ovan ingår, och revisorn kan bjudas in utan kostnad. 179 kr/mån med anställda, 109 respektive 149 kr/mån med årsplan. Ingen moms tillkommer. 30 dagar gratis.' },
     },
   },
 ];
@@ -439,7 +439,7 @@ ORG_TYPE_PAGES.push({
   eyebrow: 'Bokföringsprogram för ideell förening',
   title: 'Bokföringsprogram för ideell förening',
   lead: 'Kassören bokför, styrelsen ser hur det går och revisorn granskar samma bokföring.',
-  highlights: ['Tre användare ingår', 'Enkelt läge utan debet och kredit', 'Med eller utan moms', 'Årsbokslut och INK3'],
+  highlights: ['Revisorn ingår gratis', 'Enkelt läge utan debet och kredit', 'Med eller utan moms', 'Årsbokslut och INK3'],
   included: [
     'Löpande bokföring med BAS-kontoplanen, med ett enkelt läge där du väljer vad som hänt i stället för konton.',
     'Kvitton läses av från ett foto, och underlaget sparas med verifikationen i sju år.',
@@ -451,7 +451,7 @@ ORG_TYPE_PAGES.push({
   ],
   steps: [
     { title: 'Skapa kontot med organisationsnumret', body: 'Bokix känner igen att det är en ideell förening eller stiftelse och väljer räkenskapsår åt dig.' },
-    { title: 'Bjud in kassören eller revisorn', body: 'Upp till tre personer kan arbeta i samma bokföring.' },
+    { title: 'Bjud in kassören eller revisorn', body: 'Ni kan arbeta i samma bokföring. Revisorn ingår utan kostnad.' },
     { title: 'Gör årsbokslutet', body: 'Resultat- och balansräkningen räknas fram ur bokföringen, och bilagorna till INK3 laddar ni ner som en fil till Skatteverket.' },
   ],
   facts: [
@@ -462,7 +462,7 @@ ORG_TYPE_PAGES.push({
   faq: [
     { q: 'Passar Bokix en ideell förening?', a: 'Ja, för den löpande bokföringen, fakturor, moms, lön, årsbokslutet och bilagorna till inkomstdeklarationen (INK3). Första sidan fyller ni i Skatteverkets e-tjänst.' },
     { q: 'Vår förening är inte momsregistrerad. Fungerar det?', a: 'Ja. Du väljer det när kontot skapas, och då bokförs kvitton och fakturor utan moms.' },
-    { q: 'Kan kassören och revisorn använda samma konto?', a: 'Ja. Upp till tre personer kan arbeta i samma bokföring, och det ingår i priset.' },
+    { q: 'Kan kassören och revisorn använda samma konto?', a: 'Ja. Bjud in kassören, och revisorn räknas inte. Det ingår i priset.' },
     { q: 'Fungerar Bokix för en stiftelse?', a: 'Ja, på samma sätt som för en ideell förening: bokföring, moms, lön, årsbokslut och bilagorna till INK3, med den särskilda uppgiften för allmännyttiga stiftelser (INK3SUS).' },
     { q: 'Vad kostar Bokix för en ideell förening?', a: PRICE + ' De första 30 dagarna är gratis.' },
   ],
@@ -484,7 +484,7 @@ ORG_TYPE_PAGES.push({
       reasonsTitle: 'Därför passar Bokix en ideell förening',
       reasons: [
         { title: 'Kassören behöver inte vara ekonom', body: 'I det enkla läget väljer kassören vad som hänt, till exempel en medlemsavgift eller ett inköp. Bokix väljer konton.' },
-        { title: 'Revisorn granskar i samma bokföring', body: 'Tre användare ingår. Bjud in revisorn, så slipper ni skicka pärmar och filer.' },
+        { title: 'Revisorn granskar i samma bokföring', body: 'Revisorn ingår utan kostnad. Bjud in revisorn, så slipper ni skicka pärmar och filer.' },
         { title: 'Lätt att lämna över', body: 'När kassören byts bjuder ni in den nya. Allt underlag ligger kvar i sju år.' },
       ],
       featuresTitle: 'Det här gör ni i Bokix',
@@ -521,14 +521,14 @@ ORG_TYPE_PAGES.push({
         lead: 'En byrå passar om ni vill lämna bort allt. Bokix passar om kassören vill ha koll själv och föreningen vill betala lite.',
         cols: ['I Excel', 'Med redovisningsbyrå', 'Med Bokix'],
         rows: [
-          ['Kostnad', 'Inget program, men mycket tid', 'Arvode per timme eller månad', '129 kr/mån, tre användare ingår'],
+          ['Kostnad', 'Inget program, men mycket tid', 'Arvode per timme eller månad', '129 kr/mån, revisorn ingår'],
           ['När kassören byts', 'Filer och pärmar lämnas över', 'Byrån har bokföringen', 'Bjud in den nya kassören'],
           ['Revisionen', 'Revisorn får papper eller filer', 'Byrån tar fram underlaget', 'Revisorn granskar samma bokföring'],
           ['Till årsmötet', 'Rapporten görs för hand', 'Byrån skickar rapporten', 'Resultat- och balansräkning direkt'],
           ['Kvitton', 'Sparas i en pärm', 'Skickas till byrån', 'Fotas och sparas i sju år'],
         ],
       },
-      price: { amount: '129 kr', unit: '/mån', text: 'Allt ovan ingår, och tre användare. 179 kr/mån med anställda, 109 respektive 149 kr/mån med årsplan. Ingen moms tillkommer. 30 dagar gratis.' },
+      price: { amount: '129 kr', unit: '/mån', text: 'Allt ovan ingår, och revisorn kan bjudas in utan kostnad. 179 kr/mån med anställda, 109 respektive 149 kr/mån med årsplan. Ingen moms tillkommer. 30 dagar gratis.' },
     },
 });
 

@@ -194,3 +194,21 @@ export function resolveCancellation({ planId, startedAt, canceledAt = new Date()
   ));
   return { atPeriodEnd: false, cancelAt, minimumMonths: plan.minimumMonths, monthsElapsed };
 }
+
+/**
+ * Hur många vanliga användare ägaren får bjuda in, utöver sig själv.
+ *
+ * Utan personal: 1. Med personal: 2. Redovisningskonsult och revisor räknas
+ * inte, de har ACCOUNTANT_SEATS egna platser. Abonnemang från före
+ * INVITE_LIMIT_FROM behåller 2 (prissidan lovade "Upp till 3" när de köpte),
+ * och saknad plan ger också 2. Samma regel som private.invite_limit i
+ * supabase-2026-11-21-anvandargrans.sql, som är den som faktiskt stoppar.
+ */
+export const INVITE_LIMIT_FROM = '2026-11-22';
+export const ACCOUNTANT_SEATS = 2;
+export function invitedUserLimit(planId, createdAt) {
+  const plan = planFromId(planId);
+  if (!plan || plan.tierId !== 'solo') return 2;
+  if (createdAt && new Date(createdAt) < new Date(`${INVITE_LIMIT_FROM}T00:00:00Z`)) return 2;
+  return 1;
+}
