@@ -10203,13 +10203,25 @@ img.hc-player { object-fit: cover; }
 .ut-status.ut-step-read { background: var(--bg-muted, #f1f2f4); color: var(--text-secondary); }
 .ut-status.ut-step-fill, .ut-status.ut-step-account { background: var(--status-amber-bg, #fdf3dc); color: var(--status-amber-text, #8a5a00); }
 .ut-status.ut-step-ready { background: var(--status-green-bg, #e3f4e8); color: var(--status-green-text, #126b36); }
-/* Underlag som väntar (Att granska): en lugn rad, inte en ruta. Hela raden är klickbar. */
-.rq-waiting { display: flex; align-items: center; gap: 10px; width: calc(100% - 40px); margin: 14px 20px 0; padding: 9px 4px; border: none; border-bottom: 1px solid var(--border-light); background: none; font: inherit; font-size: 13px; color: var(--text-secondary); text-align: left; cursor: pointer; }
-.rq-waiting-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--status-amber-text, #b7791f); flex-shrink: 0; }
-.rq-waiting-text { flex: 1; min-width: 0; }
-.rq-waiting-go { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; font-weight: 600; color: var(--text-main); }
-.rq-waiting:hover .rq-waiting-go { color: var(--primary, #15803d); }
-@media (max-width: 768px) { .rq-waiting { width: calc(100% - 28px); margin: 10px 14px 0; } }
+/* Flödet i Att granska: Underlag → Välj konto → Bokfört (2026-11-21). */
+.rq-flow { display: flex; align-items: stretch; gap: 6px; margin: 14px 20px 0; }
+.rq-flow-step { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid var(--border-light); border-radius: 10px; background: var(--bg-card); font: inherit; color: var(--text-main); text-align: left; }
+button.rq-flow-step { cursor: pointer; }
+button.rq-flow-step:hover { border-color: var(--border); background: var(--bg-muted); }
+.rq-flow-step.is-here { border-color: color-mix(in srgb, var(--accent) 45%, var(--border-light)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent); }
+.rq-flow-n { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; background: var(--bg-muted); color: var(--text-secondary); }
+.rq-flow-step.is-here .rq-flow-n { background: var(--accent); color: #fff; }
+.rq-flow-step.has:not(.is-here) .rq-flow-n { background: color-mix(in srgb, var(--status-amber-text) 18%, transparent); color: var(--status-amber-text); }
+.rq-flow-text { display: flex; flex-direction: column; min-width: 0; }
+.rq-flow-text strong { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rq-flow-text small { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rq-flow-arrow { align-self: center; flex-shrink: 0; color: var(--text-muted); }
+@media (max-width: 768px) {
+  .rq-flow { margin: 10px 14px 0; gap: 4px; }
+  .rq-flow-step { padding: 8px 10px; gap: 8px; }
+  .rq-flow-arrow { display: none; }
+  .rq-flow-text small { display: none; }
+}
 
 /* Saknar underlag (2026-11-20) */
 .ut-mono { font-variant-numeric: tabular-nums; }

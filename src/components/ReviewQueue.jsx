@@ -888,6 +888,9 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
   const openUnderlag = handleGlobalAction && ((id) => handleGlobalAction({ type: 'open_underlag', payload: { id } }, 'expenses'));
 
   const visiblePending = pendingItems.filter(i => !exitingIds.has(i.id));
+  // Hanterat här den här månaden, för flödets tredje steg.
+  const thisMonthKey = new Date().toISOString().slice(0, 7);
+  const doneThisMonth = reviewHistory.filter(h => String(h.resolvedAt || '').slice(0, 7) === thisMonthKey).length;
   const eligibleForBulk = visiblePending.filter(i => i.confident);
 
   // ── Markerade poster ────────────────────────────────────────────────
@@ -1284,12 +1287,26 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
           tabell) behåller sin egen lokala padding. */}
       <div data-tour="page-review-content" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
 
-      {tab === 'pending' && underlagWaiting > 0 && openUnderlag && (
-        <button type="button" className="rq-waiting" onClick={() => openUnderlag(null)}>
-          <span className="rq-waiting-dot" aria-hidden="true" />
-          <span className="rq-waiting-text">{t(underlagWaiting === 1 ? 'underlag.waitingOne' : 'underlag.waitingMany', { n: underlagWaiting })}</span>
-          <span className="rq-waiting-go">{t('underlag.waitingOpen')} <ChevronRight size={14} /></span>
-        </button>
+      {/* Flödet i tre steg (2026-11-21): underlaget läses av i Underlag, du
+          väljer konto här, sedan är det bokfört. Visar var saker väntar och
+          att Bokix gör resten själv. Bara med nya Underlag. */}
+      {tab === 'pending' && openUnderlag && (
+        <div className="rq-flow" role="list">
+          <button type="button" role="listitem" className={`rq-flow-step${underlagWaiting > 0 ? ' has' : ''}`} onClick={() => openUnderlag(null)}>
+            <span className="rq-flow-n">1</span>
+            <span className="rq-flow-text"><strong>{t('underlag.flowRead')}</strong><small>{underlagWaiting > 0 ? t('underlag.flowWaiting', { n: underlagWaiting }) : t('underlag.flowNone')}</small></span>
+          </button>
+          <ChevronRight size={16} className="rq-flow-arrow" aria-hidden="true" />
+          <div role="listitem" className={`rq-flow-step is-here${visiblePending.length > 0 ? ' has' : ''}`}>
+            <span className="rq-flow-n">2</span>
+            <span className="rq-flow-text"><strong>{t('underlag.flowAccount')}</strong><small>{visiblePending.length > 0 ? t('underlag.flowToPick', { n: visiblePending.length }) : t('underlag.flowNone')}</small></span>
+          </div>
+          <ChevronRight size={16} className="rq-flow-arrow" aria-hidden="true" />
+          <button type="button" role="listitem" className="rq-flow-step" onClick={() => setTab('history')}>
+            <span className="rq-flow-n">3</span>
+            <span className="rq-flow-text"><strong>{t('underlag.flowDone')}</strong><small>{t('underlag.flowThisMonth', { n: doneThisMonth })}</small></span>
+          </button>
+        </div>
       )}
       {tab === 'pending' && (
         visiblePending.length === 0 ? (

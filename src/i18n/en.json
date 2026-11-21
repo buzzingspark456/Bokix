@@ -4551,7 +4551,14 @@
     "change": "Change",
     "accountSub": "What was the purchase? The suggestion comes from the supplier or the text on the receipt.",
     "suggestion": "Suggestion",
-    "use": "Use"
+    "use": "Use",
+    "flowRead": "Being read",
+    "flowAccount": "Pick account",
+    "flowDone": "Booked",
+    "flowWaiting": "{{n}} waiting in Documents",
+    "flowToPick": "{{n}} to pick",
+    "flowNone": "Nothing waiting",
+    "flowThisMonth": "{{n}} this month"
   },
   "rotRut": {
     "capped": "The customer has already received {{used}} kr in household deductions this year. The deduction on this invoice is limited to {{room}} kr so the cap is not exceeded.",

@@ -4551,7 +4551,14 @@
     "change": "Ändra",
     "accountSub": "Vad gällde köpet? Förslaget kommer från leverantören eller texten på kvittot.",
     "suggestion": "Förslag",
-    "use": "Använd"
+    "use": "Använd",
+    "flowRead": "Läses av",
+    "flowAccount": "Välj konto",
+    "flowDone": "Bokfört",
+    "flowWaiting": "{{n}} väntar i Underlag",
+    "flowToPick": "{{n}} att välja",
+    "flowNone": "Inget som väntar",
+    "flowThisMonth": "{{n}} denna månad"
   },
   "rotRut": {
     "capped": "Kunden har redan fått {{used}} kr i husavdrag i år. Avdraget på den här fakturan begränsas till {{room}} kr så att taket inte överskrids.",
