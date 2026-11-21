@@ -1,0 +1,31 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="cover.css"><style>
+.art { background: #f1dfc4; }
+.road { left: -60px; top: 400px; width: 1320px; height: 140px; background: #4b4f54; transform: rotate(-4deg); }
+.road .dash { position: absolute; top: 64px; height: 12px; width: 80px; border-radius: 6px; background: #f3d36b; }
+.car { left: 300px; top: 270px; width: 380px; height: 170px; transform: rotate(-4deg); }
+.car .body { position: absolute; left: 0; right: 0; top: 60px; height: 80px; background: #3f7fbf; border-radius: 26px 40px 18px 18px; box-shadow: 0 26px 30px -20px rgba(0,0,0,0.5); }
+.car .top { position: absolute; left: 80px; width: 200px; top: 0; height: 80px; background: #3f7fbf; border-radius: 60px 70px 0 0; }
+.car .win { position: absolute; top: 16px; height: 50px; background: #cfe3f2; }
+.car .wheel { position: absolute; top: 112px; width: 66px; height: 66px; border-radius: 50%; background: #23262a; }
+.car .wheel::after { content: ''; position: absolute; inset: 20px; border-radius: 50%; background: #b9bec4; }
+.car .light { position: absolute; right: 6px; top: 80px; width: 22px; height: 16px; border-radius: 6px; background: #f6e7a1; }
+.pin { left: 860px; top: 130px; width: 110px; height: 110px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: #d9534f; box-shadow: 0 24px 30px -20px rgba(0,0,0,0.45); }
+.pin::after { content: ''; position: absolute; inset: 34px; border-radius: 50%; background: #fffdf8; }
+.book { left: 820px; top: 360px; width: 220px; height: 170px; transform: rotate(6deg); padding: 26px 22px; }
+.book::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 18px; background: #2f6b4f; border-radius: 6px 0 0 6px; }
+.book .ln { display: flex; justify-content: space-between; padding: 7px 0 7px 14px; border-bottom: 1px solid #e6dfcf; }
+.book .ln i { display: block; height: 8px; border-radius: 4px; background: #999; opacity: 0.5; }
+.trail { left: 690px; top: 210px; width: 200px; height: 140px; border-top: 6px dashed rgba(75,79,84,0.45); border-right: 6px dashed rgba(75,79,84,0.45); border-radius: 0 80px 0 0; }
+</style></head><body><div class="art">
+<div class="abs road"><div class="dash" style="left:120px"></div><div class="dash" style="left:320px"></div><div class="dash" style="left:520px"></div><div class="dash" style="left:720px"></div><div class="dash" style="left:920px"></div><div class="dash" style="left:1120px"></div></div>
+<div class="abs trail"></div>
+<div class="abs car"><div class="top"><div class="win" style="left:30px;width:66px;border-radius:40px 0 0 0"></div><div class="win" style="left:106px;width:70px;border-radius:0 46px 0 0"></div></div><div class="body"></div><div class="light"></div><div class="wheel" style="left:50px"></div><div class="wheel" style="right:60px"></div></div>
+<div class="abs pin"></div>
+<div class="abs book paper mono">
+  <div class="ln"><i style="width:70px"></i><i style="width:34px"></i></div>
+  <div class="ln"><i style="width:54px"></i><i style="width:30px"></i></div>
+  <div class="ln"><i style="width:80px"></i><i style="width:34px"></i></div>
+  <div class="ln"><i style="width:60px"></i><i style="width:26px"></i></div>
+</div>
+<div class="grain"></div>
+</div></body></html>

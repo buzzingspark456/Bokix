@@ -4,6 +4,9 @@
 // startsidan (2026-11-07). articleRoutes.test.js larmar om listan och
 // artiklarna går isär: lägg till en rad här när en ny artikel skrivs.
 export const ARTICLE_ROUTES = [
+  { slug: "bokfora-milersattning", path: "/blogg/bokfora-milersattning" },
+  { slug: "bokfora-friskvard", path: "/blogg/bokfora-friskvard" },
+  { slug: "bokfora-representation", path: "/blogg/bokfora-representation" },
   { slug: "bokfora-stripe", path: "/blogg/bokfora-stripe" },
   { slug: "valja-bokforingsprogram", path: "/blogg/valja-bokforingsprogram" },
   { slug: "enkel-bokforing", path: "/enkel-bokforing" },
