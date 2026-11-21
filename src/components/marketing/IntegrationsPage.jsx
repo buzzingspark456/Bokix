@@ -37,7 +37,7 @@ const CONNECTIONS = [
 
 
 const NOT_YET = [
-  { title: 'Bankkoppling', body: 'Tills dess läses kontoutdraget in som fil och matchas mot dina fakturor.', soon: true },
+  { title: 'Bankkoppling', body: 'Tills dess som fil.', soon: true },
   { title: 'E-faktura via Peppol', body: 'Fakturorna skickas som PDF med e-post.' },
   { title: 'Öppet API', body: 'Det finns inget publikt API i dag.' },
 ];

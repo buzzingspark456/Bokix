@@ -10745,3 +10745,6 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
 .lp-soon { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; margin: 16px auto 0; padding: 7px 14px 7px 8px; border-radius: 999px; background: var(--mkt-card-bg, #fff); border: 1px solid var(--mkt-border-soft, rgba(0,0,0,0.08)); font-size: 14px; color: var(--mkt-muted, #5b6b62); }
 .lp-soon span, .ig-soon { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: rgba(31, 154, 74, 0.14); color: #1f7a3a; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .ig-soon { margin-right: 8px; vertical-align: 1px; }
+.lp-soon { gap: 8px; padding: 5px 14px 5px 5px; font-size: 13.5px; font-weight: 600; color: var(--mkt-ink, #1d2b22); }
+.lp-soon span { padding: 3px 9px; background: #1f9a4a; color: #fff; font-size: 11.5px; letter-spacing: 0.01em; }
+.ig-soon { background: #1f9a4a; color: #fff; font-size: 11px; padding: 2px 8px; }
