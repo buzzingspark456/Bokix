@@ -95,7 +95,7 @@ export default function IntegrationsPage() {
         <div className="pk-wrap ig-not-wrap">
           <h2 className="ig-not-title">Det här har vi inte än</h2>
           <ul className="ig-not">
-            {NOT_YET.map(n => <li key={n.title}>{n.soon && <span className="ig-soon">På gång</span>}<strong>{n.title}.</strong> {n.body}</li>)}
+            {NOT_YET.map(n => <li key={n.title}>{n.soon && <span className="ig-soon"><i aria-hidden="true" />Under utveckling</span>}<strong>{n.title}.</strong> {n.body}</li>)}
           </ul>
         </div>
       </section>

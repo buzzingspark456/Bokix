@@ -10748,3 +10748,13 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
 .lp-soon { gap: 8px; padding: 5px 14px 5px 5px; font-size: 13.5px; font-weight: 600; color: var(--mkt-ink, #1d2b22); }
 .lp-soon span { padding: 3px 9px; background: #1f9a4a; color: #fff; font-size: 11.5px; letter-spacing: 0.01em; }
 .ig-soon { background: #1f9a4a; color: #fff; font-size: 11px; padding: 2px 8px; }
+
+/* Under utveckling (2026-11-21): lugn etikett med pulserande prick. */
+.lp-soon { gap: 9px; padding: 6px 6px 6px 14px; border-radius: 999px; background: color-mix(in srgb, #1f9a4a 10%, var(--mkt-card-bg, #fff)); border: 1px solid color-mix(in srgb, #1f9a4a 30%, transparent); font-size: 13.5px; font-weight: 600; color: var(--mkt-ink, #1d2b22); }
+.lp-soon span { padding: 3px 10px; border-radius: 999px; background: var(--mkt-card-bg, #fff); color: #1f7a3a; border: 1px solid color-mix(in srgb, #1f9a4a 25%, transparent); font-size: 11.5px; font-weight: 700; }
+.lp-soon i, .ig-soon i { position: relative; width: 8px; height: 8px; border-radius: 50%; background: #2fbf63; flex-shrink: 0; }
+.lp-soon i::after, .ig-soon i::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: #2fbf63; animation: lp-pulse 1.8s ease-out infinite; }
+@keyframes lp-pulse { from { transform: scale(1); opacity: 0.6; } to { transform: scale(2.6); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .lp-soon i::after, .ig-soon i::after { animation: none; } }
+.ig-soon { display: inline-flex; align-items: center; gap: 7px; margin-right: 10px; padding: 3px 10px 3px 8px; border-radius: 999px; background: color-mix(in srgb, #1f9a4a 12%, transparent); border: 1px solid color-mix(in srgb, #1f9a4a 30%, transparent); color: #2fbf63; font-size: 11.5px; font-weight: 700; vertical-align: 1px; }
+:root:not([data-theme="dark"]) .ig-soon { color: #1f7a3a; }

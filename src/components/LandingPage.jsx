@@ -483,7 +483,7 @@ export default function LandingPage({ onEnterApp, locale = 'sv' }) {
               {c.bank.subheading}
             </p>
             {c.bank.soon && (
-              <p className="lp-soon"><span>{'På gång'}</span>{c.bank.soon}</p>
+              <p className="lp-soon"><i aria-hidden="true" />{c.bank.soon}<span>{'Under utveckling'}</span></p>
             )}
           </Reveal>
 
