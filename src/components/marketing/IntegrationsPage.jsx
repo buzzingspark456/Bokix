@@ -9,7 +9,8 @@ import { PageMeta, JsonLd } from '../../utils/seo';
 // ── Integrationer (/integrationer), 2026-11-07 ──────────────────────────
 // Bara de kopplingar som finns, inget utfyllnadsmaterial (användarens
 // önskemål: "vi har inte många integrationer, visa inte mer bara för att
-// det ska bli mer"). Fyra kopplingar och det vi inte har.
+// det ska bli mer"). Tre kopplingar och det vi inte har. Kalenderlänken
+// togs bort 2026-11-21: den är ingen riktig integration.
 
 const CONNECTIONS = [
   {
@@ -27,11 +28,6 @@ const CONNECTIONS = [
     logo: <GmailLogo height={30} />,
     body: 'Fakturor, offerter och påminnelser skickas från din adress, och svaren hamnar i din inkorg.',
     chips: ['Gmail', 'Outlook och Microsoft 365', 'one.com', 'Loopia', 'Annan via SMTP'],
-  },
-  {
-    name: 'Kalender',
-    logo: <span className="ig-cal"><i>DEC</i>12</span>,
-    body: 'Datum för moms, arbetsgivardeklaration och förfallna fakturor i din kalender, via en prenumerationslänk.',
   },
 ];
 
@@ -56,8 +52,8 @@ export default function IntegrationsPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Integrationer: Stripe, Zettle, e-post och kalender | Bokix"
-        description="Bokix kopplas till Stripe, Zettle, din egen e-post och din kalender. Skatteverket, banken och andra program via filer: SIE4, kontoutdrag och deklarationsfiler."
+        title="Integrationer: Stripe, Zettle och din e-post | Bokix"
+        description="Bokix kopplas till Stripe, Zettle och din egen e-post. Skatteverket, banken och andra program via filer: SIE4, kontoutdrag och deklarationsfiler."
         path="/integrationer"
       />
       <JsonLd data={SCHEMA} />
@@ -68,9 +64,9 @@ export default function IntegrationsPage() {
         <Reveal className="pk-hero-text">
           <h1 className="pk-h1-wrap">
             <span className="pk-eyebrow">Integrationer</span>
-            <span className="kx-h1 pk-h1">Fyra kopplingar som gör jobbet.</span>
+            <span className="kx-h1 pk-h1">Tre kopplingar som gör jobbet.</span>
           </h1>
-          <p className="pk-hero-lead">Betalningar, kassan, din e-post och din kalender. Allt kopplas under Inställningar, Integrationer.</p>
+          <p className="pk-hero-lead">Betalningar, kassan och din e-post. Allt kopplas under Inställningar, Integrationer.</p>
         </Reveal>
       </section>
 
