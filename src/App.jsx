@@ -397,7 +397,7 @@ const Taxes = lazy(() => import('./components/Taxes'));
 const loadFixedAssets = () => import('./components/FixedAssets');
 const loadAccruals = () => import('./components/Accruals');
 const FixedAssets = lazy(loadFixedAssets);
-const BookkeepingCheck = lazy(() => import('./components/BookkeepingCheck'));
+const BookkeepingCheckBar = lazy(() => import('./components/BookkeepingCheck').then(m => ({ default: m.BookkeepingCheckBar })));
 const Accruals = lazy(loadAccruals);
 // Alla ANDRA marknads-/juridiksidor (FeaturesPage/PricingPage/AboutPage/
 // ContactPage/PrivacyPolicy/TermsPolicy/
@@ -6344,11 +6344,16 @@ function App() {
             extraTabs={isUfCompany(company) ? [] : [
               { id: 'accruals', label: tr('ui.periodiseringar'), content: <Accruals company={company} accounts={accounts} verifications={verifications} employees={employees} payrollRuns={payrollRuns} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
               { id: 'fixed_assets', label: tr('ui.tillgangar'), content: <FixedAssets company={company} accounts={accounts} verifications={verifications} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
-              // Kontroll (2026-11-21): bara admin tills vidare, som nya Underlag.
-              ...(newUnderlagOn ? [{ id: 'check', label: tr('ui.bk_tab'), content: <BookkeepingCheck verifications={verifications} invoices={invoices} expenses={expenses} vatPeriods={vatPeriods} bankTransactions={bankTransactions} vatExempt={isVatExempt(company)} onNavigate={(tab) => handleNavTabChange(tab)} onOpenVerification={(id) => { setVerificationsInitialTab('verifications'); setHighlightVerificationId(id); }} /> }] : []),
             // Gömda funktioner (utils/optionalFeatures.js) visas inte, utom när
             // man kommer dit via en länk (t.ex. bokslutets checklista).
             ].filter(tab => isFeatureOn(currentCompany, tab.id) || verificationsInitialTab === tab.id)}
+            // Kontroll (2026-11-21): en rad överst i Verifikationer, inte en egen
+            // flik. Bara admin tills vidare, som nya Underlag.
+            topSlot={newUnderlagOn ? (
+              <Suspense fallback={null}>
+                <BookkeepingCheckBar verifications={verifications} invoices={invoices} expenses={expenses} vatPeriods={vatPeriods} bankTransactions={bankTransactions} vatExempt={isVatExempt(company)} onNavigate={(tab) => handleNavTabChange(tab)} onOpenVerification={(id) => { setVerificationsInitialTab('verifications'); setHighlightVerificationId(id); }} />
+              </Suspense>
+            ) : null}
           />
         );
       case 'bank':

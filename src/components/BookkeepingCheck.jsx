@@ -6,7 +6,7 @@ import { t } from '../i18n';
 import { numberFormat } from '../utils/intlCache';
 import './workspace.css';
 
-// Kontrollera bokföringen (2026-11-21), fliken under Bokföring. Logiken och
+// Kontrollera bokföringen (2026-11-21), raden överst i Verifikationer. Logiken och
 // vad varje kontroll tittar på står i utils/bookkeepingCheck.js. Rättar inget
 // själv, varje fynd har en förklaring och en väg dit det rättas.
 
@@ -121,6 +121,45 @@ export default function BookkeepingCheck({ verifications, invoices, expenses, va
         </Panel>
       )}
       <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '0 4px', maxWidth: 680 }}>{t('ui.bk_footer')}</p>
+    </div>
+  );
+}
+
+// Raden överst i Verifikationer (2026-11-21). Kontroll är ingen egen flik,
+// den visar läget på en rad och fäller ut kontrollen när man vill se mer.
+export function BookkeepingCheckBar(props) {
+  const { verifications, invoices, expenses, vatPeriods, bankTransactions, vatExempt } = props;
+  const [open, setOpen] = useState(false);
+  const result = useMemo(
+    () => runBookkeepingCheck({ verifications, invoices, expenses, vatPeriods, bankTransactions, vatExempt }),
+    [verifications, invoices, expenses, vatPeriods, bankTransactions, vatExempt],
+  );
+  const issues = result.checks.filter(c => c.level !== 'ok').length;
+  const level = result.errors ? 'error' : result.warnings ? 'warn' : 'ok';
+  const { Icon, color } = LEVEL[level];
+  const label = issues === 0 ? t('ui.bk_bar_ok') : t(issues === 1 ? 'ui.bk_bar_one' : 'ui.bk_bar_many', { n: issues });
+  return (
+    <div className="bkc-bar" style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-card)', flexShrink: 0 }}>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+        className="bkc-bar-btn"
+        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 13.5, color: 'var(--text-main)' }}
+      >
+        <Icon size={16} style={{ color, flexShrink: 0 }} aria-hidden="true" />
+        <span style={{ fontWeight: 600 }}>{t('ui.bk_tab')}</span>
+        <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+        <span style={{ marginLeft: 'auto', color: 'var(--primary)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 2, whiteSpace: 'nowrap' }}>
+          {open ? t('ui.bk_hide') : t('ui.bk_bar_show')}
+          {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+        </span>
+      </button>
+      {open && (
+        <div className="bkc-bar-body" style={{ padding: '4px 20px 18px' }}>
+          <BookkeepingCheck {...props} />
+        </div>
+      )}
     </div>
   );
 }

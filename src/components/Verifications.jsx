@@ -1343,7 +1343,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
 }
 
 // ─── Main Bokföring Component ──────────────────────────────────────────────────
-export default function Bokforing({ seriesNames, verifications = [], accounts = [], balances = {}, contacts = [], projects = [], invoices = [], expenses = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, partners, uploadFn = uploadFileToStorage, initialTab, vatExempt = false, extraTabs = [], onTabChange }) {
+export default function Bokforing({ seriesNames, verifications = [], accounts = [], balances = {}, contacts = [], projects = [], invoices = [], expenses = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, partners, uploadFn = uploadFileToStorage, initialTab, vatExempt = false, extraTabs = [], onTabChange, topSlot = null }) {
   const [activeTab, setActiveTab] = useState(() => (initialTab && ['verifications', 'accounts', ...extraTabs.map(tab => tab.id)].includes(initialTab) ? initialTab : 'verifications'));
   // Samma mönster som Taxes.jsx:s initialSection — App.jsx:s
   // verificationsInitialTab (profilmenyns "Kontoplaner" ska landa på
@@ -1556,6 +1556,7 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
       {/* ── VERIFIKATIONER TAB ───────────────────────────────────── */}
       {activeTab === 'verifications' && (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          {topSlot}
           {/* Filterrad — facit-mönstret (Sida 43, uppföljning): alla fält
               på en rad i samma h-9-höjd, "Rensa" + levande antalsräknare
               på en egen rad direkt under. */}
