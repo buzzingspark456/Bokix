@@ -267,41 +267,21 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
             {goods.length > 0 && <button type="button" className="agi-btn" onClick={() => setListOpen(true)}><Download size={14} /> {tr('lager.countList')}</button>}
             <button type="button" className="agi-btn" onClick={() => setShowSettings(true)}>{tr('lager.settings')}</button>
           </>}>
-          <div className="lg-hero">
-            {/* Lagervärdet stort, och hur det fördelar sig på varorna. */}
-            <div className="lg-hero-value">
-              <span className="dash-kpi-card-label"><i className="dash-kpi-dot" style={{ background: palette.profit }} aria-hidden="true" />{tr('lager.stockValue')}</span>
-              <span className="lg-hero-amount">{fmtKr(valuation.bookValue)}</span>
+          {/* Lagret på en rad (2026-11-21): värdet och hur många varor som finns,
+              är låga eller slut. Ett klick på en siffra filtrerar listan. */}
+          <div className="wsp-kpis lg-strip">
+            <div className="dash-kpi-card">
+              <span className="dash-kpi-card-label">{tr('lager.stockValue')}</span>
+              <span className="dash-kpi-card-value">{fmtKr(valuation.bookValue)}</span>
               <span className="dash-kpi-card-sub">{valuation.writeDown >= 1 ? tr('lager.afterWriteDown', { kr: fmtKr(valuation.writeDown) }) : tr('lager.unitsIn', { n: fmtQty(totalUnits), items: inStock.length })}</span>
-              {valueParts.length > 0 && <>
-                <div className="lg-split" aria-hidden="true">
-                  {valueParts.map(v => <span key={v.id} style={{ flexGrow: v.value, background: v.color }} title={`${v.name}: ${fmtKr(v.value)}`} />)}
-                </div>
-                <ul className="lg-legend">
-                  {valueParts.map(v => (
-                    <li key={v.id}><i style={{ background: v.color }} aria-hidden="true" /><span>{v.name}</span><b>{fmtKr(v.value)}</b></li>
-                  ))}
-                </ul>
-              </>}
             </div>
-            {/* Lagerhälsa: hur många varor som finns, är låga eller slut. */}
-            <div className="lg-hero-health">
-              <span className="dash-kpi-card-label">{tr('lager.health')}</span>
-              <div className="lg-health-bar" aria-hidden="true">
-                {count('ok') > 0 && <span style={{ flexGrow: count('ok'), background: palette.profit }} />}
-                {count('low') > 0 && <span style={{ flexGrow: count('low'), background: AMBER }} />}
-                {count('out') > 0 && <span style={{ flexGrow: count('out'), background: palette.loss }} />}
-              </div>
-              <ul className="lg-health-list">
-                {[['ok', tr('lager.inStockPill'), palette.profit], ['low', tr('lager.lowStock'), AMBER], ['out', tr('lager.outOfStock'), palette.loss]].map(([id, label, color]) => (
-                  <li key={id}>
-                    <button type="button" className={filter === id ? 'on' : ''} onClick={() => setFilter(filter === id ? 'all' : id)}>
-                      <i style={{ background: color }} aria-hidden="true" /><span>{label}</span><b>{count(id)}</b>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {[['ok', tr('lager.inStockPill'), null], ['low', tr('lager.lowStock'), 'warn'], ['out', tr('lager.outOfStock'), 'out']].map(([id, label, tone]) => (
+              <button key={id} type="button" className={`dash-kpi-card lg-strip-btn${filter === id ? ' on' : ''}${tone && count(id) > 0 ? ` is-${tone}` : ''}`} onClick={() => setFilter(filter === id ? 'all' : id)} aria-pressed={filter === id}>
+                <span className="dash-kpi-card-label">{label}</span>
+                <span className="dash-kpi-card-value">{count(id)}</span>
+                <span className="dash-kpi-card-sub">{filter === id ? tr('lager.showAll') : tr('lager.showThese')}</span>
+              </button>
+            ))}
           </div>
 
           {(purchases.length > 0 || lowRows.length > 0 || issueRows.length > 0 || (valuation.lines.length > 0 && closing && !alreadyBooked)) && (
@@ -358,7 +338,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
           title={tr('lager.goods')}
           sub={goods.length === 0 ? null : filter !== 'all'
             ? <span className="lg-filter-chip">{tr('lager.showing', { what: ({ ok: tr('lager.inStockPill'), low: tr('lager.lowStock'), out: tr('lager.outOfStock') })[filter] })}<button type="button" onClick={() => setFilter('all')} aria-label={tr('lager.showAll')}><X size={13} /></button></span>
-            : tr('lager.goodsSub')}
+            : null}
           actions={goods.length > 0 && <>
             {goods.length > 5 && (
               <div className="lg-search">

@@ -5495,7 +5495,8 @@
     "countSheetNote": "Inventering",
     "countSaved": "Inventeringen är sparad, {{n}} varor ändrades.",
     "countNoChange": "Inventeringen stämde, inget ändrades.",
-    "listSummaryOne": "1 vara i lager"
+    "listSummaryOne": "1 vara i lager",
+    "showThese": "Visa dessa"
   },
   "pris": {
     "toolPrice": "Pris",

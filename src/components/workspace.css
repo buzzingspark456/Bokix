@@ -611,3 +611,10 @@ button.ws-task:hover { border-color: var(--border); background: var(--bg-muted);
 .tr-cal-day.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .tr-approval { background: var(--bg-card); border: 1px solid var(--border-light); }
 .tr-approval.done { opacity: 0.75; }
+
+/* Lagret på en rad (2026-11-21). */
+.lg-strip-btn { font: inherit; text-align: left; border: none; border-left: 1px solid var(--border-light); cursor: pointer; color: inherit; }
+.lg-strip-btn:hover { background: var(--bg-muted) !important; }
+.lg-strip-btn.on { background: var(--bg-muted) !important; box-shadow: inset 0 -2px 0 var(--accent); }
+.lg-strip-btn.is-warn .dash-kpi-card-value { color: var(--status-amber-text); }
+.lg-strip-btn.is-out .dash-kpi-card-value { color: var(--status-red-text); }

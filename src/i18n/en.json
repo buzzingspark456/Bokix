@@ -5495,7 +5495,8 @@
     "countSheetNote": "Stock count",
     "countSaved": "The count is saved, {{n}} items changed.",
     "countNoChange": "The count matched, nothing changed.",
-    "listSummaryOne": "1 item in stock"
+    "listSummaryOne": "1 item in stock",
+    "showThese": "Show these"
   },
   "pris": {
     "toolPrice": "Price",
