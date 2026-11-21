@@ -10764,3 +10764,22 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
   .bkc-bar-btn { padding: 8px 14px !important; }
   .bkc-bar-body { padding: 4px 14px 16px !important; }
 }
+
+/* Öppnad verifikation (VerificationViewer.jsx). Med underlag: underlaget till
+   vänster och uppgifterna till höger på bred skärm, som i Underlag. */
+.ver-view-body { max-width: 1040px; margin: 0 auto; }
+.ver-view-paper { height: 420px; border: 1px solid var(--border-light); border-radius: 12px; overflow: hidden; background: var(--bg-muted); }
+.ver-view-paper > * { height: 100%; }
+@media (min-width: 1200px) {
+  .ver-view-body.has-file { max-width: 1400px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .ver-view-body.has-file .ver-view-doc { position: sticky; top: 0; border-bottom: none; border-right: 1px solid var(--border-light); }
+  .ver-view-body.has-file .ver-view-paper { height: calc(100vh / var(--app-zoom, 1) - 220px); min-height: 420px; }
+}
+@media (max-width: 768px) {
+  .ver-view-head { padding: 12px 14px !important; gap: 10px !important; }
+  .ver-view-info > div, .ver-view-doc { padding: 18px 14px !important; }
+  .ver-view-paper { height: 320px; }
+}
+/* Kontroll: knapp i sidhuvudet på datorn, raden överst på telefonen. */
+@media (min-width: 769px) { .bkc-bar { display: none !important; } }
+@media (max-width: 768px) { .bkc-head-btn { display: none !important; } }

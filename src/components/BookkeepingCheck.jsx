@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight } from './icons';
 import { Panel } from './shared/Workspace';
+import Drawer from './Drawer';
 import { runBookkeepingCheck } from '../utils/bookkeepingCheck';
 import { t } from '../i18n';
 import { numberFormat } from '../utils/intlCache';
@@ -35,20 +36,20 @@ function describe(c) {
   }
 }
 
-function CheckRow({ check, onOpenVerification, onNavigate }) {
+function CheckRow({ check, onOpenVerification, onNavigate, compact = false }) {
   const [open, setOpen] = useState(check.level === 'error');
   const { Icon, color, bg } = LEVEL[check.level];
   const { title, text } = describe(check);
   const hasItems = check.level !== 'ok' && check.items.some(i => i.verificationId || i.date);
   const target = check.level !== 'ok' ? TARGET[check.id] : null;
   return (
-    <div className="bkc-row" style={{ borderTop: '1px solid var(--border-light)', padding: '14px 0' }}>
+    <div className="bkc-row" style={{ borderTop: '1px solid var(--border-light)', padding: compact ? '9px 0' : '14px 0' }}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-        <span aria-hidden="true" style={{ width: 30, height: 30, borderRadius: 999, background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Icon size={17} />
+        <span aria-hidden="true" style={{ width: compact ? 24 : 30, height: compact ? 24 : 30, borderRadius: 999, background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon size={compact ? 14 : 17} />
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 650, color: 'var(--text-main)', fontSize: 14.5 }}>{title}</div>
+          <div style={{ fontWeight: compact ? 500 : 650, color: 'var(--text-main)', fontSize: compact ? 13.5 : 14.5, lineHeight: compact ? '24px' : undefined }}>{title}</div>
           {text && <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: 13.5, lineHeight: 1.5, maxWidth: 680 }}>{text}</p>}
           {(hasItems || target) && (
             <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
@@ -92,7 +93,7 @@ function CheckRow({ check, onOpenVerification, onNavigate }) {
   );
 }
 
-export default function BookkeepingCheck({ verifications, invoices, expenses, vatPeriods, bankTransactions, vatExempt, onOpenVerification, onNavigate }) {
+export default function BookkeepingCheck({ verifications, invoices, expenses, vatPeriods, bankTransactions, vatExempt, onOpenVerification, onNavigate, bare = false }) {
   const result = useMemo(
     () => runBookkeepingCheck({ verifications, invoices, expenses, vatPeriods, bankTransactions, vatExempt }),
     [verifications, invoices, expenses, vatPeriods, bankTransactions, vatExempt],
@@ -102,6 +103,26 @@ export default function BookkeepingCheck({ verifications, invoices, expenses, va
   const summary = issues.length === 0
     ? t('ui.bk_all_ok')
     : t(issues.length === 1 ? 'ui.bk_issues_one' : 'ui.bk_issues', { n: issues.length });
+
+  // I panelen från höger (BookkeepingCheckButton): utan egna kort och rubrik,
+  // panelen har redan rubriken.
+  if (bare) {
+    return (
+      <div style={{ display: 'grid', gap: 18 }}>
+        <section style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 12, padding: '4px 16px' }}>
+          <p style={{ margin: '12px 0', fontSize: 13.5, color: 'var(--text-secondary)' }}>{issues.length === 0 ? t('ui.bk_all_ok_text') : summary}</p>
+          {issues.map(c => <CheckRow key={c.id} check={c} onOpenVerification={onOpenVerification} onNavigate={onNavigate} />)}
+        </section>
+        {fine.length > 0 && (
+          <section style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 12, padding: '4px 16px' }}>
+            <h3 style={{ margin: '12px 0', fontSize: 14, fontWeight: 650, color: 'var(--text-main)' }}>{t('ui.bk_fine_title')}</h3>
+            {fine.map(c => <CheckRow key={c.id} check={c} compact />)}
+          </section>
+        )}
+        <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '0 4px' }}>{t('ui.bk_footer')}</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
@@ -161,5 +182,44 @@ export function BookkeepingCheckBar(props) {
         </div>
       )}
     </div>
+  );
+}
+
+// Datorn (2026-11-21): en liten knapp i sidhuvudet bredvid Nästa, och
+// kontrollen öppnas i en panel från höger. Listan flyttas inte ner. På
+// telefonen används raden ovan (BookkeepingCheckBar) i stället.
+export function BookkeepingCheckButton(props) {
+  const { verifications, invoices, expenses, vatPeriods, bankTransactions, vatExempt, onOpenVerification, onNavigate } = props;
+  const [open, setOpen] = useState(false);
+  const result = useMemo(
+    () => runBookkeepingCheck({ verifications, invoices, expenses, vatPeriods, bankTransactions, vatExempt }),
+    [verifications, invoices, expenses, vatPeriods, bankTransactions, vatExempt],
+  );
+  const issues = result.checks.filter(c => c.level !== 'ok').length;
+  const level = result.errors ? 'error' : result.warnings ? 'warn' : 'ok';
+  const { Icon, color } = LEVEL[level];
+  const title = issues === 0 ? t('ui.bk_bar_ok') : t(issues === 1 ? 'ui.bk_bar_one' : 'ui.bk_bar_many', { n: issues });
+  return (
+    <>
+      <button
+        type="button"
+        className="bkc-head-btn"
+        onClick={() => setOpen(true)}
+        title={`${t('ui.bk_tab')}: ${title}`}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 34, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+      >
+        <Icon size={15} style={{ color }} aria-hidden="true" />
+        {t('ui.bk_tab')}
+        {issues > 0 && <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: color, color: '#fff', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{issues}</span>}
+      </button>
+      <Drawer isOpen={open} onClose={() => setOpen(false)} title={t('ui.bk_title')} width="600px">
+        <BookkeepingCheck
+          {...props}
+          onOpenVerification={(id) => { setOpen(false); onOpenVerification?.(id); }}
+          onNavigate={(tab) => { setOpen(false); onNavigate?.(tab); }}
+          bare
+        />
+      </Drawer>
+    </>
   );
 }

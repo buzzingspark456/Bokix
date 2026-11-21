@@ -174,8 +174,11 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
           // sekundära knapparna (exportera, guide m.m.) flyttar in bakom en
           // "⋯"-knapp (lph-more) i stället för att fylla sidhuvudet. På
           // datorn syns allt som förut.
-          <div className={'page-header-actions' + (actions.filter(a => a.type !== 'note').length > 1 ? ' page-header-actions--many' : '')} style={{ display: 'flex', alignItems: 'center', gap: '8px', ...(inlineTabs ? { alignSelf: 'center' } : null) }}>
-            {actions.map((a, i) => a.type === 'note' ? (
+          <div className={'page-header-actions' + (actions.filter(a => a.type !== 'note' && a.type !== 'node').length > 1 ? ' page-header-actions--many' : '')} style={{ display: 'flex', alignItems: 'center', gap: '8px', ...(inlineTabs ? { alignSelf: 'center' } : null) }}>
+            {actions.map((a, i) => a.type === 'node' ? (
+              // Egen komponent i sidhuvudet (t.ex. Kontroll i Bokföring), inte i ⋯-menyn.
+              <React.Fragment key={a.key ?? i}>{a.node}</React.Fragment>
+            ) : a.type === 'note' ? (
               <span key={a.key ?? i} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                 {a.label} {a.value && <strong style={{ color: 'var(--text-main)' }}>{a.value}</strong>}
               </span>
@@ -193,9 +196,9 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
                 {a.icon && <a.icon size={14} />} {a.label}
               </button>
             ))}
-            {actions.some(a => a.type !== 'note' && a.variant !== 'primary') && (
+            {actions.some(a => a.type !== 'note' && a.type !== 'node' && a.variant !== 'primary') && (
               <MoreActions actions={[
-                ...actions.filter(a => a.type !== 'note' && a.variant !== 'primary'),
+                ...actions.filter(a => a.type !== 'note' && a.type !== 'node' && a.variant !== 'primary'),
                 // Telefon: Se hur ligger i ⋯-menyn i stället för bredvid rubriken.
                 ...(guide?.guides?.length > 0 ? [{ key: 'guide', label: t('ui.se_hur'), icon: PlayCircle, onClick: guide.open, phoneOnly: true }] : []),
               ]} />

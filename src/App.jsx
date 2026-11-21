@@ -398,6 +398,7 @@ const loadFixedAssets = () => import('./components/FixedAssets');
 const loadAccruals = () => import('./components/Accruals');
 const FixedAssets = lazy(loadFixedAssets);
 const BookkeepingCheckBar = lazy(() => import('./components/BookkeepingCheck').then(m => ({ default: m.BookkeepingCheckBar })));
+const BookkeepingCheckButton = lazy(() => import('./components/BookkeepingCheck').then(m => ({ default: m.BookkeepingCheckButton })));
 const Accruals = lazy(loadAccruals);
 // Alla ANDRA marknads-/juridiksidor (FeaturesPage/PricingPage/AboutPage/
 // ContactPage/PrivacyPolicy/TermsPolicy/
@@ -6347,11 +6348,18 @@ function App() {
             // Gömda funktioner (utils/optionalFeatures.js) visas inte, utom när
             // man kommer dit via en länk (t.ex. bokslutets checklista).
             ].filter(tab => isFeatureOn(currentCompany, tab.id) || verificationsInitialTab === tab.id)}
-            // Kontroll (2026-11-21): en rad överst i Verifikationer, inte en egen
+            onAttachFiles={handleAttachVerificationFiles}
+            // Kontroll (2026-11-21): på telefon en rad överst i Verifikationer, på
+            // datorn en knapp i sidhuvudet med panel från höger. Inte en egen
             // flik. Bara admin tills vidare, som nya Underlag.
             topSlot={newUnderlagOn ? (
               <Suspense fallback={null}>
                 <BookkeepingCheckBar verifications={verifications} invoices={invoices} expenses={expenses} vatPeriods={vatPeriods} bankTransactions={bankTransactions} vatExempt={isVatExempt(company)} onNavigate={(tab) => handleNavTabChange(tab)} onOpenVerification={(id) => { setVerificationsInitialTab('verifications'); setHighlightVerificationId(id); }} />
+              </Suspense>
+            ) : null}
+            headerSlot={newUnderlagOn ? (
+              <Suspense fallback={null}>
+                <BookkeepingCheckButton verifications={verifications} invoices={invoices} expenses={expenses} vatPeriods={vatPeriods} bankTransactions={bankTransactions} vatExempt={isVatExempt(company)} onNavigate={(tab) => handleNavTabChange(tab)} onOpenVerification={(id) => { setVerificationsInitialTab('verifications'); setHighlightVerificationId(id); }} />
               </Suspense>
             ) : null}
           />
