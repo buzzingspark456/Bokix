@@ -10906,3 +10906,23 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
 .ut-sheet button.on { background: var(--bg-muted); font-weight: 600; }
 .ut-sheet button em { font-style: normal; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--border-light); color: var(--text-secondary); }
 @media (max-width: 768px) { .ut-nav-side { flex-wrap: nowrap !important; } }
+/* Saknar underlag på telefon (2026-11-22): som listorna i Bokföring. Texten
+   och beloppet överst, verifikation och datum under, knapparna sist. */
+@media (max-width: 1099px) {
+  .ut-table-miss tr { grid-template-columns: auto auto minmax(0, 1fr) auto !important; grid-template-areas: "text text text amount" "ver date . ." "act act act act" !important; gap: 3px 8px !important; }
+  .ut-table-miss tr td:nth-child(1) { display: block; grid-area: ver; font-size: 12.5px; }
+  .ut-table-miss tr td:nth-child(2) { display: block; grid-area: date; font-size: 12.5px; }
+  .ut-table-miss tr td:nth-child(3) { display: block; grid-area: text; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ut-table-miss tr td:nth-child(4) { display: block; grid-area: amount; text-align: right; font-weight: 700; white-space: nowrap; }
+  .ut-table-miss tr td:last-child { display: flex; grid-area: act; justify-self: start; align-items: center; gap: 12px; margin-top: 8px; }
+}
+/* Underlag på telefon (2026-11-22): rubriken på egen rad med länkarna under,
+   och tomt läge centrerat över hela bredden. */
+@media (max-width: 1099px) {
+  .ut-table tr td.ut-empty { width: 100% !important; margin: 0 !important; justify-self: stretch !important; text-align: center; }
+}
+@media (max-width: 640px) {
+  .ut-head-row { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+  .ut-head-row > div:first-child { width: 100%; }
+  .ut-head-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+}

@@ -2116,7 +2116,7 @@ function MissingView({ verifications, onAttach, onPaper }) {
       </div>
       <div className="ut-count"><span>{tr('underlag.total', { n: rows.length })}</span></div>
       <div className="ut-table-wrap">
-        <table className="ut-table ut-table-static">
+        <table className="ut-table ut-table-static ut-table-miss">
           <thead>
             <tr>
               <th>{tr('underlag.colVer')}</th>
