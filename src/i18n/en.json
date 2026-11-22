@@ -4167,7 +4167,12 @@
     "underlag_zip_hamtar": "Fetching {{done}} of {{total}} files …",
     "underlag_zip_klar": "Done: {{files}} files. {{missing}} vouchers have no supporting document, {{failed}} files could not be fetched. See Forteckning.xlsx in the zip file.",
     "underlag_zip_fel": "The zip file could not be created. Please try again shortly.",
-    "offert_fakturerad": "Invoiced"
+    "offert_fakturerad": "Invoiced",
+    "bk_checks_ok": "{{ok}} of {{total}} checks are fine",
+    "bk_fig_booked": "Booked on {{account}}",
+    "bk_fig_open": "Unpaid invoices ({{n}})",
+    "bk_fig_diff": "Difference",
+    "bk_ledger_hint": "May be invoices from a previous program, or a payment booked without marking the invoice as paid."
   },
   "glossary": {
     "g01": {

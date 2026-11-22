@@ -4167,7 +4167,12 @@
     "underlag_zip_hamtar": "Hämtar {{done}} av {{total}} filer …",
     "underlag_zip_klar": "Klart: {{files}} filer. {{missing}} verifikationer saknar underlag, {{failed}} filer gick inte att hämta. Se Forteckning.xlsx i zip-filen.",
     "underlag_zip_fel": "Det gick inte att skapa zip-filen. Försök igen om en stund.",
-    "offert_fakturerad": "Fakturerad"
+    "offert_fakturerad": "Fakturerad",
+    "bk_checks_ok": "{{ok}} av {{total}} kontroller stämmer",
+    "bk_fig_booked": "Bokfört på {{account}}",
+    "bk_fig_open": "Obetalda fakturor ({{n}})",
+    "bk_fig_diff": "Skillnad",
+    "bk_ledger_hint": "Kan bero på fakturor från ett tidigare program, eller en betalning som bokförts utan att fakturan markerats som betald."
   },
   "glossary": {
     "g01": {
