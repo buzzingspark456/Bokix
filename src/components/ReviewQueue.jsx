@@ -888,9 +888,6 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
   const openUnderlag = handleGlobalAction && ((id) => handleGlobalAction({ type: 'open_underlag', payload: { id } }, 'expenses'));
 
   const visiblePending = pendingItems.filter(i => !exitingIds.has(i.id));
-  // Hanterat här den här månaden, för flödets tredje steg.
-  const thisMonthKey = new Date().toISOString().slice(0, 7);
-  const doneThisMonth = reviewHistory.filter(h => String(h.resolvedAt || '').slice(0, 7) === thisMonthKey).length;
   const eligibleForBulk = visiblePending.filter(i => i.confident);
 
   // ── Markerade poster ────────────────────────────────────────────────
@@ -1287,31 +1284,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
           tabell) behåller sin egen lokala padding. */}
       <div data-tour="page-review-content" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
 
-      {/* Att granska som i Dext och Fortnox (2026-11-22): överst hur många som
-          ska bokföras och summan, vad som är klart och vad som behöver ett val,
-          och länkar till det som väntar i Underlag och det som redan bokförts.
-          Bara med nya Underlag. */}
-      {tab === 'pending' && newUnderlag && (visiblePending.length > 0 || underlagWaiting > 0 || doneThisMonth > 0) && (
-        <div className="rq-sum">
-          <div className="rq-sum-main">
-            <strong>{visiblePending.length === 0 ? t('underlag.sumNone') : visiblePending.length === 1 ? t('underlag.sumOne') : t('underlag.sumMany', { n: visiblePending.length })}</strong>
-            {visiblePending.length > 0 && (
-              <span>
-                {formatSEK(visiblePending.reduce((sum, i) => sum + (Number(i.amount) || 0), 0))}
-                {pendingSafe.length > 0 && <em className="is-safe">{t('underlag.sumSafe', { n: pendingSafe.length })}</em>}
-                {pendingCheck.length > 0 && <em className="is-check">{t('underlag.sumCheck', { n: pendingCheck.length })}</em>}
-                {pendingMissing.length > 0 && <em className="is-missing">{t('underlag.sumMissing', { n: pendingMissing.length })}</em>}
-              </span>
-            )}
-          </div>
-          <div className="rq-sum-links">
-            {underlagWaiting > 0 && openUnderlag && (
-              <button type="button" onClick={() => openUnderlag(null)}><FileText size={14} /> {t('underlag.sumWaiting', { n: underlagWaiting })} <ChevronRight size={14} /></button>
-            )}
-            <button type="button" onClick={() => setTab('history')}><CheckCircle2 size={14} /> {t('underlag.sumDone', { n: doneThisMonth, month: new Date().toLocaleDateString('sv-SE', { month: 'long' }) })} <ChevronRight size={14} /></button>
-          </div>
-        </div>
-      )}
+      {/* Ingen sammanfattning överst (2026-11-22): bara listan. */}
       {tab === 'pending' && (
         visiblePending.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(50vh / var(--app-zoom, 1))', padding: '40px', textAlign: 'center' }}>
@@ -1325,9 +1298,9 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
           <div className="rq-list">
             <div className="rq-card">
               <GroupedRows groups={[
-                { label: t('ui.rq_sec_klart'), hint: newUnderlag ? t('underlag.hintSafe') : null, items: pendingSafe, render: renderPending },
-                { label: t('ui.rq_sec_kontrollera'), hint: newUnderlag ? t('underlag.hintCheck') : null, items: pendingCheck, render: renderPending },
-                { label: t('ui.rq_sec_saknar_konto'), hint: newUnderlag ? t('underlag.hintMissing') : null, items: pendingMissing, render: renderPending },
+                { label: t('ui.rq_sec_klart'), items: pendingSafe, render: renderPending },
+                { label: t('ui.rq_sec_kontrollera'), items: pendingCheck, render: renderPending },
+                { label: t('ui.rq_sec_saknar_konto'), items: pendingMissing, render: renderPending },
               ]} />
             </div>
           </div>
