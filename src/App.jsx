@@ -1245,6 +1245,9 @@ const isFreeAccountEmail = (email) => {
 // Andra kan slå på det i sin webbläsare med ?nyttunderlag=1 (av med =0).
 const NEW_UNDERLAG_EMAIL_HASHES = ['1hingei7r5i'];
 const isNewUnderlagUser = (email) => {
+  // Lokalt (npm run dev, localhost) visas alltid det nya, så att det går att
+  // testa med testkontona. Byggd app (produktion och preview) påverkas inte.
+  if (import.meta.env.DEV) return true;
   try {
     const q = new URLSearchParams(window.location.search).get('nyttunderlag');
     if (q === '1') localStorage.setItem('bokix.nyttUnderlag', '1');
