@@ -6,7 +6,7 @@ import { ProjectSearch, EntitySearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { confirmDialog } from './shared/ConfirmDialog';
-import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
+import { Panel, Kpi, KpiGrid, Overview, usePalette } from './shared/Workspace';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import { BRAND } from '../utils/brandColors';
 import { invoiceNetSek } from '../utils/contactTotals';
@@ -938,20 +938,24 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
           </div>
         ) : (
           <div className="ws-page ws-edge">
-            <Panel title={tr('proj.overview')} sub={tr('proj.overviewSub', { n: activeProjects.length })}>
-              <KpiGrid>
-                <Kpi dot={palette.income} label={tr('proj.toInvoice')} value={formatSEK(totals.unbilledValue)} sub={totals.unbilledHours > 0 ? tr('proj.toInvoiceSub', { h: formatHours(totals.unbilledHours) }) : tr('proj.allBilled')} />
-                <Kpi dot={palette.profit} label={tr('ui.nedlagd_tid')} value={`${formatHours(totals.hours)} ${tr('ui.h')}`} sub={totals.budget ? tr('proj.ofBudget', { h: formatHours(totals.budget) }) : tr('ui.ingen_budget_satt')} />
-                <Kpi dot={palette.income} label={tr('ui.fakturerat')} value={formatSEK(totals.revenue)} sub={tr('proj.exVat')} />
-                <Kpi dot={totals.revenue - totals.cost < 0 ? palette.loss : palette.profit} label={tr('proj.result')} value={formatSEK(totals.revenue - totals.cost)} negative={totals.revenue - totals.cost < 0} sub={tr('proj.costs', { kr: formatSEK(totals.cost) })} />
-              </KpiGrid>
+            {/* Översikten som i Harvest (2026-11-22): det som går att fakturera
+                först, tiden mot budget med en mätare, sedan fakturerat och
+                resultat med marginal. Ingen egen rubrik, siffrorna säger det. */}
+            <Panel>
+              <Overview items={[
+                { key: 'unbilled', label: tr('proj.toInvoice'), value: formatSEK(totals.unbilledValue), sub: totals.unbilledHours > 0 ? tr('proj.toInvoiceSub', { h: formatHours(totals.unbilledHours) }) : tr('proj.allBilled'), tone: totals.unbilledHours > 0 ? undefined : 'ok' },
+                { key: 'hours', label: tr('ui.nedlagd_tid'), value: `${formatHours(totals.hours)} ${tr('ui.h')}`, meter: totals.budget ? totals.hours / totals.budget : null, sub: totals.budget ? tr('proj.ofBudgetPct', { h: formatHours(totals.budget), pct: Math.round((totals.hours / totals.budget) * 100) }) : tr('ui.ingen_budget_satt'), tone: totals.budget && totals.hours > totals.budget ? 'bad' : totals.budget && totals.hours / totals.budget >= 0.8 ? 'warn' : undefined },
+                { key: 'revenue', label: tr('ui.fakturerat'), value: formatSEK(totals.revenue), sub: tr('proj.ovProjects', { n: activeProjects.length }) },
+                { key: 'result', label: tr('proj.result'), value: formatSEK(totals.revenue - totals.cost), sub: totals.revenue > 0 ? tr('proj.ovMargin', { pct: Math.round(((totals.revenue - totals.cost) / totals.revenue) * 100), kr: formatSEK(totals.cost) }) : tr('proj.costs', { kr: formatSEK(totals.cost) }), tone: totals.revenue - totals.cost < 0 ? 'bad' : undefined },
+              ]} />
+              {atRisk.length > 0 && (
+                <div className="ws-tasks">
+                  <div className="ws-task ws-task--warn">
+                    <span className="ws-task-text"><strong>{tr('proj.atRisk', { n: atRisk.length })}</strong><small>{atRisk.map(p => p.name).join(', ')}</small></span>
+                  </div>
+                </div>
+              )}
             </Panel>
-
-            {atRisk.length > 0 && (
-              <div className="ws-notice warn">
-                <div><strong>{tr('proj.atRisk', { n: atRisk.length })}</strong><p>{atRisk.map(p => p.name).join(', ')}</p></div>
-              </div>
-            )}
 
             <Panel
               title={statusFilter === 'archived' ? tr('proj.finished') : statusFilter === 'all' ? tr('proj.allProjects') : tr('proj.ongoingProjects')}

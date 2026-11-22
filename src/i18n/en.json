@@ -4172,7 +4172,10 @@
     "bk_fig_booked": "Booked on {{account}}",
     "bk_fig_open": "Unpaid invoices ({{n}})",
     "bk_fig_diff": "Difference",
-    "bk_ledger_hint": "May be invoices from a previous program, or a payment booked without marking the invoice as paid."
+    "bk_ledger_hint": "May be invoices from a previous program, or a payment booked without marking the invoice as paid.",
+    "bk_show_vers": "Show verifications ({{n}})",
+    "bk_fine_one": "1 check is fine",
+    "bk_fine_many": "{{n}} checks are fine"
   },
   "glossary": {
     "g01": {
@@ -4563,7 +4566,19 @@
     "flowWaiting": "{{n}} waiting in Documents",
     "flowToPick": "{{n}} to pick",
     "flowNone": "Nothing waiting",
-    "flowThisMonth": "{{n}} this month"
+    "flowThisMonth": "{{n}} this month",
+    "sumNone": "Nothing to book",
+    "sumOne": "1 to book",
+    "sumMany": "{{n}} to book",
+    "sumSafe": "{{n}} ready",
+    "sumCheck": "{{n}} to check",
+    "sumMissing": "{{n}} missing account",
+    "sumWaiting": "{{n}} being read in Documents",
+    "sumDone": "{{n}} booked in {{month}}",
+    "hintSafe": "Same account as last time. Approve right away.",
+    "hintCheck": "Bokix guessed the account. Take a look before approving.",
+    "hintMissing": "No earlier choice. Pick an account, Bokix remembers it.",
+    "rowVat": "VAT {{kr}}"
   },
   "rotRut": {
     "capped": "The customer has already received {{used}} kr in household deductions this year. The deduction on this invoice is limited to {{room}} kr so the cap is not exceeded.",
@@ -4956,7 +4971,9 @@
     "create": "Create pay run",
     "due": "due {{date}}",
     "year": "Year",
-    "total": "Total {{year}}"
+    "total": "Total {{year}}",
+    "nextTitle": "Payroll for {{month}}",
+    "nextText": "No payroll run yet · payday {{pay}} · employer declaration due {{agi}}"
   },
   "agiYear": {
     "next": "Next up",
@@ -5508,7 +5525,21 @@
     "countSaved": "The count is saved, {{n}} items changed.",
     "countNoChange": "The count matched, nothing changed.",
     "listSummaryOne": "1 item in stock",
-    "showThese": "Show these"
+    "showThese": "Show these",
+    "overviewSubV2": "{{method}} · account {{account}} · valued at {{date}}",
+    "ovGoods": "of {{n}} items",
+    "ovLowSub": "below reorder point",
+    "ovOutSub": "stock 0",
+    "ovNone": "none",
+    "issueTitle": "{{name}}: more out than in",
+    "issueDetail": "{{n}} units went out without a receipt. Add the receipt so stock and value are right.",
+    "lowTitle": "{{name}} is running low",
+    "emptyTextV2": "Inventory tracks articles of type Goods. Add one under Articles, then a receipt.",
+    "syncNone": "Stock is reduced when you invoice. No invoice lines match an item yet (same article number or name).",
+    "syncSome": "Stock is reduced when you invoice · {{n}} invoice lines counted",
+    "noPrice": "No price set",
+    "batchesFifoShort": "Oldest sells first (FIFO)",
+    "lowDetail": "{{qty}} left, reorder at {{min}}."
   },
   "pris": {
     "toolPrice": "Price",
@@ -5602,7 +5633,10 @@
     "allDone": "Done",
     "reportsSubV2": "The month's time is submitted, attested and approved before payroll and invoicing.",
     "calendarSubV2": "Click a day to see what was logged.",
-    "approvalV2": "Submit and approve"
+    "approvalV2": "Submit and approve",
+    "ofBudgetPct": "{{pct}} % of {{h}} h budget",
+    "ovProjects": "across {{n}} active projects",
+    "ovMargin": "{{pct}} % margin · costs {{kr}}"
   },
   "accr": {
     "sub": "Costs and income in the right year. Each entry is reversed automatically the day after closing.",
@@ -5637,7 +5671,18 @@
     "subV2": "Move costs and income to the right year.",
     "reversalDetailV2": "Otherwise the amount is counted twice.",
     "listOneV2": "1 accrual",
-    "listManyV2": "{{n}} accruals"
+    "listManyV2": "{{n}} accruals",
+    "ovActive": "On the balance accounts",
+    "ovActiveOne": "1 accrual",
+    "ovActiveMany": "{{n}} accruals",
+    "ovNext": "Next reversal",
+    "ovNextSub": "Bokix reverses it for you",
+    "ovNextNone": "Nothing to reverse",
+    "ovVac": "Holiday pay liability",
+    "ovVacNeeds": "{{kr}} to book",
+    "ovVacOk": "Matches payroll",
+    "vacTaskTitle": "Book the holiday pay liability",
+    "vacTaskDetail": "{{kr}} on 2920 and 2940, so the liability matches payroll."
   },
   "fa": {
     "subOne": "1 asset in use",

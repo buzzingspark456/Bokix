@@ -10814,3 +10814,35 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
   .pay-year-head { display: none; }
   .pay-year-phone { display: flex; padding: 10px 14px 0; }
 }
+
+/* Lön: månaden utan lönekörning som ett kort ovanför listan (2026-11-22). */
+.pay-next { display: flex; align-items: center; gap: 14px; margin: 16px 20px; padding: 14px 16px; border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--border)); border-radius: 12px; background: color-mix(in srgb, var(--accent) 4%, var(--bg-card)); }
+.pay-next-ic { width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+.pay-next-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pay-next-text strong { font-size: 14px; font-weight: 650; color: var(--text-main); }
+.pay-next-text small { font-size: 12.5px; color: var(--text-secondary); }
+.pay-next-btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border: none; border-radius: 8px; background: var(--accent); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+@media (max-width: 768px) { .pay-next { margin: 10px 14px; flex-wrap: wrap; } .pay-next-btn { width: 100%; justify-content: center; } }
+
+/* Att granska (2026-11-22): sammanfattning överst och förklarade grupper. */
+.rq-sum { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 16px 20px 4px; padding: 16px 18px; border: 1px solid var(--border-light); border-radius: 14px; background: var(--bg-card); }
+.rq-sum-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rq-sum-main strong { font-size: 18px; font-weight: 700; color: var(--text-main); letter-spacing: -0.01em; }
+.rq-sum-main span { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-main); font-variant-numeric: tabular-nums; }
+.rq-sum-main em { font-style: normal; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; }
+.rq-sum-main em.is-safe { background: var(--status-green-bg); color: var(--status-green-text); }
+.rq-sum-main em.is-check { background: var(--status-amber-bg); color: var(--status-amber-text); }
+.rq-sum-main em.is-missing { background: var(--bg-muted); color: var(--text-secondary); }
+.rq-sum-links { display: flex; gap: 8px; flex-wrap: wrap; }
+.rq-sum-links button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px 0 12px; border: 1px solid var(--border-light); border-radius: 8px; background: var(--bg-card); color: var(--text-main); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.rq-sum-links button:hover { background: var(--bg-muted); border-color: var(--border); }
+.rq-sum-links button svg:first-child { color: var(--text-secondary); }
+.rq-section-hint { margin-left: 10px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-muted); }
+@media (max-width: 768px) { .rq-sum { margin: 10px 14px 4px; padding: 14px; } .rq-section-hint { display: none; } }
+/* Telefon och smal skärm: raden i Att granska bryts i två rader (2026-11-22).
+   Regeln ovan med 380px vann över telefonregeln, så kontofältet gick utanför. */
+@media (max-width: 900px) {
+  .rqt-main { grid-template-columns: 18px minmax(0, 1fr) auto; }
+  .rqt-account { max-width: none; }
+  .rqt-act { justify-content: flex-start; }
+}

@@ -75,3 +75,34 @@ export function ListBar({ title, children }) {
     </div>
   );
 }
+
+/**
+ * Översikten överst på en arbetsyta (2026-11-22): en ram med 2–4 siffror,
+ * den första lite större. En cell kan ha en mätare (0–1), en ton (warn, bad,
+ * ok) och kan vara klickbar (filtrerar listan under). Samma på Projekt,
+ * Lager, Periodiseringar och Tillgångar.
+ */
+export function Overview({ items }) {
+  const list = items.filter(Boolean);
+  return (
+    <div className="ov" style={{ '--ov-n': list.length }}>
+      {list.map((it, i) => {
+        const Tag = it.onClick ? 'button' : 'div';
+        return (
+          <Tag
+            key={it.key || i}
+            type={it.onClick ? 'button' : undefined}
+            className={`ov-cell${it.tone ? ` is-${it.tone}` : ''}${it.active ? ' on' : ''}`}
+            onClick={it.onClick}
+            aria-pressed={it.onClick ? Boolean(it.active) : undefined}
+          >
+            <span className="ov-label">{it.label}</span>
+            <span className="ov-value">{it.value}</span>
+            {it.meter != null && <span className="ov-meter" aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(1, it.meter)) * 100}%` }} /></span>}
+            {it.sub && <span className="ov-sub">{it.sub}</span>}
+          </Tag>
+        );
+      })}
+    </div>
+  );
+}

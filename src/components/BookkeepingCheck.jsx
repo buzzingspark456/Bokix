@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight } from './icons';
+import { AlertTriangle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, ArrowRight, Check, Info } from './icons';
 import Drawer from './Drawer';
 import { runBookkeepingCheck } from '../utils/bookkeepingCheck';
 import { t } from '../i18n';
@@ -41,11 +41,44 @@ function describe(c) {
 function Figures({ check }) {
   const account = check.id === 'receivables' ? '1510' : '2440';
   return (
-    <dl className="bkc-figs">
+    <dl className="bkc-figs2">
       <div><dt>{t('ui.bk_fig_booked', { account })}</dt><dd>{fmtKr(check.booked)}</dd></div>
       <div><dt>{t('ui.bk_fig_open', { n: check.openCount })}</dt><dd>{fmtKr(check.expected)}</dd></div>
-      <div className="is-diff"><dt>{t('ui.bk_fig_diff')}</dt><dd>{fmtKr(Math.abs(check.diff))}</dd></div>
+      <div className="is-diff"><dt>{t('ui.bk_fig_diff')}</dt><dd><span>{fmtKr(Math.abs(check.diff))}</span></dd></div>
     </dl>
+  );
+}
+
+// Ringen överst (2026-11-22, idé från grundarens Lovable-skiss): hur många av
+// kontrollerna som stämmer.
+function Ring({ ok, total, level }) {
+  const r = 26; const c = 2 * Math.PI * r; const pct = total ? ok / total : 1;
+  return (
+    <span className={`bkc-ring is-${level}`} aria-hidden="true">
+      <svg width="64" height="64" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r={r} fill="none" strokeWidth="6" className="bkc-ring-bg" />
+        <circle cx="32" cy="32" r={r} fill="none" strokeWidth="6" strokeLinecap="round" className="bkc-ring-fg" strokeDasharray={c} strokeDashoffset={c * (1 - pct)} transform="rotate(-90 32 32)" />
+      </svg>
+      <b>{ok}/{total}</b>
+    </span>
+  );
+}
+
+function FineList({ fine }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className={`bkc-fine2${open ? ' is-open' : ''}`}>
+      <button type="button" className="bkc-fine2-head" aria-expanded={open} onClick={() => setOpen(v => !v)}>
+        <span className="bkc-fine2-ic" aria-hidden="true"><Check size={16} /></span>
+        <strong>{fine.length === 1 ? t('ui.bk_fine_one') : t('ui.bk_fine_many', { n: fine.length })}</strong>
+        <ChevronDown size={18} className="bkc-fine2-chev" />
+      </button>
+      {open && (
+        <ul>
+          {fine.map(c => <li key={c.id}><CheckCircle2 size={15} aria-hidden="true" />{describe(c).title}</li>)}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -66,11 +99,11 @@ function IssueCard({ check, onOpenVerification, onNavigate }) {
       {text && <p className="bkc-issue-text">{text}</p>}
       {(hasItems || target) && (
         <div className="bkc-issue-actions">
-          {target && <button type="button" className="bkc-btn primary" onClick={() => onNavigate?.(target)}>{t(`ui.bk_go_${target}`)}<ChevronRight size={15} /></button>}
+          {target && <button type="button" className="bkc-btn" onClick={() => onNavigate?.(target)}>{t(`ui.bk_go_${target}`)}<ArrowRight size={15} /></button>}
           {hasItems && (
             <button type="button" className="bkc-btn" aria-expanded={open} onClick={() => setOpen(v => !v)}>
-              {open ? t('ui.bk_hide') : t('ui.bk_show', { n: Math.min(check.count, check.items.length) })}
-              {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+              {open ? t('ui.bk_hide') : (check.items.some(i => i.verificationId) ? t('ui.bk_show_vers', { n: Math.min(check.count, check.items.length) }) : t('ui.bk_show', { n: Math.min(check.count, check.items.length) }))}
+              <ChevronDown size={15} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
             </button>
           )}
         </div>
@@ -107,33 +140,22 @@ export default function BookkeepingCheck({ verifications, invoices, expenses, va
   const issues = result.checks.filter(c => c.level !== 'ok');
   const fine = result.checks.filter(c => c.level === 'ok');
   const level = result.errors ? 'error' : result.warnings ? 'warn' : 'ok';
-  const { Icon } = LEVEL[level];
   const headline = issues.length === 0 ? t('ui.bk_all_ok') : t(issues.length === 1 ? 'ui.bk_issues_one' : 'ui.bk_issues', { n: issues.length });
 
   return (
     <div className="bkc">
-      <div className={`bkc-summary is-${level}`}>
-        <span className="bkc-summary-icon" aria-hidden="true"><Icon size={22} /></span>
+      <div className={`bkc-summary2 is-${level}`}>
+        <Ring ok={fine.length} total={result.checks.length} level={level} />
         <div className="bkc-summary-text">
           <strong>{headline.replace(/\.$/, '')}</strong>
           <span>{issues.length === 0 ? t('ui.bk_all_ok_text') : t('ui.bk_checks_ok', { ok: fine.length, total: result.checks.length })}</span>
-        </div>
-        <div className="bkc-meter" aria-hidden="true">
-          {result.checks.map(c => <i key={c.id} className={`is-${c.level}`} />)}
         </div>
       </div>
 
       {issues.map(c => <IssueCard key={c.id} check={c} onOpenVerification={onOpenVerification} onNavigate={onNavigate} />)}
 
-      {fine.length > 0 && (
-        <section className="bkc-fine">
-          <h3>{t('ui.bk_fine_title')}<span>{fine.length}</span></h3>
-          <ul>
-            {fine.map(c => <li key={c.id}><CheckCircle2 size={15} aria-hidden="true" />{describe(c).title}</li>)}
-          </ul>
-        </section>
-      )}
-      <p className="bkc-foot">{t('ui.bk_footer')}</p>
+      {fine.length > 0 && <FineList fine={fine} />}
+      <p className="bkc-foot"><Info size={14} aria-hidden="true" />{t('ui.bk_footer')}</p>
     </div>
   );
 }

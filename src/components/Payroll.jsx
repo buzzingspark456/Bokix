@@ -63,10 +63,9 @@ export default function Payroll({
   const yearRuns = sortedRuns.filter(r => String(r.period).startsWith(`${shownYear}-`));
   const currentPeriod = new Date().toISOString().slice(0, 7);
   const filteredRuns = yearRuns.map(run => ({ key: run.id, period: run.period, run }));
-  if (shownYear === thisYear && !yearRuns.some(r => r.period === currentPeriod)) {
-    filteredRuns.push({ key: `empty-${currentPeriod}`, period: currentPeriod, run: null });
-    filteredRuns.sort((a, b) => b.period.localeCompare(a.period));
-  }
+  // Månaden utan lönekörning visas som ett kort ovanför listan, inte som en
+  // tom rad i den (2026-11-22: såg ut som en körning som redan fanns).
+  const missingCurrent = shownYear === thisYear && employees.length > 0 && !yearRuns.some(r => r.period === currentPeriod);
   const runGross = (run) => {
     try {
       return summarizePayrollRun(run.rows.map(row => computeEmployeePayroll(row.employeeSnapshot || {}, row))).gross;
@@ -399,6 +398,16 @@ export default function Payroll({
 
           {/* På telefon står årsväljaren här, så att rubriken inte klipps. */}
           <div className="pay-year-phone">{yearPicker}</div>
+          {missingCurrent && !showNewRun && (
+            <div className="pay-next">
+              <span className="pay-next-ic" aria-hidden="true"><CalendarClock size={18} /></span>
+              <div className="pay-next-text">
+                <strong>{t('payrollYear.nextTitle', { month: monthName(currentPeriod).toLowerCase() })}</strong>
+                <small>{t('payrollYear.nextText', { pay: fmtShortDate(new Date(`${currentPeriod}-25T12:00:00`)), agi: fmtShortDate(agiDueDate(currentPeriod)) })}</small>
+              </div>
+              <button type="button" className="pay-next-btn" onClick={() => openRow({ period: currentPeriod, run: null })}><Plus size={15} /> {t('payrollYear.create')}</button>
+            </div>
+          )}
           <ListTable
             rowKey={r => r.key}
             onRowClick={openRow}
@@ -407,12 +416,14 @@ export default function Payroll({
             emptyMessage={(
               <div>
                 <div>{t('ui.inga_tidigare_lonekorningar')}</div>
-                <div style={{ marginTop: '10px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
-                  {t('ui.du_behover_lagga_till_minst_en_anstalld_innan_du')}
-                </div>
+                {employees.length === 0 && (
+                  <div style={{ marginTop: '10px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
+                    {t('ui.du_behover_lagga_till_minst_en_anstalld_innan_du')}
+                  </div>
+                )}
               </div>
             )}
-            rows={employees.length === 0 && sortedRuns.length === 0 ? [] : filteredRuns}
+            rows={filteredRuns}
             mobileList={row => {
               if (!row.run) return { dot: 'var(--border)', primary: monthName(row.period), meta: t('payrollYear.create'), amount: '' };
               const status = runStatus(row.run);

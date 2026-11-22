@@ -58,7 +58,7 @@ describe('bokföringsverktygens vyer', () => {
 
   it('Lager ritar utan lagerlogg', () => {
     const out = html(React.createElement(Inventory, { articles: [], company: {}, verifications: [], onAddVerification: noop, setCompanyInfo: noop }))
-    expect(out).toContain('Inget lager värderat')
+    expect(out).toContain('Inga varor än')
   })
 
   it('Prissättning visar marginalen och räknaren med fyra flikar', () => {

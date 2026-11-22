@@ -155,7 +155,7 @@ function ThinReviewRow({ item, accounts, onApprove, onReject, exiting, selected,
         />
         <button type="button" className="rqt-name" onClick={() => setOpen(o => !o)} aria-expanded={open}>
           <b>{who}</b>
-          <small>{kind} · {formatDate(item.date)}</small>
+          <small>{kind} · {formatDate(item.date)}{Number(item.vatAmount) ? ` · ${t('underlag.rowVat', { kr: formatSEK(item.vatAmount) })}` : ''}</small>
         </button>
         <span className="rqt-amount">{Number(item.amount) ? formatSEK(item.amount) : '–'}</span>
         <div className="rqt-account">
@@ -300,7 +300,7 @@ function GroupedRows({ groups }) {
     const rest = group.items.length - limit;
     return (
       <React.Fragment key={group.label}>
-        <div className="rq-section">{group.label} · {group.items.length}</div>
+        <div className="rq-section">{group.label} · {group.items.length}{group.hint && <span className="rq-section-hint">{group.hint}</span>}</div>
         {group.items.slice(0, limit).map(group.render)}
         {rest > 0 && (
           <button type="button" className="rq-more" onClick={() => setShown(prev => ({ ...prev, [group.label]: limit + GROUP_PAGE }))}>
@@ -1287,25 +1287,29 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
           tabell) behåller sin egen lokala padding. */}
       <div data-tour="page-review-content" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
 
-      {/* Flödet i tre steg (2026-11-21): underlaget läses av i Underlag, du
-          väljer konto här, sedan är det bokfört. Visar var saker väntar och
-          att Bokix gör resten själv. Bara med nya Underlag. */}
-      {tab === 'pending' && newUnderlag && openUnderlag && (
-        <div className="rq-flow" role="list">
-          <button type="button" role="listitem" className={`rq-flow-step${underlagWaiting > 0 ? ' has' : ''}`} onClick={() => openUnderlag(null)}>
-            <span className="rq-flow-n">1</span>
-            <span className="rq-flow-text"><strong>{t('underlag.flowRead')}</strong><small>{underlagWaiting > 0 ? t('underlag.flowWaiting', { n: underlagWaiting }) : t('underlag.flowNone')}</small></span>
-          </button>
-          <ChevronRight size={16} className="rq-flow-arrow" aria-hidden="true" />
-          <div role="listitem" className={`rq-flow-step is-here${visiblePending.length > 0 ? ' has' : ''}`}>
-            <span className="rq-flow-n">2</span>
-            <span className="rq-flow-text"><strong>{t('underlag.flowAccount')}</strong><small>{visiblePending.length > 0 ? t('underlag.flowToPick', { n: visiblePending.length }) : t('underlag.flowNone')}</small></span>
+      {/* Att granska som i Dext och Fortnox (2026-11-22): överst hur många som
+          ska bokföras och summan, vad som är klart och vad som behöver ett val,
+          och länkar till det som väntar i Underlag och det som redan bokförts.
+          Bara med nya Underlag. */}
+      {tab === 'pending' && newUnderlag && (visiblePending.length > 0 || underlagWaiting > 0 || doneThisMonth > 0) && (
+        <div className="rq-sum">
+          <div className="rq-sum-main">
+            <strong>{visiblePending.length === 0 ? t('underlag.sumNone') : visiblePending.length === 1 ? t('underlag.sumOne') : t('underlag.sumMany', { n: visiblePending.length })}</strong>
+            {visiblePending.length > 0 && (
+              <span>
+                {formatSEK(visiblePending.reduce((sum, i) => sum + (Number(i.amount) || 0), 0))}
+                {pendingSafe.length > 0 && <em className="is-safe">{t('underlag.sumSafe', { n: pendingSafe.length })}</em>}
+                {pendingCheck.length > 0 && <em className="is-check">{t('underlag.sumCheck', { n: pendingCheck.length })}</em>}
+                {pendingMissing.length > 0 && <em className="is-missing">{t('underlag.sumMissing', { n: pendingMissing.length })}</em>}
+              </span>
+            )}
           </div>
-          <ChevronRight size={16} className="rq-flow-arrow" aria-hidden="true" />
-          <button type="button" role="listitem" className="rq-flow-step" onClick={() => setTab('history')}>
-            <span className="rq-flow-n">3</span>
-            <span className="rq-flow-text"><strong>{t('underlag.flowDone')}</strong><small>{t('underlag.flowThisMonth', { n: doneThisMonth })}</small></span>
-          </button>
+          <div className="rq-sum-links">
+            {underlagWaiting > 0 && openUnderlag && (
+              <button type="button" onClick={() => openUnderlag(null)}><FileText size={14} /> {t('underlag.sumWaiting', { n: underlagWaiting })} <ChevronRight size={14} /></button>
+            )}
+            <button type="button" onClick={() => setTab('history')}><CheckCircle2 size={14} /> {t('underlag.sumDone', { n: doneThisMonth, month: new Date().toLocaleDateString('sv-SE', { month: 'long' }) })} <ChevronRight size={14} /></button>
+          </div>
         </div>
       )}
       {tab === 'pending' && (
@@ -1321,9 +1325,9 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
           <div className="rq-list">
             <div className="rq-card">
               <GroupedRows groups={[
-                { label: t('ui.rq_sec_klart'), items: pendingSafe, render: renderPending },
-                { label: t('ui.rq_sec_kontrollera'), items: pendingCheck, render: renderPending },
-                { label: t('ui.rq_sec_saknar_konto'), items: pendingMissing, render: renderPending },
+                { label: t('ui.rq_sec_klart'), hint: newUnderlag ? t('underlag.hintSafe') : null, items: pendingSafe, render: renderPending },
+                { label: t('ui.rq_sec_kontrollera'), hint: newUnderlag ? t('underlag.hintCheck') : null, items: pendingCheck, render: renderPending },
+                { label: t('ui.rq_sec_saknar_konto'), hint: newUnderlag ? t('underlag.hintMissing') : null, items: pendingMissing, render: renderPending },
               ]} />
             </div>
           </div>

@@ -2469,7 +2469,7 @@
     "bk_old_bank_title": "Obokade banktransaktioner äldre än 30 dagar ({{n}})",
     "bk_old_bank_text": "De här finns på kontoutdraget men är inte bokförda.",
     "bk_future_ok_title": "Inga datum i framtiden",
-    "bk_future_title": "Datum i framtiden ({{n}})",
+    "bk_future_title": "{{n}} verifikationer har datum i framtiden",
     "bk_future_text": "Verifikationer med datum efter i dag. Oftast är det ett skrivfel i året.",
     "bk_bar_ok": "allt stämmer",
     "bk_bar_one": "1 sak att titta på",
@@ -4172,7 +4172,10 @@
     "bk_fig_booked": "Bokfört på {{account}}",
     "bk_fig_open": "Obetalda fakturor ({{n}})",
     "bk_fig_diff": "Skillnad",
-    "bk_ledger_hint": "Kan bero på fakturor från ett tidigare program, eller en betalning som bokförts utan att fakturan markerats som betald."
+    "bk_ledger_hint": "Kan bero på fakturor från ett tidigare program, eller en betalning som bokförts utan att fakturan markerats som betald.",
+    "bk_show_vers": "Visa verifikationer ({{n}})",
+    "bk_fine_one": "1 kontroll stämmer",
+    "bk_fine_many": "{{n}} kontroller stämmer"
   },
   "glossary": {
     "g01": {
@@ -4563,7 +4566,19 @@
     "flowWaiting": "{{n}} väntar i Underlag",
     "flowToPick": "{{n}} att välja",
     "flowNone": "Inget som väntar",
-    "flowThisMonth": "{{n}} denna månad"
+    "flowThisMonth": "{{n}} denna månad",
+    "sumNone": "Inget att bokföra",
+    "sumOne": "1 att bokföra",
+    "sumMany": "{{n}} att bokföra",
+    "sumSafe": "{{n}} klara",
+    "sumCheck": "{{n}} att kontrollera",
+    "sumMissing": "{{n}} saknar konto",
+    "sumWaiting": "{{n}} läses av i Underlag",
+    "sumDone": "{{n}} bokförda i {{month}}",
+    "hintSafe": "Samma konto som förra gången. Godkänn direkt.",
+    "hintCheck": "Bokix gissar kontot. Titta en gång innan du godkänner.",
+    "hintMissing": "Inget tidigare val. Välj konto, Bokix kommer ihåg det.",
+    "rowVat": "moms {{kr}}"
   },
   "rotRut": {
     "capped": "Kunden har redan fått {{used}} kr i husavdrag i år. Avdraget på den här fakturan begränsas till {{room}} kr så att taket inte överskrids.",
@@ -4956,7 +4971,9 @@
     "create": "Skapa lönekörning",
     "due": "senast {{date}}",
     "year": "År",
-    "total": "Totalt {{year}}"
+    "total": "Totalt {{year}}",
+    "nextTitle": "Lön för {{month}}",
+    "nextText": "Ingen lönekörning än · utbetalning {{pay}} · arbetsgivardeklaration senast {{agi}}"
   },
   "agiYear": {
     "next": "Härnäst",
@@ -5508,7 +5525,21 @@
     "countSaved": "Inventeringen är sparad, {{n}} varor ändrades.",
     "countNoChange": "Inventeringen stämde, inget ändrades.",
     "listSummaryOne": "1 vara i lager",
-    "showThese": "Visa dessa"
+    "showThese": "Visa dessa",
+    "overviewSubV2": "{{method}} · konto {{account}} · värderat per {{date}}",
+    "ovGoods": "av {{n}} varor",
+    "ovLowSub": "under beställningspunkten",
+    "ovOutSub": "saldo 0",
+    "ovNone": "inga",
+    "issueTitle": "{{name}}: fler uttag än inleveranser",
+    "issueDetail": "{{n}} st har gått ut utan inleverans. Lägg till inleveransen så blir saldot och värdet rätt.",
+    "lowTitle": "{{name}} börjar ta slut",
+    "emptyTextV2": "Lagret följer artiklar av typen Vara. Lägg till en vara under Artiklar, sedan en inleverans.",
+    "syncNone": "Lagret dras av när du fakturerar. Inga fakturarader matchar en vara än (samma artikelnummer eller benämning).",
+    "syncSome": "Lagret dras av när du fakturerar · {{n}} fakturarader räknas med",
+    "noPrice": "Inget pris satt",
+    "batchesFifoShort": "Äldst säljs först (FIFO)",
+    "lowDetail": "{{qty}} st kvar, beställ vid {{min}}."
   },
   "pris": {
     "toolPrice": "Pris",
@@ -5602,7 +5633,10 @@
     "allDone": "Klar",
     "reportsSubV2": "Månadens tid skickas in, attesteras och godkänns innan lön och fakturering.",
     "calendarSubV2": "Klicka på en dag för att se vad som loggades.",
-    "approvalV2": "Skicka in och godkänn"
+    "approvalV2": "Skicka in och godkänn",
+    "ofBudgetPct": "{{pct}} % av {{h}} h budget",
+    "ovProjects": "på {{n}} pågående projekt",
+    "ovMargin": "{{pct}} % marginal · kostnader {{kr}}"
   },
   "accr": {
     "sub": "Kostnader och intäkter på rätt år. Varje post återförs automatiskt dagen efter bokslutet.",
@@ -5637,7 +5671,18 @@
     "subV2": "Flytta kostnader och intäkter till rätt år.",
     "reversalDetailV2": "Annars räknas beloppet två gånger.",
     "listOneV2": "1 periodisering",
-    "listManyV2": "{{n}} periodiseringar"
+    "listManyV2": "{{n}} periodiseringar",
+    "ovActive": "På balanskontona",
+    "ovActiveOne": "1 periodisering",
+    "ovActiveMany": "{{n}} periodiseringar",
+    "ovNext": "Nästa återföring",
+    "ovNextSub": "Bokix vänder posten själv",
+    "ovNextNone": "Inget att återföra",
+    "ovVac": "Semesterlöneskuld",
+    "ovVacNeeds": "{{kr}} att bokföra",
+    "ovVacOk": "Stämmer med lönerna",
+    "vacTaskTitle": "Bokför semesterlöneskulden",
+    "vacTaskDetail": "{{kr}} på 2920 och 2940, så att skulden stämmer med lönerna."
   },
   "fa": {
     "subOne": "1 tillgång i bruk",
