@@ -314,7 +314,7 @@ export function buildDisposalVerification(asset, { date, proceeds = 0, proceedsA
  * verifikation som redan finns. Ackumulerade avskrivningskonton (slutar på
  * 8/9) och pågående nyanläggningar (128x) hoppas över.
  */
-export function unregisteredAcquisitions(verifications, assets) {
+export function unregisteredAcquisitions(verifications, assets, { includeExpensed = false } = {}) {
   const linked = new Set((assets || []).map(a => a.sourceVerificationId).filter(Boolean));
   const out = [];
   (verifications || []).forEach(v => {
@@ -327,6 +327,9 @@ export function unregisteredAcquisitions(verifications, assets) {
       // tillgång. Förslaget bokför omföringen när det läggs i registret.
       // Bara förbrukningsinventarier (5410–5419); programvara och licenser (5420) är kostnader.
       if (/^541[0-9]$/.test(code)) {
+        // Bara där sidan bokför omföringen (nya Tillgångar); annars skulle
+        // kostnaden både ligga kvar på 5410 och skrivas av.
+        if (!includeExpensed) return;
         const amount = round2(getDebet(r) - getKredit(r));
         if (amount >= halfPriceBase(v.date)) {
           const category = /dator|laptop|macbook|pc\b|server|skärm|iphone|telefon/i.test(v.description || '') ? 'dator' : 'inventarier';

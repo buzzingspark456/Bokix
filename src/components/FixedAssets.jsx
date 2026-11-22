@@ -67,7 +67,7 @@ export default function FixedAssets({ company, accounts = [], verifications = []
 
   const thisMonth = monthKey(new Date());
   const pending = useMemo(() => pendingDepreciation(assets, verifications, untilMonth, company?.lockedFiscalYears), [assets, verifications, untilMonth, company?.lockedFiscalYears]);
-  const suggestions = useMemo(() => unregisteredAcquisitions(verifications, assets), [verifications, assets]);
+  const suggestions = useMemo(() => unregisteredAcquisitions(verifications, assets, { includeExpensed: true }), [verifications, assets]);
   // Avskrivningsfrekvens (2026-11-22, som Bokio): varje månad eller en gång per
   // år på räkenskapsårets sista dag. Gäller hela registret.
   const frequency = company?.fixedAssetSettings?.frequency === 'year' ? 'year' : 'month';

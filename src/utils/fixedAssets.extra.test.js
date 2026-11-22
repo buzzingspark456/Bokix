@@ -49,12 +49,14 @@ describe('tillgångar: nya delar 2026-11-22', () => {
       { id: 'v2', date: '2026-03-02', description: 'Stol', rows: [{ account: '5410', debet: 4000 }, { account: '1930', kredit: 4000 }] },
       { id: 'v4', date: '2026-03-03', description: 'Årslicens', rows: [{ account: '5420', debet: 40000 }, { account: '1930', kredit: 40000 }] },
     ];
-    const s = unregisteredAcquisitions(vers, []);
+    const s = unregisteredAcquisitions(vers, [], { includeExpensed: true });
     expect(s).toHaveLength(1);
     expect(s[0]).toMatchObject({ verificationId: 'v1', amount: 32000, reclassFrom: '5410', category: 'dator', account: '1224' });
     const r = buildReclassVerification({ id: 'a9', name: 'MacBook Pro', cost: 32000, assetAccount: '1224' }, '5410', '2026-03-01');
     expect(r.rows).toEqual([{ account: '1224', debet: 32000, kredit: 0 }, { account: '5410', debet: 0, kredit: 32000 }]);
     // Omföringen själv blir inget nytt förslag.
-    expect(unregisteredAcquisitions([...vers, { ...r, id: 'v3' }], [{ sourceVerificationId: 'v1' }])).toEqual([]);
+    expect(unregisteredAcquisitions([...vers, { ...r, id: 'v3' }], [{ sourceVerificationId: 'v1' }], { includeExpensed: true })).toEqual([]);
+    // Den gamla sidan (utan omföring) får inga sådana förslag.
+    expect(unregisteredAcquisitions(vers, [])).toEqual([]);
   });
 });
