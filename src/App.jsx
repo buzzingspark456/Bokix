@@ -448,7 +448,7 @@ import PaymentRequiredGate from './components/PaymentRequiredGate';
 // runt den hade bara lagt till en laddningsruta för ingenting.
 import UfLockedPage from './components/UfLockedPage';
 import { startProductTourWhenReady } from './utils/productTour';
-import { unlockNotifySound, playNotifySound, notifySoundEnabled, notifySoundChoice } from './utils/notifySound';
+import { unlockNotifySound, playNotifySound, notifySoundEnabled, notifySoundChoice, previewNotifySound } from './utils/notifySound';
 import NotificationPanel from './components/NotificationPanel';
 import { startInvoiceTourWhenReady } from './utils/invoiceTour';
 import { mergeCompanies, mergeCompany, makeRecordPatch, buildStateDelta, sharedFieldsToSave } from './utils/stateMerge';
@@ -1654,6 +1654,8 @@ function App() {
   const [dismissedNotifKeys, setDismissedNotifKeys] = useState(() => new Set());
   useEffect(() => { setDismissedNotifKeys(readDismissedKeys(data.activeCompanyId)); }, [data.activeCompanyId]);
   const [notifOpenedUnread, setNotifOpenedUnread] = useState(() => new Set());
+  // Ändras när en notisinställning slås av/på i panelen, så att listan räknas om.
+  const [, setNotifPrefTick] = useState(0);
   useEffect(() => { setSeenNotifKeys(readSeenKeys(data.activeCompanyId)); setNotifOpenedUnread(new Set()); }, [data.activeCompanyId]);
   const [isHelpDrawerOpen, setIsHelpDrawerOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -5806,6 +5808,14 @@ function App() {
       onTodo={() => { handleNavTabChange('dashboard'); setIsNotifMenuOpen(false); }}
       onDismiss={(n) => setDismissedNotifKeys(d => writeDismissedKeys(data.activeCompanyId, d, n.keys))}
       onSettings={() => { handleNavTabChange('settings_notifications'); setIsNotifMenuOpen(false); }}
+      // Inställningarna i panelen bara för admin än så länge (2026-11-22).
+      quickSettings={!newUnderlagOn ? null : {
+        sound: notifySoundEnabled(user),
+        onSound: (on) => { supabase.auth.updateUser({ data: { notif_sound: on } }).then(({ data: res }) => { if (res?.user) setUser(res.user); }).catch(() => {}); },
+        onPreview: () => previewNotifySound(),
+        inboxNotify: isNewUnderlagUser(user?.email) ? (() => { try { return localStorage.getItem('bokix.inboxNotify') !== '0'; } catch { return true; } })() : null,
+        onInboxNotify: (on) => { try { localStorage.setItem('bokix.inboxNotify', on ? '1' : '0'); window.dispatchEvent(new Event('bokix-inbox-notify')); } catch { /* privat läge */ } setNotifPrefTick(n => n + 1); },
+      }}
     />
   );
 

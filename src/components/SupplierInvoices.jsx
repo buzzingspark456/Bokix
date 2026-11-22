@@ -679,8 +679,8 @@ function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose,
             <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
               <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.kontering')}</h3>
               <div style={{ overflowX: 'auto' }}>
-                <div style={{ minWidth: '520px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr', gap: '10px', marginBottom: '8px', padding: '0 2px' }}>
+                <div className="si-acct" style={{ minWidth: '520px' }}>
+                  <div className="si-acct-head" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr', gap: '10px', marginBottom: '8px', padding: '0 2px' }}>
                     {['Konto', 'Beskrivning', 'Belopp (exkl.)', 'Moms'].map((h, i) => (
                       <span key={i} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: i >= 2 ? 'right' : 'left' }}>{h}</span>
                     ))}
@@ -688,7 +688,7 @@ function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose,
                   {displayRows.map((row, i) => {
                     const accountName = accounts.find(a => a.code === row.account)?.name;
                     return (
-                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr', gap: '10px', padding: '6px 2px', fontSize: '13px', borderBottom: '1px solid var(--border-light)' }}>
+                      <div key={i} className="si-acct-row" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr', gap: '10px', padding: '6px 2px', fontSize: '13px', borderBottom: '1px solid var(--border-light)' }}>
                         <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{row.account} {accountName}</span>
                         <span style={{ color: 'var(--text-secondary)' }}>{row.description || '—'}</span>
                         <span style={{ textAlign: 'right', color: 'var(--text-main)' }}>{fmtNum(row.netAmount)}</span>

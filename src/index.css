@@ -7701,7 +7701,7 @@ html[data-hide-scrollbar="true"] *::-webkit-scrollbar {
     width: calc(100% + 100px) !important;
     padding-bottom: 4px;
   }
-  .list-page-header .page-header-actions--many:not(:has(> button:not(.page-fab):not(.lph-secondary))) {
+  .list-page-header .page-header-actions--many:not(:has(> button:not(.page-fab):not(.lph-secondary):not(.bkc-head-btn))) {
     flex: 0 0 auto !important;
     width: auto !important;
   }
@@ -10846,3 +10846,47 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
   .rqt-account { max-width: none; }
   .rqt-act { justify-content: flex-start; }
 }
+
+/* Notispanelens inställningar på datorn (2026-11-22). */
+.np-back { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; margin-left: -6px; border: none; border-radius: 8px; background: none; color: var(--text-secondary); cursor: pointer; }
+.np-back:hover { background: var(--bg-muted); color: var(--text-main); }
+.np-set { padding: 6px 8px; }
+.np-set-row { display: flex; align-items: center; gap: 12px; padding: 12px 10px; border-radius: 10px; }
+.np-set-row + .np-set-row { border-top: 1px solid var(--border-light); border-radius: 0; }
+.np-set-ic { width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--bg-muted); color: var(--text-secondary); }
+.np-set-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.np-set-text strong { font-size: 13.5px; font-weight: 600; color: var(--text-main); }
+.np-set-text small { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+.np-link { padding: 0; border: none; background: none; font: inherit; font-weight: 600; color: var(--accent); cursor: pointer; }
+.np-switch { position: relative; width: 40px; height: 24px; flex-shrink: 0; border: none; border-radius: 999px; background: var(--border); cursor: pointer; transition: background .15s; }
+.np-switch i { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
+.np-switch.on { background: var(--accent); }
+.np-switch.on i { transform: translateX(16px); }
+/* Telefon (2026-11-22): Rapporters flikar sveps i sidled i stället för att
+   klippas, och översiktens sista ruta tar hela raden när antalet är udda. */
+@media (max-width: 640px) {
+  .rp-dhead > .rp-top, .rp-top > .rp-tabs { min-width: 0; max-width: 100%; }
+  .rp-tabs { scrollbar-width: none; }
+  .rp-tabs::-webkit-scrollbar { display: none; }
+}
+@media (max-width: 760px) {
+  .ov-cell:last-child:nth-child(odd) { grid-column: 1 / -1; border-left: none; }
+}
+/* Telefon: leverantörsfakturans konton som rader i två nivåer i stället för
+   en tabell som måste sveps (2026-11-22). */
+@media (max-width: 640px) {
+  .si-acct { min-width: 0 !important; }
+  .si-acct-head { display: none !important; }
+  .si-acct-row { grid-template-columns: minmax(0, 1fr) auto !important; row-gap: 2px !important; padding: 10px 2px !important; }
+  .si-acct-row > span:nth-child(2) { grid-column: 1; grid-row: 2; font-size: 12px; }
+  .si-acct-row > span:nth-child(3) { grid-column: 2; grid-row: 1; font-weight: 600; }
+  .si-acct-row > span:nth-child(4) { grid-column: 2; grid-row: 2; font-size: 12px; }
+}
+/* Panelens knappar ska inte ärva profilmenyns knappstil (2026-11-22). */
+.profile-dropdown.np .np-back { display: inline-flex; width: 30px; height: 30px; padding: 0; gap: 0; justify-content: center; color: var(--text-main); }
+.profile-dropdown.np .np-back svg { width: 18px; height: 18px; color: currentColor; opacity: 1; }
+.profile-dropdown.np .np-link { display: inline; width: auto; height: auto; padding: 0; margin: 0 0 0 2px; gap: 0; border-radius: 0; background: none; font-size: inherit; font-weight: 600; color: var(--accent); }
+.profile-dropdown.np .np-link:hover { background: none; text-decoration: underline; }
+.profile-dropdown.np .np-switch { display: block; width: 40px; height: 24px; padding: 0; gap: 0; border-radius: 999px; }
+.profile-dropdown.np .np-switch:hover { background: var(--border); }
+.profile-dropdown.np .np-switch.on, .profile-dropdown.np .np-switch.on:hover { background: var(--accent); }

@@ -783,3 +783,22 @@ button.ov-cell:hover { background: var(--bg-muted); }
 .bkc-fine2 li svg { color: var(--bkc-ok); flex-shrink: 0; margin-top: 1px; }
 .bkc .bkc-foot { display: flex; gap: 8px; align-items: flex-start; }
 .bkc .bkc-foot svg { flex-shrink: 0; margin-top: 2px; }
+/* Ringen i Kontroll (2026-11-22): en friskare grön med mjuk spårfärg. */
+.bkc-ring { --ring-ok: #22a35a; --ring-track: #e9f5ee; }
+:root[data-theme="dark"] .bkc-ring { --ring-ok: #4ade80; --ring-track: rgba(74, 222, 128, 0.14); }
+.bkc-ring .bkc-ring-fg { stroke: var(--ring-ok); }
+.bkc-ring .bkc-ring-bg, .bkc-ring.is-ok .bkc-ring-bg { stroke: var(--ring-track); }
+.bkc-ring.is-warn .bkc-ring-bg { stroke: color-mix(in srgb, #e0a020 26%, transparent); }
+.bkc-ring b { font-size: 15px; }
+.bkc-fine2-ic { background: var(--ring-track, #e9f5ee); color: #22a35a; }
+:root[data-theme="dark"] .bkc-fine2-ic { background: rgba(74, 222, 128, 0.14); color: #4ade80; }
+/* Halv skärm (2026-11-22): veckotabellen och varusidan får plats. */
+@media (max-width: 1180px) {
+  .tt-grid { min-width: 0; table-layout: auto; }
+  .tt-grid td.tt-proj { min-width: 130px; padding: 10px 12px; }
+  .tt-grid thead th.tt-proj { padding-left: 12px; }
+  .tt-grid td.tt-sum, .tt-grid thead th.tt-sum { padding-right: 12px; }
+  .tt-grid input.tt-cell { width: 100%; min-width: 34px; max-width: 56px; }
+  .tt-grid td, .tt-grid thead th { padding-left: 3px; padding-right: 3px; }
+}
+.lg-drawer-body > * { flex-shrink: 0; }

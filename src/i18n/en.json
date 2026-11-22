@@ -5213,7 +5213,16 @@
     "emptyText": "Payments and upcoming declarations show up here.",
     "newOne": "1 new",
     "dismiss": "Remove",
-    "settings": "Notification settings"
+    "settings": "Notification settings",
+    "back": "Back",
+    "setSound": "Sound when something new arrives",
+    "setSoundHint": "A short ding while Bokix is open.",
+    "setListen": "Listen",
+    "setInbox": "Documents by email",
+    "setInboxHint": "A notification when a document is emailed to the company address.",
+    "setAlways": "Payments and declarations",
+    "setAlwaysHint": "Always shown: Pay now, Stripe, Zettle, VAT and employer declaration.",
+    "setAll": "All notification settings"
   },
   "arAssoc": {
     "arDue": "General meeting by {{date}}",

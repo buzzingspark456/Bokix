@@ -5213,7 +5213,16 @@
     "emptyText": "Här syns betalningar och deklarationer som närmar sig.",
     "newOne": "1 ny",
     "dismiss": "Ta bort",
-    "settings": "Inställningar för notiser"
+    "settings": "Inställningar för notiser",
+    "back": "Tillbaka",
+    "setSound": "Ljud när något nytt kommer",
+    "setSoundHint": "Ett kort ding medan Bokix är öppet.",
+    "setListen": "Lyssna",
+    "setInbox": "Underlag via mejl",
+    "setInboxHint": "En notis när ett underlag mejlas till företagets adress.",
+    "setAlways": "Betalningar och deklarationer",
+    "setAlwaysHint": "Visas alltid: Betala nu, Stripe, Zettle, moms och arbetsgivardeklaration.",
+    "setAll": "Alla notisinställningar"
   },
   "arAssoc": {
     "arDue": "Föreningsstämma senast {{date}}",
