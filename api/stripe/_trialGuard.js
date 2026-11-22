@@ -99,7 +99,7 @@ export async function trialDecision(stripe, { email, orgNr, ip, excludeUserId = 
 
 /**
  * Efter att kortet lagts in (customer.subscription.created): har samma kort
- * redan använts för en provperiod på ett annat konto avslutas provperioden
+ * redan använts för en provperiod på ett ANNAT konto avslutas provperioden
  * direkt och kortet debiteras. Kortets fingeravtryck sparas på
  * prenumerationen så att nästa försök med kortet känns igen.
  * Returnerar 'ended' | 'recorded' | 'skipped'.
@@ -110,7 +110,12 @@ export async function enforceCardTrialLimit(stripe, subscription) {
     const full = await stripe.subscriptions.retrieve(subscription.id, { expand: ['default_payment_method'] });
     const fp = full.default_payment_method?.card?.fingerprint;
     if (!fp) return 'skipped';
-    const earlier = (await priorTrials(stripe, 'bokix_card_fp', fp)).filter(s => s.id !== full.id);
+    // Bara andra konton räknas (2026-11-22, grundarens val A): samma konto som
+    // lägger till ett nytt företag med samma kort får sin provperiod. Samma
+    // org.nummer får aldrig två provperioder (trialDecision).
+    const owner = full.metadata?.user_id || null;
+    const earlier = (await priorTrials(stripe, 'bokix_card_fp', fp))
+      .filter(s => s.id !== full.id && !(owner && s.metadata?.user_id === owner));
     if (earlier.length > 0) {
       await stripe.subscriptions.update(full.id, {
         trial_end: 'now',
