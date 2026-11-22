@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Paperclip, RotateCcw, Trash2 } from './icons';
+import { ChevronLeft, ChevronRight, Paperclip, RotateCcw, Trash2, CalendarClock, X } from './icons';
+import SpreadFields from './shared/SpreadFields';
+import { spreadCandidates } from '../utils/accrualSpread';
 import { listHeaderButtonStyle } from './shared/ListPageHeader';
 import { DocumentPane } from './shared/DocumentViewer';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
@@ -17,7 +19,7 @@ const value = { fontWeight: 600, color: 'var(--text-main)' };
 const section = { padding: '24px 32px', borderBottom: '1px solid var(--border-light)' };
 const h3 = { fontSize: '14px', fontWeight: 600, margin: '0 0 12px' };
 
-export default function VerificationViewer({ ver, accounts = [], contacts = [], fmt, onClose, onCorrect, onContinueDraft, onDeleteDraft, onAttach, onPrev, onNext }) {
+export default function VerificationViewer({ ver, accounts = [], contacts = [], fmt, onClose, onCorrect, onContinueDraft, onDeleteDraft, onAttach, onPrev, onNext, spreads = null, onPeriodize = null, lockedFiscalYears }) {
   const isDraft = (ver.status || 'booked') === 'draft';
   const rows = (ver.rows || []).map(r => ({ ...r, debet: getDebet(r), kredit: getKredit(r) }));
   const totalD = rows.reduce((s, r) => s + r.debet, 0);
@@ -27,6 +29,11 @@ export default function VerificationViewer({ ver, accounts = [], contacts = [], 
   const file = files[Math.min(fileIdx, files.length - 1)] || null;
   const counterparty = contacts.find(c => c.id === ver.counterpartyId)?.name;
   const [busy, setBusy] = useState(false);
+  // Periodisera (2026-11-22, som Bokio): bara bokförda verifikationer med ett
+  // kostnads- eller intäktskonto, och bara när det finns något kvar att fördela.
+  const [spreadOpen, setSpreadOpen] = useState(false);
+  const canSpread = Boolean(onPeriodize) && !isDraft && ver.source !== 'accrual_spread' && spreadCandidates(ver, getDebet, getKredit).length > 0;
+  const spreadsFromVer = (spreads || []).filter(sp => sp.sourceVerificationId === ver.id);
   const [error, setError] = useState('');
   const inputRef = useRef(null);
 
@@ -80,9 +87,16 @@ export default function VerificationViewer({ ver, accounts = [], contacts = [], 
             <button type="button" onClick={() => onContinueDraft(ver)} style={listHeaderButtonStyle('primary')}>{t('ui.fortsatt')}</button>
           </>
         ) : (
-          <button type="button" onClick={() => onCorrect(ver)} title={t('ui.skapa_rattelseverifikation')} style={listHeaderButtonStyle('secondary')}>
-            <RotateCcw size={14} /> {t('ui.ratta')}
-          </button>
+          <>
+            {canSpread && (
+              <button type="button" onClick={() => setSpreadOpen(true)} style={listHeaderButtonStyle('secondary')}>
+                <CalendarClock size={14} /> {spreadsFromVer.length ? t('spread.periodized') : t('spread.periodize')}
+              </button>
+            )}
+            <button type="button" onClick={() => onCorrect(ver)} title={t('ui.skapa_rattelseverifikation')} style={listHeaderButtonStyle('secondary')}>
+              <RotateCcw size={14} /> {t('ui.ratta')}
+            </button>
+          </>
         )}
       </div>
 
@@ -184,6 +198,21 @@ export default function VerificationViewer({ ver, accounts = [], contacts = [], 
           </div>
         </div>
       </div>
+      {spreadOpen && (
+        <div className="modal-overlay" onClick={() => setSpreadOpen(false)}>
+          <div className="modal-content" style={{ maxWidth: '620px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2 className="modal-title">{t('spread.title')}</h2>
+                <p className="wsp-sub">{t('spread.sub')}</p>
+              </div>
+              <button type="button" className="modal-close" onClick={() => setSpreadOpen(false)} aria-label={t('ui.stang')}><X size={18} /></button>
+            </div>
+            <SpreadFields accounts={accounts} verification={ver} lockedFiscalYears={lockedFiscalYears} existing={spreads || []}
+              onSave={(sp) => { onPeriodize(sp); setSpreadOpen(false); }} onCancel={() => setSpreadOpen(false)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

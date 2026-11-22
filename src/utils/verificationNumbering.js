@@ -35,6 +35,8 @@ const SOURCE_SERIES = {
   invoice_payment_reversal: 'C',
   supplier_invoice_payment_reversal: 'E',
   accrual: 'H',
+  accrual_spread: 'H',
+  asset_reclass: 'H',
   depreciation: 'H',
   year_end_close: 'I',
   year_open_transfer: 'I',

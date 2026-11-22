@@ -10,6 +10,8 @@ import {
   dueReversals, reversalDateFor,
 } from '../utils/accruals';
 import { summarizeVacationLiability } from '../utils/vacation';
+import SpreadFields from './shared/SpreadFields';
+import { buildSpreadStart, buildSpreadMonth, buildSpreadUndo, spreadStatus, dueSpreadMonths } from '../utils/accrualSpread';
 import { computeVacationAdjustment, buildVacationLiabilityVerification, isVacationAdjustmentBooked } from '../utils/vacationLiability';
 import { t, dateLocale } from '../i18n';
 import { numberFormat } from '../utils/intlCache';
@@ -23,7 +25,8 @@ const yearEnd = () => `${new Date().getFullYear()}-12-31`;
 const fmtDay = (iso) => (iso ? new Date(`${iso}T00:00:00`).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 const newId = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `accr_${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
-const emptyForm = () => ({ kind: 'prepaid_expense', description: '', date: yearEnd(), amount: '', counterAccount: accrualKind('prepaid_expense').counterDefault });
+// Fördela över månader är förvalt (2026-11-22): det vanligaste, som i Bokio.
+const emptyForm = () => ({ kind: 'spread', description: '', date: yearEnd(), amount: '', counterAccount: accrualKind('prepaid_expense').counterDefault });
 
 // Färgen följer startsidan: kostnadssidan korall, intäktssidan blå.
 const kindColor = (kind, palette) => (accrualKind(kind)?.side === 'income' ? palette.income : palette.cost);
@@ -61,8 +64,25 @@ export default function Accruals({ company, accounts = [], verifications = [], e
   const vac = useVacation({ employees, payrollRuns, verifications, date: vacDate });
 
   const saveAccruals = (next) => setCompanyInfo(prev => ({ ...prev, accruals: next }));
+  // Månadsperiodiseringar (utils/accrualSpread.js), sparas i company.accrualSpreads.
+  const spreads = useMemo(() => company?.accrualSpreads || [], [company?.accrualSpreads]);
+  const spreadRows = useMemo(() => spreads.map(sp => ({ ...sp, st: spreadStatus(sp, verifications) })).sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))), [spreads, verifications]);
+  const spreadDue = useMemo(() => dueSpreadMonths(spreads, verifications, todayIso(), company?.lockedFiscalYears), [spreads, verifications, company?.lockedFiscalYears]);
+  const saveSpread = (spread) => {
+    setCompanyInfo(prev => ({ ...prev, accrualSpreads: [...(prev?.accrualSpreads || []), spread] }));
+    onAddVerification(buildSpreadStart(spread));
+    closeForm();
+  };
+  const bookDueSpreads = () => spreadDue.due.forEach(d => onAddVerification(buildSpreadMonth(d.spread, d.month, d.amount)));
+  const undoSpread = async (sp) => {
+    const v = buildSpreadUndo(sp, verifications, todayIso());
+    if (!v) return;
+    if (lockedFor(v.date)) return;
+    if (!(await confirmDialog(t('spread.undoConfirm', { kr: fmtKr(sp.st.remaining) })))) return;
+    onAddVerification(v);
+  };
   const due = useMemo(() => dueReversals(accruals, verifications, todayIso()), [accruals, verifications]);
-  const kind = form ? accrualKind(form.kind) : null;
+  const kind = form && form.kind !== 'spread' ? accrualKind(form.kind) : null;
   const accountName = (code) => accounts.find(a => a.code === code)?.name || '';
 
   const rows = useMemo(() => accruals
@@ -74,7 +94,8 @@ export default function Accruals({ company, accounts = [], verifications = [], e
   // Översikten (2026-11-22): vad som ligger på balanskontona nu, när nästa
   // återföring sker och om semesterlöneskulden stämmer.
   const activeRows = rows.filter(r => r.status.booked && !r.status.reversed);
-  const activeSum = activeRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+  const activeSpreads = spreadRows.filter(sp => sp.st.started && !sp.st.undone && !sp.st.done);
+  const activeSum = activeRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0) + activeSpreads.reduce((sum, sp) => sum + sp.st.remaining, 0);
   const nextReversal = activeRows.map(r => r.reversalDate || reversalDateFor(r.date)).sort()[0] || null;
   const bookVacation = async () => {
     if (!vac?.verification) return;
@@ -85,10 +106,12 @@ export default function Accruals({ company, accounts = [], verifications = [], e
   };
 
   const changeKind = (id) => setForm(f => ({ ...f, kind: id, counterAccount: accrualKind(id).counterDefault }));
+  // handleSave gäller bara bokslutsperiodiseringarna; Fördela över månader sparas i SpreadFields.
   const closeForm = () => { setForm(null); setError(''); };
 
   const handleSave = (e) => {
     e.preventDefault();
+    if (form.kind === 'spread') return;
     const amount = Number(form.amount);
     if (!form.description.trim()) return setError(t('ui.beskriv_vad_periodiseringen_avser'));
     if (!(amount > 0)) return setError(t('ui.beloppet_maste_vara_storre_an_0'));
@@ -128,16 +151,25 @@ export default function Accruals({ company, accounts = [], verifications = [], e
       <Panel
         title={t('ui.periodiseringar')}
         sub={t('accr.subV2')}
-        actions={rows.length > 0 && <button type="button" className="agi-btn primary" onClick={() => { setForm(emptyForm()); setError(''); }}><Plus size={14} /> {t('ui.ny_periodisering')}</button>}
+        actions={(rows.length > 0 || spreads.length > 0) && <button type="button" className="agi-btn primary" onClick={() => { setForm(emptyForm()); setError(''); }}><Plus size={14} /> {t('ui.ny_periodisering')}</button>}
       >
-        {(rows.length > 0 || vac) && (
+        {(rows.length > 0 || spreads.length > 0 || vac) && (
           <Overview items={[
-            { key: 'active', label: t('accr.ovActive'), value: fmtKr(activeSum), sub: activeRows.length === 1 ? t('accr.ovActiveOne') : t('accr.ovActiveMany', { n: activeRows.length }) },
+            { key: 'active', label: t('accr.ovActive'), value: fmtKr(activeSum), sub: activeRows.length + activeSpreads.length === 1 ? t('accr.ovActiveOne') : t('accr.ovActiveMany', { n: activeRows.length + activeSpreads.length }) },
             { key: 'next', label: t('accr.ovNext'), value: nextReversal ? fmtDay(nextReversal) : '—', sub: nextReversal ? t('accr.ovNextSub') : t('accr.ovNextNone') },
             vac && { key: 'vac', label: t('accr.ovVac'), value: fmtKr(vac.total), sub: vac.needs ? t('accr.ovVacNeeds', { kr: fmtKr(vac.diff) }) : t('accr.ovVacOk'), tone: vac.needs ? 'warn' : 'ok' },
           ]} />
         )}
 
+        {spreadDue.due.length > 0 && (
+          <div className="ws-tasks">
+            <TaskRow icon={RotateCcw} tone="brand"
+              title={spreadDue.due.length === 1 ? t('spread.dueOne', { kr: fmtKr(spreadDue.total) }) : t('spread.dueMany', { n: spreadDue.due.length, kr: fmtKr(spreadDue.total) })}
+              detail={[...new Set(spreadDue.due.map(d => d.spread.description))].slice(0, 3).join(', ')}>
+              <button type="button" className="agi-btn primary" onClick={bookDueSpreads}>{t('accr.reversalBook')}</button>
+            </TaskRow>
+          </div>
+        )}
         {due.length > 0 && (
           <div className="ws-tasks">
             <TaskRow
@@ -161,7 +193,36 @@ export default function Accruals({ company, accounts = [], verifications = [], e
         )}
         {vacMessage && <p className="ws-hint" style={{ marginTop: 8, color: lockedFor(vacDate) ? 'var(--status-red-text)' : 'var(--status-green-text)' }}>{vacMessage}</p>}
 
-        {rows.length === 0 ? (
+        {spreadRows.length > 0 && (
+          <>
+            <ListBar title={t('spread.listTitle')} />
+            <div className="spr-list">
+              {spreadRows.map(sp => (
+                <div key={sp.id} className={`spr-row${sp.st.undone ? ' is-undone' : sp.st.done ? ' is-done' : ''}`}>
+                  <div className="spr-row-main">
+                    <strong>{sp.description}</strong>
+                    <small>{sp.account} {accountName(sp.account)} · {sp.side === 'income' ? t('spread.income') : t('spread.expense')}</small>
+                  </div>
+                  <div className="spr-row-prog">
+                    <span>{sp.st.undone ? t('spread.undone') : t('spread.progress', { n: sp.st.booked, total: sp.st.total })}</span>
+                    <i className="spr-bar"><b style={{ width: `${(sp.st.booked / Math.max(1, sp.st.total)) * 100}%` }} /></i>
+                  </div>
+                  <div className="spr-row-amt">
+                    <strong>{fmtKr(Math.abs(sp.amount))}</strong>
+                    <small>{sp.st.next ? t('spread.next', { date: fmtDay(sp.st.next.date) }) : sp.st.undone ? '' : t('spread.allDone')}</small>
+                  </div>
+                  <div className="spr-row-act">
+                    {sp.st.started && !sp.st.undone && !sp.st.done && sp.st.remaining > 0 && (
+                      <button type="button" className="agi-btn" onClick={() => undoSpread(sp)}>{t('spread.undo')}</button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {rows.length === 0 && spreadRows.length > 0 ? null : rows.length === 0 ? (
           <div className="ws-empty">
             <strong>{t('accr.emptyTitle')}</strong>
             <p>{t('accr.emptyText')}</p>
@@ -230,6 +291,10 @@ export default function Accruals({ company, accounts = [], verifications = [], e
             </div>
             <div className="ws-form">
               <div className="ws-choice">
+                <button type="button" className={form.kind === 'spread' ? 'on' : ''} onClick={() => setForm(f => ({ ...f, kind: 'spread' }))}>
+                  <strong><i className="accr-kind-dot" style={{ background: 'var(--accent)' }} aria-hidden="true" />{t('spread.kindTitle')}</strong>
+                  <span>{t('spread.kindHelp')}</span>
+                </button>
                 {ACCRUAL_KINDS.map(k => (
                   <button key={k.id} type="button" className={form.kind === k.id ? 'on' : ''} onClick={() => changeKind(k.id)}>
                     <strong><i className="accr-kind-dot" style={{ background: kindColor(k.id, palette) }} aria-hidden="true" />{k.label}</strong>
@@ -237,6 +302,9 @@ export default function Accruals({ company, accounts = [], verifications = [], e
                   </button>
                 ))}
               </div>
+              {form.kind === 'spread' ? (
+                <SpreadFields accounts={accounts} lockedFiscalYears={company?.lockedFiscalYears} existing={spreads} onSave={saveSpread} onCancel={closeForm} />
+              ) : (<>
               <div>
                 <label className="ws-label" htmlFor="accr-desc">{t('ui.avser_2')}</label>
                 <input id="accr-desc" className="ws-input" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder={t('ui.t_ex_hyra_januari_nasta_ar')} autoFocus />
@@ -273,6 +341,7 @@ export default function Accruals({ company, accounts = [], verifications = [], e
                 <button type="button" className="agi-btn" onClick={closeForm}>{t('ui.avbryt')}</button>
                 <button type="submit" className="agi-btn primary">{t('ui.bokfor_periodisering')}</button>
               </div>
+              </>)}
             </div>
           </form>
         </div>

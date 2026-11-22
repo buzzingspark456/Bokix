@@ -52,6 +52,7 @@ import { mergeImportedEmployees } from './utils/employeeCsv';
 import { planFromId, planIncludesPayroll } from './utils/plans';
 import { detectOrgType } from './utils/orgType';
 import { ownerPaidAccount } from './utils/paidBy';
+import { buildSpreadStart } from './utils/accrualSpread';
 import { isAppHost, SITE_ORIGIN } from './utils/appHost';
 import { captureEvent } from './utils/posthog';
 import { reconcileSieOpenings, applySieOpeningReconcile } from './utils/sieOpeningReconcile';
@@ -6397,6 +6398,14 @@ function App() {
             ].filter(tab => isFeatureOn(currentCompany, tab.id) || verificationsInitialTab === tab.id)}
             onAttachFiles={handleAttachVerificationFiles}
             openAsPage={newUnderlagOn}
+            // Periodisera från verifikationen (2026-11-22), bara admin än så länge.
+            spreads={newUnderlagOn ? (company?.accrualSpreads || []) : null}
+            onPeriodize={newUnderlagOn ? (spread) => {
+              setCompanyInfo(prev => ({ ...prev, accrualSpreads: [...(prev?.accrualSpreads || []), spread] }));
+              handleAddVerification(buildSpreadStart(spread));
+              setToast({ message: tr('spread.savedToast', { n: spread.months }), variant: 'success' });
+            } : null}
+            lockedFiscalYears={company?.lockedFiscalYears}
             // Kontroll (2026-11-21): på telefon en rad överst i Verifikationer, på
             // datorn en knapp i sidhuvudet med panel från höger. Inte en egen
             // flik. Bara admin tills vidare, som nya Underlag.

@@ -1346,7 +1346,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
 }
 
 // ─── Main Bokföring Component ──────────────────────────────────────────────────
-export default function Bokforing({ seriesNames, verifications = [], accounts = [], balances = {}, contacts = [], projects = [], invoices = [], expenses = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, partners, uploadFn = uploadFileToStorage, initialTab, vatExempt = false, extraTabs = [], onTabChange, topSlot = null, headerSlot = null, onAttachFiles, openAsPage = false }) {
+export default function Bokforing({ seriesNames, verifications = [], accounts = [], balances = {}, contacts = [], projects = [], invoices = [], expenses = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, partners, uploadFn = uploadFileToStorage, initialTab, vatExempt = false, extraTabs = [], onTabChange, topSlot = null, headerSlot = null, onAttachFiles, openAsPage = false, spreads = null, onPeriodize = null, lockedFiscalYears }) {
   const [activeTab, setActiveTab] = useState(() => (initialTab && ['verifications', 'accounts', ...extraTabs.map(tab => tab.id)].includes(initialTab) ? initialTab : 'verifications'));
   // Samma mönster som Taxes.jsx:s initialSection — App.jsx:s
   // verificationsInitialTab (profilmenyns "Kontoplaner" ska landa på
@@ -1517,6 +1517,9 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
           }}
           onPrev={prev ? () => setViewingId(prev.id) : null}
           onNext={next ? () => setViewingId(next.id) : null}
+          spreads={spreads}
+          onPeriodize={onPeriodize}
+          lockedFiscalYears={lockedFiscalYears}
           onCorrect={(v) => {
             const newRows = v.rows ? v.rows.map(r => ({ ...r, accountName: r.accountName || '', debet: getKredit(r) || 0, kredit: getDebet(r) || 0 })) : [];
             setViewingId(null);
