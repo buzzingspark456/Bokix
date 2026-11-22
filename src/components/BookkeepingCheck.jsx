@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, AlertCircle, ChevronDown, ChevronRight } from './icons';
-import { Panel } from './shared/Workspace';
 import Drawer from './Drawer';
 import { runBookkeepingCheck } from '../utils/bookkeepingCheck';
 import { t } from '../i18n';
@@ -28,7 +27,8 @@ function describe(c) {
   switch (c.id) {
     case 'receivables':
     case 'payables':
-      return { title: k('title'), text: k('text', { booked: fmtKr(c.booked), expected: fmtKr(c.expected), n: c.openCount, diff: fmtKr(Math.abs(c.diff)) }) };
+      // Beloppen visas som tre rutor (Figures), texten är bara orsaken.
+      return { title: k('title'), text: t('ui.bk_ledger_hint') };
     case 'negative_money':
       return { title: k('title'), text: k('text', { list: c.items.map(i => `${i.account} ${fmtKr(i.amount)}`).join(', ') }) };
     default:
@@ -36,112 +36,104 @@ function describe(c) {
   }
 }
 
-function CheckRow({ check, onOpenVerification, onNavigate, compact = false }) {
-  const [open, setOpen] = useState(check.level === 'error');
-  const { Icon, color, bg } = LEVEL[check.level];
-  const { title, text } = describe(check);
-  const hasItems = check.level !== 'ok' && check.items.some(i => i.verificationId || i.date);
-  const target = check.level !== 'ok' ? TARGET[check.id] : null;
+// Bokfört, obetalda fakturor och skillnaden som tre rutor (2026-11-22),
+// i stället för en lång mening med tre belopp.
+function Figures({ check }) {
+  const account = check.id === 'receivables' ? '1510' : '2440';
   return (
-    <div className="bkc-row" style={{ borderTop: '1px solid var(--border-light)', padding: compact ? '9px 0' : '14px 0' }}>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-        <span aria-hidden="true" style={{ width: compact ? 24 : 30, height: compact ? 24 : 30, borderRadius: 999, background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Icon size={compact ? 14 : 17} />
-        </span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: compact ? 500 : 650, color: 'var(--text-main)', fontSize: compact ? 13.5 : 14.5, lineHeight: compact ? '24px' : undefined }}>{title}</div>
-          {text && <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: 13.5, lineHeight: 1.5, maxWidth: 680 }}>{text}</p>}
-          {(hasItems || target) && (
-            <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
-              {hasItems && (
-                <button type="button" onClick={() => setOpen(v => !v)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-                  {open ? t('ui.bk_hide') : t('ui.bk_show', { n: Math.min(check.count, check.items.length) })}
-                </button>
-              )}
-              {target && (
-                <button type="button" onClick={() => onNavigate?.(target)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-                  {t(`ui.bk_go_${target}`)}
-                </button>
-              )}
-            </div>
-          )}
-          {open && hasItems && (
-            <div style={{ marginTop: 10, border: '1px solid var(--border-light)', borderRadius: 10, overflow: 'hidden' }}>
-              {check.items.map((i, idx) => (
-                <button
-                  key={`${i.verificationId || i.date}-${idx}`}
-                  type="button"
-                  disabled={!i.verificationId}
-                  onClick={() => i.verificationId && onOpenVerification?.(i.verificationId)}
-                  style={{ display: 'grid', gridTemplateColumns: '64px 92px 1fr auto', gap: 10, width: '100%', textAlign: 'left', padding: '9px 12px', background: idx % 2 ? 'transparent' : 'var(--bg-subtle, transparent)', border: 'none', borderTop: idx ? '1px solid var(--border-light)' : 'none', cursor: i.verificationId ? 'pointer' : 'default', fontSize: 13, color: 'var(--text-main)' }}
-                >
-                  <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{i.ver || ''}</span>
-                  <span style={{ color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{i.date}</span>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.others ? `${i.text} (${i.others.join(', ')})` : i.text}</span>
-                  <span style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{i.amount != null ? fmtKr(i.amount) : ''}</span>
-                </button>
-              ))}
-              {check.count > check.items.length && (
-                <div style={{ padding: '8px 12px', fontSize: 12.5, color: 'var(--text-muted)', borderTop: '1px solid var(--border-light)' }}>{t('ui.bk_more', { n: check.count - check.items.length })}</div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <dl className="bkc-figs">
+      <div><dt>{t('ui.bk_fig_booked', { account })}</dt><dd>{fmtKr(check.booked)}</dd></div>
+      <div><dt>{t('ui.bk_fig_open', { n: check.openCount })}</dt><dd>{fmtKr(check.expected)}</dd></div>
+      <div className="is-diff"><dt>{t('ui.bk_fig_diff')}</dt><dd>{fmtKr(Math.abs(check.diff))}</dd></div>
+    </dl>
   );
 }
 
-export default function BookkeepingCheck({ verifications, invoices, expenses, vatPeriods, bankTransactions, vatExempt, onOpenVerification, onNavigate, bare = false }) {
+function IssueCard({ check, onOpenVerification, onNavigate }) {
+  const [open, setOpen] = useState(check.level === 'error');
+  const { Icon } = LEVEL[check.level];
+  const { title, text } = describe(check);
+  const hasItems = check.items.some(i => i.verificationId || i.date);
+  const target = TARGET[check.id];
+  const ledger = check.id === 'receivables' || check.id === 'payables';
+  return (
+    <article className={`bkc-issue is-${check.level}`}>
+      <header className="bkc-issue-head">
+        <span className="bkc-issue-icon" aria-hidden="true"><Icon size={16} /></span>
+        <h4>{title}</h4>
+      </header>
+      {ledger && <Figures check={check} />}
+      {text && <p className="bkc-issue-text">{text}</p>}
+      {(hasItems || target) && (
+        <div className="bkc-issue-actions">
+          {target && <button type="button" className="bkc-btn primary" onClick={() => onNavigate?.(target)}>{t(`ui.bk_go_${target}`)}<ChevronRight size={15} /></button>}
+          {hasItems && (
+            <button type="button" className="bkc-btn" aria-expanded={open} onClick={() => setOpen(v => !v)}>
+              {open ? t('ui.bk_hide') : t('ui.bk_show', { n: Math.min(check.count, check.items.length) })}
+              {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+            </button>
+          )}
+        </div>
+      )}
+      {open && hasItems && (
+        <div className="bkc-items">
+          {check.items.map((i, idx) => (
+            <button
+              key={`${i.verificationId || i.date}-${idx}`}
+              type="button"
+              className="bkc-item"
+              disabled={!i.verificationId}
+              onClick={() => i.verificationId && onOpenVerification?.(i.verificationId)}
+            >
+              <span className="bkc-item-ver">{i.ver || ''}</span>
+              <span className="bkc-item-date">{i.date}</span>
+              <span className="bkc-item-text">{i.others ? `${i.text} (${i.others.join(', ')})` : i.text}</span>
+              <span className="bkc-item-amt">{i.amount != null ? fmtKr(i.amount) : ''}</span>
+            </button>
+          ))}
+          {check.count > check.items.length && <div className="bkc-items-more">{t('ui.bk_more', { n: check.count - check.items.length })}</div>}
+        </div>
+      )}
+    </article>
+  );
+}
+
+// Samma innehåll i panelen från höger (dator) och i raden på telefon.
+export default function BookkeepingCheck({ verifications, invoices, expenses, vatPeriods, bankTransactions, vatExempt, onOpenVerification, onNavigate }) {
   const result = useMemo(
     () => runBookkeepingCheck({ verifications, invoices, expenses, vatPeriods, bankTransactions, vatExempt }),
     [verifications, invoices, expenses, vatPeriods, bankTransactions, vatExempt],
   );
   const issues = result.checks.filter(c => c.level !== 'ok');
   const fine = result.checks.filter(c => c.level === 'ok');
-  const summary = issues.length === 0
-    ? t('ui.bk_all_ok')
-    : t(issues.length === 1 ? 'ui.bk_issues_one' : 'ui.bk_issues', { n: issues.length });
-
-  // I panelen från höger (BookkeepingCheckButton): utan egna kort och rubrik,
-  // panelen har redan rubriken.
-  if (bare) {
-    return (
-      <div style={{ display: 'grid', gap: 18 }}>
-        <section style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 12, padding: '4px 16px' }}>
-          <p style={{ margin: '12px 0', fontSize: 13.5, color: 'var(--text-secondary)' }}>{issues.length === 0 ? t('ui.bk_all_ok_text') : summary}</p>
-          {issues.map(c => <CheckRow key={c.id} check={c} onOpenVerification={onOpenVerification} onNavigate={onNavigate} />)}
-        </section>
-        {fine.length > 0 && (
-          <section style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 12, padding: '4px 16px' }}>
-            <h3 style={{ margin: '12px 0', fontSize: 14, fontWeight: 650, color: 'var(--text-main)' }}>{t('ui.bk_fine_title')}</h3>
-            {fine.map(c => <CheckRow key={c.id} check={c} compact />)}
-          </section>
-        )}
-        <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '0 4px' }}>{t('ui.bk_footer')}</p>
-      </div>
-    );
-  }
+  const level = result.errors ? 'error' : result.warnings ? 'warn' : 'ok';
+  const { Icon } = LEVEL[level];
+  const headline = issues.length === 0 ? t('ui.bk_all_ok') : t(issues.length === 1 ? 'ui.bk_issues_one' : 'ui.bk_issues', { n: issues.length });
 
   return (
-    <div style={{ display: 'grid', gap: 16 }}>
-      <Panel title={t('ui.bk_title')} sub={summary}>
-        <div style={{ padding: '0 2px' }}>
-          {issues.length === 0 && (
-            <p style={{ color: 'var(--text-secondary)', fontSize: 13.5, margin: '0 0 6px' }}>{t('ui.bk_all_ok_text')}</p>
-          )}
-          {issues.map(c => <CheckRow key={c.id} check={c} onOpenVerification={onOpenVerification} onNavigate={onNavigate} />)}
+    <div className="bkc">
+      <div className={`bkc-summary is-${level}`}>
+        <span className="bkc-summary-icon" aria-hidden="true"><Icon size={22} /></span>
+        <div className="bkc-summary-text">
+          <strong>{headline.replace(/\.$/, '')}</strong>
+          <span>{issues.length === 0 ? t('ui.bk_all_ok_text') : t('ui.bk_checks_ok', { ok: fine.length, total: result.checks.length })}</span>
         </div>
-      </Panel>
+        <div className="bkc-meter" aria-hidden="true">
+          {result.checks.map(c => <i key={c.id} className={`is-${c.level}`} />)}
+        </div>
+      </div>
+
+      {issues.map(c => <IssueCard key={c.id} check={c} onOpenVerification={onOpenVerification} onNavigate={onNavigate} />)}
+
       {fine.length > 0 && (
-        <Panel title={t('ui.bk_fine_title')}>
-          <div style={{ padding: '0 2px' }}>
-            {fine.map(c => <CheckRow key={c.id} check={c} />)}
-          </div>
-        </Panel>
+        <section className="bkc-fine">
+          <h3>{t('ui.bk_fine_title')}<span>{fine.length}</span></h3>
+          <ul>
+            {fine.map(c => <li key={c.id}><CheckCircle2 size={15} aria-hidden="true" />{describe(c).title}</li>)}
+          </ul>
+        </section>
       )}
-      <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '0 4px', maxWidth: 680 }}>{t('ui.bk_footer')}</p>
+      <p className="bkc-foot">{t('ui.bk_footer')}</p>
     </div>
   );
 }
@@ -217,7 +209,6 @@ export function BookkeepingCheckButton(props) {
           {...props}
           onOpenVerification={(id) => { setOpen(false); onOpenVerification?.(id); }}
           onNavigate={(tab) => { setOpen(false); onNavigate?.(tab); }}
-          bare
         />
       </Drawer>
     </>
