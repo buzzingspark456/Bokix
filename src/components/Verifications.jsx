@@ -157,7 +157,9 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   // konteringstabellen. En befintlig verifikation (utkast, rättelse) öppnas
   // alltid i avancerat läge, eftersom dess rader redan finns.
   const readModePreference = () => {
-    try { return localStorage.getItem('bokix.verificationMode') === 'advanced' ? 'advanced' : 'simple'; } catch { return 'simple'; }
+    // Debet och kredit är standard för alla (2026-11-22). Enkelt läge väljer
+    // man själv, och valet sparas.
+    try { return localStorage.getItem('bokix.verificationMode') === 'simple' ? 'simple' : 'advanced'; } catch { return 'advanced'; }
   };
   const [mode, setMode] = useState(initial?.rows ? 'advanced' : readModePreference());
   const modeRef = useRef(mode);

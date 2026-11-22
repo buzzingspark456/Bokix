@@ -316,7 +316,7 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
       .map(r => {
         const net = parseAmount(r.netAmount);
         const vatRate = reverseCharge ? 0 : r.vatRate;
-        return { account: r.account, description: r.description.trim() || undefined, netAmount: net, vatRate, vatAmount: net * (vatRate / 100) };
+        return { account: r.account, description: r.description.trim() || undefined, netAmount: net, vatRate, vatAmount: Math.round(net * vatRate) / 100 };
       });
     const netTotal = cleanRows.reduce((s, r) => s + r.netAmount, 0);
     const vatTotal = cleanRows.reduce((s, r) => s + r.vatAmount, 0);
@@ -326,7 +326,9 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
       supplierId, supplier: supplierName,
       invoiceNumber: invoiceNumber.trim(), date, dueDate: dueDate || undefined,
       description: `Leverantörsfaktura ${invoiceNumber.trim()}`,
-      rows: cleanRows, netAmount: netTotal, vatAmount: vatTotal, amount: Math.round(netTotal + vatTotal),
+      // Totalen med ören; hel krona bara när öresavrundning är vald (2026-11-22).
+      rows: cleanRows, netAmount: Math.round(netTotal * 100) / 100, vatAmount: Math.round(vatTotal * 100) / 100,
+      amount: roundToKrona ? Math.round(netTotal + vatTotal) : Math.round((netTotal + vatTotal) * 100) / 100,
       reverseCharge, paidByOwnerPrivately, currency,
       // roundingDiff (Sida-kommentaren i App.jsx: bokförs mot 3740 Öres- och
       // kronutjämning) — mellanskillnaden mellan konteringens exakta summa

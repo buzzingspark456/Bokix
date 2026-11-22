@@ -5099,25 +5099,28 @@ function App() {
     if (!inv.rows?.length && !inv.costAccount) return;
 
     const rows = inv.rows?.length ? inv.rows : [{ account: inv.costAccount, netAmount: inv.netAmount, vatAmount: inv.vatAmount }];
+    // Med ören (2026-11-22): kostnad, moms och skuld avrundades förut var för
+    // sig till hela kronor, så momsen blev fel och ören hamnade på 3740.
+    const cents = (v) => Math.round((Number(v) || 0) * 100) / 100;
     const verRows = rows
       .filter(r => r.account && r.netAmount)
-      .map(r => ({ account: r.account, debet: Math.round(r.netAmount), kredit: 0, costCenter: inv.costCenter || undefined, projectId: inv.projectId || undefined }));
+      .map(r => ({ account: r.account, debet: cents(r.netAmount), kredit: 0, costCenter: inv.costCenter || undefined, projectId: inv.projectId || undefined }));
 
-    const totalVat = inv.reverseCharge ? 0 : rows.reduce((s, r) => s + (r.vatAmount || 0), 0);
+    const totalVat = inv.reverseCharge ? 0 : cents(rows.reduce((s, r) => s + cents(r.vatAmount || 0), 0));
     if (totalVat > 0) {
-      verRows.push({ account: '2641', debet: Math.round(totalVat), kredit: 0 });
+      verRows.push({ account: '2641', debet: totalVat, kredit: 0 });
     }
 
-    const payableAccount = inv.paidByOwnerPrivately ? '2018' : '2440';
-    const netTotal = rows.reduce((s, r) => s + (r.netAmount || 0), 0);
-    const payableAmount = Math.round(netTotal + totalVat);
+    // Betald privat: aktiebolag 2893 (skuld till ägaren), enskild firma och
+    // handelsbolag 2018, föreningar 2890. Förut alltid 2018.
+    const payableAccount = inv.paidByOwnerPrivately ? ownerPaidAccount(company?.orgNr) : '2440';
+    const exactTotal = cents(verRows.reduce((s, r) => s + r.debet, 0));
+    // Öresavrundad faktura: skulden är den avrundade totalen och skillnaden
+    // bokas på 3740. Avrundat uppåt = kostnad (debet), nedåt = intäkt (kredit).
+    const payableAmount = inv.roundToKrona ? Math.round(exactTotal) : exactTotal;
     verRows.push({ account: payableAccount, debet: 0, kredit: payableAmount });
-
-    if (inv.roundToKrona && Math.round(inv.roundingDiff * 100) !== 0) {
-      // Positiv diff (avrundat uppåt) krediteras 3740, negativ (nedåt) debiteras.
-      const diff = Math.round(inv.roundingDiff);
-      if (diff !== 0) verRows.push({ account: '3740', debet: diff < 0 ? -diff : 0, kredit: diff > 0 ? diff : 0 });
-    }
+    const diff = cents(payableAmount - exactTotal);
+    if (diff !== 0) verRows.push({ account: '3740', debet: diff > 0 ? diff : 0, kredit: diff < 0 ? -diff : 0 });
 
     handleAddVerification({
       date: inv.date,
@@ -5175,8 +5178,9 @@ function App() {
       source: 'supplier_invoice_payment',
       sourceId: inv.id,
       rows: [
-        { account: '2440', debet: Math.round(inv.amount), kredit: 0 },
-        { account: bankLedgerAccount, debet: 0, kredit: Math.round(inv.amount) },
+        // Med ören, annars blev ören kvar som skuld på 2440 (2026-11-22).
+        { account: '2440', debet: Math.round((Number(inv.amount) || 0) * 100) / 100, kredit: 0 },
+        { account: bankLedgerAccount, debet: 0, kredit: Math.round((Number(inv.amount) || 0) * 100) / 100 },
       ],
     });
   };

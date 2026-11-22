@@ -787,7 +787,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
     const block1 = [
       { account: acc.grossSalary, description: `Lön ${period}: Bruttolön`, debet: totals.gross, kredit: 0 },
       ...[...taxFreeByAccount.entries()].map(([account, amount]) => (
-        { account, description: `Lön ${period}: Skattefri ersättning`, debet: Math.round(amount), kredit: 0 }
+        { account, description: `Lön ${period}: Skattefri ersättning`, debet: Math.round(amount * 100) / 100, kredit: 0 }
       )),
       { account: acc.tax, description: `Lön ${period}: Personalskatt`, debet: 0, kredit: totals.tax },
       { account: acc.netSalaryBank, description: `Lön ${period}: Nettolön`, debet: 0, kredit: totals.net },
