@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, ChevronRight, UsersRound, UserCog, CalendarClock, Search, Palmtree, Download, Upload, Landmark } from './icons';
+import { Plus, ChevronLeft, ChevronRight, UsersRound, UserCog, CalendarClock, Search, Palmtree, Download, Upload, Landmark } from './icons';
 import EmployeeImportModal from './EmployeeImportModal';
 import FosModal from './FosModal';
 import { downloadCsv } from '../utils/csvRegister';
@@ -72,6 +72,7 @@ export default function Payroll({
       return summarizePayrollRun(run.rows.map(row => computeEmployeePayroll(row.employeeSnapshot || {}, row))).gross;
     } catch { return null; }
   };
+  const yearGross = yearRuns.reduce((sum, r) => sum + (runGross(r) || 0), 0);
   const fmtShortDate = (d) => dateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(d);
   const agiInfo = (row) => {
     const due = agiDueDate(row.period);
@@ -145,6 +146,21 @@ export default function Payroll({
     );
   }
 
+  // 2026-11-22: årsväljaren (‹ 2026 ›) och årets lönesumma står i sidhuvudet
+  // bredvid Ny lönekörning, inte på en egen rad med tom yta.
+  const yearPicker = (
+    <div className="pay-yearbar">
+      <div className="pay-year" role="group" aria-label={t('payrollYear.year')}>
+        <button type="button" aria-label={String(shownYear - 1)} disabled={!runYears.some(y => y < shownYear)} onClick={() => setRunYear(Math.max(...runYears.filter(y => y < shownYear)))}><ChevronLeft size={16} /></button>
+        <strong>{shownYear}</strong>
+        <button type="button" aria-label={String(shownYear + 1)} disabled={!runYears.some(y => y > shownYear)} onClick={() => setRunYear(Math.min(...runYears.filter(y => y > shownYear)))}><ChevronRight size={16} /></button>
+      </div>
+      {yearGross > 0 && (
+        <span className="pay-year-total">{t('payrollYear.total', { year: shownYear })} <strong>{formatSEK(yearGross)}</strong></span>
+      )}
+    </div>
+  );
+
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       {/* Header i samma mönster som Kunder/Bokföring/Skatt och bokslut
@@ -161,7 +177,7 @@ export default function Payroll({
                 { key: 'new-employee', label: t('ui.ny_anstalld'), icon: Plus, onClick: () => { setSelectedEmployee(null); setViewState('new'); }, variant: 'primary' },
               ]
             : activeTab === 'runs'
-              ? [{
+              ? [{ key: 'year', type: 'node', node: <div className="pay-year-head">{yearPicker}</div> }, {
                   key: 'new-run', label: t('ui.ny_lonekorning'), icon: Plus, variant: 'primary',
                   onClick: () => { if (employees.length === 0) { setActiveTab('employees'); setViewState('new'); } else { if (!newRunPayDate) setNewRunPayDate(`${newRunPeriod}-25`); setShowNewRun(true); } },
                   title: employees.length === 0 ? t('ui.lagg_till_en_anstalld_forst') : undefined,
@@ -187,23 +203,14 @@ export default function Payroll({
           kortet. Kundfeedback ("gör lönekörningar mer som anställda"):
           Lönekörningar-fliken saknade den här raden helt, till skillnad
           från Anställda — samma ListFilterBar/sökfält-mönster nu på båda. */}
-      {((activeTab === 'employees' && viewState === 'list') || activeTab === 'runs') && (
+      {activeTab === 'employees' && viewState === 'list' && (
         <ListFilterBar>
           {activeTab === 'employees' ? (
             <div style={{ position: 'relative' }}>
               <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input type="text" placeholder={t('ui.sok_anstalld')} value={search} onChange={e => setSearch(e.target.value)} style={listSearchInputStyle} />
             </div>
-          ) : (
-            // Lönekörningar visas per år. Bara år som har lönekörningar (och
-            // innevarande år) finns att välja, så ett nytt företag ser bara 2026.
-            // Första barnet i filterraden, så det syns även på telefon.
-            <div className="filter-pills" role="tablist" aria-label={t('payrollYear.year')}>
-              {runYears.map(y => (
-                <button key={y} type="button" role="tab" aria-selected={y === shownYear} className={`filter-pill${y === shownYear ? ' active' : ''}`} onClick={() => setRunYear(y)}>{y}</button>
-              ))}
-            </div>
-          )}
+          ) : null}
         </ListFilterBar>
       )}
 
@@ -390,6 +397,8 @@ export default function Payroll({
             </section>
           )}
 
+          {/* På telefon står årsväljaren här, så att rubriken inte klipps. */}
+          <div className="pay-year-phone">{yearPicker}</div>
           <ListTable
             rowKey={r => r.key}
             onRowClick={openRow}
