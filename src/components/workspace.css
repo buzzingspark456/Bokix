@@ -794,11 +794,11 @@ button.ov-cell:hover { background: var(--bg-muted); }
 :root[data-theme="dark"] .bkc-fine2-ic { background: rgba(74, 222, 128, 0.14); color: #4ade80; }
 /* Halv skärm (2026-11-22): veckotabellen och varusidan får plats. */
 @media (max-width: 1180px) {
-  .tt-grid { min-width: 0; table-layout: auto; }
-  .tt-grid td.tt-proj { min-width: 130px; padding: 10px 12px; }
-  .tt-grid thead th.tt-proj { padding-left: 12px; }
-  .tt-grid td.tt-sum, .tt-grid thead th.tt-sum { padding-right: 12px; }
-  .tt-grid input.tt-cell { width: 100%; min-width: 34px; max-width: 56px; }
-  .tt-grid td, .tt-grid thead th { padding-left: 3px; padding-right: 3px; }
+  .ws-v2 .tt-grid { min-width: 0; table-layout: auto; }
+  .ws-v2 .tt-grid td.tt-proj { min-width: 130px; padding: 10px 12px; }
+  .ws-v2 .tt-grid thead th.tt-proj { padding-left: 12px; }
+  .ws-v2 .tt-grid td.tt-sum, .ws-v2 .tt-grid thead th.tt-sum { padding-right: 12px; }
+  .ws-v2 .tt-grid input.tt-cell { width: 100%; min-width: 34px; max-width: 56px; }
+  .ws-v2 .tt-grid td, .ws-v2 .tt-grid thead th { padding-left: 3px; padding-right: 3px; }
 }
-.lg-drawer-body > * { flex-shrink: 0; }
+.ws-v2 .lg-drawer-body > * { flex-shrink: 0; }

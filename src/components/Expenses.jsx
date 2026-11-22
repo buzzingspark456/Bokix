@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
+import { createPortal } from 'react-dom';
 import { REPRESENTATION_ACCOUNTS, representationBooking, representationKinds } from '../utils/representation';
 import { isVatExempt } from '../utils/vatRegistration';
 import {
   UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop, SlidersHorizontal,
-  Mail, Copy, Inbox, Cog, Menu, Check, Maximize2, ChevronLeft, ChevronRight, Info, MailOpen,
+  Mail, Copy, Inbox, Cog, Menu, Check, Maximize2, ChevronLeft, ChevronRight, Info, MailOpen, MoreHorizontal,
 } from './icons';
 import { supabase } from '../supabaseClient';
 import { AccountSearch } from './shared/SearchInputs';
@@ -1766,13 +1767,19 @@ function UnderlagNav({ view, onView, counts, onOpenMenu }) {
   // Grupper: underlagen och avsändarna, papperskorgen, inställningarna.
   const n = items.length;
   const groups = [items.slice(0, n - 2), items.slice(n - 2, n - 1), items.slice(n - 1)];
+  // Telefon (2026-11-22, som Fortnox): bara det viktigaste som flikar,
+  // Avsändare, Papperskorg och Inställningar under Mer.
+  const EXTRA = ['senders', 'trash', 'mailbox'];
+  const extras = items.filter(([id]) => EXTRA.includes(id));
+  const [moreOpen, setMoreOpen] = React.useState(false);
+  const extraActive = EXTRA.includes(view);
   return (
     <nav className="ut-nav-side" aria-label={tr('nav.underlag')}>
       {onOpenMenu && <button type="button" className="ut-menu-btn" onClick={onOpenMenu}><Menu size={17} /> {tr('underlag.menu')}</button>}
       {groups.map((g, gi) => (
         <div key={gi} className="ut-nav-group">
           {g.map(([id, label, Icon, n]) => (
-            <button key={id} type="button" className={view === id ? 'on' : undefined} onClick={() => onView(id)} aria-current={view === id ? 'page' : undefined}>
+            <button key={id} type="button" className={[view === id ? 'on' : '', EXTRA.includes(id) ? 'ut-nav-x' : ''].filter(Boolean).join(' ') || undefined} onClick={() => onView(id)} aria-current={view === id ? 'page' : undefined}>
               <Icon size={16} />
               <span>{label}</span>
               {n > 0 && <em>{n}</em>}
@@ -1780,6 +1787,23 @@ function UnderlagNav({ view, onView, counts, onOpenMenu }) {
           ))}
         </div>
       ))}
+      <button type="button" className={`ut-nav-morebtn${extraActive ? ' on' : ''}`} onClick={() => setMoreOpen(true)} aria-haspopup="dialog">
+        <MoreHorizontal size={16} />
+        <span>{extraActive ? extras.find(([id]) => id === view)?.[1] : tr('underlag.navMore')}</span>
+      </button>
+      {moreOpen && createPortal(
+        <div className="ut-sheet-overlay" onClick={() => setMoreOpen(false)}>
+          <div className="ut-sheet" role="dialog" aria-label={tr('underlag.navMore')} onClick={e => e.stopPropagation()}>
+            <span className="ut-sheet-grip" aria-hidden="true" />
+            {extras.map(([id, label, Icon, cnt]) => (
+              <button key={id} type="button" className={view === id ? 'on' : undefined} onClick={() => { onView(id); setMoreOpen(false); }}>
+                <Icon size={18} /><span>{label}</span>{cnt > 0 && <em>{cnt}</em>}
+              </button>
+            ))}
+          </div>
+        </div>,
+        document.body,
+      )}
     </nav>
   );
 }

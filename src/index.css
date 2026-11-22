@@ -10865,9 +10865,9 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
 /* Telefon (2026-11-22): Rapporters flikar sveps i sidled i stället för att
    klippas, och översiktens sista ruta tar hela raden när antalet är udda. */
 @media (max-width: 640px) {
-  .rp-dhead > .rp-top, .rp-top > .rp-tabs { min-width: 0; max-width: 100%; }
-  .rp-tabs { scrollbar-width: none; }
-  .rp-tabs::-webkit-scrollbar { display: none; }
+  .ws-v2 .rp-dhead > .rp-top, .ws-v2 .rp-top > .rp-tabs { min-width: 0; max-width: 100%; }
+  .ws-v2 .rp-tabs { scrollbar-width: none; }
+  .ws-v2 .rp-tabs::-webkit-scrollbar { display: none; }
 }
 @media (max-width: 760px) {
   .ov-cell:last-child:nth-child(odd) { grid-column: 1 / -1; border-left: none; }
@@ -10875,12 +10875,12 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
 /* Telefon: leverantörsfakturans konton som rader i två nivåer i stället för
    en tabell som måste sveps (2026-11-22). */
 @media (max-width: 640px) {
-  .si-acct { min-width: 0 !important; }
-  .si-acct-head { display: none !important; }
-  .si-acct-row { grid-template-columns: minmax(0, 1fr) auto !important; row-gap: 2px !important; padding: 10px 2px !important; }
-  .si-acct-row > span:nth-child(2) { grid-column: 1; grid-row: 2; font-size: 12px; }
-  .si-acct-row > span:nth-child(3) { grid-column: 2; grid-row: 1; font-weight: 600; }
-  .si-acct-row > span:nth-child(4) { grid-column: 2; grid-row: 2; font-size: 12px; }
+  .ws-v2 .si-acct { min-width: 0 !important; }
+  .ws-v2 .si-acct-head { display: none !important; }
+  .ws-v2 .si-acct-row { grid-template-columns: minmax(0, 1fr) auto !important; row-gap: 2px !important; padding: 10px 2px !important; }
+  .ws-v2 .si-acct-row > span:nth-child(2) { grid-column: 1; grid-row: 2; font-size: 12px; }
+  .ws-v2 .si-acct-row > span:nth-child(3) { grid-column: 2; grid-row: 1; font-weight: 600; }
+  .ws-v2 .si-acct-row > span:nth-child(4) { grid-column: 2; grid-row: 2; font-size: 12px; }
 }
 /* Panelens knappar ska inte ärva profilmenyns knappstil (2026-11-22). */
 .profile-dropdown.np .np-back { display: inline-flex; width: 30px; height: 30px; padding: 0; gap: 0; justify-content: center; color: var(--text-main); }
@@ -10890,3 +10890,19 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
 .profile-dropdown.np .np-switch { display: block; width: 40px; height: 24px; padding: 0; gap: 0; border-radius: 999px; }
 .profile-dropdown.np .np-switch:hover { background: var(--border); }
 .profile-dropdown.np .np-switch.on, .profile-dropdown.np .np-switch.on:hover { background: var(--accent); }
+
+/* Underlag på telefon (2026-11-22): tre flikar och Mer, som Fortnox. */
+.ut-nav-morebtn { display: none !important; }
+@media (max-width: 768px) {
+  .ut-nav-side .ut-nav-x { display: none !important; }
+  .ut-nav-side .ut-nav-morebtn { display: flex !important; }
+}
+.ut-sheet-overlay { position: fixed; inset: 0; z-index: 1300; background: var(--modal-overlay, rgba(0,0,0,.35)); display: flex; align-items: flex-end; animation: fadeIn .15s ease both; }
+.ut-sheet { width: 100%; padding: 8px 12px calc(16px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; background: var(--bg-card); box-shadow: 0 -10px 30px rgba(0,0,0,.15); display: flex; flex-direction: column; gap: 2px; }
+.ut-sheet-grip { align-self: center; width: 40px; height: 4px; margin: 4px 0 10px; border-radius: 999px; background: var(--border); }
+.ut-sheet button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 12px; border: none; border-radius: 12px; background: none; font: inherit; font-size: 15px; font-weight: 500; color: var(--text-main); text-align: left; cursor: pointer; }
+.ut-sheet button svg { color: var(--text-secondary); }
+.ut-sheet button span { flex: 1; }
+.ut-sheet button.on { background: var(--bg-muted); font-weight: 600; }
+.ut-sheet button em { font-style: normal; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--border-light); color: var(--text-secondary); }
+@media (max-width: 768px) { .ut-nav-side { flex-wrap: nowrap !important; } }
