@@ -37,6 +37,7 @@ const SYSTEM_SOURCES = new Set([
   'accrual', 'depreciation', 'asset_disposal', 'dividend', 'year_end_close', 'year_open_transfer',
   'equity_reclass', 'partner_allocation', 'patronage_refund', 'inventory', 'skattekonto_import',
   'bank_import', 'expense_reversal', 'supplier_invoice_payment', 'sie_import',
+  'invoice_payment_reversal', 'supplier_invoice_payment_reversal',
 ]);
 
 /**

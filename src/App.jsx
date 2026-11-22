@@ -5020,15 +5020,33 @@ function App() {
       : i)));
   };
 
-  // "Markera som obetald" ångrar en registrerad betalning — status och
-  // betalt belopp återställs, och betalningsverifikationerna tas faktiskt
-  // bort (inte bara döljs), eftersom det är precis vad en ångrad
-  // betalningsregistrering innebär. Kräver bekräftelse i UI:t innan den anropas.
+  // En bokförd verifikation får aldrig tas bort (bokföringslagen, obruten
+  // verifikationsserie). Ångras en betalning bokas i stället en rättelse med
+  // omvända rader, länkad till originalet med reversesId (2026-11-22). Förut
+  // raderades betalningsverifikationen. Utkast har ingen bokföring att rätta.
+  const reverseBookedVerifications = (source, sourceId, reversalSource) => {
+    const today = new Date().toISOString().split('T')[0];
+    verifications
+      .filter(v => v.source === source && v.sourceId === sourceId && (v.status || 'booked') !== 'draft')
+      .filter(v => !verifications.some(x => x.reversesId === v.id))
+      .forEach(v => handleAddVerification({
+        date: today,
+        description: `Rättelse: ${v.description}`,
+        source: reversalSource,
+        sourceId,
+        reversesId: v.id,
+        rows: (v.rows || []).map(r => ({ ...r, debet: r.kredit || 0, kredit: r.debet || 0 })),
+      }));
+  };
+
+  // "Markera som obetald" ångrar en registrerad betalning: status och betalt
+  // belopp återställs och betalningen rättas med en motverifikation (se
+  // reverseBookedVerifications). Kräver bekräftelse i UI:t innan den anropas.
   const handleUnmarkInvoicePaid = (invoiceId) => {
     setInvoices(prev => prev.map(i =>
       i.id === invoiceId ? { ...i, status: 'sent', paidDate: undefined, paidAmount: 0 } : i
     ));
-    setVerifications(prev => prev.filter(v => !(v.source === 'invoice_payment' && v.sourceId === invoiceId)));
+    reverseBookedVerifications('invoice_payment', invoiceId, 'invoice_payment_reversal');
   };
 
   // Add expense with auto-booking
@@ -5194,7 +5212,7 @@ function App() {
   // vilket är rätt: det finns ingen betalning att ångra där.
   const handleUnmarkSupplierInvoicePaid = (expenseId) => {
     setExpenses(prev => prev.map(e => e.id === expenseId ? { ...e, status: 'unpaid', paidDate: undefined, paymentMethod: undefined } : e));
-    setVerifications(prev => prev.filter(v => !(v.source === 'supplier_invoice_payment' && v.sourceId === expenseId)));
+    reverseBookedVerifications('supplier_invoice_payment', expenseId, 'supplier_invoice_payment_reversal');
   };
 
   // Sätter konto på en utgift som saknar kontering — antingen via det gamla
