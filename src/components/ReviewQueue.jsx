@@ -1290,7 +1290,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
       {/* Flödet i tre steg (2026-11-21): underlaget läses av i Underlag, du
           väljer konto här, sedan är det bokfört. Visar var saker väntar och
           att Bokix gör resten själv. Bara med nya Underlag. */}
-      {tab === 'pending' && openUnderlag && (
+      {tab === 'pending' && newUnderlag && openUnderlag && (
         <div className="rq-flow" role="list">
           <button type="button" role="listitem" className={`rq-flow-step${underlagWaiting > 0 ? ' has' : ''}`} onClick={() => openUnderlag(null)}>
             <span className="rq-flow-n">1</span>

@@ -439,8 +439,8 @@ function TimeReportsView({ timeEntries, employees, projects = [], timeReportStat
   return (
     <>
       <Panel
-        title={tr('proj.approval')}
-        sub={tr('proj.reportsSub')}
+        title={tr('proj.approvalV2')}
+        sub={tr('proj.reportsSubV2')}
         actions={<>
           {submitted.length > 0 && <button type="button" className="agi-btn" onClick={() => bulkAdvance('submitted')}><ClipboardCheck size={14} /> {tr('ui.attestera_alla_inskickade')}{submitted.length})</button>}
           {attested.length > 0 && <button type="button" className="agi-btn primary" onClick={() => bulkAdvance('attested')}><CheckCircle2 size={14} /> {tr('ui.godkann_alla_attesterade')}{attested.length})</button>}
@@ -484,7 +484,7 @@ function TimeReportsView({ timeEntries, employees, projects = [], timeReportStat
 
       <Panel
         title={<span style={{ textTransform: 'capitalize' }}>{formatMonthLabel(month)}</span>}
-        sub={tr('proj.calendarSub')}
+        sub={tr('proj.calendarSubV2')}
         actions={<>
           <button type="button" className="agi-btn" style={{ padding: '0 8px' }} onClick={onPrevMonth} aria-label={tr('proj.prevMonth')}><ChevronLeft size={16} /></button>
           <input type="month" className="ws-input" style={{ width: 'auto', height: '36px' }} value={month} aria-label={tr('proj.pickMonth')} onChange={e => e.target.value && onPickMonth(e.target.value)} />

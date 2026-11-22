@@ -145,7 +145,7 @@ export default function Accruals({ company, accounts = [], verifications = [], e
     <div className="ws-page ws-edge">
       <Panel
         title={t('ui.periodiseringar')}
-        sub={t('accr.sub')}
+        sub={t('accr.subV2')}
         actions={rows.length > 0 && <button type="button" className="agi-btn primary" onClick={() => { setForm(emptyForm()); setError(''); }}><Plus size={14} /> {t('ui.ny_periodisering')}</button>}
       >
         {/* Bara de slag som används, och inga siffror utan periodiseringar (2026-11-21). */}
@@ -160,7 +160,7 @@ export default function Accruals({ company, accounts = [], verifications = [], e
             <TaskRow
               icon={RotateCcw}
               title={due.length === 1 ? t('accr.reversalOne') : t('accr.reversalMany', { n: due.length })}
-              detail={t('accr.reversalDetail')}
+              detail={t('accr.reversalDetailV2')}
             >
               <button type="button" className="agi-btn primary" onClick={bookDueReversals}>{t('accr.reversalBook')}</button>
             </TaskRow>
@@ -180,7 +180,7 @@ export default function Accruals({ company, accounts = [], verifications = [], e
           </div>
         ) : (
           <>
-          <ListBar title={rows.length === 1 ? t('accr.listOne') : t('accr.listMany', { n: rows.length })}>
+          <ListBar title={rows.length === 1 ? t('accr.listOneV2') : t('accr.listManyV2', { n: rows.length })}>
             <div className="ws-seg">
               {[['all', t('accr.filterAll')], ['active', t('accr.filterActive')], ['reversed', t('accr.filterReversed')]].map(([id, label]) => (
                 <button key={id} type="button" className={filter === id ? 'on' : ''} onClick={() => setFilter(id)}>{label}<span className="lg-count">{count(id)}</span></button>

@@ -6,8 +6,10 @@ import { AccountSearch } from './shared/SearchInputs';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { showUndo, restoreAt } from './shared/undoToast';
 import { articlesToCsv, csvToArticles, downloadCsv } from '../utils/csvRegister';
-import Inventory from './Inventory';
-import PricingTool from './PricingTool';
+import InventoryNew from './Inventory';
+import InventoryLegacy from './InventoryLegacy';
+import PricingToolNew from './PricingTool';
+import PricingToolLegacy from './PricingToolLegacy';
 import { t } from '../i18n';
 import { MobileFormMode, MobileFormBar } from './shared/MobileForm';
 import { numberFormat } from '../utils/intlCache';
@@ -77,7 +79,10 @@ const emptyArticle = () => ({
  * anta att id eller artikelnr finns — funkar därför även för gamla poster
  * som sparades innan `id` fanns.
  */
-export default function Articles({ articles = [], setArticles, accounts = [], company, verifications = [], invoices = [], expenses = [], onAddVerification, setCompanyInfo }) {
+export default function Articles({ articles = [], setArticles, accounts = [], company, verifications = [], invoices = [], expenses = [], onAddVerification, setCompanyInfo, v2 = false }) {
+  // Nya Lager och Prissättning bara för admin än så länge (2026-11-22).
+  const Inventory = v2 ? InventoryNew : InventoryLegacy;
+  const PricingTool = v2 ? PricingToolNew : PricingToolLegacy;
   // Flikar: Artiklar (registret), Lager (lagerlogg + värdering) och
   // Prissättning. De två sista behöver företagsdata och bokföring — utan
   // dem (t.ex. demoläget) visas bara registret.

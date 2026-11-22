@@ -389,8 +389,10 @@ const Bank = lazy(() => import('./components/Bank'));
 const Reports = lazy(() => import('./components/Reports'));
 const Settings = lazy(() => import('./components/Settings'));
 const Projects = lazy(() => import('./components/Projects'));
+const ProjectsLegacy = lazy(() => import('./components/ProjectsLegacy'));
 const TimeTracking = lazy(() => import('./components/TimeTracking'));
 const Payroll = lazy(() => import('./components/Payroll'));
+const PayrollLegacy = lazy(() => import('./components/PayrollLegacy'));
 const Taxes = lazy(() => import('./components/Taxes'));
 // Flikarna under Bokföring hämtas i förväg när sidan öppnas (se useEffect
 // på activeTab nedan), annars stod Verifikationer kvar en stund efter klicket.
@@ -400,6 +402,8 @@ const FixedAssets = lazy(loadFixedAssets);
 const BookkeepingCheckBar = lazy(() => import('./components/BookkeepingCheck').then(m => ({ default: m.BookkeepingCheckBar })));
 const BookkeepingCheckButton = lazy(() => import('./components/BookkeepingCheck').then(m => ({ default: m.BookkeepingCheckButton })));
 const Accruals = lazy(loadAccruals);
+const AccrualsLegacy = lazy(() => import('./components/AccrualsLegacy'));
+const FixedAssetsLegacy = lazy(() => import('./components/FixedAssetsLegacy'));
 // Alla ANDRA marknads-/juridiksidor (FeaturesPage/PricingPage/AboutPage/
 // ContactPage/PrivacyPolicy/TermsPolicy/
 // CookiesPolicy/PersonuppgiftsBitradesAvtal) flyttade till AppRouter.jsx
@@ -5747,6 +5751,14 @@ function App() {
   // kontering — samma underlag som ReviewQueue.jsx faktiskt visar.
   // Nya Underlag: underlag utan leverantör eller belopp räknas i Underlag, inte här.
   const newUnderlagOn = isNewUnderlagUser(user?.email);
+  // Lugnare arbetsytor (Lager, Prissättning, Projekt, Tid, Periodiseringar,
+  // Tillgångar, Lön) bara för admin än så länge (2026-11-22): nya CSS-regler
+  // gäller under html.ws-v2, de gamla sidorna ligger i *Legacy.jsx.
+  if (typeof document !== 'undefined') document.documentElement.classList.toggle('ws-v2', newUnderlagOn);
+  const PayrollView = newUnderlagOn ? Payroll : PayrollLegacy;
+  const ProjectsView = newUnderlagOn ? Projects : ProjectsLegacy;
+  const AccrualsView = newUnderlagOn ? Accruals : AccrualsLegacy;
+  const FixedAssetsView = newUnderlagOn ? FixedAssets : FixedAssetsLegacy;
   const reviewCount = expenses.filter(e => !e.costAccount && !(newUnderlagOn && needsUnderlagWork(e))).length;
   const underlagWorkCount = newUnderlagOn ? expenses.filter(needsUnderlagWork).length : 0;
   // Granskning-sidan har också flikarna Stripe och Zettle. Deras rader räknas
@@ -6023,7 +6035,7 @@ function App() {
           );
         }
         return (
-          <Payroll
+          <PayrollView
             key={company?.id || data.activeCompanyId}
             employees={employees}
             onSaveEmployee={handleSaveEmployee}
@@ -6234,10 +6246,10 @@ function App() {
       case 'quotes':
         return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} contacts={contacts} projects={projects} company={company} activeCompanyId={data.activeCompanyId} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} articles={articles} setArticles={setArticles} onSyncBeforeServerCall={syncUserDataNow} />;
       case 'articles':
-        return <Articles key={company?.id || data.activeCompanyId} articles={articles} setArticles={setArticles} accounts={accounts} company={company} verifications={verifications} invoices={invoices} expenses={expenses} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} />;
+        return <Articles key={company?.id || data.activeCompanyId} articles={articles} setArticles={setArticles} accounts={accounts} company={company} verifications={verifications} invoices={invoices} expenses={expenses} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} v2={newUnderlagOn} />;
       case 'projects':
         return (
-          <Projects
+          <ProjectsView
             key={company?.id || data.activeCompanyId}
             projects={projects}
             invoices={invoices}
@@ -6343,8 +6355,8 @@ function App() {
               try { window.history.replaceState(window.history.state, '', `#${id}`); } catch { /* adressen är bara en bekvämlighet */ }
             }}
             extraTabs={isUfCompany(company) ? [] : [
-              { id: 'accruals', label: tr('ui.periodiseringar'), content: <Accruals company={company} accounts={accounts} verifications={verifications} employees={employees} payrollRuns={payrollRuns} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
-              { id: 'fixed_assets', label: tr('ui.tillgangar'), content: <FixedAssets company={company} accounts={accounts} verifications={verifications} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
+              { id: 'accruals', label: tr('ui.periodiseringar'), content: <AccrualsView company={company} accounts={accounts} verifications={verifications} employees={employees} payrollRuns={payrollRuns} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
+              { id: 'fixed_assets', label: tr('ui.tillgangar'), content: <FixedAssetsView company={company} accounts={accounts} verifications={verifications} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
             // Gömda funktioner (utils/optionalFeatures.js) visas inte, utom när
             // man kommer dit via en länk (t.ex. bokslutets checklista).
             ].filter(tab => isFeatureOn(currentCompany, tab.id) || verificationsInitialTab === tab.id)}

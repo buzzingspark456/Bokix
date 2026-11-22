@@ -183,7 +183,7 @@ export default function FixedAssets({ company, accounts = [], verifications = []
                 icon={Package}
                 tone="brand"
                 title={`${sg.description || t('ui.verifikation')} · ${fmtKr(sg.amount)}`}
-                detail={t('fa.suggestDetail', { account: sg.account, date: fmtDay(sg.date) })}
+                detail={t('fa.suggestDetailV2', { account: sg.account, date: fmtDay(sg.date) })}
                 onClick={() => startNew({ name: sg.description, acquisitionDate: sg.date, cost: sg.amount, category: sg.category, assetAccount: sg.account, sourceVerificationId: sg.verificationId })}
               >
                 <span className="agi-btn">{t('fa.addToRegister')}</span>
