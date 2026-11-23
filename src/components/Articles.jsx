@@ -132,7 +132,8 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
         const { articles: imported, skippedInactive } = parseArticleImport(text);
         if (imported.length === 0) throw new Error(t('ui.inga_giltiga_rader_hittades_kraver_minst_en_bena'));
         // Först en förhandsvisning (ArticleImportPreview), inget sparas än.
-        setImportPreview({ fileName: file.name, imported, skippedInactive });
+        if (v2) setImportPreview({ fileName: file.name, imported, skippedInactive });
+        else applyImport(imported); // kunderna: direkt som förut (förhandsvisningen bara admin än)
       } catch (err) {
         setImportMsg({ type: 'error', text: t('ui.kunde_inte_importera', { message: err.message }) });
         setTimeout(() => setImportMsg(null), 6000);

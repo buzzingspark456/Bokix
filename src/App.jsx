@@ -5498,7 +5498,7 @@ function App() {
       // lön, skattetabell), samma regel som handleApplyFos: en räknad
       // körning ändras aldrig i efterhand.
       const current = employees.find(e => e.id === employeeId);
-      if (current) {
+      if (current && isNewUnderlagUser(user?.email)) {
         const updated = { ...current, ...data };
         setPayrollRuns(prev => prev.map(r => (r.completedSteps.includes('calculated') || !r.rows.some(row => row.employeeId === employeeId) ? r : {
           ...r,
@@ -6148,6 +6148,7 @@ function App() {
             invoices={invoices}
             contacts={contacts}
             accounts={accounts}
+            articleSearch={newUnderlagOn}
             articles={articles}
             setArticles={setArticles}
             verifications={verifications}
@@ -6292,7 +6293,7 @@ function App() {
         );
       }
       case 'quotes':
-        return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} contacts={contacts} projects={projects} company={company} activeCompanyId={data.activeCompanyId} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} articles={articles} setArticles={setArticles} onSyncBeforeServerCall={syncUserDataNow} />;
+        return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} contacts={contacts} projects={projects} company={company} activeCompanyId={data.activeCompanyId} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} articles={articles} setArticles={setArticles} onSyncBeforeServerCall={syncUserDataNow} articleSearch={newUnderlagOn} />;
       case 'articles':
         return <Articles key={company?.id || data.activeCompanyId} articles={articles} setArticles={setArticles} accounts={accounts} company={company} verifications={verifications} invoices={invoices} expenses={expenses} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} v2={newUnderlagOn} />;
       case 'projects':

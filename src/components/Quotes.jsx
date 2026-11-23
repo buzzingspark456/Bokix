@@ -125,7 +125,7 @@ const toolbarBtnStyle = (active) => ({
  * förhandsgranskning som öppnas på begäran. Samma lösning återanvänds här
  * rakt av — samma CSS-klass, samma mönster, samma mobilanpassning.
  */
-function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], company, user, articles = [], onSave, onClose, onConvert, onOpenInvoice, onSyncBeforeServerCall, onPersist }) {
+function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], company, user, articles = [], articleSearch = false, onSave, onClose, onConvert, onOpenInvoice, onSyncBeforeServerCall, onPersist }) {
   useMobileForm();
   const [customerId, setCustomerId] = useState(quote?.customerId || '');
   const [customerName, setCustomerName] = useState(quote?.customerName || '');
@@ -819,7 +819,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
                           sök på benämning eller artikelnummer, pris, moms och
                           enhet fylls i. Skrivs en exakt benämning för hand
                           fylls de i när fältet lämnas, som förut. */}
-                      <ArticleCombobox articles={articles} placeholder={articles.length ? t('ui.beskrivning_eller_artikel') : t('ui.beskrivning')} style={inputStyle} value={row.description}
+                      <ArticleCombobox simple={!articleSearch} articles={articles} placeholder={articles.length && articleSearch ? t('ui.beskrivning_eller_artikel') : t('ui.beskrivning')} style={inputStyle} value={row.description}
                         onChange={v => updateRow(i, 'description', v)}
                         onPick={a => applyArticleToRow(i, a)}
                         inputProps={{ onBlur: e => { const hit = findArticleByDescription(e.target.value); if (hit) applyArticleToRow(i, hit); } }}
@@ -1082,7 +1082,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
   );
 }
 
-export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConvert, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction, articles = [], onSyncBeforeServerCall }) {
+export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConvert, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction, articles = [], onSyncBeforeServerCall, articleSearch = false }) {
   const [searchTerm, setSearchTerm] = useState('');
   // Statusfilter som Kundfakturor (2026-11-20), anpassat till offerter.
   const [statusFilter, setStatusFilter] = useState('all');
@@ -1242,6 +1242,7 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
         company={company}
         user={user}
         articles={articles}
+        articleSearch={articleSearch}
         activeCompanyId={activeCompanyId}
         onSave={handleSaveQuote}
         onClose={closeForm}

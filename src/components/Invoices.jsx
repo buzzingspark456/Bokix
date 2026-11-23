@@ -275,7 +275,7 @@ function InvoiceMobileSummary({ invoice, customerName, nextNum, ocr, totals, cus
   );
 }
 
-function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onRegisterPayment, onUnmarkPaid, onUpdateNote, onMarkEmailed, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles, projects = [], onSyncBeforeServerCall }) {
+function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onRegisterPayment, onUnmarkPaid, onUpdateNote, onMarkEmailed, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles, projects = [], onSyncBeforeServerCall, articleSearch = false }) {
   // En bokförd faktura (allt utom utkast) får inte längre ändra belopp/rader/kund —
   // korrigeringar sker via kreditfaktura. Datum och kommentar går fortfarande att ändra.
   const isLocked = Boolean(initial) && (initial.status || 'draft') !== 'draft';
@@ -1393,13 +1393,14 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
                         <label className="qr-cell qr-desc"><span className="qr-lbl">{tr('ui.beskrivning')}</span>
                           {isLocked ? <div style={lockedCell}>{row.description}</div> : (
                             <ArticleCombobox
+                              simple={!articleSearch}
                               articles={articles}
                               value={row.description}
                               onChange={v => updateRow(i, 'description', v)}
                               onPick={a => applyArticleToRow(i, a)}
                               inputProps={{ onBlur: e => { const hit = findArticleByDescription(e.target.value); if (hit) applyArticleToRow(i, hit); } }}
                               style={inp}
-                              placeholder={articles.length ? tr('ui.beskrivning_eller_artikel') : tr('ui.beskrivning_av_tjanst_eller_produkt')}
+                              placeholder={articles.length && articleSearch ? tr('ui.beskrivning_eller_artikel') : tr('ui.beskrivning_av_tjanst_eller_produkt')}
                             />
                           )}
                         </label>
@@ -2240,7 +2241,7 @@ function PaymentLinkModal({ activeCompanyId, invoice, customer, company, onGetPa
   );
 }
 
-export default function Invoices({ activeCompanyId, ufQuota = { limited: false }, invoices, contacts, accounts = [], onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, onRotRutRequested, onRotRutPayout, onRotRutRejected, onImportRotRutBookings, onRotRutBatchRequested, onRotRutBatchPayout, setInvoices, company, globalAction, clearGlobalAction, verifications = [], onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [], onSyncBeforeServerCall }) {
+export default function Invoices({ activeCompanyId, ufQuota = { limited: false }, invoices, contacts, accounts = [], onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, onRotRutRequested, onRotRutPayout, onRotRutRejected, onImportRotRutBookings, onRotRutBatchRequested, onRotRutBatchPayout, setInvoices, company, globalAction, clearGlobalAction, verifications = [], onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [], onSyncBeforeServerCall, articleSearch = false }) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   // react-routers setSearchParams navigerar till bara "?…" och tappar
@@ -2816,6 +2817,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
         initial={editingInvoice}
         prefill={invoicePrefill}
         articles={articles}
+        articleSearch={articleSearch}
         setArticles={setArticles}
         projects={projects}
         onSave={handleSaveInvoice}

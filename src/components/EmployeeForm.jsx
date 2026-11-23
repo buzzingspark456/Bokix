@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Check, Pencil } from './icons';
-import { EntitySearch } from './shared/SearchInputs';
+import { EntitySearch, ProjectSearch } from './shared/SearchInputs';
 import { SWEDISH_MUNICIPALITIES } from '../utils/kommuner';
 import { suggestTaxTables, KOMMUN_SKATTETABELLER_ÅR } from '../utils/kommunSkattetabell';
 import { kommunSkattesats, KOMMUN_SKATTESATSER_ÅR } from '../utils/kommunSkattesatser';
@@ -414,6 +414,22 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
             <p style={helpTextStyle}>{tr('ui.dagar_fran_tidigare_ar_dagar_over_20_per_ar_far')}</p>
           </div>
         </div>
+      </Section>}
+
+      {/* Kostnadsställe och projekt bara i det gamla formuläret (kunderna,
+          PayrollLegacy). Guiden för admin har dem inte (2026-11-23). */}
+      {!W && <Section title={tr('ui.kostnadsstalle_projekt')}>
+        <div className="form-row-2" style={grid2}>
+          <div>
+            <label style={labelStyle}>{tr('ui.kostnadsstalle')}</label>
+            <input value={form.costCenter} onChange={e => set('costCenter', e.target.value)} style={inputBase} />
+          </div>
+          <div>
+            <label style={labelStyle}>{tr('ui.projekt')}</label>
+            <ProjectSearch value={form.projectId} onChange={v => set('projectId', v)} projects={projects} />
+          </div>
+        </div>
+        <p style={helpTextStyle}>{tr('ui.foreslas_pa_lonekostnadsrader_vid_bokforing_av_l')}</p>
       </Section>}
 
       {show(3) && <Section title={tr('ui.bankkonto')}>

@@ -29,7 +29,7 @@ export function matchArticles(articles, query, max = MAX) {
   return scored.sort((x, y) => x[0] - y[0] || String(x[1].description).localeCompare(String(y[1].description), 'sv')).slice(0, max).map(([, a]) => a);
 }
 
-export default function ArticleCombobox({ articles = [], value, onChange, onPick, placeholder, style, className, required, inputProps = {} }) {
+export default function ArticleCombobox({ articles = [], value, onChange, onPick, placeholder, style, className, required, inputProps = {}, simple = false }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [rect, setRect] = useState(null);
@@ -50,6 +50,15 @@ export default function ArticleCombobox({ articles = [], value, onChange, onPick
   useEffect(() => { setActive(0); }, [value]);
 
   const pick = (a) => { onPick?.(a); setOpen(false); };
+  // Kunderna har kvar webbläsarens egen lista tills sökningen släpps (bara admin än).
+  if (simple) {
+    return (
+      <>
+        <input type="text" list={`${listId}-dl`} placeholder={placeholder} style={style} className={className} value={value} required={required} onChange={e => onChange(e.target.value)} {...inputProps} />
+        <datalist id={`${listId}-dl`}>{articles.map((a, i) => <option key={a.id || `${a.description}-${i}`} value={a.description}>{a.description}</option>)}</datalist>
+      </>
+    );
+  }
   const onKeyDown = (e) => {
     if (!show) { if (e.key === 'ArrowDown' && articles.length) { setOpen(true); e.preventDefault(); } return; }
     if (e.key === 'ArrowDown') { setActive(i => Math.min(i + 1, hits.length - 1)); e.preventDefault(); }
