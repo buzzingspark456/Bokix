@@ -4175,7 +4175,8 @@
     "bk_ledger_hint": "Kan bero på fakturor från ett tidigare program, eller en betalning som bokförts utan att fakturan markerats som betald.",
     "bk_show_vers": "Visa verifikationer ({{n}})",
     "bk_fine_one": "1 kontroll stämmer",
-    "bk_fine_many": "{{n}} kontroller stämmer"
+    "bk_fine_many": "{{n}} kontroller stämmer",
+    "beskrivning_eller_artikel": "Beskrivning eller sök artikel"
   },
   "glossary": {
     "g01": {

@@ -4175,7 +4175,8 @@
     "bk_ledger_hint": "May be invoices from a previous program, or a payment booked without marking the invoice as paid.",
     "bk_show_vers": "Show verifications ({{n}})",
     "bk_fine_one": "1 check is fine",
-    "bk_fine_many": "{{n}} checks are fine"
+    "bk_fine_many": "{{n}} checks are fine",
+    "beskrivning_eller_artikel": "Description or search item"
   },
   "glossary": {
     "g01": {

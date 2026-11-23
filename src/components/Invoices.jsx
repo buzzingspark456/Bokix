@@ -12,6 +12,7 @@ import {
   ZoomIn, ZoomOut, Pencil, Copy, CheckCircle2, Undo2, Sparkles, SlidersHorizontal } from './icons';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import PaperFit from './shared/PaperFit';
+import ArticleCombobox from './shared/ArticleCombobox';
 import DocSplit from './shared/DocSplit';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
 import { exportInvoicePdf, getInvoicePdfBase64, printInvoicePdf } from '../utils/exportInvoicePdf';
@@ -1391,16 +1392,14 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
                       <div className="quote-row quote-row--no-ded" style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.8fr 0.8fr 1fr 0.8fr 0.9fr 1fr auto', gap: '10px', alignItems: 'center' }}>
                         <label className="qr-cell qr-desc"><span className="qr-lbl">{tr('ui.beskrivning')}</span>
                           {isLocked ? <div style={lockedCell}>{row.description}</div> : (
-                            <input
+                            <ArticleCombobox
+                              articles={articles}
                               value={row.description}
-                              list="article-description-list"
-                              onChange={e => updateRow(i, 'description', e.target.value)}
-                              onBlur={e => {
-                                const hit = findArticleByDescription(e.target.value);
-                                if (hit) applyArticleToRow(i, hit);
-                              }}
+                              onChange={v => updateRow(i, 'description', v)}
+                              onPick={a => applyArticleToRow(i, a)}
+                              inputProps={{ onBlur: e => { const hit = findArticleByDescription(e.target.value); if (hit) applyArticleToRow(i, hit); } }}
                               style={inp}
-                              placeholder={tr('ui.beskrivning_av_tjanst_eller_produkt')}
+                              placeholder={articles.length ? tr('ui.beskrivning_eller_artikel') : tr('ui.beskrivning_av_tjanst_eller_produkt')}
                             />
                           )}
                         </label>

@@ -11016,3 +11016,13 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .aip-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 .aip-foot .emp-btn:disabled { opacity: .5; cursor: not-allowed; }
 @media (max-width: 600px) { .aip-table th:nth-child(2), .aip-table td:nth-child(2), .aip-table th:nth-child(5), .aip-table td:nth-child(5) { display: none; } .aip-foot { flex-direction: column-reverse; } }
+
+/* Artikelväljaren (shared/ArticleCombobox.jsx) */
+.acb-list { position: fixed; z-index: 3000; margin: 0; padding: 6px; list-style: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.14); max-height: 340px; overflow-y: auto; box-sizing: border-box; }
+.acb-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.acb-list li.on { background: var(--bg-muted); }
+.acb-main { display: flex; flex-direction: column; min-width: 0; }
+.acb-main strong { font-size: 13.5px; font-weight: 600; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acb-main small { font-size: 12px; color: var(--text-secondary); }
+.acb-price { flex: none; font-size: 13px; font-weight: 600; color: var(--text-main); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.acb-price small { font-weight: 500; color: var(--text-muted); }

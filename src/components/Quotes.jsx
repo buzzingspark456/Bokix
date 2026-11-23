@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { isVatExempt } from '../utils/vatRegistration';
 import { NavQuotesIcon, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Search, ChevronDown, ChevronRight, Printer, Pencil, Copy, CheckCircle2, XCircle, RotateCcw } from './icons';
 import PaperFit from './shared/PaperFit';
+import ArticleCombobox from './shared/ArticleCombobox';
 import DocSplit from './shared/DocSplit';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
 import { uploadTempMailFile, deleteTempMailFile } from '../utils/fileUpload';
@@ -327,6 +328,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
       description: article.description || row.description,
       price: article.unitPrice ?? row.price,
       vat: vatExempt ? 0 : (article.vatRate ?? row.vat),
+      unit: article.unit ? (article.unit === 'h' ? 'tim' : article.unit) : row.unit,
     } : row));
   };
 
@@ -813,16 +815,14 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
                   return (
                     <div key={i} className="quote-row" style={{ display: 'grid', gridTemplateColumns: '2.2fr 0.8fr 0.8fr 1fr 0.8fr 0.9fr 1.1fr 1fr auto', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
                       <label className="qr-cell qr-desc"><span className="qr-lbl">{t('ui.beskrivning')}</span>
-                      <input type="text" placeholder={t('ui.beskrivning')} style={inputStyle} value={row.description}
-                        list="quote-article-register-list"
-                        onChange={e => updateRow(i, 'description', e.target.value)}
-                        // Väljs en BEFINTLIG artikel ur <datalist>-listan (blur = klart
-                        // att skriva) fylls pris/moms i automatiskt — samma mönster som
-                        // fakturaradens Artikelnr-fält (Invoices.jsx).
-                        onBlur={e => {
-                          const hit = findArticleByDescription(e.target.value);
-                          if (hit) applyArticleToRow(i, hit);
-                        }}
+                      {/* Artikelregistret som förslag (shared/ArticleCombobox):
+                          sök på benämning eller artikelnummer, pris, moms och
+                          enhet fylls i. Skrivs en exakt benämning för hand
+                          fylls de i när fältet lämnas, som förut. */}
+                      <ArticleCombobox articles={articles} placeholder={articles.length ? t('ui.beskrivning_eller_artikel') : t('ui.beskrivning')} style={inputStyle} value={row.description}
+                        onChange={v => updateRow(i, 'description', v)}
+                        onPick={a => applyArticleToRow(i, a)}
+                        inputProps={{ onBlur: e => { const hit = findArticleByDescription(e.target.value); if (hit) applyArticleToRow(i, hit); } }}
                         required />
                       </label>
                       <label className="qr-cell"><span className="qr-lbl">{t('ui.antal')}</span>
@@ -831,7 +831,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
                       </label>
                       <label className="qr-cell"><span className="qr-lbl">{t('ui.enhet')}</span>
                       <select style={inputStyle} value={row.unit} onChange={e => updateRow(i, 'unit', e.target.value)}>
-                        {ROW_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                        {(ROW_UNITS.includes(row.unit) || !row.unit ? ROW_UNITS : [...ROW_UNITS, row.unit]).map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
                       </label>
                       <label className="qr-cell"><span className="qr-lbl">{t('ui.pris_2')}</span>
@@ -869,14 +869,6 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
             </div>
             <button type="button" onClick={addRow} style={{ ...outlineBtnStyle, padding: '6px 12px', fontSize: '12px', marginTop: '4px', marginBottom: '16px' }}>{t('ui.lagg_till_rad_2')}</button>
 
-            {/* Delas av alla radernas Beskrivning-fält ovan (HTML5 <datalist>
-                kräver ett enda, delat id) — samma produktregister som
-                Invoices.jsx, native webbläsarautocomplete. */}
-            <datalist id="quote-article-register-list">
-              {articles.map((a, i) => (
-                <option key={a.id || `${a.description}-${i}`} value={a.description}>{a.description}</option>
-              ))}
-            </datalist>
 
             {/* Summeringsblock — samma "egen lätt bakgrund"-mönster som redan
                 etablerat för fakturans sammanställningsbox (Invoices.jsx). */}
