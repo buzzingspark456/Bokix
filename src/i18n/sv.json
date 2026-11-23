@@ -6012,8 +6012,6 @@
     "failed": "{{count}} underlag gick inte att hämta och står i förteckningen.",
     "error": "Paketet kunde inte skapas. Försök igen, eller skriv till support@bokix.se.",
     "empty": "Det finns ingen bokföring att ta med än.",
-    "cardTitle": "Vill Skatteverket eller en revisor se bokföringen?",
-    "cardText": "Ta fram ett paket med bokföring, verifikationslista och alla underlag för ett år.",
-    "cardCta": "Ta fram underlag"
+    "cardLink": "Skatteverket eller revisor vill se bokföringen? Ta fram underlag"
   }
 }

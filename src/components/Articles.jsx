@@ -119,31 +119,35 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
   const handleImportFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    e.target.value = '';
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const imported = csvToArticles(ev.target.result);
+        // UTF-8 i första hand; annars Windows-1252 (äldre export från andra program).
+        let text;
+        try { text = new TextDecoder('utf-8', { fatal: true }).decode(ev.target.result); }
+        catch { text = new TextDecoder('windows-1252').decode(ev.target.result); }
+        const imported = csvToArticles(text);
         if (imported.length === 0) throw new Error(t('ui.inga_giltiga_rader_hittades_kraver_minst_en_bena'));
+        // Räknas här och inte i setArticles-funktionen: den körs först vid
+        // nästa rendering, så antalen blev 0 i meddelandet.
+        const next = [...articles];
         let added = 0, updated = 0;
-        setArticles(prev => {
-          const next = [...prev];
-          imported.forEach(item => {
-            const num = (item.articleNumber || '').trim().toLowerCase();
-            const idx = num ? next.findIndex(a => (a.articleNumber || '').trim().toLowerCase() === num) : -1;
-            const withId = { id: (idx !== -1 && next[idx].id) || newArticleId(), ...item };
-            if (idx === -1) { next.push(withId); added++; }
-            else { next[idx] = withId; updated++; }
-          });
-          return next;
+        imported.forEach(item => {
+          const num = (item.articleNumber || '').trim().toLowerCase();
+          const idx = num ? next.findIndex(a => (a.articleNumber || '').trim().toLowerCase() === num) : -1;
+          const withId = { id: (idx !== -1 && next[idx].id) || newArticleId(), ...item };
+          if (idx === -1) { next.push(withId); added++; }
+          else { next[idx] = withId; updated++; }
         });
+        setArticles(next);
         setImportMsg({ type: 'success', text: t('ui.ny_uppdaterad', { added, v1: added === 1 ? '' : 'a', updated, v3: updated === 1 ? '' : 'e' }) });
       } catch (err) {
         setImportMsg({ type: 'error', text: t('ui.kunde_inte_importera', { message: err.message }) });
       }
       setTimeout(() => setImportMsg(null), 6000);
     };
-    reader.readAsText(file, 'utf-8');
-    e.target.value = '';
+    reader.readAsArrayBuffer(file);
   };
 
   const save = () => {

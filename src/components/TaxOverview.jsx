@@ -107,17 +107,12 @@ export default function TaxOverview({ items, summary, onOpen, onToggleFiled, vat
         <a className="tax-how-link" href="https://www.skatteverket.se/foretag" target="_blank" rel="noopener noreferrer">
           {t('ui.oppna_skatteverket_se')} <ExternalLink size={13} />
         </a>
+        {onAuthorityPackage && (
+          <button type="button" className="tax-pkg-link" onClick={onAuthorityPackage}>
+            <Download size={14} /> {t('authorityPackage.cardLink')}
+          </button>
+        )}
       </section>
-
-      {onAuthorityPackage && (
-        <section className="tax-ov-card tax-pkg" aria-label={t('authorityPackage.cardTitle')}>
-          <div className="tax-pkg-text">
-            <h3>{t('authorityPackage.cardTitle')}</h3>
-            <p>{t('authorityPackage.cardText')}</p>
-          </div>
-          <button type="button" className="tax-todo-cta" onClick={onAuthorityPackage}><Download size={16} /> {t('authorityPackage.cardCta')}</button>
-        </section>
-      )}
     </div>
   );
 }

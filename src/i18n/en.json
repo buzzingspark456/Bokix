@@ -6012,8 +6012,6 @@
     "failed": "{{count}} documents could not be fetched and are listed in the index.",
     "error": "The package could not be created. Try again, or write to support@bokix.se.",
     "empty": "There is no bookkeeping to include yet.",
-    "cardTitle": "Does the Tax Agency or an auditor want to see the books?",
-    "cardText": "Create a package with the bookkeeping, voucher list and all supporting documents for a year.",
-    "cardCta": "Create package"
+    "cardLink": "Tax Agency or auditor wants to see the books? Create a package"
   }
 }
