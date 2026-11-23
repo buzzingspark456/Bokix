@@ -5,7 +5,8 @@ import ListTable from './shared/ListTable';
 import { AccountSearch } from './shared/SearchInputs';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { showUndo, restoreAt } from './shared/undoToast';
-import { articlesToCsv, csvToArticles, downloadCsv } from '../utils/csvRegister';
+import { articlesToCsv, parseArticleImport, downloadCsv } from '../utils/csvRegister';
+import ArticleImportPreview from './ArticleImportPreview';
 import InventoryNew from './Inventory';
 import InventoryLegacy from './InventoryLegacy';
 import PricingToolNew from './PricingTool';
@@ -93,6 +94,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
   const [search, setSearch] = useState('');
   const [importMsg, setImportMsg] = useState(null);
   const importFileRef = useRef(null);
+  const [importPreview, setImportPreview] = useState(null); // { fileName, imported, skippedInactive }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -127,27 +129,36 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
         let text;
         try { text = new TextDecoder('utf-8', { fatal: true }).decode(ev.target.result); }
         catch { text = new TextDecoder('windows-1252').decode(ev.target.result); }
-        const imported = csvToArticles(text);
+        const { articles: imported, skippedInactive } = parseArticleImport(text);
         if (imported.length === 0) throw new Error(t('ui.inga_giltiga_rader_hittades_kraver_minst_en_bena'));
-        // Räknas här och inte i setArticles-funktionen: den körs först vid
-        // nästa rendering, så antalen blev 0 i meddelandet.
-        const next = [...articles];
-        let added = 0, updated = 0;
-        imported.forEach(item => {
-          const num = (item.articleNumber || '').trim().toLowerCase();
-          const idx = num ? next.findIndex(a => (a.articleNumber || '').trim().toLowerCase() === num) : -1;
-          const withId = { id: (idx !== -1 && next[idx].id) || newArticleId(), ...item };
-          if (idx === -1) { next.push(withId); added++; }
-          else { next[idx] = withId; updated++; }
-        });
-        setArticles(next);
-        setImportMsg({ type: 'success', text: t('ui.ny_uppdaterad', { added, v1: added === 1 ? '' : 'a', updated, v3: updated === 1 ? '' : 'e' }) });
+        // Först en förhandsvisning (ArticleImportPreview), inget sparas än.
+        setImportPreview({ fileName: file.name, imported, skippedInactive });
       } catch (err) {
         setImportMsg({ type: 'error', text: t('ui.kunde_inte_importera', { message: err.message }) });
+        setTimeout(() => setImportMsg(null), 6000);
       }
-      setTimeout(() => setImportMsg(null), 6000);
     };
     reader.readAsArrayBuffer(file);
+  };
+
+  // Uppdaterar (matchar på artikelnr, när satt) om artikeln redan finns,
+  // annars läggs en ny till. Räknas här och inte i en setArticles-funktion,
+  // som körs först vid nästa rendering (antalen blev 0 i meddelandet).
+  const applyImport = (imported) => {
+    const next = [...articles];
+    let added = 0, updated = 0;
+    imported.forEach(item => {
+      const num = (item.articleNumber || '').trim().toLowerCase();
+      const idx = num ? next.findIndex(a => (a.articleNumber || '').trim().toLowerCase() === num) : -1;
+      // Befintlig artikel: fält som filen inte har (lager, bilder m.m.) behålls.
+      const withId = idx !== -1 ? { ...next[idx], ...item, id: next[idx].id || newArticleId() } : { id: newArticleId(), ...item };
+      if (idx === -1) { next.push(withId); added++; }
+      else { next[idx] = withId; updated++; }
+    });
+    setArticles(next);
+    setImportPreview(null);
+    setImportMsg({ type: 'success', text: t('ui.ny_uppdaterad', { added, v1: added === 1 ? '' : 'a', updated, v3: updated === 1 ? '' : 'e' }) });
+    setTimeout(() => setImportMsg(null), 6000);
   };
 
   const save = () => {
@@ -318,6 +329,9 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
         )}
       </ListPageHeader>
       <input type="file" ref={importFileRef} accept=".csv" style={{ display: 'none' }} onChange={handleImportFile} />
+      {importPreview && (
+        <ArticleImportPreview {...importPreview} existing={articles} onConfirm={applyImport} onCancel={() => setImportPreview(null)} />
+      )}
 
       {tab === 'inventory' && setCompanyInfo && (
         <div style={{ flex: 1, overflowY: 'auto' }}>

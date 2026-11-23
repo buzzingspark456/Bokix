@@ -6013,5 +6013,26 @@
     "error": "The package could not be created. Try again, or write to support@bokix.se.",
     "empty": "There is no bookkeeping to include yet.",
     "cardLink": "Tax Agency or auditor wants to see the books? Create a package"
+  },
+  "articleImport": {
+    "title": "Import items",
+    "lead": "{{file}}: {{count}} items. Untick anything you do not want. Nothing is saved until you import.",
+    "skipped": "{{count}} inactive items were skipped.",
+    "new": "new",
+    "updated": "updated",
+    "vatHint": "VAT comes from the file or from the sales account.",
+    "search": "Search the file",
+    "updateExisting": "Update items that already exist (same item number)",
+    "all": "Select all",
+    "number": "Item no.",
+    "name": "Description",
+    "price": "Price",
+    "vat": "VAT",
+    "status": "",
+    "goods": "Goods",
+    "service": "Service",
+    "pillNew": "New",
+    "pillUpdate": "Updated",
+    "confirm": "Import {{count}} items"
   }
 }

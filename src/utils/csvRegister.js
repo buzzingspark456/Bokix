@@ -163,8 +163,14 @@ const ROT_TYPES = /bygg|^el|glas|plåt|mark|mur|måln|tapet|vvs/i;
 const toNumber = (v) => { const s = String(v ?? '').replace(/[\s\u00a0]/g, '').replace(',', '.'); return s === '' ? NaN : Number(s); };
 
 export function csvToArticles(text) {
+  return parseArticleImport(text).articles;
+}
+
+/** Som csvToArticles, och hur många inaktiva rader som hoppades över (förhandsvisningen). */
+export function parseArticleImport(text) {
   const objs = rowsToObjects(parseCsv(text, detectDelimiter(text)), [...ARTICLE_COLUMNS, ...ARTICLE_IMPORT_EXTRA]);
-  return objs
+  const skippedInactive = objs.filter(o => o.description && /^nej$/i.test(o.active)).length;
+  const articles = objs
     // Benämning är den riktiga identiteten (Articles.jsx) — Artikelnr är
     // valfritt numera, så kravet flyttades hit från articleNumber.
     .filter(o => o.description)
@@ -186,4 +192,5 @@ export function csvToArticles(text) {
         purchasePrice: Number.isFinite(purchase) && purchase !== 0 ? purchase : (o.purchasePrice === '' ? '' : 0),
       };
     });
+  return { articles, skippedInactive };
 }

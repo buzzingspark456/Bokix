@@ -6013,5 +6013,26 @@
     "error": "Paketet kunde inte skapas. Försök igen, eller skriv till support@bokix.se.",
     "empty": "Det finns ingen bokföring att ta med än.",
     "cardLink": "Skatteverket eller revisor vill se bokföringen? Ta fram underlag"
+  },
+  "articleImport": {
+    "title": "Importera artiklar",
+    "lead": "{{file}}: {{count}} artiklar. Bocka ur det du inte vill ha med. Inget sparas förrän du importerar.",
+    "skipped": "{{count}} inaktiva artiklar hoppades över.",
+    "new": "nya",
+    "updated": "uppdateras",
+    "vatHint": "Momsen kommer från filen eller från försäljningskontot.",
+    "search": "Sök i filen",
+    "updateExisting": "Uppdatera artiklar som redan finns (samma artikelnummer)",
+    "all": "Markera alla",
+    "number": "Artikelnr",
+    "name": "Benämning",
+    "price": "Pris",
+    "vat": "Moms",
+    "status": "",
+    "goods": "Vara",
+    "service": "Tjänst",
+    "pillNew": "Ny",
+    "pillUpdate": "Uppdateras",
+    "confirm": "Importera {{count}} artiklar"
   }
 }
