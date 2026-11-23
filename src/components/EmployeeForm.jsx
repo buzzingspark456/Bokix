@@ -416,14 +416,6 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
         </div>
       </Section>}
 
-      {show(2) && <Section title={tr('ui.kostnadsstalle')}>
-        <div style={{ maxWidth: 360 }}>
-          <label style={labelStyle}>{tr('ui.kostnadsstalle')}</label>
-          <input value={form.costCenter} onChange={e => set('costCenter', e.target.value)} style={inputBase} />
-        </div>
-        <p style={helpTextStyle}>{tr('ui.foreslas_pa_lonekostnadsrader_vid_bokforing_av_l')}</p>
-      </Section>}
-
       {show(3) && <Section title={tr('ui.bankkonto')}>
         <div className="form-row-2" style={grid2}>
           <div>
