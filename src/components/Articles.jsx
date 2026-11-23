@@ -5,7 +5,7 @@ import ListTable from './shared/ListTable';
 import { AccountSearch } from './shared/SearchInputs';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { showUndo, restoreAt } from './shared/undoToast';
-import { articlesToCsv, parseArticleImport, downloadCsv } from '../utils/csvRegister';
+import { articlesToCsv, parseArticleImport, legacyCsvToArticles, downloadCsv } from '../utils/csvRegister';
 import ArticleImportPreview from './ArticleImportPreview';
 import InventoryNew from './Inventory';
 import InventoryLegacy from './InventoryLegacy';
@@ -114,7 +114,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
   };
   const cancelEdit = () => { setEditing(null); setEditingOriginal(null); };
 
-  const handleExportCsv = () => downloadCsv(`artiklar_${new Date().toISOString().split('T')[0]}.csv`, articlesToCsv(articles));
+  const handleExportCsv = () => downloadCsv(`artiklar_${new Date().toISOString().split('T')[0]}.csv`, articlesToCsv(articles, { legacy: !v2 }));
   const handleImportClick = () => importFileRef.current?.click();
   // Uppdaterar (matchar på artikelnr, när satt) om artikeln redan finns,
   // annars läggs en ny till — rader utan artikelnr i CSV:n blir alltid nya.
@@ -129,7 +129,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
         let text;
         try { text = new TextDecoder('utf-8', { fatal: true }).decode(ev.target.result); }
         catch { text = new TextDecoder('windows-1252').decode(ev.target.result); }
-        const { articles: imported, skippedInactive } = parseArticleImport(text);
+        const { articles: imported, skippedInactive } = v2 ? parseArticleImport(text) : { articles: legacyCsvToArticles(text), skippedInactive: 0 };
         if (imported.length === 0) throw new Error(t('ui.inga_giltiga_rader_hittades_kraver_minst_en_bena'));
         // Först en förhandsvisning (ArticleImportPreview), inget sparas än.
         if (v2) setImportPreview({ fileName: file.name, imported, skippedInactive });

@@ -113,8 +113,11 @@ export function contactsToCsv(type, list) {
   return rowsToCsv(columns.map(([, h]) => h), list.map(item => columns.map(([key]) => item[key])));
 }
 
-export function articlesToCsv(list) {
-  return rowsToCsv(ARTICLE_COLUMNS.map(([, h]) => h), list.map(a => ARTICLE_COLUMNS.map(([key]) => a[key])));
+// legacy: kundernas export som förut, utan leverantör och lagerplats (de nya
+// kolumnerna bara för admin än, 2026-11-23).
+export function articlesToCsv(list, { legacy = false } = {}) {
+  const cols = legacy ? LEGACY_ARTICLE_COLUMNS : ARTICLE_COLUMNS;
+  return rowsToCsv(cols.map(([, h]) => h), list.map(a => cols.map(([key]) => a[key])));
 }
 
 // Matchar CSV-rubriker mot fältnycklar oavsett kolumnordning (saknad rubrik
@@ -166,6 +169,25 @@ const toNumber = (v) => { const s = String(v ?? '').replace(/[\s\u00a0]/g, '').r
 
 export function csvToArticles(text) {
   return parseArticleImport(text).articles;
+}
+
+// Kundernas import som den var före 2026-11-23 (semikolon, Bokix egna
+// rubriker). Fortnox-läsningen ovan är bara för admin än.
+const LEGACY_ARTICLE_COLUMNS = ARTICLE_COLUMNS.slice(0, 12).map(([key, header]) => [key, header]);
+export function legacyCsvToArticles(text) {
+  const objs = rowsToObjects(parseCsv(text), LEGACY_ARTICLE_COLUMNS);
+  return objs
+    .filter(o => o.description)
+    .map(o => {
+      const vatRate = o.vatRate !== '' && [0, 6, 12, 25].includes(Number(o.vatRate)) ? Number(o.vatRate) : 25;
+      const type = o.type === 'vara' ? 'vara' : 'tjanst';
+      const rotRut = ['rot', 'rut'].includes(o.rotRut) ? o.rotRut : 'none';
+      return {
+        ...o, unitPrice: Number(o.unitPrice) || 0, vatRate, account: o.account || '3001',
+        type, unit: o.unit || 'st', rotRut,
+        purchasePrice: o.purchasePrice === '' ? '' : Number(o.purchasePrice) || 0,
+      };
+    });
 }
 
 /** Som csvToArticles, och hur många inaktiva rader som hoppades över (förhandsvisningen). */
