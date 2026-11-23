@@ -5966,5 +5966,27 @@
     "title": "Spread over months",
     "sub": "Spread the amount evenly over several months.",
     "savedToast": "Spread over {{n}} months. Book the months under Accruals."
+  },
+  "empWizard": {
+    "steps": "Steps",
+    "stepPerson": "Personal details",
+    "stepEmployment": "Employment",
+    "stepSalary": "Salary and holiday",
+    "salaryTitle": "Salary",
+    "stepTax": "Tax",
+    "stepSummary": "Summary",
+    "next": "Next",
+    "back": "Back",
+    "stepOf": "Step {{n}} of {{total}}",
+    "edit": "Edit",
+    "name": "Name",
+    "address": "Address",
+    "untilFurther": "Until further notice",
+    "hours": "Working time",
+    "hoursValue": "{{h}} h/week, {{d}} days",
+    "monthly": "Monthly salary {{kr}}",
+    "hourly": "Hourly wage {{kr}}",
+    "missing": "Not filled in",
+    "tableValue": "Table {{nr}}, column {{col}}"
   }
 }

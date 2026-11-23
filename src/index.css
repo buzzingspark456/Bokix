@@ -10926,3 +10926,35 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
   .ut-head-row > div:first-child { width: 100%; }
   .ut-head-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 }
+
+/* Ny anställd i steg (2026-11-22, som Fortnox). */
+.emp-steps { display: flex; align-items: center; gap: 0; list-style: none; margin: 0 0 20px; padding: 0; flex-wrap: wrap; row-gap: 8px; }
+.emp-steps li { display: flex; align-items: center; }
+.emp-steps li + li::before { content: ''; width: 28px; height: 1px; background: var(--border); margin: 0 10px; }
+.emp-steps button { display: inline-flex; align-items: center; gap: 10px; padding: 0; border: none; background: none; font: inherit; color: var(--text-secondary); cursor: default; }
+.emp-steps li.is-done button { cursor: pointer; color: var(--text-main); }
+.emp-steps-n { width: 34px; height: 34px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: var(--bg-card); font-size: 13px; font-weight: 700; color: var(--text-main); flex-shrink: 0; }
+.emp-steps li.is-on .emp-steps-n { background: var(--accent); border-color: var(--accent); color: #fff; }
+.emp-steps li.is-done .emp-steps-n { background: color-mix(in srgb, var(--accent) 14%, var(--bg-card)); border-color: transparent; color: var(--accent); }
+.emp-steps li.is-on .emp-steps-label { color: var(--text-main); font-weight: 600; }
+.emp-steps-label { font-size: 13.5px; }
+.emp-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
+.emp-summary-card { padding: 16px 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); }
+.emp-summary-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.emp-summary-head h3 { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-main); }
+.emp-summary-head button { display: inline-flex; align-items: center; gap: 5px; border: none; background: none; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--accent); cursor: pointer; }
+.emp-summary dl { margin: 0; display: grid; gap: 7px; }
+.emp-summary dl div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.emp-summary dt { color: var(--text-secondary); }
+.emp-summary dd { margin: 0; font-weight: 600; color: var(--text-main); text-align: right; }
+.emp-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.emp-foot-n { font-size: 12.5px; color: var(--text-secondary); }
+.emp-btn { height: 40px; padding: 0 20px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); font: inherit; font-size: 14px; font-weight: 600; color: var(--text-main); cursor: pointer; }
+.emp-btn.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+@media (max-width: 768px) {
+  .emp-steps li + li::before { width: 10px; margin: 0 4px; }
+  .emp-steps-label { display: none; }
+  .emp-steps li.is-on .emp-steps-label { display: inline; }
+  .emp-summary { grid-template-columns: 1fr; }
+  .emp-foot .emp-foot-n { display: none; }
+}

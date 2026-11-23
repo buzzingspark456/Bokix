@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle } from './icons';
+import { AlertTriangle, Check, Pencil } from './icons';
 import { EntitySearch, ProjectSearch } from './shared/SearchInputs';
 import { SWEDISH_MUNICIPALITIES } from '../utils/kommuner';
 import { suggestTaxTables, KOMMUN_SKATTETABELLER_ÅR } from '../utils/kommunSkattetabell';
@@ -52,7 +52,18 @@ function emptyEmployee() {
   };
 }
 
-export default function EmployeeForm({ initial, projects = [], payrollRuns = [], onSave, onCancel }) {
+// Ny anställd i steg (2026-11-22, som Fortnox): Personuppgifter, Anställning,
+// Lön och semester, Skatt, Summering. Samma fält och kontroller som formuläret
+// i ett svep; bara uppdelat. Används för en ny anställd när `wizard` är satt.
+const WIZARD_STEPS = [
+  { n: 1, key: 'stepPerson' }, { n: 2, key: 'stepEmployment' }, { n: 3, key: 'stepSalary' }, { n: 4, key: 'stepTax' }, { n: 5, key: 'stepSummary' },
+];
+const STEP_FIELDS = { 1: ['firstName', 'lastName', 'ssn'], 2: ['startDate'], 3: ['vacationDays', 'iban'], 4: ['municipality', 'taxTable'] };
+
+export default function EmployeeForm({ initial, projects = [], payrollRuns = [], onSave, onCancel, wizard = false }) {
+  const W = wizard && !initial;
+  const [step, setStep] = useState(1);
+  const show = (n) => !W || step === n;
   const [form, setForm] = useState(initial ? { ...emptyEmployee(), ...initial, taxTable: { ...emptyEmployee().taxTable, ...(initial.taxTable || {}) } } : emptyEmployee());
   const [errors, setErrors] = useState({});
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -64,7 +75,7 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
   const vacationSummary = initial ? summarizeVacation({ employee: form, payrollRuns }) : null;
   const setTaxTable = (patch) => setForm(f => ({ ...f, taxTable: { ...f.taxTable, ...patch } }));
 
-  const validate = () => {
+  const validate = (only = null) => {
     const errs = {};
     if (!form.firstName.trim()) errs.firstName = tr('ui.fornamn_kravs');
     if (!form.lastName.trim()) errs.lastName = tr('ui.efternamn_kravs');
@@ -85,24 +96,57 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
     // kontrollsiffrorna faktiskt stämma — annars upptäcks felskrivningen
     // först när betalfilen redan ska genereras, långt senare.
     if (form.iban && !isValidIban(form.iban)) errs.iban = 'IBAN ser inte korrekt ut (fel format eller kontrollsiffror).';
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
+    const keep = only ? Object.fromEntries(Object.entries(errs).filter(([k]) => only.includes(k))) : errs;
+    setErrors(keep);
+    return Object.keys(keep).length === 0;
   };
+  const next = () => { if (validate(STEP_FIELDS[step])) { setStep(st => Math.min(5, st + 1)); window.scrollTo?.({ top: 0 }); } };
+  const back = () => setStep(st => Math.max(1, st - 1));
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (W && step < 5) { next(); return; }
+    if (!validate()) {
+      // Ett fel i ett tidigare steg: gå dit.
+      if (W) setStep(Object.keys(STEP_FIELDS).map(Number).find(n => STEP_FIELDS[n].some(f => validateField(f))) || 1);
+      return;
+    }
     onSave({ ...form, ssn: formatPersonnummerInput(form.ssn) });
   };
 
+  const validateField = (f) => {
+    if (f === 'firstName') return !form.firstName.trim();
+    if (f === 'lastName') return !form.lastName.trim();
+    if (f === 'ssn') return !validatePersonnummer(form.ssn).valid;
+    if (f === 'startDate') return !form.startDate;
+    if (f === 'municipality') return !form.municipality;
+    if (f === 'taxTable') return !form.taxTable.tabellnr;
+    if (f === 'vacationDays') return Number(form.vacationDays) < MIN_VACATION_DAYS;
+    if (f === 'iban') return form.iban && !isValidIban(form.iban);
+    return false;
+  };
   const hasBankInfo = Boolean(form.clearingNumber && form.accountNumber);
+  const typeLabel = EMPLOYMENT_TYPES.find(x => x.id === form.employmentType)?.label || '';
+  const taxLabel = TAX_FORMS.find(x => x.id === form.taxForm)?.label || '';
 
   return (
     <form id="employee-form" onSubmit={handleSubmit}>
       <MobileFormBar>
-        <button type="submit" form="employee-form" className="mform-bar-primary">{tr('ui.spara_anstalld')}</button>
+        <button type="submit" form="employee-form" className="mform-bar-primary">{W && step < 5 ? tr('empWizard.next') : tr('ui.spara_anstalld')}</button>
       </MobileFormBar>
-      <Section title={tr('ui.personuppgifter')}>
+      {W && (
+        <ol className="emp-steps" aria-label={tr('empWizard.steps')}>
+          {WIZARD_STEPS.map(st => (
+            <li key={st.n} className={step === st.n ? 'is-on' : step > st.n ? 'is-done' : ''}>
+              <button type="button" onClick={() => (st.n < step ? setStep(st.n) : null)} disabled={st.n > step} aria-current={step === st.n ? 'step' : undefined}>
+                <span className="emp-steps-n">{step > st.n ? <Check size={14} /> : st.n}</span>
+                <span className="emp-steps-label">{tr(`empWizard.${st.key}`)}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+      {show(1) && <Section title={tr('ui.personuppgifter')}>
         <div className="form-row-3" style={grid3}>
           <div>
             <label style={labelStyle}>{tr('ui.fornamn_2')}</label>
@@ -140,10 +184,11 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
             <input value={form.city} onChange={e => set('city', e.target.value)} style={inputBase} />
           </div>
         </div>
-      </Section>
+      </Section>}
 
-      <Section title={tr('ui.anstallning_och_lon')}>
+      {(show(2) || show(3)) && <Section title={W ? (step === 2 ? tr('empWizard.stepEmployment') : tr('empWizard.salaryTitle')) : tr('ui.anstallning_och_lon')}>
         <div className="form-row-3" style={grid3}>
+          {show(2) && <>
           <div>
             <label style={labelStyle}>{tr('ui.typ')}</label>
             <select value={form.employmentType} onChange={e => set('employmentType', e.target.value)} style={{ ...inputBase, background: 'var(--bg-card)' }}>
@@ -171,6 +216,8 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
             <label style={labelStyle}>{tr('ui.arbetsdagar_per_vecka')}</label>
             <input type="number" min="0" max="7" value={form.daysPerWeek} onChange={e => set('daysPerWeek', Number(e.target.value))} style={inputBase} />
           </div>
+          </>}
+          {show(3) && <>
           <div>
             <label style={labelStyle}>{tr('ui.loneform')}</label>
             <select value={form.salaryForm} onChange={e => { set('salaryForm', e.target.value); set('vacationRule', e.target.value === 'timlon' ? 'procentregeln' : 'sammaloneregeln'); }} style={{ ...inputBase, background: 'var(--bg-card)' }}>
@@ -189,10 +236,11 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
               <p style={helpTextStyle}>{tr('ui.arbetade_timmar_registreras_per_lonekorning_kopp')}</p>
             </div>
           )}
+          </>}
         </div>
-      </Section>
+      </Section>}
 
-      <Section title={tr('ui.skatt')}>
+      {show(4) && <Section title={tr('ui.skatt')}>
         <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>{tr('ui.skatteform')}</label>
@@ -308,9 +356,9 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
             {TAX_TABLE_COLUMNS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
         </div>
-      </Section>
+      </Section>}
 
-      <Section title={tr('ui.semester')}>
+      {show(3) && <Section title={tr('ui.semester')}>
         {vacationSummary && (
           // Kundönskemål: read-only sammanfattning FÖRST i sektionen —
           // samma tal som Semester-fliken (VacationOverview) räknar fram
@@ -366,9 +414,9 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
             <p style={helpTextStyle}>{tr('ui.dagar_fran_tidigare_ar_dagar_over_20_per_ar_far')}</p>
           </div>
         </div>
-      </Section>
+      </Section>}
 
-      <Section title={tr('ui.kostnadsstalle_projekt')}>
+      {show(2) && <Section title={tr('ui.kostnadsstalle_projekt')}>
         <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>{tr('ui.kostnadsstalle')}</label>
@@ -380,9 +428,9 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
           </div>
         </div>
         <p style={helpTextStyle}>{tr('ui.foreslas_pa_lonekostnadsrader_vid_bokforing_av_l')}</p>
-      </Section>
+      </Section>}
 
-      <Section title={tr('ui.bankkonto')}>
+      {show(3) && <Section title={tr('ui.bankkonto')}>
         <div className="form-row-2" style={grid2}>
           <div>
             <label style={labelStyle}>{tr('ui.clearingnummer')}</label>
@@ -417,12 +465,41 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
           </div>
         </div>
         <p style={helpTextStyle}>{tr('ui.kravs_for_att_den_anstallda_ska_tas_med_i_den_ne')}</p>
-      </Section>
+      </Section>}
 
+      {W && step === 5 && (
+        <div className="emp-summary">
+          {[
+            { n: 1, title: tr('empWizard.stepPerson'), rows: [[tr('empWizard.name'), `${form.firstName} ${form.lastName}`.trim()], [tr('ui.personnummer'), form.ssn], [tr('ui.e_post'), form.email], [tr('ui.telefon'), form.phone], [tr('empWizard.address'), [form.address, `${form.postalCode} ${form.city}`.trim()].filter(Boolean).join(', ')]] },
+            { n: 2, title: tr('empWizard.stepEmployment'), rows: [[tr('ui.typ'), typeLabel], [tr('ui.anstallningsdatum'), form.startDate], [tr('ui.slutdatum'), form.endDate || tr('empWizard.untilFurther')], [tr('ui.sysselsattningsgrad'), `${form.employmentRate} %`], [tr('empWizard.hours'), tr('empWizard.hoursValue', { h: form.hoursPerWeek, d: form.daysPerWeek })], [tr('ui.kostnadsstalle'), form.costCenter]] },
+            { n: 3, title: tr('empWizard.stepSalary'), rows: [[tr('ui.loneform'), form.salaryForm === 'manadslon' ? tr('empWizard.monthly', { kr: formatSEK(form.monthlySalary) }) : tr('empWizard.hourly', { kr: formatSEK(form.hourlyRate) })], [tr('ui.semesterdagar_per_ar'), String(form.vacationDays)], [tr('ui.bankkonto'), hasBankInfo ? `${form.clearingNumber} ${form.accountNumber}` : tr('empWizard.missing')]] },
+            { n: 4, title: tr('empWizard.stepTax'), rows: [[tr('ui.skatteform'), taxLabel], [tr('ui.folkbokforingskommun'), form.municipality], [tr('ui.skattetabell'), form.taxTable.tabellnr ? tr('empWizard.tableValue', { nr: form.taxTable.tabellnr, col: form.taxTable.kolumn }) : tr('empWizard.missing')]] },
+          ].map(sec => (
+            <div key={sec.n} className="emp-summary-card">
+              <div className="emp-summary-head">
+                <h3>{sec.title}</h3>
+                <button type="button" onClick={() => setStep(sec.n)}><Pencil size={13} /> {tr('empWizard.edit')}</button>
+              </div>
+              <dl>
+                {sec.rows.filter(([, v]) => v && String(v).trim()).map(([k, v]) => <div key={k}><dt>{String(k).replace(/\s*\*\s*$/, '')}</dt><dd>{v}</dd></div>)}
+              </dl>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {W ? (
+        <div className="mform-foot emp-foot">
+          <button type="button" onClick={step === 1 ? onCancel : back} className="emp-btn">{step === 1 ? tr('ui.avbryt') : tr('empWizard.back')}</button>
+          <span className="emp-foot-n">{tr('empWizard.stepOf', { n: step, total: 5 })}</span>
+          <button type="submit" className="emp-btn primary">{step < 5 ? tr('empWizard.next') : tr('ui.spara_anstalld')}</button>
+        </div>
+      ) : (
       <div className="mform-foot" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
         <button type="button" onClick={onCancel} style={{ padding: '9px 18px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer' }}>{tr('ui.avbryt')}</button>
         <button type="submit" style={{ padding: '9px 18px', background: 'var(--accent)', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'white', cursor: 'pointer' }}>{tr('ui.spara_anstalld')}</button>
       </div>
+      )}
     </form>
   );
 }

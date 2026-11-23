@@ -324,6 +324,7 @@ export default function Payroll({
             payrollRuns={payrollRuns}
             onSave={handleSaveEmployee}
             onCancel={() => { setViewState('list'); setSelectedEmployee(null); }}
+            wizard
           />
         </div>
       )}

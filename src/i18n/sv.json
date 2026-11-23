@@ -5966,5 +5966,27 @@
     "title": "Periodisera",
     "sub": "Fördela beloppet jämnt över flera månader.",
     "savedToast": "Periodiserat över {{n}} månader. Månaderna bokför du under Periodiseringar."
+  },
+  "empWizard": {
+    "steps": "Steg",
+    "stepPerson": "Personuppgifter",
+    "stepEmployment": "Anställning",
+    "stepSalary": "Lön och semester",
+    "salaryTitle": "Lön",
+    "stepTax": "Skatt",
+    "stepSummary": "Summering",
+    "next": "Nästa",
+    "back": "Tillbaka",
+    "stepOf": "Steg {{n}} av {{total}}",
+    "edit": "Ändra",
+    "name": "Namn",
+    "address": "Adress",
+    "untilFurther": "Tills vidare",
+    "hours": "Arbetstid",
+    "hoursValue": "{{h}} h/vecka, {{d}} dagar",
+    "monthly": "Månadslön {{kr}}",
+    "hourly": "Timlön {{kr}}",
+    "missing": "Inte ifyllt",
+    "tableValue": "Tabell {{nr}}, kolumn {{col}}"
   }
 }
