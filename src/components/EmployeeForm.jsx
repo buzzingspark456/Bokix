@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Check, Pencil } from './icons';
-import { EntitySearch, ProjectSearch } from './shared/SearchInputs';
+import { EntitySearch } from './shared/SearchInputs';
 import { SWEDISH_MUNICIPALITIES } from '../utils/kommuner';
 import { suggestTaxTables, KOMMUN_SKATTETABELLER_ÅR } from '../utils/kommunSkattetabell';
 import { kommunSkattesats, KOMMUN_SKATTESATSER_ÅR } from '../utils/kommunSkattesatser';
@@ -416,16 +416,10 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
         </div>
       </Section>}
 
-      {show(2) && <Section title={tr('ui.kostnadsstalle_projekt')}>
-        <div className="form-row-2" style={grid2}>
-          <div>
-            <label style={labelStyle}>{tr('ui.kostnadsstalle')}</label>
-            <input value={form.costCenter} onChange={e => set('costCenter', e.target.value)} style={inputBase} />
-          </div>
-          <div>
-            <label style={labelStyle}>{tr('ui.projekt')}</label>
-            <ProjectSearch value={form.projectId} onChange={v => set('projectId', v)} projects={projects} />
-          </div>
+      {show(2) && <Section title={tr('ui.kostnadsstalle')}>
+        <div style={{ maxWidth: 360 }}>
+          <label style={labelStyle}>{tr('ui.kostnadsstalle')}</label>
+          <input value={form.costCenter} onChange={e => set('costCenter', e.target.value)} style={inputBase} />
         </div>
         <p style={helpTextStyle}>{tr('ui.foreslas_pa_lonekostnadsrader_vid_bokforing_av_l')}</p>
       </Section>}
