@@ -455,21 +455,25 @@ export default function EmployeeForm({ initial, projects = [], payrollRuns = [],
 
       {W && step === 5 && (
         <div className="emp-summary">
+          <h2 className="emp-sum-title">{tr('empWizard.stepSummary')}</h2>
           {[
             { n: 1, title: tr('empWizard.stepPerson'), rows: [[tr('empWizard.name'), `${form.firstName} ${form.lastName}`.trim()], [tr('ui.personnummer'), form.ssn], [tr('ui.e_post'), form.email], [tr('ui.telefon'), form.phone], [tr('empWizard.address'), [form.address, `${form.postalCode} ${form.city}`.trim()].filter(Boolean).join(', ')]] },
-            { n: 2, title: tr('empWizard.stepEmployment'), rows: [[tr('ui.typ'), typeLabel], [tr('ui.anstallningsdatum'), form.startDate], [tr('ui.slutdatum'), form.endDate || tr('empWizard.untilFurther')], [tr('ui.sysselsattningsgrad'), `${form.employmentRate} %`], [tr('empWizard.hours'), tr('empWizard.hoursValue', { h: form.hoursPerWeek, d: form.daysPerWeek })], [tr('ui.kostnadsstalle'), form.costCenter]] },
+            { n: 2, title: tr('empWizard.stepEmployment'), rows: [[tr('ui.typ'), typeLabel], [tr('ui.anstallningsdatum'), form.startDate], [tr('ui.slutdatum'), form.endDate || tr('empWizard.untilFurther')], [tr('ui.sysselsattningsgrad'), `${form.employmentRate} %`], [tr('empWizard.hours'), tr('empWizard.hoursValue', { h: form.hoursPerWeek, d: form.daysPerWeek })]]},
             { n: 3, title: tr('empWizard.stepSalary'), rows: [[tr('ui.loneform'), form.salaryForm === 'manadslon' ? tr('empWizard.monthly', { kr: formatSEK(form.monthlySalary) }) : tr('empWizard.hourly', { kr: formatSEK(form.hourlyRate) })], [tr('ui.semesterdagar_per_ar'), String(form.vacationDays)], [tr('ui.bankkonto'), hasBankInfo ? `${form.clearingNumber} ${form.accountNumber}` : tr('empWizard.missing')]] },
             { n: 4, title: tr('empWizard.stepTax'), rows: [[tr('ui.skatteform'), taxLabel], [tr('ui.folkbokforingskommun'), form.municipality], [tr('ui.skattetabell'), form.taxTable.tabellnr ? tr('empWizard.tableValue', { nr: form.taxTable.tabellnr, col: form.taxTable.kolumn }) : tr('empWizard.missing')]] },
           ].map(sec => (
-            <div key={sec.n} className="emp-summary-card">
-              <div className="emp-summary-head">
+            <section key={sec.n} className="emp-sum-sec">
+              <div className="emp-sum-head">
+                <span className="emp-sum-n">{sec.n}</span>
                 <h3>{sec.title}</h3>
                 <button type="button" onClick={() => setStep(sec.n)}><Pencil size={13} /> {tr('empWizard.edit')}</button>
               </div>
               <dl>
-                {sec.rows.filter(([, v]) => v && String(v).trim()).map(([k, v]) => <div key={k}><dt>{String(k).replace(/\s*\*\s*$/, '')}</dt><dd>{v}</dd></div>)}
+                {sec.rows.filter(([, v]) => v && String(v).trim()).map(([k, v]) => (
+                  <div key={k} className={v === tr('empWizard.missing') ? 'is-missing' : undefined}><dt>{String(k).replace(/\s*\*\s*$/, '').replace(/\s*\(%\)$/, '')}</dt><dd>{v}</dd></div>
+                ))}
               </dl>
-            </div>
+            </section>
           ))}
         </div>
       )}
