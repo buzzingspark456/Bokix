@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, ChevronLeft, ChevronRight, UsersRound, UserCog, CalendarClock, Search, Palmtree, Download, Upload, Landmark } from './icons';
+import { Plus, ChevronLeft, ChevronRight, UsersRound, UserCog, CalendarClock, Search, Palmtree, Download, Upload, Landmark, X } from './icons';
 import EmployeeImportModal from './EmployeeImportModal';
 import FosModal from './FosModal';
 import { downloadCsv } from '../utils/csvRegister';
@@ -71,7 +71,6 @@ export default function Payroll({
   const filteredRuns = yearRuns.map(run => ({ key: run.id, period: run.period, run }));
   // Månaden utan lönekörning visas som ett kort ovanför listan, inte som en
   // tom rad i den (2026-11-22: såg ut som en körning som redan fanns).
-  const missingCurrent = shownYear === thisYear && employees.length > 0 && !yearRuns.some(r => r.period === currentPeriod);
   const runGross = (run) => {
     try {
       return summarizePayrollRun(run.rows.map(row => computeEmployeePayroll(row.employeeSnapshot || {}, row))).gross;
@@ -355,8 +354,12 @@ export default function Payroll({
               marginal (de är fristående kort, inte tabellen), men
               ListTable nedan är nu flush precis som överallt annars. */}
           {showNewRun && (
-            <section className="payroll-newrun" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '20px 24px' }}>
-              <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 800, color: 'var(--text-main)' }}>{t('ui.ny_lonekorning')}</h3>
+            <div className="modal-overlay" onClick={() => setShowNewRun(false)}>
+            <section className="modal-content payroll-newrun" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <span className="modal-title">{t('ui.ny_lonekorning')}</span>
+                <button type="button" className="modal-close" onClick={() => setShowNewRun(false)} aria-label={t('ui.stang')}><X size={18} /></button>
+              </div>
               <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{t('payrollStages.newRunText')}</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
                 <div style={{ flex: '0 1 200px', minWidth: '150px' }}>
@@ -402,20 +405,11 @@ export default function Payroll({
                 <button onClick={handleCreateRun} disabled={activeEmployeesForPeriod.length === 0} style={{ padding: '10px 20px', background: activeEmployeesForPeriod.length ? 'var(--accent)' : 'var(--border)', color: activeEmployeesForPeriod.length ? 'white' : 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: activeEmployeesForPeriod.length ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>{t('payrollStages.createRun')}</button>
               </div>
             </section>
+            </div>
           )}
 
           {/* På telefon står årsväljaren här, så att rubriken inte klipps. */}
           <div className="pay-year-phone">{yearPicker}</div>
-          {missingCurrent && !showNewRun && (
-            <div className="pay-next">
-              <span className="pay-next-ic" aria-hidden="true"><CalendarClock size={18} /></span>
-              <div className="pay-next-text">
-                <strong>{t('payrollYear.nextTitle', { month: monthName(currentPeriod).toLowerCase() })}</strong>
-                <small>{t('payrollYear.nextText', { pay: fmtShortDate(new Date(`${currentPeriod}-25T12:00:00`)), agi: fmtShortDate(agiDueDate(currentPeriod)) })}</small>
-              </div>
-              <button type="button" className="pay-next-btn" onClick={() => openRow({ period: currentPeriod, run: null })}><Plus size={15} /> {t('payrollYear.create')}</button>
-            </div>
-          )}
           <ListTable
             rowKey={r => r.key}
             onRowClick={openRow}
