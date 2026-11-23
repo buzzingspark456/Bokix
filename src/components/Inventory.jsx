@@ -111,6 +111,13 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
   const [listOpen, setListOpen] = useState(false);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  // Varor, Rörelser eller Att beställa (2026-11-23).
+  const [view, setView] = useState('goods');
+  const [moveType, setMoveType] = useState('all');
+  const [moveSearch, setMoveSearch] = useState('');
+  // Inleverans med flera rader: { date, ref, rows: [{ key, articleId, qty, unitCost }] }.
+  const [delivery, setDelivery] = useState(null);
+  const [orderQty, setOrderQty] = useState({});
 
   useEffect(() => {
     if (!detailId) return undefined;
@@ -128,6 +135,11 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
     else next[articleId] = Number(value);
     setSetting({ reorderPoints: next });
   };
+  const articleOf = (id) => goods.find(g => g.id === id);
+  const unitOf = (id) => articleOf(id)?.unit || tr('ui.st');
+  const supplierOf = (id) => articleOf(id)?.supplier || '';
+  const locationOf = (id) => settings.locations?.[id] ?? articleOf(id)?.location ?? '';
+  const setLocation = (articleId, value) => setSetting({ locations: { ...(settings.locations || {}), [articleId]: value } });
 
   const valuation = useMemo(
     () => valuateInventory({ articles, movements, method: settings.method, asOf: closingDate, applyLowestValue: settings.lowestValue }),
@@ -197,6 +209,72 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
     setCountSheet(null);
     setMessage(added.length ? tr('lager.countSaved', { n: added.length }) : tr('lager.countNoChange'));
   };
+
+  // Att beställa: varor på eller under beställningspunkten. Förslaget fyller
+  // upp till två gånger beställningspunkten, samma som stapeln visar som fullt.
+  const orderRows = allRows.filter(r => r.min > 0 && r.qty <= r.min).map(r => {
+    const suggested = Math.max(Math.ceil(r.min * 2 - r.qty), 1);
+    const raw = orderQty[r.articleId];
+    return { ...r, supplier: supplierOf(r.articleId), suggested, orderQty: raw === undefined ? suggested : raw };
+  });
+  const orderGroups = [...orderRows.reduce((m, r) => {
+    const k = r.supplier || '';
+    if (!m.has(k)) m.set(k, []);
+    m.get(k).push(r);
+    return m;
+  }, new Map())].sort((a, b) => (a[0] ? 0 : 1) - (b[0] ? 0 : 1) || a[0].localeCompare(b[0], 'sv'));
+  const orderTotal = orderRows.reduce((sum, r) => sum + (Number(String(r.orderQty).replace(',', '.')) || 0) * (r.unitCost || 0), 0);
+  const downloadOrderCsv = () => {
+    const esc = (v) => { const t = String(v ?? ''); return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+    const lines = [[tr('lager.colSupplier'), tr('lager.colNumber'), tr('ui.vara'), tr('lager.inStock'), tr('lager.reorderPoint'), tr('lager.colOrder'), tr('lager.colUnit'), tr('lager.unitCost')].join(';')];
+    orderRows.forEach(r => lines.push([r.supplier, r.articleNumber, r.description, fmtQty(r.qty), fmtQty(r.min), r.orderQty, r.unit, r.unitCost ? fmt(r.unitCost) : ''].map(esc).join(';')));
+    const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `bestallning_${todayIso()}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const deliveryRow = (articleId = '', qty = '') => ({ key: newId(), articleId, qty, unitCost: articleId ? (articleOf(articleId)?.purchasePrice ?? '') : '' });
+  const startDelivery = (prefill, ref = '') => {
+    setDelivery({ date: todayIso(), ref, rows: prefill && prefill.length ? prefill : [deliveryRow(), deliveryRow()] });
+    setError('');
+  };
+  const setDeliveryRow = (key, patch) => setDelivery(d => ({ ...d, rows: d.rows.map(x => {
+    if (x.key !== key) return x;
+    const next = { ...x, ...patch };
+    if (patch.articleId !== undefined && patch.articleId !== x.articleId) next.unitCost = articleOf(patch.articleId)?.purchasePrice ?? '';
+    return next;
+  }) }));
+  const num = (v) => Number(String(v ?? '').replace(/\s/g, '').replace(',', '.'));
+  const deliveryLines = delivery ? delivery.rows.filter(x => x.articleId || x.qty !== '') : [];
+  const deliveryTotal = deliveryLines.reduce((sum, x) => sum + (num(x.qty) || 0) * (num(x.unitCost) || 0), 0);
+  const saveDelivery = () => {
+    if (deliveryLines.length === 0) return setError(tr('lager.deliveryEmpty'));
+    const bad = deliveryLines.find(x => !x.articleId || !(num(x.qty) > 0) || !(num(x.unitCost) >= 0) || x.unitCost === '');
+    if (bad) return setError(tr('lager.deliveryRowError'));
+    if (lockedFor(delivery.date)) return setError(tr('ui.rakenskapsaret_ar_last', { v0: lockedFor(delivery.date) }));
+    const note = delivery.ref.trim() || undefined;
+    saveMovements([...manualMovements, ...deliveryLines.map(x => ({
+      id: newId(), articleId: x.articleId, type: 'in', date: delivery.date, qty: num(x.qty), unitCost: num(x.unitCost), note,
+    }))]);
+    setMessage(deliveryLines.length === 1 ? tr('lager.deliverySavedOne') : tr('lager.deliverySaved', { n: deliveryLines.length }));
+    setDelivery(null); setError('');
+    if (view === 'order') setOrderQty({});
+  };
+  const receiveOrder = (group) => startDelivery(group.filter(r => num(r.orderQty) > 0).map(r => deliveryRow(r.articleId, String(r.orderQty))), group[0]?.supplier || '');
+
+  // Rörelser: alla lagerhändelser, nyaste först.
+  const moveRows = useMemo(() => {
+    const q2 = moveSearch.trim().toLowerCase();
+    const byId = new Map(goods.map(g => [g.id, g]));
+    return movements
+      .filter(m => moveType === 'all' || m.type === moveType)
+      .map(m => ({ m, g: byId.get(m.articleId) }))
+      .filter(({ m, g }) => !q2 || `${g?.description || ''} ${g?.articleNumber || ''} ${m.note || ''}`.toLowerCase().includes(q2))
+      .sort((a, b) => String(b.m.date).localeCompare(String(a.m.date)) || String(b.m.id).localeCompare(String(a.m.id)));
+  }, [movements, moveType, moveSearch, goods]);
 
   const exportLines = valuation.lines.filter(l => l.qty > 0).map(l => ({ ...l, unit: goods.find(g => g.id === l.articleId)?.unit || 'st' }));
   const exportArgs = { company, date: closingDate, methodName: settings.method === 'fifo' ? 'FIFO' : tr('lager.methodAvg'), account: kind.stockAccount, lines: exportLines, total: valuation.bookValue, writeDown: valuation.writeDown };
@@ -276,7 +354,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
               <span className="lg-act-sep" aria-hidden="true" />
               <button type="button" className="agi-btn" onClick={openCountSheet}><ClipboardCheck size={14} /> {tr('lager.typeCount')}</button>
               <button type="button" className="agi-btn" onClick={() => startMovement('out')}><PackageMinus size={14} /> {tr('lager.typeOut')}</button>
-              <button type="button" className="agi-btn primary" onClick={() => startMovement('in')}><Plus size={14} /> {tr('lager.typeIn')}</button>
+              <button type="button" className="agi-btn primary" onClick={() => startDelivery()}><Plus size={14} /> {tr('lager.typeIn')}</button>
             </>}
           </>}
         >
@@ -308,7 +386,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
               {lowRows.map(r => (
                 <TaskRow key={r.articleId} icon={Truck} onClick={() => setDetailId(r.articleId)}
                   title={tr('lager.lowTitle', { name: r.description })}
-                  detail={tr('lager.lowDetail', { qty: fmtQty(r.qty), min: fmtQty(r.min) })}>
+                  detail={tr('lager.lowDetail', { qty: fmtQty(r.qty), min: fmtQty(r.min), unit: r.unit })}>
                   <button type="button" className="agi-btn" onClick={() => startMovement('in', r.articleId)}>{tr('lager.typeIn')}</button>
                 </TaskRow>
               ))}
@@ -335,8 +413,14 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
           ) : (
             <>
               <div className="ws-listbar" style={{ marginTop: 0 }}>
-                <span className="ws-listbar-title">{tr('lager.goods')}</span>
-                <div className="lg-listtools">
+                <div className="lg-views" role="tablist">
+                  {[['goods', tr('lager.goods'), goods.length], ['moves', tr('lager.viewMoves'), movements.length], ['order', tr('lager.viewOrder'), orderRows.length]].map(([id, label, n]) => (
+                    <button key={id} type="button" role="tab" aria-selected={view === id} className={view === id ? 'on' : ''} onClick={() => setView(id)}>
+                      {label}{n > 0 && <span className={`lg-count${id === 'order' ? ' warn' : ''}`}>{n}</span>}
+                    </button>
+                  ))}
+                </div>
+                {view === 'goods' && <div className="lg-listtools">
                   {goods.length > 5 && (
                     <div className="lg-search">
                       <Search size={14} aria-hidden="true" />
@@ -348,9 +432,85 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                       <button key={id} type="button" className={filter === id ? 'on' : ''} onClick={() => setFilter(id)}>{label}<span className="lg-count">{n}</span></button>
                     ))}
                   </div>
-                </div>
+                </div>}
+                {view === 'moves' && (
+                  <div className="lg-listtools">
+                    <div className="lg-search">
+                      <Search size={14} aria-hidden="true" />
+                      <input type="text" className="ws-input" placeholder={tr('lager.searchMoves')} value={moveSearch} onChange={e => setMoveSearch(e.target.value)} />
+                    </div>
+                    <div className="ws-seg">
+                      {[['all', tr('accr.filterAll')], ['in', tr('lager.typeIn')], ['out', tr('lager.typeOut')], ['count', tr('lager.typeCount')]].map(([id, label]) => (
+                        <button key={id} type="button" className={moveType === id ? 'on' : ''} onClick={() => setMoveType(id)}>{label}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {view === 'order' && orderRows.length > 0 && (
+                  <div className="lg-listtools">
+                    <button type="button" className="agi-btn" onClick={downloadOrderCsv}><Download size={14} /> {tr('lager.orderCsv')}</button>
+                  </div>
+                )}
               </div>
-              {rows.length === 0 ? (
+              {view === 'moves' ? (
+                moveRows.length === 0 ? <p className="ws-hint" style={{ padding: '12px 0' }}>{tr('lager.noMoves')}</p> : (
+                  <div className="lg-moves">
+                    <div className="lg-move head" aria-hidden="true">
+                      <span>{tr('ui.datum')}</span><span>{tr('ui.vara')}</span><span>{tr('lager.colType')}</span><span className="r">{tr('lager.colQty')}</span><span className="r">{tr('lager.colPrice')}</span><span />
+                    </div>
+                    {moveRows.map(({ m, g }) => (
+                      <div key={m.id} className={`lg-move is-${m.type}`}>
+                        <span className="lg-move-date">{formatShort(m.date)}</span>
+                        <button type="button" className="lg-move-name" onClick={() => g && setDetailId(g.id)}>
+                          <strong>{g?.description || tr('lager.removedGood')}</strong>
+                          <small>{[g?.articleNumber, m.note, m.source === 'invoice' && m.invoiceNumber ? tr('ui.faktura', { invoiceNumber: m.invoiceNumber }) : null].filter(Boolean).join(' · ') || ' '}</small>
+                        </button>
+                        <span className="lg-move-type">{movementLabel(m)}</span>
+                        <span className={`r lg-move-qty ${m.type}`}>{m.type === 'out' ? '−' : m.type === 'count' ? '= ' : '+'}{fmtQty(m.qty)} <small>{g?.unit || tr('ui.st')}</small></span>
+                        <span className="r lg-move-price">{m.type === 'in' && m.unitCost != null ? `${fmt(m.unitCost)} kr` : ''}</span>
+                        <span className="r">{m.source === 'invoice'
+                          ? <span className="lg-d-auto">{tr('ui.automatiskt')}</span>
+                          : <button type="button" className="ws-icon-btn" title={tr('ui.ta_bort')} aria-label={tr('ui.ta_bort')} onClick={() => removeMovement(m)}><Trash2 size={14} /></button>}</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : view === 'order' ? (
+                orderRows.length === 0 ? (
+                  <div className="lg-order-empty">
+                    <strong>{tr('lager.orderEmptyTitle')}</strong>
+                    <p>{allRows.some(r => r.min > 0) ? tr('lager.orderEmptyText') : tr('lager.orderNoMin')}</p>
+                  </div>
+                ) : (
+                  <div className="lg-order">
+                    {orderGroups.map(([supplier, group]) => (
+                      <section key={supplier || '_none'} className="lg-order-group">
+                        <div className="lg-order-head">
+                          <div>
+                            <h3>{supplier || tr('lager.noSupplier')}</h3>
+                            <small>{group.length === 1 ? tr('lager.orderOne') : tr('lager.orderMany', { n: group.length })}</small>
+                          </div>
+                          <button type="button" className="agi-btn primary" onClick={() => receiveOrder(group)}><Truck size={14} /> {tr('lager.receiveOrder')}</button>
+                        </div>
+                        {group.map(r => (
+                          <div key={r.articleId} className="lg-order-row">
+                            <button type="button" className="lg-move-name" onClick={() => setDetailId(r.articleId)}>
+                              <strong>{r.description}</strong>
+                              <small>{[r.articleNumber, tr('lager.orderHave', { qty: fmtQty(r.qty), min: fmtQty(r.min), unit: r.unit })].filter(Boolean).join(' · ')}</small>
+                            </button>
+                            <div className="ws-input-suffix lg-order-qty">
+                              <input className="ws-input" inputMode="decimal" value={r.orderQty} aria-label={`${tr('lager.colOrder')} ${r.description}`} onChange={e => setOrderQty(o => ({ ...o, [r.articleId]: e.target.value }))} />
+                              <span>{r.unit}</span>
+                            </div>
+                            <span className="r lg-move-price">{r.unitCost > 0 ? fmtKr((num(r.orderQty) || 0) * r.unitCost) : '–'}</span>
+                          </div>
+                        ))}
+                      </section>
+                    ))}
+                    <p className="lg-order-total">{tr('lager.orderTotal')} <b>{fmtKr(orderTotal)}</b></p>
+                  </div>
+                )
+              ) : rows.length === 0 ? (
                 <p className="ws-hint" style={{ padding: '12px 0' }}>{tr('lager.noMatch')}</p>
               ) : (
                 <div className="lg-rows">
@@ -365,7 +525,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                           <strong>{r.description}</strong>
                           {r.shortfall > 0
                             ? <small className="lg-issue">{tr('lager.shortfall', { n: fmtQty(r.shortfall) })}</small>
-                            : <small>{[r.articleNumber, r.layers.length > 1 ? tr('lager.batchCount', { n: r.layers.length }) : null].filter(Boolean).join(' · ') || ' '}</small>}
+                            : <small>{[r.articleNumber, locationOf(r.articleId) ? tr('lager.locationShort', { loc: locationOf(r.articleId) }) : null, r.layers.length > 1 ? tr('lager.batchCount', { n: r.layers.length }) : null].filter(Boolean).join(' · ') || ' '}</small>}
                         </span>
                       </span>
                       <span className="lg-row-stock">
@@ -405,7 +565,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                 <span className="lg-avatar lg" aria-hidden="true">{initial(detail.description)}</span>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <h2 className="wsp-title" style={{ fontSize: '19px' }}>{detail.description}</h2>
-                  <p className="wsp-sub">{[detail.articleNumber, methodName].filter(Boolean).join(' · ')}</p>
+                  <p className="wsp-sub">{[detail.articleNumber, supplierOf(detail.articleId), methodName].filter(Boolean).join(' · ')}</p>
                 </div>
                 {statusPill(detail)}
                 <button type="button" className="modal-close" onClick={() => setDetailId(null)} aria-label={tr('ui.stang')}><X size={18} /></button>
@@ -446,6 +606,14 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                     <input id="lg-min" type="number" min="0" className="ws-input" placeholder="0" value={detail.min || ''} onChange={e => setReorderPoint(detail.articleId, e.target.value)} />
                     <span>{detail.unit}</span>
                   </div>
+                </section>
+
+                <section className="lg-d-card lg-d-min">
+                  <div>
+                    <h3><label htmlFor="lg-loc">{tr('lager.location')}</label></h3>
+                    <p>{tr('lager.locationHint')}</p>
+                  </div>
+                  <input id="lg-loc" className="ws-input" style={{ width: '140px', flexShrink: 0 }} placeholder={tr('lager.locationPlaceholder')} value={locationOf(detail.articleId)} onChange={e => setLocation(detail.articleId, e.target.value)} />
                 </section>
 
                 {detail.layers.length > 0 && (
@@ -499,6 +667,51 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
           </div>
         );
       })()}
+
+      {/* Inleverans med flera rader (2026-11-23): en leverans från en
+          leverantör blir en händelse per vara med samma datum och följesedel. */}
+      {delivery && (
+        <div className="modal-overlay" onClick={() => setDelivery(null)}>
+          <div className="modal-content lg-delivery" style={{ maxWidth: '760px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2 className="modal-title">{tr('lager.typeIn')}</h2>
+                <p className="wsp-sub">{tr('lager.deliverySub')}</p>
+              </div>
+              <button type="button" className="modal-close" onClick={() => setDelivery(null)} aria-label={tr('ui.stang')}><X size={18} /></button>
+            </div>
+            <div className="ws-grid2" style={{ marginBottom: '14px' }}>
+              <div><label className="ws-label" htmlFor="lg-dl-date">{tr('ui.datum')}</label><input id="lg-dl-date" type="date" className="ws-input" value={delivery.date} onChange={e => setDelivery(d => ({ ...d, date: e.target.value }))} /></div>
+              <div><label className="ws-label" htmlFor="lg-dl-ref">{tr('lager.deliveryRef')}</label><input id="lg-dl-ref" className="ws-input" placeholder={tr('lager.deliveryRefPlaceholder')} value={delivery.ref} onChange={e => setDelivery(d => ({ ...d, ref: e.target.value }))} /></div>
+            </div>
+            <div className="lg-dl-rows">
+              <div className="lg-dl-row head" aria-hidden="true"><span>{tr('ui.vara')}</span><span className="r">{tr('lager.colQty')}</span><span className="r">{tr('lager.colCost')}</span><span className="r">{tr('lager.colSum')}</span><span /></div>
+              {delivery.rows.map(x => (
+                <div key={x.key} className="lg-dl-row">
+                  <select className="ws-input" value={x.articleId} onChange={e => setDeliveryRow(x.key, { articleId: e.target.value })} aria-label={tr('ui.vara')}>
+                    <option value="">{tr('lager.pickGood')}</option>
+                    {goods.map(g => <option key={g.id} value={g.id}>{g.articleNumber ? `${g.articleNumber} · ` : ''}{g.description}</option>)}
+                  </select>
+                  <div className="ws-input-suffix"><input className="ws-input" inputMode="decimal" placeholder="0" value={x.qty} onChange={e => setDeliveryRow(x.key, { qty: e.target.value })} aria-label={tr('lager.colQty')} /><span>{x.articleId ? unitOf(x.articleId) : ''}</span></div>
+                  <div className="ws-input-suffix"><input className="ws-input" inputMode="decimal" placeholder="0" value={x.unitCost} onChange={e => setDeliveryRow(x.key, { unitCost: e.target.value })} aria-label={tr('lager.colCost')} /><span>kr</span></div>
+                  <span className="r lg-dl-sum">{num(x.qty) > 0 && num(x.unitCost) >= 0 ? fmtKr(num(x.qty) * num(x.unitCost)) : ''}</span>
+                  <button type="button" className="ws-icon-btn" aria-label={tr('ui.ta_bort')} title={tr('ui.ta_bort')} onClick={() => setDelivery(d => ({ ...d, rows: d.rows.length > 1 ? d.rows.filter(y => y.key !== x.key) : [deliveryRow()] }))}><Trash2 size={14} /></button>
+                </div>
+              ))}
+            </div>
+            <div className="lg-dl-foot">
+              <button type="button" className="agi-btn" onClick={() => setDelivery(d => ({ ...d, rows: [...d.rows, deliveryRow()] }))}><Plus size={14} /> {tr('lager.addRow')}</button>
+              <span>{tr('lager.deliveryTotal')} <b>{fmtKr(deliveryTotal)}</b></span>
+            </div>
+            <p className="ws-hint" style={{ marginTop: '10px' }}>{tr('lager.deliveryHint')}</p>
+            {error && <p className="ws-hint" style={{ color: 'var(--status-red-text)' }}>{error}</p>}
+            <div className="modal-footer">
+              <button type="button" className="agi-btn" onClick={() => setDelivery(null)}>{tr('ui.avbryt')}</button>
+              <button type="button" className="agi-btn primary" onClick={saveDelivery}>{deliveryLines.length > 1 ? tr('lager.saveDeliveryN', { n: deliveryLines.length }) : tr('lager.saveDelivery')}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Inköp att lägga in: välj vara och antal, styckpriset räknas ut. */}
       {purchaseOpen && (
@@ -631,7 +844,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                 <div><label className="ws-label">{tr('ui.datum')}</label><input type="date" className="ws-input" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} /></div>
                 <div>
                   <label className="ws-label">{form.type === 'count' ? tr('lager.countedQty') : tr('ui.antal')}</label>
-                  <div className="ws-input-suffix"><input type="number" step="any" min="0" className="ws-input" value={form.qty} autoFocus onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} /><span>{tr('ui.st')}</span></div>
+                  <div className="ws-input-suffix"><input type="number" step="any" min="0" className="ws-input" value={form.qty} autoFocus onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} /><span>{unitOf(form.articleId)}</span></div>
                 </div>
               </div>
               {form.type === 'in' && (

@@ -100,9 +100,11 @@ const ARTICLE_COLUMNS = [
   ['type', 'Typ', ['Typ av artikel']], ['unit', 'Enhet'],
   ['purchasePrice', 'Inköpspris', ['Kalkylkostnad']], ['ean', 'EAN/streckkod', ['EAN']], ['rotRut', 'ROT/RUT'],
   ['descriptionEn', 'Benämning (engelska)'], ['notes', 'Anteckningar', ['Anteckning']],
+  // Lagret (2026-11-23): leverantör för beställningsförslaget och lagerplats.
+  ['supplier', 'Leverantörsnamn'], ['location', 'Lagerplats'],
 ];
 // Bara vid import (exporteras inte): Fortnox kolumner för aktiv och husarbete.
-const ARTICLE_IMPORT_EXTRA = [['active', 'Aktiv'], ['houseWork', 'Husarbete'], ['houseWorkType', 'Typ av husarbete']];
+const ARTICLE_IMPORT_EXTRA = [['active', 'Aktiv'], ['houseWork', 'Husarbete'], ['houseWorkType', 'Typ av husarbete'], ['manufacturer', 'Tillverkare']];
 
 const contactColumns = (type) => (type === 'customer' ? CUSTOMER_COLUMNS : SUPPLIER_COLUMNS);
 
@@ -176,7 +178,9 @@ export function parseArticleImport(text) {
     .filter(o => o.description)
     // Inaktiva artiklar i Fortnox följer inte med.
     .filter(o => !/^nej$/i.test(o.active))
-    .map(({ active, houseWork, houseWorkType, ...o }) => {
+    .map(({ active, houseWork, houseWorkType, manufacturer, supplier: _s, location, ...o }) => {
+      // Fortnox: leverantörsnamnet saknas ofta, då står namnet under Tillverkare.
+      const supplier = _s || (/^\d{6}-?\d{4}$/.test(manufacturer || '') ? '' : manufacturer) || '';
       const account = /^\d{4}$/.test(o.account) ? o.account : '3001';
       // Tom moms: från kontot, annars 25 %. Inte Number('') === 0.
       const given = toNumber(o.vatRate);
@@ -190,6 +194,7 @@ export function parseArticleImport(text) {
         ...o, unitPrice: Number.isFinite(price) ? price : 0, vatRate, account,
         type, unit: o.unit || 'st', rotRut,
         purchasePrice: Number.isFinite(purchase) && purchase !== 0 ? purchase : (o.purchasePrice === '' ? '' : 0),
+        ...(supplier ? { supplier } : {}), ...(location ? { location } : {}),
       };
     });
   return { articles, skippedInactive };
