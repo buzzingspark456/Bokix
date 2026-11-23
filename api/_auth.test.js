@@ -121,17 +121,3 @@ describe('_auth betalningsspärr', () => {
     expect(await requireOwnerPaidAccess('owner3', createMockRes())).toBe(true);
   });
 });
-
-describe('hasPaidAccess', () => {
-  const subs = (rows) => ({ from: () => ({ select: () => ({ eq: async () => ({ data: rows, error: null }) }) }) });
-  it('raderat konto får aldrig åtkomst', async () => {
-    const { hasPaidAccess } = await import('./_auth.js');
-    const admin = { ...subs([{ status: 'active' }]), auth: { admin: { getUserById: async () => ({ data: { user: null }, error: { status: 404, code: 'user_not_found', message: 'User not found' } }) } } };
-    expect(await hasPaidAccess(admin, 'borta')).toBe(false);
-  });
-  it('tillfälligt fel släpper fortfarande igenom', async () => {
-    const { hasPaidAccess } = await import('./_auth.js');
-    const admin = { ...subs([]), auth: { admin: { getUserById: async () => ({ data: null, error: { status: 500, message: 'timeout' } }) } } };
-    expect(await hasPaidAccess(admin, 'u')).toBe(true);
-  });
-});

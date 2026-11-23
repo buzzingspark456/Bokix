@@ -775,7 +775,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
 
       {/* Räkenskapsår + nästa nummer + valuta, som en informationsrad */}
       <div className="ver-more" style={{ display: 'flex', alignItems: 'center', gap: '18px', fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '18px', flexWrap: 'wrap' }}>
-        <span>{tr('ui.rakenskapsar_2')} <strong style={{ color: 'var(--text-main)' }}>{(date || '').slice(0, 4) || new Date().getFullYear()}</strong></span>
+        <span>{tr('ui.rakenskapsar_2')} <strong style={{ color: 'var(--text-main)' }}>{tr('ui.rakenskapsar')} {(date || '').slice(0, 4) || new Date().getFullYear()}</strong> <strong style={{ color: 'var(--text-main)' }}>{previewNumber}</strong></span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           {tr('ui.valuta')}
           <select disabled title={tr('ui.bokix_stodjer_i_dagslaget_bara_sek_ingen_valutao')} style={{ padding: '3px 8px', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '12px', color: 'var(--text-main)', background: 'var(--bg-muted)', fontFamily: 'inherit' }}>
