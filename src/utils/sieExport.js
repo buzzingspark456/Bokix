@@ -13,7 +13,9 @@ import { computeLedger, fiscalYearBounds, companyFiscalYearSetting } from './rep
 // INNEVARANDE kalenderår istället för företagets faktiska `fiscalYear`.
 // Landningssidans FAQ och prissidan påstår redan idag "SIE4-export — din
 // bokföring är alltid din" — ett påstående som inte varit sant förrän nu.
-export function generateSIE4(company, accounts, verifications) {
+const localMidnight = (iso) => { const [y, m, d] = String(iso).split('-').map(Number); return new Date(y, m - 1, d); };
+
+export function generateSIE4(company, accounts, verifications, { from = null, to = null } = {}) {
   const currentDate = new Date().toISOString().split('T')[0].replace(/-/g, '');
   const orgNr = company?.orgNr ? company.orgNr.replace(/\D/g, '') : '';
   const cName = company?.name || 'Okänt Företag';
@@ -34,7 +36,12 @@ export function generateSIE4(company, accounts, verifications) {
   // Räkenskapsår — företagets EGNA fiscalYear (samma helper som resten av
   // appens rapporter redan använder för att räkna ut aktuellt
   // räkenskapsårs start/slut), inte alltid innevarande kalenderår.
-  const { start: rarStart, end: rarEnd } = fiscalYearBounds(companyFiscalYearSetting(company), new Date());
+  // Med from/to (paketet till Skatteverket, 2026-11-23): just det året, med
+  // ingående balanser från allt som bokförts före och bara årets verifikationer.
+  const bounds = from && to
+    ? { start: localMidnight(from), end: localMidnight(to) }
+    : fiscalYearBounds(companyFiscalYearSetting(company), new Date());
+  const { start: rarStart, end: rarEnd } = bounds;
   const fmt = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   sieString += `#RAR 0 ${fmt(rarStart)} ${fmt(rarEnd)}\r\n`;
 
@@ -63,6 +70,7 @@ export function generateSIE4(company, accounts, verifications) {
   // #VER {serie} {nummer} {datum YYYYMMDD} "{beskrivning}"
   verifications.forEach(ver => {
     if ((ver.status || 'booked') === 'draft') return; // utkast är inte bokförda och exporteras inte
+    if (from && to && (String(ver.date).slice(0, 10) < from || String(ver.date).slice(0, 10) > to)) return;
     const verDate = ver.date.replace(/-/g, '');
     const vNum = ver.number.replace(/\D/g, ''); // Extract numeric part of ver number
     const series = seriesOfVerification(ver);

@@ -5991,5 +5991,29 @@
   },
   "payrollRun": {
     "openEmployee": "Öppna {{name}}"
+  },
+  "authorityPackage": {
+    "title": "Underlag till Skatteverket eller revisor",
+    "lead": "Ett paket med allt som brukar efterfrågas när Skatteverket eller en revisor vill granska bokföringen. Du laddar ner det och skickar det själv på det sätt de ber om. Bokix skickar inget.",
+    "year": "Period",
+    "readme": "Läs mig",
+    "readmeText": "Förklarar vad som finns i paketet, för vilket företag och vilken period.",
+    "sie": "Bokföringen som SIE4",
+    "sieText": "Alla verifikationer med ingående och utgående balanser. Kan läsas in i de flesta bokförings- och revisionsprogram.",
+    "list": "Verifikationslista i Excel",
+    "listText": "Alla verifikationer rad för rad och en summering per konto.",
+    "underlag": "Alla underlag",
+    "underlagText": "Kvitton och fakturor döpta efter verifikationen, med en förteckning som visar om något saknas.",
+    "missing": "{{count}} verifikationer saknar underlag. Du kan ladda ner ändå, de står i förteckningen.",
+    "download": "Ladda ner paket",
+    "building": "Skapar paketet…",
+    "fetching": "Hämtar underlag {{done}} av {{total}}",
+    "done": "Klart. {{vers}} verifikationer och {{files}} underlag finns i paketet under dina hämtade filer.",
+    "failed": "{{count}} underlag gick inte att hämta och står i förteckningen.",
+    "error": "Paketet kunde inte skapas. Försök igen, eller skriv till support@bokix.se.",
+    "empty": "Det finns ingen bokföring att ta med än.",
+    "cardTitle": "Vill Skatteverket eller en revisor se bokföringen?",
+    "cardText": "Ta fram ett paket med bokföring, verifikationslista och alla underlag för ett år.",
+    "cardCta": "Ta fram underlag"
   }
 }

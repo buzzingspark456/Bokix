@@ -6130,6 +6130,7 @@ function App() {
             onNavigateToTab={handleNavTabChange}
             initialSection={taxesInitialSection}
             contacts={contacts}
+            authorityPackage={newUnderlagOn ? { documents: currentCompany.documents || [], projects } : null}
           />
         );
       case 'invoices':

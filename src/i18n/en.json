@@ -5991,5 +5991,29 @@
   },
   "payrollRun": {
     "openEmployee": "Open {{name}}"
+  },
+  "authorityPackage": {
+    "title": "Records for the Tax Agency or auditor",
+    "lead": "A package with everything usually requested when the Tax Agency or an auditor reviews the books. You download it and send it yourself the way they ask. Bokix sends nothing.",
+    "year": "Period",
+    "readme": "Read me",
+    "readmeText": "Explains what the package contains, for which company and period.",
+    "sie": "Bookkeeping as SIE4",
+    "sieText": "All vouchers with opening and closing balances. Can be imported into most accounting and audit software.",
+    "list": "Voucher list in Excel",
+    "listText": "All vouchers row by row and a summary per account.",
+    "underlag": "All supporting documents",
+    "underlagText": "Receipts and invoices named after the voucher, with an index showing anything missing.",
+    "missing": "{{count}} vouchers have no supporting document. You can still download, they are listed in the index.",
+    "download": "Download package",
+    "building": "Creating the package…",
+    "fetching": "Fetching documents {{done}} of {{total}}",
+    "done": "Done. {{vers}} vouchers and {{files}} documents are in the package in your downloads.",
+    "failed": "{{count}} documents could not be fetched and are listed in the index.",
+    "error": "The package could not be created. Try again, or write to support@bokix.se.",
+    "empty": "There is no bookkeeping to include yet.",
+    "cardTitle": "Does the Tax Agency or an auditor want to see the books?",
+    "cardText": "Create a package with the bookkeeping, voucher list and all supporting documents for a year.",
+    "cardCta": "Create package"
   }
 }

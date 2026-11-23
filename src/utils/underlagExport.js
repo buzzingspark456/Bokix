@@ -58,7 +58,9 @@ const asDate = (iso) => { const [y, m, d] = String(iso).split('-').map(Number); 
  * att byta ut i test). Filer som inte går att hämta står i förteckningen.
  * Returnerar { zip: Uint8Array, fileCount, failed }.
  */
-export async function buildUnderlagZip(verifications, range, { XLSX, fetchFile, onProgress, documents = [] } = {}) {
+// folder: lägger underlagen i en mapp ("Underlag/"). extraFiles: fler filer
+// först i zip:en (paketet till Skatteverket, utils/authorityPackage.js).
+export async function buildUnderlagZip(verifications, range, { XLSX, fetchFile, onProgress, documents = [], folder = '', extraFiles = [] } = {}) {
   const collected = collectUnderlag(verifications, range);
   const index = collected.index;
   // Underlag som inte kopplats till någon verifikation än (utils/looseDocuments.js)
@@ -76,7 +78,7 @@ export async function buildUnderlagZip(verifications, range, { XLSX, fetchFile, 
     onProgress?.(i + 1, files.length);
     try {
       const data = await fetchFile(f.url);
-      zipFiles.push({ name: f.fileName, data });
+      zipFiles.push({ name: folder + f.fileName, data });
       rows.push({ number: f.number, date: f.date, description: f.description, file: f.fileName, status: 'Bifogad' });
     } catch {
       failed += 1;
@@ -93,9 +95,9 @@ export async function buildUnderlagZip(verifications, range, { XLSX, fetchFile, 
       ],
       rows: all.map(r => ({ ...r, date: asDate(r.date) })),
     }]);
-    zipFiles.unshift({ name: 'Forteckning.xlsx', data: new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })) });
+    zipFiles.unshift({ name: `${folder}Forteckning.xlsx`, data: new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' })) });
   }
-  return { zip: createZip(zipFiles), fileCount: files.length - failed, failed, missing: index.filter(r => r.status === 'Saknar underlag').length };
+  return { zip: createZip([...extraFiles, ...zipFiles]), fileCount: files.length - failed, failed, missing: index.filter(r => r.status === 'Saknar underlag').length };
 }
 
 /** Webbläsarversionen: hämtar via signerade länkar och laddar ner zip:en. */

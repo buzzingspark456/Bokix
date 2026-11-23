@@ -10965,3 +10965,26 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
   .emp-summary dl div { grid-template-columns: 130px minmax(0, 1fr); }
   .emp-foot .emp-foot-n { display: none; }
 }
+
+/* Underlag till Skatteverket eller revisor (AuthorityPackageModal.jsx) */
+.ap-lead { margin: 0 0 16px; font-size: 13.5px; line-height: 1.6; color: var(--text-secondary); }
+.ap-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 6px; }
+.ap-select { width: 100%; max-width: 260px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card); color: var(--text-main); font: inherit; font-size: 14px; }
+.ap-list { list-style: none; margin: 18px 0 0; padding: 0; border: 1px solid var(--border); border-radius: 12px; }
+.ap-list li { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; }
+.ap-list li + li { border-top: 1px solid var(--border); }
+.ap-list strong { display: block; font-size: 13.5px; color: var(--text-main); }
+.ap-list small { display: block; margin-top: 2px; font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+.ap-ic { flex: none; width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--bg-muted, rgba(127,127,127,.1)); color: var(--text-secondary); }
+.ap-note, .ap-done { display: flex; gap: 8px; align-items: flex-start; margin-top: 14px; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.5; }
+.ap-note { background: var(--status-amber-bg); color: var(--status-amber-text); }
+.ap-done { background: var(--status-green-bg, rgba(22,163,74,.1)); color: var(--status-green-text, #166534); }
+.ap-note svg, .ap-done svg { flex: none; margin-top: 2px; }
+.ap-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.ap-foot .emp-btn { display: inline-flex; align-items: center; gap: 6px; }
+.ap-foot .emp-btn:disabled { opacity: .6; cursor: wait; }
+@media (max-width: 600px) { .ap-foot { flex-direction: column-reverse; } .ap-foot .emp-btn { justify-content: center; } .ap-select { max-width: none; } }
+.tax-pkg { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.tax-pkg-text { flex: 1; min-width: 220px; }
+.tax-pkg-text h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--text-main); }
+.tax-pkg-text p { margin: 4px 0 0; font-size: 13px; line-height: 1.55; color: var(--text-secondary); }

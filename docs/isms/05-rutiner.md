@@ -148,3 +148,31 @@ Om Supabase eller Vercel ligger nere länge:
    miljövariablerna i Vercel.
 4. Om en grundare blir otillgänglig har den andra åtkomst till allt via det
    delade valvet (Å13).
+
+## Begäran från myndighet
+
+Skatteverket gör revision hos den som är bokföringsskyldig
+(skatteförfarandelagen 41 kap. 3 §), alltså hos kunden. Kunden tar själv fram
+allt under Skatt och bokslut → Underlag till Skatteverket eller revisor
+(SIE4, verifikationslista, alla underlag och en läs mig-fil). Det är det
+vanliga fallet och det vi hänvisar till.
+
+Om en myndighet (Skatteverket, polis, Ekobrottsmyndigheten, Kronofogden)
+vänder sig direkt till Bokix och vill ha en kunds uppgifter:
+1. Kräv begäran skriftligt. Lämna aldrig ut något per telefon eller till en
+   adress vi inte själva har kontrollerat.
+2. Kontrollera att begäran är äkta: ring myndighetens växel (numret från
+   myndighetens egen webbplats, inte från begäran) och fråga efter
+   handläggaren.
+3. Be om lagstödet (paragraf och beslut). Är det oklart om vi är skyldiga
+   att lämna ut något: fråga en jurist innan något lämnas ut.
+4. Berätta för kunden, om inte myndigheten skriftligt förbjudit det med
+   stöd i lag. Föreslå i första hand att kunden själv lämnar paketet.
+5. Lämna bara det som efterfrågas: rätt företag, rätt period, rätt slags
+   uppgifter. Inget annat konto, inga andra företag.
+6. Logga i registret (06-register.md): datum, myndighet, handläggare,
+   lagstöd, vad som lämnades ut, hur och om kunden informerades.
+
+Öppen fråga (2026-11-23): om Skatteverket genom föreläggande kan kräva
+kunduppgifter direkt från en molntjänst som Bokix är inte utrett. Ta det med
+juristen (se rekommendationer att göra senare).
