@@ -7,6 +7,8 @@ import {
   STOCK_ACCOUNT_KINDS, valuateInventory, ledgerBalanceAt, buildInventoryVerification, deriveInvoiceMovements, findPurchaseLines,
 } from '../utils/inventory';
 import { downloadInventoryListPdf, downloadInventoryListCsv } from '../utils/inventoryListPdf';
+import { nextPoNumber, poStatus, poTotal, onOrderByArticle, receivePo, matchPurchaseOrder, rowRemaining } from '../utils/purchaseOrders';
+import PurchaseOrderModal, { PO_STATUS_PILL } from './PurchaseOrderModal';
 import { t as tr } from '../i18n';
 import { numberFormat } from '../utils/intlCache';
 import './workspace.css';
@@ -96,6 +98,9 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
   );
   const movements = useMemo(() => [...manualMovements, ...invoiceMovements], [manualMovements, invoiceMovements]);
   const lockedFor = (date) => lockedPeriodFor(date, company?.lockedFiscalYears);
+  // Inköpsorder (utils/purchaseOrders.js), sparade på företaget.
+  const purchaseOrders = useMemo(() => company?.purchaseOrders || [], [company?.purchaseOrders]);
+  const onOrder = useMemo(() => onOrderByArticle(purchaseOrders), [purchaseOrders]);
   const goods = articles.filter(a => a.type === 'vara' && a.id);
   const palette = usePalette(company);
 
@@ -118,6 +123,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
   // Inleverans med flera rader: { date, ref, rows: [{ key, articleId, qty, unitCost }] }.
   const [delivery, setDelivery] = useState(null);
   const [orderQty, setOrderQty] = useState({});
+  const [poOpen, setPoOpen] = useState(null);
 
   useEffect(() => {
     if (!detailId) return undefined;
@@ -128,6 +134,23 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
 
   const setSetting = (patch) => setCompanyInfo(prev => ({ ...prev, inventorySettings: { ...settings, ...(prev.inventorySettings || {}), ...patch } }));
   const saveMovements = (next) => setCompanyInfo(prev => ({ ...prev, stockMovements: next }));
+  const savePo = (po) => setCompanyInfo(prev => {
+    const list = prev.purchaseOrders || [];
+    return { ...prev, purchaseOrders: list.some(x => x.id === po.id) ? list.map(x => (x.id === po.id ? po : x)) : [...list, po] };
+  });
+  const deletePo = (po) => setCompanyInfo(prev => ({ ...prev, purchaseOrders: (prev.purchaseOrders || []).filter(x => x.id !== po.id) }));
+  // Tar emot på en order: inleveranser och orderns mottagna antal sparas i samma ändring.
+  const receiveOnPo = (po, { date, amounts, link }) => {
+    if (lockedFor(date)) { setMessage(tr('ui.rakenskapsaret_ar_last', { v0: lockedFor(date) })); return; }
+    const res = receivePo(po, { date, amounts, newId });
+    const nextPo = link ? { ...res.po, ...link } : res.po;
+    setCompanyInfo(prev => ({
+      ...prev,
+      stockMovements: [...(prev.stockMovements || []), ...res.movements],
+      purchaseOrders: (prev.purchaseOrders || []).map(x => (x.id === po.id ? nextPo : x)),
+    }));
+    setMessage(res.movements.length === 1 ? tr('po.receivedMsgOne', { number: po.number }) : tr('po.receivedMsg', { number: po.number, n: res.movements.length }));
+  };
   const toggleFromInvoices = (on) => setSetting({ stockFromInvoices: on, stockFromInvoicesSince: on ? (settings.stockFromInvoicesSince || todayIso()) : settings.stockFromInvoicesSince });
   const setReorderPoint = (articleId, value) => {
     const next = { ...(settings.reorderPoints || {}) };
@@ -179,6 +202,19 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
     () => (goods.length ? findPurchaseLines({ expenses, articles, movements: manualMovements, ignored: settings.ignoredPurchases || [], since: purchasesSince }) : []),
     [expenses, articles, manualMovements, settings.ignoredPurchases, purchasesSince, goods.length],
   );
+  const linkedExpenses = new Set(purchaseOrders.map(po => po.matchedExpenseId).filter(Boolean));
+  const visiblePurchases = purchases.filter(l => !linkedExpenses.has(l.expenseId));
+  const expenseById = new Map((expenses || []).map(e => [e.id, e]));
+  const matchFor = (line) => matchPurchaseOrder(purchaseOrders, expenseById.get(line.expenseId));
+  const linkExpense = (line, match) => {
+    const e = expenseById.get(line.expenseId);
+    const label = [e?.supplier, e?.invoiceNumber || e?.receiptNumber, line.date].filter(Boolean).join(' · ');
+    const link = { matchedExpenseId: line.expenseId, matchedExpenseLabel: label };
+    if (poStatus(match.po) === 'received') savePo({ ...match.po, ...link });
+    else receiveOnPo(match.po, { date: line.date, amounts: null, link });
+  };
+  // Rutan stängs när det inte finns något kvar att lägga in.
+  useEffect(() => { if (purchaseOpen && visiblePurchases.length === 0) setPurchaseOpen(false); }, [purchaseOpen, visiblePurchases.length]);
   const draftFor = (line) => purchaseDraft[line.key] || { articleId: line.suggestedArticleId || '', qty: '' };
   const setDraft = (line, patch) => setPurchaseDraft(d => ({ ...d, [line.key]: { ...draftFor(line), ...patch } }));
   const receivePurchase = (line) => {
@@ -212,8 +248,8 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
 
   // Att beställa: varor på eller under beställningspunkten. Förslaget fyller
   // upp till två gånger beställningspunkten, samma som stapeln visar som fullt.
-  const orderRows = allRows.filter(r => r.min > 0 && r.qty <= r.min).map(r => {
-    const suggested = Math.max(Math.ceil(r.min * 2 - r.qty), 1);
+  const orderRows = allRows.filter(r => r.min > 0 && r.qty + (onOrder.get(r.articleId)?.qty || 0) <= r.min).map(r => {
+    const suggested = Math.max(Math.ceil(r.min * 2 - r.qty - (onOrder.get(r.articleId)?.qty || 0)), 1);
     const raw = orderQty[r.articleId];
     return { ...r, supplier: supplierOf(r.articleId), suggested, orderQty: raw === undefined ? suggested : raw };
   });
@@ -262,6 +298,13 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
     setMessage(deliveryLines.length === 1 ? tr('lager.deliverySavedOne') : tr('lager.deliverySaved', { n: deliveryLines.length }));
     setDelivery(null); setError('');
     if (view === 'order') setOrderQty({});
+  };
+  const createPo = (group, supplier) => {
+    const po = {
+      id: newId(), number: nextPoNumber(purchaseOrders), supplier: supplier || '', date: todayIso(), expectedDate: '',
+      rows: (group && group.length ? group.filter(r => num(r.orderQty) > 0).map(r => ({ key: newId(), articleId: r.articleId, description: r.description, qty: String(r.orderQty), unitCost: r.unitCost || articleOf(r.articleId)?.purchasePrice || '', unit: r.unit, received: 0 })) : [{ key: newId(), articleId: '', qty: '', unitCost: '' }]),
+    };
+    setPoOpen(po);
   };
   const receiveOrder = (group) => startDelivery(group.filter(r => num(r.orderQty) > 0).map(r => deliveryRow(r.articleId, String(r.orderQty))), group[0]?.supplier || '');
 
@@ -367,11 +410,11 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
             ]} />
           )}
 
-          {(purchases.length > 0 || lowRows.length > 0 || issueRows.length > 0 || (valuation.lines.length > 0 && closing && !alreadyBooked)) && (
+          {(visiblePurchases.length > 0 || lowRows.length > 0 || issueRows.length > 0 || (valuation.lines.length > 0 && closing && !alreadyBooked)) && (
             <div className="ws-tasks">
-              {purchases.length > 0 && (
+              {visiblePurchases.length > 0 && (
                 <TaskRow icon={Inbox} tone="brand" onClick={() => setPurchaseOpen(true)}
-                  title={purchases.length === 1 ? tr('lager.purchasesOne') : tr('lager.purchasesMany', { n: purchases.length })}
+                  title={visiblePurchases.length === 1 ? tr('lager.purchasesOne') : tr('lager.purchasesMany', { n: visiblePurchases.length })}
                   detail={tr('lager.purchasesDetail')}>
                   <span className="agi-btn">{tr('lager.receive')}</span>
                 </TaskRow>
@@ -414,7 +457,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
             <>
               <div className="ws-listbar" style={{ marginTop: 0 }}>
                 <div className="lg-views" role="tablist">
-                  {[['goods', tr('lager.goods'), goods.length], ['moves', tr('lager.viewMoves'), movements.length], ['order', tr('lager.viewOrder'), orderRows.length]].map(([id, label, n]) => (
+                  {[['goods', tr('lager.goods'), goods.length], ['moves', tr('lager.viewMoves'), movements.length], ['order', tr('po.tab'), orderRows.length + purchaseOrders.filter(po => ['draft', 'ordered', 'partial'].includes(poStatus(po))).length]].map(([id, label, n]) => (
                     <button key={id} type="button" role="tab" aria-selected={view === id} className={view === id ? 'on' : ''} onClick={() => setView(id)}>
                       {label}{n > 0 && <span className={`lg-count${id === 'order' ? ' warn' : ''}`}>{n}</span>}
                     </button>
@@ -476,7 +519,30 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                   </div>
                 )
               ) : view === 'order' ? (
-                orderRows.length === 0 ? (
+                <>
+                {purchaseOrders.length > 0 && (
+                  <section className="po-list">
+                    <h3 className="po-list-title">{tr('po.listTitle')}</h3>
+                    {[...purchaseOrders].sort((a, b) => ({ partial: 0, ordered: 1, draft: 2, received: 3, cancelled: 4 }[poStatus(a)] - { partial: 0, ordered: 1, draft: 2, received: 3, cancelled: 4 }[poStatus(b)]) || String(b.date).localeCompare(String(a.date))).map(po => {
+                      const st = poStatus(po);
+                      const got = (po.rows || []).reduce((s, r) => s + (Number(r.received) || 0), 0);
+                      const all = (po.rows || []).reduce((s, r) => s + (Number(r.qty) || 0), 0);
+                      return (
+                        <button key={po.id} type="button" className={`po-item is-${st}`} onClick={() => setPoOpen(po)}>
+                          <span className="po-item-main">
+                            <strong>{po.supplier || tr('lager.noSupplier')}</strong>
+                            <small>{[po.number, po.date, st === 'ordered' || st === 'partial' ? (po.expectedDate ? tr('po.expectedShort', { date: formatShort(po.expectedDate) }) : null) : null, po.matchedExpenseId ? tr('po.invoiceLinked') : null].filter(Boolean).join(' · ')}</small>
+                          </span>
+                          {(st === 'partial' || st === 'ordered') && all > 0 && <span className="po-item-prog"><span className="pz-track"><span style={{ width: `${Math.round((got / all) * 100)}%` }} /></span><small>{tr('po.progress', { got: fmtQty(got), all: fmtQty(all) })}</small></span>}
+                          <span className="po-item-sum">{fmtKr(poTotal(po))}</span>
+                          <span className={`agi-pill ${PO_STATUS_PILL[st]}`}>{tr(`po.status_${st}`)}</span>
+                        </button>
+                      );
+                    })}
+                  </section>
+                )}
+                {orderRows.length > 0 && <h3 className="po-list-title">{tr('po.suggestions')}</h3>}
+                {orderRows.length === 0 ? (purchaseOrders.length > 0 ? null :
                   <div className="lg-order-empty">
                     <strong>{tr('lager.orderEmptyTitle')}</strong>
                     <p>{allRows.some(r => r.min > 0) ? tr('lager.orderEmptyText') : tr('lager.orderNoMin')}</p>
@@ -490,7 +556,10 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                             <h3>{supplier || tr('lager.noSupplier')}</h3>
                             <small>{group.length === 1 ? tr('lager.orderOne') : tr('lager.orderMany', { n: group.length })}</small>
                           </div>
-                          <button type="button" className="agi-btn primary" onClick={() => receiveOrder(group)}><Truck size={14} /> {tr('lager.receiveOrder')}</button>
+                          <span className="po-group-actions">
+                            <button type="button" className="agi-btn" onClick={() => receiveOrder(group)}>{tr('lager.receiveOrder')}</button>
+                            <button type="button" className="agi-btn primary" onClick={() => createPo(group, supplier)}>{tr('po.create')}</button>
+                          </span>
                         </div>
                         {group.map(r => (
                           <div key={r.articleId} className="lg-order-row">
@@ -509,7 +578,9 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                     ))}
                     <p className="lg-order-total">{tr('lager.orderTotal')} <b>{fmtKr(orderTotal)}</b></p>
                   </div>
-                )
+                )}
+                <div className="po-new"><button type="button" className="agi-btn" onClick={() => createPo(null, '')}><Plus size={14} /> {tr('po.new')}</button></div>
+                </>
               ) : rows.length === 0 ? (
                 <p className="ws-hint" style={{ padding: '12px 0' }}>{tr('lager.noMatch')}</p>
               ) : (
@@ -525,7 +596,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                           <strong>{r.description}</strong>
                           {r.shortfall > 0
                             ? <small className="lg-issue">{tr('lager.shortfall', { n: fmtQty(r.shortfall) })}</small>
-                            : <small>{[r.articleNumber, locationOf(r.articleId) ? tr('lager.locationShort', { loc: locationOf(r.articleId) }) : null, r.layers.length > 1 ? tr('lager.batchCount', { n: r.layers.length }) : null].filter(Boolean).join(' · ') || ' '}</small>}
+                            : <small>{[r.articleNumber, onOrder.get(r.articleId) ? tr('po.onOrderShort', { qty: fmtQty(onOrder.get(r.articleId).qty) }) : null, locationOf(r.articleId) ? tr('lager.locationShort', { loc: locationOf(r.articleId) }) : null, r.layers.length > 1 ? tr('lager.batchCount', { n: r.layers.length }) : null].filter(Boolean).join(' · ') || ' '}</small>}
                         </span>
                       </span>
                       <span className="lg-row-stock">
@@ -585,7 +656,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                 )}
 
                 <Overview items={[
-                  { key: 'qty', label: tr('lager.inStock'), value: `${fmtQty(detail.qty)} ${detail.unit}`, sub: detail.min ? tr('lager.minShort', { n: fmtQty(detail.min) }) : tr('lager.noMin'), tone: detail.status === 'out' ? 'bad' : detail.status === 'low' ? 'warn' : undefined },
+                  { key: 'qty', label: tr('lager.inStock'), value: `${fmtQty(detail.qty)} ${detail.unit}`, sub: onOrder.get(detail.articleId) ? tr('po.onOrderLong', { qty: fmtQty(onOrder.get(detail.articleId).qty), date: onOrder.get(detail.articleId).expectedDate ? formatShort(onOrder.get(detail.articleId).expectedDate) : '–' }) : detail.min ? tr('lager.minShort', { n: fmtQty(detail.min) }) : tr('lager.noMin'), tone: detail.status === 'out' ? 'bad' : detail.status === 'low' ? 'warn' : undefined },
                   { key: 'value', label: tr('ui.varde'), value: fmtKr(detail.bookValue), sub: tr('lager.costEach', { price: fmt(detail.unitCost) }) },
                   { key: 'price', label: tr('lager.salePrice'), value: detail.salePrice > 0 ? `${fmt(detail.salePrice)} kr` : '—', sub: margin != null ? tr('lager.marginIs', { n: String(margin).replace('.', ',') }) : tr('lager.noPrice') },
                 ]} />
@@ -668,6 +739,20 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
         );
       })()}
 
+      {poOpen && (
+        <PurchaseOrderModal
+          key={poOpen.id}
+          initial={poOpen}
+          goods={goods}
+          company={company}
+          suppliers={[...new Set([...goods.map(g => g.supplier).filter(Boolean), ...purchaseOrders.map(x => x.supplier).filter(Boolean)])].sort((a, b) => a.localeCompare(b, 'sv'))}
+          onSave={savePo}
+          onDelete={purchaseOrders.some(x => x.id === poOpen.id) ? deletePo : null}
+          onReceive={(po, args) => receiveOnPo(po, args)}
+          onClose={() => setPoOpen(null)}
+        />
+      )}
+
       {/* Inleverans med flera rader (2026-11-23): en leverans från en
           leverantör blir en händelse per vara med samma datum och följesedel. */}
       {delivery && (
@@ -724,10 +809,11 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
               </div>
               <button type="button" className="modal-close" onClick={() => setPurchaseOpen(false)}><X size={18} /></button>
             </div>
-            {purchases.length === 0 ? <p className="ws-hint">{tr('lager.purchasesNone')}</p> : (
+            {visiblePurchases.length === 0 ? <p className="ws-hint">{tr('lager.purchasesNone')}</p> : (
               <div className="lg-purchases">
-                {purchases.map(line => {
+                {visiblePurchases.map(line => {
                   const d = draftFor(line);
+                  const match = matchFor(line);
                   const q = Number(String(d.qty).replace(',', '.'));
                   return (
                     <div key={line.key} className="lg-purchase">
@@ -738,6 +824,15 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                         </div>
                         <b>{fmt(line.net)} kr</b>
                       </div>
+                      {match && (
+                        <div className={`po-match${match.sure ? ' sure' : ''}`}>
+                          <span>
+                            <strong>{tr('po.matchTitle', { number: match.po.number })}</strong>
+                            <small>{match.diff === 0 ? tr('po.matchSame', { total: fmt(match.total) }) : tr('po.matchDiff', { total: fmt(match.total), diff: `${match.diff > 0 ? '+' : '−'}${fmt(Math.abs(match.diff))}` })}{` ${tr(poStatus(match.po) === 'received' ? 'po.matchReceived' : poStatus(match.po) === 'partial' ? 'po.matchPartial' : 'po.matchNotReceived')}`}</small>
+                          </span>
+                          <button type="button" className="agi-btn primary" onClick={() => linkExpense(line, match)}>{poStatus(match.po) === 'received' ? tr('po.link') : tr('po.receiveAndLink')}</button>
+                        </div>
+                      )}
                       <div className="lg-purchase-form">
                         <select className="ws-input" value={d.articleId} onChange={ev => setDraft(line, { articleId: ev.target.value })} aria-label={tr('ui.vara')}>
                           <option value="">{tr('lager.pickGood')}</option>
