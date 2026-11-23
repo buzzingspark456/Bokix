@@ -5494,6 +5494,17 @@ function App() {
   const handleSaveEmployee = (employeeId, data) => {
     if (employeeId) {
       setEmployees(prev => prev.map(e => e.id === employeeId ? { ...e, ...data } : e));
+      // Lönekörningar som inte räknats än får ändringen direkt (bankkonto,
+      // lön, skattetabell), samma regel som handleApplyFos: en räknad
+      // körning ändras aldrig i efterhand.
+      const current = employees.find(e => e.id === employeeId);
+      if (current) {
+        const updated = { ...current, ...data };
+        setPayrollRuns(prev => prev.map(r => (r.completedSteps.includes('calculated') || !r.rows.some(row => row.employeeId === employeeId) ? r : {
+          ...r,
+          rows: r.rows.map(row => (row.employeeId === employeeId ? { ...row, employeeSnapshot: payrollSnapshot(updated, r) } : row)),
+        })));
+      }
     } else {
       setEmployees(prev => [...prev, { ...data, id: `emp_${Date.now()}` }]);
     }

@@ -5988,5 +5988,8 @@
     "hourly": "Hourly wage {{kr}}",
     "missing": "Not filled in",
     "tableValue": "Table {{nr}}, column {{col}}"
+  },
+  "payrollRun": {
+    "openEmployee": "Open {{name}}"
   }
 }

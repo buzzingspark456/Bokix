@@ -595,7 +595,7 @@ export function VerificationBlock({ title, rows, accounts }) {
   );
 }
 
-export default function PayrollRunDetail({ run, previousRun, allRuns = [], outlays = [], onSyncBeforeServerCall, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onDelete, onUpdateRow, onUpdateRun, onRefreshSnapshots }) {
+export default function PayrollRunDetail({ run, previousRun, allRuns = [], outlays = [], onSyncBeforeServerCall, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onDelete, onUpdateRow, onUpdateRun, onRefreshSnapshots, onOpenEmployee }) {
   const isPhone = useIsMobileViewport();
   // Fakturans logga på lönebeskeden, hämtad en gång som PNG.
   const [payslipLogo, setPayslipLogo] = useState(null);
@@ -910,7 +910,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
       {(stage === 'calculated' || stage === 'paid') && missingBankInfo.length > 0 && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '10px', padding: '10px 14px', margin: '14px 0 0', fontSize: '13px', color: 'var(--status-amber-text)' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span>{missingBankInfo.length} {missingBankInfo.length === 1 ? tr('ui.anstalld_saknar') : tr('ui.anstallda_saknar')} {tr('ui.clearing_kontonummer_och_kommer_inte_att_inklude')}</span>
+          <span>{missingBankInfo.length} {missingBankInfo.length === 1 ? tr('ui.anstalld_saknar') : tr('ui.anstallda_saknar')} {tr('ui.clearing_kontonummer_och_kommer_inte_att_inklude')}{onOpenEmployee && (<span style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>{missingBankInfo.map(r => (<button key={r.row.employeeId} type="button" onClick={() => onOpenEmployee(r.row.employeeId)} style={{ padding: '4px 10px', border: '1px solid currentColor', borderRadius: '6px', background: 'transparent', color: 'inherit', font: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}>{tr('payrollRun.openEmployee', { name: `${r.row.employeeSnapshot?.firstName || ''} ${r.row.employeeSnapshot?.lastName || ''}`.trim() })}</button>))}</span>)}</span>
         </div>
       )}
 

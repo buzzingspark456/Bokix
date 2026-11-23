@@ -26,12 +26,14 @@ export default function Payroll({
   payrollRuns = [], onCreateRun, onUpdateRunRow, onUpdateRun, onAdvanceRunStep, onBookRun, onMarkRunPaid, onDeleteRun, onRefreshRunSnapshots, agiReports = [],
   outlays = [],
 }) {
-  const [activeTab, setActiveTab] = useState('employees');
+  const [activeTab, setActiveTab] = useState(() => (employees.length > 0 ? 'runs' : 'employees'));
   const [search, setSearch] = useState('');
   const [runYear, setRunYear] = useState(new Date().getFullYear());
   const [viewState, setViewState] = useState('list'); // 'list' | 'new' | 'edit'
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [selectedRunId, setSelectedRunId] = useState(null);
+  // Öppnad från en lönekörning: Spara och Tillbaka går tillbaka dit.
+  const [returnRunId, setReturnRunId] = useState(null);
 
   const [showNewRun, setShowNewRun] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -49,8 +51,12 @@ export default function Payroll({
 
   const handleSaveEmployee = (data) => {
     onSaveEmployee(viewState === 'edit' ? selectedEmployee.id : null, data);
+    closeEmployeeForm();
+  };
+  const closeEmployeeForm = () => {
     setViewState('list');
     setSelectedEmployee(null);
+    if (returnRunId) { setActiveTab('runs'); setSelectedRunId(returnRunId); setReturnRunId(null); }
   };
 
   const sortedRuns = [...payrollRuns].sort((a, b) => b.period.localeCompare(a.period));
@@ -141,6 +147,7 @@ export default function Payroll({
         onUpdateRow={(employeeId, patch) => onUpdateRunRow(selectedRun.id, employeeId, patch)}
         onUpdateRun={(patch) => onUpdateRun?.(selectedRun.id, patch)}
         onRefreshSnapshots={() => onRefreshRunSnapshots?.(selectedRun.id, employees)}
+        onOpenEmployee={(id) => { const emp = employees.find(e => e.id === id); if (!emp) return; setReturnRunId(selectedRun.id); setSelectedRunId(null); setActiveTab('employees'); setSelectedEmployee(emp); setViewState('edit'); }}
       />
     );
   }
@@ -185,15 +192,15 @@ export default function Payroll({
         }
         tabs={{
           items: [
-            { id: 'employees', label: t('ui.anstallda'), icon: UserCog },
             { id: 'runs', label: t('ui.lonekorningar'), icon: CalendarClock },
+            { id: 'employees', label: t('ui.anstallda'), icon: UserCog },
             // Semestersaldon hör hemma bredvid lönekörningarna och inte inne
             // i en enskild anställd: frågan "hur mycket semester ligger vi på"
             // är en företagsfråga (och en balanspost), inte en personalfråga.
             { id: 'vacation', label: t('ui.semester'), icon: Palmtree },
           ],
           activeId: activeTab,
-          onChange: (id) => { setActiveTab(id); setViewState('list'); setSelectedEmployee(null); },
+          onChange: (id) => { setActiveTab(id); setViewState('list'); setSelectedEmployee(null); setReturnRunId(null); },
         }}
       />
       {/* Sökfältet ligger kvar i samma kort som resten av sidhuvudet
@@ -312,7 +319,7 @@ export default function Payroll({
         <div className="mform-page" style={{ padding: '24px' }}>
           <MobileFormMode />
           <div className="mform-head" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <button className="mform-back" onClick={() => { setViewState('list'); setSelectedEmployee(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>
+            <button className="mform-back" onClick={closeEmployeeForm} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>
               <span className="mform-back-desk">{t('ui.tillbaka')}</span><span className="mform-back-phone">{t('ui.avbryt')}</span>
             </button>
             <span className="mform-sep" style={{ color: 'var(--border)' }}>|</span>
@@ -323,7 +330,7 @@ export default function Payroll({
             projects={projects}
             payrollRuns={payrollRuns}
             onSave={handleSaveEmployee}
-            onCancel={() => { setViewState('list'); setSelectedEmployee(null); }}
+            onCancel={closeEmployeeForm}
             wizard
           />
         </div>

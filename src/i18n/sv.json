@@ -5988,5 +5988,8 @@
     "hourly": "Timlön {{kr}}",
     "missing": "Inte ifyllt",
     "tableValue": "Tabell {{nr}}, kolumn {{col}}"
+  },
+  "payrollRun": {
+    "openEmployee": "Öppna {{name}}"
   }
 }
