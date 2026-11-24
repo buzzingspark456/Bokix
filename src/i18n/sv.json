@@ -2899,7 +2899,7 @@
     "rattad": "Rättad",
     "rattade": "Rättade",
     "ravaror_och_material": "Råvaror och material",
-    "redan_betald_tid_aterbetalas_inte_men_inget_mer": ". Redan betald tid återbetalas inte, men inget mer dras efter det. Din bokföring ligger kvar och går att ladda ner.",
+    "redan_betald_tid_aterbetalas_inte_men_inget_mer": ". Redan betald tid återbetalas inte, men inget mer dras efter det.",
     "redan_betalt": "Redan betalt:",
     "redan_bokford": "Redan bokförd",
     "redan_bokfort_belopp_och_konto_kan_inte_andras_h": "Redan bokfört — belopp och konto kan inte ändras här",
@@ -5967,7 +5967,8 @@
     "r_other": "Annat",
     "commentQ": "Något du vill berätta för oss? (valfritt)",
     "cancelBtn": "Avsluta prenumerationen",
-    "back": "Tillbaka"
+    "back": "Tillbaka",
+    "keepData": "Bokföringen finns kvar. Den sparas i sju år, och du kan alltid ladda ner den som SIE4 eller som arkiv med alla underlag."
   },
   "spread": {
     "kindTitle": "Fördela över månader",

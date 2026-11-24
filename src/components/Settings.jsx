@@ -2497,14 +2497,16 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
   // Ändra plan (2026-11-20): planerna först, avsluta längst ner med två enkla,
   // valfria frågor. Inga erbjudanden eller rabatter för att få kunden att stanna.
   const [subView, setSubView] = useState(null); // null | 'plans' | 'cancel'
+  // Uppsägningen öppnas direkt från kortet eller från Ändra plan (2026-11-24).
+  const [cancelFrom, setCancelFrom] = useState('plans');
   useEffect(() => {
     if (!subView) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') setSubView(v => (v === 'cancel' ? 'plans' : null)); };
+    const onKey = (e) => { if (e.key === 'Escape') setSubView(v => (v === 'cancel' && cancelFrom === 'plans' ? 'plans' : null)); };
     window.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
-  }, [subView]);
+  }, [subView, cancelFrom]);
   const [planInterval, setPlanInterval] = useState(null);
   const [pickedPlan, setPickedPlan] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
@@ -2631,7 +2633,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
   if (subView) {
     return createPortal(
       <div className="sub-overlay" role="dialog" aria-modal="true"><div className="sub-page">
-        <button type="button" className="sub-back" onClick={() => setSubView(subView === 'cancel' ? 'plans' : null)}><ChevronLeft size={16} /> {subView === 'cancel' ? tr('sub.changePlan') : tr('ui.prenumeration')}</button>
+        <button type="button" className="sub-back" onClick={() => setSubView(subView === 'cancel' && cancelFrom === 'plans' ? 'plans' : null)}><ChevronLeft size={16} /> {subView === 'cancel' && cancelFrom === 'plans' ? tr('sub.changePlan') : tr('ui.prenumeration')}</button>
         {subView === 'plans' && (() => {
           const interval = planInterval || 'monthly';
           const picked = pickedPlan ? planFromId(pickedPlan) : null;
@@ -2684,7 +2686,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
               )}
               <div className="sub-leave">
                 <span>{tr('sub.leaveText')}</span>
-                <button type="button" className="sub-leave-btn" onClick={() => { setSubView('cancel'); setCancelReason(''); setCancelComment(''); }}>{tr('sub.leaveBtn')}</button>
+                <button type="button" className="sub-leave-btn" onClick={() => { setCancelFrom('plans'); setSubView('cancel'); setCancelReason(''); setCancelComment(''); }}>{tr('sub.leaveBtn')}</button>
               </div>
             </div>
           );
@@ -2696,6 +2698,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
               <div>
                 <h3>{tr('sub.cancelTitle')}</h3>
                 <p>{tr('ui.du_behaller_full_atkomst_till_och_med')} {fmtDateSv(endDate)}{tr('ui.redan_betald_tid_aterbetalas_inte_men_inget_mer')}</p>
+                <p className="sub-keep-data">{tr('sub.keepData')}</p>
               </div>
               <button type="button" className="sub-x" onClick={() => setSubView(null)} aria-label={tr('ui.stang')}><X size={16} /></button>
             </div>
@@ -2714,7 +2717,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
             </label>
             <div className="sub-cancel-actions">
               <button type="button" className="sub-btn is-danger" onClick={handleCancel} disabled={busy}>{busy ? tr('ui.avslutar') : tr('sub.cancelBtn')}</button>
-              <button type="button" className="sub-btn" onClick={() => setSubView('plans')} disabled={busy}>{tr('sub.back')}</button>
+              <button type="button" className="sub-btn" onClick={() => setSubView(cancelFrom === 'card' ? null : 'plans')} disabled={busy}>{tr('sub.back')}</button>
             </div>
           </div>
         )}
@@ -2753,6 +2756,11 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
             {!sub.cancel_at_period_end && sub.status !== 'canceled' && !subView && (
               <button type="button" className="plan-card-btn" onClick={() => { setSubView('plans'); setPlanInterval(plan?.intervalId || 'monthly'); setPickedPlan(null); }}>{tr('sub.changePlan')}</button>
             )}
+            {/* Avsluta syns direkt, inte bara under Ändra plan (2026-11-24): det
+                ska vara lika lätt att sluta som att börja. */}
+            {!sub.cancel_at_period_end && sub.status !== 'canceled' && !subView && (
+              <button type="button" className="plan-card-link" onClick={() => { setCancelFrom('card'); setSubView('cancel'); setCancelReason(''); setCancelComment(''); }}>{tr('sub.leaveBtn')}</button>
+            )}
             {sub.cancel_at_period_end && (
               <button type="button" className="plan-card-btn is-primary" onClick={handleReactivate} disabled={busy}>
                 {busy ? tr('ui.ateraktiverar') : tr('ui.angra_uppsagning')}
@@ -2786,7 +2794,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
         <div style={{ padding: '16px 18px', background: 'var(--status-red-bg)', borderRadius: '14px' }}>
           <div style={{ fontSize: '13.5px', color: 'var(--status-red-text)', fontWeight: 700, marginBottom: '4px' }}>{tr('ui.avsluta_prenumerationen')}</div>
           <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', marginBottom: '12px', lineHeight: 1.6 }}>
-            {tr('ui.du_behaller_full_atkomst_till_och_med')} {fmtDateSv(endDate)}{tr('ui.redan_betald_tid_aterbetalas_inte_men_inget_mer')}
+            {tr('ui.du_behaller_full_atkomst_till_och_med')} {fmtDateSv(endDate)}{tr('ui.redan_betald_tid_aterbetalas_inte_men_inget_mer')} {tr('sub.keepData')}
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button onClick={handleCancel} disabled={busy} style={{ ...btnDanger, opacity: busy ? 0.6 : 1 }}>

@@ -2899,7 +2899,7 @@
     "rattad": "Corrected",
     "rattade": "Corrected",
     "ravaror_och_material": "Raw materials and supplies",
-    "redan_betald_tid_aterbetalas_inte_men_inget_mer": ". Time already paid for is not refunded, but nothing more is charged after that. Your bookkeeping stays and can be downloaded.",
+    "redan_betald_tid_aterbetalas_inte_men_inget_mer": ". Time already paid for is not refunded, but nothing more is charged after that.",
     "redan_betalt": "Already paid:",
     "redan_bokford": "Already booked",
     "redan_bokfort_belopp_och_konto_kan_inte_andras_h": "Already booked — amount and account cannot be changed here",
@@ -5967,7 +5967,8 @@
     "r_other": "Other",
     "commentQ": "Anything you want to tell us? (optional)",
     "cancelBtn": "Cancel subscription",
-    "back": "Back"
+    "back": "Back",
+    "keepData": "Your bookkeeping stays. It is kept for seven years, and you can always download it as SIE4 or as an archive with all documents."
   },
   "spread": {
     "kindTitle": "Spread over months",

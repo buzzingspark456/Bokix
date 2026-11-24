@@ -11026,3 +11026,6 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .acb-main small { font-size: 12px; color: var(--text-secondary); }
 .acb-price { flex: none; font-size: 13px; font-weight: 600; color: var(--text-main); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .acb-price small { font-weight: 500; color: var(--text-muted); }
+.plan-card-link { padding: 7px 4px; border: none; background: none; font: inherit; font-size: 13px; font-weight: 500; color: var(--plan-muted, var(--text-secondary)); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.plan-card-link:hover { color: var(--plan-text); }
+.sub-keep-data { margin-top: 6px; color: var(--text-main); font-weight: 500; }
