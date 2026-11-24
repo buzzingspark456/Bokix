@@ -11344,3 +11344,12 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .lt-narrow > * { max-width: 1180px; width: 100%; margin-left: auto !important; margin-right: auto !important; box-sizing: border-box; }
 .lfb-gear-slot .ar-gear, .ar-gear.lfb { width: 34px; height: 34px; }
 .lt-narrow-self { max-width: 1180px; margin-left: auto; margin-right: auto; }
+
+/* Sidbredd Smal (2026-11-24): hela sidan blir en centrerad kolumn, även
+   sidhuvud, sökrad och filter, med sidans bakgrund på sidorna (grundarens val). */
+.lt-page-narrow > * { max-width: 1180px; width: 100%; margin-left: auto !important; margin-right: auto !important; box-sizing: border-box; }
+.lt-page-narrow .lt-page-band-inner { max-width: 1180px; margin: 0 auto; }
+.so-listbody .ar-table-wrap { border: none; border-radius: 0; box-shadow: none; }
+.lt-page-narrow .so-listbody .ar-table-wrap { border-left: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); border-radius: 0 0 12px 12px; }
+/* Artiklar: listan i jämnhöjd med sidhuvudet i smal bredd */
+.lt-page-narrow .art-tab > .ar { padding-left: 0; padding-right: 0; }

@@ -1294,7 +1294,7 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
      tabellen/tomt-läget scrollar under, istället för den tidigare platta
      kolumnen där hela sidan (inklusive titel och knapp) scrollade bort i ett. */
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+    <div className={adminList && lp.width === 'narrow' ? 'lt-page-narrow' : undefined} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
         title={t('ui.offerter')}
         subtitle={t('ui.skapa_offerter_med_samma_mall_som_dina_fakturor')}
@@ -1357,7 +1357,7 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
           tabellen sitter flush direkt under filterraden. Tomt-läget nedan
           behåller sin egen marginal (`margin`) eftersom det är ett
           fristående kort, inte en full-bredd-tabell. */}
-      <div className={adminList ? `lt-wrap${lp.density === 'compact' ? ' lt-compact' : ''}${lp.width === 'narrow' ? ' lt-narrow' : ''}` : undefined} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div className={adminList ? `lt-wrap${lp.density === 'compact' ? ' lt-compact' : ''}` : undefined} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         {/* TABLE — bugkritiskt (kundfeedback, "white space"-genomgången): en
             tom lista visade tidigare bara EN paddad tabellrad ("Inga offerter
             skapade") längst upp i sidan, med hela resten av sidhöjden kvar som

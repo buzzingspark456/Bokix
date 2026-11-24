@@ -150,7 +150,7 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
   }
 
   return (
-    <div className="so-listpage">
+    <div className={`so-listpage${lp.width === 'narrow' ? ' lt-page-narrow' : ''}`}>
       {/* Samma sidhuvud, sökrad och filter som Offerter och Kundfakturor (2026-11-24). */}
       <ListPageHeader
         title={t('so.title')}
@@ -183,7 +183,7 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
           { key: 'number', label: t('so.colNumber') }, { key: 'date', label: t('so.colDate') }, { key: 'delivery', label: t('so.colDelivery') },
           { key: 'delivered', label: t('so.colDelivered') }, { key: 'amount', label: t('so.colAmount') }, { key: 'status', label: t('ui.status') },
         ]} />
-      <div className={`so-listbody${lp.density === 'compact' ? ' so-compact' : ''}${lp.width === 'narrow' ? ' so-narrow' : ''}`}>
+      <div className={`so-listbody${lp.density === 'compact' ? ' so-compact' : ''}`}>
         {orders.length === 0 ? (
           <div className="po-empty">
             <span className="po-empty-ic" aria-hidden="true"><ClipboardList size={22} /></span>

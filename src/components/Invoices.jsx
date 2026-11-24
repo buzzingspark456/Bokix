@@ -2907,7 +2907,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: 'var(--bg-page)' }}>
+    <div className={adminList && lp.width === 'narrow' ? 'lt-page-narrow' : undefined} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: 'var(--bg-page)' }}>
       {/* Sidhuvud. Kundfakturor, Offerter, Leverantörsfakturor och Artiklar nås
           via Försäljning i sidomenyn, så sidan behöver inga flikar. Fakturaguiden
           (invoiceTour.js) pekar på wrappern via data-inv-tour="tabs". */}

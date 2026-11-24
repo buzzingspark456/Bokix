@@ -98,7 +98,8 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
     window.addEventListener('bokix:artprefs', onPrefs);
     return () => window.removeEventListener('bokix:artprefs', onPrefs);
   }, []);
-  const widthClass = v2 && pageWidth === 'narrow' ? ' art-w-narrow' : '';
+  // Smal sidbredd sätts på hela sidan (lt-page-narrow), även sidhuvudet.
+  const widthClass = '';
   const [editing, setEditing] = useState(null);
   const [editingOriginal, setEditingOriginal] = useState(null);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -337,7 +338,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
   // i ListFilterBar (en del av headerkortet), och listan sitter flush direkt
   // under, utan sidopadding. ──
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+    <div className={v2 && pageWidth === 'narrow' ? 'lt-page-narrow' : undefined} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
         title={t('nav.articles')}
         tabs={setCompanyInfo ? {

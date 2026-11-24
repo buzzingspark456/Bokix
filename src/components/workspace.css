@@ -1319,3 +1319,15 @@ button.lg-kpi:hover { filter: brightness(1.06); box-shadow: 0 6px 18px rgba(0,0,
 :root[data-theme="dark"] .lg-kpis--plain .lg-kpi.is-low:not(.is-zero) .lg-kpi-val { color: #fbbf24; }
 :root[data-theme="dark"] .lg-kpis--plain .lg-kpi.is-out:not(.is-zero) .lg-kpi-val { color: #f87171; }
 :root[data-theme="dark"] .so-item small.so-short { color: #fbbf24; }
+/* Order-listan sitter ihop med huvudet, som Offerter: ingen marginal, inget eget kort (2026-11-24) */
+.so-listbody { padding: 0; }
+.so-listbody .lg-tbl { border-radius: 0; border-left: none; border-right: none; border-top: none; box-shadow: none; }
+.so-listbody .lg-tbl .ar-table thead th { border-top: none; }
+.so-listbody .po-empty { border: none; border-radius: 0; min-height: 320px; justify-content: center; }
+.so-listbody > .ws-hint { padding: 16px 20px !important; margin: 0; }
+.so-listbody.so-narrow .lg-tbl { border-left: 1px solid var(--border-light); border-right: 1px solid var(--border-light); }
+/* Order-listan som artikellistan (2026-11-24) */
+.so-ar { flex: 1; min-height: 0; overflow-y: auto; }
+.so-ar .po-empty { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; }
+.so-ar .po-tbl .ar-table thead th { position: static; }
+.so-compact .ar-table td { padding-top: 7px; padding-bottom: 7px; }

@@ -684,7 +684,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
   };
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+    <div className={adminList && viewState === 'list' && lp.width === 'narrow' ? 'lt-page-narrow' : undefined} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       {/* ── Header & Tabs ── */}
       <ListPageHeader
         title={headerTitle || title}
@@ -757,7 +757,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                  det HELT tomma läget (grenen nedan) ska centreras. En
                  populerad (om än kort) lista ligger kvar uppe vid
                  sök/toppen, som en vanlig tabellsida. */
-              <div className={`contacts-table${adminList && lp.density === 'compact' ? ' lt-compact' : ''}${adminList && lp.width === 'narrow' ? ' lt-narrow-self' : ''}`} style={{ width: '100%' }}>
+              <div className={`contacts-table${adminList && lp.density === 'compact' ? ' lt-compact' : ''}`} style={{ width: '100%' }}>
                 <ListTable
                   rowKey={ct => ct.id}
                   onRowClick={openDetail}
