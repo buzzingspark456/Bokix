@@ -1060,3 +1060,60 @@ button.lg-kpi:hover { border-color: var(--border); box-shadow: 0 4px 14px rgba(0
 .lg-attn .ws-task--brand { border-left-color: var(--accent); }
 .lg-attn .ws-task--bad { border-left-color: var(--status-red-text); }
 .pz-calc-save { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
+
+/* Solida färger i lagrets rutor och Att göra som knapp (2026-11-24). */
+.lg-kpi { border: none; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.lg-kpi.is-value { background: #0b5d2c; }
+.lg-kpi.is-ok { background: #15803d; }
+.lg-kpi.is-low { background: #d97706; }
+.lg-kpi.is-out { background: #c2410c; }
+.lg-kpi.is-low.is-zero, .lg-kpi.is-out.is-zero { background: var(--bg-muted); color: var(--text-main); box-shadow: none; border: 1px solid var(--border-light, var(--border)); }
+.lg-kpi .lg-kpi-ic { background: rgba(255,255,255,.18); color: #fff; }
+.lg-kpi .lg-kpi-label, .lg-kpi small { color: rgba(255,255,255,.85); }
+.lg-kpi .lg-kpi-val, .lg-kpi.is-low:not(.is-zero) .lg-kpi-val, .lg-kpi.is-out:not(.is-zero) .lg-kpi-val { color: #fff; }
+.lg-kpi .lg-kpi-val em { color: rgba(255,255,255,.7); }
+.lg-kpi .lg-kpi-bar { background: rgba(255,255,255,.22); }
+.lg-kpi .lg-kpi-bar span { background: #fff; }
+.lg-kpi.is-zero .lg-kpi-ic { background: var(--bg-card); color: var(--text-muted); }
+.lg-kpi.is-zero .lg-kpi-label, .lg-kpi.is-zero small { color: var(--text-secondary); }
+.lg-kpi.is-zero .lg-kpi-val { color: var(--text-main) !important; }
+button.lg-kpi:hover { filter: brightness(1.06); box-shadow: 0 6px 18px rgba(0,0,0,.14); }
+.lg-kpi.on { box-shadow: 0 0 0 3px var(--bg-card), 0 0 0 5px var(--lg-c), 0 6px 18px rgba(0,0,0,.14); }
+.lg-todo-btn { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 12px; padding: 12px 16px; border: 1px solid var(--border-light, var(--border)); border-radius: 14px; background: var(--bg-card); font: inherit; color: var(--text-main); text-align: left; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.03); transition: border-color .15s, box-shadow .15s; }
+.lg-todo-btn:hover { border-color: var(--border); box-shadow: 0 4px 14px rgba(0,0,0,.06); }
+.lg-todo-ic { width: 32px; height: 32px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--accent) 12%, var(--bg-card)); color: var(--accent-text, var(--accent)); flex: none; }
+.lg-todo-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lg-todo-text strong { font-size: 14px; }
+.lg-todo-text small { font-size: 12.5px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-todo-n { min-width: 24px; height: 24px; padding: 0 8px; border-radius: 99px; background: #d97706; color: #fff; font-size: 12.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.lg-todo-btn > svg { color: var(--text-muted); flex: none; }
+.lg-attn { margin-top: 0; }
+
+/* Halv skärm: inget vågrätt rullande, kolumner viker undan i tid. */
+.ar-table-wrap { overflow-x: hidden; }
+.ar-table { table-layout: auto; }
+.ws-listbar:has(.lg-views) { flex-wrap: wrap; row-gap: 8px; }
+.ws-listbar:has(.lg-views) .lg-listtools { flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 1280px) {
+  .lg-tbl .lg-w-min, .lg-tbl td:nth-child(4), .lg-tbl .ar-w-cost, .lg-tbl td:nth-child(5) { display: none; }
+  .lg-w-qty { width: 150px; }
+  .lg-q .pz-m-track { max-width: 60px; }
+}
+@media (max-width: 1100px) {
+  .ar-table .ar-num-col, .ar-table .ar-num { display: none; }
+  .lg-kpis { grid-template-columns: 1fr 1fr; }
+  .lg-move { grid-template-columns: 64px minmax(0, 1fr) minmax(90px, .8fr) 96px 40px; }
+  .lg-move .lg-move-price, .lg-move.head span:nth-child(5) { display: none; }
+  .po-item { grid-template-columns: minmax(0, 1fr) 100px 120px; }
+  .po-item-prog { display: none; }
+}
+@media (max-width: 1100px) {
+  .lg-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .lg-kpi { padding: 12px 12px; gap: 2px; }
+  .lg-kpi-ic { width: 26px; height: 26px; border-radius: 8px; margin-bottom: 4px; }
+  .lg-kpi-ic svg { width: 15px; height: 15px; }
+  .lg-kpi-val, .lg-kpi.is-value .lg-kpi-val { font-size: 20px; }
+  .lg-kpi-val em { font-size: 12px; }
+  .lg-kpi small { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+}
+@media (max-width: 760px) { .lg-kpis { grid-template-columns: 1fr 1fr; } }

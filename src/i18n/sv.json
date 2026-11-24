@@ -5599,7 +5599,9 @@
     "bookValueTitle": "Bokför lagervärdet ({{dir}} {{kr}})",
     "dirUp": "öka med",
     "dirDown": "minska med",
-    "bookValueDetail": "Bokföringen säger {{ledger}} på konto {{account}}, lagret är värt {{stock}}. Bokför skillnaden per det datum du väljer, oftast räkenskapsårets sista dag."
+    "bookValueDetail": "Bokföringen säger {{ledger}} på konto {{account}}, lagret är värt {{stock}}. Bokför skillnaden per det datum du väljer, oftast räkenskapsårets sista dag.",
+    "issueShort": "{{n}} varor saknar inleverans",
+    "bookValueShort": "Bokför lagervärdet"
   },
   "pris": {
     "toolPrice": "Pris",

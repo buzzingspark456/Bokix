@@ -5599,7 +5599,9 @@
     "bookValueTitle": "Book the stock value ({{dir}} {{kr}})",
     "dirUp": "increase by",
     "dirDown": "decrease by",
-    "bookValueDetail": "The books say {{ledger}} on account {{account}}, the stock is worth {{stock}}. Book the difference on the date you choose, usually the last day of the financial year."
+    "bookValueDetail": "The books say {{ledger}} on account {{account}}, the stock is worth {{stock}}. Book the difference on the date you choose, usually the last day of the financial year.",
+    "issueShort": "{{n}} items lack a receipt",
+    "bookValueShort": "Book the stock value"
   },
   "pris": {
     "toolPrice": "Price",

@@ -125,6 +125,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
   const [orderQty, setOrderQty] = useState({});
   const [poOpen, setPoOpen] = useState(null);
   const [goodsPage, setGoodsPage] = useState(0);
+  const [todoOpen, setTodoOpen] = useState(false);
 
   useEffect(() => {
     if (!detailId) return undefined;
@@ -323,6 +324,16 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
       .sort((a, b) => String(b.m.date).localeCompare(String(a.m.date)) || String(b.m.id).localeCompare(String(a.m.id)));
   }, [movements, moveType, moveSearch, goods]);
 
+  // Antal saker att göra och en kort sammanfattning till knappen.
+  const showClosing = valuation.lines.length > 0 && closing && !alreadyBooked;
+  const todoCount = (visiblePurchases.length > 0 ? 1 : 0) + issueRows.length + (lowRows.length > 0 ? 1 : 0) + (showClosing ? 1 : 0);
+  const todoSummary = [
+    lowRows.length ? (lowRows.length === 1 ? tr('lager.lowTitle', { name: lowRows[0].description }) : tr('lager.lowMany', { n: lowRows.length })) : null,
+    visiblePurchases.length ? (visiblePurchases.length === 1 ? tr('lager.purchasesOne') : tr('lager.purchasesMany', { n: visiblePurchases.length })) : null,
+    issueRows.length ? tr('lager.issueShort', { n: issueRows.length }) : null,
+    showClosing ? tr('lager.bookValueShort') : null,
+  ].filter(Boolean).join(' · ');
+
   const exportLines = valuation.lines.filter(l => l.qty > 0).map(l => ({ ...l, unit: goods.find(g => g.id === l.articleId)?.unit || 'st' }));
   const exportArgs = { company, date: closingDate, methodName: settings.method === 'fifo' ? 'FIFO' : tr('lager.methodAvg'), account: kind.stockAccount, lines: exportLines, total: valuation.bookValue, writeDown: valuation.writeDown };
   const inStock = allRows.filter(r => r.qty > 0);
@@ -434,9 +445,23 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
             </div>
           )}
 
-          {(visiblePurchases.length > 0 || lowRows.length > 0 || issueRows.length > 0 || (valuation.lines.length > 0 && closing && !alreadyBooked)) && (
-            <div className="ws-tasks lg-attn">
-              <span className="lg-attn-title">{tr('lager.todo')}</span>
+          {/* Att göra som en knapp (2026-11-24): översikten är ren, listan öppnas i en ruta. */}
+          {todoCount > 0 && (
+            <button type="button" className="lg-todo-btn" onClick={() => setTodoOpen(true)}>
+              <span className="lg-todo-ic" aria-hidden="true"><ClipboardCheck size={17} /></span>
+              <span className="lg-todo-text"><strong>{tr('lager.todo')}</strong><small>{todoSummary}</small></span>
+              <span className="lg-todo-n">{todoCount}</span>
+              <ChevronRight size={16} aria-hidden="true" />
+            </button>
+          )}
+          {todoOpen && (
+            <div className="modal-overlay" onClick={() => setTodoOpen(false)}>
+              <div className="modal-content" style={{ maxWidth: '760px' }} onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                  <span className="modal-title">{tr('lager.todo')}</span>
+                  <button type="button" className="modal-close" onClick={() => setTodoOpen(false)} aria-label={tr('ui.stang')}><X size={18} /></button>
+                </div>
+                <div className="ws-tasks lg-attn" onClickCapture={e => { const btn = e.target.closest('button'); if (btn && !btn.classList.contains('modal-close')) setTimeout(() => setTodoOpen(false), 0); }}>
               {visiblePurchases.length > 0 && (
                 <TaskRow icon={Inbox} tone="brand" onClick={() => setPurchaseOpen(true)}
                   title={visiblePurchases.length === 1 ? tr('lager.purchasesOne') : tr('lager.purchasesMany', { n: visiblePurchases.length })}
@@ -473,6 +498,8 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                   <button type="button" className="agi-btn primary" onClick={bookClosing}>{tr('lager.book')}</button>
                 </TaskRow>
               )}
+                </div>
+              </div>
             </div>
           )}
           {message && <p className="ws-hint" style={{ marginTop: '12px', color: 'var(--status-green-text)' }}>{message}</p>}
