@@ -11168,3 +11168,18 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .ar-bulk button.danger { color: var(--status-red-text); }
 .ar-bulk select { background-color: var(--bg-card); color: var(--text-main); border-color: var(--border); }
 .ar-bulk .ar-bulk-x { background: transparent; border: none; color: var(--text-secondary); }
+
+/* Artikelregistret med luft runt om, inspirerat av Fortnox register (2026-11-24):
+   tabellen i ett eget kort, avdelare i rubrikraden, sorterad kolumn markerad. */
+.ar { background: var(--bg-page); padding: 20px 28px 28px; }
+.ar-tools { position: static; background: transparent; border-bottom: none; padding: 0 0 14px; }
+.ar-bulk { margin: 0 0 12px; position: static; }
+.ar-table-wrap { border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); overflow: auto; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+.ar-table thead th { position: static; background: var(--bg-muted); border-right: 1px solid var(--border-light, var(--border)); padding-top: 12px; padding-bottom: 12px; }
+.ar-table thead th:last-child, .ar-table thead th.ar-act { border-right: none; }
+.ar-table thead th[aria-sort] { background: color-mix(in srgb, var(--accent) 12%, var(--bg-card)); color: var(--accent-text, var(--accent)); }
+.ar-table td { padding-top: 11px; padding-bottom: 11px; }
+.ar-table tbody tr:last-child td { border-bottom: none; }
+.ar-foot { position: static; background: transparent; border-top: none; padding: 14px 4px 0; }
+.ar-empty { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; }
+@media (max-width: 600px) { .ar { padding: 12px 12px 20px; } .ar-table-wrap { border-radius: 12px; } .ar-chips { margin: 0 -12px; padding: 0 12px; } }
