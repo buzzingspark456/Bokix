@@ -200,9 +200,13 @@ export function deriveInvoiceMovements({ invoices, articles, movements, since = 
     return article && article.type === 'vara' && stocked.has(article.id) ? article : null;
   };
 
+  // Fakturor från en kundorder drar inte lagret: ordern drog det redan vid
+  // leveransen (salesOrders.js). Samma för en kreditering av en sådan faktura.
+  const fromOrder = new Set((invoices || []).filter(inv => inv.orderId).map(inv => inv.id));
   const out = [];
   (invoices || []).forEach(inv => {
     if ((inv.type || 'invoice') === 'quote' || inv.status === 'draft' || !inv.date) return;
+    if (inv.orderId || (inv.creditFor && fromOrder.has(inv.creditFor))) return;
     if (since && String(inv.date) < since) return;
     (inv.rows || []).forEach((row, i) => {
       const qty = num(row.qty);

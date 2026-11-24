@@ -32,8 +32,9 @@ import {
   ClipboardCheck,
   Check,
   Banknote, CalendarClock, Paperclip,
-  CreditCard, ShieldCheck, ChevronLeft,
+  CreditCard, ShieldCheck, ChevronLeft, ClipboardList,
 } from './components/icons';
+import { orderFromQuote, nextOrderNumber } from './utils/salesOrders';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { BAS_VERSION, upgradeAccountsToBas } from './utils/basUpgrade';
 import { receiptAttachmentFields, backfillReceiptAttachments } from './utils/receiptAttachment';
@@ -382,6 +383,7 @@ const Dashboard = lazy(() => import('./components/Dashboard'));
 const Invoices = lazy(() => import('./components/Invoices'));
 const Quotes = lazy(() => import('./components/Quotes'));
 const Articles = lazy(() => import('./components/Articles'));
+const Orders = lazy(() => import('./components/Orders'));
 const Expenses = lazy(() => import('./components/Expenses'));
 const SupplierInvoices = lazy(() => import('./components/SupplierInvoices'));
 const Contacts = lazy(() => import('./components/Contacts'));
@@ -1158,6 +1160,8 @@ const tabAliases = {
   invoices:         'invoices',
   // Offerter är en egen sida i sidomenyn, under Verksamhet.
   quotes:           'quotes',
+  // Kundorder (Orders.jsx), bara för admin med artiklar påslaget än (2026-11-24).
+  orders:           'orders',
   // Produktregistret (profilmenyns "Artikel") — egen sida,
   // samma company-data-fält (`articles`) som redan användes av det gamla
   // "Artiklar"-textlänken i Invoices.jsx, se Articles.jsx.
@@ -1191,7 +1195,7 @@ const resolveTab = (id) => {
 // ('invoices') för behörighet och UF-läget: en inbjuden medlem eller ett
 // UF-företag som får se fakturor får också se Leverantörsfakturor och Artiklar.
 // Offerter är en egen behörighet ('quotes').
-const navAccessId = (id) => (id === 'supplier_invoices' || id === 'articles' ? 'invoices' : id);
+const navAccessId = (id) => (id === 'supplier_invoices' || id === 'articles' ? 'invoices' : id === 'orders' ? 'quotes' : id);
 const resolveNavGroup = (id) => resolveTab(navAccessId(id));
 
 // Stripes egna statusar som räknas som "betalande" — trialing/active/
@@ -4734,6 +4738,46 @@ function App() {
   // flytta posten tyst utan verifikation (vilket den gamla, aldrig
   // ihopkopplade versionen av denna funktion också gjorde fel — den skrev
   // om posten på plats i `invoices` som om offerter redan låg där).
+  // Kundorder (2026-11-24): fakturautkast för det som är levererat på en order.
+  // Fakturan har orderId och drar därför inte lagret igen (inventory.js).
+  const handleInvoiceFromOrder = ({ id, order, rows }) => {
+    const contact = contacts.find(c => c.id === order.customerId);
+    const today = new Date().toISOString().split('T')[0];
+    const due = new Date(); due.setDate(due.getDate() + (Number(company?.paymentTermsDays) || 30));
+    const invoice = {
+      id, type: 'invoice', status: 'draft', date: today, dueDate: due.toISOString().split('T')[0],
+      invoiceNumber: getNextInvoiceNumber(invoices, company),
+      customerId: order.customerId || '', customerName: order.customerName || contact?.name || '',
+      customerEmail: order.customerEmail || contact?.email || '', customerAddress: order.customerAddress || '', customerOrgNr: order.customerOrgNr || '',
+      ourRef: order.ourRef || '', theirRef: order.theirRef || '',
+      orderId: order.id, orderNumber: order.number, ...(order.quoteId ? { quoteId: order.quoteId, quoteNumber: order.quoteNumber } : {}),
+      rows: rows.map((row, i) => ({ id: `${id}_r${i}`, rotRutLabor: false, ...row })),
+    };
+    setInvoices(prev => [...prev, invoice]);
+    handleGlobalAction({ type: 'open_invoice', payload: { id } }, 'invoices');
+    return invoice;
+  };
+  // En kund som bara skrivits in på en order blir en riktig kund i Kunder.
+  const handleCreateContactFromOrder = (data) => {
+    const id = `contact_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    setContacts(prev => [...(prev || []), { id, type: 'customer', customerType: 'se_company', country: 'Sverige', paymentTerms: 30, invoiceLanguage: 'sv', active: true, balance: 0, lastInvoiceDate: null, totalInvoicedThisYear: 0, ...data }]);
+    return id;
+  };
+  // Offert → order: ordern skapas med offertens rader och öppnas.
+  const handleQuoteToOrder = (quoteId, latest = null) => {
+    const stored = quotes.find(q => q.id === quoteId);
+    const quote = stored && latest ? { ...stored, ...latest } : stored;
+    if (!quote) return null;
+    const orderId = `so_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    let n = 0;
+    const order = orderFromQuote(quote, { id: orderId, number: nextOrderNumber(company?.salesOrders || []), rowKey: () => `${orderId}_${n++}`, articles });
+    setCompanyInfo(prev => ({ ...prev, salesOrders: [...(prev.salesOrders || []), order] }));
+    const stamp = new Date().toISOString().slice(0, 10);
+    setQuotes(prev => prev.map(q => (q.id === quoteId ? { ...q, ...(latest || {}), status: q.status === 'invoiced' ? q.status : 'accepted', acceptedAt: q.acceptedAt || stamp, orderId, orderNumber: order.number } : q)));
+    handleGlobalAction({ type: 'open_order', payload: { id: orderId } }, 'orders');
+    return order;
+  };
+
   const handleConvertQuoteToInvoice = (quoteId, latest = null) => {
     // `latest`: osparade ändringar i den öppna offerten följer med (2026-11-20).
     const stored = quotes.find(q => q.id === quoteId);
@@ -5909,6 +5953,7 @@ function App() {
     { key: 'business', title: t('nav.groupBusiness'), items: [
       { id: 'contacts', label: t('nav.contacts'), icon: Users },
       { id: 'quotes', label: t('nav.quotes'), icon: NavQuotesIcon, exact: true },
+      { id: 'orders', label: t('nav.orders'), icon: ClipboardList, exact: true },
       { id: 'invoices', label: t('nav.customerInvoices'), icon: NavCustomerInvoicesIcon, exact: true },
       { id: 'articles', label: t('nav.articles'), icon: Package, exact: true },
       { id: 'projects', label: t('nav.projects'), icon: Briefcase },
@@ -5938,7 +5983,9 @@ function App() {
   // Gömda funktioner (utils/optionalFeatures.js) syns inte i menyn, men
   // sidan finns kvar. Kollas på menyvalets eget id, eftersom Artiklar
   // delar behörighet med Kundfakturor (navAccessId).
-  const featureHiddenNavIds = hiddenFeatureNavIds(currentCompany);
+  // Order syns bara för admin med artiklar påslaget (senare: Handel-planen).
+  const ordersOn = newUnderlagOn && isFeatureOn(currentCompany, 'articles');
+  const featureHiddenNavIds = [...hiddenFeatureNavIds(currentCompany), ...(ordersOn ? [] : ['orders'])];
   const isNavItemShown = (item) => !featureHiddenNavIds.includes(item.id) && isNavIdAllowed(navAccessId(item.id));
   // Offerter, Kundfakturor, Artiklar och Leverantörsfakturor markeras bara på sin egen sida.
   const isNavItemActive = (item) => (item.exact
@@ -6297,7 +6344,10 @@ function App() {
         );
       }
       case 'quotes':
-        return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} contacts={contacts} projects={projects} company={company} activeCompanyId={data.activeCompanyId} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} articles={articles} setArticles={setArticles} onSyncBeforeServerCall={syncUserDataNow} articleSearch={newUnderlagOn} />;
+        return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} onMakeOrder={ordersOn ? handleQuoteToOrder : null} contacts={contacts} projects={projects} company={company} activeCompanyId={data.activeCompanyId} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} articles={articles} setArticles={setArticles} onSyncBeforeServerCall={syncUserDataNow} articleSearch={newUnderlagOn} />;
+      case 'orders':
+        if (!ordersOn) return null;
+        return <Orders key={company?.id || data.activeCompanyId} company={company} setCompanyInfo={setCompanyInfo} articles={articles} contacts={contacts} invoices={invoices} onCreateContact={handleCreateContactFromOrder} onCreateInvoice={handleInvoiceFromOrder} onOpenInvoice={(id) => handleGlobalAction({ type: 'open_invoice', payload: { id } }, 'invoices')} onOpenQuote={(id) => handleGlobalAction({ type: 'open_quote', payload: { id } }, 'quotes')} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} />;
       case 'articles':
         return <Articles key={company?.id || data.activeCompanyId} articles={articles} setArticles={setArticles} accounts={accounts} company={company} verifications={verifications} invoices={invoices} expenses={expenses} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} v2={newUnderlagOn} />;
       case 'projects':
@@ -6663,6 +6713,7 @@ function App() {
               items: [
                 { id: 'contacts', label: t('nav.contacts'), short: t('navShort.contacts'), icon: Users },
                 { id: 'quotes', label: t('nav.quotes'), short: t('navShort.quotes'), icon: NavQuotesIcon, exact: true },
+                { id: 'orders', label: t('nav.orders'), short: t('navShort.orders'), icon: ClipboardList, exact: true },
                 { id: 'invoices', label: t('nav.customerInvoices'), short: t('navShort.invoices'), icon: NavCustomerInvoicesIcon, exact: true },
                 { id: 'articles', label: t('nav.articles'), short: t('navShort.articles'), icon: Package, exact: true },
                 { id: 'projects', label: t('nav.projects'), short: t('navShort.projects'), icon: Briefcase },

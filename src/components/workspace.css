@@ -1206,3 +1206,28 @@ button.lg-kpi:hover { filter: brightness(1.06); box-shadow: 0 6px 18px rgba(0,0,
 .lg-kpis--plain button.lg-kpi:hover { filter: none; border-color: color-mix(in srgb, var(--kc) 45%, var(--bg-card)); }
 .lg-kpis--plain .lg-kpi.on { box-shadow: 0 0 0 2px var(--kc); border-color: var(--kc); }
 .ws-listbar:has(.lg-views) .lg-listtools.is-wide { flex-basis: 100%; }
+
+/* Kundorder (Orders.jsx, 2026-11-24) */
+.so-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 760px) { .so-kpis { grid-template-columns: 1fr 1fr; } .so-kpis .lg-kpi:last-child { grid-column: 1 / -1; } }
+.so-listbar .lg-listtools.is-wide { justify-content: flex-start; flex-basis: 100%; }
+.so-listbar .lg-listtools .lg-search { flex: 1 1 260px; max-width: 360px; }
+.so-meta { grid-template-columns: 1.6fr 1fr 1fr; }
+.lg-dl-row.so-edit { grid-template-columns: minmax(0, 1fr) 110px 120px 80px 96px 34px; align-items: start; }
+.lg-dl-row.so-edit > :not(.so-item) { margin-top: 0; }
+.lg-dl-row.so-edit .lg-dl-sum { padding-top: 9px; }
+.so-item { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.so-item small { font-size: 11.5px; color: var(--text-secondary); padding-left: 2px; }
+.so-item small.so-short { color: #b45309; }
+.lg-dl-row.so-track-row { grid-template-columns: minmax(0, 1fr) 100px 100px 120px 100px; }
+.so-totals { display: inline-flex; align-items: baseline; gap: 6px; }
+.so-totals em { font-style: normal; font-size: 12.5px; color: var(--text-muted); margin-left: 6px; }
+.so-link { border: none; background: none; padding: 0 0 0 8px; font: inherit; font-size: 12.5px; color: var(--accent-text, var(--accent)); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.so-invoices { margin: 10px 0 0; font-size: 13px; color: var(--text-secondary); }
+@media (max-width: 760px) {
+  .so-meta { grid-template-columns: 1fr 1fr; }
+  .lg-dl-row.so-edit { grid-template-columns: minmax(0, 1fr) 90px 34px; }
+  .lg-dl-row.so-edit > :nth-child(3), .lg-dl-row.so-edit > :nth-child(4), .lg-dl-row.so-edit > :nth-child(5) { display: none; }
+  .lg-dl-row.so-track-row { grid-template-columns: minmax(0, 1fr) 70px 110px; }
+  .lg-dl-row.so-track-row > :nth-child(2), .lg-dl-row.so-track-row > :nth-child(5) { display: none; }
+}

@@ -7,6 +7,7 @@ import {
   STOCK_ACCOUNT_KINDS, valuateInventory, ledgerBalanceAt, buildInventoryVerification, deriveInvoiceMovements, findPurchaseLines,
 } from '../utils/inventory';
 import { downloadInventoryListPdf, downloadInventoryListCsv } from '../utils/inventoryListPdf';
+import { reservedByArticle } from '../utils/salesOrders';
 import { nextPoNumber, poStatus, poTotal, onOrderByArticle, receivePo, matchPurchaseOrder, rowRemaining } from '../utils/purchaseOrders';
 import PurchaseOrderModal, { PO_STATUS_PILL } from './PurchaseOrderModal';
 import ChipFilter from './shared/ChipFilter';
@@ -102,6 +103,9 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
   // Inköpsorder (utils/purchaseOrders.js), sparade på företaget.
   const purchaseOrders = useMemo(() => company?.purchaseOrders || [], [company?.purchaseOrders]);
   const onOrder = useMemo(() => onOrderByArticle(purchaseOrders), [purchaseOrders]);
+  // Reserverat i öppna kundorder (salesOrders.js): räknas bort från det lediga.
+  const reserved = useMemo(() => reservedByArticle(company?.salesOrders || []), [company?.salesOrders]);
+  const resOf = (id) => reserved.get(id) || 0;
   const goods = articles.filter(a => a.type === 'vara' && a.id);
   const palette = usePalette(company);
 
@@ -256,8 +260,8 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
 
   // Att beställa: varor på eller under beställningspunkten. Förslaget fyller
   // upp till två gånger beställningspunkten, samma som stapeln visar som fullt.
-  const orderRows = allRows.filter(r => r.min > 0 && r.qty + (onOrder.get(r.articleId)?.qty || 0) <= r.min).map(r => {
-    const suggested = Math.max(Math.ceil(r.min * 2 - r.qty - (onOrder.get(r.articleId)?.qty || 0)), 1);
+  const orderRows = allRows.filter(r => r.min > 0 && r.qty - resOf(r.articleId) + (onOrder.get(r.articleId)?.qty || 0) <= r.min).map(r => {
+    const suggested = Math.max(Math.ceil(r.min * 2 - r.qty + resOf(r.articleId) - (onOrder.get(r.articleId)?.qty || 0)), 1);
     const raw = orderQty[r.articleId];
     return { ...r, supplier: supplierOf(r.articleId), suggested, orderQty: raw === undefined ? suggested : raw };
   });
@@ -634,7 +638,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                               <strong>{r.description}</strong>
                               {r.shortfall > 0
                                 ? <small className="lg-issue">{tr('lager.shortfall', { n: fmtQty(r.shortfall) })}</small>
-                                : <small>{[supplierOf(r.articleId), onOrder.get(r.articleId) ? tr('po.onOrderShort', { qty: fmtQty(onOrder.get(r.articleId).qty) }) : null, locationOf(r.articleId) ? tr('lager.locationShort', { loc: locationOf(r.articleId) }) : null, r.layers.length > 1 ? tr('lager.batchCount', { n: r.layers.length }) : null].filter(Boolean).join(' · ') || ' '}</small>}
+                                : <small>{[supplierOf(r.articleId), resOf(r.articleId) ? tr('so.reservedShort', { qty: fmtQty(resOf(r.articleId)) }) : null, onOrder.get(r.articleId) ? tr('po.onOrderShort', { qty: fmtQty(onOrder.get(r.articleId).qty) }) : null, locationOf(r.articleId) ? tr('lager.locationShort', { loc: locationOf(r.articleId) }) : null, r.layers.length > 1 ? tr('lager.batchCount', { n: r.layers.length }) : null].filter(Boolean).join(' · ') || ' '}</small>}
                             </td>
                             <td className="lg-qty-cell">
                               {r.status === 'none' ? <span className="ar-muted">–</span> : (
@@ -711,7 +715,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                 )}
 
                 <Overview items={[
-                  { key: 'qty', label: tr('lager.inStock'), value: `${fmtQty(detail.qty)} ${detail.unit}`, sub: onOrder.get(detail.articleId) ? tr('po.onOrderLong', { qty: fmtQty(onOrder.get(detail.articleId).qty), date: onOrder.get(detail.articleId).expectedDate ? formatShort(onOrder.get(detail.articleId).expectedDate) : '–' }) : detail.min ? tr('lager.minShort', { n: fmtQty(detail.min) }) : tr('lager.noMin'), tone: detail.status === 'out' ? 'bad' : detail.status === 'low' ? 'warn' : undefined },
+                  { key: 'qty', label: tr('lager.inStock'), value: `${fmtQty(detail.qty)} ${detail.unit}`, sub: resOf(detail.articleId) ? tr('so.reservedLong', { res: fmtQty(resOf(detail.articleId)), free: fmtQty(detail.qty - resOf(detail.articleId)), unit: detail.unit }) : onOrder.get(detail.articleId) ? tr('po.onOrderLong', { qty: fmtQty(onOrder.get(detail.articleId).qty), date: onOrder.get(detail.articleId).expectedDate ? formatShort(onOrder.get(detail.articleId).expectedDate) : '–' }) : detail.min ? tr('lager.minShort', { n: fmtQty(detail.min) }) : tr('lager.noMin'), tone: detail.status === 'out' ? 'bad' : detail.status === 'low' ? 'warn' : undefined },
                   { key: 'value', label: tr('ui.varde'), value: fmtKr(detail.bookValue), sub: tr('lager.costEach', { price: fmt(detail.unitCost) }) },
                   { key: 'price', label: tr('lager.salePrice'), value: detail.salePrice > 0 ? `${fmt(detail.salePrice)} kr` : '—', sub: margin != null ? tr('lager.marginIs', { n: String(margin).replace('.', ',') }) : tr('lager.noPrice') },
                 ]} />

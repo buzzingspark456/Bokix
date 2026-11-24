@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { isVatExempt } from '../utils/vatRegistration';
-import { NavQuotesIcon, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Search, ChevronDown, ChevronRight, Printer, Pencil, Copy, CheckCircle2, XCircle, RotateCcw } from './icons';
+import { NavQuotesIcon, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Search, ChevronDown, ChevronRight, Printer, Pencil, Copy, CheckCircle2, XCircle, RotateCcw, ClipboardList } from './icons';
 import PaperFit from './shared/PaperFit';
 import ArticleCombobox from './shared/ArticleCombobox';
 import DocSplit from './shared/DocSplit';
@@ -125,7 +125,7 @@ const toolbarBtnStyle = (active) => ({
  * förhandsgranskning som öppnas på begäran. Samma lösning återanvänds här
  * rakt av — samma CSS-klass, samma mönster, samma mobilanpassning.
  */
-function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], company, user, articles = [], articleSearch = false, onSave, onClose, onConvert, onOpenInvoice, onSyncBeforeServerCall, onPersist }) {
+function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], company, user, articles = [], articleSearch = false, onSave, onClose, onConvert, onMakeOrder = null, onOpenOrder = null, onOpenInvoice, onSyncBeforeServerCall, onPersist }) {
   useMobileForm();
   const [customerId, setCustomerId] = useState(quote?.customerId || '');
   const [customerName, setCustomerName] = useState(quote?.customerName || '');
@@ -606,7 +606,9 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
           {displayStatus === 'accepted' && (
             <>
               <span className="q-status-text"><b><Check size={15} /> {t('ui.q_accepterad_rubrik')}</b> {quote.acceptedAt ? t('ui.q_den', { date: fmtDateSv(quote.acceptedAt) }) : ''} {t('ui.q_accepterad_text')}</span>
-              {onConvert && <button type="button" className="q-btn q-btn-primary" onClick={(e) => onConvert(e, buildSaveData())}><FileText size={15} /> {t('ui.skapa_faktura')}</button>}
+              {onMakeOrder && <button type="button" className="q-btn q-btn-primary" onClick={(e) => onMakeOrder(e, buildSaveData())}><ClipboardList size={15} /> {t('so.makeOrder')}</button>}
+              {onOpenOrder && <button type="button" className="q-btn q-btn-primary" onClick={onOpenOrder}><ClipboardList size={15} /> {t('so.openOrder', { n: quote.orderNumber || '' })}</button>}
+              {onConvert && !quote.orderId && <button type="button" className={`q-btn${onMakeOrder ? '' : ' q-btn-primary'}`} onClick={(e) => onConvert(e, buildSaveData())}><FileText size={15} /> {t('ui.skapa_faktura')}</button>}
               <button type="button" className="q-link" onClick={() => changeStatus('sent')}>{t('ui.q_andra_svar')}</button>
             </>
           )}
@@ -1082,7 +1084,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
   );
 }
 
-export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConvert, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction, articles = [], onSyncBeforeServerCall, articleSearch = false }) {
+export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConvert, onMakeOrder = null, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction, articles = [], onSyncBeforeServerCall, articleSearch = false }) {
   const [searchTerm, setSearchTerm] = useState('');
   // Statusfilter som Kundfakturor (2026-11-20), anpassat till offerter.
   const [statusFilter, setStatusFilter] = useState('all');
@@ -1095,6 +1097,11 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
   useEffect(() => {
     if (globalAction?.type === 'new_quote') {
       openNew();
+      clearGlobalAction();
+    }
+    // Från en order: öppna offerten den kom från (2026-11-24).
+    if (globalAction?.type === 'open_quote' && globalAction.payload?.id && quotes.some(q => q.id === globalAction.payload.id)) {
+      openEdit(quotes.find(q => q.id === globalAction.payload.id));
       clearGlobalAction();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1247,6 +1254,8 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
         onSave={handleSaveQuote}
         onClose={closeForm}
         onConvert={editingQuote ? (e, latest) => handleConvert(editingQuote, e, latest) : null}
+        onMakeOrder={editingQuote && onMakeOrder && !editingQuote.orderId ? (e, latest) => { e?.stopPropagation(); setIsFormOpen(false); setEditingId(null); onMakeOrder(editingQuote.id, latest); } : null}
+        onOpenOrder={editingQuote?.orderId && handleGlobalAction ? () => { setIsFormOpen(false); setEditingId(null); handleGlobalAction({ type: 'open_order', payload: { id: editingQuote.orderId } }, 'orders'); } : null}
         onPersist={(data) => editingId && setQuotes(prev => prev.map(q => (q.id === editingId ? { ...q, ...data } : q)))}
         onOpenInvoice={openInvoice}
         onSyncBeforeServerCall={onSyncBeforeServerCall}
