@@ -6408,6 +6408,19 @@
     "makeOrder": "Make order",
     "openOrder": "View order {{n}}",
     "reservedShort": "{{qty}} reserved",
-    "reservedLong": "{{res}} reserved, {{free}} {{unit}} available"
+    "reservedLong": "{{res}} reserved, {{free}} {{unit}} available",
+    "secCustomer": "Customer details",
+    "secOrder": "Order and delivery",
+    "secRows": "Lines",
+    "secDeliver": "Deliver",
+    "email": "Email",
+    "orgNr": "Org. no.",
+    "ourRef": "Our reference",
+    "terms": "Payment terms",
+    "deliveryAddress": "Delivery address",
+    "deliveryAddressPh": "Street, postcode and city",
+    "total": "Total",
+    "openInvoice": "View invoice",
+    "newCustomer": "New customer, added to Customers when the order is saved."
   }
 }

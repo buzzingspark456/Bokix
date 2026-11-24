@@ -6408,6 +6408,19 @@
     "makeOrder": "Gör till order",
     "openOrder": "Visa order {{n}}",
     "reservedShort": "{{qty}} reserverade",
-    "reservedLong": "{{res}} reserverade, {{free}} {{unit}} ledigt"
+    "reservedLong": "{{res}} reserverade, {{free}} {{unit}} ledigt",
+    "secCustomer": "Kunduppgifter",
+    "secOrder": "Order och leverans",
+    "secRows": "Rader",
+    "secDeliver": "Leverera",
+    "email": "E-post",
+    "orgNr": "Org.nr",
+    "ourRef": "Vår referens",
+    "terms": "Betalningsvillkor",
+    "deliveryAddress": "Leveransadress",
+    "deliveryAddressPh": "Gata, postnummer och ort",
+    "total": "Totalt",
+    "openInvoice": "Visa fakturan",
+    "newCustomer": "Ny kund, läggs till i Kunder när ordern sparas."
   }
 }

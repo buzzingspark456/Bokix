@@ -101,8 +101,12 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
   // återanvända fakturans ordval rakt av.
   // "Att betala" antar att beloppet faktiskt förfaller till betalning —
   // sant för en faktura, men en offert är bara ett prisförslag ännu.
-  const totalLabel = docType === 'quote' ? 'Offertbelopp' : 'Att betala';
-  const customerLabel = docType === 'quote' ? 'Offereras till' : 'Faktureras till';
+  // Orderbekräftelse (2026-11-24): som offerten utan betalningsuppgifter, med
+  // ordernummer och leveransdatum.
+  const isOrder = docType === 'order';
+  const noPayment = docType === 'quote' || isOrder;
+  const totalLabel = docType === 'quote' ? 'Offertbelopp' : isOrder ? 'Ordervärde' : 'Att betala';
+  const customerLabel = docType === 'quote' ? 'Offereras till' : isOrder ? 'Kund' : 'Faktureras till';
 
   // Betalningsuppgifterna hör bara hemma på fakturan: på en offert ser ett
   // kontonummer ut som ett krav på pengar för något som inte ens är sålt än.
@@ -141,7 +145,13 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
       ]
     : [];
 
-  const meta = docType === 'quote'
+  const meta = isOrder
+    ? [
+        ['Ordernr', invoice?.invoiceNumber || ''],
+        ['Orderdatum', formatDate(invoice?.date)],
+        ...(invoice?.deliveryDate ? [['Leveransdatum', formatDate(invoice.deliveryDate)]] : []),
+      ]
+    : docType === 'quote'
     ? [
         ['Offertnr', invoice?.invoiceNumber || ''],
         ['Offertdatum', formatDate(invoice?.date)],
@@ -240,7 +250,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
   const showPayment = company?.showPaymentDetailsOnInvoice !== false;
   const ocr = invoice?.invoiceNumber ? String(invoice.invoiceNumber).padStart(7, '0') : '';
   const amountDue = `${fmt(payable)} ${currency}`;
-  const paymentBoxes = docType === 'quote' ? [] : [
+  const paymentBoxes = noPayment ? [] : [
     ['Att betala', amountDue],
     ['Förfallodatum', formatDate(invoice?.dueDate)],
     ...(showPayment ? [['Bankgiro', company?.bankgiro || '']] : []),
@@ -251,7 +261,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
   const footerColumns = [
     ['Företag', [sellerName, formatCompanyAddress(company) || 'Adress saknas']],
     ['Kontakt', [company?.phone, company?.email].filter(Boolean)],
-    ['Betalning', showPayment && docType !== 'quote' ? [company?.bankgiro ? `Bankgiro ${company.bankgiro}` : null, company?.iban ? `IBAN ${company.iban}` : null].filter(Boolean) : []],
+    ['Betalning', showPayment && !noPayment ? [company?.bankgiro ? `Bankgiro ${company.bankgiro}` : null, company?.iban ? `IBAN ${company.iban}` : null].filter(Boolean) : []],
     ['Organisation', [company?.orgNr ? `Org.nr ${company.orgNr}` : null, company?.vatNr ? `Momsreg.nr ${company.vatNr}` : null, company?.fSkatt ?? 'Godkänd för F-skatt'].filter(Boolean)],
   ].filter(([, lines]) => lines.length > 0);
 
@@ -455,6 +465,14 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
 
       {/* Avslutande hälsning: vanlig affärssed på en offert, till skillnad
           från en faktura, som inte behöver en artighetsfras. */}
+      {isOrder && invoice?.note && (
+        <div style={{ marginBottom: 18, fontSize: body, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{invoice.note}</div>
+      )}
+      {isOrder && (
+        <div style={{ marginBottom: 18, fontSize: body, color: '#374151', lineHeight: 1.6 }}>
+          <p style={{ margin: 0 }}>Tack för din beställning.<br />{sellerName}</p>
+        </div>
+      )}
       {docType === 'quote' && (
         <div style={{ marginBottom: 18, fontSize: body, color: '#374151', lineHeight: 1.6 }}>
           <p style={{ margin: '0 0 10px' }}>Vi ser fram emot ert svar och hoppas få samarbeta med er.</p>
@@ -624,7 +642,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, marginBottom: 30 }}>
             <div>
-              {sectionLabel(docType === 'quote' ? 'Offertinformation' : 'Fakturainformation')}
+              {sectionLabel(docType === 'quote' ? 'Offertinformation' : isOrder ? 'Orderinformation' : 'Fakturainformation')}
               {meta.slice(1).map(([l, v]) => (
                 <div key={l} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '2px 0', fontSize: body }}>
                   <span style={{ color: MUTED }}>{l}</span>

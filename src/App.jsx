@@ -4743,7 +4743,7 @@ function App() {
   const handleInvoiceFromOrder = ({ id, order, rows }) => {
     const contact = contacts.find(c => c.id === order.customerId);
     const today = new Date().toISOString().split('T')[0];
-    const due = new Date(); due.setDate(due.getDate() + (Number(company?.paymentTermsDays) || 30));
+    const due = new Date(); due.setDate(due.getDate() + (Number(order.paymentTermsDays) || Number(company?.paymentTermsDays) || 30));
     const invoice = {
       id, type: 'invoice', status: 'draft', date: today, dueDate: due.toISOString().split('T')[0],
       invoiceNumber: getNextInvoiceNumber(invoices, company),
