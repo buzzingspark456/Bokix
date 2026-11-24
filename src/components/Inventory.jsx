@@ -271,6 +271,34 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
     m.get(k).push(r);
     return m;
   }, new Map())].sort((a, b) => (a[0] ? 0 : 1) - (b[0] ? 0 : 1) || a[0].localeCompare(b[0], 'sv'));
+  // Inleverans (återställd 2026-11-24: följde med när förslagslistan togs bort).
+  const deliveryRow = (articleId = '', qty = '') => ({ key: newId(), articleId, qty, unitCost: articleId ? (articleOf(articleId)?.purchasePrice ?? '') : '' });
+  const startDelivery = (prefill, ref = '') => {
+    setDelivery({ date: todayIso(), ref, rows: prefill && prefill.length ? prefill : [deliveryRow(), deliveryRow()] });
+    setError('');
+  };
+  const setDeliveryRow = (key, patch) => setDelivery(d => ({ ...d, rows: d.rows.map(x => {
+    if (x.key !== key) return x;
+    const next = { ...x, ...patch };
+    if (patch.articleId !== undefined && patch.articleId !== x.articleId) next.unitCost = articleOf(patch.articleId)?.purchasePrice ?? '';
+    return next;
+  }) }));
+  const num = (v) => Number(String(v ?? '').replace(/\s/g, '').replace(',', '.'));
+  const deliveryLines = delivery ? delivery.rows.filter(x => x.articleId || x.qty !== '') : [];
+  const deliveryTotal = deliveryLines.reduce((sum, x) => sum + (num(x.qty) || 0) * (num(x.unitCost) || 0), 0);
+  const saveDelivery = () => {
+    if (deliveryLines.length === 0) return setError(tr('lager.deliveryEmpty'));
+    const bad = deliveryLines.find(x => !x.articleId || !(num(x.qty) > 0) || !(num(x.unitCost) >= 0) || x.unitCost === '');
+    if (bad) return setError(tr('lager.deliveryRowError'));
+    if (lockedFor(delivery.date)) return setError(tr('ui.rakenskapsaret_ar_last', { v0: lockedFor(delivery.date) }));
+    const note = delivery.ref.trim() || undefined;
+    saveMovements([...manualMovements, ...deliveryLines.map(x => ({
+      id: newId(), articleId: x.articleId, type: 'in', date: delivery.date, qty: num(x.qty), unitCost: num(x.unitCost), note,
+    }))]);
+    setMessage(deliveryLines.length === 1 ? tr('lager.deliverySavedOne') : tr('lager.deliverySaved', { n: deliveryLines.length }));
+    setDelivery(null); setError('');
+    if (view === 'order') setOrderQty({});
+  };
   const createPo = (group, supplier) => {
     const po = {
       id: newId(), number: nextPoNumber(purchaseOrders), supplier: supplier || '', date: todayIso(), expectedDate: '',

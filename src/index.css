@@ -11330,3 +11330,11 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .ar-search, .ar-select, .ar-gear { border-radius: 999px; }
 @media (max-width: 1100px) { .ar-tools .ar-select { margin-left: 0; } .ar-tools .ar-gear { margin-left: auto; } }
 @media (max-width: 1100px) { .pz-table .ar-w-cost, .pz-table td.ar-cost-td { display: none; } }
+
+/* Täta rader: fälten ryms med sitt innehåll (2026-11-24). Moms "25 %" och
+   belopp med enhet klipptes i smala kolumner. */
+.lg-dl-row select.ws-input, .abe-grid select.ws-input, .so-page select.ws-input { padding: 0 4px 0 10px; text-overflow: clip; }
+.lg-dl-row .ws-input-suffix .ws-input { padding-left: 8px; padding-right: 30px; }
+.lg-dl-row .ws-input-suffix > span { right: 9px; font-size: 12px; }
+.so-page .lg-dl-row.so-edit { grid-template-columns: minmax(0, 1fr) 96px 120px 86px 88px 30px; }
+@media (max-width: 760px) { .so-page .lg-dl-row.so-edit { grid-template-columns: minmax(0, 1fr) 96px 30px; } }
