@@ -5634,7 +5634,20 @@
     "raiseAllConfirm": "{{n}} items below target get a price giving {{goal}} % margin on cost. You can undo right after.",
     "raiseAllBtn": "Raise {{n}} to target",
     "raised": "{{n}} prices were raised to the target.",
-    "raisedOne": "The price of {{name}} was raised."
+    "raisedOne": "The price of {{name}} was raised.",
+    "toolBatch": "Many at once",
+    "toolBatchTitle": "Calculate many prices",
+    "batchIntro": "Paste or type several costs and all prices are calculated at once.",
+    "batchInput": "Costs, one per line",
+    "batchPlaceholder": "Canopy fabric\t161\nZip 10 mm\t49.50\n120",
+    "batchHint": "Paste two columns from Excel (name and cost) or just costs.",
+    "batchEmpty": "Type or paste costs on the left.",
+    "exVat": "Price excl. VAT",
+    "inclVat": "Price incl. VAT",
+    "rowN": "Row {{n}}",
+    "copyResult": "Copy {{n}} rows to Excel",
+    "editPrice": "Edit the price",
+    "changedOne": "The price of {{name}} was changed."
   },
   "proj": {
     "me": "Me",

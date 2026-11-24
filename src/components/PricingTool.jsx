@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Search, X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, TrendingUp } from './icons';
+import { Search, X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, TrendingUp, Calculator, Pencil, Percent, Copy } from './icons';
+import ArticleBulkEdit from './ArticleBulkEdit';
 import { showUndo } from './shared/undoToast';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
@@ -73,7 +74,20 @@ const TOOLS = [
   { id: 'discount', label: t('pris.toolDiscount'), title: t('ui.vad_tal_jag_for_rabatt') },
   { id: 'breakeven', label: t('pris.toolBreakeven'), title: t('ui.hur_manga_maste_jag_salja') },
   { id: 'hourly', label: t('pris.toolHourly'), title: t('ui.vilket_timpris_behover_jag') },
+  { id: 'batch', label: t('pris.toolBatch'), title: t('pris.toolBatchTitle') },
 ];
+
+// Flera inköpspriser på en gång: ett per rad, gärna inklistrat från Excel.
+// Det sista talet på raden är inköpspriset, texten före blir benämning.
+export function parseBatch(text) {
+  return String(text || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean).map(line => {
+    const m = line.match(/(-?\d[\d\s]*(?:[.,]\d+)?)\s*(?:kr)?\s*$/i);
+    if (!m) return null;
+    const cost = Number(m[1].replace(/\s/g, '').replace(',', '.'));
+    const label = line.slice(0, m.index).replace(/[\t;:,]+$/, '').trim();
+    return Number.isFinite(cost) && cost > 0 ? { label, cost } : null;
+  }).filter(Boolean);
+}
 
 /**
  * Prissättning — flik under Artiklar (2026-10-17). Överst dina artiklar med
@@ -98,6 +112,12 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
   };
 
   const [tool, setTool] = useState('price');
+  // Räkna ut öppnas som en ruta i stället för att ligga längst ner (2026-11-24).
+  const [calcOpen, setCalcOpen] = useState(false);
+  const [batchText, setBatchText] = useState('');
+  const [picked, setPicked] = useState(() => new Set());
+  const [bulkEdit, setBulkEdit] = useState(null);
+  const [editing, setEditing] = useState(null); // { key, value }
 
   // ── Prisräknare ──
   const [cost, setCost] = useState('');
@@ -184,6 +204,37 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
     applySuggestion(a, roundPrice(a.info.suggested, raiseRound));
     showUndo({ message: t('pris.raisedOne', { name: a.description }), onUndo: () => setArticles(before) });
   };
+  const pickedRows = rows.filter(a => picked.has(keyOf(a)));
+  const allShownPicked = shownRows.length > 0 && shownRows.every(a => picked.has(keyOf(a)));
+  const togglePick = (a) => setPicked(prev => { const n = new Set(prev); const k = keyOf(a); if (n.has(k)) n.delete(k); else n.add(k); return n; });
+  const togglePage = () => setPicked(prev => { const n = new Set(prev); shownRows.forEach(a => (allShownPicked ? n.delete(keyOf(a)) : n.add(keyOf(a)))); return n; });
+  const saveBulk = (patches) => {
+    const before = articles;
+    setArticles(prev => prev.map(x => (patches.has(keyOf(x)) ? { ...x, ...patches.get(keyOf(x)) } : x)));
+    setBulkEdit(null); setPicked(new Set());
+    showUndo({ message: t('artEdit.saved', { n: patches.size }), onUndo: () => setArticles(before) });
+  };
+  // Pris direkt i raden: klicka på priset, skriv, Enter sparar, Esc avbryter.
+  const saveInline = () => {
+    if (!editing) return;
+    const v = Number(String(editing.value).replace(/\s/g, '').replace(',', '.'));
+    const a = rows.find(x => keyOf(x) === editing.key);
+    setEditing(null);
+    if (!a || !Number.isFinite(v) || v < 0 || v === Number(a.unitPrice)) return;
+    const before = articles;
+    setArticles(prev => prev.map(x => (keyOf(x) === keyOf(a) ? { ...x, unitPrice: Math.round(v * 100) / 100 } : x)));
+    showUndo({ message: t('pris.changedOne', { name: a.description }), onUndo: () => setArticles(before) });
+  };
+  const batch = parseBatch(batchText).map(b => {
+    const rawP = mode === 'margin' ? priceFromMargin(b.cost, target) : priceFromMarkup(b.cost, target);
+    const pr = rawP == null ? null : roundPrice(rawP, rounding);
+    return { ...b, price: pr, incl: pr == null ? null : withVat(pr, vat), margin: pr == null ? null : marginPct(pr, b.cost), profit: pr == null ? null : pr - b.cost };
+  });
+  const copyBatch = () => {
+    const tsv = [[t('ui.benamning'), t('ui.inkopspris'), t('ui.pris_exkl_moms'), t('ui.pris_inkl_moms')].join('\t'), ...batch.map(b => [b.label, fmt(b.cost), b.price == null ? '' : fmt(b.price), b.incl == null ? '' : fmt(b.incl)].join('\t'))].join('\n');
+    try { navigator.clipboard?.writeText(tsv); } catch { /* ingen urklippsåtkomst */ }
+  };
+
   const Th = ({ k, children, className = '' }) => (
     <th className={`${className} ar-sortable`} onClick={() => sortBy(k)} aria-sort={sort.key === k ? (sort.dir > 0 ? 'ascending' : 'descending') : undefined}>
       <span>{children}{sort.key === k && (sort.dir > 0 ? <ChevronUp size={13} /> : <ChevronDown size={13} />)}</span>
@@ -195,6 +246,7 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
       <Panel title={t('pris.yourPrices')}
         sub={rows.length === 0 ? t('pris.yourPricesEmpty') : belowCount > 0 ? t('pris.belowCount', { n: belowCount }) : t('pris.allOk')}
         actions={<>
+          <button type="button" className="agi-btn" onClick={() => setCalcOpen(true)}><Calculator size={15} /> {t('pris.calculator')}</button>
           <label className="ws-hint" htmlFor="pz-target" style={{ fontWeight: 600, color: 'var(--text-main)' }}>{t('pris.target')}</label>
           <div className="ws-input-suffix" style={{ width: '92px' }}>
             <input id="pz-target" type="number" className="ws-input" style={{ height: '36px' }} value={num(targetMargin)} onChange={e => setTarget(e.target.value)} />
@@ -232,11 +284,20 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
                 </div>
               )}
             </div>
+            {picked.size > 0 && (
+              <div className="ar-bulk pz-bulk" role="toolbar">
+                <strong>{t('artReg.selected', { n: picked.size })}</strong>
+                <button type="button" onClick={() => setBulkEdit({ focusPrices: false })}><Pencil size={14} /> {t('artEdit.edit')}</button>
+                <button type="button" onClick={() => setBulkEdit({ focusPrices: true })}><Percent size={14} /> {t('artReg.updatePrices')}</button>
+                <button type="button" className="ar-bulk-x" onClick={() => setPicked(new Set())} aria-label={t('artReg.clear')}><X size={16} /></button>
+              </div>
+            )}
             {visible.length === 0 ? <p className="ar-none">{t('ui.inga_artiklar_matchar_sokningen')}</p> : (
               <div className="ar-table-wrap">
                 <table className="ar-table">
                   <thead>
                     <tr>
+                      <th className="ar-cb"><input type="checkbox" checked={allShownPicked} onChange={togglePage} aria-label={t('artReg.pickAll')} /></th>
                       <Th k="articleNumber" className="ar-num-col">{t('ui.artikelnr')}</Th>
                       <Th k="description">{t('ui.benamning')}</Th>
                       <Th k="purchasePrice" className="r ar-w-cost ar-hide-md">{t('artReg.cost')}</Th>
@@ -251,11 +312,24 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
                       const st = STATUS[a.info.status];
                       const color = m == null ? 'var(--border)' : m < 0 ? 'var(--status-red-text)' : m < goal ? '#f0a830' : palette.profit;
                       return (
-                        <tr key={keyOf(a)} style={{ cursor: 'default' }}>
+                        <tr key={keyOf(a)} className={picked.has(keyOf(a)) ? 'on' : ''} style={{ cursor: 'default' }}>
+                          <td className="ar-cb"><input type="checkbox" checked={picked.has(keyOf(a))} onChange={() => togglePick(a)} aria-label={a.description} /></td>
                           <td className="ar-num">{a.articleNumber || '–'}</td>
                           <td className="ar-name"><strong>{a.description}</strong><small>{[a.type === 'vara' ? t('artReg.goodsOne') : t('artReg.serviceOne'), a.unit, a.supplier].filter(Boolean).join(' · ')}</small></td>
                           <td className="r ar-hide-md ar-muted">{a.purchasePrice ? `${fmt(a.purchasePrice)} kr` : '–'}</td>
-                          <td className="r ar-price">{Number(a.unitPrice) > 0 ? `${fmt(a.unitPrice)} kr` : <span className="ar-missing">{t('artReg.noPriceShort')}</span>}</td>
+                          <td className="r ar-price pz-price-cell">
+                            {editing?.key === keyOf(a) ? (
+                              <input className="ws-input pz-inline" autoFocus inputMode="decimal" value={editing.value}
+                                onChange={e => setEditing(x => ({ ...x, value: e.target.value }))}
+                                onKeyDown={e => { if (e.key === 'Enter') saveInline(); if (e.key === 'Escape') setEditing(null); }}
+                                onBlur={saveInline} aria-label={t('artReg.price')} />
+                            ) : (
+                              <button type="button" className="pz-price-btn" title={t('pris.editPrice')} onClick={() => setEditing({ key: keyOf(a), value: Number(a.unitPrice) > 0 ? String(a.unitPrice).replace('.', ',') : '' })}>
+                                {Number(a.unitPrice) > 0 ? `${fmt(a.unitPrice)} kr` : <span className="ar-missing">{t('artReg.noPriceShort')}</span>}
+                                <Pencil size={12} />
+                              </button>
+                            )}
+                          </td>
                           <td className="pz-margin">
                             {m == null ? <span className={`agi-pill ${st.cls}`}>{st.label}</span> : (
                               <span className="pz-m">
@@ -290,7 +364,13 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
         )}
       </Panel>
 
-      <Panel title={t('pris.calculator')} sub={t(`pris.${tool}Intro`)}>
+      {calcOpen && (
+      <div className="modal-overlay" onClick={() => setCalcOpen(false)}>
+      <div className="modal-content pz-calc-modal" style={{ maxWidth: '920px' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div><span className="modal-title">{t('pris.calculator')}</span><p className="wsp-sub" style={{ margin: '4px 0 0' }}>{t(`pris.${tool}Intro`)}</p></div>
+          <button type="button" className="modal-close" onClick={() => setCalcOpen(false)} aria-label={t('ui.stang')}><X size={18} /></button>
+        </div>
         <div className="pz-tools">
           {TOOLS.map(x => (
             <button key={x.id} type="button" className={tool === x.id ? 'on' : ''} onClick={() => setTool(x.id)}>
@@ -298,7 +378,7 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
             </button>
           ))}
         </div>
-        <div className="ws-cols" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
+        <div className="ws-cols" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', display: tool === 'batch' ? 'none' : undefined }}>
           {tool === 'price' && <>
             <div className="ws-form" style={{ gap: '14px' }}>
               <Field label={t('ui.inkopspris_kostnad_kr')} value={cost} onChange={setCost} suffix="kr" />
@@ -397,7 +477,52 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
             />
           </>}
         </div>
-      </Panel>
+        {tool === 'batch' && (
+          <div className="pz-batch">
+            <div className="pz-batch-settings">
+              <label><span className="ws-label">{t('ui.utga_fran')}</span>
+                <select className="ws-input" value={mode} onChange={e => setMode(e.target.value)}><option value="margin">{t('ui.marginal')}</option><option value="markup">{t('ui.paslag')}</option></select></label>
+              <label><span className="ws-label">{t('ui.procent')}</span><div className="ws-input-suffix"><input className="ws-input" inputMode="decimal" value={target} onChange={e => setTargetPct(e.target.value)} /><span>%</span></div></label>
+              <label><span className="ws-label">{t('ui.moms')}</span>
+                <select className="ws-input" value={vat} onChange={e => setVat(Number(e.target.value))}>{[0, 6, 12, 25].map(v => <option key={v} value={v}>{v} %</option>)}</select></label>
+              <label><span className="ws-label">{t('ui.avrunda')}</span>
+                <select className="ws-input" value={rounding} onChange={e => setRounding(e.target.value)}><option value="none">{t('ui.ingen')}</option><option value="krona">{t('ui.hel_krona')}</option><option value="nine">{t('ui.slutar_pa_9')}</option></select></label>
+            </div>
+            <div className="pz-batch-body">
+              <label className="pz-batch-input"><span className="ws-label">{t('pris.batchInput')}</span>
+                <textarea className="ws-input" rows={10} value={batchText} placeholder={t('pris.batchPlaceholder')} onChange={e => setBatchText(e.target.value)} />
+                <small className="ws-hint">{t('pris.batchHint')}</small>
+              </label>
+              <div className="pz-batch-out">
+                {batch.length === 0 ? <p className="ws-hint">{t('pris.batchEmpty')}</p> : (
+                  <>
+                    <table className="ar-table pz-batch-table">
+                      <thead><tr><th>{t('ui.benamning')}</th><th className="r">{t('ui.inkopspris')}</th><th className="r">{t('pris.exVat')}</th><th className="r">{t('pris.inclVat')}</th><th className="r">{t('ui.marginal')}</th></tr></thead>
+                      <tbody>
+                        {batch.map((b, i) => (
+                          <tr key={i} style={{ cursor: 'default' }}>
+                            <td>{b.label || <span className="ar-muted">{t('pris.rowN', { n: i + 1 })}</span>}</td>
+                            <td className="r ar-muted">{fmt(b.cost)} kr</td>
+                            <td className="r ar-price">{b.price == null ? '–' : `${fmt(b.price)} kr`}</td>
+                            <td className="r">{b.incl == null ? '–' : `${fmt(b.incl)} kr`}</td>
+                            <td className="r ar-muted">{fmtPctVal(b.margin)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <button type="button" className="agi-btn" onClick={copyBatch} style={{ marginTop: '10px' }}><Copy size={14} /> {t('pris.copyResult', { n: batch.length })}</button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      </div>
+      )}
+      {bulkEdit && (
+        <ArticleBulkEdit items={pickedRows} keyOf={keyOf} focusPrices={bulkEdit.focusPrices} onSave={saveBulk} onClose={() => setBulkEdit(null)} />
+      )}
     </div>
   );
 }

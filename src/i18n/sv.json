@@ -5634,7 +5634,20 @@
     "raiseAllConfirm": "{{n}} artiklar under målet får ett utpris som ger {{goal}} % marginal på inköpspriset. Det går att ångra direkt efteråt.",
     "raiseAllBtn": "Höj {{n}} till målet",
     "raised": "{{n}} priser höjdes till målet.",
-    "raisedOne": "Priset på {{name}} höjdes."
+    "raisedOne": "Priset på {{name}} höjdes.",
+    "toolBatch": "Flera på en gång",
+    "toolBatchTitle": "Räkna ut många priser",
+    "batchIntro": "Klistra in eller skriv flera inköpspriser, så räknas alla priser ut samtidigt.",
+    "batchInput": "Inköpspriser, ett per rad",
+    "batchPlaceholder": "Sunbrella kapellväv\t161\nTaggblixtlås 10 mm\t49,50\n120",
+    "batchHint": "Klistra in två kolumner från Excel (benämning och pris) eller bara priser.",
+    "batchEmpty": "Skriv eller klistra in inköpspriser till vänster.",
+    "exVat": "Pris exkl. moms",
+    "inclVat": "Pris inkl. moms",
+    "rowN": "Rad {{n}}",
+    "copyResult": "Kopiera {{n}} rader till Excel",
+    "editPrice": "Ändra priset",
+    "changedOne": "Priset på {{name}} ändrades."
   },
   "proj": {
     "me": "Jag",
