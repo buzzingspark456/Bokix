@@ -5,6 +5,7 @@ import { numberFormat } from '../utils/intlCache';
 import { poStatus, poTotal, rowRemaining } from '../utils/purchaseOrders';
 import { downloadPurchaseOrderPdf } from '../utils/purchaseOrderPdf';
 import { confirmDialog } from './shared/ConfirmDialog';
+import ArticleCombobox from './shared/ArticleCombobox';
 
 // En inköpsorder (2026-11-23): utkast som går att ändra, sedan skickad till
 // leverantören (PDF + mejl), och mottagen helt eller delvis. Mottaget blir
@@ -39,14 +40,14 @@ export default function PurchaseOrderModal({ initial, goods, company, suppliers 
     }
     return next;
   }) }));
-  const lines = (po.rows || []).filter(r => r.articleId || r.qty !== '');
+  const lines = (po.rows || []).filter(r => r.articleId || r.qty !== '' || r.query);
   const validate = () => {
     if (!String(po.supplier || '').trim()) return tr('po.errSupplier');
     if (lines.length === 0) return tr('po.errRows');
     if (lines.some(r => !r.articleId || !(num(r.qty) > 0))) return tr('po.errRow');
     return '';
   };
-  const clean = (p) => ({ ...p, supplier: String(p.supplier || '').trim(), rows: lines.map(r => ({ ...r, qty: num(r.qty), unitCost: num(r.unitCost), received: num(r.received) })) });
+  const clean = (p) => ({ ...p, supplier: String(p.supplier || '').trim(), rows: lines.map(({ query, ...r }) => ({ ...r, qty: num(r.qty), unitCost: num(r.unitCost), received: num(r.received) })) });
 
   const saveDraft = () => { const e = validate(); if (e) return setError(e); onSave(clean(po)); onClose(); };
   const markOrdered = (alsoMail) => {
@@ -84,6 +85,18 @@ export default function PurchaseOrderModal({ initial, goods, company, suppliers 
           </div>
           <button type="button" className="modal-close" onClick={onClose} aria-label={tr('ui.stang')}><X size={18} /></button>
         </div>
+        {status !== 'cancelled' && (() => {
+          const step = status === 'draft' ? 0 : status === 'received' ? 3 : 1;
+          return (
+            <ol className="po-track">
+              {[tr('po.step1'), tr('po.step2'), tr('po.step3')].map((label, i) => (
+                <li key={label} className={i < step ? 'done' : i === step ? 'now' : ''}>
+                  <b>{i < step ? <Check size={12} /> : i + 1}</b>{label}
+                </li>
+              ))}
+            </ol>
+          );
+        })()}
 
         <div className="po-meta">
           <div className="po-field po-supplier">
@@ -123,10 +136,11 @@ export default function PurchaseOrderModal({ initial, goods, company, suppliers 
             const g = byId.get(r.articleId);
             return editable ? (
               <div key={r.key} className="lg-dl-row">
-                <select className="ws-input" value={r.articleId} onChange={e => setRow(r.key, { articleId: e.target.value })} aria-label={tr('ui.vara')}>
-                  <option value="">{tr('lager.pickGood')}</option>
-                  {goods.map(x => <option key={x.id} value={x.id}>{x.articleNumber ? `${x.articleNumber} · ` : ''}{x.description}</option>)}
-                </select>
+                <ArticleCombobox articles={goods} className="ws-input" placeholder={tr('po.searchGood')}
+                  value={r.query ?? (g ? `${g.articleNumber ? `${g.articleNumber} · ` : ''}${g.description}` : '')}
+                  inputProps={{ 'aria-label': tr('ui.vara') }}
+                  onChange={v => setPo(p => ({ ...p, rows: p.rows.map(x => (x.key === r.key ? { ...x, query: v, articleId: '' } : x)) }))}
+                  onPick={a => { setRow(r.key, { articleId: a.id }); setPo(p => ({ ...p, rows: p.rows.map(x => (x.key === r.key ? { ...x, query: undefined } : x)) })); }} />
                 <div className="ws-input-suffix"><input className="ws-input" inputMode="decimal" placeholder="0" value={r.qty} onChange={e => setRow(r.key, { qty: e.target.value })} aria-label={tr('lager.colQty')} /><span>{r.articleId ? unitOf(r.articleId) : ''}</span></div>
                 <div className="ws-input-suffix"><input className="ws-input" inputMode="decimal" placeholder="0" value={r.unitCost} onChange={e => setRow(r.key, { unitCost: e.target.value })} aria-label={tr('lager.colCost')} /><span>kr</span></div>
                 <span className="r lg-dl-sum">{num(r.qty) > 0 ? fmtKr(num(r.qty) * num(r.unitCost)) : ''}</span>
@@ -161,7 +175,6 @@ export default function PurchaseOrderModal({ initial, goods, company, suppliers 
           <div className="po-recv-bar">
             <label className="ws-label" htmlFor="po-recv-date" style={{ margin: 0 }}>{tr('po.receiveDate')}</label>
             <input id="po-recv-date" type="date" className="ws-input" style={{ width: 'auto' }} value={recvDate} onChange={e => setRecvDate(e.target.value)} />
-            <span className="ws-hint">{tr('po.receiveHint')}</span>
           </div>
         )}
         {po.matchedExpenseLabel && <p className="ws-hint" style={{ marginTop: '10px' }}><Check size={13} /> {tr('po.matched', { label: po.matchedExpenseLabel })}</p>}

@@ -53,3 +53,13 @@ describe('inköpsorder', () => {
     expect(matchPurchaseOrder([po()], { supplier: 'Östersjökompaniet', netAmount: total * 1.3 }).sure).toBe(false);
   });
 });
+
+describe('poStatus med tomma rader', () => {
+  it('en ny order med en tom rad är ett utkast, inte levererad', () => {
+    expect(poStatus({ rows: [{ key: 'a', articleId: '', qty: '', unitCost: '' }] })).toBe('draft')
+    expect(poStatus({ rows: [] })).toBe('draft')
+  })
+  it('en tom rad bredvid en levererad räknas inte', () => {
+    expect(poStatus({ ordered: true, rows: [{ qty: 2, received: 2 }, { qty: '', received: 0 }] })).toBe('received')
+  })
+})

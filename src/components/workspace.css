@@ -1095,7 +1095,7 @@ button.lg-kpi:hover { filter: brightness(1.06); box-shadow: 0 6px 18px rgba(0,0,
 .ws-listbar:has(.lg-views) { flex-wrap: wrap; row-gap: 8px; }
 .ws-listbar:has(.lg-views) .lg-listtools { flex-wrap: wrap; justify-content: flex-end; }
 @media (max-width: 1280px) {
-  .lg-tbl .lg-w-min, .lg-tbl td:nth-child(4), .lg-tbl .ar-w-cost, .lg-tbl td:nth-child(5) { display: none; }
+  .lg-tbl:not(.po-tbl) .lg-w-min, .lg-tbl:not(.po-tbl) td:nth-child(4), .lg-tbl:not(.po-tbl) .ar-w-cost, .lg-tbl:not(.po-tbl) td:nth-child(5) { display: none; }
   .lg-w-qty { width: 150px; }
   .lg-q .pz-m-track { max-width: 60px; }
 }
@@ -1117,3 +1117,36 @@ button.lg-kpi:hover { filter: brightness(1.06); box-shadow: 0 6px 18px rgba(0,0,
   .lg-kpi small { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 }
 @media (max-width: 760px) { .lg-kpis { grid-template-columns: 1fr 1fr; } }
+
+/* Siffrorna utan ikoner och undertexter (2026-11-24): bara rubrik och tal. */
+.lg-kpis--plain .lg-kpi { padding: 14px 16px; gap: 6px; border-radius: 10px; box-shadow: none; }
+.lg-kpis--plain .lg-kpi-label { font-size: 13px; font-weight: 500; }
+.lg-kpis--plain .lg-kpi-val, .lg-kpis--plain .lg-kpi.is-value .lg-kpi-val { font-size: 24px; font-weight: 650; letter-spacing: -.01em; }
+.lg-kpis--plain button.lg-kpi:hover { transform: none; box-shadow: none; filter: brightness(1.05); }
+@media (max-width: 1100px) { .lg-kpis--plain .lg-kpi-val, .lg-kpis--plain .lg-kpi.is-value .lg-kpi-val { font-size: 19px; } }
+
+/* Inköp som en ren orderlista (2026-11-24) */
+.po-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 16px; }
+.po-steps { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-secondary); }
+.po-steps span { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.po-steps b { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: var(--bg-muted); color: var(--text-main); }
+.po-steps i { width: 22px; height: 1px; background: var(--border); }
+.po-w-nr { width: 96px; }
+.po-w-date { width: 110px; }
+.po-w-prog { width: 150px; }
+.po-w-status { width: 150px; }
+.po-row.is-received td, .po-row.is-cancelled td { color: var(--text-secondary); }
+.po-late { color: var(--status-red-text); font-weight: 600; }
+.po-prog { display: flex; flex-direction: column; gap: 4px; }
+.po-prog small { font-size: 11.5px; color: var(--text-secondary); }
+@media (max-width: 1280px) { .po-steps { display: none; } }
+@media (max-width: 1100px) { .po-tbl .ar-hide-md { display: none; } .po-w-status { width: auto; } }
+
+.po-track { display: flex; gap: 0; list-style: none; margin: 0 0 18px; padding: 0; counter-reset: none; }
+.po-track li { flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-size: 13px; font-weight: 600; color: var(--text-muted); border-bottom: 2px solid var(--border-light, var(--border)); }
+.po-track li b { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11.5px; background: var(--bg-muted); color: var(--text-secondary); flex-shrink: 0; }
+.po-track li.done { color: var(--text-secondary); border-color: var(--status-green-text); }
+.po-track li.done b { background: var(--status-green-text); color: #fff; }
+.po-track li.now { color: var(--text-main); border-color: var(--accent); }
+.po-track li.now b { background: var(--accent); color: #fff; }
+.po-nr { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 13px; }

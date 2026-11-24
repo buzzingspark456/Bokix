@@ -8,6 +8,7 @@ import { showUndo, restoreAt } from './shared/undoToast';
 import { articlesToCsv, parseArticleImport, legacyCsvToArticles, downloadCsv } from '../utils/csvRegister';
 import ArticleImportPreview from './ArticleImportPreview';
 import ArticlesRegister from './ArticlesRegister';
+import ArticleForm, { nextArticleNumber } from './ArticleForm';
 import InventoryNew from './Inventory';
 import InventoryLegacy from './InventoryLegacy';
 import PricingToolNew from './PricingTool';
@@ -107,7 +108,15 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
     );
   }, [articles, search]);
 
-  const startNew = () => { setEditing(emptyArticle()); setEditingOriginal(null); setMoreOpen(false); };
+  const startNew = () => {
+    // Admin: nästa lediga artikelnummer och den typ som är vanligast i registret.
+    const base = emptyArticle();
+    if (v2) {
+      const goodsN = articles.filter(a => a.type === 'vara').length;
+      Object.assign(base, { unitPrice: '', articleNumber: nextArticleNumber(articles), type: goodsN > articles.length - goodsN ? 'vara' : 'tjanst' });
+    }
+    setEditing(base); setEditingOriginal(null); setMoreOpen(false);
+  };
   const startEdit = (a) => {
     setEditing({ ...emptyArticle(), ...a });
     setEditingOriginal(a);
@@ -166,7 +175,9 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
   const save = () => {
     const description = (editing.description || '').trim();
     if (!description) return;
-    const next = { ...editing, description, articleNumber: (editing.articleNumber || '').trim(), id: editing.id || newArticleId() };
+    const toNum = (v) => Number(String(v ?? '').replace(/\s/g, '').replace(',', '.')) || 0;
+    const next = { ...editing, description, articleNumber: (editing.articleNumber || '').trim(), id: editing.id || newArticleId(),
+      unitPrice: toNum(editing.unitPrice), purchasePrice: editing.purchasePrice === '' || editing.purchasePrice == null ? '' : toNum(editing.purchasePrice) };
     setArticles(prev => {
       const idx = editingOriginal ? prev.indexOf(editingOriginal) : -1;
       if (idx !== -1) return prev.map((a, i) => i === idx ? next : a);
@@ -190,6 +201,13 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
   // och fälten grupperade i kompakta kort-sektioner (sectionStyle) med en
   // 2-kolumns-grid istället för en smal, flytande maxWidth-ruta mitt i en
   // annars tom sida. ──
+  if (editing && v2) {
+    return (
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: 'var(--bg-page)' }}>
+        <ArticleForm article={editing} setArticle={setEditing} isNew={!editingOriginal} articles={articles} accounts={accounts} onSave={save} onCancel={cancelEdit} />
+      </div>
+    );
+  }
   if (editing) {
     const canSave = Boolean(editing.description.trim());
     return (
@@ -351,8 +369,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
           <ArticlesRegister
             articles={articles} setArticles={setArticles} company={company} setCompanyInfo={setCompanyInfo} invoices={invoices}
             onEdit={startEdit} onNew={startNew}
-            onDuplicate={(a) => { setEditing({ ...emptyArticle(), ...a, id: undefined, articleNumber: '', description: `${a.description} ${t('artReg.copySuffix')}` }); setEditingOriginal(null); setMoreOpen(true); }}
-          />
+            onDuplicate={(a) => { setEditing({ ...emptyArticle(), ...a, id: undefined, articleNumber: v2 ? nextArticleNumber(articles) : '', description: `${a.description} ${t('artReg.copySuffix')}` }); setEditingOriginal(null); setMoreOpen(true); }} onImport={handleImportClick} onExport={handleExportCsv} />
         </div>
       )}
       {tab === 'articles' && !v2 && <ListFilterBar count={filtered.length} countLabel={filtered.length === 1 ? t('ui.artikel_2') : t('ui.artiklar_2')}>

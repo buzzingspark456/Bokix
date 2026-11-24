@@ -6175,7 +6175,23 @@
     "matchPartial": "Part of the goods is received, the rest is received now.",
     "receivedMsgOne": "{{number}}: 1 row received.",
     "deleteConfirm": "Delete the draft {{number}}?",
-    "cancelConfirm": "Cancel {{number}}? What was already received stays in stock."
+    "cancelConfirm": "Cancel {{number}}? What was already received stays in stock.",
+    "search": "Search order no., supplier or item",
+    "fOpen": "Open",
+    "fOrdered": "Ordered",
+    "fDone": "Done",
+    "step1": "Create",
+    "step2": "Send",
+    "step3": "Receive",
+    "orderLow": "Order what is running low ({{n}})",
+    "draftsMade": "{{n}} drafts created, one per supplier.",
+    "emptyTitle": "No purchase orders yet",
+    "emptyText": "Create an order, send it to the supplier and receive the goods when they arrive.",
+    "noneHere": "No orders here.",
+    "colNumber": "No.",
+    "rowsOne": "1 item",
+    "rowsMany": "{{n}} items",
+    "searchGood": "Search item or item no."
   },
   "invConfirm": {
     "paidTitle": "Mark as paid?",
@@ -6265,5 +6281,34 @@
     "save": "Save {{n}} items",
     "saved": "{{n}} items were saved.",
     "countNote": "Bulk edit"
+  },
+  "artForm": {
+    "back": "Items",
+    "secArticle": "Item",
+    "secPrice": "Price",
+    "secStock": "Stock and purchasing",
+    "secBooking": "Bookkeeping and more",
+    "typeGood": "Something you buy in and sell",
+    "typeService": "Work, hours or fees",
+    "namePhGood": "E.g. Coffee medium roast 500 g",
+    "dupNumber": "The item number already exists.",
+    "salePrice": "Sales price",
+    "tg": "Contribution",
+    "tgPct": "Margin",
+    "inclVat": "Price incl. VAT",
+    "supplier": "Supplier",
+    "supplierPh": "E.g. Wholesale Ltd",
+    "location": "Location",
+    "locationPh": "E.g. Shelf A3"
+  },
+  "artSet": {
+    "title": "Settings",
+    "import": "Import items",
+    "export": "Export register",
+    "columns": "Visible columns",
+    "rowSize": "Row size",
+    "compact": "Compact",
+    "normal": "Normal",
+    "perPage": "Rows per page"
   }
 }

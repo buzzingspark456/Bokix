@@ -197,13 +197,13 @@ describe('lager från fakturor', () => {
   it('ritar valet, antalet efter fakturan och raden som såld på faktura', () => {
     const out = html(React.createElement(Inventory, { articles, invoices, company: on, verifications: [], onAddVerification: noop, setCompanyInfo: noop }))
     // Tio inlevererade, fyra sålda på faktura 1001: sex kvar.
-    expect(out).toContain('6 st')
+    expect(out).toContain("<b>6</b> <small>st")
     expect(out).toContain('1 fakturarader räknas med')
   })
 
   it('utan valet påverkas inte lagret av fakturor', () => {
     const out = html(React.createElement(Inventory, { articles, invoices, company, verifications: [], onAddVerification: noop, setCompanyInfo: noop }))
-    expect(out).toContain('10 st')
+    expect(out).toContain("<b>10</b> <small>st")
     expect(out).not.toContain('fakturarader räknas med')
   })
 })

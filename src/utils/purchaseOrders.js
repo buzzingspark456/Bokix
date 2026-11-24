@@ -27,7 +27,9 @@ export function poStatus(po) {
   if (po.cancelled) return 'cancelled';
   const rows = po.rows || [];
   const any = rows.some(r => num(r.received) > 0);
-  const all = rows.length > 0 && rows.every(r => rowRemaining(r) === 0);
+  // Tomma rader (inget antal än) räknas inte: en ny order är ett utkast, inte levererad.
+  const real = rows.filter(r => num(r.qty) > 0);
+  const all = real.length > 0 && real.every(r => rowRemaining(r) === 0);
   if (all) return 'received';
   if (any) return 'partial';
   return po.sentAt || po.ordered ? 'ordered' : 'draft';

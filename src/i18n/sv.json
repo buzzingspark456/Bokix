@@ -6175,7 +6175,23 @@
     "matchPartial": "En del av varorna är inlevererade, resten tas emot nu.",
     "receivedMsgOne": "{{number}}: 1 rad är inlevererad.",
     "deleteConfirm": "Ta bort utkastet {{number}}?",
-    "cancelConfirm": "Makulera {{number}}? Det som redan tagits emot ligger kvar i lagret."
+    "cancelConfirm": "Makulera {{number}}? Det som redan tagits emot ligger kvar i lagret.",
+    "search": "Sök ordernr, leverantör eller vara",
+    "fOpen": "Pågående",
+    "fOrdered": "Beställda",
+    "fDone": "Klara",
+    "step1": "Skapa",
+    "step2": "Skicka",
+    "step3": "Ta emot",
+    "orderLow": "Beställ det som tar slut ({{n}})",
+    "draftsMade": "{{n}} utkast skapade, ett per leverantör.",
+    "emptyTitle": "Inga inköpsorder än",
+    "emptyText": "Skapa en order, skicka den till leverantören och ta emot varorna när de kommer.",
+    "noneHere": "Inga order här.",
+    "colNumber": "Nr",
+    "rowsOne": "1 vara",
+    "rowsMany": "{{n}} varor",
+    "searchGood": "Sök vara eller artikelnr"
   },
   "invConfirm": {
     "paidTitle": "Markera som betald?",
@@ -6265,5 +6281,34 @@
     "save": "Spara {{n}} artiklar",
     "saved": "{{n}} artiklar sparades.",
     "countNote": "Massredigering"
+  },
+  "artForm": {
+    "back": "Artiklar",
+    "secArticle": "Artikel",
+    "secPrice": "Pris",
+    "secStock": "Lager och inköp",
+    "secBooking": "Bokföring och övrigt",
+    "typeGood": "Något du köper in och säljer",
+    "typeService": "Arbete, timmar eller avgifter",
+    "namePhGood": "T.ex. Kaffe mellanrost 500 g",
+    "dupNumber": "Artikelnumret finns redan.",
+    "salePrice": "Försäljningspris",
+    "tg": "Täckningsbidrag",
+    "tgPct": "Täckningsgrad",
+    "inclVat": "Pris inkl. moms",
+    "supplier": "Leverantör",
+    "supplierPh": "T.ex. Grossisten AB",
+    "location": "Lagerplats",
+    "locationPh": "T.ex. Hylla A3"
+  },
+  "artSet": {
+    "title": "Inställningar",
+    "import": "Importera artiklar",
+    "export": "Exportera register",
+    "columns": "Synliga kolumner",
+    "rowSize": "Radstorlek",
+    "compact": "Kompakt",
+    "normal": "Normal",
+    "perPage": "Rader per sida"
   }
 }

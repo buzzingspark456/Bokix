@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Search, Pencil, Copy, Trash2, X, Download, Percent, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Package } from './icons';
+import { Search, Pencil, Copy, Trash2, X, Download, Percent, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Package, Settings2, Upload } from './icons';
 import RowActionMenu from './shared/RowActionMenu';
 import ArticleBulkEdit from './ArticleBulkEdit';
 import { confirmDialog } from './shared/ConfirmDialog';
@@ -17,18 +17,34 @@ import { articlesToCsv, downloadCsv } from '../utils/csvRegister';
 const fmt = (v) => numberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v) || 0);
 const fmtQty = (v) => numberFormat('sv-SE', { maximumFractionDigits: 2 }).format(Number(v) || 0);
 const fmtKr = (v) => `${numberFormat('sv-SE', { maximumFractionDigits: 0 }).format(Math.round(Number(v) || 0))} kr`;
-const PAGE_SIZES = [50, 100, 0];
+const PAGE_SIZES = [25, 50, 100, 0];
+// Listans inställningar sparas per webbläsare (bara bekvämlighet).
+const PREFS_KEY = 'bokix.artReg.prefs';
+const DEFAULT_COLS = { num: true, price: true, cost: true, tg: true, stock: true, value: true, supplier: false, unit: false };
+const loadPrefs = () => {
+  try { const v = JSON.parse(localStorage.getItem(PREFS_KEY) || 'null'); if (v && typeof v === 'object') return { cols: { ...DEFAULT_COLS, ...(v.cols || {}) }, density: v.density === 'compact' ? 'compact' : 'normal', pageSize: PAGE_SIZES.includes(v.pageSize) ? v.pageSize : 50 }; } catch { /* privat läge */ }
+  return { cols: { ...DEFAULT_COLS }, density: 'normal', pageSize: 50 };
+};
 const marginOf = (a) => {
   const p = Number(a.unitPrice) || 0; const c = Number(a.purchasePrice) || 0;
   return p > 0 && c > 0 ? ((p - c) / p) * 100 : null;
 };
 
-export default function ArticlesRegister({ articles = [], setArticles, company, setCompanyInfo, invoices = [], onEdit, onNew, onDuplicate }) {
+export default function ArticlesRegister({ articles = [], setArticles, company, setCompanyInfo, invoices = [], onEdit, onNew, onDuplicate, onImport, onExport }) {
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
   const [supplier, setSupplier] = useState('');
   const [sort, setSort] = useState({ key: 'articleNumber', dir: 1 });
-  const [pageSize, setPageSize] = useState(50);
+  const [prefs, setPrefs] = useState(loadPrefs);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const pageSize = prefs.pageSize;
+  const cols = prefs.cols;
+  const updatePrefs = (patch) => setPrefs(prev => {
+    const next = { ...prev, ...patch, cols: { ...prev.cols, ...(patch.cols || {}) } };
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify(next)); } catch { /* privat läge */ }
+    return next;
+  });
+  const setPageSize = (n) => updatePrefs({ pageSize: n });
   const [page, setPage] = useState(0);
   const [picked, setPicked] = useState(() => new Set());
   // Massredigering (ArticleBulkEdit): null | { focusPrices }
@@ -89,6 +105,7 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
     const val = (a) => {
       switch (sort.key) {
         case 'description': return (a.description || '').toLowerCase();
+        case 'supplier': return (a.supplier || '\uffff').toLowerCase();
         case 'unitPrice': return Number(a.unitPrice) || 0;
         case 'purchasePrice': return Number(a.purchasePrice) || 0;
         case 'margin': return marginOf(a) ?? -1e9;
@@ -163,7 +180,7 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
   ].filter(([id, , n]) => id === 'all' || n > 0 || filter === id);
 
   return (
-    <div className="ar">
+    <div className={`ar${prefs.density === 'compact' ? ' ar--compact' : ''}`}>
       <div className="ar-tools">
         <label className="ar-search">
           <Search size={15} aria-hidden="true" />
@@ -183,6 +200,7 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
             {suppliers.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         )}
+        <button type="button" className="ar-gear" onClick={() => setSettingsOpen(true)} title={t('artSet.title')} aria-label={t('artSet.title')}><Settings2 size={16} /></button>
       </div>
 
       {picked.size > 0 && (
@@ -216,13 +234,15 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
               <thead>
                 <tr>
                   <th className="ar-cb"><input type="checkbox" checked={allShownPicked} onChange={toggleShown} aria-label={t('artReg.pickAll')} /></th>
-                  <Th k="articleNumber" className="ar-num-col">{t('ui.artikelnr')}</Th>
+                  {cols.num && <Th k="articleNumber" className="ar-num-col">{t('ui.artikelnr')}</Th>}
                   <Th k="description">{t('ui.benamning')}</Th>
-                  <Th k="unitPrice" className="r ar-w-price">{t('artReg.price')}</Th>
-                  <Th k="purchasePrice" className="r ar-hide-md ar-w-cost">{t('artReg.cost')}</Th>
-                  <Th k="margin" className="r ar-hide-md ar-w-tg">{t('artReg.margin')}</Th>
-                  {stock.any && <Th k="stock" className="r ar-w-stock">{t('artReg.stock')}</Th>}
-                  {stock.any && <Th k="value" className="r ar-hide-lg ar-w-value">{t('artReg.value')}</Th>}
+                  {cols.supplier && <Th k="supplier" className="ar-hide-md ar-w-sup">{t('artReg.supplier')}</Th>}
+                  {cols.unit && <th className="ar-w-unit">{t('ui.enhet')}</th>}
+                  {cols.price && <Th k="unitPrice" className="r ar-w-price">{t('artReg.price')}</Th>}
+                  {cols.cost && <Th k="purchasePrice" className="r ar-hide-md ar-w-cost">{t('artReg.cost')}</Th>}
+                  {cols.tg && <Th k="margin" className="r ar-hide-md ar-w-tg">{t('artReg.margin')}</Th>}
+                  {stock.any && cols.stock && <Th k="stock" className="r ar-w-stock">{t('artReg.stock')}</Th>}
+                  {stock.any && cols.value && <Th k="value" className="r ar-hide-lg ar-w-value">{t('artReg.value')}</Th>}
                   <th className="ar-act" />
                 </tr>
               </thead>
@@ -235,16 +255,18 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
                   return (
                     <tr key={keyOf(a)} className={picked.has(keyOf(a)) ? 'on' : ''} onClick={() => onEdit(a)}>
                       <td className="ar-cb" onClick={e => e.stopPropagation()}><input type="checkbox" checked={picked.has(keyOf(a))} onChange={() => toggle(a)} aria-label={a.description} /></td>
-                      <td className="ar-num">{a.articleNumber || '–'}</td>
+                      {cols.num && <td className="ar-num">{a.articleNumber || '–'}</td>}
                       <td className="ar-name">
                         <strong>{a.description}</strong>
-                        <small>{[a.type === 'vara' ? t('artReg.goodsOne') : t('artReg.serviceOne'), a.unit, `${a.vatRate} %`, a.supplier, loc ? t('artReg.loc', { loc }) : null].filter(Boolean).join(' · ')}</small>
+                        <small>{[!cols.num && a.articleNumber ? a.articleNumber : null, a.type === 'vara' ? t('artReg.goodsOne') : t('artReg.serviceOne'), cols.unit ? null : a.unit, `${a.vatRate} %`, cols.supplier ? null : a.supplier, loc ? t('artReg.loc', { loc }) : null].filter(Boolean).join(' · ')}</small>
                       </td>
-                      <td className="r ar-price">{Number(a.unitPrice) > 0 ? `${fmt(a.unitPrice)} kr` : <span className="ar-missing">{t('artReg.noPriceShort')}</span>}</td>
-                      <td className="r ar-hide-md ar-muted">{Number(a.purchasePrice) > 0 ? `${fmt(a.purchasePrice)} kr` : '–'}</td>
-                      <td className="r ar-hide-md">{m == null ? <span className="ar-muted">–</span> : <span className={`ar-tg${m < 20 ? ' low' : m >= 50 ? ' high' : ''}`}>{numberFormat('sv-SE', { maximumFractionDigits: 0 }).format(m)} %</span>}</td>
-                      {stock.any && <td className="r">{s ? <span className={`ar-stock is-${st}`}><i aria-hidden="true" />{fmtQty(s.qty)} <small>{a.unit || 'st'}</small></span> : <span className="ar-muted">–</span>}</td>}
-                      {stock.any && <td className="r ar-hide-lg ar-muted">{s && s.value > 0 ? fmtKr(s.value) : '–'}</td>}
+                      {cols.supplier && <td className="ar-hide-md ar-muted ar-ellip ar-sup-td">{a.supplier || '–'}</td>}
+                      {cols.unit && <td className="ar-muted">{a.unit || 'st'}</td>}
+                      {cols.price && <td className="r ar-price">{Number(a.unitPrice) > 0 ? `${fmt(a.unitPrice)} kr` : <span className="ar-missing">{t('artReg.noPriceShort')}</span>}</td>}
+                      {cols.cost && <td className="r ar-hide-md ar-muted ar-cost-td">{Number(a.purchasePrice) > 0 ? `${fmt(a.purchasePrice)} kr` : '–'}</td>}
+                      {cols.tg && <td className="r ar-hide-md">{m == null ? <span className="ar-muted">–</span> : <span className={`ar-tg${m < 20 ? ' low' : m >= 50 ? ' high' : ''}`}>{numberFormat('sv-SE', { maximumFractionDigits: 0 }).format(m)} %</span>}</td>}
+                      {stock.any && cols.stock && <td className="r">{s ? <span className={`ar-stock is-${st}`}><i aria-hidden="true" />{fmtQty(s.qty)} <small>{a.unit || 'st'}</small></span> : <span className="ar-muted">–</span>}</td>}
+                      {stock.any && cols.value && <td className="r ar-hide-lg ar-muted">{s && s.value > 0 ? fmtKr(s.value) : '–'}</td>}
                       <td className="ar-act" onClick={e => e.stopPropagation()}>
                         <RowActionMenu items={[
                           { key: 'edit', label: t('ui.andra'), icon: Pencil, onClick: () => onEdit(a) },
@@ -274,6 +296,49 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
             </span>
           </div>
         </>
+      )}
+
+      {settingsOpen && (
+        <div className="ar-set-overlay" onClick={() => setSettingsOpen(false)}>
+          <aside className="ar-set" onClick={e => e.stopPropagation()} aria-label={t('artSet.title')}>
+            <div className="ar-set-head">
+              <h2>{t('artSet.title')}</h2>
+              <button type="button" className="modal-close" onClick={() => setSettingsOpen(false)} aria-label={t('ui.stang')}><X size={18} /></button>
+            </div>
+            {(onImport || onExport) && (
+              <div className="ar-set-sec ar-set-btns">
+                {onImport && <button type="button" onClick={() => { setSettingsOpen(false); onImport(); }}><Upload size={14} /> {t('artSet.import')}</button>}
+                {onExport && <button type="button" onClick={onExport}><Download size={14} /> {t('artSet.export')}</button>}
+              </div>
+            )}
+            <div className="ar-set-sec">
+              <h3>{t('artSet.columns')}</h3>
+              {[['num', t('ui.artikelnummer')], ['price', t('artReg.price')], ['cost', t('artReg.cost')], ['tg', t('artReg.margin')], ...(stock.any ? [['stock', t('artReg.stock')], ['value', t('artReg.value')]] : []), ['supplier', t('artReg.supplier')], ['unit', t('ui.enhet')]].map(([k, label]) => (
+                <label key={k} className="ar-switch">
+                  <span>{label}</span>
+                  <input type="checkbox" checked={Boolean(cols[k])} onChange={e => updatePrefs({ cols: { [k]: e.target.checked } })} />
+                  <i aria-hidden="true" />
+                </label>
+              ))}
+            </div>
+            <div className="ar-set-sec">
+              <h3>{t('artSet.rowSize')}</h3>
+              <div className="ar-set-seg">
+                {[['compact', t('artSet.compact')], ['normal', t('artSet.normal')]].map(([k, label]) => (
+                  <button key={k} type="button" className={prefs.density === k ? 'on' : ''} onClick={() => updatePrefs({ density: k })}>{label}</button>
+                ))}
+              </div>
+            </div>
+            <div className="ar-set-sec">
+              <h3>{t('artSet.perPage')}</h3>
+              <div className="ar-set-seg">
+                {PAGE_SIZES.map(n => (
+                  <button key={n} type="button" className={pageSize === n ? 'on' : ''} onClick={() => { setPageSize(n); setPage(0); }}>{n || t('artReg.perPageAll')}</button>
+                ))}
+              </div>
+            </div>
+          </aside>
+        </div>
       )}
 
       {bulkEdit && (
