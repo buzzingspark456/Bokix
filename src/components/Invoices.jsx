@@ -45,6 +45,7 @@ import { t as tr, dateLocale } from '../i18n';
 import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 import { captureEvent } from '../utils/posthog';
 import { sendableEmail } from '../utils/validators';
+import { isAdminPreview } from '../utils/adminPreview';
 
 const newRowId = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `row_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 // Samma enheter som på offertraderna (Quotes.jsx), "st" som förval.
@@ -2567,13 +2568,14 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
   const handleMarkSent = async (inv, e) => {
     e?.stopPropagation();
     // Skickad = bokförd kundfordran, så frågan kommer först (2026-11-24).
-    if (!(await confirmDialog(tr('invConfirm.sentText', { nr: inv.invoiceNumber || '' }), { title: tr('invConfirm.sentTitle'), confirmLabel: tr('ui.markera_som_skickad') }))) return;
+    if (isAdminPreview() && !(await confirmDialog(tr('invConfirm.sentText', { nr: inv.invoiceNumber || '' }), { title: tr('invConfirm.sentTitle'), confirmLabel: tr('ui.markera_som_skickad') }))) return;
     setInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, status: 'sent' } : i));
   };
 
   // Markera som betald bokför betalningen med dagens datum, så den frågar
   // först, också på statusetiketten och i massåtgärden. Utkast räknas aldrig.
   const confirmMarkPaid = async (list) => {
+    if (!isAdminPreview()) { list.filter(inv => inv && !inv.isDemo && getStatus(inv) !== 'paid').forEach(inv => onMarkPaid(inv.id)); return true; }
     const real = list.filter(inv => inv && !inv.isDemo && !['paid', 'draft'].includes(getStatus(inv)));
     if (real.length === 0) return false;
     const text = real.length === 1 ? tr('invConfirm.paidOne', { nr: real[0].invoiceNumber || '' }) : tr('invConfirm.paidMany', { n: real.length });
@@ -2582,6 +2584,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
     return true;
   };
   const confirmCreditNote = async (inv) => {
+    if (!isAdminPreview()) { handleCreateCreditNote(inv); return; }
     if (await confirmDialog(tr('ui.skapa_en_kreditfaktura_som_motsvarar_faktura', { nextNum: inv.invoiceNumber || '' }), { confirmLabel: tr('ui.kreditera_faktura') })) handleCreateCreditNote(inv);
   };
 
@@ -2618,7 +2621,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
     ];
     if (status !== 'paid') {
       items.push({ key: 'edit', label: tr('ui.redigera'), icon: Pencil, onClick: () => openInvoice(inv) });
-      if (status !== 'draft') items.push({ key: 'mark-paid', label: tr('ui.markera_som_betald'), icon: CheckCircle2, onClick: () => confirmMarkPaid([inv]) });
+      if (status !== 'draft' || !isAdminPreview()) items.push({ key: 'mark-paid', label: tr('ui.markera_som_betald'), icon: CheckCircle2, onClick: () => confirmMarkPaid([inv]) });
     }
     // "Registrera betalning" (koppling mot en verifikation/inbetalning)
     // sköts redan inne i fakturaformuläret — den här raden öppnar dit
@@ -2708,7 +2711,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
               </span>
             ) : (
               <button
-                onClick={e => { e.stopPropagation(); if (inv.isDemo) return; if (status === 'draft') openInvoice(inv); else confirmMarkPaid([inv]); }}
+                onClick={e => { e.stopPropagation(); if (inv.isDemo) return; if (status === 'draft' && isAdminPreview()) openInvoice(inv); else confirmMarkPaid([inv]); }}
                 title={inv.isDemo ? tr('ui.exempelfaktura_bara_for_visning') : status === 'draft' ? tr('invConfirm.openDraft') : tr('ui.klicka_for_att_markera_som_betald')}
                 style={{
                   ...STATUS_PILL, cursor: 'pointer', border: status === 'draft' ? STRONG_DRAFT.border : STATUS_PILL.border,

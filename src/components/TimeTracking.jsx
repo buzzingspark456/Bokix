@@ -5,6 +5,7 @@ import { BRAND } from '../utils/brandColors';
 import { t } from '../i18n';
 import { numberFormat } from '../utils/intlCache';
 import { showUndo, restoreAt } from './shared/undoToast';
+import { isAdminPreview } from '../utils/adminPreview';
 
 const emptyForm = () => ({
   type: 'kund', // 'kund' (fakturerbart) | 'anstalld' (löneunderlag)
@@ -75,7 +76,7 @@ export default function TimeTracking({
     const index = timeEntries.findIndex(e => e.id === id);
     const entry = timeEntries[index];
     setTimeEntries(prev => prev.filter(e => e.id !== id));
-    if (entry) showUndo({ message: t('undo.timeRemoved'), onUndo: () => setTimeEntries(prev => restoreAt(prev, entry, index)) });
+    if (entry && isAdminPreview()) showUndo({ message: t('undo.timeRemoved'), onUndo: () => setTimeEntries(prev => restoreAt(prev, entry, index)) });
   };
 
   // "Min tid" filtrerar mot den faktiskt inloggade användaren (loggedByUserId)

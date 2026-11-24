@@ -26,6 +26,7 @@ import { summarizeVacation } from '../utils/vacation';
 import { SKV_AGI_URL } from './AgiReportDetails';
 import { numberFormat } from '../utils/intlCache';
 import { confirmDialog } from './shared/ConfirmDialog';
+import { isAdminPreview } from '../utils/adminPreview';
 
 const fmt = (v) => numberFormat('sv-SE').format(Math.round(v || 0));
 const fmtSigned = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${numberFormat('sv-SE').format(Math.round(Math.abs(v || 0)))} kr`;
@@ -1119,7 +1120,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
             <button type="button" onClick={handleDownloadAllPayslips} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
               <Download size={14} /> {tr('payslips.downloadAll')}
             </button>
-            <button type="button" onClick={async () => { if (await confirmDialog(tr('payConfirm.mailText', { n: withEmail.length }), { title: tr('payConfirm.mailTitle'), confirmLabel: tr('payslips.emailAll', { n: withEmail.length }) })) handleEmailPayslips(); }} disabled={withEmail.length === 0 || mailState.busy} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: withEmail.length === 0 || mailState.busy ? 'var(--gray-300)' : BRAND.green, border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, color: 'white', cursor: withEmail.length === 0 || mailState.busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+            <button type="button" onClick={async () => { if (!isAdminPreview() || await confirmDialog(tr('payConfirm.mailText', { n: withEmail.length }), { title: tr('payConfirm.mailTitle'), confirmLabel: tr('payslips.emailAll', { n: withEmail.length }) })) handleEmailPayslips(); }} disabled={withEmail.length === 0 || mailState.busy} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: withEmail.length === 0 || mailState.busy ? 'var(--gray-300)' : BRAND.green, border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, color: 'white', cursor: withEmail.length === 0 || mailState.busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
               <Send size={14} /> {mailState.busy ? tr('payslips.sending', { done: mailState.done, total: mailState.total }) : tr('payslips.emailAll', { n: withEmail.length })}
             </button>
           </div>
@@ -1248,9 +1249,9 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
             switch (stage) {
               case 'calculated': return primary(tr('payrollStages.calculatedAction'), () => handleAdvance('calculated'));
               case 'approved': return (<>{totals.gross <= 0 && note(tr('payrollUi.nothingToPay'))}{primary(tr('payrollStages.approvedAction'), () => handleAdvance('approved'), totals.gross <= 0)}</>);
-              case 'paid': return primary(tr('ui.markera_som_betald'), async () => { if (await confirmDialog(tr('payConfirm.paidText', { period: run.period, net: fmt(totals.net) }), { title: tr('payConfirm.paidTitle'), confirmLabel: tr('ui.markera_som_betald') })) markPaid(payMethod); });
+              case 'paid': return primary(tr('ui.markera_som_betald'), async () => { if (!isAdminPreview() || await confirmDialog(tr('payConfirm.paidText', { period: run.period, net: fmt(totals.net) }), { title: tr('payConfirm.paidTitle'), confirmLabel: tr('ui.markera_som_betald') })) markPaid(payMethod); });
               case 'payslips': return primary(tr('payrollStages.payslipsAction'), () => handleAdvance('payslips'));
-              case 'booked': return (<>{!canBook && note(tr('payrollStages.bookedNeedsPaid'))}{primary(tr('payrollStages.bookedAction'), async () => { if (await confirmDialog(tr('payConfirm.bookText', { period: run.period }), { title: tr('payConfirm.bookTitle'), confirmLabel: tr('payrollStages.bookedAction') })) handleAdvance('booked'); }, !canBook)}</>);
+              case 'booked': return (<>{!canBook && note(tr('payrollStages.bookedNeedsPaid'))}{primary(tr('payrollStages.bookedAction'), async () => { if (!isAdminPreview() || await confirmDialog(tr('payConfirm.bookText', { period: run.period }), { title: tr('payConfirm.bookTitle'), confirmLabel: tr('payrollStages.bookedAction') })) handleAdvance('booked'); }, !canBook)}</>);
               case 'agi': return note(tr('payrollStages.agiHint'));
               default: return null;
             }

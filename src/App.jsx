@@ -1764,7 +1764,7 @@ function App() {
   const [reportErrorTopic, setReportErrorTopic] = useState('Felrapport');
   // Hjälpartikel att öppna direkt (förslag i supportrutan, 2026-11-24).
   const [helpArticleId, setHelpArticleId] = useState(null);
-  const supportSuggestions = reportErrorModal && ['Felrapport', 'Support'].includes(reportErrorTopic) && reportErrorText.trim().length >= 12 ? suggestHelpArticles(reportErrorText) : [];
+  const supportSuggestions = reportErrorModal && isNewUnderlagUser(user?.email) && ['Felrapport', 'Support'].includes(reportErrorTopic) && reportErrorText.trim().length >= 12 ? suggestHelpArticles(reportErrorText) : [];
   // En bild eller PDF att skicka med (2026-11-07), t.ex. en skärmbild av felet.
   // { name, type, size, data } där data är base64. Kontrolleras igen i api/contact.js.
   const [reportErrorFile, setReportErrorFile] = useState(null);
