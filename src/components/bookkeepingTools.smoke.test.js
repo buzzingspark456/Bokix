@@ -61,12 +61,13 @@ describe('bokföringsverktygens vyer', () => {
     expect(out).toContain('Inga varor än')
   })
 
-  it('Prissättning visar marginalen och räknaren med fyra flikar', () => {
+  it('Prissättning visar marginalen, tabellen och knappen Räkna ut', () => {
     const out = html(React.createElement(PricingTool, { articles, setArticles: noop, company: {}, setCompanyInfo: noop }))
     expect(out).toContain('Kaffe')
-    expect(out).toContain('Vilket pris ska jag ta?')
+    // Räknaren öppnas med knappen Räkna ut (2026-11-24) och syns inte i sidan.
+    expect(out).toContain('Räkna ut')
     expect(out).toContain('60 %')
-    for (const tab of ['Rabatt', 'Nollpunkt', 'Timpris']) expect(out).toContain(tab)
+    for (const col of ['Utpris', 'Marginal', 'Förslag']) expect(out).toContain(col)
   })
 })
 
