@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Search, X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, TrendingUp, Calculator, Pencil, Percent, Copy } from './icons';
 import ArticleBulkEdit from './ArticleBulkEdit';
+import ArticleCombobox from './shared/ArticleCombobox';
 import { showUndo } from './shared/undoToast';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
@@ -121,6 +122,9 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
 
   // ── Prisräknare ──
   const [cost, setCost] = useState('');
+  // Vald artikel i Räkna ut (valfritt): inköpspriset fylls i och det nya priset kan sparas.
+  const [calcArticle, setCalcArticle] = useState(null);
+  const [calcQuery, setCalcQuery] = useState('');
   const [mode, setMode] = useState('margin');
   const [target, setTargetPct] = useState(40);
   const [vat, setVat] = useState(25);
@@ -381,7 +385,13 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
         <div className="ws-cols" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', display: tool === 'batch' ? 'none' : undefined }}>
           {tool === 'price' && <>
             <div className="ws-form" style={{ gap: '14px' }}>
-              <Field label={t('ui.inkopspris_kostnad_kr')} value={cost} onChange={setCost} suffix="kr" />
+              <div>
+                <label className="ws-label">{t('pris.pickArticle')}</label>
+                <ArticleCombobox articles={articles} value={calcQuery} className="ws-input" placeholder={t('pris.pickArticlePlaceholder')}
+                  onChange={v => { setCalcQuery(v); if (!v) setCalcArticle(null); }}
+                  onPick={a => { setCalcArticle(a); setCalcQuery(a.description); if (Number(a.purchasePrice) > 0) setCost(String(a.purchasePrice)); }} />
+              </div>
+              <Field label={t('ui.inkopspris_kostnad_kr')} value={cost} onChange={v => { setCost(v); }} suffix="kr" />
               <div className="ws-grid2">
                 <div>
                   <label className="ws-label">{t('ui.utga_fran')}</label>
@@ -415,8 +425,20 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
                 [t('ui.marginal'), fmtPctVal(marginPct(price, cost))],
                 [t('ui.paslag'), fmtPctVal(markupPct(price, cost))],
                 [t('ui.vinst_per_enhet'), `${fmt(price - cost)} kr`],
+                ...(calcArticle ? [[t('pris.currentPrice'), `${fmt(calcArticle.unitPrice)} kr (${fmtPctVal(marginPct(calcArticle.unitPrice, cost))})`]] : []),
               ] : []}
             />
+            {calcArticle && price != null && Number(cost) > 0 && (
+              <div className="pz-calc-save">
+                <button type="button" className="agi-btn primary" onClick={() => {
+                  const before = articles;
+                  const k = keyOf(calcArticle);
+                  setArticles(prev => prev.map(x => (keyOf(x) === k ? { ...x, unitPrice: price, purchasePrice: Number(cost) || x.purchasePrice } : x)));
+                  setCalcArticle({ ...calcArticle, unitPrice: price });
+                  showUndo({ message: t('pris.changedOne', { name: calcArticle.description }), onUndo: () => setArticles(before) });
+                }}>{t('pris.saveAsPrice', { kr: fmt(price) })}</button>
+              </div>
+            )}
           </>}
 
           {tool === 'discount' && <>

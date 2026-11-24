@@ -5595,7 +5595,11 @@
     "lowMany": "{{n}} items are running low",
     "seeOrder": "View and order",
     "untracked": "Not tracked",
-    "reorderShort": "Reorder at"
+    "reorderShort": "Reorder at",
+    "bookValueTitle": "Book the stock value ({{dir}} {{kr}})",
+    "dirUp": "increase by",
+    "dirDown": "decrease by",
+    "bookValueDetail": "The books say {{ledger}} on account {{account}}, the stock is worth {{stock}}. Book the difference on the date you choose, usually the last day of the financial year."
   },
   "pris": {
     "toolPrice": "Price",
@@ -5647,7 +5651,11 @@
     "rowN": "Row {{n}}",
     "copyResult": "Copy {{n}} rows to Excel",
     "editPrice": "Edit the price",
-    "changedOne": "The price of {{name}} was changed."
+    "changedOne": "The price of {{name}} was changed.",
+    "pickArticle": "Item (optional)",
+    "pickArticlePlaceholder": "Search an item to fill in the cost",
+    "currentPrice": "Current price",
+    "saveAsPrice": "Save {{kr}} kr as price"
   },
   "proj": {
     "me": "Me",

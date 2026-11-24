@@ -5595,7 +5595,11 @@
     "lowMany": "{{n}} varor börjar ta slut",
     "seeOrder": "Visa och beställ",
     "untracked": "Ej lagerförda",
-    "reorderShort": "Beställ vid"
+    "reorderShort": "Beställ vid",
+    "bookValueTitle": "Bokför lagervärdet ({{dir}} {{kr}})",
+    "dirUp": "öka med",
+    "dirDown": "minska med",
+    "bookValueDetail": "Bokföringen säger {{ledger}} på konto {{account}}, lagret är värt {{stock}}. Bokför skillnaden per det datum du väljer, oftast räkenskapsårets sista dag."
   },
   "pris": {
     "toolPrice": "Pris",
@@ -5647,7 +5651,11 @@
     "rowN": "Rad {{n}}",
     "copyResult": "Kopiera {{n}} rader till Excel",
     "editPrice": "Ändra priset",
-    "changedOne": "Priset på {{name}} ändrades."
+    "changedOne": "Priset på {{name}} ändrades.",
+    "pickArticle": "Artikel (valfritt)",
+    "pickArticlePlaceholder": "Sök artikel, så fylls inköpspriset i",
+    "currentPrice": "Nuvarande pris",
+    "saveAsPrice": "Spara {{kr}} kr som utpris"
   },
   "proj": {
     "me": "Jag",

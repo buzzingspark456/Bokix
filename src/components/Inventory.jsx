@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { lockedPeriodFor } from '../utils/fiscalYear';
-import { Plus, Minus, Trash2, X, Search, Truck, AlertTriangle, Inbox, Download, Settings2, ClipboardCheck, PackageMinus, Scale, RefreshCw, ChevronLeft, ChevronRight } from './icons';
+import { Plus, Minus, Trash2, X, Search, Truck, AlertTriangle, Inbox, Download, Settings2, ClipboardCheck, PackageMinus, Package, Scale, RefreshCw, ChevronLeft, ChevronRight, TrendingDown, AlertCircle, Wallet } from './icons';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { Panel, Overview, TaskRow, usePalette } from './shared/Workspace';
 import {
@@ -406,16 +406,37 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
           </>}
         >
           {goods.length > 0 && (
-            <Overview items={[
-              { key: 'value', label: tr('lager.stockValue'), value: fmtKr(valuation.bookValue), sub: valuation.writeDown >= 1 ? tr('lager.afterWriteDown', { kr: fmtKr(valuation.writeDown) }) : tr('lager.unitsIn', { n: fmtQty(totalUnits), items: inStock.length }) },
-              { key: 'instock', label: tr('lager.inStockPill'), value: inStock.length, sub: tr('lager.ovGoods', { n: goods.length }), onClick: () => setFilter(filter === 'instock' ? 'all' : 'instock'), active: filter === 'instock' },
-              { key: 'low', label: tr('lager.lowStock'), value: count('low'), sub: count('low') > 0 ? tr('lager.ovLowSub') : tr('lager.ovNone'), tone: count('low') > 0 ? 'warn' : undefined, onClick: () => setFilter(filter === 'low' ? 'all' : 'low'), active: filter === 'low' },
-              { key: 'out', label: tr('lager.outOfStock'), value: count('out'), sub: count('out') > 0 ? tr('lager.ovOutSub') : tr('lager.ovNone'), tone: count('out') > 0 ? 'bad' : undefined, onClick: () => setFilter(filter === 'out' ? 'all' : 'out'), active: filter === 'out' },
-            ]} />
+            <div className="lg-kpis">
+              <div className="lg-kpi is-value">
+                <span className="lg-kpi-ic" aria-hidden="true"><Wallet size={18} /></span>
+                <span className="lg-kpi-label">{tr('lager.stockValue')}</span>
+                <strong className="lg-kpi-val">{fmtKr(valuation.bookValue)}</strong>
+                <small>{valuation.writeDown >= 1 ? tr('lager.afterWriteDown', { kr: fmtKr(valuation.writeDown) }) : tr('lager.unitsIn', { n: fmtQty(totalUnits), items: inStock.length })}</small>
+              </div>
+              <button type="button" className={`lg-kpi is-ok${filter === 'instock' ? ' on' : ''}`} onClick={() => { setView('goods'); setFilter(filter === 'instock' ? 'all' : 'instock'); }}>
+                <span className="lg-kpi-ic" aria-hidden="true"><Package size={18} /></span>
+                <span className="lg-kpi-label">{tr('lager.inStockPill')}</span>
+                <strong className="lg-kpi-val">{inStock.length}<em>/ {tracked.length}</em></strong>
+                <span className="lg-kpi-bar"><span style={{ width: `${tracked.length ? Math.round((inStock.length / tracked.length) * 100) : 0}%` }} /></span>
+              </button>
+              <button type="button" className={`lg-kpi is-low${filter === 'low' ? ' on' : ''}${count('low') ? '' : ' is-zero'}`} onClick={() => { setView('goods'); setFilter(filter === 'low' ? 'all' : 'low'); }}>
+                <span className="lg-kpi-ic" aria-hidden="true"><TrendingDown size={18} /></span>
+                <span className="lg-kpi-label">{tr('lager.lowStock')}</span>
+                <strong className="lg-kpi-val">{count('low')}</strong>
+                <small>{count('low') > 0 ? tr('lager.ovLowSub') : tr('lager.ovNone')}</small>
+              </button>
+              <button type="button" className={`lg-kpi is-out${filter === 'out' ? ' on' : ''}${count('out') ? '' : ' is-zero'}`} onClick={() => { setView('goods'); setFilter(filter === 'out' ? 'all' : 'out'); }}>
+                <span className="lg-kpi-ic" aria-hidden="true"><AlertCircle size={18} /></span>
+                <span className="lg-kpi-label">{tr('lager.outOfStock')}</span>
+                <strong className="lg-kpi-val">{count('out')}</strong>
+                <small>{count('out') > 0 ? tr('lager.ovOutSub') : tr('lager.ovNone')}</small>
+              </button>
+            </div>
           )}
 
           {(visiblePurchases.length > 0 || lowRows.length > 0 || issueRows.length > 0 || (valuation.lines.length > 0 && closing && !alreadyBooked)) && (
-            <div className="ws-tasks">
+            <div className="ws-tasks lg-attn">
+              <span className="lg-attn-title">{tr('lager.todo')}</span>
               {visiblePurchases.length > 0 && (
                 <TaskRow icon={Inbox} tone="brand" onClick={() => setPurchaseOpen(true)}
                   title={visiblePurchases.length === 1 ? tr('lager.purchasesOne') : tr('lager.purchasesMany', { n: visiblePurchases.length })}
@@ -446,8 +467,8 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
               )}
               {valuation.lines.length > 0 && closing && !alreadyBooked && (
                 <TaskRow icon={Scale} tone="brand"
-                  title={tr('ui.lagret_behover_justeras_med_kr', { v0: diff > 0 ? '+' : '−', v1: fmt(Math.abs(diff)) })}
-                  detail={tr('lager.ledgerVsStock', { account: kind.stockAccount, ledger: fmtKr(ledgerBalance), stock: fmtKr(valuation.bookValue) })}>
+                  title={tr('lager.bookValueTitle', { kr: fmtKr(Math.abs(diff)), dir: diff > 0 ? tr('lager.dirUp') : tr('lager.dirDown') })}
+                  detail={tr('lager.bookValueDetail', { account: kind.stockAccount, ledger: fmtKr(ledgerBalance), stock: fmtKr(valuation.bookValue) })}>
                   <input type="date" value={closingDate} aria-label={tr('ui.vardering_per_datum')} onChange={e => e.target.value && setClosingDate(e.target.value)} />
                   <button type="button" className="agi-btn primary" onClick={bookClosing}>{tr('lager.book')}</button>
                 </TaskRow>
