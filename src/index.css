@@ -11145,3 +11145,26 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
   .ar-stock small { display: none; }
   .ar-missing { font-size: 11.5px; padding: 2px 6px; }
 }
+
+/* Artikelregistret, finputs 2026-11-24: fasta bredder för siffrorna, tätare rader, ljus markeringsrad. */
+.ar-table { table-layout: auto; }
+.ar-table .ar-num-col { width: 84px; }
+.ar-table .ar-w-price { width: 120px; }
+.ar-table .ar-w-cost { width: 120px; }
+.ar-table .ar-w-tg { width: 76px; }
+.ar-table .ar-w-stock { width: 110px; }
+.ar-table .ar-w-value { width: 120px; }
+.ar-table thead th { padding-top: 11px; padding-bottom: 11px; font-size: 11px; letter-spacing: .05em; background: var(--bg-muted); border-bottom: 1px solid var(--border-light, var(--border)); }
+.ar-table td { padding-top: 9px; padding-bottom: 9px; }
+.ar-name strong { font-size: 13.5px; }
+.ar-num { font-size: 13px; }
+.ar-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--bg-muted) 45%, transparent); }
+.ar-table tbody tr:hover { background: var(--bg-muted); }
+.ar-tg { min-width: 40px; padding: 1px 7px; font-size: 12px; }
+.ar-bulk { background: color-mix(in srgb, var(--accent) 10%, var(--bg-card)); color: var(--text-main); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+.ar-bulk strong { color: var(--accent-text, var(--accent)); }
+.ar-bulk button { background: var(--bg-card); color: var(--text-main); border-color: var(--border); }
+.ar-bulk button:hover { background: var(--bg-muted); border-color: var(--text-muted); }
+.ar-bulk button.danger { color: var(--status-red-text); }
+.ar-bulk select { background-color: var(--bg-card); color: var(--text-main); border-color: var(--border); }
+.ar-bulk .ar-bulk-x { background: transparent; border: none; color: var(--text-secondary); }

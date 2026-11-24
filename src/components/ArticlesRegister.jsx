@@ -222,11 +222,11 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
                   <th className="ar-cb"><input type="checkbox" checked={allShownPicked} onChange={toggleShown} aria-label={t('artReg.pickAll')} /></th>
                   <Th k="articleNumber" className="ar-num-col">{t('ui.artikelnr')}</Th>
                   <Th k="description">{t('ui.benamning')}</Th>
-                  <Th k="unitPrice" className="r">{t('artReg.price')}</Th>
-                  <Th k="purchasePrice" className="r ar-hide-md">{t('artReg.cost')}</Th>
-                  <Th k="margin" className="r ar-hide-md">{t('artReg.margin')}</Th>
-                  {stock.any && <Th k="stock" className="r">{t('artReg.stock')}</Th>}
-                  {stock.any && <Th k="value" className="r ar-hide-lg">{t('artReg.value')}</Th>}
+                  <Th k="unitPrice" className="r ar-w-price">{t('artReg.price')}</Th>
+                  <Th k="purchasePrice" className="r ar-hide-md ar-w-cost">{t('artReg.cost')}</Th>
+                  <Th k="margin" className="r ar-hide-md ar-w-tg">{t('artReg.margin')}</Th>
+                  {stock.any && <Th k="stock" className="r ar-w-stock">{t('artReg.stock')}</Th>}
+                  {stock.any && <Th k="value" className="r ar-hide-lg ar-w-value">{t('artReg.value')}</Th>}
                   <th className="ar-act" />
                 </tr>
               </thead>
