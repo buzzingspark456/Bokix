@@ -5657,7 +5657,9 @@
     "pickArticle": "Artikel (valfritt)",
     "pickArticlePlaceholder": "Sök artikel, så fylls inköpspriset i",
     "currentPrice": "Nuvarande pris",
-    "saveAsPrice": "Spara {{kr}} kr som utpris"
+    "saveAsPrice": "Spara {{kr}} kr som utpris",
+    "avgMarginGoal": "Snittmarginal, mål {{n}} %",
+    "withCostLabel": "Med inköpspris"
   },
   "proj": {
     "me": "Jag",

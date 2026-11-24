@@ -4,7 +4,7 @@ import ArticleBulkEdit from './ArticleBulkEdit';
 import ArticleCombobox from './shared/ArticleCombobox';
 import { showUndo } from './shared/undoToast';
 import { confirmDialog } from './shared/ConfirmDialog';
-import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
+import { Panel, usePalette } from './shared/Workspace';
 import {
   markupPct, marginPct, priceFromMargin, priceFromMarkup, withVat, roundPrice, marginAfterDiscount,
   maxDiscountForMargin, breakEvenUnits, hourlyRate, pricingStatus,
@@ -257,11 +257,21 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
             <span>%</span>
           </div>
         </>}>
-        <KpiGrid>
-          <Kpi dot={palette.profit} label={t('pris.avgMargin')} value={fmtPctVal(avgMargin)} sub={t('pris.targetIs', { n: goal })} />
-          <Kpi dot={palette.costBar} label={t('pris.below')} value={belowCount} sub={t('pris.belowSub')} negative={belowCount > 0 && rows.some(a => a.info.status === 'loss')} />
-          <Kpi dot={palette.income} label={t('ui.artiklar')} value={rows.length} sub={t('pris.withCost', { n: withMargin.length })} />
-        </KpiGrid>
+        {/* Samma lugna rutor som i Lager (2026-11-24): rubrik och tal. */}
+        <div className="lg-kpis lg-kpis--plain pz-kpis">
+          <div className={`lg-kpi ${avgMargin != null && avgMargin < goal ? 'is-low' : 'is-value'}`}>
+            <span className="lg-kpi-label">{t('pris.avgMarginGoal', { n: goal })}</span>
+            <strong className="lg-kpi-val">{fmtPctVal(avgMargin)}</strong>
+          </div>
+          <button type="button" className={`lg-kpi is-low${filter === 'below' ? ' on' : ''}${belowCount ? '' : ' is-zero'}`} onClick={() => { setFilter(filter === 'below' ? 'all' : 'below'); setPage(0); }}>
+            <span className="lg-kpi-label">{t('pris.below')}</span>
+            <strong className="lg-kpi-val">{belowCount}</strong>
+          </button>
+          <div className="lg-kpi is-ok">
+            <span className="lg-kpi-label">{t('pris.withCostLabel')}</span>
+            <strong className="lg-kpi-val">{withMargin.length}<em>/ {rows.length}</em></strong>
+          </div>
+        </div>
         {rows.length > 0 && (
           <div className="pz-table">
             <div className="ar-tools pz-tools-row">
@@ -319,8 +329,8 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
                         <tr key={keyOf(a)} className={picked.has(keyOf(a)) ? 'on' : ''} style={{ cursor: 'default' }}>
                           <td className="ar-cb"><input type="checkbox" checked={picked.has(keyOf(a))} onChange={() => togglePick(a)} aria-label={a.description} /></td>
                           <td className="ar-num">{a.articleNumber || '–'}</td>
-                          <td className="ar-name"><strong>{a.description}</strong><small>{[a.type === 'vara' ? t('artReg.goodsOne') : t('artReg.serviceOne'), a.unit, a.supplier].filter(Boolean).join(' · ')}</small></td>
-                          <td className="r ar-hide-md ar-muted">{a.purchasePrice ? `${fmt(a.purchasePrice)} kr` : '–'}</td>
+                          <td className="ar-name"><strong>{a.description}</strong>{(a.type !== 'vara' || a.supplier) && <small>{[a.type === 'vara' ? null : t('artReg.serviceOne'), a.supplier].filter(Boolean).join(' · ')}</small>}</td>
+                          <td className="r ar-hide-md ar-muted ar-cost-td">{a.purchasePrice ? `${fmt(a.purchasePrice)} kr` : '–'}</td>
                           <td className="r ar-price pz-price-cell">
                             {editing?.key === keyOf(a) ? (
                               <input className="ws-input pz-inline" autoFocus inputMode="decimal" value={editing.value}

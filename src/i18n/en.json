@@ -5657,7 +5657,9 @@
     "pickArticle": "Item (optional)",
     "pickArticlePlaceholder": "Search an item to fill in the cost",
     "currentPrice": "Current price",
-    "saveAsPrice": "Save {{kr}} kr as price"
+    "saveAsPrice": "Save {{kr}} kr as price",
+    "avgMarginGoal": "Average margin, goal {{n}} %",
+    "withCostLabel": "With cost price"
   },
   "proj": {
     "me": "Me",

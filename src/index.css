@@ -11329,3 +11329,4 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 @media (max-width: 600px) { .ar-chips { border-radius: 999px; } }
 .ar-search, .ar-select, .ar-gear { border-radius: 999px; }
 @media (max-width: 1100px) { .ar-tools .ar-select { margin-left: 0; } .ar-tools .ar-gear { margin-left: auto; } }
+@media (max-width: 1100px) { .pz-table .ar-w-cost, .pz-table td.ar-cost-td { display: none; } }

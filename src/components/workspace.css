@@ -1150,3 +1150,7 @@ button.lg-kpi:hover { filter: brightness(1.06); box-shadow: 0 6px 18px rgba(0,0,
 .po-track li.now { color: var(--text-main); border-color: var(--accent); }
 .po-track li.now b { background: var(--accent); color: #fff; }
 .po-nr { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 13px; }
+
+.pz-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 18px; }
+.lg-kpis--plain .lg-kpi-val em { font-style: normal; font-size: 15px; font-weight: 500; margin-left: 5px; color: rgba(255,255,255,.72); }
+@media (max-width: 760px) { .pz-kpis { grid-template-columns: 1fr 1fr; } .pz-kpis .lg-kpi:first-child { grid-column: 1 / -1; } }
