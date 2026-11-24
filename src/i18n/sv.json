@@ -6008,7 +6008,8 @@
     "periodized": "Periodiserad",
     "title": "Periodisera",
     "sub": "Fördela beloppet jämnt över flera månader.",
-    "savedToast": "Periodiserat över {{n}} månader. Månaderna bokför du under Periodiseringar."
+    "savedToast": "Periodiserat över {{n}} månader. Månaderna bokför du under Periodiseringar.",
+    "bookConfirm": "Bokför {{n}} månader av periodiseringarna nu?"
   },
   "empWizard": {
     "steps": "Steg",
@@ -6133,6 +6134,27 @@
     "receiveAndLink": "Ta emot enligt ordern",
     "matched": "Kopplad till {{label}}.",
     "matchPartial": "En del av varorna är inlevererade, resten tas emot nu.",
-    "receivedMsgOne": "{{number}}: 1 rad är inlevererad."
+    "receivedMsgOne": "{{number}}: 1 rad är inlevererad.",
+    "deleteConfirm": "Ta bort utkastet {{number}}?",
+    "cancelConfirm": "Makulera {{number}}? Det som redan tagits emot ligger kvar i lagret."
+  },
+  "invConfirm": {
+    "paidTitle": "Markera som betald?",
+    "paidOne": "Faktura {{nr}} markeras som betald i dag och betalningen bokförs. Kom pengarna en annan dag, öppna fakturan och registrera betalningen med rätt datum.",
+    "paidMany": "{{n}} fakturor markeras som betalda i dag och betalningarna bokförs. Utkast tas inte med.",
+    "sentTitle": "Markera som skickad?",
+    "sentText": "Faktura {{nr}} bokförs då som en kundfordran och kan inte längre ändras, bara krediteras.",
+    "openDraft": "Öppna utkastet"
+  },
+  "payConfirm": {
+    "paidTitle": "Markera lönerna som betalda?",
+    "paidText": "Lönerna för {{period}} ({{net}} kr netto) markeras som utbetalda. Gör det när pengarna har gått ut från banken.",
+    "bookTitle": "Bokför lönekörningen?",
+    "bookText": "Lön, skatt, arbetsgivaravgifter och semesterskuld för {{period}} bokförs. En bokförd lönekörning rättas med en ny verifikation, inte genom att ändras.",
+    "mailTitle": "Skicka lönebeskeden?",
+    "mailText": "Lönebeskeden mejlas nu till {{n}} anställda. Ett skickat mejl går inte att ta tillbaka."
+  },
+  "undo": {
+    "timeRemoved": "Tidraden togs bort."
   }
 }

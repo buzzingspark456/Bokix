@@ -6008,7 +6008,8 @@
     "periodized": "Spread",
     "title": "Spread over months",
     "sub": "Spread the amount evenly over several months.",
-    "savedToast": "Spread over {{n}} months. Book the months under Accruals."
+    "savedToast": "Spread over {{n}} months. Book the months under Accruals.",
+    "bookConfirm": "Book {{n}} months of the accruals now?"
   },
   "empWizard": {
     "steps": "Steps",
@@ -6133,6 +6134,27 @@
     "receiveAndLink": "Receive per order",
     "matched": "Linked to {{label}}.",
     "matchPartial": "Part of the goods is received, the rest is received now.",
-    "receivedMsgOne": "{{number}}: 1 row received."
+    "receivedMsgOne": "{{number}}: 1 row received.",
+    "deleteConfirm": "Delete the draft {{number}}?",
+    "cancelConfirm": "Cancel {{number}}? What was already received stays in stock."
+  },
+  "invConfirm": {
+    "paidTitle": "Mark as paid?",
+    "paidOne": "Invoice {{nr}} is marked as paid today and the payment is booked. If the money arrived another day, open the invoice and register the payment with the right date.",
+    "paidMany": "{{n}} invoices are marked as paid today and the payments are booked. Drafts are not included.",
+    "sentTitle": "Mark as sent?",
+    "sentText": "Invoice {{nr}} is then booked as a receivable and can no longer be edited, only credited.",
+    "openDraft": "Open the draft"
+  },
+  "payConfirm": {
+    "paidTitle": "Mark salaries as paid?",
+    "paidText": "Salaries for {{period}} ({{net}} kr net) are marked as paid out. Do this when the money has left the bank.",
+    "bookTitle": "Book the payroll run?",
+    "bookText": "Salary, tax, employer contributions and holiday pay liability for {{period}} are booked. A booked run is corrected with a new voucher, not edited.",
+    "mailTitle": "Send the payslips?",
+    "mailText": "The payslips are now emailed to {{n}} employees. A sent email cannot be taken back."
+  },
+  "undo": {
+    "timeRemoved": "The time entry was removed."
   }
 }

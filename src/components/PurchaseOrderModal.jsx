@@ -4,6 +4,7 @@ import { t as tr } from '../i18n';
 import { numberFormat } from '../utils/intlCache';
 import { poStatus, poTotal, rowRemaining } from '../utils/purchaseOrders';
 import { downloadPurchaseOrderPdf } from '../utils/purchaseOrderPdf';
+import { confirmDialog } from './shared/ConfirmDialog';
 
 // En inköpsorder (2026-11-23): utkast som går att ändra, sedan skickad till
 // leverantören (PDF + mejl), och mottagen helt eller delvis. Mottaget blir
@@ -167,8 +168,8 @@ export default function PurchaseOrderModal({ initial, goods, company, suppliers 
         {error && <p className="ws-hint" style={{ color: 'var(--status-red-text)', marginTop: '8px' }}>{error}</p>}
 
         <div className="modal-footer po-foot">
-          {editable && onDelete && <button type="button" className="agi-btn po-danger" onClick={() => { onDelete(po); onClose(); }}>{tr('po.deleteDraft')}</button>}
-          {(status === 'ordered' || status === 'partial') && <button type="button" className="agi-btn po-danger" onClick={() => { onSave({ ...po, cancelled: true }); onClose(); }}>{tr('po.cancel')}</button>}
+          {editable && onDelete && <button type="button" className="agi-btn po-danger" onClick={async () => { if (await confirmDialog(tr('po.deleteConfirm', { number: po.number }))) { onDelete(po); onClose(); } }}>{tr('po.deleteDraft')}</button>}
+          {(status === 'ordered' || status === 'partial') && <button type="button" className="agi-btn po-danger" onClick={async () => { if (await confirmDialog(tr('po.cancelConfirm', { number: po.number }))) { onSave({ ...po, cancelled: true }); onClose(); } }}>{tr('po.cancel')}</button>}
           <span style={{ flex: 1 }} />
           {status !== 'cancelled' && <button type="button" className="agi-btn" onClick={() => { const e = validate(); if (e) return setError(e); downloadPurchaseOrderPdf({ company, po: clean(po), articles: goods }); }}><Download size={14} /> PDF</button>}
           {editable && <>

@@ -73,7 +73,10 @@ export default function Accruals({ company, accounts = [], verifications = [], e
     onAddVerification(buildSpreadStart(spread));
     closeForm();
   };
-  const bookDueSpreads = () => spreadDue.due.forEach(d => onAddVerification(buildSpreadMonth(d.spread, d.month, d.amount)));
+  const bookDueSpreads = async () => {
+    if (!(await confirmDialog(t('spread.bookConfirm', { n: spreadDue.due.length })))) return;
+    spreadDue.due.forEach(d => onAddVerification(buildSpreadMonth(d.spread, d.month, d.amount)));
+  };
   const undoSpread = async (sp) => {
     const v = buildSpreadUndo(sp, verifications, todayIso());
     if (!v) return;

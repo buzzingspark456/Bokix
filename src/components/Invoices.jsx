@@ -2564,9 +2564,25 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
   // (se `handleSave('sent')`-anropet i InvoiceForm), men som en fristående
   // åtgärd för den som skickat fakturan på annat sätt (post, en annan
   // kanal) och bara vill flytta den ur "Ej bokförd" utan att mejla via appen.
-  const handleMarkSent = (inv, e) => {
+  const handleMarkSent = async (inv, e) => {
     e?.stopPropagation();
+    // Skickad = bokförd kundfordran, så frågan kommer först (2026-11-24).
+    if (!(await confirmDialog(tr('invConfirm.sentText', { nr: inv.invoiceNumber || '' }), { title: tr('invConfirm.sentTitle'), confirmLabel: tr('ui.markera_som_skickad') }))) return;
     setInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, status: 'sent' } : i));
+  };
+
+  // Markera som betald bokför betalningen med dagens datum, så den frågar
+  // först, också på statusetiketten och i massåtgärden. Utkast räknas aldrig.
+  const confirmMarkPaid = async (list) => {
+    const real = list.filter(inv => inv && !inv.isDemo && !['paid', 'draft'].includes(getStatus(inv)));
+    if (real.length === 0) return false;
+    const text = real.length === 1 ? tr('invConfirm.paidOne', { nr: real[0].invoiceNumber || '' }) : tr('invConfirm.paidMany', { n: real.length });
+    if (!(await confirmDialog(text, { title: tr('invConfirm.paidTitle'), confirmLabel: real.length === 1 ? tr('ui.markera_som_betald') : tr('ui.markera_som_betalda') }))) return false;
+    real.forEach(inv => onMarkPaid(inv.id));
+    return true;
+  };
+  const confirmCreditNote = async (inv) => {
+    if (await confirmDialog(tr('ui.skapa_en_kreditfaktura_som_motsvarar_faktura', { nextNum: inv.invoiceNumber || '' }), { confirmLabel: tr('ui.kreditera_faktura') })) handleCreateCreditNote(inv);
   };
 
   // Radens "⋮"-meny — vilka åtgärder som visas beror på fakturans status,
@@ -2602,7 +2618,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
     ];
     if (status !== 'paid') {
       items.push({ key: 'edit', label: tr('ui.redigera'), icon: Pencil, onClick: () => openInvoice(inv) });
-      items.push({ key: 'mark-paid', label: tr('ui.markera_som_betald'), icon: CheckCircle2, onClick: () => onMarkPaid(inv.id) });
+      if (status !== 'draft') items.push({ key: 'mark-paid', label: tr('ui.markera_som_betald'), icon: CheckCircle2, onClick: () => confirmMarkPaid([inv]) });
     }
     // "Registrera betalning" (koppling mot en verifikation/inbetalning)
     // sköts redan inne i fakturaformuläret — den här raden öppnar dit
@@ -2646,10 +2662,10 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
           title: !customer?.email ? tr('ui.lagg_till_kundens_e_post_under_kunder_for_att_ku') : undefined,
         });
       }
-      items.push({ key: 'credit', label: tr('ui.kreditera_faktura'), icon: Undo2, onClick: () => handleCreateCreditNote(inv) });
+      items.push({ key: 'credit', label: tr('ui.kreditera_faktura'), icon: Undo2, onClick: () => confirmCreditNote(inv) });
     } else {
       items.push({ divider: true });
-      items.push({ key: 'credit', label: tr('ui.kreditera_faktura'), icon: Undo2, onClick: () => handleCreateCreditNote(inv) });
+      items.push({ key: 'credit', label: tr('ui.kreditera_faktura'), icon: Undo2, onClick: () => confirmCreditNote(inv) });
     }
 
     if (status === 'draft') {
@@ -2692,8 +2708,8 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
               </span>
             ) : (
               <button
-                onClick={e => { e.stopPropagation(); if (!inv.isDemo) onMarkPaid(inv.id); }}
-                title={inv.isDemo ? tr('ui.exempelfaktura_bara_for_visning') : tr('ui.klicka_for_att_markera_som_betald')}
+                onClick={e => { e.stopPropagation(); if (inv.isDemo) return; if (status === 'draft') openInvoice(inv); else confirmMarkPaid([inv]); }}
+                title={inv.isDemo ? tr('ui.exempelfaktura_bara_for_visning') : status === 'draft' ? tr('invConfirm.openDraft') : tr('ui.klicka_for_att_markera_som_betald')}
                 style={{
                   ...STATUS_PILL, cursor: 'pointer', border: status === 'draft' ? STRONG_DRAFT.border : STATUS_PILL.border,
                   background: status === 'overdue' ? STRONG_OVERDUE.bg : status === 'draft' ? STRONG_DRAFT.bg : STRONG_UNPAID.bg,
@@ -3055,7 +3071,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
       {selected.size > 0 && (
         <div className="inv-bulk-bar" style={{ background: 'var(--accent)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           <span style={{ color: 'white', fontSize: '13px', fontWeight: 600 }}>({selected.size} {tr('ui.markerade')}</span>
-          <button onClick={() => { selected.forEach(id => onMarkPaid(id)); setSelected(new Set()); }} style={{ padding: '6px 16px', background: '#22c55e', border: 'none', borderRadius: '5px', color: 'white', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
+          <button onClick={async () => { if (await confirmMarkPaid(invoiceList.filter(i => selected.has(i.id)))) setSelected(new Set()); }} style={{ padding: '6px 16px', background: '#22c55e', border: 'none', borderRadius: '5px', color: 'white', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
             {tr('ui.markera_som_betalda')}
           </button>
           <button onClick={() => setSelected(new Set())} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginLeft: 'auto' }}><X size={18} /></button>

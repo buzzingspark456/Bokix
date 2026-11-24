@@ -12,6 +12,7 @@ import { BRAND } from '../utils/brandColors';
 import { invoiceNetSek } from '../utils/contactTotals';
 import { t as tr, dateLocale } from '../i18n';
 import { numberFormat } from '../utils/intlCache';
+import { showUndo, restoreAt } from './shared/undoToast';
 import './workspace.css';
 
 const formatSEK = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
@@ -604,8 +605,16 @@ function ProjectDetail({ project, timeEntries, setTimeEntries, setProjects, invo
     setLog(l => ({ ...l, hours: '', description: '' }));
   };
   const removeTime = (entry) => {
-    setTimeEntries(prev => prev.filter(t => t.id !== entry.id));
+    let index = -1;
+    setTimeEntries(prev => { index = prev.findIndex(x => x.id === entry.id); return prev.filter(x => x.id !== entry.id); });
     setProjects(prev => prev.map(p => (p.id === project.id ? { ...p, timeSpent: Math.max(0, (p.timeSpent || 0) - entry.hours) } : p)));
+    showUndo({
+      message: tr('undo.timeRemoved'),
+      onUndo: () => {
+        setTimeEntries(prev => restoreAt(prev, entry, index));
+        setProjects(prev => prev.map(p => (p.id === project.id ? { ...p, timeSpent: (p.timeSpent || 0) + entry.hours } : p)));
+      },
+    });
   };
   const toggleFinished = () => setProjects(prev => prev.map(p => (p.id === project.id ? { ...p, status: p.status === 'finished' ? 'active' : 'finished' } : p)));
 
