@@ -6445,7 +6445,9 @@
     "payPaidGo": "Book as paid",
     "quoteNext": "Next step: make it an order, so the goods are reserved and you deliver and invoice from there.",
     "quoteHasOrder": "The quote is an order now. Delivery and invoicing are handled from the order.",
-    "fromQuoteNotice": "The order is created from quote {{n}} and the goods are reserved."
+    "fromQuoteNotice": "The order is created from quote {{n}} and the goods are reserved.",
+    "countOne": "order",
+    "countMany": "orders"
   },
   "lset": {
     "exportQuotes": "Export quotes",
@@ -6457,6 +6459,7 @@
     "phone": "Phone",
     "city": "City",
     "order": "Order",
-    "paidDate": "Paid on"
+    "paidDate": "Paid on",
+    "noAmount": "The invoice has no amount."
   }
 }

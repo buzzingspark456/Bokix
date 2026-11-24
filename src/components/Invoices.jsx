@@ -349,7 +349,9 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
   const [rotRutProperty, setRotRutProperty] = useState(initial?.rotRutProperty || '');
   const [rotRutBrfOrgNr, setRotRutBrfOrgNr] = useState(initial?.rotRutBrfOrgNr || '');
   const [rotRutApartment, setRotRutApartment] = useState(initial?.rotRutApartment || '');
-  const [invoiceType, setInvoiceType] = useState('Faktura');
+  // Kontantfaktura (2026-11-24, admin): sparas och bokförs som betald när
+  // fakturan lämnar utkastläget (App.jsx settleCashSale). Förut sparades valet inte.
+  const [invoiceType, setInvoiceType] = useState(initial?.cashSale ? 'Kontantfaktura' : 'Faktura');
   const [terms, setTerms] = useState('30 dagar');
   // Bugkritiskt: sparades tidigare aldrig med på fakturan (se handleSave
   // nedan) — valde man EUR i rullistan låg det bara i denna komponentens
@@ -678,7 +680,19 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
         rotRutApartment: rotRutType === 'rot' ? rotRutApartment.trim() || undefined : undefined,
       });
 
+  const [saveError, setSaveError] = useState('');
   const handleSave = (requestedStatus = 'draft', extra = {}) => {
+    // En faktura som bokförs måste ha kund, beskrivning och belopp (2026-11-24).
+    // Förut gick det att bokföra en faktura på 0 kr utan rader eller kund.
+    if (requestedStatus !== 'draft' && (initial?.status || 'draft') === 'draft') {
+      const missing = [];
+      if (!customerId) missing.push(tr('ui.ingen_kund_vald_varning'));
+      const utanText = rows.filter(r => !String(r.description || '').trim() && Number(r.unitPrice));
+      if (utanText.length) missing.push(utanText.length === 1 ? tr('ui.en_rad_saknar_beskrivning') : tr('ui.rader_saknar_beskrivning', { n: utanText.length }));
+      if (!rows.some(r => (Number(r.qty) || 0) * (Number(r.unitPrice) || 0) !== 0)) missing.push(rows.some(r => String(r.description || '').trim()) ? tr('lset.noAmount') : tr('ui.fakturan_har_inga_rader'));
+      if (missing.length) { setSaveError(missing.join(' ')); return; }
+    }
+    setSaveError('');
     // Skickade och betalda fakturor behåller sin status när de sparas
     // (kommentar m.m.); förut blev en betald faktura obetald av Spara.
     const status = initial?.status && initial.status !== 'draft' ? initial.status : requestedStatus;
@@ -691,7 +705,7 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
     // "Spara"-knapp) så en kommentar man skrivit på en NY, ännu osparad
     // faktura faktiskt följer med — annars gick den förlorad eftersom
     // Kommentar-knappen tidigare var helt avstängd innan första sparningen.
-    onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, projectId: projectId || undefined, priceInclVat, rotRutType: rotRutType !== 'none' && currency === 'SEK' ? rotRutType : undefined, ...(currency === 'SEK' ? rotRutFields() : {}), internalNote: commentDraft, invoiceTemplateSnapshot, currency, fxRate: currency !== 'SEK' ? rate : undefined , ...extra });
+    onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, projectId: projectId || undefined, priceInclVat, rotRutType: rotRutType !== 'none' && currency === 'SEK' ? rotRutType : undefined, ...(currency === 'SEK' ? rotRutFields() : {}), internalNote: commentDraft, invoiceTemplateSnapshot, currency, fxRate: currency !== 'SEK' ? rate : undefined, ...(isAdminPreview() ? { cashSale: invoiceType === 'Kontantfaktura' } : {}), ...extra });
   };
 
   const handlePrint = async () => {
@@ -873,7 +887,8 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
           </div>
         )}
 
-        <div className="mform-head-actions" style={{ display: 'flex', gap: '8px' }}>
+        <div className="mform-head-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {saveError && <span role="alert" style={{ maxWidth: '420px', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-red-text)' }}>{saveError}</span>}
           <button type="button" data-tour="page-invoices-cancel" data-inv-tour="form-cancel" onClick={onClose} style={listHeaderButtonStyle('secondary')}>{tr('ui.avbryt')}</button>
           <button type="button" onClick={() => handleSave('sent')} style={listHeaderButtonStyle('primary')}>
             <Check size={14} /> {initial ? tr('ui.spara_andringar') : tr('ui.skapa_faktura')}

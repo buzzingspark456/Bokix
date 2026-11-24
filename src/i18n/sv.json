@@ -6445,7 +6445,9 @@
     "payPaidGo": "Bokför som betald",
     "quoteNext": "Nästa steg: gör den till en order, så reserveras varorna och du levererar och fakturerar därifrån.",
     "quoteHasOrder": "Offerten är en order nu. Leverans och faktura sköts från ordern.",
-    "fromQuoteNotice": "Ordern är skapad från offert {{n}} och varorna är reserverade."
+    "fromQuoteNotice": "Ordern är skapad från offert {{n}} och varorna är reserverade.",
+    "countOne": "order",
+    "countMany": "order"
   },
   "lset": {
     "exportQuotes": "Exportera offerter",
@@ -6457,6 +6459,7 @@
     "phone": "Telefon",
     "city": "Ort",
     "order": "Order",
-    "paidDate": "Betald den"
+    "paidDate": "Betald den",
+    "noAmount": "Fakturan saknar belopp."
   }
 }

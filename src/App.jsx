@@ -4685,8 +4685,23 @@ function App() {
     // utkastläget, med de belopp det har då (bookInvoiceIfNeeded nedan).
     // Förut bokades varje ny faktura direkt, även "Spara som utkast", och en
     // senare ändring av utkastet uppdaterade aldrig verifikationen.
-    if ((inv.status || 'draft') !== 'draft') bookInvoiceIfNeeded(inv);
+    if ((inv.status || 'draft') !== 'draft') { bookInvoiceIfNeeded(inv); settleCashSale(inv); }
     return inv;
+  };
+
+  // Kontantfaktura (2026-11-24): kunden har betalat vid köpet. När fakturan
+  // lämnar utkastläget bokförs betalningen samma dag (företagskontot eller
+  // vald kassa) och fakturan blir betald, ingen betalning att vänta på.
+  const settleCashSale = (inv) => {
+    if (!inv?.cashSale || inv.isDemo || inv.creditFor || inv.status === 'paid' || (inv.type || 'invoice') !== 'invoice' || (inv.status || 'draft') === 'draft') return;
+    const gross = Math.round(invoiceCustomerDue(inv) * invoiceFxRate(inv) * 100) / 100;
+    if (!(gross > 0)) return;
+    const date = inv.date || new Date().toISOString().split('T')[0];
+    handleAddVerification({
+      date, description: `Betalning faktura ${inv.invoiceNumber}`, source: 'invoice_payment', sourceId: inv.id,
+      rows: [{ account: inv.paidVia || '1930', debet: gross, kredit: 0 }, { account: '1510', debet: 0, kredit: gross }],
+    });
+    setInvoices(prev => prev.map(i => (i.id === inv.id ? { ...i, status: 'paid', paidAmount: invoiceCustomerDue(inv), paidDate: date } : i)));
   };
 
   // Bokför en faktura som lämnat utkastläget. Finns ingen verifikation än
@@ -4727,7 +4742,7 @@ function App() {
     setInvoices(fn);
     for (const inv of next || []) {
       const before = prevList.find(p => p.id === inv.id);
-      if ((inv.status || 'draft') !== 'draft' && (!before || (before.status || 'draft') === 'draft')) bookInvoiceIfNeeded(inv);
+      if ((inv.status || 'draft') !== 'draft' && (!before || (before.status || 'draft') === 'draft')) { bookInvoiceIfNeeded(inv); settleCashSale(inv); }
     }
   };
 
@@ -6362,7 +6377,7 @@ function App() {
         );
       }
       case 'quotes':
-        return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} onMakeOrder={ordersOn ? handleQuoteToOrder : null} contacts={contacts} projects={projects} company={company} activeCompanyId={data.activeCompanyId} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} articles={articles} setArticles={setArticles} onSyncBeforeServerCall={syncUserDataNow} articleSearch={newUnderlagOn} />;
+        return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} onMakeOrder={ordersOn ? handleQuoteToOrder : null} orderIds={ordersOn ? new Set((company?.salesOrders || []).map(o => o.id)) : null} contacts={contacts} projects={projects} company={company} activeCompanyId={data.activeCompanyId} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} articles={articles} setArticles={setArticles} onSyncBeforeServerCall={syncUserDataNow} articleSearch={newUnderlagOn} />;
       case 'orders':
         if (!ordersOn) return null;
         return <Orders key={company?.id || data.activeCompanyId} company={company} setCompanyInfo={setCompanyInfo} articles={articles} contacts={contacts} invoices={invoices} onCreateContact={handleCreateContactFromOrder} onCreateInvoice={handleInvoiceFromOrder} onOpenInvoice={(id) => handleGlobalAction({ type: 'open_invoice', payload: { id } }, 'invoices')} onOpenQuote={(id) => handleGlobalAction({ type: 'open_quote', payload: { id } }, 'quotes')} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} />;

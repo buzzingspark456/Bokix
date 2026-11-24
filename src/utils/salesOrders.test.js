@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { nextOrderNumber, orderStatus, orderEditable, orderTotals, reservedByArticle, deliverOrder, invoiceFromOrder, orderFromQuote } from './salesOrders';
+import { nextOrderNumber, orderStatus, orderEditable, orderTotals, reservedByArticle, deliverOrder, invoiceFromOrder, orderFromQuote, applyInvoiceExistence } from './salesOrders';
 
 let n = 0;
 const newId = () => `id${++n}`;
@@ -75,5 +75,16 @@ describe('kundorder', () => {
     const quote = { id: 'q2', rows: [{ description: 'Stol', qty: 1, unitPrice: 10 }] };
     const o = orderFromQuote(quote, { id: 'o8', number: '1002', rowKey: newId, articles: [{ id: 'x1', description: 'Stol' }, { id: 'x2', description: 'Stol' }] });
     expect(o.rows[0].articleId).toBe('');
+  });
+
+  it('fakturerat följer fakturorna som finns: borttaget utkast ger ofakturerat, ångra ger fakturerat igen', () => {
+    const delivered = deliverOrder(order(), { date: '2026-11-24', newId }).order;
+    const inv = invoiceFromOrder(delivered, 'inv1').order;
+    expect(orderStatus(inv)).toBe('invoiced');
+    const gone = applyInvoiceExistence(inv, new Set());
+    expect(orderStatus(gone)).toBe('delivered');
+    expect(gone.invoiceIds).toEqual([]);
+    expect(invoiceFromOrder(gone, 'inv2').rows).toHaveLength(2);
+    expect(orderStatus(applyInvoiceExistence(inv, new Set(['inv1'])))).toBe('invoiced');
   });
 });

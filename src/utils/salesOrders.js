@@ -96,9 +96,11 @@ export function deliverOrder(order, { date, amounts = null, newId, isStocked = (
  */
 export function invoiceFromOrder(order, invoiceId) {
   const rows = [];
+  const lines = [];
   const next = (order.rows || []).map(r => {
     const left = rowLeftToInvoice(r);
     if (!(left > 0)) return r;
+    lines.push({ key: r.key, qty: left });
     rows.push({
       description: r.description || '', qty: left, unit: r.unit || 'st', unitPrice: num(r.unitPrice),
       vatRate: num(r.vatRate), discount: num(r.discount), account: r.account || '3001', articleNumber: r.articleNumber || '',
@@ -106,7 +108,27 @@ export function invoiceFromOrder(order, invoiceId) {
     return { ...r, invoiced: round2(num(r.invoiced) + left) };
   });
   if (rows.length === 0) return { rows, order };
-  return { rows, order: { ...order, rows: next, invoiceIds: [...(order.invoiceIds || []), invoiceId] } };
+  return { rows, order: { ...order, rows: next, invoiceIds: [...(order.invoiceIds || []), invoiceId], invoiceLines: { ...(order.invoiceLines || {}), [invoiceId]: lines } } };
+}
+
+/**
+ * Fakturerat räknas från fakturorna som finns kvar (2026-11-24): tas ett
+ * fakturautkast bort blir raderna ofakturerade igen, och ångras borttagningen
+ * räknas de som fakturerade igen. Äldre order utan invoiceLines lämnas orörda.
+ */
+export function applyInvoiceExistence(order, existingInvoiceIds) {
+  if (!order?.invoiceLines) return order;
+  const sum = new Map();
+  const kept = [];
+  for (const [invId, lines] of Object.entries(order.invoiceLines)) {
+    if (!existingInvoiceIds.has(invId)) continue;
+    kept.push(invId);
+    for (const l of lines || []) sum.set(l.key, round2((sum.get(l.key) || 0) + num(l.qty)));
+  }
+  const rows = (order.rows || []).map(r => ({ ...r, invoiced: sum.get(r.key) || 0 }));
+  const invoiceIds = (order.invoiceIds || []).filter(id => kept.includes(id));
+  const same = rows.every((r, i) => num(r.invoiced) === num(order.rows[i].invoiced)) && invoiceIds.length === (order.invoiceIds || []).length;
+  return same ? order : { ...order, rows, invoiceIds };
 }
 
 /** En ny order från en offert. */

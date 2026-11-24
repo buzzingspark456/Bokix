@@ -616,7 +616,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
               <span className="q-status-text"><b><Check size={15} /> {t('ui.q_accepterad_rubrik')}</b> {quote.acceptedAt ? t('ui.q_den', { date: fmtDateSv(quote.acceptedAt) }) : ''} {onMakeOrder ? t('so.quoteNext') : onOpenOrder ? t('so.quoteHasOrder') : t('ui.q_accepterad_text')}</span>
               {onMakeOrder && <button type="button" className="q-btn q-btn-primary" onClick={(e) => onMakeOrder(e, buildSaveData())}><ClipboardList size={15} /> {t('so.makeOrder')}</button>}
               {onOpenOrder && <button type="button" className="q-btn q-btn-primary" onClick={onOpenOrder}><ClipboardList size={15} /> {t('so.openOrder', { n: quote.orderNumber || '' })}</button>}
-              {onConvert && !quote.orderId && <button type="button" className={`q-btn${onMakeOrder ? '' : ' q-btn-primary'}`} onClick={(e) => onConvert(e, buildSaveData())}><FileText size={15} /> {t('ui.skapa_faktura')}</button>}
+              {onConvert && !onOpenOrder && <button type="button" className={`q-btn${onMakeOrder ? '' : ' q-btn-primary'}`} onClick={(e) => onConvert(e, buildSaveData())}><FileText size={15} /> {t('ui.skapa_faktura')}</button>}
               <button type="button" className="q-link" onClick={() => changeStatus('sent')}>{t('ui.q_andra_svar')}</button>
             </>
           )}
@@ -1092,7 +1092,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
   );
 }
 
-export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConvert, onMakeOrder = null, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction, articles = [], onSyncBeforeServerCall, articleSearch = false }) {
+export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConvert, onMakeOrder = null, orderIds = null, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction, articles = [], onSyncBeforeServerCall, articleSearch = false }) {
   const [searchTerm, setSearchTerm] = useState('');
   // Statusfilter som Kundfakturor (2026-11-20), anpassat till offerter.
   const [statusFilter, setStatusFilter] = useState('all');
@@ -1229,6 +1229,9 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
     downloadCsv(`offerter_${new Date().toISOString().slice(0, 10)}.csv`, '\ufeff' + [head.join(';'), ...lines].join('\r\n'));
   };
 
+  // Ordern räknas bara om den finns kvar (en borttagen order släpper offerten).
+  const hasOrder = (q) => Boolean(q?.orderId) && (!orderIds || orderIds.has(q.orderId));
+
   const buildQuoteMenu = (q) => {
     const st = getDisplayStatus(q);
     const items = [{ key: 'open', label: t('ui.q_menu_oppna'), icon: Eye, onClick: () => openEdit(q) }];
@@ -1239,10 +1242,10 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
     }
     if (st === 'accepted' || st === 'rejected') items.push({ key: 'undo', label: t('ui.q_andra_svar'), icon: RotateCcw, onClick: (e) => setQuoteStatus(q, 'sent', e) });
     // Order (2026-11-24): gör offerten till en order, eller öppna ordern den blev.
-    if (q.orderId && handleGlobalAction) items.push({ key: 'order', label: t('so.openOrder', { n: q.orderNumber || '' }), icon: ClipboardList, onClick: () => handleGlobalAction({ type: 'open_order', payload: { id: q.orderId } }, 'orders') });
+    if (hasOrder(q) && handleGlobalAction) items.push({ key: 'order', label: t('so.openOrder', { n: q.orderNumber || '' }), icon: ClipboardList, onClick: () => handleGlobalAction({ type: 'open_order', payload: { id: q.orderId } }, 'orders') });
     else if (onMakeOrder && st !== 'invoiced' && st !== 'rejected') items.push({ key: 'make-order', label: t('so.makeOrder'), icon: ClipboardList, onClick: (e) => { e?.stopPropagation?.(); onMakeOrder(q.id); } });
     if (st === 'invoiced' && q.invoiceId) items.push({ key: 'invoice', label: t('ui.visa_fakturan'), icon: FileText, onClick: () => openInvoice(q.invoiceId) });
-    else if (onConvert && !q.orderId) items.push({ key: 'convert', label: t('ui.konvertera_till_faktura'), icon: FileText, onClick: (e) => handleConvert(q, e) });
+    else if (onConvert && !hasOrder(q)) items.push({ key: 'convert', label: t('ui.konvertera_till_faktura'), icon: FileText, onClick: (e) => handleConvert(q, e) });
     items.push({ key: 'copy', label: t('ui.q_kopiera'), icon: Copy, onClick: () => duplicateQuote(q) });
     if (st === 'draft') { items.push({ divider: true }); items.push({ key: 'sent', label: t('ui.markera_som_skickad'), icon: Send, onClick: (e) => setQuoteStatus(q, 'sent', e) }); }
     items.push({ divider: true });
@@ -1277,8 +1280,8 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
         onSave={handleSaveQuote}
         onClose={closeForm}
         onConvert={editingQuote ? (e, latest) => handleConvert(editingQuote, e, latest) : null}
-        onMakeOrder={editingQuote && onMakeOrder && !editingQuote.orderId ? (e, latest) => { e?.stopPropagation(); setIsFormOpen(false); setEditingId(null); onMakeOrder(editingQuote.id, latest); } : null}
-        onOpenOrder={editingQuote?.orderId && handleGlobalAction ? () => { setIsFormOpen(false); setEditingId(null); handleGlobalAction({ type: 'open_order', payload: { id: editingQuote.orderId } }, 'orders'); } : null}
+        onMakeOrder={editingQuote && onMakeOrder && !hasOrder(editingQuote) ? (e, latest) => { e?.stopPropagation(); setIsFormOpen(false); setEditingId(null); onMakeOrder(editingQuote.id, latest); } : null}
+        onOpenOrder={hasOrder(editingQuote) && handleGlobalAction ? () => { setIsFormOpen(false); setEditingId(null); handleGlobalAction({ type: 'open_order', payload: { id: editingQuote.orderId } }, 'orders'); } : null}
         onPersist={(data) => editingId && setQuotes(prev => prev.map(q => (q.id === editingId ? { ...q, ...data } : q)))}
         onOpenInvoice={openInvoice}
         onSyncBeforeServerCall={onSyncBeforeServerCall}

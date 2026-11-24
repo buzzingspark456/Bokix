@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, X, Trash2, Download, Truck, Check, Search, FileText, ClipboardList, ChevronLeft, ChevronRight } from './icons';
-import { Panel } from './shared/Workspace';
 import ChipFilter from './shared/ChipFilter';
+import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
 import { downloadCsv } from '../utils/csvRegister';
 import ArticleCombobox from './shared/ArticleCombobox';
@@ -12,7 +12,7 @@ import { lockedPeriodFor } from '../utils/fiscalYear';
 import { valuateInventory, deriveInvoiceMovements } from '../utils/inventory';
 import {
   num, nextOrderNumber, orderStatus, orderEditable, orderTotals, rowNet, reservedByArticle,
-  rowLeftToDeliver, rowLeftToInvoice, deliverOrder, invoiceFromOrder,
+  rowLeftToDeliver, rowLeftToInvoice, deliverOrder, invoiceFromOrder, applyInvoiceExistence,
 } from '../utils/salesOrders';
 import { downloadSalesOrderPdf } from '../utils/salesOrderPdf';
 import { exportInvoicePdf, printInvoicePdf } from '../utils/exportInvoicePdf';
@@ -34,7 +34,9 @@ const emptyRow = () => ({ key: newId(), articleId: '', articleNumber: '', descri
 const STATUS_PILL = { open: 'info', partial: 'warn', delivered: 'ok', invoiced: 'neutral', cancelled: 'late' };
 
 export default function Orders({ company, setCompanyInfo, articles = [], contacts = [], invoices = [], onCreateContact, onCreateInvoice, onOpenInvoice, onOpenQuote, globalAction, clearGlobalAction }) {
-  const orders = useMemo(() => company?.salesOrders || [], [company?.salesOrders]);
+  // Fakturerat räknas från fakturorna som finns (applyInvoiceExistence).
+  const invoiceIdSet = useMemo(() => new Set((invoices || []).map(i => i.id)), [invoices]);
+  const orders = useMemo(() => (company?.salesOrders || []).map(o => applyInvoiceExistence(o, invoiceIdSet)), [company?.salesOrders, invoiceIdSet]);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('active');
   const [page, setPage] = useState(0);
@@ -115,9 +117,6 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
   };
 
   const toDeliver = orders.filter(o => ['open', 'partial'].includes(orderStatus(o))).length;
-  const toInvoiceValue = orders.filter(o => !o.cancelled).reduce((s, o) => s + (o.rows || []).reduce((ss, r) => ss + rowLeftToInvoice(r) * num(r.unitPrice) * (1 - num(r.discount) / 100), 0), 0);
-  const openValue = orders.filter(o => ['open', 'partial', 'delivered'].includes(orderStatus(o))).reduce((s, o) => s + orderTotals(o).net, 0);
-  const lateCount = orders.filter(o => ['open', 'partial'].includes(orderStatus(o)) && o.deliveryDate && o.deliveryDate < todayIso()).length;
 
   if (open) {
     return (
@@ -151,27 +150,29 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
   }
 
   return (
-    <div className="ws-page ws-edge">
-      <Panel title={t('so.title')} sub={orders.length === 0 ? t('so.subEmpty') : toDeliver > 0 ? t('so.subToDeliver', { n: toDeliver }) : t('so.subAllDone')}
-        actions={<button type="button" className="agi-btn primary" onClick={startNew}><Plus size={14} /> {t('so.new')}</button>}>
-        {orders.length > 0 && (
-          <div className="lg-kpis lg-kpis--plain so-kpis">
-            <button type="button" className={`lg-kpi is-low${filter === 'deliver' ? ' on' : ''}${toDeliver ? '' : ' is-zero'}`} onClick={() => { setFilter(filter === 'deliver' ? 'active' : 'deliver'); setPage(0); }}>
-              <span className="lg-kpi-label">{lateCount ? t('so.kpiDeliverLate', { n: lateCount }) : t('so.kpiDeliver')}</span>
-              <strong className="lg-kpi-val">{toDeliver}</strong>
-            </button>
-            <button type="button" className={`lg-kpi is-value${filter === 'invoice' ? ' on' : ''}${toInvoiceValue > 0 ? '' : ' is-zero'}`} onClick={() => { setFilter(filter === 'invoice' ? 'active' : 'invoice'); setPage(0); }}>
-              <span className="lg-kpi-label">{t('so.kpiInvoice')}</span>
-              <strong className="lg-kpi-val">{fmtKr(toInvoiceValue)}</strong>
-            </button>
-            <div className="lg-kpi is-ok">
-              <span className="lg-kpi-label">{t('so.kpiOpen')}</span>
-              <strong className="lg-kpi-val">{fmtKr(openValue)}</strong>
-            </div>
+    <div className="so-listpage">
+      {/* Samma sidhuvud, sökrad och filter som Offerter och Kundfakturor (2026-11-24). */}
+      <ListPageHeader
+        title={t('so.title')}
+        subtitle={orders.length === 0 ? t('so.subEmpty') : toDeliver > 0 ? t('so.subToDeliver', { n: toDeliver }) : t('so.subAllDone')}
+        actions={[{ key: 'new', label: t('so.new'), icon: Plus, onClick: startNew, variant: 'primary' }]}
+      />
+      {orders.length > 0 && (
+        <ListFilterBar count={rows.length} countLabel={rows.length === 1 ? t('so.countOne') : t('so.countMany')}
+          trailing={<ListSettingsButton onClick={() => setSettingsOpen(true)} />}>
+          <div style={{ position: 'relative' }}>
+            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input type="text" placeholder={t('so.search')} value={q} onChange={e => { setQ(e.target.value); setPage(0); }} style={listSearchInputStyle} />
           </div>
-        )}
-        {message && <p className="ws-hint" style={{ marginTop: '12px', color: 'var(--status-green-text)' }}>{message}</p>}
-      </Panel>
+        </ListFilterBar>
+      )}
+      {orders.length > 0 && (
+        <div className="so-pillsbar">
+          <ChipFilter label={t('artReg.filter')} value={filter} onChange={(id) => { setFilter(id); setPage(0); }}
+            items={[['active', t('so.fActive'), count('active')], ['deliver', t('so.fDeliver'), count('deliver'), 'low'], ['invoice', t('so.fInvoice'), count('invoice')], ['invoiced', t('so.fInvoiced'), count('invoiced')], ['all', t('accr.filterAll'), count('all')]]} />
+        </div>
+      )}
+      {message && <div className="so-listmsg"><Check size={14} /> {message}<button type="button" onClick={() => setMessage('')} aria-label={t('ui.stang')}><X size={13} /></button></div>}
 
       <ListSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={(patch) => { setLp(patch); setPage(0); }}
         actions={[
@@ -182,7 +183,7 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
           { key: 'number', label: t('so.colNumber') }, { key: 'date', label: t('so.colDate') }, { key: 'delivery', label: t('so.colDelivery') },
           { key: 'delivered', label: t('so.colDelivered') }, { key: 'amount', label: t('so.colAmount') }, { key: 'status', label: t('ui.status') },
         ]} />
-      <Panel className={`${lp.density === 'compact' ? 'so-compact' : ''}${lp.width === 'narrow' ? ' so-narrow' : ''}`}>
+      <div className={`so-listbody${lp.density === 'compact' ? ' so-compact' : ''}${lp.width === 'narrow' ? ' so-narrow' : ''}`}>
         {orders.length === 0 ? (
           <div className="po-empty">
             <span className="po-empty-ic" aria-hidden="true"><ClipboardList size={22} /></span>
@@ -192,17 +193,6 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
           </div>
         ) : (
           <>
-            <div className="ws-listbar so-listbar" style={{ marginTop: 0 }}>
-              <div className="lg-listtools is-wide">
-                <div className="lg-search">
-                  <Search size={14} aria-hidden="true" />
-                  <input type="text" className="ws-input" placeholder={t('so.search')} value={q} onChange={e => { setQ(e.target.value); setPage(0); }} />
-                </div>
-                <ChipFilter label={t('artReg.filter')} value={filter} onChange={(id) => { setFilter(id); setPage(0); }}
-                  items={[['active', t('so.fActive'), count('active')], ['deliver', t('so.fDeliver'), count('deliver'), 'low'], ['invoice', t('so.fInvoice'), count('invoice')], ['invoiced', t('so.fInvoiced'), count('invoiced')], ['all', t('accr.filterAll'), count('all')]]} />
-                <ListSettingsButton onClick={() => setSettingsOpen(true)} className="so-gear" />
-              </div>
-            </div>
             {rows.length === 0 ? <p className="ws-hint" style={{ padding: '16px 0' }}>{t('so.noneHere')}</p> : (
               <div className="lg-tbl po-tbl">
                 <div className="ar-table-wrap">
@@ -260,8 +250,7 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
             )}
           </>
         )}
-      </Panel>
-
+      </div>
     </div>
   );
 }
