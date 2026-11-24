@@ -7,6 +7,7 @@ import { confirmDialog } from './shared/ConfirmDialog';
 import { showUndo, restoreAt } from './shared/undoToast';
 import { articlesToCsv, parseArticleImport, legacyCsvToArticles, downloadCsv } from '../utils/csvRegister';
 import ArticleImportPreview from './ArticleImportPreview';
+import ArticlesRegister from './ArticlesRegister';
 import InventoryNew from './Inventory';
 import InventoryLegacy from './InventoryLegacy';
 import PricingToolNew from './PricingTool';
@@ -345,7 +346,16 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
         </div>
       )}
 
-      {tab === 'articles' && <ListFilterBar count={filtered.length} countLabel={filtered.length === 1 ? t('ui.artikel_2') : t('ui.artiklar_2')}>
+      {tab === 'articles' && v2 && (
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <ArticlesRegister
+            articles={articles} setArticles={setArticles} company={company} invoices={invoices}
+            onEdit={startEdit} onNew={startNew}
+            onDuplicate={(a) => { setEditing({ ...emptyArticle(), ...a, id: undefined, articleNumber: '', description: `${a.description} ${t('artReg.copySuffix')}` }); setEditingOriginal(null); setMoreOpen(true); }}
+          />
+        </div>
+      )}
+      {tab === 'articles' && !v2 && <ListFilterBar count={filtered.length} countLabel={filtered.length === 1 ? t('ui.artikel_2') : t('ui.artiklar_2')}>
         <div style={{ position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input type="text" placeholder={t('ui.sok_benamning_artikelnr_eller_ean')} value={search} onChange={e => setSearch(e.target.value)} style={listSearchInputStyle} />
@@ -354,7 +364,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
 
       {/* Flush direkt under filterraden, ingen padding — samma "facit" som
           Offerter/Bokföring/Bank. */}
-      {tab === 'articles' && <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      {tab === 'articles' && !v2 && <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         <ListTable
           rowKey={a => a.id || a.articleNumber}
           rows={filtered}

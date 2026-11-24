@@ -1,0 +1,332 @@
+import React, { useMemo, useState } from 'react';
+import { Search, Pencil, Copy, Trash2, X, Download, Percent, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Package } from './icons';
+import RowActionMenu from './shared/RowActionMenu';
+import { confirmDialog } from './shared/ConfirmDialog';
+import { showUndo } from './shared/undoToast';
+import { t } from '../i18n';
+import { numberFormat } from '../utils/intlCache';
+import { valuateInventory, deriveInvoiceMovements } from '../utils/inventory';
+import { articlesToCsv, downloadCsv } from '../utils/csvRegister';
+
+// Artikelregistret för många artiklar (2026-11-24, bara admin än): en riktig
+// tabell som Fortnox register men lugnare. Sök på allt, filter som räknar,
+// leverantör, sortering per kolumn, sidor om 50, och markera flera för att
+// uppdatera priser, byta moms, exportera eller ta bort. Lagersaldot räknas
+// här ur samma lagerhändelser som Lager-fliken (utils/inventory.js).
+const fmt = (v) => numberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v) || 0);
+const fmtQty = (v) => numberFormat('sv-SE', { maximumFractionDigits: 2 }).format(Number(v) || 0);
+const fmtKr = (v) => `${numberFormat('sv-SE', { maximumFractionDigits: 0 }).format(Math.round(Number(v) || 0))} kr`;
+const PAGE_SIZES = [50, 100, 0];
+const marginOf = (a) => {
+  const p = Number(a.unitPrice) || 0; const c = Number(a.purchasePrice) || 0;
+  return p > 0 && c > 0 ? ((p - c) / p) * 100 : null;
+};
+
+export default function ArticlesRegister({ articles = [], setArticles, company, invoices = [], onEdit, onNew, onDuplicate }) {
+  const [q, setQ] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [supplier, setSupplier] = useState('');
+  const [sort, setSort] = useState({ key: 'articleNumber', dir: 1 });
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(0);
+  const [picked, setPicked] = useState(() => new Set());
+  const [priceTool, setPriceTool] = useState(null); // { mode: 'percent' | 'markup', value, round }
+
+  // Lagersaldo per vara, som i Lager-fliken.
+  const stock = useMemo(() => {
+    const settings = { method: 'avg', reorderPoints: {}, ...(company?.inventorySettings || {}) };
+    const manual = company?.stockMovements || [];
+    const fromInvoices = settings.stockFromInvoices ? deriveInvoiceMovements({ invoices, articles, movements: manual, since: settings.stockFromInvoicesSince || null }) : [];
+    const movements = [...manual, ...fromInvoices];
+    if (movements.length === 0) return { byId: new Map(), any: false };
+    const val = valuateInventory({ articles, movements, method: settings.method, applyLowestValue: settings.lowestValue !== false });
+    const byId = new Map(val.lines.map(l => [l.articleId, { qty: l.qty, value: l.bookValue }]));
+    return { byId, any: true, reorder: settings.reorderPoints || {}, locations: settings.locations || {} };
+  }, [company?.inventorySettings, company?.stockMovements, invoices, articles]);
+
+  const keyOf = (a) => a.id || a.articleNumber || a.description;
+  // Bara varor som haft lager eller har en beställningspunkt får saldo och
+  // status; en vara som aldrig lagerförts är inte slut, den syns som –.
+  const stockOf = (a) => {
+    if (a.type !== 'vara') return null;
+    const s = stock.byId.get(a.id);
+    if (s) return s;
+    return Number(stock.reorder?.[a.id]) > 0 ? { qty: 0, value: 0 } : null;
+  };
+  const statusOf = (a) => {
+    const s = stockOf(a);
+    if (!s || !stock.any) return null;
+    const min = Number(stock.reorder?.[a.id]) || 0;
+    return s.qty <= 0 ? 'out' : min > 0 && s.qty <= min ? 'low' : 'ok';
+  };
+  const locationOf = (a) => stock.locations?.[a.id] ?? a.location ?? '';
+
+  const suppliers = useMemo(() => [...new Set(articles.map(a => a.supplier).filter(Boolean))].sort((x, y) => x.localeCompare(y, 'sv')), [articles]);
+  const counts = useMemo(() => ({
+    all: articles.length,
+    vara: articles.filter(a => a.type === 'vara').length,
+    tjanst: articles.filter(a => a.type !== 'vara').length,
+    low: stock.any ? articles.filter(a => statusOf(a) === 'low').length : 0,
+    out: stock.any ? articles.filter(a => statusOf(a) === 'out').length : 0,
+    noPrice: articles.filter(a => !(Number(a.unitPrice) > 0)).length,
+  }), [articles, stock]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const rows = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    const words = s.split(/\s+/).filter(Boolean);
+    let list = articles.filter(a => {
+      if (filter === 'vara' && a.type !== 'vara') return false;
+      if (filter === 'tjanst' && a.type === 'vara') return false;
+      if ((filter === 'low' || filter === 'out') && statusOf(a) !== filter) return false;
+      if (filter === 'noPrice' && Number(a.unitPrice) > 0) return false;
+      if (supplier && a.supplier !== supplier) return false;
+      if (!words.length) return true;
+      const hay = `${a.articleNumber || ''} ${a.description || ''} ${a.ean || ''} ${a.supplier || ''} ${locationOf(a)}`.toLowerCase();
+      return words.every(w => hay.includes(w));
+    });
+    const val = (a) => {
+      switch (sort.key) {
+        case 'description': return (a.description || '').toLowerCase();
+        case 'unitPrice': return Number(a.unitPrice) || 0;
+        case 'purchasePrice': return Number(a.purchasePrice) || 0;
+        case 'margin': return marginOf(a) ?? -1e9;
+        case 'stock': return stockOf(a)?.qty ?? -1e9;
+        case 'value': return stockOf(a)?.value ?? -1e9;
+        default: return String(a.articleNumber || '').padStart(12, '0');
+      }
+    };
+    list = [...list].sort((x, y) => {
+      const a = val(x); const b = val(y);
+      return (a < b ? -1 : a > b ? 1 : 0) * sort.dir || String(x.description).localeCompare(String(y.description), 'sv');
+    });
+    return list;
+  }, [articles, q, filter, supplier, sort, stock]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pages = pageSize ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1;
+  const current = Math.min(page, pages - 1);
+  const shown = pageSize ? rows.slice(current * pageSize, current * pageSize + pageSize) : rows;
+  const allShownPicked = shown.length > 0 && shown.every(a => picked.has(keyOf(a)));
+  const pickedList = articles.filter(a => picked.has(keyOf(a)));
+  const totalValue = stock.any ? rows.reduce((sum, a) => sum + (stockOf(a)?.value || 0), 0) : 0;
+
+  const toggle = (a) => setPicked(prev => { const n = new Set(prev); const k = keyOf(a); if (n.has(k)) n.delete(k); else n.add(k); return n; });
+  const toggleShown = () => setPicked(prev => { const n = new Set(prev); shown.forEach(a => (allShownPicked ? n.delete(keyOf(a)) : n.add(keyOf(a)))); return n; });
+  const sortBy = (key) => setSort(s => (s.key === key ? { key, dir: -s.dir } : { key, dir: key === 'description' || key === 'articleNumber' ? 1 : -1 }));
+  const setFilterReset = (f) => { setFilter(f); setPage(0); };
+
+  const removeOne = (a) => {
+    const before = articles;
+    setArticles(prev => prev.filter(x => x !== a));
+    showUndo({ message: t('ui.undo_borttagen', { name: a.description || a.articleNumber }), onUndo: () => setArticles(before) });
+  };
+  const removePicked = async () => {
+    if (!(await confirmDialog(t('artReg.deleteConfirm', { n: pickedList.length }), { title: t('artReg.deleteTitle'), confirmLabel: t('ui.ta_bort') }))) return;
+    const before = articles;
+    const keys = new Set(pickedList.map(keyOf));
+    setArticles(prev => prev.filter(a => !keys.has(keyOf(a))));
+    setPicked(new Set());
+    showUndo({ message: t('artReg.deleted', { n: keys.size }), onUndo: () => setArticles(before) });
+  };
+  const setVatPicked = (rate) => {
+    const keys = new Set(pickedList.map(keyOf));
+    setArticles(prev => prev.map(a => (keys.has(keyOf(a)) ? { ...a, vatRate: rate } : a)));
+  };
+  const exportPicked = () => downloadCsv(`artiklar_urval_${new Date().toISOString().slice(0, 10)}.csv`, articlesToCsv(pickedList));
+
+  // Prisuppdatering för de markerade: ändra utpriset med procent, eller sätt
+  // utpriset som påslag på inköpspriset. Förhandsvisas innan något sparas.
+  const roundPrice = (v, mode) => (mode === 'krona' ? Math.round(v) : mode === 'tenth' ? Math.round(v * 10) / 10 : Math.round(v * 100) / 100);
+  const newPrice = (a, tool) => {
+    const v = Number(String(tool.value).replace(',', '.'));
+    if (!Number.isFinite(v)) return null;
+    if (tool.mode === 'markup') {
+      const c = Number(a.purchasePrice) || 0;
+      return c > 0 ? roundPrice(c * (1 + v / 100), tool.round) : null;
+    }
+    return roundPrice((Number(a.unitPrice) || 0) * (1 + v / 100), tool.round);
+  };
+  const applyPrices = () => {
+    const changes = new Map(pickedList.map(a => [keyOf(a), newPrice(a, priceTool)]).filter(([, p]) => p != null && p >= 0));
+    if (!changes.size) return;
+    const before = articles;
+    setArticles(prev => prev.map(a => (changes.has(keyOf(a)) ? { ...a, unitPrice: changes.get(keyOf(a)) } : a)));
+    setPriceTool(null);
+    showUndo({ message: t('artReg.pricesUpdated', { n: changes.size }), onUndo: () => setArticles(before) });
+  };
+
+  const Th = ({ k, children, className = '' }) => (
+    <th className={`${className} ${k ? 'ar-sortable' : ''}`} onClick={k ? () => sortBy(k) : undefined} aria-sort={sort.key === k ? (sort.dir > 0 ? 'ascending' : 'descending') : undefined}>
+      <span>{children}{k && sort.key === k && (sort.dir > 0 ? <ChevronUp size={13} /> : <ChevronDown size={13} />)}</span>
+    </th>
+  );
+  const chips = [
+    ['all', t('artReg.all'), counts.all],
+    ['vara', t('artReg.goods'), counts.vara],
+    ['tjanst', t('artReg.services'), counts.tjanst],
+    ...(stock.any ? [['low', t('artReg.low'), counts.low], ['out', t('artReg.out'), counts.out]] : []),
+    ...(counts.noPrice ? [['noPrice', t('artReg.noPrice'), counts.noPrice]] : []),
+  ].filter(([id, , n]) => id === 'all' || n > 0 || filter === id);
+
+  return (
+    <div className="ar">
+      <div className="ar-tools">
+        <label className="ar-search">
+          <Search size={15} aria-hidden="true" />
+          <input value={q} onChange={e => { setQ(e.target.value); setPage(0); }} placeholder={t('artReg.search')} aria-label={t('artReg.search')} />
+          {q && <button type="button" onClick={() => setQ('')} aria-label={t('ui.rensa')}><X size={14} /></button>}
+        </label>
+        <div className="ar-chips" role="tablist">
+          {chips.map(([id, label, n]) => (
+            <button key={id} type="button" role="tab" aria-selected={filter === id} className={`ar-chip${filter === id ? ' on' : ''}${id === 'out' || id === 'low' ? ` is-${id}` : ''}`} onClick={() => setFilterReset(id)}>
+              {label}<span>{n}</span>
+            </button>
+          ))}
+        </div>
+        {suppliers.length > 0 && (
+          <select className="ar-select" value={supplier} onChange={e => { setSupplier(e.target.value); setPage(0); }} aria-label={t('artReg.supplier')}>
+            <option value="">{t('artReg.allSuppliers')}</option>
+            {suppliers.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        )}
+      </div>
+
+      {picked.size > 0 && (
+        <div className="ar-bulk" role="toolbar" aria-label={t('artReg.selected', { n: picked.size })}>
+          <strong>{t('artReg.selected', { n: picked.size })}</strong>
+          <button type="button" onClick={() => setPriceTool({ mode: 'percent', value: '', round: 'krona' })}><Percent size={14} /> {t('artReg.updatePrices')}</button>
+          <select value="" onChange={e => { if (e.target.value !== '') setVatPicked(Number(e.target.value)); }} aria-label={t('artReg.setVat')}>
+            <option value="">{t('artReg.setVat')}</option>
+            {[25, 12, 6, 0].map(r => <option key={r} value={r}>{r} %</option>)}
+          </select>
+          <button type="button" onClick={exportPicked}><Download size={14} /> {t('artReg.export')}</button>
+          <button type="button" className="danger" onClick={removePicked}><Trash2 size={14} /> {t('ui.ta_bort')}</button>
+          <button type="button" className="ar-bulk-x" onClick={() => setPicked(new Set())} aria-label={t('artReg.clear')}><X size={16} /></button>
+        </div>
+      )}
+
+      {articles.length === 0 ? (
+        <div className="ar-empty">
+          <span className="ar-empty-ic" aria-hidden="true"><Package size={22} /></span>
+          <strong>{t('artReg.emptyTitle')}</strong>
+          <p>{t('artReg.emptyText')}</p>
+          <button type="button" className="ar-primary" onClick={onNew}>{t('ui.ny_artikel')}</button>
+        </div>
+      ) : rows.length === 0 ? (
+        <p className="ar-none">{t('ui.inga_artiklar_matchar_sokningen')}</p>
+      ) : (
+        <>
+          <div className="ar-table-wrap">
+            <table className="ar-table">
+              <thead>
+                <tr>
+                  <th className="ar-cb"><input type="checkbox" checked={allShownPicked} onChange={toggleShown} aria-label={t('artReg.pickAll')} /></th>
+                  <Th k="articleNumber" className="ar-num-col">{t('ui.artikelnr')}</Th>
+                  <Th k="description">{t('ui.benamning')}</Th>
+                  <Th k="unitPrice" className="r">{t('artReg.price')}</Th>
+                  <Th k="purchasePrice" className="r ar-hide-md">{t('artReg.cost')}</Th>
+                  <Th k="margin" className="r ar-hide-md">{t('artReg.margin')}</Th>
+                  {stock.any && <Th k="stock" className="r">{t('artReg.stock')}</Th>}
+                  {stock.any && <Th k="value" className="r ar-hide-lg">{t('artReg.value')}</Th>}
+                  <th className="ar-act" />
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map(a => {
+                  const m = marginOf(a);
+                  const s = stockOf(a);
+                  const st = statusOf(a);
+                  const loc = locationOf(a);
+                  return (
+                    <tr key={keyOf(a)} className={picked.has(keyOf(a)) ? 'on' : ''} onClick={() => onEdit(a)}>
+                      <td className="ar-cb" onClick={e => e.stopPropagation()}><input type="checkbox" checked={picked.has(keyOf(a))} onChange={() => toggle(a)} aria-label={a.description} /></td>
+                      <td className="ar-num">{a.articleNumber || '–'}</td>
+                      <td className="ar-name">
+                        <strong>{a.description}</strong>
+                        <small>{[a.type === 'vara' ? t('artReg.goodsOne') : t('artReg.serviceOne'), a.unit, `${a.vatRate} %`, a.supplier, loc ? t('artReg.loc', { loc }) : null].filter(Boolean).join(' · ')}</small>
+                      </td>
+                      <td className="r ar-price">{Number(a.unitPrice) > 0 ? `${fmt(a.unitPrice)} kr` : <span className="ar-missing">{t('artReg.noPriceShort')}</span>}</td>
+                      <td className="r ar-hide-md ar-muted">{Number(a.purchasePrice) > 0 ? `${fmt(a.purchasePrice)} kr` : '–'}</td>
+                      <td className="r ar-hide-md">{m == null ? <span className="ar-muted">–</span> : <span className={`ar-tg${m < 20 ? ' low' : m >= 50 ? ' high' : ''}`}>{numberFormat('sv-SE', { maximumFractionDigits: 0 }).format(m)} %</span>}</td>
+                      {stock.any && <td className="r">{s ? <span className={`ar-stock is-${st}`}><i aria-hidden="true" />{fmtQty(s.qty)} <small>{a.unit || 'st'}</small></span> : <span className="ar-muted">–</span>}</td>}
+                      {stock.any && <td className="r ar-hide-lg ar-muted">{s && s.value > 0 ? fmtKr(s.value) : '–'}</td>}
+                      <td className="ar-act" onClick={e => e.stopPropagation()}>
+                        <RowActionMenu items={[
+                          { key: 'edit', label: t('ui.andra'), icon: Pencil, onClick: () => onEdit(a) },
+                          { key: 'dup', label: t('artReg.duplicate'), icon: Copy, onClick: () => onDuplicate(a) },
+                          { divider: true },
+                          { key: 'del', label: t('ui.ta_bort'), icon: Trash2, variant: 'danger', onClick: () => removeOne(a) },
+                        ]} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="ar-foot">
+            <span>{t('artReg.showing', { from: pageSize ? current * pageSize + 1 : 1, to: pageSize ? Math.min(rows.length, (current + 1) * pageSize) : rows.length, n: rows.length })}{stock.any && totalValue > 0 ? ` · ${t('artReg.totalValue', { kr: fmtKr(totalValue) })}` : ''}</span>
+            <span className="ar-pager">
+              <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(0); }} aria-label={t('artReg.perPage')}>
+                {PAGE_SIZES.map(n => <option key={n} value={n}>{n ? t('artReg.perPageN', { n }) : t('artReg.perPageAll')}</option>)}
+              </select>
+              {pages > 1 && <>
+                <button type="button" disabled={current === 0} onClick={() => setPage(current - 1)} aria-label={t('artReg.prev')}><ChevronLeft size={16} /></button>
+                <span>{current + 1} / {pages}</span>
+                <button type="button" disabled={current >= pages - 1} onClick={() => setPage(current + 1)} aria-label={t('artReg.next')}><ChevronRight size={16} /></button>
+              </>}
+            </span>
+          </div>
+        </>
+      )}
+
+      {priceTool && (
+        <div className="modal-overlay" onClick={() => setPriceTool(null)}>
+          <div className="modal-content ar-price-modal" style={{ maxWidth: '640px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">{t('artReg.updatePricesTitle', { n: pickedList.length })}</span>
+              <button type="button" className="modal-close" onClick={() => setPriceTool(null)} aria-label={t('ui.stang')}><X size={18} /></button>
+            </div>
+            <div className="ar-seg">
+              <button type="button" className={priceTool.mode === 'percent' ? 'on' : ''} onClick={() => setPriceTool(p => ({ ...p, mode: 'percent' }))}>{t('artReg.modePercent')}</button>
+              <button type="button" className={priceTool.mode === 'markup' ? 'on' : ''} onClick={() => setPriceTool(p => ({ ...p, mode: 'markup' }))}>{t('artReg.modeMarkup')}</button>
+            </div>
+            <p className="ar-hint">{priceTool.mode === 'percent' ? t('artReg.percentHint') : t('artReg.markupHint')}</p>
+            <div className="ar-price-row">
+              <label>
+                <span>{priceTool.mode === 'percent' ? t('artReg.change') : t('artReg.markup')}</span>
+                <div className="ws-input-suffix"><input className="ws-input" inputMode="decimal" autoFocus value={priceTool.value} placeholder={priceTool.mode === 'percent' ? '5' : '60'} onChange={e => setPriceTool(p => ({ ...p, value: e.target.value }))} /><span>%</span></div>
+              </label>
+              <label>
+                <span>{t('artReg.rounding')}</span>
+                <select className="ws-input" value={priceTool.round} onChange={e => setPriceTool(p => ({ ...p, round: e.target.value }))}>
+                  <option value="krona">{t('artReg.roundKrona')}</option>
+                  <option value="tenth">{t('artReg.roundTenth')}</option>
+                  <option value="ore">{t('artReg.roundOre')}</option>
+                </select>
+              </label>
+            </div>
+            <div className="ar-preview">
+              {pickedList.slice(0, 6).map(a => {
+                const np = priceTool.value === '' ? null : newPrice(a, priceTool);
+                return (
+                  <div key={keyOf(a)}>
+                    <span>{a.description}</span>
+                    <span className="ar-muted">{fmt(a.unitPrice)} kr</span>
+                    <span>→</span>
+                    <strong>{np == null ? (priceTool.mode === 'markup' && !(Number(a.purchasePrice) > 0) ? t('artReg.noCost') : '–') : `${fmt(np)} kr`}</strong>
+                  </div>
+                );
+              })}
+              {pickedList.length > 6 && <small className="ar-muted">{t('artReg.andMore', { n: pickedList.length - 6 })}</small>}
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="agi-btn" onClick={() => setPriceTool(null)}>{t('ui.avbryt')}</button>
+              <button type="button" className="agi-btn primary" disabled={priceTool.value === ''} onClick={applyPrices}>{t('artReg.applyPrices', { n: pickedList.length })}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
