@@ -1315,3 +1315,7 @@ button.lg-kpi:hover { filter: brightness(1.06); box-shadow: 0 6px 18px rgba(0,0,
 .so-listbody { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px 32px; box-sizing: border-box; }
 .so-listbody.so-narrow { max-width: 1220px; margin: 0 auto; width: 100%; }
 .so-listbody .po-empty { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 14px; }
+/* Mörkt tema: talet i orange rutor ljusare, så det syns mot den mörka tonen (2026-11-24) */
+:root[data-theme="dark"] .lg-kpis--plain .lg-kpi.is-low:not(.is-zero) .lg-kpi-val { color: #fbbf24; }
+:root[data-theme="dark"] .lg-kpis--plain .lg-kpi.is-out:not(.is-zero) .lg-kpi-val { color: #f87171; }
+:root[data-theme="dark"] .so-item small.so-short { color: #fbbf24; }
