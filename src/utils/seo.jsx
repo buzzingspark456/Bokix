@@ -14,6 +14,7 @@ import { DEFAULT_LOCALE, LOCALE_META, availableLocalesFor, localizedPath } from 
 import { ogImageFor } from '../content/marketing/ogImages';
 
 import { schemaDate } from './schemaDate.js';
+import { assetUrl } from './assetUrl';
 export { schemaDate };
 
 export const SITE_URL = 'https://www.bokix.se';
@@ -92,7 +93,7 @@ export function PageMeta({ title, description, path = '/', basePath, locale = DE
   // Sidans egen delningsbild (content/marketing/ogImages.js) om sidan inte
   // skickar en egen, annars standardbilden.
   const ownImage = ogImageFor(base);
-  const image = imageProp || (ownImage ? `${SITE_URL}${ownImage}` : DEFAULT_OG_IMAGE);
+  const image = assetUrl(imageProp || (ownImage ? `${SITE_URL}${ownImage}` : DEFAULT_OG_IMAGE));
   const siblings = availableLocalesFor(base);
   const ogLocale = LOCALE_META[locale]?.og || LOCALE_META[DEFAULT_LOCALE].og;
   return (

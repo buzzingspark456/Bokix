@@ -27,7 +27,7 @@ export default function ArsredovisningPage() {
     <ToolShell
       tool={tool}
       metaTitle="Årsredovisning 2026: räkna ut sista dagen | Bokix"
-      metaDescription="Räkna ut när din årsredovisning senast ska vara hos Bolagsverket (sju månader efter räkenskapsårets slut) och hur mycket förseningsavgifterna kostar om den blir sen."
+      metaDescription="Räkna ut sista dagen för årsredovisningen hos Bolagsverket, sju månader efter räkenskapsårets slut, och vad förseningsavgiften blir om den är sen."
       intro="Ange räkenskapsårets sista dag, så räknar vi ut Bolagsverkets deadline och hela förseningsavgiftstrappan om den skulle missas."
       calculator={
         <>

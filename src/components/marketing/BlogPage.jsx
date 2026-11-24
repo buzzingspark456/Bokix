@@ -3,6 +3,7 @@ import MarketingLayout from './MarketingLayout';
 import ArticleIndex from './ArticleIndex';
 import { PageMeta, JsonLd, SITE_URL, schemaDate } from '../../utils/seo';
 import { BLOG_POSTS } from '../../content/marketing/blog';
+import { assetUrl } from '../../utils/assetUrl';
 
 // ── Bokix-bloggen (/blogg) — den riktiga listan ─────────────────────────
 // Fanns tidigare bara som ordet "Bokix-bloggen" ovanpå ETT inlägg
@@ -27,7 +28,7 @@ const SCHEMA = {
     '@type': 'BlogPosting',
     headline: p.title,
     url: `${SITE_URL}${p.path}`,
-    image: `${SITE_URL}${p.image}`,
+    image: assetUrl(`${SITE_URL}${p.image}`),
     datePublished: schemaDate(p.datePublished),
     dateModified: schemaDate(p.dateModified),
     description: p.excerpt,
@@ -41,7 +42,7 @@ export default function BlogPage() {
     <MarketingLayout>
       <PageMeta
         title="Blogg om bokföring, moms och bokslut | Bokix"
-        description="Praktiska guider om bokföring, fakturering, moms och bokslut för svenska småföretag, skrivna av teamet bakom Bokix."
+        description="Praktiska guider om bokföring, moms, lön, representation och bokslut för svenska småföretag, med konton, belopp för 2026 och räkneexempel."
         path="/blogg"
         image={`${SITE_URL}${POSTS[0].image}`}
       />

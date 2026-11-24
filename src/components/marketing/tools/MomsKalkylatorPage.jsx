@@ -52,7 +52,7 @@ export default function MomsKalkylatorPage() {
     <ToolShell
       tool={tool}
       metaTitle="Momskalkylator: räkna moms framlänges och baklänges"
-      metaDescription="Gratis momskalkylator: lägg på eller räkna ur moms med 25, 12 eller 6 %. Se netto, moms och bruttobelopp direkt — plus vilka konton och momsrutor beloppet hamnar i."
+      metaDescription="Gratis momskalkylator: lägg på eller räkna ur moms med 25, 12 eller 6 %. Se netto, moms och brutto direkt, och vilka konton och momsrutor som gäller."
       intro="Skriv in ett belopp, välj momssats och riktning. Du får netto, moms och totalsumma direkt — och ser vilka konton och momsrutor beloppet hör hemma i."
       calculator={
         <>

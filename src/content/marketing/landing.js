@@ -11,7 +11,7 @@ export const LANDING_CONTENT = {
   sv: {
     meta: {
       // Startsidan är Bokix egen sida: namnet först, sedan vad Bokix är.
-      title: 'Bokix: enkelt bokföringsprogram för småföretag',
+      title: 'Bokföringsprogram för småföretag, allt ingår | Bokix',
       description: 'Bokix är ett enkelt bokföringsprogram för småföretag. Bokföring, fakturering, kvitton, lön och moms i ett verktyg, för alla bolagsformer. Från 129 kr/mån.',
     },
     schema: {

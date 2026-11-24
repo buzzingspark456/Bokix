@@ -10,6 +10,7 @@ import MoreCards from './MoreCards';
 import { DemoStyles } from './DemoPlayer';
 import ProductOrgPage from './ProductOrgPage';
 import { HighlightStrip, ProductHero, VideoSection, DEMO_BY_SLUG, ORG_EXTRAS_CSS } from './OrgTypeExtras';
+import { assetUrl } from '../../utils/assetUrl';
 
 // Jämförelsetabell (bara på sidor med `compare`, t.ex. alternativ till
 // Fortnox). På telefon blir varje rad ett eget kort.
@@ -86,9 +87,9 @@ export default function OrgTypePage({ path }) {
     offers: { '@type': 'Offer', price: '129', priceCurrency: 'SEK' },
     // Riktiga skärmbilder ur appen (hjältens flikar), så att Google har en
     // bild att visa i sökresultat och bildsök. Delningsbilden som reserv.
-    image: `${SITE_URL}/og/${page.path.slice(1)}.jpg`,
+    image: assetUrl(`${SITE_URL}/og/${page.path.slice(1)}.jpg`),
     ...(page.product?.heroTabs ? {
-      screenshot: page.product.heroTabs.map(t => ({ '@type': 'ImageObject', url: `${SITE_URL}/product/bokix-${t.shot}.jpg`, caption: t.caption })),
+      screenshot: page.product.heroTabs.map(t => ({ '@type': 'ImageObject', url: assetUrl(`${SITE_URL}/product/bokix-${t.shot}.jpg`), caption: t.caption })),
     } : {}),
   };
 
@@ -98,7 +99,7 @@ export default function OrgTypePage({ path }) {
     '@type': 'VideoObject',
     name: page.video.title,
     description: page.video.description,
-    thumbnailUrl: [`${SITE_URL}/videos/hero/${heroVideoFile(page)}.jpg`],
+    thumbnailUrl: [assetUrl(`${SITE_URL}/videos/hero/${heroVideoFile(page)}.jpg`)],
     uploadDate: `${page.video.date || HERO_VIDEO_DATE}T08:00:00+02:00`,
     duration: HERO_VIDEO_DURATION,
     contentUrl: `${SITE_URL}/videos/hero/${heroVideoFile(page)}.mp4`,

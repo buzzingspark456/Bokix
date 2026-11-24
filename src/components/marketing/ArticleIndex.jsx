@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Reveal } from './MarketingLayout';
 import { SERIF, INK, MUTED } from './marketingTokens';
 import { blogThumb } from '../../utils/blogThumb';
+import { assetUrl } from '../../utils/assetUrl';
 
 // Listan på /blogg och /nyheter (2026-10-13): senaste inlägget stort
 // överst, resten i ett rutnät med bild, kategori, datum och kort rubrik.
@@ -68,7 +69,7 @@ export default function ArticleIndex({ title, posts }) {
           <Reveal>
             <Link to={featured.path} className="bxb-link bxb-feat">
               <div className="bxb-imgbox">
-                <img className="bxb-img" src={featured.image} alt={featured.imageAlt} width="1200" height="630" fetchPriority="high" />
+                <img className="bxb-img" src={assetUrl(featured.image)} alt={featured.imageAlt} width="1200" height="630" fetchPriority="high" />
               </div>
               <div>
                 <Meta post={featured} />
@@ -83,7 +84,7 @@ export default function ArticleIndex({ title, posts }) {
               <Reveal key={post.slug} delay={(i % 3) * 60}>
                 <Link to={post.path} className="bxb-link">
                   <div className="bxb-imgbox">
-                    <img className="bxb-img" src={blogThumb(post.image)} alt={post.imageAlt} loading="lazy" width="800" height="420" />
+                    <img className="bxb-img" src={assetUrl(blogThumb(post.image))} alt={post.imageAlt} loading="lazy" width="800" height="420" />
                   </div>
                   <Meta post={post} />
                   <h2 className="bxb-title">{post.title}</h2>

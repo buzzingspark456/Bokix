@@ -122,7 +122,7 @@ export default function AboutPage() {
     <MarketingLayout>
       <PageMeta
         title="Om Bokix: svenskt bokföringsprogram för småföretag"
-        description="Om Bokix: varför vi bygger ett svenskt bokföringsprogram för småföretag, vad vi bryr oss om och vad Bokix inte gör."
+        description="Om Bokix: varför vi bygger ett svenskt bokföringsprogram för småföretag, vad vi bryr oss om, var datan lagras och vad Bokix inte gör, rakt och ärligt."
         path="/om-oss"
       />
       <JsonLd data={SCHEMA} />

@@ -276,7 +276,7 @@ export default function ScanReceiptPage() {
     <ToolShell
       tool={tool}
       metaTitle="Skanna kvitto: läs av kvitton automatiskt | Bokix"
-      metaDescription="Ladda upp en bild av ett kvitto och få leverantör, datum, belopp, moms och bokföringskonto direkt. Första kvittot läses av Google, som i Bokix-appen. Gratis, utan konto."
+      metaDescription="Ladda upp en bild av ett kvitto och få leverantör, datum, belopp, moms och bokföringskonto direkt, som i Bokix-appen. Gratis och utan konto."
       intro="Ladda upp en bild eller PDF av ett kvitto. Leverantör, datum, belopp, moms och ett förslag på bokföringskonto läses av på några sekunder, och du ser var på kvittot varje uppgift stod."
       calculator={
         <div

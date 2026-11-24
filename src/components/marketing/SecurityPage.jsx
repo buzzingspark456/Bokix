@@ -81,7 +81,7 @@ export default function SecurityPage() {
     <MarketingLayout>
       <PageMeta
         title="Säkerhet: så skyddar vi din bokföring | Bokix"
-        description="Hur Bokix skyddar din bokföring: åtkomstkontroll i själva databasen, kryptering, tvåfaktorsautentisering, automatisk gallring och hur du får ut allt du lagt in."
+        description="Så skyddar Bokix din bokföring: åtkomstkontroll i databasen, kryptering, tvåfaktorsinloggning, gallring och hur du får ut allt du lagt in."
         path="/sakerhet"
       />
       <JsonLd data={SCHEMA} />

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Reveal } from './MarketingLayout';
 import { Check } from '../icons';
+import { assetUrl } from '../../utils/assetUrl';
 
 // Produktsidornas byggklossar (2026-11-07). Bilderna är riktiga skärmbilder
 // ur appen (scripts/capture-product-shots.mjs → public/product/), i ljust och
@@ -16,7 +17,7 @@ const SIZE_CONTENT = { w: 1936, h: 1332 };
 
 function shotSrc(name, dark) {
   // "bokix-" i filnamnet hjälper bildsöket när någon söker på Bokix.
-  return `/product/bokix-${name}${dark ? '-mork' : ''}.jpg`;
+  return assetUrl(`/product/bokix-${name}${dark ? '-mork' : ''}.jpg`);
 }
 
 /** En bild ur appen: ljus och mörk variant, CSS visar den som passar temat. */

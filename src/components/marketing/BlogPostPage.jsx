@@ -10,6 +10,7 @@ import { PageMeta, JsonLd, SITE_URL, schemaDate } from '../../utils/seo';
 import { ALL_ARTICLES } from '../../content/marketing/news';
 import { MIGRATION_SOURCES } from '../../utils/migrationSources';
 import { BLOG_SHOTS, BLOG_SHOT_WIDTH, BLOG_SHOT_HEIGHT, blogShotSrc } from '../../content/marketing/blogShots';
+import { assetUrl } from '../../utils/assetUrl';
 
 // ── En bloggartikel (/blogg/<slug>) ─────────────────────────────────────
 // Renderar ett inlägg ur BLOG_POSTS (content/marketing/blog.js) som har ett
@@ -362,7 +363,7 @@ export default function BlogPostPage({ slug }) {
       url: `${SITE_URL}${post.path}`,
       inLanguage: 'sv-SE',
       // Omslaget först, sedan skärmbilderna i texten: alla är bilder som hör till artikeln.
-      image: [post.image, ...post.body.filter(b => b.t === 'image' && BLOG_SHOTS[b.shot]).map(b => blogShotSrc(b.shot))].map(src => `${SITE_URL}${src}`),
+      image: [post.image, ...post.body.filter(b => b.t === 'image' && BLOG_SHOTS[b.shot]).map(b => blogShotSrc(b.shot))].map(src => assetUrl(`${SITE_URL}${src}`)),
       datePublished: schemaDate(post.datePublished),
       dateModified: schemaDate(post.dateModified),
       articleSection: post.category,
@@ -420,7 +421,7 @@ export default function BlogPostPage({ slug }) {
 
       <div style={{ background: IVORY }}>
         <div className="bxp-hero">
-          <img src={post.image} alt={post.imageAlt} width="1200" height="630" fetchPriority="high" />
+          <img src={assetUrl(post.image)} alt={post.imageAlt} width="1200" height="630" fetchPriority="high" />
         </div>
 
         <div className="bxp-layout">
@@ -441,7 +442,7 @@ export default function BlogPostPage({ slug }) {
             <div className="bxp-rel">
               {others.map(o => (
                 <Link key={o.slug} to={o.path}>
-                  <img src={o.image} alt={o.imageAlt} loading="lazy" width="1200" height="630" />
+                  <img src={assetUrl(o.image)} alt={o.imageAlt} loading="lazy" width="1200" height="630" />
                   <div>
                     <small>{o.category}</small>
                     <b>{o.title}</b>
