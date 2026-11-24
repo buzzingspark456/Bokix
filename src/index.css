@@ -11029,3 +11029,11 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .plan-card-link { padding: 7px 4px; border: none; background: none; font: inherit; font-size: 13px; font-weight: 500; color: var(--plan-muted, var(--text-secondary)); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .plan-card-link:hover { color: var(--plan-text); }
 .sub-keep-data { margin-top: 6px; color: var(--text-main); font-weight: 500; }
+
+/* Förslag ur hjälpen i supportrutan (App.jsx, 2026-11-24) */
+.support-suggest { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 12px; background: var(--bg-muted); margin-bottom: 12px; }
+.support-suggest-title { font-size: 12.5px; font-weight: 700; color: var(--text-secondary); }
+.support-suggest-item { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 9px 11px; border: 1px solid var(--border-light, var(--border)); border-radius: 10px; background: var(--bg-card); font: inherit; color: var(--text-main); cursor: pointer; }
+.support-suggest-item:hover { border-color: var(--accent); }
+.support-suggest-item strong { font-size: 13.5px; font-weight: 600; }
+.support-suggest-item small { font-size: 12.5px; color: var(--text-secondary); line-height: 1.45; }

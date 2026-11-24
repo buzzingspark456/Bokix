@@ -181,13 +181,19 @@ function GuideCard({ article, onOpen }) {
   );
 }
 
-const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour, onContactSupport, currentTab, onNavigate, hiddenTabs = [] }) => {
+const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour, onContactSupport, currentTab, onNavigate, hiddenTabs = [], openArticleId = null }) => {
   const [search, setSearch] = useState('');
   const [view, setView] = useState('home'); // home | category | article | glossary
   const [article, setArticle] = useState(null);
   const [category, setCategory] = useState(null);
   const [from, setFrom] = useState('home');
   const [video, setVideo] = useState(null);
+  // Öppnad från ett förslag i supportrutan: direkt på artikeln.
+  useEffect(() => {
+    if (!isOpen || !openArticleId) return;
+    const a = HELP_ARTICLES.find(x => x.id === openArticleId);
+    if (a) { setFrom('home'); setArticle(a); setView('article'); }
+  }, [isOpen, openArticleId]);
 
   // Texter för sidor som är gömda för företaget (t.ex. Lön) visas inte.
   const visible = useMemo(() => HELP_ARTICLES.filter(a => !hiddenTabs.includes(a.tab)), [hiddenTabs]);

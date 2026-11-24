@@ -440,6 +440,7 @@ import { detectDevice } from './utils/deviceInfo';
 import { useLocation, useNavigate } from 'react-router-dom';
 const ReviewQueue = lazy(() => import('./components/ReviewQueue'));
 import HelpDrawer from './components/HelpDrawer';
+import { suggestHelpArticles } from './content/help/articles';
 import Toast from './components/shared/Toast';
 import { ConfirmDialogHost, confirmDialog } from './components/shared/ConfirmDialog';
 import PaymentRequiredGate from './components/PaymentRequiredGate';
@@ -1761,6 +1762,9 @@ function App() {
   // Samma ämnen som kontaktsidan (ContactPage.jsx TOPICS); value måste
   // finnas i ALLOWED_TOPICS i api/contact.js.
   const [reportErrorTopic, setReportErrorTopic] = useState('Felrapport');
+  // Hjälpartikel att öppna direkt (förslag i supportrutan, 2026-11-24).
+  const [helpArticleId, setHelpArticleId] = useState(null);
+  const supportSuggestions = reportErrorModal && ['Felrapport', 'Support'].includes(reportErrorTopic) && reportErrorText.trim().length >= 12 ? suggestHelpArticles(reportErrorText) : [];
   // En bild eller PDF att skicka med (2026-11-07), t.ex. en skärmbild av felet.
   // { name, type, size, data } där data är base64. Kontrolleras igen i api/contact.js.
   const [reportErrorFile, setReportErrorFile] = useState(null);
@@ -7166,12 +7170,13 @@ function App() {
       <NotifSoundWatcher notifications={notifications} seenKeys={seenNotifKeys} companyId={data.activeCompanyId} soundOn={notifySoundEnabled(user)} soundId={notifySoundChoice(user)} onRing={() => setBellRing(n => n + 1)} />
       <HelpDrawer
         isOpen={isHelpDrawerOpen}
-        onClose={() => setIsHelpDrawerOpen(false)}
+        onClose={() => { setIsHelpDrawerOpen(false); setHelpArticleId(null); }}
         onStartTour={() => { setIsHelpDrawerOpen(false); handleNavTabChange('dashboard'); startProductTourWhenReady({ uid: user?.id, navigate: handleNavTabChange, hiddenTabs: hiddenFeatureNavIds(currentCompany) }); }}
         onStartInvoiceTour={() => { setIsHelpDrawerOpen(false); handleNavTabChange('invoices'); startInvoiceTourWhenReady({ uid: user?.id }); }}
         onContactSupport={(topic) => { setIsHelpDrawerOpen(false); setReportErrorTopic(topic); setReportErrorModal(true); }}
         currentTab={resolveTab(activeTab)}
         hiddenTabs={featureHiddenNavIds}
+        openArticleId={helpArticleId}
         onNavigate={(tab, action) => (action ? handleGlobalAction(action, tab) : handleNavTabChange(tab))}
       />
 
@@ -7339,6 +7344,19 @@ function App() {
                   )}
                 </div>
               </div>
+
+              {/* Förslag ur hjälpen medan man skriver (2026-11-24): det enkla
+                  löser sig direkt, utan att vänta på svar. Utkastet ligger kvar. */}
+              {supportSuggestions.length > 0 && (
+                <div className="support-suggest">
+                  <span className="support-suggest-title">{tr('ui.support_kanske_hjalper')}</span>
+                  {supportSuggestions.map(a => (
+                    <button key={a.id} type="button" className="support-suggest-item" onClick={() => { setReportErrorModal(false); setHelpArticleId(a.id); setIsHelpDrawerOpen(true); }}>
+                      <strong>{a.title}</strong>{a.summary && <small>{a.summary}</small>}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Svaret går till kontots e-post (reply_to i api/contact.js,
                   adressen tas från inloggningen, inte från klienten). Sidan och

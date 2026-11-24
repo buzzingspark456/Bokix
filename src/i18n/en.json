@@ -4176,7 +4176,8 @@
     "bk_show_vers": "Show verifications ({{n}})",
     "bk_fine_one": "1 check is fine",
     "bk_fine_many": "{{n}} checks are fine",
-    "beskrivning_eller_artikel": "Description or search item"
+    "beskrivning_eller_artikel": "Description or search item",
+    "support_kanske_hjalper": "This might help right away"
   },
   "glossary": {
     "g01": {

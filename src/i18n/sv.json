@@ -4176,7 +4176,8 @@
     "bk_show_vers": "Visa verifikationer ({{n}})",
     "bk_fine_one": "1 kontroll stämmer",
     "bk_fine_many": "{{n}} kontroller stämmer",
-    "beskrivning_eller_artikel": "Beskrivning eller sök artikel"
+    "beskrivning_eller_artikel": "Beskrivning eller sök artikel",
+    "support_kanske_hjalper": "Det här kanske hjälper direkt"
   },
   "glossary": {
     "g01": {

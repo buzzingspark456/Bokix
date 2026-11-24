@@ -261,6 +261,30 @@ export function articlesForTab(tab) {
 
 const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
+// Vanliga ord som inte säger något om frågan (förslagen i supportrutan).
+const STOP = new Set(['och', 'att', 'det', 'som', 'jag', 'inte', 'kan', 'har', 'hur', 'var', 'vad', 'för', 'med', 'den', 'detta', 'eller', 'men', 'ska', 'vill', 'när', 'min', 'mitt', 'mina', 'man', 'går', 'gör', 'får', 'bara', 'också', 'efter', 'från', 'till', 'över', 'under', 'hej', 'tack', 'bokix', 'fungerar', 'funkar', 'problem', 'fel', 'hjälp']);
+
+/**
+ * Förslag ur hjälpen för ett helt meddelande (2026-11-24): räcker att några
+ * ord träffar, titelträff väger tyngst. Högst tre, och bara tydliga träffar.
+ */
+export function suggestHelpArticles(text, articles = HELP_ARTICLES, max = 3) {
+  const words = [...new Set(norm(text).split(/[^a-z0-9åäö]+/).filter(w => w.length > 3 && !STOP.has(w)))];
+  if (words.length === 0) return [];
+  const stem = (w) => w.slice(0, Math.max(4, w.length - 2));
+  return articles
+    .map(a => {
+      const title = norm(a.title);
+      const body = norm([a.summary, a.keywords, ...(a.steps || [])].join(' '));
+      const score = words.reduce((n, w) => n + (title.includes(stem(w)) ? 3 : body.includes(stem(w)) ? 1 : 0), 0);
+      return { a, score };
+    })
+    .filter(x => x.score >= 3)
+    .sort((x, y) => y.score - x.score)
+    .slice(0, max)
+    .map(x => x.a);
+}
+
 /** Enkel sökning: alla ord i frågan ska finnas i titel, sammanfattning, steg eller nyckelord. */
 export function searchArticles(query, articles = HELP_ARTICLES) {
   const words = norm(query).split(/\s+/).filter(w => w.length > 1);
