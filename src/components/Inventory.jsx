@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { lockedPeriodFor } from '../utils/fiscalYear';
-import { Plus, Minus, Trash2, X, Search, Truck, AlertTriangle, Inbox, Download, Settings2, ClipboardCheck, PackageMinus, Scale, RefreshCw } from './icons';
+import { Plus, Minus, Trash2, X, Search, Truck, AlertTriangle, Inbox, Download, Settings2, ClipboardCheck, PackageMinus, Scale, RefreshCw, ChevronLeft, ChevronRight } from './icons';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { Panel, Overview, TaskRow, usePalette } from './shared/Workspace';
 import {
@@ -124,6 +124,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
   const [delivery, setDelivery] = useState(null);
   const [orderQty, setOrderQty] = useState({});
   const [poOpen, setPoOpen] = useState(null);
+  const [goodsPage, setGoodsPage] = useState(0);
 
   useEffect(() => {
     if (!detailId) return undefined;
@@ -182,14 +183,17 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
   const allRows = goods.map(g => {
     const line = lineById.get(g.id) || { articleId: g.id, articleNumber: g.articleNumber || '', description: g.description, qty: 0, unitCost: Number(g.purchasePrice) || 0, costValue: 0, bookValue: 0, writeDown: 0, shortfall: 0, layers: [] };
     const min = Number(settings.reorderPoints?.[g.id]) || 0;
-    const status = line.qty <= 0 ? 'out' : min > 0 && line.qty <= min ? 'low' : 'ok';
+    // Aldrig lagerförd (ingen händelse, ingen beställningspunkt): inte slut.
+    const tracked = lineById.has(g.id) || min > 0;
+    const status = !tracked ? 'none' : line.qty <= 0 ? 'out' : min > 0 && line.qty <= min ? 'low' : 'ok';
     return { ...line, min, status, salePrice: Number(g.unitPrice) || 0, unit: g.unit || tr('ui.st') };
   });
-  const order = { low: 0, out: 1, ok: 2 };
+  const order = { low: 0, out: 1, ok: 2, none: 3 };
+  const tracked = allRows.filter(r => r.status !== 'none');
   const q = search.trim().toLowerCase();
   const rows = allRows
-    .filter(r => filter === 'all' || (filter === 'instock' ? r.qty > 0 : r.status === filter))
-    .filter(r => !q || r.description.toLowerCase().includes(q) || (r.articleNumber || '').toLowerCase().includes(q))
+    .filter(r => (filter === 'all' ? r.status !== 'none' : filter === 'instock' ? r.qty > 0 : r.status === filter))
+    .filter(r => !q || r.description.toLowerCase().includes(q) || (r.articleNumber || '').toLowerCase().includes(q) || (supplierOf(r.articleId) || '').toLowerCase().includes(q) || String(locationOf(r.articleId) || '').toLowerCase().includes(q))
     .sort((a, b) => order[a.status] - order[b.status] || a.description.localeCompare(b.description, 'sv'));
   const count = (s) => allRows.filter(r => r.status === s).length;
   const lowRows = allRows.filter(r => r.status === 'low');
@@ -426,13 +430,20 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                   <button type="button" className="agi-btn primary" onClick={() => startMovement('in', r.articleId)}>{tr('lager.addReceipt')}</button>
                 </TaskRow>
               ))}
-              {lowRows.map(r => (
+              {lowRows.length === 1 && lowRows.map(r => (
                 <TaskRow key={r.articleId} icon={Truck} onClick={() => setDetailId(r.articleId)}
                   title={tr('lager.lowTitle', { name: r.description })}
                   detail={tr('lager.lowDetail', { qty: fmtQty(r.qty), min: fmtQty(r.min), unit: r.unit })}>
                   <button type="button" className="agi-btn" onClick={() => startMovement('in', r.articleId)}>{tr('lager.typeIn')}</button>
                 </TaskRow>
               ))}
+              {lowRows.length > 1 && (
+                <TaskRow icon={Truck} onClick={() => setView('order')}
+                  title={tr('lager.lowMany', { n: lowRows.length })}
+                  detail={lowRows.slice(0, 3).map(r => r.description).join(', ') + (lowRows.length > 3 ? ' …' : '')}>
+                  <button type="button" className="agi-btn" onClick={(e) => { e.stopPropagation(); setView('order'); }}>{tr('lager.seeOrder')}</button>
+                </TaskRow>
+              )}
               {valuation.lines.length > 0 && closing && !alreadyBooked && (
                 <TaskRow icon={Scale} tone="brand"
                   title={tr('ui.lagret_behover_justeras_med_kr', { v0: diff > 0 ? '+' : '−', v1: fmt(Math.abs(diff)) })}
@@ -464,15 +475,15 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                   ))}
                 </div>
                 {view === 'goods' && <div className="lg-listtools">
-                  {goods.length > 5 && (
+                  {goods.length > 0 && (
                     <div className="lg-search">
                       <Search size={14} aria-hidden="true" />
                       <input type="text" className="ws-input" placeholder={tr('lager.search')} value={search} onChange={e => setSearch(e.target.value)} />
                     </div>
                   )}
                   <div className="ws-seg">
-                    {[['all', tr('accr.filterAll'), goods.length], ['instock', tr('lager.inStockPill'), inStock.length], ['low', tr('lager.low'), count('low')], ['out', tr('lager.outOfStock'), count('out')]].map(([id, label, n]) => (
-                      <button key={id} type="button" className={filter === id ? 'on' : ''} onClick={() => setFilter(id)}>{label}<span className="lg-count">{n}</span></button>
+                    {[['all', tr('accr.filterAll'), tracked.length], ['instock', tr('lager.inStockPill'), inStock.length], ['low', tr('lager.low'), count('low')], ['out', tr('lager.outOfStock'), count('out')], ...(count('none') ? [['none', tr('lager.untracked'), count('none')]] : [])].map(([id, label, n]) => (
+                      <button key={id} type="button" className={filter === id ? 'on' : ''} onClick={() => { setFilter(id); setGoodsPage(0); }}>{label}<span className="lg-count">{n}</span></button>
                     ))}
                   </div>
                 </div>}
@@ -584,30 +595,57 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
               ) : rows.length === 0 ? (
                 <p className="ws-hint" style={{ padding: '12px 0' }}>{tr('lager.noMatch')}</p>
               ) : (
-                <div className="lg-rows">
-                  <div className="lg-row lg-row-head" aria-hidden="true">
-                    <span>{tr('ui.vara')}</span><span>{tr('lager.inStock')}</span><span className="r">{tr('lager.unitCost')}</span><span className="r">{tr('ui.varde')}</span><span />
+                <div className="lg-tbl">
+                  <div className="ar-table-wrap">
+                    <table className="ar-table">
+                      <thead>
+                        <tr>
+                          <th className="ar-num-col">{tr('ui.artikelnr')}</th>
+                          <th>{tr('ui.vara')}</th>
+                          <th className="lg-w-qty">{tr('lager.inStock')}</th>
+                          <th className="r ar-hide-md lg-w-min">{tr('lager.reorderShort')}</th>
+                          <th className="r ar-w-cost ar-hide-md">{tr('lager.unitCost')}</th>
+                          <th className="r ar-w-value">{tr('ui.varde')}</th>
+                          <th className="r lg-w-status" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.slice(Math.min(goodsPage, Math.max(0, Math.ceil(rows.length / 50) - 1)) * 50).slice(0, 50).map(r => (
+                          <tr key={r.articleId} className={`is-${r.status}`} onClick={() => setDetailId(r.articleId)}>
+                            <td className="ar-num">{r.articleNumber || '–'}</td>
+                            <td className="ar-name">
+                              <strong>{r.description}</strong>
+                              {r.shortfall > 0
+                                ? <small className="lg-issue">{tr('lager.shortfall', { n: fmtQty(r.shortfall) })}</small>
+                                : <small>{[supplierOf(r.articleId), onOrder.get(r.articleId) ? tr('po.onOrderShort', { qty: fmtQty(onOrder.get(r.articleId).qty) }) : null, locationOf(r.articleId) ? tr('lager.locationShort', { loc: locationOf(r.articleId) }) : null, r.layers.length > 1 ? tr('lager.batchCount', { n: r.layers.length }) : null].filter(Boolean).join(' · ') || ' '}</small>}
+                            </td>
+                            <td className="lg-qty-cell">
+                              {r.status === 'none' ? <span className="ar-muted">–</span> : (
+                                <span className="lg-q">
+                                  <span className="lg-q-num"><b>{fmtQty(r.qty)}</b> <small>{r.unit}</small></span>
+                                  <span className="pz-m-track"><span style={{ width: `${Math.max(r.qty > 0 ? 3 : 0, barPct(r))}%`, background: barColor(r) }} />{r.min > 0 && <em style={{ left: '50%' }} />}</span>
+                                </span>
+                              )}
+                            </td>
+                            <td className="r ar-hide-md ar-muted">{r.min > 0 ? fmtQty(r.min) : '–'}</td>
+                            <td className="r ar-hide-md ar-muted">{r.unitCost > 0 ? `${fmt(r.unitCost)} kr` : '–'}</td>
+                            <td className="r ar-price">{r.bookValue > 0 ? fmtKr(r.bookValue) : <span className="ar-muted">–</span>}</td>
+                            <td className="r">{r.status === 'none' ? null : statusPill(r)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                  {rows.map(r => (
-                    <button key={r.articleId} type="button" className={`lg-row is-${r.status}`} style={{ '--pj': barColor(r) }} onClick={() => setDetailId(r.articleId)}>
-                      <span className="lg-row-name">
-                        <span className="lg-avatar" aria-hidden="true">{initial(r.description)}</span>
-                        <span className="lg-row-name-text">
-                          <strong>{r.description}</strong>
-                          {r.shortfall > 0
-                            ? <small className="lg-issue">{tr('lager.shortfall', { n: fmtQty(r.shortfall) })}</small>
-                            : <small>{[r.articleNumber, onOrder.get(r.articleId) ? tr('po.onOrderShort', { qty: fmtQty(onOrder.get(r.articleId).qty) }) : null, locationOf(r.articleId) ? tr('lager.locationShort', { loc: locationOf(r.articleId) }) : null, r.layers.length > 1 ? tr('lager.batchCount', { n: r.layers.length }) : null].filter(Boolean).join(' · ') || ' '}</small>}
-                        </span>
+                  {rows.length > 50 && (
+                    <div className="ar-foot">
+                      <span>{tr('artReg.showing', { from: Math.min(goodsPage, Math.ceil(rows.length / 50) - 1) * 50 + 1, to: Math.min(rows.length, (Math.min(goodsPage, Math.ceil(rows.length / 50) - 1) + 1) * 50), n: rows.length })}</span>
+                      <span className="ar-pager">
+                        <button type="button" disabled={goodsPage === 0} onClick={() => setGoodsPage(p => Math.max(0, p - 1))} aria-label={tr('artReg.prev')}><ChevronLeft size={16} /></button>
+                        <span>{Math.min(goodsPage, Math.ceil(rows.length / 50) - 1) + 1} / {Math.ceil(rows.length / 50)}</span>
+                        <button type="button" disabled={goodsPage >= Math.ceil(rows.length / 50) - 1} onClick={() => setGoodsPage(p => p + 1)} aria-label={tr('artReg.next')}><ChevronRight size={16} /></button>
                       </span>
-                      <span className="lg-row-stock">
-                        <span className="lg-row-qty"><b>{fmtQty(r.qty)}</b> {r.unit}{r.min > 0 && <small>{tr('lager.minShort', { n: fmtQty(r.min) })}</small>}</span>
-                        <span className="pz-track"><span style={{ width: `${barPct(r)}%` }} />{r.min > 0 && <em style={{ left: '50%' }} />}</span>
-                      </span>
-                      <span className="r lg-row-num">{r.unitCost > 0 ? `${fmt(r.unitCost)} kr` : '–'}</span>
-                      <span className="r lg-row-num strong">{fmtKr(r.bookValue)}</span>
-                      <span className="r">{statusPill(r)}</span>
-                    </button>
-                  ))}
+                    </div>
+                  )}
                 </div>
               )}
             </>

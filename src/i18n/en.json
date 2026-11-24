@@ -5591,7 +5591,11 @@
     "deliveryEmpty": "Add at least one item.",
     "deliveryRowError": "Each row needs an item, quantity and cost.",
     "deliverySaved": "The delivery is saved ({{n}} rows).",
-    "deliverySavedOne": "The delivery is saved."
+    "deliverySavedOne": "The delivery is saved.",
+    "lowMany": "{{n}} items are running low",
+    "seeOrder": "View and order",
+    "untracked": "Not tracked",
+    "reorderShort": "Reorder at"
   },
   "pris": {
     "toolPrice": "Price",
@@ -5618,7 +5622,19 @@
     "withCost": "{{n}} with purchase price",
     "targetShort": "target {{n}} %",
     "raiseTo": "Raise to {{kr}} kr",
-    "calculator": "Calculate"
+    "calculator": "Calculate",
+    "search": "Search item no., description or supplier",
+    "suggestion": "Suggestion",
+    "setTo": "Set {{kr}} kr",
+    "rounding": "Rounding",
+    "roundKrona": "Whole kronor",
+    "roundNine": "Ends in 9",
+    "roundNone": "No rounding",
+    "raiseAllTitle": "Raise prices to the target?",
+    "raiseAllConfirm": "{{n}} items below target get a price giving {{goal}} % margin on cost. You can undo right after.",
+    "raiseAllBtn": "Raise {{n}} to target",
+    "raised": "{{n}} prices were raised to the target.",
+    "raisedOne": "The price of {{name}} was raised."
   },
   "proj": {
     "me": "Me",

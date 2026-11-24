@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import ListTable from './shared/ListTable';
+import { Search, X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, TrendingUp } from './icons';
+import { showUndo } from './shared/undoToast';
+import { confirmDialog } from './shared/ConfirmDialog';
 import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
 import {
   markupPct, marginPct, priceFromMargin, priceFromMarkup, withVat, roundPrice, marginAfterDiscount,
@@ -129,8 +131,64 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
   const goal = Number(targetMargin) || 0;
   const withMargin = rows.filter(a => a.info.margin != null);
   const avgMargin = withMargin.length ? withMargin.reduce((sum, a) => sum + a.info.margin, 0) / withMargin.length : null;
-  const [view, setViewState] = useState(() => { try { return localStorage.getItem('bokix_pricing_view') || 'cards'; } catch { return 'cards'; } });
-  const setView = (v) => { setViewState(v); try { localStorage.setItem('bokix_pricing_view', v); } catch { /* privat läge */ } };
+  // Dina priser som tabell (2026-11-24): korten fungerade inte med hundratals
+  // artiklar. Sök, filter, sortering, sidor och höj alla under målet.
+  const [q, setQ] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [sort, setSort] = useState({ key: 'margin', dir: 1 });
+  const [page, setPage] = useState(0);
+  const [raiseRound, setRaiseRound] = useState('krona');
+  const PAGE = 50;
+  const keyOf = (a) => a.id || a.articleNumber || a.description;
+  const isBelow = (a) => ['below', 'loss'].includes(a.info.status);
+  const counts = {
+    all: rows.length,
+    below: rows.filter(a => a.info.status === 'below').length,
+    loss: rows.filter(a => a.info.status === 'loss').length,
+    ok: rows.filter(a => a.info.status === 'ok').length,
+    no_cost: rows.filter(a => a.info.status === 'no_cost' || a.info.status === 'no_price').length,
+  };
+  const visible = useMemo(() => {
+    const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const list = rows.filter(a => {
+      if (filter === 'below' && a.info.status !== 'below') return false;
+      if (filter === 'loss' && a.info.status !== 'loss') return false;
+      if (filter === 'ok' && a.info.status !== 'ok') return false;
+      if (filter === 'no_cost' && !['no_cost', 'no_price'].includes(a.info.status)) return false;
+      if (!words.length) return true;
+      const hay = `${a.articleNumber || ''} ${a.description || ''} ${a.supplier || ''}`.toLowerCase();
+      return words.every(w => hay.includes(w));
+    });
+    const val = (a) => (sort.key === 'description' ? (a.description || '').toLowerCase()
+      : sort.key === 'unitPrice' ? Number(a.unitPrice) || 0
+      : sort.key === 'purchasePrice' ? Number(a.purchasePrice) || 0
+      : sort.key === 'articleNumber' ? String(a.articleNumber || '').padStart(12, '0')
+      : a.info.margin ?? 1e9);
+    return [...list].sort((x, y) => { const a = val(x); const b = val(y); return (a < b ? -1 : a > b ? 1 : 0) * sort.dir; });
+  }, [rows, q, filter, sort]);
+  const pages = Math.max(1, Math.ceil(visible.length / PAGE));
+  const cur = Math.min(page, pages - 1);
+  const shownRows = visible.slice(cur * PAGE, cur * PAGE + PAGE);
+  const sortBy = (key) => setSort(st => (st.key === key ? { key, dir: -st.dir } : { key, dir: key === 'description' || key === 'articleNumber' || key === 'margin' ? 1 : -1 }));
+  const raiseTargets = visible.filter(a => isBelow(a) && a.info.suggested);
+  const raiseAll = async () => {
+    if (!raiseTargets.length) return;
+    if (!(await confirmDialog(t('pris.raiseAllConfirm', { n: raiseTargets.length, goal }), { title: t('pris.raiseAllTitle'), confirmLabel: t('pris.raiseAllBtn', { n: raiseTargets.length }) }))) return;
+    const before = articles;
+    const next = new Map(raiseTargets.map(a => [keyOf(a), roundPrice(a.info.suggested, raiseRound)]));
+    setArticles(prev => prev.map(a => (next.has(keyOf(a)) ? { ...a, unitPrice: next.get(keyOf(a)) } : a)));
+    showUndo({ message: t('pris.raised', { n: next.size }), onUndo: () => setArticles(before) });
+  };
+  const applyOne = (a) => {
+    const before = articles;
+    applySuggestion(a, roundPrice(a.info.suggested, raiseRound));
+    showUndo({ message: t('pris.raisedOne', { name: a.description }), onUndo: () => setArticles(before) });
+  };
+  const Th = ({ k, children, className = '' }) => (
+    <th className={`${className} ar-sortable`} onClick={() => sortBy(k)} aria-sort={sort.key === k ? (sort.dir > 0 ? 'ascending' : 'descending') : undefined}>
+      <span>{children}{sort.key === k && (sort.dir > 0 ? <ChevronUp size={13} /> : <ChevronDown size={13} />)}</span>
+    </th>
+  );
 
   return (
     <div className="ws-page ws-edge">
@@ -142,72 +200,94 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
             <input id="pz-target" type="number" className="ws-input" style={{ height: '36px' }} value={num(targetMargin)} onChange={e => setTarget(e.target.value)} />
             <span>%</span>
           </div>
-          {rows.length > 0 && <div className="ws-seg">
-            <button type="button" className={view === 'cards' ? 'on' : ''} onClick={() => setView('cards')}>{t('proj.viewCards')}</button>
-            <button type="button" className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>{t('proj.viewList')}</button>
-          </div>}
         </>}>
         <KpiGrid>
           <Kpi dot={palette.profit} label={t('pris.avgMargin')} value={fmtPctVal(avgMargin)} sub={t('pris.targetIs', { n: goal })} />
           <Kpi dot={palette.costBar} label={t('pris.below')} value={belowCount} sub={t('pris.belowSub')} negative={belowCount > 0 && rows.some(a => a.info.status === 'loss')} />
           <Kpi dot={palette.income} label={t('ui.artiklar')} value={rows.length} sub={t('pris.withCost', { n: withMargin.length })} />
         </KpiGrid>
-        {rows.length > 0 && (view === 'cards' ? (
-          <div className="pj-grid" style={{ marginTop: '14px' }}>
-            {rows.map(a => {
-              const st = STATUS[a.info.status];
-              const m = a.info.margin;
-              const color = m == null ? 'var(--border)' : m < 0 ? 'var(--status-red-text)' : m < goal ? 'var(--status-amber-text)' : palette.profit;
-              return (
-                <div key={a.id || a.articleNumber || a.description} className="pj-card" style={{ '--pj': color, cursor: 'default' }}>
-                  <div className="pj-card-top">
-                    <span className="pj-card-num">{a.articleNumber || (a.type === 'vara' ? t('ui.vara') : t('ui.tjanst'))}</span>
-                    <span className={`agi-pill ${st.cls}`}>{st.label}</span>
-                  </div>
-                  <h3 className="pj-card-name">{a.description}</h3>
-                  <div className="pj-card-hours">
-                    <span><b>{fmtPctVal(m)}</b> {t('ui.marginal').toLowerCase()}</span>
-                    <span className="pj-card-pct">{t('pris.targetShort', { n: goal })}</span>
-                  </div>
-                  <div className="pz-track">
-                    <span style={{ width: `${Math.max(0, Math.min(100, m ?? 0))}%` }} />
-                    <em style={{ left: `${Math.max(0, Math.min(100, goal))}%` }} />
-                  </div>
-                  <div className="pj-card-money">
-                    <div><span>{t('ui.inkopspris')}</span><b>{a.purchasePrice ? `${fmt(a.purchasePrice)} kr` : '—'}</b></div>
-                    <div><span>{t('ui.pris_exkl_moms_2')}</span><b>{fmt(a.unitPrice)} kr</b></div>
-                  </div>
-                  {['below', 'loss'].includes(a.info.status) && a.info.suggested && (
-                    <button type="button" className="agi-btn primary" style={{ marginTop: '12px', justifyContent: 'center' }} onClick={() => applySuggestion(a, a.info.suggested)}>{t('pris.raiseTo', { kr: fmt(a.info.suggested) })}</button>
-                  )}
+        {rows.length > 0 && (
+          <div className="pz-table">
+            <div className="ar-tools pz-tools-row">
+              <label className="ar-search">
+                <Search size={15} aria-hidden="true" />
+                <input value={q} onChange={e => { setQ(e.target.value); setPage(0); }} placeholder={t('pris.search')} aria-label={t('pris.search')} />
+                {q && <button type="button" onClick={() => setQ('')} aria-label={t('ui.rensa')}><X size={14} /></button>}
+              </label>
+              <div className="ar-chips" role="tablist">
+                {[['all', t('artReg.all'), counts.all], ['below', t('ui.under_malet'), counts.below], ['loss', t('ui.saljs_med_forlust'), counts.loss], ['ok', t('ui.nar_malet'), counts.ok], ['no_cost', t('ui.inkopspris_saknas'), counts.no_cost]]
+                  .filter(([id, , n]) => id === 'all' || n > 0 || filter === id)
+                  .map(([id, label, n]) => (
+                    <button key={id} type="button" role="tab" aria-selected={filter === id} className={`ar-chip${filter === id ? ' on' : ''}${id === 'loss' ? ' is-out' : id === 'below' ? ' is-low' : ''}`} onClick={() => { setFilter(id); setPage(0); }}>{label}<span>{n}</span></button>
+                  ))}
+              </div>
+              {raiseTargets.length > 0 && (
+                <div className="pz-raise">
+                  <select className="ar-select" value={raiseRound} onChange={e => setRaiseRound(e.target.value)} aria-label={t('pris.rounding')}>
+                    <option value="krona">{t('pris.roundKrona')}</option>
+                    <option value="nine">{t('pris.roundNine')}</option>
+                    <option value="none">{t('pris.roundNone')}</option>
+                  </select>
+                  <button type="button" className="agi-btn primary" onClick={raiseAll}><TrendingUp size={14} /> {t('pris.raiseAllBtn', { n: raiseTargets.length })}</button>
                 </div>
-              );
-            })}
+              )}
+            </div>
+            {visible.length === 0 ? <p className="ar-none">{t('ui.inga_artiklar_matchar_sokningen')}</p> : (
+              <div className="ar-table-wrap">
+                <table className="ar-table">
+                  <thead>
+                    <tr>
+                      <Th k="articleNumber" className="ar-num-col">{t('ui.artikelnr')}</Th>
+                      <Th k="description">{t('ui.benamning')}</Th>
+                      <Th k="purchasePrice" className="r ar-w-cost ar-hide-md">{t('artReg.cost')}</Th>
+                      <Th k="unitPrice" className="r ar-w-price">{t('artReg.price')}</Th>
+                      <Th k="margin" className="pz-w-margin">{t('ui.marginal')}</Th>
+                      <th className="r pz-w-sugg">{t('pris.suggestion')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shownRows.map(a => {
+                      const m = a.info.margin;
+                      const st = STATUS[a.info.status];
+                      const color = m == null ? 'var(--border)' : m < 0 ? 'var(--status-red-text)' : m < goal ? '#f0a830' : palette.profit;
+                      return (
+                        <tr key={keyOf(a)} style={{ cursor: 'default' }}>
+                          <td className="ar-num">{a.articleNumber || '–'}</td>
+                          <td className="ar-name"><strong>{a.description}</strong><small>{[a.type === 'vara' ? t('artReg.goodsOne') : t('artReg.serviceOne'), a.unit, a.supplier].filter(Boolean).join(' · ')}</small></td>
+                          <td className="r ar-hide-md ar-muted">{a.purchasePrice ? `${fmt(a.purchasePrice)} kr` : '–'}</td>
+                          <td className="r ar-price">{Number(a.unitPrice) > 0 ? `${fmt(a.unitPrice)} kr` : <span className="ar-missing">{t('artReg.noPriceShort')}</span>}</td>
+                          <td className="pz-margin">
+                            {m == null ? <span className={`agi-pill ${st.cls}`}>{st.label}</span> : (
+                              <span className="pz-m">
+                                <span className="pz-m-track"><span style={{ width: `${Math.max(2, Math.min(100, m))}%`, background: color }} /><em style={{ left: `${Math.max(0, Math.min(100, goal))}%` }} /></span>
+                                <b style={{ color: m < 0 ? 'var(--status-red-text)' : undefined }}>{fmtPctVal(m)}</b>
+                              </span>
+                            )}
+                          </td>
+                          <td className="r">
+                            {isBelow(a) && a.info.suggested
+                              ? <button type="button" className="pz-sugg" onClick={() => applyOne(a)}>{t('pris.setTo', { kr: fmt(roundPrice(a.info.suggested, raiseRound)) })}</button>
+                              : a.info.status === 'ok' ? <span className="pz-ok">{t('ui.nar_malet')}</span> : null}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {pages > 1 && (
+              <div className="ar-foot">
+                <span>{t('artReg.showing', { from: cur * PAGE + 1, to: Math.min(visible.length, (cur + 1) * PAGE), n: visible.length })}</span>
+                <span className="ar-pager">
+                  <button type="button" disabled={cur === 0} onClick={() => setPage(cur - 1)} aria-label={t('artReg.prev')}><ChevronLeft size={16} /></button>
+                  <span>{cur + 1} / {pages}</span>
+                  <button type="button" disabled={cur >= pages - 1} onClick={() => setPage(cur + 1)} aria-label={t('artReg.next')}><ChevronRight size={16} /></button>
+                </span>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="wsp-flush" style={{ marginTop: '16px' }}>
-          <ListTable
-          bordered={false}
-          rowKey={a => a.id || a.articleNumber || a.description}
-          rows={rows}
-          emptyMessage={t('ui.lagg_in_inkopspris_pa_dina_varor_under_artiklar')}
-          mobileList={a => ({ primary: a.description, amount: fmtPctVal(a.info.margin), meta: t('ui.kr_label', { v0: fmt(a.unitPrice), label: STATUS[a.info.status].label }) })}
-          columns={[
-            { key: 'description', label: t('ui.artikel'), fontWeight: 600, color: 'var(--text-main)', render: a => a.description },
-            { key: 'purchasePrice', label: t('ui.inkopspris'), align: 'right', render: a => (a.purchasePrice ? `${fmt(a.purchasePrice)} kr` : '—') },
-            { key: 'unitPrice', label: t('ui.pris_exkl_moms_2'), align: 'right', color: 'var(--text-main)', render: a => `${fmt(a.unitPrice)} kr` },
-            { key: 'margin', label: t('ui.marginal'), align: 'right', render: a => <MarginBar margin={a.info.margin} target={Number(targetMargin) || 0} /> },
-            { key: 'status', label: t('ui.status'), render: a => { const s = STATUS[a.info.status]; return <span className={`agi-pill ${s.cls}`}>{s.label}</span>; } },
-            {
-              key: 'suggested', label: '', align: 'right',
-              render: a => (['below', 'loss'].includes(a.info.status) && a.info.suggested
-                ? <button type="button" className="agi-btn" style={{ height: '30px' }} onClick={() => applySuggestion(a, a.info.suggested)}>{t('ui.satt')} {fmt(a.info.suggested)} {t('ui.kr')}</button>
-                : null),
-            },
-          ]}
-        />
-          </div>
-        ))}
+        )}
       </Panel>
 
       <Panel title={t('pris.calculator')} sub={t(`pris.${tool}Intro`)}>

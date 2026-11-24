@@ -5591,7 +5591,11 @@
     "deliveryEmpty": "Lägg till minst en vara.",
     "deliveryRowError": "Varje rad behöver vara, antal och inköpspris.",
     "deliverySaved": "Inleveransen är sparad ({{n}} rader).",
-    "deliverySavedOne": "Inleveransen är sparad."
+    "deliverySavedOne": "Inleveransen är sparad.",
+    "lowMany": "{{n}} varor börjar ta slut",
+    "seeOrder": "Visa och beställ",
+    "untracked": "Ej lagerförda",
+    "reorderShort": "Beställ vid"
   },
   "pris": {
     "toolPrice": "Pris",
@@ -5618,7 +5622,19 @@
     "withCost": "{{n}} med inköpspris",
     "targetShort": "mål {{n}} %",
     "raiseTo": "Höj till {{kr}} kr",
-    "calculator": "Räkna ut"
+    "calculator": "Räkna ut",
+    "search": "Sök artikelnr, benämning eller leverantör",
+    "suggestion": "Förslag",
+    "setTo": "Sätt {{kr}} kr",
+    "rounding": "Avrundning",
+    "roundKrona": "Hela kronor",
+    "roundNine": "Slutar på 9",
+    "roundNone": "Ingen avrundning",
+    "raiseAllTitle": "Höj priserna till målet?",
+    "raiseAllConfirm": "{{n}} artiklar under målet får ett utpris som ger {{goal}} % marginal på inköpspriset. Det går att ångra direkt efteråt.",
+    "raiseAllBtn": "Höj {{n}} till målet",
+    "raised": "{{n}} priser höjdes till målet.",
+    "raisedOne": "Priset på {{name}} höjdes."
   },
   "proj": {
     "me": "Jag",
