@@ -345,8 +345,11 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
           activeId: tab, onChange: setTab,
         } : undefined}
         actions={tab !== 'articles' ? [] : [
-          { label: t('ui.exportera'), icon: Download, onClick: handleExportCsv, variant: 'secondary' },
-          { label: t('ui.importera'), icon: Upload, onClick: handleImportClick, variant: 'secondary' },
+          // Admin: Importera och Exportera finns i listans inställningar (2026-11-24).
+          ...(v2 ? [] : [
+            { label: t('ui.exportera'), icon: Download, onClick: handleExportCsv, variant: 'secondary' },
+            { label: t('ui.importera'), icon: Upload, onClick: handleImportClick, variant: 'secondary' },
+          ]),
           { label: t('ui.ny_artikel'), icon: Plus, onClick: startNew, variant: 'primary' },
         ]}
       >
