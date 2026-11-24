@@ -11292,3 +11292,25 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .ar-set-seg button.on { background: var(--bg-card); color: var(--text-main); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
 /* Halvskärm: inköpspris och leverantör göms så att tabellen ryms utan att klippas (2026-11-24). */
 @media (max-width: 1100px) { .ar .ar-w-cost, .ar .ar-w-sup, .ar td.ar-cost-td, .ar td.ar-sup-td { display: none; } }
+
+/* Inställningspanelen tätare, som förlagan (2026-11-24) */
+.ar-set-head { padding: 16px 20px; }
+.ar-set-sec { padding: 14px 20px; }
+.ar-set-sec h3 { margin: 0 0 8px; font-size: 13.5px; font-weight: 500; color: var(--text-main); }
+.ar-set-btns button { height: 34px; font-size: 12.5px; font-weight: 500; background: var(--bg-muted); border-color: var(--border-light, var(--border)); }
+.ar-set-btns button:disabled { opacity: .5; cursor: default; }
+.ar-switch { padding: 5px 0; font-size: 14px; }
+.ar-switch-label { display: inline-flex; align-items: center; gap: 10px; }
+.ar-switch-label svg { color: var(--text-secondary); }
+.ar-set-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ar-set-seg { padding: 3px; border: 1px solid var(--border-light, var(--border)); }
+.ar-set-seg button { height: 30px; font-size: 12.5px; }
+.ar-set-seg button.on { background: #1f2329; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+:root[data-theme="dark"] .ar-set-seg button.on { background: #e8eaed; color: #111; }
+.ar--narrow { max-width: 1180px; margin-left: auto; margin-right: auto; width: 100%; }
+
+/* Artikelraden lugnare (2026-11-24): saldot på en rad, enheten tyst. */
+.ar-stock { white-space: nowrap; }
+.ar-table td.ar-unit-td { color: var(--text-secondary); font-size: 13px; }
+.ar-table .ar-name strong { display: block; }
+.ar-table .ar-name small { display: block; margin-top: 2px; }

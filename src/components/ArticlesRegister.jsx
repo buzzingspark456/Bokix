@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Search, Pencil, Copy, Trash2, X, Download, Percent, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Package, Settings2, Upload } from './icons';
+import { Search, Pencil, Copy, Trash2, X, Download, Percent, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Package, Settings2, Upload, Hash, Tag, CreditCard, Wallet, Truck, Layers, Plus } from './icons';
 import RowActionMenu from './shared/RowActionMenu';
 import ArticleBulkEdit from './ArticleBulkEdit';
 import { confirmDialog } from './shared/ConfirmDialog';
@@ -22,8 +22,8 @@ const PAGE_SIZES = [25, 50, 100, 0];
 const PREFS_KEY = 'bokix.artReg.prefs';
 const DEFAULT_COLS = { num: true, price: true, cost: true, tg: true, stock: true, value: true, supplier: false, unit: false };
 const loadPrefs = () => {
-  try { const v = JSON.parse(localStorage.getItem(PREFS_KEY) || 'null'); if (v && typeof v === 'object') return { cols: { ...DEFAULT_COLS, ...(v.cols || {}) }, density: v.density === 'compact' ? 'compact' : 'normal', pageSize: PAGE_SIZES.includes(v.pageSize) ? v.pageSize : 50 }; } catch { /* privat läge */ }
-  return { cols: { ...DEFAULT_COLS }, density: 'normal', pageSize: 50 };
+  try { const v = JSON.parse(localStorage.getItem(PREFS_KEY) || 'null'); if (v && typeof v === 'object') return { cols: { ...DEFAULT_COLS, ...(v.cols || {}) }, density: v.density === 'compact' ? 'compact' : 'normal', width: v.width === 'narrow' ? 'narrow' : 'wide', pageSize: PAGE_SIZES.includes(v.pageSize) ? v.pageSize : 50 }; } catch { /* privat läge */ }
+  return { cols: { ...DEFAULT_COLS }, density: 'normal', width: 'wide', pageSize: 50 };
 };
 const marginOf = (a) => {
   const p = Number(a.unitPrice) || 0; const c = Number(a.purchasePrice) || 0;
@@ -31,6 +31,8 @@ const marginOf = (a) => {
 };
 
 export default function ArticlesRegister({ articles = [], setArticles, company, setCompanyInfo, invoices = [], onEdit, onNew, onDuplicate, onImport, onExport }) {
+  // Redigera priser från inställningarna: alla artiklar i listan som visas.
+  const [bulkItems, setBulkItems] = useState(null);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
   const [supplier, setSupplier] = useState('');
@@ -163,6 +165,7 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
       setCompanyInfo(prev => ({ ...prev, stockMovements: [...(prev.stockMovements || []), ...added] }));
     }
     setBulkEdit(null);
+    setBulkItems(null);
     showUndo({ message: t('artEdit.saved', { n: patches.size }), onUndo: () => setArticles(before) });
   };
 
@@ -180,7 +183,7 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
   ].filter(([id, , n]) => id === 'all' || n > 0 || filter === id);
 
   return (
-    <div className={`ar${prefs.density === 'compact' ? ' ar--compact' : ''}`}>
+    <div className={`ar${prefs.density === 'compact' ? ' ar--compact' : ''}${prefs.width === 'narrow' ? ' ar--narrow' : ''}`}>
       <div className="ar-tools">
         <label className="ar-search">
           <Search size={15} aria-hidden="true" />
@@ -258,10 +261,10 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
                       {cols.num && <td className="ar-num">{a.articleNumber || '–'}</td>}
                       <td className="ar-name">
                         <strong>{a.description}</strong>
-                        <small>{[!cols.num && a.articleNumber ? a.articleNumber : null, a.type === 'vara' ? t('artReg.goodsOne') : t('artReg.serviceOne'), cols.unit ? null : a.unit, `${a.vatRate} %`, cols.supplier ? null : a.supplier, loc ? t('artReg.loc', { loc }) : null].filter(Boolean).join(' · ')}</small>
+                        {(() => { const sub = [!cols.num && a.articleNumber ? a.articleNumber : null, a.type === 'vara' ? null : t('artReg.serviceOne'), Number(a.vatRate) !== 25 ? t('artReg.vatShort', { n: a.vatRate }) : null, cols.supplier ? null : a.supplier, loc ? t('artReg.loc', { loc }) : null].filter(Boolean).join(' · '); return sub ? <small>{sub}</small> : null; })()}
                       </td>
                       {cols.supplier && <td className="ar-hide-md ar-muted ar-ellip ar-sup-td">{a.supplier || '–'}</td>}
-                      {cols.unit && <td className="ar-muted">{a.unit || 'st'}</td>}
+                      {cols.unit && <td className="ar-unit-td">{a.unit || 'st'}</td>}
                       {cols.price && <td className="r ar-price">{Number(a.unitPrice) > 0 ? `${fmt(a.unitPrice)} kr` : <span className="ar-missing">{t('artReg.noPriceShort')}</span>}</td>}
                       {cols.cost && <td className="r ar-hide-md ar-muted ar-cost-td">{Number(a.purchasePrice) > 0 ? `${fmt(a.purchasePrice)} kr` : '–'}</td>}
                       {cols.tg && <td className="r ar-hide-md">{m == null ? <span className="ar-muted">–</span> : <span className={`ar-tg${m < 20 ? ' low' : m >= 50 ? ' high' : ''}`}>{numberFormat('sv-SE', { maximumFractionDigits: 0 }).format(m)} %</span>}</td>}
@@ -305,28 +308,38 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
               <h2>{t('artSet.title')}</h2>
               <button type="button" className="modal-close" onClick={() => setSettingsOpen(false)} aria-label={t('ui.stang')}><X size={18} /></button>
             </div>
-            {(onImport || onExport) && (
-              <div className="ar-set-sec ar-set-btns">
-                {onImport && <button type="button" onClick={() => { setSettingsOpen(false); onImport(); }}><Upload size={14} /> {t('artSet.import')}</button>}
-                {onExport && <button type="button" onClick={onExport}><Download size={14} /> {t('artSet.export')}</button>}
-              </div>
-            )}
+            <div className="ar-set-sec ar-set-btns">
+              <button type="button" onClick={() => { setSettingsOpen(false); setBulkItems(rows); setBulkEdit({ focusPrices: true }); }} disabled={rows.length === 0}><Pencil size={14} /> {t('artSet.editPrices')}</button>
+              {onImport && <button type="button" onClick={() => { setSettingsOpen(false); onImport(); }}><Upload size={14} /> {t('artSet.import')}</button>}
+              {onNew && <button type="button" onClick={() => { setSettingsOpen(false); onNew(); }}><Plus size={14} /> {t('ui.ny_artikel')}</button>}
+              {onExport && <button type="button" onClick={onExport}><Download size={14} /> {t('artSet.export')}</button>}
+            </div>
             <div className="ar-set-sec">
               <h3>{t('artSet.columns')}</h3>
-              {[['num', t('ui.artikelnummer')], ['price', t('artReg.price')], ['cost', t('artReg.cost')], ['tg', t('artReg.margin')], ...(stock.any ? [['stock', t('artReg.stock')], ['value', t('artReg.value')]] : []), ['supplier', t('artReg.supplier')], ['unit', t('ui.enhet')]].map(([k, label]) => (
+              {[['num', t('ui.artikelnummer'), Hash], ['price', t('artReg.price'), Tag], ['cost', t('artReg.cost'), CreditCard], ['tg', t('artReg.margin'), Percent], ...(stock.any ? [['stock', t('artReg.stock'), Package], ['value', t('artReg.value'), Wallet]] : []), ['supplier', t('artReg.supplier'), Truck], ['unit', t('ui.enhet'), Layers]].map(([k, label, Icon]) => (
                 <label key={k} className="ar-switch">
-                  <span>{label}</span>
+                  <span className="ar-switch-label"><Icon size={16} aria-hidden="true" />{label}</span>
                   <input type="checkbox" checked={Boolean(cols[k])} onChange={e => updatePrefs({ cols: { [k]: e.target.checked } })} />
                   <i aria-hidden="true" />
                 </label>
               ))}
             </div>
-            <div className="ar-set-sec">
-              <h3>{t('artSet.rowSize')}</h3>
-              <div className="ar-set-seg">
-                {[['compact', t('artSet.compact')], ['normal', t('artSet.normal')]].map(([k, label]) => (
-                  <button key={k} type="button" className={prefs.density === k ? 'on' : ''} onClick={() => updatePrefs({ density: k })}>{label}</button>
-                ))}
+            <div className="ar-set-sec ar-set-two">
+              <div>
+                <h3>{t('artSet.rowSize')}</h3>
+                <div className="ar-set-seg">
+                  {[['compact', t('artSet.compact')], ['normal', t('artSet.normal')]].map(([k, label]) => (
+                    <button key={k} type="button" className={prefs.density === k ? 'on' : ''} onClick={() => updatePrefs({ density: k })}>{label}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h3>{t('artSet.width')}</h3>
+                <div className="ar-set-seg">
+                  {[['narrow', t('artSet.narrow')], ['wide', t('artSet.wide')]].map(([k, label]) => (
+                    <button key={k} type="button" className={prefs.width === k ? 'on' : ''} onClick={() => updatePrefs({ width: k })}>{label}</button>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="ar-set-sec">
@@ -342,7 +355,7 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
       )}
 
       {bulkEdit && (
-        <ArticleBulkEdit items={pickedList} keyOf={keyOf} focusPrices={bulkEdit.focusPrices} onSave={saveBulk} onClose={() => setBulkEdit(null)} stockOf={(a) => (setCompanyInfo && a.type === 'vara' ? (stock.byId.get(a.id)?.qty ?? 0) : null)} />
+        <ArticleBulkEdit items={bulkItems || pickedList} keyOf={keyOf} focusPrices={bulkEdit.focusPrices} onSave={saveBulk} onClose={() => { setBulkEdit(null); setBulkItems(null); }} stockOf={(a) => (setCompanyInfo && a.type === 'vara' ? (stock.byId.get(a.id)?.qty ?? 0) : null)} />
       )}
     </div>
   );

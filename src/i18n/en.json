@@ -6265,7 +6265,8 @@
     "noCost": "no cost",
     "andMore": "and {{n}} more",
     "applyPrices": "Update {{n}} prices",
-    "pricesUpdated": "{{n}} prices were updated."
+    "pricesUpdated": "{{n}} prices were updated.",
+    "vatShort": "{{n}} % VAT"
   },
   "artEdit": {
     "title": "Edit {{n}} items",
@@ -6309,6 +6310,10 @@
     "rowSize": "Row size",
     "compact": "Compact",
     "normal": "Normal",
-    "perPage": "Rows per page"
+    "perPage": "Rows per page",
+    "editPrices": "Edit prices",
+    "width": "Page width",
+    "narrow": "Narrow",
+    "wide": "Wide"
   }
 }

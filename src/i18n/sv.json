@@ -6265,7 +6265,8 @@
     "noCost": "saknar inköpspris",
     "andMore": "och {{n}} till",
     "applyPrices": "Uppdatera {{n}} priser",
-    "pricesUpdated": "{{n}} priser uppdaterades."
+    "pricesUpdated": "{{n}} priser uppdaterades.",
+    "vatShort": "{{n}} % moms"
   },
   "artEdit": {
     "title": "Redigera {{n}} artiklar",
@@ -6309,6 +6310,10 @@
     "rowSize": "Radstorlek",
     "compact": "Kompakt",
     "normal": "Normal",
-    "perPage": "Rader per sida"
+    "perPage": "Rader per sida",
+    "editPrices": "Redigera priser",
+    "width": "Sidbredd",
+    "narrow": "Smal",
+    "wide": "Bred"
   }
 }
