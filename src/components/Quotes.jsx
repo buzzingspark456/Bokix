@@ -141,6 +141,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
     ? quote.rows.map(r => ({
         description: r.description || '', price: r.unitPrice ?? '', qty: r.qty ?? 1, unit: r.unit || 'st',
         vat: r.vatRate ?? 25, discount: r.discount ?? 0, deduction: r.deduction || 'none',
+        ...(r.articleNumber ? { articleId: r.articleId || '', articleNumber: r.articleNumber } : {}),
       }))
     : [emptyRow(vatExempt ? 0 : 25)]);
   const [status, setStatus] = useState(quote?.status || 'draft');
@@ -290,6 +291,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
 
   const previewNumber = quote?.invoiceNumber || getNextQuoteNumber(quotes);
   const previewRows = rows.map(r => ({
+    ...(r.articleNumber ? { articleId: r.articleId || '', articleNumber: r.articleNumber } : {}),
     description: r.description, qty: Number(r.qty) || 1, unit: r.unit || 'st', unitPrice: Number(r.price) || 0,
     vatRate: vatExempt ? 0 : rowVatRate(r.vat), discount: Number(r.discount) || 0, deduction: r.deduction && r.deduction !== 'none' ? r.deduction : undefined,
   }));
@@ -326,6 +328,9 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
     setRows(r => r.map((row, idx) => idx === i ? {
       ...row,
       description: article.description || row.description,
+      // Artikeln följer med (2026-11-24), så att order och faktura vet vilken
+      // vara raden gäller även när två artiklar har samma benämning.
+      articleId: article.id || '', articleNumber: article.articleNumber || '',
       price: article.unitPrice ?? row.price,
       vat: vatExempt ? 0 : (article.vatRate ?? row.vat),
       unit: article.unit ? (article.unit === 'h' ? 'tim' : article.unit) : row.unit,
@@ -605,7 +610,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
           )}
           {displayStatus === 'accepted' && (
             <>
-              <span className="q-status-text"><b><Check size={15} /> {t('ui.q_accepterad_rubrik')}</b> {quote.acceptedAt ? t('ui.q_den', { date: fmtDateSv(quote.acceptedAt) }) : ''} {t('ui.q_accepterad_text')}</span>
+              <span className="q-status-text"><b><Check size={15} /> {t('ui.q_accepterad_rubrik')}</b> {quote.acceptedAt ? t('ui.q_den', { date: fmtDateSv(quote.acceptedAt) }) : ''} {onMakeOrder ? t('so.quoteNext') : onOpenOrder ? t('so.quoteHasOrder') : t('ui.q_accepterad_text')}</span>
               {onMakeOrder && <button type="button" className="q-btn q-btn-primary" onClick={(e) => onMakeOrder(e, buildSaveData())}><ClipboardList size={15} /> {t('so.makeOrder')}</button>}
               {onOpenOrder && <button type="button" className="q-btn q-btn-primary" onClick={onOpenOrder}><ClipboardList size={15} /> {t('so.openOrder', { n: quote.orderNumber || '' })}</button>}
               {onConvert && !quote.orderId && <button type="button" className={`q-btn${onMakeOrder ? '' : ' q-btn-primary'}`} onClick={(e) => onConvert(e, buildSaveData())}><FileText size={15} /> {t('ui.skapa_faktura')}</button>}
@@ -822,7 +827,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
                           enhet fylls i. Skrivs en exakt benämning för hand
                           fylls de i när fältet lämnas, som förut. */}
                       <ArticleCombobox simple={!articleSearch} articles={articles} placeholder={articles.length && articleSearch ? t('ui.beskrivning_eller_artikel') : t('ui.beskrivning')} style={inputStyle} value={row.description}
-                        onChange={v => updateRow(i, 'description', v)}
+                        onChange={v => setRows(rs => rs.map((row2, idx) => (idx === i ? { ...row2, description: v, ...(row2.articleId ? { articleId: '', articleNumber: '' } : {}) } : row2)))}
                         onPick={a => applyArticleToRow(i, a)}
                         inputProps={{ onBlur: e => { const hit = findArticleByDescription(e.target.value); if (hit) applyArticleToRow(i, hit); } }}
                         required />

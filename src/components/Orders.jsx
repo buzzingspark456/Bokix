@@ -121,13 +121,13 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
             lockedFor={(date) => lockedPeriodFor(date, company?.lockedFiscalYears)}
             onSave={(o, movements) => saveOrder(o, movements)}
             onDelete={(o) => { deleteOrder(o); setMessage(t('so.deleted', { n: o.number })); }}
-            onInvoice={(o) => {
+            onInvoice={(o, paid = null) => {
               const invoiceId = `inv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
               const { rows: invRows, order: next } = invoiceFromOrder(o, invoiceId);
-              if (!invRows.length) return false;
-              const saved = saveOrder(next);
-              onCreateInvoice?.({ id: invoiceId, order: saved, rows: invRows });
-              return true;
+              if (!invRows.length) return null;
+              const saved = saveOrder(paid ? { ...next, paidOnInvoice: { ...(next.paidOnInvoice || {}), [invoiceId]: paid } } : next);
+              onCreateInvoice?.({ id: invoiceId, order: saved, rows: invRows, paid });
+              return saved;
             }}
             onOpenInvoice={onOpenInvoice}
             onOpenQuote={onOpenQuote}
@@ -250,6 +250,17 @@ function OrderPage({ initial, company, articles, contacts, stockQty, reservedEls
   const [amounts, setAmounts] = useState({});
   const [error, setError] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  // Hur kunden betalar när ordern faktureras: null eller en funktion som tar valet.
+  const [payAsk, setPayAsk] = useState(null);
+  const [payWay, setPayWay] = useState('invoice');
+  const [payAccount, setPayAccount] = useState('1930');
+  const [payDate, setPayDate] = useState(todayIso());
+  const [notice, setNotice] = useState('');
+  const askPay = (run) => { setPayWay('invoice'); setPayDate(todayIso()); setPayAsk(() => run); };
+  const afterInvoice = (savedAfter, paid) => {
+    if (!savedAfter) return;
+    if (paid) { setO(savedAfter); setNotice(t('so.paidDone', { n: savedAfter.number })); }
+  };
   const [pdfBusy, setPdfBusy] = useState(false);
   const captureRef = useRef(null);
   const status = orderStatus(o);
@@ -314,7 +325,8 @@ function OrderPage({ initial, company, articles, contacts, stockQty, reservedEls
     setO(saved);
     setMode('view');
     setError('');
-    if (thenInvoice && onInvoice(saved)) return;
+    if (thenInvoice) { askPay((paid) => afterInvoice(onInvoice(saved, paid), paid)); return; }
+    setNotice(orderStatus(saved) === 'partial' ? t('so.deliveredPart', { n: saved.number }) : t('so.deliveredAll', { n: saved.number }));
     onMessage(orderStatus(saved) === 'partial' ? t('so.deliveredPart', { n: saved.number }) : t('so.deliveredAll', { n: saved.number }));
   };
   // Leverera och fakturera i ett steg när allt finns i lager, annars
@@ -324,11 +336,42 @@ function OrderPage({ initial, company, articles, contacts, stockQty, reservedEls
     const short = lines.some(r => r.articleId && isStocked(r.articleId) && rowLeftToDeliver(r) > available(r.articleId));
     if (short) { startDeliver(); setError(t('so.shortInfo')); return; }
     if (lockedFor(todayIso())) return setError(t('ui.rakenskapsaret_ar_last', { v0: lockedFor(todayIso()) }));
-    const res = deliverOrder(clean(o), { date: todayIso(), newId, isStocked });
-    const saved = onSave(res.order, res.movements);
-    onInvoice(saved);
+    askPay((paid) => {
+      const date = paid?.date || todayIso();
+      if (lockedFor(date)) return setError(t('ui.rakenskapsaret_ar_last', { v0: lockedFor(date) }));
+      const res = deliverOrder(clean(o), { date, newId, isStocked });
+      const saved = onSave(res.order, res.movements);
+      setO(saved);
+      afterInvoice(onInvoice(saved, paid), paid);
+    });
   };
-  const invoiceNow = () => { const saved = save(false); if (saved) onInvoice(saved); };
+  const invoiceNow = () => {
+    const e = validate(); if (e) return setError(e);
+    askPay((paid) => { const saved = save(false); if (saved) afterInvoice(onInvoice(saved, paid), paid); });
+  };
+  const confirmPay = () => {
+    const run = payAsk;
+    const paid = payWay === 'paid' ? { date: payDate, account: payAccount } : null;
+    if (paid && lockedFor(payDate)) return setError(t('ui.rakenskapsaret_ar_last', { v0: lockedFor(payDate) }));
+    setPayAsk(null);
+    run?.(paid);
+  };
+
+  // Nästa steg: en rad som säger vad som händer nu, med knappen för det.
+  const shortRows = lines.filter(r => r.articleId && isStocked(r.articleId) && rowLeftToDeliver(r) > available(r.articleId));
+  const backorderNowInStock = status === 'partial' && lines.some(r => rowLeftToDeliver(r) > 0) && shortRows.length === 0;
+  const paidInfo = (o.invoiceIds || []).length && o.paidOnInvoice ? Object.values(o.paidOnInvoice).slice(-1)[0] : null;
+  const guide = (() => {
+    if (o.isNew || mode === 'deliver' || status === 'cancelled') return null;
+    if (status === 'invoiced') return { tone: 'done', text: paidInfo ? t('so.guidePaid') : t('so.guideInvoiced') };
+    if (status === 'delivered') return { tone: 'next', text: t('so.guideInvoice'), action: [t('so.invoice'), invoiceNow] };
+    if (status === 'partial') return backorderNowInStock
+      ? { tone: 'next', text: t('so.guideBackorderReady'), action: [t('so.deliverRest'), startDeliver] }
+      : { tone: 'wait', text: t('so.guideBackorder', { items: shortRows.length ? ` (${shortRows.map(r => r.description).slice(0, 2).join(', ')})` : '' }), action: leftToInvoice ? [t('so.invoiceDelivered'), invoiceNow] : null };
+    return shortRows.length
+      ? { tone: 'wait', text: t('so.guideShort', { items: shortRows.map(r => r.description).slice(0, 2).join(', ') }), action: [t('so.deliverAvailable'), startDeliver] }
+      : { tone: 'next', text: t('so.guideDeliver'), action: [t('so.deliver'), startDeliver] };
+  })();
 
   const docProps = {
     invoice: { invoiceNumber: o.number, date: o.date, deliveryDate: o.deliveryDate, terms: t('ui.dagar_netto', { v0: o.paymentTermsDays || 30 }), note: o.note },
@@ -387,6 +430,14 @@ function OrderPage({ initial, company, articles, contacts, stockQty, reservedEls
         {!editable && (status === 'open' || status === 'partial') && <button type="button" className="so-tool danger" onClick={async () => { if (await confirmDialog(t('so.cancelConfirm', { n: o.number }))) { onSave({ ...o, cancelled: true }); onClose(); } }}><X size={14} /> {t('so.cancel')}</button>}
       </div>
       {error && <div className="so-error">{error}</div>}
+      {!error && (notice || guide) && (
+        <div className={`so-guide is-${notice ? 'done' : guide.tone}`}>
+          <span className="so-guide-dot" aria-hidden="true">{notice || guide.tone === 'done' ? <Check size={13} /> : <ChevronRight size={13} />}</span>
+          <span className="so-guide-text">{notice ? <>{notice}{guide && guide.tone !== 'done' ? <> {guide.text}</> : null}</> : guide.text}</span>
+          {guide?.action && <button type="button" className="so-guide-btn" onClick={guide.action[1]}>{guide.action[0]}</button>}
+          {notice && <button type="button" className="so-guide-x" onClick={() => setNotice('')} aria-label={t('ui.stang')}><X size={13} /></button>}
+        </div>
+      )}
 
       <div className="so-body">
         <div className="so-form">
@@ -533,6 +584,43 @@ function OrderPage({ initial, company, articles, contacts, stockQty, reservedEls
         </DocSplit>
       </div>
 
+      {payAsk && (
+        <div className="modal-overlay" onClick={() => setPayAsk(null)}>
+          <div className="modal-content so-pay" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{t('so.payTitle')}</h2>
+              <button type="button" className="modal-close" onClick={() => setPayAsk(null)} aria-label={t('ui.stang')}><X size={18} /></button>
+            </div>
+            <div className="so-pay-opts" role="radiogroup" aria-label={t('so.payTitle')}>
+              {[['invoice', t('so.payInvoice'), t('so.payInvoiceSub'), FileText], ['paid', t('so.payPaid'), t('so.payPaidSub'), Check]].map(([id, label, sub, Icon]) => (
+                <button key={id} type="button" role="radio" aria-checked={payWay === id} className={payWay === id ? 'on' : ''} onClick={() => setPayWay(id)}>
+                  <span className="so-pay-ic" aria-hidden="true"><Icon size={16} /></span>
+                  <span><strong>{label}</strong><small>{sub}</small></span>
+                </button>
+              ))}
+            </div>
+            {payWay === 'paid' && (
+              <div className="so-grid" style={{ marginTop: '14px' }}>
+                <label className="af-f">
+                  <span>{t('so.payTo')}</span>
+                  <select className="ws-input" value={payAccount} onChange={e => setPayAccount(e.target.value)}>
+                    <option value="1930">{t('so.payBank')}</option>
+                    <option value="1910">{t('so.payCash')}</option>
+                  </select>
+                </label>
+                <label className="af-f">
+                  <span>{t('so.payDate')}</span>
+                  <input type="date" className="ws-input" value={payDate} onChange={e => setPayDate(e.target.value)} />
+                </label>
+              </div>
+            )}
+            <div className="modal-footer">
+              <button type="button" className="agi-btn" onClick={() => setPayAsk(null)}>{t('ui.avbryt')}</button>
+              <button type="button" className="agi-btn primary" onClick={confirmPay}>{payWay === 'paid' ? t('so.payPaidGo') : t('so.payInvoiceGo')}</button>
+            </div>
+          </div>
+        </div>
+      )}
       {showPreview && (
         <div className="modal-overlay" onClick={() => setShowPreview(false)}>
           <div className="so-preview" onClick={e => e.stopPropagation()}>

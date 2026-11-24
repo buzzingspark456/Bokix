@@ -4740,7 +4740,10 @@ function App() {
   // om posten på plats i `invoices` som om offerter redan låg där).
   // Kundorder (2026-11-24): fakturautkast för det som är levererat på en order.
   // Fakturan har orderId och drar därför inte lagret igen (inventory.js).
-  const handleInvoiceFromOrder = ({ id, order, rows }) => {
+  // `paid` = { date, account }: kunden har redan betalat (kontant, kort, Swish).
+  // Fakturan bokförs då direkt och betalningen bokförs samma dag, och ingen
+  // faktura öppnas för att skickas.
+  const handleInvoiceFromOrder = ({ id, order, rows, paid = null }) => {
     const contact = contacts.find(c => c.id === order.customerId);
     const today = new Date().toISOString().split('T')[0];
     const due = new Date(); due.setDate(due.getDate() + (Number(order.paymentTermsDays) || Number(company?.paymentTermsDays) || 30));
@@ -4753,6 +4756,21 @@ function App() {
       orderId: order.id, orderNumber: order.number, ...(order.quoteId ? { quoteId: order.quoteId, quoteNumber: order.quoteNumber } : {}),
       rows: rows.map((row, i) => ({ id: `${id}_r${i}`, rotRutLabor: false, ...row })),
     };
+    if (paid) {
+      const date = paid.date || today;
+      const sent = { ...invoice, status: 'sent', date, dueDate: date, paidVia: paid.account || '1930' };
+      const gross = Math.round(invoiceCustomerDue(sent) * 100) / 100;
+      const done = { ...sent, status: 'paid', paidAmount: gross, paidDate: date };
+      setInvoices(prev => [...prev, done]);
+      bookInvoiceIfNeeded(sent);
+      if (gross > 0) {
+        handleAddVerification({
+          date, description: `Betalning faktura ${invoice.invoiceNumber}`, source: 'invoice_payment', sourceId: id,
+          rows: [{ account: paid.account || '1930', debet: gross, kredit: 0 }, { account: '1510', debet: 0, kredit: gross }],
+        });
+      }
+      return done;
+    }
     setInvoices(prev => [...prev, invoice]);
     handleGlobalAction({ type: 'open_invoice', payload: { id } }, 'invoices');
     return invoice;

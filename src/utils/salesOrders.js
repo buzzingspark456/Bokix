@@ -123,7 +123,8 @@ export function orderFromQuote(quote, { id, number, rowKey, articles = [] }) {
     ourRef: quote.ourRef || '', theirRef: quote.customerContactPerson || '', note: '',
     quoteId: quote.id, quoteNumber: quote.invoiceNumber || '',
     rows: (quote.rows || []).filter(r => r.description || num(r.qty)).map(r => {
-      const a = (r.articleNumber && byNumber.get(String(r.articleNumber).trim().toLowerCase())) || byName.get(String(r.description || '').trim().toLowerCase());
+      const byIdHit = r.articleId ? articles.find(x => x.id === r.articleId) : null;
+      const a = byIdHit || (r.articleNumber && byNumber.get(String(r.articleNumber).trim().toLowerCase())) || byName.get(String(r.description || '').trim().toLowerCase());
       return {
         key: rowKey(), articleId: a?.id || '', articleNumber: r.articleNumber || a?.articleNumber || '', description: r.description || '',
         qty: num(r.qty), unit: r.unit || a?.unit || 'st', unitPrice: num(r.unitPrice), vatRate: num(r.vatRate ?? 25),
