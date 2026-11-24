@@ -349,7 +349,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
       {tab === 'articles' && v2 && (
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
           <ArticlesRegister
-            articles={articles} setArticles={setArticles} company={company} invoices={invoices}
+            articles={articles} setArticles={setArticles} company={company} setCompanyInfo={setCompanyInfo} invoices={invoices}
             onEdit={startEdit} onNew={startNew}
             onDuplicate={(a) => { setEditing({ ...emptyArticle(), ...a, id: undefined, articleNumber: '', description: `${a.description} ${t('artReg.copySuffix')}` }); setEditingOriginal(null); setMoreOpen(true); }}
           />

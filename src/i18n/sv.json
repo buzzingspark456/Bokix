@@ -6227,5 +6227,20 @@
     "andMore": "och {{n}} till",
     "applyPrices": "Uppdatera {{n}} priser",
     "pricesUpdated": "{{n}} priser uppdaterades."
+  },
+  "artEdit": {
+    "title": "Redigera {{n}} artiklar",
+    "edit": "Redigera",
+    "priceTool": "Ändra utpriset för alla",
+    "modePercent": "Med procent",
+    "modeMarkup": "Påslag på inköpspris",
+    "modeSet": "Samma pris för alla",
+    "fillPrices": "Fyll i priser",
+    "setAll": "Samma värde för alla",
+    "changed": "{{n}} artiklar ändras",
+    "noChanges": "Inga ändringar än",
+    "save": "Spara {{n}} artiklar",
+    "saved": "{{n}} artiklar sparades.",
+    "countNote": "Massredigering"
   }
 }

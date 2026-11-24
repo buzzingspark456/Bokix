@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Search, Pencil, Copy, Trash2, X, Download, Percent, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Package } from './icons';
 import RowActionMenu from './shared/RowActionMenu';
+import ArticleBulkEdit from './ArticleBulkEdit';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { showUndo } from './shared/undoToast';
 import { t } from '../i18n';
@@ -22,7 +23,7 @@ const marginOf = (a) => {
   return p > 0 && c > 0 ? ((p - c) / p) * 100 : null;
 };
 
-export default function ArticlesRegister({ articles = [], setArticles, company, invoices = [], onEdit, onNew, onDuplicate }) {
+export default function ArticlesRegister({ articles = [], setArticles, company, setCompanyInfo, invoices = [], onEdit, onNew, onDuplicate }) {
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
   const [supplier, setSupplier] = useState('');
@@ -30,7 +31,8 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
   const [pageSize, setPageSize] = useState(50);
   const [page, setPage] = useState(0);
   const [picked, setPicked] = useState(() => new Set());
-  const [priceTool, setPriceTool] = useState(null); // { mode: 'percent' | 'markup', value, round }
+  // Massredigering (ArticleBulkEdit): null | { focusPrices }
+  const [bulkEdit, setBulkEdit] = useState(null);
 
   // Lagersaldo per vara, som i Lager-fliken.
   const stock = useMemo(() => {
@@ -133,25 +135,18 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
   };
   const exportPicked = () => downloadCsv(`artiklar_urval_${new Date().toISOString().slice(0, 10)}.csv`, articlesToCsv(pickedList));
 
-  // Prisuppdatering för de markerade: ändra utpriset med procent, eller sätt
-  // utpriset som påslag på inköpspriset. Förhandsvisas innan något sparas.
-  const roundPrice = (v, mode) => (mode === 'krona' ? Math.round(v) : mode === 'tenth' ? Math.round(v * 10) / 10 : Math.round(v * 100) / 100);
-  const newPrice = (a, tool) => {
-    const v = Number(String(tool.value).replace(',', '.'));
-    if (!Number.isFinite(v)) return null;
-    if (tool.mode === 'markup') {
-      const c = Number(a.purchasePrice) || 0;
-      return c > 0 ? roundPrice(c * (1 + v / 100), tool.round) : null;
-    }
-    return roundPrice((Number(a.unitPrice) || 0) * (1 + v / 100), tool.round);
-  };
-  const applyPrices = () => {
-    const changes = new Map(pickedList.map(a => [keyOf(a), newPrice(a, priceTool)]).filter(([, p]) => p != null && p >= 0));
-    if (!changes.size) return;
+  const saveBulk = (patches, counts) => {
     const before = articles;
-    setArticles(prev => prev.map(a => (changes.has(keyOf(a)) ? { ...a, unitPrice: changes.get(keyOf(a)) } : a)));
-    setPriceTool(null);
-    showUndo({ message: t('artReg.pricesUpdated', { n: changes.size }), onUndo: () => setArticles(before) });
+    setArticles(prev => prev.map(x => (patches.has(keyOf(x)) ? { ...x, ...patches.get(keyOf(x)) } : x)));
+    // Ändrat lagersaldo blir en inventering i dag (samma som i Lager-fliken).
+    if (counts?.size && setCompanyInfo) {
+      const today = new Date().toISOString().slice(0, 10);
+      const byKey = new Map(articles.map(a => [keyOf(a), a]));
+      const added = [...counts].map(([k, qty]) => ({ id: `mv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, articleId: byKey.get(k)?.id, type: 'count', date: today, qty, note: t('artEdit.countNote') })).filter(m => m.articleId);
+      setCompanyInfo(prev => ({ ...prev, stockMovements: [...(prev.stockMovements || []), ...added] }));
+    }
+    setBulkEdit(null);
+    showUndo({ message: t('artEdit.saved', { n: patches.size }), onUndo: () => setArticles(before) });
   };
 
   const Th = ({ k, children, className = '' }) => (
@@ -193,7 +188,8 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
       {picked.size > 0 && (
         <div className="ar-bulk" role="toolbar" aria-label={t('artReg.selected', { n: picked.size })}>
           <strong>{t('artReg.selected', { n: picked.size })}</strong>
-          <button type="button" onClick={() => setPriceTool({ mode: 'percent', value: '', round: 'krona' })}><Percent size={14} /> {t('artReg.updatePrices')}</button>
+          <button type="button" onClick={() => setBulkEdit({ focusPrices: false })}><Pencil size={14} /> {t('artEdit.edit')}</button>
+          <button type="button" onClick={() => setBulkEdit({ focusPrices: true })}><Percent size={14} /> {t('artReg.updatePrices')}</button>
           <select value="" onChange={e => { if (e.target.value !== '') setVatPicked(Number(e.target.value)); }} aria-label={t('artReg.setVat')}>
             <option value="">{t('artReg.setVat')}</option>
             {[25, 12, 6, 0].map(r => <option key={r} value={r}>{r} %</option>)}
@@ -280,52 +276,8 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
         </>
       )}
 
-      {priceTool && (
-        <div className="modal-overlay" onClick={() => setPriceTool(null)}>
-          <div className="modal-content ar-price-modal" style={{ maxWidth: '640px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <span className="modal-title">{t('artReg.updatePricesTitle', { n: pickedList.length })}</span>
-              <button type="button" className="modal-close" onClick={() => setPriceTool(null)} aria-label={t('ui.stang')}><X size={18} /></button>
-            </div>
-            <div className="ar-seg">
-              <button type="button" className={priceTool.mode === 'percent' ? 'on' : ''} onClick={() => setPriceTool(p => ({ ...p, mode: 'percent' }))}>{t('artReg.modePercent')}</button>
-              <button type="button" className={priceTool.mode === 'markup' ? 'on' : ''} onClick={() => setPriceTool(p => ({ ...p, mode: 'markup' }))}>{t('artReg.modeMarkup')}</button>
-            </div>
-            <p className="ar-hint">{priceTool.mode === 'percent' ? t('artReg.percentHint') : t('artReg.markupHint')}</p>
-            <div className="ar-price-row">
-              <label>
-                <span>{priceTool.mode === 'percent' ? t('artReg.change') : t('artReg.markup')}</span>
-                <div className="ws-input-suffix"><input className="ws-input" inputMode="decimal" autoFocus value={priceTool.value} placeholder={priceTool.mode === 'percent' ? '5' : '60'} onChange={e => setPriceTool(p => ({ ...p, value: e.target.value }))} /><span>%</span></div>
-              </label>
-              <label>
-                <span>{t('artReg.rounding')}</span>
-                <select className="ws-input" value={priceTool.round} onChange={e => setPriceTool(p => ({ ...p, round: e.target.value }))}>
-                  <option value="krona">{t('artReg.roundKrona')}</option>
-                  <option value="tenth">{t('artReg.roundTenth')}</option>
-                  <option value="ore">{t('artReg.roundOre')}</option>
-                </select>
-              </label>
-            </div>
-            <div className="ar-preview">
-              {pickedList.slice(0, 6).map(a => {
-                const np = priceTool.value === '' ? null : newPrice(a, priceTool);
-                return (
-                  <div key={keyOf(a)}>
-                    <span>{a.description}</span>
-                    <span className="ar-muted">{fmt(a.unitPrice)} kr</span>
-                    <span>→</span>
-                    <strong>{np == null ? (priceTool.mode === 'markup' && !(Number(a.purchasePrice) > 0) ? t('artReg.noCost') : '–') : `${fmt(np)} kr`}</strong>
-                  </div>
-                );
-              })}
-              {pickedList.length > 6 && <small className="ar-muted">{t('artReg.andMore', { n: pickedList.length - 6 })}</small>}
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="agi-btn" onClick={() => setPriceTool(null)}>{t('ui.avbryt')}</button>
-              <button type="button" className="agi-btn primary" disabled={priceTool.value === ''} onClick={applyPrices}>{t('artReg.applyPrices', { n: pickedList.length })}</button>
-            </div>
-          </div>
-        </div>
+      {bulkEdit && (
+        <ArticleBulkEdit items={pickedList} keyOf={keyOf} focusPrices={bulkEdit.focusPrices} onSave={saveBulk} onClose={() => setBulkEdit(null)} stockOf={(a) => (setCompanyInfo && a.type === 'vara' ? (stock.byId.get(a.id)?.qty ?? 0) : null)} />
       )}
     </div>
   );

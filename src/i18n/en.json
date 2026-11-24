@@ -6227,5 +6227,20 @@
     "andMore": "and {{n}} more",
     "applyPrices": "Update {{n}} prices",
     "pricesUpdated": "{{n}} prices were updated."
+  },
+  "artEdit": {
+    "title": "Edit {{n}} items",
+    "edit": "Edit",
+    "priceTool": "Change the price for all",
+    "modePercent": "By percent",
+    "modeMarkup": "Markup on cost",
+    "modeSet": "Same price for all",
+    "fillPrices": "Fill in prices",
+    "setAll": "Same value for all",
+    "changed": "{{n}} items will change",
+    "noChanges": "No changes yet",
+    "save": "Save {{n}} items",
+    "saved": "{{n}} items were saved.",
+    "countNote": "Bulk edit"
   }
 }
