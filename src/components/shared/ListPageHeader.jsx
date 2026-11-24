@@ -300,7 +300,8 @@ export const PAGE_SIZE_OPTIONS = [15, 30, 50, 100];
 
 // collapsed (standard): filtren ligger bakom Filter-knappen även på stor skärm (2026-11-08,
 // Verifikationer: "ska inte synas förrän man trycker på Filter").
-export function ListFilterBar({ children, onClear, count, countLabel, pageSize, onPageSizeChange, pageSizeOptions = PAGE_SIZE_OPTIONS, activeFilters = 0, collapsed = true }) {
+// trailing (2026-11-24): t.ex. listans inställningsknapp, alltid sist på sökfältets rad.
+export function ListFilterBar({ children, onClear, count, countLabel, pageSize, onPageSizeChange, pageSizeOptions = PAGE_SIZE_OPTIONS, activeFilters = 0, collapsed = true, trailing = null }) {
   const [open, setOpen] = useState(false);
   const hasPageSize = pageSize != null && onPageSizeChange;
   const hasSecondRow = Boolean(onClear) || count != null || hasPageSize;
@@ -351,6 +352,7 @@ export function ListFilterBar({ children, onClear, count, countLabel, pageSize, 
           </button>
         )}
         {inline && right(true)}
+        {trailing && <div className="lfb-trailing" style={{ marginLeft: inline ? 0 : 'auto', display: 'flex' }}>{trailing}</div>}
         <div className="lfb-more">
           {rest}
           {collapsed && onClear && (

@@ -6444,6 +6444,19 @@
     "payInvoiceGo": "Create invoice",
     "payPaidGo": "Book as paid",
     "quoteNext": "Next step: make it an order, so the goods are reserved and you deliver and invoice from there.",
-    "quoteHasOrder": "The quote is an order now. Delivery and invoicing are handled from the order."
+    "quoteHasOrder": "The quote is an order now. Delivery and invoicing are handled from the order.",
+    "fromQuoteNotice": "The order is created from quote {{n}} and the goods are reserved."
+  },
+  "lset": {
+    "exportQuotes": "Export quotes",
+    "validTo": "Valid until",
+    "exportOrders": "Export orders",
+    "exportInvoices": "Export invoices",
+    "exportContacts": "Export register",
+    "importContacts": "Import register",
+    "phone": "Phone",
+    "city": "City",
+    "order": "Order",
+    "paidDate": "Paid on"
   }
 }

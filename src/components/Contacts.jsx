@@ -3,6 +3,8 @@ import { Plus, CheckCircle2, XCircle, Users, Truck, ChevronDown, AlertTriangle, 
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
+import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
+import { isAdminPreview } from '../utils/adminPreview';
 import { getCountryOptions, getDefaultCountry, SWEDEN, countryLabel } from '../utils/countries';
 import { validateEmailList, isValidIban } from '../utils/validators';
 import { contactsToCsv, csvToContacts, downloadCsv } from '../utils/csvRegister';
@@ -476,6 +478,10 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
   // visa-N-åt-gången-väljare, inte fullständig sidnumrering. 30 som förval,
   // samma "rimligt mellanläge"-tänk som ListFilterBar:s PAGE_SIZE_OPTIONS.
   const [pageSize, setPageSize] = useState(30);
+  // Listans inställningar som i Artiklar (2026-11-24, bara admin än).
+  const adminList = isAdminPreview();
+  const [lp, setLp] = useListPrefs('bokix.contacts.prefs', { orgNr: true, contactPerson: true, lastInvoiceDate: true, totalInvoicedThisYear: true, status: true, email: false, phone: false, city: false });
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [viewState, setViewState] = useState('list'); // 'list' | 'new' | 'edit'
   const [selectedContact, setSelectedContact] = useState(null);
 
@@ -602,7 +608,8 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
   });
   // "Visa N åt gången" skär bara av VYN — export/import ovan använder
   // fortfarande hela `filtered`/den obeskurna listan, inte den här.
-  const visible = pageSize === 'all' ? filtered : filtered.slice(0, pageSize);
+  const effPageSize = adminList ? (lp.pageSize || 'all') : pageSize;
+  const visible = effPageSize === 'all' ? filtered : filtered.slice(0, effPageSize);
 
   const isCustomerTab = activeTab === 'customer';
   const title = c(isCustomerTab ? 'list.customers' : 'list.suppliers');
@@ -682,8 +689,8 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
       <ListPageHeader
         title={headerTitle || title}
         actions={viewState === 'list' ? [
-          { key: 'export', label: c('actions.export'), icon: Download, onClick: handleExportCsv, title: c('actions.exportTitle', { what: title.toLowerCase() }) },
-          { key: 'import', label: c('actions.import'), icon: Upload, onClick: handleImportClick, title: c('actions.importTitle', { what: title.toLowerCase() }) },
+          ...(adminList ? [] : [{ key: 'export', label: c('actions.export'), icon: Download, onClick: handleExportCsv, title: c('actions.exportTitle', { what: title.toLowerCase() }) },
+          { key: 'import', label: c('actions.import'), icon: Upload, onClick: handleImportClick, title: c('actions.importTitle', { what: title.toLowerCase() }) }]),
           { key: 'new', label: newBtnText, icon: Plus, onClick: () => openNewForm(activeTab), variant: 'primary', dataTour: 'page-contacts-cta' },
         ] : []}
         tabs={headerTabs || {
@@ -707,14 +714,30 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
         <ListFilterBar
           count={filtered.length}
           countLabel={countWord(filtered.length)}
-          pageSize={pageSize}
-          onPageSizeChange={setPageSize}
+          pageSize={adminList ? undefined : pageSize}
+          onPageSizeChange={adminList ? undefined : setPageSize}
+          trailing={adminList ? <ListSettingsButton onClick={() => setSettingsOpen(true)} /> : null}
         >
           <div style={{ position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input type="text" placeholder={c(isCustomerTab ? 'list.searchCustomer' : 'list.searchSupplier')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={listSearchInputStyle} />
           </div>
         </ListFilterBar>
+      )}
+      {viewState === 'list' && (
+        <ListSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={setLp}
+          actions={[
+            { key: 'new', label: newBtnText, icon: Plus, onClick: () => openNewForm(activeTab) },
+            { key: 'import', label: c('actions.import'), icon: Upload, onClick: handleImportClick },
+            { key: 'export', label: c('actions.export'), icon: Download, onClick: handleExportCsv },
+          ]}
+          columns={[
+            { key: 'orgNr', label: c('list.colOrgNr') }, { key: 'contactPerson', label: c('list.colContact') },
+            { key: 'email', label: t('so.email') }, { key: 'phone', label: t('lset.phone') }, { key: 'city', label: t('lset.city') },
+            { key: 'lastInvoiceDate', label: c(isCustomerTab ? 'list.lastInvoice' : 'list.lastPurchase') },
+            { key: 'totalInvoicedThisYear', label: c(isCustomerTab ? 'list.invoicedThisYear' : 'list.purchasedThisYear') },
+            { key: 'status', label: c('list.status') },
+          ]} />
       )}
 
       {/* ── Content Area ──
@@ -734,12 +757,13 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                  det HELT tomma läget (grenen nedan) ska centreras. En
                  populerad (om än kort) lista ligger kvar uppe vid
                  sök/toppen, som en vanlig tabellsida. */
-              <div className="contacts-table" style={{ width: '100%' }}>
+              <div className={`contacts-table${adminList && lp.density === 'compact' ? ' lt-compact' : ''}${adminList && lp.width === 'narrow' ? ' lt-narrow-self' : ''}`} style={{ width: '100%' }}>
                 <ListTable
                   rowKey={ct => ct.id}
                   onRowClick={openDetail}
                   emptyMessage={c('list.noMatch')}
                   rows={visible}
+                  pageSize={adminList ? lp.pageSize : undefined}
                   mobileList={ct => ({
                     dot: ct.active !== false ? 'var(--status-green-text)' : 'var(--text-muted)',
                     primary: ct.name || c('list.unnamed'),
@@ -793,7 +817,10 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                       ),
                     },
                     { key: 'orgNr', label: c('list.colOrgNr'), render: ct => ct.orgNr || '—' },
-                    { key: 'contactPerson', label: c('list.colContact'), render: ct => ct.contactPerson || ct.email || '—' },
+                    { key: 'contactPerson', label: c('list.colContact'), render: ct => ct.contactPerson || (adminList && lp.cols.email ? '—' : ct.email || '—') },
+                    ...(adminList && lp.cols.email ? [{ key: 'email', label: t('so.email'), render: ct => ct.email || '—' }] : []),
+                    ...(adminList && lp.cols.phone ? [{ key: 'phone', label: t('lset.phone'), render: ct => ct.phone || '—' }] : []),
+                    ...(adminList && lp.cols.city ? [{ key: 'city', label: t('lset.city'), render: ct => ct.city || '—' }] : []),
                     { key: 'lastInvoiceDate', label: c(isCustomerTab ? 'list.lastInvoice' : 'list.lastPurchase'), render: ct => ct.lastInvoiceDate || '—' },
                     {
                       key: 'totalInvoicedThisYear', label: c(isCustomerTab ? 'list.invoicedThisYear' : 'list.purchasedThisYear'),
@@ -815,7 +842,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                         </span>
                       ),
                     },
-                  ]}
+                  ].filter(col => !adminList || col.key === 'name' || ['email', 'phone', 'city'].includes(col.key) || lp.cols[col.key] !== false)}
                 />
               </div>
             ) : (

@@ -104,12 +104,16 @@ function MoreRows({ left, onMore }) {
  *   cirklig och inte rak". Det som ligger sist i kortet ska bära
  *   rundningen, inte tabellen mitt i.
  */
-export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMessage, selectable, isExpanded, renderExpanded, rowStyle, sort, bordered = true, roundedBottom = true, mobileList, groupBy, renderGroupHeader }) {
+// pageSize (2026-11-24, listans inställningar): antal rader innan Visa fler;
+// 0 = alla. Utan pageSize gäller standard som förut.
+export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMessage, selectable, isExpanded, renderExpanded, rowStyle, sort, bordered = true, roundedBottom = true, mobileList, groupBy, renderGroupHeader, pageSize }) {
   const { t } = useTranslation();
   const resolvedEmptyMessage = emptyMessage ?? t('shared.listTable.emptyMessage');
   const colSpan = columns.length + (selectable ? 1 : 0);
-  const [shownCount, setShownCount] = useState(ROWS_AT_ONCE);
-  const showMore = useCallback(() => setShownCount(n => n + ROWS_AT_ONCE), []);
+  const step = pageSize === 0 ? Infinity : (pageSize || ROWS_AT_ONCE);
+  const [shownCount, setShownCount] = useState(step);
+  useEffect(() => { setShownCount(step); }, [step]);
+  const showMore = useCallback(() => setShownCount(n => n + step), [step]);
   const shownRows = rows.length > shownCount ? rows.slice(0, shownCount) : rows;
 
   // Markering på telefon, som i iPhones Mail och Filer: inga kryssrutor

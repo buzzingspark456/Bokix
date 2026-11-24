@@ -4792,7 +4792,7 @@ function App() {
     setCompanyInfo(prev => ({ ...prev, salesOrders: [...(prev.salesOrders || []), order] }));
     const stamp = new Date().toISOString().slice(0, 10);
     setQuotes(prev => prev.map(q => (q.id === quoteId ? { ...q, ...(latest || {}), status: q.status === 'invoiced' ? q.status : 'accepted', acceptedAt: q.acceptedAt || stamp, orderId, orderNumber: order.number } : q)));
-    handleGlobalAction({ type: 'open_order', payload: { id: orderId } }, 'orders');
+    handleGlobalAction({ type: 'open_order', payload: { id: orderId, fromQuote: quote.invoiceNumber || '' } }, 'orders');
     return order;
   };
 

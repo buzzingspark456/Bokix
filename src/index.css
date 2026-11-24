@@ -11338,3 +11338,9 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .lg-dl-row .ws-input-suffix > span { right: 9px; font-size: 12px; }
 .so-page .lg-dl-row.so-edit { grid-template-columns: minmax(0, 1fr) 96px 120px 86px 88px 30px; }
 @media (max-width: 760px) { .so-page .lg-dl-row.so-edit { grid-template-columns: minmax(0, 1fr) 96px 30px; } }
+
+/* Listans inställningar i Offerter, Order, Kundfakturor och Kunder (2026-11-24) */
+.lt-compact .responsive-table td { padding-top: 7px !important; padding-bottom: 7px !important; }
+.lt-narrow > * { max-width: 1180px; width: 100%; margin-left: auto !important; margin-right: auto !important; box-sizing: border-box; }
+.lfb-gear-slot .ar-gear, .ar-gear.lfb { width: 34px; height: 34px; }
+.lt-narrow-self { max-width: 1180px; margin-left: auto; margin-right: auto; }

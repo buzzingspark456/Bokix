@@ -8,13 +8,15 @@ const CLOSED_KEY = 'bokix_doc_split_closed';
 // Dokumentet bredvid formuläret på faktura och offert, från 1280 px bredd
 // (index.css). Går att minska så att formuläret får hela bredden; valet kommer
 // webbläsaren ihåg till nästa dokument.
-export default function DocSplit({ onEnlarge, onPrint, printing, onDownload, downloading, children }) {
+// storageKey/defaultClosed (2026-11-24): ordern har förhandsvisningen stängd
+// från början och kommer ihåg sitt eget val.
+export default function DocSplit({ onEnlarge, onPrint, printing, onDownload, downloading, children, storageKey = CLOSED_KEY, defaultClosed = false }) {
   const [closed, setClosed] = useState(() => {
-    try { return localStorage.getItem(CLOSED_KEY) === '1'; } catch { return false; }
+    try { const v = localStorage.getItem(storageKey); return v == null ? defaultClosed : v === '1'; } catch { return defaultClosed; }
   });
   const toggle = () => {
     setClosed(v => {
-      try { localStorage.setItem(CLOSED_KEY, v ? '0' : '1'); } catch { /* privat läge: gäller bara nu */ }
+      try { localStorage.setItem(storageKey, v ? '0' : '1'); } catch { /* privat läge: gäller bara nu */ }
       return !v;
     });
   };

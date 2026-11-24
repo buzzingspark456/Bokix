@@ -1300,3 +1300,8 @@ button.lg-kpi:hover { filter: brightness(1.06); box-shadow: 0 6px 18px rgba(0,0,
 .so-pay-ic { width: 32px; height: 32px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; background: var(--bg-muted); color: var(--text-secondary); flex-shrink: 0; }
 .so-pay-opts button.on .so-pay-ic { background: var(--accent); color: #fff; }
 @media (max-width: 760px) { .so-guide { padding: 9px 16px; flex-wrap: wrap; } }
+
+.so-gear { margin-left: 4px; }
+.so-compact .ar-table td { padding-top: 7px; padding-bottom: 7px; }
+.so-compact .ar-table .ar-name small { display: none; }
+.so-narrow { max-width: 1180px; margin-left: auto; margin-right: auto; width: 100%; }

@@ -6444,6 +6444,19 @@
     "payInvoiceGo": "Skapa faktura",
     "payPaidGo": "Bokför som betald",
     "quoteNext": "Nästa steg: gör den till en order, så reserveras varorna och du levererar och fakturerar därifrån.",
-    "quoteHasOrder": "Offerten är en order nu. Leverans och faktura sköts från ordern."
+    "quoteHasOrder": "Offerten är en order nu. Leverans och faktura sköts från ordern.",
+    "fromQuoteNotice": "Ordern är skapad från offert {{n}} och varorna är reserverade."
+  },
+  "lset": {
+    "exportQuotes": "Exportera offerter",
+    "validTo": "Giltig till",
+    "exportOrders": "Exportera order",
+    "exportInvoices": "Exportera fakturor",
+    "exportContacts": "Exportera register",
+    "importContacts": "Importera register",
+    "phone": "Telefon",
+    "city": "Ort",
+    "order": "Order",
+    "paidDate": "Betald den"
   }
 }

@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, X, Trash2, Download, Truck, Check, Search, FileText, ClipboardList, ChevronLeft, ChevronRight } from './icons';
 import { Panel } from './shared/Workspace';
 import ChipFilter from './shared/ChipFilter';
+import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
+import { downloadCsv } from '../utils/csvRegister';
 import ArticleCombobox from './shared/ArticleCombobox';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { t } from '../i18n';
@@ -30,7 +32,6 @@ const newId = () => `so_${Date.now().toString(36)}_${Math.random().toString(36).
 const formatShort = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' }); };
 const emptyRow = () => ({ key: newId(), articleId: '', articleNumber: '', description: '', qty: 1, unit: 'st', unitPrice: '', vatRate: 25, discount: 0, account: '3001', delivered: 0, invoiced: 0 });
 const STATUS_PILL = { open: 'info', partial: 'warn', delivered: 'ok', invoiced: 'neutral', cancelled: 'late' };
-const PAGE = 50;
 
 export default function Orders({ company, setCompanyInfo, articles = [], contacts = [], invoices = [], onCreateContact, onCreateInvoice, onOpenInvoice, onOpenQuote, globalAction, clearGlobalAction }) {
   const orders = useMemo(() => company?.salesOrders || [], [company?.salesOrders]);
@@ -38,7 +39,11 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
   const [filter, setFilter] = useState('active');
   const [page, setPage] = useState(0);
   const [open, setOpen] = useState(null); // ordern som visas i rutan
+  const [openNotice, setOpenNotice] = useState('');
   const [message, setMessage] = useState('');
+  const [lp, setLp] = useListPrefs('bokix.orders.prefs', { number: true, customer: true, date: true, delivery: true, delivered: true, amount: true, status: true });
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const PAGE = lp.pageSize || 100000;
 
   // Lagersaldo per vara (samma beräkning som Lager-fliken).
   const stock = useMemo(() => {
@@ -57,7 +62,7 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
   useEffect(() => {
     if (globalAction?.type === 'open_order') {
       const o = orders.find(x => x.id === globalAction.payload?.id);
-      if (o) setOpen(o);
+      if (o) { setOpen(o); setOpenNotice(globalAction.payload?.fromQuote ? t('so.fromQuoteNotice', { n: globalAction.payload.fromQuote }) : ''); }
       clearGlobalAction?.();
     } else if (globalAction?.type === 'new_order') {
       startNew();
@@ -102,6 +107,13 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
   const pages = Math.max(1, Math.ceil(rows.length / PAGE));
   const current = Math.min(page, pages - 1);
 
+  const exportCsv = (list) => {
+    const esc = (v) => { const x = String(v ?? ''); return /[;"\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x; };
+    const head = [t('so.colNumber'), t('so.colCustomer'), t('so.colDate'), t('so.colDelivery'), t('ui.status'), t('so.net'), t('ui.moms'), t('so.total')];
+    const lines = list.map(o => { const tt = orderTotals(o); return [o.number, o.customerName, o.date, o.deliveryDate || '', t(`so.status_${orderStatus(o)}`), tt.net, tt.vat, tt.total].map(v => (typeof v === 'number' ? String(v).replace('.', ',') : v)).map(esc).join(';'); });
+    downloadCsv(`order_${todayIso()}.csv`, '\ufeff' + [head.join(';'), ...lines].join('\r\n'));
+  };
+
   const toDeliver = orders.filter(o => ['open', 'partial'].includes(orderStatus(o))).length;
   const toInvoiceValue = orders.filter(o => !o.cancelled).reduce((s, o) => s + (o.rows || []).reduce((ss, r) => ss + rowLeftToInvoice(r) * num(r.unitPrice) * (1 - num(r.discount) / 100), 0), 0);
   const openValue = orders.filter(o => ['open', 'partial', 'delivered'].includes(orderStatus(o))).reduce((s, o) => s + orderTotals(o).net, 0);
@@ -132,7 +144,8 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
             onOpenInvoice={onOpenInvoice}
             onOpenQuote={onOpenQuote}
             onMessage={setMessage}
-            onClose={() => setOpen(null)}
+            initialNotice={openNotice}
+            onClose={() => { setOpen(null); setOpenNotice(''); }}
           />
     );
   }
@@ -160,7 +173,16 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
         {message && <p className="ws-hint" style={{ marginTop: '12px', color: 'var(--status-green-text)' }}>{message}</p>}
       </Panel>
 
-      <Panel>
+      <ListSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={(patch) => { setLp(patch); setPage(0); }}
+        actions={[
+          { key: 'new', label: t('so.new'), icon: Plus, onClick: startNew },
+          { key: 'export', label: t('lset.exportOrders'), icon: Download, onClick: () => exportCsv(rows), disabled: rows.length === 0 },
+        ]}
+        columns={[
+          { key: 'number', label: t('so.colNumber') }, { key: 'date', label: t('so.colDate') }, { key: 'delivery', label: t('so.colDelivery') },
+          { key: 'delivered', label: t('so.colDelivered') }, { key: 'amount', label: t('so.colAmount') }, { key: 'status', label: t('ui.status') },
+        ]} />
+      <Panel className={`${lp.density === 'compact' ? 'so-compact' : ''}${lp.width === 'narrow' ? ' so-narrow' : ''}`}>
         {orders.length === 0 ? (
           <div className="po-empty">
             <span className="po-empty-ic" aria-hidden="true"><ClipboardList size={22} /></span>
@@ -178,6 +200,7 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
                 </div>
                 <ChipFilter label={t('artReg.filter')} value={filter} onChange={(id) => { setFilter(id); setPage(0); }}
                   items={[['active', t('so.fActive'), count('active')], ['deliver', t('so.fDeliver'), count('deliver'), 'low'], ['invoice', t('so.fInvoice'), count('invoice')], ['invoiced', t('so.fInvoiced'), count('invoiced')], ['all', t('accr.filterAll'), count('all')]]} />
+                <ListSettingsButton onClick={() => setSettingsOpen(true)} className="so-gear" />
               </div>
             </div>
             {rows.length === 0 ? <p className="ws-hint" style={{ padding: '16px 0' }}>{t('so.noneHere')}</p> : (
@@ -186,13 +209,13 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
                   <table className="ar-table">
                     <thead>
                       <tr>
-                        <th className="po-w-nr">{t('so.colNumber')}</th>
+                        {lp.cols.number && <th className="po-w-nr">{t('so.colNumber')}</th>}
                         <th>{t('so.colCustomer')}</th>
-                        <th className="po-w-date ar-hide-md">{t('so.colDate')}</th>
-                        <th className="po-w-date">{t('so.colDelivery')}</th>
-                        <th className="po-w-prog ar-hide-md">{t('so.colDelivered')}</th>
-                        <th className="r ar-w-value">{t('so.colAmount')}</th>
-                        <th className="r po-w-status" />
+                        {lp.cols.date && <th className="po-w-date ar-hide-md">{t('so.colDate')}</th>}
+                        {lp.cols.delivery && <th className="po-w-date">{t('so.colDelivery')}</th>}
+                        {lp.cols.delivered && <th className="po-w-prog ar-hide-md">{t('so.colDelivered')}</th>}
+                        {lp.cols.amount && <th className="r ar-w-value">{t('so.colAmount')}</th>}
+                        {lp.cols.status && <th className="r po-w-status" />}
                       </tr>
                     </thead>
                     <tbody>
@@ -205,18 +228,18 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
                         const short = ['open', 'partial'].includes(st) && real.some(r => r.articleId && isStocked(r.articleId) && rowLeftToDeliver(r) > (stock.qty.get(r.articleId) || 0));
                         return (
                           <tr key={o.id} className={`po-row is-${st}`} onClick={() => setOpen(o)}>
-                            <td className="po-nr">{o.number}</td>
+                            {lp.cols.number && <td className="po-nr">{o.number}</td>}
                             <td className="ar-name">
                               <strong>{o.customerName || t('so.noCustomer')}</strong>
                               <small>{[real.length === 1 ? t('so.rowsOne') : t('so.rowsMany', { n: real.length }), short ? t('so.shortShort') : null, o.quoteNumber ? t('so.fromQuote', { n: o.quoteNumber }) : null].filter(Boolean).join(' · ')}</small>
                             </td>
-                            <td className="ar-hide-md ar-muted">{formatShort(o.date)}</td>
-                            <td className={late ? 'po-late' : 'ar-muted'}>{o.deliveryDate ? formatShort(o.deliveryDate) : '–'}</td>
-                            <td className="ar-hide-md">{st === 'cancelled' || all === 0 ? <span className="ar-muted">–</span> : (
+                            {lp.cols.date && <td className="ar-hide-md ar-muted">{formatShort(o.date)}</td>}
+                            {lp.cols.delivery && <td className={late ? 'po-late' : 'ar-muted'}>{o.deliveryDate ? formatShort(o.deliveryDate) : '–'}</td>}
+                            {lp.cols.delivered && <td className="ar-hide-md">{st === 'cancelled' || all === 0 ? <span className="ar-muted">–</span> : (
                               <span className="po-prog"><span className="pz-m-track"><span style={{ width: `${Math.round((got / all) * 100)}%`, background: 'var(--status-green-text)' }} /></span><small>{t('po.progress', { got: fmtQty(got), all: fmtQty(all) })}</small></span>
-                            )}</td>
-                            <td className="r ar-price">{fmtKr(orderTotals(o).net)}</td>
-                            <td className="r"><span className={`agi-pill ${STATUS_PILL[st]}`}>{t(`so.status_${st}`)}</span></td>
+                            )}</td>}
+                            {lp.cols.amount && <td className="r ar-price">{fmtKr(orderTotals(o).net)}</td>}
+                            {lp.cols.status && <td className="r"><span className={`agi-pill ${STATUS_PILL[st]}`}>{t(`so.status_${st}`)}</span></td>}
                           </tr>
                         );
                       })}
@@ -243,7 +266,7 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
   );
 }
 
-function OrderPage({ initial, company, articles, contacts, stockQty, reservedElsewhere, isStocked, lockedFor, onSave, onDelete, onInvoice, onOpenInvoice, onOpenQuote, onMessage, onClose }) {
+function OrderPage({ initial, company, articles, contacts, stockQty, reservedElsewhere, isStocked, lockedFor, onSave, onDelete, onInvoice, onOpenInvoice, onOpenQuote, onMessage, onClose, initialNotice = '' }) {
   const [o, setO] = useState(() => ({ paymentTermsDays: Number(company?.paymentTermsDays) || 30, ...initial }));
   const [mode, setMode] = useState('view'); // 'view' | 'deliver'
   const [deliverDate, setDeliverDate] = useState(todayIso());
@@ -255,7 +278,7 @@ function OrderPage({ initial, company, articles, contacts, stockQty, reservedEls
   const [payWay, setPayWay] = useState('invoice');
   const [payAccount, setPayAccount] = useState('1930');
   const [payDate, setPayDate] = useState(todayIso());
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState(initialNotice);
   const askPay = (run) => { setPayWay('invoice'); setPayDate(todayIso()); setPayAsk(() => run); };
   const afterInvoice = (savedAfter, paid) => {
     if (!savedAfter) return;
@@ -579,7 +602,7 @@ function OrderPage({ initial, company, articles, contacts, stockQty, reservedEls
             <textarea className="ws-input" rows={3} value={o.note || ''} onChange={e => setO(p => ({ ...p, note: e.target.value }))} placeholder={t('so.notePh')} disabled={!editable} style={{ height: 'auto', paddingTop: '9px', maxWidth: '640px' }} />
           </section>
         </div>
-        <DocSplit onEnlarge={() => setShowPreview(true)} onPrint={print} printing={false} onDownload={downloadConfirmation} downloading={pdfBusy}>
+        <DocSplit storageKey="bokix_order_doc_closed" defaultClosed onEnlarge={() => setShowPreview(true)} onPrint={print} printing={false} onDownload={downloadConfirmation} downloading={pdfBusy}>
           <InvoiceDocument {...docProps} />
         </DocSplit>
       </div>

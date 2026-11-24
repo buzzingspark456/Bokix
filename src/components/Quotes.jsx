@@ -13,6 +13,9 @@ import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/Li
 import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, STRONG_DRAFT } from './shared/invoiceStatusStyle';
 import RowActionMenu from './shared/RowActionMenu';
 import ListTable from './shared/ListTable';
+import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
+import { isAdminPreview } from '../utils/adminPreview';
+import { downloadCsv } from '../utils/csvRegister';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { showUndo, restoreAt } from './shared/undoToast';
 import { useMobileForm, MobileFormBar } from './shared/MobileForm';
@@ -1096,6 +1099,10 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
   // Kundönskemål: "en knapp där man kan se femton, trettio, femtio" — samma
   // visa-N-åt-gången-väljare som Kunder/Fakturering (ListFilterBar).
   const [pageSize, setPageSize] = useState(30);
+  // Listans inställningar som i Artiklar (2026-11-24, bara admin än).
+  const adminList = isAdminPreview();
+  const [lp, setLp] = useListPrefs('bokix.quotes.prefs', { number: true, customer: true, date: true, validTo: false, status: true, total: true });
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null); // null = ny offert, annars id på offerten som redigeras
 
@@ -1129,7 +1136,8 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
     { value: 'rejected', label: t('ui.avvisad'), bg: 'var(--status-red-bg)', color: 'var(--status-red-text)' },
     { value: 'invoiced', label: t('ui.offert_fakturerad'), bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' },
   ];
-  const visible = pageSize === 'all' ? filtered : filtered.slice(0, pageSize);
+  const effPageSize = adminList ? (lp.pageSize || 'all') : pageSize;
+  const visible = effPageSize === 'all' ? filtered : filtered.slice(0, effPageSize);
 
   const handleDelete = async (id, e) => {
     e?.stopPropagation();
@@ -1214,6 +1222,13 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
     setEditingId(copy.id);
     setIsFormOpen(true);
   };
+  const exportQuotesCsv = (list) => {
+    const esc = (v) => { const x = String(v ?? ''); return /[;"\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x; };
+    const head = [t('ui.offertnr'), t('ui.kund'), t('ui.datum'), t('lset.validTo'), t('ui.status'), t('ui.belopp')];
+    const lines = list.map(q => [q.invoiceNumber, contacts.find(c => c.id === q.customerId)?.name || q.customerName || '', q.date, q.dueDate || '', getStatusStyle(getDisplayStatus(q)).label, String(Math.round(getTotal(q) * 100) / 100).replace('.', ',')].map(esc).join(';'));
+    downloadCsv(`offerter_${new Date().toISOString().slice(0, 10)}.csv`, '\ufeff' + [head.join(';'), ...lines].join('\r\n'));
+  };
+
   const buildQuoteMenu = (q) => {
     const st = getDisplayStatus(q);
     const items = [{ key: 'open', label: t('ui.q_menu_oppna'), icon: Eye, onClick: () => openEdit(q) }];
@@ -1223,8 +1238,11 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
       items.push({ key: 'reject', label: t('ui.q_tackade_nej'), icon: XCircle, onClick: (e) => setQuoteStatus(q, 'rejected', e) });
     }
     if (st === 'accepted' || st === 'rejected') items.push({ key: 'undo', label: t('ui.q_andra_svar'), icon: RotateCcw, onClick: (e) => setQuoteStatus(q, 'sent', e) });
+    // Order (2026-11-24): gör offerten till en order, eller öppna ordern den blev.
+    if (q.orderId && handleGlobalAction) items.push({ key: 'order', label: t('so.openOrder', { n: q.orderNumber || '' }), icon: ClipboardList, onClick: () => handleGlobalAction({ type: 'open_order', payload: { id: q.orderId } }, 'orders') });
+    else if (onMakeOrder && st !== 'invoiced' && st !== 'rejected') items.push({ key: 'make-order', label: t('so.makeOrder'), icon: ClipboardList, onClick: (e) => { e?.stopPropagation?.(); onMakeOrder(q.id); } });
     if (st === 'invoiced' && q.invoiceId) items.push({ key: 'invoice', label: t('ui.visa_fakturan'), icon: FileText, onClick: () => openInvoice(q.invoiceId) });
-    else if (onConvert) items.push({ key: 'convert', label: t('ui.skapa_faktura'), icon: FileText, onClick: (e) => handleConvert(q, e) });
+    else if (onConvert && !q.orderId) items.push({ key: 'convert', label: t('ui.konvertera_till_faktura'), icon: FileText, onClick: (e) => handleConvert(q, e) });
     items.push({ key: 'copy', label: t('ui.q_kopiera'), icon: Copy, onClick: () => duplicateQuote(q) });
     if (st === 'draft') { items.push({ divider: true }); items.push({ key: 'sent', label: t('ui.markera_som_skickad'), icon: Send, onClick: (e) => setQuoteStatus(q, 'sent', e) }); }
     items.push({ divider: true });
@@ -1287,14 +1305,24 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
       <ListFilterBar
         count={filtered.length}
         countLabel={filtered.length === 1 ? t('ui.offert_2') : t('ui.offerter_2')}
-        pageSize={pageSize}
-        onPageSizeChange={setPageSize}
+        pageSize={adminList ? undefined : pageSize}
+        onPageSizeChange={adminList ? undefined : setPageSize}
+        trailing={adminList ? <ListSettingsButton onClick={() => setSettingsOpen(true)} /> : null}
       >
         <div style={{ position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input type="text" placeholder={t('ui.sok_offert_eller_kund')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={listSearchInputStyle} />
         </div>
       </ListFilterBar>
+      <ListSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={setLp}
+        actions={[
+          { key: 'new', label: t('ui.ny_offert'), icon: Plus, onClick: openNew },
+          { key: 'export', label: t('lset.exportQuotes'), icon: Download, onClick: () => exportQuotesCsv(filtered), disabled: filtered.length === 0 },
+        ]}
+        columns={[
+          { key: 'number', label: t('ui.offertnr') }, { key: 'customer', label: t('ui.kund') }, { key: 'date', label: t('ui.datum') },
+          { key: 'validTo', label: t('lset.validTo') }, { key: 'status', label: t('ui.status') }, { key: 'total', label: t('ui.belopp') },
+        ]} />
       {quotes.length > 0 && (
         <div className="inv-pills" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, flexWrap: 'wrap' }}>
           {statusOptions.map(opt => {
@@ -1326,7 +1354,7 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
           tabellen sitter flush direkt under filterraden. Tomt-läget nedan
           behåller sin egen marginal (`margin`) eftersom det är ett
           fristående kort, inte en full-bredd-tabell. */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div className={adminList ? `lt-wrap${lp.density === 'compact' ? ' lt-compact' : ''}${lp.width === 'narrow' ? ' lt-narrow' : ''}` : undefined} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         {/* TABLE — bugkritiskt (kundfeedback, "white space"-genomgången): en
             tom lista visade tidigare bara EN paddad tabellrad ("Inga offerter
             skapade") längst upp i sidan, med hela resten av sidhöjden kvar som
@@ -1400,6 +1428,7 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
               ],
             };
           }}
+          pageSize={adminList ? lp.pageSize : undefined}
           columns={[
             {
               key: 'invoiceNumber', label: t('ui.offertnr'), fontWeight: 600, color: 'var(--text-main)', render: q => (
@@ -1410,6 +1439,7 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
             },
             { key: 'customer', label: t('ui.kund'), fontWeight: 500, wrap: true, render: q => contacts.find(c => c.id === q.customerId)?.name || q.customerName || '—' },
             { key: 'date', label: t('ui.datum'), render: q => q.date },
+            ...(adminList && lp.cols.validTo ? [{ key: 'validTo', label: t('lset.validTo'), render: q => q.dueDate || '—' }] : []),
             {
               key: 'status', label: t('ui.status'), render: q => {
                 const s = getStatusStyle(getDisplayStatus(q));
@@ -1422,7 +1452,7 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
                 <span onClick={e => e.stopPropagation()}><RowActionMenu ariaLabel={t('ui.q_menu_aria', { n: q.invoiceNumber || '' })} items={buildQuoteMenu(q)} /></span>
               ),
             },
-          ]}
+          ].filter(c => !adminList || c.key === 'actions' || c.key === 'validTo' || lp.cols[{ invoiceNumber: 'number', customer: 'customer', date: 'date', status: 'status', total: 'total' }[c.key]] !== false)}
         />
         )}
       </div>

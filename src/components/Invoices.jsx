@@ -21,6 +21,8 @@ import { BRAND } from '../utils/brandColors';
 import { getNextInvoiceNumber } from '../utils/invoiceNumbering';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { showUndo, restoreAt } from './shared/undoToast';
+import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
+import { downloadCsv } from '../utils/csvRegister';
 import ListPageHeader, { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle, PAGE_SIZE_OPTIONS } from './shared/ListPageHeader';
 import RowActionMenu from './shared/RowActionMenu';
 import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, STRONG_DRAFT, STATUS_PILL, getRowBg } from './shared/invoiceStatusStyle';
@@ -2288,6 +2290,10 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
   // inte N totalt över alla — annars kunde en hel statusgrupp försvinna
   // tyst bara för att en annan grupp råkade fylla hela gränsen.
   const [pageSize, setPageSize] = useState(30);
+  // Listans inställningar som i Artiklar (2026-11-24, bara admin än).
+  const adminList = isAdminPreview();
+  const [lp, setLp] = useListPrefs('bokix.invoices.prefs', { number: true, customer: true, date: true, dueDate: true, amount: true, status: true, order: false, paidDate: false });
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
   const isPhoneList = useIsMobileViewport();
@@ -2430,7 +2436,8 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
   // "Visa N" gäller hela listan nu (en tabell i stället för en tabell per
   // status). Markera-alla-rutan ska matcha exakt det som syns — och aldrig
   // försöka markera exempelfakturan, som inte är en riktig post.
-  const visibleRows = pageSize === 'all' ? sortedWithDemo : sortedWithDemo.slice(0, pageSize);
+  const effPageSize = adminList ? (lp.pageSize || 'all') : pageSize;
+  const visibleRows = effPageSize === 'all' ? sortedWithDemo : sortedWithDemo.slice(0, effPageSize);
   const selectableRows = visibleRows.filter(inv => !inv.isDemo);
 
   const sumTotal = filtered.reduce((sum, inv) => sum + grossOf(inv), 0);
@@ -2734,6 +2741,23 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
       ),
     },
   ];
+  const COL_PREF = { invoiceNumber: 'number', customer: 'customer', date: 'date', dueDate: 'dueDate', amount: 'amount', status: 'status' };
+  const invoiceColumnsShown = !adminList ? invoiceColumns : (() => {
+    const extra = [
+      ...(lp.cols.order ? [{ key: 'order', label: tr('lset.order'), render: inv => inv.orderNumber || '—' }] : []),
+      ...(lp.cols.paidDate ? [{ key: 'paidDate', label: tr('lset.paidDate'), render: inv => (inv.paidDate ? formatDate(inv.paidDate) : '—') }] : []),
+    ];
+    const base = invoiceColumns.filter(c => c.key === 'actions' || lp.cols[COL_PREF[c.key]] !== false);
+    const at = base.findIndex(c => c.key === 'amount');
+    return at < 0 ? [...base.slice(0, -1), ...extra, base[base.length - 1]] : [...base.slice(0, at), ...extra, ...base.slice(at)];
+  })();
+  const exportInvoicesCsv = (list) => {
+    const esc = (v) => { const x = String(v ?? ''); return /[;"\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x; };
+    const label = { paid: tr('ui.betald'), overdue: tr('ui.forfallen'), draft: tr('ui.ej_bokford') };
+    const head = [tr('ui.fakturanr'), tr('ui.kund'), tr('ui.fakturadatum'), tr('ui.forfallodatum'), tr('ui.belopp'), tr('ui.status'), tr('lset.order'), tr('lset.paidDate')];
+    const lines = list.filter(inv => !inv.isDemo).map(inv => [inv.invoiceNumber, getCustomerName(inv.customerId) === '—' ? (inv.customerName || '') : getCustomerName(inv.customerId), inv.date || '', inv.dueDate || '', String(Math.round(grossOf(inv) * 100) / 100).replace('.', ','), label[getStatus(inv)] || tr('ui.obetald'), inv.orderNumber || '', inv.paidDate || ''].map(esc).join(';'));
+    downloadCsv(`fakturor_${new Date().toISOString().slice(0, 10)}.csv`, '\ufeff' + [head.join(';'), ...lines].join('\r\n'));
+  };
 
   // Kort dag+månad ("24 sep"), samma Intl-mönster som redan används i
   // Reports.jsx — bara för listradens metatext (rad 2), inte för själva
@@ -3007,6 +3031,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
             — gäller nu HELA listan (en tabell), inte per statussektion, och
             samma väljare/ordning som ListFilterBar ritar på Bokföring och de
             andra listsidorna. */}
+        {adminList ? <ListSettingsButton onClick={() => setSettingsOpen(true)} /> : <>
         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
           {tr('ui.visa')}
           <select
@@ -3019,7 +3044,20 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
           </select>
         </label>
         <Printer className="inv-pills-extra" size={15} style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} />
+        </>}
       </div>
+      )}
+      {adminList && (
+        <ListSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={setLp}
+          actions={[
+            { key: 'new', label: tr('ui.ny_faktura'), icon: Plus, onClick: () => { setEditingInvoice(null); setInvoicePrefill(null); setShowForm(true); } },
+            { key: 'export', label: tr('lset.exportInvoices'), icon: Download, onClick: () => exportInvoicesCsv(sortedWithDemo), disabled: sortedWithDemo.length === 0 },
+          ]}
+          columns={[
+            { key: 'number', label: tr('ui.fakturanr') }, { key: 'customer', label: tr('ui.kund') }, { key: 'date', label: tr('ui.fakturadatum') },
+            { key: 'dueDate', label: tr('ui.forfallodatum') }, { key: 'amount', label: tr('ui.belopp') }, { key: 'status', label: tr('ui.status') },
+            { key: 'order', label: tr('lset.order') }, { key: 'paidDate', label: tr('lset.paidDate') },
+          ]} />
       )}
 
       {/* EN tabell med ETT sidhuvud (Fakturanr/Kund/Fakturadatum/Förfallo-
@@ -3038,6 +3076,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
       ) : (
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 12px 12px', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
+          <div className={adminList && lp.density === 'compact' ? 'lt-compact' : undefined} style={{ display: 'contents' }}>
           <ListTable
             bordered={false}
             rowKey={inv => inv.id}
@@ -3051,10 +3090,12 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
               onToggleAll: () => toggleAllInRows(visibleRows),
             }}
             rows={visibleRows}
-            columns={invoiceColumns}
+            columns={invoiceColumnsShown}
+            pageSize={adminList ? lp.pageSize : undefined}
             roundedBottom={false}
             mobileList={invoiceMobileRow}
           />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 16px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderTop: '2px solid var(--border)', borderRadius: '0 0 12px 12px', fontWeight: 700, fontSize: '13px', color: 'var(--text-secondary)', flexWrap: 'wrap', boxShadow: 'var(--shadow-sm)' }}>
             {/* Vänster: ärlig avskärningsrad. Utan den ser en "Visa 30" ut
                 som om företaget bara HADE 30 fakturor. Summan till höger
