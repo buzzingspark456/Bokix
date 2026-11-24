@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Download, Upload, Trash2, Pencil, Check, AlertTriangle, Search, ChevronDown, ChevronRight } from './icons';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -90,6 +90,15 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
   // Prissättning. De två sista behöver företagsdata och bokföring — utan
   // dem (t.ex. demoläget) visas bara registret.
   const [tab, setTab] = useState('articles');
+  // Sidbredd (Smal/Bred) från artikellistans inställningar gäller alla tre flikarna.
+  const readWidth = () => { try { return JSON.parse(localStorage.getItem('bokix.artReg.prefs') || '{}').width === 'narrow' ? 'narrow' : 'wide'; } catch { return 'wide'; } };
+  const [pageWidth, setPageWidth] = useState(readWidth);
+  useEffect(() => {
+    const onPrefs = (e) => setPageWidth(e.detail?.width === 'narrow' ? 'narrow' : 'wide');
+    window.addEventListener('bokix:artprefs', onPrefs);
+    return () => window.removeEventListener('bokix:artprefs', onPrefs);
+  }, []);
+  const widthClass = v2 && pageWidth === 'narrow' ? ' art-w-narrow' : '';
   const [editing, setEditing] = useState(null);
   const [editingOriginal, setEditingOriginal] = useState(null);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -354,18 +363,18 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
       )}
 
       {tab === 'inventory' && setCompanyInfo && (
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className={`art-tab${widthClass}`} style={{ flex: 1, overflowY: 'auto' }}>
           <Inventory articles={articles} invoices={invoices} expenses={expenses} company={company} verifications={verifications} onAddVerification={onAddVerification} setCompanyInfo={setCompanyInfo} onAddArticle={() => { setTab('articles'); setEditing({ ...emptyArticle(), type: 'vara' }); setEditingOriginal(null); setMoreOpen(true); }} />
         </div>
       )}
       {tab === 'pricing' && setCompanyInfo && (
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className={`art-tab${widthClass}`} style={{ flex: 1, overflowY: 'auto' }}>
           <PricingTool articles={articles} setArticles={setArticles} company={company} setCompanyInfo={setCompanyInfo} />
         </div>
       )}
 
       {tab === 'articles' && v2 && (
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <div className={`art-tab${widthClass}`} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
           <ArticlesRegister
             articles={articles} setArticles={setArticles} company={company} setCompanyInfo={setCompanyInfo} invoices={invoices}
             onEdit={startEdit} onNew={startNew}

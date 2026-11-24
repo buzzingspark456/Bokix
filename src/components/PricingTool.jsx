@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Search, X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, TrendingUp, Calculator, Pencil, Percent, Copy } from './icons';
 import ArticleBulkEdit from './ArticleBulkEdit';
+import ChipFilter from './shared/ChipFilter';
 import ArticleCombobox from './shared/ArticleCombobox';
 import { showUndo } from './shared/undoToast';
 import { confirmDialog } from './shared/ConfirmDialog';
@@ -280,13 +281,8 @@ export default function PricingTool({ articles = [], setArticles, company, setCo
                 <input value={q} onChange={e => { setQ(e.target.value); setPage(0); }} placeholder={t('pris.search')} aria-label={t('pris.search')} />
                 {q && <button type="button" onClick={() => setQ('')} aria-label={t('ui.rensa')}><X size={14} /></button>}
               </label>
-              <div className="ar-chips" role="tablist">
-                {[['all', t('artReg.all'), counts.all], ['below', t('ui.under_malet'), counts.below], ['loss', t('ui.saljs_med_forlust'), counts.loss], ['ok', t('ui.nar_malet'), counts.ok], ['no_cost', t('ui.inkopspris_saknas'), counts.no_cost]]
-                  .filter(([id, , n]) => id === 'all' || n > 0 || filter === id)
-                  .map(([id, label, n]) => (
-                    <button key={id} type="button" role="tab" aria-selected={filter === id} className={`ar-chip${filter === id ? ' on' : ''}${id === 'loss' ? ' is-out' : id === 'below' ? ' is-low' : ''}`} onClick={() => { setFilter(id); setPage(0); }}>{label}<span>{n}</span></button>
-                  ))}
-              </div>
+              <ChipFilter label={t('artReg.filter')} value={filter} onChange={(id) => { setFilter(id); setPage(0); }}
+                items={[['all', t('artReg.all'), counts.all], ['below', t('ui.under_malet'), counts.below, 'low'], ['loss', t('ui.saljs_med_forlust'), counts.loss, 'out'], ['ok', t('ui.nar_malet'), counts.ok], ['no_cost', t('ui.inkopspris_saknas'), counts.no_cost]].filter(([id, , n]) => id === 'all' || n > 0 || filter === id)} />
               {raiseTargets.length > 0 && (
                 <div className="pz-raise">
                   <select className="ar-select" value={raiseRound} onChange={e => setRaiseRound(e.target.value)} aria-label={t('pris.rounding')}>

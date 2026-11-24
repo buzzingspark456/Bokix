@@ -1154,3 +1154,55 @@ button.lg-kpi:hover { filter: brightness(1.06); box-shadow: 0 6px 18px rgba(0,0,
 .pz-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 18px; }
 .lg-kpis--plain .lg-kpi-val em { font-style: normal; font-size: 15px; font-weight: 500; margin-left: 5px; color: rgba(255,255,255,.72); }
 @media (max-width: 760px) { .pz-kpis { grid-template-columns: 1fr 1fr; } .pz-kpis .lg-kpi:first-child { grid-column: 1 / -1; } }
+
+/* ── 2026-11-24: en verktygsrad i alla tre flikarna ── */
+.cf-select { display: none; }
+.cf-chips { flex-shrink: 0; flex-wrap: nowrap; }
+.ar .ar-tools, .pz-table .ar-tools { container-type: inline-size; flex-wrap: nowrap; }
+.ar-tools .ar-search { flex: 1 1 220px; min-width: 150px; }
+.ar-tools .ar-select, .ar-tools .ar-gear, .ar-tools .pz-raise { flex-shrink: 0; }
+.ar-tools .pz-raise { width: auto; }
+@container (max-width: 1060px) {
+  .ar-tools .cf-chips { display: none; }
+  .ar-tools .cf-select { display: inline-block; margin-left: 0; }
+}
+@container (max-width: 560px) { .ar-tools .pz-raise .ar-select { display: none; } }
+/* Lager: flikarna på egen rad när det blir trångt, verktygen alltid på en rad */
+.ws-listbar:has(.lg-views) { flex-wrap: wrap; row-gap: 10px; }
+.ws-listbar:has(.lg-views) .lg-listtools { flex-wrap: nowrap; flex: 1 1 520px; justify-content: flex-end; container-type: inline-size; min-width: 0; }
+.lg-listtools .lg-search { flex: 0 1 240px; min-width: 140px; width: auto; }
+.lg-listtools .cf-chips, .lg-listtools .agi-btn { flex-shrink: 0; }
+.po-btn-short { display: none; }
+@container (max-width: 820px) {
+  .lg-listtools .cf-chips { display: none; }
+  .lg-listtools .cf-select { display: inline-block; margin-left: 0; flex-shrink: 0; }
+}
+@container (max-width: 640px) {
+  .lg-listtools .po-btn-text { display: none; }
+  .lg-listtools .po-btn-short { display: inline; }
+}
+/* Inköp: tomt läge */
+.po-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 48px 16px 40px; }
+.po-empty-ic { width: 48px; height: 48px; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; background: var(--bg-muted); color: var(--text-secondary); margin-bottom: 4px; }
+.po-empty strong { font-size: 16px; color: var(--text-main); }
+.po-empty p { margin: 0 0 8px; max-width: 380px; font-size: 13.5px; line-height: 1.5; color: var(--text-secondary); }
+.lg-sync { font-size: 12.5px; color: var(--text-muted); }
+/* Sidbredd Smal i alla flikar */
+.art-w-narrow > .ar, .art-w-narrow > .ws-page { max-width: 1180px; margin-left: auto; margin-right: auto; width: 100%; }
+.art-w-narrow > .ws-page.ws-edge { background: transparent; }
+
+/* ── Siffrorna med svaga färger (2026-11-24): ljus ton, bara talet färgas när något behöver göras ── */
+.lg-kpis--plain .lg-kpi { --kc: var(--status-green-text); background: color-mix(in srgb, var(--kc) 7%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--kc) 20%, var(--bg-card)); box-shadow: none; color: var(--text-main); }
+.lg-kpis--plain .lg-kpi.is-value { --kc: #15803d; }
+.lg-kpis--plain .lg-kpi.is-ok { --kc: #2563eb; }
+.lg-kpis--plain .lg-kpi.is-low { --kc: #d97706; }
+.lg-kpis--plain .lg-kpi.is-out { --kc: #dc2626; }
+.lg-kpis--plain .lg-kpi.is-zero { background: var(--bg-card); border-color: var(--border-light, var(--border)); }
+.lg-kpis--plain .lg-kpi .lg-kpi-label { color: var(--text-secondary); }
+.lg-kpis--plain .lg-kpi .lg-kpi-val { color: var(--text-main); }
+.lg-kpis--plain .lg-kpi.is-low:not(.is-zero) .lg-kpi-val { color: #b45309; }
+.lg-kpis--plain .lg-kpi.is-out:not(.is-zero) .lg-kpi-val { color: var(--status-red-text); }
+.lg-kpis--plain .lg-kpi .lg-kpi-val em { color: var(--text-muted); }
+.lg-kpis--plain button.lg-kpi:hover { filter: none; border-color: color-mix(in srgb, var(--kc) 45%, var(--bg-card)); }
+.lg-kpis--plain .lg-kpi.on { box-shadow: 0 0 0 2px var(--kc); border-color: var(--kc); }
+.ws-listbar:has(.lg-views) .lg-listtools.is-wide { flex-basis: 100%; }

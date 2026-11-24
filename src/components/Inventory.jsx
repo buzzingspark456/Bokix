@@ -9,6 +9,7 @@ import {
 import { downloadInventoryListPdf, downloadInventoryListCsv } from '../utils/inventoryListPdf';
 import { nextPoNumber, poStatus, poTotal, onOrderByArticle, receivePo, matchPurchaseOrder, rowRemaining } from '../utils/purchaseOrders';
 import PurchaseOrderModal, { PO_STATUS_PILL } from './PurchaseOrderModal';
+import ChipFilter from './shared/ChipFilter';
 import { t as tr } from '../i18n';
 import { numberFormat } from '../utils/intlCache';
 import './workspace.css';
@@ -502,11 +503,8 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                       <input type="text" className="ws-input" placeholder={tr('lager.search')} value={search} onChange={e => setSearch(e.target.value)} />
                     </div>
                   )}
-                  <div className="ws-seg">
-                    {[['all', tr('accr.filterAll'), tracked.length], ['instock', tr('lager.inStockPill'), inStock.length], ['low', tr('lager.low'), count('low')], ['out', tr('lager.outOfStock'), count('out')], ...(count('none') ? [['none', tr('lager.untracked'), count('none')]] : [])].map(([id, label, n]) => (
-                      <button key={id} type="button" className={filter === id ? 'on' : ''} onClick={() => { setFilter(id); setGoodsPage(0); }}>{label}<span className="lg-count">{n}</span></button>
-                    ))}
-                  </div>
+                  <ChipFilter label={tr('artReg.filter')} value={filter} onChange={(id) => { setFilter(id); setGoodsPage(0); }}
+                    items={[['all', tr('accr.filterAll'), tracked.length], ['instock', tr('lager.inStockPill'), inStock.length], ['low', tr('lager.low'), count('low'), 'low'], ['out', tr('lager.outOfStock'), count('out'), 'out'], ...(count('none') ? [['none', tr('lager.untracked'), count('none')]] : [])]} />
                 </div>}
                 {view === 'moves' && (
                   <div className="lg-listtools">
@@ -514,24 +512,22 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                       <Search size={14} aria-hidden="true" />
                       <input type="text" className="ws-input" placeholder={tr('lager.searchMoves')} value={moveSearch} onChange={e => setMoveSearch(e.target.value)} />
                     </div>
-                    <div className="ws-seg">
-                      {[['all', tr('accr.filterAll')], ['in', tr('lager.typeIn')], ['out', tr('lager.typeOut')], ['count', tr('lager.typeCount')]].map(([id, label]) => (
-                        <button key={id} type="button" className={moveType === id ? 'on' : ''} onClick={() => setMoveType(id)}>{label}</button>
-                      ))}
-                    </div>
+                    <ChipFilter label={tr('artReg.filter')} value={moveType} onChange={setMoveType}
+                      items={[['all', tr('accr.filterAll'), movements.length], ['in', tr('lager.typeIn'), movements.filter(m => m.type === 'in').length], ['out', tr('lager.typeOut'), movements.filter(m => m.type === 'out').length], ['count', tr('lager.typeCount'), movements.filter(m => m.type === 'count').length]]} />
                   </div>
                 )}
-                {view === 'order' && purchaseOrders.length > 0 && (
-                  <div className="lg-listtools">
-                    <div className="lg-search">
-                      <Search size={14} aria-hidden="true" />
-                      <input type="text" className="ws-input" placeholder={tr('po.search')} value={poSearch} onChange={e => setPoSearch(e.target.value)} />
-                    </div>
-                    <div className="ws-seg">
-                      {[['open', tr('po.fOpen')], ['draft', tr('po.status_draft')], ['ordered', tr('po.fOrdered')], ['done', tr('po.fDone')], ['all', tr('accr.filterAll')]].map(([id, label]) => (
-                        <button key={id} type="button" className={poFilter === id ? 'on' : ''} onClick={() => setPoFilter(id)}>{label}<span className="lg-count">{poCount(id)}</span></button>
-                      ))}
-                    </div>
+                {view === 'order' && (
+                  <div className="lg-listtools is-wide">
+                    {purchaseOrders.length > 0 && <>
+                      <div className="lg-search">
+                        <Search size={14} aria-hidden="true" />
+                        <input type="text" className="ws-input" placeholder={tr('po.search')} value={poSearch} onChange={e => setPoSearch(e.target.value)} />
+                      </div>
+                      <ChipFilter label={tr('artReg.filter')} value={poFilter} onChange={setPoFilter}
+                        items={[['open', tr('po.fOpen'), poCount('open')], ['draft', tr('po.status_draft'), poCount('draft')], ['ordered', tr('po.fOrdered'), poCount('ordered')], ['done', tr('po.fDone'), poCount('done')], ['all', tr('accr.filterAll'), poCount('all')]]} />
+                    </>}
+                    {orderRows.length > 0 && <button type="button" className="agi-btn po-low-btn" onClick={orderLow} title={tr('po.orderLow', { n: orderRows.length })}><Truck size={14} /> <span className="po-btn-text">{tr('po.orderLow', { n: orderRows.length })}</span><span className="po-btn-short">{orderRows.length}</span></button>}
+                    <button type="button" className="agi-btn primary" onClick={() => createPo(null, '')}><Plus size={14} /> <span className="po-btn-text">{tr('po.new')}</span><span className="po-btn-short">{tr('po.newShort')}</span></button>
                   </div>
                 )}
               </div>
@@ -560,18 +556,12 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                 )
               ) : view === 'order' ? (
                 <div className="po-view">
-                  <div className="po-bar">
-                    <div className="po-steps" aria-hidden="true">
-                      <span><b>1</b>{tr('po.step1')}</span><i /><span><b>2</b>{tr('po.step2')}</span><i /><span><b>3</b>{tr('po.step3')}</span>
-                    </div>
-                    <span style={{ flex: 1 }} />
-                    {orderRows.length > 0 && <button type="button" className="agi-btn" onClick={orderLow}><Truck size={14} /> {tr('po.orderLow', { n: orderRows.length })}</button>}
-                    <button type="button" className="agi-btn primary" onClick={() => createPo(null, '')}><Plus size={14} /> {tr('po.new')}</button>
-                  </div>
                   {purchaseOrders.length === 0 ? (
-                    <div className="ws-empty">
+                    <div className="po-empty">
+                      <span className="po-empty-ic" aria-hidden="true"><Truck size={22} /></span>
                       <strong>{tr('po.emptyTitle')}</strong>
                       <p>{tr('po.emptyText')}</p>
+                      <button type="button" className="agi-btn primary" onClick={() => createPo(null, '')}><Plus size={14} /> {tr('po.new')}</button>
                     </div>
                   ) : poRows.length === 0 ? (
                     <p className="ws-hint" style={{ padding: '16px 0' }}>{tr('po.noneHere')}</p>
@@ -677,7 +667,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
               )}
             </>
           )}
-          {settings.stockFromInvoices && (
+          {settings.stockFromInvoices && view === 'goods' && goods.length > 0 && (
             <p className="lg-sync">
               <RefreshCw size={13} aria-hidden="true" />
               {invoiceMovements.length === 0 ? tr('lager.syncNone') : tr('lager.syncSome', { n: invoiceMovements.length })}

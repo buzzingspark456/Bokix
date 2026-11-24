@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { X, Plus, Trash2, Download, Send, Truck, Check } from './icons';
+import { X, Plus, Trash2, Download, Truck, Check } from './icons';
 import { t as tr } from '../i18n';
 import { numberFormat } from '../utils/intlCache';
 import { poStatus, poTotal, rowRemaining } from '../utils/purchaseOrders';
@@ -118,12 +118,6 @@ export default function PurchaseOrderModal({ initial, goods, company, suppliers 
               ? <input id="po-exp" type="date" className="ws-input" value={po.expectedDate || ''} onChange={e => { const v = e.target.value; setPo(p => ({ ...p, expectedDate: v })); if (!editable) onSave({ ...po, expectedDate: v }); }} />
               : <div className="po-static">{po.expectedDate || '–'}</div>}
           </div>
-          {editable && (
-            <div className="po-field">
-              <label className="ws-label" htmlFor="po-mail">{tr('po.supplierEmail')}</label>
-              <input id="po-mail" type="email" className="ws-input" value={po.supplierEmail || ''} onChange={e => setPo(p => ({ ...p, supplierEmail: e.target.value }))} placeholder="order@leverantor.se" />
-            </div>
-          )}
         </div>
 
         <div className="lg-dl-rows po-rows">
@@ -187,8 +181,7 @@ export default function PurchaseOrderModal({ initial, goods, company, suppliers 
           {status !== 'cancelled' && <button type="button" className="agi-btn" onClick={() => { const e = validate(); if (e) return setError(e); downloadPurchaseOrderPdf({ company, po: clean(po), articles: goods }); }}><Download size={14} /> PDF</button>}
           {editable && <>
             <button type="button" className="agi-btn" onClick={saveDraft}>{tr('po.saveDraft')}</button>
-            <button type="button" className="agi-btn" onClick={() => markOrdered(false)}>{tr('po.markOrdered')}</button>
-            <button type="button" className="agi-btn primary" onClick={() => markOrdered(true)}><Send size={14} /> {tr('po.sendMail')}</button>
+            <button type="button" className="agi-btn primary" onClick={() => markOrdered(false)}><Check size={14} /> {tr('po.markOrdered')}</button>
           </>}
           {(status === 'ordered' || status === 'partial') && <button type="button" className="agi-btn primary" onClick={receive}><Truck size={14} /> {tr('po.receive')}</button>}
           {(status === 'received' || status === 'cancelled') && <button type="button" className="agi-btn primary" onClick={onClose}>{tr('lager.done')}</button>}

@@ -6183,17 +6183,18 @@
     "fOrdered": "Beställda",
     "fDone": "Klara",
     "step1": "Skapa",
-    "step2": "Skicka",
+    "step2": "Beställ",
     "step3": "Ta emot",
     "orderLow": "Beställ det som tar slut ({{n}})",
     "draftsMade": "{{n}} utkast skapade, ett per leverantör.",
     "emptyTitle": "Inga inköpsorder än",
-    "emptyText": "Skapa en order, skicka den till leverantören och ta emot varorna när de kommer.",
+    "emptyText": "Skapa en order, ladda ner PDF:en till leverantören och ta emot varorna när de kommer.",
     "noneHere": "Inga order här.",
     "colNumber": "Nr",
     "rowsOne": "1 vara",
     "rowsMany": "{{n}} varor",
-    "searchGood": "Sök vara eller artikelnr"
+    "searchGood": "Sök vara eller artikelnr",
+    "newShort": "Ny"
   },
   "invConfirm": {
     "paidTitle": "Markera som betald?",
@@ -6268,7 +6269,8 @@
     "andMore": "och {{n}} till",
     "applyPrices": "Uppdatera {{n}} priser",
     "pricesUpdated": "{{n}} priser uppdaterades.",
-    "vatShort": "{{n}} % moms"
+    "vatShort": "{{n}} % moms",
+    "filter": "Filter"
   },
   "artEdit": {
     "title": "Redigera {{n}} artiklar",

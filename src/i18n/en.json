@@ -6183,17 +6183,18 @@
     "fOrdered": "Ordered",
     "fDone": "Done",
     "step1": "Create",
-    "step2": "Send",
+    "step2": "Order",
     "step3": "Receive",
     "orderLow": "Order what is running low ({{n}})",
     "draftsMade": "{{n}} drafts created, one per supplier.",
     "emptyTitle": "No purchase orders yet",
-    "emptyText": "Create an order, send it to the supplier and receive the goods when they arrive.",
+    "emptyText": "Create an order, download the PDF for the supplier and receive the goods when they arrive.",
     "noneHere": "No orders here.",
     "colNumber": "No.",
     "rowsOne": "1 item",
     "rowsMany": "{{n}} items",
-    "searchGood": "Search item or item no."
+    "searchGood": "Search item or item no.",
+    "newShort": "New"
   },
   "invConfirm": {
     "paidTitle": "Mark as paid?",
@@ -6268,7 +6269,8 @@
     "andMore": "and {{n}} more",
     "applyPrices": "Update {{n}} prices",
     "pricesUpdated": "{{n}} prices were updated.",
-    "vatShort": "{{n}} % VAT"
+    "vatShort": "{{n}} % VAT",
+    "filter": "Filter"
   },
   "artEdit": {
     "title": "Edit {{n}} items",

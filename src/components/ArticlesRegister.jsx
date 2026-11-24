@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Search, Pencil, Copy, Trash2, X, Download, Percent, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Package, Settings2, Upload, Hash, Tag, CreditCard, Wallet, Truck, Layers, Plus } from './icons';
 import RowActionMenu from './shared/RowActionMenu';
 import ArticleBulkEdit from './ArticleBulkEdit';
+import ChipFilter from './shared/ChipFilter';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { showUndo } from './shared/undoToast';
 import { t } from '../i18n';
@@ -44,6 +45,7 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
   const updatePrefs = (patch) => setPrefs(prev => {
     const next = { ...prev, ...patch, cols: { ...prev.cols, ...(patch.cols || {}) } };
     try { localStorage.setItem(PREFS_KEY, JSON.stringify(next)); } catch { /* privat läge */ }
+    try { window.dispatchEvent(new CustomEvent('bokix:artprefs', { detail: next })); } catch { /* äldre webbläsare */ }
     return next;
   });
   const setPageSize = (n) => updatePrefs({ pageSize: n });
@@ -183,20 +185,14 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
   ].filter(([id, , n]) => id === 'all' || n > 0 || filter === id);
 
   return (
-    <div className={`ar${prefs.density === 'compact' ? ' ar--compact' : ''}${prefs.width === 'narrow' ? ' ar--narrow' : ''}`}>
+    <div className={`ar${prefs.density === 'compact' ? ' ar--compact' : ''}`}>
       <div className="ar-tools">
         <label className="ar-search">
           <Search size={15} aria-hidden="true" />
           <input value={q} onChange={e => { setQ(e.target.value); setPage(0); }} placeholder={t('artReg.search')} aria-label={t('artReg.search')} />
           {q && <button type="button" onClick={() => setQ('')} aria-label={t('ui.rensa')}><X size={14} /></button>}
         </label>
-        <div className="ar-chips" role="tablist">
-          {chips.map(([id, label, n]) => (
-            <button key={id} type="button" role="tab" aria-selected={filter === id} className={`ar-chip${filter === id ? ' on' : ''}${id === 'out' || id === 'low' ? ` is-${id}` : ''}`} onClick={() => setFilterReset(id)}>
-              {label}<span>{n}</span>
-            </button>
-          ))}
-        </div>
+        <ChipFilter label={t('artReg.filter')} value={filter} onChange={setFilterReset} items={chips.map(([id, label, n]) => [id, label, n, id === 'out' || id === 'low' ? id : undefined])} />
         {suppliers.length > 0 && (
           <select className="ar-select" value={supplier} onChange={e => { setSupplier(e.target.value); setPage(0); }} aria-label={t('artReg.supplier')}>
             <option value="">{t('artReg.allSuppliers')}</option>
