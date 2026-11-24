@@ -684,7 +684,8 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
   const handleSave = (requestedStatus = 'draft', extra = {}) => {
     // En faktura som bokförs måste ha kund, beskrivning och belopp (2026-11-24).
     // Förut gick det att bokföra en faktura på 0 kr utan rader eller kund.
-    if (requestedStatus !== 'draft' && (initial?.status || 'draft') === 'draft') {
+    // Bara admin än (2026-11-24), släpps till alla senare.
+    if (isAdminPreview() && requestedStatus !== 'draft' && (initial?.status || 'draft') === 'draft') {
       const missing = [];
       if (!customerId) missing.push(tr('ui.ingen_kund_vald_varning'));
       const utanText = rows.filter(r => !String(r.description || '').trim() && Number(r.unitPrice));

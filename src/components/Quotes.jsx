@@ -333,7 +333,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
       description: article.description || row.description,
       // Artikeln följer med (2026-11-24), så att order och faktura vet vilken
       // vara raden gäller även när två artiklar har samma benämning.
-      articleId: article.id || '', articleNumber: article.articleNumber || '',
+      ...(articleSearch ? { articleId: article.id || '', articleNumber: article.articleNumber || '' } : {}),
       price: article.unitPrice ?? row.price,
       vat: vatExempt ? 0 : (article.vatRate ?? row.vat),
       unit: article.unit ? (article.unit === 'h' ? 'tim' : article.unit) : row.unit,
@@ -1245,7 +1245,7 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
     if (hasOrder(q) && handleGlobalAction) items.push({ key: 'order', label: t('so.openOrder', { n: q.orderNumber || '' }), icon: ClipboardList, onClick: () => handleGlobalAction({ type: 'open_order', payload: { id: q.orderId } }, 'orders') });
     else if (onMakeOrder && st !== 'invoiced' && st !== 'rejected') items.push({ key: 'make-order', label: t('so.makeOrder'), icon: ClipboardList, onClick: (e) => { e?.stopPropagation?.(); onMakeOrder(q.id); } });
     if (st === 'invoiced' && q.invoiceId) items.push({ key: 'invoice', label: t('ui.visa_fakturan'), icon: FileText, onClick: () => openInvoice(q.invoiceId) });
-    else if (onConvert && !hasOrder(q)) items.push({ key: 'convert', label: t('ui.konvertera_till_faktura'), icon: FileText, onClick: (e) => handleConvert(q, e) });
+    else if (onConvert && !hasOrder(q)) items.push({ key: 'convert', label: onMakeOrder ? t('ui.konvertera_till_faktura') : t('ui.skapa_faktura'), icon: FileText, onClick: (e) => handleConvert(q, e) });
     items.push({ key: 'copy', label: t('ui.q_kopiera'), icon: Copy, onClick: () => duplicateQuote(q) });
     if (st === 'draft') { items.push({ divider: true }); items.push({ key: 'sent', label: t('ui.markera_som_skickad'), icon: Send, onClick: (e) => setQuoteStatus(q, 'sent', e) }); }
     items.push({ divider: true });
