@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Pencil, Copy, Trash2, X, Download, Percent, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Package, Settings2, Upload, Hash, Tag, CreditCard, Wallet, Truck, Layers, Plus } from './icons';
 import RowActionMenu from './shared/RowActionMenu';
 import ArticleBulkEdit from './ArticleBulkEdit';
@@ -297,7 +298,7 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
         </>
       )}
 
-      {settingsOpen && (
+      {settingsOpen && createPortal(
         <div className="ar-set-overlay" onClick={() => setSettingsOpen(false)}>
           <aside className="ar-set" onClick={e => e.stopPropagation()} aria-label={t('artSet.title')}>
             <div className="ar-set-head">
@@ -347,7 +348,8 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
               </div>
             </div>
           </aside>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {bulkEdit && (

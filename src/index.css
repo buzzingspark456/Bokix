@@ -11414,3 +11414,7 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .ut-settings .ut-sx-main { flex: 1; min-width: 0; }
 .ut-settings > .ut-sx { width: 100%; box-sizing: border-box; }
 .ut-settings .ut-sx > .ut-sx-main { max-width: none !important; width: 100%; justify-self: stretch; }
+/* Inställningspanelen: sidan syns bakom, panelen till höger (2026-11-25) */
+.ar-set-overlay { background: rgba(15, 23, 42, .10) !important; max-width: none !important; margin: 0 !important; width: auto !important; }
+:root[data-theme="dark"] .ar-set-overlay { background: rgba(0, 0, 0, .28) !important; }
+.ar-set { box-shadow: -12px 0 40px rgba(0,0,0,.14); }

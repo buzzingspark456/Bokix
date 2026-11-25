@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Settings2 } from '../icons';
 import { t } from '../../i18n';
 
@@ -47,7 +48,8 @@ export function ListSettingsButton({ onClick, className = '' }) {
  */
 export default function ListSettings({ open, onClose, actions = [], columns = [], prefs, onChange, showWidth = true }) {
   if (!open) return null;
-  return (
+  // I en portal (2026-11-25): Smal sidbredd centrerade annars panelen med sidan.
+  return createPortal(
     <div className="ar-set-overlay" onClick={onClose}>
       <aside className="ar-set" onClick={e => e.stopPropagation()} aria-label={t('artSet.title')}>
         <div className="ar-set-head">
@@ -102,6 +104,7 @@ export default function ListSettings({ open, onClose, actions = [], columns = []
           </div>
         </div>
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }
