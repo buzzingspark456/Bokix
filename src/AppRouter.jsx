@@ -18,6 +18,7 @@ import { getAuthStorage, isStandaloneApp, rememberUntil, setRememberUntil } from
 // anrop som innan, bara i en annan fil. ──
 const FeaturesPage = lazy(() => import('./components/marketing/FeaturesPage'));
 const PricingPage = lazy(() => import('./components/marketing/PricingPage'));
+const PlansPreviewPage = lazy(() => import('./components/marketing/PlansPreviewPage'));
 const AboutPage = lazy(() => import('./components/marketing/AboutPage'));
 const RulesPage = lazy(() => import('./components/marketing/RulesPage'));
 const ContactPage = lazy(() => import('./components/marketing/ContactPage'));
@@ -354,6 +355,8 @@ export default function AppRouter() {
             går alltid till "/" oavsett vilken av dessa man står på. */}
         <Route path="/funktioner" element={<Suspense fallback={<AppLoadingFallback />}><FeaturesPage /></Suspense>} />
         <Route path="/priser" element={<Suspense fallback={<AppLoadingFallback />}><PricingPage /></Suspense>} />
+        {/* Förhandsvisning av planerna efter AB (2026-11-25), bara lokalt. */}
+        {import.meta.env.DEV && <Route path="/planer-forslag" element={<Suspense fallback={<AppLoadingFallback />}><PlansPreviewPage /></Suspense>} />}
         <Route path="/om-oss" element={<Suspense fallback={<AppLoadingFallback />}><AboutPage /></Suspense>} />
         <Route path="/belopp-och-regler" element={<Suspense fallback={<AppLoadingFallback />}><RulesPage /></Suspense>} />
         <Route path="/kontakt" element={<Suspense fallback={<AppLoadingFallback />}><ContactPage /></Suspense>} />
