@@ -310,6 +310,11 @@ export async function hasPaidAccess(admin, userId, knownUser = null) {
   let user = knownUser;
   if (!user) {
     const { data, error } = await admin.auth.admin.getUserById(userId);
+    // Kontot finns inte (raderat): aldrig åtkomst. Annars skickade
+    // påminnelsecronen mejl för kvarlämnade rader i user_data (2026-11-23).
+    if (error && (error.status === 404 || error.code === 'user_not_found' || /user not found/i.test(error.message || ''))) {
+      return false;
+    }
     if (error) {
       console.warn('hasPaidAccess: kunde inte läsa kontot, släpper igenom.', error.message);
       return true;
