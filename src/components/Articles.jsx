@@ -82,7 +82,7 @@ const emptyArticle = () => ({
  * anta att id eller artikelnr finns — funkar därför även för gamla poster
  * som sparades innan `id` fanns.
  */
-export default function Articles({ articles = [], setArticles, accounts = [], company, verifications = [], invoices = [], expenses = [], onAddVerification, setCompanyInfo, v2 = false }) {
+export default function Articles({ articles = [], setArticles, accounts = [], company, verifications = [], invoices = [], expenses = [], onAddVerification, setCompanyInfo, v2 = false, tradeIncluded = true }) {
   // Nya Lager och Prissättning bara för admin än så länge (2026-11-22).
   const Inventory = v2 ? InventoryNew : InventoryLegacy;
   const PricingTool = v2 ? PricingToolNew : PricingToolLegacy;
@@ -340,12 +340,12 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
   return (
     <div className={v2 && pageWidth === 'narrow' ? 'lt-page-narrow' : undefined} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
-        title={t('nav.articles')}
-        tabs={setCompanyInfo ? {
+        title={tradeIncluded ? t('nav.articles') : t('nav.articlesOnly')}
+        tabs={setCompanyInfo && tradeIncluded ? {
           items: [{ id: 'articles', label: t('ui.artiklar') }, { id: 'inventory', label: t('ui.lager') }, { id: 'pricing', label: t('ui.prissattning') }],
           activeId: tab, onChange: setTab,
         } : undefined}
-        actions={tab !== 'articles' ? [] : [
+        actions={tab !== 'articles' && tradeIncluded ? [] : [
           // Admin: Importera och Exportera finns i listans inställningar (2026-11-24).
           ...(v2 ? [] : [
             { label: t('ui.exportera'), icon: Download, onClick: handleExportCsv, variant: 'secondary' },
@@ -366,23 +366,23 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
         <ArticleImportPreview {...importPreview} existing={articles} onConfirm={applyImport} onCancel={() => setImportPreview(null)} />
       )}
 
-      {tab === 'inventory' && setCompanyInfo && (
+      {tradeIncluded && tab === 'inventory' && setCompanyInfo && (
         <div className={`art-tab${widthClass}`} style={{ flex: 1, overflowY: 'auto' }}>
           <Inventory articles={articles} invoices={invoices} expenses={expenses} company={company} verifications={verifications} onAddVerification={onAddVerification} setCompanyInfo={setCompanyInfo} onAddArticle={() => { setTab('articles'); setEditing({ ...emptyArticle(), type: 'vara' }); setEditingOriginal(null); setMoreOpen(true); }} />
         </div>
       )}
-      {tab === 'pricing' && setCompanyInfo && (
+      {tradeIncluded && tab === 'pricing' && setCompanyInfo && (
         <div className={`art-tab${widthClass}`} style={{ flex: 1, overflowY: 'auto' }}>
           <PricingTool articles={articles} setArticles={setArticles} company={company} setCompanyInfo={setCompanyInfo} />
         </div>
       )}
 
-      {tab === 'articles' && v2 && (
+      {(tab === 'articles' || !tradeIncluded) && v2 && (
         <div className={`art-tab${widthClass}`} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
           <ArticlesRegister
             articles={articles} setArticles={setArticles} company={company} setCompanyInfo={setCompanyInfo} invoices={invoices}
             onEdit={startEdit} onNew={startNew}
-            onDuplicate={(a) => { setEditing({ ...emptyArticle(), ...a, id: undefined, articleNumber: v2 ? nextArticleNumber(articles) : '', description: `${a.description} ${t('artReg.copySuffix')}` }); setEditingOriginal(null); setMoreOpen(true); }} onImport={handleImportClick} onExport={handleExportCsv} />
+            onDuplicate={(a) => { setEditing({ ...emptyArticle(), ...a, id: undefined, articleNumber: v2 ? nextArticleNumber(articles) : '', description: `${a.description} ${t('artReg.copySuffix')}` }); setEditingOriginal(null); setMoreOpen(true); }} onImport={handleImportClick} onExport={handleExportCsv} showStock={tradeIncluded} />
         </div>
       )}
       {tab === 'articles' && !v2 && <ListFilterBar count={filtered.length} countLabel={filtered.length === 1 ? t('ui.artikel_2') : t('ui.artiklar_2')}>

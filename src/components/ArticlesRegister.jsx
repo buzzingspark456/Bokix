@@ -32,7 +32,7 @@ const marginOf = (a) => {
   return p > 0 && c > 0 ? ((p - c) / p) * 100 : null;
 };
 
-export default function ArticlesRegister({ articles = [], setArticles, company, setCompanyInfo, invoices = [], onEdit, onNew, onDuplicate, onImport, onExport }) {
+export default function ArticlesRegister({ articles = [], setArticles, company, setCompanyInfo, invoices = [], onEdit, onNew, onDuplicate, onImport, onExport, showStock = true }) {
   // Redigera priser från inställningarna: alla artiklar i listan som visas.
   const [bulkItems, setBulkItems] = useState(null);
   const [q, setQ] = useState('');
@@ -58,6 +58,8 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
   // Lagersaldo per vara, som i Lager-fliken.
   const stock = useMemo(() => {
     const settings = { method: 'avg', reorderPoints: {}, ...(company?.inventorySettings || {}) };
+    // Utan Handel-planen visas inget lager i registret (2026-11-25).
+    if (!showStock) return { byId: new Map(), any: false };
     const manual = company?.stockMovements || [];
     const fromInvoices = settings.stockFromInvoices ? deriveInvoiceMovements({ invoices, articles, movements: manual, since: settings.stockFromInvoicesSince || null }) : [];
     const movements = [...manual, ...fromInvoices];
@@ -65,7 +67,7 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
     const val = valuateInventory({ articles, movements, method: settings.method, applyLowestValue: settings.lowestValue !== false });
     const byId = new Map(val.lines.map(l => [l.articleId, { qty: l.qty, value: l.bookValue }]));
     return { byId, any: true, reorder: settings.reorderPoints || {}, locations: settings.locations || {} };
-  }, [company?.inventorySettings, company?.stockMovements, invoices, articles]);
+  }, [company?.inventorySettings, company?.stockMovements, invoices, articles, showStock]);
 
   const keyOf = (a) => a.id || a.articleNumber || a.description;
   // Bara varor som haft lager eller har en beställningspunkt får saldo och
@@ -353,7 +355,7 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
       )}
 
       {bulkEdit && (
-        <ArticleBulkEdit items={bulkItems || pickedList} keyOf={keyOf} focusPrices={bulkEdit.focusPrices} onSave={saveBulk} onClose={() => { setBulkEdit(null); setBulkItems(null); }} stockOf={(a) => (setCompanyInfo && a.type === 'vara' ? (stock.byId.get(a.id)?.qty ?? 0) : null)} />
+        <ArticleBulkEdit items={bulkItems || pickedList} keyOf={keyOf} focusPrices={bulkEdit.focusPrices} onSave={saveBulk} onClose={() => { setBulkEdit(null); setBulkItems(null); }} stockOf={(a) => (showStock && setCompanyInfo && a.type === 'vara' ? (stock.byId.get(a.id)?.qty ?? 0) : null)} />
       )}
     </div>
   );

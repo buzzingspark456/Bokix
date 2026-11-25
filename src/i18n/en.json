@@ -23,7 +23,8 @@
     "groupBusiness": "Money in",
     "groupFinance": "Money out",
     "groupReports": "Financial overview",
-    "orders": "Orders"
+    "orders": "Orders",
+    "articlesOnly": "Items"
   },
   "navShort": {
     "dashboard": "Home",

@@ -11418,3 +11418,9 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .ar-set-overlay { background: rgba(15, 23, 42, .10) !important; max-width: none !important; margin: 0 !important; width: auto !important; }
 :root[data-theme="dark"] .ar-set-overlay { background: rgba(0, 0, 0, .28) !important; }
 .ar-set { box-shadow: -12px 0 40px rgba(0,0,0,.14); }
+
+/* Planväljare i förhandsvisningen (bara lokalt) */
+.dev-plan { position: fixed; right: 16px; bottom: 16px; z-index: 900; display: flex; align-items: center; gap: 2px; padding: 4px 4px 4px 12px; border-radius: 99px; background: #1f2329; color: #fff; font-size: 12.5px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+.dev-plan > span { margin-right: 6px; opacity: .7; }
+.dev-plan button { border: none; background: none; color: #fff; font: inherit; font-weight: 600; padding: 6px 12px; border-radius: 99px; cursor: pointer; opacity: .75; }
+.dev-plan button.on { background: #0b6329; opacity: 1; }

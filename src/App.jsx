@@ -50,7 +50,7 @@ import { grossInvoiceAmount } from './utils/reportCalculations';
 import { calcRotRutDeduction, invoiceCustomerDue, invoiceCustomerRemaining } from './utils/rotRutConfig';
 import { applyCreditNotes } from './utils/creditNotes';
 import { mergeImportedEmployees } from './utils/employeeCsv';
-import { planFromId, planIncludesPayroll } from './utils/plans';
+import { planFromId, planIncludesPayroll, planIncludesTrade } from './utils/plans';
 import { detectOrgType } from './utils/orgType';
 import { ownerPaidAccount } from './utils/paidBy';
 import { buildSpreadStart } from './utils/accrualSpread';
@@ -5984,13 +5984,21 @@ function App() {
   ];
   // Telefonens Meny har samma grupper som sidomenyn på datorn, utan det som redan
   // finns i bottenraden (se visibleMobileSheetSections).
+  // Planerna (2026-11-25, bara admin än): man får det man betalar för. Bas utan
+  // lön och handel, Personal med lön, Handel med allt. Lokalt kan planen
+  // väljas i förhandsvisningen (bokix.devPlan) för att se skillnaden.
+  const devPlan = import.meta.env.DEV ? (() => { try { return localStorage.getItem('bokix.devPlan'); } catch { return null; } })() : null;
+  const activePlanId = devPlan || (subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan;
+  const tradeIncluded = !newUnderlagOn || planIncludesTrade(activePlanId);
+  const payrollIncludedPlan = !newUnderlagOn || planIncludesPayroll(activePlanId);
+  const articlesNavLabel = tradeIncluded ? t('nav.articles') : t('nav.articlesOnly');
   const mobileSheetSections = [
     { key: 'business', title: t('nav.groupBusiness'), items: [
       { id: 'contacts', label: t('nav.contacts'), icon: Users },
       { id: 'quotes', label: t('nav.quotes'), icon: NavQuotesIcon, exact: true },
       { id: 'orders', label: t('nav.orders'), icon: ClipboardList, exact: true },
       { id: 'invoices', label: t('nav.customerInvoices'), icon: NavCustomerInvoicesIcon, exact: true },
-      { id: 'articles', label: t('nav.articles'), icon: Package, exact: true },
+      { id: 'articles', label: articlesNavLabel, icon: Package, exact: true },
       { id: 'projects', label: t('nav.projects'), icon: Briefcase },
     ] },
     { key: 'finance', title: t('nav.groupFinance'), items: [
@@ -6019,8 +6027,8 @@ function App() {
   // sidan finns kvar. Kollas på menyvalets eget id, eftersom Artiklar
   // delar behörighet med Kundfakturor (navAccessId).
   // Order syns bara för admin med artiklar påslaget (senare: Handel-planen).
-  const ordersOn = newUnderlagOn && isFeatureOn(currentCompany, 'articles');
-  const featureHiddenNavIds = [...hiddenFeatureNavIds(currentCompany), ...(ordersOn ? [] : ['orders'])];
+  const ordersOn = newUnderlagOn && isFeatureOn(currentCompany, 'articles') && tradeIncluded;
+  const featureHiddenNavIds = [...hiddenFeatureNavIds(currentCompany), ...(ordersOn ? [] : ['orders']), ...(payrollIncludedPlan ? [] : ['payroll'])];
   const isNavItemShown = (item) => !featureHiddenNavIds.includes(item.id) && isNavIdAllowed(navAccessId(item.id));
   // Offerter, Kundfakturor, Artiklar och Leverantörsfakturor markeras bara på sin egen sida.
   const isNavItemActive = (item) => (item.exact
@@ -6384,7 +6392,7 @@ function App() {
         if (!ordersOn) return null;
         return <Orders key={company?.id || data.activeCompanyId} activeCompanyId={data.activeCompanyId} onSyncBeforeServerCall={syncUserDataNow} company={company} setCompanyInfo={setCompanyInfo} articles={articles} contacts={contacts} invoices={invoices} onCreateContact={handleCreateContactFromOrder} onCreateInvoice={handleInvoiceFromOrder} onOpenInvoice={(id) => handleGlobalAction({ type: 'open_invoice', payload: { id } }, 'invoices')} onOpenQuote={(id) => handleGlobalAction({ type: 'open_quote', payload: { id } }, 'quotes')} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} />;
       case 'articles':
-        return <Articles key={company?.id || data.activeCompanyId} articles={articles} setArticles={setArticles} accounts={accounts} company={company} verifications={verifications} invoices={invoices} expenses={expenses} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} v2={newUnderlagOn} />;
+        return <Articles key={company?.id || data.activeCompanyId} articles={articles} setArticles={setArticles} accounts={accounts} company={company} verifications={verifications} invoices={invoices} expenses={expenses} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} v2={newUnderlagOn} tradeIncluded={tradeIncluded} />;
       case 'projects':
         return (
           <ProjectsView
@@ -6702,6 +6710,16 @@ function App() {
 
               {/* ── Sidebar overlay (mobil) ── */}
 
+      {/* Planväljare, bara lokalt (2026-11-25): se vad Bas, Personal och Handel ger. */}
+      {import.meta.env.DEV && newUnderlagOn && (
+        <div className="dev-plan" role="group" aria-label="Förhandsvisa plan">
+          <span>Plan</span>
+          {[['solo_monthly', 'Bas'], ['employer_monthly', 'Personal'], ['trade_monthly', 'Handel']].map(([id, label]) => (
+            <button key={id} type="button" className={activePlanId === id ? 'on' : undefined}
+              onClick={() => { try { localStorage.setItem('bokix.devPlan', id); } catch { /* privat läge */ } window.location.reload(); }}>{label}</button>
+          ))}
+        </div>
+      )}
       {sidebarOpen && (
         <div
           className="sidebar-overlay visible"
@@ -6750,7 +6768,7 @@ function App() {
                 { id: 'quotes', label: t('nav.quotes'), short: t('navShort.quotes'), icon: NavQuotesIcon, exact: true },
                 { id: 'orders', label: t('nav.orders'), short: t('navShort.orders'), icon: ClipboardList, exact: true },
                 { id: 'invoices', label: t('nav.customerInvoices'), short: t('navShort.invoices'), icon: NavCustomerInvoicesIcon, exact: true },
-                { id: 'articles', label: t('nav.articles'), short: t('navShort.articles'), icon: Package, exact: true },
+                { id: 'articles', label: articlesNavLabel, short: t('navShort.articles'), icon: Package, exact: true },
                 { id: 'projects', label: t('nav.projects'), short: t('navShort.projects'), icon: Briefcase },
               ],
             },

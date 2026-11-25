@@ -23,7 +23,8 @@
     "groupBusiness": "Pengar in",
     "groupFinance": "Pengar ut",
     "groupReports": "Koll på ekonomin",
-    "orders": "Order"
+    "orders": "Order",
+    "articlesOnly": "Artiklar"
   },
   "navShort": {
     "dashboard": "Start",

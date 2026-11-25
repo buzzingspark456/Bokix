@@ -76,8 +76,21 @@ export const BILLING_INTERVALS = [
   { id: 'yearly', label: 'Årsplan' },
 ];
 
+/** Handel (2026-11-25, förhandsvisning): ligger utanför PLAN_TIERS så att den
+ * inte syns på prissidan eller i planvalet förrän den släpps. Allt i Personal,
+ * plus order, lager, inköp och prissättning. */
+export const TRADE_TIER = {
+  id: 'trade',
+  name: 'Handel',
+  subtitle: 'För dig som säljer varor',
+  monthlyPrice: 299,
+  yearlyMonthlyPrice: 259,
+  includesPayroll: true,
+  includesTrade: true,
+};
+
 export function getTier(tierId) {
-  return PLAN_TIERS.find(t => t.id === tierId) || null;
+  return PLAN_TIERS.find(t => t.id === tierId) || (tierId === TRADE_TIER.id ? TRADE_TIER : null);
 }
 
 /**
@@ -105,6 +118,7 @@ export function resolvePlan(tierId, intervalId = 'monthly') {
     name: tier.name,
     subtitle: tier.subtitle,
     includesPayroll: tier.includesPayroll,
+    includesTrade: Boolean(tier.includesTrade),
     // Månadsvis debitering oavsett plan — årsplanen är ett lägre pris och en
     // minsta avtalstid, inte en årsfaktura.
     stripeInterval: 'month',
@@ -144,6 +158,15 @@ export function planFromId(planId) {
 export function planIncludesPayroll(planId) {
   const plan = planFromId(planId);
   return plan ? plan.includesPayroll : true;
+}
+
+/**
+ * Ingår order, lager, inköp och prissättning (Handel)? Saknad plan ger true av
+ * samma skäl som planIncludesPayroll: äldre konton behåller det de har.
+ */
+export function planIncludesTrade(planId) {
+  const plan = planFromId(planId);
+  return plan ? plan.includesTrade : true;
 }
 
 /**
