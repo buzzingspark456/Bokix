@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { SALES_ACCOUNT_BY_RATE } from '../utils/vatConfig';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { isVatExempt } from '../utils/vatRegistration';
 import { foreignSaleRegion, rowsForCustomer } from '../utils/foreignSales';
@@ -11,6 +12,7 @@ import {
   ZoomIn, ZoomOut, Pencil, Copy, CheckCircle2, Undo2, Sparkles, SlidersHorizontal } from './icons';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import PaperFit from './shared/PaperFit';
+import ArticleCombobox from './shared/ArticleCombobox';
 import DocSplit from './shared/DocSplit';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
 import { exportInvoicePdf, getInvoicePdfBase64, printInvoicePdf } from '../utils/exportInvoicePdf';
@@ -19,6 +21,8 @@ import { BRAND } from '../utils/brandColors';
 import { getNextInvoiceNumber } from '../utils/invoiceNumbering';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { showUndo, restoreAt } from './shared/undoToast';
+import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
+import { downloadCsv } from '../utils/csvRegister';
 import ListPageHeader, { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle, PAGE_SIZE_OPTIONS } from './shared/ListPageHeader';
 import RowActionMenu from './shared/RowActionMenu';
 import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, STRONG_DRAFT, STATUS_PILL, getRowBg } from './shared/invoiceStatusStyle';
@@ -36,13 +40,14 @@ import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import { grossInvoiceAmount as grossOf } from '../utils/reportCalculations';
 import { hasSeenInvoiceTour, startInvoiceTour } from '../utils/invoiceTour';
 import { waitForElement } from '../utils/productTour';
-import { ROT_RUT_RATES, ROT_RUT_COMBINED_CAP, calcRotRutDeduction, invoiceCustomerRemaining } from '../utils/rotRutConfig';
+import { ROT_RUT_RATES, ROT_RUT_COMBINED_CAP, calcRotRutDeduction, invoiceCustomerRemaining, rotRutUsedThisYear, rotRutRoom } from '../utils/rotRutConfig';
 import { workTypesFor, RUT_FLAT_RATE_TYPES } from '../utils/rotRutRequest';
 import RotRutRequestModal from './RotRutRequestModal';
 import { t as tr, dateLocale } from '../i18n';
 import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 import { captureEvent } from '../utils/posthog';
 import { sendableEmail } from '../utils/validators';
+import { isAdminPreview } from '../utils/adminPreview';
 
 const newRowId = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `row_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 // Samma enheter som på offertraderna (Quotes.jsx), "st" som förval.
@@ -206,7 +211,7 @@ function InvoiceMobileSummary({ invoice, customerName, nextNum, ocr, totals, cus
     ...(verificationNumber ? [[tr('ui.verifikation'), verificationNumber]] : []),
   ];
   const actions = [
-    { icon: <Send size={18} />, label: emailBusy ? 'Skickar…' : (emailSent ? `${tr('ui.isum_skicka')} · ${tr('ui.isum_skickad').toLowerCase()}` : tr('ui.isum_skicka')), onClick: onEmail, disabled: emailBusy },
+    { icon: <Send size={18} />, label: emailBusy ? tr('ui.skickar') : (emailSent || invoice?.emailLog?.length ? tr('ui.skicka_igen') : tr('ui.isum_skicka')), onClick: onEmail, disabled: emailBusy },
     { icon: <Download size={18} />, label: pdfBusy ? tr('ui.skapar_pdf') : tr('ui.isum_dela_pdf'), onClick: onPdf, disabled: pdfBusy },
     { icon: <Eye size={18} />, label: tr('ui.forhandsgranska'), onClick: onPreview },
     { icon: <MessageSquare size={18} />, label: tr('ui.isum_kommentar'), onClick: onComment },
@@ -273,7 +278,7 @@ function InvoiceMobileSummary({ invoice, customerName, nextNum, ocr, totals, cus
   );
 }
 
-function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onRegisterPayment, onUnmarkPaid, onUpdateNote, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles, projects = [], onSyncBeforeServerCall }) {
+function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose, initial, prefill, company, invoiceList, onCreateCreditNote, onRegisterPayment, onUnmarkPaid, onUpdateNote, onMarkEmailed, verifications = [], nav, onGetPaymentLinkUrl, articles = [], setArticles, projects = [], onSyncBeforeServerCall, articleSearch = false }) {
   // En bokförd faktura (allt utom utkast) får inte längre ändra belopp/rader/kund —
   // korrigeringar sker via kreditfaktura. Datum och kommentar går fortfarande att ändra.
   const isLocked = Boolean(initial) && (initial.status || 'draft') !== 'draft';
@@ -344,7 +349,9 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
   const [rotRutProperty, setRotRutProperty] = useState(initial?.rotRutProperty || '');
   const [rotRutBrfOrgNr, setRotRutBrfOrgNr] = useState(initial?.rotRutBrfOrgNr || '');
   const [rotRutApartment, setRotRutApartment] = useState(initial?.rotRutApartment || '');
-  const [invoiceType, setInvoiceType] = useState('Faktura');
+  // Kontantfaktura (2026-11-24, alla sedan 2026-11-25): sparas och bokförs som betald när
+  // fakturan lämnar utkastläget (App.jsx settleCashSale). Förut sparades valet inte.
+  const [invoiceType, setInvoiceType] = useState(initial?.cashSale ? 'Kontantfaktura' : 'Faktura');
   const [terms, setTerms] = useState('30 dagar');
   // Bugkritiskt: sparades tidigare aldrig med på fakturan (se handleSave
   // nedan) — valde man EUR i rullistan låg det bara i denna komponentens
@@ -506,7 +513,10 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
   // en kund som bytt typ i efterhand — visar hellre en tydlig varning än
   // att tyst rensa bort ett val som redan sparats på fakturan.
   const customerIsIndividual = customer?.customerType === 'se_individual';
-  const rotRut = calcRotRutDeduction(rotRutType, rows);
+  // Taket per kund och år: det kunden redan fått på andra fakturor i år.
+  const rotRutUsed = rotRutUsedThisYear(invoiceList, { customerId, year: String(invoiceDate || '').slice(0, 4), excludeId: initial?.id });
+  const rotRutCap = ['rot', 'rut'].includes(rotRutType) ? rotRutRoom(rotRutUsed, rotRutType) : undefined;
+  const rotRut = calcRotRutDeduction(rotRutType, rows, rotRutCap);
   const amountAfterRotRut = totals.total - rotRut.deduction;
   const customerHasPersonnummer = Boolean(customer?.orgNr?.trim());
 
@@ -639,9 +649,13 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
   };
 
   const openEmailCompose = () => {
-    const to = emailToInput.trim();
-    if (!to) { setEmailError(tr('ui.ange_en_mottagaradress')); return; }
-    if (!sendableEmail(to)) { setEmailError(tr('ui.det_dar_ser_inte_ut_som_en_giltig_e_postadress')); return; }
+    // En ny faktura sparas först när mejlet gått: saknas växelkursen går den
+    // inte att spara, så den får inte heller skickas.
+    if (!initial && currency !== 'SEK' && !(Number(String(fxRate).replace(',', '.')) > 0)) {
+      setFxStatus(tr('ui.fyll_i_vaxelkursen_for_fakturan_bokfors_i_kronor', { currency }));
+      return;
+    }
+    // Adressen fylls i och kontrolleras i rutan (2026-11-20), inte i verktygsraden.
     let sparad = '';
     try { sparad = window.localStorage.getItem(messageStorageKey) || ''; } catch { /* privat läge */ }
     setEmailMessage(sparad || defaultEmailMessage());
@@ -656,8 +670,9 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
   };
 
   const rotRutFields = () => (rotRutType === 'none'
-    ? { rotRutWorkType: undefined, rotRutHours: undefined, rotRutProperty: undefined, rotRutBrfOrgNr: undefined, rotRutApartment: undefined }
+    ? { rotRutCap: undefined, rotRutWorkType: undefined, rotRutHours: undefined, rotRutProperty: undefined, rotRutBrfOrgNr: undefined, rotRutApartment: undefined }
     : {
+        rotRutCap,
         rotRutWorkType: workTypesFor(rotRutType).includes(rotRutWorkType) ? rotRutWorkType : undefined,
         rotRutHours: rotRutHours === '' ? undefined : Number(rotRutHours),
         rotRutProperty: rotRutType === 'rot' ? rotRutProperty.trim() || undefined : undefined,
@@ -665,7 +680,23 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
         rotRutApartment: rotRutType === 'rot' ? rotRutApartment.trim() || undefined : undefined,
       });
 
-  const handleSave = (status = 'draft') => {
+  const [saveError, setSaveError] = useState('');
+  const handleSave = (requestedStatus = 'draft', extra = {}) => {
+    // En faktura som bokförs måste ha kund, beskrivning och belopp (2026-11-24).
+    // Förut gick det att bokföra en faktura på 0 kr utan rader eller kund.
+    // Gäller alla sedan 2026-11-25.
+    if (requestedStatus !== 'draft' && (initial?.status || 'draft') === 'draft') {
+      const missing = [];
+      if (!customerId) missing.push(tr('ui.ingen_kund_vald_varning'));
+      const utanText = rows.filter(r => !String(r.description || '').trim() && Number(r.unitPrice));
+      if (utanText.length) missing.push(utanText.length === 1 ? tr('ui.en_rad_saknar_beskrivning') : tr('ui.rader_saknar_beskrivning', { n: utanText.length }));
+      if (!rows.some(r => (Number(r.qty) || 0) * (Number(r.unitPrice) || 0) !== 0)) missing.push(rows.some(r => String(r.description || '').trim()) ? tr('lset.noAmount') : tr('ui.fakturan_har_inga_rader'));
+      if (missing.length) { setSaveError(missing.join(' ')); return; }
+    }
+    setSaveError('');
+    // Skickade och betalda fakturor behåller sin status när de sparas
+    // (kommentar m.m.); förut blev en betald faktura obetald av Spara.
+    const status = initial?.status && initial.status !== 'draft' ? initial.status : requestedStatus;
     const rate = Number(String(fxRate).replace(',', '.'));
     if (currency !== 'SEK' && !(rate > 0)) {
       setFxStatus(tr('ui.fyll_i_vaxelkursen_for_fakturan_bokfors_i_kronor', { currency }));
@@ -675,7 +706,7 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
     // "Spara"-knapp) så en kommentar man skrivit på en NY, ännu osparad
     // faktura faktiskt följer med — annars gick den förlorad eftersom
     // Kommentar-knappen tidigare var helt avstängd innan första sparningen.
-    onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, projectId: projectId || undefined, priceInclVat, rotRutType: rotRutType !== 'none' && currency === 'SEK' ? rotRutType : undefined, ...(currency === 'SEK' ? rotRutFields() : {}), internalNote: commentDraft, invoiceTemplateSnapshot, currency, fxRate: currency !== 'SEK' ? rate : undefined });
+    onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, projectId: projectId || undefined, priceInclVat, rotRutType: rotRutType !== 'none' && currency === 'SEK' ? rotRutType : undefined, ...(currency === 'SEK' ? rotRutFields() : {}), internalNote: commentDraft, invoiceTemplateSnapshot, currency, fxRate: currency !== 'SEK' ? rate : undefined, cashSale: invoiceType === 'Kontantfaktura', ...extra });
   };
 
   const handlePrint = async () => {
@@ -786,7 +817,11 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
       captureEvent('faktura_skickad');
       // Precis som "✓ Skapa faktura"-knappen — ett utkast som faktiskt
       // skickas till kunden är per definition inte längre ett utkast.
-      if ((initial?.status || 'draft') === 'draft') handleSave('sent');
+      // Mejlutskicket sparas på fakturan (2026-11-14): visas i historiken
+      // och gör det möjligt att se hur ofta fakturor mejlas från Bokix.
+      const emailEntry = { at: new Date().toISOString(), to };
+      if ((initial?.status || 'draft') === 'draft') handleSave('sent', { emailLog: [...(initial?.emailLog || []), emailEntry] });
+      else if (initial?.id) onMarkEmailed?.(initial.id, emailEntry);
     } catch (err) {
       console.error(err);
       setEmailError(err.message || tr('ui.kunde_inte_skicka_e_post'));
@@ -853,7 +888,8 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
           </div>
         )}
 
-        <div className="mform-head-actions" style={{ display: 'flex', gap: '8px' }}>
+        <div className="mform-head-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {saveError && <span role="alert" style={{ maxWidth: '420px', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-red-text)' }}>{saveError}</span>}
           <button type="button" data-tour="page-invoices-cancel" data-inv-tour="form-cancel" onClick={onClose} style={listHeaderButtonStyle('secondary')}>{tr('ui.avbryt')}</button>
           <button type="button" onClick={() => handleSave('sent')} style={listHeaderButtonStyle('primary')}>
             <Check size={14} /> {initial ? tr('ui.spara_andringar') : tr('ui.skapa_faktura')}
@@ -871,14 +907,16 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
           för att bara skiljas åt av en tunn kantlinje — annars är det för
           lätt att klicka fel på grannknappen. */}
       {!showSummary && <div className={`quote-toolbar invoice-toolbar doc-toolbar${initial ? '' : ' is-new'}`} style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', flexShrink: 0, overflowX: 'auto', position: 'relative' }}>
-        {topBarBtn(tr('ui.registrera_betalning'), <CreditCard size={13} />, () => setShowPaymentBox(v => !v), showPaymentBox ? activeToolbarPillStyle : {}, !initial, !initial ? tr('ui.spara_fakturan_forst') : undefined, 'tb-pay')}
-        {topBarBtn(
+        {/* En ny faktura har ingen betalning att registrera eller ångra: knapparna
+            syns först när fakturan finns (2026-11-05, färre gråa knappar). */}
+        {initial && topBarBtn(tr('ui.registrera_betalning'), <CreditCard size={13} />, () => setShowPaymentBox(v => !v), showPaymentBox ? activeToolbarPillStyle : {}, false, undefined, 'tb-pay')}
+        {initial && topBarBtn(
           'Markera som obetald',
           <Tag size={13} />,
           async () => { if (await confirmDialog(tr('ui.markera_faktura_som_obetald_den_registrerade_bet', { nextNum }))) onUnmarkPaid?.(initial.id); },
           {},
-          !initial || initial?.status !== 'paid',
-          !initial ? tr('ui.spara_fakturan_forst') : (initial?.status !== 'paid' ? tr('ui.fakturan_ej_betald') : tr('ui.angrar_betalningen')),
+          initial?.status !== 'paid',
+          initial?.status !== 'paid' ? tr('ui.fakturan_ej_betald') : tr('ui.angrar_betalningen'),
           'tb-unpay'
         )}
         {topBarBtn('Kommentar', <MessageSquare size={13} />, () => setShowCommentBox(v => !v), showCommentBox ? activeToolbarPillStyle : (commentDraft ? { color: 'var(--status-amber-text)', borderColor: 'var(--status-amber-bg)' } : {}), false, undefined, 'tb-comment')}
@@ -889,19 +927,9 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
         <div className="toolbar-spacer" style={{ flex: 1, minWidth: '8px' }} />
         {emailError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{emailError}</span>}
         {emailSent && !emailError && <span style={{ fontSize: '11px', color: 'var(--status-green-text)', alignSelf: 'center', marginRight: 8 }}>{tr('ui.skickad')}</span>}
-        <input
-          type="email" value={emailToInput} onChange={e => { setEmailToInput(e.target.value); setEmailError(''); }}
-          placeholder={tr('ui.mottagarens_epost_se')} title={tr('ui.mottagarens_e_postadress_forifylld_fran_kundkort')}
-          disabled={!initial}
-          className="toolbar-email-input"
-          style={{
-            padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12.5px', width: '190px',
-            flexShrink: 0, fontFamily: 'inherit',
-            background: !initial ? 'var(--bg-muted)' : 'var(--bg-card)', color: !initial ? 'var(--text-muted)' : 'var(--text-main)',
-          }}
-        />
         {topBarBtn(
-          emailBusy ? 'Skickar…' : 'Skicka via e-post',
+          // Redan mejlad: knappen heter Skicka igen (kunden har tappat bort den).
+          emailBusy ? tr('ui.skickar') : (initial?.emailLog?.length || emailSent ? tr('ui.skicka_igen') : tr('ui.skicka_via_e_post')),
           <Send size={13} />,
           openEmailCompose,
           {},
@@ -913,8 +941,10 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
           // openEmailCompose har redan en egen, tydlig felruta för en tom
           // adress (emailError, raden ovanför) — den ska få köras, inte
           // hindras av att knappen aldrig går att trycka på.
-          emailBusy || !initial,
-          !initial ? tr('ui.spara_fakturan_forst') : (!emailToInput.trim() ? tr('ui.ange_en_mottagaradress') : tr('ui.skicka_faktura_till', { n: nextNum, to: emailToInput.trim() })),
+          // En ny faktura kan skickas direkt: när mejlet gått iväg sparas den
+          // som skickad (handleSave('sent') i sendEmail), som Skapa faktura.
+          emailBusy,
+          !emailToInput.trim() ? tr('ui.ange_en_mottagaradress') : tr('ui.skicka_faktura_till', { n: nextNum, to: emailToInput.trim() }),
           'tb-send'
         )}
         {pdfError && <span style={{ fontSize: '11px', color: '#c00', alignSelf: 'center', marginRight: 8 }}>{pdfError}</span>}
@@ -1110,7 +1140,8 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
                   if (!vatExempt) setRows(r => rowsForCustomer(r, customers.find(c => c.id === id)));
                 }} disabled={isLocked} style={{ ...inp, background: isLocked ? 'var(--border-light)' : 'var(--bg-card)' }}>
                   <option value="">{tr('ui.valj_kund')}</option>
-                  {customers.map(c => <option key={c.id} value={c.id}>{c.id?.slice(-3)} – {c.name}</option>)}
+                  {/* Kundnummer om det finns, aldrig en bit av det interna id:t. */}
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.customerNumber ? `${c.customerNumber} – ${c.name}` : c.name}</option>)}
                 </select>
                 {!vatExempt && foreignSaleRegion(customer) && (
                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.45 }}>
@@ -1227,6 +1258,13 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
                     {!customerHasPersonnummer && (
                       <p style={{ margin: '0 0 4px', color: 'var(--status-red-text)', fontWeight: 600 }}>
                         {tr('ui.kunden_saknar_personnummer_kravs_for_en')} {ROT_RUT_RATES[rotRutType].label}{tr('ui.begaran_hos_skatteverket_lagg_till_det_under_kon')}
+                      </p>
+                    )}
+                    {customerId && (rotRutUsed.rot + rotRutUsed.rut > 0 || rotRut.capped) && (
+                      <p style={{ margin: '0 0 4px', color: rotRut.capped ? 'var(--status-red-text)' : 'var(--text-secondary)', fontWeight: rotRut.capped ? 600 : 500 }}>
+                        {rotRut.capped
+                          ? tr('rotRut.capped', { used: numberFormat('sv-SE').format(rotRutUsed.rot + rotRutUsed.rut), room: numberFormat('sv-SE').format(rotRutCap) })
+                          : tr('rotRut.room', { used: numberFormat('sv-SE').format(rotRutUsed.rot + rotRutUsed.rut), room: numberFormat('sv-SE').format(rotRutCap) })}
                       </p>
                     )}
                     <p style={{ margin: 0 }}>
@@ -1373,16 +1411,15 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
                       <div className="quote-row quote-row--no-ded" style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.8fr 0.8fr 1fr 0.8fr 0.9fr 1fr auto', gap: '10px', alignItems: 'center' }}>
                         <label className="qr-cell qr-desc"><span className="qr-lbl">{tr('ui.beskrivning')}</span>
                           {isLocked ? <div style={lockedCell}>{row.description}</div> : (
-                            <input
+                            <ArticleCombobox
+                              simple={!articleSearch}
+                              articles={articles}
                               value={row.description}
-                              list="article-description-list"
-                              onChange={e => updateRow(i, 'description', e.target.value)}
-                              onBlur={e => {
-                                const hit = findArticleByDescription(e.target.value);
-                                if (hit) applyArticleToRow(i, hit);
-                              }}
+                              onChange={v => updateRow(i, 'description', v)}
+                              onPick={a => applyArticleToRow(i, a)}
+                              inputProps={{ onBlur: e => { const hit = findArticleByDescription(e.target.value); if (hit) applyArticleToRow(i, hit); } }}
                               style={inp}
-                              placeholder={tr('ui.beskrivning_av_tjanst_eller_produkt')}
+                              placeholder={articles.length && articleSearch ? tr('ui.beskrivning_eller_artikel') : tr('ui.beskrivning_av_tjanst_eller_produkt')}
                             />
                           )}
                         </label>
@@ -1510,8 +1547,12 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
                                 som resten av appen använder, med hela kontoplanen
                                 ett klick bort. Låst faktura: bara kontot, ingen
                                 väljare — fältet ska inte gå att ändra då. */}
-                            {isLocked
-                              ? <input disabled value={row.account || '3001'} style={inp} />
+                            {/* Rader med moms bokförs alltid på 3001/3002/3003 efter momssatsen
+                                (invoiceBooking.js, och momsdeklarationen räknar dem), så
+                                kontot visas låst för dem. Bara momsfria rader (export,
+                                omvänd skattskyldighet m.m.) väljer konto själva. */}
+                            {isLocked || Number(row.vatRate) > 0
+                              ? <input disabled value={Number(row.vatRate) > 0 ? (SALES_ACCOUNT_BY_RATE[Number(row.vatRate)] || '3001') : (row.account || '3001')} title={Number(row.vatRate) > 0 ? tr('ui.konto_foljer_momssatsen') : undefined} style={inp} />
                               : <AccountSearch value={row.account || '3001'} onChange={code => updateRow(i, 'account', code)} accounts={accounts} placeholder={tr('ui.sok_konto')} />}
                           </div>
                         </div>
@@ -1595,8 +1636,27 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
             />
           </div>
 
+          {/* Mejlutskicken (emailLog, sparas sedan 2026-11-14): när och till
+              vem fakturan skickats från Bokix, senaste först. */}
+          {initial?.emailLog?.length > 0 && (
+            <div style={{ padding: '20px 32px', borderBottom: '1px solid var(--border-light)' }}>
+              <div style={lbl}>{tr('ui.skickad_med_e_post')}</div>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                {[...initial.emailLog].reverse().map((e, i) => (
+                  <li key={(e.at || "") + i} style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    <span style={{ color: 'var(--text-main)', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                      {(() => { try { return dateTimeFormat(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(e.at)); } catch { return e.at; } })()}
+                    </span>
+                    {e.to && <span style={{ overflowWrap: 'anywhere' }}>{tr('ui.skickad_till', { to: e.to })}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Spara/bokför — sista raden i formuläret, samma placering och
               knappstil som QuoteEditor:s "Avbryt/Spara offert". */}
+          {(initial?.status || 'draft') === 'draft' && (
           <div className="mform-foot" style={{ padding: '20px 32px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
             <button type="button" onClick={() => handleSave('draft')} style={outlineToolbarBtnStyle}>
               {tr('ui.spara_som_utkast')}
@@ -1605,6 +1665,7 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
               <Check size={14} /> {tr('ui.bokfor_2')}
             </button>
           </div>
+          )}
           <MobileFormBar>
             {(initial?.status || 'draft') === 'draft' && (
               <button type="button" className="mform-bar-secondary" onClick={() => handleSave('draft')}>{tr('ui.spara_som_utkast')}</button>
@@ -1699,7 +1760,7 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
                   "se bifogad faktura" i tron att den inte finns. */}
               <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                 {tr('ui.foljer_med_automatiskt_fakturan_som_pdf_och_en_r')}
-                {company?.stripeAccountId && (
+                {company?.stripeAccountId && initial?.id && (
                   <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginTop: '10px', cursor: 'pointer', color: 'var(--text-main)' }}>
                     <input
                       type="checkbox"
@@ -1930,7 +1991,7 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
     const gross = (Number(r.qty) || 0) * (Number(r.unitPrice) || 0) * (1 - (Number(r.discount) || 0) / 100);
     return { net: acc.net + gross, vat: acc.vat + gross * ((Number(r.vatRate) || 0) / 100), total: acc.total + gross * (1 + (Number(r.vatRate) || 0) / 100) };
   }, { net: 0, vat: 0, total: 0 });
-  const rotRut = calcRotRutDeduction(invoice.rotRutType, rows);
+  const rotRut = calcRotRutDeduction(invoice.rotRutType, rows, invoice.rotRutCap);
 
   const statusStyle = {
     paid: { bg: BRAND.greenLight, color: BRAND.greenDark, label: paidLabel(invoice) },
@@ -2052,7 +2113,7 @@ function PaymentLinkModal({ activeCompanyId, invoice, customer, company, onGetPa
     const gross = (Number(r.qty) || 0) * (Number(r.unitPrice) || 0) * (1 - (Number(r.discount) || 0) / 100);
     return { net: acc.net + gross, vat: acc.vat + gross * ((Number(r.vatRate) || 0) / 100), total: acc.total + gross * (1 + (Number(r.vatRate) || 0) / 100) };
   }, { net: 0, vat: 0, total: 0 });
-  const rotRut = calcRotRutDeduction(invoice.rotRutType, rows);
+  const rotRut = calcRotRutDeduction(invoice.rotRutType, rows, invoice.rotRutCap);
   const tpl = invoice.invoiceTemplateSnapshot || {};
   const documentProps = {
     invoice: { invoiceNumber: invoice.invoiceNumber, date: invoice.date, dueDate: invoice.dueDate, terms: invoice.terms },
@@ -2199,7 +2260,7 @@ function PaymentLinkModal({ activeCompanyId, invoice, customer, company, onGetPa
   );
 }
 
-export default function Invoices({ activeCompanyId, ufQuota = { limited: false }, invoices, contacts, accounts = [], onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, onRotRutRequested, onRotRutPayout, onRotRutRejected, onImportRotRutBookings, onRotRutBatchRequested, onRotRutBatchPayout, setInvoices, company, globalAction, clearGlobalAction, verifications = [], onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [], onSyncBeforeServerCall }) {
+export default function Invoices({ activeCompanyId, ufQuota = { limited: false }, invoices, contacts, accounts = [], onAdd, onMarkPaid, onRegisterPayment, onUnmarkPaid, onRotRutRequested, onRotRutPayout, onRotRutRejected, onImportRotRutBookings, onRotRutBatchRequested, onRotRutBatchPayout, setInvoices, company, globalAction, clearGlobalAction, verifications = [], onGetPaymentLinkUrl, articles = [], setArticles, uid, projects = [], onSyncBeforeServerCall, articleSearch = false }) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   // react-routers setSearchParams navigerar till bara "?…" och tappar
@@ -2245,8 +2306,13 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
   // inte N totalt över alla — annars kunde en hel statusgrupp försvinna
   // tyst bara för att en annan grupp råkade fylla hela gränsen.
   const [pageSize, setPageSize] = useState(30);
+  // Listans inställningar som i Artiklar (2026-11-24, bara admin än).
+  const adminList = isAdminPreview();
+  const [lp, setLp] = useListPrefs('bokix.invoices.prefs', { number: true, customer: true, date: true, dueDate: true, amount: true, status: true, order: false, paidDate: false });
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
+  const isPhoneList = useIsMobileViewport();
   const [invoicePrefill, setInvoicePrefill] = useState(null); // t.ex. från Tidrapportering → "Skapa faktura"
   // "Visa faktura" (radmenyn) ≠ "Redigera" — ett skilt, rent läsläge som
   // bara renderar den riktiga fakturan (InvoiceViewer/InvoiceDocument),
@@ -2386,7 +2452,8 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
   // "Visa N" gäller hela listan nu (en tabell i stället för en tabell per
   // status). Markera-alla-rutan ska matcha exakt det som syns — och aldrig
   // försöka markera exempelfakturan, som inte är en riktig post.
-  const visibleRows = pageSize === 'all' ? sortedWithDemo : sortedWithDemo.slice(0, pageSize);
+  const effPageSize = adminList ? (lp.pageSize || 'all') : pageSize;
+  const visibleRows = effPageSize === 'all' ? sortedWithDemo : sortedWithDemo.slice(0, effPageSize);
   const selectableRows = visibleRows.filter(inv => !inv.isDemo);
 
   const sumTotal = filtered.reduce((sum, inv) => sum + grossOf(inv), 0);
@@ -2426,7 +2493,15 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
     if (editingInvoice) {
       setInvoices(prev => prev.map(i => i.id === editingInvoice.id ? { ...i, ...data } : i));
     } else {
-      onAdd({ ...data, invoiceNumber: getNextInvoiceNumber(invoiceList, company) });
+      const created = onAdd({ ...data, invoiceNumber: getNextInvoiceNumber(invoiceList, company) });
+      // Telefon: den nya fakturan öppnas direkt, med Skicka, PDF och
+      // betalning, i stället för listan längst ned (2026-11-06). Datorn
+      // skickar redan från formuläret och går tillbaka till listan.
+      if (isPhoneList && created?.id && data.status !== 'draft') {
+        closeForm();
+        setTimeout(() => openInvoice(created), 0);
+        return;
+      }
     }
     closeForm();
   };
@@ -2475,6 +2550,9 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
   const handleUpdateInvoiceNote = (id, internalNote) => {
     setInvoices(prev => prev.map(i => i.id === id ? { ...i, internalNote } : i));
   };
+  const handleMarkEmailed = (id, entry) => {
+    setInvoices(prev => prev.map(i => i.id === id ? { ...i, emailLog: [...(i.emailLog || []), entry] } : i));
+  };
 
   const toggleSelect = (id) => {
     if (id === DEMO_INVOICE_ID) return; // exempelfakturan (Fakturaguiden) ska inte gå att massmarkera/betala
@@ -2510,9 +2588,27 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
   // (se `handleSave('sent')`-anropet i InvoiceForm), men som en fristående
   // åtgärd för den som skickat fakturan på annat sätt (post, en annan
   // kanal) och bara vill flytta den ur "Ej bokförd" utan att mejla via appen.
-  const handleMarkSent = (inv, e) => {
+  const handleMarkSent = async (inv, e) => {
     e?.stopPropagation();
+    // Skickad = bokförd kundfordran, så frågan kommer först (2026-11-24).
+    if (isAdminPreview() && !(await confirmDialog(tr('invConfirm.sentText', { nr: inv.invoiceNumber || '' }), { title: tr('invConfirm.sentTitle'), confirmLabel: tr('ui.markera_som_skickad') }))) return;
     setInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, status: 'sent' } : i));
+  };
+
+  // Markera som betald bokför betalningen med dagens datum, så den frågar
+  // först, också på statusetiketten och i massåtgärden. Utkast räknas aldrig.
+  const confirmMarkPaid = async (list) => {
+    if (!isAdminPreview()) { list.filter(inv => inv && !inv.isDemo && getStatus(inv) !== 'paid').forEach(inv => onMarkPaid(inv.id)); return true; }
+    const real = list.filter(inv => inv && !inv.isDemo && !['paid', 'draft'].includes(getStatus(inv)));
+    if (real.length === 0) return false;
+    const text = real.length === 1 ? tr('invConfirm.paidOne', { nr: real[0].invoiceNumber || '' }) : tr('invConfirm.paidMany', { n: real.length });
+    if (!(await confirmDialog(text, { title: tr('invConfirm.paidTitle'), confirmLabel: real.length === 1 ? tr('ui.markera_som_betald') : tr('ui.markera_som_betalda') }))) return false;
+    real.forEach(inv => onMarkPaid(inv.id));
+    return true;
+  };
+  const confirmCreditNote = async (inv) => {
+    if (!isAdminPreview()) { handleCreateCreditNote(inv); return; }
+    if (await confirmDialog(tr('ui.skapa_en_kreditfaktura_som_motsvarar_faktura', { nextNum: inv.invoiceNumber || '' }), { confirmLabel: tr('ui.kreditera_faktura') })) handleCreateCreditNote(inv);
   };
 
   // Radens "⋮"-meny — vilka åtgärder som visas beror på fakturans status,
@@ -2548,7 +2644,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
     ];
     if (status !== 'paid') {
       items.push({ key: 'edit', label: tr('ui.redigera'), icon: Pencil, onClick: () => openInvoice(inv) });
-      items.push({ key: 'mark-paid', label: tr('ui.markera_som_betald'), icon: CheckCircle2, onClick: () => onMarkPaid(inv.id) });
+      if (status !== 'draft' || !isAdminPreview()) items.push({ key: 'mark-paid', label: tr('ui.markera_som_betald'), icon: CheckCircle2, onClick: () => confirmMarkPaid([inv]) });
     }
     // "Registrera betalning" (koppling mot en verifikation/inbetalning)
     // sköts redan inne i fakturaformuläret — den här raden öppnar dit
@@ -2592,10 +2688,10 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
           title: !customer?.email ? tr('ui.lagg_till_kundens_e_post_under_kunder_for_att_ku') : undefined,
         });
       }
-      items.push({ key: 'credit', label: tr('ui.kreditera_faktura'), icon: Undo2, onClick: () => handleCreateCreditNote(inv) });
+      items.push({ key: 'credit', label: tr('ui.kreditera_faktura'), icon: Undo2, onClick: () => confirmCreditNote(inv) });
     } else {
       items.push({ divider: true });
-      items.push({ key: 'credit', label: tr('ui.kreditera_faktura'), icon: Undo2, onClick: () => handleCreateCreditNote(inv) });
+      items.push({ key: 'credit', label: tr('ui.kreditera_faktura'), icon: Undo2, onClick: () => confirmCreditNote(inv) });
     }
 
     if (status === 'draft') {
@@ -2638,8 +2734,8 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
               </span>
             ) : (
               <button
-                onClick={e => { e.stopPropagation(); if (!inv.isDemo) onMarkPaid(inv.id); }}
-                title={inv.isDemo ? tr('ui.exempelfaktura_bara_for_visning') : tr('ui.klicka_for_att_markera_som_betald')}
+                onClick={e => { e.stopPropagation(); if (inv.isDemo) return; if (status === 'draft' && isAdminPreview()) openInvoice(inv); else confirmMarkPaid([inv]); }}
+                title={inv.isDemo ? tr('ui.exempelfaktura_bara_for_visning') : status === 'draft' ? tr('invConfirm.openDraft') : tr('ui.klicka_for_att_markera_som_betald')}
                 style={{
                   ...STATUS_PILL, cursor: 'pointer', border: status === 'draft' ? STRONG_DRAFT.border : STATUS_PILL.border,
                   background: status === 'overdue' ? STRONG_OVERDUE.bg : status === 'draft' ? STRONG_DRAFT.bg : STRONG_UNPAID.bg,
@@ -2661,6 +2757,23 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
       ),
     },
   ];
+  const COL_PREF = { invoiceNumber: 'number', customer: 'customer', date: 'date', dueDate: 'dueDate', amount: 'amount', status: 'status' };
+  const invoiceColumnsShown = !adminList ? invoiceColumns : (() => {
+    const extra = [
+      ...(lp.cols.order ? [{ key: 'order', label: tr('lset.order'), render: inv => inv.orderNumber || '—' }] : []),
+      ...(lp.cols.paidDate ? [{ key: 'paidDate', label: tr('lset.paidDate'), render: inv => (inv.paidDate ? formatDate(inv.paidDate) : '—') }] : []),
+    ];
+    const base = invoiceColumns.filter(c => c.key === 'actions' || lp.cols[COL_PREF[c.key]] !== false);
+    const at = base.findIndex(c => c.key === 'amount');
+    return at < 0 ? [...base.slice(0, -1), ...extra, base[base.length - 1]] : [...base.slice(0, at), ...extra, ...base.slice(at)];
+  })();
+  const exportInvoicesCsv = (list) => {
+    const esc = (v) => { const x = String(v ?? ''); return /[;"\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x; };
+    const label = { paid: tr('ui.betald'), overdue: tr('ui.forfallen'), draft: tr('ui.ej_bokford') };
+    const head = [tr('ui.fakturanr'), tr('ui.kund'), tr('ui.fakturadatum'), tr('ui.forfallodatum'), tr('ui.belopp'), tr('ui.status'), tr('lset.order'), tr('lset.paidDate')];
+    const lines = list.filter(inv => !inv.isDemo).map(inv => [inv.invoiceNumber, getCustomerName(inv.customerId) === '—' ? (inv.customerName || '') : getCustomerName(inv.customerId), inv.date || '', inv.dueDate || '', String(Math.round(grossOf(inv) * 100) / 100).replace('.', ','), label[getStatus(inv)] || tr('ui.obetald'), inv.orderNumber || '', inv.paidDate || ''].map(esc).join(';'));
+    downloadCsv(`fakturor_${new Date().toISOString().slice(0, 10)}.csv`, '\ufeff' + [head.join(';'), ...lines].join('\r\n'));
+  };
 
   // Kort dag+månad ("24 sep"), samma Intl-mönster som redan används i
   // Reports.jsx — bara för listradens metatext (rad 2), inte för själva
@@ -2763,6 +2876,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
         initial={editingInvoice}
         prefill={invoicePrefill}
         articles={articles}
+        articleSearch={articleSearch}
         setArticles={setArticles}
         projects={projects}
         onSave={handleSaveInvoice}
@@ -2771,6 +2885,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
         onRegisterPayment={onRegisterPayment}
         onUnmarkPaid={onUnmarkPaid}
         onUpdateNote={handleUpdateInvoiceNote}
+        onMarkEmailed={handleMarkEmailed}
         verifications={verifications}
         invoiceList={invoiceList}
         nav={nav}
@@ -2793,7 +2908,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: 'var(--bg-page)' }}>
+    <div className={adminList && lp.width === 'narrow' ? 'lt-page-narrow' : undefined} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: 'var(--bg-page)' }}>
       {/* Sidhuvud. Kundfakturor, Offerter, Leverantörsfakturor och Artiklar nås
           via Försäljning i sidomenyn, så sidan behöver inga flikar. Fakturaguiden
           (invoiceTour.js) pekar på wrappern via data-inv-tour="tabs". */}
@@ -2932,6 +3047,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
             — gäller nu HELA listan (en tabell), inte per statussektion, och
             samma väljare/ordning som ListFilterBar ritar på Bokföring och de
             andra listsidorna. */}
+        {adminList ? <ListSettingsButton onClick={() => setSettingsOpen(true)} /> : <>
         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
           {tr('ui.visa')}
           <select
@@ -2944,7 +3060,20 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
           </select>
         </label>
         <Printer className="inv-pills-extra" size={15} style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} />
+        </>}
       </div>
+      )}
+      {adminList && (
+        <ListSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={setLp}
+          actions={[
+            { key: 'new', label: tr('ui.ny_faktura'), icon: Plus, onClick: () => { setEditingInvoice(null); setInvoicePrefill(null); setShowForm(true); } },
+            { key: 'export', label: tr('lset.exportInvoices'), icon: Download, onClick: () => exportInvoicesCsv(sortedWithDemo), disabled: sortedWithDemo.length === 0 },
+          ]}
+          columns={[
+            { key: 'number', label: tr('ui.fakturanr') }, { key: 'customer', label: tr('ui.kund') }, { key: 'date', label: tr('ui.fakturadatum') },
+            { key: 'dueDate', label: tr('ui.forfallodatum') }, { key: 'amount', label: tr('ui.belopp') }, { key: 'status', label: tr('ui.status') },
+            { key: 'order', label: tr('lset.order') }, { key: 'paidDate', label: tr('lset.paidDate') },
+          ]} />
       )}
 
       {/* EN tabell med ETT sidhuvud (Fakturanr/Kund/Fakturadatum/Förfallo-
@@ -2963,6 +3092,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
       ) : (
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 12px 12px', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
+          <div className={adminList && lp.density === 'compact' ? 'lt-compact' : undefined} style={{ display: 'contents' }}>
           <ListTable
             bordered={false}
             rowKey={inv => inv.id}
@@ -2976,10 +3106,12 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
               onToggleAll: () => toggleAllInRows(visibleRows),
             }}
             rows={visibleRows}
-            columns={invoiceColumns}
+            columns={invoiceColumnsShown}
+            pageSize={adminList ? lp.pageSize : undefined}
             roundedBottom={false}
             mobileList={invoiceMobileRow}
           />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 16px', background: 'var(--bg-muted)', border: '1px solid var(--border)', borderTop: '2px solid var(--border)', borderRadius: '0 0 12px 12px', fontWeight: 700, fontSize: '13px', color: 'var(--text-secondary)', flexWrap: 'wrap', boxShadow: 'var(--shadow-sm)' }}>
             {/* Vänster: ärlig avskärningsrad. Utan den ser en "Visa 30" ut
                 som om företaget bara HADE 30 fakturor. Summan till höger
@@ -2999,7 +3131,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
       {selected.size > 0 && (
         <div className="inv-bulk-bar" style={{ background: 'var(--accent)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           <span style={{ color: 'white', fontSize: '13px', fontWeight: 600 }}>({selected.size} {tr('ui.markerade')}</span>
-          <button onClick={() => { selected.forEach(id => onMarkPaid(id)); setSelected(new Set()); }} style={{ padding: '6px 16px', background: '#22c55e', border: 'none', borderRadius: '5px', color: 'white', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
+          <button onClick={async () => { if (await confirmMarkPaid(invoiceList.filter(i => selected.has(i.id)))) setSelected(new Set()); }} style={{ padding: '6px 16px', background: '#22c55e', border: 'none', borderRadius: '5px', color: 'white', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
             {tr('ui.markera_som_betalda')}
           </button>
           <button onClick={() => setSelected(new Set())} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', marginLeft: 'auto' }}><X size={18} /></button>

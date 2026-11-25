@@ -63,3 +63,22 @@ describe('generateVatDeclarationXml', () => {
     expect(xml).toContain('<eSKDUpload Version="6.0">')
   })
 })
+
+describe('ruta 06 och 07', () => {
+  it('egna uttag och vinstmarginal räknas och skrivs i filen', async () => {
+    const { computeVatPeriod, roundedVatPeriod, vatRutaValue } = await import('./vatCalculation')
+    const { VAT_RUTOR } = await import('./vatConfig')
+    const verifications = [
+      { id: 'u', date: '2026-02-10', rows: [{ account: '2013', debet: 1250 }, { account: '3401', kredit: 1000 }, { account: '2611', kredit: 250 }] },
+      { id: 'm', date: '2026-02-12', rows: [{ account: '1930', debet: 5000 }, { account: '4000', kredit: 0 }, { account: '3211', kredit: 800 }, { account: '2611', kredit: 200 }, { account: '3212', kredit: 0 }] },
+    ]
+    const rounded = roundedVatPeriod(computeVatPeriod({ verifications, periodStart: '2026-01-01', periodEnd: '2026-03-31' }))
+    expect(vatRutaValue(VAT_RUTOR.find(r => r.ruta === '06'), rounded)).toBe(1000)
+    expect(vatRutaValue(VAT_RUTOR.find(r => r.ruta === '07'), rounded)).toBe(800)
+    expect(vatRutaValue(VAT_RUTOR.find(r => r.ruta === '05'), rounded)).toBe(0)
+    const xml = generateVatDeclarationXml({ company: { orgNr: '5566778899' }, year: 2026, quarter: 1, rounded })
+    expect(xml).toContain('<UttagMoms>1000</UttagMoms>')
+    expect(xml).toContain('<UlagMargbesk>800</UlagMargbesk>')
+    expect(xml.indexOf('UttagMoms')).toBeLessThan(xml.indexOf('MomsUtgHog'))
+  })
+})

@@ -16,6 +16,7 @@ import { invoiceCustomerRemaining } from '../../src/utils/rotRutConfig.js';
 import { withSentry } from '../_sentry.js';
 import { withTablesState } from '../_companyStore.js';
 import { processDueTrustpilotInvites } from './_trustpilotInvites.js';
+import { processOnboardingEmails } from './_onboardingEmails.js';
 
 // Bugkritiskt (lokal utveckling, samma orsak/fix som api/_resend.js): måste
 // vara en LAT, memoiserad getter, inte en toppnivå-konstant. server.js
@@ -172,6 +173,17 @@ async function handler(req, res) {
       }
     } catch (err) {
       summary.errors.push(`Trustpilot-inbjudningar: ${err.message}`);
+    }
+
+    // Kom igång-mejlen till NYA konton (aldrig befintliga, se _onboardingEmails.js).
+    try {
+      summary.onboardingEmails = await processOnboardingEmails(admin, { dryRun, siteUrl: SITE_URL });
+      if (summary.onboardingEmails.wouldSend.length) {
+        summary.wouldSend.push(...summary.onboardingEmails.wouldSend.map(w => ({ type: 'onboarding', ...w })));
+      }
+      if (summary.onboardingEmails.errors.length) summary.errors.push(...summary.onboardingEmails.errors);
+    } catch (err) {
+      summary.errors.push(`Kom igång-mejl: ${err.message}`);
     }
 
     // ── 4) Trial-slut-påminnelse till KONTOT ── körs FÖRST och separat

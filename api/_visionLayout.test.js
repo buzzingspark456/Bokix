@@ -14,7 +14,7 @@ describe('visionLines', () => {
       word('Totalt', 100, 1500, 300, 1560, 'SPACE'),
       word('125,00', 700, 1500, 900, 1560, 'EOL_SURE_SPACE'),
     ] }] }] }] };
-    expect(visionLines(annotation)).toEqual([
+    expect(visionLines(annotation)).toMatchObject([
       { text: 'ICA Maxi', box: { x: 0.1, y: 0.05, w: 0.4, h: 0.03 } },
       { text: 'Totalt 125,00', box: { x: 0.1, y: 0.75, w: 0.8, h: 0.03 } },
     ]);
@@ -24,7 +24,7 @@ describe('visionLines', () => {
     const annotation = { pages: [{ blocks: [{ paragraphs: [{ words: [
       { boundingBox: { normalizedVertices: [{ x: 0.2, y: 0.1 }, { x: 0.4, y: 0.1 }, { x: 0.4, y: 0.12 }, { x: 0.2, y: 0.12 }] }, symbols: [{ text: 'Moms' }] },
     ] }] }] }] };
-    expect(visionLines(annotation)).toEqual([{ text: 'Moms', box: { x: 0.2, y: 0.1, w: 0.2, h: 0.02 } }]);
+    expect(visionLines(annotation)).toMatchObject([{ text: 'Moms', box: { x: 0.2, y: 0.1, w: 0.2, h: 0.02 } }]);
   });
 
   it('ger en tom lista utan sidor', () => {

@@ -1,3 +1,5 @@
+import { isGroupAccount } from './accountGroups';
+
 /**
  * Vad företaget själv har bokfört för en leverantör tidigare. En leverantör
  * som redan finns på tidigare kvitton ger samma konto och momssats som
@@ -14,7 +16,7 @@ export function historyForSupplier(receipts, supplier, excludeId) {
   const key = String(supplier || '').trim().toLowerCase();
   if (!key) return null;
   const same = (receipts || [])
-    .filter(r => r.id !== excludeId && r.costAccount && String(r.supplier || '').trim().toLowerCase() === key)
+    .filter(r => r.id !== excludeId && r.costAccount && !isGroupAccount(r.costAccount) && String(r.supplier || '').trim().toLowerCase() === key)
     .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
   if (same.length === 0) return null;
 
@@ -60,7 +62,7 @@ export function historyFromVerifications(verifications, supplier) {
     const rows = Array.isArray(v.rows) ? v.rows : [];
     const debit = (r) => Number(r.debet ?? r.debit) || 0;
     const costRow = rows.find(r => debit(r) > 0 && /^[4-8]/.test(String(r.account)) && String(r.account) !== '2641');
-    if (!costRow) continue;
+    if (!costRow || isGroupAccount(costRow.account)) continue;
     const vatRow = rows.find(r => String(r.account) === '2641' && debit(r) > 0);
     let vatRate = 0;
     if (vatRow && debit(costRow) > 0) {

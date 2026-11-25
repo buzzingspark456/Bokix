@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   Plus, Search, ChevronRight, ChevronDown,
   AlertCircle, RotateCcw, RefreshCw,
-  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, BookOpen, CheckCircle2, Paperclip, Camera, Eye, EyeOff, Sparkles,
+  UploadCloud, Tag, LayoutTemplate, Save, Trash2, ScanLine, BookOpen, CheckCircle2, Paperclip, Camera, Eye, EyeOff, Sparkles, Download,
 } from './icons';
+import { exportVerificationsToExcel } from '../utils/excelExport';
 import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { getDebet, getKredit } from '../utils/verificationAmounts';
 import { BRAND } from '../utils/brandColors';
@@ -26,6 +27,7 @@ import { ScanOverlay, OcrChecklist, OCR_ITEMS, photoHintText, MIN_SCAN_MS, REVEA
 import { convertToSek } from '../utils/currencyConversion';
 import { getNextNumber as getNextNumberForSeries, VERIFICATION_SERIES } from '../utils/verificationNumbering';
 import AccountsPanel from './shared/AccountsPanel';
+import VerificationViewer from './VerificationViewer';
 import SimpleBookingPanel from './shared/SimpleBookingPanel';
 import { buildSimpleBooking, describeRow, describeVerification, paymentAccounts, VAT_RATES } from '../utils/plainBooking';
 import { t as tr, dateLocale } from '../i18n';
@@ -155,7 +157,9 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
   // konteringstabellen. En befintlig verifikation (utkast, rättelse) öppnas
   // alltid i avancerat läge, eftersom dess rader redan finns.
   const readModePreference = () => {
-    try { return localStorage.getItem('bokix.verificationMode') === 'advanced' ? 'advanced' : 'simple'; } catch { return 'simple'; }
+    // Debet och kredit är standard för alla (2026-11-22). Enkelt läge väljer
+    // man själv, och valet sparas.
+    try { return localStorage.getItem('bokix.verificationMode') === 'simple' ? 'simple' : 'advanced'; } catch { return 'advanced'; }
   };
   const [mode, setMode] = useState(initial?.rows ? 'advanced' : readModePreference());
   const modeRef = useRef(mode);
@@ -329,8 +333,11 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       // följer av dokumentet, inte av vad som bokförts tidigare. Tidigare
       // bokningar kan ha gjorts utan omvänd moms och ska inte följas här.
       const reverse = parsed.reverseCharge;
-      const vatRate = reverse ? 0 : (vatFromHistory ? hist.vatRate : (parsed.vatRate ?? 25));
       const mixedVat = !nr && !reverse && !parsed.currency && Boolean(parsed.vatRates && parsed.vatAmount);
+      // Momsen tas från kvittot. Gick satsen inte att läsa (och leverantören
+      // inte bokförts förut) fylls ingen sats i: användaren väljer själv.
+      const vatUnread = !reverse && !vatFromHistory && !mixedVat && Boolean(parsed.vatRateGuessed);
+      const vatRate = reverse ? 0 : (vatFromHistory ? hist.vatRate : (vatUnread ? null : (parsed.vatRate ?? null)));
       // Samma regel som kvittovyn (Expenses.jsx): kostnadskontot fylls bara i
       // när det är känt — samma leverantör bokförd förut (historik), eller
       // omvänd skattskyldighet där kontot följer av dokumentet. Ett konto från
@@ -338,9 +345,10 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
       // användaren tar med en knapp, aldrig något som skrivs in och ser avläst
       // ut. Kundfeedback, uttryckligt: ett konto som ser säkert ut men är en
       // gissning är värre än ett tomt fält.
-      const costAccount = reverse ? parsed.accountCode : (hist?.costAccount || '');
-      const suggestion = !nr && !costAccount && parsed.accountCode && !parsed.accountGuessed && accounts.some(a => a.code === parsed.accountCode)
-        ? parsed.accountCode : null;
+      const histAccount = parsed.accountFromItems && hist?.costAccount !== parsed.accountCode ? '' : (hist?.costAccount || '');
+      const costAccount = reverse ? parsed.accountCode : histAccount;
+      // Inga kontoförslag ur texten, som i kvittovyn (användaren 2026-11-03).
+      const suggestion = null;
       const choices = suggestion && parsed.accountChoices
         ? parsed.accountChoices.filter(c => accounts.some(a => a.code === c.code))
         : null;
@@ -352,8 +360,8 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         { key: 'date', found: !nr && Boolean(parsed.date), state: parsed.dateGuessed ? 'guess' : 'found', apply: () => setDate(parsed.date) },
         { key: 'amount', found: !nr && gross > 0, state: parsed.amountGuessed ? 'guess' : 'found', apply: () => {} },
         {
-          key: 'vatRate', found: !nr && gross > 0 && parsed.vatRate !== null && parsed.vatRate !== undefined,
-          state: reverse ? 'found' : (vatFromHistory ? 'history' : (parsed.vatRateGuessed ? 'guess' : 'found')), apply: () => {},
+          key: 'vatRate', found: !nr && gross > 0 && (mixedVat || vatRate !== null),
+          state: reverse ? 'found' : (vatFromHistory ? 'history' : 'found'), apply: () => {},
         },
         {
           key: 'costAccount', found: !nr && gross > 0 && Boolean(costAccount),
@@ -369,12 +377,16 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         // Inte momsregistrerat: momsen får inte dras av, hela beloppet är kostnad.
         const net = vatExempt ? gross : mixedVat ? Math.round((gross - parsed.vatAmount) * 100) / 100
           : vatRate > 0 ? Math.round((gross / (1 + vatRate / 100)) * 100) / 100 : gross;
+        // Okänd moms med debet och kredit: kostnad och moms lämnas tomma att
+        // fylla i från kvittot, bara betalningen är känd.
+        const unknownVat = !vatExempt && vatRate === null && !mixedVat;
         const vat = Math.round((gross - net) * 100) / 100;
         const nameOf = (code, fallback) => accounts.find(a => a.code === code)?.name || fallback;
         // Radernas belopp som tal. Vid omvänd skattskyldighet läggs momsraderna
         // (2645 i debet, 2614 i kredit) till av withReverseChargeRows.
-        let numeric = [{ account: costAccount, debet: net, kredit: 0, desc: parsed.supplier || '' }];
-        if (vat > 0) numeric.push({ account: '2641', debet: vat, kredit: 0, desc: '' });
+        let numeric = [{ account: costAccount, debet: unknownVat ? 0 : net, kredit: 0, desc: parsed.supplier || '' }];
+        if (unknownVat) numeric.push({ account: '2641', debet: 0, kredit: 0, desc: '' });
+        else if (vat > 0) numeric.push({ account: '2641', debet: vat, kredit: 0, desc: '' });
         numeric.push({ account: pay.code, debet: 0, kredit: gross, desc: '' });
         if (reverse) numeric = withReverseChargeRows(numeric);
         const newRows = numeric.map(r => ({
@@ -385,7 +397,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
         if (modeRef.current === 'simple') {
           setSimple(prev => ({
             ...prev, kind: 'expense', amount: gross.toFixed(2),
-            ...(mixedVat ? { vatRate: 'mixed', vatAmount: parsed.vatAmount.toFixed(2) } : { vatRate: VAT_RATES.includes(vatRate) ? vatRate : 25 }),
+            ...(mixedVat ? { vatRate: 'mixed', vatAmount: parsed.vatAmount.toFixed(2) } : { vatRate: VAT_RATES.includes(vatRate) ? vatRate : '' }),
             account: costAccount, payAccount: pay.code, payPrivate: false,
           }));
         } else {
@@ -763,7 +775,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
 
       {/* Räkenskapsår + nästa nummer + valuta, som en informationsrad */}
       <div className="ver-more" style={{ display: 'flex', alignItems: 'center', gap: '18px', fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '18px', flexWrap: 'wrap' }}>
-        <span>{tr('ui.rakenskapsar_2')} <strong style={{ color: 'var(--text-main)' }}>{tr('ui.rakenskapsar')} {(date || '').slice(0, 4) || new Date().getFullYear()}</strong> <strong style={{ color: 'var(--text-main)' }}>{previewNumber}</strong></span>
+        <span>{tr('ui.rakenskapsar_2')} <strong style={{ color: 'var(--text-main)' }}>{(date || '').slice(0, 4) || new Date().getFullYear()}</strong></span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           {tr('ui.valuta')}
           <select disabled title={tr('ui.bokix_stodjer_i_dagslaget_bara_sek_ingen_valutao')} style={{ padding: '3px 8px', border: '1px solid var(--border)', borderRadius: '999px', fontSize: '12px', color: 'var(--text-main)', background: 'var(--bg-muted)', fontFamily: 'inherit' }}>
@@ -883,7 +895,8 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
             </div>
           )}
           <div role="tablist" aria-label={tr('ui.satt_att_bokfora')} style={{ display: 'inline-flex', padding: '3px', gap: '2px', border: '1px solid var(--border)', borderRadius: '999px', background: 'var(--bg-muted)', marginBottom: '16px' }}>
-            {[['simple', 'Enkelt'], ['advanced', 'Debet och kredit']].map(([id, text]) => (
+            {/* Debet och kredit till vänster, Enkelt till höger (användaren 2026-11-05). */}
+            {[['advanced', 'Debet och kredit'], ['simple', 'Enkelt']].map(([id, text]) => (
               <button
                 key={id} type="button" role="tab" aria-selected={mode === id} onClick={() => changeMode(id)}
                 style={{ padding: '6px 14px', borderRadius: '999px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, background: mode === id ? 'var(--bg-card)' : 'transparent', color: mode === id ? 'var(--text-main)' : 'var(--text-secondary)', boxShadow: mode === id ? '0 1px 2px rgba(0,0,0,0.08)' : 'none' }}
@@ -1184,7 +1197,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
                   <div className="rc-verify rc-verify-warn">
                     <AlertCircle size={14} style={{ flexShrink: 0 }} />
                     {unreadable ? (
-                      <span>{tr('ui.bilden_gick_inte_att_lasa_av_sa_inget_har_fyllts')} {photoHintText(photoHint) || tr('ui.ta_om_fotot_narmre_rakare_och_med_battre_ljus_el')}</span>
+                      <span>{photoHint === 'multiple' ? '' : tr('ui.bilden_gick_inte_att_lasa_av_sa_inget_har_fyllts')} {photoHintText(photoHint) || tr('ui.ta_om_fotot_narmre_rakare_och_med_battre_ljus_el')}</span>
                     ) : (
                       <span>{tr('ui.det_har_ser_inte_ut_som_ett_kvitto_eller_en_fakt_2')}</span>
                     )}
@@ -1333,7 +1346,7 @@ function VerificationForm({ accounts, contacts, projects = [], verifications = [
 }
 
 // ─── Main Bokföring Component ──────────────────────────────────────────────────
-export default function Bokforing({ seriesNames, verifications = [], accounts = [], balances = {}, contacts = [], projects = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, partners, uploadFn = uploadFileToStorage, initialTab, vatExempt = false, extraTabs = [], onTabChange }) {
+export default function Bokforing({ seriesNames, verifications = [], accounts = [], balances = {}, contacts = [], projects = [], invoices = [], expenses = [], templates = [], onSaveTemplate, onAdd, setVerifications, setAccounts, highlightVerificationId, onClearHighlight, vatPeriods, user, orgType, partners, uploadFn = uploadFileToStorage, initialTab, vatExempt = false, extraTabs = [], onTabChange, topSlot = null, headerSlot = null, onAttachFiles, openAsPage = false, spreads = null, onPeriodize = null, lockedFiscalYears }) {
   const [activeTab, setActiveTab] = useState(() => (initialTab && ['verifications', 'accounts', ...extraTabs.map(tab => tab.id)].includes(initialTab) ? initialTab : 'verifications'));
   // Samma mönster som Taxes.jsx:s initialSection — App.jsx:s
   // verificationsInitialTab (profilmenyns "Kontoplaner" ska landa på
@@ -1347,6 +1360,10 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
     if (initialTab) setActiveTab(knownTab(initialTab) ? initialTab : 'verifications');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialTab]);
+  // Öppnad verifikation (2026-11-21): egen sida som leverantörsfakturan, i
+  // stället för en utfälld rad i listan.
+  const [viewingId, setViewingId] = useState(null);
+  // Utan openAsPage (alla utom admin än så länge) fälls raden ut som förut.
   const [expandedId, setExpandedId] = useState(null);
   const [openDocument, setOpenDocument] = useState(null); // underlag i fullstorlek från listan
   const [showForm, setShowForm] = useState(false);
@@ -1365,7 +1382,8 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
   // månad ('01'-'12') visar bara DEN kalendermånaden från alla år,
   // grupperat per år istället. flatView slår av rubrikerna helt.
   const [monthFilter, setMonthFilter] = useState('all');
-  const [flatView, setFlatView] = useState(false);
+  // Lista är standard (användaren 2026-11-08), Grupperat är valet till höger.
+  const [flatView, setFlatView] = useState(true);
 
   // Kontoplan-fliken är nu en helt självständig komponent (shared/
   // AccountsPanel.jsx, delad med Inställningar > System > Kontoplan) med
@@ -1385,6 +1403,7 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
     if (!highlightVerificationId) return;
     setActiveTab('verifications');
     setSearchInput(''); setDateFrom(''); setDateTo(''); setSeries('all');
+    if (openAsPage) { setViewingId(highlightVerificationId); onClearHighlight?.(); return undefined; }
     setExpandedId(highlightVerificationId);
     const t = setTimeout(() => {
       document.getElementById(`ver-row-${highlightVerificationId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1427,7 +1446,9 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
       const matchesNumber = v.number?.toLowerCase().includes(s);
       const matchesDesc = v.description?.toLowerCase().includes(s);
       const matchesAmount = amountStr.includes(s.replace(',', '.'));
-      if (!matchesNumber && !matchesDesc && !matchesAmount) return false;
+      // Kontonummer (t.ex. 1630): alla verifikationer med en rad på kontot.
+      const matchesAccount = /^\d{4}$/.test(s.trim()) && (v.rows || []).some(r => String(r.account) === s.trim());
+      if (!matchesNumber && !matchesDesc && !matchesAmount && !matchesAccount) return false;
     }
     if (dateFrom && v.date < dateFrom) return false;
     if (dateTo && v.date > dateTo) return false;
@@ -1476,6 +1497,46 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
   // (kundfeedback, se VerificationForm:s egen kommentar). Tidig retur enligt
   // exakt samma mönster som Invoices.jsx redan använder för fakturor: listan,
   // filterraden och flikarna monteras inte alls medan man konterar.
+  const viewing = !showForm && viewingId ? verifications.find(v => v.id === viewingId) : null;
+  if (viewing) {
+    const list = filteredVers.some(v => v.id === viewing.id) ? filteredVers : verifications;
+    const idx = list.findIndex(v => v.id === viewing.id);
+    const prev = idx > 0 ? list[idx - 1] : null;
+    const next = idx >= 0 && idx < list.length - 1 ? list[idx + 1] : null;
+    return (
+      <>
+        <VerificationViewer
+          ver={viewing}
+          accounts={accounts}
+          contacts={contacts}
+          fmt={fmt}
+          onClose={() => {
+            const id = viewing.id;
+            setViewingId(null);
+            setTimeout(() => document.getElementById(`ver-row-${id}`)?.scrollIntoView({ block: 'center' }), 60);
+          }}
+          onPrev={prev ? () => setViewingId(prev.id) : null}
+          onNext={next ? () => setViewingId(next.id) : null}
+          spreads={spreads}
+          onPeriodize={onPeriodize}
+          lockedFiscalYears={lockedFiscalYears}
+          onCorrect={(v) => {
+            const newRows = v.rows ? v.rows.map(r => ({ ...r, accountName: r.accountName || '', debet: getKredit(r) || 0, kredit: getDebet(r) || 0 })) : [];
+            setViewingId(null);
+            setEditingVer({ ...v, description: `Rätta: ${v.number} – ${v.description}`, rows: newRows, number: undefined, status: 'booked', createdAt: undefined });
+            setShowForm(true);
+          }}
+          onContinueDraft={(v) => { setViewingId(null); setEditingVer(v); setShowForm(true); }}
+          onDeleteDraft={(v) => { setViewingId(null); handleDeleteDraft(v); }}
+          onAttach={onAttachFiles ? async (v, f) => {
+            const url = await uploadFn(user.id, f, 'verifications');
+            onAttachFiles([{ id: v.id, attachmentUrl: url, attachmentName: f.name, attachmentType: f.type || '', extraAttachments: v.extraAttachments }]);
+          } : undefined}
+        />
+      </>
+    );
+  }
+
   if (showForm) {
     return (
       <VerificationForm
@@ -1516,7 +1577,17 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
         title={tr('ui.bokforing')}
         actions={
           activeTab === 'verifications' ? [
+            ...(headerSlot ? [{ key: 'check', type: 'node', node: headerSlot }] : []),
             { key: 'next', type: 'note', label: tr('ui.nasta'), value: nextNumber },
+            // Exportera till Excel: de verifikationer som syns med filtren
+            // (period, serie, månad, sökning), en rad per kontorad.
+            ...(filteredVers.some(v => (v.status || 'booked') !== 'draft') ? [{
+              key: 'export-excel', label: tr('ui.exportera_till_excel'), icon: Download, title: tr('ui.exportera_till_excel_hint'),
+              onClick: async () => {
+                try { await exportVerificationsToExcel(filteredVers, { accounts, contacts, projects, invoices, expenses }); }
+                catch (e) { console.error(e); confirmDialog(tr('ui.exportera_till_excel_fel'), { title: tr('ui.exportera_till_excel'), confirmLabel: 'OK', cancelLabel: null }); }
+              },
+            }] : []),
             { key: 'new-ver', label: tr('ui.ny_verifikation'), icon: Plus, onClick: () => { setEditingVer(null); setShowForm(true); }, variant: 'primary', dataTour: 'page-verifications-cta' },
           ] : []
           // Kontoplan-fliken har sin egen "Nytt konto"-knapp i AccountsPanel
@@ -1534,6 +1605,7 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
       {/* ── VERIFIKATIONER TAB ───────────────────────────────────── */}
       {activeTab === 'verifications' && (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          {topSlot}
           {/* Filterrad — facit-mönstret (Sida 43, uppföljning): alla fält
               på en rad i samma h-9-höjd, "Rensa" + levande antalsräknare
               på en egen rad direkt under. */}
@@ -1544,6 +1616,7 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
             activeFilters={(dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (series !== 'all' ? 1 : 0) + (monthFilter !== 'all' ? 1 : 0)}
+            collapsed
           >
             <div style={{ position: 'relative' }}>
               <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -1567,8 +1640,8 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
               {MONTH_NAMES.map(m => <option key={m.v} value={m.v}>{m.label} {tr('ui.alla_ar')}</option>)}
             </select>
             <div className="rc-segmented">
-              <button type="button" onClick={() => setFlatView(false)} className={!flatView ? 'active' : ''}>{tr('ui.grupperat')}</button>
               <button type="button" onClick={() => setFlatView(true)} className={flatView ? 'active' : ''}>{tr('ui.lista')}</button>
+              <button type="button" onClick={() => setFlatView(false)} className={!flatView ? 'active' : ''}>{tr('ui.grupperat')}</button>
             </div>
           </ListFilterBar>
 
@@ -1613,8 +1686,8 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
             ) : (
             <ListTable
               rowKey={v => v.id}
-              onRowClick={v => setExpandedId(expandedId === v.id ? null : v.id)}
-              isExpanded={v => expandedId === v.id}
+              onRowClick={v => (openAsPage ? setViewingId(v.id) : setExpandedId(expandedId === v.id ? null : v.id))}
+              isExpanded={openAsPage ? undefined : (v => expandedId === v.id)}
               emptyMessage={tr('ui.inga_verifikationer_bokforda')}
               rows={visibleVers}
               groupBy={verGroupKey}
@@ -1623,7 +1696,7 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
                 {
                   key: 'number', label: tr('ui.bokning_rubrik'), fontWeight: 700, color: 'var(--text-main)', render: v => (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} id={`ver-row-${v.id}`}>
-                      {expandedId === v.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      {!openAsPage && (expandedId === v.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
                       {v.number}
                     </div>
                   ),
@@ -1684,7 +1757,7 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
                   },
                 },
               ]}
-              renderExpanded={v => !v.rows ? null : (
+              renderExpanded={openAsPage ? undefined : (v => !v.rows ? null : (
                 <div style={{ padding: '10px 8px 12px 32px' }}>
                   <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '4px', fontSize: '11.5px', color: 'var(--text-secondary)' }}>
                     <span>{tr('ui.motpart')} <strong style={{ color: 'var(--text-main)' }}>{contacts.find(c => c.id === v.counterpartyId)?.name || '—'}</strong></span>
@@ -1794,7 +1867,7 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
                     )}
                   </div>
                 </div>
-              )}
+              ))}
               mobileList={v => {
                 const isDraft = (v.status || 'booked') === 'draft';
                 const total = fmt(v.rows?.reduce((s, r) => s + getDebet(r), 0) || v.amount || 0);

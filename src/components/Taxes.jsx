@@ -4,6 +4,7 @@ import {
 } from './icons';
 import VatDeclaration from './VatDeclaration';
 import TaxOverview from './TaxOverview';
+import AuthorityPackageModal from './AuthorityPackageModal';
 import Partners from './Partners';
 import Dividend from './Dividend';
 import AnnualReport from './AnnualReport';
@@ -367,7 +368,10 @@ export default function Taxes({
   onCreateAgiReport, onMarkAgiSubmitted, onDeleteAgiReport,
   vatPeriods = {}, onBookVatPeriod, onNavigateToVerification,
   onAddVerification, setCompanyInfo, setAccounts, onNavigateToTab, initialSection, showInventoryStep = true,
+  authorityPackage = null,
 }) {
+  // Underlag till Skatteverket eller revisor (bara admin än, AuthorityPackageModal.jsx).
+  const [showPackage, setShowPackage] = useState(false);
   // Kalenderåret styr bara AGI och kontrolluppgifter, som alltid följer
   // kalenderåret. Bokslut, INK2, NE och SRU följer företagets räkenskapsår
   // (fy), som kan vara brutet eller ett förlängt första år.
@@ -1119,7 +1123,8 @@ export default function Taxes({
   };
   const nextOverviewItem = overviewItems.find(i => !i.done && i.daysLeft != null);
   const overviewSummary = nextOverviewItem
-    ? tr('ui.nasta_senast', { v0: nextOverviewItem.title.toLowerCase(), daysLabel: nextOverviewItem.daysLabel, dueLabel: nextOverviewItem.dueLabel })
+    ? tr('ui.nasta_senast', { // Bara första bokstaven: "VAT return" ska inte bli "vat return", "AGI" inte "agi".
+      v0: /^[A-ZÅÄÖ][a-zåäö]/.test(nextOverviewItem.title) ? nextOverviewItem.title[0].toLowerCase() + nextOverviewItem.title.slice(1) : nextOverviewItem.title, daysLabel: nextOverviewItem.daysLabel, dueLabel: nextOverviewItem.dueLabel })
     : overviewItems.every(i => i.done) ? tr('ui.allt_ar_inlamnat') : tr('ui.inget_har_en_deadline_just_nu');
   // Efter ett låst bokslut är nästa steg deklarationen.
   const nextFilingSection = declarationSection;
@@ -1170,7 +1175,10 @@ export default function Taxes({
 
           {/* Översikt: vad som ska göras och när (se overviewItems ovan). */}
           {activeSection === 'dates' && (
-            <TaxOverview items={overviewItems} summary={overviewSummary} onOpen={openFromOverview} onToggleFiled={toggleFiled} vatExempt={company?.vatRegistered === false} />
+            <TaxOverview items={overviewItems} summary={overviewSummary} onOpen={openFromOverview} onToggleFiled={toggleFiled} vatExempt={company?.vatRegistered === false} onAuthorityPackage={authorityPackage ? () => setShowPackage(true) : undefined} />
+          )}
+          {showPackage && authorityPackage && (
+            <AuthorityPackageModal company={company} accounts={accounts} verifications={verifications} documents={authorityPackage.documents} lookups={{ contacts, invoices, expenses, projects: authorityPackage.projects || [] }} onClose={() => setShowPackage(false)} />
           )}
 
           {/* Momsdeklaration */}

@@ -165,7 +165,7 @@ textarea.ix-input { height: auto; min-height: 84px; padding: 9px 12px; resize: v
 .ixl-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--border-light); }
 .ixl-title { font-size: 14px; font-weight: 700; }
 .ixl-count { font-size: 12.5px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.ixl-row { display: grid; grid-template-columns: 34px minmax(0, 1.6fr) minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 18px; }
+.ixl-row { display: grid; grid-template-columns: 34px minmax(0, 1.7fr) minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 11px 18px; }
 .ixl-row.plain { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto; }
 .ixl-row + .ixl-row { border-top: 1px solid var(--border-light); }
 .ixl-row.clickable { cursor: pointer; }
@@ -173,14 +173,19 @@ textarea.ix-input { height: auto; min-height: 84px; padding: 9px 12px; resize: v
 .ixl-row.muted .ixl-main, .ixl-row.muted .ixl-avatar { opacity: 0.55; }
 .ixl-avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13.5px; font-weight: 700; text-transform: uppercase; background: var(--bg-muted); color: var(--text-secondary); }
 .ixl-main { min-width: 0; }
-.ixl-primary { font-size: 13.5px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ixl-primary-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ixl-primary { min-width: 0; font-size: 13.5px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ixl-secondary { margin-top: 2px; font-size: 12.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ixl-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.ixl-pills { display: inline-flex; flex-wrap: wrap; gap: 5px; flex-shrink: 0; }
 .ixl-pill { padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 650; white-space: nowrap; }
 .ixl-meta { min-width: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-.ixl-meta > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ixl-meta { text-align: right; }
+.ixl-meta > span { white-space: nowrap; }
+.ixl-meta > span + span::before { content: " · "; color: var(--text-muted); }
 .ixl-meta-label { color: var(--text-muted); }
 .ixl-action { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.ix-group-note { margin: -4px 0 10px; font-size: 12.5px; color: var(--text-muted); }
+.cc-danger { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 0 4px; border-top: 1px solid var(--border-light); margin-top: 4px; }
 .ixl-empty { padding: 26px 18px; text-align: center; font-size: 13.5px; color: var(--text-muted); }
 
 /* ── Kundkortet ────────────────────────────────────────────────────── */
@@ -231,7 +236,9 @@ textarea.ix-input { height: auto; min-height: 84px; padding: 9px 12px; resize: v
   .ix-card-head, .ix-card-body, .ix-event, .ix-todo, .ixl-head { padding-left: 14px; padding-right: 14px; }
   .ixl-row, .ixl-row.plain { grid-template-columns: 34px minmax(0, 1fr); gap: 4px 12px; padding: 13px 14px; align-items: start; }
   .ixl-row.plain { grid-template-columns: minmax(0, 1fr); }
-  .ixl-avatar { grid-row: span 3; }
+  .ixl-avatar { grid-row: span 2; }
+  .ixl-primary-line { flex-wrap: wrap; row-gap: 4px; }
+  .ixl-meta { text-align: left; }
   .ixl-row:not(.plain) .ixl-meta, .ixl-row:not(.plain) .ixl-action { grid-column: 2; }
   .ixl-meta > span { white-space: normal; }
   .ixl-action { justify-content: flex-start; margin-top: 6px; }

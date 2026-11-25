@@ -91,12 +91,20 @@ const SUPPLIER_COLUMNS = [
 // fälten (Typ/Enhet/Inköpspris/EAN/ROT-RUT/Anteckningar/engelsk benämning)
 // är tillagda sist så gamla exporterade CSV-filer (bara de fem första
 // kolumnerna) fortfarande går att importera rakt av.
+// Tredje elementet: rubriker i andra programs export (Fortnox artikelregister,
+// 2026-11-23). Bara exakta rubriker matchas, så "Försäljning EU ..." krockar inte.
 const ARTICLE_COLUMNS = [
-  ['description', 'Benämning'], ['articleNumber', 'Artikelnr'], ['unitPrice', 'Pris'],
-  ['vatRate', 'Moms'], ['account', 'Konto'], ['type', 'Typ'], ['unit', 'Enhet'],
-  ['purchasePrice', 'Inköpspris'], ['ean', 'EAN/streckkod'], ['rotRut', 'ROT/RUT'],
-  ['descriptionEn', 'Benämning (engelska)'], ['notes', 'Anteckningar'],
+  ['description', 'Benämning'], ['articleNumber', 'Artikelnr', ['Artikelnummer']],
+  ['unitPrice', 'Pris', ['A-pris (Förvald prislista)', 'Prislista A', 'A-pris', 'Försäljningspris']],
+  ['vatRate', 'Moms', ['Momssats']], ['account', 'Konto', ['Försäljning', 'Försäljningskonto']],
+  ['type', 'Typ', ['Typ av artikel']], ['unit', 'Enhet'],
+  ['purchasePrice', 'Inköpspris', ['Kalkylkostnad']], ['ean', 'EAN/streckkod', ['EAN']], ['rotRut', 'ROT/RUT'],
+  ['descriptionEn', 'Benämning (engelska)'], ['notes', 'Anteckningar', ['Anteckning']],
+  // Lagret (2026-11-23): leverantör för beställningsförslaget och lagerplats.
+  ['supplier', 'Leverantörsnamn'], ['location', 'Lagerplats'],
 ];
+// Bara vid import (exporteras inte): Fortnox kolumner för aktiv och husarbete.
+const ARTICLE_IMPORT_EXTRA = [['active', 'Aktiv'], ['houseWork', 'Husarbete'], ['houseWorkType', 'Typ av husarbete'], ['manufacturer', 'Tillverkare']];
 
 const contactColumns = (type) => (type === 'customer' ? CUSTOMER_COLUMNS : SUPPLIER_COLUMNS);
 
@@ -105,8 +113,11 @@ export function contactsToCsv(type, list) {
   return rowsToCsv(columns.map(([, h]) => h), list.map(item => columns.map(([key]) => item[key])));
 }
 
-export function articlesToCsv(list) {
-  return rowsToCsv(ARTICLE_COLUMNS.map(([, h]) => h), list.map(a => ARTICLE_COLUMNS.map(([key]) => a[key])));
+// legacy: kundernas export som förut, utan leverantör och lagerplats (de nya
+// kolumnerna bara för admin än, 2026-11-23).
+export function articlesToCsv(list, { legacy = false } = {}) {
+  const cols = legacy ? LEGACY_ARTICLE_COLUMNS : ARTICLE_COLUMNS;
+  return rowsToCsv(cols.map(([, h]) => h), list.map(a => cols.map(([key]) => a[key])));
 }
 
 // Matchar CSV-rubriker mot fältnycklar oavsett kolumnordning (saknad rubrik
@@ -149,16 +160,25 @@ export function csvToContacts(type, text) {
     });
 }
 
+// Momssats från försäljningskontot när filen saknar moms (Fortnox): BAS 3001
+// 25 %, 3002 12 %, 3003 6 %, 3004 momsfri, 3105-3108 export/EU utan svensk moms.
+const VAT_BY_ACCOUNT = { 3001: 25, 3002: 12, 3003: 6, 3004: 0, 3041: 25, 3042: 12, 3043: 6, 3044: 0, 3105: 0, 3106: 0, 3108: 0 };
+const ROT_TYPES = /bygg|^el|glas|plåt|mark|mur|måln|tapet|vvs/i;
+/** "1 234,50" och "1234.5" blir tal. Tomt blir NaN. */
+const toNumber = (v) => { const s = String(v ?? '').replace(/[\s\u00a0]/g, '').replace(',', '.'); return s === '' ? NaN : Number(s); };
+
 export function csvToArticles(text) {
-  const objs = rowsToObjects(parseCsv(text), ARTICLE_COLUMNS);
+  return parseArticleImport(text).articles;
+}
+
+// Kundernas import som den var före 2026-11-23 (semikolon, Bokix egna
+// rubriker). Fortnox-läsningen ovan är bara för admin än.
+const LEGACY_ARTICLE_COLUMNS = ARTICLE_COLUMNS.slice(0, 12).map(([key, header]) => [key, header]);
+export function legacyCsvToArticles(text) {
+  const objs = rowsToObjects(parseCsv(text), LEGACY_ARTICLE_COLUMNS);
   return objs
-    // Benämning är den riktiga identiteten (Articles.jsx) — Artikelnr är
-    // valfritt numera, så kravet flyttades hit från articleNumber.
     .filter(o => o.description)
     .map(o => {
-      // `o.vatRate` är alltid en trimmad sträng här (se rowsToObjects) — en
-      // tom cell ska falla tillbaka till 25%, inte tolkas som Number('') === 0
-      // och därmed råka bli en "giltig" 0%-rad.
       const vatRate = o.vatRate !== '' && [0, 6, 12, 25].includes(Number(o.vatRate)) ? Number(o.vatRate) : 25;
       const type = o.type === 'vara' ? 'vara' : 'tjanst';
       const rotRut = ['rot', 'rut'].includes(o.rotRut) ? o.rotRut : 'none';
@@ -168,4 +188,36 @@ export function csvToArticles(text) {
         purchasePrice: o.purchasePrice === '' ? '' : Number(o.purchasePrice) || 0,
       };
     });
+}
+
+/** Som csvToArticles, och hur många inaktiva rader som hoppades över (förhandsvisningen). */
+export function parseArticleImport(text) {
+  const objs = rowsToObjects(parseCsv(text, detectDelimiter(text)), [...ARTICLE_COLUMNS, ...ARTICLE_IMPORT_EXTRA]);
+  const skippedInactive = objs.filter(o => o.description && /^nej$/i.test(o.active)).length;
+  const articles = objs
+    // Benämning är den riktiga identiteten (Articles.jsx) — Artikelnr är
+    // valfritt numera, så kravet flyttades hit från articleNumber.
+    .filter(o => o.description)
+    // Inaktiva artiklar i Fortnox följer inte med.
+    .filter(o => !/^nej$/i.test(o.active))
+    .map(({ active, houseWork, houseWorkType, manufacturer, supplier: _s, location, ...o }) => {
+      // Fortnox: leverantörsnamnet saknas ofta, då står namnet under Tillverkare.
+      const supplier = _s || (/^\d{6}-?\d{4}$/.test(manufacturer || '') ? '' : manufacturer) || '';
+      const account = /^\d{4}$/.test(o.account) ? o.account : '3001';
+      // Tom moms: från kontot, annars 25 %. Inte Number('') === 0.
+      const given = toNumber(o.vatRate);
+      const vatRate = [0, 6, 12, 25].includes(given) ? given : (VAT_BY_ACCOUNT[account] ?? 25);
+      const type = /^(vara|varor)$/i.test(o.type) ? 'vara' : 'tjanst';
+      let rotRut = ['rot', 'rut'].includes(String(o.rotRut).toLowerCase()) ? String(o.rotRut).toLowerCase() : 'none';
+      if (rotRut === 'none' && /^ja$/i.test(houseWork || '')) rotRut = ROT_TYPES.test(houseWorkType || '') ? 'rot' : 'rut';
+      const price = toNumber(o.unitPrice);
+      const purchase = toNumber(o.purchasePrice);
+      return {
+        ...o, unitPrice: Number.isFinite(price) ? price : 0, vatRate, account,
+        type, unit: o.unit || 'st', rotRut,
+        purchasePrice: Number.isFinite(purchase) && purchase !== 0 ? purchase : (o.purchasePrice === '' ? '' : 0),
+        ...(supplier ? { supplier } : {}), ...(location ? { location } : {}),
+      };
+    });
+  return { articles, skippedInactive };
 }

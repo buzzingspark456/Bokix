@@ -8,7 +8,7 @@ import { hasResendApiKey, sendWithFallback } from '../_resend.js';
 import { buildSignupVerificationHtml, buildReauthCodeHtml } from '../_emailTemplates.js';
 import { translateSupabaseAuthError } from '../../src/utils/translateAuthError.js';
 import { randomInt } from 'node:crypto';
-import { isDisposableEmail } from '../_abuse.js';
+import { isDisposableEmailDeep } from '../_abuse.js';
 import { verifyRecaptcha, hasRecaptchaSecretKey } from '../_recaptcha.js';
 import { getClientIp } from '../_rateLimit.js';
 import { logSystemEvent } from '../_systemEvents.js';
@@ -67,7 +67,8 @@ async function hasValidInvite(email, inviteToken) {
 // till nästa steg. Det avslutande kontot skapas fortfarande med ETT enda
 // supabase.auth.signUp()-anrop i Auth.jsx, helt oförändrat — den här koden
 // är bara en spärr FÖRE det anropet, inte en ny kontoskapande-väg.
-const SITE_URL = 'https://www.bokix.se';
+// Appen ligger på app.bokix.se sedan 2026-11-19 (utils/appHost.js).
+const SITE_URL = 'https://app.bokix.se';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SIGNUP_CODE_MAX_AGE_MS = 10 * 60 * 1000;
 // Reauthentication (Settings.jsx: byt lösenord/spara företagsuppgifter,
@@ -167,7 +168,7 @@ async function handleSendSignupCode(req, body, res) {
   // Skydd mot massregistrering (2026-10-04): falska konton med nya adresser,
   // och Bokix som avsändare av mejl till främmande inkorgar.
   // 1. Engångsadresser tas inte emot.
-  if (isDisposableEmail(email)) {
+  if (await isDisposableEmailDeep(email)) {
     res.status(400).json({ error: 'Använd en vanlig e-postadress. Tillfälliga adresser kan inte användas för ett konto.' });
     return;
   }

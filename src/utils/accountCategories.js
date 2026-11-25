@@ -36,6 +36,20 @@ export const EQUIPMENT_CHOICES = [
   { code: '6110', why: 'ui.val_kontorsmaterial' },
 ];
 
+/** Momsen på livsmedel (även mat för avhämtning) är tillfälligt sänkt från
+ * 12 till 6 % från 1 april 2026 till och med 31 december 2027
+ * (Skatteverket, kontrollerat 2026-11-16). Mat och dryck som äts på plats
+ * på restaurang eller kafé har kvar 12 %. Används bara som förslag när
+ * kvittots moms inte gick att läsa; den avlästa momsen går alltid före.
+ * Utan datum räknas dagens datum. */
+export const FOOD_VAT_CUT = { rate: 6, normal: 12, from: '2026-04-01', to: '2027-12-31' };
+export function foodVatRate(date = new Date().toISOString().slice(0, 10)) {
+  const d = String(date).slice(0, 10);
+  return d >= FOOD_VAT_CUT.from && d <= FOOD_VAT_CUT.to ? FOOD_VAT_CUT.rate : FOOD_VAT_CUT.normal;
+}
+// Livsmedelsbutiker och kiosker: momssatsen följer datumet, därför en getter.
+const grocer = (re, name) => ({ re, name, account: '7690', choices: FOOD_CHOICES, get vat() { return foodVatRate(); } });
+
 /** Kända leverantörer → namn, konto och (om känt) momssats. Matchas mot
  *  HELA den avlästa/importerade texten (kvittots OCR-text, eller en
  *  bankrads beskrivning), i listad ordning — första träff vinner. `choices`:
@@ -57,16 +71,16 @@ export const KNOWN_SUPPLIERS = [
   { re: /notion/i, name: 'Notion', account: '6540', vat: 0 },
   { re: /spotify/i, name: 'Spotify', account: '6990', vat: 25 },
 
-  // Matvaror, fika och restauranger (12% moms). Kontot beror på syftet, så
+  // Matvaror och kiosker (livsmedelsmoms, se foodVatRate), fika och restauranger på plats (12% moms). Kontot beror på syftet, så
   // användaren väljer bland FOOD_CHOICES/MEAL_CHOICES ovan.
-  { re: /coop/i, name: 'Coop', account: '7690', vat: 12, choices: FOOD_CHOICES },
-  { re: /ica\b/i, name: 'ICA', account: '7690', vat: 12, choices: FOOD_CHOICES },
-  { re: /willys/i, name: 'Willys', account: '7690', vat: 12, choices: FOOD_CHOICES },
-  { re: /lidl/i, name: 'Lidl', account: '7690', vat: 12, choices: FOOD_CHOICES },
-  { re: /hemk[öo]p/i, name: 'Hemköp', account: '7690', vat: 12, choices: FOOD_CHOICES },
+  grocer(/coop/i, 'Coop'),
+  grocer(/ica\b/i, 'ICA'),
+  grocer(/willys/i, 'Willys'),
+  grocer(/lidl/i, 'Lidl'),
+  grocer(/hemk[öo]p/i, 'Hemköp'),
   { re: /espresso house/i, name: 'Espresso House', account: '7690', vat: 12, choices: FOOD_CHOICES },
-  { re: /pressbyr[åa]n/i, name: 'Pressbyrån', account: '7690', vat: 12, choices: FOOD_CHOICES },
-  { re: /7-eleven|seven eleven/i, name: '7-Eleven', account: '7690', vat: 12, choices: FOOD_CHOICES },
+  grocer(/pressbyr[åa]n/i, 'Pressbyrån'),
+  grocer(/7-eleven|seven eleven/i, '7-Eleven'),
   { re: /mcdonald'?s/i, name: "McDonald's", account: '6071', vat: 12, choices: MEAL_CHOICES },
   { re: /burger king/i, name: 'Burger King', account: '6071', vat: 12, choices: MEAL_CHOICES },
   { re: /max burger|max restauranger/i, name: 'MAX', account: '6071', vat: 12, choices: MEAL_CHOICES },
@@ -117,6 +131,20 @@ export const KNOWN_SUPPLIERS = [
 /** Nyckelordsregler för konto, när ingen känd leverantör matchade. Samma
  *  "första träff vinner"-princip. Varje `code` verifierad mot
  *  AccountsData.js (se filkommentaren ovan för vilka som rättades). */
+/**
+ * Vad som köptes, för butiker som säljer allt möjligt (Elgiganten, Clas Ohlson,
+ * ICA). Butiken säger inte vilket konto det är: en dator, ett batteri och ett
+ * tv-spel är tre olika saker. `code: null` betyder att varan oftast är privat
+ * (spel och spelkonsoler), och då föreslås inget konto alls.
+ */
+export const ITEM_ACCOUNT_RULES = [
+  { re: /playstation|\bps[45]\b|xbox|nintendo|spelkonsol|spelkontroll|dualsense|tv-spel|gamingstol/, code: null },
+  { re: /bärbar dator|laptop|macbook|stationär dator|\bdator\b|bildskärm|datorskärm|monitor|tangentbord|datormus|\bmus\b|router|headset|hörlurar|webbkamera|surfplatta|ipad|skrivare|mobiltelefon(?!i)|smartphone|iphone|dockningsstation|projektor/, code: '5410' },
+  { re: /kabel|sladd|batteri|batterier|laddare|adapter|\busb\b|minneskort|förlängningssladd|glödlampa|eluttag|grenuttag|tejp|skruv|spik/, code: '5460' },
+  { re: /toner|bläckpatron|kopieringspapper|skrivarpapper|pärm|kontorsmaterial|kuvert|häftapparat|post-it|whiteboard/, code: '6110' },
+  { re: /programvara|antivirus|office 365|microsoft 365/, code: '5420' },
+];
+
 export const ACCOUNT_KEYWORD_RULES = [
   // ── Specifika regler först ────────────────────────────────────────────
   // Kravet här är att texten själv säger vad det gäller. Ett ord som kan
@@ -129,6 +157,9 @@ export const ACCOUNT_KEYWORD_RULES = [
   // förbrukningsmaterial (5460, nedan), inte städning, därför de exakta orden.
   { re: /städning|städtjänst|städservice|städfirma|storstädning|flyttstädning|lokalvård/, code: '5061' },
   { re: /sophämtning|renhållningsavgift|avfallshämtning|avfallsavgift/, code: '5062' },
+  // 5480 Arbetskläder. Kläder ska vara arbetskläder för att vara avdragsgilla,
+  // så det är ett förslag att kontrollera, aldrig ett ifyllt konto.
+  { re: /arbetskläder|arbetsbyxor|arbetsjacka|arbetsskor|skyddsskor|skyddskläder|skyddshandskar|varselkläder|varseljacka|byxor|jeans|jacka|tröja|t-shirt/, code: '5480' },
   { re: /snöröjning|snöskottning|halkbekämpning/, code: '5064' },
   { re: /trädgårdsskötsel|gräsklippning/, code: '5065' },
   // 5030 Värme, 5040 Vatten och avlopp.
@@ -195,7 +226,7 @@ export const ACCOUNT_KEYWORD_RULES = [
   // UPPGRADERAT: 5000 är gruppkontot "Lokalkostnader", 5020 "El" är
   // exakt raden för en elräkning.
   { re: /elräkning|elnät|vattenfall|e\.on|fortum/, code: '5020' },
-  { re: /verktyg|maskin|utrustning/, code: '5400' },
+  { re: /verktyg|maskin|utrustning/, code: '5410' },
 ];
 
 /**

@@ -1,3 +1,4 @@
+import { assetUrl } from '../../utils/assetUrl.js';
 // ── Bilder ur appen i blogginläggen ─────────────────────────────────────
 // { t: 'image', shot: 'stripe' } i blog.js. Bilderna ritas av
 // scripts/render-blog-shots.mjs (appfönster i ram, ljust + mörkt) till
@@ -26,5 +27,5 @@ export const BLOG_SHOTS = {
 };
 
 export function blogShotSrc(name, dark = false) {
-  return `/blog/app/${name}${dark ? '-mork' : ''}.jpg`;
+  return assetUrl(`/blog/app/${name}${dark ? '-mork' : ''}.jpg`);
 }

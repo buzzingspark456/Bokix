@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { isVatExempt } from '../utils/vatRegistration';
-import { NavQuotesIcon, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Search, ChevronDown, ChevronRight, Printer } from './icons';
+import { NavQuotesIcon, Plus, FileText, Check, X, Download, Trash2, Send, Eye, ZoomIn, ZoomOut, Paperclip, Search, ChevronDown, ChevronRight, Printer, Pencil, Copy, CheckCircle2, XCircle, RotateCcw, ClipboardList } from './icons';
 import PaperFit from './shared/PaperFit';
+import ArticleCombobox from './shared/ArticleCombobox';
 import DocSplit from './shared/DocSplit';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE, INVOICE_TEMPLATES } from './InvoiceDocument';
 import { uploadTempMailFile, deleteTempMailFile } from '../utils/fileUpload';
@@ -9,13 +10,19 @@ import { exportInvoicePdf, getInvoicePdfBase64, printInvoicePdf } from '../utils
 import { sendInvoiceEmail } from '../emailApi';
 import { BRAND } from '../utils/brandColors';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
+import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, STRONG_DRAFT } from './shared/invoiceStatusStyle';
+import RowActionMenu from './shared/RowActionMenu';
 import ListTable from './shared/ListTable';
+import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
+import { isAdminPreview } from '../utils/adminPreview';
+import { downloadCsv } from '../utils/csvRegister';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { showUndo, restoreAt } from './shared/undoToast';
 import { useMobileForm, MobileFormBar } from './shared/MobileForm';
 import { t } from '../i18n';
 import { numberFormat, dateTimeFormat } from '../utils/intlCache';
 import { sendableEmail } from '../utils/validators';
+import { getNextQuoteNumber } from '../utils/quoteNumbering';
 
 const fmtSEK = (val) => numberFormat('sv-SE', { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(val || 0);
 const fmtDateSv = (d) => { if (!d) return ''; try { return dateTimeFormat('sv-SE').format(new Date(d)); } catch { return d; } };
@@ -57,10 +64,6 @@ const DEFAULT_OTHER_TERMS = [
   'Ansvarsbegränsning: Ansvar begränsas till offertens totala belopp.',
 ].join('\n');
 
-const getNextQuoteNumber = (quotesList) => {
-  const nums = quotesList.map(q => Number(String(q.invoiceNumber || '').replace('OFF-', ''))).filter(n => !isNaN(n));
-  return `OFF-${(nums.length > 0 ? Math.max(...nums) : 1000) + 1}`;
-};
 
 /** "Förfallen" är inget en människa sätter — den räknas fram (skickad men
  * giltighetstiden har passerat) precis som förfallna fakturor i
@@ -70,13 +73,23 @@ const getDisplayStatus = (q) => {
   return q.status || 'draft';
 };
 
+// Radernas bakgrund i listan, som kundfakturorna: grön för accepterad och
+// fakturerad, gul för väntar på svar, röd för avvisad och utgången.
+const QUOTE_ROW_BG = {
+  accepted: 'var(--row-paid-bg)', invoiced: 'var(--status-green-bg)',
+  sent: 'var(--row-unpaid-bg)', expired: 'var(--row-overdue-bg)', rejected: 'var(--status-red-bg)',
+  draft: 'var(--bg-muted)',
+};
+
 const getStatusStyle = (status) => {
+  // Samma toner som filterraden och kundfakturorna (2026-11-20).
   switch (status) {
-    case 'accepted': return { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)', label: t('ui.accepterad') };
-    case 'sent': return { bg: 'var(--status-blue-bg)', color: 'var(--status-blue-text)', label: t('ui.skickad_2') };
+    case 'accepted': return { bg: STRONG_PAID.bg, color: STRONG_PAID.text, label: t('ui.accepterad') };
+    case 'invoiced': return { bg: 'var(--status-green-bg)', color: 'var(--status-green-text)', label: t('ui.offert_fakturerad') };
+    case 'sent': return { bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text, label: t('ui.q_filter_vantar') };
     case 'rejected': return { bg: 'var(--status-red-bg)', color: 'var(--status-red-text)', label: t('ui.avvisad') };
-    case 'expired': return { bg: 'var(--status-amber-bg)', color: 'var(--status-amber-text)', label: t('ui.forfallen') };
-    default: return { bg: 'var(--border-light)', color: 'var(--text-secondary)', label: t('ui.utkast') };
+    case 'expired': return { bg: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text, label: t('ui.q_filter_utgangen') };
+    default: return { bg: STRONG_DRAFT.bg, color: STRONG_DRAFT.text, label: t('ui.utkast') };
   }
 };
 
@@ -115,7 +128,7 @@ const toolbarBtnStyle = (active) => ({
  * förhandsgranskning som öppnas på begäran. Samma lösning återanvänds här
  * rakt av — samma CSS-klass, samma mönster, samma mobilanpassning.
  */
-function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], company, user, articles = [], onSave, onClose, onConvert, onSyncBeforeServerCall }) {
+function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], company, user, articles = [], articleSearch = false, onSave, onClose, onConvert, onMakeOrder = null, onOpenOrder = null, onOpenInvoice, onSyncBeforeServerCall, onPersist }) {
   useMobileForm();
   const [customerId, setCustomerId] = useState(quote?.customerId || '');
   const [customerName, setCustomerName] = useState(quote?.customerName || '');
@@ -131,6 +144,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
     ? quote.rows.map(r => ({
         description: r.description || '', price: r.unitPrice ?? '', qty: r.qty ?? 1, unit: r.unit || 'st',
         vat: r.vatRate ?? 25, discount: r.discount ?? 0, deduction: r.deduction || 'none',
+        ...(r.articleNumber ? { articleId: r.articleId || '', articleNumber: r.articleNumber } : {}),
       }))
     : [emptyRow(vatExempt ? 0 : 25)]);
   const [status, setStatus] = useState(quote?.status || 'draft');
@@ -195,7 +209,16 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
   // (InvoiceDocument.jsx: otherTerms.split('\n')). `??` (inte `||`) så att
   // ett medvetet tomt fält (användaren har raderat all text) inte tyst
   // återställs till standardtexten igen.
-  const [otherTerms, setOtherTerms] = useState(quote?.otherTerms ?? DEFAULT_OTHER_TERMS);
+  // Ny offert: tomt (2026-11-20, grundaren). Standardvillkoren läggs till med
+  // en knapp. Äldre offerter utan fältet behåller texten de skickades med.
+  const [otherTerms, setOtherTerms] = useState(() => {
+    // Utkast: tomt om inget eget skrivits (standardtexten räknas inte). En
+    // skickad offert behåller texten den skickades med.
+    if (!quote) return '';
+    const draft = !quote.status || quote.status === 'draft';
+    if (draft && (quote.otherTerms == null || quote.otherTerms === DEFAULT_OTHER_TERMS)) return '';
+    return quote.otherTerms ?? DEFAULT_OTHER_TERMS;
+  });
 
   // Kundfeedback: "så mycket grejer, gör det enklare" — de sex sektionerna
   // nedan (mejlmeddelande, bilagor, ej ingår, betalningsvillkor,
@@ -207,7 +230,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
     quote?.emailMessage || (quote?.emailAttachments || []).length > 0 || quote?.notIncluded ||
     quote?.workStartDate || quote?.workEndDate || quote?.workLocation || quote?.deliveryDescription ||
     (quote?.paymentTermsDays != null && Number(quote.paymentTermsDays) !== Number(company?.paymentTermsDays ?? 30)) ||
-    (quote?.otherTerms != null && quote.otherTerms !== DEFAULT_OTHER_TERMS)
+    (quote?.otherTerms != null && quote.otherTerms !== DEFAULT_OTHER_TERMS && quote.otherTerms !== '')
   ));
 
   // Mallval/accentfärg fryses vid FÖRSTA sparningen (samma regel som
@@ -233,7 +256,10 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [emailSent, setEmailSent] = useState(false);
-  const [emailToInput, setEmailToInput] = useState('');
+  const [emailToInput, setEmailToInput] = useState(quote?.customerEmail || '');
+  // Skicka via e-post öppnar en ruta (2026-11-20), som fakturorna.
+  const [showCompose, setShowCompose] = useState(false);
+  const [emailSubject, setEmailSubject] = useState('');
 
   const previewRef = useRef(null);
   // Osynlig, alltid monterad kopia med fast 794px-bredd — PDF/mejl fångar
@@ -268,6 +294,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
 
   const previewNumber = quote?.invoiceNumber || getNextQuoteNumber(quotes);
   const previewRows = rows.map(r => ({
+    ...(r.articleNumber ? { articleId: r.articleId || '', articleNumber: r.articleNumber } : {}),
     description: r.description, qty: Number(r.qty) || 1, unit: r.unit || 'st', unitPrice: Number(r.price) || 0,
     vatRate: vatExempt ? 0 : rowVatRate(r.vat), discount: Number(r.discount) || 0, deduction: r.deduction && r.deduction !== 'none' ? r.deduction : undefined,
   }));
@@ -304,8 +331,12 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
     setRows(r => r.map((row, idx) => idx === i ? {
       ...row,
       description: article.description || row.description,
+      // Artikeln följer med (2026-11-24), så att order och faktura vet vilken
+      // vara raden gäller även när två artiklar har samma benämning.
+      ...(articleSearch ? { articleId: article.id || '', articleNumber: article.articleNumber || '' } : {}),
       price: article.unitPrice ?? row.price,
       vat: vatExempt ? 0 : (article.vatRate ?? row.vat),
+      unit: article.unit ? (article.unit === 'h' ? 'tim' : article.unit) : row.unit,
     } : row));
   };
 
@@ -331,6 +362,23 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
     notIncluded, otherTerms, currency,
     ...overrides,
   });
+
+  // Status sparas direkt (2026-11-20). Tidigare ändrades den bara på skärmen
+  // och försvann om man inte tryckte Spara.
+  const changeStatus = (next) => {
+    setStatus(next);
+    const stamp = new Date().toISOString().slice(0, 10);
+    const extra = next === 'accepted' ? { acceptedAt: stamp } : next === 'rejected' ? { rejectedAt: stamp } : {};
+    if (quote && onPersist) onPersist(buildSaveData({ status: next, ...extra }));
+  };
+  const defaultQuoteMessage = () => t('ui.offert_mejl_standard', { nr: previewNumber, amount: `${fmtSEK(totals.total)} ${currency}`, date: fmtDateSv(dueDate) });
+  const openCompose = () => {
+    setEmailError(''); setEmailSent(false);
+    if (!emailToInput.trim()) setEmailToInput(customerEmail || customer?.email || '');
+    setEmailSubject(`Offert ${previewNumber} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`);
+    if (!emailMessage.trim()) setEmailMessage(defaultQuoteMessage());
+    setShowCompose(true);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -385,7 +433,12 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
       const attachmentsHtml = readyAttachments.length > 0
         ? `<p>Bilagor:</p><ul>${readyAttachments.map(a => `<li><a href="${a.url}">${escapeHtml(a.name)}</a></li>`).join('')}</ul>`
         : '';
-      const html = `
+      // Eget meddelande (från rutan) skickas som det står; annars hälsning och avslutning runt standardstycket.
+      const html = emailMessage.trim() ? `
+        ${messageHtml}
+        ${attachmentsHtml}
+        <p>Med vänlig hälsning<br/>${(company?.invoiceDisplayName || company?.name) || ''}</p>
+      ` : `
         <p>Hej${customer?.contactPerson ? ' ' + customer.contactPerson : ''},</p>
         ${messageHtml}
         ${attachmentsHtml}
@@ -401,7 +454,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
       await onSyncBeforeServerCall?.();
       await sendInvoiceEmail({
         to,
-        subject: `Offert ${previewNumber} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`,
+        subject: emailSubject.trim() || `Offert ${previewNumber} från ${(company?.invoiceDisplayName || company?.name) || 'oss'}`,
         html,
         replyTo: company?.email || undefined,
         attachmentBase64,
@@ -414,9 +467,10 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
         company_id: activeCompanyId,
       });
       setEmailSent(true);
+      setShowCompose(false);
       // Ett utkast som faktiskt skickas till kunden är per definition inte
-      // längre ett utkast.
-      setStatus('sent');
+      // längre ett utkast. Sparas direkt.
+      if (quote && (!quote.status || quote.status === 'draft' || status === 'draft')) changeStatus('sent'); else setStatus(s => (s === 'draft' ? 'sent' : s));
       // Kundfeedback: "skicka via post ska funka" — en helt ny, ännu
       // osparad offert krävde tidigare ett separat "Spara offert"-klick
       // FÖRST (knappen var disabled med bara en tooltip som förklaring),
@@ -516,53 +570,21 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
 
       {/* ── Åtgärdsrad: statusflöde, konvertering, e-post, PDF, förhandsgranska ── */}
       <div className={`quote-toolbar doc-toolbar${quote ? '' : ' is-new'}`} style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        {quote && (!quote.status || quote.status === 'draft') && (
-          <button type="button" className="tb-status" onClick={() => setStatus('sent')} style={toolbarBtnStyle(status === 'sent')}>{t('ui.markera_som_skickad')}</button>
+        {quote && quote.status === 'invoiced' && quote.invoiceId && onOpenInvoice && (
+          <button type="button" className="tb-status" onClick={() => onOpenInvoice(quote.invoiceId)} style={toolbarBtnStyle(false)}><FileText size={13} /> {t('ui.visa_fakturan')}</button>
         )}
-        {quote && status === 'sent' && (
-          <>
-            <button type="button" className="tb-status" onClick={() => setStatus('accepted')} style={{ ...toolbarBtnStyle(false), color: 'var(--status-green-text)', borderColor: 'var(--status-green-bg)' }}>{t('ui.markera_som_accepterad')}</button>
-            <button type="button" className="tb-status" onClick={() => setStatus('rejected')} style={{ ...toolbarBtnStyle(false), color: 'var(--status-red-text)', borderColor: 'var(--status-red-bg)' }}>{t('ui.markera_som_avvisad')}</button>
-          </>
-        )}
-        {quote && (status === 'accepted' || status === 'rejected') && (
-          <button type="button" className="tb-status" onClick={() => setStatus('draft')} style={toolbarBtnStyle(false)}>{t('ui.aterstall_till_utkast')}</button>
-        )}
-        {/* Konvertering är alltid tillgänglig oavsett status — se motiveringen
-            i Quotes-listan: det är ägarens eget omdöme, inte något appen ska
-            gate:a bakom ett visst statusläge. */}
-        {quote && onConvert && (
-          <button type="button" className="tb-status" onClick={onConvert} style={{ ...toolbarBtnStyle(false), color: 'var(--accent-text)', borderColor: 'var(--status-green-bg)' }}><FileText size={13} /> {t('ui.konvertera_till_faktura')}</button>
+        {quote && quote.status !== 'invoiced' && displayStatus !== 'accepted' && onConvert && (
+          <button type="button" className="tb-status" onClick={(e) => onConvert(e, buildSaveData())} style={{ ...toolbarBtnStyle(false), color: 'var(--accent-text)', borderColor: 'var(--status-green-bg)' }}><FileText size={13} /> {t('ui.konvertera_till_faktura')}</button>
         )}
         <div style={{ flex: 1, minWidth: '8px' }} />
         {emailError && <span style={{ fontSize: '11px', color: 'var(--status-red-text)', flexShrink: 0 }}>{emailError}</span>}
         {emailSent && !emailError && <span style={{ fontSize: '11px', color: 'var(--status-green-text)', fontWeight: 600, flexShrink: 0 }}>{t('ui.skickad')}</span>}
-        <input
-          type="email" className="toolbar-email-input" value={emailToInput} onChange={e => { setEmailToInput(e.target.value); setEmailError(''); }}
-          placeholder={t('ui.mottagarens_epost_se')} title={t('ui.mottagarens_e_postadress')}
-          // Bugkritiskt: `background: 'white'` var hårdkodat här och
-          // krockade med `color: 'var(--text-main)'` — i mörkt läge är
-          // --text-main nästan vit (#eef3ea, till för mörka bakgrunder),
-          // så texten blev vit på vitt och osynlig. inputStyle sätter redan
-          // rätt temamedvetna bakgrund (var(--bg-card)); den ska inte
-          // skrivas över här.
-          style={{ ...inputStyle, width: '210px', padding: '9px 12px', fontSize: '13.5px', flexShrink: 0 }}
-        />
-        {/* Bugkritiskt, samma fel som fakturans motsvarande knapp
-            (Invoices.jsx, tb-send): disabled på !emailToInput.trim() gjorde
-            knappen ett HELT tyst dött klick på en tom adress — inget
-            felmeddelande, inget nätverksanrop alls (bekräftat i Vercels
-            runtime-loggar: noll träffar mot /api/email/send-invoice trots
-            att kunden testat). handleSendEmail har redan sin egen tydliga
-            felruta (emailError, raden ovanför) för en tom adress — bara
-            emailBusy ska spärra klicket, resten sköts av den. */}
         <button
-          type="button" className="tb-send" onClick={handleSendEmail}
+          type="button" className="tb-send" onClick={openCompose}
           disabled={emailBusy}
-          title={!emailToInput.trim() ? t('ui.ange_en_mottagaradress_2') : t('ui.skicka_offert_till', { previewNumber, v1: emailToInput.trim() })}
           style={{ ...toolbarBtnStyle(false), opacity: emailBusy ? 0.5 : 1, cursor: emailBusy ? 'not-allowed' : 'pointer' }}
         >
-          <Send size={15} /> {emailBusy ? t('ui.skickar_2') : t('ui.skicka_via_e_post')}
+          <Send size={15} /> {emailBusy ? t('ui.skickar_2') : (quote?.status && quote.status !== 'draft' ? t('ui.skicka_igen') : t('ui.skicka_via_e_post'))}
         </button>
         {pdfError && <span style={{ fontSize: '11px', color: 'var(--status-red-text)', flexShrink: 0 }}>{pdfError}</span>}
         <button type="button" className="tb-pdf" onClick={handleDownloadPdf} disabled={pdfBusy} style={{ ...toolbarBtnStyle(false), opacity: pdfBusy ? 0.6 : 1 }}>
@@ -572,6 +594,97 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
           <Eye size={15} /> {t('ui.forhandsgranska')}
         </button>
       </div>
+
+      {/* ── Svaret från kunden (2026-11-20): tydligt vad som gäller och vad nästa steg är. ── */}
+      {quote && (
+        <div className={`q-status q-status-${displayStatus}`}>
+          {(displayStatus === 'draft') && (
+            <>
+              <span className="q-status-text"><b>{t('ui.q_utkast')}</b> {t('ui.q_utkast_text')}</span>
+              <button type="button" className="q-btn" onClick={() => changeStatus('sent')}>{t('ui.markera_som_skickad')}</button>
+            </>
+          )}
+          {(displayStatus === 'sent' || displayStatus === 'expired') && (
+            <>
+              <span className="q-status-text"><b>{displayStatus === 'expired' ? t('ui.q_utgangen') : t('ui.q_vantar')}</b> {t('ui.q_vantar_text')}</span>
+              <button type="button" className="q-btn q-btn-yes" onClick={() => changeStatus('accepted')}><Check size={15} /> {t('ui.q_accepterade')}</button>
+              <button type="button" className="q-btn q-btn-no" onClick={() => changeStatus('rejected')}><X size={15} /> {t('ui.q_tackade_nej')}</button>
+            </>
+          )}
+          {displayStatus === 'accepted' && (
+            <>
+              <span className="q-status-text"><b><Check size={15} /> {t('ui.q_accepterad_rubrik')}</b> {quote.acceptedAt ? t('ui.q_den', { date: fmtDateSv(quote.acceptedAt) }) : ''} {onMakeOrder ? t('so.quoteNext') : onOpenOrder ? t('so.quoteHasOrder') : t('ui.q_accepterad_text')}</span>
+              {onMakeOrder && <button type="button" className="q-btn q-btn-primary" onClick={(e) => onMakeOrder(e, buildSaveData())}><ClipboardList size={15} /> {t('so.makeOrder')}</button>}
+              {onOpenOrder && <button type="button" className="q-btn q-btn-primary" onClick={onOpenOrder}><ClipboardList size={15} /> {t('so.openOrder', { n: quote.orderNumber || '' })}</button>}
+              {onConvert && !onOpenOrder && <button type="button" className={`q-btn${onMakeOrder ? '' : ' q-btn-primary'}`} onClick={(e) => onConvert(e, buildSaveData())}><FileText size={15} /> {t('ui.skapa_faktura')}</button>}
+              <button type="button" className="q-link" onClick={() => changeStatus('sent')}>{t('ui.q_andra_svar')}</button>
+            </>
+          )}
+          {displayStatus === 'rejected' && (
+            <>
+              <span className="q-status-text"><b><X size={15} /> {t('ui.q_avvisad_rubrik')}</b> {quote.rejectedAt ? t('ui.q_den', { date: fmtDateSv(quote.rejectedAt) }) : ''} {t('ui.q_avvisad_text')}</span>
+              <button type="button" className="q-link" onClick={() => changeStatus('sent')}>{t('ui.q_andra_svar')}</button>
+            </>
+          )}
+          {displayStatus === 'invoiced' && (
+            <>
+              <span className="q-status-text"><b><FileText size={15} /> {t('ui.offert_fakturerad')}</b> {t('ui.q_fakturerad_text')}</span>
+              {quote.invoiceId && onOpenInvoice && <button type="button" className="q-btn" onClick={() => onOpenInvoice(quote.invoiceId)}>{t('ui.visa_fakturan')}</button>}
+            </>
+          )}
+        </div>
+      )}
+
+      {showCompose && (
+        <div className="modal-overlay" onClick={() => !emailBusy && setShowCompose(false)}>
+          <div className="modal-content" style={{ maxWidth: '620px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{t('ui.skicka_offert')} {previewNumber}</h2>
+              <button className="modal-close" onClick={() => setShowCompose(false)} disabled={emailBusy}><X size={18} /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label className="q-lbl">{t('ui.till_2')}</label>
+                <input className="form-control" type="email" value={emailToInput} onChange={e => { setEmailToInput(e.target.value); setEmailError(''); }} placeholder={t('ui.mottagarens_epost_se')} />
+              </div>
+              <div>
+                <label className="q-lbl">{t('ui.amne')}</label>
+                <input className="form-control" value={emailSubject} onChange={e => setEmailSubject(e.target.value)} />
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px' }}>
+                  <label className="q-lbl">{t('ui.meddelande')}</label>
+                  <button type="button" className="q-link" onClick={() => setEmailMessage(defaultQuoteMessage())}>{t('ui.aterstall_standardtexten')}</button>
+                </div>
+                <textarea className="form-control" value={emailMessage} onChange={e => setEmailMessage(e.target.value)} rows={7} style={{ resize: 'vertical', lineHeight: 1.6 }} />
+              </div>
+              <div>
+                <label className="q-lbl">{t('ui.bilagor_i_mejlet')}</label>
+                <input type="file" ref={attachmentsFileInputRef} style={{ display: 'none' }} multiple accept={ATTACHMENT_ACCEPT_ATTR} onChange={e => { handleAddFiles(e.target.files); e.target.value = ''; }} />
+                {attachments.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
+                    {attachments.map(a => (
+                      <div key={a.id} className="q-att">
+                        <Paperclip size={13} />
+                        <span>{a.name} <small>({((a.size || 0) / (1024 * 1024)).toFixed(1)} {t('ui.mb_2')}</small>{a.error && <>: {a.error}</>}</span>
+                        <button type="button" onClick={() => removeAttachment(a.id)} title={t('ui.ta_bort')}><X size={13} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {attachmentsError && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginBottom: '8px' }}>{attachmentsError}</div>}
+                <button type="button" onClick={() => attachmentsFileInputRef.current?.click()} style={{ ...outlineBtnStyle, padding: '6px 12px', fontSize: '12px' }}><Paperclip size={13} /> {t('ui.lagg_till_fil')}</button>
+              </div>
+              <div className="q-note">{t('ui.q_pdf_foljer_med', { max: MAX_ATTACHMENTS_TOTAL_MB })}</div>
+              {emailError && <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', fontWeight: 600 }}>{emailError}</div>}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowCompose(false)} disabled={emailBusy}>{t('ui.avbryt')}</button>
+              <button className="btn btn-primary" onClick={handleSendEmail} disabled={emailBusy}><Send size={14} /> {emailBusy ? t('ui.skickar_2') : t('ui.skicka')}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Formulär — täcker HELA sidan (bredd och höjd), inte ett smalt
              centrerat kort med tom grå/kräm bakgrund runt om. Exakt samma
@@ -633,7 +746,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
               </div>
             </div>
 
-            <div className="form-row-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+            <div className="form-row-stack quote-address-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.adress_2')}</label>
                 <input type="text" style={inputStyle} value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} placeholder={t('ui.gatuadress_postnummer_ort')} />
@@ -644,7 +757,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
                   <input type="text" style={inputStyle} value={customerOrgNr} onChange={e => setCustomerOrgNr(e.target.value)} placeholder="556123-4567" />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.kundens_kontaktperson')}</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.kontaktperson')}</label>
                   <input type="text" style={inputStyle} value={customerContactPerson} onChange={e => setCustomerContactPerson(e.target.value)} placeholder={t('ui.anna_andersson')} />
                 </div>
               </div>
@@ -670,7 +783,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
                 )}
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.var_kontaktperson_referens')}</label>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.var_referens')}</label>
                 <input type="text" style={inputStyle} value={ourRef} onChange={e => setOurRef(e.target.value)} placeholder={t('ui.erik_eriksson')} />
               </div>
             </div>
@@ -712,16 +825,14 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
                   return (
                     <div key={i} className="quote-row" style={{ display: 'grid', gridTemplateColumns: '2.2fr 0.8fr 0.8fr 1fr 0.8fr 0.9fr 1.1fr 1fr auto', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
                       <label className="qr-cell qr-desc"><span className="qr-lbl">{t('ui.beskrivning')}</span>
-                      <input type="text" placeholder={t('ui.beskrivning')} style={inputStyle} value={row.description}
-                        list="quote-article-register-list"
-                        onChange={e => updateRow(i, 'description', e.target.value)}
-                        // Väljs en BEFINTLIG artikel ur <datalist>-listan (blur = klart
-                        // att skriva) fylls pris/moms i automatiskt — samma mönster som
-                        // fakturaradens Artikelnr-fält (Invoices.jsx).
-                        onBlur={e => {
-                          const hit = findArticleByDescription(e.target.value);
-                          if (hit) applyArticleToRow(i, hit);
-                        }}
+                      {/* Artikelregistret som förslag (shared/ArticleCombobox):
+                          sök på benämning eller artikelnummer, pris, moms och
+                          enhet fylls i. Skrivs en exakt benämning för hand
+                          fylls de i när fältet lämnas, som förut. */}
+                      <ArticleCombobox simple={!articleSearch} articles={articles} placeholder={articles.length && articleSearch ? t('ui.beskrivning_eller_artikel') : t('ui.beskrivning')} style={inputStyle} value={row.description}
+                        onChange={v => setRows(rs => rs.map((row2, idx) => (idx === i ? { ...row2, description: v, ...(row2.articleId ? { articleId: '', articleNumber: '' } : {}) } : row2)))}
+                        onPick={a => applyArticleToRow(i, a)}
+                        inputProps={{ onBlur: e => { const hit = findArticleByDescription(e.target.value); if (hit) applyArticleToRow(i, hit); } }}
                         required />
                       </label>
                       <label className="qr-cell"><span className="qr-lbl">{t('ui.antal')}</span>
@@ -730,7 +841,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
                       </label>
                       <label className="qr-cell"><span className="qr-lbl">{t('ui.enhet')}</span>
                       <select style={inputStyle} value={row.unit} onChange={e => updateRow(i, 'unit', e.target.value)}>
-                        {ROW_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                        {(ROW_UNITS.includes(row.unit) || !row.unit ? ROW_UNITS : [...ROW_UNITS, row.unit]).map(u => <option key={u} value={u}>{u}</option>)}
                       </select>
                       </label>
                       <label className="qr-cell"><span className="qr-lbl">{t('ui.pris_2')}</span>
@@ -768,14 +879,6 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
             </div>
             <button type="button" onClick={addRow} style={{ ...outlineBtnStyle, padding: '6px 12px', fontSize: '12px', marginTop: '4px', marginBottom: '16px' }}>{t('ui.lagg_till_rad_2')}</button>
 
-            {/* Delas av alla radernas Beskrivning-fält ovan (HTML5 <datalist>
-                kräver ett enda, delat id) — samma produktregister som
-                Invoices.jsx, native webbläsarautocomplete. */}
-            <datalist id="quote-article-register-list">
-              {articles.map((a, i) => (
-                <option key={a.id || `${a.description}-${i}`} value={a.description}>{a.description}</option>
-              ))}
-            </datalist>
 
             {/* Summeringsblock — samma "egen lätt bakgrund"-mönster som redan
                 etablerat för fakturans sammanställningsbox (Invoices.jsx). */}
@@ -814,47 +917,6 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
 
           {detailsOpen && (
           <>
-          {/* ── Meddelande i mejlet — eget fält, INTE en del av PDF:en. Den
-                 distinktionen måste synas i hjälptexten, annars är det
-                 otydligt för användaren var texten faktiskt hamnar. ── */}
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>{t('ui.meddelande_i_mejlet')}</h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>{t('ui.visas_i_foljemejlet_inte_i_pdf_en')}</p>
-            <textarea
-              style={{ ...inputStyle, resize: 'vertical', minHeight: '86px', lineHeight: 1.6, fontFamily: 'inherit', maxWidth: '640px' }}
-              value={emailMessage} onChange={e => setEmailMessage(e.target.value)}
-              placeholder={t('ui.hej_bifogat_finner_du_var_offert')}
-            />
-          </div>
-
-          {/* ── Bilagor i mejlet: följer med utskicket och raderas direkt efteråt
-                 (se kommentaren vid ATTACHMENT_ACCEPTED_TYPES). ── */}
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>{t('ui.bilagor_i_mejlet')}</h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>{t('ui.filerna_foljer_med_som_bilagor_i_mejlet_tillsamm')} {MAX_ATTACHMENTS_TOTAL_MB} {t('ui.mb')}</p>
-            <input type="file" ref={attachmentsFileInputRef} style={{ display: 'none' }} multiple accept={ATTACHMENT_ACCEPT_ATTR} onChange={e => { handleAddFiles(e.target.files); e.target.value = ''; }} />
-            {attachments.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px', maxWidth: '480px' }}>
-                {attachments.map(a => (
-                  <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: 'var(--bg-muted)', border: '1px solid var(--border-light)', borderRadius: '8px', fontSize: '12.5px' }}>
-                    <Paperclip size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: a.error ? 'var(--status-red-text)' : 'var(--text-main)' }}>
-                      {a.name} <span style={{ color: 'var(--text-muted)' }}>({((a.size || 0) / (1024 * 1024)).toFixed(1)} {t('ui.mb_2')}</span>
-                      {a.error && <>: {a.error}</>}
-                    </span>
-                    <button type="button" onClick={() => removeAttachment(a.id)} title={t('ui.ta_bort')} style={{ padding: '2px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', flexShrink: 0 }}>
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {attachmentsError && <div style={{ fontSize: '12px', color: 'var(--status-red-text)', marginBottom: '10px' }}>{attachmentsError}</div>}
-            <button type="button" onClick={() => attachmentsFileInputRef.current?.click()} style={{ ...outlineBtnStyle, padding: '6px 12px', fontSize: '12px' }}>
-              <Paperclip size={13} /> {t('ui.lagg_till_fil')}
-            </button>
-          </div>
-
           {/* ── Vad som inte ingår (valfritt) — skilt från Övriga villkor:
                  det här är projektspecifika avgränsningar, inte generella
                  juridiska standardpunkter. ── */}
@@ -898,7 +960,10 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
           </div>
 
           <div style={{ padding: '24px 32px' }}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-main)' }}>{t('ui.ovriga_villkor')}</label>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px', maxWidth: '640px', marginBottom: '6px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{t('ui.ovriga_villkor')} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{t('ui.valfritt_parentes')}</span></label>
+              {!otherTerms.trim() && <button type="button" className="q-link" onClick={() => setOtherTerms(DEFAULT_OTHER_TERMS)}>{t('ui.q_lagg_till_standardvillkor')}</button>}
+            </div>
             {/* Kundfeedback: "man ser knappt vad som står i Övriga villkor"
                 — DEFAULT_OTHER_TERMS fyller fältet med FYRA rader text
                 (giltighetstid, ansvarsbegränsning m.m.) redan från start,
@@ -1027,11 +1092,17 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
   );
 }
 
-export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConvert, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction, articles = [], onSyncBeforeServerCall }) {
+export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConvert, onMakeOrder = null, orderIds = null, contacts = [], projects = [], company, user, globalAction, clearGlobalAction, handleGlobalAction, articles = [], onSyncBeforeServerCall, articleSearch = false }) {
   const [searchTerm, setSearchTerm] = useState('');
+  // Statusfilter som Kundfakturor (2026-11-20), anpassat till offerter.
+  const [statusFilter, setStatusFilter] = useState('all');
   // Kundönskemål: "en knapp där man kan se femton, trettio, femtio" — samma
   // visa-N-åt-gången-väljare som Kunder/Fakturering (ListFilterBar).
   const [pageSize, setPageSize] = useState(30);
+  // Listans inställningar som i Artiklar (2026-11-24, bara admin än).
+  const adminList = isAdminPreview();
+  const [lp, setLp] = useListPrefs('bokix.quotes.prefs', { number: true, customer: true, date: true, validTo: false, status: true, total: true });
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null); // null = ny offert, annars id på offerten som redigeras
 
@@ -1040,16 +1111,33 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
       openNew();
       clearGlobalAction();
     }
+    // Från en order: öppna offerten den kom från (2026-11-24).
+    if (globalAction?.type === 'open_quote' && globalAction.payload?.id && quotes.some(q => q.id === globalAction.payload.id)) {
+      openEdit(quotes.find(q => q.id === globalAction.payload.id));
+      clearGlobalAction();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [globalAction, clearGlobalAction]);
 
-  const filtered = quotes.filter(q => {
+  const searched = quotes.filter(q => {
     if (!searchTerm) return true;
     const s = searchTerm.toLowerCase();
     const customerName = contacts.find(c => c.id === q.customerId)?.name || q.customerName || '';
     return customerName.toLowerCase().includes(s) || (q.invoiceNumber || '').toLowerCase().includes(s);
   });
-  const visible = pageSize === 'all' ? filtered : filtered.slice(0, pageSize);
+  const statusCounts = searched.reduce((acc, q) => { const k = getDisplayStatus(q); acc[k] = (acc[k] || 0) + 1; return acc; }, {});
+  const filtered = statusFilter === 'all' ? searched : searched.filter(q => getDisplayStatus(q) === statusFilter);
+  const statusOptions = [
+    { value: 'all', label: t('ui.alla') },
+    { value: 'draft', label: t('ui.utkast'), bg: STRONG_DRAFT.bg, color: STRONG_DRAFT.text, border: STRONG_DRAFT.border },
+    { value: 'sent', label: t('ui.q_filter_vantar'), bg: STRONG_UNPAID.bg, color: STRONG_UNPAID.text },
+    { value: 'expired', label: t('ui.q_filter_utgangen'), bg: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text },
+    { value: 'accepted', label: t('ui.accepterad'), bg: STRONG_PAID.bg, color: STRONG_PAID.text },
+    { value: 'rejected', label: t('ui.avvisad'), bg: 'var(--status-red-bg)', color: 'var(--status-red-text)' },
+    { value: 'invoiced', label: t('ui.offert_fakturerad'), bg: 'var(--status-green-bg)', color: 'var(--status-green-text)' },
+  ];
+  const effPageSize = adminList ? (lp.pageSize || 'all') : pageSize;
+  const visible = effPageSize === 'all' ? filtered : filtered.slice(0, effPageSize);
 
   const handleDelete = async (id, e) => {
     e?.stopPropagation();
@@ -1065,18 +1153,23 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
   // handleConvertQuoteToInvoice) — precis som i Fortnox/Bokio, så att en
   // offert aldrig kan räknas som bokföringsunderlag av misstag. Konvertering
   // är därför inte längre "byt type-fält på samma post" utan en riktig flytt:
-  // App.jsx tar bort offerten ur `quotes`, skapar en ny post i `invoices`
-  // med ett RIKTIGT nästa fakturanummer ur samma serie som Invoices.jsx
-  // använder, och bokför den (precis som en direkt-skapad faktura). Alltid
-  // tillgänglig oavsett status — ägarens eget omdöme, inte appens.
-  const handleConvert = async (quote, e) => {
+  // App.jsx skapar ett fakturautkast i `invoices` med ett RIKTIGT nästa
+  // fakturanummer och märker offerten Fakturerad med länk till fakturan.
+  // Utkastet bokförs först när det skapas på riktigt. Öppnar fakturan.
+  const handleConvert = async (quote, e, latest = null) => {
     e?.stopPropagation();
     if (!(await confirmDialog(t('ui.konvertera_denna_offert_till_en_faktura'), { title: t('ui.konvertera_till_faktura'), confirmLabel: t('ui.konvertera') }))) return;
     if (!onConvert) return;
-    onConvert(quote.id);
+    const created = onConvert(quote.id, latest);
     setIsFormOpen(false);
     setEditingId(null);
-    if (handleGlobalAction) handleGlobalAction(null, 'invoices');
+    if (handleGlobalAction) handleGlobalAction(created?.id ? { type: 'open_invoice', payload: { id: created.id } } : null, 'invoices');
+  };
+
+  const openInvoice = (invoiceId) => {
+    setIsFormOpen(false);
+    setEditingId(null);
+    if (handleGlobalAction) handleGlobalAction({ type: 'open_invoice', payload: { id: invoiceId } }, 'invoices');
   };
 
   const openNew = () => {
@@ -1113,6 +1206,53 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
     closeForm();
   };
 
+  // Tre-punktsmenyn i listan (2026-11-20), som kundfakturorna men för offerter.
+  const setQuoteStatus = (q, next, e) => {
+    e?.stopPropagation?.();
+    const stamp = new Date().toISOString().slice(0, 10);
+    const extra = next === 'accepted' ? { acceptedAt: stamp } : next === 'rejected' ? { rejectedAt: stamp } : {};
+    setQuotes(prev => prev.map(x => (x.id === q.id ? { ...x, status: next, ...extra } : x)));
+  };
+  const duplicateQuote = (q) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const valid = new Date(); valid.setDate(valid.getDate() + 30);
+    const { id, invoiceId, invoicedAt, acceptedAt, rejectedAt, emailLog, ...rest } = q;
+    const copy = { ...rest, id: `q_${Date.now()}`, type: 'quote', invoiceNumber: getNextQuoteNumber(quotes), status: 'draft', date: today, dueDate: valid.toISOString().slice(0, 10) };
+    setQuotes(prev => [copy, ...(prev || [])]);
+    setEditingId(copy.id);
+    setIsFormOpen(true);
+  };
+  const exportQuotesCsv = (list) => {
+    const esc = (v) => { const x = String(v ?? ''); return /[;"\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x; };
+    const head = [t('ui.offertnr'), t('ui.kund'), t('ui.datum'), t('lset.validTo'), t('ui.status'), t('ui.belopp')];
+    const lines = list.map(q => [q.invoiceNumber, contacts.find(c => c.id === q.customerId)?.name || q.customerName || '', q.date, q.dueDate || '', getStatusStyle(getDisplayStatus(q)).label, String(Math.round(getTotal(q) * 100) / 100).replace('.', ',')].map(esc).join(';'));
+    downloadCsv(`offerter_${new Date().toISOString().slice(0, 10)}.csv`, '\ufeff' + [head.join(';'), ...lines].join('\r\n'));
+  };
+
+  // Ordern räknas bara om den finns kvar (en borttagen order släpper offerten).
+  const hasOrder = (q) => Boolean(q?.orderId) && (!orderIds || orderIds.has(q.orderId));
+
+  const buildQuoteMenu = (q) => {
+    const st = getDisplayStatus(q);
+    const items = [{ key: 'open', label: t('ui.q_menu_oppna'), icon: Eye, onClick: () => openEdit(q) }];
+    if (st !== 'invoiced') items.push({ key: 'edit', label: t('ui.redigera'), icon: Pencil, onClick: () => openEdit(q) });
+    if (st === 'sent' || st === 'expired') {
+      items.push({ key: 'accept', label: t('ui.q_accepterade'), icon: CheckCircle2, onClick: (e) => setQuoteStatus(q, 'accepted', e) });
+      items.push({ key: 'reject', label: t('ui.q_tackade_nej'), icon: XCircle, onClick: (e) => setQuoteStatus(q, 'rejected', e) });
+    }
+    if (st === 'accepted' || st === 'rejected') items.push({ key: 'undo', label: t('ui.q_andra_svar'), icon: RotateCcw, onClick: (e) => setQuoteStatus(q, 'sent', e) });
+    // Order (2026-11-24): gör offerten till en order, eller öppna ordern den blev.
+    if (hasOrder(q) && handleGlobalAction) items.push({ key: 'order', label: t('so.openOrder', { n: q.orderNumber || '' }), icon: ClipboardList, onClick: () => handleGlobalAction({ type: 'open_order', payload: { id: q.orderId } }, 'orders') });
+    else if (onMakeOrder && st !== 'invoiced' && st !== 'rejected') items.push({ key: 'make-order', label: t('so.makeOrder'), icon: ClipboardList, onClick: (e) => { e?.stopPropagation?.(); onMakeOrder(q.id); } });
+    if (st === 'invoiced' && q.invoiceId) items.push({ key: 'invoice', label: t('ui.visa_fakturan'), icon: FileText, onClick: () => openInvoice(q.invoiceId) });
+    else if (onConvert && !hasOrder(q)) items.push({ key: 'convert', label: onMakeOrder ? t('ui.konvertera_till_faktura') : t('ui.skapa_faktura'), icon: FileText, onClick: (e) => handleConvert(q, e) });
+    items.push({ key: 'copy', label: t('ui.q_kopiera'), icon: Copy, onClick: () => duplicateQuote(q) });
+    if (st === 'draft') { items.push({ divider: true }); items.push({ key: 'sent', label: t('ui.markera_som_skickad'), icon: Send, onClick: (e) => setQuoteStatus(q, 'sent', e) }); }
+    items.push({ divider: true });
+    items.push({ key: 'delete', label: t('ui.ta_bort'), icon: Trash2, variant: 'danger', onClick: (e) => handleDelete(q.id, e) });
+    return items;
+  };
+
   const getTotal = (q) => {
     return (q.rows || []).reduce((sum, r) => {
       const net = (r.qty || 1) * (r.unitPrice || 0) * (1 - (r.discount || 0) / 100);
@@ -1135,10 +1275,15 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
         company={company}
         user={user}
         articles={articles}
+        articleSearch={articleSearch}
         activeCompanyId={activeCompanyId}
         onSave={handleSaveQuote}
         onClose={closeForm}
-        onConvert={editingQuote ? (e) => handleConvert(editingQuote, e) : null}
+        onConvert={editingQuote ? (e, latest) => handleConvert(editingQuote, e, latest) : null}
+        onMakeOrder={editingQuote && onMakeOrder && !hasOrder(editingQuote) ? (e, latest) => { e?.stopPropagation(); setIsFormOpen(false); setEditingId(null); onMakeOrder(editingQuote.id, latest); } : null}
+        onOpenOrder={hasOrder(editingQuote) && handleGlobalAction ? () => { setIsFormOpen(false); setEditingId(null); handleGlobalAction({ type: 'open_order', payload: { id: editingQuote.orderId } }, 'orders'); } : null}
+        onPersist={(data) => editingId && setQuotes(prev => prev.map(q => (q.id === editingId ? { ...q, ...data } : q)))}
+        onOpenInvoice={openInvoice}
         onSyncBeforeServerCall={onSyncBeforeServerCall}
       />
     );
@@ -1149,7 +1294,7 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
      tabellen/tomt-läget scrollar under, istället för den tidigare platta
      kolumnen där hela sidan (inklusive titel och knapp) scrollade bort i ett. */
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+    <div className={adminList && lp.width === 'narrow' ? 'lt-page-narrow' : undefined} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
         title={t('ui.offerter')}
         subtitle={t('ui.skapa_offerter_med_samma_mall_som_dina_fakturor')}
@@ -1163,20 +1308,56 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
       <ListFilterBar
         count={filtered.length}
         countLabel={filtered.length === 1 ? t('ui.offert_2') : t('ui.offerter_2')}
-        pageSize={pageSize}
-        onPageSizeChange={setPageSize}
+        pageSize={adminList ? undefined : pageSize}
+        onPageSizeChange={adminList ? undefined : setPageSize}
+        trailing={adminList ? <ListSettingsButton onClick={() => setSettingsOpen(true)} /> : null}
       >
         <div style={{ position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input type="text" placeholder={t('ui.sok_offert_eller_kund')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={listSearchInputStyle} />
         </div>
       </ListFilterBar>
+      <ListSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={setLp}
+        actions={[
+          { key: 'new', label: t('ui.ny_offert'), icon: Plus, onClick: openNew },
+          { key: 'export', label: t('lset.exportQuotes'), icon: Download, onClick: () => exportQuotesCsv(filtered), disabled: filtered.length === 0 },
+        ]}
+        columns={[
+          { key: 'number', label: t('ui.offertnr') }, { key: 'customer', label: t('ui.kund') }, { key: 'date', label: t('ui.datum') },
+          { key: 'validTo', label: t('lset.validTo') }, { key: 'status', label: t('ui.status') }, { key: 'total', label: t('ui.belopp') },
+        ]} />
+      {quotes.length > 0 && (
+        <div className="inv-pills" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, flexWrap: 'wrap' }}>
+          {statusOptions.map(opt => {
+            const count = opt.value === 'all' ? searched.length : (statusCounts[opt.value] || 0);
+            if (count === 0 && opt.value !== statusFilter && opt.value !== 'all') return null;
+            const isActive = statusFilter === opt.value;
+            const neutral = opt.value === 'all';
+            return (
+              <button
+                key={opt.value} type="button" onClick={() => setStatusFilter(opt.value)} aria-pressed={isActive}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '7px', padding: '4px 12px', minHeight: '30px', boxSizing: 'border-box', whiteSpace: 'nowrap',
+                  background: neutral ? (isActive ? 'var(--bg-muted)' : 'transparent') : opt.bg,
+                  border: opt.border || '1px solid transparent',
+                  boxShadow: isActive ? '0 0 0 2px var(--bg-card), 0 0 0 3.5px ' + (neutral ? 'var(--text-secondary)' : opt.color) : 'none',
+                  borderRadius: '999px', fontSize: '12px', fontWeight: isActive ? 700 : 600,
+                  color: neutral ? 'var(--text-secondary)' : opt.color, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                {opt.label}
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: opt.color === '#ffffff' ? 'rgba(0,0,0,0.22)' : 'rgba(0,0,0,0.08)', color: neutral ? 'var(--text-secondary)' : opt.color }}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Ingen padding längre — matchar "facit" (Bokföring/Verifikationer):
           tabellen sitter flush direkt under filterraden. Tomt-läget nedan
           behåller sin egen marginal (`margin`) eftersom det är ett
           fristående kort, inte en full-bredd-tabell. */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div className={adminList ? `lt-wrap${lp.density === 'compact' ? ' lt-compact' : ''}` : undefined} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         {/* TABLE — bugkritiskt (kundfeedback, "white space"-genomgången): en
             tom lista visade tidigare bara EN paddad tabellrad ("Inga offerter
             skapade") längst upp i sidan, med hela resten av sidhöjden kvar som
@@ -1219,6 +1400,7 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
         <ListTable
           rowKey={q => q.id}
           onRowClick={openEdit}
+          rowStyle={q => ({ background: QUOTE_ROW_BG[getDisplayStatus(q)] || undefined })}
           rows={visible}
           mobileList={q => {
             const s = getStatusStyle(getDisplayStatus(q));
@@ -1249,6 +1431,7 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
               ],
             };
           }}
+          pageSize={adminList ? lp.pageSize : undefined}
           columns={[
             {
               key: 'invoiceNumber', label: t('ui.offertnr'), fontWeight: 600, color: 'var(--text-main)', render: q => (
@@ -1259,6 +1442,7 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
             },
             { key: 'customer', label: t('ui.kund'), fontWeight: 500, wrap: true, render: q => contacts.find(c => c.id === q.customerId)?.name || q.customerName || '—' },
             { key: 'date', label: t('ui.datum'), render: q => q.date },
+            ...(adminList && lp.cols.validTo ? [{ key: 'validTo', label: t('lset.validTo'), render: q => q.dueDate || '—' }] : []),
             {
               key: 'status', label: t('ui.status'), render: q => {
                 const s = getStatusStyle(getDisplayStatus(q));
@@ -1267,23 +1451,11 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
             },
             { key: 'total', label: t('ui.belopp'), align: 'right', fontWeight: 500, render: q => `${getTotal(q).toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr` },
             {
-              key: 'actions', label: t('ui.atgarder'), align: 'right', render: q => (
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                  {/* Alltid tillgänglig oavsett status (utkast/skickad/accepterad/
-                      avvisad/förfallen) — det är ägarens eget omdöme om en kund
-                      faktiskt vill ha en faktura, inte något appen ska hindra
-                      baserat på var i statusflödet offerten råkar stå. Se samma
-                      resonemang vid motsvarande knapp i QuoteEditor ovan. */}
-                  <button onClick={(e) => handleConvert(q, e)} title={t('ui.konvertera_till_faktura')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--accent-text)' }}>
-                    <FileText size={16} />
-                  </button>
-                  <button onClick={(e) => handleDelete(q.id, e)} title={t('ui.ta_bort')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+              key: 'actions', label: '', align: 'right', width: '48px', render: q => (
+                <span onClick={e => e.stopPropagation()}><RowActionMenu ariaLabel={t('ui.q_menu_aria', { n: q.invoiceNumber || '' })} items={buildQuoteMenu(q)} /></span>
               ),
             },
-          ]}
+          ].filter(c => !adminList || c.key === 'actions' || c.key === 'validTo' || lp.cols[{ invoiceNumber: 'number', customer: 'customer', date: 'date', status: 'status', total: 'total' }[c.key]] !== false)}
         />
         )}
       </div>

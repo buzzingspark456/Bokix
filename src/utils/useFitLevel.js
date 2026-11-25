@@ -13,7 +13,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 //
 // Ingen ResizeObserver med flit: att göra raderna tätare ändrar listans egen höjd, och en
 // observatör som nollställer nivån då skulle ge en pendling mellan två nivåer.
-export default function useFitLevel(ref, max = 3) {
+export default function useFitLevel(ref, max = 3, mode = null) {
   const [level, setLevel] = useState(0);
   const [resizeTick, setResizeTick] = useState(0);
   const lastRef = useRef(null);
@@ -28,6 +28,15 @@ export default function useFitLevel(ref, max = 3) {
     // Absolut nivå (level + 1), inte l => l + 1: flera renderingar i rad ska aldrig räkna upp två steg.
     if (el.scrollHeight > el.clientHeight) setLevel(level + 1);
   });
+
+  // Byter man läge (t.ex. hopfälld meny) börjar mätningen om från noll.
+  const modeRef = useRef(mode);
+  useLayoutEffect(() => {
+    if (modeRef.current === mode) return;
+    modeRef.current = mode;
+    lastRef.current = null;
+    setLevel(0);
+  }, [mode]);
 
   useEffect(() => {
     let timer = null;

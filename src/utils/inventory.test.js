@@ -149,6 +149,11 @@ describe('deriveInvoiceMovements', () => {
     expect(derive([inv()], { since: '2026-03-01' }).length).toBe(1)
   })
 
+  it('en faktura från en kundorder drar inte lagret igen, inte heller dess kreditering', () => {
+    expect(derive([inv({ orderId: 'o1' })])).toEqual([])
+    expect(derive([inv({ orderId: 'o1' }), inv({ id: 'c1', creditFor: 'i1', rows: [{ articleNumber: 'K-1', qty: -3 }] })])).toEqual([])
+  })
+
   it('bara varor som redan har en lagerlogg berörs', () => {
     expect(derive([inv({ rows: [{ articleNumber: 'T-1', qty: 2 }] })])).toEqual([])
     expect(derive([inv({ rows: [{ articleNumber: 'S-1', qty: 1 }] })])).toEqual([])

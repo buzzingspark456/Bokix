@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronRight, FileBarChart } from './icons';
-import ListPageHeader from './shared/ListPageHeader';
-import ListTable from './shared/ListTable';
+import { ChevronRight, TrendingUp, Users, Truck, BarChart3, ListChecks, Percent, ClipboardCheck, NavPayrollIcon, FileText, BookOpen } from './icons';
+
+// En lugn ikon per rapport i Fler rapporter (2026-11-20).
+const REPORT_ICONS = { cashflow: TrendingUp, receivables: Users, payables: Truck, invoices: BarChart3, payroll: NavPayrollIcon, journal: ListChecks, trialbalance: BookOpen, vat: Percent, closing: ClipboardCheck };
 import ReportDetail from './reports/ReportDetail';
 import { getPeriodBounds, companyFiscalYearSetting } from '../utils/reportCalculations';
 import { visibleReportSections } from '../utils/reportDefinitions';
@@ -39,7 +40,7 @@ function relativeOpenedLabel(iso) {
 }
 
 export default function Reports({
-  accounts = [], verifications = [], invoices = [], payrollRuns = [], contacts = [],
+  accounts = [], verifications = [], invoices = [], expenses = [], documents = [], payrollRuns = [], contacts = [],
   company = {}, setCompanyInfo, onNavigate, hiddenReportIds = NO_HIDDEN_REPORTS,
 }) {
   const isMobile = useIsMobileViewport();
@@ -47,6 +48,9 @@ export default function Reports({
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [openReportId, setOpenReportId] = useState(null);
+  // Sidan öppnar på den viktigaste rapporten, med flikar till de vanligaste
+  // och Fler rapporter för resten (2026-11-20, grundarens önskan).
+  const [tab, setTab] = useState('overview');
 
   const bounds = useMemo(() => getPeriodBounds(period, {
     fiscalYearStart: companyFiscalYearSetting(company), customStart, customEnd,
@@ -60,6 +64,8 @@ export default function Reports({
   const lastOpened = company?.reportLastOpened || {};
 
   const openReport = (reportId) => {
+    const meta = sections.flatMap(sec => sec.reports).find(r => r.id === reportId);
+    if (meta?.navigate) { onNavigate?.(meta.navigate); return; }
     setOpenReportId(reportId);
     setCompanyInfo?.(prev => ({
       ...prev,
@@ -88,13 +94,35 @@ export default function Reports({
     </div>
   );
 
+  const visibleIds = new Set(sections.flatMap(sec => sec.reports.map(r => r.id)));
+  const TABS = [['overview', t('rpt.tabOverview')], ['result', t('ui.resultatrakning')], ['balance', t('ui.balansrakning')], ['ledger', t('ui.huvudbok')]]
+    .filter(([id]) => visibleIds.has(id));
+  const tabBar = (
+    <div className="rp-top no-print">
+      <h1 className="rp-title">{t('nav.reports')}</h1>
+      <div className="rp-tabs" role="tablist">
+        {[...TABS, ['more', t('rpt.tabMore')]].map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id && !openReportId} className={tab === id && !openReportId ? 'on' : undefined} onClick={() => { setOpenReportId(null); setTab(id); }}>{label}</button>
+        ))}
+      </div>
+    </div>
+  );
+  const detailProps = {
+    bounds, periodControl, verifications, accounts, invoices, expenses, documents, payrollRuns, contacts, company, isMobile,
+    display: company?.reportDisplay,
+    onDisplayChange: (patch) => setCompanyInfo?.(prev => ({ ...prev, reportDisplay: { ...(prev.reportDisplay || {}), ...patch } })),
+  };
+  if (!openReportId && tab !== 'more' && visibleIds.has(tab)) {
+    return <ReportDetail key={tab} reportId={tab} tabs={tabBar} {...detailProps} onBack={() => setTab('more')} />;
+  }
+
   if (openReportId) {
     return (
       <ReportDetail
         reportId={openReportId}
         bounds={bounds}
         periodControl={periodControl}
-        verifications={verifications} accounts={accounts} invoices={invoices}
+        verifications={verifications} accounts={accounts} invoices={invoices} expenses={expenses} documents={documents}
         payrollRuns={payrollRuns} contacts={contacts} company={company}
         isMobile={isMobile}
         // Presentationsvalen (diagramfärger + beloppsenhet) sparas på
@@ -106,18 +134,17 @@ export default function Reports({
           ...prev,
           reportDisplay: { ...(prev.reportDisplay || {}), ...patch },
         }))}
-        onBack={() => setOpenReportId(null)}
+        onBack={() => { setOpenReportId(null); setTab('more'); }}
       />
     );
   }
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
-      <ListPageHeader
-        title={t('nav.reports')}
-      >
-        <div style={{ marginTop: '10px' }}>{periodControl}</div>
-      </ListPageHeader>
+      <div className="rp-head">
+        {tabBar}
+        <div style={{ marginTop: '12px' }}>{periodControl}</div>
+      </div>
 
       {/* Kundfeedback ("no space"-genomgången, uppföljning): ingen padding
           kvar på ytterraden — första sektionen sitter nu flush direkt under
@@ -128,47 +155,36 @@ export default function Reports({
           (20px) → ListTable (0px) redan har på Verifikationer. */}
       <div data-tour="page-reports-list" style={{ flex: 1, overflowY: 'auto' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '24px' }}>
-          {sections.map((section, i) => (
-            <div key={section.id} className="rpt-section">
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px', padding: '0 20px', marginTop: i === 0 ? '16px' : 0 }}>
-                {section.label}
-              </div>
-              <ListTable
-                rowKey={r => r.id}
-                onRowClick={r => openReport(r.id)}
-                rows={section.reports}
-                // Telefon: namnet, en rad om vad rapporten visar och när den
-                // senast öppnades, i stället för tabellens rubriker per kort.
-                mobileList={r => ({
-                  primary: r.name,
-                  meta: r.description,
-                  amount: relativeOpenedLabel(lastOpened[r.id]) || null,
-                })}
-                columns={[
-                  {
-                    // Fast bredd: annars hamnar Beskrivning olika långt in i varje grupp.
-                    key: 'name', label: t('ui.rapport'), width: '300px', fontWeight: 700, color: 'var(--text-main)', render: r => (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ width: 30, height: 30, borderRadius: '8px', background: 'var(--border-light)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <FileBarChart size={14} />
-                        </div>
-                        {r.name}
-                      </div>
-                    ),
-                  },
-                  { key: 'description', label: t('ui.beskrivning'), wrap: true },
-                  { key: 'lastOpened', label: t('ui.senast_oppnad'), width: '140px', render: r => relativeOpenedLabel(lastOpened[r.id]) || '—' },
-                  { key: 'chevron', label: '', align: 'right', width: '32px', render: () => <ChevronRight size={16} color="var(--text-muted)" /> },
-                ]}
-              />
-            </div>
-          ))}
+          {/* En tabell med grupprubriker (2026-11-13): kolumnrubrikerna en gång,
+              ingen likadan ikon på varje rad. */}
+          <div className="rp-more">
+            {sections.map(section => {
+              const items = section.reports.filter(r => !TABS.some(([id]) => id === r.id));
+              if (!items.length) return null;
+              return (
+                <section key={section.id} className="rp-more-sec">
+                  <h2>{section.id === 'main' ? t('rpt.secAnalysis') : section.label}</h2>
+                  <div className="rp-list">
+                    {items.map(r => {
+                      const Icon = REPORT_ICONS[r.id] || FileText;
+                      return (
+                        <button key={r.id} type="button" className="rp-row" onClick={() => openReport(r.id)}>
+                          <span className="rp-row-ico"><Icon size={17} /></span>
+                          <span className="rp-row-text">
+                            <b>{r.name}</b>
+                            <span>{r.description}</span>
+                          </span>
+                          {lastOpened[r.id] && <span className="rp-row-when">{t('rpt.opened', { when: relativeOpenedLabel(lastOpened[r.id]).toLowerCase() })}</span>}
+                          <ChevronRight size={17} className="rp-row-chev" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
 
-          {onNavigate && (
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, padding: '0 20px' }}>
-              {t('ui.underlaget_kommer_fran_din_bokforing_och_dina_fa')}
-            </p>
-          )}
         </div>
       </div>
     </div>

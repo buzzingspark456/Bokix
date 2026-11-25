@@ -47,6 +47,16 @@ export function categoryForAccount(code) {
   return null;
 }
 
+// Prisbasbeloppet (SCB, förordning per år). Inventarier under ett halvt
+// prisbasbelopp får kostnadsföras direkt; över det är de en tillgång.
+export const PRICE_BASE_AMOUNT = { 2025: 58800, 2026: 59200, 2027: 59600 };
+export function halfPriceBase(date) {
+  const y = Number(String(date || '').slice(0, 4));
+  const years = Object.keys(PRICE_BASE_AMOUNT).map(Number).sort((a, b) => a - b);
+  const year = years.includes(y) ? y : (y > years[years.length - 1] ? years[years.length - 1] : years[0]);
+  return PRICE_BASE_AMOUNT[year] / 2;
+}
+
 export const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 const num = (v) => Number(v) || 0;
 
@@ -84,13 +94,30 @@ function lastIndex(asset) {
   return last;
 }
 
+/** Tidigare avskrivningar från ett annat program: belopp och sista månad. */
+function opening(asset) {
+  const amount = round2(num(asset.openingAccumulated));
+  if (!(amount > 0) || !/^\d{4}-\d{2}$/.test(String(asset.openingMonth || ''))) return null;
+  return { amount: Math.min(amount, depreciableBase(asset)), idx: monthIndex(asset.openingMonth) };
+}
+
 /** Ackumulerad avskrivning till och med en given månad (YYYY-MM). */
 export function accumulatedThrough(asset, ym) {
   if (!asset?.acquisitionDate || !num(asset.usefulLifeMonths)) return 0;
   const life = Math.max(1, Math.round(num(asset.usefulLifeMonths)));
   const start = startIndex(asset);
-  const n = Math.min(monthIndex(ym), lastIndex(asset)) - start + 1;
+  const idx = Math.min(monthIndex(ym), lastIndex(asset));
+  const n = idx - start + 1;
   if (n <= 0) return 0;
+  const op = opening(asset);
+  if (op) {
+    // Fram till och med openingMonth gäller det som redan skrivits av; sedan
+    // fördelas resten jämnt över de månader som återstår av livslängden.
+    if (idx <= op.idx) return op.amount;
+    const remainingMonths = Math.max(1, start + life - 1 - op.idx);
+    const done = Math.min(idx - op.idx, remainingMonths);
+    return round2(op.amount + (depreciableBase(asset) - op.amount) * done / remainingMonths);
+  }
   return round2(depreciableBase(asset) * Math.min(n, life) / life);
 }
 
@@ -98,6 +125,9 @@ export function accumulatedThrough(asset, ym) {
 export function depreciationForMonth(asset, ym) {
   const idx = monthIndex(ym);
   if (idx < startIndex(asset) || idx > lastIndex(asset)) return 0;
+  // Månader som redan skrivits av i det tidigare programmet bokas inte igen.
+  const op = opening(asset);
+  if (op && idx <= op.idx) return 0;
   return round2(accumulatedThrough(asset, ym) - accumulatedThrough(asset, indexToMonth(idx - 1)));
 }
 
@@ -134,9 +164,11 @@ export function bookedDepreciationMap(verifications) {
   const map = new Map();
   (verifications || []).forEach(v => {
     if (v.source !== 'depreciation' || (v.status || 'booked') === 'draft') return;
-    const month = monthOf(v.date);
-    if (!map.has(month)) map.set(month, new Set());
-    (v.depreciationAssetIds || []).forEach(id => map.get(month).add(id));
+    const months = Array.isArray(v.depreciationMonths) && v.depreciationMonths.length ? v.depreciationMonths : [monthOf(v.date)];
+    months.forEach(month => {
+      if (!map.has(month)) map.set(month, new Set());
+      (v.depreciationAssetIds || []).forEach(id => map.get(month).add(id));
+    });
   });
   return map;
 }
@@ -203,6 +235,52 @@ export function buildDepreciationVerification(month, items) {
 }
 
 /**
+ * Årsvis avskrivning (som Bokio "Årsvis"): de obokade månaderna samlas per
+ * räkenskapsår och bokas som en verifikation på årets sista dag. Bara år som
+ * har slutat (slutdatum senast `today`) tas med.
+ * `yearOf(month)` ger { key, label, end } för räkenskapsåret månaden ligger i.
+ */
+export function pendingByYear(pending, yearOf, today) {
+  const years = new Map();
+  pending.months.forEach(m => {
+    const fy = yearOf(m.month);
+    if (!fy || fy.end > today) return;
+    if (!years.has(fy.key)) years.set(fy.key, { ...fy, months: [], byAsset: new Map() });
+    const y = years.get(fy.key);
+    y.months.push(m.month);
+    m.items.forEach(({ asset, amount }) => {
+      const cur = y.byAsset.get(asset.id) || { asset, amount: 0 };
+      cur.amount = round2(cur.amount + amount);
+      y.byAsset.set(asset.id, cur);
+    });
+  });
+  return [...years.values()].sort((a, b) => a.end.localeCompare(b.end)).map(y => {
+    const items = [...y.byAsset.values()];
+    return { key: y.key, label: y.label, end: y.end, months: y.months, items, total: round2(items.reduce((s, i) => s + i.amount, 0)) };
+  });
+}
+
+export function buildYearDepreciationVerification(year) {
+  const v = buildDepreciationVerification(year.end.slice(0, 7), year.items);
+  return { ...v, date: year.end, description: `Avskrivningar ${year.label}`, sourceId: `depreciation_year_${year.key}`, depreciationMonths: year.months };
+}
+
+/**
+ * Omföring när ett köp bokförts som kostnad (5410) men är en tillgång:
+ * D tillgångskontot, K kostnadskontot.
+ */
+export function buildReclassVerification(asset, fromAccount, date) {
+  const amount = round2(num(asset.cost));
+  return {
+    date,
+    description: `Omföring till tillgång: ${asset.name}`,
+    source: 'asset_reclass',
+    sourceId: `reclass_${asset.id}`,
+    rows: [{ account: asset.assetAccount, debet: amount, kredit: 0 }, { account: fromAccount, debet: 0, kredit: amount }],
+  };
+}
+
+/**
  * Avyttring eller utrangering. Balanserar per konstruktion: debet =
  * ackumulerade avskrivningar + försäljningspris + ev. förlust, kredit =
  * anskaffningsvärde + ev. vinst. Moms på försäljningen ingår INTE — priset
@@ -236,15 +314,29 @@ export function buildDisposalVerification(asset, { date, proceeds = 0, proceedsA
  * verifikation som redan finns. Ackumulerade avskrivningskonton (slutar på
  * 8/9) och pågående nyanläggningar (128x) hoppas över.
  */
-export function unregisteredAcquisitions(verifications, assets) {
+export function unregisteredAcquisitions(verifications, assets, { includeExpensed = false } = {}) {
   const linked = new Set((assets || []).map(a => a.sourceVerificationId).filter(Boolean));
   const out = [];
   (verifications || []).forEach(v => {
     if ((v.status || 'booked') === 'draft') return;
-    if (['depreciation', 'asset_disposal', 'year_end_close', 'accrual', 'inventory'].includes(v.source)) return;
+    if (['depreciation', 'asset_disposal', 'year_end_close', 'accrual', 'inventory', 'asset_reclass', 'accrual_spread'].includes(v.source)) return;
     if (linked.has(v.id)) return;
     (v.rows || []).forEach(r => {
       const code = String(r.account || '');
+      // Förbrukningsinventarier (5410–5419) över ett halvt prisbasbelopp ska vara en
+      // tillgång. Förslaget bokför omföringen när det läggs i registret.
+      // Bara förbrukningsinventarier (5410–5419); programvara och licenser (5420) är kostnader.
+      if (/^541[0-9]$/.test(code)) {
+        // Bara där sidan bokför omföringen (nya Tillgångar); annars skulle
+        // kostnaden både ligga kvar på 5410 och skrivas av.
+        if (!includeExpensed) return;
+        const amount = round2(getDebet(r) - getKredit(r));
+        if (amount >= halfPriceBase(v.date)) {
+          const category = /dator|laptop|macbook|pc\b|server|skärm|iphone|telefon/i.test(v.description || '') ? 'dator' : 'inventarier';
+          out.push({ verificationId: v.id, date: v.date, description: v.description || '', account: categoryById(category).assetAccount, amount, category, reclassFrom: code });
+        }
+        return;
+      }
       if (!/^1[01][0-9]{2}$|^12[0-9]{2}$/.test(code)) return;
       if (/[89]$/.test(code) || /^128/.test(code)) return;
       const category = categoryForAccount(code);

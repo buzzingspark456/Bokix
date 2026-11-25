@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  MdCalendarMonth, MdCookie, MdEmail, MdAccountBalance, MdMoreHoriz, MdOutlineBadge,
+  MdOutlineDrafts, MdOutlineBarChart, MdOutlineUploadFile, MdCalendarMonth, MdCookie, MdEmail, MdAccountBalance, MdMoreHoriz, MdOutlineBadge,
   MdOutlineEditNote, MdOutlineTask, MdOutlineHome, MdOutlineStorefront, MdMoreTime, MdPayments, MdPersonAddAlt1, MdPostAdd, MdUploadFile,
   MdOutlineAccessTime, MdOutlineAccountBalance, MdOutlineAccountBalanceWallet, MdOutlineAccountTree,
   MdOutlineAdd, MdOutlineAlarm, MdOutlineApartment,
@@ -124,6 +124,7 @@ export const HelpCircle = make(MdOutlineHelpOutline, 'HelpCircle');
 export const Image = make(MdOutlineImage, 'Image');
 export const Inbox = make(MdOutlineInbox, 'Inbox');
 export const Info = make(MdOutlineInfo, 'Info');
+export const MailOpen = make(MdOutlineDrafts, 'MailOpen');
 export const KeyRound = make(MdOutlineVpnKey, 'KeyRound');
 export const Landmark = make(MdOutlineAccountBalance, 'Landmark');
 export const Laptop = make(MdOutlineLaptop, 'Laptop');
@@ -212,26 +213,18 @@ export const NavSalesIcon = make(MdOutlineStorefront, 'NavSalesIcon');
 // inte i react-icons/md, så den är Material Symbols "edit_document" (samma
 // linjetjocklek som resten av menyn). Urklippsblocket med penna liknade
 // Granskning (urklippsblock med bock) för mycket.
-export const NavQuotesIcon = ({ size = 24, className, style, color, strokeWidth: _strokeWidth, absoluteStrokeWidth: _absoluteStrokeWidth, ...rest }) => (
-  <svg width={size} height={size} viewBox="0 -960 960 960" fill={color || 'currentColor'} className={className} style={style} aria-hidden="true" {...rest}>
-    <path d="M560-80v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q8 9 12.5 20t4.5 22q0 11-4 22.5T903-300L683-80H560Zm300-263-37-37 37 37ZM620-140h38l121-122-18-19-19-18-122 121v38ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v120h-80v-80H520v-200H240v640h240v80H240Zm280-400Zm241 199-19-18 37 37-18-19Z" />
-  </svg>
-);
-NavQuotesIcon.displayName = 'NavQuotesIcon';
+// 2026-11-20 (grundarens val): fyra tydligt olika ikoner. Offerter en
+// anteckning med penna (ett utkast), Kundfakturor ett dokument med pil upp
+// (går ut), Leverantörsfakturor sedlar (ska betalas), Underlag en låda med
+// pil in. Inga dollartecken.
+export const NavQuotesIcon = make(MdOutlineEditNote, 'NavQuotesIcon');
 export const NavInvoicesIcon = make(MdOutlineTask, 'NavInvoicesIcon');
-
-// Fakturaparet i menyn: samma papper, pilen visar om fakturan går ut eller kommer in.
-const InvoiceArrowIcon = ({ arrow, size = 24, className, style, color, strokeWidth: _strokeWidth, absoluteStrokeWidth: _absoluteStrokeWidth, ...rest }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color || 'currentColor'} strokeWidth="2" strokeLinejoin="round" className={className} style={style} aria-hidden="true" {...rest}>
-    <path d="M12 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8l6 6v3" />
-    <path d="M14 3v6h6" />
-    <path d={arrow} strokeLinecap="round" />
-  </svg>
-);
-export const NavCustomerInvoicesIcon = (props) => <InvoiceArrowIcon arrow="M14.5 21.5l7-7M16 14.5h5.5V20" {...props} />;
-NavCustomerInvoicesIcon.displayName = 'NavCustomerInvoicesIcon';
-export const NavSupplierInvoicesIcon = (props) => <InvoiceArrowIcon arrow="M21.5 14.5l-7 7M14.5 16v5.5H20" {...props} />;
-NavSupplierInvoicesIcon.displayName = 'NavSupplierInvoicesIcon';
+export const NavCustomerInvoicesIcon = make(MdOutlineDescription, 'NavCustomerInvoicesIcon');
+export const NavSupplierInvoicesIcon = make(MdOutlinePayments, 'NavSupplierInvoicesIcon');
+// Skatt och bokslut: en checklista, som sidans Att göra-lista.
+// Rapporter: staplar utan ram (grundarens val E, 2026-11-20).
+export const NavReportsIcon = make(MdOutlineBarChart, 'NavReportsIcon');
+export const NavTaxesIcon = make(MdOutlineFactCheck, 'NavTaxesIcon');
 export const NavPayrollIcon = make(MdOutlineBadge, 'NavPayrollIcon');
 
 // Att göra på startsidan (2026-10-03): en egen ikon per sorts sak.
@@ -240,10 +233,13 @@ export const TodoReviewIcon = make(MdOutlineAssignmentTurnedIn, 'TodoReviewIcon'
 export const TodoDraftIcon = make(MdOutlineEditNote, 'TodoDraftIcon');
 export const TodoVatIcon = make(MdOutlinePercent, 'TodoVatIcon');
 export const TodoPayrollIcon = make(MdOutlinePayments, 'TodoPayrollIcon');
+export const TodoBankIcon = make(MdOutlineAccountBalance, 'TodoBankIcon');
 
 // Hem på telefonens bottenrad: ett hus. På datorn heter samma sida Start och har rutnätsikonen.
 export const NavHomeIcon = make(MdOutlineHome, 'NavHomeIcon');
 export const NavReceiptsIcon = make(MdOutlineReceipt, 'NavReceiptsIcon');
+// Underlag (nya): låda med pil in, underlag som kommer in (2026-11-20).
+export const NavUnderlagIcon = make(MdOutlineMoveToInbox, 'NavUnderlagIcon');
 // Snabbåtgärderna på startsidan: fyllda ikoner som syns tydligt vita på en färgad platta.
 export const QuickNewInvoiceIcon = make(MdPostAdd, 'QuickNewInvoiceIcon');
 export const QuickUploadReceiptIcon = make(MdUploadFile, 'QuickUploadReceiptIcon');

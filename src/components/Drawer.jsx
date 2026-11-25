@@ -37,7 +37,7 @@ const Drawer = ({ isOpen, onClose, title, children, width = '420px' }) => {
             <X size={20} />
           </button>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '22px', background: 'var(--bg-page)' }}>
+        <div className="drawer-body" style={{ flex: 1, overflowY: 'auto', padding: '22px', background: 'var(--bg-page)' }}>
           {children}
         </div>
       </div>

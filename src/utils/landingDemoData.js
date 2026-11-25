@@ -21,6 +21,7 @@
 
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from '../components/AccountsData';
 
+const c2 = (v) => Math.round((Number(v) || 0) * 100) / 100;
 const pad = (n) => String(n).padStart(2, '0');
 const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const monthsAgo = (n, day = 15) => {
@@ -51,17 +52,17 @@ export function bookInvoice(inv) {
     vatByRate[r.vatRate] = (vatByRate[r.vatRate] || 0) + lineVat;
   });
   const totalGross = totalNet + Object.values(vatByRate).reduce((s, v) => s + v, 0);
-  const rows = [{ account: '1510', debet: Math.round(totalGross), kredit: 0 }];
+  const rows = [{ account: '1510', debet: c2(totalGross), kredit: 0 }];
   inv.rows.forEach(r => {
     const lineNet = r.qty * r.unitPrice;
     const revAcc = REVENUE_ACCOUNTS[r.vatRate] || '3001';
     const existing = rows.find(x => x.account === revAcc && x.kredit > 0);
     if (existing) existing.kredit += Math.round(lineNet);
-    else rows.push({ account: revAcc, debet: 0, kredit: Math.round(lineNet) });
+    else rows.push({ account: revAcc, debet: 0, kredit: c2(lineNet) });
   });
   Object.entries(vatByRate).forEach(([rate, amount]) => {
     const vatAcc = VAT_ACCOUNTS[parseInt(rate, 10)];
-    if (vatAcc && amount > 0) rows.push({ account: vatAcc, debet: 0, kredit: Math.round(amount) });
+    if (vatAcc && amount > 0) rows.push({ account: vatAcc, debet: 0, kredit: c2(amount) });
   });
   return { date: inv.date, description: `Faktura ${inv.invoiceNumber}`, source: 'invoice', sourceId: inv.id, rows };
 }
@@ -81,9 +82,9 @@ function bookInvoicePayment(inv) {
 }
 
 export function bookExpense(exp) {
-  const rows = [{ account: exp.costAccount, debet: Math.round(exp.netAmount), kredit: 0 }];
-  if (exp.vatAmount > 0) rows.push({ account: '2641', debet: Math.round(exp.vatAmount), kredit: 0 });
-  rows.push({ account: '1930', debet: 0, kredit: Math.round(exp.amount) });
+  const rows = [{ account: exp.costAccount, debet: c2(exp.netAmount), kredit: 0 }];
+  if (exp.vatAmount > 0) rows.push({ account: '2641', debet: c2(exp.vatAmount), kredit: 0 });
+  rows.push({ account: '1930', debet: 0, kredit: c2(exp.amount) });
   return { date: exp.date, description: exp.description, source: 'expense', sourceId: exp.id, rows };
 }
 
@@ -284,9 +285,9 @@ export function createDemoSeed() {
       date: supplierInv.date, description: `Leverantörsfaktura ${supplierInv.invoiceNumber}`,
       source: 'supplier_invoice', sourceId: supplierInv.id,
       rows: [
-        { account: supplierInv.costAccount, debet: Math.round(supplierInv.netAmount), kredit: 0 },
-        { account: '2641', debet: Math.round(supplierInv.vatAmount), kredit: 0 },
-        { account: '2440', debet: 0, kredit: Math.round(supplierInv.amount) },
+        { account: supplierInv.costAccount, debet: c2(supplierInv.netAmount), kredit: 0 },
+        { account: '2641', debet: c2(supplierInv.vatAmount), kredit: 0 },
+        { account: '2440', debet: 0, kredit: c2(supplierInv.amount) },
       ],
     });
   }

@@ -46,3 +46,63 @@ export function usePalette(company) {
   const dark = useIsDarkTheme();
   return useMemo(() => resolveChartPalette(company?.reportDisplay?.colors, { dark }), [company?.reportDisplay?.colors, dark]);
 }
+
+/**
+ * En sak att göra som en smal rad (2026-11-21): ikon, vad det gäller, en
+ * kort detalj och knappen till höger. Ersätter de stora Att göra-korten på
+ * Periodiseringar och Tillgångar.
+ */
+export function TaskRow({ icon: Icon, title, detail, tone = 'warn', onClick, children }) {
+  const Tag = onClick ? 'button' : 'div';
+  return (
+    <Tag type={onClick ? 'button' : undefined} className={`ws-task ws-task--${tone}`} onClick={onClick}>
+      {Icon && <span className="ws-task-ic" aria-hidden="true"><Icon size={16} /></span>}
+      <span className="ws-task-text">
+        <strong>{title}</strong>
+        {detail && <small>{detail}</small>}
+      </span>
+      {children && <span className="ws-task-actions" onClick={e => e.stopPropagation()}>{children}</span>}
+    </Tag>
+  );
+}
+
+/** Rubrikrad ovanför en lista inne i en panel: antal till vänster, filter till höger. */
+export function ListBar({ title, children }) {
+  return (
+    <div className="ws-listbar">
+      <span className="ws-listbar-title">{title}</span>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Översikten överst på en arbetsyta (2026-11-22): en ram med 2–4 siffror,
+ * den första lite större. En cell kan ha en mätare (0–1), en ton (warn, bad,
+ * ok) och kan vara klickbar (filtrerar listan under). Samma på Projekt,
+ * Lager, Periodiseringar och Tillgångar.
+ */
+export function Overview({ items }) {
+  const list = items.filter(Boolean);
+  return (
+    <div className="ov" style={{ '--ov-n': list.length }}>
+      {list.map((it, i) => {
+        const Tag = it.onClick ? 'button' : 'div';
+        return (
+          <Tag
+            key={it.key || i}
+            type={it.onClick ? 'button' : undefined}
+            className={`ov-cell${it.tone ? ` is-${it.tone}` : ''}${it.active ? ' on' : ''}`}
+            onClick={it.onClick}
+            aria-pressed={it.onClick ? Boolean(it.active) : undefined}
+          >
+            <span className="ov-label">{it.label}</span>
+            <span className="ov-value">{it.value}</span>
+            {it.meter != null && <span className="ov-meter" aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(1, it.meter)) * 100}%` }} /></span>}
+            {it.sub && <span className="ov-sub">{it.sub}</span>}
+          </Tag>
+        );
+      })}
+    </div>
+  );
+}

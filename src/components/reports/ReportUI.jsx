@@ -72,8 +72,8 @@ export const CHART_BAR_SIZE = 32;
 // Diagramhöjder. Kundönskemål: graferna var för små för att läsas ordentligt.
 // `CHART_H_MAIN` är huvuddiagrammet (Intäkter vs utgifter, panelen som bär
 // hela översikten), `CHART_H_SIDE` de mindre panelerna bredvid och under.
-export const CHART_H_MAIN = 340;
-export const CHART_H_SIDE = 270;
+export const CHART_H_MAIN = 290;
+export const CHART_H_SIDE = 240;
 
 // Kvar för Resultat-diagrammets tecken-färgning (en enda stapelserie som
 // pekar upp eller ner — där bär POSITIONEN mot nollinjen identiteten och
@@ -294,7 +294,7 @@ export function ReportSheet({ children }) {
  * PeriodPicker och listornas flikrader redan använder. */
 export function ChartTypeToggle({ value, onChange, options, label = 'Diagramtyp' }) {
   return (
-    <span role="group" aria-label={label} className="no-print" style={{ display: 'inline-flex', gap: '4px', flexWrap: 'wrap' }}>
+    <span role="group" aria-label={label} className="chart-toggle no-print" style={{ display: 'inline-flex', gap: '4px', flexWrap: 'wrap' }}>
       {options.map(opt => {
         const active = opt.id === value;
         return (
@@ -302,10 +302,11 @@ export function ChartTypeToggle({ value, onChange, options, label = 'Diagramtyp'
             key={opt.id} type="button" onClick={() => onChange(opt.id)} aria-pressed={active}
             style={{
               padding: '5px 12px', borderRadius: '999px', cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: '11.5px', fontWeight: 700, lineHeight: 1.4, whiteSpace: 'nowrap',
-              background: active ? BRAND.green : 'transparent',
-              color: active ? '#fff' : 'var(--text-secondary)',
-              border: `1px solid ${active ? BRAND.green : 'var(--border)'}`,
+              fontSize: '12px', fontWeight: 600, lineHeight: 1.4, whiteSpace: 'nowrap',
+              background: active ? 'var(--bg-card)' : 'transparent',
+              color: active ? 'var(--text-main)' : 'var(--text-secondary)',
+              border: 'none',
+              boxShadow: active ? '0 1px 2px rgba(0,0,0,0.08), 0 0 0 1px var(--border-light)' : 'none',
               transition: 'background 0.15s, color 0.15s, border-color 0.15s',
             }}
           >
@@ -319,14 +320,16 @@ export function ChartTypeToggle({ value, onChange, options, label = 'Diagramtyp'
 
 // Standarduppsättningarna. Ligger här och inte i ReportDetail.jsx så att
 // alla paneler som visar samma SORTS data också erbjuder samma former.
+// 2026-11-20: varje form visar något eget. Linje och Yta var i praktiken
+// samma bild, så Yta är borta. Speglat och Ackumulerat är vyer som
+// rapportprogram brukar ha: kostnaderna under nollinjen, och året som byggs upp.
 export const TREND_CHART_TYPES = [
   { id: 'bar', label: t('ui.staplar') },
-  { id: 'line', label: t('ui.linje') },
-  { id: 'area', label: t('ui.yta') },
-  { id: 'combo', label: t('ui.kombi') },
+  { id: 'diverging', label: t('rpt.chartMirrored') },
+  { id: 'combo', label: t('rpt.chartWithResult') },
+  { id: 'cumulative', label: t('rpt.chartCumulative') },
 ];
 export const FLOW_CHART_TYPES = [
-  { id: 'area', label: t('ui.yta') },
   { id: 'line', label: t('ui.linje') },
   { id: 'bar', label: t('ui.staplar') },
 ];
@@ -342,7 +345,7 @@ export const SHARE_CHART_TYPES = [
 export function SheetPanel({ title, subtitle, legend, controls, children, style }) {
   const hasHead = title || legend || controls;
   return (
-    <div className="sheet-panel" style={{ padding: '26px 28px 28px', minWidth: 0, ...style }}>
+    <div className="sheet-panel" style={{ padding: '20px 22px 22px', minWidth: 0, ...style }}>
       {hasHead && (
         <div className="sheet-panel-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', marginBottom: subtitle ? '5px' : (legend && controls ? '10px' : '18px') }}>
           {title && <span style={{ fontSize: '15.5px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{title}</span>}
@@ -385,16 +388,16 @@ export function InlineLegend({ items }) {
  * med serien i diagrammet strax under utan att jämföra siffror. */
 export function StatTile({ label, value, icon: Icon, delta, context, accent, tone }) {
   return (
-    <div className="stat-tile" style={{ padding: '24px 28px 26px', minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '12px' }}>
-        <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{label}</span>
-        {Icon && (
+    <div className="stat-tile" style={{ padding: '16px 20px 18px', minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>{label}</span>
+        {false && Icon && (
           <span style={{ width: 26, height: 26, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: tone ? `color-mix(in srgb, ${tone} 12%, transparent)` : 'var(--bg-muted)', color: tone || 'var(--text-muted)' }}>
             <Icon size={14} />
           </span>
         )}
       </div>
-      <div className="stat-tile-value" style={{ fontSize: '30px', fontWeight: 700, color: accent || 'var(--text-main)', letterSpacing: '-0.03em', lineHeight: 1.05, marginBottom: '11px' }}>{value}</div>
+      <div className="stat-tile-value" style={{ fontSize: '26px', fontWeight: 700, color: accent || 'var(--text-main)', letterSpacing: '-0.02em', lineHeight: 1.05, marginBottom: '8px', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
       <DeltaPill delta={delta} context={context} />
     </div>
   );
@@ -920,6 +923,12 @@ export function ChartSummaryList({ items }) {
  */
 export function RevenueExpenseChart({ data, isMobile, granularity = 'month', height = 280, showLegend = false, variant = 'bar', indexKey = 'label', extraSeries = [], prevKey, prevName, partialLast = false }) {
   const { palette, amount } = useReportDisplay();
+  // Ackumulerat: summan hittills för varje period, ritad som linjer.
+  if (variant === 'cumulative') {
+    let inSum = 0; let outSum = 0;
+    data = data.map(d => ({ ...d, Intäkter: (inSum += d.Intäkter || 0), Utgifter: (outSum += d.Utgifter || 0) }));
+    variant = 'line';
+  }
   const tickData = useMemo(() => {
     const labels = thinLabels(data.map(d => d[indexKey]), isMobile);
     return data.map((d, i) => ({ ...d, [indexKey]: labels[i] }));

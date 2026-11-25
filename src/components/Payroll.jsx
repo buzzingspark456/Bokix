@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, ChevronRight, UsersRound, UserCog, CalendarClock, Search, Palmtree, Download, Upload, Landmark } from './icons';
+import { Plus, ChevronLeft, ChevronRight, UsersRound, UserCog, CalendarClock, Search, Palmtree, Download, Upload, Landmark, X } from './icons';
 import EmployeeImportModal from './EmployeeImportModal';
 import FosModal from './FosModal';
 import { downloadCsv } from '../utils/csvRegister';
@@ -24,13 +24,16 @@ const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: 
 export default function Payroll({
   company, employees = [], onSaveEmployee, onImportEmployees, onApplyFos, onSyncBeforeServerCall, accounts = [], projects = [],
   payrollRuns = [], onCreateRun, onUpdateRunRow, onUpdateRun, onAdvanceRunStep, onBookRun, onMarkRunPaid, onDeleteRun, onRefreshRunSnapshots, agiReports = [],
+  outlays = [],
 }) {
-  const [activeTab, setActiveTab] = useState('employees');
+  const [activeTab, setActiveTab] = useState(() => (employees.length > 0 ? 'runs' : 'employees'));
   const [search, setSearch] = useState('');
   const [runYear, setRunYear] = useState(new Date().getFullYear());
   const [viewState, setViewState] = useState('list'); // 'list' | 'new' | 'edit'
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [selectedRunId, setSelectedRunId] = useState(null);
+  // Öppnad från en lönekörning: Spara och Tillbaka går tillbaka dit.
+  const [returnRunId, setReturnRunId] = useState(null);
 
   const [showNewRun, setShowNewRun] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -48,8 +51,12 @@ export default function Payroll({
 
   const handleSaveEmployee = (data) => {
     onSaveEmployee(viewState === 'edit' ? selectedEmployee.id : null, data);
+    closeEmployeeForm();
+  };
+  const closeEmployeeForm = () => {
     setViewState('list');
     setSelectedEmployee(null);
+    if (returnRunId) { setActiveTab('runs'); setSelectedRunId(returnRunId); setReturnRunId(null); }
   };
 
   const sortedRuns = [...payrollRuns].sort((a, b) => b.period.localeCompare(a.period));
@@ -62,15 +69,14 @@ export default function Payroll({
   const yearRuns = sortedRuns.filter(r => String(r.period).startsWith(`${shownYear}-`));
   const currentPeriod = new Date().toISOString().slice(0, 7);
   const filteredRuns = yearRuns.map(run => ({ key: run.id, period: run.period, run }));
-  if (shownYear === thisYear && !yearRuns.some(r => r.period === currentPeriod)) {
-    filteredRuns.push({ key: `empty-${currentPeriod}`, period: currentPeriod, run: null });
-    filteredRuns.sort((a, b) => b.period.localeCompare(a.period));
-  }
+  // Månaden utan lönekörning visas som ett kort ovanför listan, inte som en
+  // tom rad i den (2026-11-22: såg ut som en körning som redan fanns).
   const runGross = (run) => {
     try {
       return summarizePayrollRun(run.rows.map(row => computeEmployeePayroll(row.employeeSnapshot || {}, row))).gross;
     } catch { return null; }
   };
+  const yearGross = yearRuns.reduce((sum, r) => sum + (runGross(r) || 0), 0);
   const fmtShortDate = (d) => dateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(d);
   const agiInfo = (row) => {
     const due = agiDueDate(row.period);
@@ -128,6 +134,7 @@ export default function Payroll({
         run={selectedRun}
         previousRun={previousRun}
         allRuns={payrollRuns}
+        outlays={outlays}
         onSyncBeforeServerCall={onSyncBeforeServerCall}
         accounts={accounts}
         company={company}
@@ -139,9 +146,25 @@ export default function Payroll({
         onUpdateRow={(employeeId, patch) => onUpdateRunRow(selectedRun.id, employeeId, patch)}
         onUpdateRun={(patch) => onUpdateRun?.(selectedRun.id, patch)}
         onRefreshSnapshots={() => onRefreshRunSnapshots?.(selectedRun.id, employees)}
+        onOpenEmployee={(id) => { const emp = employees.find(e => e.id === id); if (!emp) return; setReturnRunId(selectedRun.id); setSelectedRunId(null); setActiveTab('employees'); setSelectedEmployee(emp); setViewState('edit'); }}
       />
     );
   }
+
+  // 2026-11-22: årsväljaren (‹ 2026 ›) och årets lönesumma står i sidhuvudet
+  // bredvid Ny lönekörning, inte på en egen rad med tom yta.
+  const yearPicker = (
+    <div className="pay-yearbar">
+      <div className="pay-year" role="group" aria-label={t('payrollYear.year')}>
+        <button type="button" aria-label={String(shownYear - 1)} disabled={!runYears.some(y => y < shownYear)} onClick={() => setRunYear(Math.max(...runYears.filter(y => y < shownYear)))}><ChevronLeft size={16} /></button>
+        <strong>{shownYear}</strong>
+        <button type="button" aria-label={String(shownYear + 1)} disabled={!runYears.some(y => y > shownYear)} onClick={() => setRunYear(Math.min(...runYears.filter(y => y > shownYear)))}><ChevronRight size={16} /></button>
+      </div>
+      {yearGross > 0 && (
+        <span className="pay-year-total">{t('payrollYear.total', { year: shownYear })} <strong>{formatSEK(yearGross)}</strong></span>
+      )}
+    </div>
+  );
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
@@ -159,7 +182,7 @@ export default function Payroll({
                 { key: 'new-employee', label: t('ui.ny_anstalld'), icon: Plus, onClick: () => { setSelectedEmployee(null); setViewState('new'); }, variant: 'primary' },
               ]
             : activeTab === 'runs'
-              ? [{
+              ? [{ key: 'year', type: 'node', node: <div className="pay-year-head">{yearPicker}</div> }, {
                   key: 'new-run', label: t('ui.ny_lonekorning'), icon: Plus, variant: 'primary',
                   onClick: () => { if (employees.length === 0) { setActiveTab('employees'); setViewState('new'); } else { if (!newRunPayDate) setNewRunPayDate(`${newRunPeriod}-25`); setShowNewRun(true); } },
                   title: employees.length === 0 ? t('ui.lagg_till_en_anstalld_forst') : undefined,
@@ -168,15 +191,15 @@ export default function Payroll({
         }
         tabs={{
           items: [
-            { id: 'employees', label: t('ui.anstallda'), icon: UserCog },
             { id: 'runs', label: t('ui.lonekorningar'), icon: CalendarClock },
+            { id: 'employees', label: t('ui.anstallda'), icon: UserCog },
             // Semestersaldon hör hemma bredvid lönekörningarna och inte inne
             // i en enskild anställd: frågan "hur mycket semester ligger vi på"
             // är en företagsfråga (och en balanspost), inte en personalfråga.
             { id: 'vacation', label: t('ui.semester'), icon: Palmtree },
           ],
           activeId: activeTab,
-          onChange: (id) => { setActiveTab(id); setViewState('list'); setSelectedEmployee(null); },
+          onChange: (id) => { setActiveTab(id); setViewState('list'); setSelectedEmployee(null); setReturnRunId(null); },
         }}
       />
       {/* Sökfältet ligger kvar i samma kort som resten av sidhuvudet
@@ -185,23 +208,14 @@ export default function Payroll({
           kortet. Kundfeedback ("gör lönekörningar mer som anställda"):
           Lönekörningar-fliken saknade den här raden helt, till skillnad
           från Anställda — samma ListFilterBar/sökfält-mönster nu på båda. */}
-      {((activeTab === 'employees' && viewState === 'list') || activeTab === 'runs') && (
+      {activeTab === 'employees' && viewState === 'list' && (
         <ListFilterBar>
           {activeTab === 'employees' ? (
             <div style={{ position: 'relative' }}>
               <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input type="text" placeholder={t('ui.sok_anstalld')} value={search} onChange={e => setSearch(e.target.value)} style={listSearchInputStyle} />
             </div>
-          ) : (
-            // Lönekörningar visas per år. Bara år som har lönekörningar (och
-            // innevarande år) finns att välja, så ett nytt företag ser bara 2026.
-            // Första barnet i filterraden, så det syns även på telefon.
-            <div className="filter-pills" role="tablist" aria-label={t('payrollYear.year')}>
-              {runYears.map(y => (
-                <button key={y} type="button" role="tab" aria-selected={y === shownYear} className={`filter-pill${y === shownYear ? ' active' : ''}`} onClick={() => setRunYear(y)}>{y}</button>
-              ))}
-            </div>
-          )}
+          ) : null}
         </ListFilterBar>
       )}
 
@@ -304,7 +318,7 @@ export default function Payroll({
         <div className="mform-page" style={{ padding: '24px' }}>
           <MobileFormMode />
           <div className="mform-head" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <button className="mform-back" onClick={() => { setViewState('list'); setSelectedEmployee(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>
+            <button className="mform-back" onClick={closeEmployeeForm} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>
               <span className="mform-back-desk">{t('ui.tillbaka')}</span><span className="mform-back-phone">{t('ui.avbryt')}</span>
             </button>
             <span className="mform-sep" style={{ color: 'var(--border)' }}>|</span>
@@ -315,7 +329,8 @@ export default function Payroll({
             projects={projects}
             payrollRuns={payrollRuns}
             onSave={handleSaveEmployee}
-            onCancel={() => { setViewState('list'); setSelectedEmployee(null); }}
+            onCancel={closeEmployeeForm}
+            wizard
           />
         </div>
       )}
@@ -339,8 +354,12 @@ export default function Payroll({
               marginal (de är fristående kort, inte tabellen), men
               ListTable nedan är nu flush precis som överallt annars. */}
           {showNewRun && (
-            <section className="payroll-newrun" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '20px 24px' }}>
-              <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 800, color: 'var(--text-main)' }}>{t('ui.ny_lonekorning')}</h3>
+            <div className="modal-overlay" onClick={() => setShowNewRun(false)}>
+            <section className="modal-content payroll-newrun" style={{ maxWidth: '560px' }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <span className="modal-title">{t('ui.ny_lonekorning')}</span>
+                <button type="button" className="modal-close" onClick={() => setShowNewRun(false)} aria-label={t('ui.stang')}><X size={18} /></button>
+              </div>
               <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{t('payrollStages.newRunText')}</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
                 <div style={{ flex: '0 1 200px', minWidth: '150px' }}>
@@ -386,8 +405,11 @@ export default function Payroll({
                 <button onClick={handleCreateRun} disabled={activeEmployeesForPeriod.length === 0} style={{ padding: '10px 20px', background: activeEmployeesForPeriod.length ? 'var(--accent)' : 'var(--border)', color: activeEmployeesForPeriod.length ? 'white' : 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: activeEmployeesForPeriod.length ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>{t('payrollStages.createRun')}</button>
               </div>
             </section>
+            </div>
           )}
 
+          {/* På telefon står årsväljaren här, så att rubriken inte klipps. */}
+          <div className="pay-year-phone">{yearPicker}</div>
           <ListTable
             rowKey={r => r.key}
             onRowClick={openRow}
@@ -396,12 +418,14 @@ export default function Payroll({
             emptyMessage={(
               <div>
                 <div>{t('ui.inga_tidigare_lonekorningar')}</div>
-                <div style={{ marginTop: '10px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
-                  {t('ui.du_behover_lagga_till_minst_en_anstalld_innan_du')}
-                </div>
+                {employees.length === 0 && (
+                  <div style={{ marginTop: '10px', fontSize: '12.5px', color: 'var(--status-amber-text)' }}>
+                    {t('ui.du_behover_lagga_till_minst_en_anstalld_innan_du')}
+                  </div>
+                )}
               </div>
             )}
-            rows={employees.length === 0 && sortedRuns.length === 0 ? [] : filteredRuns}
+            rows={filteredRuns}
             mobileList={row => {
               if (!row.run) return { dot: 'var(--border)', primary: monthName(row.period), meta: t('payrollYear.create'), amount: '' };
               const status = runStatus(row.run);

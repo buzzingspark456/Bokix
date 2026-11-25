@@ -1,10 +1,15 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
+import { createPortal } from 'react-dom';
+import { REPRESENTATION_ACCOUNTS, representationBooking, representationKinds } from '../utils/representation';
 import { isVatExempt } from '../utils/vatRegistration';
 import {
   UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop, SlidersHorizontal,
+  Mail, Copy, Inbox, Cog, Menu, Check, Maximize2, ChevronLeft, ChevronRight, Info, MailOpen, MoreHorizontal,
 } from './icons';
+import { supabase } from '../supabaseClient';
 import { AccountSearch } from './shared/SearchInputs';
 import AccountInlinePicker from './shared/AccountInlinePicker';
+import { isGroupAccount } from '../utils/accountGroups';
 import { DocumentPane } from './shared/DocumentViewer';
 import CornerEditor from './shared/CornerEditor';
 import { TextSuggestInput } from './shared/SearchInputs';
@@ -14,13 +19,21 @@ import { uploadFileToStorage } from '../utils/fileUpload';
 import { useSignedUrl } from '../utils/signedUrls';
 import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
+import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
 import { OCR_DRAFT_VERSION } from '../utils/ocrReceipt';
 import { readDocumentText } from '../utils/ocrCache';
 import { captureEvent } from '../utils/posthog';
 import { analyzeReceipt, buildReceiptPlan } from '../utils/receiptScan';
-import { ScanOverlay, OcrChecklist, photoHintText, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
+import { bankRowsForReceipt } from '../utils/bankMatching';
+import { ScanOverlay, OcrChecklist, ReadDetails, ReadText, photoHintText, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
+import { buyerDetailsCheck } from '../utils/receiptBuyer';
+import { newDocument } from '../utils/looseDocuments';
+import DocumentsToLink from './DocumentsToLink';
+import { GmailLogo } from './shared/BrandLogos';
 import { convertToSek } from '../utils/currencyConversion';
 import { historyForSupplier, historyFromVerifications } from '../utils/receiptHistory';
+import { needsAutoRead, autoReadTried, markAutoReadTried } from '../utils/autoRead';
+import { underlagStep, missingUnderlag } from '../utils/underlagStep';
 import { reverseChargePurchaseInfo, describeReverseCharge } from '../utils/reverseCharge';
 import { CURRENCIES, parseNumber, sekFrom, impliedRate, rateToInput, amountToInput, foreignForSave } from '../utils/foreignCurrency';
 import { t as tr, dateLocale } from '../i18n';
@@ -225,9 +238,14 @@ const STATUS_SINGULAR = { unhandled: tr('ui.ej_hanterad'), pending: tr('ui.pagae
 
 // Liten badge som visas intill fältets label när OCR fyllt i det.
 // Försvinner så fort användaren redigerar fältet manuellt.
+// Osäkert avläst: kontrollera fältet själv.
+function CheckBadge() {
+  return <span className="rc-check-badge">{tr('ui.kontrollera')}</span>;
+}
+
 function OcrBadge() {
   return (
-    <span style={{
+    <span className="rc-ocr-badge" title={tr('ui.ocr')} style={{
       display: 'inline-flex', alignItems: 'center', gap: '3px',
       fontSize: '10px', fontWeight: 700, letterSpacing: '0.02em',
       padding: '1px 6px', borderRadius: '999px', verticalAlign: 'middle', marginLeft: '5px',
@@ -238,7 +256,279 @@ function OcrBadge() {
   );
 }
 
-function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allReceipts, verifications = [], status, onSave, onSaveOcrDraft, onDelete, onReverse, onClose, vatExempt = false, ownCompany = null }) {
+// Texten som lästes sparas på kvittots utkast. Ett kvitto är långt under det här.
+const MAX_SAVED_TEXT = 8000;
+
+// Uppgifterna som läses ur underlaget utöver det som bokförs (2026-11-17,
+// efter Accounteds Extraherade fält). Sparas på kvittot som `identifiers`.
+const ID_FIELDS = [
+  { key: 'orgNr', label: 'underlag.orgNr', always: true },
+  { key: 'vatNr', label: 'underlag.vatNr', always: true },
+  { key: 'bankgiro', label: 'underlag.bankgiro' },
+  { key: 'ocrNumber', label: 'underlag.ocr' },
+  { key: 'iban', label: 'underlag.iban', span: true },
+  { key: 'plusgiro', label: 'underlag.plusgiro', span: true, onlyFilled: true },
+];
+function pickIds(details) {
+  const out = {};
+  if (!details) return out;
+  ID_FIELDS.forEach(({ key }) => { if (details[key]) out[key] = String(details[key]); });
+  return out;
+}
+// Fälten som kom ur avläsningen och inte är osäkra (Luhn-kontrollen) får pricken.
+function idsReadFrom(details, ids) {
+  const s = new Set();
+  if (!details) return s;
+  ID_FIELDS.forEach(({ key }) => { if (details[key] && ids[key] === String(details[key]) && !details[`${key}Guessed`]) s.add(key); });
+  return s;
+}
+function idsForSave(ids) {
+  const out = {};
+  ID_FIELDS.forEach(({ key }) => { const v = String(ids[key] || '').trim(); if (v) out[key] = v; });
+  return Object.keys(out).length ? out : undefined;
+}
+// Uppladdningstiden står i id:t (exp_<millisekunder>).
+function uploadedDate(receipt) {
+  const ts = Number((/^exp_(\d{13})/.exec(String(receipt?.id || '')) || [])[1]);
+  return ts > 1.5e12 ? new Date(ts).toLocaleDateString('sv-SE', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+}
+
+/** En ruta ovanpå arbetsytan (kontoväljaren). Esc stänger bara rutan. */
+function UwDialog({ title, sub, onClose, children, wide = false }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); } };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [onClose]);
+  return (
+    <div className="uw-match-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className={`uw-match${wide ? '' : ' uw-dialog-narrow'}`} role="dialog" aria-modal="true" aria-label={title}>
+        <div className="uw-match-head">
+          <div>
+            <h3>{title}</h3>
+            {sub && <p>{sub}</p>}
+          </div>
+          <button type="button" className="uw-match-x" onClick={onClose} aria-label={tr('ui.stang')}><X size={18} /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// Företagets inkorgsadress (api/inbox/index.js). Hämtas när Underlag öppnas
+// och, medan Lägg till brevlåda är öppen, var 20:e sekund (Gmails kod).
+function useInboxAddress(companyId, { poll = false } = {}) {
+  const [info, setInfo] = useState(null);
+  const load = useCallback(async () => {
+    if (!companyId) return;
+    try {
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const res = await fetch('/api/inbox', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ companyId, action: 'get' }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.address) setInfo(json);
+    } catch { /* inkorgen är en bonus, inget fel visas */ }
+  }, [companyId]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!poll) return undefined;
+    const timer = setInterval(load, 20000);
+    return () => clearInterval(timer);
+  }, [poll, load]);
+  // Godkända avsändare (som Fortnox Granska avsändare): tom lista = alla.
+  const saveSenders = useCallback(async (senders) => {
+    if (!companyId) return false;
+    try {
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      const res = await fetch('/api/inbox', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+        body: JSON.stringify({ companyId, action: 'senders', senders }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.address) { setInfo(json); return true; }
+    } catch { /* visas nedan */ }
+    return false;
+  }, [companyId]);
+  return { info, saveSenders, reload: load };
+}
+
+function CopyButton({ text, label }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      type="button"
+      className="uw-copy"
+      onClick={() => { try { navigator.clipboard?.writeText(text); } catch { /* inget */ } setDone(true); setTimeout(() => setDone(false), 1600); }}
+      title={tr('underlag.copy')}
+    >
+      <Copy size={13} /> {done ? tr('underlag.copied') : (label || tr('underlag.copy'))}
+    </button>
+  );
+}
+
+/** Lägg till brevlåda: vägarna in i Underlag. */
+// Gmails egna inställningssidor: vidarebefordran och filter.
+const GMAIL_FORWARDING_URL = 'https://mail.google.com/mail/u/0/#settings/fwdandpop';
+const GMAIL_FILTERS_URL = 'https://mail.google.com/mail/u/0/#settings/filters';
+
+function MailboxPanel({ info, onUpload, onSaveSenders, part = 'all' }) {
+  const [gmailOpen, setGmailOpen] = useState(false);
+  const [senderInput, setSenderInput] = useState('');
+  const [senderError, setSenderError] = useState('');
+  const senders = info?.allowedSenders || [];
+  const normalize = (v) => {
+    const x = String(v || '').trim().toLowerCase();
+    if (/^[^\s@]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(x)) return x;
+    const d = x.replace(/^@/, '');
+    return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d) ? `@${d}` : null;
+  };
+  const addSender = async (raw) => {
+    const v = normalize(raw);
+    if (!v) { setSenderError(tr('underlag.sendersBad')); return; }
+    setSenderError('');
+    if (await onSaveSenders?.([...new Set([...senders, v])])) setSenderInput('');
+    else setSenderError(tr('underlag.sendersFail'));
+  };
+  const removeSender = (v) => onSaveSenders?.(senders.filter(x => x !== v));
+  // Kopplad: Gmails bekräftelse kom, och sedan ett mejl till (vidarebefordrat).
+  const gmailConnected = Boolean(info?.gmailCodeAt && info?.lastReceivedAt
+    && Date.parse(info.lastReceivedAt) - Date.parse(info.gmailCodeAt) > 60 * 1000);
+  const showBox = part !== 'senders';
+  const showSenders = part !== 'mailbox';
+  return (
+      <div className={`uw-mbx uw-mbx-${part}`}>
+        {showBox && <>
+        <div className="uw-mbx-row">
+          <span className="uw-mbx-ico"><Mail size={17} /></span>
+          <span className="uw-mbx-text">
+            <b>{tr('underlag.mbxAddress')}</b>
+            {info?.address ? <code>{info.address}</code> : <em>{tr('underlag.mbxAddressMissing')}</em>}
+          </span>
+          {info?.address && <CopyButton text={info.address} />}
+        </div>
+        <div className="uw-mbx-row uw-mbx-col">
+          <div className="uw-mbx-line">
+            <span className="uw-mbx-ico uw-mbx-gmail">G</span>
+            <span className="uw-mbx-text">
+              <b>{tr('underlag.mbxGmail')}</b>
+              <span>{gmailConnected ? tr('underlag.mbxGmailOn') : tr('underlag.mbxGmailSub')}</span>
+            </span>
+            {gmailConnected
+              ? <span className="uw-mbx-on">{tr('underlag.mbxConnected')}</span>
+              : <a className="uw-mbx-btn" href={GMAIL_FORWARDING_URL} target="_blank" rel="noopener noreferrer" onClick={() => setGmailOpen(true)}>{tr('underlag.mbxConnect')}</a>}
+          </div>
+          {!gmailConnected && (gmailOpen || info?.gmailCode) && (
+            <ol className="uw-mbx-steps">
+              <li>{tr('underlag.mbxStepA')}</li>
+              <li>{tr('underlag.mbxStep2')} {info?.gmailCode ? <b className="uw-mbx-code">{info.gmailCode}</b> : <em>{tr('underlag.mbxCodeWait')}</em>}</li>
+              <li>{tr('underlag.mbxStepB')} <a href={GMAIL_FILTERS_URL} target="_blank" rel="noopener noreferrer">{tr('underlag.mbxFilters')}</a></li>
+            </ol>
+          )}
+        </div>
+        </>}
+        {showSenders && info?.address && (
+          <div className="uw-mbx-row uw-mbx-col">
+            <div className="uw-mbx-line">
+              <span className="uw-mbx-ico"><CheckCircle2 size={17} /></span>
+              <span className="uw-mbx-text">
+                <b>{tr('underlag.sendersTitle')}</b>
+                <span>{senders.length ? tr('underlag.sendersSome') : tr('underlag.sendersAll')}</span>
+              </span>
+            </div>
+            <div className="uw-snd">
+              {senders.map(v => (
+                <span key={v} className="uw-snd-chip">{v}<button type="button" onClick={() => removeSender(v)} aria-label={tr('ui.ta_bort')}><X size={12} /></button></span>
+              ))}
+              <form className="uw-snd-add" onSubmit={e => { e.preventDefault(); addSender(senderInput); }}>
+                <input value={senderInput} onChange={e => setSenderInput(e.target.value)} placeholder={tr('underlag.sendersPh')} />
+                <button type="submit" disabled={!senderInput.trim()}>{tr('underlag.sendersAdd')}</button>
+              </form>
+            </div>
+            {senderError && <em className="uw-snd-err">{senderError}</em>}
+            {info.lastBlockedFrom && !senders.includes(normalize((/<([^>]+)>/.exec(info.lastBlockedFrom) || [])[1] || info.lastBlockedFrom)) && (
+              <div className="uw-snd-blocked">
+                <span>{tr('underlag.sendersBlocked', { from: info.lastBlockedFrom })}</span>
+                <button type="button" onClick={() => addSender((/<([^>]+)>/.exec(info.lastBlockedFrom) || [])[1] || info.lastBlockedFrom)}>{tr('underlag.sendersAllow')}</button>
+              </div>
+            )}
+          </div>
+        )}
+        {showSenders && !info?.address && <p className="uw-mbx-note">{tr('underlag.mbxAddressMissing')}</p>}
+        {showBox && <>
+        <div className="uw-mbx-row">
+          <span className="uw-mbx-ico"><UploadCloud size={17} /></span>
+          <span className="uw-mbx-text">
+            <b>{tr('underlag.mbxUpload')}</b>
+            <span>{tr('underlag.mbxUploadSub')}</span>
+          </span>
+          <button type="button" className="uw-mbx-btn" onClick={onUpload}>{tr('underlag.upload')}</button>
+        </div>
+        {info?.lastReceivedAt && <p className="uw-mbx-note">{tr('underlag.mbxLast', { when: new Date(info.lastReceivedAt).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }) })}</p>}
+        </>}
+      </div>
+  );
+}
+
+function MailboxDialog({ info, onClose, onUpload, onSaveSenders }) {
+  return (
+    <UwDialog title={tr('underlag.mailboxTitle')} sub={tr('underlag.mailboxSub')} onClose={onClose}>
+      <MailboxPanel info={info} onSaveSenders={onSaveSenders} onUpload={() => { onClose(); onUpload(); }} />
+    </UwDialog>
+  );
+}
+
+/** Matcha mot transaktion: välj bankraden som hör till underlaget. */
+function MatchBankModal({ supplier, amount, date, bankTransactions, onPick, onClose }) {
+  const [q, setQ] = useState('');
+  const rows = useMemo(() => bankRowsForReceipt({ amount, date }, bankTransactions, q), [amount, date, bankTransactions, q]);
+  useEffect(() => {
+    // Före kvittovyns egen Esc, så att bara den här rutan stängs.
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); } };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [onClose]);
+  return (
+    <div className="uw-match-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="uw-match" role="dialog" aria-modal="true" aria-label={tr('underlag.match')}>
+        <div className="uw-match-head">
+          <div>
+            <h3>{tr('underlag.match')}</h3>
+            <p>{tr('underlag.matchSub')}</p>
+          </div>
+          <button type="button" className="uw-match-x" onClick={onClose} aria-label={tr('ui.stang')}><X size={18} /></button>
+        </div>
+        <div className="uw-match-sum">
+          <span>{tr('nav.underlag')}</span>
+          <b>{supplier || tr('underlag.unnamed')}</b>
+          <b>{amount > 0 ? formatSEK2(amount) : ''}</b>
+          <span>{date || ''}</span>
+        </div>
+        <input className="uw-match-search" type="search" autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder={tr('underlag.matchSearch')} />
+        <div className="uw-match-count"><span>{tr('underlag.matchSuggested')}</span><span>{rows.length} {tr('underlag.st')}</span></div>
+        <div className="uw-match-list">
+          {rows.length === 0 && <div className="uw-match-empty">{tr('underlag.matchEmpty')}</div>}
+          {rows.slice(0, 60).map(({ row, exact, days }) => (
+            <button key={row.id} type="button" className="uw-match-row" onClick={() => onPick(row.id)}>
+              <span className="uw-match-main">
+                <span className="uw-match-name">{row.description || row.text || '–'} <span className={`uw-badge${exact ? ' strong' : ''}`}>{exact ? tr('underlag.matchGood') : tr('underlag.matchWeak')}</span></span>
+                <span className="uw-match-sub">{row.date}{days < 999 ? ` · ${days === 0 ? tr('underlag.sameDay') : (days === 1 ? tr('underlag.dayOff') : tr('underlag.daysOff', { n: days }))}` : ''}{exact ? ` · ${tr('underlag.exactAmount')}` : ''}</span>
+              </span>
+              <span className="uw-match-amt">{formatSEK2(row.amount)}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allReceipts, verifications = [], status, onSave, onSaveOcrDraft, onDelete, onReverse, onClose, onSaved, inline = false, vatExempt = false, ownCompany = null, bankTransactions = [], onLinkBankRow, employees = [] }) {
   // "Rättad" är också ett låst tillstånd — samma skäl som "Bokförd": en
   // rättelseverifikation ändrar inte originalet, så fälten som redan
   // bokfördes ska förbli precis vad de var när det begicks, inte gå att
@@ -259,7 +549,10 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     amount: receipt.amount ? amountToInput(Math.abs(receipt.amount)) : (draft?.form?.amount || ''),
     // Retur eller återbetalning: beloppet skrivs som på kvittot men sparas negativt.
     refund: receipt.amount ? receipt.amount < 0 : Boolean(draft?.form?.refund),
-    vatRate: receipt.vatRate ?? draft?.form?.vatRate ?? 25,
+    // Ett oläst underlag har 25 % som förval från uppladdningen. Har det
+    // lästs av (draft) gäller avläsningens sats, annars blev t.ex. matmomsen
+    // 12 % fel när underlaget lästs av direkt vid ankomst (2026-11-18).
+    vatRate: draft?.form?.vatRate ?? receipt.vatRate ?? 25,
     // Bara när vatRate är 'mixed': momsen i kronor, summan av kvittots satser.
     vatAmount: receipt.vatRate === 'mixed' ? amountToInput(Math.abs(receipt.vatAmount)) : (draft?.form?.vatAmount || ''),
     // Ett utkast från en äldre avläsning kan innehålla ett gissat konto
@@ -268,6 +561,10 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     projectId: receipt.projectId || '',
     folderId: receipt.folderId || '',
     notes: receipt.notes || '',
+    // Extern representation (6071/6072): typ och antal personer styr
+    // avdraget (utils/representation.js).
+    reprKind: receipt.representation?.kind || '',
+    reprPersons: receipt.representation?.persons ? String(receipt.representation.persons) : '',
   });
   const [errors, setErrors] = useState({});
 
@@ -294,8 +591,30 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const [fxError, setFxError] = useState('');
   // Vad numret på kvittot var: fakturanummer, kvittonummer, ordernummer m.fl.
   const [numberLabel, setNumberLabel] = useState(receipt.receiptNumberLabel || draft?.numberLabel || '');
+  const [readDetails, setReadDetails] = useState(currentDraft?.details || null);
+  // Telefon: först kvittots uppgifter, sedan kontot på en egen skärm.
+  const [phoneStep, setPhoneStep] = useState('read');
+  const [readText, setReadText] = useState(currentDraft?.readText || '');
   // Kontot avläsningen föreslår men inte fyller i: { code, source } | null.
   const [suggestedAccount, setSuggestedAccount] = useState(draft?.suggestedAccount || null);
+  // Varför inget konto föreslogs, när det finns ett skäl ('private' för tv-spel).
+  const [accountNote, setAccountNote] = useState(draft?.accountNote || null);
+  // Org.nr, VAT-nr, bankgiro, IBAN och OCR (ID_FIELDS ovan).
+  const [ids, setIds] = useState(() => receipt.identifiers ? { ...receipt.identifiers } : pickIds(currentDraft?.details));
+  const [idsFromOcr, setIdsFromOcr] = useState(() => idsReadFrom(currentDraft?.details, receipt.identifiers || pickIds(currentDraft?.details)));
+  // Vem betalade: företagets konto (1930) eller ägaren privat (utlägg).
+  // Ett nytt underlag har inget val: det avgör kontot (1930 eller utlägg) och
+  // väljs därför själv innan det bokförs. Ett sparat har företaget.
+  const [paidBy, setPaidBy] = useState(receipt.paidBy === 'owner' || receipt.paidBy === 'employee' ? receipt.paidBy : (receipt.costAccount ? 'company' : ''));
+  // En anställd betalade (utlägg): vem, så att lönekörningen kan betala tillbaka.
+  const [paidByEmployeeId, setPaidByEmployeeId] = useState(receipt.paidByEmployeeId || '');
+  // Org.nr, VAT-nr, bankgiro, OCR och IBAN ligger hopfällda i arbetsytan, så att
+  // panelen får plats utan att man behöver rulla.
+  const [showIds, setShowIds] = useState(false);
+  const [matchOpen, setMatchOpen] = useState(false);
+  // Kontoväljaren i arbetsytan öppnas som en ruta. När avläsningen är klar
+  // och inget konto är säkert öppnas den av sig själv, med förslaget överst.
+  const [accountOpen, setAccountOpen] = useState(false);
   // Gör körningar avbrytbara: hinner användaren byta fil eller köra om
   // läsningen innan en pågående körning (som nu även väntar in en
   // valutakurs över nätet) är klar, ska bara den SENASTE körningens
@@ -345,6 +664,12 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const historyRef = useRef(() => null);
   historyRef.current = (supplier) => historyForSupplier(allReceipts, supplier, receipt.id) || historyFromVerifications(verifications, supplier);
   const busy = ocrStatus === 'scanning' || revealing;
+  const wasRevealingRef = useRef(false);
+  useEffect(() => {
+    if (wasRevealingRef.current && !revealing && inline && !readOnly && !form.costAccount && !notReceipt) setAccountOpen(true);
+    wasRevealingRef.current = revealing;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealing]);
   const flashField = flashKey ? flashKey.split(':')[0] : null;
 
   const runOcr = useCallback(async (input, { force = false, quad = null } = {}) => {
@@ -359,7 +684,10 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     setFx(null);
     setFxError('');
     setNumberLabel('');
+    setReadDetails(null);
+    setReadText('');
     setSuggestedAccount(null);
+    setAccountNote(null);
     setNotReceipt(false);
     setUnreadable(false);
     setPhotoHint(null);
@@ -424,6 +752,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         form: draftForm,
         revealed: draftRevealed,
         suggestedAccount: accountSuggestion,
+        accountNote: plan.find(step => step.key === 'costAccount')?.note || null,
         ocrFields: draftFields,
         numberLabel: parsed.receiptNumber ? (parsed.receiptNumberLabel || '') : '',
         fx: draftFx,
@@ -433,6 +762,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         supplierFromRegistry: Boolean(registryName),
         ocrVat: draftVat,
         boxes: boxes && Object.keys(boxes).length > 0 ? boxes : null,
+        details: analysis.details,
+        readText: analysis.readText.slice(0, MAX_SAVED_TEXT),
       });
 
       setOcrStatus('done');
@@ -447,6 +778,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             setFlashKey(`${step.key}:${i}`);
           }
           if (step.suggest) setSuggestedAccount(step.suggest);
+          if (step.note) setAccountNote(step.note);
           setRevealed(prev => ({ ...prev, [step.key]: step.found ? step.state : (step.suggest ? 'suggest' : 'missing') }));
         }, 250 + i * REVEAL_STEP_MS));
       });
@@ -463,6 +795,10 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
           });
           if (!foreignInfo.converted) setFxError(tr('ui.kursen_gick_inte_att_hamta_automatiskt_fyll_i_ku'));
         }
+        setReadDetails(analysis.details);
+        setIds(prev => ({ ...prev, ...pickIds(analysis.details) }));
+        setIdsFromOcr(idsReadFrom(analysis.details, pickIds(analysis.details)));
+        setReadText(analysis.readText.slice(0, MAX_SAVED_TEXT));
         setNotReceipt(nr);
         setUnreadable(Boolean(parsed.unreadable));
         setPhotoHint(hint);
@@ -493,11 +829,28 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const canScan = hasReceiptFile && !readOnly;
   const hasScanned = Boolean(currentDraft) || Object.keys(revealed).length > 0 || ocrStatus !== 'idle';
 
+  // Den som hellre skriver själv ska inte behöva vänta på avläsningen.
+  const skipScan = () => {
+    ocrRunIdRef.current += 1;
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+    setOcrStatus('idle');
+    setOcrMessage('');
+    setRevealed({});
+    setRevealing(false);
+  };
+
+  const goToPhoneStep = (step) => {
+    setPhoneStep(step);
+    document.querySelector('.receipt-modal-box')?.scrollTo(0, 0);
+    document.querySelector('.receipt-modal-overlay')?.scrollTo(0, 0);
+  };
+
   // Justera kanter, öppen ovanpå kvittovyn (shared/CornerEditor.jsx).
   const [editingCorners, setEditingCorners] = useState(false);
 
   useEffect(() => {
-    const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
+    const handleEsc = (e) => { if (e.key === 'Escape' && !e.defaultPrevented) onClose(); };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
@@ -530,7 +883,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
   const frequentAccounts = useMemo(() => {
     const counts = new Map();
     (allReceipts || []).forEach(r => {
-      if (r.costAccount && r.id !== receipt.id) counts.set(r.costAccount, (counts.get(r.costAccount) || 0) + 1);
+      if (r.costAccount && r.id !== receipt.id && !isGroupAccount(r.costAccount)) counts.set(r.costAccount, (counts.get(r.costAccount) || 0) + 1);
     });
     return [...counts.entries()]
       .sort((x, y) => y[1] - x[1])
@@ -580,19 +933,31 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     setOcrVat(null);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (opts = {}) => {
     const newErrors = {};
     const amount = parseAmount(form.amount);
     if (!form.date) newErrors.date = tr('ui.datum_kravs');
     if (!form.supplier.trim()) newErrors.supplier = tr('ui.inkopsstalle_kravs');
     if (isNaN(amount) || amount <= 0) newErrors.amount = 'Ange ett giltigt belopp.';
     if (!form.costAccount) newErrors.costAccount = tr('ui.valj_ett_konto');
+    if (form.vatRate === '' && !vatExempt && !reverseInfo) newErrors.vatRate = tr('ui.valj_momssats_fran_kvittot');
+    if (REPRESENTATION_ACCOUNTS.has(form.costAccount) && !vatExempt && (!representationKinds(form.costAccount).includes(form.reprKind) || !(Number(form.reprPersons) >= 1))) newErrors.repr = tr('ui.repr_saknas');
     // Moms över 25 % av nettot (20 % av totalen) finns inte i Sverige.
     if (mixedVat && !(mixedVatAmount > 0 && mixedVatAmount <= amount * 0.2 + 0.005)) {
       newErrors.vatAmount = tr('ui.moms_for_hog');
     }
     if (fx && !foreignForSave(fx)) newErrors.fx = 'Fyll i belopp och kurs, eller ta bort valutan.';
-    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
+    // Arbetsytan: vem som betalade avgör kontot. Matchas en bankrad var det företaget.
+    if (inline && !readOnly && !paidBy && !opts.bankRowId) newErrors.paidBy = tr('underlag.paidByMissing');
+    if (inline && !readOnly && paidBy === 'employee' && !paidByEmployeeId) newErrors.paidBy = tr('underlag.paidByEmployeeMissing');
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      // Arbetsytan: visa det första som saknas.
+      if (inline) setTimeout(() => document.querySelector('.receipt-modal-overlay.is-inline .rc-form [data-missing="1"], .receipt-modal-overlay.is-inline .uw-account.invalid')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 30);
+      // Felet står på första skärmen: visa den, annars händer inget synligt.
+      if (Object.keys(newErrors).some(key => key !== 'costAccount')) goToPhoneStep('read');
+      return;
+    }
 
     // Samma dublettvarning som tidigare fanns i "Spara och bokför"-flödet —
     // jämför mot alla kvitton UTOM sig själv, annars flaggar ett kvitto sig
@@ -617,8 +982,14 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
       vatAmount: mixedVat ? (form.refund ? -1 : 1) * Math.round(mixedVatAmount * 100) / 100 : undefined,
       costAccount: form.costAccount, projectId: form.projectId || undefined, folderId: form.folderId || undefined,
       notes: form.notes.trim() || undefined,
+      representation: REPRESENTATION_ACCOUNTS.has(form.costAccount) && !vatExempt ? { kind: form.reprKind, persons: Math.floor(Number(form.reprPersons)) } : undefined,
+      identifiers: idsForSave(ids),
+      paidBy: paidBy === 'owner' || paidBy === 'employee' ? paidBy : undefined,
+      paidByEmployeeId: paidBy === 'employee' ? paidByEmployeeId : undefined,
+      paidByEmployeeName: paidBy === 'employee' ? ([employees.find(x => x.id === paidByEmployeeId)?.firstName, employees.find(x => x.id === paidByEmployeeId)?.lastName].filter(Boolean).join(' ')) : undefined,
     });
-    onClose();
+    if (opts.bankRowId) onLinkBankRow?.(opts.bankRowId, receipt.id);
+    (onSaved || onClose)();
   };
 
   const statusMeta = STATUS_META[status];
@@ -628,13 +999,13 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
     // man håller på med det. Overlayen är därför opak (det finns inget
     // bakom att skymta) och stängs inte längre av ett bakgrundsklick —
     // det finns ingen bakgrund att klicka på. Esc och Stäng gäller.
-    <div className="receipt-modal-overlay" role="dialog" aria-modal="true" aria-label={tr('ui.kvittodetaljer')} style={{ position: 'fixed', inset: 0, zIndex: 1150, display: 'flex' }}>
+    <div className={`receipt-modal-overlay${inline ? ' is-inline' : ''}`} role={inline ? 'region' : 'dialog'} aria-modal={inline ? undefined : 'true'} aria-label={tr('ui.kvittodetaljer')} style={inline ? { position: 'relative', height: '100%', display: 'flex' } : { position: 'fixed', inset: 0, zIndex: 1150, display: 'flex' }}>
       <div className="receipt-modal-box">
 
-        {/* ── Vänster: kvittot ──
-            Dokumentet ligger till vänster och uppgifterna till höger, som i
-            de bokföringsprogram där kvittot är själva arbetsytan. Medan
-            kvittot läses ligger skannerlinjen ovanpå (ScanOverlay). */}
+        {/* ── Kvittot ──
+            Uppgifterna till vänster och dokumentet till höger, som på
+            Bokföring, Offert och Kundfaktura (ordningen sätts i index.css).
+            Medan kvittot läses ligger skannerlinjen ovanpå (ScanOverlay). */}
         <div className="rc-doc">
           <DocumentPane
             url={receipt.receiptUrl}
@@ -642,7 +1013,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             expandable
             emptyText={tr('ui.ingen_fil_ar_sparad_for_det_har_kvittot_uppgifte')}
             highlight={activeBox && fieldBoxes?.[activeBox] ? { box: fieldBoxes[activeBox], label: BOX_LABELS[activeBox] } : null}
-            imageTools={canScan && (
+            imageTools={canScan && !hasScanned && (
               <button type="button" className="dv-btn" disabled={busy} onClick={() => setEditingCorners(true)} title={tr('ui.dra_hornen_till_kvittots_horn')}>
                 <Crop size={14} /> {tr('ui.justera_kanter')}
               </button>
@@ -662,18 +1033,19 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
         )}
 
         {/* ── Höger: uppgifterna ── */}
-        <div className="rc-form">
+        <div className={`rc-form${readOnly ? '' : ` rc-step-${phoneStep}`}`}>
           <div className="rc-form-head">
             <div style={{ minWidth: 0 }}>
-              <h2 style={{ margin: 0, fontSize: '16.5px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{tr('ui.kvittodetaljer')}</h2>
+              <h2 style={{ margin: 0, fontSize: '16.5px', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.01em' }}>{inline ? (form.supplier.trim() || tr('underlag.unnamed')) : tr('ui.kvittodetaljer')}</h2>
               <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
                 {readOnly ? tr('ui.bokfort_underlag') : ocrStatus === 'scanning' ? tr('ui.laser_kvittot_det_tar_nagra_sekunder') : revealing ? tr('ui.fyller_i_uppgifterna') : unreadable ? tr('ui.bilden_gick_inte_att_lasa_av') : notReceipt ? tr('ui.det_har_verkar_inte_vara_ett_kvitto_eller_en_fak') : ocrStatus === 'done' ? tr('ui.avlasningen_ar_klar_granska_och_justera') : tr('ui.fyll_i_uppgifterna_fran_kvittot')}
               </p>
+
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-              {/* Läs av igen. Den första avläsningen startas från kortet i
-                  formuläret nedan, så knapparna inte säger samma sak två gånger. */}
-              {canScan && hasScanned && (
+              {/* En avläsning per underlag (2026-11-17): det som blev osäkert
+                  rättas för hand. Läs av igen bara när avläsningen misslyckades. */}
+              {canScan && hasScanned && ocrStatus === 'error' && (
                 <button
                   type="button"
                   title={ocrStatus === 'scanning' ? (ocrMessage || tr('ui.laser')) : tr('ui.las_av_kvittot_automatiskt_med_ocr')}
@@ -688,17 +1060,27 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                     fontFamily: 'inherit',
                   }}
                 >
-                  <ScanLine size={14} style={{ animation: ocrStatus === 'scanning' ? 'spin 1s linear infinite' : 'none' }} />
-                  {ocrStatus === 'scanning' ? tr('ui.laser') : (currentDraft || Object.keys(revealed).length > 0 ? tr('ui.las_av_igen') : tr('ui.las_av'))}
+                  <RotateCcw size={13} />
+                  {tr('ui.las_av_igen')}
                 </button>
               )}
-              {statusMeta && (
-                <span style={{ padding: '4px 10px', borderRadius: '999px', background: statusMeta.bg, color: statusMeta.color, fontSize: '11.5px', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                  {STATUS_SINGULAR[status] || statusMeta.label}
-                </span>
-              )}
-              <button onClick={onClose} aria-label={tr('ui.stang')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex' }}><X size={18} /></button>
+              {(() => {
+                // Arbetsytan (inline): samma steg som tabellen, t.ex. "Välj konto".
+                const step = inline && (status === 'unhandled' || status === 'pending') ? underlagStep(receipt, allReceipts || []) : null;
+                if (step) return <span className={`ut-status ut-step-${step}`} style={{ padding: '4px 10px', fontSize: '11.5px', whiteSpace: 'nowrap' }}>{tr(`underlag.step_${step}`)}</span>;
+                return statusMeta && (
+                  <span style={{ padding: '4px 10px', borderRadius: '999px', background: statusMeta.bg, color: statusMeta.color, fontSize: '11.5px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    {STATUS_SINGULAR[status] || statusMeta.label}
+                  </span>
+                );
+              })()}
+              {!inline && <button onClick={onClose} aria-label={tr('ui.stang')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex' }}><X size={18} /></button>}
             </div>
+            {inline && (
+              <div className="uw-meta">
+                <span>{tr('underlag.uploaded')}{receipt.uploadedBy?.name ? ` ${tr('underlag.by')} ${receipt.uploadedBy.name}` : ''}{uploadedDate(receipt) ? ` · ${uploadedDate(receipt)}` : ''} · <b>{docKind({ ...receipt, receiptNumberLabel: numberLabel, ocrDraft: { ...(receipt.ocrDraft || {}), details: readDetails || receipt.ocrDraft?.details, readText: readText || receipt.ocrDraft?.readText } }) === 'invoice' ? tr('underlag.typeInvoice') : tr('underlag.typeReceipt')}</b></span>
+              </div>
+            )}
           </div>
 
           <div className={`rc-form-body${ocrStatus === 'scanning' ? ' rc-scanning' : ''}`}>
@@ -712,13 +1094,15 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   <span>{tr('ui.belopp_moms_datum_och_leverantor_fylls_i_automat')}</span>
                 </div>
                 <button type="button" className="rc-scan-offer-btn" onClick={() => runOcr(receipt.receiptUrl, { force: true })}>
-                  <ScanLine size={15} />
                   {tr('ui.las_av_kvittot')}
                 </button>
               </div>
             )}
-            {!readOnly && (ocrStatus === 'scanning' || revealing || Object.keys(revealed).length > 0) && (
+            {!readOnly && (ocrStatus === 'scanning' || revealing || (!inline && Object.keys(revealed).length > 0)) && (
               <OcrChecklist scanning={ocrStatus === 'scanning'} revealed={revealed} />
+            )}
+            {!readOnly && ocrStatus === 'scanning' && (
+              <button type="button" className="rc-skip-scan" onClick={skipScan}>{tr('ui.fyll_i_sjalv')}</button>
             )}
 
             {!readOnly && !revealing && reverseInfo && (
@@ -731,7 +1115,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               <div className="rc-verify rc-verify-warn">
                 <AlertCircle size={14} style={{ flexShrink: 0 }} />
                 {unreadable ? (
-                  <span>{tr('ui.bilden_gick_inte_att_lasa_av_sa_inget_har_fyllts')} {photoHintText(photoHint) || tr('ui.ta_om_fotot_narmre_rakare_och_med_battre_ljus_el')}</span>
+                  <span>{photoHint === 'multiple' ? '' : tr('ui.bilden_gick_inte_att_lasa_av_sa_inget_har_fyllts')} {photoHintText(photoHint) || tr('ui.ta_om_fotot_narmre_rakare_och_med_battre_ljus_el')}</span>
                 ) : (
                   <span>{tr('ui.det_har_ser_inte_ut_som_ett_kvitto_eller_en_fakt')}</span>
                 )}
@@ -753,6 +1137,36 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               </div>
             )}
 
+            {/* Faktura som ska betalas senare: kort not i arbetsytan (detaljerna under Fler uppgifter). */}
+            {inline && !readOnly && !revealing && readDetails?.dueDate && (
+              <div className="rc-verify rc-verify-info">
+                <Clock size={14} style={{ flexShrink: 0 }} />
+                <span>{tr('underlag.dueNote', { date: readDetails.dueDate })}</span>
+              </div>
+            )}
+            {/* Datumet mer än ett år bakåt: oftast fel läst år (2022 i stället för 2026). */}
+            {!readOnly && !revealing && form.date && Date.now() - Date.parse(form.date) > 365 * 86400000 && (
+              <div className="rc-verify rc-verify-warn">
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>{tr('underlag.oldDate', { year: form.date.slice(0, 4) })}</span>
+              </div>
+            )}
+            {/* Bara företagets eget org.nr på underlaget (utils/invoiceDetails.js):
+                oftast en egen faktura, alltså en försäljning och inte ett inköp. */}
+            {!readOnly && !revealing && readDetails?.ownOnly && (
+              <div className="rc-verify rc-verify-warn">
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>{tr('underlag.ownOnly', { orgNr: ownCompany?.orgNr || '' })}</span>
+              </div>
+            )}
+            {/* Över 4 000 kr: momsavdraget kräver en fullständig faktura med
+                köparens namn och adress (utils/receiptBuyer.js). */}
+            {!vatExempt && !readOnly && !revealing && hasAmount && !readDetails?.ownOnly && buyerDetailsCheck({ grossAmount, vatAmount: ocrVat?.vatAmount, vatRate: form.vatRate, readText, company: ownCompany }) === 'missing' && (
+              <div className="rc-verify rc-verify-warn">
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>{tr('ui.kvitto_over_4000', { name: ownCompany?.name || tr('ui.ditt_foretag_litet') })}</span>
+              </div>
+            )}
             {/* Momskontrollen mot beloppen på kvittot. Verifierad bara när
                 momsbeloppet på kvittot faktiskt stämmer mot vald sats. */}
             {/* Ett returkvitto ser ut som ett vanligt kvitto men går åt andra
@@ -778,6 +1192,13 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               <div className="rc-verify rc-verify-ok">
                 <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
                 <span>{tr('ui.momsen_stammer_mot_beloppen_pa_kvittot')}{formatSEK2(ocrVat.vatAmount)} {tr('ui.moms_4')} {Number(form.vatRate)} %).</span>
+              </div>
+            )}
+            {/* Momsen stod inte läsbart på kvittot: satsen är bara ett förslag. */}
+            {!vatExempt && !readOnly && !revealing && ocrVat && !ocrVat.verified && !ocrVat.mismatch && !ocrVat.rates && (revealed.vatRate === 'missing' || form.vatRate === '') && (
+              <div className="rc-verify rc-verify-warn">
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>{tr('ui.momsen_kunde_inte_lasas')}</span>
               </div>
             )}
             {!vatExempt && !readOnly && !revealing && ocrVat && ocrVat.mismatch && (
@@ -806,16 +1227,22 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
             )}
 
 
+            {inline && (
+              <div className="uw-fields-head">
+                {tr('underlag.fieldsHead')}
+                {ocrFields.size + idsFromOcr.size > 0 && <span>{tr('underlag.filled', { n: ocrFields.size + idsFromOcr.size })}</span>}
+              </div>
+            )}
             <div className="rc-grid">
               <div className={flashField === 'date' ? 'rc-flash' : undefined} {...boxProps('date')}>
-                <label style={labelSt}>{tr('ui.datum')} {ocrFields.has('date') && <OcrBadge />}</label>
+                <label style={labelSt}>{tr('ui.datum')} {ocrFields.has('date') ? <OcrBadge /> : !readOnly && revealed.date === 'guess' && <CheckBadge />}</label>
                 <input type="date" disabled={readOnly} value={form.date} onChange={e => { setForm(f => ({ ...f, date: e.target.value })); setOcrFields(s => { const n = new Set(s); n.delete('date'); return n; }); }} style={inputStErr(errors.date)} />
-                {errors.date && <div style={errSt}>{errors.date}</div>}
+                {errors.date && <div style={errSt} data-missing="1">{errors.date}</div>}
               </div>
               <div className={flashField === 'amount' ? 'rc-flash' : undefined} {...boxProps('amount')}>
-                <label style={labelSt}>{tr('ui.belopp_ink_moms_kr')} {ocrFields.has('amount') && <OcrBadge />}</label>
+                <label style={labelSt}>{tr('ui.belopp_ink_moms_kr')} {ocrFields.has('amount') ? <OcrBadge /> : !readOnly && revealed.amount === 'guess' && <CheckBadge />}</label>
                 <AmountInput disabled={readOnly} value={form.amount} onChange={v => { setForm(f => ({ ...f, amount: v })); setOcrFields(s => { const n = new Set(s); n.delete('amount'); return n; }); setOcrVat(null); onSekEdited(v); }} style={inputStErr(errors.amount)} />
-                {errors.amount && <div style={errSt}>{errors.amount}</div>}
+                {errors.amount && <div style={errSt} data-missing="1">{errors.amount}</div>}
               </div>
 
               {fx ? (
@@ -854,7 +1281,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                       {fxBusy ? tr('ui.hamtar_kursen') : tr('ui.hamta_dagskurs_for', { v0: form.date || 'köpdatumet' })}
                     </button>
                   )}
-                  {(fxError || errors.fx) && <div style={errSt}>{fxError || errors.fx}</div>}
+                  {(fxError || errors.fx) && <div style={errSt} data-missing="1">{fxError || errors.fx}</div>}
                 </div>
               ) : !readOnly && (
                 <div className="rc-span">
@@ -870,8 +1297,8 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   {form.refund && <div className="rc-hint">{tr('ui.pengarna_kommer_tillbaka_kostnaden_och_momsen_mi')}</div>}
                 </div>
               )}
-              <div className={`rc-span${flashField === 'supplier' ? ' rc-flash' : ''}`} {...boxProps('supplier')}>
-                <label style={labelSt}>{tr('ui.inkopsstalle_leverantor')} {ocrFields.has('supplier') && <OcrBadge />}</label>
+              <div className={`rc-span rc-f-supplier${flashField === 'supplier' ? ' rc-flash' : ''}`} {...boxProps('supplier')}>
+                <label style={labelSt}>{tr('ui.inkopsstalle_leverantor')} {ocrFields.has('supplier') ? <OcrBadge /> : !readOnly && revealed.supplier === 'guess' && <CheckBadge />}</label>
                 <TextSuggestInput
                   disabled={readOnly}
                   value={form.supplier}
@@ -881,13 +1308,13 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   style={inputStErr(errors.supplier)}
                   emptyHint={tr('ui.stallen_dyker_upp')}
                 />
-                {errors.supplier && <div style={errSt}>{errors.supplier}</div>}
+                {errors.supplier && <div style={errSt} data-missing="1">{errors.supplier}</div>}
                 {supplierFromRegistry && ocrFields.has('supplier') && (
                   <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px' }}>{tr('ui.namn_fran_momsregistret')}</div>
                 )}
               </div>
-              <div className={`rc-span${flashField === 'receiptNumber' ? ' rc-flash' : ''}`} {...boxProps('receiptNumber')}>
-                <label style={labelSt}>{tr('ui.kvitto_faktura_eller_ordernummer_valfritt')} {ocrFields.has('receiptNumber') && <OcrBadge />}</label>
+              <div className={`rc-span rc-f-number${flashField === 'receiptNumber' ? ' rc-flash' : ''}`} {...boxProps('receiptNumber')}>
+                <label style={labelSt}>{inline ? tr('underlag.numberShort') : tr('ui.kvitto_faktura_eller_ordernummer_valfritt')} {ocrFields.has('receiptNumber') ? <OcrBadge /> : !readOnly && revealed.receiptNumber === 'guess' && <CheckBadge />}</label>
                 <input
                   disabled={readOnly}
                   value={form.receiptNumber}
@@ -898,16 +1325,41 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 />
                 {numberLabel && form.receiptNumber && <div className="rc-hint">{tr('ui.avlast_som')} {numberLabel.toLowerCase()}</div>}
               </div>
+              {inline && (() => {
+                const filled = ID_FIELDS.filter(f => ids[f.key]);
+                return (
+                  <button type="button" className={`rc-span uw-ids-toggle${showIds ? ' on' : ''}`} onClick={() => setShowIds(v => !v)} aria-expanded={showIds}>
+                    <span className="uw-ids-caret" aria-hidden="true">›</span>
+                    <b>{tr('underlag.moreDetails')}</b>
+                    <span className="uw-ids-sum">{filled.length ? filled.map(f => tr(f.label)).join(' · ') : tr('underlag.moreDetailsNone')}</span>
+                    {idsFromOcr.size > 0 && <em>{tr('underlag.filled', { n: idsFromOcr.size })}</em>}
+                  </button>
+                );
+              })()}
+              {(!inline || showIds) && ID_FIELDS.filter(f => (inline && !f.onlyFilled && (f.always || readDetails?.dueDate)) || ids[f.key]).map(f => (
+                <div key={f.key} className={f.span ? 'rc-span' : undefined}>
+                  <label style={labelSt}>{tr(f.label)} {idsFromOcr.has(f.key) && <OcrBadge />}</label>
+                  <input
+                    disabled={readOnly}
+                    value={ids[f.key] || ''}
+                    placeholder="–"
+                    maxLength={40}
+                    onChange={e => { const v = e.target.value; setIds(p => ({ ...p, [f.key]: v })); setIdsFromOcr(s => { const n = new Set(s); n.delete(f.key); return n; }); }}
+                    style={inputSt}
+                  />
+                </div>
+              ))}
               {vatExempt ? (
                 <div className="rc-span rc-hint" style={{ marginTop: 0 }}>
                   {tr('ui.foretaget_ar_inte_momsregistrerat_sa_momsen_pa_k')}
                 </div>
               ) : (
               <div className={`rc-span${flashField === 'vatRate' ? ' rc-flash' : ''}`} {...boxProps('vatAmount')}>
-                <label style={labelSt}>{tr('ui.momssats')} {ocrFields.has('vatRate') && <OcrBadge />}</label>
+                <label style={labelSt}>{tr('ui.momssats')} {inline && !vatExempt && !readOnly && !revealing && ocrVat?.verified ? <span className="uw-ok-badge" title={tr('ui.momsen_stammer_mot_beloppen_pa_kvittot')}>✓ {tr('underlag.vatMatches')}</span> : ocrFields.has('vatRate') ? <OcrBadge /> : !readOnly && revealed.vatRate === 'guess' && <CheckBadge />}</label>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   {[25, 12, 6, 0, 'mixed'].map(v => {
-                    const on = v === 'mixed' ? form.vatRate === 'mixed' : form.vatRate !== 'mixed' && Number(form.vatRate) === v;
+                    /* Ingen sats vald förrän kvittot sagt den eller användaren valt. */
+                    const on = v === 'mixed' ? form.vatRate === 'mixed' : form.vatRate !== 'mixed' && form.vatRate !== '' && Number(form.vatRate) === v;
                     return (
                       <button
                         key={v} type="button" disabled={readOnly}
@@ -931,6 +1383,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                     );
                   })}
                 </div>
+                {errors.vatRate && <div style={errSt} data-missing="1">{errors.vatRate}</div>}
                 {mixedVat && (
                   <div style={{ marginTop: '10px' }}>
                     <label style={labelSt}>{tr('ui.moms_i_kronor')}</label>
@@ -940,7 +1393,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                       style={inputStErr(errors.vatAmount)}
                     />
                     {errors.vatAmount
-                      ? <div style={errSt}>{errors.vatAmount}</div>
+                      ? <div style={errSt} data-missing="1">{errors.vatAmount}</div>
                       : <div className="rc-hint">{tr('ui.summan_av_all_moms_pa_kvittot_till_exempel_12_pa')}</div>}
                   </div>
                 )}
@@ -963,12 +1416,35 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 </div>
               </div>
 
-              <div className={`rc-span${flashField === 'costAccount' ? ' rc-flash' : ''}`}>
-                <label style={labelSt}>{tr('ui.konto_2')} {ocrFields.has('costAccount') && <OcrBadge />}</label>
+              <div className="rc-span rc-later rc-step-title">
+                <h3>{tr('ui.vilket_konto_ska_det_bokforas_pa')}</h3>
+                <p>{tr('ui.sok_eller_valj_konto_i_listan')}</p>
+              </div>
+
+              <div className={`rc-span rc-later${flashField === 'costAccount' ? ' rc-flash' : ''}`}>
+                <label style={labelSt}>{tr('ui.konto_2')} {ocrFields.has('costAccount') ? <OcrBadge /> : !readOnly && revealed.costAccount === 'guess' && <CheckBadge />}</label>
                 {readOnly ? (
                   <div style={{ ...inputSt, background: 'var(--bg-muted)', color: 'var(--text-main)' }}>
                     {accountLabel ? `${accountLabel.code} – ${accountLabel.name}` : form.costAccount || '—'}
                   </div>
+                ) : inline ? (
+                  <>
+                    <button type="button" className={`uw-account${errors.costAccount ? ' invalid' : ''}`} onClick={() => setAccountOpen(true)}>
+                      {accountLabel || form.costAccount
+                        ? <span className="uw-account-val"><b>{form.costAccount}</b> {accountLabel?.name || ''}</span>
+                        : <span className="uw-account-empty">{tr('underlag.noAccount')}</span>}
+                      <span className="uw-account-btn">{form.costAccount ? tr('underlag.change') : tr('underlag.pickAccount')}</span>
+                    </button>
+                    {!form.costAccount && suggestedAccount && accounts.some(a => a.code === suggestedAccount.code) && (
+                      <button type="button" className="uw-account-suggest" onClick={() => { setForm(f => ({ ...f, costAccount: suggestedAccount.code })); setErrors(e => ({ ...e, costAccount: undefined })); }}>
+                        <span>{tr('underlag.suggestion')}</span>
+                        <b>{suggestedAccount.code}</b> {accounts.find(a => a.code === suggestedAccount.code)?.name}
+                        <em>{tr('underlag.use')}</em>
+                      </button>
+                    )}
+                    {accountNote === 'private' && !form.costAccount && <div className="rc-hint">{tr('ui.privat_vara_valj_konto')}</div>}
+                    {errors.costAccount && <div style={errSt} data-missing="1">{errors.costAccount}</div>}
+                  </>
                 ) : (
                   <>
                     <AccountInlinePicker
@@ -979,13 +1455,32 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                       suggestion={suggestedAccount && accounts.some(a => a.code === suggestedAccount.code) ? suggestedAccount : null}
                       invalid={Boolean(errors.costAccount)}
                     />
-                    {errors.costAccount && <div style={errSt}>{errors.costAccount}</div>}
+                    {accountNote === 'private' && !form.costAccount && <div className="rc-hint">{tr('ui.privat_vara_valj_konto')}</div>}
+                    {errors.costAccount && <div style={errSt} data-missing="1">{errors.costAccount}</div>}
                   </>
                 )}
               </div>
 
+              {REPRESENTATION_ACCOUNTS.has(form.costAccount) && !vatExempt && (
+                <div className="rc-span rc-later">
+                  <label style={labelSt}>{tr('ui.repr_rubrik')}</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '8px' }}>
+                    <select value={form.reprKind} disabled={readOnly} onChange={e => setForm(f => ({ ...f, reprKind: e.target.value }))} style={{ ...inputSt, background: 'var(--bg-card)' }} aria-label={tr('ui.repr_typ')}>
+                      <option value="">{tr('ui.repr_valj_typ')}</option>
+                      {representationKinds(form.costAccount).map(k => <option key={k} value={k}>{tr(k === 'meal' ? 'ui.repr_maltid' : k === 'simple' ? 'ui.repr_fika' : 'ui.repr_extras')}</option>)}
+                    </select>
+                    <input type="number" min="1" step="1" inputMode="numeric" disabled={readOnly} value={form.reprPersons} onChange={e => setForm(f => ({ ...f, reprPersons: e.target.value }))} placeholder={tr('ui.repr_personer')} aria-label={tr('ui.repr_personer')} style={inputSt} />
+                  </div>
+                  {errors.repr && <div style={errSt} data-missing="1">{errors.repr}</div>}
+                  {form.reprKind && Number(form.reprPersons) > 0 && hasAmount && (() => {
+                    const r = representationBooking({ kind: form.reprKind, persons: form.reprPersons, net: grossAmount - vatAmount, vat: vatAmount, vatRate: mixedVat ? 'mixed' : vatRate, account: form.costAccount });
+                    return <div className="rc-hint">{tr(r.deductible ? 'ui.repr_info_avdragsgill' : 'ui.repr_info_ej', { vat: formatSEK2(r.deductibleVat), cap: formatSEK2(r.vatCap), account: r.account })}</div>;
+                  })()}
+                </div>
+              )}
+
               {projects.length > 0 && (
-                <div className="rc-span">
+                <div className="rc-span rc-later rc-f-project">
                   <label style={labelSt}>{tr('ui.projekt_valfritt')}</label>
                   <select value={form.projectId} onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))} style={{ ...inputSt, background: 'var(--bg-card)' }}>
                     <option value="">{tr('ui.inget_projekt')}</option>
@@ -999,7 +1494,7 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                   Expenses-listan nedanför). Fältet visas bara när det
                   faktiskt finns någon mapp att lägga kvittot i. */}
               {folders.length > 0 && (
-                <div className="rc-span">
+                <div className="rc-span rc-later">
                   <label style={labelSt}>{tr('ui.mapp_valfritt')}</label>
                   <select value={form.folderId} onChange={e => setForm(f => ({ ...f, folderId: e.target.value }))} style={{ ...inputSt, background: 'var(--bg-card)' }}>
                     <option value="">{tr('ui.ingen_mapp')}</option>
@@ -1008,14 +1503,70 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
                 </div>
               )}
 
-              <div className="rc-span">
+              <div className={`rc-span rc-later rc-f-notes${projects.length > 0 ? ' rc-f-half' : ''}`}>
                 <label style={labelSt}>{tr('ui.anteckningar_valfritt')}</label>
-                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder={tr('ui.vad_var_det_har_kopet_till')} style={{ ...inputSt, resize: 'vertical', fontFamily: 'inherit' }} />
+                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={inline ? 1 : 2} placeholder={tr('ui.vad_var_det_har_kopet_till')} style={{ ...inputSt, resize: 'vertical', fontFamily: 'inherit' }} />
               </div>
+            </div>
+            {/* Det som lästes men inte bokförs (org.nr, betaluppgifter, texten)
+                står under fälten, så att kontot syns utan att rulla (2026-11-05). */}
+            <div className={`rc-read-extra${inline && !showIds ? ' rc-read-hidden' : ''}`}>
+              {!readOnly && !revealing && <ReadDetails details={readDetails?.dueDate ? { dueDate: readDetails.dueDate } : null} />}
+              {!readOnly && !revealing && readDetails?.dueDate && (
+                <p className="rc-hint rc-read-hint">{tr('ui.faktura_betalas_senare')}</p>
+              )}
+              {!readOnly && !revealing && <ReadText text={readText} />}
             </div>
           </div>
 
-          <div className="rc-form-foot">
+          {inline && (() => {
+            // Kopplad bankrad, och om det finns utgående rader att matcha mot.
+            const linked = (bankTransactions || []).find(t => t.matchedType === 'receipt' && t.matchedId === receipt.id);
+            const canMatch = status !== 'reversed' && paidBy !== 'owner' && paidBy !== 'employee' && !linked
+              && (bankTransactions || []).some(t => t.amount < 0 && (t.status || 'unmatched') === 'unmatched');
+            return (
+              <div className="uw-foot">
+                {!readOnly && status !== 'reversed' && (
+                  <label className={`uw-paidby${errors.paidBy ? ' invalid' : ''}`}>
+                    <span>{tr('underlag.whoPaid')}</span>
+                    <select value={paidBy} onChange={e => { setPaidBy(e.target.value); setErrors(er => ({ ...er, paidBy: undefined })); }}>
+                      <option value="" disabled>{tr('underlag.paidChoose')}</option>
+                      <option value="company">{tr('underlag.paidCompany')}</option>
+                      <option value="owner">{tr('underlag.paidOwner')}</option>
+                      {employees.length > 0 && <option value="employee">{tr('underlag.paidEmployee')}</option>}
+                    </select>
+                    {paidBy === 'employee' && (
+                      <select value={paidByEmployeeId} onChange={e => { setPaidByEmployeeId(e.target.value); setErrors(er => ({ ...er, paidBy: undefined })); }} aria-label={tr('underlag.paidEmployeeWho')}>
+                        <option value="" disabled>{tr('underlag.paidEmployeeWho')}</option>
+                        {employees.map(emp => <option key={emp.id} value={emp.id}>{[emp.firstName, emp.lastName].filter(Boolean).join(' ') || emp.name || emp.id}</option>)}
+                      </select>
+                    )}
+                    {paidBy === 'employee' && <span className="uw-paidby-note">{tr('underlag.paidEmployeeNote')}</span>}
+                    {errors.paidBy && <em>{errors.paidBy}</em>}
+                  </label>
+                )}
+                {linked && <div className="uw-linked">{tr('underlag.linked')} {linked.description || ''} · {linked.date} · {formatSEK2(linked.amount)}</div>}
+                <div className="uw-foot-btns">
+                {canMatch && <button type="button" className="uw-btn-primary" disabled={busy} onClick={() => setMatchOpen(true)}>{tr('underlag.match')}</button>}
+                {status !== 'reversed' && (
+                  <button type="button" className={canMatch ? 'uw-btn-secondary' : 'uw-btn-primary'} disabled={busy} onClick={() => handleSave()} title={busy ? tr('ui.vanta_tills_kvittot_ar_avlast') : undefined}>
+                    {readOnly ? tr('ui.spara_andringar') : canMatch ? tr('underlag.saveWithoutBankShort') : tr('ui.spara_och_bokfor')}
+                  </button>
+                )}
+                {status === 'booked' ? (
+                  <button type="button" className="uw-btn-link" onClick={async () => { if (await confirmDialog(tr('ui.skapa_en_rattelseverifikation_som_nollar_ut_kont'))) { onReverse(receipt.id); onClose(); } }}>
+                    <RotateCcw size={13} /> {tr('ui.ratta_bokforing')}
+                  </button>
+                ) : status !== 'reversed' ? (
+                  <button type="button" className="uw-btn-icon danger" onClick={() => { onDelete(receipt.id); onClose(); }} title={tr('ui.ta_bort')} aria-label={tr('ui.ta_bort')}>
+                    <Trash2 size={16} />
+                  </button>
+                ) : null}
+                </div>
+              </div>
+            );
+          })()}
+          {!inline && <div className="rc-form-foot">
             {status === 'booked' ? (
               // Bokförd — kan inte raderas (Bokföringslagen), men rättas med
               // en ny länkad motverifikation (handleReverseExpense i App.jsx),
@@ -1037,27 +1588,944 @@ function ReceiptDetailModal({ receipt, accounts, projects, folders = [], allRece
               </button>
             ) : <span />}
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button type="button" onClick={onClose} style={{ padding: '9px 16px', background: 'var(--border-light)', border: 'none', borderRadius: '9px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit' }}>{tr('ui.stang')}</button>
+              {!readOnly && <button type="button" className="rc-btn-back" onClick={() => goToPhoneStep('read')}>{tr('ui.tillbaka')}</button>}
+              <button type="button" className="rc-btn-close" onClick={onClose} style={{ padding: '9px 16px', background: 'var(--border-light)', border: 'none', borderRadius: '9px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontSize: '13px', fontFamily: 'inherit' }}>{tr('ui.stang')}</button>
+              {!readOnly && <button type="button" className="rc-btn-next" disabled={busy} onClick={() => goToPhoneStep('account')}>{tr('ui.nasta_steg')}</button>}
               {status !== 'reversed' && (
-                <button type="button" onClick={handleSave} disabled={busy} title={busy ? tr('ui.vanta_tills_kvittot_ar_avlast') : undefined} style={{ padding: '9px 18px', background: BRAND.green, border: 'none', borderRadius: '9px', fontWeight: 600, color: 'white', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.55 : 1, fontSize: '13px', fontFamily: 'inherit', boxShadow: '0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent)' }}>
+                <button type="button" className="rc-btn-save" onClick={handleSave} disabled={busy} title={busy ? tr('ui.vanta_tills_kvittot_ar_avlast') : undefined} style={{ padding: '9px 18px', background: BRAND.green, border: 'none', borderRadius: '9px', fontWeight: 600, color: 'white', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.55 : 1, fontSize: '13px', fontFamily: 'inherit', boxShadow: '0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent)' }}>
                   {readOnly ? tr('ui.spara_andringar') : tr('ui.spara_och_bokfor')}
                 </button>
               )}
             </div>
-          </div>
+          </div>}
         </div>
 
+      </div>
+      {accountOpen && (
+        <UwDialog title={tr('underlag.pickAccount')} sub={tr('underlag.accountSub')} onClose={() => setAccountOpen(false)}>
+          <div className="uw-account-picker">
+            <AccountInlinePicker
+              autoFocus
+              value=""
+              onChange={code => {
+                setForm(f => ({ ...f, costAccount: code }));
+                setOcrFields(s => { const n = new Set(s); n.delete('costAccount'); return n; });
+                setErrors(e => ({ ...e, costAccount: undefined }));
+                setAccountOpen(false);
+              }}
+              accounts={accounts}
+              quick={frequentAccounts}
+              suggestion={suggestedAccount && accounts.some(a => a.code === suggestedAccount.code) ? suggestedAccount : null}
+            />
+          </div>
+        </UwDialog>
+      )}
+      {matchOpen && (
+        <MatchBankModal
+          supplier={form.supplier}
+          amount={grossAmount}
+          date={form.date}
+          bankTransactions={bankTransactions}
+          onClose={() => setMatchOpen(false)}
+          onPick={(rowId) => {
+            setMatchOpen(false);
+            // Bokfört: bara kopplingen. Annars sparas och bokförs kvittot först.
+            if (readOnly) { onLinkBankRow?.(rowId, receipt.id); return; }
+            handleSave({ bankRowId: rowId });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Miniatyren i kvittolistan (omgjord 2026-11-14): själva kvittot när det är
+// en bild, en PDF-ruta för PDF:er, och leverantörens första bokstav när
+// det inte finns någon fil, i stället för samma ikon på varje rad. En bild
+// som inte går att visa (t.ex. HEIC i vissa webbläsare) faller tillbaka
+// på bokstaven.
+// Avläsning direkt när underlaget kommer in: se utils/autoRead.js.
+/** Läser underlaget och bygger samma utkast som Läs av i kvittovyn. */
+async function autoReadDraft(receipt, { ownCompany, allReceipts, verifications }) {
+  const { text, confidence, weakTokens, quality, layout } = await readDocumentText(receipt.receiptUrl, () => {}, {});
+  const analysis = await analyzeReceipt({ text, confidence, weakTokens, quality, layout }, { ownCompany, onMessage: () => {} });
+  const { parsed, registryName, supplierName, hint, foreignInfo } = analysis;
+  const nr = Boolean(parsed.notReceipt);
+  const hist = nr ? null : (historyForSupplier(allReceipts, supplierName, receipt.id) || historyFromVerifications(verifications, supplierName));
+  const plan = buildReceiptPlan(analysis, hist);
+  const form = {};
+  const revealed = {};
+  const ocrFields = [];
+  plan.forEach(step => {
+    if (step.found) { Object.assign(form, step.patch); if (step.state === 'found') ocrFields.push(step.key); }
+    revealed[step.key] = step.found ? step.state : (step.suggest ? 'suggest' : 'missing');
+  });
+  const boxes = layout ? analysis.boxes : null;
+  return {
+    v: OCR_DRAFT_VERSION,
+    scannedAt: new Date().toISOString(),
+    auto: true,
+    form,
+    revealed,
+    suggestedAccount: plan.find(step => step.key === 'costAccount')?.suggest || null,
+    accountNote: plan.find(step => step.key === 'costAccount')?.note || null,
+    ocrFields,
+    numberLabel: parsed.receiptNumber ? (parsed.receiptNumberLabel || '') : '',
+    fx: foreignInfo ? {
+      code: foreignInfo.code,
+      amount: amountToInput(foreignInfo.amount),
+      rate: foreignInfo.converted ? rateToInput(foreignInfo.converted.rate) : '',
+      rateDate: foreignInfo.converted?.date || null,
+      source: foreignInfo.converted ? 'ecb' : 'manual',
+    } : null,
+    notReceipt: nr,
+    unreadable: Boolean(parsed.unreadable),
+    photoHint: hint,
+    supplierFromRegistry: Boolean(registryName),
+    ocrVat: nr ? null : { verified: parsed.vatVerified, mismatch: parsed.vatMismatch, vatAmount: parsed.vatAmount, amountVerified: parsed.amountVerified, rates: parsed.vatRates, creditNote: parsed.creditNote },
+    boxes: boxes && Object.keys(boxes).length > 0 ? boxes : null,
+    details: analysis.details,
+    readText: analysis.readText.slice(0, MAX_SAVED_TEXT),
+  };
+}
+
+/** Underlagslistan i arbetsytan (2026-11-17, efter Accounteds inkorg):
+ * flikar Att göra / Bokförda / Alla och en tät lista; vald rad öppnas
+ * bredvid i stället för i helskärm. */
+// Varifrån underlaget kom och från vem, som Fortnox kolumner Källa och
+// Avsändare (2026-11-18): "Mejl · gusto.se" eller "App · Abdullah".
+function sourceLabel(r) {
+  if (r.inbox?.source === 'email') {
+    const from = String(r.inbox.from || r.uploadedBy?.email || '');
+    const m = /<([^>]+)>/.exec(from);
+    const addr = (m ? m[1] : from).trim();
+    return { kind: 'mail', text: tr('underlag.srcMail'), who: addr.split('@')[1] || addr };
+  }
+  const name = String(r.uploadedBy?.name || '').trim().split(' ')[0];
+  return { kind: 'app', text: tr('underlag.srcApp'), who: name };
+}
+
+// Kvitto eller faktura: förfallodatum, fakturanummer eller betaluppgifter
+// (bankgiro, OCR) betyder faktura.
+// Även fakturaord i den avlästa texten (fakturadatum, förfallodatum, att
+// betala senast), så att en PDF-faktura utan bankgiro inte blir ett kvitto.
+const INVOICE_TEXT_RE = /fakturanummer|fakturanr|fakturadatum|f[öo]rfallodag|f[öo]rfallodatum|att betala senast|betalas senast|invoice\s*(?:number|no|date)|due date/i;
+function docKind(r) {
+  const d = r?.ocrDraft?.details || {};
+  const label = String(r?.receiptNumberLabel || r?.ocrDraft?.numberLabel || '');
+  if (r?.type === 'supplier_invoice' || d.dueDate || d.bankgiro || d.plusgiro || d.ocrNumber || /faktura|invoice/i.test(label)) return 'invoice';
+  if (INVOICE_TEXT_RE.test(String(r?.ocrDraft?.readText || ''))) return 'invoice';
+  if (r?.ocrDraft || r?.costAccount) return 'receipt';
+  return null;
+}
+
+// Inkommet, som Fortnox: "22 sep. 11:57" när uppladdningstiden finns.
+function arrivedLabel(r) {
+  const ts = Number((/^exp_(\d{13})/.exec(String(r?.id || '')) || [])[1]);
+  if (ts > 1.5e12) return new Date(ts).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const d = r?.date ? new Date(`${String(r.date).slice(0, 10)}T12:00:00`) : null;
+  return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' }) : (r?.date || '');
+}
+
+// Från-kolumnen: bara namnet ur "Gusto <kvitto@gusto.se>", annars adressen.
+function senderName(s) {
+  const m = /^\s*"?([^"<]+?)"?\s*<[^>]+>\s*$/.exec(String(s || ''));
+  return m ? m[1] : String(s || '');
+}
+
+// Avläsningens läge per underlag (kolumnen Avläsning).
+function readState(r, status, readingId) {
+  if (status === 'booked' || status === 'reversed') return { key: 'done', text: tr('underlag.rsBooked') };
+  if (r.id === readingId) return { key: 'busy', text: tr('underlag.reading') };
+  const d = r.ocrDraft;
+  if (d?.notReceipt) return { key: 'warn', text: tr('underlag.rsNotReceipt') };
+  if (d) return Object.values(d.revealed || {}).some(v => v === 'guess') ? { key: 'warn', text: tr('ui.kontrollera') } : { key: 'ok', text: tr('underlag.rsRead') };
+  return r.receiptUrl ? { key: 'none', text: tr('underlag.rsNotRead') } : { key: 'none', text: tr('underlag.rsNoFile') };
+}
+
+/** Tomt läge i en tabell: ikon, rubrik och en rad om vad man kan göra. */
+function UtEmpty({ icon: Icon = Inbox, title, text, action }) {
+  return (
+    <div className="ut-empty-box">
+      <span className="ut-empty-ico"><Icon size={26} /></span>
+      <strong>{title}</strong>
+      {text && <span>{text}</span>}
+      {action}
+    </div>
+  );
+}
+
+/** Vänstermenyn i Underlag (2026-11-18, som Fortnox). */
+function UnderlagNav({ view, onView, counts, onOpenMenu }) {
+  const items = [
+    ['underlag', tr('nav.underlag'), FileText, counts.todo],
+    ['mail', tr('underlag.navMail'), Mail, counts.mail],
+    ...(counts.missing != null ? [['missing', tr('underlag.navMissingShort'), AlertCircle, counts.missing]] : []),
+    // Papperskorgen bara när den har något (eller är öppen); Avsändare ligger
+    // under Inställningar sedan 2026-11-25.
+    ...(counts.trash > 0 || view === 'trash' ? [['trash', tr('underlag.navTrash'), Trash2, counts.trash]] : []),
+    ['mailbox', tr('underlag.navSettings'), Cog, null],
+  ];
+  const groups = [items.filter(([id]) => id !== 'trash' && id !== 'mailbox'), items.filter(([id]) => id === 'trash'), items.filter(([id]) => id === 'mailbox')].filter(g => g.length);
+  // Telefon (2026-11-22, som Fortnox): bara det viktigaste som flikar,
+  // Avsändare, Papperskorg och Inställningar under Mer.
+  const EXTRA = ['trash', 'mailbox'];
+  const extras = items.filter(([id]) => EXTRA.includes(id));
+  const [moreOpen, setMoreOpen] = React.useState(false);
+  const extraActive = EXTRA.includes(view);
+  return (
+    <nav className="ut-nav-side" aria-label={tr('nav.underlag')}>
+      {onOpenMenu && <button type="button" className="ut-menu-btn" onClick={onOpenMenu}><Menu size={17} /> {tr('underlag.menu')}</button>}
+      {groups.map((g, gi) => (
+        <div key={gi} className="ut-nav-group">
+          {g.map(([id, label, Icon, n]) => (
+            <button key={id} type="button" className={[view === id ? 'on' : '', EXTRA.includes(id) ? 'ut-nav-x' : ''].filter(Boolean).join(' ') || undefined} onClick={() => onView(id)} aria-current={view === id ? 'page' : undefined}>
+              <Icon size={16} />
+              <span>{label}</span>
+              {n > 0 && <em>{n}</em>}
+            </button>
+          ))}
+        </div>
+      ))}
+      <button type="button" className={`ut-nav-morebtn${extraActive ? ' on' : ''}`} onClick={() => setMoreOpen(true)} aria-haspopup="dialog">
+        <MoreHorizontal size={16} />
+        <span>{extraActive ? extras.find(([id]) => id === view)?.[1] : tr('underlag.navMore')}</span>
+      </button>
+      {moreOpen && createPortal(
+        <div className="ut-sheet-overlay" onClick={() => setMoreOpen(false)}>
+          <div className="ut-sheet" role="dialog" aria-label={tr('underlag.navMore')} onClick={e => e.stopPropagation()}>
+            <span className="ut-sheet-grip" aria-hidden="true" />
+            {extras.map(([id, label, Icon, cnt]) => (
+              <button key={id} type="button" className={view === id ? 'on' : undefined} onClick={() => { onView(id); setMoreOpen(false); }}>
+                <Icon size={18} /><span>{label}</span>{cnt > 0 && <em>{cnt}</em>}
+              </button>
+            ))}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </nav>
+  );
+}
+
+/** En egen sida i Underlag med rubrik och kort (avsändare, brevlåda). */
+function UnderlagPage({ title, intro, children }) {
+  return (
+    <div className="ut">
+      <div className="ut-head">
+        <h1>{title}</h1>
+        {intro && <p>{intro}</p>}
+      </div>
+      <div className="ut-card">{children}</div>
+    </div>
+  );
+}
+
+/** Granska avsändare (2026-11-18, efter Fortnox Hantera avsändare): flikarna
+ * Godkända och Blockerade, enskilda adresser och hela domäner, de som mejlat
+ * in. Blockerade sparas som "!adress" i samma lista (api/inbox/_inbox.js). */
+function SendersView({ info, onSaveSenders, receipts = [], ownEmail = '', mode = 'review' }) {
+  const [revTab, setRevTab] = useState('todo');
+  const [tab, setTab] = useState('allowed');
+  const [input, setInput] = useState('');
+  const [err, setErr] = useState('');
+  const list = info?.allowedSenders || [];
+  const allowed = list.filter(x => !x.startsWith('!'));
+  const blockedList = list.filter(x => x.startsWith('!')).map(x => x.slice(1));
+  const normalize = (v) => {
+    const x = String(v || '').trim().toLowerCase().replace(/^.*<([^>]+)>.*$/, '$1');
+    if (/^[^\s@]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(x)) return x;
+    const d = x.replace(/^@/, '');
+    return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d) ? `@${d}` : null;
+  };
+  const matches = (addr, e) => (e.startsWith('@') ? addr.endsWith(e) : addr === e);
+  const own = String(ownEmail || '').toLowerCase();
+  const statusOf = (addr) => {
+    if (own && addr === own) return 'own';
+    if (blockedList.some(e => matches(addr, e))) return 'blocked';
+    if (!allowed.length || allowed.some(e => matches(addr, e))) return 'allowed';
+    return 'stopped';
+  };
+  const save = async (next) => {
+    if (await onSaveSenders?.([...new Set(next)])) return true;
+    setErr(tr('underlag.sendersFail')); return false;
+  };
+  const allow = (v) => save([...list.filter(x => x !== `!${v}`), v]);
+  const block = (v) => save([...list.filter(x => x !== v), `!${v}`]);
+  const removeEntry = (v, wasBlocked) => save(list.filter(x => x !== (wasBlocked ? `!${v}` : v)));
+  const submit = async (e) => {
+    e.preventDefault();
+    const v = normalize(input);
+    if (!v) { setErr(tr('underlag.sendersBad')); return; }
+    setErr('');
+    if (await (tab === 'blocked' ? block(v) : allow(v))) setInput('');
+  };
+  const seen = useMemo(() => {
+    const map = new Map();
+    receipts.filter(r => r.inbox?.source === 'email' && r.inbox.from).forEach(r => {
+      const addr = normalize(r.inbox.from) || String(r.inbox.from).toLowerCase();
+      const name = (/^\s*"?([^"<]+?)"?\s*</.exec(r.inbox.from) || [])[1] || '';
+      const ts = Date.parse(r.inbox.receivedAt || '') || Number((/^exp_(\d{13})/.exec(r.id) || [])[1]) || 0;
+      const cur = map.get(addr) || { addr, name, count: 0, last: 0 };
+      cur.count += 1; cur.last = Math.max(cur.last, ts); if (!cur.name && name) cur.name = name;
+      map.set(addr, cur);
+    });
+    return [...map.values()].sort((a, b) => b.last - a.last);
+  }, [receipts]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Senast stoppat: dölj, godkänn eller blockera.
+  const stopped = info?.lastBlockedFrom ? normalize(info.lastBlockedFrom) : null;
+  const hideKey = 'bokix.blockedHidden';
+  const stamp = String(info?.lastBlockedAt || info?.lastBlockedFrom || '');
+  const [hiddenAt, setHiddenAt] = useState(() => { try { return localStorage.getItem(hideKey) || ''; } catch { return ''; } });
+  const hideStopped = () => { setHiddenAt(stamp); try { localStorage.setItem(hideKey, stamp); } catch { /* inget */ } };
+  const showStopped = stopped && !list.includes(stopped) && !list.includes(`!${stopped}`) && hiddenAt !== stamp;
+  const current = tab === 'blocked' ? blockedList : allowed;
+  const people = current.filter(x => !x.startsWith('@'));
+  const domains = current.filter(x => x.startsWith('@'));
+  const section = (title, items, empty) => (
+    <div className="ut-snd-sec">
+      <h3>{title}</h3>
+      {items.length === 0 ? <p className="ut-snd-empty">{empty}</p> : (
+        <ul>
+          {items.map(v => (
+            <li key={v}>
+              <span className={`ut-snd-av ${tab}`} aria-hidden="true">{(v.replace(/^@/, '').charAt(0) || '?').toUpperCase()}</span>
+              <span className="ut-snd-addr">{v}</span>
+              <button type="button" className="ut-snd-x" onClick={() => removeEntry(v, tab === 'blocked')} title={tr('ui.ta_bort')} aria-label={`${tr('ui.ta_bort')} ${v}`}><X size={14} /></button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+  const manageCard = (
+      <div className="ut-snd-card">
+        <div className="ut-snd-tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={tab === 'allowed'} className={tab === 'allowed' ? 'on' : undefined} onClick={() => { setTab('allowed'); setErr(''); }}>{tr('underlag.tabAllowed')} <span>{allowed.length}</span></button>
+          <button type="button" role="tab" aria-selected={tab === 'blocked'} className={tab === 'blocked' ? 'on' : undefined} onClick={() => { setTab('blocked'); setErr(''); }}>{tr('underlag.tabBlocked')} <span>{blockedList.length}</span></button>
+        </div>
+        <p className="ut-snd-lead">{tab === 'blocked' ? tr('underlag.blockedLead') : (allowed.length ? tr('underlag.allowedLeadList') : tr('underlag.allowedLeadAll'))}</p>
+        {tab === 'allowed' && own && (
+          <div className="ut-snd-own"><CheckCircle2 size={14} /> {tr('underlag.ownAlways', { email: own })}</div>
+        )}
+        <form className="ut-add ut-add-full" onSubmit={submit}>
+          <input value={input} onChange={e => { setInput(e.target.value); setErr(''); }} placeholder={tr('underlag.sendersPh')} aria-label={tr('underlag.sendersAdd')} />
+          <button type="submit" disabled={!input.trim()}>{tab === 'blocked' ? tr('underlag.block') : tr('underlag.sendersAdd')}</button>
+        </form>
+        {err && <p className="ut-err">{err}</p>}
+        <div className="ut-snd-grid">
+          {section(tr('underlag.secPeople'), people, tab === 'blocked' ? tr('underlag.noneBlocked') : tr('underlag.noneAllowed'))}
+          {section(tr('underlag.secDomains'), domains, tr('underlag.noneDomains'))}
+        </div>
+      </div>
+  );
+  if (mode === 'manage') return manageCard;
+  const toReview = seen.filter(x => ['stopped', 'blocked'].includes(statusOf(x.addr)));
+  const seenShown = revTab === 'todo' ? seen.filter(x => statusOf(x.addr) === 'stopped') : seen;
+  return (
+    <div className="ut">
+      <div className="ut-head">
+        <h1>{tr('underlag.navSenders')}</h1>
+        <p>{tr('underlag.sendersReviewIntro')}</p>
+      </div>
+      {showStopped && (
+        <div className="ut-alert">
+          <AlertCircle size={15} />
+          <span>{tr('underlag.sendersBlocked', { from: info.lastBlockedFrom })}{info.lastBlockedAt ? ` · ${new Date(info.lastBlockedAt).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</span>
+          <button type="button" onClick={() => allow(stopped)}>{tr('underlag.sendersAllow')}</button>
+          <button type="button" className="ut-alert-ghost" onClick={() => block(stopped)}>{tr('underlag.block')}</button>
+          <button type="button" className="ut-alert-x" onClick={hideStopped} aria-label={tr('underlag.hide')} title={tr('underlag.hide')}><X size={15} /> {tr('underlag.hide')}</button>
+        </div>
+      )}
+      <div className="ut-filters">
+        <div className="ut-chips">
+          <button type="button" className={`ut-chip${revTab === 'todo' ? ' on' : ''}`} onClick={() => setRevTab('todo')}>{tr('underlag.revTodo')} ({seen.filter(x => statusOf(x.addr) === 'stopped').length})</button>
+          <button type="button" className={`ut-chip${revTab === 'all' ? ' on' : ''}`} onClick={() => setRevTab('all')}>{tr('underlag.revAll')} ({seen.length})</button>
+        </div>
+        <span className="ut-bar-muted ut-rev-note">{toReview.length ? '' : tr('underlag.revNoneNote')}</span>
+      </div>
+      <div className="ut-table-wrap">
+        <table className="ut-table ut-table-static">
+          <thead>
+            <tr>
+              <th>{tr('underlag.colSender')}</th>
+              <th className="ut-c-num">{tr('underlag.colMails')}</th>
+              <th>{tr('underlag.colLast')}</th>
+              <th>{tr('underlag.colStatus')}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {seenShown.length === 0 && <tr><td colSpan={5} className="ut-empty"><UtEmpty icon={CheckCircle2} title={revTab === 'todo' ? tr('underlag.revNone') : tr('underlag.sendersNone')} text={revTab === 'todo' ? tr('underlag.revNoneText') : (info?.address ? tr('underlag.noMailText', { address: info.address }) : '')} /></td></tr>}
+            {seenShown.map(s => {
+              const st = statusOf(s.addr);
+              return (
+                <tr key={s.addr}>
+                  <td><span className="ut-doc-text"><b>{s.name || s.addr}</b>{s.name && <small>{s.addr}</small>}</span></td>
+                  <td className="ut-c-num">{s.count}</td>
+                  <td className="ut-muted">{s.last ? new Date(s.last).toLocaleString('sv-SE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '–'}</td>
+                  <td><span className={`ut-pill ${st === 'blocked' || st === 'stopped' ? 'stop' : 'ok'}`}>{tr(`underlag.st_${st}`)}</span></td>
+                  <td className="ut-actions">
+                    {(st === 'stopped' || st === 'blocked') && <button type="button" className="ut-pillbtn" onClick={() => allow(s.addr)}><Check size={14} /> {tr('underlag.sendersAllow')}</button>}
+                    {st !== 'blocked' && st !== 'own' && <button type="button" className="ut-link ut-link-danger" onClick={() => block(s.addr)}>{tr('underlag.block')}</button>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
-function ReceiptThumbImg({ url }) {
+/** Inställningar för inkorgen (2026-11-18): adressen, Gmail och notiser på en
+ * lugn inställningssida i stället för en egen vy med kort. */
+function MailboxView({ info, notify = true, onNotify, onSaveSenders, receipts = [], ownEmail = '', initialTab = 'inbox' }) {
+  const [tab, setTab] = useState(initialTab);
+  const tabs = (
+    <div className="ut-set-tabs" role="tablist">
+      {[['inbox', tr('underlag.setTabInbox')], ['senders', tr('underlag.navSenders')]].map(([id, label]) => (
+        <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : undefined} onClick={() => setTab(id)}>{label}</button>
+      ))}
+    </div>
+  );
+  if (tab === 'senders') {
+    return (
+      <div className="ut ut-settings">
+        <div className="ut-head"><h1>{tr('underlag.setTitle')}</h1></div>
+        {tabs}
+        <section className="ut-sx">
+          <div className="ut-sx-side"><h2>{tr('underlag.sendersWaitTitle')}</h2><p>{tr('underlag.sendersWaitText')}</p></div>
+          <div className="ut-sx-main ut-set-senders"><SendersView info={info} onSaveSenders={onSaveSenders} receipts={receipts} ownEmail={ownEmail} /></div>
+        </section>
+        <section className="ut-sx">
+          <div className="ut-sx-side"><h2>{tr('underlag.setManageSenders')}</h2><p>{tr('underlag.sxSendersText')}</p></div>
+          <div className="ut-sx-main"><SendersView mode="manage" info={info} onSaveSenders={onSaveSenders} receipts={receipts} ownEmail={ownEmail} /></div>
+        </section>
+      </div>
+    );
+  }
+  const sec = (title, text, children) => (
+    <section className="ut-sx">
+      <div className="ut-sx-side"><h2>{title}</h2><p>{text}</p></div>
+      <div className="ut-sx-main">{children}</div>
+    </section>
+  );
+  return (
+    <div className="ut ut-settings">
+      <div className="ut-head">
+        <h1>{tr('underlag.setTitle')}</h1>
+      </div>
+      {tabs}
+      {sec(tr('underlag.setNotifyTitle'), tr('underlag.sxNotifyText'), (
+        <div className="ut-set">
+          <div className="ut-set-row">
+            <div className="ut-set-text"><b>{tr('underlag.setNotifyBell')}</b><span>{tr('underlag.setNotifyBellSub')}</span></div>
+            <div className="ut-set-right"><label className="ut-switch"><input type="checkbox" checked={notify} onChange={e => onNotify?.(e.target.checked)} /><span /></label></div>
+          </div>
+        </div>
+      ))}
+      {sec(tr('underlag.setAddressTitle'), tr('underlag.sxAddressText'), (
+        <div className="ut-set">
+          <div className="ut-set-row ut-sx-addr">
+            <span className="ut-hero-ico"><Mail size={18} /></span>
+            <div className="ut-set-text">{info?.address ? <code className="ut-set-code">{info.address}</code> : <b>{tr('underlag.mbxAddressMissing')}</b>}<span>{info?.lastReceivedAt ? tr('underlag.mbxLast', { when: new Date(info.lastReceivedAt).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }) }) : tr('underlag.mbxNoneYet')}</span></div>
+            <div className="ut-set-right">{info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Mejla in underlag (2026-11-20, som Fortnox): adressen, vad Mejl gör,
+ * vidarebefordring med Gmail och andra, borttagna filer. Knapp till Inställningar. */
+function MailInDialog({ info, onClose, onSettings, onTrash }) {
+  const gmailConnected = Boolean(info?.gmailCodeAt && info?.lastReceivedAt && Date.parse(info.lastReceivedAt) - Date.parse(info.gmailCodeAt) > 60 * 1000);
+  const [gmailOpen, setGmailOpen] = useState(false);
+  const [client, setClient] = useState('gmail');
+  const steps = (prefix, n) => (
+    <ol className="ut-steps">{Array.from({ length: n }, (_, i) => <li key={i}>{tr(`underlag.${prefix}${i + 1}`, { address: info?.address || tr('underlag.miYourAddress').toLowerCase() })}</li>)}</ol>
+  );
+  return (
+    <UwDialog title={tr('underlag.mailIn')} sub={tr('underlag.miLead')} onClose={onClose}>
+      <div className="ut-mi">
+        <div className="ut-mi-addr">
+          <span>{tr('underlag.miYourAddress')}</span>
+          {info?.address ? <code>{info.address}</code> : <b>{tr('underlag.mbxAddressMissing')}</b>}
+          {info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />}
+        </div>
+        <section>
+          <h3>{tr('underlag.miWhatTitle')}</h3>
+          <p>{tr('underlag.miWhatText')}</p>
+        </section>
+        <section>
+          <h3>{tr('underlag.miForwardTitle')}</h3>
+          <p>{tr('underlag.miForwardText')}</p>
+          <div className="ut-seg ut-mi-tabs" role="tablist">
+            {[['gmail', 'Gmail'], ['outlook', 'Outlook'], ['apple', tr('underlag.miApple')], ['other', tr('underlag.miOther')]].map(([id, label]) => (
+              <button key={id} type="button" role="tab" aria-selected={client === id} className={client === id ? 'on' : undefined} onClick={() => setClient(id)}>{label}</button>
+            ))}
+          </div>
+          {client === 'gmail' && <>
+          <div className="ut-mi-gmail">
+            <span className="ut-way-logo"><GmailLogo height={20} /></span>
+            <div>
+              <b>{tr('underlag.mbxGmail')}</b>
+              <span>{gmailConnected ? tr('underlag.mbxGmailOn') : tr('underlag.mbxGmailSub')}</span>
+            </div>
+            {gmailConnected
+              ? <span className="ut-way-on"><CheckCircle2 size={13} /> {tr('underlag.mbxConnected')}</span>
+              : <a className="ut-way-btn" href={GMAIL_FORWARDING_URL} target="_blank" rel="noopener noreferrer" onClick={() => setGmailOpen(true)}>{tr('underlag.mbxConnectGmail')}</a>}
+          </div>
+          {!gmailConnected && (gmailOpen || info?.gmailCode) && (
+            <ol className="ut-steps">
+              <li>{tr('underlag.mbxStepA')}</li>
+              <li>{tr('underlag.mbxStep2')} {info?.gmailCode ? <b className="uw-mbx-code">{info.gmailCode}</b> : <em>{tr('underlag.mbxCodeWait')}</em>}</li>
+              <li>{tr('underlag.mbxStepB')} <a href={GMAIL_FILTERS_URL} target="_blank" rel="noopener noreferrer">{tr('underlag.mbxFilters')}</a></li>
+            </ol>
+          )}
+          </>}
+          {client === 'outlook' && <div className="ut-mi-client">{steps('miOl', 4)}<p className="ut-mi-note">{tr('underlag.miOlNote')}</p></div>}
+          {client === 'apple' && <div className="ut-mi-client">{steps('miAp', 4)}<p className="ut-mi-note">{tr('underlag.miApNote')}</p></div>}
+          {client === 'other' && <div className="ut-mi-client">{steps('miOt', 3)}<p className="ut-mi-note">{tr('underlag.miOtNote')}</p></div>}
+        </section>
+        <section>
+          <h3>{tr('underlag.miDeletedTitle')}</h3>
+          <p>{tr('underlag.miDeletedText')} <button type="button" className="ut-link ut-link-inline" onClick={onTrash}>{tr('underlag.miTrash')}</button></p>
+        </section>
+        <div className="ut-mi-foot">
+          <button type="button" className="ut-pillbtn" onClick={onSettings}><Cog size={14} /> {tr('underlag.setTitle')}</button>
+        </div>
+      </div>
+    </UwDialog>
+  );
+}
+
+/** Saknar underlag (2026-11-20): bokförda verifikationer utan kvitto eller
+ * faktura. Ladda upp filen direkt på raden, eller ange att originalet finns på papper. */
+function MissingView({ verifications, onAttach, onPaper }) {
+  const [scope, setScope] = useState('year');
+  const [busy, setBusy] = useState(null);
+  const inputRef = useRef(null);
+  const targetRef = useRef(null);
+  const since = scope === 'year' ? new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10) : '';
+  const rows = useMemo(() => missingUnderlag(verifications, since), [verifications, since]);
+  const pick = (id) => { targetRef.current = id; inputRef.current?.click(); };
+  const onFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    const id = targetRef.current;
+    if (!file || !id) return;
+    setBusy(id);
+    try { await onAttach?.(id, file); } catch { alert(tr('underlag.missFailed')); } finally { setBusy(null); }
+  };
+  return (
+    <div className="ut">
+      <div className="ut-head">
+        <h1>{tr('underlag.navMissing')}</h1>
+        <p>{tr('underlag.missIntro')}</p>
+      </div>
+      <input ref={inputRef} type="file" style={{ display: 'none' }} accept={ACCEPT_ATTR} onChange={onFile} />
+      <div className="ut-filters">
+        <div className="ut-chips">
+          {[['year', tr('underlag.missScopeYear')], ['all', tr('underlag.missScopeAll')]].map(([id, label]) => (
+            <button key={id} type="button" className={`ut-chip${scope === id ? ' on' : ''}`} onClick={() => setScope(id)}>{label}</button>
+          ))}
+        </div>
+      </div>
+      <div className="ut-count"><span>{tr('underlag.total', { n: rows.length })}</span></div>
+      <div className="ut-table-wrap">
+        <table className="ut-table ut-table-static ut-table-miss">
+          <thead>
+            <tr>
+              <th>{tr('underlag.colVer')}</th>
+              <th>{tr('underlag.colDate')}</th>
+              <th>{tr('underlag.colText')}</th>
+              <th className="ut-c-num">{tr('underlag.colAmount')}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && <tr><td colSpan={5} className="ut-empty"><UtEmpty icon={CheckCircle2} title={tr('underlag.missNone')} text={tr('underlag.missNoneText')} /></td></tr>}
+            {rows.map(({ v, amount }) => (
+              <tr key={v.id}>
+                <td className="ut-muted ut-mono">{v.number || '–'}</td>
+                <td className="ut-muted">{String(v.date).slice(0, 10)}</td>
+                <td><b className="ut-miss-text">{v.description || tr('underlag.unnamed')}</b></td>
+                <td className="ut-c-num">{amount > 0 ? formatSEK(amount) : '–'}</td>
+                <td className="ut-actions">
+                  {busy === v.id
+                    ? <span className="ut-muted">{tr('underlag.missUploading')}</span>
+                    : <>
+                        <button type="button" className="ut-pillbtn" onClick={() => pick(v.id)}><UploadCloud size={14} /> {tr('underlag.missUpload')}</button>
+                        <button type="button" className="ut-link ut-link-quiet" onClick={() => onPaper?.(v.id)}>{tr('underlag.missPaper')}</button>
+                      </>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** Papperskorgen: borttagna underlag går att återställa i 30 dagar. */
+function TrashView({ items, onRestore, onPurge }) {
+  const sorted = [...items].sort((a, b) => String(b.trashedAt || '').localeCompare(String(a.trashedAt || '')));
+  const emptyAll = async () => {
+    if (!sorted.length) return;
+    if (await confirmDialog(tr('underlag.trashEmptyConfirm', { n: sorted.length }))) onPurge?.(sorted.map(r => r.id));
+  };
+  const purgeOne = async (r) => {
+    if (await confirmDialog(tr('underlag.trashPurgeConfirm'))) onPurge?.([r.id]);
+  };
+  return (
+    <div className="ut">
+      <div className="ut-head">
+        <h1>{tr('underlag.navTrash')}</h1>
+        <p>{tr('underlag.trashIntro')}</p>
+      </div>
+      <div className="ut-bar">
+        <button type="button" className="ut-link ut-link-danger" onClick={emptyAll} disabled={!sorted.length}><Trash2 size={15} /> {tr('underlag.trashEmpty')}</button>
+        <span className="ut-bar-text ut-bar-muted">{tr('underlag.trashAuto')}</span>
+      </div>
+      <div className="ut-count"><span>{tr('underlag.total', { n: sorted.length })}</span></div>
+      <div className="ut-table-wrap">
+        <table className="ut-table ut-table-static">
+          <thead>
+            <tr>
+              <th>{tr('underlag.colDoc')}</th>
+              <th className="ut-c-num">{tr('underlag.colAmount')}</th>
+              <th>{tr('underlag.colArrived')}</th>
+              <th>{tr('underlag.colExpires')}</th>
+              <th>{tr('underlag.colSource')}</th>
+              <th>{tr('underlag.colSender')}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.length === 0 && <tr><td colSpan={7} className="ut-empty"><UtEmpty icon={Trash2} title={tr('underlag.trashNone')} text={tr('underlag.trashNoneText')} /></td></tr>}
+            {sorted.map(r => {
+              const amount = r.amount ? Math.abs(r.amount) : parseAmount(r.ocrDraft?.form?.amount);
+              return (
+                <tr key={r.id}>
+                  <td>
+                    <span className="ut-doc">
+                      <span className="ut-thumb"><ReceiptThumb receipt={r} /></span>
+                      <span className="ut-doc-text"><b>{r.supplier || r.ocrDraft?.form?.supplier || r.inbox?.fileName || tr('underlag.unnamed')}</b>{r.inbox?.subject && <small>{r.inbox.subject}</small>}</span>
+                    </span>
+                  </td>
+                  <td className="ut-c-num">{amount > 0 ? formatSEK(amount) : '–'}</td>
+                  <td className="ut-muted">{arrivedLabel(r)}</td>
+                  <td className="ut-muted">{(() => {
+                    if (!r.trashedAt) return '';
+                    const left = Math.max(0, 30 - Math.floor((Date.now() - Date.parse(r.trashedAt)) / 86400000));
+                    return <span className={`ut-days${left <= 5 ? ' is-soon' : ''}`}>{left === 0 ? tr('underlag.today') : left === 1 ? tr('underlag.dayLeft') : tr('underlag.daysLeft', { n: left })}</span>;
+                  })()}</td>
+                  <td className="ut-muted">{sourceLabel(r).text}</td>
+                  <td className="ut-muted ut-sender">{(r.inbox?.source === 'email' ? r.inbox.from : r.uploadedBy?.name) || '–'}</td>
+                  <td className="ut-actions">
+                    <button type="button" className="ut-pillbtn" onClick={() => onRestore?.(r.id)}><RotateCcw size={14} /> {tr('underlag.restore')}</button>
+                    <button type="button" className="ut-iconbtn" onClick={() => purgeOne(r)} title={tr('underlag.purge')} aria-label={tr('underlag.purge')}><Trash2 size={15} /></button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** Underlag som tabell, som Fortnox (2026-11-18): kryssrutor, kolumner för
+ * belopp, inkommet, avläsning, källa och avsändare. En rad öppnar underlaget. */
+function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readingId, onOpen, onPreview, previewId = null, onDeleteMany, onUpload, onMailIn, onSenders, onRefresh, inboxAddress, onlyEmail = false, uploading = [] }) {
+  // Listans inställningar som i Artiklar (2026-11-25).
+  const [lp, setLp] = useListPrefs(onlyEmail ? 'bokix.ulmail.prefs' : 'bokix.underlag.prefs', { type: true, amount: true, arrived: true, read: true, from: true, status: true });
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const receipts = onlyEmail ? allRows.filter(r => r.inbox?.source === 'email') : allRows;
+  // Underlag visar bara det som inte är bokfört (som Fortnox); bokförda finns i Bokföring.
+  // Mejl visar alla brev, med Olästa och Visa hanterade.
+  const tab = 'todo';
+  const [kind, setKind] = useState(null);
+  const [onlyUnread, setOnlyUnread] = useState(false);
+  const [showHandled, setShowHandled] = useState(true);
+  const [q, setQ] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [picked, setPicked] = useState(() => new Set());
+  const isTodo = (r) => { const st = statusOf(r); return st === 'unhandled' || st === 'pending'; };
+  const isUnread = (r) => Boolean(onMarkSeen) && r.inbox?.source === 'email' && !r.inbox.seenAt;
+  const unreadIds = receipts.filter(isUnread).map(r => r.id);
+  const counts = { todo: receipts.filter(isTodo).length };
+  const todoRows = receipts.filter(isTodo);
+  const kindCount = { receipt: todoRows.filter(r => docKind(r) === 'receipt').length, invoice: todoRows.filter(r => docKind(r) === 'invoice').length };
+  const needle = q.trim().toLowerCase();
+  const shown = receipts
+    .filter(r => (onlyEmail ? ((showHandled || isTodo(r)) && (!onlyUnread || isUnread(r))) : isTodo(r) && (!kind || docKind(r) === kind)))
+    .filter(r => !needle || (onlyEmail
+      ? [r.inbox?.from, r.inbox?.subject]
+      : [r.supplier, r.description, r.date, r.amount != null ? String(r.amount) : '', r.ocrDraft?.form?.supplier, r.inbox?.from, r.inbox?.subject, r.inbox?.fileName, r.uploadedBy?.name]
+    ).some(v => String(v || '').toLowerCase().includes(needle)));
+  const deletable = (r) => ['unhandled', 'pending'].includes(statusOf(r));
+  const pickable = shown.filter(deletable);
+  const allPicked = pickable.length > 0 && pickable.every(r => picked.has(r.id));
+  const togglePick = (id) => setPicked(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const deletePicked = async () => {
+    const ids = [...picked].filter(id => pickable.some(r => r.id === id));
+    if (!ids.length) return;
+    if (!(await confirmDialog(tr('underlag.trashManyConfirm', { n: ids.length })))) return;
+    onDeleteMany?.(ids);
+    setPicked(new Set());
+  };
+  // Förhandsvisningen: ↑/↓ byter underlag, Enter öppnar det, Esc stänger.
+  const shownIds = shown.map(r => r.id);
+  const shownKey = shownIds.join('|');
+  useEffect(() => {
+    if (!onPreview || !previewId) return undefined;
+    const onKey = (e) => {
+      const tag = (e.target?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable) return;
+      const i = shownIds.indexOf(previewId);
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const next = shownIds[Math.min(shownIds.length - 1, Math.max(0, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+        if (next) onPreview(next);
+      } else if (e.key === 'Enter') { e.preventDefault(); onOpen(previewId, shownIds); }
+      else if (e.key === 'Escape') { onPreview(null); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [previewId, shownKey, onPreview]); // eslint-disable-line react-hooks/exhaustive-deps
+  const refresh = async () => { if (refreshing) return; setRefreshing(true); try { await onRefresh?.(); } finally { setTimeout(() => setRefreshing(false), 600); } };
+  return (
+    <div className="ut">
+      <div className="ut-head ut-head-row">
+        <div>
+          <h1>{onlyEmail ? tr('underlag.navMail') : tr('nav.underlag')}</h1>
+          <p>{onlyEmail ? tr('underlag.mailIntro2') : tr('underlag.introUnderlag')}</p>
+        </div>
+        <div className="ut-head-links">
+          <button type="button" className="ut-link" onClick={onMailIn}><Info size={15} /> {tr('underlag.mailIn')}</button>
+          {onlyEmail
+            ? onSenders && <button type="button" className="ut-pillbtn" onClick={onSenders}><Cog size={14} /> {tr('underlag.manageAllSenders')}</button>
+            : onRefresh && <button type="button" className="ut-link" onClick={refresh} disabled={refreshing}><RotateCcw size={15} className={refreshing ? 'ut-spin' : undefined} /> {tr('underlag.refresh')}</button>}
+        </div>
+      </div>
+      {!onlyEmail && (() => {
+        // Den här månaden: hur många underlag som är klara av alla som kommit in.
+        const month = new Date().toISOString().slice(0, 7);
+        const inMonth = receipts.filter(r => String(r.date || '').slice(0, 7) === month || (counts.todo && isTodo(r)));
+        const done = inMonth.filter(r => statusOf(r) === 'booked').length;
+        const total = done + counts.todo;
+        if (!total) return null;
+        const monthName = new Date().toLocaleDateString('sv-SE', { month: 'long' });
+        return (
+          <div className={`ut-todo-line${counts.todo === 0 ? ' is-done' : ''}`} title={tr('underlag.progressTitle')}>
+            <span className="ut-todo-dot" aria-hidden="true">{counts.todo === 0 ? <CheckCircle2 size={15} /> : counts.todo}</span>
+            <span className="ut-todo-text">
+              <b>{counts.todo === 0 ? tr('underlag.todoLineDone') : counts.todo === 1 ? tr('underlag.todoLineOne') : tr('underlag.todoLineMany', { n: counts.todo })}</b>
+              <small>{tr('underlag.todoLineMonth', { done, total, month: monthName })}</small>
+            </span>
+            <span className="ut-todo-bar" aria-hidden="true"><i style={{ width: `${Math.round((done / total) * 100)}%` }} /></span>
+          </div>
+        );
+      })()}
+      <div className="ut-toolbar">
+      <div className="ut-bar">
+        {onlyEmail ? (
+          <>
+            <button type="button" className="ut-link" onClick={() => onMarkSeen?.(unreadIds)} disabled={!unreadIds.length}><MailOpen size={15} /> {tr('underlag.markAllRead')}</button>
+          </>
+        ) : (
+          <button type="button" className="ut-upload" onClick={onUpload}><UploadCloud size={16} /> {tr('underlag.uploadDocs')}</button>
+        )}
+        {onlyEmail && onRefresh && (
+          <div className="ut-bar-right">
+            <button type="button" className="ut-link" onClick={refresh} disabled={refreshing}><RotateCcw size={15} className={refreshing ? 'ut-spin' : undefined} /> {tr('underlag.refresh')}</button>
+          </div>
+        )}
+      </div>
+      <div className="ut-filters">
+        {onlyEmail ? (
+          <div className="ut-mail-filters">
+            <div className="ut-seg" role="tablist">
+              <button type="button" role="tab" aria-selected={!onlyUnread} className={!onlyUnread ? 'on' : undefined} onClick={() => setOnlyUnread(false)}>{tr('underlag.allMail')}</button>
+              <button type="button" role="tab" aria-selected={onlyUnread} className={onlyUnread ? 'on' : undefined} onClick={() => setOnlyUnread(true)}>{tr('underlag.unreadMail')}{unreadIds.length > 0 ? ` (${unreadIds.length})` : ''}</button>
+            </div>
+            <label className="ut-toggle"><span className="ut-switch"><input type="checkbox" checked={showHandled} onChange={e => setShowHandled(e.target.checked)} /><span /></span>{tr('underlag.showHandled')}</label>
+          </div>
+        ) : (
+          <div className="ut-chips">
+            {[[null, tr('underlag.revAll'), counts.todo], ['receipt', tr('underlag.kindReceipts'), kindCount.receipt], ['invoice', tr('underlag.kindInvoices'), kindCount.invoice]].map(([id, label, n]) => (
+              <button key={id || 'all'} type="button" className={`ut-chip${kind === id ? ' on' : ''}`} onClick={() => { setKind(id); setPicked(new Set()); }}>{label} ({n})</button>
+            ))}
+          </div>
+        )}
+        <div className="ut-search">
+          <Search size={15} />
+          <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={onlyEmail ? tr('underlag.searchSender') : tr('underlag.search')} aria-label={onlyEmail ? tr('underlag.searchSender') : tr('underlag.search')} />
+        </div>
+        <ListSettingsButton onClick={() => setSettingsOpen(true)} className="ut-gear" />
+      </div>
+      </div>
+      <ListSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={setLp} showWidth={false}
+        actions={[
+          ...(onlyEmail ? [] : [{ key: 'upload', label: tr('underlag.uploadDocs'), icon: UploadCloud, onClick: onUpload }]),
+          { key: 'mailin', label: tr('underlag.mailIn'), icon: Mail, onClick: onMailIn },
+          ...(onRefresh ? [{ key: 'refresh', label: tr('underlag.refresh'), icon: RotateCcw, onClick: () => refresh() }] : []),
+          ...(onSenders ? [{ key: 'settings', label: tr('underlag.navSettings'), icon: Cog, onClick: onSenders }] : []),
+        ]}
+        columns={[
+          { key: 'type', label: tr('underlag.type') }, { key: 'amount', label: tr('underlag.colAmount') }, { key: 'arrived', label: tr('underlag.colArrived') },
+          { key: 'read', label: tr('underlag.colRead') }, { key: 'from', label: tr('underlag.colFrom') }, { key: 'status', label: tr('underlag.colStatus') },
+        ]} />
+      <div className="ut-count">
+        {picked.size > 0 ? (
+          <>
+            <span>{tr('underlag.pickedCount', { n: picked.size })}</span>
+            <button type="button" className="ut-del" onClick={deletePicked}><Trash2 size={14} /> {tr('ui.ta_bort')}</button>
+            <button type="button" className="ut-link" onClick={() => setPicked(new Set())}>{tr('ui.avbryt')}</button>
+          </>
+        ) : <span>{tr('underlag.total', { n: shown.length })}</span>}
+      </div>
+      <div className="ut-table-wrap">
+        <table className={['ut-table', lp.density === 'compact' && 'ut-compact', ...['type', 'amount', 'arrived', 'read', 'from', 'status'].filter(k => lp.cols[k] === false).map(k => `ut-no-${k}`)].filter(Boolean).join(' ')}>
+          <thead>
+            <tr>
+              <th className="ut-c-check">
+                <input type="checkbox" checked={allPicked} disabled={!pickable.length} onChange={() => setPicked(allPicked ? new Set() : new Set(pickable.map(r => r.id)))} aria-label={tr('underlag.pickAll')} />
+              </th>
+              <th>{onlyEmail ? tr('underlag.colSubject') : tr('underlag.colDoc')}</th>
+              <th>{tr('underlag.type')}</th>
+              <th className="ut-c-num">{tr('underlag.colAmount')}</th>
+              <th>{tr('underlag.colArrived')}</th>
+              <th>{tr('underlag.colRead')}</th>
+              <th>{tr('underlag.colFrom')}</th>
+              <th>{tr('underlag.colStatus')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {!onlyEmail && uploading.map(u => (
+              <tr key={u.id} className="ut-uploading">
+                <td className="ut-c-check" />
+                <td><span className="ut-doc"><span className="ut-thumb"><span className="rc-row-thumb is-letter"><UploadCloud size={15} /></span></span><span className="ut-doc-text"><b>{u.file?.name || tr('underlag.unnamed')}</b><small>{tr('underlag.uploadingNow')}</small></span></span></td>
+                <td colSpan={6}><span className="ut-up-bar"><i style={{ width: `${Math.round((u.progress || 0) * (u.progress > 1 ? 1 : 100))}%` }} /></span></td>
+              </tr>
+            ))}
+            {shown.length === 0 && uploading.length === 0 && (
+              <tr><td colSpan={8} className="ut-empty">
+                {needle
+                  ? <UtEmpty icon={Search} title={tr('underlag.noHits')} text={tr('underlag.noHitsText')} />
+                  : onlyEmail
+                    ? <UtEmpty icon={Mail} title={tr('underlag.noMailHere')} text={inboxAddress ? tr('underlag.noMailText', { address: inboxAddress }) : ''} />
+                    : tab === 'todo'
+                      ? <UtEmpty icon={CheckCircle2} title={tr('underlag.allDone')} text={tr('underlag.emptyTodo')} action={<button type="button" className="ut-upload ut-upload-sm" onClick={onUpload}><UploadCloud size={15} /> {tr('underlag.uploadDocs')}</button>} />
+                      : <UtEmpty title={tr('underlag.empty')} />}
+              </td></tr>
+            )}
+            {(lp.pageSize ? shown.slice(0, lp.pageSize) : shown).map(r => {
+              const s = statusOf(r);
+              const src = sourceLabel(r);
+              const rs = readState(r, s, readingId);
+              const meta = STATUS_META[s];
+              const amount = r.amount ? Math.abs(r.amount) : parseAmount(r.ocrDraft?.form?.amount);
+              const name = r.supplier || r.description || r.ocrDraft?.form?.supplier || r.inbox?.fileName || tr('underlag.unnamed');
+              const sender = r.inbox?.source === 'email' ? (r.inbox.from || '') : (r.uploadedBy?.name || '');
+              return (
+                <tr key={r.id} className={[picked.has(r.id) && 'picked', isUnread(r) && 'ut-unread', previewId === r.id && 'is-previewed'].filter(Boolean).join(' ') || undefined} onClick={() => (onPreview ? onPreview(r.id) : onOpen(r.id, shown.map(x => x.id)))} onDoubleClick={() => onOpen(r.id, shown.map(x => x.id))}>
+                  <td className="ut-c-check" onClick={e => e.stopPropagation()}>
+                    <input type="checkbox" checked={picked.has(r.id)} disabled={!deletable(r)} onChange={() => togglePick(r.id)} aria-label={name} />
+                  </td>
+                  <td>
+                    <span className="ut-doc">
+                      {isUnread(r) && <i className="ut-unread-dot" aria-label={tr('underlag.unread')} />}
+                      <span className="ut-thumb"><ReceiptThumb receipt={r} /></span>
+                      <span className="ut-doc-text">
+                        {onlyEmail && r.inbox?.subject
+                          ? <><b>{r.inbox.subject}</b><small>{name}</small></>
+                          : <><b>{name}</b>{r.inbox?.subject && <small>{r.inbox.subject}</small>}</>}
+                      </span>
+                    </span>
+                  </td>
+                  <td className="ut-muted">{docKind(r) === 'invoice' ? tr('underlag.typeInvoice') : docKind(r) === 'receipt' ? tr('underlag.typeReceipt') : '–'}</td>
+                  <td className="ut-c-num">{amount > 0 ? formatSEK(amount) : '–'}</td>
+                  <td className="ut-muted">{arrivedLabel(r)}</td>
+                  <td><span className={`ut-read ut-read-${rs.key}`}>{rs.text}</span></td>
+                  <td className="ut-muted ut-from" title={[src.text, sender].filter(Boolean).join(' · ')}>
+                    {src.kind === 'mail' ? <Mail size={13} /> : <UploadCloud size={13} />}
+                    <span>{senderName(sender) || src.text}</span>
+                  </td>
+                  <td>{(() => {
+                    // Obokfört: säg vad som återstår, inte bara "Ej hanterad".
+                    const step = stepOf && (s === 'unhandled' || s === 'pending') ? stepOf(r) : null;
+                    if (step) return <span className={`ut-status ut-step-${step}`}>{tr(`underlag.step_${step}`)}</span>;
+                    return meta && <span className="ut-status" style={{ background: meta.bg, color: meta.color }}>{STATUS_SINGULAR[s] || meta.label}</span>;
+                  })()}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** Förhandsvisning till höger i Underlag (2026-11-20): dokumentet med zoom,
+ * de viktigaste uppgifterna och Öppna och bokför. Hela arbetsytan öppnas därifrån. */
+function UnderlagPreview({ receipt: r, step, onOpen, onClose, onTrash }) {
+  const amount = r.amount ? Math.abs(r.amount) : parseAmount(r.ocrDraft?.form?.amount);
+  const name = r.supplier || r.description || r.ocrDraft?.form?.supplier || r.inbox?.fileName || tr('underlag.unnamed');
+  const kind = docKind(r);
+  const from = r.inbox?.source === 'email' ? r.inbox.from : r.uploadedBy?.name;
+  return (
+    <aside className="ut-pv" aria-label={tr('underlag.preview')}>
+      <div className="ut-pv-head">
+        <div className="ut-pv-title">
+          <b title={name}>{name}</b>
+          <span>{[kind === 'invoice' ? tr('underlag.typeInvoice') : kind === 'receipt' ? tr('underlag.typeReceipt') : null, amount > 0 ? formatSEK(amount) : null, arrivedLabel(r)].filter(Boolean).join(' · ')}</span>
+        </div>
+        <div className="ut-pv-actions">
+          {onTrash && <button type="button" className="ut-pv-icon" onClick={onTrash} title={tr('ui.ta_bort')} aria-label={tr('ui.ta_bort')}><Trash2 size={16} /></button>}
+          <button type="button" className="ut-pv-icon" onClick={onOpen} title={tr('underlag.expand')} aria-label={tr('underlag.expand')}><Maximize2 size={16} /></button>
+          <button type="button" className="ut-pv-icon" onClick={onClose} title={tr('ui.stang')} aria-label={tr('ui.stang')}><X size={17} /></button>
+        </div>
+      </div>
+      <div className="ut-pv-doc">
+        <DocumentPane url={r.receiptUrl} type={r.receiptType} name={r.inbox?.fileName} expandable emptyText={tr('underlag.pvNoFile')} />
+      </div>
+      <div className="ut-pv-foot">
+        <div className="ut-pv-meta">
+          {step && <span className={`ut-status ut-step-${step}`}>{tr(`underlag.step_${step}`)}</span>}
+          {from && <span className="ut-pv-from" title={from}>{r.inbox?.source === 'email' ? <Mail size={13} /> : <UploadCloud size={13} />} {senderName(from)}</span>}
+        </div>
+        <button type="button" className="ut-pv-open" onClick={onOpen}>{tr('underlag.openAndBook')} <ChevronRight size={16} /></button>
+      </div>
+    </aside>
+  );
+}
+
+function ReceiptThumbImg({ url, onFail }) {
   const activeUrl = useSignedUrl(url);
   if (!activeUrl) return null;
   return (
-    <img key={activeUrl} src={activeUrl} alt={tr('ui.kvitto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.currentTarget.style.display = 'none'; }} />
+    <img key={activeUrl} src={activeUrl} alt={tr('ui.kvitto')} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={onFail} />
   );
+}
+function ReceiptThumb({ receipt }) {
+  const [failed, setFailed] = useState(false);
+  const url = receipt.receiptUrl;
+  const type = receipt.receiptType || '';
+  const isPdf = type === 'application/pdf' || /\.pdf(\?|$)/i.test(url || '');
+  const looksImage = type.startsWith('image/') || (!type && /\.(jpe?g|png|webp|heic|gif)(\?|$)/i.test(url || ''));
+  if (url && looksImage && !failed) return <div className="rc-row-thumb is-photo"><ReceiptThumbImg url={url} onFail={() => setFailed(true)} /></div>;
+  if (url && isPdf) return <div className="rc-row-thumb is-pdf"><span>PDF</span></div>;
+  const letter = String(receipt.supplier || receipt.description || '?').trim().charAt(0).toUpperCase() || '?';
+  return <div className="rc-row-thumb is-letter" aria-hidden="true">{letter}</div>;
 }
 
 export default function Expenses({
@@ -1072,14 +2540,49 @@ export default function Expenses({
   // dra in och se fungera utan att någon fil faktiskt når Supabase Storage
   // från en icke-inloggad besökare.
   uploadFn = uploadFileToStorage,
+  // Underlag att koppla (2026-11-14): sparade utan avläsning.
+  documents = [], onAddDocument, onLinkDocument, onDeleteDocument,
+  // Underlag → Matcha mot transaktion.
+  bankTransactions = [], onLinkBankRow,
+  // Underlag → företagets inkorgsadress (api/inbox).
+  companyId = null,
+  // Papperskorgen (company.receiptTrash).
+  receiptTrash = [], onTrashExpense, onRestoreExpense, onPurgeTrash,
+  // Anställda: Vem betalade → En anställd (utlägg).
+  employees = [],
+  // Nya Underlag bara för konton som slagits på (App.jsx isNewUnderlagUser).
+  newUnderlag = false,
+  // Huvudmenyn är gömd i arbetsytan: Meny öppnar den (som Fortnox).
+  onOpenMenu,
+  // Granska → Öppna underlag ({ type: 'open_underlag', payload: { id } }).
+  globalAction, clearGlobalAction,
+  // Saknar underlag: fil eller pappersoriginal till en bokförd verifikation.
+  onAttachToVerification,
+  // Mejl läst/oläst (inbox.seenAt).
+  onMarkSeen,
 }) {
   // -- Receipts State --
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState([]);
   const [detailReceiptId, setDetailReceiptId] = useState(null);
+  // Förhandsvisningen till höger i Underlag (klick på en rad).
+  const [previewId, setPreviewId] = useState(null);
+  // Mobilens Ladda upp-knapp: Fota kvitto eller Välj fil.
+  const [fabOpen, setFabOpen] = useState(false);
+  useEffect(() => {
+    if (globalAction?.type !== 'open_underlag') return;
+    const id = globalAction.payload?.id;
+    if (id) setDetailReceiptId(id);
+    clearGlobalAction?.();
+  }, [globalAction, clearGlobalAction]);
   // URL:en till ett kvitto som just laddats upp och ska öppnas så fort det
   // finns i listan. Se effekten längre ner.
   const [autoOpenUrl, setAutoOpenUrl] = useState(null);
+  // Kvittolistan eller Underlag att koppla (egen sektion, 2026-11-14).
+  const [showDocuments, setShowDocuments] = useState(false);
+  const unlinkedCount = documents.filter(d => d && d.url && !d.linkedVerificationId).length;
+  // Sista underlaget kopplat: tillbaka till kvittona.
+  useEffect(() => { if (showDocuments && unlinkedCount === 0) setShowDocuments(false); }, [showDocuments, unlinkedCount]);
   const intervalsRef = useRef({});
 
   // -- Flikar, sök + statusfilter (Sida 27) --
@@ -1184,6 +2687,7 @@ export default function Expenses({
   // Sökningen går på det man faktiskt minns av ett kvitto: var man handlade,
   // vad det gällde, vilket konto det hamnade på eller ungefär vad det kostade.
   const verIndex = useMemo(() => receiptVerificationIndex(verifications), [verifications]);
+  const missingCount = useMemo(() => missingUnderlag(verifications, new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10)).length, [verifications]);
   const accountNames = useMemo(() => new Map(accounts.map(a => [a.code, a.name])), [accounts]);
   // Sökfältet uppdateras direkt, listan när webbläsaren hinner.
   const deferredQuery = useDeferredValue(query);
@@ -1219,6 +2723,81 @@ export default function Expenses({
   const [shownCount, setShownCount] = useState(RECEIPTS_PAGE);
   useEffect(() => { setShownCount(RECEIPTS_PAGE); }, [q, effectiveTab, monthFilter, statusFilter, folderFilter]);
   const detailReceipt = detailReceiptId ? allReceipts.find(r => r.id === detailReceiptId) : null;
+  const previewReceipt = previewId ? allReceipts.find(r => r.id === previewId) : null;
+  useEffect(() => {
+    if (onMarkSeen && previewReceipt?.inbox?.source === 'email' && !previewReceipt.inbox.seenAt) onMarkSeen([previewReceipt.id]);
+  }, [previewReceipt?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (onMarkSeen && detailReceipt?.inbox?.source === 'email' && !detailReceipt.inbox.seenAt) onMarkSeen([detailReceipt.id]);
+  }, [detailReceipt?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Nya underlag läses av ett i taget så fort Underlag är öppet (se
+  // needsAutoRead). Den som håller på att läsas visas som "Läses av" i listan.
+  const [autoReading, setAutoReading] = useState(null);
+  const autoBusyRef = useRef(false);
+  const autoCtxRef = useRef({});
+  autoCtxRef.current = { ownCompany: company, allReceipts, verifications, onSaveOcrDraft, detailId: detailReceiptId };
+  useEffect(() => {
+    if (!newUnderlag || autoBusyRef.current || !onSaveOcrDraft) return;
+    const tried = autoReadTried();
+    const next = allReceipts.find(r => needsAutoRead(r) && !tried.has(r.id) && r.id !== detailReceiptId);
+    if (!next) return;
+    autoBusyRef.current = true;
+    markAutoReadTried(next.id);
+    setAutoReading(next.id);
+    autoReadDraft(next, autoCtxRef.current)
+      .then(draft => {
+        // Öppnade man underlaget under tiden läser kvittovyn själv: skriv inte över.
+        if (autoCtxRef.current.detailId !== next.id) autoCtxRef.current.onSaveOcrDraft?.(next.id, draft);
+      })
+      .catch(err => console.warn('Avläsningen av ett nytt underlag misslyckades', err?.message))
+      .finally(() => { autoBusyRef.current = false; setAutoReading(null); });
+  }, [allReceipts, detailReceiptId, autoReading]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Arbetsytan (lista + underlag bredvid) på skärmar från 1100 px.
+  const [wide, setWide] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1100);
+  useEffect(() => {
+    const onResize = () => setWide(window.innerWidth >= 1100);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const [mailboxOpen, setMailboxOpen] = useState(false);
+  // Notis i klockan för nya mejl (Inställningar för inkorgen), per webbläsare.
+  const [inboxNotify, setInboxNotifyState] = useState(() => { try { return localStorage.getItem('bokix.inboxNotify') !== '0'; } catch { return true; } });
+  const setInboxNotify = (v) => { setInboxNotifyState(v); try { localStorage.setItem('bokix.inboxNotify', v ? '1' : '0'); window.dispatchEvent(new Event('bokix-inbox-notify')); } catch { /* inget */ } };
+  // Papperskorgen: äldre än 30 dagar tas bort för gott (filen också).
+  useEffect(() => {
+    const old = (receiptTrash || []).filter(r => r.trashedAt && Date.now() - Date.parse(r.trashedAt) > 30 * 86400000);
+    if (old.length) onPurgeTrash?.(old.map(r => r.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(receiptTrash || []).length]);
+  // Vänstermenyn i Underlag, som Fortnox: underlag, mejl, avsändare, brevlåda, papperskorg.
+  const [uwView, setUwView] = useState('underlag');
+  useEffect(() => { setPreviewId(null); }, [uwView]);
+  // ← och → bläddrar mellan underlagen när man inte skriver i ett fält.
+  const goNavRef = useRef(null);
+  useEffect(() => {
+    if (!detailReceiptId) return undefined;
+    const onKey = (e) => {
+      const tag = (e.target?.tagName || '').toLowerCase();
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || ['input', 'textarea', 'select'].includes(tag) || e.target?.isContentEditable) return;
+      if (document.querySelector('.uw-match-overlay, .confirm-dialog-overlay')) return;
+      if (e.key === 'ArrowRight') { e.preventDefault(); goNavRef.current?.(1); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); goNavRef.current?.(-1); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [detailReceiptId]);
+  // Ordningen i tabellen när ett underlag öppnades: föregående och nästa.
+  const [navIds, setNavIds] = useState([]);
+  const [mailInOpen, setMailInOpen] = useState(false);
+  const { info: inboxInfo, saveSenders, reload: reloadInbox } = useInboxAddress(newUnderlag ? companyId : null, { poll: mailboxOpen || uwView === 'mailbox' });
+  // Den gamla listan finns kvar bakom "Visa som lista". Valet sparas i webbläsaren.
+  const [listView, setListViewState] = useState(() => { try { return localStorage.getItem('bokix.underlagView') === 'list'; } catch { return false; } });
+  const setListView = (v) => { setListViewState(v); try { localStorage.setItem('bokix.underlagView', v ? 'list' : 'workspace'); } catch { /* inget */ } };
+  // Efter sparning: nästa underlag som ska göras, annars tillbaka till listan.
+  const nextAfter = (id) => {
+    const todo = receiptsList.filter(r => r.id !== id && ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex)));
+    setDetailReceiptId(todo[0]?.id || null);
+  };
 
   // ── Drag & drop / filhantering ──
   // Sätt bara state när det FAKTISKT ändras — dragover fyras av
@@ -1291,7 +2870,7 @@ export default function Expenses({
       });
   };
 
-  const handleFiles = (files) => {
+  const validateFiles = (files) => {
     const errors = [];
     if (files.length > MAX_FILES) {
       errors.push(tr('ui.max_filer_at_gangen_bara_de_forsta_laddas_upp', { MAX_FILES, MAX_FILES1: MAX_FILES }));
@@ -1308,8 +2887,35 @@ export default function Expenses({
       }
     });
     setFileErrors(errors);
+    if (valid.length === 0) return [];
+    if (!user?.id) { setFileErrors(prev => [...prev, tr('ui.inloggad_for_kvitton')]); return []; }
+    return valid;
+  };
+
+  // Spara utan att läsa av: filen laddas upp och hamnar i Underlag att
+  // koppla, ingen avläsning (sparar också Googles kvot).
+  const handleRawFiles = (files) => {
+    validateFiles(files).forEach(file => {
+      uploadFn(user.id, file, 'documents')
+        .then(url => onAddDocument?.(newDocument({ url, name: file.name, type: file.type }, user.id)))
+        .catch(err => setFileErrors(prev => [...prev, tr('ui.kunde_inte_laddas_upp', { name: file.name, message: err.message })]));
+    });
+  };
+  // Läs av som kvitto: samma fil blir ett kvitto och öppnas, då läses den av.
+  const readDocumentAsReceipt = (doc) => {
+    onAdd?.({
+      type: 'receipt', date: new Date().toISOString().split('T')[0], description: '', supplier: '',
+      amount: 0, netAmount: 0, vatAmount: 0, vatRate: 25, costAccount: '',
+      receiptUrl: doc.url, receiptType: doc.type || '',
+      uploadedBy: user?.id ? { id: user.id, name: [user?.user_metadata?.first_name, user?.user_metadata?.last_name].filter(Boolean).join(' '), email: user?.email || '' } : null,
+    });
+    onDeleteDocument?.(doc.id, { keepFile: true });
+    setAutoOpenUrl(doc.url);
+  };
+
+  const handleFiles = (files) => {
+    const valid = validateFiles(files);
     if (valid.length === 0) return;
-    if (!user?.id) { setFileErrors(prev => [...prev, tr('ui.inloggad_for_kvitton')]); return; }
     // En hel mapp med kvitton ska inte kasta upp en modal per fil — då är
     // man i "tömma telefonen"-läget och vill se listan växa. Ett ensamt
     // kvitto är däremot alltid ett kvitto man tänkt fylla i på en gång.
@@ -1327,6 +2933,162 @@ export default function Expenses({
     setFixAccount('');
   };
 
+  // Telefon och smal skärm (2026-11-20): samma Underlag, men ett öppnat
+  // underlag visas i den vanliga helskärmsrutan i stället för bredvid listan.
+  if (newUnderlag && (wide ? (detailReceipt || !listView) : !detailReceipt)) {
+    const navPos = detailReceipt ? navIds.indexOf(detailReceipt.id) : -1;
+    const goNav = (step) => { const id = navIds[navPos + step]; if (id) setDetailReceiptId(id); };
+    goNavRef.current = goNav;
+    return (
+      <div className={`uw-wrap ut-wrap${isDragging ? ' uw-dropping' : ''}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+        {isDragging && (
+          <div className="ut-drop" aria-hidden="true">
+            <div className="ut-drop-box">
+              <span className="ut-empty-ico"><UploadCloud size={28} /></span>
+              <strong>{tr('underlag.dropTitle')}</strong>
+              <span>{tr('underlag.dropText')}</span>
+            </div>
+          </div>
+        )}
+        {mailInOpen && <MailInDialog info={inboxInfo} onClose={() => setMailInOpen(false)} onSettings={() => { setMailInOpen(false); setUwView('mailbox'); }} onTrash={() => { setMailInOpen(false); setUwView('trash'); }} />}
+        {mailboxOpen && <MailboxDialog info={inboxInfo} onSaveSenders={saveSenders} onClose={() => setMailboxOpen(false)} onUpload={() => document.getElementById('uw-upload').click()} />}
+        <input type="file" id="uw-upload" style={{ display: 'none' }} multiple accept={ACCEPT_ATTR} onChange={handleFileInput} />
+        {/* Telefon: en flytande kameraknapp i stället för Ladda upp-knappen. */}
+        <input type="file" id="uw-camera" style={{ display: 'none' }} accept="image/*" capture="environment" onChange={handleFileInput} />
+        {!wide && !detailReceipt && (uwView === 'underlag' || uwView === 'mail') && (
+          <>
+            {fabOpen && <div className="ut-fab-backdrop" onClick={() => setFabOpen(false)} />}
+            {fabOpen && (
+              <div className="ut-fab-menu" role="menu">
+                <button type="button" role="menuitem" onClick={() => { setFabOpen(false); document.getElementById('uw-camera').click(); }}><Camera size={19} /> {tr('ui.fota_kvitto')}</button>
+                <button type="button" role="menuitem" onClick={() => { setFabOpen(false); document.getElementById('uw-upload').click(); }}><Paperclip size={19} /> {tr('underlag.fabChooseFile')}</button>
+              </div>
+            )}
+            <button type="button" className="rc-phone-camera page-fab ut-fab" aria-expanded={fabOpen} onClick={() => setFabOpen(v => !v)}>
+              {fabOpen ? <X size={22} /> : <UploadCloud size={22} />} {tr('underlag.fabUpload')}
+            </button>
+          </>
+        )}
+        {!detailReceipt ? (
+          <div className="ut-shell">
+            <UnderlagNav
+              onOpenMenu={onOpenMenu}
+              view={uwView}
+              onView={setUwView}
+              counts={{
+                todo: receiptsList.filter(r => ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex))).length,
+                mail: onMarkSeen
+                  ? receiptsList.filter(r => r.inbox?.source === 'email' && !r.inbox.seenAt).length
+                  : receiptsList.filter(r => r.inbox?.source === 'email' && ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex))).length,
+                trash: receiptTrash.length,
+                missing: onAttachToVerification ? missingCount : null,
+              }}
+            />
+            <div className="ut-main">
+              {(uwView === 'underlag' || uwView === 'mail') && (
+                <div className={`ut-pv-wrap${previewReceipt ? ' on' : ''}`}>
+                <UnderlagTable
+                  previewId={previewReceipt?.id || null}
+                  onPreview={wide ? setPreviewId : undefined}
+                  key={uwView}
+                  onlyEmail={uwView === 'mail'}
+                  uploading={uploadingFiles}
+                  receipts={receiptsList}
+                  statusOf={(r) => getReceiptStatus(r, verIndex)}
+                  stepOf={(r) => underlagStep(r, expenses)}
+                  readingId={autoReading}
+                  onOpen={(id, ids) => { setNavIds(ids); setDetailReceiptId(id); }}
+                  onDeleteMany={(ids) => ids.forEach(id => (onTrashExpense ? onTrashExpense(id) : onDeleteExpense?.(id)))}
+                  onUpload={() => document.getElementById('uw-upload').click()}
+                  onMailIn={() => setMailInOpen(true)}
+                  onSenders={() => setUwView('mailbox')}
+                  onRefresh={async () => { window.dispatchEvent(new Event('bokix:inbox-pull')); await reloadInbox?.(); }}
+                  onMarkSeen={onMarkSeen}
+                  inboxAddress={inboxInfo?.address}
+                />
+                {previewReceipt && (
+                  <UnderlagPreview
+                    key={previewReceipt.id}
+                    receipt={previewReceipt}
+                    step={['unhandled', 'pending'].includes(getReceiptStatus(previewReceipt, verIndex)) ? underlagStep(previewReceipt, expenses) : null}
+                    onOpen={() => { setNavIds(receiptsList.map(x => x.id)); setDetailReceiptId(previewReceipt.id); setPreviewId(null); }}
+                    onClose={() => setPreviewId(null)}
+                    onTrash={['unhandled', 'pending'].includes(getReceiptStatus(previewReceipt, verIndex)) ? async () => { if (await confirmDialog(tr('underlag.trashManyConfirm', { n: 1 }))) { (onTrashExpense ? onTrashExpense(previewReceipt.id) : onDeleteExpense?.(previewReceipt.id)); setPreviewId(null); } } : null}
+                  />
+                )}
+                </div>
+              )}
+              {uwView === 'senders' && (
+                <MailboxView initialTab="senders" info={inboxInfo} notify={inboxNotify} onNotify={setInboxNotify} onSaveSenders={saveSenders} receipts={[...allReceipts, ...receiptTrash]} ownEmail={user?.email || ''} />
+              )}
+              {uwView === 'mailbox' && (
+                <MailboxView info={inboxInfo} notify={inboxNotify} onNotify={setInboxNotify} onSaveSenders={saveSenders} receipts={[...allReceipts, ...receiptTrash]} ownEmail={user?.email || ''} />
+              )}
+              {uwView === 'missing' && (
+                <MissingView
+                  verifications={verifications}
+                  onAttach={async (verId, file) => {
+                    const url = await uploadFn(user.id, file, 'documents');
+                    onAttachToVerification?.(verId, { url, name: file.name, type: file.type || '' });
+                  }}
+                  onPaper={(verId) => onAttachToVerification?.(verId, { originalLocation: tr('underlag.missPaperValue') })}
+                />
+              )}
+              {uwView === 'trash' && (
+                <TrashView items={receiptTrash} onRestore={onRestoreExpense} onPurge={onPurgeTrash} />
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="ut-detail-top">
+              <span className="ut-detail-left">
+                {onOpenMenu && <button type="button" className="ut-menu-btn" onClick={onOpenMenu}><Menu size={17} /> {tr('underlag.menu')}</button>}
+                <button type="button" className="ut-back" onClick={() => setDetailReceiptId(null)}><ChevronLeft size={18} /> {tr('nav.underlag')}</button>
+              </span>
+              {navPos >= 0 && navIds.length > 1 && (
+                <span className="ut-nav">
+                  <span className="ut-keys" title={tr('underlag.navKeys')}><kbd>←</kbd><kbd>→</kbd></span>
+                  <span className="ut-pager">
+                    <button type="button" onClick={() => goNav(-1)} disabled={navPos <= 0} aria-label={tr('underlag.prev')} title={tr('underlag.prev')}><ChevronLeft size={18} /></button>
+                    <span className="ut-pager-pos">{tr('underlag.navPos', { i: navPos + 1, n: navIds.length })}</span>
+                    <button type="button" onClick={() => goNav(1)} disabled={navPos >= navIds.length - 1} aria-label={tr('underlag.next')} title={tr('underlag.next')}><ChevronRight size={18} /></button>
+                  </span>
+                </span>
+              )}
+            </div>
+            <div className="uw-split ut-split">
+              <div className="uw-detail">
+                <ReceiptDetailModal
+                  inline
+                  employees={employees}
+                  bankTransactions={bankTransactions}
+                  onLinkBankRow={onLinkBankRow}
+                  vatExempt={isVatExempt(company)}
+                  ownCompany={company}
+                  key={detailReceipt.id}
+                  receipt={detailReceipt}
+                  accounts={accounts}
+                  projects={projects}
+                  folders={folders}
+                  allReceipts={allReceipts}
+                  verifications={verifications}
+                  status={getReceiptStatus(detailReceipt, verIndex)}
+                  onSave={(id, values) => onSaveReceiptDetails?.(id, values)}
+                  onSaveOcrDraft={(id, draft) => onSaveOcrDraft?.(id, draft)}
+                  onDelete={(id) => (onTrashExpense ? onTrashExpense(id) : onDeleteExpense?.(id))}
+                  onReverse={(id) => onReverseExpense?.(id)}
+                  onClose={() => setDetailReceiptId(null)}
+                  onSaved={() => nextAfter(detailReceipt.id)}
+                />
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
 
@@ -1338,7 +3100,7 @@ export default function Expenses({
           med listan direkt istället för att kliva genom fyra separata
           block (rubrik, uppladdning, sökrad, filterrad) innan man ens ser
           ett kvitto. */}
-      <ListPageHeader title={pageTitle || tr('ui.kvitton')} subtitle={pageSubtitle}>
+      <ListPageHeader title={pageTitle || tr('ui.kvitton')} subtitle={pageSubtitle} actions={wide && newUnderlag ? [{ key: 'ws', label: tr('underlag.workspace'), onClick: () => setListView(false), variant: 'primary' }] : []}>
         <div style={{ marginTop: '14px' }}>
           {/* Telefon: i stället för dra-och-släpp-ytan (som inte går att dra
               något till på en telefon) en stor kameraknapp som öppnar kameran
@@ -1353,8 +3115,10 @@ export default function Expenses({
               <Paperclip size={18} /> {tr('ui.valj_fil')}
             </button>
           </div>
-          {/* Uppladdningszonen — en enda yta för både enskilda filer och en
-              hel mapp (Sida 34), istället för separata konkurrerande ytor. */}
+          {/* Uppladdningen (omgjord 2026-11-14): en yta, en rad om vad som
+              går att ladda upp och att papperet får slängas, och ett val om
+              Bokix ska läsa av filen. Avstängt hamnar filerna i Underlag att
+              koppla. En hel mapp är en liten länk, den används sällan. */}
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -1367,21 +3131,29 @@ export default function Expenses({
             {/* Mappval kräver ett eget, separat <input> — webkitdirectory kan
                 inte slås på/av dynamiskt på samma inputelement som filval. */}
             <input type="file" id="receipt-upload-folder" style={{ display: 'none' }} multiple webkitdirectory="" directory="" onChange={handleFileInput} />
+            <input type="file" id="receipt-upload-raw" style={{ display: 'none' }} multiple accept={ACCEPT_ATTR} onClick={e => e.stopPropagation()} onChange={e => { if (e.target.files?.length) { handleRawFiles(Array.from(e.target.files)); setShowDocuments(true); } e.target.value = ''; }} />
             <span className="rc-drop-icon"><UploadCloud size={19} color={BRAND.greenDark} /></span>
             <span className="rc-drop-text">
               <span className="rc-drop-title">{isDragging ? tr('ui.slapp_filerna_har') : tr('ui.ladda_upp_kvitton')}</span>
               <span className="rc-drop-hint">
-                {tr('ui.dra_och_slapp_eller_klicka_for_att_valja_pdf_jpg')} {MAX_FILE_MB} {tr('ui.mb')}
+                {tr('docs.drop_hint', { mb: MAX_FILE_MB })}{' '}
+                <button type="button" className="rc-drop-link" onClick={e => { e.stopPropagation(); document.getElementById('receipt-upload-folder').click(); }}>{tr('docs.valj_mapp')}</button>
+                {onAddDocument && (
+                  <>
+                    {' · '}
+                    <button type="button" className="rc-drop-link" title={tr('docs.spara_utan_hint')} onClick={e => { e.stopPropagation(); document.getElementById('receipt-upload-raw').click(); }}>{tr('docs.spara_utan')}</button>
+                  </>
+                )}
               </span>
             </span>
-            <button
-              type="button"
-              className="rc-drop-folder"
-              onClick={e => { e.stopPropagation(); document.getElementById('receipt-upload-folder').click(); }}
-            >
-              {tr('ui.valj_en_hel_mapp')}
-            </button>
           </div>
+          {/* BFL 7 kap. 6 § (sedan 1 juli 2024): papperet får förstöras när
+              bilden är överförd utan risk att uppgifter ändras eller försvinner.
+              Står i uppladdningsytan på dator; på telefon (där ytan är en smal
+              rad utan text) står den här. */}
+          {onAddDocument && (
+            <button type="button" className="rc-raw-link" onClick={() => document.getElementById('receipt-upload-raw').click()}>{tr('docs.spara_utan_lank')}</button>
+          )}
 
           {fileErrors.length > 0 && (
             <div style={{ background: 'var(--status-red-bg)', border: '1px solid var(--status-red-bg)', borderRadius: '8px', padding: '12px 16px', marginTop: '12px' }}>
@@ -1479,6 +3251,20 @@ export default function Expenses({
 
             {/* Status- och mappchips: en rad som går att svepa på telefon. */}
             <div className="rc-chips">
+            {onLinkDocument && unlinkedCount > 0 && (
+              <>
+                <button
+                  type="button"
+                  className={`rc-docs-chip${showDocuments ? ' is-active' : ''}`}
+                  onClick={() => setShowDocuments(v => !v)}
+                  aria-pressed={showDocuments}
+                >
+                  {tr('docs.chip')}
+                  <span className="rc-docs-chip-count">{unlinkedCount}</span>
+                </button>
+                <span className="rc-toolbar-divider" />
+              </>
+            )}
             {Object.values(statusCounts).some(c => c > 0) && (
               <>
                 {(showUploaderTabs) && <span className="rc-toolbar-divider" />}
@@ -1489,7 +3275,7 @@ export default function Expenses({
                   return (
                     <button
                       key={key}
-                      onClick={() => setStatusFilter(f => f === key ? null : key)}
+                      onClick={() => { setShowDocuments(false); setStatusFilter(f => f === key ? null : key); }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
                         background: meta.bg, border: `1.5px solid ${isActive ? meta.color : 'transparent'}`,
@@ -1511,7 +3297,7 @@ export default function Expenses({
                 det faktiskt finns en mapp att filtrera på; mapp-knappen är
                 alltid synlig men bara EN liten knapp, inte en egen rad —
                 den enda platsen som tar plats när ingen mapp finns än. */}
-            <span className="rc-toolbar-divider" />
+            {folders.length > 0 && <span className="rc-toolbar-divider" />}
             {folders.map(folder => {
               const count = folderCounts.get(folder.id) || 0;
               if (count === 0 && folderFilter !== folder.id) return null;
@@ -1546,6 +3332,9 @@ export default function Expenses({
                 <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, background: 'var(--status-chip-bg)', color: 'var(--text-secondary)' }}>{folderCounts.get('__unfiled__')}</span>
               </button>
             )}
+            {/* Mappar (2026-11-14): de flesta behöver dem inte, så knappen visas bara
+                för den som redan har skapat mappar och behöver hantera dem. */}
+            {folders.length > 0 && (
             <button
               ref={folderManagerAnchorRef}
               type="button"
@@ -1554,12 +3343,13 @@ export default function Expenses({
               style={{
                 display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px',
                 background: folderManagerOpen ? 'var(--bg-muted)' : 'none',
-                border: '1.5px dashed var(--border)', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
+                border: 'none', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
                 color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
               <FolderPlus size={13} /> {folders.length === 0 ? tr('ui.skapa_en_mapp') : tr('ui.mappar')}
             </button>
+            )}
             </div>
             <AnchoredDropdown anchorRef={folderManagerAnchorRef} panelRef={folderManagerPanelRef} open={folderManagerOpen} minWidth={230} maxHeight={340}>
               <div style={{ padding: '10px' }}>
@@ -1632,7 +3422,20 @@ export default function Expenses({
           sitter flush mot sidhuvudet och sidomenyn, precis som Kontakter/Offerter/
           Bokföring (facit). När kvitton finns har listan sin egen padding. */}
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-        {receiptsList.length === 0 ? (
+        {/* Underlag att koppla är en egen sektion (etiketten Att koppla i
+            verktygsraden), inte ett kort ovanför kvittona. */}
+        {onLinkDocument && showDocuments && unlinkedCount > 0 && (
+          <div className="rc-docs-slot">
+            <DocumentsToLink
+              documents={documents}
+              verifications={verifications}
+              onLink={onLinkDocument}
+              onReadAsReceipt={readDocumentAsReceipt}
+              onDelete={(id) => onDeleteDocument?.(id)}
+            />
+          </div>
+        )}
+        {showDocuments && unlinkedCount > 0 ? null : receiptsList.length === 0 ? (
           <EmptyReceiptsState
             isFilteredEmpty={q || allReceipts.length > 0}
             text={
@@ -1693,8 +3496,6 @@ export default function Expenses({
                       // Vem som laddade upp är bara intressant när det finns fler
                       // än en person att skilja på (samma resonemang som ovan).
                       const uploaderName = showUploaderTabs && effectiveTab === 'all' ? displayUploaderName(r.uploadedBy) : null;
-                      const isImage = r.receiptType?.startsWith('image/') && r.receiptUrl;
-                      const isPdf = r.receiptType === 'application/pdf' && r.receiptUrl;
                       return (
                         <div
                           key={r.id}
@@ -1705,15 +3506,7 @@ export default function Expenses({
                           onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailReceiptId(r.id); } }}
                           className="rc-row"
                         >
-                          <div className="rc-row-thumb">
-                            {isImage ? (
-                              <ReceiptThumbImg url={r.receiptUrl} />
-                            ) : isPdf ? (
-                              <FileText size={20} color={BRAND.greenDark} />
-                            ) : (
-                              <Receipt size={20} color="var(--text-muted)" />
-                            )}
-                          </div>
+                          <ReceiptThumb receipt={r} />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: '13.5px', fontWeight: 500, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.supplier || r.description || tr('ui.namnlost_kvitto')}</div>
                             <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{formatDate(r.date)}{categoryName ? ` · ${categoryName}` : ''}{folderName ? ` · ${folderName}` : ''}</div>

@@ -66,3 +66,32 @@ describe('contactsToCsv / csvToContacts', () => {
     expect(csvToContacts('customer', csv)).toEqual([])
   })
 })
+
+describe('csvToArticles: Fortnox artikelregister', () => {
+  const head = '"Artikelnummer","Benämning","EAN","Artikelgrupper","Aktiv","Enhet","Leverantör","Leverantörsnamn","Tillverkare","Tillverkarens artikelnummer","Anteckning","Husarbete","Typ av husarbete","Typ av artikel","Lagervara","Extern webbshop","Utgående artikel","A-pris (Förvald prislista)","Inköp","Försäljning","Försäljning EU omvänd skattskyldighet","Försäljning EU momspliktig","Försäljning SE omvänd skattskyldighet","Försäljning Export","Bredd (mm)","Höjd (mm)","Djup (mm)","Vikt (g)","Skrymmande","Paketartikel","I lager","Lagervarning","Statistisk varukod","Lagerplats","Kalkylkostnad","Prislista A"';
+  const rows = [
+    '"2296","Kallskum 38 kg/m³, 5 cm","",,"Ja","st",,,"SVENSKA DYNOR AB",,"L:120 x50 cm","Nej",,"Vara","Nej","Nej","Nej",119.2,4000,3001,3108,3106,,3105,,,,,"Nej","Nej",0,,,"",65,"119.2"',
+    '"2257","LOXX övre del med stort huvud ""Hatt"" nickel pläter","",,"Ja",,,,,,"","Nej",,"Vara","Nej","Nej","Nej",25.68,4000,3001,3108,3106,,3105,,,,,"Nej","Nej",0,,,"",0,"25.68"',
+    '"2020","Sy upp  byxor NR:","",,"Ja","st",,,"Norrtailor","1001","Sy upp  byxor ,skjol,skorta ..... enkel","Nej",,"Vara","Nej","Nej","Nej",150,4000,3002,3108,3106,,3105,,,,,"Nej","Nej",0,,,"",90,"150"',
+    '"2073","Frakt till kommer ","",,"Ja","st",,,,,"","Nej",,"Vara","Nej","Nej","Nej",,4000,3001,3108,3106,,3105,,,,,"Nej","Nej",0,,,"",0,""',
+    '"9999","Gammal artikel","",,"Nej","st",,,,,"","Nej",,"Tjänst","Nej","Nej","Nej",10,4000,3001,3108,3106,,3105,,,,,"Nej","Nej",0,,,"",0,"10"',
+  ];
+  const list = csvToArticles([head, ...rows].join('\r\n'));
+  it('läser kommaseparerat med Fortnox rubriker', () => {
+    expect(list.map(a => a.articleNumber)).toEqual(['2296', '2257', '2020', '2073']); // inaktiv följer inte med
+    expect(list[0]).toMatchObject({ description: 'Kallskum 38 kg/m³, 5 cm', unitPrice: 119.2, account: '3001', vatRate: 25, type: 'vara', unit: 'st', purchasePrice: 65, notes: 'L:120 x50 cm' });
+    expect(list[1].description).toBe('LOXX övre del med stort huvud "Hatt" nickel pläter');
+  });
+  it('momsen kommer från försäljningskontot', () => {
+    expect(list[2]).toMatchObject({ account: '3002', vatRate: 12, unitPrice: 150, purchasePrice: 90 });
+  });
+  it('tomt pris blir 0', () => {
+    expect(list[3].unitPrice).toBe(0);
+  });
+  it('decimalkomma och husarbete', () => {
+    const csv = 'Benämning;Pris;Husarbete;Typ av husarbete;Typ av artikel\nMålning;1 250,50;Ja;Målning och tapetsering;Tjänst\nStädning;400;Ja;Städning;Tjänst';
+    const [a, b] = csvToArticles(csv);
+    expect(a).toMatchObject({ unitPrice: 1250.5, rotRut: 'rot', type: 'tjanst' });
+    expect(b.rotRut).toBe('rut');
+  });
+});

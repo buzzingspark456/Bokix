@@ -1,14 +1,15 @@
 import React, { useMemo, useState } from 'react';
-import { lockedPeriodFor } from '../utils/fiscalYear';
+import { lockedPeriodFor, activeFiscalYear } from '../utils/fiscalYear';
 import { Plus, Trash2, Pencil, X, CalendarClock, Package, PackageMinus } from './icons';
 import ListTable from './shared/ListTable';
 import { AccountSearch } from './shared/SearchInputs';
 import { confirmDialog } from './shared/ConfirmDialog';
-import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
+import { Panel, Kpi, KpiGrid, TaskRow, ListBar, usePalette } from './shared/Workspace';
 import {
   ASSET_CATEGORIES, categoryById, monthlyAmount, accumulatedThrough, bookValueAt, scheduleOf,
   pendingDepreciation, buildDepreciationVerification, buildDisposalVerification,
   bookedDepreciationMap, unregisteredAcquisitions, registerSummary, round2,
+  pendingByYear, buildYearDepreciationVerification, buildReclassVerification,
 } from '../utils/fixedAssets';
 import { t, dateLocale } from '../i18n';
 import { numberFormat } from '../utils/intlCache';
@@ -66,7 +67,19 @@ export default function FixedAssets({ company, accounts = [], verifications = []
 
   const thisMonth = monthKey(new Date());
   const pending = useMemo(() => pendingDepreciation(assets, verifications, untilMonth, company?.lockedFiscalYears), [assets, verifications, untilMonth, company?.lockedFiscalYears]);
-  const suggestions = useMemo(() => unregisteredAcquisitions(verifications, assets), [verifications, assets]);
+  const suggestions = useMemo(() => unregisteredAcquisitions(verifications, assets, { includeExpensed: true }), [verifications, assets]);
+  // Avskrivningsfrekvens (2026-11-22, som Bokio): varje månad eller en gång per
+  // år på räkenskapsårets sista dag. Gäller hela registret.
+  const frequency = company?.fixedAssetSettings?.frequency === 'year' ? 'year' : 'month';
+  const setFrequency = (f) => setCompanyInfo(prev => ({ ...prev, fixedAssetSettings: { ...(prev?.fixedAssetSettings || {}), frequency: f } }));
+  const pendingAll = useMemo(() => pendingDepreciation(assets, verifications, thisMonth, company?.lockedFiscalYears), [assets, verifications, thisMonth, company?.lockedFiscalYears]);
+  const yearOf = (month) => { const fy = activeFiscalYear(company, new Date(`${month}-15T12:00:00`)); return { key: fy.key, label: fy.label, end: fy.end }; };
+  const dueYears = useMemo(() => (frequency === 'year' ? pendingByYear(pendingAll, yearOf, todayIso()) : []), [frequency, pendingAll, company?.fiscalYear, company?.firstFiscalYear]); // eslint-disable-line react-hooks/exhaustive-deps
+  const bookYears = async () => {
+    if (!dueYears.length) return;
+    if (!(await confirmDialog(t('fa.yearConfirm', { n: dueYears.length, kr: fmt(dueYears.reduce((s, y) => s + y.total, 0)) })))) return;
+    dueYears.forEach(y => onAddVerification(buildYearDepreciationVerification(y)));
+  };
   const summary = useMemo(() => registerSummary(assets, thisMonth), [assets, thisMonth]);
   const rows = useMemo(() => assets
     .map(a => ({ ...a, state: assetState(a, thisMonth), accumulated: accumulatedThrough(a, thisMonth), bookValue: bookValueAt(a, thisMonth) }))
@@ -109,8 +122,17 @@ export default function FixedAssets({ company, accounts = [], verifications = []
     if (!(life >= 1)) return setError(t('ui.livslangden_maste_vara_minst_1_manad'));
     if (Number(editing.residualValue) >= cost) return setError(t('ui.restvardet_maste_vara_lagre_an_anskaffningsvarde'));
     if (!editing.acquisitionDate) return setError(t('ui.ange_anskaffningsdatum'));
-    const clean = { ...editing, name: editing.name.trim(), cost, usefulLifeMonths: life, residualValue: Number(editing.residualValue) || 0 };
+    const op = Number(editing.openingAccumulated) || 0;
+    if (op > 0 && !editing.openingMonth) return setError(t('fa.errOpeningMonth'));
+    if (op > 0 && op > cost - (Number(editing.residualValue) || 0)) return setError(t('fa.errOpeningAmount'));
+    if (op > 0 && editing.openingMonth < String(editing.acquisitionDate).slice(0, 7)) return setError(t('fa.errOpeningBefore'));
+    const clean = { ...editing, name: editing.name.trim(), cost, usefulLifeMonths: life, residualValue: Number(editing.residualValue) || 0, openingAccumulated: op > 0 ? op : undefined, openingMonth: op > 0 ? editing.openingMonth : undefined };
     saveAssets(isNew ? [...assets, clean] : assets.map(a => (a.id === clean.id ? clean : a)));
+    // Köpet var bokfört som kostnad (5410): flytta det till tillgångskontot.
+    if (isNew && clean.reclassFrom) {
+      const date = lockedFor(clean.acquisitionDate) ? todayIso() : clean.acquisitionDate;
+      onAddVerification(buildReclassVerification(clean, clean.reclassFrom, date));
+    }
     setEditing(null); setError('');
   };
 
@@ -148,75 +170,78 @@ export default function FixedAssets({ company, accounts = [], verifications = []
     return base > 0 ? Math.max(0, Math.min(100, Math.round((r.accumulated / base) * 100))) : 0;
   };
   const catColor = (r) => (r.state === 'disposed' ? 'var(--text-muted)' : r.state === 'done' ? palette.profit : palette.income);
-  const hasTodo = (assets.length > 0 && pending.months.length > 0) || suggestions.length > 0;
+  const hasTodo = (frequency === 'month' ? assets.length > 0 && pending.months.length > 0 : dueYears.length > 0) || suggestions.length > 0;
 
   return (
     <div className="ws-page ws-edge">
       <Panel
         title={t('ui.anlaggningstillgangar')}
-        sub={inUse.length === 1 ? t('fa.subOne') : t('fa.subMany', { n: inUse.length })}
-        actions={<button type="button" className="agi-btn primary" onClick={() => startNew()}><Plus size={14} /> {t('ui.ny_tillgang')}</button>}
+        sub={rows.length === 0 ? null : inUse.length === 1 ? t('fa.subOne') : t('fa.subMany', { n: inUse.length })}
+        actions={rows.length > 0 && <>
+          <div className="ws-seg" role="group" aria-label={t('fa.frequency')} title={t('fa.frequency')}>
+            <button type="button" className={frequency === 'month' ? 'on' : ''} onClick={() => setFrequency('month')}>{t('fa.freqMonth')}</button>
+            <button type="button" className={frequency === 'year' ? 'on' : ''} onClick={() => setFrequency('year')}>{t('fa.freqYear')}</button>
+          </div>
+          <button type="button" className="agi-btn primary" onClick={() => startNew()}><Plus size={14} /> {t('ui.ny_tillgang')}</button>
+        </>}
       >
-        <KpiGrid>
+        {/* Inga siffror förrän det finns en tillgång (2026-11-21). */}
+        {assets.length > 0 && <KpiGrid>
           <Kpi dot={palette.income} label={t('ui.anskaffningsvarde')} value={fmtKr(summary.cost)} sub={t('fa.kpiCostSub', { n: inUse.length })} />
           <Kpi dot={palette.cost} label={t('fa.kpiAccumulated')} value={fmtKr(summary.accumulated)} sub={summary.cost > 0 ? t('fa.kpiAccumulatedSub', { pct: Math.round((summary.accumulated / summary.cost) * 100) }) : '—'} />
           <Kpi dot={palette.profit} label={t('ui.bokfort_varde')} value={fmtKr(summary.bookValue)} sub={t('fa.kpiBookSub', { month: fmtMonth(thisMonth) })} />
           <Kpi dot={palette.cost} label={t('fa.kpiMonthly')} value={fmtKr(perMonth)} sub={t('fa.kpiMonthlySub', { kr: fmtKr(perMonth * 12) })} />
-        </KpiGrid>
+        </KpiGrid>}
 
         {hasTodo && (
-          <div className="lg-todo">
-            <div className="lg-todo-title">{t('lager.todo')}</div>
-            {assets.length > 0 && pending.months.length > 0 && (
-              <div className="dash-today-btn dash-today-btn--warn lg-todo-row" style={{ cursor: 'default' }}>
-                <span className="dash-today-lines">
-                  <span className="dash-today-kicker">{t('fa.depKicker')}</span>
-                  <span className="dash-today-title">{pending.months.length === 1 ? t('fa.depOne', { kr: fmtKr(pending.total) }) : t('fa.depMany', { n: pending.months.length, kr: fmtKr(pending.total) })}</span>
-                  <span className="dash-today-detail fa-until">
-                    {t('ui.fram_till_och_med')}
-                    <input type="month" value={untilMonth} max={`${Number(thisMonth.slice(0, 4)) + 1}-12`} onChange={e => e.target.value && setUntilMonth(e.target.value)} aria-label={t('ui.fram_till_och_med')} />
-                    {pending.blockedByLock > 0 && t('ui.i_lasta_ar_hoppas_over', { blockedByLock: pending.blockedByLock })}
-                  </span>
-                </span>
-                <button type="button" className="agi-btn primary" onClick={bookPending}><CalendarClock size={14} /> {t('ui.bokfor_avskrivningar')}</button>
-              </div>
+          <div className="ws-tasks">
+            {frequency === 'year' && dueYears.length > 0 && (
+              <TaskRow icon={CalendarClock}
+                title={t('fa.yearTitle', { years: dueYears.map(y => y.label).join(', '), kr: fmtKr(dueYears.reduce((s, y) => s + y.total, 0)) })}
+                detail={t('fa.yearDetail')}>
+                <button type="button" className="agi-btn primary" onClick={bookYears}>{t('ui.bokfor_avskrivningar')}</button>
+              </TaskRow>
             )}
-            {suggestions.slice(0, 4).map(s => (
-              <button
-                key={`${s.verificationId}_${s.account}`}
-                type="button"
-                className="dash-today-btn dash-today-btn--brand lg-todo-row"
-                onClick={() => startNew({ name: s.description, acquisitionDate: s.date, cost: s.amount, category: s.category, assetAccount: s.account, sourceVerificationId: s.verificationId })}
+            {frequency === 'month' && assets.length > 0 && pending.months.length > 0 && (
+              <TaskRow
+                icon={CalendarClock}
+                title={pending.months.length === 1 ? t('fa.depOne', { kr: fmtKr(pending.total) }) : t('fa.depMany', { n: pending.months.length, kr: fmtKr(pending.total) })}
+                detail={pending.blockedByLock > 0 ? t('ui.i_lasta_ar_hoppas_over', { blockedByLock: pending.blockedByLock }) : t('fa.depDetail')}
               >
-                <span className="dash-today-lines">
-                  <span className="dash-today-kicker">{t('fa.suggestKicker')}</span>
-                  <span className="dash-today-title">{s.description || t('ui.verifikation')} · {fmtKr(s.amount)}</span>
-                  <span className="dash-today-detail">{t('fa.suggestDetail', { account: s.account, date: fmtDay(s.date) })}</span>
-                </span>
-                <span className="dash-today-ic" aria-hidden="true"><Package size={20} /></span>
-              </button>
+                <input type="month" value={untilMonth} max={`${Number(thisMonth.slice(0, 4)) + 1}-12`} onChange={e => e.target.value && setUntilMonth(e.target.value)} aria-label={t('ui.fram_till_och_med')} title={t('ui.fram_till_och_med')} />
+                <button type="button" className="agi-btn primary" onClick={bookPending}>{t('ui.bokfor_avskrivningar')}</button>
+              </TaskRow>
+            )}
+            {suggestions.slice(0, 4).map(sg => (
+              <TaskRow
+                key={`${sg.verificationId}_${sg.account}`}
+                icon={Package}
+                tone="brand"
+                title={`${sg.description || t('ui.verifikation')} · ${fmtKr(sg.amount)}`}
+                detail={sg.reclassFrom ? t('fa.suggestReclass', { account: sg.reclassFrom, date: fmtDay(sg.date) }) : t('fa.suggestDetailV2', { account: sg.account, date: fmtDay(sg.date) })}
+                onClick={() => startNew({ name: sg.description, acquisitionDate: sg.date, cost: sg.amount, category: sg.category, assetAccount: sg.account, sourceVerificationId: sg.verificationId, reclassFrom: sg.reclassFrom })}
+              >
+                <span className="agi-btn">{t('fa.addToRegister')}</span>
+              </TaskRow>
             ))}
           </div>
         )}
-      </Panel>
 
-      <Panel
-        title={t('fa.listTitle')}
-        sub={t('ui.inventarier_med_livslangd_over_tre_ar_och_ett_va')}
-        actions={rows.length > 0 && (
-          <div className="ws-seg">
-            {[['inUse', t('fa.filterInUse')], ['disposed', t('fa.filterDisposed')], ['all', t('accr.filterAll')]].map(([id, label]) => (
-              <button key={id} type="button" className={filter === id ? 'on' : ''} onClick={() => setFilter(id)}>{label}<span className="lg-count">{count(id)}</span></button>
-            ))}
-          </div>
-        )}
-      >
         {rows.length === 0 ? (
-          <div className="accr-empty">
-            <p>{t('ui.inga_anlaggningstillgangar_i_registret_annu_lagg')}</p>
+          <div className="ws-empty">
+            <strong>{t('fa.emptyTitle')}</strong>
+            <p>{t('fa.emptyText')}</p>
             <button type="button" className="agi-btn primary" onClick={() => startNew()}><Plus size={14} /> {t('ui.ny_tillgang')}</button>
           </div>
         ) : (
+          <>
+          <ListBar title={t('fa.listTitle')}>
+            <div className="ws-seg">
+              {[['inUse', t('fa.filterInUse')], ['disposed', t('fa.filterDisposed')], ['all', t('accr.filterAll')]].map(([id, label]) => (
+                <button key={id} type="button" className={filter === id ? 'on' : ''} onClick={() => setFilter(id)}>{label}<span className="lg-count">{count(id)}</span></button>
+              ))}
+            </div>
+          </ListBar>
           <div className="wsp-flush">
             <ListTable
               bordered={false}
@@ -249,7 +274,7 @@ export default function FixedAssets({ company, accounts = [], verifications = []
                 {
                   key: 'progress', label: t('fa.colDepreciated'), width: 170, render: a => (
                     <div className="fa-progress">
-                      <div className="ws-bar"><span style={{ width: `${depreciatedPct(a)}%`, background: a.state === 'disposed' ? 'var(--text-muted)' : palette.cost }} /></div>
+                      <div className="ws-bar"><span style={{ width: `${depreciatedPct(a)}%`, background: a.state === 'disposed' ? 'var(--text-muted)' : 'var(--text-secondary)' }} /></div>
                       <small>{depreciatedPct(a)} %</small>
                     </div>
                   ),
@@ -259,6 +284,7 @@ export default function FixedAssets({ company, accounts = [], verifications = []
               ]}
             />
           </div>
+          </>
         )}
       </Panel>
 
@@ -426,6 +452,23 @@ function AssetForm({ editing, setEditing, isNew, locked, accounts, palette, erro
             </div>
           )}
 
+          {isNew && editing.reclassFrom && <p className="ws-hint" style={{ margin: 0 }}>{t('fa.reclassHint', { from: editing.reclassFrom, to: editing.assetAccount })}</p>}
+          <details className="fa-accounts" open={Number(editing.openingAccumulated) > 0}>
+            <summary>{t('fa.openingTitle')}</summary>
+            <div className="ws-form" style={{ marginTop: '12px' }}>
+              <p className="ws-hint" style={{ margin: 0 }}>{t('fa.openingHint')}</p>
+              <div className="ws-grid2">
+                <div>
+                  <label className="ws-label" htmlFor="fa-open">{t('fa.openingAmount')}</label>
+                  <div className="ws-input-suffix"><input id="fa-open" type="number" step="0.01" min="0" className="ws-input" disabled={locked} value={editing.openingAccumulated || ''} onChange={set('openingAccumulated')} /><span>kr</span></div>
+                </div>
+                <div>
+                  <label className="ws-label" htmlFor="fa-open-m">{t('fa.openingMonth')}</label>
+                  <input id="fa-open-m" type="month" className="ws-input" disabled={locked} value={editing.openingMonth || ''} onChange={set('openingMonth')} />
+                </div>
+              </div>
+            </div>
+          </details>
           <details className="fa-accounts">
             <summary>{t('ui.bokforingskonton')}</summary>
             <div className="ws-form" style={{ marginTop: '12px' }}>

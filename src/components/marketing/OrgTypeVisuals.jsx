@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { SERIF } from './marketingTokens';
 import { Check } from '../icons';
+import { assetUrl } from '../../utils/assetUrl';
 
 // ── Animerade bilder för bolagsformssidorna (OrgTypePage.jsx) ───────────
 // En bild per bolagsform som visar det som är speciellt för just den:
@@ -462,7 +463,7 @@ export function HeroVideo({ file, label }) {
     <video
       ref={ref}
       src={`/videos/hero/${file}.mp4`}
-      poster={`/videos/hero/${file}.jpg`}
+      poster={assetUrl(`/videos/hero/${file}.jpg`)}
       width={960}
       height={800}
       autoPlay

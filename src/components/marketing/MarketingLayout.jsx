@@ -12,7 +12,7 @@ import { JsonLd, SITE_URL } from '../../utils/seo';
 // './marketing/MarketingLayout'` fortsätta oförändrade.
 import { TOOLS, TOOLS_HUB_PATH, TOOL_GROUPS } from './tools/toolsConfig';
 import BokixWordmark from '../shared/BokixWordmark';
-import { BOKIX_SUMMARY, BOKIX_PROFILES } from '../../content/marketing/bokixFacts';
+import { BOKIX_SUMMARY, BOKIX_PROFILES, BOKIX_LOGO, BOKIX_NOT_BOKIO } from '../../content/marketing/bokixFacts';
 import { ORG_TYPE_PAGES } from '../../content/marketing/orgTypes';
 export { BokixWordmark };
 
@@ -32,16 +32,18 @@ const ORGANIZATION_SCHEMA = {
   '@id': `${SITE_URL}/#organization`,
   name: 'Bokix',
   url: SITE_URL,
-  logo: `${SITE_URL}/icon-512.png`,
+  logo: BOKIX_LOGO,
+  image: BOKIX_LOGO,
   slogan: 'Bokföring utan gissningar.',
   sameAs: BOKIX_PROFILES,
   description: BOKIX_SUMMARY,
+  disambiguatingDescription: BOKIX_NOT_BOKIO,
   areaServed: { '@type': 'Country', name: 'Sverige' },
   knowsAbout: ['Bokföring', 'Fakturering', 'Moms', 'Momsdeklaration', 'Lön', 'Bokslut', 'Årsredovisning', 'Enskild firma', 'Aktiebolag', 'BAS-kontoplanen', 'SIE4'],
-  email: 'support@bokix.se',
+  email: 'info@bokix.se',
   contactPoint: {
     '@type': 'ContactPoint',
-    email: 'support@bokix.se',
+    email: 'info@bokix.se',
     contactType: 'customer support',
     areaServed: 'SE',
     availableLanguage: ['sv'],
@@ -156,7 +158,7 @@ export const NAV_MENUS = [
         title: 'Produkten',
         items: [
           { title: 'Bokföring & fakturering', desc: 'Kvitton, fakturor, moms och bokslut', to: '/funktioner' },
-          { title: 'Faktureringsprogram', desc: 'Egen logga, kortbetalning, ROT och RUT', to: '/faktureringsprogram' },
+          { title: 'Faktureringsprogram', desc: 'Egen logga, ROT och RUT, påminnelser', to: '/faktureringsprogram' },
           { title: 'Lön & arbetsgivare', desc: 'Lönebesked, skatteavdrag och AGI-fil', to: '/lon' },
           { title: 'Lager & artiklar', desc: 'Lagervärde, FIFO och marginal', to: '/bokforingsprogram-med-lager' },
           { title: 'Koppla banken', desc: 'Läs in kontoutdraget från din bank', to: '/koppla-bank' },
@@ -1640,7 +1642,7 @@ export function MarketingFooter() {
             <Link to="/" className="lp-logo-glow" aria-label="Till startsidan" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
               <BokixWordmark height={30} />
             </Link>
-            <a href="mailto:support@bokix.se" className="lp-footer-link lp-footer-mail">support@bokix.se</a>
+            <a href="mailto:info@bokix.se" className="lp-footer-link lp-footer-mail">info@bokix.se</a>
           </div>
 
           {/* Sidans sista rubrik före footern är alltid en <h2> (CTA-

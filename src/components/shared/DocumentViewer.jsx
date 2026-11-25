@@ -2,6 +2,83 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, Receipt, X, ZoomIn, ZoomOut, ExternalLink, Maximize2 } from '../icons';
 import { useSignedUrl } from '../../utils/signedUrls';
 import { t } from '../../i18n';
+import { loadPdfjs } from '../../utils/pdfjs';
+
+// PDF:en ritas med pdf.js, sida för sida i rutans bredd (2026-11-17).
+// Webbläsarens egen visare visade en miniatyrspalt och klippte sidan i en
+// smal ruta. Går ritningen inte (gammal webbläsare, nätfel) används den
+// ändå, som reserv.
+const MAX_PDF_PAGES = 20;
+function PdfPages({ url, label, fallback }) {
+  const boxRef = useRef(null);
+  const [doc, setDoc] = useState(null);
+  const [failed, setFailed] = useState(false);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    let task = null;
+    setDoc(null);
+    setFailed(false);
+    loadPdfjs()
+      .then(pdfjs => { task = pdfjs.getDocument({ url }); return task.promise; })
+      .then(d => { if (!cancelled) setDoc(d); })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; try { task?.destroy(); } catch { /* inget */ } };
+  }, [url]);
+
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    let timer = null;
+    const ro = new ResizeObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setWidth(Math.max(200, Math.floor(el.clientWidth - 36))), 120);
+    });
+    ro.observe(el);
+    setWidth(Math.max(200, Math.floor(el.clientWidth - 36)));
+    return () => { clearTimeout(timer); ro.disconnect(); };
+  }, [doc]);
+
+  if (failed) return fallback;
+  return (
+    <div ref={boxRef} className="dv-pdf" aria-label={label}>
+      {!doc && <span className="dv-pdf-wait">{t('ui.hamtar_underlaget')}</span>}
+      {doc && width > 0 && Array.from({ length: Math.min(doc.numPages, MAX_PDF_PAGES) }, (_, i) => (
+        <PdfPage key={i} doc={doc} pageNumber={i + 1} width={width} onFail={() => setFailed(true)} />
+      ))}
+    </div>
+  );
+}
+
+function PdfPage({ doc, pageNumber, width, onFail }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    let cancelled = false;
+    let renderTask = null;
+    doc.getPage(pageNumber).then(page => {
+      if (cancelled) return;
+      const base = page.getViewport({ scale: 1 });
+      // Högst 1,6 gånger sidans egen storlek: en liten sida i en bred ruta
+      // blir annars suddig och onödigt stor.
+      const cssWidth = Math.min(width, base.width * 1.6);
+      const scale = cssWidth / base.width;
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      const viewport = page.getViewport({ scale: scale * ratio });
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      canvas.style.width = `${Math.floor(cssWidth)}px`;
+      canvas.style.height = `${Math.floor(cssWidth * base.height / base.width)}px`;
+      renderTask = page.render({ canvasContext: canvas.getContext('2d'), viewport, canvas });
+      return renderTask.promise;
+    }).catch(err => { if (!cancelled && err?.name !== 'RenderingCancelledException') onFail(); });
+    return () => { cancelled = true; try { renderTask?.cancel(); } catch { /* inget */ } };
+  }, [doc, pageNumber, width]); // eslint-disable-line react-hooks/exhaustive-deps
+  return <canvas ref={canvasRef} />;
+}
+
 
 // ── Dokumentvisaren ─────────────────────────────────────────────────────
 // EN visare för alla underlag i appen: kvittot i Utgifter (bredvid
@@ -198,7 +275,7 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
               : { width: fitWidthRef.current ? `${Math.round(fitWidthRef.current * zoom)}px` : `${zoom * 100}%`, maxWidth: 'none', maxHeight: 'none' }}
           />
         ) : kind === 'pdf' ? (
-          <iframe className="dv-frame" src={initialZoom !== FIT_ZOOM ? `${activeUrl}#zoom=${Math.round(initialZoom * 100)}` : activeUrl} title={label} />
+          <PdfPages url={activeUrl} label={label} fallback={<iframe className="dv-frame" src={initialZoom !== FIT_ZOOM ? `${activeUrl}#zoom=${Math.round(initialZoom * 100)}&navpanes=0` : `${activeUrl}#navpanes=0&view=FitH`} title={label} />} />
         ) : (
           <div className="dv-empty">
             <Receipt size={38} strokeWidth={1.5} />

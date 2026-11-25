@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { ArrowRight, CheckCircle2, Users } from '../icons';
 import { AdminList, AdminRow, Pill, SubscriptionPill } from './AdminList';
+import { accountStage } from './UsersAdmin';
 import CustomerCard from './CustomerCard';
 import { Page, Loadable, Section, Stats, Stat, Card } from './ui';
 import { dateTimeFormat, numberFormat } from '../../utils/intlCache';
+import { RULES, ruleStatus } from '../../utils/rulesRegistry';
 
 // Översikt: först det som behöver göras, sedan siffrorna och kontona att
 // hålla koll på (api/admin, resource 'overview'). Datan hämtas av
@@ -17,6 +19,11 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 // Det som behöver göras, i den ordning det brådskar.
 function todoItems(d) {
   const items = [];
+  // Regler som ska kontrolleras mot Skatteverket (src/utils/rulesRegistry.js).
+  const overdueRules = RULES.filter(r => ruleStatus(r) === 'overdue');
+  const dueRules = RULES.filter(r => ['soon', 'ending'].includes(ruleStatus(r)));
+  if (overdueRules.length) items.push({ tone: 'red', text: `${plural(overdueRules.length, 'regel', 'regler')} har inte kontrollerats i tid`, sub: overdueRules.map(r => r.title).join(', '), tab: 'rules', action: 'Regler' });
+  else if (dueRules.length) items.push({ tone: 'amber', text: `${plural(dueRules.length, 'regel', 'regler')} ska kontrolleras snart`, sub: dueRules.map(r => r.title).join(', '), tab: 'rules', action: 'Regler' });
   if (d.subscriptions.atRisk > 0) {
     items.push({ tone: 'red', text: `${plural(d.subscriptions.atRisk, 'betalning', 'betalningar')} har misslyckats`, sub: 'Kontakta kunden innan kontot spärras.', tab: 'payments', action: 'Betalningar' });
   }
@@ -122,7 +129,7 @@ export default function OverviewAdmin({ overview, onOpenTab }) {
                     primary={x.company || x.email}
                     secondary={x.company ? x.email : 'Inget företag upplagt'}
                     pills={<>
-                      <SubscriptionPill status={x.status} />
+                      {(() => { const st = accountStage({ subscriptionStatus: x.status, cancelAtPeriodEnd: x.cancelAtPeriodEnd, suspended: x.suspended, emailConfirmed: x.emailConfirmed !== false, companyName: x.company }); return <Pill tone={st.tone}>{st.label}</Pill>; })()}
                       {x.started === true && <Pill tone="green">Igång</Pill>}
                       {x.started === false && <Pill tone="amber">Inte igång</Pill>}
                     </>}

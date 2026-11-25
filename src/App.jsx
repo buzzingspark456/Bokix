@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
+import { needsUnderlagWork } from './utils/underlagStep';
+import React, { useState, useEffect, useCallback, useRef, Suspense, lazy, startTransition } from 'react';
 import useFitLevel from './utils/useFitLevel';
 import { visiblePages, accessForPage, canWriteField } from './utils/pageAccess';
 import { STRIPE_BALANCE_ACCOUNT } from './utils/stripeLedger';
@@ -22,7 +23,7 @@ import {
   Bell,
   HelpCircle,
   Briefcase,
-  NavQuotesIcon, NavReceiptsIcon, NavHomeIcon, NavCustomerInvoicesIcon, NavSupplierInvoicesIcon, NavPayrollIcon,
+  NavQuotesIcon, NavReceiptsIcon, NavUnderlagIcon, NavTaxesIcon, NavReportsIcon, NavHomeIcon, NavCustomerInvoicesIcon, NavSupplierInvoicesIcon, NavPayrollIcon,
   LogOut,
   Moon,
   AlertTriangle,
@@ -30,8 +31,10 @@ import {
   Package,
   ClipboardCheck,
   Check,
-  Banknote, CalendarClock,
+  Banknote, CalendarClock, Paperclip,
+  CreditCard, ShieldCheck, ChevronLeft, ClipboardList,
 } from './components/icons';
+import { orderFromQuote, nextOrderNumber } from './utils/salesOrders';
 import { DEFAULT_ACCOUNTS, VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './components/AccountsData';
 import { BAS_VERSION, upgradeAccountsToBas } from './utils/basUpgrade';
 import { receiptAttachmentFields, backfillReceiptAttachments } from './utils/receiptAttachment';
@@ -47,13 +50,16 @@ import { grossInvoiceAmount } from './utils/reportCalculations';
 import { calcRotRutDeduction, invoiceCustomerDue, invoiceCustomerRemaining } from './utils/rotRutConfig';
 import { applyCreditNotes } from './utils/creditNotes';
 import { mergeImportedEmployees } from './utils/employeeCsv';
-import { planFromId } from './utils/plans';
+import { planFromId, planIncludesPayroll } from './utils/plans';
 import { detectOrgType } from './utils/orgType';
+import { ownerPaidAccount } from './utils/paidBy';
+import { buildSpreadStart } from './utils/accrualSpread';
+import { isAppHost, SITE_ORIGIN } from './utils/appHost';
 import { captureEvent } from './utils/posthog';
 import { reconcileSieOpenings, applySieOpeningReconcile } from './utils/sieOpeningReconcile';
 import { sieImportTagOf } from './utils/sieImportBatches';
 import { OPTIONAL_FEATURES, isFeatureOn, hiddenFeatureNavIds } from './utils/optionalFeatures';
-import { buildNotificationFeed, readSeenKeys, writeSeenKeys, isUnread, notificationWhen } from './utils/notificationFeed';
+import { buildNotificationFeed, readSeenKeys, writeSeenKeys, isUnread, readDismissedKeys, writeDismissedKeys } from './utils/notificationFeed';
 import { nextVatDeadline, nextAgiDeadline, vatContextFor } from './utils/declarationDeadlines';
 import { guidesForPage } from './utils/pageGuides';
 import { GuideContext } from './components/shared/GuideContext';
@@ -65,8 +71,11 @@ import { vatSettlementRows } from './utils/vatCalculation';
 import { isReverseChargePurchaseAccount, withReverseChargeRows } from './utils/reverseCharge';
 import { COMPANY_WRITABLE_FIELDS } from './utils/companyFields.js';
 import { deleteFileFromStorage } from './utils/fileUpload';
+import { linkDocument } from './utils/looseDocuments';
 import { collectStorageUrls } from './utils/storageUrls';
 import { computeEmployeePayroll, summarizePayrollRun, FEE_RULES_VERSION } from './utils/payrollCalculation';
+import { payrollSnapshot } from './utils/payrollConfig';
+import { REPRESENTATION_ACCOUNTS, representationBooking } from './utils/representation';
 import BokixWordmark, { BokixMark } from './components/shared/BokixWordmark';
 import MobileTopTitle from './components/shared/MobileTopTitle';
 import { installMobileKeyboard } from './utils/mobileKeyboard';
@@ -315,13 +324,10 @@ function PasswordRecoveryScreen({ onSubmit, onCancel }) {
   return (
     <div style={{ minHeight: 'calc(100vh / var(--app-zoom, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BRAND.greenLight, padding: '24px', fontFamily: "'Inter', sans-serif" }}>
       <form onSubmit={handleSubmit} style={{ width: '100%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '22px', padding: '36px 32px', boxShadow: '0 12px 40px -8px rgba(15,23,42,0.18)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', boxSizing: 'border-box' }}>
-        <div style={{
-          width: 56, height: 56, borderRadius: '16px', flexShrink: 0,
-          background: `linear-gradient(160deg, ${BRAND.green}, #0e3a2a)`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 8px 20px -6px color-mix(in srgb, var(--accent) 60%, transparent)',
-        }}>
-          <Lock size={26} color="white" strokeWidth={2.2} />
+        {/* Loggan med ett litet lås i hörnet: kontot är skyddat (2026-11-19). */}
+        <div className="pw-brand" aria-hidden="true">
+          <BokixWordmark height={46} />
+          <span className="pw-brand-lock"><Lock size={15} color="white" strokeWidth={2.4} /></span>
         </div>
 
         <div style={{ textAlign: 'center' }}>
@@ -377,6 +383,7 @@ const Dashboard = lazy(() => import('./components/Dashboard'));
 const Invoices = lazy(() => import('./components/Invoices'));
 const Quotes = lazy(() => import('./components/Quotes'));
 const Articles = lazy(() => import('./components/Articles'));
+const Orders = lazy(() => import('./components/Orders'));
 const Expenses = lazy(() => import('./components/Expenses'));
 const SupplierInvoices = lazy(() => import('./components/SupplierInvoices'));
 const Contacts = lazy(() => import('./components/Contacts'));
@@ -385,15 +392,21 @@ const Bank = lazy(() => import('./components/Bank'));
 const Reports = lazy(() => import('./components/Reports'));
 const Settings = lazy(() => import('./components/Settings'));
 const Projects = lazy(() => import('./components/Projects'));
+const ProjectsLegacy = lazy(() => import('./components/ProjectsLegacy'));
 const TimeTracking = lazy(() => import('./components/TimeTracking'));
 const Payroll = lazy(() => import('./components/Payroll'));
+const PayrollLegacy = lazy(() => import('./components/PayrollLegacy'));
 const Taxes = lazy(() => import('./components/Taxes'));
 // Flikarna under Bokföring hämtas i förväg när sidan öppnas (se useEffect
 // på activeTab nedan), annars stod Verifikationer kvar en stund efter klicket.
 const loadFixedAssets = () => import('./components/FixedAssets');
 const loadAccruals = () => import('./components/Accruals');
 const FixedAssets = lazy(loadFixedAssets);
+const BookkeepingCheckBar = lazy(() => import('./components/BookkeepingCheck').then(m => ({ default: m.BookkeepingCheckBar })));
+const BookkeepingCheckButton = lazy(() => import('./components/BookkeepingCheck').then(m => ({ default: m.BookkeepingCheckButton })));
 const Accruals = lazy(loadAccruals);
+const AccrualsLegacy = lazy(() => import('./components/AccrualsLegacy'));
+const FixedAssetsLegacy = lazy(() => import('./components/FixedAssetsLegacy'));
 // Alla ANDRA marknads-/juridiksidor (FeaturesPage/PricingPage/AboutPage/
 // ContactPage/PrivacyPolicy/TermsPolicy/
 // CookiesPolicy/PersonuppgiftsBitradesAvtal) flyttade till AppRouter.jsx
@@ -429,6 +442,7 @@ import { detectDevice } from './utils/deviceInfo';
 import { useLocation, useNavigate } from 'react-router-dom';
 const ReviewQueue = lazy(() => import('./components/ReviewQueue'));
 import HelpDrawer from './components/HelpDrawer';
+import { suggestHelpArticles } from './content/help/articles';
 import Toast from './components/shared/Toast';
 import { ConfirmDialogHost, confirmDialog } from './components/shared/ConfirmDialog';
 import PaymentRequiredGate from './components/PaymentRequiredGate';
@@ -437,7 +451,9 @@ import PaymentRequiredGate from './components/PaymentRequiredGate';
 // markup som hör till renderingen av en helt vanlig flik — en lazy-gräns
 // runt den hade bara lagt till en laddningsruta för ingenting.
 import UfLockedPage from './components/UfLockedPage';
-import { maybeAutoStartTour, startProductTourWhenReady } from './utils/productTour';
+import { startProductTourWhenReady } from './utils/productTour';
+import { unlockNotifySound, playNotifySound, notifySoundEnabled, notifySoundChoice, previewNotifySound } from './utils/notifySound';
+import NotificationPanel from './components/NotificationPanel';
 import { startInvoiceTourWhenReady } from './utils/invoiceTour';
 import { mergeCompanies, mergeCompany, makeRecordPatch, buildStateDelta, sharedFieldsToSave } from './utils/stateMerge';
 import { readServerState, rememberServerState, isCacheUsable, noteCachedAt, clearServerState } from './utils/serverStateCache';
@@ -487,6 +503,28 @@ const SKELETON_VARIANT_BY_TAB = {
   settings: 'settings',
   company: 'settings',
 };
+// Plingar och låter klockan gunga när en ny notis dyker upp medan appen är
+// öppen (inte vid inloggning eller företagsbyte). Egen komponent eftersom
+// notiserna räknas fram efter App:s tidiga returer.
+function NotifSoundWatcher({ notifications, seenKeys, companyId, soundOn, soundId, onRing }) {
+  const knownRef = useRef(null);
+  const sig = notifications.map(n => n.keys.join('|')).join(',');
+  useEffect(() => {
+    const keys = notifications.flatMap(n => n.keys);
+    const known = knownRef.current;
+    if (!known || known.company !== companyId) {
+      knownRef.current = { company: companyId, keys: new Set(keys) };
+      return;
+    }
+    const fresh = keys.filter(k => !known.keys.has(k) && !seenKeys.has(k));
+    keys.forEach(k => known.keys.add(k));
+    if (!fresh.length) return;
+    onRing();
+    if (soundOn) playNotifySound(soundId);
+  }, [sig, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 function skeletonVariantForTab(tab) {
   return SKELETON_VARIANT_BY_TAB[resolveNavGroup(tab)] || 'list';
 }
@@ -1095,6 +1133,7 @@ const tabAliases = {
   // resolveTab (nedan) faller redan tillbaka på id:t självt när det saknas
   // här, så ingen alias-rad behövs längre.
   taxes_vat:        'taxes',
+  taxes_agi:        'taxes',
   taxes_yearend:    'taxes',
   time:             'projects',
   accounts:         'verifications',
@@ -1105,6 +1144,15 @@ const tabAliases = {
   expense_overview: 'expenses',
   receipts:         'expenses',
   settings_system:  'settings',
+  // Hjälpcentrets direktlänkar (src/content/help/articles.js).
+  settings_subscription: 'settings',
+  settings_users:   'settings',
+  settings_invoice: 'settings',
+  settings_integrations: 'settings',
+  settings_appearance: 'settings',
+  settings_security: 'settings',
+  settings_advanced: 'settings',
+  settings_notifications: 'settings',
   supplierInvoices: 'expenses',
   transfers:        'verifications',
   dashboard:        'dashboard',
@@ -1112,6 +1160,8 @@ const tabAliases = {
   invoices:         'invoices',
   // Offerter är en egen sida i sidomenyn, under Verksamhet.
   quotes:           'quotes',
+  // Kundorder (Orders.jsx), bara för admin med artiklar påslaget än (2026-11-24).
+  orders:           'orders',
   // Produktregistret (profilmenyns "Artikel") — egen sida,
   // samma company-data-fält (`articles`) som redan användes av det gamla
   // "Artiklar"-textlänken i Invoices.jsx, se Articles.jsx.
@@ -1145,7 +1195,7 @@ const resolveTab = (id) => {
 // ('invoices') för behörighet och UF-läget: en inbjuden medlem eller ett
 // UF-företag som får se fakturor får också se Leverantörsfakturor och Artiklar.
 // Offerter är en egen behörighet ('quotes').
-const navAccessId = (id) => (id === 'supplier_invoices' || id === 'articles' ? 'invoices' : id);
+const navAccessId = (id) => (id === 'supplier_invoices' || id === 'articles' ? 'invoices' : id === 'orders' ? 'quotes' : id);
 const resolveNavGroup = (id) => resolveTab(navAccessId(id));
 
 // Stripes egna statusar som räknas som "betalande" — trialing/active/
@@ -1194,6 +1244,24 @@ const cyrb53 = (str, seed = 0) => {
 const isFreeAccountEmail = (email) => {
   const normalized = String(email || '').trim().toLowerCase();
   return Boolean(normalized) && FREE_ACCOUNT_EMAIL_HASHES.includes(cyrb53(normalized));
+};
+
+// Nya Underlag (arbetsyta, inkorg, papperskorg, utlägg) visas först bara för
+// grundarens konto (2026-11-18). Hash, inte adressen, av samma skäl som ovan.
+// Andra kan slå på det i sin webbläsare med ?nyttunderlag=1 (av med =0).
+const NEW_UNDERLAG_EMAIL_HASHES = ['1hingei7r5i'];
+const isNewUnderlagUser = (email) => {
+  // Lokalt (npm run dev, localhost) visas alltid det nya, så att det går att
+  // testa med testkontona. Byggd app (produktion och preview) påverkas inte.
+  if (import.meta.env.DEV) return true;
+  try {
+    const q = new URLSearchParams(window.location.search).get('nyttunderlag');
+    if (q === '1') localStorage.setItem('bokix.nyttUnderlag', '1');
+    if (q === '0') localStorage.removeItem('bokix.nyttUnderlag');
+    if (localStorage.getItem('bokix.nyttUnderlag') === '1') return true;
+  } catch { /* privat läge */ }
+  const normalized = String(email || '').trim().toLowerCase();
+  return Boolean(normalized) && NEW_UNDERLAG_EMAIL_HASHES.includes(cyrb53(normalized));
 };
 
 // ──────────────────────────────────────────────
@@ -1245,10 +1313,43 @@ function App() {
   }, [activeTab]);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Smal meny (bara ikoner) som man själv slår på, på alla sidor (2026-11-19).
+  const [navRail, setNavRail] = useState(() => { try { return localStorage.getItem('bokix.navRail') === '1'; } catch { return false; } });
+  // I Underlag fälls menyn ihop av sig själv, som Fortnox (2026-11-20). Det valet
+  // sparas inte: lämnar man Underlag kommer det egna valet tillbaka.
+  const [autoRail, setAutoRail] = useState(false);
+  const [railOverride, setRailOverride] = useState(false);
+  useEffect(() => { setRailOverride(false); }, [autoRail]);
+  // Laptop (941–1600 px): i Underlag göms menyn helt och öppnas med Meny,
+  // som Fortnox. Större skärm: ikonfältet.
+  const [isLaptop, setIsLaptop] = useState(() => typeof window !== 'undefined' && window.matchMedia?.('(min-width: 941px) and (max-width: 1600px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.('(min-width: 941px) and (max-width: 1600px)');
+    if (!mq) return undefined;
+    const on = () => setIsLaptop(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  // Underlag döljer inte längre huvudmenyn (2026-11-25, grundaren): menyn är
+  // som på alla andra sidor och fälls ihop med Fäll ihop menyn.
+  const underlagFocus = false && autoRail && isLaptop;
+  const effectiveRail = !underlagFocus && (navRail || (autoRail && !railOverride));
+  useEffect(() => {
+    if (underlagFocus) document.documentElement.setAttribute('data-underlag-focus', '1');
+    else document.documentElement.removeAttribute('data-underlag-focus');
+  }, [underlagFocus]);
+  const toggleNavRail = () => { if (autoRail && !navRail) setRailOverride(v => !v); else setNavRail(v => !v); };
+  useEffect(() => {
+    if (effectiveRail) document.documentElement.setAttribute('data-nav-rail', '1');
+    else document.documentElement.removeAttribute('data-nav-rail');
+  }, [effectiveRail]);
+  useEffect(() => {
+    try { localStorage.setItem('bokix.navRail', navRail ? '1' : '0'); } catch { /* privat läge */ }
+  }, [navRail]);
   // Sidomenyn krymper själv steg för steg (data-fit, index.css) tills hela listan ryms utan
   // skroll, också i ett riktigt lågt fönster (hög skärmskalning eller inzoomad sida).
   const sidebarNavRef = useRef(null);
-  const sidebarFit = useFitLevel(sidebarNavRef, 3);
+  const sidebarFit = useFitLevel(sidebarNavRef, 3, effectiveRail ? 'rail' : 'full');
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   // Face ID-spärren (utils/sessionPolicy.js, components/AppLock.jsx).
   const [appLocked, setAppLocked] = useState(false);
@@ -1276,7 +1377,8 @@ function App() {
   // ovanför tangentbordet — se utils/mobileKeyboard.js.
   useEffect(() => installMobileKeyboard(), []);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [showLanding, setShowLanding] = useState(true);
+  // app.bokix.se visar inloggningen, aldrig startsidan (utils/appHost.js).
+  const [showLanding, setShowLanding] = useState(() => !isAppHost());
   // 'signup' | 'login' — vilken Auth-flik som ska visas när showLanding
   // blir false. Sätts av VILKEN knapp som klickades (se enterApp-effekten
   // och LandingPage-anropet nedan), inte alltid samma förval.
@@ -1411,6 +1513,9 @@ function App() {
   }, [location.pathname]);
 
   const [user, setUser] = useState(null);
+  // Underlag fäller ihop huvudmenyn (se autoRail ovan).
+  const wantAutoRail = isNewUnderlagUser(user?.email) && activeTab === 'expenses';
+  useEffect(() => { setAutoRail(wantAutoRail); }, [wantAutoRail]);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(() => localStorage.getItem('bokix_onboarding_completed') === 'true');
@@ -1471,7 +1576,14 @@ function App() {
   // Snabbväxlingen i headern (sol/måne-ikonen): väljer alltid ett EXPLICIT
   // läge utifrån det just nu tillämpade (aldrig 'system') — att klicka en
   // ikon med två lägen är inte platsen att förklara ett tredje.
-  const toggleTheme = () => setThemePreference(theme === 'dark' ? 'light' : 'dark');
+  // Färgen byts direkt på sidan. Att rita om appen får vänta bakom: på ett stort
+  // företag tog det två sekunder, och då kändes knappen trasig.
+  const chooseTheme = (preference) => {
+    if (preference === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', preference);
+    startTransition(() => setThemePreference(preference));
+  };
+  const toggleTheme = () => chooseTheme(theme === 'dark' ? 'light' : 'dark');
 
   // Statusfältets färg följer appens eget tema, inte bara telefonens (se
   // theme-color i index.html): den som valt mörkt läge i Bokix på en ljus
@@ -1550,7 +1662,11 @@ function App() {
   // Sedda notiser per företag (utils/notificationFeed.js) och vilka som var
   // nya när klockan öppnades, så att de syns som nya tills den stängs.
   const [seenNotifKeys, setSeenNotifKeys] = useState(() => new Set());
+  const [dismissedNotifKeys, setDismissedNotifKeys] = useState(() => new Set());
+  useEffect(() => { setDismissedNotifKeys(readDismissedKeys(data.activeCompanyId)); }, [data.activeCompanyId]);
   const [notifOpenedUnread, setNotifOpenedUnread] = useState(() => new Set());
+  // Ändras när en notisinställning slås av/på i panelen, så att listan räknas om.
+  const [, setNotifPrefTick] = useState(0);
   useEffect(() => { setSeenNotifKeys(readSeenKeys(data.activeCompanyId)); setNotifOpenedUnread(new Set()); }, [data.activeCompanyId]);
   const [isHelpDrawerOpen, setIsHelpDrawerOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -1601,7 +1717,7 @@ function App() {
   // 'taxes' (profilmenyns "Viktiga datum", inget mer specifikt val) pekar
   // numera på Taxes.jsx:s egen "Viktiga datum"-flik ('dates') istället för
   // Moms — den fliken existerar nu specifikt för det, se Taxes.jsx.
-  const taxesSectionAliases = { taxes: 'dates', taxes_vat: 'vat', taxes_yearend: 'yearend' };
+  const taxesSectionAliases = { taxes: 'dates', taxes_vat: 'vat', taxes_agi: 'agi', taxes_yearend: 'yearend' };
   const [taxesInitialSection, setTaxesInitialSection] = useState('dates');
   // Inställningssidans avsnitt när man kommer via en genväg ('company',
   // 'settings_system'). Nollställs vid all annan navigering, så att menyns
@@ -1652,6 +1768,25 @@ function App() {
   // Samma ämnen som kontaktsidan (ContactPage.jsx TOPICS); value måste
   // finnas i ALLOWED_TOPICS i api/contact.js.
   const [reportErrorTopic, setReportErrorTopic] = useState('Felrapport');
+  // Hjälpartikel att öppna direkt (förslag i supportrutan, 2026-11-24).
+  const [helpArticleId, setHelpArticleId] = useState(null);
+  const supportSuggestions = reportErrorModal && isNewUnderlagUser(user?.email) && ['Felrapport', 'Support'].includes(reportErrorTopic) && reportErrorText.trim().length >= 12 ? suggestHelpArticles(reportErrorText) : [];
+  // En bild eller PDF att skicka med (2026-11-07), t.ex. en skärmbild av felet.
+  // { name, type, size, data } där data är base64. Kontrolleras igen i api/contact.js.
+  const [reportErrorFile, setReportErrorFile] = useState(null);
+  const reportErrorFileRef = useRef(null);
+  const attachSupportFile = (file) => {
+    if (!file) return;
+    const okType = /^image\/(png|jpe?g|webp|gif|heic|heif)$/i.test(file.type) || file.type === 'application/pdf';
+    if (!okType) { setToast({ message: tr('ui.support_fil_fel_typ'), variant: 'error' }); return; }
+    if (file.size > 3 * 1024 * 1024) { setToast({ message: tr('ui.support_fil_for_stor'), variant: 'error' }); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const data = String(reader.result || '').split(',')[1] || '';
+      setReportErrorFile({ name: file.name || 'skarmbild.png', type: file.type, size: file.size, data });
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Supporten ska slippa fråga var man var: sidan och företaget skickas med
   // under meddelandet (och visas i rutan, så att inget skickas i hemlighet).
@@ -1663,6 +1798,15 @@ function App() {
     const page = label === key ? id : label;
     const active = data.companies?.[data.activeCompanyId]?.company;
     return tr('ui.support_kontext', { page, company: [active?.name, active?.orgNr].filter(Boolean).join(', ') || '–' });
+  };
+
+  // Kort version för rutan: "Start · Exempel AB".
+  const getSupportContextShort = () => {
+    const id = resolveTab(activeTab);
+    const key = id === 'invoices' ? 'nav.customerInvoices' : `nav.${id}`;
+    const label = t(key);
+    const active = data.companies?.[data.activeCompanyId]?.company;
+    return [label === key ? id : label, active?.name].filter(Boolean).join(' · ');
   };
 
   const handleSubmitErrorReport = async () => {
@@ -1683,12 +1827,16 @@ function App() {
           'Content-Type': 'application/json',
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify({ name: senderName, email: user?.email || '', topic: reportErrorTopic, message }),
+        body: JSON.stringify({
+          name: senderName, email: user?.email || '', topic: reportErrorTopic, message,
+          ...(reportErrorFile ? { attachment: { name: reportErrorFile.name, type: reportErrorFile.type, data: reportErrorFile.data } } : {}),
+        }),
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload?.error || tr('ui.kunde_inte_skicka', { status: res.status }));
       setReportErrorModal(false);
       setReportErrorText('');
+      setReportErrorFile(null);
       setReportErrorTopic('Felrapport');
       setToast({ message: tr('ui.tack_meddelandet_ar_skickat'), variant: 'success' });
     } catch (err) {
@@ -1703,7 +1851,7 @@ function App() {
     const rTab = resolveTab(tabId);
     if (taxesSectionAliases[tabId]) setTaxesInitialSection(taxesSectionAliases[tabId]);
     if (verificationsSectionAliases[tabId]) setVerificationsInitialTab(verificationsSectionAliases[tabId]);
-    setSettingsShortcutSection({ company: 'company', settings_system: 'system' }[tabId] || null);
+    setSettingsShortcutSection({ company: 'company', settings_system: 'system', settings_subscription: 'subscription', settings_users: 'users', settings_invoice: 'invoice', settings_integrations: 'integrations', settings_appearance: 'appearance', settings_security: 'security', settings_advanced: 'advanced', settings_notifications: 'notifications' }[tabId] || null);
     setActiveTab(rTab);
     // Bokföring-sidans flikar får sitt eget id i adressen (#accruals), så att
     // en omladdning landar på fliken och inte bara på sidan.
@@ -2376,6 +2524,8 @@ function App() {
   // ägarskapet var helt korrekt lokalt. Anropas nu (best effort, kastar
   // aldrig) innan varje åtgärd servern verifierar ägarskap för — just nu
   // "Skicka via e-post" (Invoices.jsx/Quotes.jsx, onSyncBeforeServerCall).
+  // Sätts när en ändring ska sparas direkt i stället för efter den vanliga väntan.
+  const saveSoonRef = useRef(false);
   const syncUserDataNow = async () => {
     if (!user || !isLoggedIn) return;
     try {
@@ -2673,7 +2823,7 @@ function App() {
       const ownedMembershipsPromise = supabase.from('company_members').select('company_id').eq('owner_user_id', authUser.id).eq('status', 'active').then(r => r);
       const firstSubscriptionsPromise = supabase
         .from('subscriptions')
-        .select('company_id, status, trial_ends_at, current_period_end, cancel_at_period_end')
+        .select('company_id, status, plan, created_at, trial_ends_at, current_period_end, cancel_at_period_end')
         .eq('user_id', authUser.id)
         .then(r => r);
 
@@ -2717,7 +2867,7 @@ function App() {
         subscriptionsPromise = null;
         const { data, error } = pending ? await pending : await supabase
           .from('subscriptions')
-          .select('company_id, status, trial_ends_at, current_period_end, cancel_at_period_end')
+          .select('company_id, status, plan, created_at, trial_ends_at, current_period_end, cancel_at_period_end')
           .eq('user_id', authUser.id);
         if (error) return {};
         const map = {};
@@ -3109,6 +3259,98 @@ function App() {
     setShowOnboarding(false);
   }, [isLoggedIn, isLoadingAuth]);
 
+  // E-postinkorgen (api/inbox/email.js, återinförd 2026-11-18 i Underlag):
+  // underlag som mejlats till företagets adress ligger som rader i
+  // inbox_items. Här hämtas nya rader för det aktiva företaget och läggs i
+  // Underlag som "Ej hanterade", precis som en uppladdning. Varje rad tas med
+  // en villkorad uppdatering (status new → imported) INNAN den läggs till, så
+  // att två öppna flikar aldrig lägger till samma fil två gånger. Körs vid
+  // inloggning och företagsbyte, varannan minut och när fliken får fokus.
+  // Måste stå INNAN `if (isLoadingAuth) return ...` (hooks-ordningen).
+  const inboxCompanyIdRef = useRef(data.activeCompanyId);
+  inboxCompanyIdRef.current = data.activeCompanyId;
+  const inboxOwnerId = data.companies?.[data.activeCompanyId]?.__shared?.ownerUserId || user?.id || null;
+  useEffect(() => {
+    const companyId = data.activeCompanyId;
+    if (!user?.id || !supabaseEnabled || !companyId || !inboxOwnerId) return undefined;
+    let cancelled = false;
+    let running = false;
+    const pull = async () => {
+      if (running || cancelled) return;
+      running = true;
+      try {
+        const { data: rows, error } = await supabase
+          .from('inbox_items')
+          .select('id, from_email, from_name, subject, file_url, file_name, content_type, received_at')
+          .eq('owner_user_id', inboxOwnerId)
+          .eq('company_id', companyId)
+          .eq('status', 'new')
+          .order('received_at', { ascending: true })
+          .limit(50);
+        if (error || cancelled || !rows?.length) return;
+        const added = [];
+        const claimedIds = [];
+        for (const row of rows) {
+          const { data: claimed, error: claimErr } = await supabase
+            .from('inbox_items')
+            .update({ status: 'imported', imported_at: new Date().toISOString() })
+            .eq('id', row.id)
+            .eq('status', 'new')
+            .select('id');
+          if (claimErr || !claimed?.length) continue;
+          claimedIds.push(row.id);
+          const receivedMs = Date.parse(row.received_at) || Date.now();
+          added.push({
+            // exp_<millisekunder>: Underlag visar när det kom in (uploadedDate).
+            id: `exp_${receivedMs + added.length}`,
+            type: 'receipt',
+            date: String(row.received_at || new Date().toISOString()).slice(0, 10),
+            description: '', supplier: '',
+            amount: 0, netAmount: 0, vatAmount: 0, vatRate: 25, costAccount: '',
+            receiptUrl: row.file_url,
+            receiptType: row.content_type,
+            uploadedBy: { source: 'email', name: row.from_name || '', email: row.from_email || '' },
+            inbox: { source: 'email', from: row.from_email || '', subject: row.subject || '', fileName: row.file_name || '', receivedAt: row.received_at },
+          });
+        }
+        // Bytte man företag under tiden lämnas raderna tillbaka och hämtas
+        // när företaget är aktivt igen.
+        if (added.length && (cancelled || inboxCompanyIdRef.current !== companyId)) {
+          await supabase.from('inbox_items').update({ status: 'new', imported_at: null }).in('id', claimedIds);
+          return;
+        }
+        if (added.length) {
+          setData(prev => {
+            const target = prev.companies?.[companyId];
+            if (!target) return prev;
+            const have = new Set((target.expenses || []).map(e => e.receiptUrl).filter(Boolean));
+            const fresh = added.filter(e => !have.has(e.receiptUrl));
+            if (!fresh.length) return prev;
+            return { ...prev, companies: { ...prev.companies, [companyId]: { ...target, expenses: [...(target.expenses || []), ...fresh] } } };
+          });
+        }
+      } catch {
+        // Inkorgen är en bonus: ett nätverksfel här ska aldrig störa appen.
+      } finally {
+        running = false;
+      }
+    };
+    pull();
+    const timer = setInterval(pull, 2 * 60 * 1000);
+    const onFocus = () => { if (document.visibilityState === 'visible') pull(); };
+    document.addEventListener('visibilitychange', onFocus);
+    window.addEventListener('focus', onFocus);
+    // Underlag → Uppdatera hämtar direkt.
+    window.addEventListener('bokix:inbox-pull', pull);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onFocus);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('bokix:inbox-pull', pull);
+    };
+  }, [user?.id, supabaseEnabled, data.activeCompanyId, inboxOwnerId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Läs av statusflaggan Stripe-callbacken skickar tillbaka
   // (?stripe_connect=connected|cancelled|error|not_configured) och visa ett
   // meddelande — sedan bort med parametern ur URL:en så en omladdning inte
@@ -3262,7 +3504,9 @@ function App() {
     if (user && isLoggedIn) {
       // Samma synk som syncUserDataNow (definierad ovan, vid
       // saveUserDataToSupabase) — bara med den vanliga 2-sekundersväntan.
-      timeoutIds.push(setTimeout(() => { syncUserDataNow(); }, 2000));
+      const delay = saveSoonRef.current ? 0 : 2000;
+      saveSoonRef.current = false;
+      timeoutIds.push(setTimeout(() => { syncUserDataNow(); }, delay));
     }
 
     return () => timeoutIds.forEach(clearTimeout);
@@ -3389,6 +3633,20 @@ function App() {
   // De senaste ogranskade raderna, till notisklockan.
   const [integrationEvents, setIntegrationEvents] = useState([]);
   const onReviewTab = resolveTab(activeTab) === 'review';
+  // Notiserna ska komma medan appen är öppen, inte bara vid inloggning: en
+  // gång i minuten (bara när fliken syns) hämtas händelser och ändringar.
+  const [notifTick, setNotifTick] = useState(0);
+  const [bellRing, setBellRing] = useState(0);
+  useEffect(() => { unlockNotifySound(); }, []);
+  useEffect(() => {
+    if (!isLoggedIn) return undefined;
+    const id = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      setNotifTick(n => n + 1);
+      refreshFromServerRef.current?.().catch(() => {});
+    }, 60000);
+    return () => clearInterval(id);
+  }, [isLoggedIn]);
   useEffect(() => {
     if (!user?.id || !supabaseEnabled || !data.activeCompanyId) { setIntegrationReviewCount(0); setIntegrationEvents([]); return undefined; }
     let cancelled = false;
@@ -3417,7 +3675,7 @@ function App() {
       ]);
     })();
     return () => { cancelled = true; };
-  }, [user?.id, supabaseEnabled, data.activeCompanyId, onReviewTab]);
+  }, [user?.id, supabaseEnabled, data.activeCompanyId, onReviewTab, notifTick]);
 
   // Sidomenyns grupper kan fällas ihop genom att klicka på rubriken. Valet sparas
   // i webbläsaren. Alla grupper är uppfällda som standard, och gruppen som
@@ -3485,7 +3743,8 @@ function App() {
     // handleNavTabChange skickas med så rundturen kan navigera in på
     // varje sektion på riktigt (se productTour.js:s withNavigation).
     // Gömda funktioner (utils/optionalFeatures.js) hoppas över i rundturen.
-    maybeAutoStartTour(user.id, handleNavTabChange, hiddenFeatureNavIds(data.companies?.[data.activeCompanyId]), user);
+    // Rundturen startar inte längre av sig själv (2026-11-10): Kom igång är
+    // första mötet. Den startas från Kom igång eller Hjälp och support.
   }, [isLoggedIn, showOnboarding, activeNeedsSetup, subscriptionGate, user, data.activeCompanyId, data.companies, subscriptionsMap]);
 
   const handleLogin = () => {
@@ -3671,6 +3930,11 @@ function App() {
   };
 
   const handleOnboardingComplete = async (profile) => {
+    // Börjar från noll eller flyttar in (steget Start): startsidans Kom igång
+    // (dashboard/GetStarted.jsx) läser valet härifrån.
+    if (profile.startPath && data.activeCompanyId) {
+      try { localStorage.setItem('bokix_getstarted_' + data.activeCompanyId, JSON.stringify({ path: profile.startPath })); } catch { /* inte kritiskt */ }
+    }
     const name = profile.companyName?.trim() || company.name || tr('ui.mitt_foretag_ab');
     const nextState = {
       ...data,
@@ -3691,6 +3955,7 @@ function App() {
             fiscalYear: profile.fiscalYear || data.companies[data.activeCompanyId].company.fiscalYear,
             ...(profile.setup ? {
               firstFiscalYear: profile.setup.firstFiscalYear,
+              ...(profile.setup.legalPartnersOnly !== undefined ? { legalPartnersOnly: profile.setup.legalPartnersOnly } : {}),
               vatRegistered: profile.setup.vatRegistered,
               vatNr: profile.setup.vatNr || data.companies[data.activeCompanyId].company.vatNr || '',
             } : {}),
@@ -3899,6 +4164,45 @@ function App() {
   const setTimeReportStatuses = (fn) => updateCompanyField('timeReportStatuses', fn);
   const setBillableTimeEntries = (fn) => updateCompanyField('billableTimeEntries', fn);
   const setBankTransactions = (fn) => updateCompanyField('bankTransactions', (prev) => (typeof fn === 'function' ? fn(prev || []) : fn));
+  // Underlag att koppla (2026-11-14, utils/looseDocuments.js): filer sparade
+  // utan avläsning, tills de kopplas till en verifikation.
+  const setDocuments = (fn) => updateCompanyField('documents', (prev) => (typeof fn === 'function' ? fn(prev || []) : fn));
+  const handleAddDocument = (doc) => setDocuments(prev => [...prev, doc]);
+  // Inlämnad hos Skatteverket, markerat i uppgiftspanelen (samma company.taxFilings
+  // som Skatt och bokslut → Översikt).
+  const handleToggleTaxFiling = (key) => setCompanyInfo(prev => {
+    const next = { ...(prev.taxFilings || {}) };
+    if (next[key]) delete next[key]; else next[key] = { at: new Date().toISOString() };
+    return { ...prev, taxFilings: next };
+  });
+  // Leverantörsfaktura utan fil: underlaget läggs på fakturan och på dess
+  // verifikation, så det syns båda ställena (2026-11-20).
+  const handleAttachSupplierFile = (invoiceId, meta) => {
+    setExpenses(prev => prev.map(e => (e.id === invoiceId ? { ...e, attachmentUrl: meta.url, attachmentName: meta.name, attachmentType: meta.type } : e)));
+    setVerifications(prev => (prev || []).map(v => {
+      if (v.source !== 'supplier_invoice' || v.sourceId !== invoiceId) return v;
+      if (!v.attachmentUrl) return { ...v, attachmentUrl: meta.url, attachmentName: meta.name, attachmentType: meta.type };
+      return { ...v, attachments: [...(Array.isArray(v.attachments) ? v.attachments : []), { url: meta.url, name: meta.name, type: meta.type }] };
+    }));
+  };
+  // Saknar underlag (Underlag): fil eller pappersoriginal till en bokförd verifikation.
+  const handleAttachToVerification = (verificationId, patch) => setVerifications(prev => (prev || []).map(v => {
+    if (v.id !== verificationId) return v;
+    if (patch.originalLocation) return { ...v, originalLocation: patch.originalLocation };
+    if (!v.attachmentUrl) return { ...v, attachmentUrl: patch.url, attachmentName: patch.name, attachmentType: patch.type || '' };
+    return { ...v, attachments: [...(Array.isArray(v.attachments) ? v.attachments : []), { url: patch.url, name: patch.name, type: patch.type }] };
+  }));
+  const handleLinkDocument = (docId, verificationId) => {
+    const r = linkDocument(currentCompany.verifications || [], currentCompany.documents || [], docId, verificationId);
+    setVerifications(r.verifications);
+    setDocuments(r.documents);
+  };
+  // keepFile: filen blev ett kvitto och ska finnas kvar i lagringen.
+  const handleDeleteDocument = (docId, { keepFile = false } = {}) => {
+    const doc = (currentCompany.documents || []).find(d => d.id === docId);
+    setDocuments(prev => prev.filter(d => d.id !== docId));
+    if (doc?.url && !keepFile) deleteFileFromStorage(doc.url);
+  };
 
   const handleSaveVerificationTemplate = ({ name, description, projectId, costCenter, rows }) => {
     updateCompanyField('verificationTemplates', [
@@ -4372,24 +4676,76 @@ function App() {
     // Kontot sparas på fakturan så att utbetalningen senare krediterar rätt
     // konto (äldre fakturor bokade hela fordran på 1510).
     const rotRutDeduction = invType !== 'quote' && inv.rotRutType && !inv.rotRutStatus && (inv.currency || 'SEK') === 'SEK'
-      ? calcRotRutDeduction(inv.rotRutType, inv.rows).deduction : 0;
+      ? calcRotRutDeduction(inv.rotRutType, inv.rows, inv.rotRutCap).deduction : 0;
     if (rotRutDeduction !== 0) { inv.rotRutReceivable = '1513'; inv.rotRutBookedDeduction = rotRutDeduction; }
     setInvoices(prev => [...prev, inv]);
 
-    if (invType === 'quote') return;
+    // Den nya posten tillbaka till anroparen (telefonen öppnar fakturan direkt).
+    if (invType === 'quote') return inv;
 
-    // Med ören och med radrabatten, se utils/invoiceBooking.js. En avrundnings-
-    // differens på ören bokas av withRoundingBalance i handleAddVerification.
-    // En faktura i annan valuta bokförs i kronor med fakturans kurs (fxRate).
-    const verRows = invoiceBookingRows(inv.rows, { revenueAccounts: REVENUE_ACCOUNTS, vatAccounts: VAT_ACCOUNTS, rate: invoiceFxRate(inv), rotRutDeduction });
+    // Ett utkast bokförs inte (2026-11-15): det bokförs när det lämnar
+    // utkastläget, med de belopp det har då (bookInvoiceIfNeeded nedan).
+    // Förut bokades varje ny faktura direkt, även "Spara som utkast", och en
+    // senare ändring av utkastet uppdaterade aldrig verifikationen.
+    if ((inv.status || 'draft') !== 'draft') { bookInvoiceIfNeeded(inv); settleCashSale(inv); }
+    return inv;
+  };
 
+  // Kontantfaktura (2026-11-24): kunden har betalat vid köpet. När fakturan
+  // lämnar utkastläget bokförs betalningen samma dag (företagskontot eller
+  // vald kassa) och fakturan blir betald, ingen betalning att vänta på.
+  const settleCashSale = (inv) => {
+    if (!inv?.cashSale || inv.isDemo || inv.creditFor || inv.status === 'paid' || (inv.type || 'invoice') !== 'invoice' || (inv.status || 'draft') === 'draft') return;
+    const gross = Math.round(invoiceCustomerDue(inv) * invoiceFxRate(inv) * 100) / 100;
+    if (!(gross > 0)) return;
+    const date = inv.date || new Date().toISOString().split('T')[0];
     handleAddVerification({
-      date: inv.date,
-      description: `Faktura ${inv.invoiceNumber}`,
-      source: 'invoice',
-      sourceId: inv.id,
-      rows: verRows,
+      date, description: `Betalning faktura ${inv.invoiceNumber}`, source: 'invoice_payment', sourceId: inv.id,
+      rows: [{ account: inv.paidVia || '1930', debet: gross, kredit: 0 }, { account: '1510', debet: 0, kredit: gross }],
     });
+    setInvoices(prev => prev.map(i => (i.id === inv.id ? { ...i, status: 'paid', paidAmount: invoiceCustomerDue(inv), paidDate: date } : i)));
+  };
+
+  // Bokför en faktura som lämnat utkastläget. Finns ingen verifikation än
+  // bokförs fakturan med sina belopp. Finns redan en (utkast som bokades med
+  // det gamla beteendet och sedan ändrades) bokförs bara skillnaden som en
+  // ändringsverifikation, så att kundfordran, intäkter och moms alltid
+  // stämmer med fakturan. Små öresskillnader (3740) räknas inte.
+  const bookInvoiceIfNeeded = (inv) => {
+    if (!inv || inv.isDemo || (inv.type || 'invoice') !== 'invoice' || (inv.status || 'draft') === 'draft') return;
+    const sek = (inv.currency || 'SEK') === 'SEK';
+    const rotRutDeduction = inv.rotRutType && !inv.rotRutStatus && sek ? calcRotRutDeduction(inv.rotRutType, inv.rows, inv.rotRutCap).deduction : 0;
+    if ((inv.rotRutBookedDeduction || 0) !== rotRutDeduction && inv.rotRutType && !inv.rotRutStatus) {
+      setInvoices(prev => prev.map(i => (i.id === inv.id ? { ...i, rotRutReceivable: rotRutDeduction ? '1513' : i.rotRutReceivable, rotRutBookedDeduction: rotRutDeduction || undefined } : i)));
+    }
+    const expected = invoiceBookingRows(inv.rows, { revenueAccounts: REVENUE_ACCOUNTS, vatAccounts: VAT_ACCOUNTS, rate: invoiceFxRate(inv), rotRutDeduction });
+    const existing = verifications.filter(v => v.source === 'invoice' && v.sourceId === inv.id && (v.status || 'booked') !== 'draft');
+    if (existing.length === 0) {
+      handleAddVerification({ date: inv.date, description: `Faktura ${inv.invoiceNumber}`, source: 'invoice', sourceId: inv.id, rows: expected });
+      return;
+    }
+    const net = new Map();
+    const add = (account, amount) => net.set(String(account), (net.get(String(account)) || 0) + amount);
+    expected.forEach(r => add(r.account, getDebet(r) - getKredit(r)));
+    existing.forEach(v => (v.rows || []).forEach(r => add(r.account, -(getDebet(r) - getKredit(r)))));
+    const diffRows = [...net.entries()]
+      .filter(([account, amount]) => account !== '3740' && Math.abs(amount) >= 0.5)
+      .map(([account, amount]) => ({ account, debet: amount > 0 ? Math.round(amount * 100) / 100 : 0, kredit: amount < 0 ? Math.round(-amount * 100) / 100 : 0 }));
+    if (diffRows.length === 0) return;
+    handleAddVerification({ date: new Date().toISOString().split('T')[0], description: `Ändring faktura ${inv.invoiceNumber}`, source: 'invoice', sourceId: inv.id, rows: diffRows });
+  };
+
+  // Fakturalistan ändrar fakturor med setInvoices. En faktura som där går
+  // från utkast till skickad eller betald bokförs (bookInvoiceIfNeeded).
+  const setInvoicesAndBook = (fn) => {
+    // Den sparade listan (utan applyCreditNotes), samma som setInvoices får.
+    const prevList = currentCompany.invoices || [];
+    const next = typeof fn === 'function' ? fn(prevList) : fn;
+    setInvoices(fn);
+    for (const inv of next || []) {
+      const before = prevList.find(p => p.id === inv.id);
+      if ((inv.status || 'draft') !== 'draft' && (!before || (before.status || 'draft') === 'draft')) { bookInvoiceIfNeeded(inv); settleCashSale(inv); }
+    }
   };
 
   // Konvertering offert → faktura är det ENDA stället en post flyttas mellan
@@ -4399,8 +4755,68 @@ function App() {
   // flytta posten tyst utan verifikation (vilket den gamla, aldrig
   // ihopkopplade versionen av denna funktion också gjorde fel — den skrev
   // om posten på plats i `invoices` som om offerter redan låg där).
-  const handleConvertQuoteToInvoice = (quoteId) => {
-    const quote = quotes.find(q => q.id === quoteId);
+  // Kundorder (2026-11-24): fakturautkast för det som är levererat på en order.
+  // Fakturan har orderId och drar därför inte lagret igen (inventory.js).
+  // `paid` = { date, account }: kunden har redan betalat (kontant, kort, Swish).
+  // Fakturan bokförs då direkt och betalningen bokförs samma dag, och ingen
+  // faktura öppnas för att skickas.
+  const handleInvoiceFromOrder = ({ id, order, rows, paid = null }) => {
+    const contact = contacts.find(c => c.id === order.customerId);
+    const today = new Date().toISOString().split('T')[0];
+    const due = new Date(); due.setDate(due.getDate() + (Number(order.paymentTermsDays) || Number(company?.paymentTermsDays) || 30));
+    const invoice = {
+      id, type: 'invoice', status: 'draft', date: today, dueDate: due.toISOString().split('T')[0],
+      invoiceNumber: getNextInvoiceNumber(invoices, company),
+      customerId: order.customerId || '', customerName: order.customerName || contact?.name || '',
+      customerEmail: order.customerEmail || contact?.email || '', customerAddress: order.customerAddress || '', customerOrgNr: order.customerOrgNr || '',
+      ourRef: order.ourRef || '', theirRef: order.theirRef || '',
+      orderId: order.id, orderNumber: order.number, ...(order.quoteId ? { quoteId: order.quoteId, quoteNumber: order.quoteNumber } : {}),
+      rows: rows.map((row, i) => ({ id: `${id}_r${i}`, rotRutLabor: false, ...row })),
+    };
+    if (paid) {
+      const date = paid.date || today;
+      const sent = { ...invoice, status: 'sent', date, dueDate: date, paidVia: paid.account || '1930' };
+      const gross = Math.round(invoiceCustomerDue(sent) * 100) / 100;
+      const done = { ...sent, status: 'paid', paidAmount: gross, paidDate: date };
+      setInvoices(prev => [...prev, done]);
+      bookInvoiceIfNeeded(sent);
+      if (gross > 0) {
+        handleAddVerification({
+          date, description: `Betalning faktura ${invoice.invoiceNumber}`, source: 'invoice_payment', sourceId: id,
+          rows: [{ account: paid.account || '1930', debet: gross, kredit: 0 }, { account: '1510', debet: 0, kredit: gross }],
+        });
+      }
+      return done;
+    }
+    setInvoices(prev => [...prev, invoice]);
+    handleGlobalAction({ type: 'open_invoice', payload: { id } }, 'invoices');
+    return invoice;
+  };
+  // En kund som bara skrivits in på en order blir en riktig kund i Kunder.
+  const handleCreateContactFromOrder = (data) => {
+    const id = `contact_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    setContacts(prev => [...(prev || []), { id, type: 'customer', customerType: 'se_company', country: 'Sverige', paymentTerms: 30, invoiceLanguage: 'sv', active: true, balance: 0, lastInvoiceDate: null, totalInvoicedThisYear: 0, ...data }]);
+    return id;
+  };
+  // Offert → order: ordern skapas med offertens rader och öppnas.
+  const handleQuoteToOrder = (quoteId, latest = null) => {
+    const stored = quotes.find(q => q.id === quoteId);
+    const quote = stored && latest ? { ...stored, ...latest } : stored;
+    if (!quote) return null;
+    const orderId = `so_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    let n = 0;
+    const order = orderFromQuote(quote, { id: orderId, number: nextOrderNumber(company?.salesOrders || []), rowKey: () => `${orderId}_${n++}`, articles });
+    setCompanyInfo(prev => ({ ...prev, salesOrders: [...(prev.salesOrders || []), order] }));
+    const stamp = new Date().toISOString().slice(0, 10);
+    setQuotes(prev => prev.map(q => (q.id === quoteId ? { ...q, ...(latest || {}), status: q.status === 'invoiced' ? q.status : 'accepted', acceptedAt: q.acceptedAt || stamp, orderId, orderNumber: order.number } : q)));
+    handleGlobalAction({ type: 'open_order', payload: { id: orderId, fromQuote: quote.invoiceNumber || '' } }, 'orders');
+    return order;
+  };
+
+  const handleConvertQuoteToInvoice = (quoteId, latest = null) => {
+    // `latest`: osparade ändringar i den öppna offerten följer med (2026-11-20).
+    const stored = quotes.find(q => q.id === quoteId);
+    const quote = stored && latest ? { ...stored, ...latest } : stored;
     if (!quote) return null;
 
     const invoiceNumber = getNextInvoiceNumber(invoices, company);
@@ -4413,6 +4829,9 @@ function App() {
 
     const updatedInvoice = {
       ...quote,
+      id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      quoteId: quote.id,
+      quoteNumber: quote.invoiceNumber,
       type: 'invoice',
       status: 'draft',
       date: today,
@@ -4423,30 +4842,16 @@ function App() {
       rows: (quote.rows || []).map(r => ({ discount: 0, account: '3001', ...r })),
     };
 
-    setQuotes(prev => prev.filter(q => q.id !== quoteId));
+    // Offerten finns kvar med status Fakturerad och en länk till fakturan
+    // (2026-11-15), i stället för att försvinna. Fakturan blir ett utkast som
+    // bokförs först när det skapas på riktigt (bookInvoiceIfNeeded).
+    setQuotes(prev => prev.map(q => (q.id === quoteId ? { ...q, ...(latest || {}), status: 'invoiced', invoiceId: updatedInvoice.id, invoicedAt: today } : q)));
     setInvoices(prev => [...prev, updatedInvoice]);
-
-    // Med ören och med radrabatten, se utils/invoiceBooking.js. En avrundnings-
-    // differens på ören bokas av withRoundingBalance i handleAddVerification.
-    const book = (rate) => handleAddVerification({
-      date: updatedInvoice.date,
-      description: `Faktura ${updatedInvoice.invoiceNumber}`,
-      source: 'invoice',
-      sourceId: updatedInvoice.id,
-      rows: invoiceBookingRows(updatedInvoice.rows, { revenueAccounts: REVENUE_ACCOUNTS, vatAccounts: VAT_ACCOUNTS, rate }),
-    });
     // En offert i annan valuta får dagens kurs när den blir faktura.
     if (updatedInvoice.currency && updatedInvoice.currency !== 'SEK' && !(Number(updatedInvoice.fxRate) > 0)) {
       convertToSek(1, updatedInvoice.currency, updatedInvoice.date).then(res => {
-        if (!res?.rate) {
-          setToast({ message: tr('ui.fakturan_ar_skapad_men_inte_bokford_vaxelkursen', { currency: updatedInvoice.currency }), variant: 'error' });
-          return;
-        }
-        setInvoices(prev => prev.map(i => (i.id === updatedInvoice.id ? { ...i, fxRate: res.rate } : i)));
-        book(res.rate);
+        if (res?.rate) setInvoices(prev => prev.map(i => (i.id === updatedInvoice.id ? { ...i, fxRate: res.rate } : i)));
       });
-    } else {
-      book(invoiceFxRate(updatedInvoice));
     }
 
     return updatedInvoice;
@@ -4485,6 +4890,9 @@ function App() {
   const handleRegisterInvoicePayment = (invoiceId, amount, date, bankLedgerAccount = '1930', { sekReceived, amountIsSek = false } = {}) => {
     const inv = invoices.find(i => i.id === invoiceId);
     if (!inv || !amount || amount <= 0) return;
+    // Ett utkast som betalas bokförs först, annars krediteras 1510 utan att
+    // fordran någonsin bokats.
+    if ((inv.status || 'draft') === 'draft') bookInvoiceIfNeeded({ ...inv, status: 'sent' });
     const fx = invoiceFxRate(inv);
     const foreign = fx !== 1;
 
@@ -4604,7 +5012,7 @@ function App() {
     invoiceIds.forEach(id => {
       const inv = invoices.find(i => i.id === id);
       if (!inv?.rotRutType) return;
-      const amount = inv.rotRutBookedDeduction ?? calcRotRutDeduction(inv.rotRutType, inv.rows).deduction;
+      const amount = inv.rotRutBookedDeduction ?? calcRotRutDeduction(inv.rotRutType, inv.rows, inv.rotRutCap).deduction;
       if (amount <= 0) return;
       handleAddVerification({
         date,
@@ -4678,7 +5086,7 @@ function App() {
   const handleRotRutRejected = (invoiceId, date) => {
     const inv = invoices.find(i => i.id === invoiceId);
     if (!inv?.rotRutType) return;
-    const amount = inv.rotRutBookedDeduction ?? calcRotRutDeduction(inv.rotRutType, inv.rows).deduction;
+    const amount = inv.rotRutBookedDeduction ?? calcRotRutDeduction(inv.rotRutType, inv.rows, inv.rotRutCap).deduction;
     if (amount > 0 && inv.rotRutReceivable === '1513') {
       handleAddVerification({
         date,
@@ -4696,15 +5104,33 @@ function App() {
       : i)));
   };
 
-  // "Markera som obetald" ångrar en registrerad betalning — status och
-  // betalt belopp återställs, och betalningsverifikationerna tas faktiskt
-  // bort (inte bara döljs), eftersom det är precis vad en ångrad
-  // betalningsregistrering innebär. Kräver bekräftelse i UI:t innan den anropas.
+  // En bokförd verifikation får aldrig tas bort (bokföringslagen, obruten
+  // verifikationsserie). Ångras en betalning bokas i stället en rättelse med
+  // omvända rader, länkad till originalet med reversesId (2026-11-22). Förut
+  // raderades betalningsverifikationen. Utkast har ingen bokföring att rätta.
+  const reverseBookedVerifications = (source, sourceId, reversalSource) => {
+    const today = new Date().toISOString().split('T')[0];
+    verifications
+      .filter(v => v.source === source && v.sourceId === sourceId && (v.status || 'booked') !== 'draft')
+      .filter(v => !verifications.some(x => x.reversesId === v.id))
+      .forEach(v => handleAddVerification({
+        date: today,
+        description: `Rättelse: ${v.description}`,
+        source: reversalSource,
+        sourceId,
+        reversesId: v.id,
+        rows: (v.rows || []).map(r => ({ ...r, debet: r.kredit || 0, kredit: r.debet || 0 })),
+      }));
+  };
+
+  // "Markera som obetald" ångrar en registrerad betalning: status och betalt
+  // belopp återställs och betalningen rättas med en motverifikation (se
+  // reverseBookedVerifications). Kräver bekräftelse i UI:t innan den anropas.
   const handleUnmarkInvoicePaid = (invoiceId) => {
     setInvoices(prev => prev.map(i =>
       i.id === invoiceId ? { ...i, status: 'sent', paidDate: undefined, paidAmount: 0 } : i
     ));
-    setVerifications(prev => prev.filter(v => !(v.source === 'invoice_payment' && v.sourceId === invoiceId)));
+    reverseBookedVerifications('invoice_payment', invoiceId, 'invoice_payment_reversal');
   };
 
   // Add expense with auto-booking
@@ -4775,25 +5201,28 @@ function App() {
     if (!inv.rows?.length && !inv.costAccount) return;
 
     const rows = inv.rows?.length ? inv.rows : [{ account: inv.costAccount, netAmount: inv.netAmount, vatAmount: inv.vatAmount }];
+    // Med ören (2026-11-22): kostnad, moms och skuld avrundades förut var för
+    // sig till hela kronor, så momsen blev fel och ören hamnade på 3740.
+    const cents = (v) => Math.round((Number(v) || 0) * 100) / 100;
     const verRows = rows
       .filter(r => r.account && r.netAmount)
-      .map(r => ({ account: r.account, debet: Math.round(r.netAmount), kredit: 0, costCenter: inv.costCenter || undefined, projectId: inv.projectId || undefined }));
+      .map(r => ({ account: r.account, debet: cents(r.netAmount), kredit: 0, costCenter: inv.costCenter || undefined, projectId: inv.projectId || undefined }));
 
-    const totalVat = inv.reverseCharge ? 0 : rows.reduce((s, r) => s + (r.vatAmount || 0), 0);
+    const totalVat = inv.reverseCharge ? 0 : cents(rows.reduce((s, r) => s + cents(r.vatAmount || 0), 0));
     if (totalVat > 0) {
-      verRows.push({ account: '2641', debet: Math.round(totalVat), kredit: 0 });
+      verRows.push({ account: '2641', debet: totalVat, kredit: 0 });
     }
 
-    const payableAccount = inv.paidByOwnerPrivately ? '2018' : '2440';
-    const netTotal = rows.reduce((s, r) => s + (r.netAmount || 0), 0);
-    const payableAmount = Math.round(netTotal + totalVat);
+    // Betald privat: aktiebolag 2893 (skuld till ägaren), enskild firma och
+    // handelsbolag 2018, föreningar 2890. Förut alltid 2018.
+    const payableAccount = inv.paidByOwnerPrivately ? ownerPaidAccount(company?.orgNr) : '2440';
+    const exactTotal = cents(verRows.reduce((s, r) => s + r.debet, 0));
+    // Öresavrundad faktura: skulden är den avrundade totalen och skillnaden
+    // bokas på 3740. Avrundat uppåt = kostnad (debet), nedåt = intäkt (kredit).
+    const payableAmount = inv.roundToKrona ? Math.round(exactTotal) : exactTotal;
     verRows.push({ account: payableAccount, debet: 0, kredit: payableAmount });
-
-    if (inv.roundToKrona && Math.round(inv.roundingDiff * 100) !== 0) {
-      // Positiv diff (avrundat uppåt) krediteras 3740, negativ (nedåt) debiteras.
-      const diff = Math.round(inv.roundingDiff);
-      if (diff !== 0) verRows.push({ account: '3740', debet: diff < 0 ? -diff : 0, kredit: diff > 0 ? diff : 0 });
-    }
+    const diff = cents(payableAmount - exactTotal);
+    if (diff !== 0) verRows.push({ account: '3740', debet: diff > 0 ? diff : 0, kredit: diff < 0 ? -diff : 0 });
 
     handleAddVerification({
       date: inv.date,
@@ -4851,8 +5280,9 @@ function App() {
       source: 'supplier_invoice_payment',
       sourceId: inv.id,
       rows: [
-        { account: '2440', debet: Math.round(inv.amount), kredit: 0 },
-        { account: bankLedgerAccount, debet: 0, kredit: Math.round(inv.amount) },
+        // Med ören, annars blev ören kvar som skuld på 2440 (2026-11-22).
+        { account: '2440', debet: Math.round((Number(inv.amount) || 0) * 100) / 100, kredit: 0 },
+        { account: bankLedgerAccount, debet: 0, kredit: Math.round((Number(inv.amount) || 0) * 100) / 100 },
       ],
     });
   };
@@ -4866,7 +5296,7 @@ function App() {
   // vilket är rätt: det finns ingen betalning att ångra där.
   const handleUnmarkSupplierInvoicePaid = (expenseId) => {
     setExpenses(prev => prev.map(e => e.id === expenseId ? { ...e, status: 'unpaid', paidDate: undefined, paymentMethod: undefined } : e));
-    setVerifications(prev => prev.filter(v => !(v.source === 'supplier_invoice_payment' && v.sourceId === expenseId)));
+    reverseBookedVerifications('supplier_invoice_payment', expenseId, 'supplier_invoice_payment_reversal');
   };
 
   // Sätter konto på en utgift som saknar kontering — antingen via det gamla
@@ -4931,8 +5361,54 @@ function App() {
   // Avläsningen av ett kvitto sparas på kvittot som ett utkast (ocrDraft) så
   // att det visas direkt nästa gång kvittot öppnas, utan ny avläsning. Det är
   // inte ifyllda fält: kvittot förblir "ej hanterat" tills man själv sparar.
+  // Mejl i Underlag: läst när det öppnats (inbox.seenAt), som en inkorg.
+  const handleMarkInboxSeen = (ids, seen = true) => {
+    const set = new Set(ids || []);
+    if (!set.size) return;
+    const at = new Date().toISOString();
+    setExpenses(prev => prev.map(e => {
+      if (!set.has(e.id) || e.inbox?.source !== 'email' || Boolean(e.inbox.seenAt) === seen) return e;
+      const inbox = { ...e.inbox };
+      if (seen) inbox.seenAt = at; else delete inbox.seenAt;
+      return { ...e, inbox };
+    }));
+  };
   const handleSaveOcrDraft = (expenseId, draft) => {
     setExpenses(prev => prev.map(e => (e.id === expenseId ? { ...e, ocrDraft: draft } : e)));
+  };
+
+  // Papperskorgen i Underlag (2026-11-18, som Fortnox): ett obokfört underlag
+  // som tas bort flyttas till company.receiptTrash och går att återställa.
+  // Ligger på företagsinfon (redan skrivbar), utan avläsningens text och
+  // rutor så att raden hålls liten. Efter 30 dagar tas det bort för gott.
+  const handleTrashExpense = (expenseId) => {
+    const alreadyBooked = verifications.some(v => (v.source === 'expense' || v.source === 'expense_fix') && v.sourceId === expenseId);
+    if (alreadyBooked) return;
+    const expense = expenses.find(e => e.id === expenseId);
+    if (!expense) return;
+    const slim = { ...expense, trashedAt: new Date().toISOString(), ocrDraft: expense.ocrDraft ? { ...expense.ocrDraft, readText: undefined, boxes: undefined } : undefined };
+    setExpenses(prev => prev.filter(e => e.id !== expenseId));
+    setCompanyInfo(prev => ({ ...prev, receiptTrash: [slim, ...(prev.receiptTrash || []).filter(r => r.id !== expenseId)].slice(0, 200) }));
+    setBankTransactions(prev => prev.map(t => (t.matchedType === 'receipt' && t.matchedId === expenseId ? { ...t, status: 'unmatched', matchedType: undefined, matchedId: undefined } : t)));
+  };
+  const handleRestoreExpense = (expenseId) => {
+    const item = (company?.receiptTrash || []).find(r => r.id === expenseId);
+    if (!item) return;
+    const { trashedAt: _t, ...back } = item;
+    setCompanyInfo(prev => ({ ...prev, receiptTrash: (prev.receiptTrash || []).filter(r => r.id !== expenseId) }));
+    setExpenses(prev => (prev.some(e => e.id === expenseId) ? prev : [...prev, back]));
+  };
+  const handlePurgeTrash = (ids) => {
+    const set = new Set(ids);
+    (company?.receiptTrash || []).filter(r => set.has(r.id)).forEach(r => { if (r.receiptUrl) deleteFileFromStorage(r.receiptUrl); });
+    setCompanyInfo(prev => ({ ...prev, receiptTrash: (prev.receiptTrash || []).filter(r => !set.has(r.id)) }));
+  };
+  // Underlag → Matcha mot transaktion: bankraden kopplas till kvittot, som
+  // redan bokförts mot 1930. Ingen ny verifikation (samma som Bank-sidans
+  // Koppla till kvittot).
+  const handleLinkReceiptToBank = (rowId, expenseId) => {
+    if (!rowId || !expenseId) return;
+    setBankTransactions(prev => prev.map(t => (t.id === rowId ? { ...t, status: 'matched', matchedType: 'receipt', matchedId: expenseId } : t)));
   };
 
   const handleSaveReceiptDetails = (expenseId, formValues) => {
@@ -4950,15 +5426,28 @@ function App() {
     const netAmount = mixedVat !== null
       ? Math.round((amount - mixedVat) * 100) / 100
       : vatRate > 0 ? Math.round((amount / (1 + vatRate / 100)) * 100) / 100 : amount;
-    const vatAmount = Math.round((amount - netAmount) * 100) / 100;
+    let vatAmount = Math.round((amount - netAmount) * 100) / 100;
+    let bookedNet = netAmount;
+    let bookedAccount = formValues.costAccount;
+    // Extern representation: momsen bara upp till taket per person, och
+    // måltider på 6072 (ej avdragsgill). Se utils/representation.js.
+    const repr = formValues.representation && REPRESENTATION_ACCOUNTS.has(formValues.costAccount) ? formValues.representation : null;
+    if (repr) {
+      const sign = amount < 0 ? -1 : 1;
+      const r = representationBooking({ kind: repr.kind, persons: repr.persons, net: Math.abs(netAmount), vat: Math.abs(vatAmount), vatRate: mixedVat !== null ? 'mixed' : vatRate, account: formValues.costAccount });
+      bookedAccount = r.account;
+      bookedNet = sign * r.cost;
+      vatAmount = sign * r.deductibleVat;
+    }
 
     const updated = {
       ...exp,
       date: formValues.date,
       supplier: formValues.supplier,
       description: formValues.supplier,
-      amount, netAmount, vatAmount, vatRate,
-      costAccount: formValues.costAccount,
+      amount, netAmount: bookedNet, vatAmount, vatRate,
+      costAccount: bookedAccount,
+      representation: repr || undefined,
       projectId: formValues.projectId || undefined,
       folderId: formValues.folderId || undefined,
       receiptNumber: formValues.receiptNumber || undefined,
@@ -4968,6 +5457,13 @@ function App() {
       // sker i kronor (amount).
       foreignCurrency: formValues.foreignCurrency || undefined,
       notes: formValues.notes || undefined,
+      // Uppgifterna som lästes ur underlaget (org.nr, VAT-nr, bankgiro, IBAN, OCR).
+      identifiers: formValues.identifiers || undefined,
+      // Ägaren betalade privat (utlägg): krediteras 2018/2893/2890 i stället för 1930.
+      paidBy: formValues.paidBy === 'owner' || formValues.paidBy === 'employee' ? formValues.paidBy : undefined,
+      // Anställds utlägg: betalas tillbaka i lönekörningen (löneart Utlägg).
+      paidByEmployeeId: formValues.paidBy === 'employee' ? formValues.paidByEmployeeId : undefined,
+      paidByEmployeeName: formValues.paidBy === 'employee' ? formValues.paidByEmployeeName : undefined,
       // Utkastet från avläsningen behövs inte längre när kvittot är sparat.
       ocrDraft: undefined,
     };
@@ -4986,7 +5482,9 @@ function App() {
     const fxNote = describeForeign(updated.foreignCurrency);
     const verRows = [{ account: updated.costAccount, debet: cents(updated.netAmount), kredit: 0, projectId: updated.projectId, ...(fxNote ? { desc: fxNote } : {}) }];
     if (updated.vatAmount !== 0) verRows.push({ account: '2641', debet: cents(updated.vatAmount), kredit: 0 });
-    verRows.push({ account: '1930', debet: 0, kredit: cents(updated.amount) });
+    // Betalt av: företaget 1930, ägaren privat 2018/2893/2890, en anställd 2820.
+    const payAccount = updated.paidBy === 'owner' ? ownerPaidAccount(company?.orgNr) : updated.paidBy === 'employee' ? '2820' : '1930';
+    verRows.push({ account: payAccount, debet: 0, kredit: cents(updated.amount) });
     // En retur har negativt belopp: varje rad byter sida, så att pengarna
     // kommer in på 1930 och kostnaden och momsen minskar.
     const sided = (r) => (r.debet < 0 || r.kredit < 0 ? { ...r, debet: Math.max(0, -r.kredit), kredit: Math.max(0, -r.debet) } : r);
@@ -5038,7 +5536,12 @@ function App() {
     showUndo({
       message: tr('ui.undo_kvitto_borttaget'),
       onUndo: () => setExpenses(prev => restoreAt(prev, expense, index)),
-      onCommit: () => { if (expense.receiptUrl) deleteFileFromStorage(expense.receiptUrl); },
+      // En bankrad som var kopplad till kvittot blir ohanterad igen, annars
+      // kom köpet aldrig med i bokföringen.
+      onCommit: () => {
+        if (expense.receiptUrl) deleteFileFromStorage(expense.receiptUrl);
+        setBankTransactions(prev => prev.map(t => (t.matchedType === 'receipt' && t.matchedId === expenseId ? { ...t, status: 'unmatched', matchedType: undefined, matchedId: undefined } : t)));
+      },
     });
   };
 
@@ -5074,6 +5577,17 @@ function App() {
   const handleSaveEmployee = (employeeId, data) => {
     if (employeeId) {
       setEmployees(prev => prev.map(e => e.id === employeeId ? { ...e, ...data } : e));
+      // Lönekörningar som inte räknats än får ändringen direkt (bankkonto,
+      // lön, skattetabell), samma regel som handleApplyFos: en räknad
+      // körning ändras aldrig i efterhand.
+      const current = employees.find(e => e.id === employeeId);
+      if (current && isNewUnderlagUser(user?.email)) {
+        const updated = { ...current, ...data };
+        setPayrollRuns(prev => prev.map(r => (r.completedSteps.includes('calculated') || !r.rows.some(row => row.employeeId === employeeId) ? r : {
+          ...r,
+          rows: r.rows.map(row => (row.employeeId === employeeId ? { ...row, employeeSnapshot: payrollSnapshot(updated, r) } : row)),
+        })));
+      }
     } else {
       setEmployees(prev => [...prev, { ...data, id: `emp_${Date.now()}` }]);
     }
@@ -5097,7 +5611,7 @@ function App() {
       period,
       hoursWorked: 0,
       additions: 0, absenceDeduction: 0, grossDeduction: 0, benefits: 0, netDeduction: 0,
-      employeeSnapshot: { ...e },
+      employeeSnapshot: payrollSnapshot(e, { payDate, period }),
       // Åldersanpassad arbetsgivaravgift (payrollConfig.employerFeeFor).
       feeRules: FEE_RULES_VERSION,
     }));
@@ -5142,6 +5656,21 @@ function App() {
     }
   };
 
+  // Uppgiftspanelen på startsidan: markera månadens AGI som inlämnad (eller
+  // ångra). Samma väg som lönekörningens AGI-steg, så rapporten, körningen
+  // och Skatt och bokslut visar samma sak.
+  const handleSetAgiSubmitted = (period, submitted) => {
+    if (submitted) {
+      const run = payrollRuns.find(r => r.period === period && r.completedSteps?.includes('booked'));
+      if (run && !run.completedSteps.includes('agi')) { handleAdvanceRunStep(run.id, 'agi'); return; }
+      const existing = agiReports.find(r => r.period === period);
+      if (existing && existing.status !== 'submitted') handleMarkAgiSubmitted(existing.id);
+      return;
+    }
+    setAgiReports(prev => prev.map(r => (r.period === period && r.status === 'submitted' ? { ...r, status: 'draft', submittedAt: undefined } : r)));
+    setPayrollRuns(prev => prev.map(r => (r.period === period && r.completedSteps?.includes('agi') ? { ...r, completedSteps: r.completedSteps.filter(st => st !== 'agi') } : r)));
+  };
+
   const handleDeleteAgiReport = (reportId) => {
     setAgiReports(prev => prev.filter(r => r.id !== reportId));
   };
@@ -5182,7 +5711,7 @@ function App() {
       ...r,
       rows: r.rows.map(row => {
         const current = updated.find(e => e.id === row.employeeId);
-        return current && byId.has(current.id) ? { ...row, employeeSnapshot: { ...row.employeeSnapshot, ...byId.get(current.id) } } : row;
+        return current && byId.has(current.id) ? { ...row, employeeSnapshot: payrollSnapshot({ ...row.employeeSnapshot, ...byId.get(current.id) }, r) } : row;
       }),
     })));
   };
@@ -5195,7 +5724,7 @@ function App() {
         rows: r.rows.map(row => {
           const current = (currentEmployees || employees).find(e => e.id === row.employeeId);
           // En körning som inte räknats än får också de nya avgiftsreglerna.
-          return current ? { ...row, employeeSnapshot: { ...current }, feeRules: FEE_RULES_VERSION } : row;
+          return current ? { ...row, employeeSnapshot: payrollSnapshot(current, r), feeRules: FEE_RULES_VERSION } : row;
         }),
       };
     }));
@@ -5342,7 +5871,18 @@ function App() {
   // Count for review badge (must be before navSections)
   // Granskningskön (Sida "Granskning") = kvitton/leverantörsfakturor utan
   // kontering — samma underlag som ReviewQueue.jsx faktiskt visar.
-  const reviewCount = expenses.filter(e => !e.costAccount).length;
+  // Nya Underlag: underlag utan leverantör eller belopp räknas i Underlag, inte här.
+  const newUnderlagOn = isNewUnderlagUser(user?.email);
+  // Lugnare arbetsytor (Lager, Prissättning, Projekt, Tid, Periodiseringar,
+  // Tillgångar, Lön) bara för admin än så länge (2026-11-22): nya CSS-regler
+  // gäller under html.ws-v2, de gamla sidorna ligger i *Legacy.jsx.
+  if (typeof document !== 'undefined') document.documentElement.classList.toggle('ws-v2', newUnderlagOn);
+  const PayrollView = newUnderlagOn ? Payroll : PayrollLegacy;
+  const ProjectsView = newUnderlagOn ? Projects : ProjectsLegacy;
+  const AccrualsView = newUnderlagOn ? Accruals : AccrualsLegacy;
+  const FixedAssetsView = newUnderlagOn ? FixedAssets : FixedAssetsLegacy;
+  const reviewCount = expenses.filter(e => !e.costAccount && !(newUnderlagOn && needsUnderlagWork(e))).length;
+  const underlagWorkCount = newUnderlagOn ? expenses.filter(needsUnderlagWork).length : 0;
   // Granskning-sidan har också flikarna Stripe och Zettle. Deras rader räknas
   // i integrationReviewCount (hämtas högre upp) och ingår i det som menyn visar.
   const reviewTotal = reviewCount + integrationReviewCount;
@@ -5362,7 +5902,8 @@ function App() {
     const submitted = agiReports.some(r => r.period === d.periodKey && r.status === 'submitted');
     return booked && !submitted && d.daysLeft <= 7 ? d : null;
   })();
-  const notifications = buildNotificationFeed({ t, invoices, integrationEvents, vat: vatSoon, agi: agiSoon });
+  const notifications = buildNotificationFeed({ t, invoices, expenses: isNewUnderlagUser(user?.email) && (() => { try { return localStorage.getItem('bokix.inboxNotify') !== '0'; } catch { return true; } })() ? expenses : [], integrationEvents, vat: vatSoon, agi: agiSoon })
+    .filter(n => !n.keys.every(k => dismissedNotifKeys.has(k)));
   const notificationCount = notifications.filter(n => isUnread(n, seenNotifKeys)).length;
   const toggleNotifMenu = () => {
     setIsProfileMenuOpen(false);
@@ -5376,36 +5917,26 @@ function App() {
     else handleNavTabChange(n.target?.tab || 'dashboard');
     setIsNotifMenuOpen(false);
   };
-  const NOTIF_ICON = { paid: Banknote, integration: Banknote, deadline: CalendarClock };
+  // Notispanelen: components/NotificationPanel.jsx (samma i demon).
   const renderNotifPanel = () => (
-    <div className="profile-dropdown notif-dropdown">
-      <div className="profile-header" style={{ paddingBottom: 4 }}>
-        <div className="profile-name">{tr('ui.notiser')}</div>
-      </div>
-      <div className="dropdown-divider"></div>
-      {notifications.length === 0 ? (
-        <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>{t('notifFeed.empty')}</div>
-      ) : notifications.map((n) => {
-        const Icon = NOTIF_ICON[n.kind] || Bell;
-        const fresh = notifOpenedUnread.has(n.keys.join('|'));
-        return (
-          <button key={n.keys.join('|')} onClick={() => openNotification(n)} style={{ alignItems: 'flex-start' }}>
-            <span style={{ width: 26, height: 26, borderRadius: '7px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `var(--status-${n.tone}-bg)`, color: `var(--status-${n.tone}-text)`, opacity: fresh ? 1 : 0.6 }}>
-              <Icon size={13} />
-            </span>
-            <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-              <span style={{ display: 'block', overflowWrap: 'break-word', fontWeight: fresh ? 600 : 400, color: fresh ? 'var(--text-main)' : 'var(--text-secondary)' }}>{n.text}</span>
-              <span style={{ display: 'block', fontSize: '11.5px', color: 'var(--text-muted)', marginTop: 2 }}>{notificationWhen(t, n.at)}</span>
-            </span>
-            {fresh && <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', flexShrink: 0, marginTop: 6 }} />}
-          </button>
-        );
-      })}
-      <div className="dropdown-divider"></div>
-      <button onClick={() => { handleNavTabChange('dashboard'); setIsNotifMenuOpen(false); }} style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-        {t('notifFeed.todo')}
-      </button>
-    </div>
+    <NotificationPanel
+      t={t}
+      title={tr('ui.notiser')}
+      notifications={notifications}
+      openedUnread={notifOpenedUnread}
+      onOpen={openNotification}
+      onTodo={() => { handleNavTabChange('dashboard'); setIsNotifMenuOpen(false); }}
+      onDismiss={(n) => setDismissedNotifKeys(d => writeDismissedKeys(data.activeCompanyId, d, n.keys))}
+      onSettings={() => { handleNavTabChange('settings_notifications'); setIsNotifMenuOpen(false); }}
+      // Inställningarna i panelen bara för admin än så länge (2026-11-22).
+      quickSettings={!newUnderlagOn ? null : {
+        sound: notifySoundEnabled(user),
+        onSound: (on) => { supabase.auth.updateUser({ data: { notif_sound: on } }).then(({ data: res }) => { if (res?.user) setUser(res.user); }).catch(() => {}); },
+        onPreview: () => previewNotifySound(),
+        inboxNotify: isNewUnderlagUser(user?.email) ? (() => { try { return localStorage.getItem('bokix.inboxNotify') !== '0'; } catch { return true; } })() : null,
+        onInboxNotify: (on) => { try { localStorage.setItem('bokix.inboxNotify', on ? '1' : '0'); window.dispatchEvent(new Event('bokix-inbox-notify')); } catch { /* privat läge */ } setNotifPrefTick(n => n + 1); },
+      }}
+    />
   );
 
   // ── Render content ──
@@ -5448,8 +5979,8 @@ function App() {
   const mobileNavItems = [
     { id: 'dashboard',     label: t('navShort.dashboard'), icon: NavHomeIcon },
     { id: 'verifications', label: tr('ui.bokforing'), icon: BookOpen },
-    { id: 'expenses',      label: tr('ui.kvitton'),   icon: NavReceiptsIcon },
-    { id: 'reports',       label: t('navShort.reports'), icon: BarChart3 },
+    { id: 'expenses',      label: isNewUnderlagUser(user?.email) ? tr('nav.underlag') : tr('nav.expenses'),   icon: isNewUnderlagUser(user?.email) ? NavUnderlagIcon : NavReceiptsIcon },
+    { id: 'reports',       label: t('navShort.reports'), icon: NavReportsIcon },
   ];
   // Telefonens Meny har samma grupper som sidomenyn på datorn, utan det som redan
   // finns i bottenraden (se visibleMobileSheetSections).
@@ -5457,20 +5988,21 @@ function App() {
     { key: 'business', title: t('nav.groupBusiness'), items: [
       { id: 'contacts', label: t('nav.contacts'), icon: Users },
       { id: 'quotes', label: t('nav.quotes'), icon: NavQuotesIcon, exact: true },
+      { id: 'orders', label: t('nav.orders'), icon: ClipboardList, exact: true },
       { id: 'invoices', label: t('nav.customerInvoices'), icon: NavCustomerInvoicesIcon, exact: true },
       { id: 'articles', label: t('nav.articles'), icon: Package, exact: true },
       { id: 'projects', label: t('nav.projects'), icon: Briefcase },
     ] },
     { key: 'finance', title: t('nav.groupFinance'), items: [
-      { id: 'expenses', label: t('nav.expenses'), icon: NavReceiptsIcon },
+      { id: 'expenses', label: isNewUnderlagUser(user?.email) ? t('nav.underlag') : t('nav.expenses'), icon: isNewUnderlagUser(user?.email) ? NavUnderlagIcon : NavReceiptsIcon },
       { id: 'supplier_invoices', label: t('nav.supplierInvoices'), icon: NavSupplierInvoicesIcon, exact: true },
       { id: 'payroll', label: t('nav.payroll'), icon: NavPayrollIcon },
     ] },
     { key: 'reports', title: t('nav.groupReports'), items: [
       { id: 'bank', label: t('nav.bank'), icon: Landmark },
       { id: 'verifications', label: t('nav.verifications'), icon: BookOpen },
-      { id: 'reports', label: t('nav.reports'), icon: BarChart3 },
-      { id: 'taxes', label: t('nav.taxes'), icon: Calculator },
+      { id: 'reports', label: t('nav.reports'), icon: NavReportsIcon },
+      { id: 'taxes', label: t('nav.taxes'), icon: NavTaxesIcon },
     ] },
     { key: 'settings', title: null, items: [
       { id: 'settings', label: t('nav.settings'), icon: SettingsIcon },
@@ -5486,7 +6018,9 @@ function App() {
   // Gömda funktioner (utils/optionalFeatures.js) syns inte i menyn, men
   // sidan finns kvar. Kollas på menyvalets eget id, eftersom Artiklar
   // delar behörighet med Kundfakturor (navAccessId).
-  const featureHiddenNavIds = hiddenFeatureNavIds(currentCompany);
+  // Order syns bara för admin med artiklar påslaget (senare: Handel-planen).
+  const ordersOn = newUnderlagOn && isFeatureOn(currentCompany, 'articles');
+  const featureHiddenNavIds = [...hiddenFeatureNavIds(currentCompany), ...(ordersOn ? [] : ['orders'])];
   const isNavItemShown = (item) => !featureHiddenNavIds.includes(item.id) && isNavIdAllowed(navAccessId(item.id));
   // Offerter, Kundfakturor, Artiklar och Leverantörsfakturor markeras bara på sin egen sida.
   const isNavItemActive = (item) => (item.exact
@@ -5585,6 +6119,7 @@ function App() {
         return (
           <Dashboard
             {...commonProps}
+            onSetAgiSubmitted={handleSetAgiSubmitted}
             invoices={invoices}
             expenses={expenses}
             contacts={contacts}
@@ -5599,7 +6134,11 @@ function App() {
             reviewTotal={reviewTotal}
             agiReports={agiReports}
             bankTransactions={bankTransactions}
+            documents={currentCompany.documents || []}
+            onToggleTaxFiling={handleToggleTaxFiling}
             hiddenNavIds={featureHiddenNavIds}
+            payrollIncluded={planIncludesPayroll((subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan)}
+            onStartTour={() => startProductTourWhenReady({ uid: user?.id, navigate: handleNavTabChange, hiddenTabs: hiddenFeatureNavIds(currentCompany) })}
             onOpenItem={handleGlobalAction}
             onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears}
           />
@@ -5629,9 +6168,8 @@ function App() {
           );
         }
         return (
-          <Payroll
+          <PayrollView
             key={company?.id || data.activeCompanyId}
-            company={company}
             employees={employees}
             onSaveEmployee={handleSaveEmployee}
             onImportEmployees={handleImportEmployees}
@@ -5649,6 +6187,7 @@ function App() {
             onDeleteRun={handleDeleteRun}
             onRefreshRunSnapshots={handleRefreshRunSnapshots}
             agiReports={agiReports}
+            outlays={expenses.filter(e => e.paidBy === 'employee' && e.costAccount && e.paidByEmployeeId)}
           />
         );
       case 'taxes':
@@ -5677,6 +6216,7 @@ function App() {
             onNavigateToTab={handleNavTabChange}
             initialSection={taxesInitialSection}
             contacts={contacts}
+            authorityPackage={newUnderlagOn ? { documents: currentCompany.documents || [], projects } : null}
           />
         );
       case 'invoices':
@@ -5694,10 +6234,12 @@ function App() {
             invoices={invoices}
             contacts={contacts}
             accounts={accounts}
+            articleSearch={newUnderlagOn}
             articles={articles}
             setArticles={setArticles}
             verifications={verifications}
             onAdd={handleAddInvoice}
+            // setInvoicesAndBook: utkast som skapas, skickas eller markeras bokförs.
             onMarkPaid={handleMarkInvoicePaid}
             onRegisterPayment={handleRegisterInvoicePayment}
             onRotRutRequested={handleRotRutRequested}
@@ -5710,7 +6252,7 @@ function App() {
             onGetPaymentLinkUrl={getInvoicePaymentLinkUrl}
             activeCompanyId={data.activeCompanyId}
             stripeAccountId={company.stripeAccountId}
-            setInvoices={setInvoices}
+            setInvoices={setInvoicesAndBook}
             company={company}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
@@ -5740,6 +6282,10 @@ function App() {
             onSaveOcrDraft={handleSaveOcrDraft}
             onDeleteExpense={handleDeleteExpense}
             onReverseExpense={handleReverseExpense}
+            documents={currentCompany.documents || []}
+            onAddDocument={handleAddDocument}
+            onLinkDocument={handleLinkDocument}
+            onDeleteDocument={handleDeleteDocument}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
             pageTitle={tr('ui.kostnader')}
@@ -5763,7 +6309,25 @@ function App() {
             onSaveOcrDraft={handleSaveOcrDraft}
             onDeleteExpense={handleDeleteExpense}
             onReverseExpense={handleReverseExpense}
-            pageTitle={tr('ui.kvitton')}
+            documents={currentCompany.documents || []}
+            onAddDocument={handleAddDocument}
+            onLinkDocument={handleLinkDocument}
+            onDeleteDocument={handleDeleteDocument}
+            bankTransactions={bankTransactions}
+            onLinkBankRow={handleLinkReceiptToBank}
+            companyId={data.activeCompanyId}
+            receiptTrash={company?.receiptTrash || []}
+            employees={employees}
+            onTrashExpense={handleTrashExpense}
+            onRestoreExpense={handleRestoreExpense}
+            onPurgeTrash={handlePurgeTrash}
+            pageTitle={isNewUnderlagUser(user?.email) ? tr('nav.underlag') : tr('nav.expenses')}
+            onOpenMenu={() => setSidebarOpen(true)}
+            newUnderlag={isNewUnderlagUser(user?.email)}
+            globalAction={globalAction}
+            clearGlobalAction={() => setGlobalAction(null)}
+            onAttachToVerification={isNewUnderlagUser(user?.email) ? handleAttachToVerification : undefined}
+            onMarkSeen={isNewUnderlagUser(user?.email) ? handleMarkInboxSeen : undefined}
           />
         );
       case 'supplier_invoices': {
@@ -5794,6 +6358,7 @@ function App() {
         return (
           <SupplierInvoices
             key={company?.id || data.activeCompanyId}
+            company={company}
             headerTabs={supplierTabs}
             expenses={expenses}
             accounts={accounts}
@@ -5805,6 +6370,8 @@ function App() {
             onMarkSupplierInvoicePaid={handleMarkSupplierInvoicePaid}
             onUnmarkSupplierInvoicePaid={handleUnmarkSupplierInvoicePaid}
             onFixExpenseAccount={handleFixExpenseAccount}
+            verifications={verifications}
+            onAttachSupplierFile={handleAttachSupplierFile}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
             onNavigate={handleNavTabChange}
@@ -5812,12 +6379,15 @@ function App() {
         );
       }
       case 'quotes':
-        return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} contacts={contacts} projects={projects} company={company} activeCompanyId={data.activeCompanyId} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} articles={articles} setArticles={setArticles} onSyncBeforeServerCall={syncUserDataNow} />;
+        return <Quotes key={company?.id || data.activeCompanyId} quotes={quotes} setQuotes={setQuotes} onConvert={handleConvertQuoteToInvoice} onMakeOrder={ordersOn ? handleQuoteToOrder : null} orderIds={ordersOn ? new Set((company?.salesOrders || []).map(o => o.id)) : null} contacts={contacts} projects={projects} company={company} activeCompanyId={data.activeCompanyId} user={user} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} handleGlobalAction={handleGlobalAction} articles={articles} setArticles={setArticles} onSyncBeforeServerCall={syncUserDataNow} articleSearch={newUnderlagOn} />;
+      case 'orders':
+        if (!ordersOn) return null;
+        return <Orders key={company?.id || data.activeCompanyId} activeCompanyId={data.activeCompanyId} onSyncBeforeServerCall={syncUserDataNow} company={company} setCompanyInfo={setCompanyInfo} articles={articles} contacts={contacts} invoices={invoices} onCreateContact={handleCreateContactFromOrder} onCreateInvoice={handleInvoiceFromOrder} onOpenInvoice={(id) => handleGlobalAction({ type: 'open_invoice', payload: { id } }, 'invoices')} onOpenQuote={(id) => handleGlobalAction({ type: 'open_quote', payload: { id } }, 'quotes')} globalAction={globalAction} clearGlobalAction={() => setGlobalAction(null)} />;
       case 'articles':
-        return <Articles key={company?.id || data.activeCompanyId} articles={articles} setArticles={setArticles} accounts={accounts} company={company} verifications={verifications} invoices={invoices} expenses={expenses} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} />;
+        return <Articles key={company?.id || data.activeCompanyId} articles={articles} setArticles={setArticles} accounts={accounts} company={company} verifications={verifications} invoices={invoices} expenses={expenses} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} v2={newUnderlagOn} />;
       case 'projects':
         return (
-          <Projects
+          <ProjectsView
             key={company?.id || data.activeCompanyId}
             projects={projects}
             invoices={invoices}
@@ -5856,6 +6426,8 @@ function App() {
             verifications={verifications}
             accounts={accounts}
             balances={balances}
+            invoices={invoices}
+            expenses={expenses}
             contacts={contacts}
             projects={projects}
             templates={verificationTemplates}
@@ -5884,6 +6456,7 @@ function App() {
             onAddVerification={handleAddVerification}
             initialTab={reviewInitialTab}
             handleGlobalAction={handleGlobalAction}
+            newUnderlag={isNewUnderlagUser(user?.email)}
           />
         );
 
@@ -5895,6 +6468,8 @@ function App() {
             verifications={verifications}
             accounts={accounts}
             balances={balances}
+            invoices={invoices}
+            expenses={expenses}
             contacts={contacts}
             projects={projects}
             templates={verificationTemplates}
@@ -5918,11 +6493,34 @@ function App() {
               try { window.history.replaceState(window.history.state, '', `#${id}`); } catch { /* adressen är bara en bekvämlighet */ }
             }}
             extraTabs={isUfCompany(company) ? [] : [
-              { id: 'accruals', label: tr('ui.periodiseringar'), content: <Accruals company={company} accounts={accounts} verifications={verifications} employees={employees} payrollRuns={payrollRuns} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
-              { id: 'fixed_assets', label: tr('ui.tillgangar'), content: <FixedAssets company={company} accounts={accounts} verifications={verifications} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
+              { id: 'accruals', label: tr('ui.periodiseringar'), content: <AccrualsView company={company} accounts={accounts} verifications={verifications} employees={employees} payrollRuns={payrollRuns} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
+              { id: 'fixed_assets', label: tr('ui.tillgangar'), content: <FixedAssetsView company={company} accounts={accounts} verifications={verifications} onAddVerification={handleAddVerification} setCompanyInfo={setCompanyInfo} /> },
             // Gömda funktioner (utils/optionalFeatures.js) visas inte, utom när
             // man kommer dit via en länk (t.ex. bokslutets checklista).
             ].filter(tab => isFeatureOn(currentCompany, tab.id) || verificationsInitialTab === tab.id)}
+            onAttachFiles={handleAttachVerificationFiles}
+            openAsPage={newUnderlagOn}
+            // Periodisera från verifikationen (2026-11-22), bara admin än så länge.
+            spreads={newUnderlagOn ? (company?.accrualSpreads || []) : null}
+            onPeriodize={newUnderlagOn ? (spread) => {
+              setCompanyInfo(prev => ({ ...prev, accrualSpreads: [...(prev?.accrualSpreads || []), spread] }));
+              handleAddVerification(buildSpreadStart(spread));
+              setToast({ message: tr('spread.savedToast', { n: spread.months }), variant: 'success' });
+            } : null}
+            lockedFiscalYears={company?.lockedFiscalYears}
+            // Kontroll (2026-11-21): på telefon en rad överst i Verifikationer, på
+            // datorn en knapp i sidhuvudet med panel från höger. Inte en egen
+            // flik. Bara admin tills vidare, som nya Underlag.
+            topSlot={newUnderlagOn ? (
+              <Suspense fallback={null}>
+                <BookkeepingCheckBar verifications={verifications} invoices={invoices} expenses={expenses} vatPeriods={vatPeriods} bankTransactions={bankTransactions} vatExempt={isVatExempt(company)} onNavigate={(tab) => handleNavTabChange(tab)} onOpenVerification={(id) => { setVerificationsInitialTab('verifications'); setHighlightVerificationId(id); }} />
+              </Suspense>
+            ) : null}
+            headerSlot={newUnderlagOn ? (
+              <Suspense fallback={null}>
+                <BookkeepingCheckButton verifications={verifications} invoices={invoices} expenses={expenses} vatPeriods={vatPeriods} bankTransactions={bankTransactions} vatExempt={isVatExempt(company)} onNavigate={(tab) => handleNavTabChange(tab)} onOpenVerification={(id) => { setVerificationsInitialTab('verifications'); setHighlightVerificationId(id); }} />
+              </Suspense>
+            ) : null}
           />
         );
       case 'bank':
@@ -5953,6 +6551,8 @@ function App() {
             accounts={accounts}
             verifications={verifications}
             invoices={invoices}
+            expenses={expenses}
+            documents={currentCompany.documents || []}
             payrollRuns={payrollRuns}
             contacts={contacts}
             company={company}
@@ -5963,6 +6563,8 @@ function App() {
       case 'settings':
         return (
           <Settings
+            subscriptionPlan={(subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan || null}
+            subscriptionCreatedAt={(subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).created_at || null}
             onOpenHelp={() => setIsHelpDrawerOpen(true)}
             onLogout={() => setShowLogoutConfirm(true)}
             company={company}
@@ -5974,6 +6576,7 @@ function App() {
             expenses={expenses}
             contacts={contacts}
             projects={projects}
+            documents={currentCompany.documents || []}
             onImport={handleImportData}
             onReset={handleResetData}
             stripeAccountId={company.stripeAccountId}
@@ -6002,14 +6605,14 @@ function App() {
             onOpenRotRutImport={() => handleGlobalAction({ type: 'rotrut_import' }, 'invoices')}
             onAttachVerificationFiles={handleAttachVerificationFiles}
             themePreference={themePreference}
-            onSetThemePreference={setThemePreference}
+            onSetThemePreference={chooseTheme}
             density={density}
             onSetDensity={setDensity}
             initialSection={settingsInitialSection}
           />
         );
       default:
-        return <Dashboard {...commonProps} invoices={invoices} expenses={expenses} contacts={contacts} setActiveTab={handleNavTabChange} company={company} vatPeriods={vatPeriods} payrollRuns={payrollRuns} employees={employees} reviewTotal={reviewTotal} agiReports={agiReports} bankTransactions={bankTransactions} hiddenNavIds={featureHiddenNavIds} onOpenItem={handleGlobalAction} onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears} />;
+        return <Dashboard {...commonProps} invoices={invoices} expenses={expenses} contacts={contacts} setActiveTab={handleNavTabChange} company={company} vatPeriods={vatPeriods} payrollRuns={payrollRuns} employees={employees} reviewTotal={reviewTotal} agiReports={agiReports} bankTransactions={bankTransactions} documents={currentCompany.documents || []} onToggleTaxFiling={handleToggleTaxFiling} onSetAgiSubmitted={handleSetAgiSubmitted} hiddenNavIds={featureHiddenNavIds} payrollIncluded={planIncludesPayroll((subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan)} onOpenItem={handleGlobalAction} onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears} />;
     }
   };
 
@@ -6055,7 +6658,7 @@ function App() {
             ) : !isLoggedIn ? (
               showLanding
                 ? <LandingPage onEnterApp={(mode, plan) => { if (mode === 'signup' && !plan) { navigate('/priser'); return; } setShowLanding(false); setAuthMode(mode === 'signup' ? 'signup' : 'login'); if (plan) setSelectedPlan(plan); }} />
-                : <Auth onLogin={handleLogin} onBackToLanding={inInstalledApp ? () => {} : () => setShowLanding(true)} initialMode={authMode} plan={selectedPlan} initialUf={signupAsUf} />
+                : <Auth onLogin={handleLogin} onBackToLanding={inInstalledApp ? () => {} : isAppHost() ? () => { window.location.href = SITE_ORIGIN; } : () => setShowLanding(true)} initialMode={authMode} plan={selectedPlan} initialUf={signupAsUf} />
             ) : showOnboarding ? (
               // Bugkritiskt: `showOnboarding`/handleOnboardingComplete/
               // handleSkipOnboarding fanns redan helt färdigkopplade (även
@@ -6145,6 +6748,7 @@ function App() {
               items: [
                 { id: 'contacts', label: t('nav.contacts'), short: t('navShort.contacts'), icon: Users },
                 { id: 'quotes', label: t('nav.quotes'), short: t('navShort.quotes'), icon: NavQuotesIcon, exact: true },
+                { id: 'orders', label: t('nav.orders'), short: t('navShort.orders'), icon: ClipboardList, exact: true },
                 { id: 'invoices', label: t('nav.customerInvoices'), short: t('navShort.invoices'), icon: NavCustomerInvoicesIcon, exact: true },
                 { id: 'articles', label: t('nav.articles'), short: t('navShort.articles'), icon: Package, exact: true },
                 { id: 'projects', label: t('nav.projects'), short: t('navShort.projects'), icon: Briefcase },
@@ -6154,7 +6758,7 @@ function App() {
               key: 'finance',
               title: t('nav.groupFinance'),
               items: [
-                { id: 'expenses', label: t('nav.expenses'), short: t('navShort.expenses'), icon: NavReceiptsIcon },
+                { id: 'expenses', label: isNewUnderlagUser(user?.email) ? t('nav.underlag') : t('nav.expenses'), short: isNewUnderlagUser(user?.email) ? t('navShort.underlag') : t('navShort.expenses'), badge: underlagWorkCount, icon: isNewUnderlagUser(user?.email) ? NavUnderlagIcon : NavReceiptsIcon },
                 { id: 'supplier_invoices', label: t('nav.supplierInvoices'), short: t('navShort.supplierInvoices'), icon: NavSupplierInvoicesIcon, exact: true },
                 { id: 'payroll', label: t('nav.payroll'), short: t('navShort.payroll'), icon: NavPayrollIcon },
               ],
@@ -6165,8 +6769,8 @@ function App() {
               items: [
                 { id: 'bank', label: t('nav.bank'), short: t('navShort.bank'), icon: Landmark },
                 { id: 'verifications', label: t('nav.verifications'), short: t('navShort.verifications'), icon: BookOpen },
-                { id: 'reports', label: t('nav.reports'), short: t('navShort.reports'), icon: BarChart3 },
-                { id: 'taxes', label: t('nav.taxes'), short: t('navShort.taxes'), icon: Calculator },
+                { id: 'reports', label: t('nav.reports'), short: t('navShort.reports'), icon: NavReportsIcon },
+                { id: 'taxes', label: t('nav.taxes'), short: t('navShort.taxes'), icon: NavTaxesIcon },
               ],
             },
           ].map(group => ({ ...group, items: group.items.filter(item => !item.hidden && isNavItemShown(item)) }))
@@ -6186,7 +6790,7 @@ function App() {
                   <ChevronDown className="nav-group-chevron" size={12} style={{ transform: collapsed ? 'rotate(-90deg)' : 'none' }} />
                 </button>
               )}
-              <div className={`nav-group-items${collapsed ? ' is-collapsed' : ''}`}>
+              <div className={`nav-group-items${collapsed ? ' is-collapsed' : ''}`} data-tour={group.key ? `nav-${group.key}` : undefined}>
               {group.items.map((item) => {
                 // Offerter, Kundfakturor, Artiklar och Leverantörsfakturor är egna
                 // sidor: markeras bara på sin egen sida, inte på alla som delar
@@ -6223,8 +6827,6 @@ function App() {
                     </span>
                     {item.badge > 0 && (
                       <span className="nav-badge" style={{
-                        minWidth: '20px', height: '20px', padding: '0 6px', borderRadius: '999px',
-                        background: '#22c55e', color: 'white', fontSize: '12px', fontWeight: 700,
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                       }}>
                         {item.badge}
@@ -6245,6 +6847,18 @@ function App() {
         {/* Fastsatt botten-sektion: Inställningar och Hjälp och support. Logga ut
             ligger i profilmenyn och längst ned i Inställningars meny. */}
         <div className="sidebar-footer-actions" style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+          <button
+            type="button"
+            className="nav-item nav-rail-toggle"
+            title={effectiveRail ? tr('ui.nav_expand') : tr('ui.nav_collapse')}
+            aria-label={effectiveRail ? tr('ui.nav_expand') : tr('ui.nav_collapse')}
+            onClick={toggleNavRail}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
+              <ChevronLeft size={18} style={{ flexShrink: 0, opacity: 0.85, transform: effectiveRail ? 'rotate(180deg)' : 'none', transition: 'transform 200ms ease' }} />
+              <span className="nav-label">{tr('ui.nav_collapse')}</span>
+            </span>
+          </button>
           <button
             type="button"
             data-tour="nav-settings"
@@ -6305,7 +6919,7 @@ function App() {
               {theme === 'dark' ? <Sun size={23} /> : <Moon size={23} />}
             </button>
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-              <button className="topbar-icon-btn" title={tr('ui.notiser')} onClick={toggleNotifMenu}>
+              <button key={`bell-${bellRing}`} className={bellRing ? 'topbar-icon-btn bell-ring' : 'topbar-icon-btn'} title={tr('ui.notiser')} onClick={toggleNotifMenu}>
                 <Bell size={23} />
               </button>
               {notificationCount > 0 && (
@@ -6342,6 +6956,15 @@ function App() {
                       </div>
                     </div>
                   </div>
+                  <div className="dropdown-divider"></div>
+                  {/* Genvägar till det man oftast letar efter under sitt konto
+                      (2026-11-19, grundarens önskan: menyn kändes tom). */}
+                  <>
+                    <button onClick={() => { handleNavTabChange('settings'); setIsProfileMenuOpen(false); }}><SettingsIcon size={14} /> {tr('ui.installningar')}</button>
+                    {ownsAnyCompany && <button onClick={() => { handleNavTabChange('settings_subscription'); setIsProfileMenuOpen(false); }}><CreditCard size={14} /> {tr('ui.prenumeration')}</button>}
+                    {ownsAnyCompany && <button onClick={() => { handleNavTabChange('settings_users'); setIsProfileMenuOpen(false); }}><Users size={14} /> {tr('ui.anvandare_behorigheter')}</button>}
+                    <button onClick={() => { handleNavTabChange('settings_security'); setIsProfileMenuOpen(false); }}><ShieldCheck size={14} /> {tr('ui.sakerhet')}</button>
+                  </>
                   <div className="dropdown-divider"></div>
                   {renderCompanySwitcher()}
                   {/* Kundfeedback: "Profil" och "Inställningar" var redundanta
@@ -6403,7 +7026,7 @@ function App() {
             {/* Tema-knappen (måne/sol) ligger i profilmenyn på telefon: i en
                 app står bara det man använder hela tiden i toppfältet. */}
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-              <button className="topbar-icon-btn" title={tr('ui.notiser')} onClick={toggleNotifMenu}>
+              <button key={`bell-${bellRing}`} className={bellRing ? 'topbar-icon-btn bell-ring' : 'topbar-icon-btn'} title={tr('ui.notiser')} onClick={toggleNotifMenu}>
                 <Bell size={23} />
               </button>
               {notificationCount > 0 && (
@@ -6440,6 +7063,15 @@ function App() {
                   <button onClick={() => { toggleTheme(); setIsProfileMenuOpen(false); }}>
                     {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} {theme === 'dark' ? tr('ui.ljust_lage') : tr('ui.morkt_lage')}
                   </button>
+                  <div className="dropdown-divider"></div>
+                  {/* Genvägar till det man oftast letar efter under sitt konto
+                      (2026-11-19, grundarens önskan: menyn kändes tom). */}
+                  <>
+                    <button onClick={() => { handleNavTabChange('settings'); setIsProfileMenuOpen(false); }}><SettingsIcon size={14} /> {tr('ui.installningar')}</button>
+                    {ownsAnyCompany && <button onClick={() => { handleNavTabChange('settings_subscription'); setIsProfileMenuOpen(false); }}><CreditCard size={14} /> {tr('ui.prenumeration')}</button>}
+                    {ownsAnyCompany && <button onClick={() => { handleNavTabChange('settings_users'); setIsProfileMenuOpen(false); }}><Users size={14} /> {tr('ui.anvandare_behorigheter')}</button>}
+                    <button onClick={() => { handleNavTabChange('settings_security'); setIsProfileMenuOpen(false); }}><ShieldCheck size={14} /> {tr('ui.sakerhet')}</button>
+                  </>
                   <div className="dropdown-divider"></div>
                   {renderCompanySwitcher()}
                   {/* Kundfeedback: "Profil" och "Inställningar" var redundanta
@@ -6621,12 +7253,17 @@ function App() {
       )}
 
       {/* ── Help Drawer ── */}
+      <NotifSoundWatcher notifications={notifications} seenKeys={seenNotifKeys} companyId={data.activeCompanyId} soundOn={notifySoundEnabled(user)} soundId={notifySoundChoice(user)} onRing={() => setBellRing(n => n + 1)} />
       <HelpDrawer
         isOpen={isHelpDrawerOpen}
-        onClose={() => setIsHelpDrawerOpen(false)}
+        onClose={() => { setIsHelpDrawerOpen(false); setHelpArticleId(null); }}
         onStartTour={() => { setIsHelpDrawerOpen(false); handleNavTabChange('dashboard'); startProductTourWhenReady({ uid: user?.id, navigate: handleNavTabChange, hiddenTabs: hiddenFeatureNavIds(currentCompany) }); }}
         onStartInvoiceTour={() => { setIsHelpDrawerOpen(false); handleNavTabChange('invoices'); startInvoiceTourWhenReady({ uid: user?.id }); }}
         onContactSupport={(topic) => { setIsHelpDrawerOpen(false); setReportErrorTopic(topic); setReportErrorModal(true); }}
+        currentTab={resolveTab(activeTab)}
+        hiddenTabs={featureHiddenNavIds}
+        openArticleId={helpArticleId}
+        onNavigate={(tab, action) => (action ? handleGlobalAction(action, tab) : handleNavTabChange(tab))}
       />
 
       {/* ── Toast — ersätter blockerande alert() för t.ex. "Stripe är nu
@@ -6653,6 +7290,12 @@ function App() {
               ...('vatPeriod' in answers ? { vatPeriod: answers.vatPeriod, vatPeriodConfirmedAt: now } : {}),
               ...('fSkatt' in answers ? { fSkatt: answers.fSkatt, fSkattConfirmedAt: now } : {}),
             }));
+            // Ett svar är ett svar: frågan kommer inte tillbaka under besöket, även
+            // om en sparning eller hämtning på ett stort konto hinner emellan.
+            setVatPromptLater(ids => [...ids, data.activeCompanyId]);
+            // Svaret sparas direkt, inte efter den vanliga väntan: laddar man om
+            // sidan inom två sekunder ska frågan inte komma tillbaka.
+            saveSoonRef.current = true;
           }}
           onLater={() => setVatPromptLater(ids => [...ids, data.activeCompanyId])}
         />
@@ -6708,20 +7351,22 @@ function App() {
 
       {reportErrorModal && (
         <div className="modal-overlay" onClick={() => { if (!reportErrorBusy) setReportErrorModal(false); }}>
-          <div className="modal-content" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
+          <div className="modal-content" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">{tr('ui.kontakta_support')}</h2>
               <button className="modal-close" onClick={() => setReportErrorModal(false)}>
                 <X size={18} />
               </button>
             </div>
-            <form onSubmit={(e) => { e.preventDefault(); handleSubmitErrorReport(); }}>
-              <div className="form-group">
-                <label className="form-label">{tr('ui.vad_galler_det')}</label>
-                <div className="filter-pills contact-topics" role="radiogroup">
+            <form onSubmit={(e) => { e.preventDefault(); handleSubmitErrorReport(); }} className="support-form">
+              {/* 2026-11-07: tre tydliga delar — ämne, meddelande med bilaga,
+                  och vad som följer med (avsändare, sida, företag). */}
+              <fieldset className="support-section">
+                <legend className="form-label">{tr('ui.vad_galler_det')}</legend>
+                <div className="support-topics" role="radiogroup">
                   {[
-                    ['Support', 'ui.amne_hjalp_med_bokix'],
                     ['Felrapport', 'ui.amne_nagot_fungerar_inte'],
+                    ['Support', 'ui.amne_hjalp_med_bokix'],
                     ['Fakturering & pris', 'ui.amne_prenumeration_och_betalning'],
                     ['Säkerhet & integritet', 'ui.amne_personuppgifter_och_sakerhet'],
                     ['Övrigt', 'ui.amne_nagot_annat'],
@@ -6731,34 +7376,83 @@ function App() {
                       type="button"
                       role="radio"
                       aria-checked={reportErrorTopic === value}
-                      className={`filter-pill${reportErrorTopic === value ? ' active' : ''}`}
+                      className={`support-topic${reportErrorTopic === value ? ' active' : ''}`}
                       onClick={() => setReportErrorTopic(value)}
                     >
+                      <span className="support-topic-dot" aria-hidden="true" />
                       {tr(key)}
                     </button>
                   ))}
                 </div>
+              </fieldset>
+
+              <div className="support-section">
+                <label className="form-label" htmlFor="support-message">{reportErrorTopic === 'Felrapport' ? tr('ui.vad_gick_fel') : tr('ui.meddelande')}</label>
+                <div className="support-composer">
+                  <textarea
+                    id="support-message"
+                    rows={5}
+                    placeholder={reportErrorTopic === 'Felrapport' ? tr('ui.beskriv_vad_som_hande_garna_vilken_sida_du_var_p') : tr('ui.skriv_ditt_meddelande')}
+                    value={reportErrorText}
+                    onChange={e => setReportErrorText(e.target.value)}
+                    onPaste={e => {
+                      // En inklistrad skärmbild blir bilagan.
+                      const item = [...(e.clipboardData?.items || [])].find(i => i.kind === 'file' && i.type.startsWith('image/'));
+                      if (item) { e.preventDefault(); attachSupportFile(item.getAsFile()); }
+                    }}
+                    autoFocus
+                    required
+                  />
+                  <input ref={reportErrorFileRef} type="file" accept="image/*,application/pdf" style={{ display: 'none' }}
+                    onChange={e => { attachSupportFile(e.target.files?.[0]); e.target.value = ''; }} />
+                  {reportErrorFile ? (
+                    <div className="support-file">
+                      {reportErrorFile.type.startsWith('image/') && !/hei[cf]/i.test(reportErrorFile.type) ? (
+                        <img src={`data:${reportErrorFile.type};base64,${reportErrorFile.data}`} alt="" className="support-file-thumb" />
+                      ) : (
+                        <span className="support-file-thumb support-file-icon"><Paperclip size={16} /></span>
+                      )}
+                      <span className="support-file-meta">
+                        <span className="support-file-name">{reportErrorFile.name}</span>
+                        <span className="support-file-size">{Math.max(1, Math.round(reportErrorFile.size / 1024))} kB</span>
+                      </span>
+                      <button type="button" className="support-file-remove" onClick={() => setReportErrorFile(null)} disabled={reportErrorBusy} aria-label={tr('ui.ta_bort')}>
+                        <X size={15} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="support-attach-row">
+                      <button type="button" className="support-attach" onClick={() => reportErrorFileRef.current?.click()} disabled={reportErrorBusy}>
+                        <Paperclip size={15} /> {tr('ui.support_bifoga')}
+                      </button>
+                      <span className="support-attach-hint">{tr('ui.support_bifoga_kort')}</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="form-group">
-                <label className="form-label">{reportErrorTopic === 'Felrapport' ? tr('ui.vad_gick_fel') : tr('ui.meddelande')}</label>
-                <textarea
-                  className="form-control"
-                  rows={5}
-                  placeholder={reportErrorTopic === 'Felrapport' ? tr('ui.beskriv_vad_som_hande_garna_vilken_sida_du_var_p') : tr('ui.skriv_ditt_meddelande')}
-                  value={reportErrorText}
-                  onChange={e => setReportErrorText(e.target.value)}
-                  autoFocus
-                  required
-                />
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0 0' }}>{tr('ui.support_kontext_info', { line: getSupportContextLine() })}</p>
-              </div>
+
+              {/* Förslag ur hjälpen medan man skriver (2026-11-24): det enkla
+                  löser sig direkt, utan att vänta på svar. Utkastet ligger kvar. */}
+              {supportSuggestions.length > 0 && (
+                <div className="support-suggest">
+                  <span className="support-suggest-title">{tr('ui.support_kanske_hjalper')}</span>
+                  {supportSuggestions.map(a => (
+                    <button key={a.id} type="button" className="support-suggest-item" onClick={() => { setReportErrorModal(false); setHelpArticleId(a.id); setIsHelpDrawerOpen(true); }}>
+                      <strong>{a.title}</strong>{a.summary && <small>{a.summary}</small>}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Svaret går till kontots e-post (reply_to i api/contact.js,
-                  adressen tas från inloggningen, inte från klienten). */}
-              <div className="contact-sender">
-                <span className="contact-sender-label">{tr('ui.skickas_fran_din_e_post')}</span>
-                <span className="contact-sender-email">{user?.email}</span>
-                <span className="form-hint">{tr('ui.vi_svarar_till_den_har_adressen')}</span>
-              </div>
+                  adressen tas från inloggningen, inte från klienten). Sidan och
+                  företaget följer med under meddelandet. */}
+              <dl className="support-meta">
+                <div><dt>{tr('ui.support_fran')}</dt><dd>{user?.email}</dd></div>
+                <div><dt>{tr('ui.support_skickat_fran')}</dt><dd>{getSupportContextShort()}</dd></div>
+                <p className="support-meta-note">{tr('ui.vi_svarar_till_den_har_adressen')}</p>
+              </dl>
+
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setReportErrorModal(false)} disabled={reportErrorBusy}>
                   {tr('ui.avbryt')}

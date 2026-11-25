@@ -5,6 +5,7 @@ import { PageMeta, JsonLd, SITE_URL, schemaDate } from '../../utils/seo';
 import TRANSCRIPTS from '../../content/marketing/guideTranscripts.json';
 import { GUIDE_GROUPS, GUIDE_UPLOAD_DATE } from '../../content/marketing/guides';
 import useSiteTheme from '../../utils/useSiteTheme';
+import { assetUrl } from '../../utils/assetUrl';
 
 const GUIDES = GUIDE_GROUPS.flatMap(group => group.guides);
 
@@ -16,8 +17,8 @@ export default function GuideVideoPage({ slug }) {
 
   const transcript = TRANSCRIPTS[guide.slug]?.join(' ') || '';
   const videoUrl = `${SITE_URL}/videos/${guide.slug}.mp4`;
-  const thumbnailUrl = `${SITE_URL}/videos/${guide.slug}.jpg`;
-  const description = `${guide.lead} Se videon och läs hela instruktionen.`;
+  const thumbnailUrl = assetUrl(`${SITE_URL}/videos/${guide.slug}.jpg`);
+  const description = guide.seoDescription || `${guide.lead} Se videon och läs hela instruktionen.`;
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'VideoObject',
@@ -66,7 +67,7 @@ export default function GuideVideoPage({ slug }) {
             key={file}
             className="gd-watch-video"
             src={`/videos/${file}.mp4`}
-            poster={`/videos/${file}.jpg`}
+            poster={assetUrl(`/videos/${file}.jpg`)}
             controls
             playsInline
             preload="metadata"

@@ -90,8 +90,8 @@ describe('calcSoleTraderFees', () => {
 
   it('pensionärskategorin har lägre avgift och lägre schablonavdrag', () => {
     const r = calcSoleTraderFees({ surplus: 400000, categoryId: 'pension', municipalTaxRate: 32 })
-    expect(r.standardDeduction).toBe(80000)    // 20 %
-    expect(r.fees).toBe(Math.round(320000 * 0.1021))
+    expect(r.standardDeduction).toBe(40000)    // 10 %
+    expect(r.fees).toBe(Math.round(360000 * 0.1021))
   })
 
   it('inkomstskatten räknas på överskottet efter faktiska egenavgifter', () => {

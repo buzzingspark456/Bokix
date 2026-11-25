@@ -748,6 +748,90 @@ export function computeResultStatement(verifications, accounts, { start, end, pr
   };
 }
 
+/**
+ * Kassaflödesanalys enligt den indirekta metoden, uppställd som i de svenska
+ * programmen: den löpande verksamheten, investeringar och finansiering. Varje
+ * balanskonto hör till en av delarna efter BAS-kontoplanen, och resultatet
+ * räknas från resultatkontona. Eftersom varje verifikation går jämnt ut blir
+ * summan av delarna exakt förändringen på kassa och bank (1900–1999).
+ *
+ *   Löpande:     resultatet, avskrivningar (ackumulerade avskrivningar, konton
+ *                1xx8–1xx9), obeskattade reserver och avsättningar (21–22),
+ *                rörelsekapitalet (14–18 och 24–29 utom 2898)
+ *   Investering: anläggningstillgångar (10–13) utom avskrivningarna
+ *   Finansiering: eget kapital (20), långfristiga skulder (23), utdelning (2898)
+ *
+ * Bokslutsverifikationen räknas inte (den flyttar bara resultatet till eget
+ * kapital). Beloppen är kassapåverkan: en ökad kundfordran är negativ.
+ */
+const isAccumulatedDepreciation = (code) => code >= 1000 && code < 1400 && /[89]$/.test(String(code));
+function cashflowPart(code) {
+  if (code >= 1900 && code <= 1999) return null;
+  if (code >= 1000 && code < 1400) return isAccumulatedDepreciation(code) ? 'operating' : 'investing';
+  if (code >= 1400 && code < 1900) return 'operating';
+  if (code >= 2000 && code < 2100) return 'financing';
+  if (code >= 2100 && code < 2300) return 'operating';
+  if (code >= 2300 && code < 2400) return 'financing';
+  if (code === 2898) return 'financing';
+  if (code >= 2400 && code < 3000) return 'operating';
+  return null;
+}
+
+export function computeCashflowStatement(verifications, accounts, { start, end, prevStart, prevEnd }) {
+  const current = netByAccount(verifications, start, end);
+  const previous = prevStart && prevEnd ? netByAccount(verifications, prevStart, prevEnd) : new Map();
+  const byCode = new Map(accounts.map(a => [a.code, a]));
+  const resultOf = (net) => {
+    let r = 0;
+    for (const [code, n] of net) {
+      const type = classifyAccount(byCode.get(code) || { code });
+      if (type === 'intakt' || type === 'kostnad') r -= n;
+    }
+    return r;
+  };
+  const operating = statementGroup('operating', t('ui.kf_lopande_verksamhet'));
+  const investing = statementGroup('investing', t('ui.kf_investeringsverksamhet'));
+  const financing = statementGroup('financing', t('ui.kf_finansieringsverksamhet'));
+  const groups = { operating, investing, financing };
+  const result = resultOf(current);
+  const prevResult = resultOf(previous);
+  // Resultatet är den första raden i den löpande verksamheten, alltid med.
+  operating.rows.push({ code: 'resultat', name: t('ui.kf_periodens_resultat'), amount: result, prev: prevResult, computed: true });
+  operating.amount += result;
+  operating.prev += prevResult;
+  const codes = new Set([...current.keys(), ...previous.keys()]);
+  for (const code of [...codes].sort()) {
+    const part = cashflowPart(Number(code));
+    if (!part) continue;
+    const account = byCode.get(code);
+    addToGroup(groups[part], {
+      code, name: account?.name || code, sign: -1,
+      amount: -(current.get(code) || 0), prev: -(previous.get(code) || 0),
+    });
+  }
+  const cashAt = (date) => (date ? computeCashBalanceAt(verifications, accounts, new Date(date.getTime() - 1)) : 0);
+  const openingCash = cashAt(start);
+  const closingCash = computeCashBalanceAt(verifications, accounts, end);
+  const prevOpening = prevStart ? cashAt(prevStart) : 0;
+  const prevClosing = prevEnd ? computeCashBalanceAt(verifications, accounts, prevEnd) : 0;
+  const flow = operating.amount + investing.amount + financing.amount;
+  const prevFlow = operating.prev + investing.prev + financing.prev;
+  return {
+    items: [
+      operating,
+      ...[investing, financing].filter(g => g.rows.length > 0),
+      { type: 'total', key: 'flow', label: t('ui.kf_periodens_kassaflode'), amount: flow, prev: prevFlow },
+      { type: 'total', key: 'opening', label: t('ui.kf_likvida_medel_borjan'), amount: openingCash, prev: prevOpening },
+      { type: 'total', key: 'closing', label: t('ui.kf_likvida_medel_slut'), amount: closingCash, prev: prevClosing },
+    ],
+    operating: operating.amount, investing: investing.amount, financing: financing.amount,
+    flow, openingCash, closingCash,
+    // Kassaflödet ska vara exakt förändringen på kassa och bank.
+    balanced: Math.abs(openingCash + flow - closingCash) < 1,
+    hasComparison: previous.size > 0,
+  };
+}
+
 /** Vattenfallet ur resultaträkningens uppställning: intäkterna, varje
  * kostnadsgrupp som ett steg nedåt, och resultatet. `range` är stapelns start
  * och slut. */

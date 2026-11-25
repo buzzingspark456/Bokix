@@ -10,7 +10,7 @@ const established = Array.from({ length: 30 }, (_, i) => ({ id: `v${i}`, date: '
 
 describe('buildTodoItems', () => {
   it('förfallen faktura öppnar just den fakturan', () => {
-    const items = buildTodoItems({ ...base, verifications: established, invoices: [{ id: 'f1', status: 'sent', dueDate: '2026-10-01', invoiceNumber: 7, total: 100 }] });
+    const items = buildTodoItems({ ...base, verifications: established, invoices: [{ id: 'f1', status: 'sent', dueDate: '2026-10-01', invoiceNumber: 7, amount: 100 }] });
     const row = items.find(i => i.kind === 'overdue_invoices');
     expect(row.target).toEqual({ tab: 'invoices', action: { type: 'open_invoice', payload: { id: 'f1' } } });
     expect(row.sev).toBe('danger');
@@ -38,6 +38,27 @@ describe('buildTodoItems', () => {
     expect(items.find(i => i.kind === 'employees_tax').title).toContain('Bo Berg');
   });
 
+  it('AGI-raden öppnar uppgiftspanelen med månadens period', () => {
+    const items = buildTodoItems({
+      ...base, verifications: established,
+      payrollRuns: [{ id: 'r1', period: '2026-09', completedSteps: ['calculated', 'booked'] }],
+    });
+    const row = items.find(i => i.kind === 'agi_deadline');
+    expect(row.target).toEqual({ tab: 'taxes_agi' });
+    expect(row.task).toMatchObject({ type: 'agi', key: '2026-09', booked: true, amount: 0 });
+  });
+
+  it('AGI-beloppet tas ur lönens bokförda verifikationer', () => {
+    const items = buildTodoItems({
+      ...base,
+      verifications: [...established,
+        { id: 'p1', date: '2026-09-25', source: 'payroll', sourceId: 'r1_lon', rows: [{ account: '7210', debet: 40000 }, { account: '2710', kredit: 10000 }, { account: '1930', kredit: 30000 }] },
+        { id: 'p2', date: '2026-09-25', source: 'payroll', sourceId: 'r1_agifter', rows: [{ account: '7510', debet: 12568 }, { account: '2731', kredit: 12568 }] }],
+      payrollRuns: [{ id: 'r1', period: '2026-09', completedSteps: ['calculated', 'booked'] }],
+    });
+    expect(items.find(i => i.kind === 'agi_deadline').task).toMatchObject({ tax: 10000, employerFee: 12568, amount: 22568 });
+  });
+
   it('AGI syns inte när den är inlämnad', () => {
     const items = buildTodoItems({
       ...base, verifications: established,
@@ -60,7 +81,7 @@ describe('buildTodoItems', () => {
   });
 
   it('dolda rader försvinner och försenat står först', () => {
-    const args = { ...base, verifications: established, invoices: [{ id: 'f1', status: 'sent', dueDate: '2026-10-01', total: 100 }, { id: 'f2', status: 'draft' }] };
+    const args = { ...base, verifications: established, invoices: [{ id: 'f1', status: 'sent', dueDate: '2026-10-01', amount: 100 }, { id: 'f2', status: 'draft' }] };
     const all = buildTodoItems(args);
     expect(all[0].kind).toBe('overdue_invoices');
     const hidden = buildTodoItems({ ...args, dismissedKeys: new Set([all[0].dismissKey]) });
@@ -69,7 +90,7 @@ describe('buildTodoItems', () => {
 
   it('nytt konto får Kom igång-rader', () => {
     const items = buildTodoItems({ t, today, company: {} });
-    expect(kinds(items)).toEqual(['start_company', 'start_vat', 'start_receipt', 'start_invoice']);
+    expect(kinds(items)).toEqual(['start_company', 'start_receipt', 'start_invoice']);
   });
 it("inkomstdeklaration och årsredovisning för förra året, de sista 30 dagarna och tills de är inlämnade", () => {
     const july = new Date("2026-07-15T10:00:00");
@@ -83,5 +104,52 @@ it("inkomstdeklaration och årsredovisning för förra året, de sista 30 dagarn
     // I mars är båda fristerna mer än 30 dagar bort.
     const march = new Date("2026-03-15T10:00:00");
     expect(kinds(buildTodoItems({ ...base, today: march, company, verifications: [...lastYear, ...established] }))).not.toEqual(expect.arrayContaining(["income_declaration", "annual_report"]));
+  });
+});
+
+describe('fakturor med 0 kr kvar', () => {
+  it('räknas inte som förfallna', async () => {
+    const { buildTodoItems } = await import('./todoItems');
+    const t = (k) => k;
+    const items = buildTodoItems({ t, today: new Date('2026-11-09T12:00:00'), invoices: [
+      { id: 'a', status: 'sent', dueDate: '2026-10-01', amount: 0 },
+      { id: 'b', status: 'sent', dueDate: '2026-10-01', amount: 500, paidAmount: 500 },
+    ] });
+    expect(items.some(i => i.kind === 'overdue_invoices')).toBe(false);
+  });
+});
+
+describe('underlag att koppla i Att göra', async () => {
+  const { buildTodoItems } = await import('./todoItems')
+  const t = (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k)
+  it('visas när ett okopplat underlag legat över 30 dagar', () => {
+    const today = new Date('2026-11-14T12:00:00Z')
+    const docs = [{ id: 'd1', url: 'u', uploadedAt: '2026-10-01T10:00:00Z' }, { id: 'd2', url: 'u2', uploadedAt: '2026-11-13T10:00:00Z' }]
+    const rows = buildTodoItems({ t, documents: docs, today })
+    expect(rows.find(r => r.kind === 'documents_unlinked')).toMatchObject({ target: { tab: 'expenses' }, title: 'dashboard.todo.documentsOneTitle' })
+    expect(buildTodoItems({ t, documents: [docs[1]], today }).some(r => r.kind === 'documents_unlinked')).toBe(false)
+  })
+})
+
+describe('order i Att göra', () => {
+  const today = new Date('2026-11-25T12:00:00');
+  const order = (over = {}) => ({ id: 'o1', number: '1001', customerName: 'Kund AB', date: '2026-11-20', rows: [{ key: 'a', description: 'Stol', qty: 2, unitPrice: 100, vatRate: 25, delivered: 0, invoiced: 0 }], ...over });
+  const run = (orders, extra = {}) => buildTodoItems({ t, today, company: { salesOrders: orders }, ...extra });
+
+  it('visar försenad order att leverera med länk till ordern', () => {
+    const row = run([order({ deliveryDate: '2026-11-22' })]).find(i => i.kind === 'orders_deliver');
+    expect(row.late).toBe(true);
+    expect(row.target).toEqual({ tab: 'orders', action: { type: 'open_order', payload: { id: 'o1' } } });
+  });
+
+  it('visar levererad order att fakturera med belopp inkl. moms', () => {
+    const delivered = order({ rows: [{ key: 'a', description: 'Stol', qty: 2, unitPrice: 100, vatRate: 25, delivered: 2, invoiced: 0 }] });
+    const items = run([delivered]);
+    expect(items.find(i => i.kind === 'orders_deliver')).toBeUndefined();
+    expect(items.find(i => i.kind === 'orders_invoice').detail).toContain('250');
+  });
+
+  it('visas inte när Order är dold i menyn', () => {
+    expect(run([order()], { hiddenNavIds: ['orders'] }).some(i => i.group === 'orders')).toBe(false);
   });
 });

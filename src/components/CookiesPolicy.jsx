@@ -23,7 +23,7 @@ export default function CookiesPolicy() {
     <PolicyLayout
       title="Cookiepolicy"
       path="/cookies"
-      updated="2026-10-24"
+      updated="2026-11-09"
       metaTitle="Cookiepolicy | Bokix"
       metaDescription="Exakt vilka cookies och liknande lagringstekniker Bokix sätter i din webbläsare, och hur du hanterar ditt samtycke."
     >
@@ -48,7 +48,7 @@ export default function CookiesPolicy() {
             </>, 'localStorage', 'Kommer ihåg om du gått igenom (eller hoppat över) startguiden, så den inte visas igen i onödan.', 'Tills du rensar webbläsardata'],
             [<>
               <PolicyCode>bokix_theme*</PolicyCode>, <PolicyCode>bokix_language</PolicyCode>, <PolicyCode>bokix_nav_collapsed</PolicyCode> m.fl.
-            </>, 'localStorage', 'Kommer ihåg dina val för utseende och språk: ljust eller mörkt läge, färg, täthet, språk och vilka menygrupper som är ihopfällda.', 'Tills du ändrar valet eller rensar webbläsardata'],
+            </>, 'localStorage', 'Kommer ihåg dina val för utseende och språk: ljust eller mörkt läge, täthet, språk och vilka menygrupper som är ihopfällda.', 'Tills du ändrar valet eller rensar webbläsardata'],
             [<PolicyCode>bokix_last_active</PolicyCode>, 'localStorage', 'Kommer ihåg när du senast använde Bokix, så att du loggas ut automatiskt om appen inte har använts på 30 dagar.', 'Tills du loggar ut'],
             [<PolicyCode>bokix_applock</PolicyCode>, 'localStorage', 'Kommer ihåg att du vill låsa appen med Face ID eller fingeravtryck på den här enheten.', 'Tills du stänger av det eller loggar ut'],
             [<PolicyCode>bokix_ocr_*</PolicyCode>, 'localStorage', 'Sparar texten som lästs av från dina senaste kvitton, så att samma kvitto inte behöver läsas av igen. Högst 40 kvitton.', 'Tills den byts ut av nyare kvitton eller du rensar webbläsardata'],
@@ -68,7 +68,7 @@ export default function CookiesPolicy() {
 
       <PolicySection n={4} title="Strikt nödvändiga — bot-/missbruksskydd">
         <p style={policyP}>
-          Vid registrering och inloggning använder vi Vercel BotID för att skilja riktiga användare från automatiserade missbruksförsök. På kontaktformuläret gör Google reCAPTCHA samma sak, och kan då sätta egna cookies (till exempel <PolicyCode>_GRECAPTCHA</PolicyCode>). Ingen av dem används för spårning eller marknadsföring.
+          Vid registrering och inloggning använder vi Vercel BotID för att skilja riktiga användare från automatiserade missbruksförsök. Vid registrering, på kontaktformuläret och vid bokning gör Cloudflare Turnstile samma sak. Ingen av dem används för spårning eller marknadsföring.
         </p>
       </PolicySection>
 

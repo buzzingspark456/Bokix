@@ -12,12 +12,236 @@
 // inte en ny mapp inläggen bor i.
 export const BLOG_POSTS = [
   {
+    slug: 'bokfora-milersattning',
+    path: '/blogg/bokfora-milersattning',
+    category: 'Lön',
+    title: 'Bokföra milersättning och traktamente',
+    seoTitle: 'Bokföra milersättning och traktamente 2026',
+    seoDescription: 'Milersättning 2026 är 25 kr per mil för egen bil och traktamente 300 kr per hel dag. Så bokför du dem i aktiebolag och enskild firma, med konton och exempel.',
+    excerpt: 'Skattefria belopp för 2026, konton och vad som händer om du betalar mer.',
+    image: '/blog/bokfora-milersattning-hero.jpg',
+    imageAlt: 'Tecknad blå bil på en väg mot en kartnål, bredvid en uppslagen körjournal',
+    datePublished: '2026-11-14',
+    dateModified: '2026-11-14',
+    readTime: '~5 min läsning',
+    tldr: [
+      'Skattefri milersättning för egen bil är 25 kr per mil 2026. För förmånsbil är den 12 kr per mil, eller 9,50 kr om bilen går helt på el.',
+      'Skattefritt traktamente är 300 kr per hel dag 2026. Det kräver en tjänsteresa med övernattning mer än 50 km från både bostaden och arbetsplatsen.',
+      'Betalar du mer än så är det överskjutande lön. Då ska skatt dras och arbetsgivaravgifter betalas på den delen.',
+    ],
+    body: [
+      { t: 'p', x: 'Kör du din egen bil i jobbet får företaget betala tillbaka en schablon per mil utan skatt. Sover du borta på en tjänsteresa får du dessutom traktamente för maten.' },
+      { t: 'p', x: 'Båda är skattefria upp till Skatteverkets belopp. Det som bestämmer hur de bokförs är om du driver aktiebolag eller enskild firma.' },
+
+      { t: 'h2', x: 'Beloppen för 2026' },
+      { t: 'table', caption: 'Skattefria belopp 2026 enligt Skatteverket', head: ['Ersättning', 'Belopp'], rows: [
+        ['Egen bil', '25 kr per mil'],
+        ['Förmånsbil, drivmedel du betalar själv', '12 kr per mil'],
+        ['Förmånsbil som går helt på el', '9,50 kr per mil'],
+        ['Traktamente, hel dag', '300 kr'],
+        ['Traktamente, halv dag', '150 kr'],
+      ] },
+      { t: 'p', x: 'En mil är tio kilometer. Kör du 230 km blir det 23 mil och 575 kr med egen bil.' },
+
+      { t: 'h2', x: 'Milersättning kräver en körjournal' },
+      { t: 'p', x: 'Ersättningen gäller bara resor i tjänsten. Resor mellan bostaden och den vanliga arbetsplatsen räknas inte.' },
+      { t: 'checklist', x: [
+        'Datum för resan.',
+        'Vart du åkte och varför, till exempel kundmöte hos Nordvik Bygg.',
+        'Mätarställning vid start och slut, eller antal kilometer.',
+      ] },
+      { t: 'p', x: 'Körjournalen är underlaget för verifikationen. Spara den lika länge som bokföringen, alltså sju år.' },
+
+      { t: 'h2', x: 'Aktiebolag: ersättningen går via lönen' },
+      { t: 'p', x: 'I ett aktiebolag är du anställd, även som ägare. Milersättning och traktamente betalas ut till dig som skattefria ersättningar, oftast i samma körning som lönen.' },
+      { t: 'table', caption: '23 mil med egen bil och en hel dag traktamente', head: ['Konto', 'Debet', 'Kredit'], rows: [
+        ['7331 Skattefria bilersättningar', '575 kr', ''],
+        ['7321 Skattefria traktamenten, Sverige', '300 kr', ''],
+        ['1930 Företagskonto', '', '875 kr'],
+      ] },
+      { t: 'p', x: 'Ingen skatt dras och inga arbetsgivaravgifter betalas. I arbetsgivardeklarationen kryssar du bara i att den anställda fått bilersättning eller traktamente.' },
+
+      { t: 'h2', x: 'Om du betalar mer än schablonen' },
+      { t: 'p', x: 'Företaget får betala mer, till exempel 30 kr per mil. Då är 25 kr skattefritt och resten lön.' },
+      { t: 'p', x: 'På den överskjutande delen drar du skatt och betalar arbetsgivaravgifter, precis som på vanlig lön. Den bokförs på ett lönekonto och tas med som lön i arbetsgivardeklarationen.' },
+
+      { t: 'h2', x: 'Enskild firma: ett avdrag, ingen lön' },
+      { t: 'p', x: 'I en enskild firma kan du inte betala lön till dig själv. Kör du din privata bil i firman får du i stället dra av 25 kr per mil som en kostnad.' },
+      { t: 'table', caption: '23 mil med privat bil i enskild firma', head: ['Konto', 'Debet', 'Kredit'], rows: [
+        ['5800 Resekostnader', '575 kr', ''],
+        ['2018 Egna insättningar', '', '575 kr'],
+      ] },
+      { t: 'p', x: 'Inga pengar flyttas. Egna insättningar visar att du har bidragit med bilen. Läs mer i [bokföring i enskild firma](/blogg/enskild-firma-bokforing-ne).' },
+
+      { t: 'h2', x: 'Traktamente: när gäller det?' },
+      { t: 'ul', x: [
+        'Resan är en tjänsteresa och du övernattar borta.',
+        'Du är mer än 50 km från både din bostad och din vanliga arbetsplats.',
+        'Avresedagen räknas som hel dag om du åker före kl. 12, hemresedagen om du kommer hem efter kl. 19. Annars är de halva dagar.',
+      ] },
+      { t: 'p', x: 'Bjuder någon på maten, till exempel frukost på hotellet, ska traktamentet minskas. Skatteverket har en tabell för hur mycket.' },
+      { t: 'callout', kind: 'tips', title: 'Hotellet är inte traktamente', x: 'Logi betalas mot kvitto och bokförs som en vanlig resekostnad. Traktamentet är bara för mat och småutgifter.' },
+
+      { t: 'h2', x: 'Så gör du i Bokix' },
+      { t: 'p', x: 'I lönekörningen lägger du till **Milersättning** och skriver antal mil, eller **Traktamente** och antal dagar. Bokix bokför på 7331 och 7321 och kryssar i rätt rutor i arbetsgivardeklarationen.' },
+      { t: 'p', x: 'Läs mer om [lön i Bokix](/lon).' },
+    ],
+    faq: [
+      { q: 'Hur mycket är milersättningen 2026?', a: '25 kr per mil för egen bil. För förmånsbil är det 12 kr per mil, eller 9,50 kr per mil om bilen går helt på el. Beloppen gäller när den anställda själv betalar drivmedlet.' },
+      { q: 'Vilket konto används för milersättning?', a: '7331 Skattefria bilersättningar i ett aktiebolag. Den del som är över schablonen är lön och bokförs som lön.' },
+      { q: 'Hur mycket är traktamentet 2026?', a: '300 kr för en hel dag och 150 kr för en halv dag, vid tjänsteresa med övernattning mer än 50 km från både bostaden och arbetsplatsen.' },
+      { q: 'Kan jag få milersättning i enskild firma?', a: 'Du kan inte betala ut ersättning till dig själv, men du får dra av 25 kr per mil som kostnad när du kör din privata bil i firman.' },
+    ],
+  },
+  {
+    slug: 'bokfora-friskvard',
+    path: '/blogg/bokfora-friskvard',
+    category: 'Lön',
+    title: 'Bokföra friskvårdsbidrag',
+    seoTitle: 'Bokföra friskvårdsbidrag 2026: konto och moms',
+    seoDescription: 'Friskvårdsbidraget är skattefritt upp till 5 000 kr per år. Så bokför du det, varför momsen inte dras av och vad som händer om bidraget blir högre.',
+    excerpt: 'Upp till 5 000 kr om året, utan skatt. Så bokförs det.',
+    image: '/blog/bokfora-friskvard-hero.jpg',
+    imageAlt: 'Tecknad yogamatta, två hantlar och en vattenflaska bredvid ett kvitto',
+    datePublished: '2026-11-06',
+    dateModified: '2026-11-06',
+    readTime: '~4 min läsning',
+    tldr: [
+      'Friskvårdsbidrag är skattefritt upp till 5 000 kr per anställd och år, moms inräknad. Blir det mer beskattas hela beloppet.',
+      'Den anställda betalar själv och får tillbaka pengarna mot kvitto. Bokför det på 7699 Övriga personalkostnader.',
+      'Företaget drar inte av någon moms, eftersom det är den anställda som har köpt kortet.',
+    ],
+    body: [
+      { t: 'p', x: 'Friskvårdsbidrag är pengar till gym, simhall, yoga eller annan motion. Det är frivilligt för arbetsgivaren, men har du anställda är det en av de få förmånerna som är helt skattefri.' },
+
+      { t: 'h2', x: 'Reglerna i korthet' },
+      { t: 'ul', x: [
+        'Högst **5 000 kr per år** och anställd, moms inräknad.',
+        'Bidraget ska erbjudas **all personal** på samma villkor.',
+        'Aktiviteten ska vara motion eller enklare friskvård. Golf och ridning räknas sedan 2024.',
+        'Massage är skattefri upp till **1 000 kr per tillfälle**.',
+        'Pengarna betalas ut i efterhand mot kvitto.',
+      ] },
+      { t: 'p', x: 'Arbetsgivaren bestämmer själv beloppet, så länge det håller sig under gränsen.' },
+
+      { t: 'h2', x: 'Bokföringen när pengarna betalas tillbaka' },
+      { t: 'p', x: 'Den anställda köper ett gymkort för 3 600 kr och lämnar in kvittot. Företaget betalar tillbaka hela beloppet.' },
+      { t: 'table', caption: 'Friskvårdsbidrag på 3 600 kr', head: ['Konto', 'Debet', 'Kredit'], rows: [
+        ['7699 Övriga personalkostnader', '3 600 kr', ''],
+        ['1930 Företagskonto', '', '3 600 kr'],
+      ] },
+      { t: 'p', x: 'Kostnaden är avdragsgill för företaget. Bidraget tas inte med i arbetsgivardeklarationen, så länge det är skattefritt.' },
+
+      { t: 'h2', x: 'Varför momsen inte dras av' },
+      { t: 'p', x: 'Kvittot står på den anställda, och det är den anställda som har köpt kortet. Företaget har inte köpt något och kan därför inte dra av momsen.' },
+      { t: 'p', x: 'Hela beloppet, moms inräknad, bokförs som kostnad. Det är också därför gränsen på 5 000 kr gäller med momsen inräknad.' },
+
+      { t: 'h2', x: 'Om bidraget blir högre än 5 000 kr' },
+      { t: 'p', x: 'Då är inte bara överskottet skattepliktigt, utan hela bidraget. Betalar du 6 000 kr blir alla 6 000 kr lön.' },
+      { t: 'p', x: 'Du drar skatt och betalar arbetsgivaravgifter på hela beloppet, och tar med det i arbetsgivardeklarationen. Håll därför koll på hur mycket varje anställd har fått under året.' },
+      { t: 'callout', kind: 'tips', title: 'Spara kvittona', x: 'Kvittot ska visa vad som köpts, när och av vem. Personnummer behövs inte. Spara det som underlag i sju år, som all bokföring.' },
+
+      { t: 'h2', x: 'Gäller det ägaren?' },
+      { t: 'p', x: 'I ett aktiebolag är du anställd och kan få friskvårdsbidrag, om det erbjuds all personal.' },
+      { t: 'p', x: 'I en enskild firma eller ett handelsbolag är du inte anställd. Då kan du inte ge dig själv friskvårdsbidrag, men dina anställda kan få det.' },
+
+      { t: 'h2', x: 'Så gör du i Bokix' },
+      { t: 'p', x: 'Lägg in kvittot under Underlag och välj att en anställd betalade. Välj konto 7699 och ingen moms. Pengarna betalas tillbaka i nästa lönekörning som ett skattefritt utlägg.' },
+      { t: 'p', x: 'Läs mer om [lön i Bokix](/lon).' },
+    ],
+    faq: [
+      { q: 'Hur mycket friskvårdsbidrag är skattefritt?', a: 'Upp till 5 000 kr per anställd och år, moms inräknad. Blir bidraget högre beskattas hela beloppet som lön.' },
+      { q: 'Vilket konto ska friskvårdsbidrag bokföras på?', a: '7699 Övriga personalkostnader. Kostnaden är avdragsgill för företaget.' },
+      { q: 'Får företaget dra av momsen på friskvårdsbidrag?', a: 'Nej. När den anställda själv har köpt kortet och får pengarna tillbaka är det den anställda som är köpare. Hela beloppet bokförs som kostnad.' },
+      { q: 'Kan jag ge mig själv friskvårdsbidrag i enskild firma?', a: 'Nej. Du är inte anställd i din egen enskilda firma. I ett aktiebolag går det, om bidraget erbjuds all personal.' },
+    ],
+  },
+  {
+    slug: 'bokfora-representation',
+    path: '/blogg/bokfora-representation',
+    category: 'Bokföring',
+    title: 'Bokföra representation',
+    seoTitle: 'Bokföra representation 2026: lunch, fika och moms',
+    seoDescription: 'Så bokför du kundlunch, fika och personalfest. Moms dras av på högst 300 kr per person, fika upp till 60 kr är avdragsgill. Med konton och räkneexempel.',
+    excerpt: 'Kundlunch, fika och personalfest med rätt konton och moms.',
+    image: '/blog/bokfora-representation-hero.jpg',
+    imageAlt: 'Tecknat bord med en tallrik mat, två kaffekoppar och ett kvitto',
+    datePublished: '2026-10-29',
+    dateModified: '2026-10-29',
+    readTime: '~6 min läsning',
+    tldr: [
+      'Lunch och middag med kunder ger inget avdrag i skatten. Bokför dem på 6072 Representation, ej avdragsgill.',
+      'Momsen får du dra av på högst 300 kr exklusive moms per person. Med 12 % moms på maten blir det 36 kr per person.',
+      'Fika för högst 60 kr exklusive moms per person är avdragsgill och bokförs på 6071 Representation, avdragsgill.',
+    ],
+    body: [
+      { t: 'p', x: 'Bjuder du en kund på lunch eller personalen på julbord är det **representation**. Reglerna är olika för skatten och för momsen, och det är där det oftast blir fel.' },
+
+      { t: 'h2', x: 'Måltider ger inget avdrag i skatten' },
+      { t: 'p', x: 'Sedan 2017 får företag inte dra av kostnaden för lunch och middag i skatten. Kostnaden bokförs ändå, men på ett konto som inte minskar vinsten.' },
+      { t: 'p', x: 'Momsen är en annan sak. Den får du dra av upp till en gräns, så länge representationen har samband med verksamheten.' },
+
+      { t: 'h2', x: 'Hur mycket moms får du dra av?' },
+      { t: 'p', x: 'Du får dra av moms på högst **300 kr exklusive moms per person och tillfälle**. Det gäller både kunder och personal.' },
+      { t: 'ul', x: [
+        'Mat och alkoholfri dryck på restaurang har 12 % moms. Avdraget blir högst 36 kr per person.',
+        'Är det bara alkohol, 25 % moms, blir avdraget högst 75 kr per person.',
+        'Står mat och alkohol på samma nota får du använda Skatteverkets schablon: 46 kr per person.',
+      ] },
+      { t: 'p', x: 'Moms över gränsen bokförs som en del av kostnaden.' },
+
+      { t: 'h2', x: 'Konton för kunder och andra utanför företaget' },
+      { t: 'ul', x: [
+        '**6071 Representation, avdragsgill**: fika, kaffe och smörgås för högst 60 kr exklusive moms per person.',
+        '**6072 Representation, ej avdragsgill**: lunch, middag och fika som kostar mer.',
+        '**2641 Debiterad ingående moms**: momsen du får dra av.',
+      ] },
+
+      { t: 'h2', x: 'Exempel: kundlunch för två' },
+      { t: 'p', x: 'Lunchen kostar 800 kr med 12 % moms. Det är 714,29 kr för maten och 85,71 kr i moms.' },
+      { t: 'p', x: 'För två personer får du dra av moms på högst 600 kr, alltså **72 kr**. Resten av momsen, 13,71 kr, läggs på kostnaden.' },
+      { t: 'table', caption: 'Kundlunch för två, betald med företagskortet', head: ['Konto', 'Debet', 'Kredit'], rows: [
+        ['6072 Representation, ej avdragsgill', '728 kr', ''],
+        ['2641 Debiterad ingående moms', '72 kr', ''],
+        ['1930 Företagskonto', '', '800 kr'],
+      ] },
+
+      { t: 'h2', x: 'Fika är avdragsgill' },
+      { t: 'p', x: 'Kaffe, bulle, frukt eller en smörgås på ett möte är enklare förtäring. Kostar det högst 60 kr exklusive moms per person får du dra av både kostnaden och hela momsen. Kontot är 6071.' },
+
+      { t: 'h2', x: 'Personalfest och julbord' },
+      { t: 'ul', x: [
+        '**Mat och dryck**: inget avdrag i skatten, konto 7632. Moms dras av på högst 300 kr per person.',
+        '**Lokal, musik och underhållning**: avdragsgillt upp till 180 kr exklusive moms per person, konto 7631.',
+        'För de anställda är personalfesten skattefri högst två gånger per år.',
+      ] },
+
+      { t: 'h2', x: 'Skriv på kvittot vem som var där' },
+      { t: 'p', x: 'Ett kvitto räcker inte som underlag för representation. Skriv till:' },
+      { t: 'checklist', x: [
+        'Vilka som deltog, både gäster och egna anställda.',
+        'Vilket företag gästerna kommer från.',
+        'Varför ni träffades, till exempel en offert eller ett nytt projekt.',
+      ] },
+
+      { t: 'h2', x: 'Så gör du i Bokix' },
+      { t: 'p', x: 'Fota kvittot och välj representation. Bokix frågar hur många som var med och om det var mat, fika eller kringkostnader. Sedan räknar Bokix ut hur mycket moms som får dras av och väljer konto.' },
+      { t: 'p', x: 'Prova med ett eget kvitto i [kvittoskannern](/verktyg/skanna-kvitto).' },
+    ],
+    faq: [
+      { q: 'Är kundlunch avdragsgill?', a: 'Inte i skatten. Lunch och middag bokförs på 6072 Representation, ej avdragsgill. Momsen får du dra av på högst 300 kr exklusive moms per person.' },
+      { q: 'Hur mycket moms får man dra av på representation?', a: 'Moms på högst 300 kr exklusive moms per person och tillfälle. Med 12 % moms blir det 36 kr per person. Står mat och alkohol på samma nota kan du använda schablonen 46 kr per person.' },
+      { q: 'Är fika avdragsgill?', a: 'Ja, om det är enklare förtäring som kostar högst 60 kr exklusive moms per person. Den bokförs på 6071 Representation, avdragsgill.' },
+      { q: 'Vilket konto används för personalfest?', a: '7632 för mat och dryck, som inte är avdragsgill i skatten. 7631 för lokal, musik och underhållning upp till 180 kr exklusive moms per person.' },
+    ],
+  },
+  {
     slug: 'bokfora-stripe',
     path: '/blogg/bokfora-stripe',
     category: 'Bokföring',
     title: 'Så bokför du Stripe',
-    seoTitle: 'Bokföra Stripe: kortbetalningar, avgifter och utbetalningar',
-    seoDescription: 'Så bokför du Stripe rätt: kortbetalning på fakturan, försäljning i webbshop, Stripes avgift, återbetalningar och utbetalningen till banken. Med konton och exempel.',
+    seoTitle: 'Så bokför du Stripe: avgifter och utbetalningar',
+    seoDescription: 'Så bokför du Stripe: kortbetalning på fakturan, webbshop, Stripes avgift, återbetalningar och utbetalningen till banken. Med konton och exempel.',
     excerpt: 'Kortbetalningar, avgifter och utbetalningen till banken.',
     image: '/blog/bokfora-stripe-hero.jpg',
     imageAlt: 'Tecknad utbetalningsspecifikation från Stripe med en fakturabetalning, webbshopsköp, Stripes avgift och en återbetalning, bredvid en stapel mynt',
@@ -55,7 +279,7 @@ export const BLOG_POSTS = [
         ['3001 Försäljning 25 % moms', '', '400'],
         ['2611 Utgående moms 25 %', '', '100'],
       ] },
-      { t: 'p', x: 'Säljer du böcker eller livsmedel gäller 6 eller 12 %. Säljer du till företag i andra EU-länder kan det vara omvänd moms. Läs mer i [momsdeklaration steg för steg](/blogg/moms-deklaration-steg-for-steg).' },
+      { t: 'p', x: 'Säljer du böcker eller livsmedel gäller 6 % (för livsmedel tillfälligt till och med 2027, annars 12 %). Säljer du till företag i andra EU-länder kan det vara omvänd moms. Läs mer i [momsdeklaration steg för steg](/blogg/moms-deklaration-steg-for-steg).' },
 
       { t: 'h2', x: 'Stripes kortavgift är utan moms' },
       { t: 'p', x: 'Avgiften för att ta emot en kortbetalning är en finansiell tjänst. Den har ingen moms, varken att dra av eller att redovisa som omvänd moms.' },
@@ -184,7 +408,7 @@ export const BLOG_POSTS = [
       { t: 'h2', x: 'Så delas jobbet mellan dig och Bokix' },
       { t: 'p', x: 'Din del är den som bara du kan göra: fota kvittot, skriva fakturan och avgöra det som är oklart. Resten sköter Bokix.' },
       { t: 'table', caption: 'Vem gör vad', head: ['Du', 'Bokix'], rows: [
-        ['Fotar kvittot eller laddar upp en pdf', 'Läser av datum, belopp och moms och föreslår konto'],
+        ['Fotar kvittot eller laddar upp en pdf', 'Läser av datum, belopp, moms och kvittonummer'],
         ['Skriver och skickar fakturan', 'Bokför den, matchar kortbetalningen och håller koll på förfallodatum'],
         ['Läser in kontoutdraget från banken', 'Matchar raderna mot dina obetalda fakturor'],
         ['Avgör det som är osäkert', 'Samlar det i Granskning, med anledningen utskriven'],
@@ -196,7 +420,7 @@ export const BLOG_POSTS = [
       { t: 'p', x: 'Du behöver inte skriva in datum och belopp själv:' },
       { t: 'steps', x: [
         { h: 'Fota eller ladda upp', p: 'Ta en bild med mobilen, eller ladda upp en bild eller pdf. Texten läses direkt i webbläsaren.' },
-        { h: 'Bokix föreslår', p: 'Datum, belopp och momssats fylls i. Känner Bokix igen handlaren, till exempel en bensinmack, en matbutik eller ett molntjänstabonnemang, föreslås även rätt bokföringskonto.' },
+        { h: 'Bokix fyller i', p: 'Datum, belopp, momssats och kvittonummer fylls i. Har du bokfört samma butik förut fylls även kontot i, som förra gången. Annars väljer du kontot själv, Bokix gissar inte.' },
         { h: 'Du kontrollerar', p: 'Varje avläst fält har en liten markering, och den försvinner så fort du ändrar fältet själv. Det du ser är alltid ett förslag, aldrig ett påstående.' },
       ] },
       { t: 'callout', kind: 'tips', title: 'Varför ett förslag och inte en automatik?', x: 'En avläsning kan ha fel: en fläck, ett vikt hörn eller en handlare som skriver ut momsen på ett ovanligt sätt. Genom att alltid visa avläsningen som något du kan ändra fångar du felet innan det hamnar i bokföringen. Vill du se hur avläsningen fungerar utan att skapa konto kan du prova det gratis: [Skanna kvitto](/verktyg/skanna-kvitto).' },
@@ -242,7 +466,7 @@ export const BLOG_POSTS = [
       { t: 'callout', kind: 'tips', title: 'Aldrig skickat utan din signatur', x: 'Allt som ska in hos Skatteverket förbereds åt dig, men skickas aldrig automatiskt. Du kontrollerar och lämnar in själv.' },
 
       { t: 'h2', x: 'För vilka passar Bokix?' },
-      { t: 'p', x: 'Enskild firma, aktiebolag, handelsbolag, kommanditbolag, ekonomisk och ideell förening samt stiftelse. Bokix känner av bolagsformen från organisationsnumret. Du kan ha flera företag och upp till tre användare.' },
+      { t: 'p', x: 'Enskild firma, aktiebolag, handelsbolag, kommanditbolag, ekonomisk och ideell förening samt stiftelse. Bokix känner av bolagsformen från organisationsnumret. Du kan ha flera företag och bjuda in din redovisningskonsult utan kostnad.' },
 
       { t: 'h2', x: 'Ingen inlåsning' },
       { t: 'p', x: 'Hela bokföringen går att spara som en SIE4-fil, standarden alla svenska program kan läsa. Du behöver inte fråga oss om lov. Läs mer i [Flytta bokföringen med SIE4](/blogg/sie4-flytta-bokforing).' },
@@ -253,7 +477,7 @@ export const BLOG_POSTS = [
     ],
     faq: [
       { q: 'Behöver jag kunna bokföring sedan innan?', a: 'Nej. Verifikationer skapas automatiskt utifrån dina kvitton och fakturor. Det enda som kräver din uppmärksamhet hamnar i Granskning, med tydlig anledning till varför. Resten sköts av Bokix.' },
-      { q: 'Hur läser Bokix av mina kvitton?', a: 'Fota kvittot eller ladda upp en bild eller pdf. Bokix läser texten direkt i webbläsaren och föreslår datum, belopp och momssats, och ett bokföringskonto när handlaren känns igen. Det du ser är alltid ett förslag som du kan ändra.' },
+      { q: 'Hur läser Bokix av mina kvitton?', a: 'Fota kvittot eller ladda upp en bild eller pdf. Bokix läser av datum, belopp, momssats och kvittonummer. Kontot fylls i när du har bokfört samma butik förut. Allt går att ändra innan det bokförs.' },
       { q: 'Vad händer med det Bokix är osäker på?', a: 'Det bokförs inte i tysthet. Det hamnar i Granskning med anledningen utskriven, till exempel en betalning utan tydlig avsändare eller ett kvitto som inte gick att läsa fullt ut, och du avgör hur det ska bokföras.' },
       { q: 'Kan jag koppla banken till Bokix?', a: 'Du exporterar kontoutdraget som en fil ur din internetbank och läser in det i Bokix. Raderna matchas mot dina obetalda kund- och leverantörsfakturor. Du behöver aldrig lämna ut några bankuppgifter eller inloggningar.' },
       { q: 'Ingår moms och lön i priset?', a: 'Ja. Momsdeklarationen ingår i båda prisnivåerna. Lönekörning med skatteavdrag, AGI-fil och betalfil ingår i nivån med personal, 179 kr/mån. Inget av det är ett separat tillägg.' },
@@ -513,7 +737,7 @@ export const BLOG_POSTS = [
     category: 'Moms',
     title: 'Momsdeklaration steg för steg',
     seoTitle: 'Momsdeklaration steg för steg: datum och rutor',
-    seoDescription: 'Vem som ska redovisa moms och hur ofta, datumen för 2026, vilka rutor beloppen hamnar i och en checklista i fyra steg.',
+    seoDescription: 'Så gör du momsdeklarationen: vem som ska redovisa moms och hur ofta, alla datum för 2026, vilka rutor beloppen hamnar i och en checklista i fyra steg.',
     excerpt: 'Datum, rutor och en checklista i fyra steg.',
     image: '/blog/moms-deklaration-hero.jpg',
     imageAlt: 'Tecknad kalender som visar 12 februari bredvid en momsdeklaration med rutorna 05, 10, 48 och 49',

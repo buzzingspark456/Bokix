@@ -3,6 +3,7 @@ import MarketingLayout from './MarketingLayout';
 import ArticleIndex from './ArticleIndex';
 import { PageMeta, JsonLd, SITE_URL, schemaDate } from '../../utils/seo';
 import { NEWS_POSTS } from '../../content/marketing/news';
+import { assetUrl } from '../../utils/assetUrl';
 
 // ── Nyheter från Bokix (/nyheter) ───────────────────────────────────────
 // Listan över NEWS_POSTS (content/marketing/news.js), senaste först. Varje
@@ -28,7 +29,7 @@ const SCHEMA = {
     '@type': 'NewsArticle',
     headline: p.title,
     url: `${SITE_URL}${p.path}`,
-    image: `${SITE_URL}${p.image}`,
+    image: assetUrl(`${SITE_URL}${p.image}`),
     datePublished: schemaDate(p.datePublished),
     dateModified: schemaDate(p.dateModified),
     description: p.excerpt,
@@ -42,7 +43,7 @@ export default function NewsPage() {
     <MarketingLayout>
       <PageMeta
         title="Nyheter: det senaste i Bokix"
-        description="Nya funktioner och förbättringar i Bokix, med datum och vad de betyder för dig och ditt företag."
+        description="Nya funktioner och förbättringar i Bokix, med datum: kortbetalning via Stripe, dagsavslut från Zettle, AGI-fil, Face ID och mer. Vad de betyder för dig."
         path="/nyheter"
         image={`${SITE_URL}${POSTS[0].image}`}
       />

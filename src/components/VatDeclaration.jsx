@@ -96,6 +96,8 @@ export default function VatDeclaration({
   // Ref, inte state — muteras synkront och skyddar mot dubbelklick även
   // innan React hunnit rendera om (useState-uppdateringar batchas).
   const bookingRef = useRef(false);
+  // Perioder där Kontrollera redan hoppats över (se effekten längre ned).
+  const skippedCheckRef = useRef(new Set());
 
   // Översikten kan skicka hit en bestämd period: öppna den, och gå direkt
   // till "Lämna in" om den redan är bokförd.
@@ -104,6 +106,7 @@ export default function VatDeclaration({
     const key = focusPeriod.key || (focusPeriod.quarter ? `${focusPeriod.year}-Q${focusPeriod.quarter}` : null);
     if (!key) return;
     setPeriodKey(key);
+    skippedCheckRef.current.delete(key);
     setStep(vatPeriods[key] ? 4 : 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusPeriod]);
@@ -153,6 +156,15 @@ export default function VatDeclaration({
   }, [invoices, expenses, periodStart, periodEnd]);
 
   const maxReachedStep = isBooked ? 4 : (validation.canProceed ? 3 : 1);
+
+  // Kontrollera är ett tomt klick när inget är fel och inget sticker ut mot
+  // förra perioden: gå direkt till Granska (2026-11-05, färre klick). En gång
+  // per period, så att Tillbaka fortfarande visar steget.
+  useEffect(() => {
+    if (step !== 1 || isBooked || skippedCheckRef.current.has(info.key)) return;
+    skippedCheckRef.current.add(info.key);
+    if (validation.errors.length === 0 && periodWarnings.length === 0 && validation.canProceed) setStep(2);
+  }, [step, isBooked, info.key, validation, periodWarnings]);
 
   const rutorForDisplay = VAT_RUTOR
     .map(r => ({ ...r, value: vatRutaValue(r, rounded) }))
@@ -323,9 +335,9 @@ export default function VatDeclaration({
                       <tr key={r.ruta} style={{ borderTop: '1px solid var(--border-light)', background: isNet ? 'var(--bg-muted)' : 'var(--bg-card)' }}>
                         <td style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-main)' }}>{r.ruta}</td>
                         <td style={{ padding: '12px 16px', color: 'var(--text-main)' }}>
-                          {isNet ? (isRefund ? t('ui.moms_att_aterfa') : t('ui.moms_att_betala')) : r.label}
+                          {isNet ? (isRefund ? t('ui.moms_att_aterfa') : t('ui.moms_att_betala')) : String(r.label).replace(/ %/g, ' %')}
                         </td>
-                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: isNet ? 800 : 600, fontSize: isNet ? '16px' : '14px', color: isNet ? (isRefund ? 'var(--status-green-text)' : 'var(--status-red-text)') : 'var(--text-main)' }}>
+                        <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: isNet ? 800 : 600, fontSize: isNet ? '16px' : '14px', color: isNet ? (isRefund ? 'var(--status-green-text)' : 'var(--status-red-text)') : 'var(--text-main)' }}>
                           {fmt(Math.abs(r.value))} {t('ui.kr')}
                         </td>
                       </tr>

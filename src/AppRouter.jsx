@@ -1,14 +1,17 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import LandingPage from './components/LandingPage';
+// Bara lokalt: registreringens frågor fristående (src/dev/DevOnboarding.jsx).
+const DevOnboarding = import.meta.env.DEV ? lazy(() => import('./dev/DevOnboarding')) : null;
 import CookieBanner from './components/CookieBanner';
 import { allLocalizedRoutes } from './content/marketing/routes';
-import { ALL_ARTICLES } from './content/marketing/news';
+import { isAppHost, shouldForwardToApp, appUrl, readAppIntent, adoptTransferredSession } from './utils/appHost';
+import { ARTICLE_ROUTES } from './content/marketing/articleRoutes';
 import { GUIDE_GROUPS } from './content/marketing/guides';
 import { ORG_TYPE_PAGES } from './content/marketing/orgTypes';
 import { FEATURE_PAGES } from './content/marketing/featurePages';
 import { capturePosthogPageview } from './utils/posthog.js';
-import { getAuthStorage, isStandaloneApp } from './utils/authStorage';
+import { getAuthStorage, isStandaloneApp, rememberUntil, setRememberUntil } from './utils/authStorage';
 
 // ── Marknads-/juridiksidorna — flyttade hit rakt av från App.jsx (se
 // kommentaren vid App-komponentens topp där för VARFÖR). Samma lazy()-
@@ -16,6 +19,7 @@ import { getAuthStorage, isStandaloneApp } from './utils/authStorage';
 const FeaturesPage = lazy(() => import('./components/marketing/FeaturesPage'));
 const PricingPage = lazy(() => import('./components/marketing/PricingPage'));
 const AboutPage = lazy(() => import('./components/marketing/AboutPage'));
+const RulesPage = lazy(() => import('./components/marketing/RulesPage'));
 const ContactPage = lazy(() => import('./components/marketing/ContactPage'));
 const BookingPage = lazy(() => import('./components/marketing/BookingPage'));
 const GmailConnectCallback = lazy(() => import('./components/GmailConnectCallback'));
@@ -41,7 +45,6 @@ const BankPage = lazy(() => import('./components/marketing/BankPage'));
 // (utils/ufMode.js). Samma fyra ställen som varje annan statisk
 // marknadssida: här, i PRERENDER_ROUTES/PAGES (entry-server.jsx), i
 // vercel.json:s rewrites och i public/sitemap.xml.
-const UfPage = lazy(() => import('./components/marketing/UfPage'));
 // Fria verktyg (/verktyg + räknarna), ordlistan, integrationssidan och
 // säkerhetssidan — alla publika, alla lazy av samma skäl som ovan: en
 // besökare som bara ska till startsidan ska inte hämta dem.
@@ -146,6 +149,8 @@ function getSupabaseSessionKey() {
 // marknadsbunten, ingenting mer.
 export function shouldLoadAppImmediately() {
   if (typeof window === 'undefined') return false;
+  // app.bokix.se: inloggning som följde med från www.bokix.se (utils/appHost.js).
+  try { if (isAppHost()) adoptTransferredSession(getAuthStorage(), getSupabaseSessionKey(), setRememberUntil); } catch { /* inget */ }
   try {
     const sessionKey = getSupabaseSessionKey();
     if (sessionKey && getAuthStorage()?.getItem(sessionKey)) return true;
@@ -189,14 +194,55 @@ function AppViewportLock() {
   return null;
 }
 
+// www.bokix.se → app.bokix.se med adress, avsikt och inloggning (utils/appHost.js).
+let forwarding = false;
+function forwardToApp(intent = null) {
+  // Bara en gång: en andra körning (StrictMode) hade skickat vidare utan inloggningen.
+  if (forwarding) return;
+  forwarding = true;
+  let session = null;
+  try {
+    const key = getSupabaseSessionKey();
+    const raw = key && getAuthStorage()?.getItem(key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      session = parsed?.currentSession || parsed;
+      // Förnyelsetoken får bara användas på ett ställe: den lämnar www nu.
+      getAuthStorage().removeItem(key);
+      try { localStorage.removeItem(key); sessionStorage.removeItem(key); } catch { /* inget */ }
+    }
+  } catch { /* ingen sparad inloggning */ }
+  window.location.replace(appUrl({ search: window.location.search, hash: window.location.hash, intent, session, rememberUntil: rememberUntil() }));
+}
+
 function RootRoute({ locale = 'sv' }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [wantsApp, setWantsApp] = useState(shouldLoadAppImmediately);
+  // app.bokix.se är alltid appen.
+  const [wantsApp, setWantsApp] = useState(() => shouldLoadAppImmediately() || isAppHost());
+  const forward = shouldForwardToApp();
 
   useEffect(() => {
     if (location.state?.enterApp) setWantsApp(true);
   }, [location.state]);
+
+  // app.bokix.se: marknadssidornas knappar skickar ?auth=signup&plan=… hit.
+  useEffect(() => {
+    if (!isAppHost()) return;
+    const r = readAppIntent(location.search);
+    if (r) navigate({ pathname: '/', search: r.search, hash: location.hash }, { replace: true, state: r.intent });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // www.bokix.se: den som ska in i appen skickas till app.bokix.se.
+  useEffect(() => {
+    if (!(forward && wantsApp)) return;
+    const st = location.state?.enterApp ? location.state : null;
+    // Registrering utan valt abonnemang: välj nivå på /priser här på www först.
+    if (st?.authMode === 'signup' && !st.plan && !st.uf && !st.invite) { setWantsApp(false); navigate('/priser', { replace: true }); return; }
+    forwardToApp(st);
+  }, [forward, wantsApp]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (forward && wantsApp) return <AppLoadingFallback />;
 
   if (wantsApp) {
     return (
@@ -246,6 +292,16 @@ function RootRoute({ locale = 'sv' }) {
 // sidladdning redan beter sig, till skillnad från loggans EGEN smooth-
 // scroll vid klick på samma sida (MarketingLayout.jsx), som är en annan,
 // avsiktligt mjukare animation för ett annat fall (redan på sidan).
+// Sökvägar som hör till appen på app.bokix.se; allt annat hör till www.
+const APP_HOST_PATHS = /^\/(?:$|invite|internal|koppla-mejl|dev\/|privacy|terms|cookies|pub|gdpr)/;
+function AppHostGuard() {
+  const { pathname, search, hash } = useLocation();
+  useEffect(() => {
+    if (isAppHost() && !APP_HOST_PATHS.test(pathname)) window.location.replace(`https://www.bokix.se${pathname}${search}${hash}`);
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 function ScrollToTop() {
   const { pathname, hash } = useLocation();
   useEffect(() => {
@@ -288,16 +344,19 @@ const LOCALIZED_PAGE_COMPONENTS = {
 export default function AppRouter() {
   return (
     <>
+      <AppHostGuard />
       <ScrollToTop />
       <PageviewTracker />
       <Routes>
         <Route path="/" element={<RootRoute />} />
+        {DevOnboarding && <Route path="/dev/onboarding" element={<Suspense fallback={<AppLoadingFallback />}><DevOnboarding /></Suspense>} />}
         {/* Sitemap (Sida 29) — varje marknadssida en egen riktig route/URL,
             inte ett skroll-ankare på startsidan. Loggan i MarketingLayout
             går alltid till "/" oavsett vilken av dessa man står på. */}
         <Route path="/funktioner" element={<Suspense fallback={<AppLoadingFallback />}><FeaturesPage /></Suspense>} />
         <Route path="/priser" element={<Suspense fallback={<AppLoadingFallback />}><PricingPage /></Suspense>} />
         <Route path="/om-oss" element={<Suspense fallback={<AppLoadingFallback />}><AboutPage /></Suspense>} />
+        <Route path="/belopp-och-regler" element={<Suspense fallback={<AppLoadingFallback />}><RulesPage /></Suspense>} />
         <Route path="/kontakt" element={<Suspense fallback={<AppLoadingFallback />}><ContactPage /></Suspense>} />
         <Route path="/boka-genomgang" element={<Suspense fallback={<AppLoadingFallback />}><BookingPage /></Suspense>} />
         {/* Googles callback efter "Logga in med Google" i Inställningar.
@@ -312,7 +371,7 @@ export default function AppRouter() {
           <Route key={p.path} path={p.path} element={<Suspense fallback={<AppLoadingFallback />}><OrgTypePage path={p.path} /></Suspense>} />
         ))}
         <Route path="/koppla-bank" element={<Suspense fallback={<AppLoadingFallback />}><BankPage /></Suspense>} />
-        <Route path="/uf" element={<Suspense fallback={<AppLoadingFallback />}><UfPage /></Suspense>} />
+        <Route path="/uf" element={<Navigate to="/" replace />} />
         <Route path="/integrationer" element={<Suspense fallback={<AppLoadingFallback />}><IntegrationsPage /></Suspense>} />
         <Route path="/sakerhet" element={<Suspense fallback={<AppLoadingFallback />}><SecurityPage /></Suspense>} />
         <Route path="/lon" element={<Suspense fallback={<AppLoadingFallback />}><PayrollPage /></Suspense>} />
@@ -336,7 +395,7 @@ export default function AppRouter() {
             X-Robots-Tag i vercel.json; medvetet inte förrenderad eller i sitemap. */}
         <Route path="/logotyper" element={<Suspense fallback={<AppLoadingFallback />}><LogosPage /></Suspense>} />
         {/* Artiklar med `body` i blog.js och news.js — en route per inlägg, härledd ur listan. */}
-        {ALL_ARTICLES.filter(p => p.body).map(p => (
+        {ARTICLE_ROUTES.map(p => (
           <Route key={p.slug} path={p.path} element={<Suspense fallback={<AppLoadingFallback />}><BlogPostPage slug={p.slug} /></Suspense>} />
         ))}
         <Route path="/internal" element={<Suspense fallback={<AppLoadingFallback />}><InternalApp /></Suspense>} />

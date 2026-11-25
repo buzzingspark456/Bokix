@@ -5,6 +5,7 @@ import { upsertSubscription, stripePeriodEnd } from './_subscriptions.js';
 import { enforceCardTrialLimit } from './_trialGuard.js';
 import { notifyAdminsAboutEvent } from './_adminNotify.js';
 import { scheduleTrustpilotInvite } from './_trustpilotInvites.js';
+import { sendBillingCc } from './_billingCc.js';
 import { createClient } from '@supabase/supabase-js';
 import { readOwnerCompany } from '../_companyStore.js';
 import { withSentry } from '../_sentry.js';
@@ -167,6 +168,8 @@ async function handler(req, res) {
         // 500-svar (då uteblir grundarnas notis och händelsen skickas om).
         if (!fromConnected) {
           try { await scheduleTrustpilotInvite(stripe, event); } catch (err) { console.error('Trustpilot-inbjudan kunde inte schemaläggas:', err); }
+          // Kopia av kvittot till fakturamejladressen, om ägaren angett en.
+          try { await sendBillingCc(stripe, event.data.object); } catch (err) { console.error('Kvittokopian kunde inte skickas:', err); }
         }
         break;
 

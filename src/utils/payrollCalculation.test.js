@@ -195,3 +195,22 @@ describe('computeEmployeePayroll — uttagen semester minskar skulden', () => {
     expect(r.totalCost).toBeCloseTo(r.gross + r.employerFee + r.vacationProvision + r.vacationFee - r.vacationUsed - r.vacationUsedFee, -1)
   })
 })
+
+describe('engångsbelopp (bonus)', () => {
+  it('bonus med angiven procentsats får skatt efter procentsatsen, lönen efter tabellen', async () => {
+    const row = (from, to, amt) => ({ 'antal dgr': '30B', 'inkomst fr.o.m.': String(from), 'inkomst t.o.m.': String(to), 'kolumn 1': String(amt), tabellnr: '99', år: '2026' });
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ results: [row(29001, 31000, 7500), row(39001, 41000, 10000)] }) });
+    const { preloadSkattetabell } = await import('./skattetabell');
+    await preloadSkattetabell(2026, '99');
+    const employee = { salaryForm: 'manadslon', monthlySalary: 30000, employmentRate: 100, taxTable: { tabellnr: '99', kolumn: 1, year: 2026 } };
+    const base = { period: '2026-11', lines: [{ payTypeId: 'bonus', quantity: 1, rate: 10000 }] };
+    const without = computeEmployeePayroll(employee, base);
+    // Utan egen sats: Skatteverkets engångstabell, kolumn 1, årslön 360 000 kr = 26 %
+    expect(without.oneTimeMissing).toBe(false);
+    expect(without.oneTimeAutoPct).toBe(26);
+    expect(without.tax).toBe(7500 + 2600);
+    const withPct = computeEmployeePayroll(employee, { ...base, oneTimeTaxPercent: '34' });
+    expect(withPct.oneTimeMissing).toBe(false);
+    expect(withPct.tax).toBe(7500 + 3400);
+  });
+});

@@ -27,9 +27,23 @@
     {
       "path": "/api/cron/reminders",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/indexnow",
+      "schedule": "20 7 * * *"
     }
   ],
   "rewrites": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "app.bokix.se"
+        }
+      ],
+      "destination": "/app-shell.html"
+    },
     {
       "source": "/api/stripe/create-subscription-checkout",
       "destination": "/api/stripe/create-checkout-session"
@@ -87,10 +101,6 @@
       "destination": "/koppla-bank/index.html"
     },
     {
-      "source": "/uf",
-      "destination": "/uf/index.html"
-    },
-    {
       "source": "/integrationer",
       "destination": "/integrationer/index.html"
     },
@@ -137,10 +147,6 @@
     {
       "source": "/blogg/sie4-flytta-bokforing",
       "destination": "/blogg/sie4-flytta-bokforing/index.html"
-    },
-    {
-      "source": "/blogg/bokforing-uf-foretag",
-      "destination": "/blogg/bokforing-uf-foretag/index.html"
     },
     {
       "source": "/blogg/moms-deklaration-steg-for-steg",
@@ -405,7 +411,20 @@
   ],
   "headers": [
     {
+ feat/ny-meny
       "source": "/(privacy|terms|cookies|pub|gdpr|logotyper)",
+
+      "source": "/(security.txt|.well-known/security.txt)",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        }
+      ]
+    },
+    {
+      "source": "/(privacy|terms|cookies|pub|gdpr)",
+ main
       "headers": [
         {
           "key": "X-Robots-Tag",
@@ -450,9 +469,220 @@
           "value": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob: https://www.googletagmanager.com https://challenges.cloudflare.com https://*.clarity.ms https://c.bing.com https://*.posthog.com https://www.google.com https://www.gstatic.com https://cdn.jsdelivr.net; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' data: blob: https://*.ingest.de.sentry.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.supabase.co wss://*.supabase.co https://*.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://challenges.cloudflare.com https://*.clarity.ms https://c.bing.com https://api.frankfurter.dev https://*.posthog.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://www.google.com; frame-src blob: https://*.supabase.co https://challenges.cloudflare.com https://www.google.com https://recaptcha.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
         }
       ]
+    },
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "app.bokix.se"
+        }
+      ],
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
     }
   ],
   "redirects": [
+    {
+      "source": "/:path((?!api/|assets/|invite|internal|koppla-mejl|dev/|privacy|terms|cookies|pub|gdpr|manifest|icon|apple-touch|favicon|email-logo|sw\\.js|robots\\.txt|app-shell)[^.]+)",
+      "has": [
+        {
+          "type": "host",
+          "value": "app.bokix.se"
+        }
+      ],
+      "destination": "https://www.bokix.se/:path",
+      "permanent": false
+    },
+    {
+      "source": "/uf",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/blogg/bokforing-uf-foretag",
+      "destination": "/blogg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-anstallda-och-lon.jpg",
+      "destination": "/product/bokix-lonekorning-ny.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-anstallda-och-lon.png",
+      "destination": "/product/bokix-lonekorning-ny.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-personal-anstallda.jpg",
+      "destination": "/product/bokix-lonekorning-ny.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-personal-anstallda.png",
+      "destination": "/product/bokix-lonekorning-ny.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-artiklar-lager.jpg",
+      "destination": "/product/bokix-lager.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-artiklar-lager.png",
+      "destination": "/product/bokix-lager.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-fakturering-kundfakturor.jpg",
+      "destination": "/product/bokix-kundfakturor.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-fakturering-kundfakturor.png",
+      "destination": "/product/bokix-kundfakturor.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kundfakturor.jpg",
+      "destination": "/product/bokix-kundfakturor.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kundfakturor.png",
+      "destination": "/product/bokix-kundfakturor.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-granskning-kvitton.jpg",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-granskning-kvitton.png",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-granskning-stripe.jpg",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-granskning-stripe.png",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-granskning-zettle.jpg",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-granskning-zettle.png",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kvitton-hantering-dark.jpg",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kvitton-hantering-dark.png",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kvitton-hantering.jpg",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kvitton-hantering.png",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kvitton.jpg",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kvitton.png",
+      "destination": "/product/bokix-kvitton.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kunder.jpg",
+      "destination": "/product/bokix-kunder.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-kunder.png",
+      "destination": "/product/bokix-kunder.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-offerter.jpg",
+      "destination": "/product/bokix-offerter.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-offerter.png",
+      "destination": "/product/bokix-offerter.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-momsdeklaration.jpg",
+      "destination": "/product/bokix-moms.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-momsdeklaration.png",
+      "destination": "/product/bokix-moms.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-skatt-momsdeklaration.jpg",
+      "destination": "/product/bokix-moms.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-skatt-momsdeklaration.png",
+      "destination": "/product/bokix-moms.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-rapporter-resultat.jpg",
+      "destination": "/product/bokix-resultatrakning.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-rapporter-resultat.png",
+      "destination": "/product/bokix-resultatrakning.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-skatt-och-bokslut.jpg",
+      "destination": "/product/bokix-skatt.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/bokix-skatt-och-bokslut.png",
+      "destination": "/product/bokix-skatt.jpg",
+      "permanent": true
+    },
+    {
+      "source": "/screenshots/:path*",
+      "destination": "/product/bokix-start.jpg",
+      "permanent": true
+    },
     {
       "source": "/status",
       "destination": "https://status.bokix.se/sv",

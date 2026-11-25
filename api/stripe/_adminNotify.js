@@ -31,6 +31,12 @@ const planName = (id) => {
   if (!plan) return null;
   return `${plan.name}, ${plan.price} kr/mån${plan.intervalId === 'yearly' ? ' (årsplan)' : ''}`;
 };
+// Svaret från Avsluta-frågan i Inställningar (Stripes egna koder).
+const FEEDBACK_SV = {
+  too_expensive: 'Det kostar för mycket', missing_features: 'Något jag behöver saknas',
+  switched_service: 'Byter till ett annat program', unused: 'Företaget är vilande eller avslutat',
+  too_complex: 'Det var svårt att använda', low_quality: 'Dålig kvalitet', customer_service: 'Kundservice', other: 'Annat',
+};
 const kr = (ore, currency) => `${(ore / 100).toLocaleString('sv-SE', { maximumFractionDigits: 2 })} ${currency === 'sek' || !currency ? 'kr' : currency.toUpperCase()}`;
 const day = (unix) => new Date(unix * 1000).toLocaleDateString('sv-SE', { timeZone: 'Europe/Stockholm' });
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -78,6 +84,18 @@ export async function buildAdminNotice(stripe, event) {
   // visar att fältet just ändrades, så andra uppdateringar ger inget mejl.
   if (event.type === 'customer.subscription.updated') {
     const prev = event.data?.previous_attributes || {};
+    // Bytt plan (Inställningar → Ändra plan).
+    if (prev.metadata && prev.metadata.plan && obj.metadata?.plan && prev.metadata.plan !== obj.metadata.plan) {
+      const email = await customerEmail(stripe, obj.customer);
+      return {
+        subject: `Bytt plan: ${email || 'okänd e-post'}`,
+        lines: [
+          `${email || 'En kund'} har bytt plan.`,
+          planName(prev.metadata.plan) && `Från: ${planName(prev.metadata.plan)}`,
+          planName(obj.metadata.plan) && `Till: ${planName(obj.metadata.plan)}`,
+        ],
+      };
+    }
     const touched = 'cancel_at_period_end' in prev || 'cancel_at' in prev;
     if (!touched) return null;
     const wasCanceling = !!(prev.cancel_at_period_end ?? obj.cancel_at_period_end) || !!('cancel_at' in prev ? prev.cancel_at : obj.cancel_at);
@@ -93,7 +111,7 @@ export async function buildAdminNotice(stripe, event) {
           `${email || 'En kund'} har sagt upp sitt abonnemang${obj.status === 'trialing' ? ' under provperioden' : ''}.`,
           plan && `Abonnemang: ${plan}`,
           end && `Det gäller till ${day(end)}, sedan avslutas det.`,
-          obj.cancellation_details?.feedback && `Anledning: ${obj.cancellation_details.feedback}`,
+          obj.cancellation_details?.feedback && `Anledning: ${FEEDBACK_SV[obj.cancellation_details.feedback] || obj.cancellation_details.feedback}`,
           obj.cancellation_details?.comment && `Kommentar: ${obj.cancellation_details.comment}`,
         ],
       };

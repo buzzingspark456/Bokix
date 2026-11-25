@@ -1,7 +1,16 @@
-# Bokix security.txt (RFC 9116) — hur man rapporterar en säkerhetsbrist
-# till oss. Ingen bug bounty-plattform ännu — bara en vanlig
-# supportadress tills vidare.
+# Security at Bokix
+#
+# Found a security issue? Email support@bokix.se and tell us what you
+# found and how to reproduce it. We confirm that we got your report.
+#
+# Only test against your own account. Never read, change or delete other
+# people's data, and please wait to go public until the issue is fixed.
+#
+# Service status: https://status.bokix.se
+
 Contact: mailto:support@bokix.se
-Canonical: https://www.bokix.se/.well-known/security.txt
+Expires: 2027-10-31T23:00:00.000Z
 Preferred-Languages: sv, en
-Expires: 2027-08-24T00:00:00.000Z
+Policy: https://www.bokix.se/sakerhet
+Canonical: https://www.bokix.se/.well-known/security.txt
+Canonical: https://bokix.se/.well-known/security.txt

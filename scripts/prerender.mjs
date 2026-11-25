@@ -96,9 +96,34 @@ const COVER_OWNER = new Map(ALL_ARTICLES.map(a => [`${SITE_URL}${a.image}`, a.pa
 const COVER_LISTS = new Set(['/blogg', '/nyheter']);
 function keepImageOn(route, image) {
   // Listorna visar WebP-miniatyren (utils/blogThumb.js), som hör till samma inlägg.
-  const owner = COVER_OWNER.get(image.replace(/\/blog\/thumb\/(.+)\.webp$/, '/blog/$1.jpg'));
+  const owner = COVER_OWNER.get(image.replace(/\?v=[0-9a-f]{8}$/, '').replace(/\/blog\/thumb\/(.+)\.webp$/, '/blog/$1.jpg'));
   return !owner || owner === route || COVER_LISTS.has(route);
 }
+
+// ── Bildversioner (2026-11-24) ──────────────────────────────────────────
+// Google behåller sin kopia av en bildadress länge, så en skärmbild som
+// byts med samma filnamn visades gammal i bildsök i flera veckor. Varje
+// bild får därför ?v=<8 tecken av filens sha256> i HTML, delningsbild,
+// strukturerad data och sitemap. Ändras filen får den en ny adress och
+// hämtas på nytt; oförändrade bilder behåller sin adress mellan byggen.
+const assetHashes = new Map();
+function assetVersion(publicPath) {
+  if (!assetHashes.has(publicPath)) {
+    const file = path.join(distDir, decodeURIComponent(publicPath));
+    assetHashes.set(publicPath, fs.existsSync(file) && fs.statSync(file).isFile()
+      ? crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex').slice(0, 8)
+      : null);
+  }
+  return assetHashes.get(publicPath);
+}
+const VERSIONED_ASSET = /((?:https:\/\/(?:www\.)?bokix\.se)?\/(?:product|og|blog|videos|screenshots)\/[^"'\s?#),<>]+\.(?:jpe?g|png|webp|avif|gif))(?![?\w.])/gi;
+export function versionAssets(text) {
+  return text.replace(VERSIONED_ASSET, (match, url) => {
+    const v = assetVersion(url.replace(/^https:\/\/(?:www\.)?bokix\.se/, ''));
+    return v ? `${url}?v=${v}` : url;
+  });
+}
+const stripVersion = (url) => url.replace(/\?v=[0-9a-f]{8}$/, '');
 
 function imagesFromHtml(html) {
   const images = new Set();
@@ -151,7 +176,9 @@ function recordPageDate(route, html) {
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  const content = [pick(/<title>([^<]*)<\/title>/i), pick(/<meta name="description" content="([^"]*)"/i), body].join('\n');
+  // Bildversionerna räknas med: en ny skärmbild är en ändring av sidan.
+  const imageVersions = [...html.matchAll(/\?v=([0-9a-f]{8})/g)].map(m => m[1]).sort().join(',');
+  const content = [pick(/<title>([^<]*)<\/title>/i), pick(/<meta name="description" content="([^"]*)"/i), body, imageVersions].join('\n');
   const hash = crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
   const today = new Date().toISOString().slice(0, 10);
   const stored = pageDates[route];
@@ -262,8 +289,22 @@ function generateSitemap() {
   }).join('\n');
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">\n${body}\n</urlset>\n`;
-  fs.writeFileSync(path.join(distDir, 'sitemap.xml'), xml);
+  fs.writeFileSync(path.join(distDir, 'sitemap.xml'), versionAssets(xml));
   console.log(`✓ sitemap.xml (${urls.length} URL:er, ${urls.filter(u => u.images.length).length} med bilder, ${urls.filter(u => u.video).length} med video)`);
+  generateNewsSitemap();
+}
+
+/** dist/sitemap-news.xml för Googles flik Nyheter (2026-11-08). Google News
+ * vill bara ha nyheter från de senaste två dygnen i den här filen; äldre
+ * nyheter finns kvar i sitemap.xml. Byggs vid varje driftsättning, så en ny
+ * nyhet i news.js hamnar här samma dag som den publiceras. */
+function generateNewsSitemap() {
+  const cutoff = Date.now() - 2 * 24 * 60 * 60 * 1000;
+  const fresh = ALL_ARTICLES.filter(p => p.news && p.body && !p.hidden && new Date(`${p.datePublished}T12:00:00+01:00`).getTime() >= cutoff);
+  const body = fresh.map(p => `  <url>\n    <loc>${xmlEscape(`${SITE_URL}${p.path}`)}</loc>\n    <news:news>\n      <news:publication><news:name>Bokix</news:name><news:language>sv</news:language></news:publication>\n      <news:publication_date>${schemaDate(p.datePublished)}</news:publication_date>\n      <news:title>${xmlEscape(p.title)}</news:title>\n    </news:news>${p.image ? `\n    <image:image><image:loc>${xmlEscape(`${SITE_URL}${p.image}`)}</image:loc></image:image>` : ''}\n  </url>`).join('\n');
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${body}${body ? '\n' : ''}</urlset>\n`;
+  fs.writeFileSync(path.join(distDir, 'sitemap-news.xml'), versionAssets(xml));
+  console.log(`✓ sitemap-news.xml (${fresh.length} nyheter från de senaste två dygnen)`);
 }
 
 // Artikeltext som ren text: **fet** och [länk](url) blir läsbar text.
@@ -336,7 +377,7 @@ async function main() {
   const { render, PRERENDER_ROUTES } = await import(`${'file://' + entryPath.replace(/\\/g, '/')}`);
 
   for (const route of PRERENDER_ROUTES) {
-    const html = buildPage(render, route);
+    const html = versionAssets(buildPage(render, route));
     const outPath = route === '/'
       ? templatePath
       : path.join(distDir, route.replace(/^\//, ''), 'index.html');
@@ -344,7 +385,11 @@ async function main() {
     fs.writeFileSync(outPath, html);
     recordPageDate(route, html);
     // Miniatyren i listorna ersätts av originalet: samma bild, större.
-    const fullSize = imagesFromHtml(html).map(image => image.replace(/\/blog\/thumb\/(.+)\.webp$/, '/blog/$1.jpg'));
+    const fullSize = imagesFromHtml(html).map(image => {
+      const base = stripVersion(image);
+      const big = base.replace(/\/blog\/thumb\/(.+)\.webp$/, '/blog/$1.jpg');
+      return big === base ? image : versionAssets(big);
+    });
     pageImages.set(route, [...new Set(fullSize)].filter(image => keepImageOn(route, image)));
     console.log(`✓ Förrenderade ${route} -> ${path.relative(distDir, outPath) || 'index.html'} (${(html.length / 1024).toFixed(1)} kB)`);
   }

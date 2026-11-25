@@ -9,8 +9,10 @@ import { supabase } from '../supabaseClient';
 import { sendSignupCode, verifySignupCode, confirmSignupEmail } from '../utils/signupVerification';
 import { translateSupabaseAuthError } from '../utils/translateAuthError';
 import { passkeyLoginOffered, rememberPasskeyOnDevice, isPasskeyCancel, setAppLock } from '../utils/sessionPolicy';
+import { setRemember, isStandaloneApp, REMEMBER_DAYS } from '../utils/authStorage';
 import { BRAND } from '../utils/brandColors';
 import { BokixWordmark } from './marketing/MarketingLayout';
+import { attemptsFor, recordFailure, clearAttempts, isWrongCredentials, SHOW_FORGOT_AFTER } from '../utils/loginAttempts';
 import { createStripeSubscriptionCheckout } from '../stripeApi';
 import { planFromId } from '../utils/plans';
 import { UF_FREE_MONTHS } from '../utils/ufMode';
@@ -30,7 +32,7 @@ function StripeBadge() {
       <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 15, height: 15, borderRadius: 4, background: '#635BFF', color: 'white', fontSize: '10px', fontWeight: 800, fontFamily: 'Georgia, serif', lineHeight: 1 }}>
         {t('ui.s')}
       </span>
-      <span style={{ fontWeight: 700, color: '#425466' }}>{t('ui.stripe')}</span>
+      <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{t('ui.stripe')}</span>
     </span>
   );
 }
@@ -76,7 +78,7 @@ function passwordStrength(pw) {
   if (score <= 1) return { label: t('ui.svagt_lagg_till_fler_tecken'), color: '#ef4444', pct: 25 };
   if (score === 2) return { label: t('ui.okej'), color: '#f59e0b', pct: 50 };
   if (score <= 3) return { label: t('ui.bra'), color: '#84cc16', pct: 75 };
-  return { label: t('ui.starkt'), color: '#0b6329', pct: 100 };
+  return { label: t('ui.starkt'), color: '#16a34a', pct: 100 };
 }
 
 // Sessionstoken satt av InviteRedeem.jsx när någon öppnar en inbjudningslänk
@@ -141,6 +143,24 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   // ej (se handleForgotPassword) — att svara olika hade läckt vilka
   // e-postadresser som är registrerade i Bokix.
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  // Kom ihåg mig i 7 dagar (utils/authStorage.js), ikryssad från början.
+  const [rememberMe, setRememberMe] = useState(true);
+  // Felaktiga försök (utils/loginAttempts.js): Glömt lösenord visas efter tre,
+  // formuläret spärras en stund efter fem.
+  const [attempts, setAttempts] = useState({ fails: 0, lockedUntil: 0 });
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => { setAttempts(attemptsFor(loginEmail)); }, [loginEmail]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!attempts.lockedUntil) return undefined;
+    const timer = setInterval(() => {
+      setNowTick(Date.now());
+      if (Date.now() >= attempts.lockedUntil) setAttempts(attemptsFor(loginEmail));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [attempts.lockedUntil]); // eslint-disable-line react-hooks/exhaustive-deps
+  const locked = attempts.lockedUntil > nowTick;
+  const lockLeft = locked ? Math.ceil((attempts.lockedUntil - nowTick) / 1000) : 0;
+  const showForgotLink = attempts.fails >= SHOW_FORGOT_AFTER || locked;
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -266,7 +286,9 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
   // därför ett eget steg med företagsnamn + skola, och lösenordssteget
   // skapar kontot UTAN att skicka någon vidare till Stripe. Förvalet kommer
   // från /uf-sidans knappar (initialUf).
-  const [isUfSignup, setIsUfSignup] = useState(Boolean(initialUf));
+  // UF togs bort 2026-11-09: inga nya UF-konton. Befintliga fungerar som förut
+  // tills de stängs (utils/ufClose.js). initialUf ignoreras därför.
+  const [isUfSignup, setIsUfSignup] = useState(false);
   const [regCompany, setRegCompany] = useState('');
   const [regUfSchool, setRegUfSchool] = useState('');
 
@@ -344,7 +366,10 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     setLoading(true);
     try {
       if (!loginEmail || !loginPassword) throw new Error(t('ui.fyll_i_alla_falt'));
+      if (attemptsFor(loginEmail).lockedUntil > Date.now()) { setAttempts(attemptsFor(loginEmail)); return; }
       markLoginStart('password');
+      // Avgör var inloggningen sparas innan den görs.
+      setRemember(rememberMe);
       const { error } = await withCaptcha(loginCaptchaRef, (captchaToken) => {
         markLoginStep('captcha');
         return supabase.auth.signInWithPassword({
@@ -355,9 +380,13 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
       });
       if (error) throw error;
       markLoginStep('auth');
+      clearAttempts(loginEmail);
       offerToSavePassword(loginEmail, loginPassword);
     } catch (err) {
-      setErrorMsg(translateSupabaseAuthError(err.message));
+      const rec = isWrongCredentials(err?.message) ? recordFailure(loginEmail) : null;
+      if (rec) { setAttempts(attemptsFor(loginEmail)); setNowTick(Date.now()); }
+      // Spärrad: rutan säger redan vad som hänt, inget rött fel ovanpå.
+      setErrorMsg(rec?.lockedUntil ? '' : translateSupabaseAuthError(err.message));
       newCaptchaRound();
     } finally {
       setLoading(false);
@@ -372,6 +401,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
     try {
       // Supabase kräver captcha även för passkey-inloggning när den är påslagen.
       markLoginStart('passkey');
+      setRemember(rememberMe);
       let res;
       try {
         res = await withCaptcha(loginCaptchaRef, (captchaToken) => {
@@ -507,6 +537,8 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 vat_nr: regProfile.setup?.vatNr || '',
                 vat_period: regProfile.vatPeriod || '',
                 f_skatt: regProfile.fSkatt || '',
+                // Börjar från noll eller flyttar in (OnboardingFlow, steget Start).
+                ...(regProfile.startPath ? { start_path: regProfile.startPath } : {}),
                 setup_done: true,
                 setup_done_at: new Date().toISOString(),
               } : {}),
@@ -814,10 +846,25 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{t('ui.ange_din_e_postadress_sa_skickar_vi_en_aterstall')}</p>
               </div>
               {forgotSent ? (
-                <div style={{ padding: '32px 28px', background: 'var(--status-green-bg)', borderRadius: '16px', border: '1px solid var(--status-green-bg)', textAlign: 'center' }}>
-                  <div className="auth-pulse" style={{ width: 64, height: 64, borderRadius: '50%', background: BRAND.green, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
-                    <Mail size={26} color="white" />
-                  </div>
+                <div className="auth-sent">
+                  {/* Ett kuvert med ett brev på väg upp, i Bokix färger (2026-11-19). */}
+                  <svg className="auth-sent-env" viewBox="0 0 120 96" width="120" height="96" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="envBack" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#1f9a4a" /><stop offset="1" stopColor="#0b6329" /></linearGradient>
+                      <linearGradient id="envFront" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2bb35a" /><stop offset="1" stopColor="#14803d" /></linearGradient>
+                    </defs>
+                    <rect x="10" y="34" width="100" height="58" rx="10" fill="url(#envBack)" />
+                    <g className="auth-sent-letter">
+                      <rect x="24" y="12" width="72" height="58" rx="6" fill="#fff" />
+                      <rect x="34" y="24" width="40" height="5" rx="2.5" fill="#cfe9d8" />
+                      <rect x="34" y="34" width="52" height="5" rx="2.5" fill="#e6f4ea" />
+                      <rect x="34" y="44" width="30" height="5" rx="2.5" fill="#e6f4ea" />
+                    </g>
+                    <path d="M10 44 L60 72 L110 44 L110 82 Q110 92 100 92 L20 92 Q10 92 10 82 Z" fill="url(#envFront)" />
+                    <path d="M10 86 L50 62 M110 86 L70 62" stroke="#0b6329" strokeOpacity="0.35" strokeWidth="2" fill="none" />
+                    <circle cx="98" cy="38" r="13" fill="#fff" />
+                    <path d="M92 38.5 l4 4 l8 -8.5" stroke="#1f9a4a" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                   <div style={{ fontFamily: "'Newsreader', Georgia, serif", fontWeight: 600, fontSize: '21px', color: 'var(--text-main)', marginBottom: '10px' }}>{t('ui.kolla_din_inkorg')}</div>
                   <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
                     {t('ui.om_det_finns_ett_konto_med_den_adressen_har_vi_s')}
@@ -864,18 +911,38 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <label style={labelStyle}>{t('ui.losenord')}</label>
+                  {showForgotLink && (
                   <button type="button" onClick={() => { setShowForgotPassword(true); setErrorMsg(''); setForgotEmail(loginEmail); }} className="auth-link" style={{ background: 'none', border: 'none', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '6px' }}>
                     {t('ui.glomt_losenord')}
                   </button>
+                  )}
                 </div>
                 <div style={{ position: 'relative' }}>
                   <Lock size={18} color="var(--text-muted)" style={{ position: 'absolute', top: 15, left: 16, pointerEvents: 'none' }} />
                   <input className="auth-input" type="password" id="login-password" name="password" autoComplete="current-password" style={{ ...inputStyle, paddingLeft: '48px' }} placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
                 </div>
               </div>
+              {!isStandaloneApp() && (
+                <label className="auth-remember">
+                  <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
+                  <span>{t('ui.remember_me', { days: REMEMBER_DAYS })}</span>
+                </label>
+              )}
+              {locked ? (
+                <div className="auth-lock-note" role="alert">
+                  <b>{t('ui.login_locked_title')}</b>
+                  <span>{t('ui.login_locked_text', { time: `${Math.floor(lockLeft / 60)}:${String(lockLeft % 60).padStart(2, '0')}` })}</span>
+                  <button type="button" onClick={() => { setShowForgotPassword(true); setErrorMsg(''); setForgotEmail(loginEmail); }}>{t('ui.login_reset_instead')}</button>
+                </div>
+              ) : attempts.fails >= SHOW_FORGOT_AFTER && (
+                <div className="auth-attempt-note">
+                  {t('ui.login_attempts_left', { n: 5 - attempts.fails })}{' '}
+                  <button type="button" onClick={() => { setShowForgotPassword(true); setErrorMsg(''); setForgotEmail(loginEmail); }}>{t('ui.login_reset_instead')}</button>
+                </div>
+              )}
               <Turnstile key={`l${captchaRound}`} ref={loginCaptchaRef} onDemand />
               {errorMsg && <div style={{ padding: '12px', background: 'var(--status-red-bg)', color: 'var(--status-red-text)', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{errorMsg}</div>}
-              <button className="auth-btn-primary" type="submit" disabled={loading} style={{ width: '100%', padding: '20px 22px', background: BRAND.green, border: 'none', borderRadius: '13px', fontSize: '18px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
+              <button className="auth-btn-primary" type="submit" disabled={loading || locked} style={{ width: '100%', padding: '20px 22px', background: BRAND.green, border: 'none', borderRadius: '13px', fontSize: '18px', fontWeight: 700, color: 'white', cursor: loading ? 'wait' : 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(11,99,41,0.25)', fontFamily: 'inherit', opacity: loading ? 0.7 : 1 }}>
                 {loading ? t('ui.loggar_in') : t('ui.logga_in')} <ArrowRight size={18} />
               </button>
             </form>
@@ -917,7 +984,7 @@ export default function Auth({ onBackToLanding, initialMode = 'login', plan = 'e
                 {curStep === 'password' && t('ui.skapa_losenord')}
               </h2>
               <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-                {curStep === 'verify' && t('ui.skriv_in_koden_vi_skickade_till', { regEmail })}
+                {/* Kodsteget: kortet nedan säger redan vart koden skickades. */}
                 {/* Bugkritiskt (kundrapport: "det säger betalning/organisationsnummer
                     fast det är ett UF-konto"): den här raden sa "Sedan skickas
                     du vidare till betalning" OAVSETT isUfSignup — men UF-konton

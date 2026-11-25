@@ -14,7 +14,7 @@ export const FAQ_GROUPS = [
     title: 'Kom igång',
     items: [
       { top: true, q: 'Behöver jag kunna bokföring?', short: 'Nej. Bokix bokför dina kvitton och fakturor åt dig och frågar bara när något är osäkert.', a: 'Nej. Bokix skapar verifikationerna från dina kvitton och fakturor, med rätt konto och moms. Det som är osäkert gissas aldrig fram, utan hamnar i Granskning med en förklaring, så att du bara behöver ta ställning till det.' },
-      { top: true, q: 'Vilka företag passar Bokix för?', short: 'Enskild firma, aktiebolag, handelsbolag, kommanditbolag och ekonomisk förening.', a: 'Enskild firma, aktiebolag, handelsbolag, kommanditbolag och ekonomisk förening. Bokix känner igen bolagsformen på organisationsnumret när du lägger upp företaget och följer reglerna som gäller för den, till exempel årsredovisning enligt K2 för aktiebolag.' },
+      { top: true, q: 'Vilka företag passar Bokix för?', short: 'Enskild firma, aktiebolag, handelsbolag, kommanditbolag, ekonomisk förening och ideell förening.', a: 'Enskild firma, aktiebolag, handelsbolag, kommanditbolag, ekonomisk förening och ideell förening. Bokix känner igen bolagsformen på organisationsnumret när du lägger upp företaget och följer reglerna som gäller för den, till exempel årsredovisning enligt K2 för aktiebolag.' },
       { q: 'Passar Bokix ett nystartat företag?', a: 'Ja. Skriv in organisationsnumret, så hämtas företagets uppgifter och räkenskapsår och momsperiod föreslås. Du behöver inte kunna bokföring för att börja.' },
       { q: 'Kan jag byta från mitt nuvarande program?', a: 'Ja. Du exporterar en SIE4-fil ur programmet du använder i dag och läser in den i Bokix. Konton, verifikationer och ingående balanser följer med, och ingenting skrivs in förrän du har godkänt hur kontona matchas.' },
       { q: 'Är Bokix ett alternativ till Fortnox?', a: 'Ja, för de flesta småföretag. Bokix har bokföring, fakturor, moms, lön och bokslut till ett fast pris där allt ingår. Behöver du direkt bankkoppling eller e-faktura via Peppol passar Fortnox bättre i dag.' },
@@ -38,7 +38,7 @@ export const FAQ_GROUPS = [
     id: 'bokforing',
     title: 'Bokföring, moms och bokslut',
     items: [
-      { top: true, q: 'Hur fungerar kvitton?', short: 'Fota kvittot, så läser Bokix av datum, belopp och moms.', a: 'Fota kvittot eller ladda upp en bild eller pdf. Bokix läser av datum, belopp och moms, även när samma kvitto har flera momssatser, och föreslår ett konto. Du ser alltid förslaget innan det bokförs, och papperskvittot får du slänga när du har fotat det.' },
+      { top: true, q: 'Hur fungerar kvitton?', short: 'Fota kvittot, så läser Bokix av datum, belopp och moms.', a: 'Fota kvittot eller ladda upp en bild eller pdf. Bokix läser av datum, belopp, moms och kvittonummer, även när samma kvitto har flera momssatser. Kontot väljer du första gången, sedan fylls det i för samma butik. Du ser alltid allt innan det bokförs, och papperskvittot får du slänga när du har fotat det.' },
       { q: 'Hur gör jag momsdeklarationen?', a: 'Bokix räknar fram momsdeklarationen ruta för ruta, per månad, kvartal eller år. Du laddar ner filen och lämnar in den hos Skatteverket med BankID. Bokix skickar aldrig in något åt dig, och påminner i god tid före varje datum.' },
       { q: 'Klarar Bokix bokslut och årsredovisning?', a: 'Ja. Bokix hjälper dig genom bokslutet, tar fram SRU-filer till inkomstdeklarationen och gör årsredovisningen enligt K2 för aktiebolag som en pdf att skriva under. Själva inlämningen gör du hos Skatteverket och Bolagsverket.' },
       { q: 'Har Bokix lager och lagervärdering?', a: 'Ja. Artikelregister, lagersaldo och lagervärdering med FIFO eller vägt genomsnitt. Varor på dina fakturor dras från lagret, och lagerförändringen bokförs vid bokslutet. Slå på det under Inställningar.' },
@@ -64,7 +64,7 @@ export const FAQ_GROUPS = [
     title: 'Lön och anställda',
     items: [
       { q: 'Kan Bokix sköta lönen?', a: 'Ja, med priset för anställda. Lönekörningen räknar skatteavdrag enligt Skatteverkets tabeller och arbetsgivaravgift efter ålder, ger lönebesked som pdf, en AGI-fil att lämna in hos Skatteverket och en betalfil till banken.' },
-      { q: 'Hur många användare kan vi vara?', a: 'Upp till tre användare per företag, och du kan ha flera företag under samma konto.' },
+      { q: 'Hur många användare kan vi vara?', a: 'Utan personal kan du bjuda in en person, med personal två. Din redovisningskonsult eller revisor räknas inte och ingår gratis. Du kan ha flera företag under samma konto.' },
     ],
   },
   {

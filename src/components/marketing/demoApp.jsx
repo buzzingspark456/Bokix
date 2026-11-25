@@ -2,7 +2,7 @@ import React from 'react';
 import {
   LayoutDashboard, ClipboardCheck, Users, Package, NavQuotesIcon, NavInvoicesIcon, NavReceiptsIcon,
   Inbox, Landmark, BookOpen, BarChart3, Shield, Briefcase, UsersRound, Settings, Search, Lock, Check,
-  ChevronDown, HelpCircle, LogOut, PlayCircle, X,
+  ChevronDown, HelpCircle, PlayCircle, X,
 } from '../icons';
 import BokixWordmark from '../shared/BokixWordmark';
 
@@ -180,12 +180,13 @@ export function AppStyles() {
   );
 }
 
+// Samma grupper och namn som appens sidomeny sedan november 2026 (Pengar in,
+// Pengar ut, Koll på ekonomin). Inställningar står längst ned, som i appen.
 const NAV = [
-  { items: [['dashboard', 'Start', LayoutDashboard], ['review', 'Granskning', ClipboardCheck]] },
-  { title: 'Verksamhet', items: [['contacts', 'Kunder', Users], ['articles', 'Artiklar', Package], ['quotes', 'Offerter', NavQuotesIcon], ['invoices', 'Kundfakturor', NavInvoicesIcon]] },
-  { title: 'Ekonomi', items: [['expenses', 'Kvitton', NavReceiptsIcon], ['supplier', 'Leverantörsfakturor', Inbox], ['bank', 'Bank', Landmark], ['verifications', 'Bokföring', BookOpen]] },
-  { title: 'Rapporter', items: [['reports', 'Rapport och analys', BarChart3], ['taxes', 'Skatt och bokslut', Shield]] },
-  { title: 'Administration', items: [['projects', 'Projekt', Briefcase], ['payroll', 'Anställda och lön', UsersRound], ['settings', 'Inställningar', Settings]] },
+  { items: [['dashboard', 'Start', LayoutDashboard], ['review', 'Att granska', ClipboardCheck]] },
+  { title: 'Pengar in', items: [['contacts', 'Kunder', Users], ['quotes', 'Offerter', NavQuotesIcon], ['invoices', 'Kundfakturor', NavInvoicesIcon], ['articles', 'Artiklar och lager', Package], ['projects', 'Projekt och tid', Briefcase]] },
+  { title: 'Pengar ut', items: [['expenses', 'Kvitton', NavReceiptsIcon], ['supplier', 'Leverantörsfakturor', Inbox], ['payroll', 'Anställda och lön', UsersRound]] },
+  { title: 'Koll på ekonomin', items: [['bank', 'Bank', Landmark], ['verifications', 'Bokföring', BookOpen], ['reports', 'Rapporter', BarChart3], ['taxes', 'Skatt och bokslut', Shield]] },
 ];
 
 /** Appens skal: sidomenyn med `active` markerad, och innehållet bredvid. */
@@ -209,8 +210,8 @@ export function Shell({ active, review = 0, children }) {
           </div>
         ))}
         <div className="ax-side-foot">
+          <div className={`ax-nav${active === 'settings' ? ' on' : ''}`}><Settings /> Inställningar</div>
           <div className="ax-nav"><HelpCircle /> Hjälp och support</div>
-          <div className="ax-nav ax-out"><LogOut /> Logga ut</div>
         </div>
       </aside>
       <div className="ax-main">{children}</div>

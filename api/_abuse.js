@@ -21,6 +21,28 @@ const DISPOSABLE_DOMAINS = new Set([
   'tempail.com', 'luxusmail.org', 'minuteinbox.com', 'spambox.us', 'trash-mail.com', 'wegwerfmail.de',
 ]);
 
+// Engångstjänster som använder slumpade domäner (10minutemail gav
+// jbsze.net, 2026-11-06) syns på domänens e-postserver (MX) i stället.
+const DISPOSABLE_MX = ['10minutemail.com', 'mailinator.com', 'guerrillamail.com', 'temp-mail.org', 'tempmail.com', 'yopmail.com', 'mail.tm', 'dropmail.me', 'emailondeck.com', 'moakt.com', 'maildrop.cc', 'mailnesia.com', 'trashmail.com', 'dispostable.com', 'getnada.com', '1secmail.com', 'tempmail.plus', 'tempm.com', 'emailfake.com', 'generator.email'];
+
+/**
+ * Som isDisposableEmail, men tittar också på domänens e-postserver. Går
+ * uppslaget inte att göra (nät, tidsgräns) släpps adressen igenom som förut.
+ * `resolveMx` kan bytas ut i testerna.
+ */
+export async function isDisposableEmailDeep(email, { resolveMx, timeoutMs = 1500 } = {}) {
+  if (isDisposableEmail(email)) return true;
+  const domain = String(email || '').trim().toLowerCase().split('@')[1] || '';
+  if (!domain) return false;
+  try {
+    const lookup = resolveMx || (await import('node:dns/promises')).resolveMx;
+    const records = await Promise.race([lookup(domain), new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs))]);
+    return Boolean(records?.some(r => DISPOSABLE_MX.some(d => String(r.exchange || '').toLowerCase().replace(/\.$/, '').endsWith(d))));
+  } catch {
+    return false;
+  }
+}
+
 /** Är adressen från en tjänst för engångsadresser (även en underdomän)? */
 export function isDisposableEmail(email) {
   const domain = String(email || '').trim().toLowerCase().split('@')[1] || '';

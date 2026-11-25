@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Check, Loader2 } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import { checkVatRegistration } from '../../utils/companyLookup';
-import { MONTHS, firstYearEndOptions, defaultFirstYearEnd, formatSvDate, todayIso, fiscalYearFields, suggestFiscalYear, isSoleTraderNumber } from '../../utils/fiscalYearSetup';
+import { MONTHS, firstYearEndOptions, defaultFirstYearEnd, formatSvDate, todayIso, fiscalYearFields, suggestFiscalYear, isSoleTraderNumber, isPartnershipNumber, calendarYearRequired } from '../../utils/fiscalYearSetup';
 import { t } from '../../i18n';
 
 // Två frågor som ställs där ett företag läggs upp (registreringen, Lägg
@@ -18,7 +18,7 @@ import { t } from '../../i18n';
 //
 // value: { mode, startMonth, firstStart, firstEnd, fySource, fyNote, vatRegistered, vatNr, vatSource }
 
-export const EMPTY_COMPANY_SETUP = { mode: '', startMonth: 7, firstStart: '', firstEnd: '', fySource: '', fyNote: '', vatRegistered: null, vatNr: '', vatSource: '' };
+export const EMPTY_COMPANY_SETUP = { mode: '', startMonth: 7, firstStart: '', firstEnd: '', fySource: '', fyNote: '', vatRegistered: null, vatNr: '', vatSource: '', legalPartnersOnly: false };
 
 /** Är båda frågorna besvarade (och räkenskapsåret giltigt)? */
 export function companySetupComplete(value) {
@@ -33,6 +33,10 @@ export function companySetupFromCompany(company, now = new Date()) {
     vatNr: c.vatNr || '',
     vatSource: typeof c.vatRegistered === 'boolean' ? 'user' : '',
   };
+  // Handelsbolag: har det redan brutet år (eller sagt att alla delägare är
+  // bolag) gäller det, annars kalenderår (se calendarYearRequired).
+  const fyMonth = Number(String(c.fiscalYear || '').slice(5, 7));
+  vat.legalPartnersOnly = Boolean(c.legalPartnersOnly) || (isPartnershipNumber(c.orgNr) && fyMonth >= 2 && fyMonth <= 12);
   const today = todayIso(now);
   if (c.firstFiscalYear?.start && c.firstFiscalYear?.end && c.firstFiscalYear.end >= today) {
     return { ...EMPTY_COMPANY_SETUP, ...vat, mode: 'first', firstStart: c.firstFiscalYear.start, firstEnd: c.firstFiscalYear.end, fySource: 'user' };
@@ -47,7 +51,10 @@ export function companySetupFromCompany(company, now = new Date()) {
 export function companySetupToCompany(value, orgNr) {
   // En enskild firma har alltid kalenderår, även om ett annat val hann sparas
   // i formuläret innan numret var ifyllt.
-  const choice = isSoleTraderNumber(orgNr) && value?.mode === 'other' ? { ...value, mode: 'calendar' } : value;
+  const calendarOnly = calendarYearRequired(orgNr, value?.legalPartnersOnly);
+  // Ett handelsbolag med brutet år utan att alla delägare är bolag ger ett
+  // fel (inget sparas) i stället för att tyst bli kalenderår.
+  const choice = isSoleTraderNumber(orgNr) && value?.mode === 'other' ? { ...value, mode: 'calendar' } : { ...value, calendarOnly };
   const { fiscalYear, firstFiscalYear } = fiscalYearFields(choice);
   const digits = String(orgNr || '').replace(/\D/g, '');
   return {
@@ -55,6 +62,7 @@ export function companySetupToCompany(value, orgNr) {
     firstFiscalYear: firstFiscalYear || null,
     vatRegistered: value.vatRegistered,
     vatNr: value.vatRegistered ? (value.vatNr || (digits.length === 10 ? `SE${digits}01` : '')) : '',
+    ...(isPartnershipNumber(orgNr) ? { legalPartnersOnly: Boolean(value?.legalPartnersOnly) } : {}),
   };
 }
 
@@ -79,6 +87,8 @@ export default function FiscalYearVatFields({ value, onChange, orgNr, registry, 
   // Enskild firma (personnummer): bara kalenderår, och ett första år slutar
   // 31 december. Kundönskemål 2026-10-23: skatten ska alltid bli rätt.
   const soleTrader = isSoleTraderNumber(digits);
+  const partnership = isPartnershipNumber(digits);
+  const calendarOnly = calendarYearRequired(digits, v.legalPartnersOnly);
   useEffect(() => {
     if (soleTrader && v.mode === 'other') onChange(cur => ({ ...EMPTY_COMPANY_SETUP, ...cur, mode: 'calendar' }));
   }, [soleTrader, v.mode]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -106,7 +116,8 @@ export default function FiscalYearVatFields({ value, onChange, orgNr, registry, 
     onChange(cur => {
       if (cur?.fySource === 'user') return cur;
       if (!suggestion) return { ...EMPTY_COMPANY_SETUP, ...cur, fySource: '', fyNote: '' };
-      return { ...EMPTY_COMPANY_SETUP, ...cur, ...suggestion.choice, fySource: 'registry', fyNote: suggestion.note };
+      const legal = isPartnershipNumber(registryKey) && suggestion.choice.mode === 'other' ? { legalPartnersOnly: true } : {};
+      return { ...EMPTY_COMPANY_SETUP, ...cur, ...suggestion.choice, ...legal, fySource: 'registry', fyNote: suggestion.note };
     });
   }, [registryKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -116,7 +127,15 @@ export default function FiscalYearVatFields({ value, onChange, orgNr, registry, 
       set({ mode, firstStart: start, firstEnd: defaultFirstYearEnd(start), fySource: 'user' });
     } else set({ mode, fySource: 'user' });
   };
-  const endOptions = firstYearEndOptions(v.firstStart).filter(d => !soleTrader || d.endsWith('-12-31'));
+  const endOptions = firstYearEndOptions(v.firstStart).filter(d => !calendarOnly || d.endsWith('-12-31'));
+  // Handelsbolag: brutet år eller ett första år som inte slutar 31 december
+  // bara om alla delägare är bolag.
+  const partnerCheck = partnership && (v.mode === 'other' || v.mode === 'first') && (
+    <label style={{ ...hintStyle, display: 'flex', alignItems: 'flex-start', gap: '8px', color: 'var(--text-main)', cursor: 'pointer' }}>
+      <input type="checkbox" checked={Boolean(v.legalPartnersOnly)} onChange={e => set({ legalPartnersOnly: e.target.checked, fySource: 'user', ...(!e.target.checked && v.firstEnd && !v.firstEnd.endsWith('-12-31') ? { firstEnd: defaultFirstYearEnd(v.firstStart) } : {}) })} style={{ marginTop: '2px' }} />
+      <span>{t('ui.hb_bara_bolag_som_delagare')}<br /><span style={{ color: 'var(--text-secondary)' }}>{t('ui.hb_kalenderar_annars')}</span></span>
+    </label>
+  );
 
   return (
     <div style={{ display: 'grid', gap: '20px' }}>
@@ -144,6 +163,7 @@ export default function FiscalYearVatFields({ value, onChange, orgNr, registry, 
               {MONTHS.map((name, i) => i > 0 && <option key={name} value={i + 1}>1 {name}</option>)}
             </select>
             <div style={hintStyle}>{t('ui.star_i_bolagsordningen_eller_pa_bolagsverket_och')}</div>
+            {partnerCheck}
           </div>
         )}
 
@@ -166,6 +186,7 @@ export default function FiscalYearVatFields({ value, onChange, orgNr, registry, 
             <div style={{ ...hintStyle, marginTop: 0, gridColumn: '1 / -1' }}>
               {t('ui.forsta_aret_far_vara_kortare_eller_upp_till_18_m')}
             </div>
+            {partnerCheck && <div style={{ gridColumn: '1 / -1' }}>{partnerCheck}</div>}
           </div>
         )}
       </div>

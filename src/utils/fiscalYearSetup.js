@@ -48,6 +48,25 @@ export function isSoleTraderNumber(orgNr) {
   return Number(digits.slice(-10)[2]) < 2;
 }
 
+/**
+ * Är numret ett handelsbolags (eller kommanditbolags)? Deras
+ * organisationsnummer börjar med 9.
+ */
+export function isPartnershipNumber(orgNr) {
+  const digits = String(orgNr || '').replace(/\D/g, '');
+  if (digits.length !== 10 && digits.length !== 12) return false;
+  return digits.slice(-10)[0] === '9' && !isSoleTraderNumber(digits);
+}
+
+/**
+ * Måste företaget ha kalenderår? Enskild firma alltid, och handelsbolag där
+ * en fysisk person är delägare (Skatteverket, 3 kap. 1 § BFL). Ett
+ * handelsbolag med bara bolag som delägare får ha brutet räkenskapsår.
+ */
+export function calendarYearRequired(orgNr, legalPartnersOnly = false) {
+  return isSoleTraderNumber(orgNr) || (isPartnershipNumber(orgNr) && !legalPartnersOnly);
+}
+
 /** Förval för första årets slut: 31 december samma år. */
 export function defaultFirstYearEnd(startIso) {
   const { y } = parse(startIso);
@@ -69,6 +88,9 @@ export function fiscalYearFields(choice, now = new Date()) {
   const year = now.getFullYear();
   if (!choice?.mode) return { error: 'Välj räkenskapsår.' };
   if (choice.mode === 'calendar') return { fiscalYear: iso(year, 1, 1), firstFiscalYear: null };
+  // calendarOnly: enskild firma eller handelsbolag med personer som delägare.
+  if (choice.calendarOnly && choice.mode === 'other' && Number(choice.startMonth) !== 1) return { error: 'Företaget måste ha kalenderår.' };
+  if (choice.calendarOnly && choice.mode === 'first' && choice.firstEnd && !String(choice.firstEnd).endsWith('-12-31')) return { error: 'Första räkenskapsåret måste sluta 31 december.' };
   if (choice.mode === 'other') {
     const m = Number(choice.startMonth);
     if (!(m >= 1 && m <= 12)) return { error: 'Välj vilken månad räkenskapsåret börjar.' };

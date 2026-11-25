@@ -129,6 +129,9 @@ export function legalSubset(c) {
     ...kept,
     vatPeriods: c.vatPeriods || [],
     agiReports: c.agiReports || [],
+    // Underlag som ännu inte kopplats till en verifikation är också
+    // räkenskapsinformation och ska bevaras.
+    documents: (c.documents || []).filter(d => d && d.url && !d.linkedVerificationId),
   };
 }
 

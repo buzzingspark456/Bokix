@@ -2,9 +2,11 @@
 
 > Bokix är ett svenskt bokföringsprogram på webben för småföretag. Bokföring, fakturering, kvitton, moms, lön och bokslut finns i samma verktyg, och det är byggt för att man inte ska behöva kunna bokföring.
 
+Bokix (bokix.se) är ett eget svenskt bokföringsprogram och inte samma sak som Bokio (bokio.se). Företagen har ingen koppling till varandra, och Bokix logga är ett grönt och blått B på mörk botten: https://www.bokix.se/bokix-logo.png
+
 Bokix körs i webbläsaren på https://www.bokix.se, på dator och telefon, utan något att installera. Priset är 129 kr/mån utan anställda och 179 kr/mån med anställda (med årsplan 109 respektive 149 kr/mån). Bokix är inte momsregistrerat, så ingen moms tillkommer, och allt ingår i priset. 30 dagar gratis, ingen bindningstid på månadsplanen.
 
-Bokix stöder enskild firma, aktiebolag, handelsbolag, kommanditbolag och ekonomisk förening, och bokför enligt reglerna för respektive bolagsform utifrån organisationsnumret. Appen finns på svenska och engelska. Data lagras i Sverige, i Stockholm.
+Bokix stöder enskild firma, aktiebolag, handelsbolag, kommanditbolag, ekonomisk förening och ideell förening, och bokför enligt reglerna för respektive bolagsform utifrån organisationsnumret. Appen finns på svenska och engelska. Data lagras i Sverige, i Stockholm.
 
 Fullständig text med alla frågor, svar och artiklar: https://www.bokix.se/llms-full.txt
 Fakta på en sida: https://www.bokix.se/bokix-i-korthet
@@ -39,6 +41,8 @@ Senast uppdaterad: {{DATUM}}
 - Kassaförsäljning via Zettle, bokförd från Granskning
 - Fakturor, offerter och påminnelser skickas från användarens egen Gmail eller egna e-postadress (Bokix får bara skicka, aldrig läsa)
 - Kvitton läses av automatiskt: datum, belopp och moms, även flera momssatser på samma kvitto
+- Kortköp i kontoutdraget kopplas till kvittot, så att samma köp inte bokförs två gånger
+- SIE4-import där man väljer allt i filen, ett visst år eller egna datum
 - Årsredovisning K2 för aktiebolag, SRU-filer och bokslut
 - Artiklar och lager med lagervärdering enligt FIFO eller vägt genomsnitt, påslag och marginal per vara
 - Anläggningsregister där avskrivningarna räknas och bokförs varje månad

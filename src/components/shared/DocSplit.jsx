@@ -8,13 +8,15 @@ const CLOSED_KEY = 'bokix_doc_split_closed';
 // Dokumentet bredvid formuläret på faktura och offert, från 1280 px bredd
 // (index.css). Går att minska så att formuläret får hela bredden; valet kommer
 // webbläsaren ihåg till nästa dokument.
-export default function DocSplit({ onEnlarge, onPrint, printing, onDownload, downloading, children }) {
+// storageKey/defaultClosed (2026-11-24): ordern har förhandsvisningen stängd
+// från början och kommer ihåg sitt eget val.
+export default function DocSplit({ onEnlarge, onPrint, printing, onDownload, downloading, children, storageKey = CLOSED_KEY, defaultClosed = false }) {
   const [closed, setClosed] = useState(() => {
-    try { return localStorage.getItem(CLOSED_KEY) === '1'; } catch { return false; }
+    try { const v = localStorage.getItem(storageKey); return v == null ? defaultClosed : v === '1'; } catch { return defaultClosed; }
   });
   const toggle = () => {
     setClosed(v => {
-      try { localStorage.setItem(CLOSED_KEY, v ? '0' : '1'); } catch { /* privat läge: gäller bara nu */ }
+      try { localStorage.setItem(storageKey, v ? '0' : '1'); } catch { /* privat läge: gäller bara nu */ }
       return !v;
     });
   };
@@ -41,11 +43,13 @@ export default function DocSplit({ onEnlarge, onPrint, printing, onDownload, dow
     <aside className="doc-split" aria-label={t('ui.forhandsvisning')}>
       <div className="doc-split-inner">
         <div className="doc-split-head">
-          <span>{t('ui.forhandsvisning')}</span>
+          <span className="doc-split-title">{t('ui.forhandsvisning')}</span>
           <div className="doc-split-actions">
-            <button type="button" onClick={onPrint} disabled={printing}><Printer size={14} /> {t('ui.skriv_ut')}</button>
-            <button type="button" onClick={onDownload} disabled={downloading}><Download size={14} /> {downloading ? t('ui.skapar_pdf') : t('ui.ladda_ner_pdf')}</button>
-            <button type="button" onClick={onEnlarge}><Eye size={14} /> {t('ui.forstora')}</button>
+            <div className="doc-split-group">
+              <button type="button" onClick={onPrint} disabled={printing} title={t('ui.skriv_ut')} aria-label={t('ui.skriv_ut')}><Printer size={14} /><span>{t('ui.skriv_ut')}</span></button>
+              <button type="button" onClick={onDownload} disabled={downloading} title={t('ui.ladda_ner_pdf')} aria-label={t('ui.ladda_ner_pdf')}><Download size={14} /><span>{downloading ? t('ui.skapar_pdf') : t('ui.ladda_ner_pdf')}</span></button>
+              <button type="button" onClick={onEnlarge} title={t('ui.forstora')} aria-label={t('ui.forstora')}><Eye size={14} /><span>{t('ui.forstora')}</span></button>
+            </div>
             <button type="button" className="doc-split-round" onClick={toggle} title={t('ui.minska_dokumentet')} aria-label={t('ui.minska_dokumentet')}>
               <ChevronRight size={17} />
             </button>

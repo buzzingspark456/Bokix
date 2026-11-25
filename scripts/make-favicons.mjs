@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pub = (name) => path.join(root, 'public', name);
 const svg = fs.readFileSync(pub('favicon.svg'), 'utf8');
+fs.writeFileSync(pub('bokix-logo.svg'), svg);
 const B_SIZE = 885; // B:ets höjd i SVG:ns enheter
 
 const ZOOM = { 16: [0.72, 14], 32: [0.66, 8], 48: [0.62, 4], 96: [0.58, 0], 480: [0.58, 0] };
@@ -21,6 +22,8 @@ const OUTPUTS = [
   { name: 'apple-touch-icon.png', size: 180, zoom: [0.58, 0], square: true },
   { name: 'icon-192.png', size: 192, zoom: [0.58, 0] },
   { name: 'icon-512.png', size: 512, zoom: [0.58, 0] },
+  // Loggan i schema.org och llms.txt, samma bild med varumärket i filnamnet.
+  { name: 'bokix-logo.png', size: 512, zoom: [0.58, 0] },
   // Android beskär maskable-ikoner till 80 %, så B:et måste hålla sig innanför.
   { name: 'icon-maskable-512.png', size: 512, zoom: [0.5, 0], square: true },
 ];

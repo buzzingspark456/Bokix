@@ -36,7 +36,7 @@ const FACTS = [
   { title: 'Krypterad hela vägen', body: 'HTTPS överallt, och webbläsaren tvingas minnas det. Data i databasen är krypterad i vila.' },
   { title: 'Tvåfaktor med autentiseringsapp', body: 'TOTP när du vill ha det. Lösenordsbyte kräver dessutom en engångskod på mejlen.' },
   { title: 'Sessionen dör med fliken', body: 'Inloggningen ligger inte kvar på enheten. Bokföring öppnas ofta på lånade datorer.' },
-  { title: 'Inbjudan, inte gissad URL', body: 'Högst tre användare per företag, via engångslänk. Behörigheten kontrolleras i databasen.' },
+  { title: 'Inbjudan, inte gissad URL', body: 'Bara de du bjuder in kommer åt företaget, via en engångslänk. Behörigheten kontrolleras i databasen.' },
   // Se PrivacyPolicy avsnitt 4 och 5: LAGRING, inte behandling. Serverfunktionerna
   // hos Vercel kör utanför EU tills vercel.json får en regions-inställning.
   { title: 'Lagras i Sverige', body: 'Databasen och dina kvitton ligger i ett datacenter i Stockholm.' },
@@ -81,7 +81,7 @@ export default function SecurityPage() {
     <MarketingLayout>
       <PageMeta
         title="Säkerhet: så skyddar vi din bokföring | Bokix"
-        description="Hur Bokix skyddar din bokföring: åtkomstkontroll i själva databasen, kryptering, tvåfaktorsautentisering, automatisk gallring och hur du får ut allt du lagt in."
+        description="Så skyddar Bokix din bokföring: åtkomstkontroll i databasen, kryptering, tvåfaktorsinloggning, gallring och hur du får ut allt du lagt in."
         path="/sakerhet"
       />
       <JsonLd data={SCHEMA} />
@@ -149,7 +149,7 @@ export default function SecurityPage() {
         <PointList items={PRACTICES} />
       </KitSection>
 
-      <KitCta title="Hittat något som ser fel ut?" lead={<>Mejla <a href="mailto:support@bokix.se" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>support@bokix.se</a> med stegen för att återskapa det. Vi svarar på varje rapport. Kontaktvägen finns också i <a href="/security.txt" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>security.txt</a>.</>}>
+      <KitCta title="Hittat något som ser fel ut?" lead={<>Mejla <a href="mailto:support@bokix.se" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>support@bokix.se</a> med stegen för att återskapa det. Vi svarar på varje rapport. Kontaktvägen finns också i <a href="/.well-known/security.txt" style={{ color: 'var(--mkt-accent-green-fg)', fontWeight: 600 }}>security.txt</a>.</>}>
         <PrimaryButton onClick={enterApp}>Prova gratis</PrimaryButton>
         <GhostLink to="/pub">PUB-avtal</GhostLink>
       </KitCta>

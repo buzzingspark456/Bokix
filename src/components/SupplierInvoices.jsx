@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import DateField from './shared/DateField';
 import { isReverseChargePurchaseAccount } from '../utils/reverseCharge';
 import {
-  Plus, Check, X, AlertCircle, Landmark, CreditCard, UploadCloud, FileText, Inbox, Trash2, Search, RefreshCw, Printer, Eye,
-} from './icons';
+  Plus, Check, X, AlertCircle, Landmark, CreditCard, UploadCloud, FileText, Inbox, Trash2, Search, RefreshCw, Printer, Eye, Paperclip } from './icons';
 import { AccountSearch, ProjectSearch } from './shared/SearchInputs';
 import ListPageHeader, { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle, PAGE_SIZE_OPTIONS } from './shared/ListPageHeader';
 import RowActionMenu from './shared/RowActionMenu';
@@ -125,7 +124,7 @@ function SupplierCombo({ value, onChange, contacts, setContacts }) {
 const VAT_RATES = [25, 12, 6, 0];
 const CURRENCIES = ['SEK', 'NOK', 'EUR', 'USD', 'GBP'];
 const MAX_ATTACHMENT_MB = 10;
-const ACCEPTED_ATTACHMENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+const ACCEPTED_ATTACHMENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/heic', 'image/heif'];
 
 const newRowId = () => `row_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 const emptyKonteringRow = () => ({ id: newRowId(), account: '', description: '', netAmount: '', vatRate: 25 });
@@ -218,7 +217,6 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
-  const [ocrNumber, setOcrNumber] = useState('');
   const [rows, setRows] = useState([emptyKonteringRow()]);
   const [paidByOwnerPrivately, setPaidByOwnerPrivately] = useState(false);
   const [reverseCharge, setReverseCharge] = useState(false);
@@ -318,7 +316,7 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
       .map(r => {
         const net = parseAmount(r.netAmount);
         const vatRate = reverseCharge ? 0 : r.vatRate;
-        return { account: r.account, description: r.description.trim() || undefined, netAmount: net, vatRate, vatAmount: net * (vatRate / 100) };
+        return { account: r.account, description: r.description.trim() || undefined, netAmount: net, vatRate, vatAmount: Math.round(net * vatRate) / 100 };
       });
     const netTotal = cleanRows.reduce((s, r) => s + r.netAmount, 0);
     const vatTotal = cleanRows.reduce((s, r) => s + r.vatAmount, 0);
@@ -327,9 +325,10 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
     onSave({
       supplierId, supplier: supplierName,
       invoiceNumber: invoiceNumber.trim(), date, dueDate: dueDate || undefined,
-      ocrNumber: ocrNumber.trim() || undefined,
       description: `Leverantörsfaktura ${invoiceNumber.trim()}`,
-      rows: cleanRows, netAmount: netTotal, vatAmount: vatTotal, amount: Math.round(netTotal + vatTotal),
+      // Totalen med ören; hel krona bara när öresavrundning är vald (2026-11-22).
+      rows: cleanRows, netAmount: Math.round(netTotal * 100) / 100, vatAmount: Math.round(vatTotal * 100) / 100,
+      amount: roundToKrona ? Math.round(netTotal + vatTotal) : Math.round((netTotal + vatTotal) * 100) / 100,
       reverseCharge, paidByOwnerPrivately, currency,
       // roundingDiff (Sida-kommentaren i App.jsx: bokförs mot 3740 Öres- och
       // kronutjämning) — mellanskillnaden mellan konteringens exakta summa
@@ -402,10 +401,6 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
                 <label style={labelSt}>{t('ui.leverantorens_fakturanummer')}</label>
                 <input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder={t('ui.fakturanr_fran_leverantoren')} style={inputStErr(errors.invoiceNumber)} />
                 {errors.invoiceNumber && <div style={errSt}>{errors.invoiceNumber}</div>}
-              </div>
-              <div>
-                <label style={labelSt}>{t('ui.ocr_betalningsreferens_2')}</label>
-                <input inputMode="numeric" value={ocrNumber} onChange={e => setOcrNumber(e.target.value)} placeholder={t('ui.ocr_nummer')} style={inputSt} />
               </div>
             </div>
             <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
@@ -572,7 +567,20 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
 // navigera bort. Rent läsläge (samma princip som Kundfakturans "Visa
 // faktura"): en redan bokförd faktura ändras inte i efterhand, den rättas
 // via ny kontering (Granska/"Välj konto" i listan) om den saknar sådan än.
-function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose, onPay, onUnmarkPaid }) {
+function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose, onPay, onUnmarkPaid, verifications = [], onAttach }) {
+  // Underlaget: fakturans egen fil, annars filen på verifikationen (t.ex.
+  // uppladdad under Underlag → Saknas) (2026-11-20).
+  const linkedVer = verifications.find(v => v.source === 'supplier_invoice' && v.sourceId === invoice.id);
+  const verFile = linkedVer?.attachmentUrl ? { url: linkedVer.attachmentUrl, name: linkedVer.attachmentName, type: linkedVer.attachmentType } : (linkedVer?.attachments?.[0] || null);
+  const file = invoice.attachmentUrl ? { url: invoice.attachmentUrl, name: invoice.attachmentName, type: invoice.attachmentType } : (invoice.receiptUrl ? { url: invoice.receiptUrl, name: invoice.receiptName, type: invoice.receiptType } : verFile);
+  const [attBusy, setAttBusy] = useState(false);
+  const [attError, setAttError] = useState('');
+  const attInputRef = useRef(null);
+  const pickFile = async (f) => {
+    if (!f || !onAttach) return;
+    setAttBusy(true); setAttError('');
+    try { await onAttach(invoice.id, f); } catch { setAttError(t('ui.si_underlag_fel')); } finally { setAttBusy(false); }
+  };
   const supplier = contacts.find(c => c.id === invoice.supplierId);
   // Bakåtkompatibilitet: äldre poster (innan flerradskontering fanns) har
   // bara ett enda `costAccount`/`netAmount`/`vatAmount` istället för `rows`.
@@ -593,8 +601,9 @@ function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose,
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
-  const attachmentIsImage = invoice.attachmentType?.startsWith('image/');
-  const attachmentIsPdf = invoice.attachmentType === 'application/pdf';
+  const fileType = file?.type || '';
+  const attachmentIsImage = fileType.startsWith('image/') || (!fileType && /\.(jpe?g|png|webp|heic|gif)(\?|$)/i.test(file?.url || ''));
+  const attachmentIsPdf = fileType === 'application/pdf' || (!fileType && /\.pdf(\?|$)/i.test(file?.url || ''));
 
   return (
     <div style={{ flex: 1, minHeight: 0, background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.15s ease' }}>
@@ -640,9 +649,19 @@ function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose,
             </div>
           )}
 
-          {invoice.attachmentUrl && (
+          {file ? (
             <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-              <SupplierInvoiceAttachment url={invoice.attachmentUrl} name={invoice.attachmentName} isImage={attachmentIsImage} isPdf={attachmentIsPdf} />
+              <SupplierInvoiceAttachment url={file.url} name={file.name} isImage={attachmentIsImage} isPdf={attachmentIsPdf} />
+            </div>
+          ) : onAttach && (
+            <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
+              <input ref={attInputRef} type="file" style={{ display: 'none' }} accept="image/*,application/pdf" onChange={e => { pickFile(e.target.files?.[0]); e.target.value = ''; }} />
+              <button type="button" className="si-att-empty" onClick={() => attInputRef.current?.click()} disabled={attBusy}
+                onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); pickFile(e.dataTransfer.files?.[0]); }}>
+                <Paperclip size={18} />
+                <span><b>{attBusy ? t('ui.laddar_upp') : t('ui.si_lagg_till_underlag')}</b><small>{t('ui.si_underlag_hjalp')}</small></span>
+              </button>
+              {attError && <div style={{ marginTop: '8px', fontSize: '12.5px', color: 'var(--status-red-text)' }}>{attError}</div>}
             </div>
           )}
 
@@ -662,8 +681,8 @@ function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose,
             <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
               <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.kontering')}</h3>
               <div style={{ overflowX: 'auto' }}>
-                <div style={{ minWidth: '520px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr', gap: '10px', marginBottom: '8px', padding: '0 2px' }}>
+                <div className="si-acct" style={{ minWidth: '520px' }}>
+                  <div className="si-acct-head" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr', gap: '10px', marginBottom: '8px', padding: '0 2px' }}>
                     {['Konto', 'Beskrivning', 'Belopp (exkl.)', 'Moms'].map((h, i) => (
                       <span key={i} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: i >= 2 ? 'right' : 'left' }}>{h}</span>
                     ))}
@@ -671,7 +690,7 @@ function SupplierInvoiceViewer({ invoice, contacts, accounts, projects, onClose,
                   {displayRows.map((row, i) => {
                     const accountName = accounts.find(a => a.code === row.account)?.name;
                     return (
-                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr', gap: '10px', padding: '6px 2px', fontSize: '13px', borderBottom: '1px solid var(--border-light)' }}>
+                      <div key={i} className="si-acct-row" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1fr', gap: '10px', padding: '6px 2px', fontSize: '13px', borderBottom: '1px solid var(--border-light)' }}>
                         <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{row.account} {accountName}</span>
                         <span style={{ color: 'var(--text-secondary)' }}>{row.description || '—'}</span>
                         <span style={{ textAlign: 'right', color: 'var(--text-main)' }}>{fmtNum(row.netAmount)}</span>
@@ -837,6 +856,7 @@ function PaySupplierInvoiceModal({ invoice, contacts, onNavigate, onConfirm, onC
 export default function SupplierInvoices({
   expenses = [], accounts = [], contacts = [], setContacts, projects = [], user,
   onAddSupplierInvoice, onMarkSupplierInvoicePaid, onUnmarkSupplierInvoicePaid, onFixExpenseAccount,
+  verifications = [], onAttachSupplierFile,
   globalAction, clearGlobalAction, onNavigate, headerTabs,
   uploadFn = uploadFileToStorage,
 }) {
@@ -1167,6 +1187,13 @@ export default function SupplierInvoices({
         onClose={() => { setViewingInvoice(null); }}
         onPay={() => setPayingInvoiceId(viewingInvoice.id)}
         onUnmarkPaid={() => handleUnmarkPaid(viewingInvoice.id)}
+        verifications={verifications}
+        onAttach={onAttachSupplierFile ? async (id, f) => {
+          const url = await uploadFn(user.id, f, 'supplier-invoices');
+          const meta = { url, name: f.name, type: f.type || '' };
+          onAttachSupplierFile(id, meta);
+          setViewingInvoice(v => (v && v.id === id ? { ...v, attachmentUrl: url, attachmentName: f.name, attachmentType: f.type || '' } : v));
+        } : undefined}
       />
     );
   } else {

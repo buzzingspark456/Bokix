@@ -1,0 +1,39 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="cover.css"><style>
+.art { background: #dfe7d8; }
+.table { left: -40px; top: 360px; width: 1280px; height: 320px; background: #c9a77c; }
+.table::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 14px; background: #b8936a; }
+.plate { border-radius: 50%; background: #fffdf8; box-shadow: 0 26px 30px -22px rgba(0,0,0,0.45); }
+.plate .in { position: absolute; inset: 22px; border-radius: 50%; border: 2px solid #ece5d6; }
+.food { position: absolute; border-radius: 50%; }
+.cup { width: 120px; height: 96px; background: #fffdf8; border-radius: 0 0 46px 46px; box-shadow: 0 26px 30px -22px rgba(0,0,0,0.45); }
+.cup::after { content: ''; position: absolute; right: -34px; top: 18px; width: 40px; height: 44px; border: 12px solid #fffdf8; border-left: none; border-radius: 0 26px 26px 0; }
+.cup .c { position: absolute; left: 8px; right: 8px; top: 6px; height: 16px; border-radius: 50%; background: #6b4426; }
+.saucer { width: 190px; height: 34px; border-radius: 50%; background: #f4efe4; box-shadow: 0 20px 24px -18px rgba(0,0,0,0.4); }
+.steam { width: 14px; height: 60px; border-radius: 10px; border-left: 6px solid rgba(255,255,255,0.8); transform: skewX(-10deg); }
+.r { width: 180px; padding: 22px 18px 30px; color: #444; transform: rotate(-8deg); }
+.r .h { height: 12px; width: 64%; margin: 0 auto 16px; background: #555; opacity: 0.6; border-radius: 3px; }
+.r .ln { display: flex; justify-content: space-between; padding: 5px 0; }
+.r .ln i { display: block; height: 8px; border-radius: 4px; background: #999; opacity: 0.5; }
+.r .tot { border-top: 2px dashed #bbb; margin-top: 10px; padding-top: 10px; }
+.r .tot i { background: #555; opacity: 0.7; }
+</style></head><body><div class="art">
+<div class="abs table"></div>
+<div class="abs plate" style="left:380px;top:250px;width:300px;height:300px"><div class="in"></div>
+  <div class="food" style="left:80px;top:90px;width:110px;height:80px;background:#d9894f;border-radius:40% 50% 45% 55%"></div>
+  <div class="food" style="left:150px;top:140px;width:80px;height:70px;background:#7fae6a"></div>
+  <div class="food" style="left:96px;top:170px;width:60px;height:46px;background:#e8c35a"></div>
+</div>
+<div class="abs saucer" style="left:740px;top:440px"></div>
+<div class="abs cup" style="left:775px;top:356px"><div class="c"></div></div>
+<div class="abs steam" style="left:808px;top:270px"></div>
+<div class="abs steam" style="left:846px;top:256px"></div>
+<div class="abs saucer" style="left:150px;top:450px;width:150px;height:28px"></div>
+<div class="abs cup" style="left:178px;top:378px;width:96px;height:78px"><div class="c"></div></div>
+<div class="abs r paper mono" style="left:960px;top:170px"><div class="h"></div>
+  <div class="ln"><i style="width:70px"></i><i style="width:34px"></i></div>
+  <div class="ln"><i style="width:56px"></i><i style="width:30px"></i></div>
+  <div class="ln"><i style="width:80px"></i><i style="width:34px"></i></div>
+  <div class="ln tot"><i style="width:60px"></i><i style="width:44px"></i></div>
+</div>
+<div class="grain"></div>
+</div></body></html>

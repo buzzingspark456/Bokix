@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { INK, INK_SOFT, MUTED } from '../marketingTokens';
 import { calcSoleTraderFees, SOLE_TRADER_FEE_CATEGORIES } from '../../../utils/freeToolCalculations';
 import { toolBySlug } from './toolsConfig';
-import ToolShell, { ToolField, ToolNumber, ToolSegmented, ToolResultPanel, ToolResultRow, ToolNote, formatKr } from './ToolShell';
+import ToolShell, { ToolField, ToolNumber, ToolSegmented, ToolResultPanel, ToolResultRow, ToolNote, formatKr, ToolKommun, KOMMUN_ÅR } from './ToolShell';
 
 const tool = toolBySlug('egenavgifter');
 
@@ -11,6 +11,7 @@ export default function EgenavgifterPage() {
   const [surplus, setSurplus] = useState('400000');
   const [categoryId, setCategoryId] = useState('full');
   const [taxRate, setTaxRate] = useState('32,41');
+  const [kommun, setKommun] = useState('');
 
   const r = calcSoleTraderFees({ surplus, categoryId, municipalTaxRate: String(taxRate).replace(',', '.') });
   const feePercent = (r.feeRate * 100).toFixed(2).replace('.', ',');
@@ -39,12 +40,16 @@ export default function EgenavgifterPage() {
             options={SOLE_TRADER_FEE_CATEGORIES.map(c => ({ value: c.id, label: c.label, hint: c.hint }))}
           />
 
+          <ToolField label="Kommun" hint={`Skattesatsen fylls i från Skatteverkets satser för ${KOMMUN_ÅR}.`}>
+            <ToolKommun value={kommun} onChange={(k, rate) => { setKommun(k); if (rate != null) setTaxRate(String(rate)); }} />
+          </ToolField>
+
           <ToolField
             label="Kommunalskatt"
             suffix="%"
-            hint="Din kommuns skattesats, inklusive regionskatt. Riksgenomsnittet ligger runt 32,4 % — din exakta sats står på skatteverket.se."
+            hint="Kommunal- och regionskatt med begravningsavgift, utan kyrkoavgift. Ändra om du är med i Svenska kyrkan."
           >
-            <ToolNumber value={taxRate} onChange={setTaxRate} placeholder="32,41" />
+            <ToolNumber value={taxRate} onChange={(v) => { setTaxRate(v); setKommun(''); }} placeholder="32,41" />
           </ToolField>
         </>
       }

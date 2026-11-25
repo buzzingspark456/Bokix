@@ -5,7 +5,7 @@ import { KitStyles } from './subpageKit';
 import { SERIF, INK, INK_SOFT, MUTED } from './marketingTokens';
 import { BRAND } from '../../utils/brandColors';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
-import { BOKIX_SUMMARY, BOKIX_NOT_FOR } from '../../content/marketing/bokixFacts';
+import { BOKIX_SUMMARY, BOKIX_NOT_FOR, BOKIX_NOT_BOKIO } from '../../content/marketing/bokixFacts';
 
 // ── Om oss (/om-oss) ────────────────────────────────────────────────────
 // Sjunde versionen (2026-10-21): användaren ville ha "en riktig och bra om
@@ -28,9 +28,10 @@ const VALUES = [
 
 const FACTS = [
   { label: 'Företaget', value: 'Svenskt, med webbplatsen bokix.se' },
+  { label: 'Namnet', value: BOKIX_NOT_BOKIO },
   { label: 'Programmet', value: 'Körs i webbläsaren på dator och telefon, på svenska och engelska' },
   { label: 'Din data', value: 'Lagras i Stockholm och sparas i sju år, som bokföringslagen kräver' },
-  { label: 'Kontakt', value: 'support@bokix.se', href: 'mailto:support@bokix.se' },
+  { label: 'Kontakt', value: 'info@bokix.se', href: 'mailto:info@bokix.se' },
 ];
 
 const TRUSTPILOT_PAGE_URL = 'https://se.trustpilot.com/review/bokix.se';
@@ -121,7 +122,7 @@ export default function AboutPage() {
     <MarketingLayout>
       <PageMeta
         title="Om Bokix: svenskt bokföringsprogram för småföretag"
-        description="Om Bokix: varför vi bygger ett svenskt bokföringsprogram för småföretag, vad vi bryr oss om och vad Bokix inte gör."
+        description="Om Bokix: varför vi bygger ett svenskt bokföringsprogram för småföretag, vad vi bryr oss om, var datan lagras och vad Bokix inte gör, rakt och ärligt."
         path="/om-oss"
       />
       <JsonLd data={SCHEMA} />

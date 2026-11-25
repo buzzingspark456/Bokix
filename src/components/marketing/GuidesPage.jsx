@@ -5,6 +5,7 @@ import { KitStyles, KitCta, PrimaryButton, GhostLink } from './subpageKit';
 import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 import { GUIDE_GROUPS } from '../../content/marketing/guides';
 import useSiteTheme from '../../utils/useSiteTheme';
+import { assetUrl } from '../../utils/assetUrl';
 
 // ── Videoguider (/guider) ───────────────────────────────────────────────
 // Riktiga skärminspelningar av appen med berättarröst och klickljud ligger
@@ -75,7 +76,7 @@ export default function GuidesPage() {
                   <Reveal key={g.slug}>
                     <article id={g.slug}>
                       <Link className="gd-card" to={`/guider/${g.slug}`} aria-label={`Spela videon: ${g.title}`}>
-                        <img className="gd-poster" src={`/videos/${g.slug}${theme === 'dark' ? '-dark' : ''}.jpg`} alt={`Videoguide: ${g.title}`} loading="lazy" width="1600" height="940" />
+                        <img className="gd-poster" src={assetUrl(`/videos/${g.slug}${theme === 'dark' ? '-dark' : ''}.jpg`)} alt={`Videoguide: ${g.title}`} loading="lazy" width="1600" height="940" />
                       </Link>
                       <h3 className="kx-row-title gd-title">{g.title}</h3>
                       <p className="kx-sub gd-lead">{g.lead}</p>

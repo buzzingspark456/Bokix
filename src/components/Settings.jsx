@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Building2, CreditCard, Shield, Check, Download, Upload,
   Trash2, Mail, Laptop, Lock, KeyRound, Image as ImageIcon,
   Palette, Hash, Calendar, X, ZoomIn, ZoomOut, Maximize2, ExternalLink, Sun, Moon,
   UserRound, Users, Cog, ArrowLeft, ArrowRight,
   Sparkles, CheckCircle2, HelpCircle, LogOut, Search, ChevronRight, Fingerprint, CalendarFilled, MailFilled, BankFilled, Copy,
-  FileText, BookOpen, Plug, Bell,
-} from './icons';
+  FileText, BookOpen, Plug, Bell, ChevronLeft } from './icons';
 import { supabase } from '../supabaseClient';
 import { passkeysAvailable, isPasskeyCancel, isPasskeyAlreadyOnDevice, appLockEnabledFor, setAppLock, rememberPasskeyOnDevice } from '../utils/sessionPolicy';
 import { sendInvoiceEmail } from '../emailApi';
-import { cancelStripeSubscription, reactivateStripeSubscription, openBillingPortal, getSubscriptionInvoices, syncStripeSubscription } from '../stripeApi';
+import { cancelStripeSubscription, changeStripePlan, reactivateStripeSubscription, openBillingPortal, getSubscriptionInvoices, syncStripeSubscription, billingCcEmail } from '../stripeApi';
 import BokixWordmark from './shared/BokixWordmark';
 import { BRAND } from '../utils/brandColors';
 import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
@@ -28,11 +28,16 @@ import { sieImportBatches } from '../utils/sieImportBatches';
 import { lockedPeriodFor } from '../utils/fiscalYear';
 import FiscalYearVatFields, { companySetupFromCompany, companySetupToCompany } from './shared/FiscalYearVatFields';
 import { resultAccountFor } from '../utils/yearEnd';
+import { useDashboardLayout } from '../hooks/useDashboardLayout';
+import { previewNotifySound, notifySoundEnabled } from '../utils/notifySound';
 import { getGreeting } from '../utils/greeting';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { newCalendarKey, calendarFeedUrl, calendarChoices } from '../utils/calendarFeed';
 import { downloadSie4 } from '../utils/sieExport';
-import { planFromId, PLAN_TIERS } from '../utils/plans';
+import { exportVerificationsToExcel, fiscalYearChoices, verificationsInRange } from '../utils/excelExport';
+import { downloadUnderlagZip } from '../utils/underlagExport';
+import { companyFiscalYearSetting, fiscalYearBounds } from '../utils/reportCalculations';
+import { planFromId, PLAN_TIERS, invitedUserLimit, ACCOUNTANT_SEATS } from '../utils/plans';
 import { ACCESS_PAGES, ACCESS_LEVELS, defaultPageAccess, accessForPage, canWriteField, ACCOUNTANT_PRESET, accountantPageAccess } from '../utils/pageAccess';
 import { isUfCompany, ufSettingsSections, ufFreePeriod, UF_FREE_MONTHS } from '../utils/ufMode';
 import { closeUfYear } from '../utils/ufClose';
@@ -292,7 +297,6 @@ function SettingsHub({ sections, onPick }) {
               <button key={section.id} type="button" className="settings-mnav-row" onClick={() => onPick(section.id)}>
                 <span className="settings-mnav-text">
                   <span className="settings-mnav-label">{section.label}</span>
-                  {SECTION_META[section.id]?.desc && <span className="settings-mnav-desc">{SECTION_META[section.id].desc}</span>}
                 </span>
                 <ChevronRight size={18} className="settings-mnav-chev" />
               </button>
@@ -731,11 +735,12 @@ function FiscalYearSetting({ company, setCompanyInfo, readOnly }) {
     valueRef.current = v;
     setValue(v);
     if (!fromUser) return;
-    const { fiscalYear, firstFiscalYear } = companySetupToCompany(v, company?.orgNr);
+    const { fiscalYear, firstFiscalYear, legalPartnersOnly } = companySetupToCompany(v, company?.orgNr);
     if (!fiscalYear) return;
     if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
-    if (fiscalYear === company?.fiscalYear && JSON.stringify(firstFiscalYear) === JSON.stringify(company?.firstFiscalYear || null)) return;
-    setCompanyInfo({ ...company, fiscalYear, firstFiscalYear });
+    const legal = legalPartnersOnly === undefined ? {} : { legalPartnersOnly };
+    if (fiscalYear === company?.fiscalYear && JSON.stringify(firstFiscalYear) === JSON.stringify(company?.firstFiscalYear || null) && (legalPartnersOnly === undefined || legalPartnersOnly === Boolean(company?.legalPartnersOnly))) return;
+    setCompanyInfo({ ...company, fiscalYear, firstFiscalYear, ...legal });
     setSaved(true);
     if (savedTimer.current) clearTimeout(savedTimer.current);
     savedTimer.current = setTimeout(() => setSaved(false), 2000);
@@ -1734,7 +1739,7 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
   );
 }
 
-// ── Användare och Åtkomst (max 3 per företag — ägare + upp till 2 inbjudna,
+// ── Användare och Åtkomst (Utan personal 1 inbjuden, Med personal 2, konsult/revisor räknas inte,
 // se supabase-setup.sql: company_members) ──────────────────────────────────
 // companyName/inviterName kommer från fält användaren själv äger och kan
 // sätta till vad som helst (t.ex. "<a href=...>") — utan escaping hade det
@@ -1773,7 +1778,7 @@ const STATUS_COLORS = {
   revoked: { bg: 'var(--border-light)', text: 'var(--text-muted)' },
 };
 
-function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastName, sharedAccess, readOnly = false }) {
+function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastName, sharedAccess, subscriptionPlan = null, subscriptionCreatedAt = null, readOnly = false }) {
   // Roller & behörigheter (företagets sparade FÖRVAL per roll — se
   // defaultPageAccess i utils/pageAccess.js). Bara ägaren ser/ändrar detta;
   // en inbjuden gäst har ingen egen mall att sätta.
@@ -1819,7 +1824,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
     // här för att uppnå det, policyn gör jobbet.
     const { data, error } = await supabase
       .from('company_members')
-      .select('id, invited_email, role, status, invited_at, expires_at, page_access, invite_token')
+      .select('id, invited_email, role, status, invited_at, expires_at, page_access, invite_token, is_accountant')
       .eq('company_id', company.id)
       .order('invited_at', { ascending: true });
     if (!error) setMembers(data || []);
@@ -1828,12 +1833,19 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
 
   useEffect(() => { loadMembers(); }, [company?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // "Max 3 användare" = ägaren + högst 2 aktiva/väntande — samma gräns som
-  // databasens INSERT-policy (company_members) redan hårdkodar, upprepad
-  // här bara för att kunna visa/dölja "Bjud in"-knappen proaktivt istället
-  // för att låta ett insert-försök alltid gå fram till servern och 403:a.
-  const activeOrPendingCount = members.filter(m => m.status !== 'revoked').length;
-  const atCap = activeOrPendingCount >= 2;
+  // Gränsen (2026-11-21): Utan personal 1 inbjuden, Med personal 2, och
+  // konsult/revisor har två egna platser som inte räknas. Samma regel som
+  // databasens INSERT-policy (supabase-2026-11-21-anvandargrans.sql), här
+  // bara för att visa knappen rätt i stället för att låta servern säga nej.
+  const userLimit = invitedUserLimit(subscriptionPlan, subscriptionCreatedAt);
+  const openMembers = members.filter(m => m.status !== 'revoked');
+  const userCount = openMembers.filter(m => !m.is_accountant).length;
+  const accountantCount = openMembers.filter(m => m.is_accountant).length;
+  const usersFull = userCount >= userLimit;
+  const accountantsFull = accountantCount >= ACCOUNTANT_SEATS;
+  const atCap = usersFull && accountantsFull;
+  const inviteIsAccountant = inviteRole === ACCOUNTANT_PRESET;
+  const inviteKindFull = inviteIsAccountant ? accountantsFull : usersFull;
 
   // `viaLink`: skapa bara inbjudan och visa länken, inget mejl (t.ex. när
   // ägaren hellre skickar länken själv till sin redovisningskonsult).
@@ -1843,11 +1855,12 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
     setInviteError(''); setInviteSuccess(''); setInviteLink(null);
     const email = inviteEmail.trim().toLowerCase();
     if (!email || !email.includes('@')) { setInviteError(tr('ui.ange_en_giltig_e_postadress_2')); return; }
+    if (inviteKindFull) { setInviteError(inviteIsAccountant ? tr('ui.anv_grans_konsult_full') : tr('ui.anv_grans_vanlig_full', { n: userLimit })); return; }
     setInviteBusy(true);
     try {
       const { data: inserted, error } = await supabase
         .from('company_members')
-        .insert({ owner_user_id: user.id, company_id: company.id, invited_email: email, role: inviteDbRole, page_access: invitePages })
+        .insert({ owner_user_id: user.id, company_id: company.id, invited_email: email, role: inviteDbRole, page_access: invitePages, is_accountant: inviteIsAccountant })
         .select()
         .single();
       if (error) throw error;
@@ -1945,7 +1958,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
           <button
             onClick={() => setShowInviteForm(v => !v)}
             disabled={atCap && !showInviteForm}
-            title={atCap ? tr('ui.max_3_anvandare_per_foretag_agare_2_inbjudna_ate') : undefined}
+            title={atCap ? tr('ui.anv_grans_full', { n: userLimit }) : undefined}
             style={atCap ? { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'var(--border)', color: 'var(--text-muted)', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'not-allowed' } : btnPrimary}
           >
             <Mail size={16} style={{ marginRight: 6, verticalAlign: '-3px' }} /> {showInviteForm ? tr('ui.avbryt') : tr('ui.bjud_in_anvandare')}
@@ -1954,7 +1967,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
       </div>
 
       {isOwner && atCap && !showInviteForm && (
-        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '14px' }}>{tr('ui.max_3_anvandare_per_foretag_ar_natt_du_2_inbjudn')}</p>
+        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '14px' }}>{tr('ui.anv_grans_full', { n: userLimit })}</p>
       )}
 
       {isOwner && showInviteForm && (
@@ -1994,10 +2007,11 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
               onChange={setInvitePages}
             />
           </div>
+          {inviteKindFull && !inviteError && <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '10px' }}>{inviteIsAccountant ? tr('ui.anv_grans_konsult_full') : tr('ui.anv_grans_vanlig_full', { n: userLimit })}</p>}
           {inviteError && <p style={{ color: BRAND.redText, fontSize: '13px', marginTop: '10px' }}>{inviteError}</p>}
           <div style={{ marginTop: '16px', display: 'flex', gap: '10px' }}>
-            <button type="submit" disabled={inviteBusy} style={{ ...btnPrimary, opacity: inviteBusy ? 0.6 : 1 }}>{inviteBusy ? tr('ui.skickar_2') : tr('ui.skicka_inbjudan')}</button>
-            <button type="button" disabled={inviteBusy} onClick={e => handleInvite(e, true)} style={{ ...btnSecondary, display: 'flex', alignItems: 'center', gap: '6px', opacity: inviteBusy ? 0.6 : 1 }}><Copy size={14} />{tr('ui.skapa_lank_i_stallet')}</button>
+            <button type="submit" disabled={inviteBusy || inviteKindFull} style={{ ...btnPrimary, opacity: (inviteBusy || inviteKindFull) ? 0.6 : 1 }}>{inviteBusy ? tr('ui.skickar_2') : tr('ui.skicka_inbjudan')}</button>
+            <button type="button" disabled={inviteBusy || inviteKindFull} onClick={e => handleInvite(e, true)} style={{ ...btnSecondary, display: 'flex', alignItems: 'center', gap: '6px', opacity: (inviteBusy || inviteKindFull) ? 0.6 : 1 }}><Copy size={14} />{tr('ui.skapa_lank_i_stallet')}</button>
             <button type="button" onClick={() => setShowInviteForm(false)} style={btnSecondary}>{tr('ui.avbryt')}</button>
           </div>
         </form>
@@ -2036,7 +2050,10 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
                 {isOwner && <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{user?.email}</div>}
               </div>
             ) : (
-              <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{row.invited_email}</div>
+              <div>
+                <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{row.invited_email}</div>
+                {row.is_accountant && <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>{tr('ui.anv_konsult_ingar')}</div>}
+              </div>
             ),
           },
           {
@@ -2120,7 +2137,7 @@ function UsersAndAccessSection({ company, setCompanyInfo, user, firstName, lastN
         <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px' }}>{tr('ui.inga_andra_anvandare_inbjudna_annu')}</p>
       )}
       {isOwner ? (
-        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px', maxWidth: '560px' }}>{tr('ui.max_3_anvandare_per_foretag_du_2_inbjudna_rollen')}</p>
+        <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px', maxWidth: '560px' }}>{tr('ui.anv_grans_info', { n: userLimit })}</p>
       ) : (
         <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '10px', maxWidth: '560px' }}>{tr('ui.du_har_blivit_inbjuden_till_det_har_foretaget_av')}{ROLE_LABELS[sharedAccess.role] || sharedAccess.role}{tr('ui.behorighet')}</p>
       )}
@@ -2288,6 +2305,40 @@ function SubscriptionInvoices({ companyId, enabled }) {
   );
 }
 
+/** Fakturamejl (2026-11-16): en extra adress, t.ex. redovisningskonsultens,
+ * som får en kopia av varje kvitto från Bokix. Inbjudna ser aldrig
+ * betalning, så det här är ägarens sätt att dela kvittona. */
+function BillingCcEmail({ companyId, enabled }) {
+  const [value, setValue] = useState('');
+  const [saved, setSaved] = useState(null);
+  const [state, setState] = useState('');
+  useEffect(() => {
+    let alive = true;
+    setSaved(null); setState('');
+    if (!enabled) return undefined;
+    billingCcEmail(companyId).then(e => { if (alive) { setValue(e); setSaved(e); } }).catch(() => { if (alive) setSaved(''); });
+    return () => { alive = false; };
+  }, [companyId, enabled]);
+  const save = async () => {
+    setState('busy');
+    try { const e = await billingCcEmail(companyId, value.trim()); setValue(e); setSaved(e); setState('ok'); }
+    catch (err) { setState(err.message || tr('ui.kunde_inte_spara')); }
+  };
+  const dirty = saved !== null && value.trim() !== saved;
+  return (
+    <div style={{ display: 'grid', gap: '6px', width: '100%' }}>
+      <label htmlFor="billing-cc" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('ui.plan_kvittokopia')}</label>
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <input id="billing-cc" type="email" value={value} onChange={e => { setValue(e.target.value); setState(''); }} disabled={!enabled || saved === null} placeholder={tr('ui.namn_exempel_se')} style={{ ...inputBase, flex: '1 1 220px', minWidth: 0 }} />
+        <button type="button" onClick={save} disabled={!dirty || state === 'busy'} style={{ ...btnSecondary, opacity: !dirty || state === 'busy' ? 0.6 : 1 }}>{state === 'busy' ? tr('ui.sparar') : tr('ui.spara')}</button>
+      </div>
+      <div style={{ fontSize: '12.5px', color: state && state !== 'ok' && state !== 'busy' ? 'var(--status-red-text)' : 'var(--text-muted)' }}>
+        {state === 'ok' ? tr('ui.plan_kvittokopia_sparad') : state && state !== 'busy' ? state : tr('ui.plan_kvittokopia_hjalp')}
+      </div>
+    </div>
+  );
+}
+
 /** Användning (Prenumeration) — räknat helt klientsidan ur redan inläst
  * state, ingen egen mätning/backend behövs för de här enkla räknarna. */
 function UsageCard({ invoices, verifications, contacts, expenses }) {
@@ -2407,7 +2458,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
     // det finns mer än en (dvs. så fort ett andra företag köpts).
     const { data } = await supabase
       .from('subscriptions')
-      .select('status, plan, trial_ends_at, current_period_end, cancel_at_period_end')
+      .select('status, plan, created_at, trial_ends_at, current_period_end, cancel_at_period_end')
       .eq('user_id', user.id)
       .eq('company_id', companyId)
       .maybeSingle();
@@ -2432,11 +2483,45 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
     if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
     setBusy(true); setError('');
     try {
-      await cancelStripeSubscription(companyId || null);
+      await cancelStripeSubscription(companyId || null, { feedback: cancelReason, comment: cancelComment.trim() });
       await loadSubscription();
       setConfirmCancel(false);
+      setSubView(null);
     } catch (err) {
       setError(err.message || tr('ui.kunde_inte_avsluta_prenumerationen_forsok_igen_o'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Ändra plan (2026-11-20): planerna först, avsluta längst ner med två enkla,
+  // valfria frågor. Inga erbjudanden eller rabatter för att få kunden att stanna.
+  const [subView, setSubView] = useState(null); // null | 'plans' | 'cancel'
+  // Uppsägningen öppnas direkt från kortet eller från Ändra plan (2026-11-24).
+  const [cancelFrom, setCancelFrom] = useState('plans');
+  useEffect(() => {
+    if (!subView) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setSubView(v => (v === 'cancel' && cancelFrom === 'plans' ? 'plans' : null)); };
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [subView, cancelFrom]);
+  const [planInterval, setPlanInterval] = useState(null);
+  const [pickedPlan, setPickedPlan] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelComment, setCancelComment] = useState('');
+  const handleChangePlan = async () => {
+    if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
+    if (!pickedPlan) return;
+    setBusy(true); setError('');
+    try {
+      await changeStripePlan(pickedPlan, companyId || null);
+      await loadSubscription();
+      setPickedPlan(null);
+      setSubView(null);
+    } catch (err) {
+      setError(err.message || tr('sub.changeFailed'));
     } finally {
       setBusy(false);
     }
@@ -2545,6 +2630,104 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
       ? { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)', label: SUBSCRIPTION_STATUS_LABELS[sub.status] || sub.status }
       : { bg: 'var(--status-red-bg)', text: 'var(--status-red-text)', label: SUBSCRIPTION_STATUS_LABELS[sub.status] || sub.status };
 
+  if (subView) {
+    return createPortal(
+      <div className="sub-overlay" role="dialog" aria-modal="true"><div className="sub-page">
+        <button type="button" className="sub-back" onClick={() => setSubView(subView === 'cancel' && cancelFrom === 'plans' ? 'plans' : null)}><ChevronLeft size={16} /> {subView === 'cancel' && cancelFrom === 'plans' ? tr('sub.changePlan') : tr('ui.prenumeration')}</button>
+        {subView === 'plans' && (() => {
+          const interval = planInterval || 'monthly';
+          const picked = pickedPlan ? planFromId(pickedPlan) : null;
+          return (
+            <div className="sub-panel">
+              <div className="sub-panel-head">
+                <div>
+                  <h3>{tr('sub.changePlan')}</h3>
+                  <p>{tr('sub.changeLead')}</p>
+                </div>
+                <button type="button" className="sub-x" onClick={() => setSubView(null)} aria-label={tr('ui.stang')}><X size={16} /></button>
+              </div>
+              <div className="sub-seg" role="tablist">
+                {[['monthly', tr('sub.monthly')], ['yearly', tr('sub.yearly')]].map(([id, label]) => (
+                  <button key={id} type="button" role="tab" aria-selected={interval === id} className={interval === id ? 'on' : undefined} onClick={() => { setPlanInterval(id); setPickedPlan(null); }}>{label}</button>
+                ))}
+              </div>
+              <div className="sub-plans">
+                {PLAN_TIERS.map(tier => {
+                  const p = planFromId(`${tier.id}_${interval}`);
+                  const isCurrent = sub.plan === p.id;
+                  const isPicked = pickedPlan === p.id;
+                  return (
+                    <div key={p.id} className={`sub-plan${isCurrent ? ' is-current' : ''}${isPicked ? ' is-picked' : ''}`}>
+                      <div className="sub-plan-top">
+                        <b>{p.name}</b>
+                        {isCurrent && <span className="sub-tag">{tr('sub.current')}</span>}
+                      </div>
+                      <span className="sub-plan-sub">{p.subtitle}</span>
+                      <div className="sub-plan-price"><strong>{p.price}</strong> {tr('ui.kr_man_2')}</div>
+                      <ul>
+                        <li><Check size={13} /> {tr('ui.plan_rad_bokforing')}</li>
+                        <li><Check size={13} /> {tr('ui.plan_rad_rapporter')}</li>
+                        <li className={p.includesPayroll ? undefined : 'is-off'}>{p.includesPayroll ? <Check size={13} /> : <X size={12} />} {tr('ui.loner_och_arbetsgivardeklaration')}</li>
+                      </ul>
+                      {p.minimumMonths > 0 && <span className="sub-plan-note">{tr('sub.minimum', { n: p.minimumMonths })}</span>}
+                      {!isCurrent && <button type="button" className={`sub-pick${isPicked ? ' on' : ''}`} onClick={() => setPickedPlan(isPicked ? null : p.id)}>{isPicked ? tr('sub.picked') : tr('sub.pick')}</button>}
+                    </div>
+                  );
+                })}
+              </div>
+              {picked && (
+                <div className="sub-confirm">
+                  <span>{tr('sub.confirmText', { name: picked.name, price: picked.price })} {isTrialing ? tr('sub.confirmTrial') : tr('sub.confirmProration')}</span>
+                  <div>
+                    <button type="button" className="sub-btn is-primary" onClick={handleChangePlan} disabled={busy}>{busy ? tr('sub.changing') : tr('sub.confirmBtn')}</button>
+                    <button type="button" className="sub-btn" onClick={() => setPickedPlan(null)} disabled={busy}>{tr('ui.avbryt')}</button>
+                  </div>
+                </div>
+              )}
+              <div className="sub-leave">
+                <span>{tr('sub.leaveText')}</span>
+                <button type="button" className="sub-leave-btn" onClick={() => { setCancelFrom('plans'); setSubView('cancel'); setCancelReason(''); setCancelComment(''); }}>{tr('sub.leaveBtn')}</button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {subView === 'cancel' && (
+          <div className="sub-panel">
+            <div className="sub-panel-head">
+              <div>
+                <h3>{tr('sub.cancelTitle')}</h3>
+                <p>{tr('ui.du_behaller_full_atkomst_till_och_med')} {fmtDateSv(endDate)}{tr('ui.redan_betald_tid_aterbetalas_inte_men_inget_mer')}</p>
+                <p className="sub-keep-data">{tr('sub.keepData')}</p>
+              </div>
+              <button type="button" className="sub-x" onClick={() => setSubView(null)} aria-label={tr('ui.stang')}><X size={16} /></button>
+            </div>
+            <fieldset className="sub-reasons">
+              <legend>{tr('sub.reasonQ')}</legend>
+              {[['too_expensive', tr('sub.r_expensive')], ['missing_features', tr('sub.r_missing')], ['switched_service', tr('sub.r_switched')], ['unused', tr('sub.r_unused')], ['too_complex', tr('sub.r_complex')], ['other', tr('sub.r_other')]].map(([id, label]) => (
+                <label key={id} className={cancelReason === id ? 'on' : undefined}>
+                  <input type="radio" name="sub-reason" value={id} checked={cancelReason === id} onChange={() => setCancelReason(id)} />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </fieldset>
+            <label className="sub-comment">
+              <span>{tr('sub.commentQ')}</span>
+              <textarea rows={3} value={cancelComment} onChange={e => setCancelComment(e.target.value)} maxLength={500} />
+            </label>
+            <div className="sub-cancel-actions">
+              <button type="button" className="sub-btn is-danger" onClick={handleCancel} disabled={busy}>{busy ? tr('ui.avslutar') : tr('sub.cancelBtn')}</button>
+              <button type="button" className="sub-btn" onClick={() => setSubView(cancelFrom === 'card' ? null : 'plans')} disabled={busy}>{tr('sub.back')}</button>
+            </div>
+          </div>
+        )}
+
+
+        {error && <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', fontWeight: 600 }}>{error}</div>}
+      </div></div>
+    , document.body);
+  }
+
   return (
     <div style={{ display: 'grid', gap: '16px' }}>
       {/* Plankortet i märkets egna färger: ordmärket i sin gradient, så att
@@ -2570,8 +2753,13 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
                   : <>{tr('ui.fornyas_automatiskt')}{endDate ? <> {fmtDateSv(endDate)}</> : null}.</>}
           </div>
           <div className="plan-card-actions">
-            {!sub.cancel_at_period_end && sub.status !== 'canceled' && !confirmCancel && (
-              <button type="button" className="plan-card-btn" onClick={() => setConfirmCancel(true)}>{tr('ui.avsluta')}</button>
+            {!sub.cancel_at_period_end && sub.status !== 'canceled' && !subView && (
+              <button type="button" className="plan-card-btn" onClick={() => { setSubView('plans'); setPlanInterval(plan?.intervalId || 'monthly'); setPickedPlan(null); }}>{tr('sub.changePlan')}</button>
+            )}
+            {/* Avsluta syns direkt, inte bara under Ändra plan (2026-11-24): det
+                ska vara lika lätt att sluta som att börja. */}
+            {!sub.cancel_at_period_end && sub.status !== 'canceled' && !subView && (
+              <button type="button" className="plan-card-link" onClick={() => { setCancelFrom('card'); setSubView('cancel'); setCancelReason(''); setCancelComment(''); }}>{tr('sub.leaveBtn')}</button>
             )}
             {sub.cancel_at_period_end && (
               <button type="button" className="plan-card-btn is-primary" onClick={handleReactivate} disabled={busy}>
@@ -2589,7 +2777,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
             { text: tr('ui.plan_rad_bokforing'), included: true },
             { text: tr('ui.plan_rad_rapporter'), included: true },
             { text: tr('ui.loner_och_arbetsgivardeklaration'), included: plan ? plan.includesPayroll : true },
-            { text: tr('ui.upp_till_tre_anvandare_per_foretag'), included: true },
+            { text: invitedUserLimit(sub?.plan, sub?.created_at) === 1 ? tr('ui.plan_rad_bjud_in_1') : tr('ui.plan_rad_bjud_in_2'), included: true },
           ].map(row => (
             <div key={row.text} style={{ display: 'flex', alignItems: 'center', gap: '9px', fontSize: '13.5px', color: row.included ? 'var(--text-main)' : 'var(--text-muted)' }}>
               {row.included
@@ -2606,7 +2794,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
         <div style={{ padding: '16px 18px', background: 'var(--status-red-bg)', borderRadius: '14px' }}>
           <div style={{ fontSize: '13.5px', color: 'var(--status-red-text)', fontWeight: 700, marginBottom: '4px' }}>{tr('ui.avsluta_prenumerationen')}</div>
           <div style={{ fontSize: '12.5px', color: 'var(--status-red-text)', marginBottom: '12px', lineHeight: 1.6 }}>
-            {tr('ui.du_behaller_full_atkomst_till_och_med')} {fmtDateSv(endDate)}{tr('ui.redan_betald_tid_aterbetalas_inte_men_inget_mer')}
+            {tr('ui.du_behaller_full_atkomst_till_och_med')} {fmtDateSv(endDate)}{tr('ui.redan_betald_tid_aterbetalas_inte_men_inget_mer')} {tr('sub.keepData')}
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button onClick={handleCancel} disabled={busy} style={{ ...btnDanger, opacity: busy ? 0.6 : 1 }}>
@@ -2624,9 +2812,11 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
 
 export default function Settings({
   company = {}, setCompanyInfo, accounts = [], verifications = [], invoices = [], quotes = [], expenses = [],
-  contacts = [], projects = [], onImport, onReset, onBulkImportSie, onRepairSieOpenings, onDeleteSieImport, onCloseImportedYears, onOpenRotRutImport, enabledFeatures = null, onAttachVerificationFiles, stripeAccountId, onConnectStripe, onDisconnectStripe,
+  contacts = [], projects = [], documents = [], onImport, onReset, onBulkImportSie, onRepairSieOpenings, onDeleteSieImport, onCloseImportedYears, onOpenRotRutImport, enabledFeatures = null, onAttachVerificationFiles, stripeAccountId, onConnectStripe, onDisconnectStripe,
   zettleConnected = false, onConnectZettle,
   user,
+  // Aktiva företagets abonnemang, för användargränsen (utils/plans.js).
+  subscriptionPlan = null, subscriptionCreatedAt = null,
   // Hjälp och Logga ut ligger i Inställningar på telefon (på dator finns de
   // längst ned i sidomenyn). Skickas inte ned i landningssidans demo.
   onOpenHelp, onLogout,
@@ -2661,6 +2851,9 @@ export default function Settings({
   // här filen som annars skulle göra ett Supabase-anrop direkt vid mount
   // (TwoFactorSection nedan), inte bara vid klick.
   readOnly = false,
+  // Demon (DemoWorkspace.jsx) har inget konto att spara på; med den här
+  // sparas kontoinställningar som Startsidans layout bara i demons minne.
+  onUpdateUserMeta,
   // Öppna sidan direkt på en viss flik (App.jsx: sidomenyns Företag-punkt,
   // som tidigare ledde till en EGEN, halvt överlappande företagssida).
   initialSection,
@@ -2875,7 +3068,9 @@ export default function Settings({
   // som Startsidan faktiskt visar, inte en hårdkodad "Hej".
   const { greeting: greetingPreview } = getGreeting();
 
+  const dashLayout = useDashboardLayout(user);
   const updateUserMeta = (patch) => {
+    if (onUpdateUserMeta) { onUpdateUserMeta(patch); return; }
     if (readOnly) { window.alert(DEMO_BLOCKED_MSG); return; }
     supabase.auth.updateUser({ data: patch });
   };
@@ -2940,6 +3135,37 @@ export default function Settings({
   // Den här knappen är den konkreta fixen som gör påståendet sant.
   const handleExportSie = () => {
     downloadSie4(company, accounts, verifications);
+  };
+
+  // Exportera till Excel: ett räkenskapsår eller hela bokföringen, en rad
+  // per kontorad (samma fil som knappen i Bokföring, se excelExport.js).
+  const excelYears = useMemo(() => fiscalYearChoices(verifications, companyFiscalYearSetting(company), fiscalYearBounds), [verifications, company]);
+  const [excelYear, setExcelYear] = useState('');
+  const [excelBusy, setExcelBusy] = useState(false);
+  const excelChoice = excelYear === 'all' ? null : (excelYears.find(y => y.from === excelYear) || excelYears[0] || null);
+  const handleExportExcel = async () => {
+    setExcelBusy(true);
+    try { await exportVerificationsToExcel(verificationsInRange(verifications, excelChoice), { accounts, contacts, projects, invoices, expenses }); }
+    catch (e) { console.error(e); confirmDialog(tr('ui.exportera_till_excel_fel'), { title: tr('ui.exportera_till_excel'), confirmLabel: 'OK' }); }
+    finally { setExcelBusy(false); }
+  };
+
+  // Ladda ner alla underlag: zip med en fil per verifikation och en
+  // förteckning (utils/underlagExport.js).
+  const [zipYear, setZipYear] = useState('');
+  const [zipProgress, setZipProgress] = useState(null); // null | { done, total } | { result }
+  const zipChoice = zipYear === 'all' ? null : (excelYears.find(y => y.from === zipYear) || excelYears[0] || null);
+  const handleExportUnderlag = async () => {
+    setZipProgress({ done: 0, total: 0 });
+    try {
+      const range = zipChoice ? { from: zipChoice.from, to: zipChoice.to } : null;
+      const label = zipChoice ? zipChoice.label.replace('/', '-') : 'alla';
+      const result = await downloadUnderlagZip(verifications, range, label, (done, total) => setZipProgress({ done, total }), documents);
+      setZipProgress({ result });
+    } catch (e) {
+      console.error(e); setZipProgress(null);
+      confirmDialog(tr('ui.underlag_zip_fel'), { title: tr('ui.underlag_zip'), confirmLabel: 'OK' });
+    }
   };
 
   const handleImportFile = (e) => {
@@ -3172,6 +3398,15 @@ export default function Settings({
   const [ownSenderGoogle, setOwnSenderGoogle] = useState(false);
   const [ownSenderStatusError, setOwnSenderStatusError] = useState('');
   const [ownSenderLoaded, setOwnSenderLoaded] = useState(false);
+  // Kom igång (dashboard/GetStarted.jsx) bockar av "Skicka fakturor från din
+  // egen mejl" när avsändaren är kopplad. Statusen finns bara på servern, så
+  // adressen speglas på företaget när den lästs in här (2026-11-14).
+  useEffect(() => {
+    if (!ownSenderLoaded || readOnly || !setCompanyInfo) return;
+    const email = ownSender?.fromEmail || '';
+    if (email === (company?.ownSenderEmail || '')) return;
+    setCompanyInfo(prev => ({ ...prev, ownSenderEmail: email || undefined }));
+  }, [ownSenderLoaded, ownSender?.fromEmail]); // eslint-disable-line react-hooks/exhaustive-deps
   const [ownSenderBusy, setOwnSenderBusy] = useState(false);
   const [ownSenderError, setOwnSenderError] = useState('');
   const [ownSenderForm, setOwnSenderForm] = useState({
@@ -3761,7 +3996,7 @@ export default function Settings({
             {tr('ui.installningar')}
           </span>
         )}
-        subtitle={activeSection ? (SECTION_META[activeSection.id]?.desc || '') : undefined}
+        subtitle={undefined}
         actions={activeSection
           ? [{ key: 'back', label: tr('ui.alla_installningar'), icon: ArrowLeft, onClick: () => handleSetTab(null) }]
           : []}
@@ -3805,7 +4040,6 @@ export default function Settings({
           {!isPhone && activeSection && (
             <header className="settings-title">
               <h1>{subPage ? subPage.title : activeSection.label}</h1>
-              {!subPage && SECTION_META[activeSection.id]?.desc && <p>{SECTION_META[activeSection.id].desc}</p>}
             </header>
           )}
           {!activeSection && <SettingsHub sections={visibleSections} onPick={handleSetTab} />}
@@ -4378,6 +4612,53 @@ export default function Settings({
               )}
 
               <SettingCard title={tr('ui.exportera')} flush>
+                {excelYears.length > 0 && (
+                  <SettingsLinkRow
+                    title={tr('ui.excel_fil')}
+                    description={tr('ui.excel_fil_beskrivning')}
+                    right={(
+                      <span className="excel-ctl" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <select
+                          aria-label={tr('ui.excel_period')}
+                          value={excelChoice ? excelChoice.from : 'all'}
+                          onChange={e => setExcelYear(e.target.value)}
+                          style={{ ...inputBase, width: 'auto', padding: '6px 10px', fontSize: '13px' }}
+                        >
+                          {excelYears.map(y => <option key={y.from} value={y.from}>{tr('ui.excel_rakenskapsar', { year: y.label })}</option>)}
+                          <option value="all">{tr('ui.excel_hela_bokforingen')}</option>
+                        </select>
+                        <button type="button" onClick={handleExportExcel} disabled={excelBusy} aria-label={tr('ui.exportera_till_excel')} title={tr('ui.exportera_till_excel')} style={{ background: 'none', border: 'none', padding: '4px', cursor: excelBusy ? 'wait' : 'pointer', color: 'var(--text-secondary)', display: 'flex' }}>
+                          <Download size={18} />
+                        </button>
+                      </span>
+                    )}
+                  />
+                )}
+                {excelYears.length > 0 && (
+                  <SettingsLinkRow
+                    title={tr('ui.underlag_zip')}
+                    description={zipProgress?.result
+                      ? tr('ui.underlag_zip_klar', { files: zipProgress.result.fileCount, missing: zipProgress.result.missing, failed: zipProgress.result.failed })
+                      : zipProgress && zipProgress.total > 0 ? tr('ui.underlag_zip_hamtar', { done: zipProgress.done, total: zipProgress.total })
+                      : tr('ui.underlag_zip_beskrivning')}
+                    right={(
+                      <span className="excel-ctl" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <select
+                          aria-label={tr('ui.excel_period')}
+                          value={zipChoice ? zipChoice.from : 'all'}
+                          onChange={e => { setZipYear(e.target.value); setZipProgress(null); }}
+                          style={{ ...inputBase, width: 'auto', padding: '6px 10px', fontSize: '13px' }}
+                        >
+                          {excelYears.map(y => <option key={y.from} value={y.from}>{tr('ui.excel_rakenskapsar', { year: y.label })}</option>)}
+                          <option value="all">{tr('ui.excel_hela_bokforingen')}</option>
+                        </select>
+                        <button type="button" onClick={handleExportUnderlag} disabled={Boolean(zipProgress && !zipProgress.result)} aria-label={tr('ui.underlag_zip')} title={tr('ui.underlag_zip')} style={{ background: 'none', border: 'none', padding: '4px', cursor: zipProgress && !zipProgress.result ? 'wait' : 'pointer', color: 'var(--text-secondary)', display: 'flex' }}>
+                          <Download size={18} />
+                        </button>
+                      </span>
+                    )}
+                  />
+                )}
                 <SettingsLinkRow
                   title={tr('ui.sie4_fil')}
                   description={tr('ui.ge_filen_till_din_revisor_eller_ta_med_bokforing')}
@@ -4502,7 +4783,7 @@ export default function Settings({
                 title={tr('ui.vem_kommer_at_foretaget')}
                 description={tr('ui.upp_till_tva_personer_utover_dig_var_och_en_med')}
               >
-              <UsersAndAccessSection company={company} setCompanyInfo={setCompanyInfo} user={user} firstName={firstName} lastName={lastName} sharedAccess={sharedAccess} readOnly={readOnly} />
+              <UsersAndAccessSection company={company} setCompanyInfo={setCompanyInfo} user={user} firstName={firstName} lastName={lastName} sharedAccess={sharedAccess} subscriptionPlan={subscriptionPlan} subscriptionCreatedAt={subscriptionCreatedAt} readOnly={readOnly} />
               </SettingsSection>
             </div>
           )}
@@ -4532,6 +4813,7 @@ export default function Settings({
                       <div className="plan-payment">
                         <BillingPortalButton companyId={company?.requiresOwnPayment ? company.id : null} label={tr('ui.byt_betalkort')} />
                         <SubscriptionInvoices companyId={company?.requiresOwnPayment ? company.id : null} enabled={!readOnly} />
+                        <BillingCcEmail companyId={company?.requiresOwnPayment ? company.id : null} enabled={!readOnly} />
                         <p>{tr('ui.plan_kortbyte_stripe')}</p>
                       </div>
                     </SettingCard>
@@ -4675,6 +4957,64 @@ export default function Settings({
                 </SettingCard>
               </SettingsSection>
 
+              {/* Startsidans layout på dator (2026-11-09). Sparas på kontot
+                  (user_metadata.dashboard_layout) som hälsningen, så att den
+                  följer med till andra datorer. Två kolumner är standard.
+                  Döljs under 1200 px, där startsidan alltid är en kolumn. */}
+              <div className="settings-dashlayout">
+              <SettingsSection
+                title={t('settings.appearance.dashLayout')}
+                description={t('settings.appearance.dashLayoutHint')}
+              >
+                <SettingCard>
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    {[
+                      { id: 'columns', label: t('settings.appearance.dashLayoutColumns'), hint: t('settings.appearance.dashLayoutColumnsHint') },
+                      { id: 'stack', label: t('settings.appearance.dashLayoutStack'), hint: t('settings.appearance.dashLayoutStackHint') },
+                    ].map(opt => {
+                      const active = dashLayout === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => { if (!active) updateUserMeta({ dashboard_layout: opt.id }); }}
+                          aria-pressed={active}
+                          style={{
+                            flex: '1 1 160px', textAlign: 'left', padding: '14px 16px', borderRadius: '12px',
+                            cursor: active ? 'default' : 'pointer', fontFamily: 'inherit',
+                            border: '1.5px solid ' + (active ? BRAND.green : 'var(--border)'),
+                            background: active ? BRAND.greenLight : 'var(--bg-card)',
+                          }}
+                        >
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '9px', fontSize: '14px', fontWeight: 700, color: active ? BRAND.greenDark : 'var(--text-main)' }}>
+                            {opt.label}
+                            {active && <Check size={14} style={{ marginLeft: 'auto' }} />}
+                          </span>
+                          <span style={{ display: 'block', fontSize: '12.5px', color: active ? BRAND.greenDark : 'var(--text-secondary)', marginTop: '4px' }}>{opt.hint}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </SettingCard>
+              </SettingsSection>
+              </div>
+
+              {/* Kom igång (dashboard/GetStarted.jsx) visas igen efter att ha dolts. */}
+              {user?.user_metadata?.getstarted_dismissed === true && (
+                <SettingsSection title={t('settings.appearance.getStarted')} description={t('settings.appearance.getStartedHint')}>
+                  <SettingCard>
+                    <button
+                      type="button"
+                      onClick={() => updateUserMeta({ getstarted_dismissed: false, getstarted_reset: Date.now() })}
+                      style={{ padding: '10px 16px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      {t('settings.appearance.getStartedShow')}
+                    </button>
+                  </SettingCard>
+                </SettingsSection>
+              )}
+
+
               <SettingsSection
                 title={t('settings.appearance.language')}
                 description={t('settings.appearance.languageHint')}
@@ -4785,7 +5125,29 @@ export default function Settings({
               den kan bli riktig — en TODO för sig, inte en enkel
               vidarekoppling som de fem andra. */}
           {activeTab === 'notifications' && (
-            <div style={{ animation: 'fadeIn 0.2s ease' }}>
+            <div className="notif-settings" style={{ animation: 'fadeIn 0.2s ease' }}>
+              {/* I appen (2026-11-12): plinget när en ny notis kommer i klockan. */}
+              <SettingsSection
+                title={tr('settings.notif.appTitle')}
+                description={tr('settings.notif.appHint')}
+              >
+                <SettingCard>
+                  <SettingRow
+                    label={tr('settings.notif.sound')}
+                    description={tr('settings.notif.soundHint')}
+                    last
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <button type="button" className="notif-preview" onClick={() => previewNotifySound()}>{tr('settings.notif.preview')}</button>
+                      <ToggleSwitch
+                        checked={notifySoundEnabled(user)}
+                        onChange={(e) => updateUserMeta({ notif_sound: e.target.checked })}
+                      />
+                    </div>
+                  </SettingRow>
+                </SettingCard>
+              </SettingsSection>
+
               <SettingsSection
                 title={tr('ui.automatiska_paminnelser')}
                 description={tr('ui.e_postnotiser_styr_alla_kategorier_nedan_gemensa')}

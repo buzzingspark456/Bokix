@@ -23,16 +23,33 @@ export function visionLines(annotation) {
   const out = [];
   let words = [];
   let points = [];
+  let slopes = [];
+  let angleX = 0;
+  let angleY = 0;
+  // Bildens bredd genom höjd: vinklar mäts i pixlar, lägena är andelar.
+  const aspect = width && height ? width / height : 1;
   const flush = () => {
     const text = words.join('').trim();
     if (text && points.length) {
       const xs = points.map(p => clamp(p.x)); const ys = points.map(p => clamp(p.y));
       const x0 = Math.min(...xs); const y0 = Math.min(...ys);
       const x1 = Math.max(...xs); const y1 = Math.max(...ys);
-      if (x1 > x0 && y1 > y0) out.push({ text, box: { x: r(x0), y: r(y0), w: r(x1 - x0), h: r(y1 - y0) } });
+      const width = slopes.reduce((a, s) => a + s.w, 0);
+      const slope = width > 0 ? slopes.reduce((a, s) => a + s.k * s.w, 0) / width : null;
+      const angle = angleX || angleY ? Math.atan2(angleY, angleX) : null;
+      if (x1 > x0 && y1 > y0) {
+        out.push({
+          text, box: { x: r(x0), y: r(y0), w: r(x1 - x0), h: r(y1 - y0) },
+          ...(slope !== null ? { slope: r(slope) } : {}),
+          ...(angle !== null ? { angle: r(angle), aspect: r(aspect) } : {}),
+        });
+      }
     }
     words = [];
     points = [];
+    slopes = [];
+    angleX = 0;
+    angleY = 0;
   };
 
   for (const block of page.blocks || []) {
@@ -43,7 +60,18 @@ export function visionLines(annotation) {
         const last = symbols[symbols.length - 1];
         const breakType = last?.property?.detectedBreak?.type;
         const pts = pointsOf(word.boundingBox);
-        if (pts) points.push(...pts);
+        if (pts) {
+          points.push(...pts);
+          // Överkanten går från första till andra hörnet i ordets läsriktning.
+          const dx = pts.length >= 2 ? pts[1].x - pts[0].x : 0;
+          if (dx > 0.005) slopes.push({ k: (pts[1].y - pts[0].y) / dx, w: dx });
+          if (pts.length >= 2) {
+            const ax = (pts[1].x - pts[0].x) * aspect;
+            const ay = pts[1].y - pts[0].y;
+            const len = Math.hypot(ax, ay);
+            if (len > 0.004) { angleX += ax; angleY += ay; }
+          }
+        }
         words.push(text + (breakType && breakType !== 'HYPHEN' ? ' ' : ''));
         if (LINE_ENDS.has(breakType)) flush();
       }

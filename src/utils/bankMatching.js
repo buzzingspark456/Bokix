@@ -65,3 +65,53 @@ export function findSureMatches(rows, { invoices, expenses }) {
   hits.forEach(h => count.set(h.match.id, (count.get(h.match.id) || 0) + 1));
   return hits.filter(h => count.get(h.match.id) === 1);
 }
+
+// ── Kvitton ──────────────────────────────────────────────────────────────
+// Ett kvitto bokförs mot bankkontot (1930), så kortköpet på kontoutdraget är
+// redan med i bokföringen när kvittot är bokfört. Bankraden ska då kopplas
+// till kvittot, inte bokföras en gång till. Kortköp dras oftast 0–3 dagar
+// efter köpet; sju dagar åt båda hållen täcker helger och utlandsköp.
+const RECEIPT_DAYS = 7;
+const dayDiff = (a, b) => Math.abs((Date.parse(a) - Date.parse(b)) / 86400000);
+
+/**
+ * Kvitton som kan höra till en utgående bankrad: samma belopp (±1 kr),
+ * datum inom en vecka, inte redan kopplade till en annan bankrad. Närmast i
+ * datum först. Svarar [{ id, supplier, amount, date, booked }].
+ */
+export function receiptCandidates(row, expenses, bankTransactions = []) {
+  // Ett kvitto som ägaren betalat privat finns inte på företagets konto.
+  if (!row || !(row.amount < 0) || !row.date) return [];
+  const amount = Math.abs(row.amount);
+  const taken = new Set((bankTransactions || [])
+    .filter(t => t.id !== row.id && t.matchedType === 'receipt' && t.matchedId)
+    .map(t => t.matchedId));
+  return (expenses || [])
+    .filter(e => e.type !== 'supplier_invoice' && e.paidBy !== 'owner' && e.paidBy !== 'employee' && !taken.has(e.id) && e.date
+      && Math.abs((Number(e.amount) || 0) - amount) <= AMOUNT_TOLERANCE
+      && dayDiff(e.date, row.date) <= RECEIPT_DAYS)
+    .sort((a, b) => dayDiff(a.date, row.date) - dayDiff(b.date, row.date))
+    .map(e => ({ id: e.id, supplier: e.supplier || e.description || '', amount: Number(e.amount) || 0, date: e.date, booked: Boolean(e.costAccount) }));
+}
+
+/**
+ * Banktransaktioner att matcha ett underlag mot (Underlag → Matcha mot
+ * transaktion). Utgående rader som inte är hanterade. Samma belopp (±1 kr)
+ * och datum inom en vecka är "Möjlig match" och står först; resten sorteras
+ * på hur nära datum och belopp ligger. `query` söker i text och belopp.
+ * Svarar [{ row, exact, days }].
+ */
+export function bankRowsForReceipt({ amount, date }, bankTransactions = [], query = '') {
+  const want = Math.abs(Number(amount) || 0);
+  const q = String(query || '').trim().toLowerCase();
+  return (bankTransactions || [])
+    .filter(t => t && t.amount < 0 && (t.status || 'unmatched') === 'unmatched')
+    .filter(t => !q || [t.description, t.text, t.counterpart, t.reference, String(Math.abs(t.amount))].some(v => String(v || '').toLowerCase().includes(q)))
+    .map(t => {
+      const days = date && t.date ? Math.round(dayDiff(t.date, date)) : 999;
+      const exact = want > 0 && Math.abs(Math.abs(t.amount) - want) <= AMOUNT_TOLERANCE;
+      return { row: t, exact: exact && days <= RECEIPT_DAYS, days, off: Math.abs(Math.abs(t.amount) - want) };
+    })
+    .sort((a, b) => (b.exact - a.exact) || (a.days - b.days) || (a.off - b.off))
+    .map(({ row, exact, days }) => ({ row, exact, days }));
+}

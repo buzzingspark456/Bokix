@@ -622,9 +622,9 @@ Varugatan 6
 93176 Skellefteå
 Ordernummer: 2026-05-26 18:34 SMILLA
 2302039269
-Hanna Gotthardsson
-Svannäs 42
-Telefon: +46705667610
+Kund Kundsson
+Kundvägen 1
+Telefon: +46700000000
 Take now
 26th May 2026
 220282 25% 899.00
@@ -643,7 +643,7 @@ Totalt: SEK 899,00`
     expect(r.receiptNumber).toBe('2302039269')
     expect(r.receiptNumberLabel).toBe('Ordernummer')
     expect(r.supplier).toBe('Elgiganten')
-    expect(r.accountCode).toBe('5410')
+    expect(r.accountGuessed).toBe(true) // ett tv-spel ger inget kontoförslag
     expect(r.vatRate).toBe(25)
   })
   it('rubriker och belopp på nästa rad blir inget nummer', () => {
@@ -664,9 +664,9 @@ Ordernummer: 2026-05-26 18:34
 
 SMILLA
 2302039269
-Hanna Elisabet Gotthardsson
+Kund Kundsson
 Svannas 42
-+46705667610
++46700000000
 Take now
 26th May 2026
 220282 25% 899.00
@@ -692,7 +692,7 @@ SEK 899,00`
     expect(r.supplier).toBe('Elgiganten')
     expect(r.amount).toBe(899)
     expect(r.vatRate).toBe(25)
-    expect(r.accountCode).toBe('5410')
+    expect(r.accountGuessed).toBe(true) // ett tv-spel ger inget kontoförslag
     expect(r.date).toBe('2026-05-26')
   })
   it('en kortterminals referens (hex-hash) är inget kvittonummer', () => {
@@ -810,7 +810,7 @@ describe('leverantör på fakturor', () => {
 describe('Elgiganten-kvittot, riktig avläsning av fotot', () => {
   // Texten Tesseract ger för fotot: numret två rader under etiketten (SMILLA
   // emellan) och med brus efter sig.
-  const lines = ['ELGIGANTEN)', 'Kvitto', '~ Ordernummer: 2026-05-26 18:34', '| SMILLA', '2302039269 ES', 'Hanna Elisabet Gotthardsson |']
+  const lines = ['ELGIGANTEN)', 'Kvitto', '~ Ordernummer: 2026-05-26 18:34', '| SMILLA', '2302039269 ES', 'Kund Kundsson |']
   it('hittar ordernumret trots brus och en rad emellan', () => {
     expect(findReceiptNumberDetailed(lines)).toEqual({ number: '2302039269', kind: 'order', label: 'Ordernummer' })
   })
@@ -851,7 +851,7 @@ describe('kvittonummer på ett fotat kvitto', () => {
   })
   it('kortterminalens referens och telefonnummer blir aldrig kvittonummer', () => {
     expect(findReceiptNumberDetailed(['Anbud: CN2E001779813220014 referens:', 'G6CD169927149ffa251e656'])).toBeNull()
-    expect(findReceiptNumberDetailed(['Kvitto', '+46705667610', 'Telefon: +46705667610', 'Totalt 899.00'])).toBeNull()
+    expect(findReceiptNumberDetailed(['Kvitto', '+46700000000', 'Telefon: +46700000000', 'Totalt 899.00'])).toBeNull()
     expect(findReceiptNumberDetailed(['Kvitto', '0705667610', 'Ordernummer:', 'Kund Anna Andersson', '0705667610'])).toBeNull()
   })
 })

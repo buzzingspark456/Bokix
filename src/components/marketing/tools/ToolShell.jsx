@@ -1,4 +1,5 @@
 import React from 'react';
+import { KOMMUN_SKATTESATSER, KOMMUN_SKATTESATSER_ÅR, kommunSkattesats } from '../../../utils/kommunSkattesatser';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, ArrowLeft, Check } from '../../icons';
 import { BRAND } from '../../../utils/brandColors';
@@ -128,6 +129,24 @@ export function ToolNumber({ value, onChange, placeholder, ...rest }) {
       style={inputStyle}
       {...rest}
     />
+  );
+}
+
+/** Välj kommun: skattesatsen (utan kyrkoavgift) fylls i från Skatteverkets
+ * satser för året (utils/kommunSkattesatser.js). */
+export const KOMMUN_ÅR = KOMMUN_SKATTESATSER_ÅR;
+export function ToolKommun({ value, onChange }) {
+  return (
+    <select
+      className="bx-tool-input"
+      value={value}
+      onChange={e => onChange(e.target.value, kommunSkattesats(e.target.value))}
+      style={inputStyle}
+      aria-label="Kommun"
+    >
+      <option value="">Välj kommun</option>
+      {Object.keys(KOMMUN_SKATTESATSER).map(k => <option key={k} value={k}>{k}</option>)}
+    </select>
   );
 }
 

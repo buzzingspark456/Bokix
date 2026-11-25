@@ -2,7 +2,8 @@
  * Minimal ZIP-fil utan komprimering ("stored"), för att kunna lämna flera
  * små filer som EN nedladdning. Webbläsare stoppar ofta den andra av två
  * automatiska nedladdningar i rad, så SRU-filernas par kom inte alltid fram.
- * Räcker för små textfiler; inget beroende behövs.
+ * Räcker för små textfiler; inget beroende behövs. Används också för
+ * "Ladda ner alla underlag" (bilder och PDF:er är redan komprimerade).
  *
  * files: [{ name, data: Uint8Array }] → Uint8Array (hela zip-filen)
  */
@@ -43,6 +44,7 @@ export function createZip(files, date = new Date()) {
     const local = new DataView(new ArrayBuffer(30));
     local.setUint32(0, 0x04034b50, true);
     local.setUint16(4, 20, true);
+    local.setUint16(6, 0x0800, true); // filnamnen är UTF-8 (å, ä, ö)
     local.setUint16(8, 0, true); // stored
     local.setUint16(10, time, true);
     local.setUint16(12, day, true);
@@ -56,6 +58,7 @@ export function createZip(files, date = new Date()) {
     central.setUint32(0, 0x02014b50, true);
     central.setUint16(4, 20, true);
     central.setUint16(6, 20, true);
+    central.setUint16(8, 0x0800, true); // filnamnen är UTF-8
     central.setUint16(10, 0, true);
     central.setUint16(12, time, true);
     central.setUint16(14, day, true);

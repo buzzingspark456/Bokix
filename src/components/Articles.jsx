@@ -1,13 +1,18 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Download, Upload, Trash2, Pencil, Check, AlertTriangle, Search, ChevronDown, ChevronRight } from './icons';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { AccountSearch } from './shared/SearchInputs';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { showUndo, restoreAt } from './shared/undoToast';
-import { articlesToCsv, csvToArticles, downloadCsv } from '../utils/csvRegister';
-import Inventory from './Inventory';
-import PricingTool from './PricingTool';
+import { articlesToCsv, parseArticleImport, legacyCsvToArticles, downloadCsv } from '../utils/csvRegister';
+import ArticleImportPreview from './ArticleImportPreview';
+import ArticlesRegister from './ArticlesRegister';
+import ArticleForm, { nextArticleNumber } from './ArticleForm';
+import InventoryNew from './Inventory';
+import InventoryLegacy from './InventoryLegacy';
+import PricingToolNew from './PricingTool';
+import PricingToolLegacy from './PricingToolLegacy';
 import { t } from '../i18n';
 import { MobileFormMode, MobileFormBar } from './shared/MobileForm';
 import { numberFormat } from '../utils/intlCache';
@@ -77,17 +82,31 @@ const emptyArticle = () => ({
  * anta att id eller artikelnr finns — funkar därför även för gamla poster
  * som sparades innan `id` fanns.
  */
-export default function Articles({ articles = [], setArticles, accounts = [], company, verifications = [], invoices = [], expenses = [], onAddVerification, setCompanyInfo }) {
+export default function Articles({ articles = [], setArticles, accounts = [], company, verifications = [], invoices = [], expenses = [], onAddVerification, setCompanyInfo, v2 = false }) {
+  // Nya Lager och Prissättning bara för admin än så länge (2026-11-22).
+  const Inventory = v2 ? InventoryNew : InventoryLegacy;
+  const PricingTool = v2 ? PricingToolNew : PricingToolLegacy;
   // Flikar: Artiklar (registret), Lager (lagerlogg + värdering) och
   // Prissättning. De två sista behöver företagsdata och bokföring — utan
   // dem (t.ex. demoläget) visas bara registret.
   const [tab, setTab] = useState('articles');
+  // Sidbredd (Smal/Bred) från artikellistans inställningar gäller alla tre flikarna.
+  const readWidth = () => { try { return JSON.parse(localStorage.getItem('bokix.artReg.prefs') || '{}').width === 'narrow' ? 'narrow' : 'wide'; } catch { return 'wide'; } };
+  const [pageWidth, setPageWidth] = useState(readWidth);
+  useEffect(() => {
+    const onPrefs = (e) => setPageWidth(e.detail?.width === 'narrow' ? 'narrow' : 'wide');
+    window.addEventListener('bokix:artprefs', onPrefs);
+    return () => window.removeEventListener('bokix:artprefs', onPrefs);
+  }, []);
+  // Smal sidbredd sätts på hela sidan (lt-page-narrow), även sidhuvudet.
+  const widthClass = '';
   const [editing, setEditing] = useState(null);
   const [editingOriginal, setEditingOriginal] = useState(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [importMsg, setImportMsg] = useState(null);
   const importFileRef = useRef(null);
+  const [importPreview, setImportPreview] = useState(null); // { fileName, imported, skippedInactive }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -99,7 +118,15 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
     );
   }, [articles, search]);
 
-  const startNew = () => { setEditing(emptyArticle()); setEditingOriginal(null); setMoreOpen(false); };
+  const startNew = () => {
+    // Admin: nästa lediga artikelnummer och den typ som är vanligast i registret.
+    const base = emptyArticle();
+    if (v2) {
+      const goodsN = articles.filter(a => a.type === 'vara').length;
+      Object.assign(base, { unitPrice: '', articleNumber: nextArticleNumber(articles), type: goodsN > articles.length - goodsN ? 'vara' : 'tjanst' });
+    }
+    setEditing(base); setEditingOriginal(null); setMoreOpen(false);
+  };
   const startEdit = (a) => {
     setEditing({ ...emptyArticle(), ...a });
     setEditingOriginal(a);
@@ -107,44 +134,60 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
   };
   const cancelEdit = () => { setEditing(null); setEditingOriginal(null); };
 
-  const handleExportCsv = () => downloadCsv(`artiklar_${new Date().toISOString().split('T')[0]}.csv`, articlesToCsv(articles));
+  const handleExportCsv = () => downloadCsv(`artiklar_${new Date().toISOString().split('T')[0]}.csv`, articlesToCsv(articles, { legacy: !v2 }));
   const handleImportClick = () => importFileRef.current?.click();
   // Uppdaterar (matchar på artikelnr, när satt) om artikeln redan finns,
   // annars läggs en ny till — rader utan artikelnr i CSV:n blir alltid nya.
   const handleImportFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    e.target.value = '';
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const imported = csvToArticles(ev.target.result);
+        // UTF-8 i första hand; annars Windows-1252 (äldre export från andra program).
+        let text;
+        try { text = new TextDecoder('utf-8', { fatal: true }).decode(ev.target.result); }
+        catch { text = new TextDecoder('windows-1252').decode(ev.target.result); }
+        const { articles: imported, skippedInactive } = v2 ? parseArticleImport(text) : { articles: legacyCsvToArticles(text), skippedInactive: 0 };
         if (imported.length === 0) throw new Error(t('ui.inga_giltiga_rader_hittades_kraver_minst_en_bena'));
-        let added = 0, updated = 0;
-        setArticles(prev => {
-          const next = [...prev];
-          imported.forEach(item => {
-            const num = (item.articleNumber || '').trim().toLowerCase();
-            const idx = num ? next.findIndex(a => (a.articleNumber || '').trim().toLowerCase() === num) : -1;
-            const withId = { id: (idx !== -1 && next[idx].id) || newArticleId(), ...item };
-            if (idx === -1) { next.push(withId); added++; }
-            else { next[idx] = withId; updated++; }
-          });
-          return next;
-        });
-        setImportMsg({ type: 'success', text: t('ui.ny_uppdaterad', { added, v1: added === 1 ? '' : 'a', updated, v3: updated === 1 ? '' : 'e' }) });
+        // Först en förhandsvisning (ArticleImportPreview), inget sparas än.
+        if (v2) setImportPreview({ fileName: file.name, imported, skippedInactive });
+        else applyImport(imported); // kunderna: direkt som förut (förhandsvisningen bara admin än)
       } catch (err) {
         setImportMsg({ type: 'error', text: t('ui.kunde_inte_importera', { message: err.message }) });
+        setTimeout(() => setImportMsg(null), 6000);
       }
-      setTimeout(() => setImportMsg(null), 6000);
     };
-    reader.readAsText(file, 'utf-8');
-    e.target.value = '';
+    reader.readAsArrayBuffer(file);
+  };
+
+  // Uppdaterar (matchar på artikelnr, när satt) om artikeln redan finns,
+  // annars läggs en ny till. Räknas här och inte i en setArticles-funktion,
+  // som körs först vid nästa rendering (antalen blev 0 i meddelandet).
+  const applyImport = (imported) => {
+    const next = [...articles];
+    let added = 0, updated = 0;
+    imported.forEach(item => {
+      const num = (item.articleNumber || '').trim().toLowerCase();
+      const idx = num ? next.findIndex(a => (a.articleNumber || '').trim().toLowerCase() === num) : -1;
+      // Befintlig artikel: fält som filen inte har (lager, bilder m.m.) behålls.
+      const withId = idx !== -1 ? { ...next[idx], ...item, id: next[idx].id || newArticleId() } : { id: newArticleId(), ...item };
+      if (idx === -1) { next.push(withId); added++; }
+      else { next[idx] = withId; updated++; }
+    });
+    setArticles(next);
+    setImportPreview(null);
+    setImportMsg({ type: 'success', text: t('ui.ny_uppdaterad', { added, v1: added === 1 ? '' : 'a', updated, v3: updated === 1 ? '' : 'e' }) });
+    setTimeout(() => setImportMsg(null), 6000);
   };
 
   const save = () => {
     const description = (editing.description || '').trim();
     if (!description) return;
-    const next = { ...editing, description, articleNumber: (editing.articleNumber || '').trim(), id: editing.id || newArticleId() };
+    const toNum = (v) => Number(String(v ?? '').replace(/\s/g, '').replace(',', '.')) || 0;
+    const next = { ...editing, description, articleNumber: (editing.articleNumber || '').trim(), id: editing.id || newArticleId(),
+      unitPrice: toNum(editing.unitPrice), purchasePrice: editing.purchasePrice === '' || editing.purchasePrice == null ? '' : toNum(editing.purchasePrice) };
     setArticles(prev => {
       const idx = editingOriginal ? prev.indexOf(editingOriginal) : -1;
       if (idx !== -1) return prev.map((a, i) => i === idx ? next : a);
@@ -168,6 +211,13 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
   // och fälten grupperade i kompakta kort-sektioner (sectionStyle) med en
   // 2-kolumns-grid istället för en smal, flytande maxWidth-ruta mitt i en
   // annars tom sida. ──
+  if (editing && v2) {
+    return (
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: 'var(--bg-page)' }}>
+        <ArticleForm article={editing} setArticle={setEditing} isNew={!editingOriginal} articles={articles} accounts={accounts} onSave={save} onCancel={cancelEdit} />
+      </div>
+    );
+  }
   if (editing) {
     const canSave = Boolean(editing.description.trim());
     return (
@@ -288,7 +338,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
   // i ListFilterBar (en del av headerkortet), och listan sitter flush direkt
   // under, utan sidopadding. ──
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+    <div className={v2 && pageWidth === 'narrow' ? 'lt-page-narrow' : undefined} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
         title={t('nav.articles')}
         tabs={setCompanyInfo ? {
@@ -296,8 +346,11 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
           activeId: tab, onChange: setTab,
         } : undefined}
         actions={tab !== 'articles' ? [] : [
-          { label: t('ui.exportera'), icon: Download, onClick: handleExportCsv, variant: 'secondary' },
-          { label: t('ui.importera'), icon: Upload, onClick: handleImportClick, variant: 'secondary' },
+          // Admin: Importera och Exportera finns i listans inställningar (2026-11-24).
+          ...(v2 ? [] : [
+            { label: t('ui.exportera'), icon: Download, onClick: handleExportCsv, variant: 'secondary' },
+            { label: t('ui.importera'), icon: Upload, onClick: handleImportClick, variant: 'secondary' },
+          ]),
           { label: t('ui.ny_artikel'), icon: Plus, onClick: startNew, variant: 'primary' },
         ]}
       >
@@ -309,19 +362,30 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
         )}
       </ListPageHeader>
       <input type="file" ref={importFileRef} accept=".csv" style={{ display: 'none' }} onChange={handleImportFile} />
+      {importPreview && (
+        <ArticleImportPreview {...importPreview} existing={articles} onConfirm={applyImport} onCancel={() => setImportPreview(null)} />
+      )}
 
       {tab === 'inventory' && setCompanyInfo && (
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className={`art-tab${widthClass}`} style={{ flex: 1, overflowY: 'auto' }}>
           <Inventory articles={articles} invoices={invoices} expenses={expenses} company={company} verifications={verifications} onAddVerification={onAddVerification} setCompanyInfo={setCompanyInfo} onAddArticle={() => { setTab('articles'); setEditing({ ...emptyArticle(), type: 'vara' }); setEditingOriginal(null); setMoreOpen(true); }} />
         </div>
       )}
       {tab === 'pricing' && setCompanyInfo && (
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className={`art-tab${widthClass}`} style={{ flex: 1, overflowY: 'auto' }}>
           <PricingTool articles={articles} setArticles={setArticles} company={company} setCompanyInfo={setCompanyInfo} />
         </div>
       )}
 
-      {tab === 'articles' && <ListFilterBar count={filtered.length} countLabel={filtered.length === 1 ? t('ui.artikel_2') : t('ui.artiklar_2')}>
+      {tab === 'articles' && v2 && (
+        <div className={`art-tab${widthClass}`} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <ArticlesRegister
+            articles={articles} setArticles={setArticles} company={company} setCompanyInfo={setCompanyInfo} invoices={invoices}
+            onEdit={startEdit} onNew={startNew}
+            onDuplicate={(a) => { setEditing({ ...emptyArticle(), ...a, id: undefined, articleNumber: v2 ? nextArticleNumber(articles) : '', description: `${a.description} ${t('artReg.copySuffix')}` }); setEditingOriginal(null); setMoreOpen(true); }} onImport={handleImportClick} onExport={handleExportCsv} />
+        </div>
+      )}
+      {tab === 'articles' && !v2 && <ListFilterBar count={filtered.length} countLabel={filtered.length === 1 ? t('ui.artikel_2') : t('ui.artiklar_2')}>
         <div style={{ position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input type="text" placeholder={t('ui.sok_benamning_artikelnr_eller_ean')} value={search} onChange={e => setSearch(e.target.value)} style={listSearchInputStyle} />
@@ -330,7 +394,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
 
       {/* Flush direkt under filterraden, ingen padding — samma "facit" som
           Offerter/Bokföring/Bank. */}
-      {tab === 'articles' && <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      {tab === 'articles' && !v2 && <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         <ListTable
           rowKey={a => a.id || a.articleNumber}
           rows={filtered}

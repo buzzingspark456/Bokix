@@ -57,6 +57,13 @@ export const SALES_ACCOUNT_BY_RATE = {
 
 export const INPUT_VAT_ACCOUNT = '2641';
 
+// Ruta 06: momspliktiga uttag (egna uttag, BAS 3401-3403). Ruta 07:
+// beskattningsunderlag vid vinstmarginalbeskattning (BAS 3211 positiv och
+// 3212 negativ vinstmarginal). Utgående moms på dem bokförs som vanligt på
+// 2611/2621/2631 och hamnar i ruta 10-12 (2026-11-17).
+export const OWN_USE_RATE_BY_ACCOUNT = { 3401: 25, 3402: 12, 3403: 6 };
+export const MARGIN_SCHEME_ACCOUNTS = ['3211', '3212'];
+
 // Omvänd skattskyldighet: köparen redovisar momsen själv. Kostnaden bokförs
 // på ett konto som anger vad som köpts och varifrån, med momssats, och
 // momsen bokförs både som utgående och som ingående moms (samma belopp, så
@@ -113,6 +120,8 @@ export const EXEMPT_SALES_RUTA_BY_ACCOUNT = {
 // (ruta 05) — se kommentaren vid SALES_RUTA_BY_RATE ovan för varför.
 export const VAT_RUTOR = [
   { ruta: '05', label: 'Momspliktig försäljning (underlag, exkl. moms)', kind: 'salesTotal' },
+  { ruta: '06', label: 'Momspliktiga uttag', kind: 'ownUse' },
+  { ruta: '07', label: 'Beskattningsunderlag vid vinstmarginalbeskattning', kind: 'margin' },
   { ruta: '10', label: 'Utgående moms, 25 %', rate: 25, kind: 'output' },
   { ruta: '11', label: 'Utgående moms, 12 %', rate: 12, kind: 'output' },
   { ruta: '12', label: 'Utgående moms, 6 %', rate: 6, kind: 'output' },

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import { Search, RefreshCw, SlidersHorizontal, Plus, MoreHorizontal, PlayCircle } from '../icons';
 import { GuideContext } from './GuideContext';
+import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 import { t } from '../../i18n';
 
 // Sida 43: en enda delad sidhuvud-komponent för alla listsidor (Kunder,
@@ -52,7 +53,7 @@ export const listFilterFieldStyle = {
 };
 
 const tabButtonStyle = (active) => ({
-  padding: '10px 18px', border: 'none', cursor: 'pointer', fontSize: '13px',
+  padding: '8px 16px', border: 'none', cursor: 'pointer', fontSize: '13px',
   fontWeight: active ? 700 : 500,
   color: active ? 'var(--text-main)' : 'var(--text-secondary)',
   background: 'none',
@@ -102,6 +103,14 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
   // Se hur: filmen för sidan (App.jsx sätter GuideContext, utils/pageGuides.js).
   const guide = useContext(GuideContext);
   const pills = Boolean(hasTabs && tabs.variant === 'pills');
+  // Kompakt sidhuvud (2026-11-14): på bred skärm står flikarna på samma rad
+  // som rubriken, och undertexten visas inte när det finns flikar. Listan
+  // börjar då ungefär 45 px högre upp på varje listsida. Smalare skärmar och
+  // sidor med många flikar (piller, radbrytning) behåller två rader.
+  // Undertexten (t.ex. "Fakturor du skickar till dina kunder") visas bara på
+  // smalare skärmar; på bred skärm säger rubriken och listan samma sak.
+  const narrow = useIsMobileViewport(1100);
+  const inlineTabs = hasTabs && !pills && !tabs.wrap && !narrow;
   // Telefon: flikraden är en rad man sveper i sidled (index.css). Den valda
   // fliken skrollas fram så den aldrig står gömd bakom kanten. Bara raden
   // själv flyttas, aldrig sidan (scrollIntoView hade kunnat skrolla sidan).
@@ -115,23 +124,43 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
     const target = left - (row.clientWidth - btn.offsetWidth) / 2;
     row.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
   }, [activeTabId]);
+  const tabButtons = hasTabs && tabs.items.map(t => (
+    <button
+      key={t.id}
+      type="button"
+      onClick={() => tabs.onChange(t.id)}
+      aria-current={tabs.activeId === t.id ? 'page' : undefined}
+      className={inlineTabs ? 'lph-inline-tab' : undefined}
+      style={pills ? tabPillStyle(tabs.activeId === t.id) : tabButtonStyle(tabs.activeId === t.id)}
+    >
+      {t.icon && <t.icon size={14} />}
+      {t.shortLabel
+        ? <><span className="tab-label-long">{t.label}</span><span className="tab-label-short">{t.shortLabel}</span></>
+        : t.label}{typeof t.badge === 'number' && t.badge > 0 ? ` · ${t.badge}` : ''}
+    </button>
+  ));
   return (
-    <div className="list-page-header" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 20px', paddingBottom: hasTabs ? 0 : '16px', flexShrink: 0 }}>
-      <div className="page-header-row page-header-top" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 0', gap: '16px', flexWrap: 'wrap' }}>
-        <div>
+    <div className={'list-page-header' + (inlineTabs ? ' lph-compact' : '')} style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '0 20px', paddingBottom: hasTabs ? 0 : '12px', flexShrink: 0 }}>
+      <div className="page-header-row page-header-top" style={inlineTabs
+        ? { display: 'flex', alignItems: 'stretch', justifyContent: 'space-between', gap: '16px', minHeight: '54px' }
+        : { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0 0', gap: '16px', flexWrap: 'wrap' }}>
+        <div className={inlineTabs ? 'lph-title-with-tabs' : undefined}>
+          <div className={inlineTabs ? 'lph-title-block' : undefined}>
           {/* Kundfeedback ("luft i sidhuvudet", samma princip som Startsidan):
               2px kändes hopklämt mellan rubrik och undertext — 6px (samma
               rytm som Dashboard.jsx:s hälsningsrader) ger läsbar andrum
               utan att blåsa upp den kompakta verktygsrads-höjden här. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--text-main)' }}>{title}</h1>
+            <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-main)' }}>{title}</h1>
             {guide?.guides?.length > 0 && (
               <button type="button" className="lph-guide" onClick={guide.open} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', border: 'none', borderRadius: '999px', background: 'var(--bg-muted)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                 <PlayCircle size={14} /> {t('ui.se_hur')}
               </button>
             )}
           </div>
-          {subtitle && <p className="page-header-subtitle" style={{ margin: '6px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>{subtitle}</p>}
+          {subtitle && narrow && <p className="page-header-subtitle" style={{ margin: '6px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>{subtitle}</p>}
+          </div>
+          {inlineTabs && <nav ref={tabsRef} className="lph-inline-tabs" aria-label={title}>{tabButtons}</nav>}
         </div>
         {actions.length > 0 && (
           // `page-header-actions`: på telefon läggs knapparna på en egen rad
@@ -145,8 +174,11 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
           // sekundära knapparna (exportera, guide m.m.) flyttar in bakom en
           // "⋯"-knapp (lph-more) i stället för att fylla sidhuvudet. På
           // datorn syns allt som förut.
-          <div className={'page-header-actions' + (actions.filter(a => a.type !== 'note').length > 1 ? ' page-header-actions--many' : '')} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {actions.map((a, i) => a.type === 'note' ? (
+          <div className={'page-header-actions' + (actions.filter(a => a.type !== 'note' && a.type !== 'node').length > 1 ? ' page-header-actions--many' : '')} style={{ display: 'flex', alignItems: 'center', gap: '8px', ...(inlineTabs ? { alignSelf: 'center' } : null) }}>
+            {actions.map((a, i) => a.type === 'node' ? (
+              // Egen komponent i sidhuvudet (t.ex. Kontroll i Bokföring), inte i ⋯-menyn.
+              <React.Fragment key={a.key ?? i}>{a.node}</React.Fragment>
+            ) : a.type === 'note' ? (
               <span key={a.key ?? i} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                 {a.label} {a.value && <strong style={{ color: 'var(--text-main)' }}>{a.value}</strong>}
               </span>
@@ -164,9 +196,9 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
                 {a.icon && <a.icon size={14} />} {a.label}
               </button>
             ))}
-            {actions.some(a => a.type !== 'note' && a.variant !== 'primary') && (
+            {actions.some(a => a.type !== 'note' && a.type !== 'node' && a.variant !== 'primary') && (
               <MoreActions actions={[
-                ...actions.filter(a => a.type !== 'note' && a.variant !== 'primary'),
+                ...actions.filter(a => a.type !== 'note' && a.type !== 'node' && a.variant !== 'primary'),
                 // Telefon: Se hur ligger i ⋯-menyn i stället för bredvid rubriken.
                 ...(guide?.guides?.length > 0 ? [{ key: 'guide', label: t('ui.se_hur'), icon: PlayCircle, onClick: guide.open, phoneOnly: true }] : []),
               ]} />
@@ -177,26 +209,13 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
 
       {children}
 
-      {hasTabs && (
+      {hasTabs && !inlineTabs && (
         <div
           ref={tabsRef}
           className={'page-header-tabs' + (pills ? ' page-header-tabs--pills' : '') + (tabs.wrap ? ' page-header-tabs--wrap' : '')}
-          style={{ display: 'flex', gap: pills ? '7px' : 0, marginTop: pills ? '10px' : '12px', paddingBottom: pills ? '12px' : 0 }}
+          style={{ display: 'flex', gap: pills ? '7px' : 0, marginTop: pills ? '8px' : '6px', paddingBottom: pills ? '12px' : 0 }}
         >
-          {tabs.items.map(t => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => tabs.onChange(t.id)}
-              aria-current={tabs.activeId === t.id ? 'page' : undefined}
-              style={pills ? tabPillStyle(tabs.activeId === t.id) : tabButtonStyle(tabs.activeId === t.id)}
-            >
-              {t.icon && <t.icon size={14} />}
-              {t.shortLabel
-                ? <><span className="tab-label-long">{t.label}</span><span className="tab-label-short">{t.shortLabel}</span></>
-                : t.label}{typeof t.badge === 'number' && t.badge > 0 ? ` · ${t.badge}` : ''}
-            </button>
-          ))}
+          {tabButtons}
         </div>
       )}
     </div>
@@ -279,7 +298,10 @@ export function ListSearchRow({ value, onChange, placeholder, right }) {
  */
 export const PAGE_SIZE_OPTIONS = [15, 30, 50, 100];
 
-export function ListFilterBar({ children, onClear, count, countLabel, pageSize, onPageSizeChange, pageSizeOptions = PAGE_SIZE_OPTIONS, activeFilters = 0 }) {
+// collapsed (standard): filtren ligger bakom Filter-knappen även på stor skärm (2026-11-08,
+// Verifikationer: "ska inte synas förrän man trycker på Filter").
+// trailing (2026-11-24): t.ex. listans inställningsknapp, alltid sist på sökfältets rad.
+export function ListFilterBar({ children, onClear, count, countLabel, pageSize, onPageSizeChange, pageSizeOptions = PAGE_SIZE_OPTIONS, activeFilters = 0, collapsed = true, trailing = null }) {
   const [open, setOpen] = useState(false);
   const hasPageSize = pageSize != null && onPageSizeChange;
   const hasSecondRow = Boolean(onClear) || count != null || hasPageSize;
@@ -290,45 +312,65 @@ export function ListFilterBar({ children, onClear, count, countLabel, pageSize, 
   const items = React.Children.toArray(children);
   const [first, ...rest] = items;
   const hasMore = rest.length > 0 || Boolean(onClear) || hasPageSize;
+  // Bara sökfält + antal (t.ex. Offerter): på datorn finns inget att fälla
+  // ut, så Filter-knappen visas bara på telefon (lfb-toggle--phone-only).
+  // Utan Rensa-knapp står antalet och Visa-väljaren på sökfältets rad på
+  // datorn, i stället för ensamma på en egen rad (2026-11-05: mer av listan
+  // syns). Telefonen har kvar sin rad bakom Filter.
+  // collapsed: antalet står alltid på sökfältets rad på datorn, och Rensa
+  // ligger sist bland filtren, så att inget hamnar på en egen rad.
+  const inline = (collapsed || !onClear) && (count != null || hasPageSize);
+  const right = (inRow) => (
+      <div className={inRow ? 'lfb-inline' : undefined} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
+        {count != null && (
+          <span className="lfb-count" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{count} {countLabel}</span>
+        )}
+        {hasPageSize && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
+            {t('shared.filterBar.show')}
+            <select
+              value={pageSize}
+              onChange={e => onPageSizeChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              style={{ ...listFilterFieldStyle, height: '28px', padding: '0 8px', fontSize: '12px' }}
+            >
+              {pageSizeOptions.map(n => <option key={n} value={n}>{n}</option>)}
+              <option value="all">{t('shared.filterBar.all')}</option>
+            </select>
+          </label>
+        )}
+      </div>
+  );
   return (
-    <div className="lfb" data-open={open ? 'true' : 'false'} style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-card)', flexShrink: 0 }}>
-      <div className="lfb-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: hasSecondRow ? '10px' : 0 }}>
+    <div className={'lfb' + (collapsed ? ' lfb--collapsed' : '')} data-open={open ? 'true' : 'false'} style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-card)', flexShrink: 0 }}>
+      <div className="lfb-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: hasSecondRow && !inline ? '8px' : 0 }}>
         <div className="lfb-primary">{first}</div>
         {hasMore && (
-          <button type="button" className="lfb-toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+          <button type="button" className={'lfb-toggle' + (rest.length === 0 && !onClear ? ' lfb-toggle--phone-only' : '')} onClick={() => setOpen(o => !o)} aria-expanded={open}>
             <SlidersHorizontal size={16} />
             {t('shared.filterBar.filter')}
             {activeFilters > 0 && <span className="lfb-toggle-badge">{activeFilters}</span>}
           </button>
         )}
-        <div className="lfb-more">{rest}</div>
+        {inline && right(true)}
+        {trailing && <div className="lfb-trailing" style={{ marginLeft: inline ? 0 : 'auto', display: 'flex' }}>{trailing}</div>}
+        <div className="lfb-more">
+          {rest}
+          {collapsed && onClear && (
+            <button type="button" className="lfb-clear-inline" onClick={onClear} style={{ ...listHeaderButtonStyle('secondary'), height: '36px', padding: '0 12px' }}>
+              <RefreshCw size={14} /> {t('shared.filterBar.clear')}
+            </button>
+          )}
+        </div>
       </div>
       {count != null && <div className="lfb-count-line">{count} {countLabel}</div>}
       {hasSecondRow && (
-        <div className="lfb-second" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+        <div className={'lfb-second' + (inline ? ' lfb-second--phone' : '')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
           {onClear ? (
-            <button type="button" onClick={onClear} style={listHeaderButtonStyle('secondary')}>
+            <button type="button" onClick={onClear} style={{ ...listHeaderButtonStyle('secondary'), height: '30px', padding: '0 12px' }}>
               <RefreshCw size={14} /> {t('shared.filterBar.clear')}
             </button>
           ) : <span />}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
-            {count != null && (
-              <span className="lfb-count" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{count} {countLabel}</span>
-            )}
-            {hasPageSize && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                {t('shared.filterBar.show')}
-                <select
-                  value={pageSize}
-                  onChange={e => onPageSizeChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                  style={{ ...listFilterFieldStyle, height: '28px', padding: '0 8px', fontSize: '12px' }}
-                >
-                  {pageSizeOptions.map(n => <option key={n} value={n}>{n}</option>)}
-                  <option value="all">{t('shared.filterBar.all')}</option>
-                </select>
-              </label>
-            )}
-          </div>
+          {right(false)}
         </div>
       )}
     </div>

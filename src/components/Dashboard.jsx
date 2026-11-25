@@ -1,10 +1,11 @@
 import React, { useMemo, useState, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
+import { useDashboardLayout } from '../hooks/useDashboardLayout';
 import {
   FileText, Receipt,
   ChevronRight, ArrowUpRight, ArrowDownRight,
   CheckCircle2, BarChart2,
   UserPlus, Users, AlertCircle, X, MessageSquare, Upload, Calendar, Banknote, ClipboardCheck,
-  TodoOverdueIcon, TodoReviewIcon, TodoDraftIcon, TodoVatIcon, TodoPayrollIcon,
+  TodoOverdueIcon, TodoReviewIcon, TodoDraftIcon, TodoVatIcon, TodoPayrollIcon, TodoBankIcon,
   // Aliasat — 'LineChart' krockar annars med recharts-komponenten med
   // samma namn som redan importeras nedan (två helt olika saker: en ikon
   // kontra en diagramkomponent).
@@ -13,6 +14,8 @@ import {
 import { buildTodoItems, todoDismissedKey, calendarDaysOverdue } from '../utils/todoItems';
 import { getGreeting } from '../utils/greeting';
 import SieImportModal from './SieImportModal';
+import GetStarted, { readGetStarted, shouldShowGetStarted } from './dashboard/GetStarted';
+import { supabase } from '../supabaseClient';
 import { BRAND } from '../utils/brandColors';
 import { resolveChartPalette } from '../utils/chartPalette';
 import { useIsDarkTheme } from '../hooks/useIsDarkTheme';
@@ -25,10 +28,11 @@ import { useTranslation, dateLocale } from '../i18n';
 // på "Intäkter vs Utgifter"-grafen här också — delad komponent/lista och
 // delad datumberäkning istället för en andra, lokal implementation som kan
 // glida isär (se PeriodPicker/OVERVIEW_PERIODS-kommentaren i ReportUI.jsx).
-import { overviewPeriodBounds, buildResultSeries, companyFiscalYearSetting } from '../utils/reportCalculations';
 import { layoutRect, layoutViewport } from '../utils/dropdownPlacement';
+import { overviewPeriodBounds, buildResultSeries, companyFiscalYearSetting } from '../utils/reportCalculations';
 import { invoiceCustomerRemainingSek } from '../utils/rotRutConfig';
 import { numberFormat } from '../utils/intlCache';
+import VatTaskPanel from './dashboard/VatTaskPanel';
 
 // Intäkter-vs-Utgifter-grafens färger kommer numera från paletten
 // (utils/chartPalette.js, se `chart` i komponenten): förvalet är samma
@@ -186,7 +190,8 @@ function ChartDataTable({ data, fmt, hasPrevYearData, comparisonLabel }) {
 const TODO_ICONS = {
   overdue_invoices: TodoOverdueIcon, supplier_due: TodoOverdueIcon, vat_deadline: TodoVatIcon, agi_deadline: TodoVatIcon,
   year_end: TodoVatIcon, income_declaration: TodoVatIcon, annual_report: TodoVatIcon, start_vat: TodoVatIcon, payroll_pending: TodoPayrollIcon, employees_tax: TodoPayrollIcon,
-  review: TodoReviewIcon, bank_unmatched: TodoReviewIcon, draft_invoices: TodoDraftIcon,
+  review: TodoReviewIcon, bank_unmatched: TodoBankIcon, draft_invoices: TodoDraftIcon, documents_unlinked: TodoReviewIcon,
+  orders_deliver: TodoOverdueIcon, orders_invoice: TodoDraftIcon,
 };
 
 /* ── Nyckeltalsruta: Resultat, Intäkter, Kostnader och Likviditet som fyra
@@ -290,7 +295,7 @@ function useIsPhone(maxWidth = 640) {
   return phone;
 }
 
-export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie, onCloseImportedYears, agiReports = [], bankTransactions = [], hiddenNavIds = [], onOpenItem }) {
+export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie, onCloseImportedYears, agiReports = [], bankTransactions = [], documents = [], hiddenNavIds = [], payrollIncluded = true, onOpenItem, onStartTour, onToggleTaxFiling, onSetAgiSubmitted }) {
   const { t } = useTranslation();
   const FORMAT_MODES = formatModes(t);
   // Har företaget personal? Avgörs på verkliga anställda och lönekörningar,
@@ -392,14 +397,13 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     setAmountUnitState(u);
     try { localStorage.setItem('bokix_dash_unit', u); } catch { /* privat läge */ }
   };
-  // tkr med en decimal från 10 000 kr och mkr med två från en miljon: 22 445 kr
-  // ska bli 22,4 tkr, inte 22 tkr. Mindre belopp står i hela
+  // tkr från 10 000 kr och mkr från en miljon. Mindre belopp står i hela
   // kronor: "719 kr" läses lättare än "0,7 tkr".
   const fmtTkr = (v) => {
     const n = Math.abs(v || 0);
     if (n < 10000) return fmt(v || 0);
-    if (n >= 1e6) return `${numberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((v || 0) / 1e6)} mkr`;
-    return `${numberFormat('sv-SE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format((v || 0) / 1000)} tkr`;
+    if (n >= 1e6) return `${numberFormat('sv-SE', { maximumFractionDigits: 1 }).format((v || 0) / 1e6)} mkr`;
+    return `${numberFormat('sv-SE', { maximumFractionDigits: 0 }).format((v || 0) / 1000)} tkr`;
   };
   const fmtKpi = amountUnit === 'tkr' ? fmtTkr : fmt;
 
@@ -412,16 +416,53 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
 
   // En rad eller faktura öppnar just den saken (App.jsx handleGlobalAction),
   // annars sidan.
+  // Uppgiftspanelen: Att göra-rader med en uppgift (momsen) öppnas i en
+  // panel i stället för att hoppa till en annan sida.
+  const [openTask, setOpenTask] = useState(null);
+  // AGI räknas som inlämnad när månadens rapport är det (samma som Skatt och
+  // bokslut och lönekörningen).
+  const agiSubmittedAt = (period) => {
+    const r = (agiReports || []).find(x => x.period === period && x.status === 'submitted');
+    return r ? new Date(r.submittedAt || Date.now()).toLocaleDateString('sv-SE') : null;
+  };
   const openTarget = (target) => {
     if (!target) return;
     if (target.action && onOpenItem) onOpenItem(target.action, target.tab);
     else setActiveTab(target.tab);
   };
+  // ── Kom igång (dashboard/GetStarted.jsx) ── ett nytt konto väljer om det
+  // börjar från noll eller flyttar in; listan ersätter då Kom igång-raderna
+  // i Att göra, den tomma grafen och importrutan längst ner.
+  // Valet görs i registreringen (OnboardingFlow, steget Start) och sparas på
+  // kontot (user_metadata.start_path), så det följer med till andra enheter.
+  // Webbläsarens kopia har överhand; den har även Hoppa över-valen.
+  const gsFromSources = () => {
+    const local = readGetStarted(company?.id);
+    const meta = user?.user_metadata || {};
+    // Visa igen (Inställningar → Utseende) sätter getstarted_reset; en dölj
+    // som gjordes före det gäller inte längre.
+    const reset = Number(meta.getstarted_reset) || 0;
+    const localDismissed = Boolean(local.dismissed) && !(reset && (local.dismissedAt || 0) < reset);
+    return { ...local, path: local.path || meta.start_path || undefined, dismissed: localDismissed || meta.getstarted_dismissed === true };
+  };
+  const [gsState, setGsState] = useState(gsFromSources);
+  useEffect(() => { setGsState(gsFromSources()); }, [company?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const changeGsState = (next) => {
+    setGsState(next);
+    const meta = user?.user_metadata || {};
+    const isRealUser = user?.id && user.id !== 'demo-user';
+    if (isRealUser && (meta.start_path !== next.path || Boolean(meta.getstarted_dismissed) !== Boolean(next.dismissed))) {
+      supabase.auth.updateUser({ data: { start_path: next.path || null, getstarted_dismissed: Boolean(next.dismissed) } }).catch(() => { /* webbläsarens kopia räcker */ });
+    }
+  };
+  const hasAnyData = (verifications || []).length > 0 || (expenses || []).length > 0 || (invoices || []).length > 0;
+  const showGetStarted = Boolean(company?.id) && shouldShowGetStarted(gsState, { hasAnyData });
+
   // ── Att göra ── (utils/todoItems.js, samma lista som notisklockan)
   const todos = buildTodoItems({
-    t, company, invoices, expenses, contacts, verifications, payrollRuns, employees, agiReports, bankTransactions,
+    t, company, invoices, expenses, contacts, verifications, payrollRuns, employees, agiReports, bankTransactions, documents,
     vatPeriods, reviewTotal, hiddenNavIds, dismissedKeys: dismissedTodoKeys,
-  }).map(item => ({ ...item, icon: TODO_ICONS[item.kind] || TodoDraftIcon }));
+  }).filter(item => !((showGetStarted || gsState.path || gsState.dismissed) && item.group === 'start')).map(item => ({ ...item, icon: TODO_ICONS[item.kind] || TodoDraftIcon }));
 
   // ── Onboarding ──
   const hasCustomers  = contacts.some(c => c.type === 'customer');
@@ -494,7 +535,9 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   const outstanding = useMemo(() => {
     const daysOverdue = calendarDaysOverdue;
 
-    const unpaidInvoices = (invoices || []).filter(i => i.status === 'sent');
+    // Bara det som faktiskt är kvar att betala: en skickad faktura på 0 kr, eller en
+    // som redan betalats eller krediterats fullt, stod annars som obetald med 0 kr.
+    const unpaidInvoices = (invoices || []).filter(i => i.status === 'sent' && invoiceCustomerRemainingSek(i) > 0);
     // Delbetalda fakturor räknas på det som ÅTERSTÅR, inte på hela
     // beloppet — annars säger rutan att man har mer att få in än man har.
     const receivable = unpaidInvoices.reduce((sum, i) => sum + invoiceCustomerRemainingSek(i), 0);
@@ -622,6 +665,8 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     : (periodBounds.granularity === 'month' && chartData.length > 1 && periodOmsattning > 0
       ? t('dashboard.kpi.perMonth', { amount: fmtKpi(periodOmsattning / chartData.length) })
       : '');
+  // Pengarna på bank och kassa i dag (1900–1999), oavsett vald period: det
+  // första en småföretagare vill veta (2026-11-07).
   const kpiSubCost = periodOmsattning > 0 ? t('dashboard.kpi.shareOfIncome', { pct: pctFmt(periodKostnader / periodOmsattning) }) : '';
   const kpiSubResult = resultDelta != null
     ? t('dashboard.kpi.vsLastYearShort')
@@ -644,6 +689,9 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   // hoppas över HELT (inget tomt div kvar som fortfarande tar sin
   // marginBottom) istället för att bara göra texten osynlig.
   const showGreeting = user?.user_metadata?.show_dashboard_greeting !== false;
+  // Startsidans layout (Inställningar → Utseende): två kolumner är standard,
+  // 'stack' lägger allt i en kolumn med Att göra överst (2026-11-09).
+  const stackLayout = useDashboardLayout(user) === 'stack';
   const isPhone = useIsPhone();
   // Att göra idag: på telefon först på sidan, före Snabbåtgärder (det som väntar
   // på dig är viktigare än genvägarna, och genvägarna tog annars halva skärmen
@@ -651,7 +699,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   const todoFirst = useIsPhone(768);
   // Högst fyra rader syns; listan är redan sorterad med det viktigaste först.
   // Resten ligger bakom "Visa alla", så kortet aldrig blir en lång vägg.
-  const TODO_VISIBLE = 3;
+  const TODO_VISIBLE = 4;
   const [todosExpanded, setTodosExpanded] = useState(false);
   // Utestående: fyra fakturor syns i smalt fönster, resten bakom Visa alla.
   const [outExpanded, setOutExpanded] = useState(false);
@@ -693,7 +741,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             {showGroupTitles && <h3 className="dash-todo-group-title">{t(`dashboard.todo.group.${g.id}`)}</h3>}
             <ul className="dash-todo-group-list">
               {g.items.map(todo => (
-                <TodayRow key={todo.dismissKey} item={todo} onClick={() => openTarget(todo.target)} onDismiss={() => dismissTodo(todo.dismissKey)} />
+                <TodayRow key={todo.dismissKey} item={todo} onClick={() => (todo.task ? setOpenTask(todo.task) : openTarget(todo.target))} onDismiss={() => dismissTodo(todo.dismissKey)} />
               ))}
             </ul>
           </section>
@@ -719,32 +767,49 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     </section>
   ) : null;
 
-  // Diagrammets höjd. På bred dator (två kolumner, 70/30) slutar kortet på samma
-  // linje som högerkolumnen, så att vänster och höger bildar en jämn yta. Finns
-  // ingen högerkolumn följer höjden kortets bredd, annars blir kortet utdraget.
-  // Smalare än två kolumner staplas sidan och diagrammet har en fast höjd.
+  // Diagrammets höjd på bred dator: växer mot fönstrets nederkant så att det
+  // inte blir ett stort tomt fält under Räkenskapsåret, men högst 720 så att
+  // kortet inte blir för stort (användaren 2026-11-09). Minst 340.
   const chartSlotRef = useRef(null);
   const [fillH, setFillH] = useState(null);
-  const hasOutstanding = outstanding.inCount > 0 || outstanding.outCount > 0;
+  // Utestående syns alltid efter första fakturan (2026-11-20), även när allt
+  // är betalt: då visar den 0 kr, vilket också är ett besked.
+  const hasOutstanding = outstanding.inCount > 0 || outstanding.outCount > 0
+    || invoices.some(i => i.type !== 'quote') || expenses.some(e => e.type === 'supplier_invoice');
   useLayoutEffect(() => {
     const measure = () => {
       const slot = chartSlotRef.current;
-      if (!slot || !window.matchMedia('(min-width: 1200px)').matches) { setFillH(null); return; }
-      const rect = layoutRect(slot);
-      const right = [...(slot.closest('.dash-body')?.querySelectorAll('.dash-todo-card, .dash-outstanding') || [])];
-      // Under diagrammet: kortets innerkant och ram (19).
-      const toRight = right.length ? Math.max(...right.map(el => layoutRect(el).bottom)) - rect.top - 19 : 0;
-      const width = rect.right - rect.left;
-      setFillH(Math.round(toRight > 0 ? Math.min(toRight, width * 0.72) : width * 0.42));
+      if (!slot || stackLayout || !window.matchMedia('(min-width: 1200px)').matches) { setFillH(null); return; }
+      const scroller = slot.closest('.main-wrapper');
+      const top = layoutRect(slot).top - (scroller ? layoutRect(scroller).top - scroller.scrollTop : 0);
+      const viewport = scroller ? scroller.clientHeight : layoutViewport().height;
+      // Under diagrammet: kortets innerkant och ram (19), kroppens marginal
+      // (16) och sidans botten (24).
+      let h = viewport - top - 60;
+      // Högerkolumnen (Att göra + Utestående) längre än fönstret, som på en
+      // laptop: diagrammet växer mot kolumnens nederkant (taket nedan gäller),
+      // så att det inte blir ett stort tomt fält under Räkenskapsåret.
+      const body = slot.closest('.dash-body');
+      const todo = body && body.querySelector(':scope > .dash-todo-card');
+      const out = body && body.querySelector('.dash-outstanding');
+      if (body && (todo || out)) {
+        const outMin = out ? layoutRect(out).height : 0;
+        const rightH = (todo ? layoutRect(todo).height + 16 : 0) + outMin;
+        h = Math.max(h, layoutRect(body).top + rightH - layoutRect(slot).top - 19);
+      }
+      setFillH(Math.round(h));
     };
     measure();
     window.addEventListener('resize', measure);
-    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
-    const body = chartSlotRef.current?.closest('.dash-body');
-    body?.querySelectorAll('.dash-todo-card, .dash-outstanding').forEach(el => observer?.observe(el));
-    return () => { window.removeEventListener('resize', measure); observer?.disconnect(); };
-  }, [chartFormat, periodId, todos.length, hasOutstanding, showGreeting]);
-  const chartH = isPhone ? 240 : fillH != null ? Math.max(260, Math.min(680, fillH)) : 300;
+    // Att göra ändrar höjd när man trycker Visa alla eller Minimera.
+    const todoEl = chartSlotRef.current?.closest('.dash-body')?.querySelector(':scope > .dash-todo-card');
+    const ro = todoEl && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => measure()) : null;
+    if (ro) ro.observe(todoEl);
+    return () => { window.removeEventListener('resize', measure); if (ro) ro.disconnect(); };
+  // hasChartData och isNew: diagrammet finns inte förrän företagets data
+  // laddats; utan dem mättes höjden bara före laddningen.
+  }, [chartFormat, periodId, todos.length, hasOutstanding, showGreeting, hasChartData, isNew, stackLayout]);
+  const chartH = isPhone ? 240 : stackLayout ? 360 : fillH != null ? Math.max(340, Math.min(720, fillH)) : 340;
 
   return (
     // Bugkritiskt: rotdiven hade varken minHeight eller egen bakgrund, bara
@@ -765,6 +830,16 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
     // synlig linje som motiverar den, ett stort odifferentierat tomrum
     // innan hälsningen — bara toppen trimmad, sidorna/botten oförändrade.
     <div className="dash-root" style={{ maxWidth: '100%', margin: '0 auto', width: '100%', minHeight: isPhone ? 0 : '100%', boxSizing: 'border-box', background: 'var(--bg-page)', padding: '24px', paddingTop: '8px' }}>
+      <VatTaskPanel
+        isOpen={Boolean(openTask)}
+        task={openTask}
+        filedAt={openTask?.type === 'agi' ? agiSubmittedAt(openTask.key) : openTask && company?.taxFilings?.[`vat:${openTask.key}`]?.at ? new Date(company.taxFilings[`vat:${openTask.key}`].at).toLocaleDateString('sv-SE') : null}
+        onClose={() => setOpenTask(null)}
+        onOpenVat={() => { const tab = openTask?.type === 'agi' ? 'taxes_agi' : 'taxes_vat'; setOpenTask(null); setActiveTab(tab); }}
+        onToggleFiled={openTask?.type === 'agi'
+          ? (onSetAgiSubmitted ? () => onSetAgiSubmitted(openTask.key, !agiSubmittedAt(openTask.key)) : undefined)
+          : (onToggleTaxFiling && openTask ? () => onToggleTaxFiling(`vat:${openTask.key}`) : undefined)}
+      />
       <style>{`
         @media (max-width: 900px) {
           .dash-lower-grid { grid-template-columns: 1fr !important; }
@@ -796,6 +871,20 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
         )}
       </div>
 
+      {showGetStarted && (
+        <GetStarted
+          companyId={company.id}
+          firstName={user?.user_metadata?.first_name || ''}
+          state={gsState}
+          onChange={changeGsState}
+          data={{ company, verifications: verifications || [], expenses: expenses || [], invoices: invoices || [], contacts: contacts || [], employees, bankTransactions, hiddenNavIds, payrollIncluded }}
+          onOpenTab={setActiveTab}
+          onOpenAction={(action, tab) => (onOpenItem ? onOpenItem(action, tab) : setActiveTab(tab))}
+          onImportSie={() => setShowSieImportModal(true)}
+          onStartTour={onStartTour}
+        />
+      )}
+
       {todoFirst && (todoCard || todoEmpty)}
 
       {/* ─── ATT GÖRA IDAG — sidans mest konkreta, klickbara lista, nu i full
@@ -812,7 +901,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
       {/* På bred dator (index.css, .dash-body) ligger diagrammet till vänster och
           Att göra, Utestående och Moms i en smal kolumn till höger, så att hela
           översikten syns utan att skrolla. Smalare än så staplas allt som förut. */}
-      <div className={`dash-body${isNew || (todos.length === 0 && !hasOutstanding) ? ' dash-body--solo' : (todos.length > 0 ? '' : ' dash-body--no-todo')}`}>
+      <div className={`dash-body${isNew || (todos.length === 0 && !hasOutstanding) ? ' dash-body--solo' : (todos.length > 0 ? '' : ' dash-body--no-todo')}${stackLayout ? ' dash-body--stack' : ''}`}>
       {!todoFirst && todoCard}
 
       {/* ─── GRAF — full bredd. Var tidigare en svag cremeton (Sida 31/32) för
@@ -821,7 +910,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           Syns alltid (inte bara `!isNew`) — men visar en lugn tomt-läge-vy
           istället för en platt nollstapel-graf tills det finns något att
           rita ut. ─── */}
-      <div className="dash-chart-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', marginBottom: '18px', minWidth: 0 }}>
+      <div className="dash-chart-card" style={{ ...(showGetStarted && !hasChartData ? { display: 'none' } : null), background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)', marginBottom: '18px', minWidth: 0 }}>
         {/* Period-väljare (kundönskemål: "ska vara på startsidan också" +
             "det måste visa datumet") — samma PeriodHeading/PeriodPicker/
             OVERVIEW_PERIODS som Rapport och analys → Företagsöversikt
@@ -834,6 +923,8 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             skild (18px) från graf-rubrikraden under — två separata beslut
             (VILKEN period, VILKEN graf) ska inte läsas ihop till ett. */}
         <div className="dash-period-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+          {/* "Hur det går" (2026-11-13): rubriken säger vad kortet svarar på;
+              perioden står i datumraden under och i knapparna till höger. */}
           <PeriodHeading label={t('dashboard.howItGoes')} start={periodBounds.start} end={periodBounds.end} />
           <div className="dash-period-controls">
             {/* Bara två perioder, I år och Senaste 12 mån, som små knappar i samma
@@ -1016,13 +1107,13 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
             {(outstanding.receivable !== 0 || outstanding.payable !== 0) && (
             <div className="dash-outstanding-net" style={{ padding: '14px 20px', borderTop: '1px solid var(--border-light)', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
               <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)', fontWeight: 600 }}>{t('dashboard.outstanding.net')}</span>
-              <span style={{ fontSize: '15px', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: outstanding.net >= 0 ? 'var(--status-green-text)' : 'var(--status-red-text)' }}>
+              <span style={{ fontSize: '15px', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: outstanding.net >= 0 ? 'var(--text-main)' : 'var(--status-red-text)' }}>
                 {fmt(outstanding.net)}
               </span>
             </div>
             )}
-            {/* De obetalda fakturorna, närmast förfallodag först: tre rader och
-                Visa alla, utan skrollruta inne i kortet. */}
+            {/* De obetalda fakturorna, närmast förfallodag först. Listan tar den
+                höjd kortet har kvar och skrollar om den inte får plats. */}
             {outstanding.items.length > 0 && (
               <div className={`dash-out-list${outExpanded ? ' is-open' : ''}`}>
                 <div className="dash-out-list-title">{t('dashboard.outstanding.listTitle')}</div>
@@ -1048,7 +1139,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
                     </li>
                   ))}
                 </ul>
-                {outstanding.items.length > 3 && (
+                {outstanding.items.length > 4 && (
                   <button type="button" className="dash-todo-more dash-out-more" onClick={() => setOutExpanded(v => !v)} aria-expanded={outExpanded}>
                     {outExpanded ? t('dashboard.todo.showLess') : t('dashboard.todo.showAll', { count: outstanding.items.length })}
                     <ChevronRight size={15} aria-hidden="true" style={{ transform: outExpanded ? 'rotate(-90deg)' : 'rotate(90deg)' }} />
@@ -1199,7 +1290,7 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           SIE_IMPORT_DISMISSED_KEY-kommentaren ovan för varför). Samma
           isNew-villkor som checklistan ovan, men sitt eget dismiss-state
           så den inte kopplas till checklistans "alla klara"-firande. */}
-      {isNew && !sieImportDismissed && (
+      {isNew && !showGetStarted && !sieImportDismissed && (
         <div className="dash-sie" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px 20px', marginTop: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
             <div style={{ width: 38, height: 38, borderRadius: '10px', background: 'var(--status-green-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

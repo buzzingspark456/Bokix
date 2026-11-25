@@ -64,19 +64,31 @@ export function hasStarted(companies) {
 
 const DAY = 86400000;
 
+/** Avstängd i GoTrue (banned_until i framtiden). Avstängda konton är inga
+ * kunder: de räknas inte och visas inte i översiktens listor (2026-11-15),
+ * bara under Användare → Avstängda. */
+export function isSuspended(u, now = new Date()) {
+  return Boolean(u?.banned_until) && new Date(u.banned_until).getTime() > now.getTime();
+}
+
 /**
  * Översiktens siffror och listor. `users` är auth-användare, `subs`
  * prenumerationsrader, `states` { userId: state } för de nya kontona,
  * `messages` kontaktmeddelanden och `events` systemhändelser.
  */
-export function buildOverview({ users, subs, states = {}, messages = [], events = [], isAdmin = () => false, now = new Date() }) {
+export function buildOverview({ users, subs, states = {}, companyNames = {}, messages = [], events = [], isAdmin = () => false, now = new Date() }) {
   const t = now.getTime();
   const subByUser = {};
   (subs || []).forEach(s => { if (!subByUser[s.user_id] || s.company_id === '') subByUser[s.user_id] = s; });
-  const customers = (users || []).filter(u => !isAdmin(u.email));
+  // Konton utan eget företag och utan prenumeration (avbruten registrering,
+  // inbjudna revisorer) är inga kunder: de räknas inte och visas inte heller
+  // (2026-11-15), bara under Användare → Inget företag.
+  const hasCompany = (id) => Boolean(companyNames[id]) || summarizeState(states[id]).length > 0;
+  const customers = (users || []).filter(u => !isAdmin(u.email) && !isSuspended(u, now) && (subByUser[u.id] || hasCompany(u.id)));
   const emailOf = Object.fromEntries((users || []).map(u => [u.id, u.email]));
-  // Grundarnas egna prenumerationer räknas inte.
-  const own = (subs || []).filter(s => !isAdmin(emailOf[s.user_id] || ''));
+  const activeIds = new Set(customers.map(u => u.id));
+  // Grundarnas egna, avstängda och raderade kontons prenumerationer räknas inte.
+  const own = (subs || []).filter(s => activeIds.has(s.user_id));
   const since = (days) => customers.filter(u => u.created_at && t - new Date(u.created_at).getTime() <= days * DAY).length;
 
   const byStatus = {};
@@ -108,7 +120,7 @@ export function buildOverview({ users, subs, states = {}, messages = [], events 
   const recentSignups = [...customers]
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 8)
-    .map(u => ({ userId: u.id, email: u.email, company: companyOf(u.id), createdAt: u.created_at, status: subByUser[u.id]?.status || null, started: states[u.id] ? hasStarted(summarizeState(states[u.id])) : null }));
+    .map(u => ({ userId: u.id, email: u.email, company: companyOf(u.id), createdAt: u.created_at, status: subByUser[u.id]?.status || null, cancelAtPeriodEnd: !!subByUser[u.id]?.cancel_at_period_end, suspended: !!u.banned_until, emailConfirmed: !!u.email_confirmed_at, started: states[u.id] ? hasStarted(summarizeState(states[u.id])) : null }));
 
   const dayAgo = t - DAY;
   const recentEvents = (events || []).filter(e => new Date(e.created_at).getTime() >= dayAgo);

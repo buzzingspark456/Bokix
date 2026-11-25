@@ -41,8 +41,8 @@ function kr2(v) {
 // inte gör (den handlar om rutor och konton, inte om vad man säljer).
 export const VAT_RATE_GUIDE = [
   { rate: 25, label: '25 %', title: 'Normalskattesatsen', examples: 'De allra flesta varor och tjänster: konsulttimmar, bygg, verkstad, kontorsmaterial, elektronik, kläder.' },
-  { rate: 12, label: '12 %', title: 'Livsmedel, hotell, restaurang', examples: 'Mat och dryck i butik, restaurang- och cateringtjänster (dock inte alkohol, som är 25 %), hotellrum, camping, viss konst.' },
-  { rate: 6, label: '6 %', title: 'Böcker, kultur, persontransport', examples: 'Böcker, tidningar, e-böcker, inrikes persontransport (taxi, buss, tåg, flyg), entré till konserter och idrottsevenemang.' },
+  { rate: 12, label: '12 %', title: 'Restaurang och hotell', examples: 'Mat och dryck som äts på plats på restaurang eller kafé, catering (dock inte alkohol, som är 25 %), hotellrum, camping, viss konst.' },
+  { rate: 6, label: '6 %', title: 'Livsmedel, böcker, kultur, persontransport', examples: 'Livsmedel i butik och mat för avhämtning (tillfälligt 6 % från 1 april 2026 till och med 2027, annars 12 %), böcker, tidningar, e-böcker, inrikes persontransport (taxi, buss, tåg, flyg), entré till konserter och idrottsevenemang.' },
 ];
 
 /**
@@ -132,16 +132,17 @@ export function calcEmployerCost({ gross, feeRate = STANDARD_EMPLOYER_FEE_RATE, 
 //
 // Två fall täcks, för att de täcker de allra flesta enskilda firmor:
 //  - Fulla egenavgifter (28,97 %), schablonavdrag upp till 25 %.
-//  - Bara ålderspensionsavgift (10,21 %) — den som är 66+ vid årets
-//    ingång eller tar ut hel allmän pension — schablonavdrag upp till
-//    20 %.
+//  - Bara ålderspensionsavgift (10,21 %) — den som fyllt 67 vid årets
+//    ingång (66 före 2026) eller tar ut hel allmän pension —
+//    schablonavdrag 10 % (Skatteverket, kontrollerat 2026-11-16; 20 % gäller
+//    passiv näringsverksamhet, inte den här gruppen).
 // Nedsättningen för unga/regionalt stöd och karensvalets påverkan på
 // sjukförsäkringsavgiften är MEDVETET utelämnade: de gäller ett fåtal och
 // skulle göra resultatet mindre pålitligt för alla andra. Sidan skriver
 // ut den begränsningen, den göms inte.
 export const SOLE_TRADER_FEE_CATEGORIES = [
-  { id: 'full', label: 'Fulla egenavgifter', hint: 'Under 66 år vid årets ingång', feeRate: 0.2897, standardDeduction: 0.25 },
-  { id: 'pension', label: 'Endast ålderspensionsavgift', hint: '66+ år, eller tar ut hel allmän pension', feeRate: 0.1021, standardDeduction: 0.20 },
+  { id: 'full', label: 'Fulla egenavgifter', hint: 'Under 67 år vid årets ingång (född 1959 eller senare)', feeRate: 0.2897, standardDeduction: 0.25 },
+  { id: 'pension', label: 'Endast ålderspensionsavgift', hint: '67 år eller äldre vid årets ingång, eller hel ålderspension hela året', feeRate: 0.1021, standardDeduction: 0.10 },
 ];
 
 /**

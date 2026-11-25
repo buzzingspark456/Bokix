@@ -50,6 +50,7 @@ describe('hjälpfunktioner', () => {
     expect(uptime([])).toBe(null);
     expect([eventStatus(2), eventStatus(3), eventStatus(10)]).toEqual(['ok', 'degraded', 'down']);
     expect([stripeIndicator('none'), stripeIndicator('minor'), stripeIndicator('major')]).toEqual(['ok', 'degraded', 'down']);
+    expect(stripeIndicator('maintenance')).toBe('ok');
     expect(worst(['ok', 'maintenance', 'degraded'])).toBe('degraded');
   });
 });

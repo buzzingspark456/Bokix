@@ -31,7 +31,12 @@ const SOURCE_SERIES = {
   stripe_ledger: 'C',
   supplier_invoice: 'D',
   supplier_invoice_payment: 'E',
+  // Rättelse av en ångrad betalning hamnar i samma serie som betalningen.
+  invoice_payment_reversal: 'C',
+  supplier_invoice_payment_reversal: 'E',
   accrual: 'H',
+  accrual_spread: 'H',
+  asset_reclass: 'H',
   depreciation: 'H',
   year_end_close: 'I',
   year_open_transfer: 'I',

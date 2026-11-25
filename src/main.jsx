@@ -13,9 +13,12 @@ import AppRouter, { shouldLoadAppImmediately } from './AppRouter.jsx'
 import ErrorBoundary from './components/shared/ErrorBoundary.jsx'
 import { installGlobalErrorHandlers } from './utils/errorReporting.js'
 import { reloadOnceForNewBuild } from './utils/staleBuild.js'
+import { installEscapeCloses } from './utils/escapeCloses.js'
 
 // Krascher och ohanterade fel rapporteras till /api/client-error (larm).
 installGlobalErrorHandlers()
+// Esc stänger översta dialogrutan, som stängknappen.
+installEscapeCloses()
 
 // Gammal flik efter en ny deploy: sidfilen finns inte längre. Ladda om en
 // gång i stället för att visa "Något gick fel" (se utils/staleBuild.js).

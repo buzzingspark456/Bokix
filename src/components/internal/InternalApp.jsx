@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { BarChart3, CreditCard, ShieldAlert, Users, LogOut, Server, Inbox, LayoutDashboard, CheckCircle2 } from '../icons';
+import { BarChart3, CreditCard, ShieldAlert, Users, LogOut, Server, Inbox, LayoutDashboard, CheckCircle2, Scale } from '../icons';
 import BokixWordmark from '../shared/BokixWordmark';
 import { supabase } from '../../supabaseClient';
 import InternalAuth from './InternalAuth';
@@ -11,6 +11,7 @@ import SecurityAdmin from './SecurityAdmin';
 import UsersAdmin from './UsersAdmin';
 import SystemAdmin from './SystemAdmin';
 import InboxAdmin from './InboxAdmin';
+import RulesAdmin from './RulesAdmin';
 import { adminGet } from './adminApi';
 import { useAdminData } from './useAdminData';
 import { INTERNAL_CSS } from './internalStyles';
@@ -49,6 +50,7 @@ const NAV_GROUPS = [
       { id: 'system', slug: 'system', label: 'Systemstatus', icon: Server },
       { id: 'status', slug: 'statussidan', label: 'Statussidan', icon: CheckCircle2 },
       { id: 'security', slug: 'sakerhet', label: 'Säkerhet', icon: ShieldAlert },
+      { id: 'rules', slug: 'regler', label: 'Regler', icon: Scale },
     ],
   },
 ];
@@ -219,6 +221,7 @@ function Shell({ adminEmail, onSignOut }) {
         {activeTab === 'inbox' && <InboxAdmin />}
         {activeTab === 'system' && <SystemAdmin onOpenTab={openTab} />}
         {activeTab === 'status' && <StatusAdmin />}
+        {activeTab === 'rules' && <RulesAdmin />}
       </main>
     </div>
   );

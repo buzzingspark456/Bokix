@@ -25,7 +25,7 @@ export default function TermsPolicy() {
     <PolicyLayout
       title="Användarvillkor"
       path="/terms"
-      updated="2026-09-29"
+      updated="2026-11-09"
       metaTitle="Användarvillkor | Bokix"
       metaDescription="Villkoren för att använda Bokix — konto och prenumeration, ditt ansvar som användare, ansvarsbegränsning och uppsägning."
     >
@@ -44,7 +44,8 @@ export default function TermsPolicy() {
           <li style={policyLi}>Du ansvarar för att uppgifterna du lämnar vid registrering är korrekta, och för att hålla ditt lösenord hemligt.</li>
           <li style={policyLi}>Tjänsten erbjuds mot en månadsavgift enligt gällande prissättning (se <Link to="/priser" style={link}>bokix.se/priser</Link>), med en kostnadsfri provperiod om 30 dagar. Avgiften debiteras månadsvis via Stripe, oavsett vilken plan du valt — även årsplanen, som är ett lägre månadspris och inte en förskottsbetalning för hela året.</li>
           <li style={policyLi}>Priserna anges i svenska kronor. Bokix är inte momsregistrerat, och ingen mervärdesskatt tillkommer därför på abonnemangsavgiften.</li>
-          <li style={policyLi}>På månadsplanen kan du säga upp din prenumeration när som helst — det finns varken bindningstid eller uppsägningstid. Årsplanen ger ett lägre månadspris mot en minsta avtalstid om tre månader, räknat från den första debiteringen; därefter kan även den sägas upp när som helst. Uppsägning sker under Inställningar → Prenumeration i tjänsten.</li>          <li style={policyLi}>Redan betalda avgifter återbetalas inte för påbörjade perioder, om inte annat följer av tvingande konsumenträtt.</li>
+          <li style={policyLi}>På månadsplanen kan du säga upp din prenumeration när som helst — det finns varken bindningstid eller uppsägningstid. Årsplanen ger ett lägre månadspris mot en minsta avtalstid om tre månader, räknat från den första debiteringen; därefter kan även den sägas upp när som helst. Uppsägning sker under Inställningar → Prenumeration i tjänsten.</li>
+            <li style={policyLi}>Går en betalning inte igenom, till exempel för att kortet saknar täckning eller har gått ut, försöker Stripe dra beloppet igen under 14 dagar och skickar dig ett mejl med en länk för att uppdatera kortet. Under den tiden fungerar tjänsten som vanligt. Lyckas ingen dragning avslutas prenumerationen, och du kan återuppta den genom att betala i tjänsten. Din bokföring finns kvar och kan exporteras.</li>          <li style={policyLi}>Redan betalda avgifter återbetalas inte för påbörjade perioder, om inte annat följer av tvingande konsumenträtt.</li>
         </ul>
       </PolicySection>
 

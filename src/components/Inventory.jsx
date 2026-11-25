@@ -1,12 +1,16 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { lockedPeriodFor } from '../utils/fiscalYear';
-import { Plus, Trash2, X, Search, Truck, AlertTriangle, Inbox, Download } from './icons';
+import { Plus, Minus, Trash2, X, Search, Truck, AlertTriangle, Inbox, Download, Settings2, ClipboardCheck, PackageMinus, Scale, RefreshCw, ChevronLeft, ChevronRight } from './icons';
 import { confirmDialog } from './shared/ConfirmDialog';
-import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
+import { Panel, Overview, TaskRow, usePalette } from './shared/Workspace';
 import {
   STOCK_ACCOUNT_KINDS, valuateInventory, ledgerBalanceAt, buildInventoryVerification, deriveInvoiceMovements, findPurchaseLines,
 } from '../utils/inventory';
 import { downloadInventoryListPdf, downloadInventoryListCsv } from '../utils/inventoryListPdf';
+import { reservedByArticle } from '../utils/salesOrders';
+import { nextPoNumber, poStatus, poTotal, onOrderByArticle, receivePo, matchPurchaseOrder, rowRemaining } from '../utils/purchaseOrders';
+import PurchaseOrderModal, { PO_STATUS_PILL } from './PurchaseOrderModal';
+import ChipFilter from './shared/ChipFilter';
 import { t as tr } from '../i18n';
 import { numberFormat } from '../utils/intlCache';
 import './workspace.css';
@@ -96,6 +100,12 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
   );
   const movements = useMemo(() => [...manualMovements, ...invoiceMovements], [manualMovements, invoiceMovements]);
   const lockedFor = (date) => lockedPeriodFor(date, company?.lockedFiscalYears);
+  // Inköpsorder (utils/purchaseOrders.js), sparade på företaget.
+  const purchaseOrders = useMemo(() => company?.purchaseOrders || [], [company?.purchaseOrders]);
+  const onOrder = useMemo(() => onOrderByArticle(purchaseOrders), [purchaseOrders]);
+  // Reserverat i öppna kundorder (salesOrders.js): räknas bort från det lediga.
+  const reserved = useMemo(() => reservedByArticle(company?.salesOrders || []), [company?.salesOrders]);
+  const resOf = (id) => reserved.get(id) || 0;
   const goods = articles.filter(a => a.type === 'vara' && a.id);
   const palette = usePalette(company);
 
@@ -111,6 +121,18 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
   const [listOpen, setListOpen] = useState(false);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  // Varor, Rörelser eller Att beställa (2026-11-23).
+  const [view, setView] = useState('goods');
+  const [moveType, setMoveType] = useState('all');
+  const [moveSearch, setMoveSearch] = useState('');
+  // Inleverans med flera rader: { date, ref, rows: [{ key, articleId, qty, unitCost }] }.
+  const [delivery, setDelivery] = useState(null);
+  const [orderQty, setOrderQty] = useState({});
+  const [poOpen, setPoOpen] = useState(null);
+  const [goodsPage, setGoodsPage] = useState(0);
+  const [todoOpen, setTodoOpen] = useState(false);
+  const [poFilter, setPoFilter] = useState('open');
+  const [poSearch, setPoSearch] = useState('');
 
   useEffect(() => {
     if (!detailId) return undefined;
@@ -121,6 +143,23 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
 
   const setSetting = (patch) => setCompanyInfo(prev => ({ ...prev, inventorySettings: { ...settings, ...(prev.inventorySettings || {}), ...patch } }));
   const saveMovements = (next) => setCompanyInfo(prev => ({ ...prev, stockMovements: next }));
+  const savePo = (po) => setCompanyInfo(prev => {
+    const list = prev.purchaseOrders || [];
+    return { ...prev, purchaseOrders: list.some(x => x.id === po.id) ? list.map(x => (x.id === po.id ? po : x)) : [...list, po] };
+  });
+  const deletePo = (po) => setCompanyInfo(prev => ({ ...prev, purchaseOrders: (prev.purchaseOrders || []).filter(x => x.id !== po.id) }));
+  // Tar emot på en order: inleveranser och orderns mottagna antal sparas i samma ändring.
+  const receiveOnPo = (po, { date, amounts, link }) => {
+    if (lockedFor(date)) { setMessage(tr('ui.rakenskapsaret_ar_last', { v0: lockedFor(date) })); return; }
+    const res = receivePo(po, { date, amounts, newId });
+    const nextPo = link ? { ...res.po, ...link } : res.po;
+    setCompanyInfo(prev => ({
+      ...prev,
+      stockMovements: [...(prev.stockMovements || []), ...res.movements],
+      purchaseOrders: (prev.purchaseOrders || []).map(x => (x.id === po.id ? nextPo : x)),
+    }));
+    setMessage(res.movements.length === 1 ? tr('po.receivedMsgOne', { number: po.number }) : tr('po.receivedMsg', { number: po.number, n: res.movements.length }));
+  };
   const toggleFromInvoices = (on) => setSetting({ stockFromInvoices: on, stockFromInvoicesSince: on ? (settings.stockFromInvoicesSince || todayIso()) : settings.stockFromInvoicesSince });
   const setReorderPoint = (articleId, value) => {
     const next = { ...(settings.reorderPoints || {}) };
@@ -128,6 +167,11 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
     else next[articleId] = Number(value);
     setSetting({ reorderPoints: next });
   };
+  const articleOf = (id) => goods.find(g => g.id === id);
+  const unitOf = (id) => articleOf(id)?.unit || tr('ui.st');
+  const supplierOf = (id) => articleOf(id)?.supplier || '';
+  const locationOf = (id) => settings.locations?.[id] ?? articleOf(id)?.location ?? '';
+  const setLocation = (articleId, value) => setSetting({ locations: { ...(settings.locations || {}), [articleId]: value } });
 
   const valuation = useMemo(
     () => valuateInventory({ articles, movements, method: settings.method, asOf: closingDate, applyLowestValue: settings.lowestValue }),
@@ -147,14 +191,17 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
   const allRows = goods.map(g => {
     const line = lineById.get(g.id) || { articleId: g.id, articleNumber: g.articleNumber || '', description: g.description, qty: 0, unitCost: Number(g.purchasePrice) || 0, costValue: 0, bookValue: 0, writeDown: 0, shortfall: 0, layers: [] };
     const min = Number(settings.reorderPoints?.[g.id]) || 0;
-    const status = line.qty <= 0 ? 'out' : min > 0 && line.qty <= min ? 'low' : 'ok';
+    // Aldrig lagerförd (ingen händelse, ingen beställningspunkt): inte slut.
+    const tracked = lineById.has(g.id) || min > 0;
+    const status = !tracked ? 'none' : line.qty <= 0 ? 'out' : min > 0 && line.qty <= min ? 'low' : 'ok';
     return { ...line, min, status, salePrice: Number(g.unitPrice) || 0, unit: g.unit || tr('ui.st') };
   });
-  const order = { low: 0, out: 1, ok: 2 };
+  const order = { low: 0, out: 1, ok: 2, none: 3 };
+  const tracked = allRows.filter(r => r.status !== 'none');
   const q = search.trim().toLowerCase();
   const rows = allRows
-    .filter(r => filter === 'all' || r.status === filter)
-    .filter(r => !q || r.description.toLowerCase().includes(q) || (r.articleNumber || '').toLowerCase().includes(q))
+    .filter(r => (filter === 'all' ? r.status !== 'none' : filter === 'instock' ? r.qty > 0 : r.status === filter))
+    .filter(r => !q || r.description.toLowerCase().includes(q) || (r.articleNumber || '').toLowerCase().includes(q) || (supplierOf(r.articleId) || '').toLowerCase().includes(q) || String(locationOf(r.articleId) || '').toLowerCase().includes(q))
     .sort((a, b) => order[a.status] - order[b.status] || a.description.localeCompare(b.description, 'sv'));
   const count = (s) => allRows.filter(r => r.status === s).length;
   const lowRows = allRows.filter(r => r.status === 'low');
@@ -167,6 +214,19 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
     () => (goods.length ? findPurchaseLines({ expenses, articles, movements: manualMovements, ignored: settings.ignoredPurchases || [], since: purchasesSince }) : []),
     [expenses, articles, manualMovements, settings.ignoredPurchases, purchasesSince, goods.length],
   );
+  const linkedExpenses = new Set(purchaseOrders.map(po => po.matchedExpenseId).filter(Boolean));
+  const visiblePurchases = purchases.filter(l => !linkedExpenses.has(l.expenseId));
+  const expenseById = new Map((expenses || []).map(e => [e.id, e]));
+  const matchFor = (line) => matchPurchaseOrder(purchaseOrders, expenseById.get(line.expenseId));
+  const linkExpense = (line, match) => {
+    const e = expenseById.get(line.expenseId);
+    const label = [e?.supplier, e?.invoiceNumber || e?.receiptNumber, line.date].filter(Boolean).join(' · ');
+    const link = { matchedExpenseId: line.expenseId, matchedExpenseLabel: label };
+    if (poStatus(match.po) === 'received') savePo({ ...match.po, ...link });
+    else receiveOnPo(match.po, { date: line.date, amounts: null, link });
+  };
+  // Rutan stängs när det inte finns något kvar att lägga in.
+  useEffect(() => { if (purchaseOpen && visiblePurchases.length === 0) setPurchaseOpen(false); }, [purchaseOpen, visiblePurchases.length]);
   const draftFor = (line) => purchaseDraft[line.key] || { articleId: line.suggestedArticleId || '', qty: '' };
   const setDraft = (line, patch) => setPurchaseDraft(d => ({ ...d, [line.key]: { ...draftFor(line), ...patch } }));
   const receivePurchase = (line) => {
@@ -197,6 +257,96 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
     setCountSheet(null);
     setMessage(added.length ? tr('lager.countSaved', { n: added.length }) : tr('lager.countNoChange'));
   };
+
+  // Att beställa: varor på eller under beställningspunkten. Förslaget fyller
+  // upp till två gånger beställningspunkten, samma som stapeln visar som fullt.
+  const orderRows = allRows.filter(r => r.min > 0 && r.qty - resOf(r.articleId) + (onOrder.get(r.articleId)?.qty || 0) <= r.min).map(r => {
+    const suggested = Math.max(Math.ceil(r.min * 2 - r.qty + resOf(r.articleId) - (onOrder.get(r.articleId)?.qty || 0)), 1);
+    const raw = orderQty[r.articleId];
+    return { ...r, supplier: supplierOf(r.articleId), suggested, orderQty: raw === undefined ? suggested : raw };
+  });
+  const orderGroups = [...orderRows.reduce((m, r) => {
+    const k = r.supplier || '';
+    if (!m.has(k)) m.set(k, []);
+    m.get(k).push(r);
+    return m;
+  }, new Map())].sort((a, b) => (a[0] ? 0 : 1) - (b[0] ? 0 : 1) || a[0].localeCompare(b[0], 'sv'));
+  // Inleverans (återställd 2026-11-24: följde med när förslagslistan togs bort).
+  const deliveryRow = (articleId = '', qty = '') => ({ key: newId(), articleId, qty, unitCost: articleId ? (articleOf(articleId)?.purchasePrice ?? '') : '' });
+  const startDelivery = (prefill, ref = '') => {
+    setDelivery({ date: todayIso(), ref, rows: prefill && prefill.length ? prefill : [deliveryRow(), deliveryRow()] });
+    setError('');
+  };
+  const setDeliveryRow = (key, patch) => setDelivery(d => ({ ...d, rows: d.rows.map(x => {
+    if (x.key !== key) return x;
+    const next = { ...x, ...patch };
+    if (patch.articleId !== undefined && patch.articleId !== x.articleId) next.unitCost = articleOf(patch.articleId)?.purchasePrice ?? '';
+    return next;
+  }) }));
+  const num = (v) => Number(String(v ?? '').replace(/\s/g, '').replace(',', '.'));
+  const deliveryLines = delivery ? delivery.rows.filter(x => x.articleId || x.qty !== '') : [];
+  const deliveryTotal = deliveryLines.reduce((sum, x) => sum + (num(x.qty) || 0) * (num(x.unitCost) || 0), 0);
+  const saveDelivery = () => {
+    if (deliveryLines.length === 0) return setError(tr('lager.deliveryEmpty'));
+    const bad = deliveryLines.find(x => !x.articleId || !(num(x.qty) > 0) || !(num(x.unitCost) >= 0) || x.unitCost === '');
+    if (bad) return setError(tr('lager.deliveryRowError'));
+    if (lockedFor(delivery.date)) return setError(tr('ui.rakenskapsaret_ar_last', { v0: lockedFor(delivery.date) }));
+    const note = delivery.ref.trim() || undefined;
+    saveMovements([...manualMovements, ...deliveryLines.map(x => ({
+      id: newId(), articleId: x.articleId, type: 'in', date: delivery.date, qty: num(x.qty), unitCost: num(x.unitCost), note,
+    }))]);
+    setMessage(deliveryLines.length === 1 ? tr('lager.deliverySavedOne') : tr('lager.deliverySaved', { n: deliveryLines.length }));
+    setDelivery(null); setError('');
+    if (view === 'order') setOrderQty({});
+  };
+  const createPo = (group, supplier) => {
+    const po = {
+      id: newId(), number: nextPoNumber(purchaseOrders), supplier: supplier || '', date: todayIso(), expectedDate: '',
+      rows: (group && group.length ? group.filter(r => num(r.orderQty) > 0).map(r => ({ key: newId(), articleId: r.articleId, description: r.description, qty: String(r.orderQty), unitCost: r.unitCost || articleOf(r.articleId)?.purchasePrice || '', unit: r.unit, received: 0 })) : [{ key: newId(), articleId: '', qty: '', unitCost: '' }]),
+    };
+    setPoOpen(po);
+  };
+  // Beställ det som tar slut: ett utkast per leverantör, med det föreslagna antalet.
+  const orderLow = () => {
+    if (orderGroups.length === 1) return createPo(orderGroups[0][1], orderGroups[0][0]);
+    const made = [];
+    for (const [supplier, group] of orderGroups) {
+      made.push({
+        id: newId(), number: nextPoNumber([...purchaseOrders, ...made]), supplier: supplier || '', date: todayIso(), expectedDate: '',
+        rows: group.map(r => ({ key: newId(), articleId: r.articleId, description: r.description, qty: Number(r.orderQty) || r.suggested, unitCost: Number(r.unitCost || articleOf(r.articleId)?.purchasePrice) || 0, unit: r.unit, received: 0 })),
+      });
+    }
+    setCompanyInfo(prev => ({ ...prev, purchaseOrders: [...(prev.purchaseOrders || []), ...made] }));
+    setPoFilter('draft');
+    setMessage(tr('po.draftsMade', { n: made.length }));
+  };
+  const PO_GROUP = { open: ['draft', 'ordered', 'partial'], draft: ['draft'], ordered: ['ordered', 'partial'], done: ['received', 'cancelled'] };
+  const poRows = [...purchaseOrders]
+    .filter(po => poFilter === 'all' || PO_GROUP[poFilter].includes(poStatus(po)))
+    .filter(po => { const q2 = poSearch.trim().toLowerCase(); return !q2 || `${po.number} ${po.supplier} ${(po.rows || []).map(x => articleOf(x.articleId)?.description || x.description).join(' ')}`.toLowerCase().includes(q2); })
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.number).localeCompare(String(a.number)));
+  const poCount = (k) => purchaseOrders.filter(po => k === 'all' || PO_GROUP[k].includes(poStatus(po))).length;
+
+  // Rörelser: alla lagerhändelser, nyaste först.
+  const moveRows = useMemo(() => {
+    const q2 = moveSearch.trim().toLowerCase();
+    const byId = new Map(goods.map(g => [g.id, g]));
+    return movements
+      .filter(m => moveType === 'all' || m.type === moveType)
+      .map(m => ({ m, g: byId.get(m.articleId) }))
+      .filter(({ m, g }) => !q2 || `${g?.description || ''} ${g?.articleNumber || ''} ${m.note || ''}`.toLowerCase().includes(q2))
+      .sort((a, b) => String(b.m.date).localeCompare(String(a.m.date)) || String(b.m.id).localeCompare(String(a.m.id)));
+  }, [movements, moveType, moveSearch, goods]);
+
+  // Antal saker att göra och en kort sammanfattning till knappen.
+  const showClosing = valuation.lines.length > 0 && closing && !alreadyBooked;
+  const todoCount = (visiblePurchases.length > 0 ? 1 : 0) + issueRows.length + (lowRows.length > 0 ? 1 : 0) + (showClosing ? 1 : 0);
+  const todoSummary = [
+    lowRows.length ? (lowRows.length === 1 ? tr('lager.lowTitle', { name: lowRows[0].description }) : tr('lager.lowMany', { n: lowRows.length })) : null,
+    visiblePurchases.length ? (visiblePurchases.length === 1 ? tr('lager.purchasesOne') : tr('lager.purchasesMany', { n: visiblePurchases.length })) : null,
+    issueRows.length ? tr('lager.issueShort', { n: issueRows.length }) : null,
+    showClosing ? tr('lager.bookValueShort') : null,
+  ].filter(Boolean).join(' · ');
 
   const exportLines = valuation.lines.filter(l => l.qty > 0).map(l => ({ ...l, unit: goods.find(g => g.id === l.articleId)?.unit || 'st' }));
   const exportArgs = { company, date: closingDate, methodName: settings.method === 'fifo' ? 'FIFO' : tr('lager.methodAvg'), account: kind.stockAccount, lines: exportLines, total: valuation.bookValue, writeDown: valuation.writeDown };
@@ -261,264 +411,479 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
   return (
     <>
 
-      <div className="ws-page">
-        <Panel title={tr('ui.lager')} sub={tr('lager.overviewSub', { date: closingDate, method: methodName, account: kind.stockAccount })}
+      {/* Lager som i Zoho Inventory och Shopify (2026-11-22): knapparna för
+          inleverans, uttag och inventering överst, översikten med fyra
+          siffror som filtrerar listan, att göra som smala rader och varorna
+          i en ren lista med sök och filter. */}
+      <div className="ws-page ws-edge">
+        <Panel
+          title={tr('ui.lager')}
+          sub={tr('lager.overviewSubV2', { method: methodName, account: kind.stockAccount, date: formatShort(closingDate) })}
           actions={<>
-            {goods.length > 0 && <button type="button" className="agi-btn" onClick={() => setListOpen(true)}><Download size={14} /> {tr('lager.countList')}</button>}
-            <button type="button" className="agi-btn" onClick={() => setShowSettings(true)}>{tr('lager.settings')}</button>
-          </>}>
-          <div className="lg-hero">
-            {/* Lagervärdet stort, och hur det fördelar sig på varorna. */}
-            <div className="lg-hero-value">
-              <span className="dash-kpi-card-label"><i className="dash-kpi-dot" style={{ background: palette.profit }} aria-hidden="true" />{tr('lager.stockValue')}</span>
-              <span className="lg-hero-amount">{fmtKr(valuation.bookValue)}</span>
-              <span className="dash-kpi-card-sub">{valuation.writeDown >= 1 ? tr('lager.afterWriteDown', { kr: fmtKr(valuation.writeDown) }) : tr('lager.unitsIn', { n: fmtQty(totalUnits), items: inStock.length })}</span>
-              {valueParts.length > 0 && <>
-                <div className="lg-split" aria-hidden="true">
-                  {valueParts.map(v => <span key={v.id} style={{ flexGrow: v.value, background: v.color }} title={`${v.name}: ${fmtKr(v.value)}`} />)}
-                </div>
-                <ul className="lg-legend">
-                  {valueParts.map(v => (
-                    <li key={v.id}><i style={{ background: v.color }} aria-hidden="true" /><span>{v.name}</span><b>{fmtKr(v.value)}</b></li>
-                  ))}
-                </ul>
-              </>}
-            </div>
-            {/* Lagerhälsa: hur många varor som finns, är låga eller slut. */}
-            <div className="lg-hero-health">
-              <span className="dash-kpi-card-label">{tr('lager.health')}</span>
-              <div className="lg-health-bar" aria-hidden="true">
-                {count('ok') > 0 && <span style={{ flexGrow: count('ok'), background: palette.profit }} />}
-                {count('low') > 0 && <span style={{ flexGrow: count('low'), background: AMBER }} />}
-                {count('out') > 0 && <span style={{ flexGrow: count('out'), background: palette.loss }} />}
+            {goods.length > 0 && <button type="button" className="agi-btn" onClick={() => setListOpen(true)} title={tr('lager.countList')}><Download size={14} /> <span className="lg-hide-sm">{tr('lager.countList')}</span></button>}
+            <button type="button" className="agi-btn" onClick={() => setShowSettings(true)} title={tr('lager.settings')} aria-label={tr('lager.settings')}><Settings2 size={15} /></button>
+            {goods.length > 0 && <>
+              <span className="lg-act-sep" aria-hidden="true" />
+              <button type="button" className="agi-btn" onClick={openCountSheet}><ClipboardCheck size={14} /> {tr('lager.typeCount')}</button>
+              <button type="button" className="agi-btn" onClick={() => startMovement('out')}><PackageMinus size={14} /> {tr('lager.typeOut')}</button>
+              <button type="button" className="agi-btn primary" onClick={() => startDelivery()}><Plus size={14} /> {tr('lager.typeIn')}</button>
+            </>}
+          </>}
+        >
+          {goods.length > 0 && (
+            <div className="lg-kpis lg-kpis--plain">
+              <div className="lg-kpi is-value">
+                <span className="lg-kpi-label">{tr('lager.stockValue')}</span>
+                <strong className="lg-kpi-val">{fmtKr(valuation.bookValue)}</strong>
               </div>
-              <ul className="lg-health-list">
-                {[['ok', tr('lager.inStockPill'), palette.profit], ['low', tr('lager.lowStock'), AMBER], ['out', tr('lager.outOfStock'), palette.loss]].map(([id, label, color]) => (
-                  <li key={id}>
-                    <button type="button" className={filter === id ? 'on' : ''} onClick={() => setFilter(filter === id ? 'all' : id)}>
-                      <i style={{ background: color }} aria-hidden="true" /><span>{label}</span><b>{count(id)}</b>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {(purchases.length > 0 || lowRows.length > 0 || issueRows.length > 0 || (valuation.lines.length > 0 && closing && !alreadyBooked)) && (
-            <div className="lg-todo">
-              <div className="lg-todo-title">{tr('lager.todo')}</div>
-              {purchases.length > 0 && (
-                <button type="button" className="dash-today-btn dash-today-btn--brand lg-todo-row" onClick={() => setPurchaseOpen(true)}>
-                  <span className="dash-today-lines">
-                    <span className="dash-today-kicker">{tr('lager.purchasesKicker')}</span>
-                    <span className="dash-today-title">{purchases.length === 1 ? tr('lager.purchasesOne') : tr('lager.purchasesMany', { n: purchases.length })}</span>
-                    <span className="dash-today-detail">{tr('lager.purchasesDetail')}</span>
-                  </span>
-                  <span className="dash-today-ic" aria-hidden="true"><Inbox size={20} /></span>
-                </button>
-              )}
-              {issueRows.map(r => (
-                <button key={`issue-${r.articleId}`} type="button" className="dash-today-btn dash-today-btn--warn lg-todo-row" onClick={() => setDetailId(r.articleId)}>
-                  <span className="dash-today-lines">
-                    <span className="dash-today-kicker">{tr('lager.check')}</span>
-                    <span className="dash-today-title">{r.description}</span>
-                    <span className="dash-today-detail">{tr('lager.shortfall', { n: fmtQty(r.shortfall) })}</span>
-                  </span>
-                  <span className="dash-today-ic" aria-hidden="true"><AlertTriangle size={20} /></span>
-                </button>
-              ))}
-              {lowRows.map(r => (
-                <button key={r.articleId} type="button" className="dash-today-btn dash-today-btn--warn lg-todo-row" onClick={() => startMovement('in', r.articleId)}>
-                  <span className="dash-today-lines">
-                    <span className="dash-today-kicker">{tr('lager.reorder')}</span>
-                    <span className="dash-today-title">{r.description}</span>
-                    <span className="dash-today-detail">{tr('lager.reorderDetail', { qty: fmtQty(r.qty), min: fmtQty(r.min) })}</span>
-                  </span>
-                  <span className="dash-today-ic" aria-hidden="true"><Truck size={20} /></span>
-                </button>
-              ))}
-              {valuation.lines.length > 0 && closing && !alreadyBooked && (
-                <div className="dash-today-btn dash-today-btn--brand lg-todo-row" style={{ cursor: 'default' }}>
-                  <span className="dash-today-lines">
-                    <span className="dash-today-kicker">{tr('lager.bookKicker')}</span>
-                    <span className="dash-today-title">{tr('ui.lagret_behover_justeras_med_kr', { v0: diff > 0 ? '+' : '−', v1: fmt(Math.abs(diff)) })}</span>
-                    <span className="dash-today-detail">{tr('lager.ledgerVsStock', { account: kind.stockAccount, ledger: fmtKr(ledgerBalance), stock: fmtKr(valuation.bookValue) })}</span>
-                  </span>
-                  <input type="date" className="ws-input" style={{ width: 'auto', height: '36px' }} value={closingDate} aria-label={tr('ui.vardering_per_datum')} onChange={e => e.target.value && setClosingDate(e.target.value)} />
-                  <button type="button" className="agi-btn primary" onClick={bookClosing}>{tr('lager.book')}</button>
-                </div>
-              )}
+              <button type="button" className={`lg-kpi is-ok${filter === 'instock' ? ' on' : ''}`} onClick={() => { setView('goods'); setFilter(filter === 'instock' ? 'all' : 'instock'); }}>
+                <span className="lg-kpi-label">{tr('lager.inStockPill')}</span>
+                <strong className="lg-kpi-val">{inStock.length}</strong>
+              </button>
+              <button type="button" className={`lg-kpi is-low${filter === 'low' ? ' on' : ''}${count('low') ? '' : ' is-zero'}`} onClick={() => { setView('goods'); setFilter(filter === 'low' ? 'all' : 'low'); }}>
+                <span className="lg-kpi-label">{tr('lager.lowStock')}</span>
+                <strong className="lg-kpi-val">{count('low')}</strong>
+              </button>
+              <button type="button" className={`lg-kpi is-out${filter === 'out' ? ' on' : ''}${count('out') ? '' : ' is-zero'}`} onClick={() => { setView('goods'); setFilter(filter === 'out' ? 'all' : 'out'); }}>
+                <span className="lg-kpi-label">{tr('lager.outOfStock')}</span>
+                <strong className="lg-kpi-val">{count('out')}</strong>
+              </button>
             </div>
           )}
-          {alreadyBooked && <p className="ws-hint" style={{ marginTop: '12px' }}>{tr('ui.lagerjusteringen_per_ar_bokford', { closingDate })}</p>}
+
+          {/* Att göra som en knapp (2026-11-24): översikten är ren, listan öppnas i en ruta. */}
+          {todoCount > 0 && (
+            <button type="button" className="lg-todo-btn" onClick={() => setTodoOpen(true)}>
+              <span className="lg-todo-ic" aria-hidden="true"><ClipboardCheck size={17} /></span>
+              <span className="lg-todo-text"><strong>{tr('lager.todo')}</strong><small>{todoSummary}</small></span>
+              <span className="lg-todo-n">{todoCount}</span>
+              <ChevronRight size={16} aria-hidden="true" />
+            </button>
+          )}
+          {todoOpen && (
+            <div className="modal-overlay" onClick={() => setTodoOpen(false)}>
+              <div className="modal-content" style={{ maxWidth: '760px' }} onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                  <span className="modal-title">{tr('lager.todo')}</span>
+                  <button type="button" className="modal-close" onClick={() => setTodoOpen(false)} aria-label={tr('ui.stang')}><X size={18} /></button>
+                </div>
+                <div className="ws-tasks lg-attn" onClickCapture={e => { const btn = e.target.closest('button'); if (btn && !btn.classList.contains('modal-close')) setTimeout(() => setTodoOpen(false), 0); }}>
+              {visiblePurchases.length > 0 && (
+                <TaskRow icon={Inbox} tone="brand" onClick={() => setPurchaseOpen(true)}
+                  title={visiblePurchases.length === 1 ? tr('lager.purchasesOne') : tr('lager.purchasesMany', { n: visiblePurchases.length })}
+                  detail={tr('lager.purchasesDetail')}>
+                  <span className="agi-btn">{tr('lager.receive')}</span>
+                </TaskRow>
+              )}
+              {issueRows.map(r => (
+                <TaskRow key={`issue-${r.articleId}`} icon={AlertTriangle} onClick={() => setDetailId(r.articleId)}
+                  title={tr('lager.issueTitle', { name: r.description })}
+                  detail={tr('lager.issueDetail', { n: fmtQty(r.shortfall) })}>
+                  <button type="button" className="agi-btn primary" onClick={() => startMovement('in', r.articleId)}>{tr('lager.addReceipt')}</button>
+                </TaskRow>
+              ))}
+              {lowRows.length === 1 && lowRows.map(r => (
+                <TaskRow key={r.articleId} icon={Truck} onClick={() => setDetailId(r.articleId)}
+                  title={tr('lager.lowTitle', { name: r.description })}
+                  detail={tr('lager.lowDetail', { qty: fmtQty(r.qty), min: fmtQty(r.min), unit: r.unit })}>
+                  <button type="button" className="agi-btn" onClick={() => startMovement('in', r.articleId)}>{tr('lager.typeIn')}</button>
+                </TaskRow>
+              ))}
+              {lowRows.length > 1 && (
+                <TaskRow icon={Truck} onClick={() => setView('order')}
+                  title={tr('lager.lowMany', { n: lowRows.length })}
+                  detail={lowRows.slice(0, 3).map(r => r.description).join(', ') + (lowRows.length > 3 ? ' …' : '')}>
+                  <button type="button" className="agi-btn" onClick={(e) => { e.stopPropagation(); setView('order'); }}>{tr('lager.seeOrder')}</button>
+                </TaskRow>
+              )}
+              {valuation.lines.length > 0 && closing && !alreadyBooked && (
+                <TaskRow icon={Scale} tone="brand"
+                  title={tr('lager.bookValueTitle', { kr: fmtKr(Math.abs(diff)), dir: diff > 0 ? tr('lager.dirUp') : tr('lager.dirDown') })}
+                  detail={tr('lager.bookValueDetail', { account: kind.stockAccount, ledger: fmtKr(ledgerBalance), stock: fmtKr(valuation.bookValue) })}>
+                  <input type="date" value={closingDate} aria-label={tr('ui.vardering_per_datum')} onChange={e => e.target.value && setClosingDate(e.target.value)} />
+                  <button type="button" className="agi-btn primary" onClick={bookClosing}>{tr('lager.book')}</button>
+                </TaskRow>
+              )}
+                </div>
+              </div>
+            </div>
+          )}
           {message && <p className="ws-hint" style={{ marginTop: '12px', color: 'var(--status-green-text)' }}>{message}</p>}
         </Panel>
 
-        <Panel
-          title={tr('lager.goods')}
-          sub={goods.length === 0 ? null : filter !== 'all'
-            ? <span className="lg-filter-chip">{tr('lager.showing', { what: ({ ok: tr('lager.inStockPill'), low: tr('lager.lowStock'), out: tr('lager.outOfStock') })[filter] })}<button type="button" onClick={() => setFilter('all')} aria-label={tr('lager.showAll')}><X size={13} /></button></span>
-            : tr('lager.goodsSub')}
-          actions={goods.length > 0 && <>
-            {goods.length > 5 && (
-              <div className="lg-search">
-                <Search size={14} aria-hidden="true" />
-                <input type="text" className="ws-input" placeholder={tr('lager.search')} value={search} onChange={e => setSearch(e.target.value)} />
-              </div>
-            )}
-            <button type="button" className="agi-btn" onClick={openCountSheet}>{tr('lager.typeCount')}</button>
-            <button type="button" className="agi-btn" onClick={() => startMovement('out')}>{tr('lager.typeOut')}</button>
-            <button type="button" className="agi-btn primary" onClick={() => startMovement('in')}><Plus size={14} /> {tr('lager.typeIn')}</button>
-          </>}
-        >
+        <Panel>
           {goods.length === 0 ? (
-            <div className="ws-empty" style={{ padding: '28px 12px 12px' }}>
-              <h3>{tr('lager.emptyTitle')}</h3>
-              <p>{tr('ui.lagret_foljer_artiklar_av_typen')} <b>{tr('ui.vara')}</b>{tr('ui.lagg_till_en_vara_under_fliken_artiklar_for_att')}</p>
-              <p style={{ marginTop: '-8px' }}>{tr('ui.inget_lager_varderat_annu_registrera_en_inlevera')}</p>
+            <div className="ws-empty">
+              <strong>{tr('lager.emptyTitle')}</strong>
+              <p>{tr('lager.emptyTextV2')}</p>
               {onAddArticle && <button type="button" className="agi-btn primary" onClick={onAddArticle}><Plus size={14} /> {tr('lager.addGood')}</button>}
             </div>
-          ) : rows.length === 0 ? (
-            <p className="ws-hint" style={{ padding: '12px 0' }}>{tr('lager.noMatch')}</p>
           ) : (
-            <div className="lg-rows">
-              <div className="lg-row lg-row-head" aria-hidden="true">
-                <span>{tr('ui.vara')}</span><span>{tr('lager.inStock')}</span><span className="r">{tr('lager.unitCost')}</span><span className="r">{tr('ui.varde')}</span><span />
+            <>
+              <div className="ws-listbar" style={{ marginTop: 0 }}>
+                <div className="lg-views" role="tablist">
+                  {[['goods', tr('lager.goods'), goods.length], ['moves', tr('lager.viewMoves'), movements.length], ['order', tr('po.tab'), poCount('open')]].map(([id, label, n]) => (
+                    <button key={id} type="button" role="tab" aria-selected={view === id} className={view === id ? 'on' : ''} onClick={() => setView(id)}>
+                      {label}{n > 0 && <span className="lg-count">{n}</span>}
+                    </button>
+                  ))}
+                </div>
+                {view === 'goods' && <div className="lg-listtools">
+                  {goods.length > 0 && (
+                    <div className="lg-search">
+                      <Search size={14} aria-hidden="true" />
+                      <input type="text" className="ws-input" placeholder={tr('lager.search')} value={search} onChange={e => setSearch(e.target.value)} />
+                    </div>
+                  )}
+                  <ChipFilter label={tr('artReg.filter')} value={filter} onChange={(id) => { setFilter(id); setGoodsPage(0); }}
+                    items={[['all', tr('accr.filterAll'), tracked.length], ['instock', tr('lager.inStockPill'), inStock.length], ['low', tr('lager.low'), count('low'), 'low'], ['out', tr('lager.outOfStock'), count('out'), 'out'], ...(count('none') ? [['none', tr('lager.untracked'), count('none')]] : [])]} />
+                </div>}
+                {view === 'moves' && (
+                  <div className="lg-listtools">
+                    <div className="lg-search">
+                      <Search size={14} aria-hidden="true" />
+                      <input type="text" className="ws-input" placeholder={tr('lager.searchMoves')} value={moveSearch} onChange={e => setMoveSearch(e.target.value)} />
+                    </div>
+                    <ChipFilter label={tr('artReg.filter')} value={moveType} onChange={setMoveType}
+                      items={[['all', tr('accr.filterAll'), movements.length], ['in', tr('lager.typeIn'), movements.filter(m => m.type === 'in').length], ['out', tr('lager.typeOut'), movements.filter(m => m.type === 'out').length], ['count', tr('lager.typeCount'), movements.filter(m => m.type === 'count').length]]} />
+                  </div>
+                )}
+                {view === 'order' && (
+                  <div className="lg-listtools is-wide">
+                    {purchaseOrders.length > 0 && <>
+                      <div className="lg-search">
+                        <Search size={14} aria-hidden="true" />
+                        <input type="text" className="ws-input" placeholder={tr('po.search')} value={poSearch} onChange={e => setPoSearch(e.target.value)} />
+                      </div>
+                      <ChipFilter label={tr('artReg.filter')} value={poFilter} onChange={setPoFilter}
+                        items={[['open', tr('po.fOpen'), poCount('open')], ['draft', tr('po.status_draft'), poCount('draft')], ['ordered', tr('po.fOrdered'), poCount('ordered')], ['done', tr('po.fDone'), poCount('done')], ['all', tr('accr.filterAll'), poCount('all')]]} />
+                    </>}
+                    {orderRows.length > 0 && <button type="button" className="agi-btn po-low-btn" onClick={orderLow} title={tr('po.orderLow', { n: orderRows.length })}><Truck size={14} /> <span className="po-btn-text">{tr('po.orderLow', { n: orderRows.length })}</span><span className="po-btn-short">{orderRows.length}</span></button>}
+                    <button type="button" className="agi-btn primary" onClick={() => createPo(null, '')}><Plus size={14} /> <span className="po-btn-text">{tr('po.new')}</span><span className="po-btn-short">{tr('po.newShort')}</span></button>
+                  </div>
+                )}
               </div>
-              {rows.map(r => (
-                <button key={r.articleId} type="button" className={`lg-row is-${r.status}`} style={{ '--pj': barColor(r) }} onClick={() => setDetailId(r.articleId)}>
-                  <span className="lg-row-name">
-                    <strong>{r.description}</strong>
-                    {r.shortfall > 0
-                      ? <small className="lg-issue">{tr('lager.shortfall', { n: fmtQty(r.shortfall) })}</small>
-                      : (r.articleNumber || r.layers.length > 1) && <small>{[r.articleNumber, r.layers.length > 1 ? tr('lager.batchCount', { n: r.layers.length }) : null].filter(Boolean).join(' · ')}</small>}
-                  </span>
-                  <span className="lg-row-stock">
-                    <span className="lg-row-qty"><b>{fmtQty(r.qty)}</b> {r.unit}{r.min > 0 && <small>{tr('lager.minShort', { n: fmtQty(r.min) })}</small>}</span>
-                    <span className="pz-track"><span style={{ width: `${barPct(r)}%` }} />{r.min > 0 && <em style={{ left: '50%' }} />}</span>
-                  </span>
-                  <span className="r lg-row-num">{r.unitCost > 0 ? `${fmt(r.unitCost)} kr` : '–'}</span>
-                  <span className="r lg-row-num strong">{fmtKr(r.bookValue)}</span>
-                  <span className="r">{statusPill(r)}</span>
-                </button>
-              ))}
-            </div>
+              {view === 'moves' ? (
+                moveRows.length === 0 ? <p className="ws-hint" style={{ padding: '12px 0' }}>{tr('lager.noMoves')}</p> : (
+                  <div className="lg-moves">
+                    <div className="lg-move head" aria-hidden="true">
+                      <span>{tr('ui.datum')}</span><span>{tr('ui.vara')}</span><span>{tr('lager.colType')}</span><span className="r">{tr('lager.colQty')}</span><span className="r">{tr('lager.colPrice')}</span><span />
+                    </div>
+                    {moveRows.map(({ m, g }) => (
+                      <div key={m.id} className={`lg-move is-${m.type}`}>
+                        <span className="lg-move-date">{formatShort(m.date)}</span>
+                        <button type="button" className="lg-move-name" onClick={() => g && setDetailId(g.id)}>
+                          <strong>{g?.description || tr('lager.removedGood')}</strong>
+                          <small>{[g?.articleNumber, m.note, m.source === 'invoice' && m.invoiceNumber ? tr('ui.faktura', { invoiceNumber: m.invoiceNumber }) : null].filter(Boolean).join(' · ') || ' '}</small>
+                        </button>
+                        <span className="lg-move-type">{movementLabel(m)}</span>
+                        <span className={`r lg-move-qty ${m.type}`}>{m.type === 'out' ? '−' : m.type === 'count' ? '= ' : '+'}{fmtQty(m.qty)} <small>{g?.unit || tr('ui.st')}</small></span>
+                        <span className="r lg-move-price">{m.type === 'in' && m.unitCost != null ? `${fmt(m.unitCost)} kr` : ''}</span>
+                        <span className="r">{m.source === 'invoice'
+                          ? <span className="lg-d-auto">{tr('ui.automatiskt')}</span>
+                          : <button type="button" className="ws-icon-btn" title={tr('ui.ta_bort')} aria-label={tr('ui.ta_bort')} onClick={() => removeMovement(m)}><Trash2 size={14} /></button>}</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : view === 'order' ? (
+                <div className="po-view">
+                  {purchaseOrders.length === 0 ? (
+                    <div className="po-empty">
+                      <span className="po-empty-ic" aria-hidden="true"><Truck size={22} /></span>
+                      <strong>{tr('po.emptyTitle')}</strong>
+                      <p>{tr('po.emptyText')}</p>
+                      <button type="button" className="agi-btn primary" onClick={() => createPo(null, '')}><Plus size={14} /> {tr('po.new')}</button>
+                    </div>
+                  ) : poRows.length === 0 ? (
+                    <p className="ws-hint" style={{ padding: '16px 0' }}>{tr('po.noneHere')}</p>
+                  ) : (
+                    <div className="lg-tbl po-tbl">
+                      <div className="ar-table-wrap">
+                        <table className="ar-table">
+                          <thead>
+                            <tr>
+                              <th className="po-w-nr">{tr('po.colNumber')}</th>
+                              <th>{tr('po.supplier')}</th>
+                              <th className="po-w-date ar-hide-md">{tr('po.date')}</th>
+                              <th className="po-w-date">{tr('po.expected')}</th>
+                              <th className="po-w-prog ar-hide-md">{tr('po.received')}</th>
+                              <th className="r ar-w-value">{tr('po.total')}</th>
+                              <th className="r po-w-status" />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {poRows.map(po => {
+                              const st = poStatus(po);
+                              const got = (po.rows || []).reduce((sum, x) => sum + (Number(x.received) || 0), 0);
+                              const all = (po.rows || []).reduce((sum, x) => sum + (Number(x.qty) || 0), 0);
+                              const late = (st === 'ordered' || st === 'partial') && po.expectedDate && po.expectedDate < todayIso();
+                              return (
+                                <tr key={po.id} className={`po-row is-${st}`} onClick={() => setPoOpen(po)}>
+                                  <td className="po-nr">{po.number}</td>
+                                  <td className="ar-name">
+                                    <strong>{po.supplier || tr('lager.noSupplier')}</strong>
+                                    <small>{[(po.rows || []).length === 1 ? tr('po.rowsOne') : tr('po.rowsMany', { n: (po.rows || []).length }), po.matchedExpenseId ? tr('po.invoiceLinked') : null].filter(Boolean).join(' · ')}</small>
+                                  </td>
+                                  <td className="ar-hide-md ar-muted">{formatShort(po.date)}</td>
+                                  <td className={late ? 'po-late' : 'ar-muted'}>{po.expectedDate ? formatShort(po.expectedDate) : '–'}</td>
+                                  <td className="ar-hide-md">{st === 'draft' || st === 'cancelled' || all === 0 ? <span className="ar-muted">–</span> : (
+                                    <span className="po-prog"><span className="pz-m-track"><span style={{ width: `${Math.round((got / all) * 100)}%`, background: 'var(--status-green-text)' }} /></span><small>{tr('po.progress', { got: fmtQty(got), all: fmtQty(all) })}</small></span>
+                                  )}</td>
+                                  <td className="r ar-price">{fmtKr(poTotal(po))}</td>
+                                  <td className="r"><span className={`agi-pill ${PO_STATUS_PILL[st]}`}>{tr(`po.status_${st}`)}</span></td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : rows.length === 0 ? (
+                <p className="ws-hint" style={{ padding: '12px 0' }}>{tr('lager.noMatch')}</p>
+              ) : (
+                <div className="lg-tbl">
+                  <div className="ar-table-wrap">
+                    <table className="ar-table">
+                      <thead>
+                        <tr>
+                          <th className="ar-num-col">{tr('ui.artikelnr')}</th>
+                          <th>{tr('ui.vara')}</th>
+                          <th className="lg-w-qty">{tr('lager.inStock')}</th>
+                          <th className="r ar-hide-md lg-w-min">{tr('lager.reorderShort')}</th>
+                          <th className="r ar-w-cost ar-hide-md">{tr('lager.unitCost')}</th>
+                          <th className="r ar-w-value">{tr('ui.varde')}</th>
+                          <th className="r lg-w-status" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.slice(Math.min(goodsPage, Math.max(0, Math.ceil(rows.length / 50) - 1)) * 50).slice(0, 50).map(r => (
+                          <tr key={r.articleId} className={`is-${r.status}`} onClick={() => setDetailId(r.articleId)}>
+                            <td className="ar-num">{r.articleNumber || '–'}</td>
+                            <td className="ar-name">
+                              <strong>{r.description}</strong>
+                              {r.shortfall > 0
+                                ? <small className="lg-issue">{tr('lager.shortfall', { n: fmtQty(r.shortfall) })}</small>
+                                : <small>{[supplierOf(r.articleId), resOf(r.articleId) ? tr('so.reservedShort', { qty: fmtQty(resOf(r.articleId)) }) : null, onOrder.get(r.articleId) ? tr('po.onOrderShort', { qty: fmtQty(onOrder.get(r.articleId).qty) }) : null, locationOf(r.articleId) ? tr('lager.locationShort', { loc: locationOf(r.articleId) }) : null, r.layers.length > 1 ? tr('lager.batchCount', { n: r.layers.length }) : null].filter(Boolean).join(' · ') || ' '}</small>}
+                            </td>
+                            <td className="lg-qty-cell">
+                              {r.status === 'none' ? <span className="ar-muted">–</span> : (
+                                <span className="lg-q">
+                                  <span className="lg-q-num"><b>{fmtQty(r.qty)}</b> <small>{r.unit}</small></span>
+                                  <span className="pz-m-track"><span style={{ width: `${Math.max(r.qty > 0 ? 3 : 0, barPct(r))}%`, background: barColor(r) }} />{r.min > 0 && <em style={{ left: '50%' }} />}</span>
+                                </span>
+                              )}
+                            </td>
+                            <td className="r ar-hide-md ar-muted">{r.min > 0 ? fmtQty(r.min) : '–'}</td>
+                            <td className="r ar-hide-md ar-muted">{r.unitCost > 0 ? `${fmt(r.unitCost)} kr` : '–'}</td>
+                            <td className="r ar-price">{r.bookValue > 0 ? fmtKr(r.bookValue) : <span className="ar-muted">–</span>}</td>
+                            <td className="r">{r.status === 'none' ? null : statusPill(r)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {rows.length > 50 && (
+                    <div className="ar-foot">
+                      <span>{tr('artReg.showing', { from: Math.min(goodsPage, Math.ceil(rows.length / 50) - 1) * 50 + 1, to: Math.min(rows.length, (Math.min(goodsPage, Math.ceil(rows.length / 50) - 1) + 1) * 50), n: rows.length })}</span>
+                      <span className="ar-pager">
+                        <button type="button" disabled={goodsPage === 0} onClick={() => setGoodsPage(p => Math.max(0, p - 1))} aria-label={tr('artReg.prev')}><ChevronLeft size={16} /></button>
+                        <span>{Math.min(goodsPage, Math.ceil(rows.length / 50) - 1) + 1} / {Math.ceil(rows.length / 50)}</span>
+                        <button type="button" disabled={goodsPage >= Math.ceil(rows.length / 50) - 1} onClick={() => setGoodsPage(p => p + 1)} aria-label={tr('artReg.next')}><ChevronRight size={16} /></button>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+          {settings.stockFromInvoices && view === 'goods' && goods.length > 0 && (
+            <p className="lg-sync">
+              <RefreshCw size={13} aria-hidden="true" />
+              {invoiceMovements.length === 0 ? tr('lager.syncNone') : tr('lager.syncSome', { n: invoiceMovements.length })}
+            </p>
           )}
         </Panel>
-
-        {settings.stockFromInvoices && (
-          <p className="ws-hint">
-            {tr('ui.dra_av_lagret_automatiskt_nar_jag_fakturerar')}: {invoiceMovements.length === 0
-              ? tr('ui.inga_fakturarader_hittades_an_raden_maste_ha_sam')
-              : tr('ui.fakturarader_raknas_med_lagg_inte_in_samma_forsa', { length: invoiceMovements.length })}
-          </p>
-        )}
       </div>
 
-      {/* Varans egen sida, inglidande från höger som i Shopify och Zoho. */}
+      {/* Varans sida från höger (2026-11-22): siffrorna överst, knapparna,
+          saldot över tid, beställningspunkten, partierna och händelserna
+          som en ren lista med ikon per typ. */}
       {detail && (() => {
         const history = movements.filter(m => m.articleId === detail.articleId).sort((a, b) => String(b.date).localeCompare(String(a.date)));
         const points = stockHistory(movements, detail.articleId);
         const margin = detail.salePrice > 0 ? Math.round(((detail.salePrice - detail.unitCost) / detail.salePrice) * 1000) / 10 : null;
+        const evIcon = { in: Plus, out: Minus, count: ClipboardCheck };
         return (
           <div className="lg-drawer-overlay" onClick={() => setDetailId(null)}>
-            <aside className="lg-drawer" onClick={e => e.stopPropagation()} aria-label={detail.description}>
+            <aside className="lg-drawer lg-drawer--v2" onClick={e => e.stopPropagation()} aria-label={detail.description}>
               <div className="lg-drawer-head">
                 <span className="lg-avatar lg" aria-hidden="true">{initial(detail.description)}</span>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <h2 className="wsp-title" style={{ fontSize: '19px' }}>{detail.description}</h2>
-                  <p className="wsp-sub">{[detail.articleNumber, methodName].filter(Boolean).join(' · ')}</p>
+                  <p className="wsp-sub">{[detail.articleNumber, supplierOf(detail.articleId), methodName].filter(Boolean).join(' · ')}</p>
                 </div>
                 {statusPill(detail)}
                 <button type="button" className="modal-close" onClick={() => setDetailId(null)} aria-label={tr('ui.stang')}><X size={18} /></button>
               </div>
 
               <div className="lg-drawer-body">
-                {detail.shortfall > 0 && (
-                  <div className="ws-notice warn">
-                    <div><strong>{tr('lager.shortfall', { n: fmtQty(detail.shortfall) })}</strong><p>{tr('lager.shortfallHint')}</p></div>
-                    <button type="button" className="agi-btn primary" onClick={() => startMovement('in', detail.articleId)}>{tr('lager.addReceipt')}</button>
-                  </div>
-                )}
-                <div className="ws-card-actions">
+                <div className="lg-d-actions">
                   <button type="button" className="agi-btn primary" onClick={() => startMovement('in', detail.articleId)}><Plus size={14} /> {tr('lager.typeIn')}</button>
-                  <button type="button" className="agi-btn" onClick={() => startMovement('out', detail.articleId)}>{tr('lager.typeOut')}</button>
-                  <button type="button" className="agi-btn" onClick={() => startMovement('count', detail.articleId)}>{tr('lager.typeCount')}</button>
+                  <button type="button" className="agi-btn" onClick={() => startMovement('out', detail.articleId)}><PackageMinus size={14} /> {tr('lager.typeOut')}</button>
+                  <button type="button" className="agi-btn" onClick={() => startMovement('count', detail.articleId)}><ClipboardCheck size={14} /> {tr('lager.typeCount')}</button>
                 </div>
 
-                <KpiGrid>
-                  <Kpi dot={barColor(detail)} label={tr('lager.inStock')} value={`${fmtQty(detail.qty)} ${detail.unit}`} sub={detail.min ? tr('lager.minShort', { n: fmtQty(detail.min) }) : tr('lager.noMin')} />
-                  <Kpi dot={palette.profit} label={tr('ui.varde')} value={fmtKr(detail.bookValue)} sub={tr('lager.costEach', { price: fmt(detail.unitCost) })} />
-                  <Kpi dot={palette.income} label={tr('lager.salePrice')} value={`${fmt(detail.salePrice)} kr`} sub={margin != null ? tr('lager.marginIs', { n: String(margin).replace('.', ',') }) : '—'} />
-                </KpiGrid>
-
-                {points.length >= 2 && (
-                  <div className="lg-chart">
-                    <div className="lg-chart-head"><span>{tr('lager.stockOverTime')}</span><span>{formatShort(points[0].date)} – {formatShort(points[points.length - 1].date)}</span></div>
-                    <Sparkline points={points} color={palette.income} min={detail.min} />
+                {detail.shortfall > 0 && (
+                  <div className="ws-tasks" style={{ marginTop: 0 }}>
+                    <TaskRow icon={AlertTriangle} title={tr('lager.shortfall', { n: fmtQty(detail.shortfall) })} detail={tr('lager.shortfallHint')} />
                   </div>
                 )}
 
-                <div className="lg-min">
+                <Overview items={[
+                  { key: 'qty', label: tr('lager.inStock'), value: `${fmtQty(detail.qty)} ${detail.unit}`, sub: resOf(detail.articleId) ? tr('so.reservedLong', { res: fmtQty(resOf(detail.articleId)), free: fmtQty(detail.qty - resOf(detail.articleId)), unit: detail.unit }) : onOrder.get(detail.articleId) ? tr('po.onOrderLong', { qty: fmtQty(onOrder.get(detail.articleId).qty), date: onOrder.get(detail.articleId).expectedDate ? formatShort(onOrder.get(detail.articleId).expectedDate) : '–' }) : detail.min ? tr('lager.minShort', { n: fmtQty(detail.min) }) : tr('lager.noMin'), tone: detail.status === 'out' ? 'bad' : detail.status === 'low' ? 'warn' : undefined },
+                  { key: 'value', label: tr('ui.varde'), value: fmtKr(detail.bookValue), sub: tr('lager.costEach', { price: fmt(detail.unitCost) }) },
+                  { key: 'price', label: tr('lager.salePrice'), value: detail.salePrice > 0 ? `${fmt(detail.salePrice)} kr` : '—', sub: margin != null ? tr('lager.marginIs', { n: String(margin).replace('.', ',') }) : tr('lager.noPrice') },
+                ]} />
+
+                {points.length >= 2 && (
+                  <section className="lg-d-card">
+                    <div className="lg-d-card-head"><h3>{tr('lager.stockOverTime')}</h3><span>{formatShort(points[0].date)} – {formatShort(points[points.length - 1].date)}</span></div>
+                    <Sparkline points={points} color={palette.income} min={detail.min} />
+                  </section>
+                )}
+
+                <section className="lg-d-card lg-d-min">
                   <div>
-                    <label className="ws-label" htmlFor="lg-min">{tr('lager.reorderPoint')}</label>
-                    <p className="ws-hint">{tr('lager.reorderHint')}</p>
+                    <h3><label htmlFor="lg-min">{tr('lager.reorderPoint')}</label></h3>
+                    <p>{tr('lager.reorderHint')}</p>
                   </div>
                   <div className="ws-input-suffix" style={{ width: '120px', flexShrink: 0 }}>
                     <input id="lg-min" type="number" min="0" className="ws-input" placeholder="0" value={detail.min || ''} onChange={e => setReorderPoint(detail.articleId, e.target.value)} />
                     <span>{detail.unit}</span>
                   </div>
-                </div>
+                </section>
 
-                <div className="ws-card">
-                  <div className="ws-card-head">
-                    <div>
-                      <h3 className="ws-card-title" style={{ fontSize: '14.5px' }}>{tr('lager.batches')}</h3>
-                      <p className="ws-card-sub">{settings.method === 'fifo' ? tr('lager.batchesFifo') : tr('lager.batchesAvg', { price: fmt(detail.unitCost) })}</p>
-                    </div>
+                <section className="lg-d-card lg-d-min">
+                  <div>
+                    <h3><label htmlFor="lg-loc">{tr('lager.location')}</label></h3>
+                    <p>{tr('lager.locationHint')}</p>
                   </div>
-                  {detail.layers.length === 0 ? <div className="ws-rows-empty">{tr('lager.noBatches')}</div> : (
-                    <ul className="ws-rows">
+                  <input id="lg-loc" className="ws-input" style={{ width: '140px', flexShrink: 0 }} placeholder={tr('lager.locationPlaceholder')} value={locationOf(detail.articleId)} onChange={e => setLocation(detail.articleId, e.target.value)} />
+                </section>
+
+                {detail.layers.length > 0 && (
+                  <section className="lg-d-card">
+                    <div className="lg-d-card-head">
+                      <h3>{tr('lager.batches')}</h3>
+                      <span>{settings.method === 'fifo' ? tr('lager.batchesFifoShort') : tr('lager.batchesAvg', { price: fmt(detail.unitCost) })}</span>
+                    </div>
+                    <ul className="lg-d-list">
                       {detail.layers.map((l, i) => (
                         <li key={`${l.date}-${i}`}>
-                          <span className="date">{formatShort(l.date) || '—'}</span>
-                          <span className="grow">{fmtQty(l.qty)} {detail.unit} × {fmt(l.cost)} kr{i === 0 && settings.method === 'fifo' && detail.layers.length > 1 ? <span className="muted"> · {tr('lager.sellsFirst')}</span> : null}</span>
-                          <span className="num">{fmtKr(l.qty * l.cost)}</span>
+                          <span className="lg-d-date">{formatShort(l.date) || '—'}</span>
+                          <span className="lg-d-main">{fmtQty(l.qty)} {detail.unit} × {fmt(l.cost)} kr{i === 0 && settings.method === 'fifo' && detail.layers.length > 1 && <em className="lg-d-tag">{tr('lager.sellsFirst')}</em>}</span>
+                          <span className="lg-d-num">{fmtKr(l.qty * l.cost)}</span>
                         </li>
                       ))}
                     </ul>
-                  )}
-                </div>
+                  </section>
+                )}
 
-                <div className="ws-card">
-                  <div className="ws-card-head"><h3 className="ws-card-title" style={{ fontSize: '14.5px' }}>{tr('lager.history')}</h3><span className="ws-hint">{history.length}</span></div>
-                  {history.length === 0 ? <div className="ws-rows-empty">{tr('lager.noHistory')}</div> : (
-                    <ul className="ws-rows">
-                      {history.map(m => (
-                        <li key={m.id}>
-                          <span className="date">{formatShort(m.date)}</span>
-                          <span className="grow">
-                            {movementLabel(m)}
-                            {m.source === 'invoice' && m.invoiceNumber ? <span className="muted"> · {tr('ui.faktura', { invoiceNumber: m.invoiceNumber })}</span> : null}
-                            {m.note ? <span className="muted"> · {m.note}</span> : null}
-                          </span>
-                          <span className="num" style={{ color: m.type === 'out' ? 'var(--status-red-text)' : m.type === 'in' ? 'var(--status-green-text)' : 'var(--text-main)' }}>
-                            {m.type === 'out' ? '−' : m.type === 'count' ? '= ' : '+'}{fmtQty(m.qty)}
-                          </span>
-                          {m.type === 'in' && m.source !== 'invoice' && <span className="muted" style={{ width: '82px', textAlign: 'right' }}>{fmt(m.unitCost)} kr</span>}
-                          {m.source === 'invoice'
-                            ? <span className="muted">{tr('ui.automatiskt')}</span>
-                            : <button type="button" className="ws-icon-btn" title={tr('ui.ta_bort')} onClick={() => removeMovement(m)}><Trash2 size={14} /></button>}
-                        </li>
-                      ))}
+                <section className="lg-d-card">
+                  <div className="lg-d-card-head"><h3>{tr('lager.history')}</h3><span>{history.length}</span></div>
+                  {history.length === 0 ? <p className="lg-d-empty">{tr('lager.noHistory')}</p> : (
+                    <ul className="lg-d-list">
+                      {history.map(m => {
+                        const Ic = evIcon[m.type] || Plus;
+                        return (
+                          <li key={m.id} className={`is-${m.type}`}>
+                            <span className="lg-d-ic" aria-hidden="true"><Ic size={14} /></span>
+                            <span className="lg-d-main">
+                              <strong>{movementLabel(m)}</strong>
+                              <small>
+                                {formatShort(m.date)}
+                                {m.source === 'invoice' && m.invoiceNumber ? ` · ${tr('ui.faktura', { invoiceNumber: m.invoiceNumber })}` : ''}
+                                {m.type === 'in' && m.source !== 'invoice' && m.unitCost != null ? ` · ${fmt(m.unitCost)} kr/${detail.unit}` : ''}
+                                {m.note ? ` · ${m.note}` : ''}
+                              </small>
+                            </span>
+                            <span className="lg-d-qty">{m.type === 'out' ? '−' : m.type === 'count' ? '= ' : '+'}{fmtQty(m.qty)}</span>
+                            {m.source === 'invoice'
+                              ? <span className="lg-d-auto">{tr('ui.automatiskt')}</span>
+                              : <button type="button" className="ws-icon-btn" title={tr('ui.ta_bort')} aria-label={tr('ui.ta_bort')} onClick={() => removeMovement(m)}><Trash2 size={14} /></button>}
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
-                </div>
+                </section>
               </div>
             </aside>
           </div>
         );
       })()}
+
+      {poOpen && (
+        <PurchaseOrderModal
+          key={poOpen.id}
+          initial={poOpen}
+          goods={goods}
+          company={company}
+          suppliers={[...new Set([...goods.map(g => g.supplier).filter(Boolean), ...purchaseOrders.map(x => x.supplier).filter(Boolean)])].sort((a, b) => a.localeCompare(b, 'sv'))}
+          onSave={savePo}
+          onDelete={purchaseOrders.some(x => x.id === poOpen.id) ? deletePo : null}
+          onReceive={(po, args) => receiveOnPo(po, args)}
+          onClose={() => setPoOpen(null)}
+        />
+      )}
+
+      {/* Inleverans med flera rader (2026-11-23): en leverans från en
+          leverantör blir en händelse per vara med samma datum och följesedel. */}
+      {delivery && (
+        <div className="modal-overlay" onClick={() => setDelivery(null)}>
+          <div className="modal-content lg-delivery" style={{ maxWidth: '760px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2 className="modal-title">{tr('lager.typeIn')}</h2>
+                <p className="wsp-sub">{tr('lager.deliverySub')}</p>
+              </div>
+              <button type="button" className="modal-close" onClick={() => setDelivery(null)} aria-label={tr('ui.stang')}><X size={18} /></button>
+            </div>
+            <div className="ws-grid2" style={{ marginBottom: '14px' }}>
+              <div><label className="ws-label" htmlFor="lg-dl-date">{tr('ui.datum')}</label><input id="lg-dl-date" type="date" className="ws-input" value={delivery.date} onChange={e => setDelivery(d => ({ ...d, date: e.target.value }))} /></div>
+              <div><label className="ws-label" htmlFor="lg-dl-ref">{tr('lager.deliveryRef')}</label><input id="lg-dl-ref" className="ws-input" placeholder={tr('lager.deliveryRefPlaceholder')} value={delivery.ref} onChange={e => setDelivery(d => ({ ...d, ref: e.target.value }))} /></div>
+            </div>
+            <div className="lg-dl-rows">
+              <div className="lg-dl-row head" aria-hidden="true"><span>{tr('ui.vara')}</span><span className="r">{tr('lager.colQty')}</span><span className="r">{tr('lager.colCost')}</span><span className="r">{tr('lager.colSum')}</span><span /></div>
+              {delivery.rows.map(x => (
+                <div key={x.key} className="lg-dl-row">
+                  <select className="ws-input" value={x.articleId} onChange={e => setDeliveryRow(x.key, { articleId: e.target.value })} aria-label={tr('ui.vara')}>
+                    <option value="">{tr('lager.pickGood')}</option>
+                    {goods.map(g => <option key={g.id} value={g.id}>{g.articleNumber ? `${g.articleNumber} · ` : ''}{g.description}</option>)}
+                  </select>
+                  <div className="ws-input-suffix"><input className="ws-input" inputMode="decimal" placeholder="0" value={x.qty} onChange={e => setDeliveryRow(x.key, { qty: e.target.value })} aria-label={tr('lager.colQty')} /><span>{x.articleId ? unitOf(x.articleId) : ''}</span></div>
+                  <div className="ws-input-suffix"><input className="ws-input" inputMode="decimal" placeholder="0" value={x.unitCost} onChange={e => setDeliveryRow(x.key, { unitCost: e.target.value })} aria-label={tr('lager.colCost')} /><span>kr</span></div>
+                  <span className="r lg-dl-sum">{num(x.qty) > 0 && num(x.unitCost) >= 0 ? fmtKr(num(x.qty) * num(x.unitCost)) : ''}</span>
+                  <button type="button" className="ws-icon-btn" aria-label={tr('ui.ta_bort')} title={tr('ui.ta_bort')} onClick={() => setDelivery(d => ({ ...d, rows: d.rows.length > 1 ? d.rows.filter(y => y.key !== x.key) : [deliveryRow()] }))}><Trash2 size={14} /></button>
+                </div>
+              ))}
+            </div>
+            <div className="lg-dl-foot">
+              <button type="button" className="agi-btn" onClick={() => setDelivery(d => ({ ...d, rows: [...d.rows, deliveryRow()] }))}><Plus size={14} /> {tr('lager.addRow')}</button>
+              <span>{tr('lager.deliveryTotal')} <b>{fmtKr(deliveryTotal)}</b></span>
+            </div>
+            <p className="ws-hint" style={{ marginTop: '10px' }}>{tr('lager.deliveryHint')}</p>
+            {error && <p className="ws-hint" style={{ color: 'var(--status-red-text)' }}>{error}</p>}
+            <div className="modal-footer">
+              <button type="button" className="agi-btn" onClick={() => setDelivery(null)}>{tr('ui.avbryt')}</button>
+              <button type="button" className="agi-btn primary" onClick={saveDelivery}>{deliveryLines.length > 1 ? tr('lager.saveDeliveryN', { n: deliveryLines.length }) : tr('lager.saveDelivery')}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Inköp att lägga in: välj vara och antal, styckpriset räknas ut. */}
       {purchaseOpen && (
@@ -531,10 +896,11 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
               </div>
               <button type="button" className="modal-close" onClick={() => setPurchaseOpen(false)}><X size={18} /></button>
             </div>
-            {purchases.length === 0 ? <p className="ws-hint">{tr('lager.purchasesNone')}</p> : (
+            {visiblePurchases.length === 0 ? <p className="ws-hint">{tr('lager.purchasesNone')}</p> : (
               <div className="lg-purchases">
-                {purchases.map(line => {
+                {visiblePurchases.map(line => {
                   const d = draftFor(line);
+                  const match = matchFor(line);
                   const q = Number(String(d.qty).replace(',', '.'));
                   return (
                     <div key={line.key} className="lg-purchase">
@@ -545,6 +911,15 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                         </div>
                         <b>{fmt(line.net)} kr</b>
                       </div>
+                      {match && (
+                        <div className={`po-match${match.sure ? ' sure' : ''}`}>
+                          <span>
+                            <strong>{tr('po.matchTitle', { number: match.po.number })}</strong>
+                            <small>{match.diff === 0 ? tr('po.matchSame', { total: fmt(match.total) }) : tr('po.matchDiff', { total: fmt(match.total), diff: `${match.diff > 0 ? '+' : '−'}${fmt(Math.abs(match.diff))}` })}{` ${tr(poStatus(match.po) === 'received' ? 'po.matchReceived' : poStatus(match.po) === 'partial' ? 'po.matchPartial' : 'po.matchNotReceived')}`}</small>
+                          </span>
+                          <button type="button" className="agi-btn primary" onClick={() => linkExpense(line, match)}>{poStatus(match.po) === 'received' ? tr('po.link') : tr('po.receiveAndLink')}</button>
+                        </div>
+                      )}
                       <div className="lg-purchase-form">
                         <select className="ws-input" value={d.articleId} onChange={ev => setDraft(line, { articleId: ev.target.value })} aria-label={tr('ui.vara')}>
                           <option value="">{tr('lager.pickGood')}</option>
@@ -651,7 +1026,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                 <div><label className="ws-label">{tr('ui.datum')}</label><input type="date" className="ws-input" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} /></div>
                 <div>
                   <label className="ws-label">{form.type === 'count' ? tr('lager.countedQty') : tr('ui.antal')}</label>
-                  <div className="ws-input-suffix"><input type="number" step="any" min="0" className="ws-input" value={form.qty} autoFocus onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} /><span>{tr('ui.st')}</span></div>
+                  <div className="ws-input-suffix"><input type="number" step="any" min="0" className="ws-input" value={form.qty} autoFocus onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} /><span>{unitOf(form.articleId)}</span></div>
                 </div>
               </div>
               {form.type === 'in' && (

@@ -1,5 +1,6 @@
 import { defaultVacationRule, WORKDAYS_PER_MONTH, SAMMALON_SUPPLEMENT_RATE } from './payrollConfig';
 import { lookupSkatteavdrag } from './skattetabell';
+import { oneTimeTaxRate } from './oneTimeTax';
 import { EMPLOYER_FEE_CATEGORIES, VACATION_RULES, SECONDARY_INCOME_TAX_RATE, employerFeeFor, employerFeeAmount } from './payrollConfig';
 
 // Lönekörningar som skapats med åldersanpassad arbetsgivaravgift har
@@ -100,6 +101,9 @@ export function computeEmployeePayroll(employee, row) {
 
   // 4. Skatteavdrag
   let tax, taxNote;
+  let oneTimeMissing = false;
+  let oneTimeNote = '';
+  let oneTimeAutoPct = null;
   if (fTax) {
     tax = 0;
     taxNote = 'F-skatt: mottagaren betalar sin skatt själv, inget skatteavdrag';
@@ -115,11 +119,26 @@ export function computeEmployeePayroll(employee, row) {
     taxNote = `Jämkning ${j.percent} % enligt Skatteverkets beslut (${j.from} till ${j.to})`;
   } else if (employee.taxTable?.tabellnr && employee.taxTable?.kolumn) {
     try {
+      // Engångsbelopp (bonus, retroaktiv lön) ska enligt Skatteverket ha
+      // skatteavdrag efter tabellen för engångsbelopp: en procentsats som
+      // beror på kolumnen och den anställdas årslön (utils/oneTimeTax.js).
+      // Den vanliga lönen räknas som förut med månadstabellen. En procentsats
+      // som angetts på raden (row.oneTimeTaxPercent) går före tabellen.
+      const oneTimeAmount = payLines.lines.filter(l => l.oneTime && l.kind === 'addition').reduce((s, l) => s + l.amount, 0);
+      const manualPct = row.oneTimeTaxPercent !== '' && row.oneTimeTaxPercent != null && Number.isFinite(Number(row.oneTimeTaxPercent)) ? Number(row.oneTimeTaxPercent) : null;
+      const regularMonthly = Math.max(0, taxableIncome - oneTimeAmount);
+      const autoPct = oneTimeAmount > 0 ? oneTimeTaxRate({ year: employee.taxTable.year, kolumn: employee.taxTable.kolumn, annualSalary: regularMonthly * 12 }) : null;
+      const oneTimePct = manualPct ?? autoPct;
+      oneTimeAutoPct = autoPct;
+      const splitOneTime = oneTimeAmount > 0 && oneTimePct !== null;
+      const tableIncome = splitOneTime ? regularMonthly : taxableIncome;
       const { amount, extrapolated, extrapolatedFrom } = lookupSkatteavdrag({
         year: employee.taxTable.year, tabellnr: employee.taxTable.tabellnr,
-        kolumn: employee.taxTable.kolumn, inkomst: taxableIncome,
+        kolumn: employee.taxTable.kolumn, inkomst: tableIncome,
       });
-      tax = round(amount);
+      tax = round(amount + (splitOneTime ? oneTimeAmount * oneTimePct / 100 : 0));
+      if (oneTimeAmount > 0 && !splitOneTime) oneTimeMissing = true;
+      if (splitOneTime) oneTimeNote = `, engångsbelopp ${round(oneTimeAmount)} kr × ${oneTimePct} %${manualPct === null ? ' (Skatteverkets engångstabell)' : ''}`;
       // Bugfix (kundrapport): påstod tidigare ALLTID "högsta kända bracket",
       // även när inkomsten låg UNDER tabellens lägsta rad (t.ex. 0 kr för en
       // timanställd utan registrerade timmar) — se filkommentaren i
@@ -128,7 +147,7 @@ export function computeEmployeePayroll(employee, row) {
       const extrapolationNote = extrapolated
         ? ` (${extrapolatedFrom === 'lowest' ? 'under tabellens lägsta intervall — uppskattat från lägsta kända rad' : 'över tabellens högsta intervall — uppskattat från högsta kända rad'})`
         : '';
-      taxNote = `Skattetabell ${employee.taxTable.tabellnr}, kolumn ${employee.taxTable.kolumn}, inkomst ${round(taxableIncome)} kr${extrapolationNote}`;
+      taxNote = `Skattetabell ${employee.taxTable.tabellnr}, kolumn ${employee.taxTable.kolumn}, inkomst ${round(taxableIncome - (oneTimeNote ? payLines.lines.filter(l => l.oneTime && l.kind === 'addition').reduce((s, l) => s + l.amount, 0) : 0))} kr${extrapolationNote}${oneTimeNote}${oneTimeMissing ? ' (engångsbelopp räknat med månadstabellen: ange procentsatsen för engångsbelopp)' : ''}`;
     } catch (err) {
       tax = 0;
       taxNote = `Skattetabell ej inläst (${err.message})`;
@@ -243,6 +262,9 @@ export function computeEmployeePayroll(employee, row) {
     iban: employee.iban || '', bic: employee.bic || '',
     hasIbanInfo: Boolean(employee.iban && employee.bic),
     hoursWorked: employee.salaryForm === 'timlon' ? (Number(row.hoursWorked) || 0) : null,
+    // Engångsbelopp utan angiven procentsats: räknat med månadstabellen.
+    oneTimeMissing,
+    oneTimeAutoPct,
   };
 }
 

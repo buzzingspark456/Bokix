@@ -6,12 +6,13 @@ import { ProjectSearch, EntitySearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
 import { confirmDialog } from './shared/ConfirmDialog';
-import { Panel, Kpi, KpiGrid, usePalette } from './shared/Workspace';
+import { Panel, Kpi, KpiGrid, Overview, usePalette } from './shared/Workspace';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import { BRAND } from '../utils/brandColors';
 import { invoiceNetSek } from '../utils/contactTotals';
 import { t as tr, dateLocale } from '../i18n';
 import { numberFormat } from '../utils/intlCache';
+import { showUndo, restoreAt } from './shared/undoToast';
 import './workspace.css';
 
 const formatSEK = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
@@ -439,8 +440,52 @@ function TimeReportsView({ timeEntries, employees, projects = [], timeReportStat
   return (
     <>
       <Panel
+        title={tr('proj.approvalV2')}
+        sub={tr('proj.reportsSubV2')}
+        actions={<>
+          {submitted.length > 0 && <button type="button" className="agi-btn" onClick={() => bulkAdvance('submitted')}><ClipboardCheck size={14} /> {tr('ui.attestera_alla_inskickade')}{submitted.length})</button>}
+          {attested.length > 0 && <button type="button" className="agi-btn primary" onClick={() => bulkAdvance('attested')}><CheckCircle2 size={14} /> {tr('ui.godkann_alla_attesterade')}{attested.length})</button>}
+        </>}>
+        {reports.length === 0 ? (
+          <p className="ws-hint">{tr('ui.ingen_tid_loggad_denna_manad_annu')}</p>
+        ) : (
+          <div className="tr-approvals">
+            {reports.map(r => {
+              const stage = TIME_REPORT_STAGES.indexOf(r.status);
+              const ActionIcon = ACTION_ICON[r.status];
+              return (
+                <div key={r.person.id} className={`tr-approval${r.status === 'approved' ? ' done' : ''}`}>
+                  <button type="button" className="tr-approval-who" onClick={() => setOpenReport(r)}>
+                    <span className="lg-avatar" aria-hidden="true">{(r.person.name || '?').charAt(0).toUpperCase()}</span>
+                    <span className="ws-name-text">
+                      <strong>{r.person.name}</strong>
+                      <small>{tr('proj.entries', { n: r.entries.length })} · {formatHours(r.hours)} {tr('ui.h')}</small>
+                    </span>
+                  </button>
+                  <ol className="tr-steps" aria-label={tr('ui.status')}>
+                    {TIME_REPORT_STAGES.map((st, i) => (
+                      <li key={st} className={`${i < stage ? 'past' : ''}${i === stage ? ' now' : ''}`}>
+                        <i aria-hidden="true">{i < stage || st === 'approved' && i === stage ? <CheckCircle2 size={14} /> : null}</i>
+                        <span>{TIME_REPORT_STATUS[st].label}</span>
+                      </li>
+                    ))}
+                  </ol>
+                  <div className="tr-approval-actions">
+                    {r.status !== 'pending' && <button type="button" className="agi-btn" onClick={() => revert(r)} title={tr('ui.skicka_tillbaka_ett_steg')}><Undo2 size={14} /> {tr('proj.back')}</button>}
+                    {ActionIcon
+                      ? <button type="button" className="agi-btn primary" onClick={() => advance(r)}><ActionIcon size={14} /> {ACTION_LABEL[r.status]}</button>
+                      : <span className="agi-pill ok">{tr('proj.allDone')}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Panel>
+
+      <Panel
         title={<span style={{ textTransform: 'capitalize' }}>{formatMonthLabel(month)}</span>}
-        sub={tr('proj.calendarSub')}
+        sub={tr('proj.calendarSubV2')}
         actions={<>
           <button type="button" className="agi-btn" style={{ padding: '0 8px' }} onClick={onPrevMonth} aria-label={tr('proj.prevMonth')}><ChevronLeft size={16} /></button>
           <input type="month" className="ws-input" style={{ width: 'auto', height: '36px' }} value={month} aria-label={tr('proj.pickMonth')} onChange={e => e.target.value && onPickMonth(e.target.value)} />
@@ -493,50 +538,6 @@ function TimeReportsView({ timeEntries, employees, projects = [], timeReportStat
                 ))}
               </ul>
             )}
-          </div>
-        )}
-      </Panel>
-
-      <Panel
-        title={tr('proj.approval')}
-        sub={tr('proj.reportsSub')}
-        actions={<>
-          {submitted.length > 0 && <button type="button" className="agi-btn" onClick={() => bulkAdvance('submitted')}><ClipboardCheck size={14} /> {tr('ui.attestera_alla_inskickade')}{submitted.length})</button>}
-          {attested.length > 0 && <button type="button" className="agi-btn primary" onClick={() => bulkAdvance('attested')}><CheckCircle2 size={14} /> {tr('ui.godkann_alla_attesterade')}{attested.length})</button>}
-        </>}>
-        {reports.length === 0 ? (
-          <p className="ws-hint">{tr('ui.ingen_tid_loggad_denna_manad_annu')}</p>
-        ) : (
-          <div className="tr-approvals">
-            {reports.map(r => {
-              const stage = TIME_REPORT_STAGES.indexOf(r.status);
-              const ActionIcon = ACTION_ICON[r.status];
-              return (
-                <div key={r.person.id} className={`tr-approval${r.status === 'approved' ? ' done' : ''}`}>
-                  <button type="button" className="tr-approval-who" onClick={() => setOpenReport(r)}>
-                    <span className="lg-avatar" aria-hidden="true">{(r.person.name || '?').charAt(0).toUpperCase()}</span>
-                    <span className="ws-name-text">
-                      <strong>{r.person.name}</strong>
-                      <small>{tr('proj.entries', { n: r.entries.length })} · {formatHours(r.hours)} {tr('ui.h')}</small>
-                    </span>
-                  </button>
-                  <ol className="tr-steps" aria-label={tr('ui.status')}>
-                    {TIME_REPORT_STAGES.map((st, i) => (
-                      <li key={st} className={`${i < stage ? 'past' : ''}${i === stage ? ' now' : ''}`}>
-                        <i aria-hidden="true">{i < stage || st === 'approved' && i === stage ? <CheckCircle2 size={14} /> : null}</i>
-                        <span>{TIME_REPORT_STATUS[st].label}</span>
-                      </li>
-                    ))}
-                  </ol>
-                  <div className="tr-approval-actions">
-                    {r.status !== 'pending' && <button type="button" className="agi-btn" onClick={() => revert(r)} title={tr('ui.skicka_tillbaka_ett_steg')}><Undo2 size={14} /> {tr('proj.back')}</button>}
-                    {ActionIcon
-                      ? <button type="button" className="agi-btn primary" onClick={() => advance(r)}><ActionIcon size={14} /> {ACTION_LABEL[r.status]}</button>
-                      : <span className="agi-pill ok">{tr('proj.allDone')}</span>}
-                  </div>
-                </div>
-              );
-            })}
           </div>
         )}
       </Panel>
@@ -604,8 +605,16 @@ function ProjectDetail({ project, timeEntries, setTimeEntries, setProjects, invo
     setLog(l => ({ ...l, hours: '', description: '' }));
   };
   const removeTime = (entry) => {
-    setTimeEntries(prev => prev.filter(t => t.id !== entry.id));
+    let index = -1;
+    setTimeEntries(prev => { index = prev.findIndex(x => x.id === entry.id); return prev.filter(x => x.id !== entry.id); });
     setProjects(prev => prev.map(p => (p.id === project.id ? { ...p, timeSpent: Math.max(0, (p.timeSpent || 0) - entry.hours) } : p)));
+    showUndo({
+      message: tr('undo.timeRemoved'),
+      onUndo: () => {
+        setTimeEntries(prev => restoreAt(prev, entry, index));
+        setProjects(prev => prev.map(p => (p.id === project.id ? { ...p, timeSpent: (p.timeSpent || 0) + entry.hours } : p)));
+      },
+    });
   };
   const toggleFinished = () => setProjects(prev => prev.map(p => (p.id === project.id ? { ...p, status: p.status === 'finished' ? 'active' : 'finished' } : p)));
 
@@ -879,12 +888,16 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
     <div style={{ flex: 1, minHeight: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
         title={tr('nav.projects')}
-        actions={[{ key: 'new', label: tr('ui.nytt_projekt'), icon: Plus, onClick: openNewProjectForm, variant: 'primary', dataTour: 'page-projects-cta' }]}
+        actions={openProject ? [] : [{ key: 'new', label: tr('ui.nytt_projekt'), icon: Plus, onClick: openNewProjectForm, variant: 'primary', dataTour: 'page-projects-cta' }]}
         tabs={{ items: [{ id: 'projects', label: tr('ui.projekt') }, { id: 'time', label: tr('ui.tidrapportering') }], activeId: activeTab, onChange: handleSetTab }}
       />
 
       {activeTab === 'projects' && !openProject && projects.length > 0 && (
         <ListFilterBar>
+          <div style={{ position: 'relative' }}>
+            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input type="text" className="ws-input" style={{ height: '34px', paddingLeft: '32px', fontSize: '13px' }} placeholder={tr('ui.sok_projekt_eller_kund')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          </div>
           <div className="ws-seg">
             {[{ id: 'active', label: tr('proj.ongoing') }, { id: 'archived', label: tr('proj.finished') }, { id: 'all', label: tr('ui.alla') }].map(f => (
               <button key={f.id} type="button" className={statusFilter === f.id ? 'on' : ''} onClick={() => setStatusFilter(f.id)}>{f.label}</button>
@@ -896,15 +909,11 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
               {departmentNames.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           )}
-          <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '180px', maxWidth: '320px' }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input type="text" className="ws-input" style={{ height: '34px', paddingLeft: '32px', fontSize: '13px' }} placeholder={tr('ui.sok_projekt_eller_kund')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-          </div>
         </ListFilterBar>
       )}
 
       {activeTab === 'time' && (
-        <ListFilterBar>
+        <ListFilterBar collapsed={false}>
           <div className="ws-seg">
             {[{ id: 'week', label: tr('ui.vecka') }, { id: 'reports', label: tr('proj.monthReports') }].map(x => (
               <button key={x.id} type="button" className={timeSubTab === x.id ? 'on' : ''} onClick={() => setTimeSubTab(x.id)}>{x.label}</button>
@@ -938,20 +947,24 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
           </div>
         ) : (
           <div className="ws-page ws-edge">
-            <Panel title={tr('proj.overview')} sub={tr('proj.overviewSub', { n: activeProjects.length })}>
-              <KpiGrid>
-                <Kpi dot={palette.income} label={tr('proj.toInvoice')} value={formatSEK(totals.unbilledValue)} sub={totals.unbilledHours > 0 ? tr('proj.toInvoiceSub', { h: formatHours(totals.unbilledHours) }) : tr('proj.allBilled')} />
-                <Kpi dot={palette.profit} label={tr('ui.nedlagd_tid')} value={`${formatHours(totals.hours)} ${tr('ui.h')}`} sub={totals.budget ? tr('proj.ofBudget', { h: formatHours(totals.budget) }) : tr('ui.ingen_budget_satt')} />
-                <Kpi dot={palette.income} label={tr('ui.fakturerat')} value={formatSEK(totals.revenue)} sub={tr('proj.exVat')} />
-                <Kpi dot={totals.revenue - totals.cost < 0 ? palette.loss : palette.profit} label={tr('proj.result')} value={formatSEK(totals.revenue - totals.cost)} negative={totals.revenue - totals.cost < 0} sub={tr('proj.costs', { kr: formatSEK(totals.cost) })} />
-              </KpiGrid>
+            {/* Översikten som i Harvest (2026-11-22): det som går att fakturera
+                först, tiden mot budget med en mätare, sedan fakturerat och
+                resultat med marginal. Ingen egen rubrik, siffrorna säger det. */}
+            <Panel>
+              <Overview items={[
+                { key: 'unbilled', label: tr('proj.toInvoice'), value: formatSEK(totals.unbilledValue), sub: totals.unbilledHours > 0 ? tr('proj.toInvoiceSub', { h: formatHours(totals.unbilledHours) }) : tr('proj.allBilled'), tone: totals.unbilledHours > 0 ? undefined : 'ok' },
+                { key: 'hours', label: tr('ui.nedlagd_tid'), value: `${formatHours(totals.hours)} ${tr('ui.h')}`, meter: totals.budget ? totals.hours / totals.budget : null, sub: totals.budget ? tr('proj.ofBudgetPct', { h: formatHours(totals.budget), pct: Math.round((totals.hours / totals.budget) * 100) }) : tr('ui.ingen_budget_satt'), tone: totals.budget && totals.hours > totals.budget ? 'bad' : totals.budget && totals.hours / totals.budget >= 0.8 ? 'warn' : undefined },
+                { key: 'revenue', label: tr('ui.fakturerat'), value: formatSEK(totals.revenue), sub: tr('proj.ovProjects', { n: activeProjects.length }) },
+                { key: 'result', label: tr('proj.result'), value: formatSEK(totals.revenue - totals.cost), sub: totals.revenue > 0 ? tr('proj.ovMargin', { pct: Math.round(((totals.revenue - totals.cost) / totals.revenue) * 100), kr: formatSEK(totals.cost) }) : tr('proj.costs', { kr: formatSEK(totals.cost) }), tone: totals.revenue - totals.cost < 0 ? 'bad' : undefined },
+              ]} />
+              {atRisk.length > 0 && (
+                <div className="ws-tasks">
+                  <div className="ws-task ws-task--warn">
+                    <span className="ws-task-text"><strong>{tr('proj.atRisk', { n: atRisk.length })}</strong><small>{atRisk.map(p => p.name).join(', ')}</small></span>
+                  </div>
+                </div>
+              )}
             </Panel>
-
-            {atRisk.length > 0 && (
-              <div className="ws-notice warn">
-                <div><strong>{tr('proj.atRisk', { n: atRisk.length })}</strong><p>{atRisk.map(p => p.name).join(', ')}</p></div>
-              </div>
-            )}
 
             <Panel
               title={statusFilter === 'archived' ? tr('proj.finished') : statusFilter === 'all' ? tr('proj.allProjects') : tr('proj.ongoingProjects')}

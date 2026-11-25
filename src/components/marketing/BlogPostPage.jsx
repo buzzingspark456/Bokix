@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Copy, Info, Sparkles, AlertTriangle } from '../icons';
 import { ProgramLogo } from '../shared/BrandLogos';
@@ -10,6 +10,7 @@ import { PageMeta, JsonLd, SITE_URL, schemaDate } from '../../utils/seo';
 import { ALL_ARTICLES } from '../../content/marketing/news';
 import { MIGRATION_SOURCES } from '../../utils/migrationSources';
 import { BLOG_SHOTS, BLOG_SHOT_WIDTH, BLOG_SHOT_HEIGHT, blogShotSrc } from '../../content/marketing/blogShots';
+import { assetUrl } from '../../utils/assetUrl';
 
 // ── En bloggartikel (/blogg/<slug>) ─────────────────────────────────────
 // Renderar ett inlägg ur BLOG_POSTS (content/marketing/blog.js) som har ett
@@ -226,87 +227,21 @@ function Block({ block, id }) {
   }
 }
 
-// Läsprogress som RIDER PÅ linjen i stället för att flyta som en egen
-// bricka uppe i hörnet — kundfeedback: den gamla brickan låg rakt ovanpå
-// "Kom igång"-knappen i headern. Linjen ligger nu direkt UNDER headern
-// (top: HEADER_H, headerns egen höjd i MarketingLayout.jsx) i stället för
-// på rad 0, så den aldrig kan krocka med knappen eller logotypen oavsett
-// hur långt man läst. En liten lysande pigg glider längs linjens framkant
-// och en procentbricka följer med, båda positionerade med samma `left:
-// pct%` mot viewporten (samma gradient som resten av varumärket, ingen ny
-// färg). Vid 100 % byts texten mot en bock — en liten belöning för att
-// faktiskt ha läst klart, inte bara ett tal som försvinner.
-const HEADER_H = 84;
-
-function ReadingProgress({ targetRef }) {
-  const fillRef = useRef(null);
-  // Positionen (left: NN%) sätts imperativt på puck/bricka via ref, precis
-  // som fill-stapelns scaleX — en scroll-handler i React state hade
-  // triggat en omrendering per scroll-event, kännbart hackigt på en sida
-  // med tunga bilder/diagram. Bara SIFFRAN och synlighets-/klart-läget
-  // (som faktiskt behöver rendera om text/ikon) ligger i state.
-  const puckRef = useRef(null);
-  const pctElRef = useRef(null);
-  const [pct, setPct] = useState(0);
-  const [visible, setVisible] = useState(false);
-  const [done, setDoneFlag] = useState(false);
-  useEffect(() => {
-    const onScroll = () => {
-      const el = targetRef.current;
-      const fill = fillRef.current;
-      const puck = puckRef.current;
-      const pctEl = pctElRef.current;
-      if (!el || !fill || !puck || !pctEl) return;
-      const rect = el.getBoundingClientRect();
-      const total = rect.height - window.innerHeight * 0.6;
-      const progress = Math.min(1, Math.max(0, (window.innerHeight * 0.2 - rect.top) / Math.max(total, 1)));
-      const leftPct = `${(progress * 100).toFixed(2)}%`;
-      fill.style.transform = `scaleX(${progress})`;
-      puck.style.left = leftPct;
-      pctEl.style.left = leftPct;
-      setPct(Math.round(progress * 100));
-      setVisible(progress > 0.01);
-      setDoneFlag(progress >= 0.985);
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); };
-  }, [targetRef]);
-  return (
-    <div className="bxp-progress" aria-hidden="true">
-      <div className="bxp-progress-track"><div ref={fillRef} className="bxp-progress-fill" /></div>
-      <div ref={puckRef} className={`bxp-progress-puck${visible ? ' is-visible' : ''}${done ? ' is-done' : ''}`} />
-      <div ref={pctElRef} className={`bxp-progress-pct${visible ? ' is-visible' : ''}${done ? ' is-done' : ''}`}>
-        {done ? <><Check size={11} strokeWidth={3} /> Klart</> : `${pct} %`}
-      </div>
-    </div>
-  );
-}
 
 const CSS = `
   #lp-root { overflow-x: clip !important; }
 
-  /* Läsprogressen ligger under headern (top: ${HEADER_H}px = MarketingLayout.jsx:s
-     navhöjd), aldrig ovanpå den — se kommentaren vid ReadingProgress. */
-  .bxp-progress { position: fixed; top: ${HEADER_H}px; left: 0; right: 0; height: 0; z-index: 999; pointer-events: none; }
-  .bxp-progress-track { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--mkt-border-soft, rgba(0,0,0,0.08)); overflow: hidden; }
-  .bxp-progress-fill { height: 100%; transform: scaleX(0); transform-origin: 0 50%; background: linear-gradient(90deg, #0ea5e9, #14b8a6, #84cc16); transition: transform 0.08s linear; }
 
-  .bxp-progress-puck {
     position: absolute; top: 0; width: 11px; height: 11px; margin: -4px 0 0 -5.5px; border-radius: 50%;
     background: linear-gradient(135deg, #0ea5e9, #14b8a6, #84cc16);
     opacity: 0; transition: left 0.08s linear, opacity 0.25s, transform 0.25s;
     animation: bxpPulse 2.4s ease-in-out infinite;
   }
-  .bxp-progress-puck.is-visible { opacity: 1; }
-  .bxp-progress-puck.is-done { animation: none; transform: scale(1.15); box-shadow: 0 0 0 5px rgba(20, 184, 166, 0.16); }
   @keyframes bxpPulse {
     0%, 100% { box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.14); }
     50% { box-shadow: 0 0 0 6px rgba(20, 184, 166, 0.22); }
   }
 
-  .bxp-progress-pct {
     position: absolute; top: 14px; transform: translateX(-50%) translateY(-4px);
     display: flex; align-items: center; gap: 4px;
     font-size: 11.5px; font-weight: 800; letter-spacing: 0.02em; color: ${INK}; white-space: nowrap;
@@ -314,24 +249,19 @@ const CSS = `
     padding: 4px 9px; border-radius: 999px; opacity: 0; transition: left 0.08s linear, opacity 0.25s, transform 0.25s;
     font-variant-numeric: tabular-nums;
   }
-  .bxp-progress-pct.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
-  .bxp-progress-pct.is-done { color: var(--mkt-accent-green-fg); border-color: transparent; background: var(--mkt-accent-green-soft); }
-  @media (max-width: 560px) { .bxp-progress-pct { font-size: 11px; padding: 3.5px 8px; } }
-  @media (prefers-reduced-motion: reduce) { .bxp-progress-puck { animation: none; } }
 
-  .bxp-head { max-width: 992px; margin: 0 auto; }
-  .bxp-h1, .bxp-lede { max-width: 760px; }
-  .bxp-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; font-size: 13.5px; color: ${MUTED}; margin-bottom: 22px; }
+  .bxp-head { max-width: 992px; margin: 0 auto; text-align: center; }
+  .bxp-h1, .bxp-lede { max-width: 760px; margin-left: auto !important; margin-right: auto !important; text-align: center !important; }
+  .bxp-head .bxp-cat { display: table; margin-left: auto; margin-right: auto; }
+  .bxp-crumbs { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 7px; font-size: 13.5px; color: ${MUTED}; margin-bottom: 22px; }
   .bxp-crumbs a { color: ${MUTED}; text-decoration: none; font-weight: 600; }
   .bxp-crumbs a:hover { color: ${INK}; text-decoration: underline; }
   .bxp-cat { display: inline-block; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mkt-accent-green-fg); background: var(--mkt-accent-green-soft); padding: 5px 12px; border-radius: 999px; text-decoration: none; margin-bottom: 18px; }
   .bxp-h1 { font-family: ${SERIF}; font-size: clamp(31px, 5vw, 50px); font-weight: 700; letter-spacing: -0.018em; color: ${INK}; margin: 0 0 18px; line-height: 1.1; }
   .bxp-lede { font-size: clamp(17px, 2.1vw, 20px); line-height: 1.6; color: ${INK_SOFT}; margin: 0 0 24px; }
-  .bxp-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 13.5px; color: ${MUTED}; font-weight: 500; }
-  .bxp-meta img { width: 34px; height: 34px; border-radius: 50%; display: block; border: 1px solid ${CARD_BORDER}; }
-  .bxp-meta strong { color: ${INK}; font-weight: 700; }
+  .bxp-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 14px; font-size: 13.5px; color: ${MUTED}; font-weight: 500; }
   .bxp-meta .dot { width: 3px; height: 3px; border-radius: 50%; background: ${MUTED}; opacity: 0.6; }
-  @media (max-width: 560px) { .bxp-meta .dot { display: none; } .bxp-meta { gap: 6px 16px; } .bxp-meta img { margin-right: -6px; } }
+  @media (max-width: 560px) { .bxp-meta .dot { display: none; } .bxp-meta { gap: 6px 16px; } }
 
   .bxp-hero { max-width: 1040px; margin: 0 auto; padding: 36px 24px 0; }
   .bxp-hero img { width: 100%; height: auto; aspect-ratio: 1200 / 630; display: block; border-radius: 20px; border: 1px solid ${CARD_BORDER}; box-shadow: ${CARD_SHADOW}; background: var(--mkt-card-bg); }
@@ -412,7 +342,6 @@ const CSS = `
 
 export default function BlogPostPage({ slug }) {
   const navigate = useNavigate();
-  const articleRef = useRef(null);
   const post = ALL_ARTICLES.find(p => p.slug === slug && p.body);
 
   const h2Ids = post ? post.body.filter(b => b.t === 'h2').map(b => slugify(b.x)) : [];
@@ -434,7 +363,7 @@ export default function BlogPostPage({ slug }) {
       url: `${SITE_URL}${post.path}`,
       inLanguage: 'sv-SE',
       // Omslaget först, sedan skärmbilderna i texten: alla är bilder som hör till artikeln.
-      image: [post.image, ...post.body.filter(b => b.t === 'image' && BLOG_SHOTS[b.shot]).map(b => blogShotSrc(b.shot))].map(src => `${SITE_URL}${src}`),
+      image: [post.image, ...post.body.filter(b => b.t === 'image' && BLOG_SHOTS[b.shot]).map(b => blogShotSrc(b.shot))].map(src => assetUrl(`${SITE_URL}${src}`)),
       datePublished: schemaDate(post.datePublished),
       dateModified: schemaDate(post.dateModified),
       articleSection: post.category,
@@ -470,7 +399,6 @@ export default function BlogPostPage({ slug }) {
       />
       {schema.map((s, i) => <JsonLd key={i} data={s} />)}
       <style>{CSS}</style>
-      <ReadingProgress targetRef={articleRef} />
 
       <section style={{ padding: '132px 24px 0', background: IVORY }}>
         <div className="bxp-head">
@@ -483,9 +411,6 @@ export default function BlogPostPage({ slug }) {
           <h1 className="bxp-h1">{post.title}</h1>
           <p className="bxp-lede">{post.excerpt}</p>
           <div className="bxp-meta">
-            <img src="/icon-192.png" alt="Bokix logotyp" width="34" height="34" />
-            <strong>Bokix-teamet</strong>
-            <span className="dot" aria-hidden="true" />
             <span>Publicerad {formatDate(post.datePublished)}</span>
             {post.dateModified !== post.datePublished ? <><span className="dot" aria-hidden="true" /><span>Uppdaterad {formatDate(post.dateModified)}</span></> : null}
             <span className="dot" aria-hidden="true" />
@@ -496,11 +421,11 @@ export default function BlogPostPage({ slug }) {
 
       <div style={{ background: IVORY }}>
         <div className="bxp-hero">
-          <img src={post.image} alt={post.imageAlt} width="1200" height="630" fetchPriority="high" />
+          <img src={assetUrl(post.image)} alt={post.imageAlt} width="1200" height="630" fetchPriority="high" />
         </div>
 
         <div className="bxp-layout">
-          <article className="bxp-main" ref={articleRef}>
+          <article className="bxp-main">
             {post.body.map((block, i) => (
               <Block key={i} block={block} id={block.t === 'h2' ? h2Ids[h2i++] : undefined} />
             ))}
@@ -517,7 +442,7 @@ export default function BlogPostPage({ slug }) {
             <div className="bxp-rel">
               {others.map(o => (
                 <Link key={o.slug} to={o.path}>
-                  <img src={o.image} alt={o.imageAlt} loading="lazy" width="1200" height="630" />
+                  <img src={assetUrl(o.image)} alt={o.imageAlt} loading="lazy" width="1200" height="630" />
                   <div>
                     <small>{o.category}</small>
                     <b>{o.title}</b>

@@ -42,7 +42,7 @@ describe('bokföringsverktygens vyer', () => {
 
   it('Anläggningstillgångar ritar tomt läge utan data', () => {
     const out = html(React.createElement(FixedAssets, { company: {}, accounts, verifications: [], onAddVerification: noop, setCompanyInfo: noop }))
-    expect(out).toContain('Inga anläggningstillgångar')
+    expect(out).toContain('Inga tillgångar')
   })
 
   it('Periodiseringar ritar listan och tomt läge', () => {
@@ -58,15 +58,16 @@ describe('bokföringsverktygens vyer', () => {
 
   it('Lager ritar utan lagerlogg', () => {
     const out = html(React.createElement(Inventory, { articles: [], company: {}, verifications: [], onAddVerification: noop, setCompanyInfo: noop }))
-    expect(out).toContain('Inget lager värderat')
+    expect(out).toContain('Inga varor än')
   })
 
-  it('Prissättning visar marginalen och räknaren med fyra flikar', () => {
+  it('Prissättning visar marginalen, tabellen och knappen Räkna ut', () => {
     const out = html(React.createElement(PricingTool, { articles, setArticles: noop, company: {}, setCompanyInfo: noop }))
     expect(out).toContain('Kaffe')
-    expect(out).toContain('Vilket pris ska jag ta?')
+    // Räknaren öppnas med knappen Räkna ut (2026-11-24) och syns inte i sidan.
+    expect(out).toContain('Räkna ut')
     expect(out).toContain('60 %')
-    for (const tab of ['Rabatt', 'Nollpunkt', 'Timpris']) expect(out).toContain(tab)
+    for (const col of ['Utpris', 'Marginal', 'Förslag']) expect(out).toContain(col)
   })
 })
 
@@ -196,13 +197,13 @@ describe('lager från fakturor', () => {
   it('ritar valet, antalet efter fakturan och raden som såld på faktura', () => {
     const out = html(React.createElement(Inventory, { articles, invoices, company: on, verifications: [], onAddVerification: noop, setCompanyInfo: noop }))
     // Tio inlevererade, fyra sålda på faktura 1001: sex kvar.
-    expect(out).toContain('6 st')
+    expect(out).toContain("<b>6</b> <small>st")
     expect(out).toContain('1 fakturarader räknas med')
   })
 
   it('utan valet påverkas inte lagret av fakturor', () => {
     const out = html(React.createElement(Inventory, { articles, invoices, company, verifications: [], onAddVerification: noop, setCompanyInfo: noop }))
-    expect(out).toContain('10 st')
+    expect(out).toContain("<b>10</b> <small>st")
     expect(out).not.toContain('fakturarader räknas med')
   })
 })

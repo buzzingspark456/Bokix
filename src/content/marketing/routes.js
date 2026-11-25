@@ -8,7 +8,7 @@
 // DEFAULT_LOCALE (sv) ligger alltid oprefixerad på sin bassökväg
 // (`/priser`). Övriga språk prefixas (`/no/priser`). Se localizedPath().
 
-import { ALL_ARTICLES } from './news.js';
+import { ARTICLE_ROUTES } from './articleRoutes.js';
 import { GUIDE_GROUPS } from './guides.js';
 import { ORG_TYPE_PAGES } from './orgTypes.js';
 import { FEATURE_PAGES } from './featurePages.js';
@@ -32,7 +32,7 @@ export const LOCALES = Object.keys(LOCALE_META);
 // fanns separat i entry-server.jsx/AppRouter.jsx.
 export const MARKETING_ROUTES = [
   '/', '/funktioner', '/priser', '/om-oss', '/kontakt',
-  '/byt-bokforingsprogram', '/koppla-bank', '/uf',
+  '/byt-bokforingsprogram', '/koppla-bank',
   // Bokföringsprogram per bolagsform (orgTypes.js).
   ...ORG_TYPE_PAGES.map(p => p.path),
   // Funktionssidor och sökordssidor (featurePages.js), samma komponent.
@@ -44,7 +44,7 @@ export const MARKETING_ROUTES = [
   '/verktyg/momsdatum', '/verktyg/arsredovisning',
   // Blogg- och nyhetsartiklarna (med `body`, se blog.js och news.js) —
   // härledda, så ett nytt inlägg dyker upp här av sig självt.
-  ...ALL_ARTICLES.filter(p => p.body).map(p => p.path),
+  ...ARTICLE_ROUTES.map(p => p.path),
 ];
 
 // Vilka av MARKETING_ROUTES som faktiskt har riktig, varumärkesskriven

@@ -113,8 +113,8 @@ export const PAY_TYPES = [
   // ── Rörlig ersättning ──
   {
     id: 'bonus', name: 'Bonus eller provision', kind: 'addition', unit: 'st',
-    basis: 'manual', defaultQuantity: 1, account: '7210',
-    help: 'Beskattas och ger arbetsgivaravgifter precis som vanlig lön.',
+    basis: 'manual', defaultQuantity: 1, account: '7210', oneTime: true,
+    help: 'Ett engångsbelopp: skatteavdraget räknas med Skatteverkets tabell för engångsbelopp. Ger arbetsgivaravgifter som vanlig lön.',
   },
   {
     id: 'holiday_pay_out', name: 'Semesterersättning', kind: 'addition', unit: 'st',
@@ -148,7 +148,7 @@ export const PAY_TYPES = [
   {
     id: 'car_benefit', name: 'Bilförmån', kind: 'benefit', unit: 'st',
     basis: 'manual', defaultQuantity: 1, account: '7385',
-    help: 'Förmånsvärdet räknas fram med Skatteverkets bilförmånsberäkning och skrivs in här.',
+    help: 'Fyll i bilens nybilspris, extrautrustning och fordonsskatt så räknas förmånsvärdet per månad ut enligt Skatteverkets formel. Gäller bilar i trafik från 1 juli 2021.',
   },
   {
     id: 'meal_benefit', name: 'Kostförmån', kind: 'benefit', unit: 'st',
@@ -166,6 +166,14 @@ export const PAY_TYPES = [
     id: 'mileage', name: 'Milersättning', kind: 'taxFree', unit: 'mil',
     basis: 'manual', account: '7331',
     help: 'Skattefri upp till Skatteverkets schablon per mil för egen bil i tjänsten. Kräver körjournal. Belopp därutöver är lön och läggs som ett tillägg i stället.',
+  },
+  {
+    // Utlägg som en anställd gjort för företaget (Underlag → Vem betalade →
+    // En anställd). Kvittot bokfördes mot 2820; raden betalar tillbaka och
+    // nollar skulden. Skattefritt, ingen arbetsgivaravgift, inte i AGI.
+    id: 'expense_refund', name: 'Utlägg', kind: 'taxFree', unit: 'st',
+    basis: 'manual', defaultQuantity: 1, account: '2820',
+    help: 'Pengar den anställda lagt ut för företaget, enligt kvitto. Betalas tillbaka utan skatt.',
   },
   {
     id: 'per_diem', name: 'Traktamente', kind: 'taxFree', unit: 'dagar',
@@ -198,7 +206,7 @@ export const PAY_TYPE_GROUPS = [
   { label: 'Rörlig ersättning', ids: ['bonus', 'sick_pay'] },
   { label: 'Frånvaro', ids: ['absence_unpaid', 'karensavdrag'] },
   { label: 'Förmåner', ids: ['car_benefit', 'meal_benefit', 'other_benefit'] },
-  { label: 'Skattefritt', ids: ['mileage', 'per_diem'] },
+  { label: 'Skattefritt', ids: ['mileage', 'per_diem', 'expense_refund'] },
   { label: 'Avdrag efter skatt', ids: ['garnishment', 'net_deduction_other'] },
 ];
 
@@ -241,6 +249,9 @@ export function computePayLine(line, employee) {
     payTypeId: payType.id,
     name: line.note ? `${payType.name} (${line.note})` : payType.name,
     kind: payType.kind,
+    // Engångsbelopp (bonus, retroaktiv lön): eget skatteavdrag, se
+    // payrollCalculation.js.
+    oneTime: Boolean(payType.oneTime),
     unit: payType.unit,
     account: payType.account,
     quantity,

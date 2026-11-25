@@ -39,7 +39,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // Testet i _offsiteBackup.test.js jämför listan med tabellerna i SQL-filerna.
 // system_events (driftloggar) hoppas medvetet över.
 export const TABLES = [
-  'user_data', 'user_data_history', 'subscriptions', 'trustpilot_invites', 'company_members', 'email_senders',
+  'user_data', 'user_data_history', 'subscriptions', 'trustpilot_invites', 'onboarding_emails', 'company_members', 'email_senders',
   // Vilket läge varje konto är i (blob eller tabeller, supabase-2026-10-25-steg-4a.sql).
   'storage_modes',
   // Företagen och deras poster. För konton som bara sparar i tabellerna

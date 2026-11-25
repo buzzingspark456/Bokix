@@ -7,6 +7,10 @@ import { PageMeta, JsonLd, SITE_URL } from '../../utils/seo';
 import { ORG_TYPE_BY_PATH, ORG_TYPE_PAGES } from '../../content/marketing/orgTypes';
 import { FEATURE_BY_PATH, FEATURE_PAGES, PAYROLL_CARD, INTEGRATIONS_CARD, HERO_VIDEO_DATE, HERO_VIDEO_DURATION, heroVideoFile } from '../../content/marketing/featurePages';
 import MoreCards from './MoreCards';
+import { DemoStyles } from './DemoPlayer';
+import ProductOrgPage from './ProductOrgPage';
+import { HighlightStrip, ProductHero, VideoSection, DEMO_BY_SLUG, ORG_EXTRAS_CSS } from './OrgTypeExtras';
+import { assetUrl } from '../../utils/assetUrl';
 
 // Jämförelsetabell (bara på sidor med `compare`, t.ex. alternativ till
 // Fortnox). På telefon blir varje rad ett eget kort.
@@ -55,6 +59,17 @@ export default function OrgTypePage({ path }) {
   const others = (isFeature ? FEATURE_PAGES : ORG_TYPE_PAGES).filter(p => p.path !== page.path);
   // Bara första bokstaven gemen: "handelsbolag och KB", inte "kb".
   const subject = page.short.charAt(0).toLowerCase() + page.short.slice(1);
+  // Produkthjälten (appen i ett fönster) när sidan har en demo; filmen flyttas
+  // då ned till en egen sektion så att den ljusa filmen inte är första intrycket.
+  const hasDemo = Boolean(DEMO_BY_SLUG[page.slug]);
+  const heroActions = (<>
+    <PrimaryButton onClick={enterApp}>Prova gratis i 30 dagar</PrimaryButton>
+    <GhostLink to="/boka-genomgang?om=passar">Boka en genomgång</GhostLink>
+  </>);
+  const heroVisual = page.video ? <HeroVideo file={heroVideoFile(page)} label={page.video.description} /> : <OrgTypeVisual slug={page.slug} />;
+  const videoBlock = hasDemo && page.video ? (
+    <VideoSection title={page.video.title}><HeroVideo file={heroVideoFile(page)} label={page.video.description} /></VideoSection>
+  ) : null;
 
   const faqSchema = {
     '@context': 'https://schema.org',
@@ -70,6 +85,12 @@ export default function OrgTypePage({ path }) {
     description: page.seoDescription,
     url: `${SITE_URL}${page.path}`,
     offers: { '@type': 'Offer', price: '129', priceCurrency: 'SEK' },
+    // Riktiga skärmbilder ur appen (hjältens flikar), så att Google har en
+    // bild att visa i sökresultat och bildsök. Delningsbilden som reserv.
+    image: assetUrl(`${SITE_URL}/og/${page.path.slice(1)}.jpg`),
+    ...(page.product?.heroTabs ? {
+      screenshot: page.product.heroTabs.map(t => ({ '@type': 'ImageObject', url: assetUrl(`${SITE_URL}/product/bokix-${t.shot}.jpg`), caption: t.caption })),
+    } : {}),
   };
 
   // Filmen överst får en VideoObject, så att Google kan visa den i sökresultaten.
@@ -78,7 +99,7 @@ export default function OrgTypePage({ path }) {
     '@type': 'VideoObject',
     name: page.video.title,
     description: page.video.description,
-    thumbnailUrl: [`${SITE_URL}/videos/hero/${heroVideoFile(page)}.jpg`],
+    thumbnailUrl: [assetUrl(`${SITE_URL}/videos/hero/${heroVideoFile(page)}.jpg`)],
     uploadDate: `${page.video.date || HERO_VIDEO_DATE}T08:00:00+02:00`,
     duration: HERO_VIDEO_DURATION,
     contentUrl: `${SITE_URL}/videos/hero/${heroVideoFile(page)}.mp4`,
@@ -86,6 +107,19 @@ export default function OrgTypePage({ path }) {
     isFamilyFriendly: true,
     publisher: { '@type': 'Organization', name: 'Bokix', url: SITE_URL, logo: { '@type': 'ImageObject', url: `${SITE_URL}/icon-512.png` } },
   } : null;
+
+  // Nya produktsidan (2026-11-07) för sidor som har `product`: riktiga
+  // bilder ur appen, se ProductOrgPage.jsx. Filmen visas inte där, den
+  // är från den gamla sidan och visar inte appen som den ser ut i dag.
+  if (page.product) {
+    const more = isFeature ? (
+      <KitSection title="Mer i Bokix" lead="Allt finns i samma bokföringsprogram, till samma pris." alt>
+        <MoreCards pages={[...others, PAYROLL_CARD, INTEGRATIONS_CARD]} />
+        <Link to="/funktioner" style={{ display: 'inline-block', marginTop: '20px', color: 'var(--mkt-accent-green-fg)', fontWeight: 600, fontSize: '15px' }}>Se alla funktioner</Link>
+      </KitSection>
+    ) : null;
+    return <ProductOrgPage page={page} schemas={[productSchema, faqSchema]} enterApp={enterApp} others={isFeature ? null : others} subject={subject} more={more} />;
+  }
 
   // Bolagsformssidorna (2026-10-17): samma upplägg på alla fem, men egen
   // animation och eget innehåll. Ingen knapp i hjälten (man vill läsa först), kort text,
@@ -98,24 +132,28 @@ export default function OrgTypePage({ path }) {
         <JsonLd data={faqSchema} />
         {videoSchema && <JsonLd data={videoSchema} />}
         <KitStyles />
-        <style>{`
-          .ot-hl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-          .ot-hl-card { background: var(--mkt-card-bg); border: 1px solid var(--mkt-card-border); border-radius: 16px; padding: 18px 18px 20px; }
-          .ot-hl-num { display: block; font-size: 12px; font-weight: 800; color: var(--mkt-accent-green-fg); margin-bottom: 10px; font-variant-numeric: tabular-nums; }
-          .ot-hl-text { font-size: 16px; font-weight: 700; color: var(--mkt-ink); line-height: 1.35; }
-          @media (max-width: 900px) { .ot-hl { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-          @media (max-width: 420px) { .ot-hl { grid-template-columns: 1fr; } }
-        `}</style>
+        <DemoStyles />
+        <style>{ORG_EXTRAS_CSS}</style>
 
-        <SubHero fitTitle title={page.title} lead={page.lead} visual={page.video ? <HeroVideo file={heroVideoFile(page)} label={page.video.description} /> : <OrgTypeVisual slug={page.slug} />} />
+        {/* 2026-11-07: knappar i hjälten, det viktigaste som en rad under,
+            en riktig appdemo, och "Det här ingår" och "Så kommer du igång"
+            som förut bara fanns på funktionssidorna. */}
+        {hasDemo ? (
+          <ProductHero slug={page.slug} title={page.title} lead={page.lead} actions={heroActions} />
+        ) : (
+          <SubHero fitTitle title={page.title} lead={page.lead} actions={heroActions} visual={heroVisual} />
+        )}
+        <HighlightStrip items={page.highlights} />
 
-        <KitSection title={`Det här gör Bokix för ${subject}`} lead="Allt ingår i samma pris.">
-          <div className="ot-hl">
-            {page.highlights.map((h, i) => (
-              <div key={h} className="ot-hl-card"><span className="ot-hl-num">0{i + 1}</span><span className="ot-hl-text">{h}</span></div>
-            ))}
-          </div>
+        <KitSection title="Det här ingår" lead="Allt ingår i samma pris. Inga tillägg per funktion och inga avgifter per faktura eller kvitto." alt>
+          <PointList items={page.included} />
         </KitSection>
+
+        <KitSection title="Så kommer du igång" lead="De flesta är igång samma dag.">
+          <StepList items={page.steps} />
+        </KitSection>
+
+        {videoBlock}
 
         <KitSection title={`Bra att veta om ${subject}`} alt>
           <SpecList items={page.facts} />
@@ -140,17 +178,15 @@ export default function OrgTypePage({ path }) {
       <JsonLd data={faqSchema} />
       {videoSchema && <JsonLd data={videoSchema} />}
       <KitStyles />
+      <DemoStyles />
+      <style>{ORG_EXTRAS_CSS}</style>
 
-      <SubHero
-        fitTitle
-        title={page.title}
-        lead={page.lead}
-        actions={<>
-          <PrimaryButton onClick={enterApp}>Prova gratis i 30 dagar</PrimaryButton>
-          <GhostLink to="/boka-genomgang?om=passar">Boka en genomgång</GhostLink>
-        </>}
-        visual={page.video ? <HeroVideo file={heroVideoFile(page)} label={page.video.description} /> : <OrgTypeVisual slug={page.slug} />}
-      />
+      {hasDemo ? (
+        <ProductHero slug={page.slug} title={page.title} lead={page.lead} actions={heroActions} />
+      ) : (
+        <SubHero fitTitle title={page.title} lead={page.lead} actions={heroActions} visual={heroVisual} />
+      )}
+      <HighlightStrip items={page.highlights} />
 
       {page.compare && (
         <KitSection title={page.compare.title} lead={page.compare.lead}>
@@ -169,6 +205,8 @@ export default function OrgTypePage({ path }) {
       <KitSection title="Så kommer du igång" lead="De flesta är igång samma dag." alt>
         <StepList items={page.steps} />
       </KitSection>
+
+      {videoBlock}
 
       <KitSection title="Vanliga frågor">
         <KitFaq items={page.faq} />

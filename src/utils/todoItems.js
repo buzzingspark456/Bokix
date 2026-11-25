@@ -13,8 +13,12 @@ import { nextVatDeadline, nextAgiDeadline, vatContextFor, incomeDeclarationDueDa
 import { annualReportDeadline } from './annualReport';
 import { detectOrgType } from './orgType';
 import { invoiceCustomerRemainingSek } from './rotRutConfig';
+import { orderStatus, rowLeftToInvoice, rowLeftToDeliver, applyInvoiceExistence, num as orderNum } from './salesOrders';
 import { activeFiscalYear } from './fiscalYear';
 import { numberFormat } from './intlCache';
+import { staleDocuments } from './looseDocuments';
+import { computeVatPeriod } from './vatCalculation';
+import { computeEmployeePayroll, summarizePayrollRun } from './payrollCalculation';
 
 // Försenat först, sedan det som närmar sig, sist det som är mindre bråttom.
 export const SEV_RANK = { danger: 0, warning: 1, success: 2 };
@@ -57,7 +61,7 @@ const fmtKr = (val) => {
  */
 export function buildTodoItems({
   t, company = {}, invoices = [], expenses = [], contacts = [], verifications = [],
-  payrollRuns = [], employees = [], agiReports = [], bankTransactions = [],
+  payrollRuns = [], employees = [], agiReports = [], bankTransactions = [], documents = [],
   vatPeriods = {}, reviewTotal = 0, hiddenNavIds = [], dismissedKeys = new Set(), today = new Date(),
 }) {
   const fmt = fmtKr;
@@ -67,7 +71,8 @@ export function buildTodoItems({
   const rows = [];
 
   // Förfallna kundfakturor.
-  const overdueInvoices = invoices.filter(i => i.status === 'sent' && calendarDaysOverdue(i.dueDate, today) > 0);
+  // Fakturor med 0 kr kvar (tomma, eller redan betalda/krediterade) räknas inte.
+  const overdueInvoices = invoices.filter(i => i.status === 'sent' && invoiceCustomerRemainingSek(i) > 0 && calendarDaysOverdue(i.dueDate, today) > 0);
   if (overdueInvoices.length > 0) {
     const one = overdueInvoices.length === 1 ? overdueInvoices[0] : null;
     const customer = one && contacts.find(c => c.id === one.customerId)?.name;
@@ -113,11 +118,28 @@ export function buildTodoItems({
   const vatQuarterHasActivity = vatDeadline && verifications.some(v => v.date && v.date >= vatDeadline.start && v.date <= vatDeadline.end);
   if (vatDeadline && vatQuarterHasActivity && vatDeadline.daysLeft <= 7) {
     const late = vatDeadline.daysLeft < 0;
+    // Beloppet att betala (eller få tillbaka) står med, så man ser vad det
+    // gäller utan att öppna momsen (2026-11-07). Som deklarationen: hela kronor.
+    let vatAmount = null;
+    let vatCalc = null;
+    try { vatCalc = computeVatPeriod({ verifications, periodStart: vatDeadline.start, periodEnd: vatDeadline.end }); vatAmount = Math.round(vatCalc.netToPay); } catch { vatAmount = null; }
+    // Markerad som inlämnad i uppgiftspanelen eller i Skatt och bokslut
+    // (company.taxFilings): kvar tills momsen är bokförd, men lugnare.
+    const filed = Boolean(company?.taxFilings?.[`vat:${vatDeadline.key}`]);
+    const amountText = vatAmount ? (vatAmount > 0 ? t('dashboard.todo.vatToPay', { amount: fmt(vatAmount) }) : t('dashboard.todo.vatRefund', { amount: fmt(-vatAmount) })) : null;
+    const dueText = late ? t('dashboard.todo.vatLate') : t('dashboard.todo.vatDue', { when: whenIn(vatDeadline.daysLeft) });
     rows.push({
-      kind: 'vat_deadline', group: 'tax', sev: late ? 'danger' : 'warning', daysLeft: vatDeadline.daysLeft, late,
-      tone: late ? 'bad' : 'warn', action: t('dashboard.todo.actionVat'), target: { tab: 'taxes_vat' },
+      kind: 'vat_deadline', group: 'tax', sev: filed ? 'success' : late ? 'danger' : 'warning', daysLeft: vatDeadline.daysLeft, late: late && !filed,
+      tone: filed ? 'brand' : late ? 'bad' : 'warn', action: t('dashboard.todo.actionVat'), target: { tab: 'taxes_vat' },
       title: vatDeadline.quarter ? t('dashboard.todo.vatTitle', { quarter: vatDeadline.quarter }) : t('dashboard.todo.vatTitleLabel', { label: vatDeadline.label }),
-      when: late ? t('dashboard.todo.vatLate') : t('dashboard.todo.vatDue', { when: whenIn(vatDeadline.daysLeft) }),
+      when: filed ? t('dashboard.todo.vatFiledBook') : amountText ? `${amountText} · ${dueText}` : dueText,
+      // Uppgiftspanelen (dashboard/VatTaskPanel.jsx) öppnas med det här.
+      task: {
+        type: 'vat', key: vatDeadline.key, start: vatDeadline.start, end: vatDeadline.end, dueDate: vatDeadline.dueDate,
+        daysLeft: vatDeadline.daysLeft, amount: vatAmount || 0, booked: Boolean(vatPeriods?.[vatDeadline.key]),
+        output: vatCalc ? Math.round(vatCalc.outputVatTotal || 0) : 0, input: vatCalc ? Math.round(vatCalc.inputVat || 0) : 0,
+        title: vatDeadline.quarter ? t('task.vat_titel_kvartal', { quarter: vatDeadline.quarter }) : t('task.vat_titel', { label: vatDeadline.label }),
+      },
     });
   }
 
@@ -128,11 +150,38 @@ export function buildTodoItems({
     const hasBookedPayroll = payrollRuns.some(r => r.period === agi.periodKey && r.completedSteps?.includes('booked'));
     const submitted = agiReports.some(r => r.period === agi.periodKey && r.status === 'submitted');
     if (hasBookedPayroll && !submitted && agi.daysLeft <= 7) {
+      // Skatt och arbetsgivaravgifter för månadens bokförda körningar, för
+      // uppgiftspanelen (dashboard/VatTaskPanel.jsx, 2026-11-15).
+      let totals = null;
+      try {
+        totals = payrollRuns
+          .filter(r => r.period === agi.periodKey && r.completedSteps?.includes('booked') && Array.isArray(r.rows))
+          .map(r => summarizePayrollRun(r.rows.map(row => computeEmployeePayroll(row.employeeSnapshot, row))))
+          .reduce((a, b) => ({ gross: a.gross + b.gross, tax: a.tax + b.tax, employerFee: a.employerFee + b.employerFee }), { gross: 0, tax: 0, employerFee: 0 });
+      } catch { totals = null; }
+      // Skatten och avgifterna som faktiskt bokades (2710, 273x) går före
+      // omräkningen, som kräver inläst skattetabell.
+      const runIds = payrollRuns.filter(r => r.period === agi.periodKey && r.completedSteps?.includes('booked')).map(r => r.id);
+      const payrollVers = verifications.filter(v => v.source === 'payroll' && runIds.some(id => String(v.sourceId || '').startsWith(`${id}_`)));
+      if (payrollVers.length) {
+        const credit = (test) => payrollVers.reduce((sum, v) => sum + (v.rows || []).filter(r => test(String(r.account))).reduce((a, r) => a + (Number(r.kredit) || 0) - (Number(r.debet) || 0), 0), 0);
+        totals = { gross: totals?.gross || 0, tax: credit(acc => acc === '2710'), employerFee: credit(acc => acc.startsWith('273')) };
+      }
+      const agiAmount = totals ? Math.round(totals.tax) + Math.round(totals.employerFee) : 0;
+      const dueText = t('dashboard.todo.vatDue', { when: whenIn(agi.daysLeft) });
+      const [py, pm] = agi.periodKey.split('-').map(Number);
+      const monthLabel = new Date(py, pm - 1, 1).toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
       rows.push({
         kind: 'agi_deadline', group: 'tax', sev: 'warning', daysLeft: agi.daysLeft,
-        tone: 'warn', action: t('dashboard.todo.actionAgi'), target: { tab: 'taxes' },
+        tone: 'warn', action: t('dashboard.todo.actionAgi'), target: { tab: 'taxes_agi' },
         title: t('dashboard.todo.agiTitle', { period: agi.periodKey }),
-        when: t('dashboard.todo.vatDue', { when: whenIn(agi.daysLeft) }),
+        when: agiAmount > 0 ? `${t('dashboard.todo.vatToPay', { amount: fmt(agiAmount) })} · ${dueText}` : dueText,
+        task: {
+          type: 'agi', key: agi.periodKey, dueDate: agi.dueDate, daysLeft: agi.daysLeft, booked: true,
+          amount: agiAmount, tax: totals ? Math.round(totals.tax) : 0, employerFee: totals ? Math.round(totals.employerFee) : 0,
+          gross: totals ? Math.round(totals.gross) : 0, month: monthLabel,
+          title: t('task.agi_titel', { month: monthLabel }),
+        },
       });
     }
   }
@@ -181,6 +230,19 @@ export function buildTodoItems({
     });
   }
 
+  // Underlag sparade utan avläsning som legat över 30 dagar okopplade
+  // (utils/looseDocuments.js). Lagen kräver att verifikationen visar var
+  // underlaget finns, så de ska kopplas.
+  const staleDocs = staleDocuments(documents, today);
+  if (staleDocs.length > 0 && shows('expenses')) {
+    rows.push({
+      kind: 'documents_unlinked', group: 'bookkeeping', sev: 'success', tone: 'brand',
+      action: t('dashboard.todo.actionDocuments'), target: { tab: 'expenses' },
+      title: staleDocs.length === 1 ? t('dashboard.todo.documentsOneTitle') : t('dashboard.todo.documentsManyTitle', { count: staleDocs.length }),
+      detail: t('dashboard.todo.documentsDetail'),
+    });
+  }
+
   // Banktransaktioner som inte är bokförda eller kopplade.
   const unmatchedBank = bankTransactions.filter(b => b.status === 'unmatched');
   if (unmatchedBank.length > 0) {
@@ -190,6 +252,47 @@ export function buildTodoItems({
       title: unmatchedBank.length === 1 ? t('dashboard.todo.bankOneTitle') : t('dashboard.todo.bankManyTitle', { count: unmatchedBank.length }),
       detail: t('dashboard.todo.bankDetail'),
     });
+  }
+
+  // Kundorder (2026-11-24): att leverera (försenade först) och att fakturera.
+  // Bara när Order syns i menyn (admin med artiklar, senare Handel-planen).
+  if (shows('orders')) {
+    const invoiceIds = new Map(invoices.map(i => [i.id, i]));
+    const orders = (company?.salesOrders || []).map(o => applyInvoiceExistence(o, invoiceIds));
+    const orderLabel = (o) => (o.customerName ? t('dashboard.todo.orderOne', { number: o.number, customer: o.customerName }) : t('dashboard.todo.orderOneNoCustomer', { number: o.number }));
+    const toDeliver = orders.filter(o => ['open', 'partial'].includes(orderStatus(o)) && (o.rows || []).some(rw => rowLeftToDeliver(rw) > 0));
+    if (toDeliver.length > 0) {
+      const one = toDeliver.length === 1 ? toDeliver[0] : null;
+      const dated = toDeliver.filter(o => o.deliveryDate);
+      const soonest = dated.length ? dated.reduce((min, o) => Math.min(min, daysUntil(o.deliveryDate, today)), Infinity) : null;
+      const lateCount = dated.filter(o => daysUntil(o.deliveryDate, today) < 0).length;
+      const late = lateCount > 0;
+      rows.push({
+        kind: 'orders_deliver', group: 'orders', sev: late ? 'danger' : soonest != null && soonest <= 2 ? 'warning' : 'success',
+        daysLeft: soonest ?? undefined, late, tone: late ? 'bad' : 'warn', primary: late,
+        action: one ? t('dashboard.todo.actionOrder') : t('dashboard.todo.actionOrders'),
+        target: one ? { tab: 'orders', action: { type: 'open_order', payload: { id: one.id } } } : { tab: 'orders' },
+        title: one ? t('dashboard.todo.deliverOneTitle', { order: orderLabel(one) }) : t('dashboard.todo.deliverManyTitle', { count: toDeliver.length }),
+        detail: [
+          late ? (lateCount === 1 ? t('dashboard.todo.ordersLateOne') : t('dashboard.todo.ordersLateMany', { count: lateCount })) : null,
+          !late && soonest != null ? t('dashboard.todo.deliveryWhen', { when: whenIn(Math.max(0, soonest)) }) : null,
+          toDeliver.some(o => orderStatus(o) === 'partial') ? t('dashboard.todo.ordersBackorder') : null,
+        ].filter(Boolean).join(' · ') || undefined,
+        when: late ? t('dashboard.todo.chipOverdue') : undefined,
+      });
+    }
+    const toInvoice = orders.filter(o => (o.rows || []).some(rw => rowLeftToInvoice(rw) > 0));
+    if (toInvoice.length > 0) {
+      const one = toInvoice.length === 1 ? toInvoice[0] : null;
+      const amount = toInvoice.reduce((sum, o) => sum + (o.rows || []).reduce((ss, rw) => ss + rowLeftToInvoice(rw) * orderNum(rw.unitPrice) * (1 - orderNum(rw.discount) / 100) * (1 + orderNum(rw.vatRate) / 100), 0), 0);
+      rows.push({
+        kind: 'orders_invoice', group: 'orders', sev: 'warning', tone: 'brand', primary: true,
+        action: one ? t('dashboard.todo.actionInvoiceOrder') : t('dashboard.todo.actionOrders'),
+        target: one ? { tab: 'orders', action: { type: 'open_order', payload: { id: one.id } } } : { tab: 'orders' },
+        title: one ? t('dashboard.todo.invoiceOrderOneTitle', { order: orderLabel(one) }) : t('dashboard.todo.invoiceOrderManyTitle', { count: toInvoice.length }),
+        detail: t('dashboard.todo.invoiceOrderDetail', { amount: fmt(amount) }),
+      });
+    }
   }
 
   // Fakturautkast som inte skickats.
@@ -265,7 +368,6 @@ export function buildTodoItems({
   if (verifications.length < 25) {
     const startSteps = [
       { kind: 'start_company', done: Boolean(company?.orgNr && company?.address && (company?.bankgiro || company?.plusgiro || company?.iban)), tab: 'company', title: t('dashboard.start.companyTitle'), detail: t('dashboard.start.companyDetail') },
-      { kind: 'start_vat', done: company?.vatRegistered === true || company?.vatRegistered === false, tab: 'settings_system', title: t('dashboard.start.vatTitle'), detail: t('dashboard.start.vatDetail') },
       { kind: 'start_receipt', done: expenses.length > 0, tab: 'expenses', title: t('dashboard.start.receiptTitle'), detail: t('dashboard.start.receiptDetail') },
       { kind: 'start_invoice', done: invoices.length > 0, tab: 'invoices', title: t('dashboard.start.invoiceTitle'), detail: t('dashboard.start.invoiceDetail') },
     ];

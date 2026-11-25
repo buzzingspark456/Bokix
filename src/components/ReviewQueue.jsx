@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ShieldCheck, CreditCard, Landmark, HelpCircle, FileText, Receipt, Info, RotateCcw, Paperclip, Pencil } from './icons';
+import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ChevronRight, ShieldCheck, CreditCard, Landmark, HelpCircle, FileText, Receipt, Info, RotateCcw, Paperclip, Pencil } from './icons';
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -7,10 +7,10 @@ import { confirmDialog } from './shared/ConfirmDialog';
 import { supabase } from '../supabaseClient';
 import { VAT_ACCOUNTS, REVENUE_ACCOUNTS } from './AccountsData';
 import { t } from '../i18n';
-import { StripeLogo, ZettleLogo } from './shared/BrandLogos';
 import { categorizeStripeItem, buildStripeVerification, isSafeStripeItem, STRIPE_FEE_ACCOUNT, BANK_ACCOUNT } from '../utils/stripeLedger';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { numberFormat, dateTimeFormat } from '../utils/intlCache';
+import { suggestAccount, needsUnderlagWork } from '../utils/underlagStep';
 
 const formatSEK = (val) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(val || 0);
 const formatMoney = (val, currency) => numberFormat('sv-SE', { style: 'currency', currency: (currency || 'sek').toUpperCase(), maximumFractionDigits: 2 }).format(val || 0);
@@ -65,13 +65,15 @@ const REVIEW_LIST_CSS = `
   .rq-meta { font-size: 11px; font-weight: 700; letter-spacing: 0.055em; text-transform: uppercase; color: var(--text-muted); line-height: 1.5; }
   .rq-title { font-size: 14.5px; font-weight: 600; color: var(--text-main); margin-top: 5px; line-height: 1.45; }
   .rq-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
-  .rq-src { display: flex; gap: 14px; align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
-  .rq-src-logo { width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--bg-card); border: 1px solid var(--border); overflow: hidden; color: var(--text-secondary); }
-  .rq-src-title { font-size: 15px; font-weight: 700; color: var(--text-main); }
-  .rq-src-text { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-top: 2px; }
+  /* Kompakt källrad (2026-11-14): logga, rubrik och förklaring på en rad. */
+  .rq-src { display: flex; gap: 12px; align-items: center; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
+  .rq-src-logo { width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--bg-card); border: 1px solid var(--border); overflow: hidden; color: var(--text-secondary); }
+  .rq-src-title { display: inline; font-size: 13.5px; font-weight: 700; color: var(--text-main); margin-right: 8px; }
+  .rq-src-text { display: inline; font-size: 12.5px; color: var(--text-muted); line-height: 1.45; }
   .rq-src-stats { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; flex-shrink: 0; }
-  .rq-stat { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
-  .rq-src-wordmark { display: flex; align-items: center; height: 28px; margin-bottom: 4px; }
+  .rq-stat { padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .rq-src-wordmark { display: inline-flex; align-items: center; height: 18px; margin-right: 10px; vertical-align: middle; }
+  .rq-src-wordmark svg, .rq-src-wordmark img { height: 18px; width: auto; }
   .rq-section { position: sticky; top: 0; z-index: 2; padding: 9px 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.055em; text-transform: uppercase; color: var(--text-muted); background: var(--bg-muted); border-bottom: 1px solid var(--border-light); }
   .rq-row + .rq-section { border-top: 1px solid var(--border-light); }
   .rq-more { display: block; width: 100%; padding: 12px; border: none; border-top: 1px solid var(--border-light); background: var(--bg-card); color: var(--accent-text); font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; }
@@ -91,7 +93,7 @@ const REVIEW_LIST_CSS = `
   :root[data-theme="dark"] .rq-src .lp-logo-light { display: none; }
   :root[data-theme="dark"] .rq-src .lp-logo-dark { display: inline-block; }
   @media (max-width: 640px) {
-    .rq-src { flex-wrap: wrap; padding: 14px; gap: 12px; }
+    .rq-src { flex-wrap: wrap; padding: 10px 14px; gap: 8px 10px; }
     .rq-src-stats { justify-content: flex-start; width: 100%; }
     .rq-section { padding: 8px 14px; }
     .rq-account-picker { flex-direction: column; align-items: stretch !important; }
@@ -130,6 +132,72 @@ const BADGE_TONES = {
   blue: { bg: 'var(--status-blue-bg)', fg: 'var(--status-blue-text)' },
   neutral: { bg: 'var(--border-light)', fg: 'var(--text-secondary)' },
 };
+
+/**
+ * Tunn granskningsrad för underlag (nya Underlag, 2026-11-20): namn, belopp,
+ * konto och knapp på en rad. Pilen fäller ut detaljerna och Öppna underlag.
+ */
+function ThinReviewRow({ item, accounts, onApprove, onReject, exiting, selected, onToggleSelect, onOpenDoc }) {
+  const [open, setOpen] = useState(false);
+  const [changing, setChanging] = useState(false);
+  const [manual, setManual] = useState('');
+  const acc = accounts.find(a => a.code === item.account);
+  const who = item.supplier || item.description || t('ui.okant_inkopsstalle');
+  const kind = item.type === 'supplier_invoice' ? t('ui.leverantorsfaktura_stor') : t('ui.kvitto');
+  const picking = !item.account || changing;
+  return (
+    <div className={`rqt${open ? ' is-open' : ''}`} style={{ opacity: exiting ? 0 : 1, transform: exiting ? 'translateX(24px)' : 'none', transition: 'opacity 0.22s ease, transform 0.22s ease' }}>
+      <div className="rqt-main">
+        <input
+          type="checkbox" className="rqt-check" checked={selected} disabled={!item.account}
+          onChange={onToggleSelect} aria-label={who}
+          title={item.account ? t('ui.markera_for_att_godkanna_flera_pa_en_gang') : t('ui.posten_saknar_konto')}
+        />
+        <button type="button" className="rqt-name" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+          <b>{who}</b>
+          <small>{kind} · {formatDate(item.date)}{Number(item.vatAmount) ? ` · ${t('underlag.rowVat', { kr: formatSEK(item.vatAmount) })}` : ''}</small>
+        </button>
+        <span className="rqt-amount">{Number(item.amount) ? formatSEK(item.amount) : '–'}</span>
+        <div className="rqt-account">
+          {picking
+            ? <AccountSearch value={manual} onChange={setManual} accounts={accounts} placeholder={t('ui.sok_konto_2')} />
+            : <span className={`rqt-sugg ${item.confident ? 'is-sure' : 'is-check'}`} title={item.confident ? t('ui.sakert_forslag') : t('ui.osakert_forslag')}>
+                <i />{item.account} {acc?.name || ''}
+              </span>}
+        </div>
+        <div className="rqt-act">
+          {picking ? (
+            <>
+              <button type="button" className="rqt-btn is-primary" disabled={!manual} onClick={() => onReject(item, manual)}><Check size={14} /> {t('underlag.book')}</button>
+              {changing && <button type="button" className="rqt-btn" onClick={() => { setChanging(false); setManual(''); }}>{t('ui.avbryt')}</button>}
+            </>
+          ) : (
+            <>
+              <button type="button" className="rqt-btn is-primary" onClick={() => onApprove(item)}><Check size={14} /> {t('ui.godkann')}</button>
+              <button type="button" className="rqt-btn" onClick={() => setChanging(true)}>{t('underlag.changeAccount')}</button>
+            </>
+          )}
+          <button type="button" className="rqt-toggle" onClick={() => setOpen(o => !o)} aria-label={t('ui.visa_detaljer')} title={t('ui.visa_detaljer')}>
+            {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+        </div>
+      </div>
+      {open && (
+        <div className="rqt-detail">
+          <dl>
+            <div><dt>{t('ui.typ_2').replace(/:\s*$/, '')}</dt><dd>{kind}</dd></div>
+            <div><dt>{t('ui.datum_2').replace(/:\s*$/, '')}</dt><dd>{formatDate(item.date)}</dd></div>
+            <div><dt>{t('ui.belopp_3').replace(/:\s*$/, '')}</dt><dd>{formatSEK(item.amount)}</dd></div>
+            <div><dt>{t('ui.moms_5').replace(/:\s*$/, '')}</dt><dd>{item.vatAmount ? formatSEK(item.vatAmount) : (item.vatRate != null ? `${item.vatRate} %` : '—')}</dd></div>
+            <div><dt>{t('underlag.suggestedFrom')}</dt><dd>{item.account ? t('ui.foreslaget_ur_tidigare') : t('ui.ingen_tidigare_matchning')}</dd></div>
+            {item.inbox?.from && <div><dt>{t('underlag.colSender')}</dt><dd>{item.inbox.from}</dd></div>}
+          </dl>
+          {onOpenDoc && <button type="button" className="rqt-btn" onClick={() => onOpenDoc(item.id)}><FileText size={14} /> {t('underlag.openDoc')}</button>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Skalet varje granskningsrad delar: markeringsruta, ikon, metarad,
@@ -217,24 +285,8 @@ function ReviewRowShell({
  * gång, i egen ruta, i stället för liten på varje rad), vad Bokix gör med
  * dem och hur många som är klara, behöver ett val eller är manuella.
  */
-function SourcePanel({ logo, wordmark, title, text, stats }) {
-  return (
-    <div className="rq-src">
-      {/* Stripe och Zettle: tjänstens eget ordmärke som rubrik, utan ruta. */}
-      {!wordmark && <span className="rq-src-logo">{logo}</span>}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {wordmark ? <div className="rq-src-wordmark" role="heading" aria-level={2} aria-label={title}>{wordmark}</div> : <div className="rq-src-title">{title}</div>}
-        <div className="rq-src-text">{text}</div>
-      </div>
-      <div className="rq-src-stats">
-        {stats.filter(stat => stat.n > 0).map(stat => {
-          const tone = BADGE_TONES[stat.tone];
-          return <span key={stat.label} className="rq-stat" style={{ background: tone.bg, color: tone.fg }}>{stat.label}</span>;
-        })}
-      </div>
-    </div>
-  );
-}
+// Källraden (logga + förklaring) överst i varje flik togs bort 2026-11-14:
+// fliknamnet och grupprubrikerna säger redan samma sak.
 
 /** Raderna i grupper (Klart att bokföra, Behöver ditt val, ...); tomma
  * grupper hoppas över. Långa grupper visar 20 rader åt gången, så 50 eller
@@ -248,7 +300,7 @@ function GroupedRows({ groups }) {
     const rest = group.items.length - limit;
     return (
       <React.Fragment key={group.label}>
-        <div className="rq-section">{group.label} · {group.items.length}</div>
+        <div className="rq-section">{group.label} · {group.items.length}{group.hint && <span className="rq-section-hint">{group.hint}</span>}</div>
         {group.items.slice(0, limit).map(group.render)}
         {rest > 0 && (
           <button type="button" className="rq-more" onClick={() => setShown(prev => ({ ...prev, [group.label]: limit + GROUP_PAGE }))}>
@@ -306,20 +358,7 @@ const STRIPE_TYPE_LABEL = {
  * "AI-matchning"). Säker (confident) bara om ALLA tidigare poster från samma
  * leverantör landat på exakt samma konto.
  */
-function suggestAccount(item, allExpenses) {
-  const name = (item.supplier || '').trim().toLowerCase();
-  if (!name) return { account: null, confident: false };
-  const matches = allExpenses.filter(e =>
-    e.costAccount && e.type === item.type && (e.supplier || '').trim().toLowerCase() === name
-  );
-  if (matches.length === 0) return { account: null, confident: false };
-  const distinct = [...new Set(matches.map(m => m.costAccount))];
-  if (distinct.length === 1) return { account: distinct[0], confident: true };
-  // Flera olika konton använda tidigare för samma leverantör — inte säkert
-  // nog för automatik, men den senaste kan vara en rimlig utgångspunkt.
-  const latest = [...matches].sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
-  return { account: latest.costAccount, confident: false };
-}
+// suggestAccount finns i utils/underlagStep.js (delas med Underlag).
 
 /**
  * En post som saknar kontering. Raden säger tre saker i den ordning man
@@ -330,7 +369,7 @@ function suggestAccount(item, allExpenses) {
  * finns inget att avvisa, och kundönskemålet var uttryckligen att en
  * leverantörsfaktura utan kontering ska leda till just det valet.
  */
-function ReviewCard({ item, accounts, onApprove, onReject, exiting, selected, onToggleSelect }) {
+function ReviewCard({ item, accounts, onApprove, onReject, exiting, selected, onToggleSelect, onOpenDoc }) {
   const [expanded, setExpanded] = useState(false);
   // Saknas förslag är kontovalet det enda som återstår: visa det direkt.
   const [rejecting, setRejecting] = useState(!item.account);
@@ -424,7 +463,12 @@ function ReviewCard({ item, accounts, onApprove, onReject, exiting, selected, on
               <X size={14} /> {t('ui.avvisa')}
             </button>
           )}
-          <button onClick={() => setExpanded(e => !e)} style={{ ...rowButtonStyle('ghost'), marginLeft: 'auto' }}>
+          {onOpenDoc && (
+            <button onClick={() => onOpenDoc(item.id)} style={{ ...rowButtonStyle('ghost'), marginLeft: 'auto' }}>
+              <FileText size={14} /> {t('underlag.openDoc')}
+            </button>
+          )}
+          <button onClick={() => setExpanded(e => !e)} style={{ ...rowButtonStyle('ghost'), marginLeft: onOpenDoc ? 0 : 'auto' }}>
             <Info size={14} /> {t('ui.visa_detaljer')} {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
         </>
@@ -824,7 +868,7 @@ function ZettleLedgerCard({ item, accounts, onBookSale, onBookFinance, onMarkHan
 // efter en lyckad Stripe/Zettle-anslutning, App.jsx: reviewInitialTab)
 // öppna direkt på rätt flik, i stället för att alltid landa på "Väntar"
 // och tvinga ett extra klick för att hitta de nyss hämtade transaktionerna.
-export default function ReviewQueue({ expenses = [], accounts = [], reviewHistory = [], onResolve, user, company, onAddVerification, demoStripeItems, demoZettleItems, initialTab = 'pending', handleGlobalAction }) {
+export default function ReviewQueue({ expenses = [], accounts = [], reviewHistory = [], onResolve, user, company, onAddVerification, demoStripeItems, demoZettleItems, initialTab = 'pending', handleGlobalAction, newUnderlag = false }) {
   const [tab, setTab] = useState(initialTab); // 'pending' | 'stripe' | 'zettle' | 'history'
   const [exitingIds, setExitingIds] = useState(new Set());
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
@@ -835,10 +879,13 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
   // själv vid nästa render, utan att kräva särskild synk-logik.
   const pendingItems = useMemo(() => {
     return expenses
-      .filter(e => !e.costAccount)
+      // Nya Underlag: saknas leverantör eller belopp hör posten hemma i Underlag.
+      .filter(e => !e.costAccount && !(newUnderlag && needsUnderlagWork(e)))
       .map(e => ({ ...e, ...suggestAccount(e, expenses) }))
       .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  }, [expenses]);
+  }, [expenses, newUnderlag]);
+  const underlagWaiting = newUnderlag ? expenses.filter(needsUnderlagWork).length : 0;
+  const openUnderlag = handleGlobalAction && ((id) => handleGlobalAction({ type: 'open_underlag', payload: { id } }, 'expenses'));
 
   const visiblePending = pendingItems.filter(i => !exitingIds.has(i.id));
   const eligibleForBulk = visiblePending.filter(i => i.confident);
@@ -1166,13 +1213,23 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
   const zettleRefunds = visibleZettleItems.filter(i => ['refund', 'split'].includes(zettleCategory(i)));
   const zettleChoice = visibleZettleItems.filter(i => zettleCategory(i) === 'sale' && !isCertainZettleVat(i));
 
-  const renderPending = item => (
+  const renderPending = item => newUnderlag ? (
+    <ThinReviewRow
+      key={item.id} item={item} accounts={accounts}
+      onApprove={handleApprove} onReject={handleReject}
+      exiting={exitingIds.has(item.id)}
+      selected={selectedIds.has(item.id)}
+      onToggleSelect={() => toggleSelected(item.id)}
+      onOpenDoc={openUnderlag}
+    />
+  ) : (
     <ReviewCard
       key={item.id} item={item} accounts={accounts}
       onApprove={handleApprove} onReject={handleReject}
       exiting={exitingIds.has(item.id)}
       selected={selectedIds.has(item.id)}
       onToggleSelect={() => toggleSelected(item.id)}
+      onOpenDoc={newUnderlag ? openUnderlag : null}
     />
   );
   const renderStripe = item => (
@@ -1227,6 +1284,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
           tabell) behåller sin egen lokala padding. */}
       <div data-tour="page-review-content" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
 
+      {/* Ingen sammanfattning överst (2026-11-22): bara listan. */}
       {tab === 'pending' && (
         visiblePending.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(50vh / var(--app-zoom, 1))', padding: '40px', textAlign: 'center' }}>
@@ -1239,16 +1297,6 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
         ) : (
           <div className="rq-list">
             <div className="rq-card">
-              <SourcePanel
-                logo={<Receipt size={22} />}
-                title={t('ui.rq_src_vantar_titel')}
-                text={t('ui.rq_src_vantar_text')}
-                stats={[
-                  { n: pendingSafe.length, tone: 'green', label: t('ui.rq_stat_klara', { n: pendingSafe.length }) },
-                  { n: pendingCheck.length, tone: 'amber', label: t('ui.rq_stat_val', { n: pendingCheck.length }) },
-                  { n: pendingMissing.length, tone: 'neutral', label: t('ui.rq_stat_saknar_konto', { n: pendingMissing.length }) },
-                ]}
-              />
               <GroupedRows groups={[
                 { label: t('ui.rq_sec_klart'), items: pendingSafe, render: renderPending },
                 { label: t('ui.rq_sec_kontrollera'), items: pendingCheck, render: renderPending },
@@ -1284,16 +1332,6 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
         ) : (
           <div className="rq-list">
             <div className="rq-card">
-              <SourcePanel
-                wordmark={<StripeLogo height={26} />}
-                title="Stripe"
-                text={t('ui.rq_src_stripe_text')}
-                stats={[
-                  { n: stripeSafe.length, tone: 'green', label: t('ui.rq_stat_klara', { n: stripeSafe.length }) },
-                  { n: stripeChoice.length, tone: 'amber', label: t('ui.rq_stat_val', { n: stripeChoice.length }) },
-                  { n: stripeManual.length, tone: 'neutral', label: t(stripeManual.length === 1 ? 'ui.rq_stat_manuell' : 'ui.rq_stat_manuella', { n: stripeManual.length }) },
-                ]}
-              />
               <GroupedRows groups={[
                 { label: t('ui.rq_sec_klart'), items: stripeSafe, render: renderStripe },
                 { label: t('ui.rq_sec_val'), items: stripeChoice, render: renderStripe },
@@ -1326,16 +1364,6 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
         ) : (
           <div className="rq-list">
             <div className="rq-card">
-              <SourcePanel
-                wordmark={<ZettleLogo height={28} />}
-                title="Zettle"
-                text={t('ui.rq_src_zettle_text')}
-                stats={[
-                  { n: zettleSafe.length, tone: 'green', label: t('ui.rq_stat_klara', { n: zettleSafe.length }) },
-                  { n: zettleChoice.length, tone: 'amber', label: t('ui.rq_stat_val', { n: zettleChoice.length }) },
-                  { n: zettleRefunds.length, tone: 'neutral', label: t(zettleRefunds.length === 1 ? 'ui.rq_stat_manuell' : 'ui.rq_stat_manuella', { n: zettleRefunds.length }) },
-                ]}
-              />
               <GroupedRows groups={[
                 { label: t('ui.rq_sec_klart'), items: zettleSafe, render: renderZettle },
                 { label: t('ui.rq_sec_val'), items: zettleChoice, render: renderZettle },

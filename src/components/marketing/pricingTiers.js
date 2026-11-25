@@ -20,7 +20,7 @@ export const BASE_FEATURES = [
   'Sex fakturamallar med egen logotyp och accentfärg',
   'Momsdeklaration varje kvartal',
   'Bokslutsflöde som låser räkenskapsåret',
-  'Kortbetalningar direkt på fakturan via Stripe',
+  'Kortbetalning via Stripe, om du vill',
   'SIE4-export, din bokföring är alltid din',
 ];
 

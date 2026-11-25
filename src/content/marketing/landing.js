@@ -11,7 +11,7 @@ export const LANDING_CONTENT = {
   sv: {
     meta: {
       // Startsidan är Bokix egen sida: namnet först, sedan vad Bokix är.
-      title: 'Bokix: enkelt bokföringsprogram för småföretag',
+      title: 'Bokföringsprogram för småföretag, allt ingår | Bokix',
       description: 'Bokix är ett enkelt bokföringsprogram för småföretag. Bokföring, fakturering, kvitton, lön och moms i ett verktyg, för alla bolagsformer. Från 129 kr/mån.',
     },
     schema: {
@@ -37,44 +37,46 @@ export const LANDING_CONTENT = {
       'Ideell förening / stiftelse': '/bokforingsprogram-ideell-forening',
     },
     features: {
-      heading: 'Automatiskt, från kvitto till bokslut',
-      subheading: 'Du lägger in underlaget. Bokix bokför, räknar moms och lön och säger till när något behöver ditt val.',
+      heading: 'Från kvittot till bokslutet',
+      subheading: 'Bokföring, fakturor, moms och lön på samma ställe.',
       items: [
-        { title: 'Bokföring', desc: 'Kvitton och fakturor bokförs direkt. Det Bokix inte är säker på hamnar i Granskning, aldrig en gissning.' },
-        { title: 'Fakturor', desc: 'Din logotyp, ROT och RUT, och kunden kan betala med kort.' },
-        { title: 'Moms och bokslut', desc: 'Rutorna räknas fram ur bokföringen, och filen är klar att ladda upp.' },
-        { title: 'Lön', desc: 'Skatteavdrag, lönebesked med semestersaldo, AGI och betalfil i samma körning.' },
-        { title: 'Offerter', desc: 'Blir en faktura med ett klick.' },
-        { title: 'Projekt', desc: 'Tid, fakturering och resultat per uppdrag.' },
-        { title: 'Lager', desc: 'FIFO, inventering och inventeringslista till bokslutet.' },
-        { title: 'Rapporter', desc: 'Resultat, balans och kassaflöde.' },
+        { title: 'Bokföring', desc: 'Fota kvittot. Bokix läser av beloppet och momsen och frågar om det som är oklart.' },
+        { title: 'Fakturor', desc: 'Skicka fakturan från din egen e-post. Kunden kan betala med kort.' },
+        { title: 'Moms och bokslut', desc: 'Momsen räknas ut ur det du har bokfört. Filen laddar du upp hos Skatteverket.' },
+        { title: 'Lön', desc: 'Lönebesked, arbetsgivardeklaration och betalfil till banken.' },
+        { title: 'Offerter', desc: 'Gör om en accepterad offert till en faktura.' },
+        { title: 'Projekt', desc: 'Tid och resultat per uppdrag.' },
+        { title: 'Lager', desc: 'Antal och värde per vara, och en lista till inventeringen.' },
+        { title: 'Rapporter', desc: 'Resultat- och balansräkning när du vill.' },
       ],
       allLink: 'Se alla funktioner i detalj',
     },
     connections: {
       heading: 'Kopplat till tjänsterna du redan använder',
-      subheading: 'Betalningar, kassa och myndigheter: Bokix pratar med rätt system istället för att du ska hålla ordning själv.',
+      subheading: 'Kortbetalningar och kassaförsäljning bokförs av sig själva, företagsuppgifterna hämtas från Bolagsverket och filerna till Skatteverket har rätt format.',
       labels: { stripe: 'Kortbetalning och försäljning', zettle: 'Kassaförsäljning', bolagsverket: 'Företagsuppslag', skatteverket: 'Rätt filformat' },
       groups: { Betalningar: 'Betalningar', Myndigheter: 'Myndigheter' },
     },
     trustPoints: ['Byggt efter svensk bokföringslag', 'GDPR', 'BAS-kontoplan'],
     receipts: {
       heading: 'Kvitton läser sig själva',
-      subheading: 'Fota kvittot eller ladda upp en bild eller PDF, så föreslår Bokix datum, belopp, moms och konto automatiskt. Du bekräftar dem. Du gissar aldrig.',
-      cta: 'Testa OCR-läsningen själv',
+      subheading: 'Slipp skriva av kvitton. Fota eller ladda upp en bild eller PDF, så läser Bokix av datum, belopp, moms och kvittonummer. Kontot väljer du första gången, sedan fylls det i för samma butik. Inget bokförs förrän du har sett det.',
+      cta: 'Testa med ett eget kvitto',
     },
     bank: {
-      heading: 'Banken in i bokföringen',
-      subheading: 'Exportera kontoutdraget ur din internetbank och läs in det i Bokix. Inbetalningar matchas mot dina obetalda fakturor, utbetalningar mot leverantörsfakturorna. Du lämnar aldrig ut någon bankinloggning.',
+      heading: 'Läs in kontoutdraget, Bokix matchar resten',
+      subheading: 'Exportera kontoutdraget ur din internetbank och läs in det i Bokix. Inbetalningar matchas mot dina obetalda fakturor, utbetalningar mot leverantörsfakturorna och kortköp mot kvittot, så att inget bokförs två gånger. Du lämnar aldrig ut någon bankinloggning.',
+      // Grundarens beslut 2026-11-21: säg att direktkopplingen är på gång.
+      soon: 'Direkt bankkoppling',
       cta: 'Se hur bankimporten fungerar',
     },
     switchProgram: {
-      heading: 'Ta med dig bokföringen hit',
-      subheading: 'Bokför du i Fortnox, Visma, Spiris, Bokio, Björn Lundén, Wint eller SpeedLedger? Exportera en SIE4-fil därifrån och läs in den i Bokix. Konton, verifikationer och ingående balanser följer med.',
+      heading: 'Byt utan att börja om',
+      subheading: 'Bokför du i Fortnox, Visma, Spiris, Bokio, Björn Lundén, Wint eller SpeedLedger? Exportera en SIE4-fil därifrån och läs in den i Bokix. Konton, verifikationer och ingående balanser följer med, och du väljer om allt ska med eller bara ett visst år.',
       cta: 'Se hur bytet går till',
     },
     pricing: {
-      heading: 'Ett pris för din situation',
+      heading: 'Ett pris, allt ingår',
       subheading: 'Samma bokföring och fakturering i båda, skillnaden är om du har personal på lönelistan.',
       monthly: 'Månadsvis',
       yearly: 'Årsplan',

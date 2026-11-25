@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { calcCarBenefit, CAR_BENEFIT_YEARS } from '../utils/carBenefit';
 import {
   Check, ChevronDown, ChevronUp, AlertTriangle, Download, ChevronLeft, Loader2, ExternalLink, RefreshCw, Trash2,
   Upload, Send,
@@ -20,9 +21,12 @@ import { AGI_XML_ENABLED } from '../utils/featureFlags';
 import { preloadSkattetabell } from '../utils/skattetabell';
 import { downloadSalaryPaymentFile, getDebtorAccountError } from '../utils/salaryPaymentFile';
 import { t as tr } from '../i18n';
+import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
 import { summarizeVacation } from '../utils/vacation';
 import { SKV_AGI_URL } from './AgiReportDetails';
 import { numberFormat } from '../utils/intlCache';
+import { confirmDialog } from './shared/ConfirmDialog';
+import { isAdminPreview } from '../utils/adminPreview';
 
 const fmt = (v) => numberFormat('sv-SE').format(Math.round(v || 0));
 const fmtSigned = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${numberFormat('sv-SE').format(Math.round(Math.abs(v || 0)))} kr`;
@@ -143,7 +147,37 @@ function SummaryCards({ totals, flat = false }) {
  * kollektiv- eller anställningsavtal, inte ur lagen, och systemet ska
  * aldrig påstå att det vet vad som gäller hos just er.
  */
-function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
+/** Bilförmånen räknad efter Skatteverkets formel (utils/carBenefit.js).
+ * Uppgifterna sparas på raden och månadsvärdet blir radens belopp. */
+function CarBenefitCalc({ line, year, onApply }) {
+  const car = line.car || {};
+  const set = (patch) => {
+    const next = { ...car, ...patch };
+    const r = calcCarBenefit({ year, newCarPrice: next.price, extras: next.extras, vehicleTax: next.tax, fuel: next.fuel || 'annat' });
+    onApply({ car: next, ...(r ? { rate: r.monthly, quantity: 1 } : {}) });
+  };
+  const r = calcCarBenefit({ year, newCarPrice: car.price, extras: car.extras, vehicleTax: car.tax, fuel: car.fuel || 'annat' });
+  const inp = { width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit', boxSizing: 'border-box' };
+  const lbl = { display: 'grid', gap: '3px', fontSize: '11.5px', color: 'var(--text-secondary)' };
+  if (!CAR_BENEFIT_YEARS[year]) return <div style={{ fontSize: '11.5px', color: 'var(--status-amber-text)', marginTop: '8px' }}>{tr('payrollUi.carNoYear', { year })}</div>;
+  return (
+    <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px' }}>
+      <label style={lbl}>{tr('payrollUi.carPrice')}<input type="number" min="0" value={car.price ?? ''} onChange={e => set({ price: e.target.value })} style={inp} /></label>
+      <label style={lbl}>{tr('payrollUi.carExtras')}<input type="number" min="0" value={car.extras ?? ''} onChange={e => set({ extras: e.target.value })} style={inp} /></label>
+      <label style={lbl}>{tr('payrollUi.carTax')}<input type="number" min="0" value={car.tax ?? ''} onChange={e => set({ tax: e.target.value })} style={inp} /></label>
+      <label style={lbl}>{tr('payrollUi.carFuel')}
+        <select value={car.fuel || 'annat'} onChange={e => set({ fuel: e.target.value })} style={inp}>
+          <option value="annat">{tr('payrollUi.carFuelOther')}</option>
+          <option value="el">{tr('payrollUi.carFuelEl')}</option>
+          <option value="laddhybrid">{tr('payrollUi.carFuelPhev')}</option>
+        </select>
+      </label>
+      {r && <div style={{ gridColumn: '1 / -1', fontSize: '12px', color: 'var(--text-secondary)' }}>{tr('payrollUi.carResult', { year: fmt(r.yearly), month: fmt(r.monthly) })}</div>}
+    </div>
+  );
+}
+
+function PayLinesEditor({ row, computed, onUpdateRow, locked, pendingOutlays = [] }) {
   const employee = row.employeeSnapshot;
   const lines = row.lines || [];
   const [adding, setAdding] = useState('');
@@ -164,6 +198,15 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
     setAdding('');
   };
 
+  // Utlägg från Underlag (Vem betalade → En anställd) som inte ligger i någon
+  // lönekörning än: en rad per kvitto, med kvittots belopp.
+  const mine = pendingOutlays.filter(e => e.paidByEmployeeId === row.employeeId);
+  const addOutlays = () => updateLines([...lines, ...mine.map((e, i) => ({
+    id: `pl_${Date.now()}_${i}`, payTypeId: 'expense_refund', quantity: 1,
+    rate: Math.round(Math.abs(Number(e.amount) || 0) * 100) / 100,
+    note: [e.supplier, e.date].filter(Boolean).join(' '), expenseId: e.id,
+  }))]);
+
   const patchLine = (id, patch) => updateLines(lines.map(l => (l.id === id ? { ...l, ...patch } : l)));
   const removeLine = (id) => updateLines(lines.filter(l => l.id !== id));
 
@@ -171,6 +214,12 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
 
   return (
     <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px dashed var(--border)' }}>
+      {!locked && mine.length > 0 && (
+        <div className="pr-outlays">
+          <span>{tr('payrollUi.outlaysPending', { n: mine.length, sum: mine.reduce((s, e) => s + Math.abs(Number(e.amount) || 0), 0).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) })}</span>
+          <button type="button" onClick={addOutlays}>{tr('payrollUi.outlaysAdd')}</button>
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: lines.length ? '10px' : '6px', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)' }}>{tr('ui.lonearter')}</span>
         {!locked && (
@@ -249,6 +298,9 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.5 }}>
                   {type.unit} {tr('ui.pris_3')} {type.help}
                 </div>
+                {line.payTypeId === 'car_benefit' && !locked && (
+                  <CarBenefitCalc line={line} year={Number(String(row.period || '').slice(0, 4))} onApply={(patch) => patchLine(line.id, patch)} />
+                )}
               </div>
             );
           })}
@@ -257,7 +309,7 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked }) {
     </div>
   );
 }
-function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, flat = false, defaultOpen = false, vacationLeft = null }) {
+function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, flat = false, defaultOpen = false, vacationLeft = null, pendingOutlays = [] }) {
   const [expanded, setExpanded] = useState(defaultOpen);
   const isZero = computed.gross === 0 && computed.net === 0 && computed.tax === 0;
   const diff = previousComputed ? computed.net - previousComputed.net : null;
@@ -305,6 +357,11 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, fla
               <AlertTriangle size={12} color="var(--status-amber-text)" /> {tr('payrollUi.noBank')}
             </div>
           )}
+          {computed.oneTimeMissing && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--status-amber-text)', marginTop: '4px', fontWeight: 600 }}>
+              <AlertTriangle size={12} color="var(--status-amber-text)" /> {tr('payrollUi.oneTimeMissing')}
+            </div>
+          )}
         </div>
         <div className="payroll-emp-right" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           {/* Timmarna är det man fyller i varje månad för en timanställd:
@@ -330,7 +387,20 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, fla
       {expanded && (
         <div style={{ padding: flat ? '4px 24px 16px' : '4px 18px 16px', borderTop: '1px solid var(--border-light)' }}>
           {computed.steps.map((s, i) => <CalculationRow key={i} {...s} />)}
-          <PayLinesEditor row={row} computed={computed} onUpdateRow={onUpdateRow} locked={locked} />
+          <PayLinesEditor row={row} computed={computed} onUpdateRow={onUpdateRow} locked={locked} pendingOutlays={pendingOutlays} />
+          {(computed.payLines || []).some(l => l.oneTime && l.amount > 0) && (
+            <label style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginTop: '12px', fontSize: '13px', color: 'var(--text-main)' }}>
+              {tr('payrollUi.oneTimeLabel')}
+              <input
+                type="number" min="0" max="100" step="1" inputMode="decimal" disabled={locked} value={row.oneTimeTaxPercent ?? ''} placeholder={computed.oneTimeAutoPct != null ? String(computed.oneTimeAutoPct) : ''}
+                onChange={e => onUpdateRow(row.employeeId, { oneTimeTaxPercent: e.target.value })}
+                style={{ width: '70px', padding: '7px 9px', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '14px', textAlign: 'right', background: 'var(--bg-card)', color: 'var(--text-main)', fontFamily: 'inherit' }}
+                aria-label={tr('payrollUi.oneTimeLabel')}
+              /> %
+              {computed.oneTimeAutoPct != null && (row.oneTimeTaxPercent === '' || row.oneTimeTaxPercent == null) && <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>{tr('payrollUi.oneTimeAuto', { pct: computed.oneTimeAutoPct })}</span>}
+              <a href="https://www.skatteverket.se/foretag/arbetsgivare/arbetsgivaravgifterochskatteavdrag/skatteavdrag/engangsbelopp.4.361dc8c15312eff6fd3225e.html" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12.5px', color: 'var(--accent-text)' }}>{tr('payrollUi.oneTimeLink')}</a>
+            </label>
+          )}
         </div>
       )}
     </div>
@@ -527,7 +597,8 @@ export function VerificationBlock({ title, rows, accounts }) {
   );
 }
 
-export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyncBeforeServerCall, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onDelete, onUpdateRow, onUpdateRun, onRefreshSnapshots }) {
+export default function PayrollRunDetail({ run, previousRun, allRuns = [], outlays = [], onSyncBeforeServerCall, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onDelete, onUpdateRow, onUpdateRun, onRefreshSnapshots, onOpenEmployee }) {
+  const isPhone = useIsMobileViewport();
   // Fakturans logga på lönebeskeden, hämtad en gång som PNG.
   const [payslipLogo, setPayslipLogo] = useState(null);
   useEffect(() => {
@@ -593,6 +664,13 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
     return run.rows.map(row => ({ row, computed: computeEmployeePayroll(row.employeeSnapshot, row) }));
   }, [run.rows, tablesReady]);
   const totals = useMemo(() => summarizePayrollRun(computedRows.map(r => r.computed)), [computedRows]);
+  // Anställdas utlägg som inte ligger i någon lönekörning än (raden har expenseId).
+  const pendingOutlays = useMemo(() => {
+    const taken = new Set();
+    (allRuns || []).forEach(r => (r.rows || []).forEach(rw => (rw.lines || []).forEach(l => { if (l.expenseId) taken.add(l.expenseId); })));
+    (run.rows || []).forEach(rw => (rw.lines || []).forEach(l => { if (l.expenseId) taken.add(l.expenseId); }));
+    return (outlays || []).filter(e => !taken.has(e.id));
+  }, [allRuns, run.rows, outlays]);
   // Semesterdagar kvar per anställd (utils/vacation.js), visas i Lön och timmar.
   const vacationLeftById = useMemo(() => Object.fromEntries(run.rows.map(r => [
     r.employeeId,
@@ -711,7 +789,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
     const block1 = [
       { account: acc.grossSalary, description: `Lön ${period}: Bruttolön`, debet: totals.gross, kredit: 0 },
       ...[...taxFreeByAccount.entries()].map(([account, amount]) => (
-        { account, description: `Lön ${period}: Skattefri ersättning`, debet: Math.round(amount), kredit: 0 }
+        { account, description: `Lön ${period}: Skattefri ersättning`, debet: Math.round(amount * 100) / 100, kredit: 0 }
       )),
       { account: acc.tax, description: `Lön ${period}: Personalskatt`, debet: 0, kredit: totals.tax },
       { account: acc.netSalaryBank, description: `Lön ${period}: Nettolön`, debet: 0, kredit: totals.net },
@@ -801,7 +879,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
         <StageNav stage={stage} completedSteps={run.completedSteps} onOpen={setStage} />
       </ListPageHeader>
 
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div className="payroll-stage-scroll" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
       <div className="payroll-stage-head" style={{ padding: '18px 24px', background: 'var(--bg-card)' }}>
         <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: 'var(--text-main)' }}>{tr(`payrollStages.${stage}Title`)}</h2>
         <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.55, maxWidth: '760px' }}>{tr(`payrollStages.${stage}Text`, { period: run.period })}</p>
@@ -834,7 +912,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
       {(stage === 'calculated' || stage === 'paid') && missingBankInfo.length > 0 && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', background: 'var(--status-amber-bg)', border: '1px solid var(--status-amber-bg)', borderRadius: '10px', padding: '10px 14px', margin: '14px 0 0', fontSize: '13px', color: 'var(--status-amber-text)' }}>
           <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span>{missingBankInfo.length} {missingBankInfo.length === 1 ? tr('ui.anstalld_saknar') : tr('ui.anstallda_saknar')} {tr('ui.clearing_kontonummer_och_kommer_inte_att_inklude')}</span>
+          <span>{missingBankInfo.length} {missingBankInfo.length === 1 ? tr('ui.anstalld_saknar') : tr('ui.anstallda_saknar')} {tr('ui.clearing_kontonummer_och_kommer_inte_att_inklude')}{onOpenEmployee && (<span style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>{missingBankInfo.map(r => (<button key={r.row.employeeId} type="button" onClick={() => onOpenEmployee(r.row.employeeId)} style={{ padding: '4px 10px', border: '1px solid currentColor', borderRadius: '6px', background: 'transparent', color: 'inherit', font: 'inherit', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}>{tr('payrollRun.openEmployee', { name: `${r.row.employeeSnapshot?.firstName || ''} ${r.row.employeeSnapshot?.lastName || ''}`.trim() })}</button>))}</span>)}</span>
         </div>
       )}
 
@@ -870,8 +948,11 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
       )}
       <div style={{ margin: '0 -24px -18px', borderTop: '1px solid var(--border-light)' }}>
       {computedRows.map(({ row, computed }) => (
-        <EmployeeRow flat defaultOpen={computedRows.length <= 5 || computed.gross === 0}
+        // Telefon: ihopfällda utom de som saknar lön, så stegknappen inte
+        // hamnar under alla uträkningar (2026-11-06).
+        <EmployeeRow flat defaultOpen={isPhone ? computed.gross === 0 : (computedRows.length <= 5 || computed.gross === 0)}
           vacationLeft={vacationLeftById[row.employeeId]}
+          pendingOutlays={pendingOutlays}
           key={row.employeeId} row={row} computed={computed}
           previousComputed={previousComputedByEmployee[row.employeeId]}
           accounts={accounts} onUpdateRow={onUpdateRow}
@@ -1039,7 +1120,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
             <button type="button" onClick={handleDownloadAllPayslips} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
               <Download size={14} /> {tr('payslips.downloadAll')}
             </button>
-            <button type="button" onClick={handleEmailPayslips} disabled={withEmail.length === 0 || mailState.busy} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: withEmail.length === 0 || mailState.busy ? 'var(--gray-300)' : BRAND.green, border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, color: 'white', cursor: withEmail.length === 0 || mailState.busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+            <button type="button" onClick={async () => { if (!isAdminPreview() || await confirmDialog(tr('payConfirm.mailText', { n: withEmail.length }), { title: tr('payConfirm.mailTitle'), confirmLabel: tr('payslips.emailAll', { n: withEmail.length }) })) handleEmailPayslips(); }} disabled={withEmail.length === 0 || mailState.busy} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: withEmail.length === 0 || mailState.busy ? 'var(--gray-300)' : BRAND.green, border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, color: 'white', cursor: withEmail.length === 0 || mailState.busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
               <Send size={14} /> {mailState.busy ? tr('payslips.sending', { done: mailState.done, total: mailState.total }) : tr('payslips.emailAll', { n: withEmail.length })}
             </button>
           </div>
@@ -1168,9 +1249,9 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], onSyn
             switch (stage) {
               case 'calculated': return primary(tr('payrollStages.calculatedAction'), () => handleAdvance('calculated'));
               case 'approved': return (<>{totals.gross <= 0 && note(tr('payrollUi.nothingToPay'))}{primary(tr('payrollStages.approvedAction'), () => handleAdvance('approved'), totals.gross <= 0)}</>);
-              case 'paid': return primary(tr('ui.markera_som_betald'), () => markPaid(payMethod));
+              case 'paid': return primary(tr('ui.markera_som_betald'), async () => { if (!isAdminPreview() || await confirmDialog(tr('payConfirm.paidText', { period: run.period, net: fmt(totals.net) }), { title: tr('payConfirm.paidTitle'), confirmLabel: tr('ui.markera_som_betald') })) markPaid(payMethod); });
               case 'payslips': return primary(tr('payrollStages.payslipsAction'), () => handleAdvance('payslips'));
-              case 'booked': return (<>{!canBook && note(tr('payrollStages.bookedNeedsPaid'))}{primary(tr('payrollStages.bookedAction'), () => handleAdvance('booked'), !canBook)}</>);
+              case 'booked': return (<>{!canBook && note(tr('payrollStages.bookedNeedsPaid'))}{primary(tr('payrollStages.bookedAction'), async () => { if (!isAdminPreview() || await confirmDialog(tr('payConfirm.bookText', { period: run.period }), { title: tr('payConfirm.bookTitle'), confirmLabel: tr('payrollStages.bookedAction') })) handleAdvance('booked'); }, !canBook)}</>);
               case 'agi': return note(tr('payrollStages.agiHint'));
               default: return null;
             }

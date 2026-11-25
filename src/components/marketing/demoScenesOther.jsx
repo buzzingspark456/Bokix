@@ -221,7 +221,7 @@ const StripeScene = (
 // exakt, så köpet är ett säkert förslag och bokförs med ett klick.
 const ZettleScene = (
   <Shell active="review" review={1}>
-    <Top title="Granskning" tabs={['Väntar · 1', 'Stripe', 'Zettle · 2', 'Historik']} on="Zettle · 2" />
+    <Top title="Att granska" tabs={['Väntar · 1', 'Stripe', 'Zettle · 2', 'Historik']} on="Zettle · 2" />
     <div className="ax-body" style={{ padding: 0 }}>
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '11px 14px', borderBottom: '1px solid var(--ax-border)' }}>
         <span style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--ax-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><ZettleLogo height={11} /></span>
@@ -578,7 +578,7 @@ const SecInvite = (
       <div className="ax-tr" style={{ ...USER_COLS, minHeight: 38 }}><span><b>Du</b><span className="ax-s" style={{ display: 'block', fontSize: 10 }}>du@testkunden.se</span></span><span>Administratör</span><Pill>Aktiv</Pill></div>
       <div className="ax-tr dp-slide" style={{ ...USER_COLS, ...d(3), minHeight: 38, borderBottom: 'none' }}><span><b>Sara</b><span className="ax-s" style={{ display: 'block', fontSize: 10 }}>sara@revisionsbyra.se</span></span><span>Kan bara läsa</span><Pill kind="warn">Inbjuden</Pill></div>
     </div>
-    <div className="ax-m" style={{ fontSize: 10, marginTop: 7 }}>Max 3 användare per företag (du + 2 inbjudna).</div>
+    <div className="ax-m" style={{ fontSize: 10, marginTop: 7 }}>Bjud in 2 personer. Konsult och revisor räknas inte.</div>
     <div className="ax-scrim dp-gone" style={d(2.7)}>
       <div className="ax-modal dp-pop" style={d(0.9)}>
         <div className="ax-modal-head">Bjud in användare<ModalClose /></div>

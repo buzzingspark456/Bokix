@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, ChevronRight, ExternalLink } from './icons';
+import { CheckCircle2, ChevronRight, ExternalLink, Download } from './icons';
 import { t, dateLocale } from '../i18n';
 import { dateTimeFormat } from '../utils/intlCache';
 
@@ -29,7 +29,7 @@ function DateTile({ item }) {
 // Längre fram: resten. Klart: det som är inlämnat eller låst.
 const SOON_DAYS = 45;
 
-export default function TaxOverview({ items, summary, onOpen, onToggleFiled, vatExempt = false }) {
+export default function TaxOverview({ items, summary, onOpen, onToggleFiled, vatExempt = false, onAuthorityPackage }) {
   const groups = [
     { id: 'now', label: t('taxOverview.now'), rows: items.filter(i => !i.done && (i.daysLeft == null || i.daysLeft <= SOON_DAYS)) },
     { id: 'later', label: t('taxOverview.later'), rows: items.filter(i => !i.done && i.daysLeft != null && i.daysLeft > SOON_DAYS) },
@@ -107,6 +107,11 @@ export default function TaxOverview({ items, summary, onOpen, onToggleFiled, vat
         <a className="tax-how-link" href="https://www.skatteverket.se/foretag" target="_blank" rel="noopener noreferrer">
           {t('ui.oppna_skatteverket_se')} <ExternalLink size={13} />
         </a>
+        {onAuthorityPackage && (
+          <button type="button" className="tax-pkg-link" onClick={onAuthorityPackage}>
+            <Download size={14} /> {t('authorityPackage.cardLink')}
+          </button>
+        )}
       </section>
     </div>
   );

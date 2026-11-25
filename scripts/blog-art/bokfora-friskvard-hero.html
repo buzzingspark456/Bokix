@@ -1,0 +1,33 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><link rel="stylesheet" href="cover.css"><style>
+.art { background: #d7e4ee; }
+.floor { left: 0; top: 470px; width: 1200px; height: 160px; background: #c3d4e1; }
+.mat { left: 250px; top: 300px; width: 150px; height: 230px; }
+.mat .roll { position: absolute; left: 0; top: 0; width: 150px; height: 150px; border-radius: 50%; background: #e07a5f; box-shadow: 0 30px 34px -24px rgba(0,0,0,0.45); }
+.mat .roll::before { content: ''; position: absolute; inset: 26px; border-radius: 50%; border: 10px solid #c4644b; }
+.mat .roll::after { content: ''; position: absolute; inset: 58px; border-radius: 50%; background: #c4644b; }
+.mat .flat { position: absolute; left: 60px; top: 120px; width: 420px; height: 40px; background: #e07a5f; border-radius: 0 8px 8px 0; transform: skewX(-30deg); transform-origin: left; }
+.db { height: 70px; }
+.db .bar { position: absolute; left: 30px; right: 30px; top: 27px; height: 16px; background: #8a96a3; border-radius: 8px; }
+.db .w { position: absolute; top: 0; width: 46px; height: 70px; border-radius: 12px; background: #34495e; box-shadow: 0 20px 24px -16px rgba(0,0,0,0.45); }
+.bottle { width: 70px; height: 190px; border-radius: 20px 20px 16px 16px; background: #5fa8a0; box-shadow: 0 26px 30px -22px rgba(0,0,0,0.45); }
+.bottle::before { content: ''; position: absolute; left: 18px; top: -26px; width: 34px; height: 30px; border-radius: 8px 8px 0 0; background: #2f6f69; }
+.bottle::after { content: ''; position: absolute; left: 0; right: 0; top: 70px; height: 50px; background: #fffdf8; opacity: 0.85; }
+.r { width: 180px; padding: 22px 18px 30px; color: #444; transform: rotate(7deg); }
+.r .h { height: 12px; width: 64%; margin: 0 auto 16px; background: #555; opacity: 0.6; border-radius: 3px; }
+.r .ln { display: flex; justify-content: space-between; padding: 5px 0; }
+.r .ln i { display: block; height: 8px; border-radius: 4px; background: #999; opacity: 0.5; }
+.r .tot { border-top: 2px dashed #bbb; margin-top: 10px; padding-top: 10px; }
+.r .tot i { background: #555; opacity: 0.7; }
+</style></head><body><div class="art">
+<div class="abs floor"></div>
+<div class="abs mat"><div class="flat"></div><div class="roll"></div></div>
+<div class="abs db" style="left:560px;top:450px;width:230px"><div class="bar"></div><div class="w" style="left:0"></div><div class="w" style="right:0"></div></div>
+<div class="abs db" style="left:600px;top:390px;width:200px;transform:rotate(-6deg)"><div class="bar"></div><div class="w" style="left:0;background:#4a6378"></div><div class="w" style="right:0;background:#4a6378"></div></div>
+<div class="abs bottle" style="left:850px;top:310px"></div>
+<div class="abs r paper mono" style="left:930px;top:120px"><div class="h"></div>
+  <div class="ln"><i style="width:76px"></i><i style="width:34px"></i></div>
+  <div class="ln"><i style="width:52px"></i><i style="width:30px"></i></div>
+  <div class="ln tot"><i style="width:60px"></i><i style="width:44px"></i></div>
+</div>
+<div class="grain"></div>
+</div></body></html>
