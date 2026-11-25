@@ -116,14 +116,27 @@ export function invoiceFromOrder(order, invoiceId) {
  * fakturautkast bort blir raderna ofakturerade igen, och ångras borttagningen
  * räknas de som fakturerade igen. Äldre order utan invoiceLines lämnas orörda.
  */
-export function applyInvoiceExistence(order, existingInvoiceIds) {
+// `existing` är en Set med faktura-id:n eller en Map id → faktura. Med Map
+// räknas fakturans faktiska antal (rad i ↔ fakturarad `${id}_r${i}`), så att
+// ett ändrat antal i fakturautkastet syns på ordern (2026-11-25). Saknas raden
+// (borttagen i utkastet) räknas den som ofakturerad.
+export function applyInvoiceExistence(order, existing) {
   if (!order?.invoiceLines) return order;
+  const has = (id) => (existing instanceof Map ? existing.has(id) : existing.has(id));
   const sum = new Map();
   const kept = [];
   for (const [invId, lines] of Object.entries(order.invoiceLines)) {
-    if (!existingInvoiceIds.has(invId)) continue;
+    if (!has(invId)) continue;
     kept.push(invId);
-    for (const l of lines || []) sum.set(l.key, round2((sum.get(l.key) || 0) + num(l.qty)));
+    const inv = existing instanceof Map ? existing.get(invId) : null;
+    (lines || []).forEach((l, i) => {
+      let q = num(l.qty);
+      if (inv && Array.isArray(inv.rows)) {
+        const row = inv.rows.find(x => x.id === `${invId}_r${i}`);
+        q = row ? Math.max(0, num(row.qty)) : 0;
+      }
+      sum.set(l.key, round2((sum.get(l.key) || 0) + q));
+    });
   }
   const rows = (order.rows || []).map(r => ({ ...r, invoiced: sum.get(r.key) || 0 }));
   const invoiceIds = (order.invoiceIds || []).filter(id => kept.includes(id));

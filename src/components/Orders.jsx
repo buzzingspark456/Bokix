@@ -35,7 +35,7 @@ const STATUS_PILL = { open: 'info', partial: 'warn', delivered: 'ok', invoiced: 
 
 export default function Orders({ company, setCompanyInfo, articles = [], contacts = [], invoices = [], onCreateContact, onCreateInvoice, onOpenInvoice, onOpenQuote, globalAction, clearGlobalAction }) {
   // Fakturerat räknas från fakturorna som finns (applyInvoiceExistence).
-  const invoiceIdSet = useMemo(() => new Set((invoices || []).map(i => i.id)), [invoices]);
+  const invoiceIdSet = useMemo(() => new Map((invoices || []).map(i => [i.id, i])), [invoices]);
   const orders = useMemo(() => (company?.salesOrders || []).map(o => applyInvoiceExistence(o, invoiceIdSet)), [company?.salesOrders, invoiceIdSet]);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('active');

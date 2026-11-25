@@ -87,4 +87,14 @@ describe('kundorder', () => {
     expect(invoiceFromOrder(gone, 'inv2').rows).toHaveLength(2);
     expect(orderStatus(applyInvoiceExistence(inv, new Set(['inv1'])))).toBe('invoiced');
   });
+
+  it('räknar fakturans faktiska antal när utkastet ändrats', () => {
+    const delivered = deliverOrder(order(), { date: '2026-11-24', newId }).order;
+    const inv = invoiceFromOrder(delivered, 'inv1').order;
+    const invoice = { id: 'inv1', rows: [{ id: 'inv1_r0', qty: 6 }] }; // stolen 10 -> 6, frakten borttagen
+    const res = applyInvoiceExistence(inv, new Map([['inv1', invoice]]));
+    expect(res.rows[0].invoiced).toBe(6);
+    expect(res.rows[1].invoiced).toBe(0);
+    expect(orderStatus(res)).toBe('delivered');
+  });
 });

@@ -257,7 +257,7 @@ export function buildTodoItems({
   // Kundorder (2026-11-24): att leverera (försenade först) och att fakturera.
   // Bara när Order syns i menyn (admin med artiklar, senare Handel-planen).
   if (shows('orders')) {
-    const invoiceIds = new Set(invoices.map(i => i.id));
+    const invoiceIds = new Map(invoices.map(i => [i.id, i]));
     const orders = (company?.salesOrders || []).map(o => applyInvoiceExistence(o, invoiceIds));
     const orderLabel = (o) => (o.customerName ? t('dashboard.todo.orderOne', { number: o.number, customer: o.customerName }) : t('dashboard.todo.orderOneNoCustomer', { number: o.number }));
     const toDeliver = orders.filter(o => ['open', 'partial'].includes(orderStatus(o)) && (o.rows || []).some(rw => rowLeftToDeliver(rw) > 0));
