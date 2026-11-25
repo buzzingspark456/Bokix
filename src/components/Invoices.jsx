@@ -349,7 +349,7 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
   const [rotRutProperty, setRotRutProperty] = useState(initial?.rotRutProperty || '');
   const [rotRutBrfOrgNr, setRotRutBrfOrgNr] = useState(initial?.rotRutBrfOrgNr || '');
   const [rotRutApartment, setRotRutApartment] = useState(initial?.rotRutApartment || '');
-  // Kontantfaktura (2026-11-24, admin): sparas och bokförs som betald när
+  // Kontantfaktura (2026-11-24, alla sedan 2026-11-25): sparas och bokförs som betald när
   // fakturan lämnar utkastläget (App.jsx settleCashSale). Förut sparades valet inte.
   const [invoiceType, setInvoiceType] = useState(initial?.cashSale ? 'Kontantfaktura' : 'Faktura');
   const [terms, setTerms] = useState('30 dagar');
@@ -684,8 +684,8 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
   const handleSave = (requestedStatus = 'draft', extra = {}) => {
     // En faktura som bokförs måste ha kund, beskrivning och belopp (2026-11-24).
     // Förut gick det att bokföra en faktura på 0 kr utan rader eller kund.
-    // Bara admin än (2026-11-24), släpps till alla senare.
-    if (isAdminPreview() && requestedStatus !== 'draft' && (initial?.status || 'draft') === 'draft') {
+    // Gäller alla sedan 2026-11-25.
+    if (requestedStatus !== 'draft' && (initial?.status || 'draft') === 'draft') {
       const missing = [];
       if (!customerId) missing.push(tr('ui.ingen_kund_vald_varning'));
       const utanText = rows.filter(r => !String(r.description || '').trim() && Number(r.unitPrice));
@@ -706,7 +706,7 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
     // "Spara"-knapp) så en kommentar man skrivit på en NY, ännu osparad
     // faktura faktiskt följer med — annars gick den förlorad eftersom
     // Kommentar-knappen tidigare var helt avstängd innan första sparningen.
-    onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, projectId: projectId || undefined, priceInclVat, rotRutType: rotRutType !== 'none' && currency === 'SEK' ? rotRutType : undefined, ...(currency === 'SEK' ? rotRutFields() : {}), internalNote: commentDraft, invoiceTemplateSnapshot, currency, fxRate: currency !== 'SEK' ? rate : undefined, ...(isAdminPreview() ? { cashSale: invoiceType === 'Kontantfaktura' } : {}), ...extra });
+    onSave({ customerId, date: invoiceDate, dueDate, rows, status, type: 'invoice', invoiceNumber: nextNum, ourRef, theirRef, ourOrderNr, projectId: projectId || undefined, priceInclVat, rotRutType: rotRutType !== 'none' && currency === 'SEK' ? rotRutType : undefined, ...(currency === 'SEK' ? rotRutFields() : {}), internalNote: commentDraft, invoiceTemplateSnapshot, currency, fxRate: currency !== 'SEK' ? rate : undefined, cashSale: invoiceType === 'Kontantfaktura', ...extra });
   };
 
   const handlePrint = async () => {
