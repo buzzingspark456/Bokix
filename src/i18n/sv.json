@@ -203,7 +203,8 @@
         "tax": "Moms och skatt",
         "payroll": "Lön",
         "other": "Övrigt",
-        "start": "Kom igång"
+        "start": "Kom igång",
+        "orders": "Order"
       },
       "minimize": "Minimera",
       "expand": "Visa",
@@ -272,7 +273,21 @@
       "documentsOneTitle": "1 underlag väntar på att kopplas",
       "documentsManyTitle": "{{count}} underlag väntar på att kopplas",
       "documentsDetail": "Sparade utan avläsning för över 30 dagar sedan",
-      "vatFiledBook": "Inlämnad, bokför momsen när perioden är klar"
+      "vatFiledBook": "Inlämnad, bokför momsen när perioden är klar",
+      "orderOne": "order {{number}} till {{customer}}",
+      "orderOneNoCustomer": "order {{number}}",
+      "actionOrder": "Öppna ordern",
+      "actionOrders": "Visa order",
+      "actionInvoiceOrder": "Fakturera",
+      "deliverOneTitle": "Leverera {{order}}",
+      "deliverManyTitle": "{{count}} order att leverera",
+      "ordersLateOne": "försenad",
+      "ordersLateMany": "{{count}} försenade",
+      "deliveryWhen": "leverans {{when}}",
+      "ordersBackorder": "restorder finns",
+      "invoiceOrderOneTitle": "Fakturera {{order}}",
+      "invoiceOrderManyTitle": "{{count}} order att fakturera",
+      "invoiceOrderDetail": "levererat för {{amount}} inkl. moms"
     },
     "unit": {
       "label": "Visa belopp i",

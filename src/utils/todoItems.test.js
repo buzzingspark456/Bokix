@@ -130,3 +130,26 @@ describe('underlag att koppla i Att göra', async () => {
     expect(buildTodoItems({ t, documents: [docs[1]], today }).some(r => r.kind === 'documents_unlinked')).toBe(false)
   })
 })
+
+describe('order i Att göra', () => {
+  const today = new Date('2026-11-25T12:00:00');
+  const order = (over = {}) => ({ id: 'o1', number: '1001', customerName: 'Kund AB', date: '2026-11-20', rows: [{ key: 'a', description: 'Stol', qty: 2, unitPrice: 100, vatRate: 25, delivered: 0, invoiced: 0 }], ...over });
+  const run = (orders, extra = {}) => buildTodoItems({ t, today, company: { salesOrders: orders }, ...extra });
+
+  it('visar försenad order att leverera med länk till ordern', () => {
+    const row = run([order({ deliveryDate: '2026-11-22' })]).find(i => i.kind === 'orders_deliver');
+    expect(row.late).toBe(true);
+    expect(row.target).toEqual({ tab: 'orders', action: { type: 'open_order', payload: { id: 'o1' } } });
+  });
+
+  it('visar levererad order att fakturera med belopp inkl. moms', () => {
+    const delivered = order({ rows: [{ key: 'a', description: 'Stol', qty: 2, unitPrice: 100, vatRate: 25, delivered: 2, invoiced: 0 }] });
+    const items = run([delivered]);
+    expect(items.find(i => i.kind === 'orders_deliver')).toBeUndefined();
+    expect(items.find(i => i.kind === 'orders_invoice').detail).toContain('250');
+  });
+
+  it('visas inte när Order är dold i menyn', () => {
+    expect(run([order()], { hiddenNavIds: ['orders'] }).some(i => i.group === 'orders')).toBe(false);
+  });
+});

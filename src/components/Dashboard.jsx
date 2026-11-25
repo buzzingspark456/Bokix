@@ -191,6 +191,7 @@ const TODO_ICONS = {
   overdue_invoices: TodoOverdueIcon, supplier_due: TodoOverdueIcon, vat_deadline: TodoVatIcon, agi_deadline: TodoVatIcon,
   year_end: TodoVatIcon, income_declaration: TodoVatIcon, annual_report: TodoVatIcon, start_vat: TodoVatIcon, payroll_pending: TodoPayrollIcon, employees_tax: TodoPayrollIcon,
   review: TodoReviewIcon, bank_unmatched: TodoBankIcon, draft_invoices: TodoDraftIcon, documents_unlinked: TodoReviewIcon,
+  orders_deliver: TodoOverdueIcon, orders_invoice: TodoDraftIcon,
 };
 
 /* ── Nyckeltalsruta: Resultat, Intäkter, Kostnader och Likviditet som fyra

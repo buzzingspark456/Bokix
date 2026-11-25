@@ -13,6 +13,7 @@ import { nextVatDeadline, nextAgiDeadline, vatContextFor, incomeDeclarationDueDa
 import { annualReportDeadline } from './annualReport';
 import { detectOrgType } from './orgType';
 import { invoiceCustomerRemainingSek } from './rotRutConfig';
+import { orderStatus, rowLeftToInvoice, rowLeftToDeliver, applyInvoiceExistence, num as orderNum } from './salesOrders';
 import { activeFiscalYear } from './fiscalYear';
 import { numberFormat } from './intlCache';
 import { staleDocuments } from './looseDocuments';
@@ -251,6 +252,47 @@ export function buildTodoItems({
       title: unmatchedBank.length === 1 ? t('dashboard.todo.bankOneTitle') : t('dashboard.todo.bankManyTitle', { count: unmatchedBank.length }),
       detail: t('dashboard.todo.bankDetail'),
     });
+  }
+
+  // Kundorder (2026-11-24): att leverera (försenade först) och att fakturera.
+  // Bara när Order syns i menyn (admin med artiklar, senare Handel-planen).
+  if (shows('orders')) {
+    const invoiceIds = new Set(invoices.map(i => i.id));
+    const orders = (company?.salesOrders || []).map(o => applyInvoiceExistence(o, invoiceIds));
+    const orderLabel = (o) => (o.customerName ? t('dashboard.todo.orderOne', { number: o.number, customer: o.customerName }) : t('dashboard.todo.orderOneNoCustomer', { number: o.number }));
+    const toDeliver = orders.filter(o => ['open', 'partial'].includes(orderStatus(o)) && (o.rows || []).some(rw => rowLeftToDeliver(rw) > 0));
+    if (toDeliver.length > 0) {
+      const one = toDeliver.length === 1 ? toDeliver[0] : null;
+      const dated = toDeliver.filter(o => o.deliveryDate);
+      const soonest = dated.length ? dated.reduce((min, o) => Math.min(min, daysUntil(o.deliveryDate, today)), Infinity) : null;
+      const lateCount = dated.filter(o => daysUntil(o.deliveryDate, today) < 0).length;
+      const late = lateCount > 0;
+      rows.push({
+        kind: 'orders_deliver', group: 'orders', sev: late ? 'danger' : soonest != null && soonest <= 2 ? 'warning' : 'success',
+        daysLeft: soonest ?? undefined, late, tone: late ? 'bad' : 'warn', primary: late,
+        action: one ? t('dashboard.todo.actionOrder') : t('dashboard.todo.actionOrders'),
+        target: one ? { tab: 'orders', action: { type: 'open_order', payload: { id: one.id } } } : { tab: 'orders' },
+        title: one ? t('dashboard.todo.deliverOneTitle', { order: orderLabel(one) }) : t('dashboard.todo.deliverManyTitle', { count: toDeliver.length }),
+        detail: [
+          late ? (lateCount === 1 ? t('dashboard.todo.ordersLateOne') : t('dashboard.todo.ordersLateMany', { count: lateCount })) : null,
+          !late && soonest != null ? t('dashboard.todo.deliveryWhen', { when: whenIn(Math.max(0, soonest)) }) : null,
+          toDeliver.some(o => orderStatus(o) === 'partial') ? t('dashboard.todo.ordersBackorder') : null,
+        ].filter(Boolean).join(' · ') || undefined,
+        when: late ? t('dashboard.todo.chipOverdue') : undefined,
+      });
+    }
+    const toInvoice = orders.filter(o => !o.cancelled && (o.rows || []).some(rw => rowLeftToInvoice(rw) > 0));
+    if (toInvoice.length > 0) {
+      const one = toInvoice.length === 1 ? toInvoice[0] : null;
+      const amount = toInvoice.reduce((sum, o) => sum + (o.rows || []).reduce((ss, rw) => ss + rowLeftToInvoice(rw) * orderNum(rw.unitPrice) * (1 - orderNum(rw.discount) / 100) * (1 + orderNum(rw.vatRate) / 100), 0), 0);
+      rows.push({
+        kind: 'orders_invoice', group: 'orders', sev: 'warning', tone: 'brand', primary: true,
+        action: one ? t('dashboard.todo.actionInvoiceOrder') : t('dashboard.todo.actionOrders'),
+        target: one ? { tab: 'orders', action: { type: 'open_order', payload: { id: one.id } } } : { tab: 'orders' },
+        title: one ? t('dashboard.todo.invoiceOrderOneTitle', { order: orderLabel(one) }) : t('dashboard.todo.invoiceOrderManyTitle', { count: toInvoice.length }),
+        detail: t('dashboard.todo.invoiceOrderDetail', { amount: fmt(amount) }),
+      });
+    }
   }
 
   // Fakturautkast som inte skickats.

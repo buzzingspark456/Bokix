@@ -203,7 +203,8 @@
         "tax": "VAT and tax",
         "payroll": "Payroll",
         "other": "Other",
-        "start": "Get started"
+        "start": "Get started",
+        "orders": "Orders"
       },
       "minimize": "Minimize",
       "expand": "Show",
@@ -272,7 +273,21 @@
       "documentsOneTitle": "1 document waiting to be linked",
       "documentsManyTitle": "{{count}} documents waiting to be linked",
       "documentsDetail": "Saved without reading more than 30 days ago",
-      "vatFiledBook": "Filed, book the VAT when the period is done"
+      "vatFiledBook": "Filed, book the VAT when the period is done",
+      "orderOne": "order {{number}} to {{customer}}",
+      "orderOneNoCustomer": "order {{number}}",
+      "actionOrder": "Open order",
+      "actionOrders": "View orders",
+      "actionInvoiceOrder": "Invoice",
+      "deliverOneTitle": "Deliver {{order}}",
+      "deliverManyTitle": "{{count}} orders to deliver",
+      "ordersLateOne": "late",
+      "ordersLateMany": "{{count}} late",
+      "deliveryWhen": "delivery {{when}}",
+      "ordersBackorder": "back order pending",
+      "invoiceOrderOneTitle": "Invoice {{order}}",
+      "invoiceOrderManyTitle": "{{count}} orders to invoice",
+      "invoiceOrderDetail": "{{amount}} delivered incl. VAT"
     },
     "unit": {
       "label": "Show amounts in",
