@@ -2321,15 +2321,13 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
         if (!total) return null;
         const monthName = new Date().toLocaleDateString('sv-SE', { month: 'long' });
         return (
-          <div className={`ut-progress${counts.todo === 0 ? ' is-done' : ''}`} title={tr('underlag.progressTitle')}>
-            <svg className="ut-ring" viewBox="0 0 36 36" aria-hidden="true">
-              <circle cx="18" cy="18" r="15" className="ut-ring-bg" />
-              <circle cx="18" cy="18" r="15" className="ut-ring-fg" style={{ strokeDasharray: `${(done / total) * 94.25} 94.25` }} />
-            </svg>
-            <span className="ut-progress-text">
-              <b>{counts.todo === 0 ? tr('underlag.progressAllDone') : tr('underlag.progressShort', { done, total })}</b>
-              <small>{counts.todo === 0 ? tr('underlag.progressDone', { month: monthName }) : tr('underlag.progressLeft', { n: counts.todo, month: monthName })}</small>
+          <div className={`ut-todo-line${counts.todo === 0 ? ' is-done' : ''}`} title={tr('underlag.progressTitle')}>
+            <span className="ut-todo-dot" aria-hidden="true">{counts.todo === 0 ? <CheckCircle2 size={15} /> : counts.todo}</span>
+            <span className="ut-todo-text">
+              <b>{counts.todo === 0 ? tr('underlag.todoLineDone') : counts.todo === 1 ? tr('underlag.todoLineOne') : tr('underlag.todoLineMany', { n: counts.todo })}</b>
+              <small>{tr('underlag.todoLineMonth', { done, total, month: monthName })}</small>
             </span>
+            <span className="ut-todo-bar" aria-hidden="true"><i style={{ width: `${Math.round((done / total) * 100)}%` }} /></span>
           </div>
         );
       })()}

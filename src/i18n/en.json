@@ -4599,7 +4599,11 @@
     "hintMissing": "No earlier choice. Pick an account, Bokix remembers it.",
     "rowVat": "VAT {{kr}}",
     "navMore": "More",
-    "setTabInbox": "Inbox"
+    "setTabInbox": "Inbox",
+    "todoLineOne": "1 document to do",
+    "todoLineMany": "{{n}} documents to do",
+    "todoLineDone": "All done",
+    "todoLineMonth": "{{done}} of {{total}} done in {{month}}"
   },
   "rotRut": {
     "capped": "The customer has already received {{used}} kr in household deductions this year. The deduction on this invoice is limited to {{room}} kr so the cap is not exceeded.",

@@ -4599,7 +4599,11 @@
     "hintMissing": "Inget tidigare val. Välj konto, Bokix kommer ihåg det.",
     "rowVat": "moms {{kr}}",
     "navMore": "Mer",
-    "setTabInbox": "Inkorg"
+    "setTabInbox": "Inkorg",
+    "todoLineOne": "1 underlag att göra",
+    "todoLineMany": "{{n}} underlag att göra",
+    "todoLineDone": "Allt är klart",
+    "todoLineMonth": "{{done}} av {{total}} klara i {{month}}"
   },
   "rotRut": {
     "capped": "Kunden har redan fått {{used}} kr i husavdrag i år. Avdraget på den här fakturan begränsas till {{room}} kr så att taket inte överskrids.",

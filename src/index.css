@@ -11376,3 +11376,13 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .ut-toolbar .ut-gear { margin-left: 0; }
 .ut-toolbar > .ut-bar > .ut-sep, .ut-toolbar .ut-bar-sep { display: none; }
 .ut-settings .ut-set-tabs { width: fit-content; align-self: flex-start; }
+/* Underlag: att göra som en lugn rad (2026-11-25) */
+.ut-todo-line { display: flex; align-items: center; gap: 12px; margin: 2px 0 18px; max-width: 520px; }
+.ut-todo-dot { min-width: 26px; height: 26px; padding: 0 7px; box-sizing: border-box; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: var(--status-amber-bg); color: var(--status-amber-text); font-size: 13px; font-weight: 700; }
+.ut-todo-line.is-done .ut-todo-dot { background: var(--status-green-bg); color: var(--status-green-text); }
+.ut-todo-text { display: flex; flex-direction: column; gap: 1px; white-space: nowrap; }
+.ut-todo-text b { font-size: 14px; color: var(--text-main); }
+.ut-todo-text small { font-size: 12.5px; color: var(--text-secondary); }
+.ut-todo-bar { flex: 1; min-width: 80px; height: 5px; border-radius: 99px; background: var(--bg-muted); overflow: hidden; }
+.ut-todo-bar i { display: block; height: 100%; border-radius: 99px; background: var(--status-green-text); }
+.ut-head + .ut-todo-line { margin-top: 14px; }
