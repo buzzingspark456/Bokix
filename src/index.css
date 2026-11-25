@@ -11386,3 +11386,15 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .ut-todo-bar { flex: 1; min-width: 80px; height: 5px; border-radius: 99px; background: var(--bg-muted); overflow: hidden; }
 .ut-todo-bar i { display: block; height: 100%; border-radius: 99px; background: var(--status-green-text); }
 .ut-head + .ut-todo-line { margin-top: 14px; }
+/* Underlag (2026-11-25): verktygsraden direkt under rubriken, att göra-raden
+   under den och listan sist. Gröna staplar i samma gröna som knapparna. */
+.ut > .ut-head { order: 1; }
+.ut > .ut-toolbar { order: 2; }
+.ut > .ut-todo-line { order: 3; margin: 14px 2px 4px !important; }
+.ut > .ut-count { order: 4; }
+.ut > .ut-table-wrap { order: 5; }
+.ut > * { order: 6; }
+.ut > .ut-head, .ut > .ut-toolbar, .ut > .ut-todo-line, .ut > .ut-count, .ut > .ut-table-wrap { flex-shrink: 0; }
+.ut-todo-bar i, .po-prog .pz-m-track > span, .lg-kpi-bar span { background: #0b6329 !important; }
+:root[data-theme="dark"] .ut-todo-bar i, :root[data-theme="dark"] .po-prog .pz-m-track > span { background: #22a052 !important; }
+.ut-todo-line.is-done .ut-todo-dot { background: #0b6329; color: #fff; }
