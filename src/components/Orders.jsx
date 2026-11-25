@@ -80,7 +80,8 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
     // En ny kund som bara skrivits in läggs till i Kunder, så att fakturan har en kund.
     if (!clean.customerId && String(clean.customerName || '').trim() && onCreateContact) {
       const existing = contacts.find(c => String(c.name || '').trim().toLowerCase() === clean.customerName.trim().toLowerCase());
-      const customerId = existing?.id || onCreateContact({ name: clean.customerName.trim(), email: clean.customerEmail || '', orgNr: clean.customerOrgNr || '' });
+      const customerId = existing?.id || onCreateContact({ name: clean.customerName.trim(), email: clean.customerEmail || '', orgNr: clean.customerOrgNr || '', contactPerson: clean.theirRef || '', address: String(clean.customerAddress || '').split('
+')[0] || '' });
       clean = { ...clean, customerId };
     }
     setCompanyInfo(prev => {
@@ -95,7 +96,7 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
   const GROUP = { active: ['open', 'partial', 'delivered'], deliver: ['open', 'partial'], invoice: ['delivered', 'partial'], invoiced: ['invoiced'], all: null };
   const inGroup = (o, k) => {
     const st = orderStatus(o);
-    if (k === 'invoice') return (o.rows || []).some(r => rowLeftToInvoice(r) > 0) && st !== 'cancelled';
+    if (k === 'invoice') return (o.rows || []).some(r => rowLeftToInvoice(r) > 0);
     return !GROUP[k] || GROUP[k].includes(st);
   };
   const count = (k) => orders.filter(o => inGroup(o, k)).length;

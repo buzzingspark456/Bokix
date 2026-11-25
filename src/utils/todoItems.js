@@ -281,7 +281,7 @@ export function buildTodoItems({
         when: late ? t('dashboard.todo.chipOverdue') : undefined,
       });
     }
-    const toInvoice = orders.filter(o => !o.cancelled && (o.rows || []).some(rw => rowLeftToInvoice(rw) > 0));
+    const toInvoice = orders.filter(o => (o.rows || []).some(rw => rowLeftToInvoice(rw) > 0));
     if (toInvoice.length > 0) {
       const one = toInvoice.length === 1 ? toInvoice[0] : null;
       const amount = toInvoice.reduce((sum, o) => sum + (o.rows || []).reduce((ss, rw) => ss + rowLeftToInvoice(rw) * orderNum(rw.unitPrice) * (1 - orderNum(rw.discount) / 100) * (1 + orderNum(rw.vatRate) / 100), 0), 0);
