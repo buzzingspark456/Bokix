@@ -4603,7 +4603,9 @@
     "todoLineOne": "1 document to do",
     "todoLineMany": "{{n}} documents to do",
     "todoLineDone": "All done",
-    "todoLineMonth": "{{done}} of {{total}} done in {{month}}"
+    "todoLineMonth": "{{done}} of {{total}} done in {{month}}",
+    "sendersWaitTitle": "Waiting for you",
+    "sendersWaitText": "Email from unknown senders is held here until you approve or block them."
   },
   "rotRut": {
     "capped": "The customer has already received {{used}} kr in household deductions this year. The deduction on this invoice is limited to {{room}} kr so the cap is not exceeded.",

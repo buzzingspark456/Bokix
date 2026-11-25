@@ -11398,3 +11398,19 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .ut-todo-bar i, .po-prog .pz-m-track > span, .lg-kpi-bar span { background: #0b6329 !important; }
 :root[data-theme="dark"] .ut-todo-bar i, :root[data-theme="dark"] .po-prog .pz-m-track > span { background: #22a052 !important; }
 .ut-todo-line.is-done .ut-todo-dot { background: #0b6329; color: #fff; }
+/* Att göra-raden borttagen (2026-11-25, grundaren): listan högre upp. */
+.ut-todo-line { display: none !important; }
+.ut > .ut-filters, .ut > .ut-alert { order: 2; }
+/* Granska avsändare: samma bredd och upplägg som Hantera avsändare */
+.ut-set-senders > .ut { padding: 0; margin: 0; height: auto; gap: 12px; }
+.ut-set-senders .ut-filters { margin: 0; }
+.ut-set-senders .ut-table-wrap { margin: 0; }
+.ut-set-senders .ut-empty-box { padding: 28px 16px; }
+.ut-settings .ut-sx { max-width: 1170px; }
+.ut-set-senders > .ut { max-width: none; width: 100%; }
+.ut-set-senders .ut-table-wrap { width: 100%; box-sizing: border-box; }
+.ut-set-senders > .ut > * { max-width: none !important; margin-right: 0 !important; }
+.ut-set-senders { min-width: 0; }
+.ut-settings .ut-sx-main { flex: 1; min-width: 0; }
+.ut-settings > .ut-sx { width: 100%; box-sizing: border-box; }
+.ut-settings .ut-sx > .ut-sx-main { max-width: none !important; width: 100%; justify-self: stretch; }

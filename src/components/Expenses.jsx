@@ -1995,7 +1995,10 @@ function MailboxView({ info, notify = true, onNotify, onSaveSenders, receipts = 
       <div className="ut ut-settings">
         <div className="ut-head"><h1>{tr('underlag.setTitle')}</h1></div>
         {tabs}
-        <div className="ut-set-senders"><SendersView info={info} onSaveSenders={onSaveSenders} receipts={receipts} ownEmail={ownEmail} /></div>
+        <section className="ut-sx">
+          <div className="ut-sx-side"><h2>{tr('underlag.sendersWaitTitle')}</h2><p>{tr('underlag.sendersWaitText')}</p></div>
+          <div className="ut-sx-main ut-set-senders"><SendersView info={info} onSaveSenders={onSaveSenders} receipts={receipts} ownEmail={ownEmail} /></div>
+        </section>
         <section className="ut-sx">
           <div className="ut-sx-side"><h2>{tr('underlag.setManageSenders')}</h2><p>{tr('underlag.sxSendersText')}</p></div>
           <div className="ut-sx-main"><SendersView mode="manage" info={info} onSaveSenders={onSaveSenders} receipts={receipts} ownEmail={ownEmail} /></div>

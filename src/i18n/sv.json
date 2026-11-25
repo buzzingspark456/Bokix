@@ -4603,7 +4603,9 @@
     "todoLineOne": "1 underlag att göra",
     "todoLineMany": "{{n}} underlag att göra",
     "todoLineDone": "Allt är klart",
-    "todoLineMonth": "{{done}} av {{total}} klara i {{month}}"
+    "todoLineMonth": "{{done}} av {{total}} klara i {{month}}",
+    "sendersWaitTitle": "Väntar på svar",
+    "sendersWaitText": "Mejl från okända avsändare stoppas här tills du godkänner eller blockerar dem."
   },
   "rotRut": {
     "capped": "Kunden har redan fått {{used}} kr i husavdrag i år. Avdraget på den här fakturan begränsas till {{room}} kr så att taket inte överskrids.",
