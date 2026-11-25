@@ -80,8 +80,7 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
     // En ny kund som bara skrivits in läggs till i Kunder, så att fakturan har en kund.
     if (!clean.customerId && String(clean.customerName || '').trim() && onCreateContact) {
       const existing = contacts.find(c => String(c.name || '').trim().toLowerCase() === clean.customerName.trim().toLowerCase());
-      const customerId = existing?.id || onCreateContact({ name: clean.customerName.trim(), email: clean.customerEmail || '', orgNr: clean.customerOrgNr || '', contactPerson: clean.theirRef || '', address: String(clean.customerAddress || '').split('
-')[0] || '' });
+      const customerId = existing?.id || onCreateContact({ name: clean.customerName.trim(), email: clean.customerEmail || '', orgNr: clean.customerOrgNr || '', contactPerson: clean.theirRef || '', address: String(clean.customerAddress || '').split(String.fromCharCode(10))[0] || '' });
       clean = { ...clean, customerId };
     }
     setCompanyInfo(prev => {
