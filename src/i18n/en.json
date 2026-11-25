@@ -4598,7 +4598,8 @@
     "hintCheck": "Bokix guessed the account. Take a look before approving.",
     "hintMissing": "No earlier choice. Pick an account, Bokix remembers it.",
     "rowVat": "VAT {{kr}}",
-    "navMore": "More"
+    "navMore": "More",
+    "setTabInbox": "Inbox"
   },
   "rotRut": {
     "capped": "The customer has already received {{used}} kr in household deductions this year. The deduction on this invoice is limited to {{room}} kr so the cap is not exceeded.",

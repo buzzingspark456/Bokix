@@ -1330,7 +1330,9 @@ function App() {
     mq.addEventListener('change', on);
     return () => mq.removeEventListener('change', on);
   }, []);
-  const underlagFocus = autoRail && isLaptop;
+  // Underlag döljer inte längre huvudmenyn (2026-11-25, grundaren): menyn är
+  // som på alla andra sidor och fälls ihop med Fäll ihop menyn.
+  const underlagFocus = false && autoRail && isLaptop;
   const effectiveRail = !underlagFocus && (navRail || (autoRail && !railOverride));
   useEffect(() => {
     if (underlagFocus) document.documentElement.setAttribute('data-underlag-focus', '1');

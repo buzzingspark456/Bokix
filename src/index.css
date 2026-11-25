@@ -11353,3 +11353,26 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .lt-page-narrow .so-listbody .ar-table-wrap { border-left: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); border-radius: 0 0 12px 12px; }
 /* Artiklar: listan i jämnhöjd med sidhuvudet i smal bredd */
 .lt-page-narrow .art-tab > .ar { padding-left: 0; padding-right: 0; }
+
+/* Underlag-listan (2026-11-25): sök till vänster, ladda upp och inställningar till höger */
+.ut-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ut-toolbar > .ut-bar, .ut-toolbar > .ut-filters { display: contents; }
+.ut-toolbar .ut-search { order: 1; margin-left: 0 !important; flex: 0 1 320px; }
+.ut-toolbar .ut-chips, .ut-toolbar .ut-mail-filters { order: 2; }
+.ut-toolbar .ut-upload, .ut-toolbar .ut-bar > .ut-link { order: 3; margin-left: auto; }
+.ut-toolbar .ut-bar-right { order: 3; }
+.ut-toolbar .ut-gear { order: 4; flex-shrink: 0; }
+.ut-table.ut-compact td { padding-top: 6px !important; padding-bottom: 6px !important; }
+.ut-table.ut-no-type tr > :nth-child(3), .ut-table.ut-no-amount tr > :nth-child(4), .ut-table.ut-no-arrived tr > :nth-child(5),
+.ut-table.ut-no-read tr > :nth-child(6), .ut-table.ut-no-from tr > :nth-child(7), .ut-table.ut-no-status tr > :nth-child(8) { display: none; }
+
+/* Underlag: inställningar med flikar (2026-11-25) */
+.ut-set-tabs { display: inline-flex; gap: 2px; padding: 3px; margin: 4px 0 22px; border: 1px solid var(--border-light, var(--border)); border-radius: 999px; background: var(--bg-muted); }
+.ut-set-tabs button { height: 32px; padding: 0 16px; border: none; border-radius: 999px; background: none; font: inherit; font-size: 13.5px; font-weight: 500; color: var(--text-secondary); cursor: pointer; }
+.ut-set-tabs button.on { background: #1f2329; color: #fff; font-weight: 600; }
+:root[data-theme="dark"] .ut-set-tabs button.on { background: #e8eaed; color: #111; }
+.ut-set-senders > .ut > .ut-head { display: none; }
+.ut-set-senders > .ut { padding: 0; margin-bottom: 24px; }
+.ut-toolbar .ut-gear { margin-left: 0; }
+.ut-toolbar > .ut-bar > .ut-sep, .ut-toolbar .ut-bar-sep { display: none; }
+.ut-settings .ut-set-tabs { width: fit-content; align-self: flex-start; }

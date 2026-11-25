@@ -4598,7 +4598,8 @@
     "hintCheck": "Bokix gissar kontot. Titta en gång innan du godkänner.",
     "hintMissing": "Inget tidigare val. Välj konto, Bokix kommer ihåg det.",
     "rowVat": "moms {{kr}}",
-    "navMore": "Mer"
+    "navMore": "Mer",
+    "setTabInbox": "Inkorg"
   },
   "rotRut": {
     "capped": "Kunden har redan fått {{used}} kr i husavdrag i år. Avdraget på den här fakturan begränsas till {{room}} kr så att taket inte överskrids.",

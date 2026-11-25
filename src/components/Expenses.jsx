@@ -19,6 +19,7 @@ import { uploadFileToStorage } from '../utils/fileUpload';
 import { useSignedUrl } from '../utils/signedUrls';
 import { BRAND } from '../utils/brandColors';
 import { confirmDialog } from './shared/ConfirmDialog';
+import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
 import { OCR_DRAFT_VERSION } from '../utils/ocrReceipt';
 import { readDocumentText } from '../utils/ocrCache';
 import { captureEvent } from '../utils/posthog';
@@ -1760,16 +1761,15 @@ function UnderlagNav({ view, onView, counts, onOpenMenu }) {
     ['underlag', tr('nav.underlag'), FileText, counts.todo],
     ['mail', tr('underlag.navMail'), Mail, counts.mail],
     ...(counts.missing != null ? [['missing', tr('underlag.navMissingShort'), AlertCircle, counts.missing]] : []),
-    ['senders', tr('underlag.navSendersShort'), CheckCircle2, null],
-    ['trash', tr('underlag.navTrash'), Trash2, counts.trash],
+    // Papperskorgen bara när den har något (eller är öppen); Avsändare ligger
+    // under Inställningar sedan 2026-11-25.
+    ...(counts.trash > 0 || view === 'trash' ? [['trash', tr('underlag.navTrash'), Trash2, counts.trash]] : []),
     ['mailbox', tr('underlag.navSettings'), Cog, null],
   ];
-  // Grupper: underlagen och avsändarna, papperskorgen, inställningarna.
-  const n = items.length;
-  const groups = [items.slice(0, n - 2), items.slice(n - 2, n - 1), items.slice(n - 1)];
+  const groups = [items.filter(([id]) => id !== 'trash' && id !== 'mailbox'), items.filter(([id]) => id === 'trash'), items.filter(([id]) => id === 'mailbox')].filter(g => g.length);
   // Telefon (2026-11-22, som Fortnox): bara det viktigaste som flikar,
   // Avsändare, Papperskorg och Inställningar under Mer.
-  const EXTRA = ['senders', 'trash', 'mailbox'];
+  const EXTRA = ['trash', 'mailbox'];
   const extras = items.filter(([id]) => EXTRA.includes(id));
   const [moreOpen, setMoreOpen] = React.useState(false);
   const extraActive = EXTRA.includes(view);
@@ -1981,7 +1981,28 @@ function SendersView({ info, onSaveSenders, receipts = [], ownEmail = '', mode =
 
 /** Inställningar för inkorgen (2026-11-18): adressen, Gmail och notiser på en
  * lugn inställningssida i stället för en egen vy med kort. */
-function MailboxView({ info, notify = true, onNotify, onSaveSenders, receipts = [], ownEmail = '' }) {
+function MailboxView({ info, notify = true, onNotify, onSaveSenders, receipts = [], ownEmail = '', initialTab = 'inbox' }) {
+  const [tab, setTab] = useState(initialTab);
+  const tabs = (
+    <div className="ut-set-tabs" role="tablist">
+      {[['inbox', tr('underlag.setTabInbox')], ['senders', tr('underlag.navSenders')]].map(([id, label]) => (
+        <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : undefined} onClick={() => setTab(id)}>{label}</button>
+      ))}
+    </div>
+  );
+  if (tab === 'senders') {
+    return (
+      <div className="ut ut-settings">
+        <div className="ut-head"><h1>{tr('underlag.setTitle')}</h1></div>
+        {tabs}
+        <div className="ut-set-senders"><SendersView info={info} onSaveSenders={onSaveSenders} receipts={receipts} ownEmail={ownEmail} /></div>
+        <section className="ut-sx">
+          <div className="ut-sx-side"><h2>{tr('underlag.setManageSenders')}</h2><p>{tr('underlag.sxSendersText')}</p></div>
+          <div className="ut-sx-main"><SendersView mode="manage" info={info} onSaveSenders={onSaveSenders} receipts={receipts} ownEmail={ownEmail} /></div>
+        </section>
+      </div>
+    );
+  }
   const sec = (title, text, children) => (
     <section className="ut-sx">
       <div className="ut-sx-side"><h2>{title}</h2><p>{text}</p></div>
@@ -1992,8 +2013,8 @@ function MailboxView({ info, notify = true, onNotify, onSaveSenders, receipts = 
     <div className="ut ut-settings">
       <div className="ut-head">
         <h1>{tr('underlag.setTitle')}</h1>
-        <p>{tr('underlag.setIntro')}</p>
       </div>
+      {tabs}
       {sec(tr('underlag.setNotifyTitle'), tr('underlag.sxNotifyText'), (
         <div className="ut-set">
           <div className="ut-set-row">
@@ -2010,9 +2031,6 @@ function MailboxView({ info, notify = true, onNotify, onSaveSenders, receipts = 
             <div className="ut-set-right">{info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />}</div>
           </div>
         </div>
-      ))}
-      {sec(tr('underlag.setManageSenders'), tr('underlag.sxSendersText'), (
-        <SendersView mode="manage" info={info} onSaveSenders={onSaveSenders} receipts={receipts} ownEmail={ownEmail} />
       ))}
     </div>
   );
@@ -2223,6 +2241,9 @@ function TrashView({ items, onRestore, onPurge }) {
 /** Underlag som tabell, som Fortnox (2026-11-18): kryssrutor, kolumner för
  * belopp, inkommet, avläsning, källa och avsändare. En rad öppnar underlaget. */
 function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readingId, onOpen, onPreview, previewId = null, onDeleteMany, onUpload, onMailIn, onSenders, onRefresh, inboxAddress, onlyEmail = false, uploading = [] }) {
+  // Listans inställningar som i Artiklar (2026-11-25).
+  const [lp, setLp] = useListPrefs(onlyEmail ? 'bokix.ulmail.prefs' : 'bokix.underlag.prefs', { type: true, amount: true, arrived: true, read: true, from: true, status: true });
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const receipts = onlyEmail ? allRows.filter(r => r.inbox?.source === 'email') : allRows;
   // Underlag visar bara det som inte är bokfört (som Fortnox); bokförda finns i Bokföring.
   // Mejl visar alla brev, med Olästa och Visa hanterade.
@@ -2347,8 +2368,20 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
           <Search size={15} />
           <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={onlyEmail ? tr('underlag.searchSender') : tr('underlag.search')} aria-label={onlyEmail ? tr('underlag.searchSender') : tr('underlag.search')} />
         </div>
+        <ListSettingsButton onClick={() => setSettingsOpen(true)} className="ut-gear" />
       </div>
       </div>
+      <ListSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={setLp} showWidth={false}
+        actions={[
+          ...(onlyEmail ? [] : [{ key: 'upload', label: tr('underlag.uploadDocs'), icon: UploadCloud, onClick: onUpload }]),
+          { key: 'mailin', label: tr('underlag.mailIn'), icon: Mail, onClick: onMailIn },
+          ...(onRefresh ? [{ key: 'refresh', label: tr('underlag.refresh'), icon: RotateCcw, onClick: () => refresh() }] : []),
+          ...(onSenders ? [{ key: 'settings', label: tr('underlag.navSettings'), icon: Cog, onClick: onSenders }] : []),
+        ]}
+        columns={[
+          { key: 'type', label: tr('underlag.type') }, { key: 'amount', label: tr('underlag.colAmount') }, { key: 'arrived', label: tr('underlag.colArrived') },
+          { key: 'read', label: tr('underlag.colRead') }, { key: 'from', label: tr('underlag.colFrom') }, { key: 'status', label: tr('underlag.colStatus') },
+        ]} />
       <div className="ut-count">
         {picked.size > 0 ? (
           <>
@@ -2359,7 +2392,7 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
         ) : <span>{tr('underlag.total', { n: shown.length })}</span>}
       </div>
       <div className="ut-table-wrap">
-        <table className="ut-table">
+        <table className={['ut-table', lp.density === 'compact' && 'ut-compact', ...['type', 'amount', 'arrived', 'read', 'from', 'status'].filter(k => lp.cols[k] === false).map(k => `ut-no-${k}`)].filter(Boolean).join(' ')}>
           <thead>
             <tr>
               <th className="ut-c-check">
@@ -2393,7 +2426,7 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
                       : <UtEmpty title={tr('underlag.empty')} />}
               </td></tr>
             )}
-            {shown.map(r => {
+            {(lp.pageSize ? shown.slice(0, lp.pageSize) : shown).map(r => {
               const s = statusOf(r);
               const src = sourceLabel(r);
               const rs = readState(r, s, readingId);
@@ -2985,7 +3018,7 @@ export default function Expenses({
                 </div>
               )}
               {uwView === 'senders' && (
-                <SendersView info={inboxInfo} onSaveSenders={saveSenders} receipts={[...allReceipts, ...receiptTrash]} ownEmail={user?.email || ''} />
+                <MailboxView initialTab="senders" info={inboxInfo} notify={inboxNotify} onNotify={setInboxNotify} onSaveSenders={saveSenders} receipts={[...allReceipts, ...receiptTrash]} ownEmail={user?.email || ''} />
               )}
               {uwView === 'mailbox' && (
                 <MailboxView info={inboxInfo} notify={inboxNotify} onNotify={setInboxNotify} onSaveSenders={saveSenders} receipts={[...allReceipts, ...receiptTrash]} ownEmail={user?.email || ''} />
