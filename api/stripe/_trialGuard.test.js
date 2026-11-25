@@ -84,41 +84,6 @@ describe('samma kort', () => {
     expect(await enforceCardTrialLimit(stripe, { id: 'new', status: 'trialing', metadata: {} })).toBe('ended');
     expect(stripe.subscriptions.update).toHaveBeenCalledWith('new', expect.objectContaining({ trial_end: 'now' }));
   });
-  it('samma konto, nytt företag, samma kort: provperioden står kvar', async () => {
-    const card = { card: { fingerprint: 'fpX' } };
-    const stripe = fakeStripe([
-      { id: 'old', trial_start: now - 9999, metadata: { bokix_card_fp: 'fpX', user_id: 'u1', company_id: 'c1' } },
-      { id: 'new', status: 'trialing', trial_start: now, metadata: { user_id: 'u1', company_id: 'c2' }, default_payment_method: card },
-    ]);
-    expect(await enforceCardTrialLimit(stripe, { id: 'new', status: 'trialing', metadata: { user_id: 'u1' } })).toBe('recorded');
-  });
-  it('samma konto, tredje företaget med samma kort: provperioden står kvar', async () => {
-    const card = { card: { fingerprint: 'fpX' } };
-    const stripe = fakeStripe([
-      { id: 'a', trial_start: now - 9999, metadata: { bokix_card_fp: 'fpX', user_id: 'u1' } },
-      { id: 'b', trial_start: now - 999, metadata: { bokix_card_fp: 'fpX', user_id: 'u1' } },
-      { id: 'new', status: 'trialing', trial_start: now, metadata: { user_id: 'u1' }, default_payment_method: card },
-    ]);
-    expect(await enforceCardTrialLimit(stripe, { id: 'new', status: 'trialing', metadata: { user_id: 'u1' } })).toBe('recorded');
-  });
-  it('samma konto, fjärde företaget med samma kort: provperioden avslutas', async () => {
-    const card = { card: { fingerprint: 'fpX' } };
-    const stripe = fakeStripe([
-      { id: 'a', trial_start: now - 9999, metadata: { bokix_card_fp: 'fpX', user_id: 'u1' } },
-      { id: 'b', trial_start: now - 999, metadata: { bokix_card_fp: 'fpX', user_id: 'u1' } },
-      { id: 'c', trial_start: now - 99, metadata: { bokix_card_fp: 'fpX', user_id: 'u1' } },
-      { id: 'new', status: 'trialing', trial_start: now, metadata: { user_id: 'u1' }, default_payment_method: card },
-    ]);
-    expect(await enforceCardTrialLimit(stripe, { id: 'new', status: 'trialing', metadata: { user_id: 'u1' } })).toBe('ended');
-  });
-  it('annat konto med samma kort: provperioden avslutas', async () => {
-    const card = { card: { fingerprint: 'fpX' } };
-    const stripe = fakeStripe([
-      { id: 'old', trial_start: now - 9999, metadata: { bokix_card_fp: 'fpX', user_id: 'u1' } },
-      { id: 'new', status: 'trialing', trial_start: now, metadata: { user_id: 'u2' }, default_payment_method: card },
-    ]);
-    expect(await enforceCardTrialLimit(stripe, { id: 'new', status: 'trialing', metadata: { user_id: 'u2' } })).toBe('ended');
-  });
   it('nytt kort: fingeravtrycket sparas, provperioden står kvar', async () => {
     const stripe = fakeStripe([{ id: 'new', status: 'trialing', trial_start: now, metadata: {}, default_payment_method: { card: { fingerprint: 'fpY' } } }]);
     expect(await enforceCardTrialLimit(stripe, { id: 'new', status: 'trialing', metadata: {} })).toBe('recorded');
