@@ -6028,7 +6028,8 @@ function App() {
   // delar behörighet med Kundfakturor (navAccessId).
   // Order syns bara för admin med artiklar påslaget (senare: Handel-planen).
   const ordersOn = newUnderlagOn && isFeatureOn(currentCompany, 'articles') && tradeIncluded;
-  const featureHiddenNavIds = [...hiddenFeatureNavIds(currentCompany), ...(ordersOn ? [] : ['orders']), ...(payrollIncludedPlan ? [] : ['payroll'])];
+  const featureHiddenNavIds = [...hiddenFeatureNavIds(currentCompany), ...(ordersOn ? [] : ['orders']), ...(payrollIncludedPlan ? [] : ['payroll']), ...(!payrollIncludedPlan && !tradeIncluded ? ['articles'] : [])];
+  // Bas (2026-11-25): ingen artikelsida i menyn. Artiklar sparas och söks fram direkt på fakturor och offerter.
   const isNavItemShown = (item) => !featureHiddenNavIds.includes(item.id) && isNavIdAllowed(navAccessId(item.id));
   // Offerter, Kundfakturor, Artiklar och Leverantörsfakturor markeras bara på sin egen sida.
   const isNavItemActive = (item) => (item.exact
