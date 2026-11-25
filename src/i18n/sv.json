@@ -6462,7 +6462,17 @@
     "quoteHasOrder": "Offerten är en order nu. Leverans och faktura sköts från ordern.",
     "fromQuoteNotice": "Ordern är skapad från offert {{n}} och varorna är reserverade.",
     "countOne": "order",
-    "countMany": "order"
+    "countMany": "order",
+    "mailConfirm": "Mejla orderbekräftelse",
+    "mailAgain": "Mejla igen",
+    "mailTitle": "Mejla orderbekräftelsen",
+    "mailTo": "Till",
+    "mailDefault": "Hej,\n\nTack för din beställning. Här kommer orderbekräftelsen för order {{n}}.",
+    "mailPdfNote": "Orderbekräftelsen för order {{n}} bifogas som PDF.",
+    "mailBadTo": "Skriv en giltig e-postadress.",
+    "mailSent": "Orderbekräftelsen är skickad till {{to}}.",
+    "mailFailed": "Mejlet kunde inte skickas. Försök igen.",
+    "mailSubject": "Orderbekräftelse {{n}} från {{company}}"
   },
   "lset": {
     "exportQuotes": "Exportera offerter",

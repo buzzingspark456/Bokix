@@ -1331,3 +1331,9 @@ button.lg-kpi:hover { filter: brightness(1.06); box-shadow: 0 6px 18px rgba(0,0,
 .so-ar .po-empty { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; }
 .so-ar .po-tbl .ar-table thead th { position: static; }
 .so-compact .ar-table td { padding-top: 7px; padding-bottom: 7px; }
+/* Order-listan på telefon: status syns, nummer och leverans göms (2026-11-25) */
+@media (max-width: 600px) {
+  .po-tbl td:last-child, .po-tbl .po-w-status { display: table-cell !important; }
+  .so-listbody .po-tbl .po-w-nr, .so-listbody .po-tbl td.po-nr { display: none; }
+  .po-tbl .ar-name small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; display: block; }
+}

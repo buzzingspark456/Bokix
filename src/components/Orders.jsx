@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, X, Trash2, Download, Truck, Check, Search, FileText, ClipboardList, ChevronLeft, ChevronRight } from './icons';
+import { Plus, X, Trash2, Download, Truck, Check, Search, FileText, ClipboardList, ChevronLeft, ChevronRight, Send } from './icons';
 import ChipFilter from './shared/ChipFilter';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
@@ -15,7 +15,9 @@ import {
   rowLeftToDeliver, rowLeftToInvoice, deliverOrder, invoiceFromOrder, applyInvoiceExistence,
 } from '../utils/salesOrders';
 import { downloadSalesOrderPdf } from '../utils/salesOrderPdf';
-import { exportInvoicePdf, printInvoicePdf } from '../utils/exportInvoicePdf';
+import { exportInvoicePdf, printInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';
+import { sendInvoiceEmail } from '../emailApi';
+import { sendableEmail } from '../utils/validators';
 import DocSplit from './shared/DocSplit';
 import InvoiceDocument, { DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
 import './workspace.css';
@@ -33,7 +35,7 @@ const formatShort = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split(
 const emptyRow = () => ({ key: newId(), articleId: '', articleNumber: '', description: '', qty: 1, unit: 'st', unitPrice: '', vatRate: 25, discount: 0, account: '3001', delivered: 0, invoiced: 0 });
 const STATUS_PILL = { open: 'info', partial: 'warn', delivered: 'ok', invoiced: 'neutral', cancelled: 'late' };
 
-export default function Orders({ company, setCompanyInfo, articles = [], contacts = [], invoices = [], onCreateContact, onCreateInvoice, onOpenInvoice, onOpenQuote, globalAction, clearGlobalAction }) {
+export default function Orders({ activeCompanyId, onSyncBeforeServerCall, company, setCompanyInfo, articles = [], contacts = [], invoices = [], onCreateContact, onCreateInvoice, onOpenInvoice, onOpenQuote, globalAction, clearGlobalAction }) {
   // Fakturerat räknas från fakturorna som finns (applyInvoiceExistence).
   const invoiceIdSet = useMemo(() => new Map((invoices || []).map(i => [i.id, i])), [invoices]);
   const orders = useMemo(() => (company?.salesOrders || []).map(o => applyInvoiceExistence(o, invoiceIdSet)), [company?.salesOrders, invoiceIdSet]);
@@ -144,6 +146,8 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
             onOpenQuote={onOpenQuote}
             onMessage={setMessage}
             initialNotice={openNotice}
+            activeCompanyId={activeCompanyId}
+            onSyncBeforeServerCall={onSyncBeforeServerCall}
             onClose={() => { setOpen(null); setOpenNotice(''); }}
           />
     );
@@ -255,7 +259,7 @@ export default function Orders({ company, setCompanyInfo, articles = [], contact
   );
 }
 
-function OrderPage({ initial, company, articles, contacts, stockQty, reservedElsewhere, isStocked, lockedFor, onSave, onDelete, onInvoice, onOpenInvoice, onOpenQuote, onMessage, onClose, initialNotice = '' }) {
+function OrderPage({ initial, company, articles, contacts, stockQty, reservedElsewhere, isStocked, lockedFor, onSave, onDelete, onInvoice, onOpenInvoice, onOpenQuote, onMessage, onClose, initialNotice = '', activeCompanyId, onSyncBeforeServerCall }) {
   const [o, setO] = useState(() => ({ paymentTermsDays: Number(company?.paymentTermsDays) || 30, ...initial }));
   const [mode, setMode] = useState('view'); // 'view' | 'deliver'
   const [deliverDate, setDeliverDate] = useState(todayIso());
@@ -268,6 +272,31 @@ function OrderPage({ initial, company, articles, contacts, stockQty, reservedEls
   const [payAccount, setPayAccount] = useState('1930');
   const [payDate, setPayDate] = useState(todayIso());
   const [notice, setNotice] = useState(initialNotice);
+  // Mejla orderbekräftelsen (2026-11-25): samma utskick som offerter, PDF bifogad.
+  const [mail, setMail] = useState(null); // { to, message, busy, error }
+  const openMail = () => {
+    const e = validate(); if (e) return setError(e);
+    setMail({ to: o.customerEmail || contact?.email || '', message: t('so.mailDefault', { n: o.number }), busy: false, error: '' });
+  };
+  const sendMail = async () => {
+    const to = String(mail.to || '').trim();
+    if (!sendableEmail(to)) return setMail(m => ({ ...m, error: t('so.mailBadTo') }));
+    setMail(m => ({ ...m, busy: true, error: '' }));
+    try {
+      const esc = (x) => String(x).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+      const sender = (company?.invoiceDisplayName || company?.name) || '';
+      const html = `<p>${esc(mail.message).replace(/\n/g, '<br/>')}</p><p>Med vänlig hälsning<br/>${esc(sender)}</p>`;
+      const attachmentBase64 = await getInvoicePdfBase64(captureRef.current);
+      await onSyncBeforeServerCall?.();
+      await sendInvoiceEmail({ to, subject: t('so.mailSubject', { n: o.number, company: sender }), html, replyTo: company?.email || undefined, attachmentBase64, attachmentFilename: `orderbekraftelse-${o.number}.pdf`, company_id: activeCompanyId });
+      if (!o.customerEmail) setO(p => ({ ...p, customerEmail: to }));
+      onSave({ ...o, customerEmail: o.customerEmail || to, confirmationSentAt: new Date().toISOString() });
+      setMail(null);
+      setNotice(t('so.mailSent', { to }));
+    } catch (err) {
+      setMail(m => ({ ...m, busy: false, error: err?.message || t('so.mailFailed') }));
+    }
+  };
   const askPay = (run) => { setPayWay('invoice'); setPayDate(todayIso()); setPayAsk(() => run); };
   const afterInvoice = (savedAfter, paid) => {
     if (!savedAfter) return;
@@ -435,6 +464,7 @@ function OrderPage({ initial, company, articles, contacts, stockQty, reservedEls
           </ol>
         )}
         <span style={{ flex: 1 }} />
+        {status !== 'cancelled' && !o.isNew && <button type="button" className="so-tool" onClick={openMail}><Send size={14} /> {o.confirmationSentAt ? t('so.mailAgain') : t('so.mailConfirm')}</button>}
         {status !== 'cancelled' && <button type="button" className="so-tool" onClick={downloadConfirmation} disabled={pdfBusy}><Download size={14} /> {t('so.pdfConfirm')}</button>}
         {(o.deliveries || []).length > 0 && <button type="button" className="so-tool" onClick={() => downloadSalesOrderPdf({ company, order: o, kind: 'delivery' })}><Download size={14} /> {t('so.pdfDelivery')}</button>}
         {(o.invoiceIds || []).map((id, i) => onOpenInvoice && <button key={id} type="button" className="so-tool" onClick={() => { onClose(); onOpenInvoice(id); }}><FileText size={14} /> {(o.invoiceIds || []).length > 1 ? t('so.invoiceN', { n: i + 1 }) : t('so.openInvoice')}</button>)}
@@ -596,6 +626,26 @@ function OrderPage({ initial, company, articles, contacts, stockQty, reservedEls
         </DocSplit>
       </div>
 
+      {mail && (
+        <div className="modal-overlay" onClick={() => !mail.busy && setMail(null)}>
+          <div className="modal-content" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{t('so.mailTitle')}</h2>
+              <button type="button" className="modal-close" onClick={() => setMail(null)} disabled={mail.busy} aria-label={t('ui.stang')}><X size={18} /></button>
+            </div>
+            <div className="so-grid" style={{ gridTemplateColumns: '1fr' }}>
+              <label className="af-f"><span>{t('so.mailTo')}</span><input className="ws-input" type="email" value={mail.to} onChange={e => setMail(m => ({ ...m, to: e.target.value, error: '' }))} autoFocus /></label>
+              <label className="af-f"><span>{t('ui.meddelande')}</span><textarea className="ws-input" rows={5} value={mail.message} onChange={e => setMail(m => ({ ...m, message: e.target.value }))} style={{ height: 'auto', paddingTop: '9px' }} /></label>
+              <small className="ws-hint">{t('so.mailPdfNote', { n: o.number })}</small>
+              {mail.error && <small style={{ color: 'var(--status-red-text)', fontWeight: 600 }}>{mail.error}</small>}
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="agi-btn" onClick={() => setMail(null)} disabled={mail.busy}>{t('ui.avbryt')}</button>
+              <button type="button" className="agi-btn primary" onClick={sendMail} disabled={mail.busy}><Send size={14} /> {mail.busy ? t('ui.skickar_2') : t('ui.skicka')}</button>
+            </div>
+          </div>
+        </div>
+      )}
       {payAsk && (
         <div className="modal-overlay" onClick={() => setPayAsk(null)}>
           <div className="modal-content so-pay" style={{ maxWidth: '520px' }} onClick={e => e.stopPropagation()}>

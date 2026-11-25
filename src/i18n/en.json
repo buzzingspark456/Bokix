@@ -6462,7 +6462,17 @@
     "quoteHasOrder": "The quote is an order now. Delivery and invoicing are handled from the order.",
     "fromQuoteNotice": "The order is created from quote {{n}} and the goods are reserved.",
     "countOne": "order",
-    "countMany": "orders"
+    "countMany": "orders",
+    "mailConfirm": "Email confirmation",
+    "mailAgain": "Email again",
+    "mailTitle": "Email the order confirmation",
+    "mailTo": "To",
+    "mailDefault": "Hi,\n\nThank you for your order. Here is the order confirmation for order {{n}}.",
+    "mailPdfNote": "The confirmation for order {{n}} is attached as a PDF.",
+    "mailBadTo": "Enter a valid email address.",
+    "mailSent": "The order confirmation was sent to {{to}}.",
+    "mailFailed": "The email could not be sent. Try again.",
+    "mailSubject": "Order confirmation {{n}} from {{company}}"
   },
   "lset": {
     "exportQuotes": "Export quotes",
