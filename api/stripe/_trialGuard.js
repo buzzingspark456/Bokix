@@ -19,6 +19,8 @@ import { createHash } from 'node:crypto';
 
 // Provperioder från samma IP-adress inom 30 dagar innan IP:n räknas.
 export const IP_TRIAL_LIMIT = 3;
+// Provperioder med samma kort på samma konto (nya företag via Lägg till företag).
+export const SAME_ACCOUNT_CARD_TRIALS = 3;
 const IP_WINDOW_SECONDS = 30 * 24 * 3600;
 
 /** E-post som en person: gmail.com/googlemail.com utan punkter, alla utan +tillägg. */
@@ -99,7 +101,7 @@ export async function trialDecision(stripe, { email, orgNr, ip, excludeUserId = 
 
 /**
  * Efter att kortet lagts in (customer.subscription.created): har samma kort
- * redan använts för en provperiod på ett annat konto avslutas provperioden
+ * redan använts för en provperiod på ett ANNAT konto avslutas provperioden
  * direkt och kortet debiteras. Kortets fingeravtryck sparas på
  * prenumerationen så att nästa försök med kortet känns igen.
  * Returnerar 'ended' | 'recorded' | 'skipped'.
@@ -110,8 +112,17 @@ export async function enforceCardTrialLimit(stripe, subscription) {
     const full = await stripe.subscriptions.retrieve(subscription.id, { expand: ['default_payment_method'] });
     const fp = full.default_payment_method?.card?.fingerprint;
     if (!fp) return 'skipped';
-    const earlier = (await priorTrials(stripe, 'bokix_card_fp', fp)).filter(s => s.id !== full.id);
-    if (earlier.length > 0) {
+    // Bara andra konton räknas (2026-11-22, grundarens val A): samma konto som
+    // lägger till ett nytt företag med samma kort får sin provperiod. Samma
+    // org.nummer får aldrig två provperioder (trialDecision).
+    const owner = full.metadata?.user_id || null;
+    // Taket: högst SAME_ACCOUNT_CARD_TRIALS provperioder per konto och kort,
+    // annars kunde ett konto lägga till enskilda firmor med påhittade
+    // personnummer (som inte går att slå upp hos Bolagsverket) i all oändlighet.
+    const prior = (await priorTrials(stripe, 'bokix_card_fp', fp)).filter(s => s.id !== full.id);
+    const others = prior.filter(s => !(owner && s.metadata?.user_id === owner));
+    const own = prior.length - others.length;
+    if (others.length > 0 || own >= SAME_ACCOUNT_CARD_TRIALS) {
       await stripe.subscriptions.update(full.id, {
         trial_end: 'now',
         metadata: { bokix_card_fp: fp, bokix_trial_denied: 'card' },
