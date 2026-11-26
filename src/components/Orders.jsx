@@ -45,8 +45,10 @@ const TONE_PILL = {
   late: { background: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text },
   toInvoice: { background: STRONG_UNPAID.bg, color: STRONG_UNPAID.text },
   invoiced: { background: STRONG_PAID.bg, color: STRONG_PAID.text },
-  cancelled: { background: STRONG_DRAFT.bg, color: STRONG_DRAFT.text, border: STRONG_DRAFT.border },
-  open: { background: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' },
+  // Samma grå som Ej bokförd i Kundfakturor (texten där är tunnare).
+  cancelled: { background: STRONG_DRAFT.bg, color: STRONG_DRAFT.text, border: STRONG_DRAFT.border, fontWeight: 500 },
+  // Öppen: tunn blå kant och blå text, syns i både ljust och mörkt tema.
+  open: { background: 'transparent', color: 'var(--status-blue-text)', border: '1px solid color-mix(in srgb, var(--status-blue-text) 55%, transparent)', fontWeight: 600 },
 };
 const tonePillLabel = (tone, st) => (tone === 'open' ? t(`so.status_${st}`) : t(`soTone.pill_${tone}`));
 
