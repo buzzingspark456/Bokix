@@ -11574,3 +11574,5 @@ html.ws-v2 .lfb .rc-segmented button { border-radius: 999px !important; }
 /* Underlag i Smal: innehållet i en centrerad kolumn med kant på sidorna, som Order. */
 .ut-std.lt-page-narrow > .ut-std-main { border-left: 1px solid var(--border); border-right: 1px solid var(--border); background: var(--bg-card); }
 @media (max-width: 760px) { .ut-std.lt-page-narrow > .ut-std-main { border-left: none; border-right: none; } }
+/* Att granska, Kompakt radstorlek (admin). */
+.rq-compact .rq-row { padding-top: 8px !important; padding-bottom: 8px !important; }
