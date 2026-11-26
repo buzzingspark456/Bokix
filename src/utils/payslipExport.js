@@ -24,6 +24,14 @@ export function maskedAccount(employee = {}) {
 }
 
 /** Lösenordet på ett mejlat lönebesked: de fyra sista siffrorna i personnumret. */
+/** Ska den anställda ha ett lönebesked för körningen? Nej om allt är 0 kr
+ * (inga timmar, ingen lön, inga förmåner eller avdrag). Kundrapport: alla nio
+ * i körningen fick lönebesked fast bara sex fick lön den månaden. */
+export function hasPayslip(computed) {
+  if (!computed) return false;
+  return ['gross', 'net', 'tax', 'employerFee'].some(k => Math.round(Number(computed[k]) || 0) !== 0);
+}
+
 export function payslipPassword(employee = {}) {
   const digits = String(employee.ssn || '').replace(/\D/g, '');
   return digits.length >= 10 ? digits.slice(-4) : '';
