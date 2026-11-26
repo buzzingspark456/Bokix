@@ -3234,7 +3234,7 @@ export default function Expenses({
                 />
               );
             })()}
-            {uwView !== 'underlag' && uwView !== 'mail' && (
+            {uwView !== 'underlag' && (
               <ListSettings open={utSettingsOpen} onClose={() => setUtSettingsOpen(false)} prefs={{ cols: {}, density: 'normal', width: utWidth, pageSize: 50 }} onChange={(p) => { if (p.width) setUtWidth(p.width); }} showPerPage={false}
                 actions={[
                   { key: 'upload', label: tr('underlag.uploadDocs'), icon: UploadCloud, onClick: () => document.getElementById('uw-upload').click() },

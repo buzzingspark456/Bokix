@@ -11419,7 +11419,7 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .lfb-searchrow .cf-select { display: none; }
 .lfb-primary:has(.lfb-searchrow) { flex: 1 1 auto; min-width: 0; }
 /* Statusknapparna blir rullgardin när raden inte räcker (halvskärm), i stället för att sticka ut. */
-@container lfbsearch (max-width: 860px) {
+@container lfbsearch (max-width: 1000px) {
   .lfb-searchrow .cf-chips { display: none !important; }
   .lfb-searchrow .cf-select { display: inline-block !important; flex-shrink: 0; max-width: 170px; }
 }
