@@ -37,6 +37,9 @@ export default function ArticleCombobox({ articles = [], value, onChange, onPick
   const listId = useId();
   const hits = useMemo(() => (open ? matchArticles(articles, value) : []), [open, articles, value]);
   const show = open && hits.length > 0 && rect;
+  // Kundernas datalist: samma element så länge registret är detsamma, så att
+  // React inte jämför alla artiklar vid varje tangent.
+  const dlOptions = useMemo(() => (simple ? articles.map((a, i) => <option key={a.id || `${a.description}-${i}`} value={a.description}>{a.description}</option>) : null), [simple, articles]);
 
   const place = () => { const r = inputRef.current?.getBoundingClientRect(); if (r) setRect({ left: r.left, top: r.bottom + 4, width: Math.max(r.width, 320) }); };
   useEffect(() => {
@@ -55,7 +58,7 @@ export default function ArticleCombobox({ articles = [], value, onChange, onPick
     return (
       <>
         <input type="text" list={`${listId}-dl`} placeholder={placeholder} style={style} className={className} value={value} required={required} onChange={e => onChange(e.target.value)} {...inputProps} />
-        <datalist id={`${listId}-dl`}>{articles.map((a, i) => <option key={a.id || `${a.description}-${i}`} value={a.description}>{a.description}</option>)}</datalist>
+        <datalist id={`${listId}-dl`}>{dlOptions}</datalist>
       </>
     );
   }

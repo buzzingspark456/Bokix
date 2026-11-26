@@ -108,11 +108,15 @@ export function lowestValue({ qty, unitCost, netSalePrice }) {
  * (eller ett räknat antal) tas med.
  */
 export function valuateInventory({ articles, movements, method = 'avg', asOf = null, applyLowestValue = true }) {
-  const withStock = new Set((movements || []).map(m => m.articleId));
+  // Händelserna grupperas per vara en gång, så att varje vara bara går
+  // igenom sina egna (10 000 varor, 2026-11-26). Samma resultat som förut.
+  const byArticle = new Map();
+  for (const m of movements || []) { const l = byArticle.get(m.articleId); if (l) l.push(m); else byArticle.set(m.articleId, [m]); }
+  const withStock = byArticle;
   const lines = (articles || [])
     .filter(a => a.id && withStock.has(a.id))
     .map(article => {
-      const v = valuateArticle(article, movements, method, asOf);
+      const v = valuateArticle(article, byArticle.get(article.id), method, asOf);
       const bookValue = applyLowestValue
         ? lowestValue({ qty: v.qty, unitCost: v.unitCost, netSalePrice: article.unitPrice })
         : v.costValue;

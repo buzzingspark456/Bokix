@@ -97,6 +97,14 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
     [settings.stockFromInvoices, settings.stockFromInvoicesSince, invoices, articles, manualMovements],
   );
   const movements = useMemo(() => [...manualMovements, ...invoiceMovements], [manualMovements, invoiceMovements]);
+  // Högsta saldot per vara i ett svep, inte alla händelser per rad (10 000 varor).
+  const peakQty = useMemo(() => {
+    const byArticle = new Map();
+    for (const m of movements) { if (!m.articleId) continue; const l = byArticle.get(m.articleId); if (l) l.push(m); else byArticle.set(m.articleId, [m]); }
+    const peaks = new Map();
+    for (const [id, list] of byArticle) peaks.set(id, Math.max(0, ...stockHistory(list, id).map(p => p.qty)));
+    return peaks;
+  }, [movements]);
   const lockedFor = (date) => lockedPeriodFor(date, company?.lockedFiscalYears);
   const goods = articles.filter(a => a.type === 'vara' && a.id);
   const palette = usePalette(company);
@@ -113,6 +121,8 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
   const [listOpen, setListOpen] = useState(false);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  // 100 varor åt gången (10 000 varor, 2026-11-26), Visa fler hämtar nästa hundra.
+  const [limit, setLimit] = useState(100);
 
   useEffect(() => {
     if (!detailId) return undefined;
@@ -255,7 +265,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
   // Stapeln: saldot mot beställningspunkten (två gånger den = full stapel).
   // Utan beställningspunkt mot det högsta saldot varan haft.
   const barPct = (r) => {
-    const top = r.min > 0 ? r.min * 2 : Math.max(r.qty, ...stockHistory(movements, r.articleId).map(p => p.qty), 1);
+    const top = r.min > 0 ? r.min * 2 : Math.max(r.qty, peakQty.get(r.articleId) || 0, 1); // högsta saldot, räknat i ett svep (2026-11-26)
     return Math.max(0, Math.min(100, (r.qty / top) * 100));
   };
   const initial = (name) => (name || '?').trim().charAt(0).toUpperCase();
@@ -365,7 +375,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
             {goods.length > 5 && (
               <div className="lg-search">
                 <Search size={14} aria-hidden="true" />
-                <input type="text" className="ws-input" placeholder={tr('lager.search')} value={search} onChange={e => setSearch(e.target.value)} />
+                <input type="text" className="ws-input" placeholder={tr('lager.search')} value={search} onChange={e => { setSearch(e.target.value); setLimit(100); }} />
               </div>
             )}
             <button type="button" className="agi-btn" onClick={openCountSheet}>{tr('lager.typeCount')}</button>
@@ -387,7 +397,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
               <div className="lg-row lg-row-head" aria-hidden="true">
                 <span>{tr('ui.vara')}</span><span>{tr('lager.inStock')}</span><span className="r">{tr('lager.unitCost')}</span><span className="r">{tr('ui.varde')}</span><span />
               </div>
-              {rows.map(r => (
+              {rows.slice(0, limit).map(r => (
                 <button key={r.articleId} type="button" className={`lg-row is-${r.status}`} style={{ '--pj': barColor(r) }} onClick={() => setDetailId(r.articleId)}>
                   <span className="lg-row-name">
                     <strong>{r.description}</strong>
@@ -404,6 +414,9 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                   <span className="r">{statusPill(r)}</span>
                 </button>
               ))}
+              {rows.length > limit && (
+                <button type="button" className="agi-btn" style={{ display: 'flex', margin: '12px auto 0' }} onClick={() => setLimit(n => n + 100)}>{tr('ui.visa_fler_rader', { count: rows.length - limit })}</button>
+              )}
             </div>
           )}
         </Panel>

@@ -458,6 +458,11 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
   // trimmat) och fyller i rest av raden åt användaren. Manuellt vald, aldrig automatiskt
   // vid varje knapptryck, så en användare som medvetet ändrat pris/text på raden aldrig
   // blir överskriven i tysthet.
+  // Samma element så länge registret är detsamma: React behöver inte jämföra
+  // alla artiklar vid varje tangent i formuläret (10 000 artiklar, 2026-11-26).
+  const articleNumberOptions = useMemo(() => articles.filter(a => a.articleNumber).map((a, i) => (
+    <option key={a.id || `${a.articleNumber}-${i}`} value={a.articleNumber}>{a.description}</option>
+  )), [articles]);
   const findArticleByNumber = (num) => {
     const key = (num || '').trim().toLowerCase();
     if (!key) return null;
@@ -1574,19 +1579,7 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
                 ingen egen dropdown-komponent behövs. Artikelnr är valfritt
                 numera (Articles.jsx) — en artikel utan nummer har inget att
                 visa här, hoppas bara över. */}
-            <datalist id="article-register-list">
-              {articles.filter(a => a.articleNumber).map((a, i) => (
-                <option key={a.id || `${a.articleNumber}-${i}`} value={a.articleNumber}>{a.description}</option>
-              ))}
-            </datalist>
-            {/* Samma register, men matchat på Beskrivning (findArticleByDescription
-                ovan) — så artiklar UTAN artikelnr också går att välja, delat med
-                Beskrivning-fältet på varje rad. */}
-            <datalist id="article-description-list">
-              {articles.map((a, i) => (
-                <option key={a.id || `${a.description}-${i}`} value={a.description}>{a.description}</option>
-              ))}
-            </datalist>
+            <datalist id="article-register-list">{articleNumberOptions}</datalist>
           </div>
 
           {/* Fakturatext + summering — samma enkla, enkolumns

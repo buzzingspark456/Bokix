@@ -99,6 +99,14 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
     [settings.stockFromInvoices, settings.stockFromInvoicesSince, invoices, articles, manualMovements],
   );
   const movements = useMemo(() => [...manualMovements, ...invoiceMovements], [manualMovements, invoiceMovements]);
+  // Högsta saldot per vara i ett svep, inte alla händelser per rad (10 000 varor).
+  const peakQty = useMemo(() => {
+    const byArticle = new Map();
+    for (const m of movements) { if (!m.articleId) continue; const l = byArticle.get(m.articleId); if (l) l.push(m); else byArticle.set(m.articleId, [m]); }
+    const peaks = new Map();
+    for (const [id, list] of byArticle) peaks.set(id, Math.max(0, ...stockHistory(list, id).map(p => p.qty)));
+    return peaks;
+  }, [movements]);
   const lockedFor = (date) => lockedPeriodFor(date, company?.lockedFiscalYears);
   // Inköpsorder (utils/purchaseOrders.js), sparade på företaget.
   const purchaseOrders = useMemo(() => company?.purchaseOrders || [], [company?.purchaseOrders]);
@@ -403,7 +411,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
   // Stapeln: saldot mot beställningspunkten (två gånger den = full stapel).
   // Utan beställningspunkt mot det högsta saldot varan haft.
   const barPct = (r) => {
-    const top = r.min > 0 ? r.min * 2 : Math.max(r.qty, ...stockHistory(movements, r.articleId).map(p => p.qty), 1);
+    const top = r.min > 0 ? r.min * 2 : Math.max(r.qty, peakQty.get(r.articleId) || 0, 1); // högsta saldot, räknat i ett svep (2026-11-26)
     return Math.max(0, Math.min(100, (r.qty / top) * 100));
   };
   const initial = (name) => (name || '?').trim().charAt(0).toUpperCase();
