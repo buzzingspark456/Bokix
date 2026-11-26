@@ -685,6 +685,22 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
   const withEmail = payslipRows.filter(r => String(r.row.employeeSnapshot?.email || '').includes('@'));
   const withoutEmail = payslipRows.filter(r => !String(r.row.employeeSnapshot?.email || '').includes('@'));
   const sentCount = payslipRows.filter(r => r.row.payslipSentAt).length;
+  // Vilka som får mejlet: kryssrutor i panelen. Förvalt är alla med e-post
+  // som inte fått sitt lönebesked än (picked === null), så att ett andra
+  // klick inte skickar om till dem som redan fått det.
+  const [pickState, setPickState] = useState({ runId: null, ids: null });
+  const picked = pickState.runId === run.id ? pickState.ids : null;
+  const setPicked = (ids) => setPickState({ runId: run.id, ids });
+  const defaultPicked = withEmail.filter(r => !r.row.payslipSentAt).map(r => r.row.employeeId);
+  const pickedIds = new Set(picked ?? defaultPicked);
+  const toSend = withEmail.filter(r => pickedIds.has(r.row.employeeId));
+  const allPicked = withEmail.length > 0 && toSend.length === withEmail.length;
+  const togglePick = (id) => {
+    const next = new Set(pickedIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setPicked([...next]);
+  };
+  const togglePickAll = () => setPicked(allPicked ? [] : withEmail.map(r => r.row.employeeId));
   const payslipArgs = ({ row, computed }) => ({
     employee: row.employeeSnapshot, computed, period: row.period || run.period, company, payDate: run.payDate,
     logo: payslipLogo, message: run.payslipMessage || '',
@@ -703,14 +719,14 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
     generateAllPayslipsPdf(payslipRows.map(payslipArgs)).save(`lonebesked-${run.period}.pdf`);
   };
   const handleEmailPayslips = async () => {
-    if (withEmail.length === 0) return;
+    if (toSend.length === 0) return;
     // Mottagaren slås upp på servern ur den sparade anställda, så det som
     // står på skärmen måste vara sparat först.
     try { await onSyncBeforeServerCall?.(); } catch { /* skickar ändå, servern säger till om e-post saknas */ }
-    setMailState({ busy: true, done: 0, total: withEmail.length, result: null });
+    setMailState({ busy: true, done: 0, total: toSend.length, result: null });
     let sent = 0;
     const failed = [];
-    for (const r of withEmail) {
+    for (const r of toSend) {
       const name = `${r.row.employeeSnapshot.firstName} ${r.row.employeeSnapshot.lastName}`;
       try {
         // Mejlat lönebesked är lösenordsskyddat (de fyra sista siffrorna i
@@ -726,6 +742,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
       setMailState(s => ({ ...s, done: s.done + 1 }));
     }
     setMailState({ busy: false, done: 0, total: 0, result: { sent, failed } });
+    setPicked(null);
   };
 
   const previousComputedByEmployee = useMemo(() => {
@@ -1119,12 +1136,39 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
             />
             <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>{tr('payslips.messageHint')}</div>
           </div>
+          {/* Vilka som får mejlet: en kryssruta per anställd med e-post och
+              Välj alla överst. Förvalt är de som inte fått sitt än. */}
+          {withEmail.length > 0 && (
+            <div className="ps-pick">
+              <label className="ps-pick-all">
+                <input type="checkbox" checked={allPicked} ref={el => { if (el) el.indeterminate = toSend.length > 0 && !allPicked; }} onChange={togglePickAll} disabled={mailState.busy} />
+                <span>{tr('payslips.pickAll')}</span>
+                <span className="ps-pick-count">{tr('payslips.pickedCount', { n: toSend.length, total: withEmail.length })}</span>
+              </label>
+              <ul>
+                {withEmail.map(r => {
+                  const id = r.row.employeeId;
+                  return (
+                    <li key={id}>
+                      <label>
+                        <input type="checkbox" checked={pickedIds.has(id)} onChange={() => togglePick(id)} disabled={mailState.busy} />
+                        <span className="ps-pick-name">{r.row.employeeSnapshot.firstName} {r.row.employeeSnapshot.lastName}</span>
+                        <span className={`ps-pick-status${r.row.payslipSentAt ? ' is-sent' : ''}`}>
+                          {r.row.payslipSentAt ? tr('payslipList.sent', { date: new Date(r.row.payslipSentAt).toLocaleDateString('sv-SE') }) : tr('payslipList.notSent')}
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button type="button" onClick={handleDownloadAllPayslips} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
               <Download size={14} /> {tr('payslips.downloadAll')}
             </button>
-            <button type="button" onClick={async () => { if (!isAdminPreview() || await confirmDialog(tr('payConfirm.mailText', { n: withEmail.length }), { title: tr('payConfirm.mailTitle'), confirmLabel: tr('payslips.emailAll', { n: withEmail.length }) })) handleEmailPayslips(); }} disabled={withEmail.length === 0 || mailState.busy} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: withEmail.length === 0 || mailState.busy ? 'var(--gray-300)' : BRAND.green, border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, color: 'white', cursor: withEmail.length === 0 || mailState.busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-              <Send size={14} /> {mailState.busy ? tr('payslips.sending', { done: mailState.done, total: mailState.total }) : tr('payslips.emailAll', { n: withEmail.length })}
+            <button type="button" onClick={async () => { if (!isAdminPreview() || await confirmDialog(tr('payConfirm.mailText', { n: toSend.length }), { title: tr('payConfirm.mailTitle'), confirmLabel: tr('payslips.emailPicked', { n: toSend.length }) })) handleEmailPayslips(); }} disabled={toSend.length === 0 || mailState.busy} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: toSend.length === 0 || mailState.busy ? 'var(--gray-300)' : BRAND.green, border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, color: 'white', cursor: toSend.length === 0 || mailState.busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+              <Send size={14} /> {mailState.busy ? tr('payslips.sending', { done: mailState.done, total: mailState.total }) : tr('payslips.emailPicked', { n: toSend.length })}
             </button>
           </div>
           {withEmail.length > 0 && (
