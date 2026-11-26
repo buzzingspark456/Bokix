@@ -11280,6 +11280,8 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .ar-chip.is-dot-review::before { background: var(--status-amber-text); }
 .po-row.tone-late td, .po-row.tone-toInvoice td, .po-row.tone-invoiced td { color: var(--text-main); }
 @media (max-width: 760px) { .lg-tbl.po-tbl thead th.po-w-status, .lg-tbl.po-tbl tbody td.po-status { display: none !important; } }
+.po-tbl th.po-w-menu, .po-tbl td.po-menu { width: 44px; padding-left: 0 !important; padding-right: 8px !important; text-align: right; }
+.lg-tbl.po-tbl tbody td.po-menu, .lg-tbl.po-tbl thead th.po-w-menu { display: table-cell !important; }
 .ar-search { height: 40px; border-radius: 12px; }
 .ar-select { height: 40px; border-radius: 12px; }
 @media (max-width: 600px) { .ar-chips { border-radius: 10px; } }

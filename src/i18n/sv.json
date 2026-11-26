@@ -4883,6 +4883,10 @@
     "view": "Visning"
   },
   "soTone": {
+    "pill_late": "Försenad",
+    "pill_toInvoice": "Att fakturera",
+    "pill_invoiced": "Fakturerad",
+    "pill_cancelled": "Makulerad",
     "notInvoiced": "Ej fakturerade",
     "late": "Försenade",
     "toInvoice": "Att fakturera",
@@ -4892,6 +4896,12 @@
   "supSet": {
     "countOne": "{{n}} faktura",
     "countMany": "{{n}} fakturor"
+  },
+  "soMenu": {
+    "aria": "Åtgärder för order {{n}}",
+    "open": "Visa order",
+    "pdf": "Ladda ner orderbekräftelse",
+    "copy": "Kopiera order"
   },
   "payrollPick": {
     "newRunHint": "Timanställda är med när du fyller i deras timmar i nästa steg.",

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, X, Trash2, Download, Truck, Check, Search, FileText, ClipboardList, ChevronLeft, ChevronRight, Send } from './icons';
+import { Plus, X, Trash2, Download, Truck, Check, Search, FileText, ClipboardList, ChevronLeft, ChevronRight, Send, Eye, Copy } from './icons';
 import ChipFilter from './shared/ChipFilter';
-import { getRowBg } from './shared/invoiceStatusStyle';
+import { getRowBg, STATUS_PILL as INV_PILL, STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, STRONG_DRAFT } from './shared/invoiceStatusStyle';
+import RowActionMenu from './shared/RowActionMenu';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListSettings, { useListPrefs } from './shared/ListSettings';
 import { downloadCsv } from '../utils/csvRegister';
@@ -39,6 +40,15 @@ const STATUS_PILL = { open: 'info', partial: 'warn', delivered: 'ok', invoiced: 
 // Radens färg efter läge (orderTone i salesOrders.js), samma toner som fakturalistan.
 const isLate = (o, st) => ['open', 'partial'].includes(st) && o.deliveryDate && o.deliveryDate < todayIso();
 const TONE_BG = { late: getRowBg('overdue'), toInvoice: getRowBg('sent'), invoiced: getRowBg('paid'), cancelled: getRowBg('draft') };
+// Statusbrickan i listan med samma utseende som i Kundfakturor (2026-11-26).
+const TONE_PILL = {
+  late: { background: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text },
+  toInvoice: { background: STRONG_UNPAID.bg, color: STRONG_UNPAID.text },
+  invoiced: { background: STRONG_PAID.bg, color: STRONG_PAID.text },
+  cancelled: { background: STRONG_DRAFT.bg, color: STRONG_DRAFT.text, border: STRONG_DRAFT.border },
+  open: { background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border)' },
+};
+const tonePillLabel = (tone, st) => (tone === 'open' ? t(`so.status_${st}`) : t(`soTone.pill_${tone}`));
 
 export default function Orders({ activeCompanyId, onSyncBeforeServerCall, company, setCompanyInfo, articles = [], contacts = [], invoices = [], onCreateContact, onCreateInvoice, onOpenInvoice, onOpenQuote, globalAction, clearGlobalAction }) {
   // Fakturerat räknas från fakturorna som finns (applyInvoiceExistence).
@@ -127,6 +137,33 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
 
   const toDeliver = orders.filter(o => ['open', 'partial'].includes(orderStatus(o))).length;
 
+  // ⋮-menyn på varje rad (2026-11-26), som i Offerter och Kundfakturor. Det
+  // som kräver ordervyn (leverans, betalningsval, PDF) öppnar ordern och
+  // startar det direkt (initialAction i OrderPage).
+  const [openAction, setOpenAction] = useState(null);
+  const openWith = (o, action = null) => { setOpenAction(action); setOpen(o); };
+  const copyOrder = (o) => openWith({ ...o, id: newId(), number: nextOrderNumber(orders), date: todayIso(), deliveryDate: '', cancelled: false, quoteId: undefined, quoteNumber: undefined, invoiceIds: [], invoiceLines: undefined, paidOnInvoice: undefined, confirmationSentAt: undefined, rows: (o.rows || []).map(r => ({ ...r, key: newId(), delivered: 0, invoiced: 0 })), isNew: true });
+  const orderMenu = (o) => {
+    const st = orderStatus(o);
+    const live = st !== 'cancelled';
+    const items = [{ key: 'open', label: t('soMenu.open'), icon: Eye, onClick: () => openWith(o) }];
+    if (st === 'open' || st === 'partial') items.push({ key: 'deliver', label: t('so.deliver'), icon: Truck, onClick: () => openWith(o, 'deliver') });
+    if (live && (o.rows || []).some(r => rowLeftToInvoice(r) > 0)) items.push({ key: 'invoice', label: t('so.invoice'), icon: FileText, onClick: () => openWith(o, 'invoice') });
+    const lastInvoice = (o.invoiceIds || []).at(-1);
+    if (lastInvoice && onOpenInvoice) items.push({ key: 'view-invoice', label: t('so.openInvoice'), icon: FileText, onClick: () => onOpenInvoice(lastInvoice) });
+    if (live) {
+      items.push({ key: 'mail', label: t('so.mailConfirm'), icon: Send, onClick: () => openWith(o, 'mail') });
+      items.push({ key: 'pdf', label: t('soMenu.pdf'), icon: Download, onClick: () => openWith(o, 'pdf') });
+    }
+    items.push({ key: 'copy', label: t('soMenu.copy'), icon: Copy, onClick: () => copyOrder(o) });
+    const canCancel = (st === 'open' || st === 'partial') && !(o.rows || []).some(r => num(r.invoiced) > 0);
+    const canDelete = orderEditable(o);
+    if (canCancel || canDelete) items.push({ divider: true });
+    if (canCancel) items.push({ key: 'cancel', label: t('so.cancel'), icon: X, onClick: async () => { if (await confirmDialog(t('so.cancelConfirm', { n: o.number }))) saveOrder({ ...o, cancelled: true }); } });
+    if (canDelete) items.push({ key: 'delete', label: t('ui.ta_bort'), icon: Trash2, variant: 'danger', onClick: async () => { if (await confirmDialog(t('so.deleteConfirm', { n: o.number }))) { deleteOrder(o); setMessage(t('so.deleted', { n: o.number })); } } });
+    return items;
+  };
+
   if (open) {
     return (
           <OrderPage
@@ -153,9 +190,10 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
             onOpenQuote={onOpenQuote}
             onMessage={setMessage}
             initialNotice={openNotice}
+            initialAction={openAction}
             activeCompanyId={activeCompanyId}
             onSyncBeforeServerCall={onSyncBeforeServerCall}
-            onClose={() => { setOpen(null); setOpenNotice(''); }}
+            onClose={() => { setOpen(null); setOpenNotice(''); setOpenAction(null); }}
           />
     );
   }
@@ -223,6 +261,7 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
                         {lp.cols.delivered && <th className="po-w-prog ar-hide-md">{t('so.colDelivered')}</th>}
                         {lp.cols.amount && <th className="r ar-w-value">{t('so.colAmount')}</th>}
                         {lp.cols.status && <th className="r po-w-status" />}
+                        <th className="po-w-menu" />
                       </tr>
                     </thead>
                     <tbody>
@@ -247,7 +286,8 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
                               <span className="po-prog"><span className="pz-m-track"><span style={{ width: `${Math.round((got / all) * 100)}%`, background: 'var(--status-green-text)' }} /></span><small>{t('po.progress', { got: fmtQty(got), all: fmtQty(all) })}</small></span>
                             )}</td>}
                             {lp.cols.amount && <td className="r ar-price">{fmtKr(orderTotals(o).net)}</td>}
-                            {lp.cols.status && <td className="r po-status"><span className={`agi-pill ${STATUS_PILL[st]}`}>{t(`so.status_${st}`)}</span></td>}
+                            {lp.cols.status && <td className="r po-status"><span style={{ ...INV_PILL, ...TONE_PILL[tone] }}>{tone === 'invoiced' && <Check size={12} />}{tonePillLabel(tone, st)}</span></td>}
+                            <td className="po-menu" onClick={e => e.stopPropagation()}><RowActionMenu ariaLabel={t('soMenu.aria', { n: o.number })} items={orderMenu(o)} /></td>
                           </tr>
                         );
                       })}
@@ -273,7 +313,7 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
   );
 }
 
-function OrderPage({ initial, company, articles, contacts, stockQty, reservedElsewhere, isStocked, lockedFor, onSave, onDelete, onInvoice, onOpenInvoice, onOpenQuote, onMessage, onClose, initialNotice = '', activeCompanyId, onSyncBeforeServerCall }) {
+function OrderPage({ initial, company, articles, contacts, stockQty, reservedElsewhere, isStocked, lockedFor, onSave, onDelete, onInvoice, onOpenInvoice, onOpenQuote, onMessage, onClose, initialNotice = '', initialAction = null, activeCompanyId, onSyncBeforeServerCall }) {
   const [o, setO] = useState(() => ({ paymentTermsDays: Number(company?.paymentTermsDays) || 30, ...initial }));
   const [mode, setMode] = useState('view'); // 'view' | 'deliver'
   const [deliverDate, setDeliverDate] = useState(todayIso());
@@ -442,6 +482,12 @@ function OrderPage({ initial, company, articles, contacts, stockQty, reservedEls
     try { await exportInvoicePdf(captureRef.current, `orderbekraftelse-${o.number}.pdf`); } catch { setError(t('ui.kunde_inte_skapa_pdf_forsok_igen')); } finally { setPdfBusy(false); }
   };
   const print = async () => { try { await printInvoicePdf(captureRef.current); } catch { setError(t('ui.kunde_inte_skapa_pdf_forsok_igen')); } };
+  // Snabbval från listans ⋮-meny: startas en gång när ordern öppnats.
+  useEffect(() => {
+    if (!initialAction) return undefined;
+    const id = setTimeout(() => ({ deliver: startDeliver, invoice: invoiceNow, pdf: downloadConfirmation, mail: openMail })[initialAction]?.(), 150);
+    return () => clearTimeout(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const step = status === 'invoiced' ? 3 : status === 'delivered' ? 2 : status === 'partial' ? 1 : 0;
 

@@ -4883,6 +4883,10 @@
     "view": "View"
   },
   "soTone": {
+    "pill_late": "Late",
+    "pill_toInvoice": "To invoice",
+    "pill_invoiced": "Invoiced",
+    "pill_cancelled": "Cancelled",
     "notInvoiced": "Not invoiced",
     "late": "Late",
     "toInvoice": "To invoice",
@@ -4892,6 +4896,12 @@
   "supSet": {
     "countOne": "{{n}} invoice",
     "countMany": "{{n}} invoices"
+  },
+  "soMenu": {
+    "aria": "Actions for order {{n}}",
+    "open": "View order",
+    "pdf": "Download order confirmation",
+    "copy": "Copy order"
   },
   "payrollPick": {
     "newRunHint": "Hourly employees are added when you enter their hours in the next step.",
