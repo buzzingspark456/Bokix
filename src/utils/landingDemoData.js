@@ -578,6 +578,30 @@ export function createDemoSeed() {
       emailDomain: '', resendDomainId: '', emailDomainStatus: '', emailDomainRecords: [],
       defaultVat: 25, fiscalYear: `${YEAR}-01-01`, vatPeriod: 'quarterly', chartPlan: 'bas2025',
       vatPeriodConfirmedAt: `${YEAR}-01-01T00:00:00Z`, fSkattConfirmedAt: `${YEAR}-01-01T00:00:00Z`,
+      // Exempelorder (2026-11-26) så att Order visar alla lägen i demon: öppna,
+      // försenade, levererade att fakturera, fakturerade och en makulerad.
+      // Fakturerat står direkt på raderna (ingen kopplad faktura i demon).
+      salesOrders: (() => {
+        const art = {
+          k: { articleId: 'demo_art_1', articleNumber: 'K-100', description: 'Konsulttimme', unit: 'tim', unitPrice: 950 },
+          w: { articleId: 'demo_art_2', articleNumber: 'W-200', description: 'Webbdesign, fas', unit: 'st', unitPrice: 55200 },
+          s: { articleId: 'demo_art_3', articleNumber: 'S-300', description: 'Support, månadsavgift', unit: 'st', unitPrice: 4500 },
+          h: { articleId: 'demo_art_4', articleNumber: 'H-400', description: 'Domän och hosting, år', unit: 'st', unitPrice: 1200 },
+        };
+        const row = (n, a, qty, delivered = 0, invoiced = 0) => ({ key: `demo_so_r${n}`, ...art[a], qty, delivered, invoiced, vatRate: 25, discount: 0, account: '3001' });
+        const o = (n, customerId, customerName, date, deliveryDate, rows, extra = {}) => ({ id: `demo_so_${n}`, number: String(n), date: daysFromToday(date), deliveryDate: daysFromToday(deliveryDate), customerId, customerName, ourRef: '', theirRef: '', note: '', paymentTermsDays: 30, rows, ...extra });
+        return [
+          o(1009, 'demo_c1', 'Exempelbygg AB', -1, 12, [row(1, 'k', 24), row(2, 'h', 2)]),
+          o(1008, 'demo_c2', 'Testdesign AB', -3, 6, [row(3, 'w', 1)]),
+          o(1007, 'demo_c5', 'Testfastigheter AB', -9, -2, [row(4, 's', 3), row(5, 'h', 4)]),
+          o(1006, 'demo_c4', 'Exempelredovisning AB', -12, -4, [row(6, 'k', 40, 16)]),
+          o(1005, 'demo_c6', 'Exempelkonsult AB', -15, -6, [row(7, 'k', 12, 12), row(8, 'h', 1, 1)]),
+          o(1004, 'demo_c1', 'Exempelbygg AB', -20, -10, [row(9, 'w', 1, 1, 1)]),
+          o(1003, 'demo_c2', 'Testdesign AB', -26, -18, [row(10, 's', 6, 6, 6), row(11, 'k', 8, 8, 8)]),
+          o(1002, 'demo_c5', 'Testfastigheter AB', -33, -25, [row(12, 'h', 3)], { cancelled: true }),
+          o(1001, 'demo_c4', 'Exempelredovisning AB', -45, -38, [row(13, 'k', 20, 20, 20)]),
+        ];
+      })(),
     },
     // Standardkontoplanen plus ett annonseringskonto (5910). Kontot finns
     // inte i DEFAULT_ACCOUNTS, men i BAS — och en riktig användare lägger

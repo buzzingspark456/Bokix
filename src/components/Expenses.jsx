@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
-import { createPortal } from 'react-dom';
 import { REPRESENTATION_ACCOUNTS, representationBooking, representationKinds } from '../utils/representation';
 import { isVatExempt } from '../utils/vatRegistration';
 import {
   UploadCloud, Camera, Paperclip, FileText, CheckCircle2, AlertCircle, Receipt, X, Clock, Trash2, RotateCcw, Search, ScanLine, FolderPlus, Pencil, Crop, SlidersHorizontal,
-  Mail, Copy, Inbox, Cog, Menu, Check, Maximize2, ChevronLeft, ChevronRight, Info, MailOpen, MoreHorizontal,
+  Mail, Copy, Inbox, Cog, Menu, Check, Maximize2, ChevronLeft, ChevronRight, Info, MailOpen,
 } from './icons';
 import { supabase } from '../supabaseClient';
 import { AccountSearch } from './shared/SearchInputs';
@@ -13,7 +12,8 @@ import { isGroupAccount } from '../utils/accountGroups';
 import { DocumentPane } from './shared/DocumentViewer';
 import CornerEditor from './shared/CornerEditor';
 import { TextSuggestInput } from './shared/SearchInputs';
-import ListPageHeader from './shared/ListPageHeader';
+import ListPageHeader, { listSearchInputStyle } from './shared/ListPageHeader';
+import ChipFilter from './shared/ChipFilter';
 import AnchoredDropdown, { useDismissOnOutsideClick } from './shared/AnchoredDropdown';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { useSignedUrl } from '../utils/signedUrls';
@@ -1756,58 +1756,6 @@ function UtEmpty({ icon: Icon = Inbox, title, text, action }) {
 }
 
 /** Vänstermenyn i Underlag (2026-11-18, som Fortnox). */
-function UnderlagNav({ view, onView, counts, onOpenMenu }) {
-  const items = [
-    ['underlag', tr('nav.underlag'), FileText, counts.todo],
-    ['mail', tr('underlag.navMail'), Mail, counts.mail],
-    ...(counts.missing != null ? [['missing', tr('underlag.navMissingShort'), AlertCircle, counts.missing]] : []),
-    // Papperskorgen bara när den har något (eller är öppen); Avsändare ligger
-    // under Inställningar sedan 2026-11-25.
-    ...(counts.trash > 0 || view === 'trash' ? [['trash', tr('underlag.navTrash'), Trash2, counts.trash]] : []),
-    ['mailbox', tr('underlag.navSettings'), Cog, null],
-  ];
-  const groups = [items.filter(([id]) => id !== 'trash' && id !== 'mailbox'), items.filter(([id]) => id === 'trash'), items.filter(([id]) => id === 'mailbox')].filter(g => g.length);
-  // Telefon (2026-11-22, som Fortnox): bara det viktigaste som flikar,
-  // Avsändare, Papperskorg och Inställningar under Mer.
-  const EXTRA = ['trash', 'mailbox'];
-  const extras = items.filter(([id]) => EXTRA.includes(id));
-  const [moreOpen, setMoreOpen] = React.useState(false);
-  const extraActive = EXTRA.includes(view);
-  return (
-    <nav className="ut-nav-side" aria-label={tr('nav.underlag')}>
-      {onOpenMenu && <button type="button" className="ut-menu-btn" onClick={onOpenMenu}><Menu size={17} /> {tr('underlag.menu')}</button>}
-      {groups.map((g, gi) => (
-        <div key={gi} className="ut-nav-group">
-          {g.map(([id, label, Icon, n]) => (
-            <button key={id} type="button" className={[view === id ? 'on' : '', EXTRA.includes(id) ? 'ut-nav-x' : ''].filter(Boolean).join(' ') || undefined} onClick={() => onView(id)} aria-current={view === id ? 'page' : undefined}>
-              <Icon size={16} />
-              <span>{label}</span>
-              {n > 0 && <em>{n}</em>}
-            </button>
-          ))}
-        </div>
-      ))}
-      <button type="button" className={`ut-nav-morebtn${extraActive ? ' on' : ''}`} onClick={() => setMoreOpen(true)} aria-haspopup="dialog">
-        <MoreHorizontal size={16} />
-        <span>{extraActive ? extras.find(([id]) => id === view)?.[1] : tr('underlag.navMore')}</span>
-      </button>
-      {moreOpen && createPortal(
-        <div className="ut-sheet-overlay" onClick={() => setMoreOpen(false)}>
-          <div className="ut-sheet" role="dialog" aria-label={tr('underlag.navMore')} onClick={e => e.stopPropagation()}>
-            <span className="ut-sheet-grip" aria-hidden="true" />
-            {extras.map(([id, label, Icon, cnt]) => (
-              <button key={id} type="button" className={view === id ? 'on' : undefined} onClick={() => { onView(id); setMoreOpen(false); }}>
-                <Icon size={18} /><span>{label}</span>{cnt > 0 && <em>{cnt}</em>}
-              </button>
-            ))}
-          </div>
-        </div>,
-        document.body,
-      )}
-    </nav>
-  );
-}
-
 /** En egen sida i Underlag med rubrik och kort (avsändare, brevlåda). */
 function UnderlagPage({ title, intro, children }) {
   return (
@@ -2269,10 +2217,14 @@ function TrashView({ items, onRestore, onPurge }) {
 
 /** Underlag som tabell, som Fortnox (2026-11-18): kryssrutor, kolumner för
  * belopp, inkommet, avläsning, källa och avsändare. En rad öppnar underlaget. */
-function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readingId, onOpen, onPreview, previewId = null, onDeleteMany, onUpload, onMailIn, onSenders, onRefresh, inboxAddress, onlyEmail = false, uploading = [] }) {
-  // Listans inställningar som i Artiklar (2026-11-25).
+function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readingId, onOpen, onPreview, previewId = null, onDeleteMany, onUpload, onMailIn, onSenders, onRefresh, inboxAddress, onlyEmail = false, uploading = [], std = false, settingsOpen: settingsOpenProp, onSettingsOpenChange, pageWidth = null, onPageWidth = null }) {
+  // Listans inställningar som i Artiklar (2026-11-25). std (2026-11-26): samma
+  // sidhuvud och sökrad som de andra listsidorna; kugghjulet sitter då i
+  // sidhuvudet och styr panelen här.
   const [lp, setLp] = useListPrefs(onlyEmail ? 'bokix.ulmail.prefs' : 'bokix.underlag.prefs', { type: true, amount: true, arrived: true, read: true, from: true, status: true });
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOpenOwn, setSettingsOpenOwn] = useState(false);
+  const settingsOpen = onSettingsOpenChange ? Boolean(settingsOpenProp) : settingsOpenOwn;
+  const setSettingsOpen = onSettingsOpenChange || setSettingsOpenOwn;
   const receipts = onlyEmail ? allRows.filter(r => r.inbox?.source === 'email') : allRows;
   // Underlag visar bara det som inte är bokfört (som Fortnox); bokförda finns i Bokföring.
   // Mejl visar alla brev, med Olästa och Visa hanterade.
@@ -2328,7 +2280,27 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
   }, [previewId, shownKey, onPreview]); // eslint-disable-line react-hooks/exhaustive-deps
   const refresh = async () => { if (refreshing) return; setRefreshing(true); try { await onRefresh?.(); } finally { setTimeout(() => setRefreshing(false), 600); } };
   return (
-    <div className="ut">
+    <div className={`ut${std ? ' ut--std' : ''}`}>
+      {std && (
+        <div className="lfb ut-std-bar">
+          <div className="lfb-row" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="lfb-primary">
+              <div className="lfb-searchrow">
+                <div style={{ position: 'relative' }}>
+                  <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={onlyEmail ? tr('underlag.searchSender') : tr('underlag.search')} aria-label={onlyEmail ? tr('underlag.searchSender') : tr('underlag.search')} style={{ ...listSearchInputStyle, width: '240px' }} />
+                </div>
+                {onlyEmail
+                  ? <ChipFilter label={tr('underlag.navMail')} value={onlyUnread ? 'unread' : 'all'} onChange={(id) => setOnlyUnread(id === 'unread')} items={[['all', tr('underlag.allMail')], ['unread', tr('underlag.unreadMail'), unreadIds.length]]} />
+                  : <ChipFilter label={tr('underlag.kindReceipts')} value={kind || 'all'} onChange={(id) => { setKind(id === 'all' ? null : id); setPicked(new Set()); }} items={[['all', tr('underlag.revAll'), counts.todo], ['receipt', tr('underlag.kindReceipts'), kindCount.receipt], ['invoice', tr('underlag.kindInvoices'), kindCount.invoice]]} />}
+              </div>
+            </div>
+            {onlyEmail && <label className="ut-toggle"><span className="ut-switch"><input type="checkbox" checked={showHandled} onChange={e => setShowHandled(e.target.checked)} /><span /></span>{tr('underlag.showHandled')}</label>}
+            <span className="lfb-count" style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{tr('underlag.total', { n: shown.length })}</span>
+          </div>
+        </div>
+      )}
+      {!std && (<>
       <div className="ut-head ut-head-row">
         <div>
           <h1>{onlyEmail ? tr('underlag.navMail') : tr('nav.underlag')}</h1>
@@ -2398,9 +2370,11 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
         <ListSettingsButton onClick={() => setSettingsOpen(true)} className="ut-gear" />
       </div>
       </div>
-      <ListSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={setLp} showWidth={false}
+      </>)}
+      <ListSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={pageWidth ? { ...lp, width: pageWidth } : lp} onChange={(p) => { if (p.width && onPageWidth) onPageWidth(p.width); setLp(p); }} showWidth={Boolean(onPageWidth)}
         actions={[
           ...(onlyEmail ? [] : [{ key: 'upload', label: tr('underlag.uploadDocs'), icon: UploadCloud, onClick: onUpload }]),
+          ...(onlyEmail && std ? [{ key: 'read', label: tr('underlag.markAllRead'), icon: MailOpen, onClick: () => onMarkSeen?.(unreadIds), disabled: !unreadIds.length }] : []),
           { key: 'mailin', label: tr('underlag.mailIn'), icon: Mail, onClick: onMailIn },
           ...(onRefresh ? [{ key: 'refresh', label: tr('underlag.refresh'), icon: RotateCcw, onClick: () => refresh() }] : []),
           ...(onSenders ? [{ key: 'settings', label: tr('underlag.navSettings'), icon: Cog, onClick: onSenders }] : []),
@@ -2409,7 +2383,7 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
           { key: 'type', label: tr('underlag.type') }, { key: 'amount', label: tr('underlag.colAmount') }, { key: 'arrived', label: tr('underlag.colArrived') },
           { key: 'read', label: tr('underlag.colRead') }, { key: 'from', label: tr('underlag.colFrom') }, { key: 'status', label: tr('underlag.colStatus') },
         ]} />
-      <div className="ut-count">
+      {(!std || picked.size > 0) && <div className="ut-count">
         {picked.size > 0 ? (
           <>
             <span>{tr('underlag.pickedCount', { n: picked.size })}</span>
@@ -2417,7 +2391,7 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
             <button type="button" className="ut-link" onClick={() => setPicked(new Set())}>{tr('ui.avbryt')}</button>
           </>
         ) : <span>{tr('underlag.total', { n: shown.length })}</span>}
-      </div>
+      </div>}
       <div className="ut-table-wrap">
         <table className={['ut-table', lp.density === 'compact' && 'ut-compact', ...['type', 'amount', 'arrived', 'read', 'from', 'status'].filter(k => lp.cols[k] === false).map(k => `ut-no-${k}`)].filter(Boolean).join(' ')}>
           <thead>
@@ -3051,6 +3025,10 @@ export default function Expenses({
   // Ordningen i tabellen när ett underlag öppnades: föregående och nästa.
   const [navIds, setNavIds] = useState([]);
   const [mailInOpen, setMailInOpen] = useState(false);
+  const [utSettingsOpen, setUtSettingsOpen] = useState(false);
+  // Smal eller Bred för hela Underlag (alla flikar), som på de andra sidorna.
+  const [utWidth, setUtWidthState] = useState(() => { try { return localStorage.getItem('bokix.underlag.width') === 'narrow' ? 'narrow' : 'wide'; } catch { return 'wide'; } });
+  const setUtWidth = (w) => { setUtWidthState(w); try { localStorage.setItem('bokix.underlag.width', w); } catch { /* privat läge */ } };
   const { info: inboxInfo, saveSenders, reload: reloadInbox } = useInboxAddress(newUnderlag ? companyId : null, { poll: mailboxOpen || uwView === 'mailbox' });
   // Den gamla listan finns kvar bakom "Visa som lista". Valet sparas i webbläsaren.
   const [listView, setListViewState] = useState(() => { try { return localStorage.getItem('bokix.underlagView') === 'list'; } catch { return false; } });
@@ -3232,21 +3210,39 @@ export default function Expenses({
           </>
         )}
         {!detailReceipt ? (
-          <div className="ut-shell">
-            <UnderlagNav
-              onOpenMenu={onOpenMenu}
-              view={uwView}
-              onView={setUwView}
-              counts={{
-                todo: receiptsList.filter(r => ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex))).length,
-                mail: onMarkSeen
-                  ? receiptsList.filter(r => r.inbox?.source === 'email' && !r.inbox.seenAt).length
-                  : receiptsList.filter(r => r.inbox?.source === 'email' && ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex))).length,
-                trash: receiptTrash.length,
-                missing: onAttachToVerification ? missingCount : null,
-              }}
-            />
-            <div className="ut-main">
+          <div className={`ut-std${utWidth === 'narrow' ? ' lt-page-narrow' : ''}`}>
+            {/* Samma sidhuvud som de andra listsidorna (2026-11-26): rubrik,
+                kugghjul, flikar och Ladda upp; ingen egen undermeny längre. */}
+            {(() => {
+              const todo = receiptsList.filter(r => ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex))).length;
+              const mail = onMarkSeen
+                ? receiptsList.filter(r => r.inbox?.source === 'email' && !r.inbox.seenAt).length
+                : receiptsList.filter(r => r.inbox?.source === 'email' && ['unhandled', 'pending'].includes(getReceiptStatus(r, verIndex))).length;
+              const items = [
+                { id: 'underlag', label: tr('nav.underlag'), badge: todo },
+                { id: 'mail', label: tr('underlag.navMail'), badge: mail },
+                ...(onAttachToVerification ? [{ id: 'missing', label: tr('underlag.navMissingShort'), badge: missingCount }] : []),
+                ...(receiptTrash.length > 0 || uwView === 'trash' ? [{ id: 'trash', label: tr('underlag.navTrash'), badge: receiptTrash.length }] : []),
+                ...(uwView === 'mailbox' || uwView === 'senders' ? [{ id: uwView, label: tr('underlag.navSettings') }] : []),
+              ];
+              return (
+                <ListPageHeader
+                  title={tr('nav.underlag')}
+                  onSettings={() => setUtSettingsOpen(true)}
+                  actions={wide && uwView === 'underlag' ? [{ key: 'upload', label: tr('underlag.uploadDocs'), icon: UploadCloud, onClick: () => document.getElementById('uw-upload').click(), variant: 'primary' }] : []}
+                  tabs={{ items, activeId: uwView, onChange: setUwView }}
+                />
+              );
+            })()}
+            {uwView !== 'underlag' && uwView !== 'mail' && (
+              <ListSettings open={utSettingsOpen} onClose={() => setUtSettingsOpen(false)} prefs={{ cols: {}, density: 'normal', width: utWidth, pageSize: 50 }} onChange={(p) => { if (p.width) setUtWidth(p.width); }} showPerPage={false}
+                actions={[
+                  { key: 'upload', label: tr('underlag.uploadDocs'), icon: UploadCloud, onClick: () => document.getElementById('uw-upload').click() },
+                  { key: 'mailin', label: tr('underlag.mailIn'), icon: Mail, onClick: () => setMailInOpen(true) },
+                  { key: 'settings', label: tr('underlag.navSettings'), icon: Cog, onClick: () => setUwView('mailbox') },
+                ]} />
+            )}
+            <div className="ut-main ut-std-main">
               {uwView === 'mail' && (
                 <MailClient
                   wide={wide}
@@ -3282,6 +3278,11 @@ export default function Expenses({
                   onRefresh={async () => { window.dispatchEvent(new Event('bokix:inbox-pull')); await reloadInbox?.(); }}
                   onMarkSeen={onMarkSeen}
                   inboxAddress={inboxInfo?.address}
+                  std
+                  settingsOpen={utSettingsOpen}
+                  onSettingsOpenChange={setUtSettingsOpen}
+                  pageWidth={utWidth}
+                  onPageWidth={setUtWidth}
                 />
                 {previewReceipt && (
                   <UnderlagPreview
@@ -3325,7 +3326,6 @@ export default function Expenses({
               </span>
               {navPos >= 0 && navIds.length > 1 && (
                 <span className="ut-nav">
-                  <span className="ut-keys" title={tr('underlag.navKeys')}><kbd>←</kbd><kbd>→</kbd></span>
                   <span className="ut-pager">
                     <button type="button" onClick={() => goNav(-1)} disabled={navPos <= 0} aria-label={tr('underlag.prev')} title={tr('underlag.prev')}><ChevronLeft size={18} /></button>
                     <span className="ut-pager-pos">{tr('underlag.navPos', { i: navPos + 1, n: navIds.length })}</span>

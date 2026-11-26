@@ -40,6 +40,18 @@ export function orderStatus(o) {
   return 'open';
 }
 
+/** Orderns färg i listan (2026-11-26): försenad (leveransdagen passerad och
+ * inte levererad), att fakturera (levererad, inte fakturerad), fakturerad,
+ * makulerad eller öppen (ofärgad). */
+export function orderTone(o, today = new Date().toISOString().slice(0, 10)) {
+  const st = orderStatus(o);
+  if (st === 'cancelled') return 'cancelled';
+  if (st === 'invoiced') return 'invoiced';
+  if ((st === 'open' || st === 'partial') && o.deliveryDate && o.deliveryDate < today) return 'late';
+  if (st === 'delivered') return 'toInvoice';
+  return 'open';
+}
+
 /** Ordern kan ändras fritt tills något levererats eller fakturerats. */
 export const orderEditable = (o) => !o?.cancelled && realRows(o).every(r => num(r.delivered) === 0 && num(r.invoiced) === 0);
 

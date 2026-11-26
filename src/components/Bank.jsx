@@ -8,6 +8,9 @@ import {
 import ListPageHeader, { ListFilterBar, listSearchInputStyle, listFilterFieldStyle } from './shared/ListPageHeader';
 import DateField from './shared/DateField';
 import ListTable from './shared/ListTable';
+import ListSettings, { useListPrefs } from './shared/ListSettings';
+import ChipFilter from './shared/ChipFilter';
+import { isAdminPreview } from '../utils/adminPreview';
 import { AccountSearch } from './shared/SearchInputs';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { findLockedVatPeriod } from '../utils/vatCalculation';
@@ -135,7 +138,13 @@ export default function Bank({
   // ska finnas och fungera likadant på alla listsidor). Kontoutdrag är
   // dessutom den lista som oftast är LÅNG — en importerad månad kan vara
   // hundratals rader.
-  const [pageSize, setPageSize] = useState(30);
+  const [pageSizeOld, setPageSize] = useState(30);
+  // Admin (2026-11-26): status bredvid sökfältet som i Artiklar; Bankkonton,
+  // Ångra import, rader per sida, radstorlek och sidbredd bakom kugghjulet.
+  const adminList = isAdminPreview();
+  const [lp, setLp] = useListPrefs('bokix.bank.prefs', {});
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const pageSize = adminList ? (lp.pageSize || 'all') : pageSizeOld;
 
   const effectiveAccounts = getEffectiveAccounts(bankAccounts);
   const hasMultipleAccounts = effectiveAccounts.length > 1;
@@ -374,11 +383,26 @@ export default function Bank({
     setExpandedId(null);
   };
 
+  const statusChips = [
+    ['all', tr('ui.alla'), tabCounts.all],
+    ['unmatched', tr('ui.ej_hanterade'), tabCounts.unmatched],
+    ['matched', tr('ui.matchade'), tabCounts.matched],
+    ['booked', tr('ui.bokforda'), tabCounts.booked],
+    ['ignored', tr('ui.ignorerade'), tabCounts.ignored],
+  ];
+  const listMode = adminList && view === 'transactions';
+
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+    <div className={listMode && lp.width === 'narrow' ? 'lt-page-narrow' : undefined} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
         title={tr('ui.bank')}
-        actions={[
+        onSettings={adminList ? () => setSettingsOpen(true) : null}
+        actions={adminList ? [
+          ...(sureMatches.length ? [{ key: 'match-all', label: tr('bankLearning.matchButton', { count: sureMatches.length }), icon: CheckCircle2, onClick: handleMatchAll }] : []),
+          ...(autoBookable.length ? [{ key: 'auto-book', label: tr('bankLearning.button', { count: autoBookable.length }), icon: CheckCircle2, onClick: handleAutoBook }] : []),
+          // fab: på telefon en flytande knapp nere till höger, som Ny lönekörning.
+          { key: 'import', label: tr('ui.importera_transaktioner'), icon: Upload, onClick: () => setShowImportModal(true), variant: 'primary', fab: true },
+        ] : [
           // Kundönskemål: flera bankkonton, namngivna, med egen import och
           // eget bokföringskonto. Knappen ligger kvar även med bara ett
           // (syntetiserat) konto — annars skulle ingen hitta funktionen
@@ -403,7 +427,20 @@ export default function Bank({
         }}
       />
 
-      {view === 'transactions' && (
+      {adminList && (
+        <ListSettings
+          open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={setLp}
+          listOptions={view === 'transactions'}
+          actions={[
+            { key: 'import', label: tr('ui.importera_transaktioner'), icon: Upload, onClick: () => setShowImportModal(true) },
+            { key: 'accounts', label: tr('ui.bankkonton'), icon: Settings, onClick: () => setShowAccountsModal(true) },
+            ...(latestBatch ? [{ key: 'undo', label: tr('ui.angra_import', { count: latestBatch.count }), icon: Undo2, onClick: handleUndoImport }] : []),
+            ...(hasImportedSales ? [{ key: 'reconcile-imported', label: tr('bankReconcile.button'), icon: CheckCircle2, onClick: handleReconcileImported }] : []),
+          ]}
+        />
+      )}
+
+      {view === 'transactions' && !adminList && (
         <div role="group" aria-label={tr('ui.status')} style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '10px 20px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           {[
             { id: 'all', label: tr('ui.alla'), count: tabCounts.all },
@@ -446,17 +483,21 @@ export default function Bank({
         onClear={() => { setSearch(''); setDateFrom(''); setDateTo(''); setSelectedAccountId('all'); }}
         count={filtered.length}
         countLabel="transaktioner"
-        pageSize={pageSize}
-        onPageSizeChange={setPageSize}
+        pageSize={adminList ? undefined : pageSize}
+        onPageSizeChange={adminList ? undefined : setPageSize}
         activeFilters={(dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (selectedAccountId !== 'all' ? 1 : 0)}
       >
         {/* Samma sökfälts-mönster som Bokförings egen ListFilterBar (facit-
             sidan för den här komponenten) — sökikon + listSearchInputStyle
             oförändrad (36px vänsterpadding reserverad åt ikonen), inte en
             egen avvikande variant. */}
-        <div style={{ position: 'relative' }}>
-          <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={tr('ui.sok_text_belopp_referens')} style={{ ...listSearchInputStyle, width: '240px' }} />
+        <div className="lfb-searchrow">
+          <div style={{ position: 'relative' }}>
+            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={tr('ui.sok_text_belopp_referens')} style={{ ...listSearchInputStyle, width: '240px' }} />
+          </div>
+          {/* Status bredvid sökfältet, samma knappar som i Artiklar (admin). */}
+          {listMode && <ChipFilter label={tr('ui.status')} value={activeTab} onChange={setActiveTab} items={statusChips} />}
         </div>
         <div className="lfb-daterange">
           <DateField value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder={tr('ui.fran_datum')} style={listFilterFieldStyle} />
@@ -488,7 +529,7 @@ export default function Bank({
         </div>
       )}
 
-      {view !== 'reconcile' && <div style={{ flex: 1, overflowY: 'auto' }}>
+      {view !== 'reconcile' && <div className={listMode && lp.density === 'compact' ? 'lt-compact' : undefined} style={{ flex: 1, overflowY: 'auto' }}>
         {bankTransactions.length === 0 ? (
           // Samma kortram som ListTable (bordered=true, samma komponent som
           // renderar raderna nedan) i stället för en egen flytande, rundad

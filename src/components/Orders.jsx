@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, X, Trash2, Download, Truck, Check, Search, FileText, ClipboardList, ChevronLeft, ChevronRight, Send } from './icons';
+import { Plus, X, Trash2, Download, Truck, Check, Search, FileText, ClipboardList, ChevronLeft, ChevronRight, Send, Eye, Copy } from './icons';
 import ChipFilter from './shared/ChipFilter';
+import { getRowBg, STATUS_PILL as INV_PILL, STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, STRONG_DRAFT } from './shared/invoiceStatusStyle';
+import RowActionMenu from './shared/RowActionMenu';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
-import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
+import ListSettings, { useListPrefs } from './shared/ListSettings';
 import { downloadCsv } from '../utils/csvRegister';
 import ArticleCombobox from './shared/ArticleCombobox';
 import { confirmDialog } from './shared/ConfirmDialog';
@@ -12,7 +14,7 @@ import { lockedPeriodFor } from '../utils/fiscalYear';
 import { valuateInventory, deriveInvoiceMovements } from '../utils/inventory';
 import {
   num, nextOrderNumber, orderStatus, orderEditable, orderTotals, rowNet, reservedByArticle,
-  rowLeftToDeliver, rowLeftToInvoice, deliverOrder, invoiceFromOrder, applyInvoiceExistence,
+  rowLeftToDeliver, rowLeftToInvoice, deliverOrder, invoiceFromOrder, applyInvoiceExistence, orderTone,
 } from '../utils/salesOrders';
 import { downloadSalesOrderPdf } from '../utils/salesOrderPdf';
 import { exportInvoicePdf, printInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';
@@ -35,12 +37,27 @@ const formatShort = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split(
 const emptyRow = () => ({ key: newId(), articleId: '', articleNumber: '', description: '', qty: 1, unit: 'st', unitPrice: '', vatRate: 25, discount: 0, account: '3001', delivered: 0, invoiced: 0 });
 const STATUS_PILL = { open: 'info', partial: 'warn', delivered: 'ok', invoiced: 'neutral', cancelled: 'late' };
 
+// Radens färg efter läge (orderTone i salesOrders.js), samma toner som fakturalistan.
+const isLate = (o, st) => ['open', 'partial'].includes(st) && o.deliveryDate && o.deliveryDate < todayIso();
+const TONE_BG = { late: getRowBg('overdue'), toInvoice: getRowBg('sent'), invoiced: getRowBg('paid'), cancelled: getRowBg('draft') };
+// Statusbrickan i listan med samma utseende som i Kundfakturor (2026-11-26).
+const TONE_PILL = {
+  late: { background: STRONG_OVERDUE.bg, color: STRONG_OVERDUE.text },
+  toInvoice: { background: STRONG_UNPAID.bg, color: STRONG_UNPAID.text },
+  invoiced: { background: STRONG_PAID.bg, color: STRONG_PAID.text },
+  // Samma grå som Ej bokförd i Kundfakturor (texten där är tunnare).
+  cancelled: { background: STRONG_DRAFT.bg, color: STRONG_DRAFT.text, border: STRONG_DRAFT.border, fontWeight: 500 },
+  // Öppen: tunn blå kant och blå text, syns i både ljust och mörkt tema.
+  open: { background: 'transparent', color: 'var(--status-blue-text)', border: '1px solid color-mix(in srgb, var(--status-blue-text) 55%, transparent)', fontWeight: 600 },
+};
+const tonePillLabel = (tone, st) => (tone === 'open' ? t(`so.status_${st}`) : t(`soTone.pill_${tone}`));
+
 export default function Orders({ activeCompanyId, onSyncBeforeServerCall, company, setCompanyInfo, articles = [], contacts = [], invoices = [], onCreateContact, onCreateInvoice, onOpenInvoice, onOpenQuote, globalAction, clearGlobalAction }) {
   // Fakturerat räknas från fakturorna som finns (applyInvoiceExistence).
   const invoiceIdSet = useMemo(() => new Map((invoices || []).map(i => [i.id, i])), [invoices]);
   const orders = useMemo(() => (company?.salesOrders || []).map(o => applyInvoiceExistence(o, invoiceIdSet)), [company?.salesOrders, invoiceIdSet]);
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState('active');
+  const [filter, setFilter] = useState('all');
   const [page, setPage] = useState(0);
   const [open, setOpen] = useState(null); // ordern som visas i rutan
   const [openNotice, setOpenNotice] = useState('');
@@ -94,11 +111,13 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
   };
   const deleteOrder = (order) => setCompanyInfo(prev => ({ ...prev, salesOrders: (prev.salesOrders || []).filter(x => x.id !== order.id) }));
 
-  const GROUP = { active: ['open', 'partial', 'delivered'], deliver: ['open', 'partial'], invoice: ['delivered', 'partial'], invoiced: ['invoiced'], all: null };
+  // Filtret följer radernas färger: Ej fakturerade är allt som inte är
+  // fakturerat eller makulerat (även försenade och att fakturera).
   const inGroup = (o, k) => {
-    const st = orderStatus(o);
-    if (k === 'invoice') return (o.rows || []).some(r => rowLeftToInvoice(r) > 0);
-    return !GROUP[k] || GROUP[k].includes(st);
+    if (k === 'all') return true;
+    const tone = orderTone(o);
+    if (k === 'notInvoiced') return tone !== 'invoiced' && tone !== 'cancelled';
+    return tone === k;
   };
   const count = (k) => orders.filter(o => inGroup(o, k)).length;
   const rows = useMemo(() => {
@@ -119,6 +138,33 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
   };
 
   const toDeliver = orders.filter(o => ['open', 'partial'].includes(orderStatus(o))).length;
+
+  // ⋮-menyn på varje rad (2026-11-26), som i Offerter och Kundfakturor. Det
+  // som kräver ordervyn (leverans, betalningsval, PDF) öppnar ordern och
+  // startar det direkt (initialAction i OrderPage).
+  const [openAction, setOpenAction] = useState(null);
+  const openWith = (o, action = null) => { setOpenAction(action); setOpen(o); };
+  const copyOrder = (o) => openWith({ ...o, id: newId(), number: nextOrderNumber(orders), date: todayIso(), deliveryDate: '', cancelled: false, quoteId: undefined, quoteNumber: undefined, invoiceIds: [], invoiceLines: undefined, paidOnInvoice: undefined, confirmationSentAt: undefined, rows: (o.rows || []).map(r => ({ ...r, key: newId(), delivered: 0, invoiced: 0 })), isNew: true });
+  const orderMenu = (o) => {
+    const st = orderStatus(o);
+    const live = st !== 'cancelled';
+    const items = [{ key: 'open', label: t('soMenu.open'), icon: Eye, onClick: () => openWith(o) }];
+    if (st === 'open' || st === 'partial') items.push({ key: 'deliver', label: t('so.deliver'), icon: Truck, onClick: () => openWith(o, 'deliver') });
+    if (live && (o.rows || []).some(r => rowLeftToInvoice(r) > 0)) items.push({ key: 'invoice', label: t('so.invoice'), icon: FileText, onClick: () => openWith(o, 'invoice') });
+    const lastInvoice = (o.invoiceIds || []).at(-1);
+    if (lastInvoice && onOpenInvoice) items.push({ key: 'view-invoice', label: t('so.openInvoice'), icon: FileText, onClick: () => onOpenInvoice(lastInvoice) });
+    if (live) {
+      items.push({ key: 'mail', label: t('so.mailConfirm'), icon: Send, onClick: () => openWith(o, 'mail') });
+      items.push({ key: 'pdf', label: t('soMenu.pdf'), icon: Download, onClick: () => openWith(o, 'pdf') });
+    }
+    items.push({ key: 'copy', label: t('soMenu.copy'), icon: Copy, onClick: () => copyOrder(o) });
+    const canCancel = (st === 'open' || st === 'partial') && !(o.rows || []).some(r => num(r.invoiced) > 0);
+    const canDelete = orderEditable(o);
+    if (canCancel || canDelete) items.push({ divider: true });
+    if (canCancel) items.push({ key: 'cancel', label: t('so.cancel'), icon: X, onClick: async () => { if (await confirmDialog(t('so.cancelConfirm', { n: o.number }))) saveOrder({ ...o, cancelled: true }); } });
+    if (canDelete) items.push({ key: 'delete', label: t('ui.ta_bort'), icon: Trash2, variant: 'danger', onClick: async () => { if (await confirmDialog(t('so.deleteConfirm', { n: o.number }))) { deleteOrder(o); setMessage(t('so.deleted', { n: o.number })); } } });
+    return items;
+  };
 
   if (open) {
     return (
@@ -146,9 +192,10 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
             onOpenQuote={onOpenQuote}
             onMessage={setMessage}
             initialNotice={openNotice}
+            initialAction={openAction}
             activeCompanyId={activeCompanyId}
             onSyncBeforeServerCall={onSyncBeforeServerCall}
-            onClose={() => { setOpen(null); setOpenNotice(''); }}
+            onClose={() => { setOpen(null); setOpenNotice(''); setOpenAction(null); }}
           />
     );
   }
@@ -158,23 +205,29 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
       {/* Samma sidhuvud, sökrad och filter som Offerter och Kundfakturor (2026-11-24). */}
       <ListPageHeader
         title={t('so.title')}
+        onSettings={() => setSettingsOpen(true)}
         subtitle={orders.length === 0 ? t('so.subEmpty') : toDeliver > 0 ? t('so.subToDeliver', { n: toDeliver }) : t('so.subAllDone')}
         actions={[{ key: 'new', label: t('so.new'), icon: Plus, onClick: startNew, variant: 'primary' }]}
       />
       {orders.length > 0 && (
-        <ListFilterBar count={rows.length} countLabel={rows.length === 1 ? t('so.countOne') : t('so.countMany')}
-          trailing={<ListSettingsButton onClick={() => setSettingsOpen(true)} />}>
-          <div style={{ position: 'relative' }}>
-            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input type="text" placeholder={t('so.search')} value={q} onChange={e => { setQ(e.target.value); setPage(0); }} style={listSearchInputStyle} />
+        <ListFilterBar count={rows.length} countLabel={rows.length === 1 ? t('so.countOne') : t('so.countMany')}>
+          {/* Status bredvid sökfältet, med samma färger som raderna. */}
+          <div className="lfb-searchrow">
+            <div style={{ position: 'relative' }}>
+              <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input type="search" placeholder={t('so.search')} value={q} onChange={e => { setQ(e.target.value); setPage(0); }} style={{ ...listSearchInputStyle, width: '240px' }} />
+            </div>
+            <ChipFilter label={t('artReg.filter')} value={filter} onChange={(id) => { setFilter(id); setPage(0); }}
+              items={[
+                ['all', t('accr.filterAll'), count('all')],
+                ['notInvoiced', t('soTone.notInvoiced'), count('notInvoiced')],
+                ['late', t('soTone.late'), count('late'), 'dot-late'],
+                ['toInvoice', t('soTone.toInvoice'), count('toInvoice'), 'dot-toinvoice'],
+                ['invoiced', t('soTone.invoiced'), count('invoiced'), 'dot-invoiced'],
+                ['cancelled', t('soTone.cancelled'), count('cancelled'), 'dot-cancelled'],
+              ].filter(([id, , n]) => id === 'all' || n > 0 || id === filter)} />
           </div>
         </ListFilterBar>
-      )}
-      {orders.length > 0 && (
-        <div className="so-pillsbar">
-          <ChipFilter label={t('artReg.filter')} value={filter} onChange={(id) => { setFilter(id); setPage(0); }}
-            items={[['active', t('so.fActive'), count('active')], ['deliver', t('so.fDeliver'), count('deliver'), 'low'], ['invoice', t('so.fInvoice'), count('invoice')], ['invoiced', t('so.fInvoiced'), count('invoiced')], ['all', t('accr.filterAll'), count('all')]]} />
-        </div>
       )}
       {message && <div className="so-listmsg"><Check size={14} /> {message}<button type="button" onClick={() => setMessage('')} aria-label={t('ui.stang')}><X size={13} /></button></div>}
 
@@ -204,12 +257,13 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
                     <thead>
                       <tr>
                         {lp.cols.number && <th className="po-w-nr">{t('so.colNumber')}</th>}
-                        <th>{t('so.colCustomer')}</th>
+                        <th className="po-w-customer">{t('so.colCustomer')}</th>
                         {lp.cols.date && <th className="po-w-date ar-hide-md">{t('so.colDate')}</th>}
                         {lp.cols.delivery && <th className="po-w-date">{t('so.colDelivery')}</th>}
                         {lp.cols.delivered && <th className="po-w-prog ar-hide-md">{t('so.colDelivered')}</th>}
                         {lp.cols.amount && <th className="r ar-w-value">{t('so.colAmount')}</th>}
                         {lp.cols.status && <th className="r po-w-status" />}
+                        <th className="po-w-menu" />
                       </tr>
                     </thead>
                     <tbody>
@@ -218,10 +272,11 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
                         const real = (o.rows || []).filter(r => num(r.qty) > 0);
                         const all = real.reduce((s, r) => s + num(r.qty), 0);
                         const got = real.reduce((s, r) => s + num(r.delivered), 0);
-                        const late = ['open', 'partial'].includes(st) && o.deliveryDate && o.deliveryDate < todayIso();
+                        const late = isLate(o, st);
+                        const tone = orderTone(o);
                         const short = ['open', 'partial'].includes(st) && real.some(r => r.articleId && isStocked(r.articleId) && rowLeftToDeliver(r) > (stock.qty.get(r.articleId) || 0));
                         return (
-                          <tr key={o.id} className={`po-row is-${st}`} onClick={() => setOpen(o)}>
+                          <tr key={o.id} className={`po-row is-${st} tone-${tone}`} style={TONE_BG[tone] ? { background: TONE_BG[tone] } : undefined} onClick={() => setOpen(o)}>
                             {lp.cols.number && <td className="po-nr">{o.number}</td>}
                             <td className="ar-name">
                               <strong>{o.customerName || t('so.noCustomer')}</strong>
@@ -233,7 +288,8 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
                               <span className="po-prog"><span className="pz-m-track"><span style={{ width: `${Math.round((got / all) * 100)}%`, background: 'var(--status-green-text)' }} /></span><small>{t('po.progress', { got: fmtQty(got), all: fmtQty(all) })}</small></span>
                             )}</td>}
                             {lp.cols.amount && <td className="r ar-price">{fmtKr(orderTotals(o).net)}</td>}
-                            {lp.cols.status && <td className="r"><span className={`agi-pill ${STATUS_PILL[st]}`}>{t(`so.status_${st}`)}</span></td>}
+                            {lp.cols.status && <td className="r po-status"><span style={{ ...INV_PILL, ...TONE_PILL[tone] }}>{tone === 'invoiced' && <Check size={12} />}{tonePillLabel(tone, st)}</span></td>}
+                            <td className="po-menu" onClick={e => e.stopPropagation()}><RowActionMenu ariaLabel={t('soMenu.aria', { n: o.number })} items={orderMenu(o)} /></td>
                           </tr>
                         );
                       })}
@@ -259,7 +315,7 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
   );
 }
 
-function OrderPage({ initial, company, articles, contacts, stockQty, reservedElsewhere, isStocked, lockedFor, onSave, onDelete, onInvoice, onOpenInvoice, onOpenQuote, onMessage, onClose, initialNotice = '', activeCompanyId, onSyncBeforeServerCall }) {
+function OrderPage({ initial, company, articles, contacts, stockQty, reservedElsewhere, isStocked, lockedFor, onSave, onDelete, onInvoice, onOpenInvoice, onOpenQuote, onMessage, onClose, initialNotice = '', initialAction = null, activeCompanyId, onSyncBeforeServerCall }) {
   const [o, setO] = useState(() => ({ paymentTermsDays: Number(company?.paymentTermsDays) || 30, ...initial }));
   const [mode, setMode] = useState('view'); // 'view' | 'deliver'
   const [deliverDate, setDeliverDate] = useState(todayIso());
@@ -428,6 +484,12 @@ function OrderPage({ initial, company, articles, contacts, stockQty, reservedEls
     try { await exportInvoicePdf(captureRef.current, `orderbekraftelse-${o.number}.pdf`); } catch { setError(t('ui.kunde_inte_skapa_pdf_forsok_igen')); } finally { setPdfBusy(false); }
   };
   const print = async () => { try { await printInvoicePdf(captureRef.current); } catch { setError(t('ui.kunde_inte_skapa_pdf_forsok_igen')); } };
+  // Snabbval från listans ⋮-meny: startas en gång när ordern öppnats.
+  useEffect(() => {
+    if (!initialAction) return undefined;
+    const id = setTimeout(() => ({ deliver: startDeliver, invoice: invoiceNow, pdf: downloadConfirmation, mail: openMail })[initialAction]?.(), 150);
+    return () => clearTimeout(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const step = status === 'invoiced' ? 3 : status === 'delivered' ? 2 : status === 'partial' ? 1 : 0;
 
@@ -464,12 +526,29 @@ function OrderPage({ initial, company, articles, contacts, stockQty, reservedEls
           </ol>
         )}
         <span style={{ flex: 1 }} />
-        {status !== 'cancelled' && !o.isNew && <button type="button" className="so-tool" onClick={openMail}><Send size={14} /> {o.confirmationSentAt ? t('so.mailAgain') : t('so.mailConfirm')}</button>}
-        {status !== 'cancelled' && <button type="button" className="so-tool" onClick={downloadConfirmation} disabled={pdfBusy}><Download size={14} /> {t('so.pdfConfirm')}</button>}
-        {(o.deliveries || []).length > 0 && <button type="button" className="so-tool" onClick={() => downloadSalesOrderPdf({ company, order: o, kind: 'delivery' })}><Download size={14} /> {t('so.pdfDelivery')}</button>}
-        {(o.invoiceIds || []).map((id, i) => onOpenInvoice && <button key={id} type="button" className="so-tool" onClick={() => { onClose(); onOpenInvoice(id); }}><FileText size={14} /> {(o.invoiceIds || []).length > 1 ? t('so.invoiceN', { n: i + 1 }) : t('so.openInvoice')}</button>)}
-        {editable && !o.isNew && <button type="button" className="so-tool danger" onClick={async () => { if (await confirmDialog(t('so.deleteConfirm', { n: o.number }))) { onDelete(o); onClose(); } }}><Trash2 size={14} /> {t('so.delete')}</button>}
-        {!editable && (status === 'open' || status === 'partial') && <button type="button" className="so-tool danger" onClick={async () => { if (await confirmDialog(t('so.cancelConfirm', { n: o.number }))) { onSave({ ...o, cancelled: true }); onClose(); } }}><X size={14} /> {t('so.cancel')}</button>}
+        {/* Verktygen: på rad när det får plats, annars bakom ⋯ (container query
+            på .so-subbar), så att inget hänger kvar under stegen i halvskärm. */}
+        {(() => {
+          const tools = [
+            ...(status !== 'cancelled' && !o.isNew ? [{ key: 'mail', label: o.confirmationSentAt ? t('so.mailAgain') : t('so.mailConfirm'), icon: Send, onClick: openMail }] : []),
+            ...(status !== 'cancelled' ? [{ key: 'pdf', label: t('so.pdfConfirm'), icon: Download, onClick: downloadConfirmation, disabled: pdfBusy }] : []),
+            ...((o.deliveries || []).length > 0 ? [{ key: 'delivery', label: t('so.pdfDelivery'), icon: Download, onClick: () => downloadSalesOrderPdf({ company, order: o, kind: 'delivery' }) }] : []),
+            ...(onOpenInvoice ? (o.invoiceIds || []).map((id, i) => ({ key: id, label: (o.invoiceIds || []).length > 1 ? t('so.invoiceN', { n: i + 1 }) : t('so.openInvoice'), icon: FileText, onClick: () => { onClose(); onOpenInvoice(id); } })) : []),
+            ...(editable && !o.isNew ? [{ key: 'delete', label: t('so.delete'), icon: Trash2, danger: true, onClick: async () => { if (await confirmDialog(t('so.deleteConfirm', { n: o.number }))) { onDelete(o); onClose(); } } }] : []),
+            ...(!editable && (status === 'open' || status === 'partial') ? [{ key: 'cancel', label: t('so.cancel'), icon: X, danger: true, onClick: async () => { if (await confirmDialog(t('so.cancelConfirm', { n: o.number }))) { onSave({ ...o, cancelled: true }); onClose(); } } }] : []),
+          ];
+          if (!tools.length) return null;
+          return (<>
+            <span className="so-tools-inline">
+              {tools.map(({ key, label, icon: Icon, onClick, disabled, danger }) => (
+                <button key={key} type="button" className={`so-tool${danger ? ' danger' : ''}`} onClick={onClick} disabled={disabled}><Icon size={14} /> {label}</button>
+              ))}
+            </span>
+            <span className="so-tools-more">
+              <RowActionMenu ariaLabel={t('shared.moreActions')} items={tools.map(({ key, label, icon, onClick, disabled, danger }) => ({ key, label, icon, onClick, disabled, ...(danger ? { variant: 'danger' } : {}) }))} />
+            </span>
+          </>);
+        })()}
       </div>
       {error && <div className="so-error">{error}</div>}
       {!error && (notice || guide) && (

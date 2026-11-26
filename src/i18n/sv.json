@@ -4900,6 +4900,49 @@
     "noTaxTable": "saknar skattetabell",
     "createRun": "Skapa lönekörning"
   },
+  "helpGuide": {
+    "pageSub": "Kort film om hur sidan du står på fungerar"
+  },
+  "verSet": {
+    "view": "Visning"
+  },
+  "soTone": {
+    "pill_late": "Försenad",
+    "pill_toInvoice": "Att fakturera",
+    "pill_invoiced": "Fakturerad",
+    "pill_cancelled": "Makulerad",
+    "notInvoiced": "Ej fakturerade",
+    "late": "Försenade",
+    "toInvoice": "Att fakturera",
+    "invoiced": "Fakturerade",
+    "cancelled": "Makulerade"
+  },
+  "supSet": {
+    "countOne": "{{n}} faktura",
+    "countMany": "{{n}} fakturor"
+  },
+  "soMenu": {
+    "aria": "Åtgärder för order {{n}}",
+    "open": "Visa order",
+    "pdf": "Ladda ner orderbekräftelse",
+    "copy": "Kopiera order"
+  },
+  "payrollPick": {
+    "newRunHint": "De {{n}} timanställda är med när du fyller i deras timmar i nästa steg.",
+    "note": "{{n}} av {{total}} får lön den här månaden.",
+    "noteOutside": "Kryssa i den som ska få lön, eller fyll i timmar så tas personen med.",
+    "remove": "Ta bort ur körningen",
+    "add": "Ta med i körningen",
+    "includeName": "Med i körningen: {{name}}",
+    "notIncluded": "Inte med den här månaden",
+    "hourlyMeta": "Timlön {{rate}} kr/tim",
+    "enterHours": "Ange timmar",
+    "hoursFor": "Timmar för {{name}}",
+    "summary": "Summering",
+    "employees": "Antal anställda",
+    "pcs": "st",
+    "afterBook": "När lönen är godkänd betalar du nettolönen från banken. Lönebesked, bokföring och AGI gör Bokix i stegen efter."
+  },
   "payslips": {
     "title": "Lönebesked",
     "intro": "{{n}} anställda i körningen, {{withEmail}} med e-postadress. {{sent}} har fått sitt lönebesked mejlat.",

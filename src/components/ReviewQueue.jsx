@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { CheckCircle2, Check, X, ChevronDown, ChevronUp, ChevronRight, ShieldCheck, CreditCard, Landmark, HelpCircle, FileText, Receipt, Info, RotateCcw, Paperclip, Pencil } from './icons';
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader from './shared/ListPageHeader';
+import ListSettings, { useListPrefs } from './shared/ListSettings';
+import { isAdminPreview } from '../utils/adminPreview';
 import ListTable from './shared/ListTable';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { supabase } from '../supabaseClient';
@@ -1178,6 +1180,10 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
     }
   };
 
+  // Admin (2026-11-26): kugghjulet vid rubriken med Smal/Bred och radstorlek, som de andra sidorna.
+  const adminList = isAdminPreview();
+  const [lp, setLp] = useListPrefs('bokix.review.prefs', {});
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const headerActions = tab === 'pending' && bulkTargets.length > 0 ? [
     {
       key: 'bulk-approve',
@@ -1253,11 +1259,13 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
   );
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+    <div className={adminList && lp.width === 'narrow' ? 'lt-page-narrow' : undefined} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <style>{REVIEW_LIST_CSS}</style>
+      {adminList && <ListSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={setLp} showPerPage={false} />}
       {/* Header i samma mönster som Kunder/Anställda och lön/Projekt/Bokföring. */}
       <ListPageHeader
         title={t('nav.review')}
+        onSettings={adminList ? () => setSettingsOpen(true) : null}
         // Antalet står i knappen, inte bara i bekräftelserutan: hur många
         // poster ett klick omfattar ska gå att se INNAN man klickar.
         actions={headerActions}
@@ -1282,7 +1290,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
           (Bokföring/Verifikationer): Historik-tabellen (nedan) ska sitta
           flush direkt under sidhuvudet. Väntar-fliken (kort, inte en
           tabell) behåller sin egen lokala padding. */}
-      <div data-tour="page-review-content" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div data-tour="page-review-content" className={adminList && lp.density === 'compact' ? 'lt-compact rq-compact' : undefined} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
 
       {/* Ingen sammanfattning överst (2026-11-22): bara listan. */}
       {tab === 'pending' && (

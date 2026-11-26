@@ -9309,6 +9309,11 @@ input:disabled, textarea:disabled, select:disabled, button:disabled { cursor: no
 .hc-tile > span:first-child { margin-bottom: 8px; }
 .hc-tile-title { font-size: 14.5px; font-weight: 700; color: var(--text-main); line-height: 1.3; }
 .hc-tile-sub { font-size: 12.5px; color: var(--text-muted); font-weight: 600; }
+.hc-page-guide { display: flex; align-items: center; gap: 12px; width: 100%; margin-bottom: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); color: var(--text-main); font: inherit; text-align: left; cursor: pointer; }
+.hc-page-guide:hover { background: var(--bg-muted); }
+.hc-page-guide > span { display: grid; gap: 2px; }
+.hc-page-guide strong { font-size: 14px; }
+.hc-page-guide span span { font-size: 12.5px; color: var(--text-secondary); }
 .hc-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .hc-chip { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; font-family: inherit; font-size: 13.5px; font-weight: 650; color: var(--text-main); background: var(--bg-card); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; transition: border-color .15s, background .15s; }
 .hc-chip svg { color: var(--status-green-text); }
@@ -9926,6 +9931,31 @@ img.hc-player { object-fit: cover; }
 .uw-paidby-note { font-size: 12px; font-weight: 400; color: var(--text-muted); }
 .pr-outlays { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding: 10px 12px; border-radius: 10px; background: var(--status-amber-bg, #fdf3d7); color: var(--status-amber-text, #8a5a00); font-size: 13px; font-weight: 600; }
 .pr-outlays button { flex-shrink: 0; padding: 6px 12px; border: none; border-radius: 999px; background: var(--text-main); color: var(--bg-card); font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+/* Lönekörning: välj vilka som får lön, och summeringen i Granska (2026-11-26, nya lönevyn). */
+.pr-include { display: flex; align-items: center; flex-shrink: 0; cursor: pointer; }
+.pr-include input { width: 17px; height: 17px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.pr-pick-note { margin: -4px 0 12px; font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; }
+.pr-parked { display: flex; align-items: center; gap: 12px; padding: 14px 24px; border-bottom: 1px solid var(--border-light); background: var(--bg-card); }
+.pr-parked-body { flex: 1; min-width: 0; }
+.pr-parked-name { font-size: 14.5px; font-weight: 700; color: var(--text-secondary); }
+.pr-parked-meta { font-size: 12.5px; color: var(--text-muted); margin-top: 3px; }
+.pr-parked-amount { font-size: 14px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pr-parked-hours { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-secondary); }
+.pr-parked-hours input { width: 132px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; text-align: right; background: var(--bg-card); color: var(--text-main); font-family: inherit; }
+.pr-review { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; margin-top: 16px; }
+.payroll-stage-body .pr-review > .pr-panel { margin-bottom: 0 !important; margin-right: 0 !important; border-right: 1px solid var(--border-light) !important; }
+.pr-review .pr-sum { padding-top: 4px; }
+.pr-sum h3 { margin: 0 0 10px; font-size: 15px; font-weight: 700; color: var(--text-main); }
+.pr-sum-box { border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; background: var(--bg-card); }
+.pr-sum-line { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 13.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.pr-sum-line span:last-child { color: var(--text-main); white-space: nowrap; }
+.pr-sum-line.is-strong, .pr-sum-line.is-strong span:last-child { font-weight: 700; color: var(--text-main); }
+.pr-sum-box hr { border: none; border-top: 1px solid var(--border-light); margin: 8px 0; }
+.pr-sum p { margin: 10px 2px 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; }
+@media (max-width: 900px) {
+  .pr-review { grid-template-columns: minmax(0, 1fr); }
+  .pr-parked { padding: 12px 16px; }
+}
 /* Lönebesked: vilka som får mejlet (2026-11-26). */
 .ps-pick { margin: 0 0 14px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .ps-pick label { display: flex; align-items: center; gap: 10px; padding: 9px 14px; cursor: pointer; font-size: 13.5px; color: var(--text-main); }
@@ -10821,6 +10851,14 @@ html[data-nav-rail] .sidebar .nav-badge { background: #2fbf63 !important; color:
 .pay-year button:disabled { opacity: .35; cursor: default; }
 .pay-year-total { font-size: 12.5px; color: var(--text-secondary); white-space: nowrap; }
 .pay-year-total strong { color: var(--text-main); font-weight: 600; font-variant-numeric: tabular-nums; margin-left: 4px; }
+/* Sidhuvudet (admin, 2026-11-26): kugghjulet direkt efter rubriken och t.ex. årsväljaren. */
+.lph-gear { width: 32px !important; height: 32px !important; margin-left: 0 !important; border-radius: 999px !important; }
+.lph-title-extra { display: flex; align-items: center; }
+.lph-title-extra .pay-yearbar .pay-year-total { order: 2; font-size: 12.5px; color: var(--text-secondary); }
+@media (max-width: 760px) {
+  .lph-title-extra { flex-basis: 100%; margin-top: 2px; }
+  .lph-title-extra .pay-yearbar { gap: 10px; }
+}
 .pay-year-phone { display: none; }
 @media (max-width: 768px) {
   .pay-year-head { display: none; }
@@ -11233,6 +11271,26 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .ar-chip.on span { color: var(--text-muted); }
 .ar-chip.is-low span { color: #b26f05; }
 .ar-chip.is-out span { color: var(--status-red-text); }
+/* Färgprick i filtret, samma toner som raderna (Order, 2026-11-26). */
+.ar-chip[class*="is-dot-"]::before { content: ""; width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.ar-chip.is-dot-late::before { background: var(--invoice-overdue-bg); }
+.ar-chip.is-dot-toinvoice::before { background: var(--invoice-unpaid-bg); }
+.ar-chip.is-dot-invoiced::before { background: #15803d; }
+.ar-chip.is-dot-cancelled::before { background: var(--text-muted); }
+.ar-chip.is-dot-review::before { background: var(--status-amber-text); }
+.po-row.tone-late td, .po-row.tone-toInvoice td, .po-row.tone-invoiced td { color: var(--text-main); }
+@media (max-width: 760px) { .lg-tbl.po-tbl thead th.po-w-status, .lg-tbl.po-tbl tbody td.po-status { display: none !important; } }
+.po-tbl th.po-w-menu, .po-tbl td.po-menu { width: 44px; padding-left: 0 !important; padding-right: 8px !important; text-align: right; }
+/* Bred skärm: kolumnerna delar på luften i stället för att kundkolumnen tar allt (2026-11-26). */
+@media (min-width: 1101px) {
+  .lg-tbl.po-tbl th.po-w-nr { width: 7%; }
+  .lg-tbl.po-tbl th.po-w-customer { width: 26%; }
+  .lg-tbl.po-tbl th.po-w-date { width: 11%; }
+  .lg-tbl.po-tbl th.po-w-prog { width: 15%; }
+  .lg-tbl.po-tbl th.ar-w-value { width: 13%; }
+  .lg-tbl.po-tbl th.po-w-status { width: 13%; }
+}
+.lg-tbl.po-tbl tbody td.po-menu, .lg-tbl.po-tbl thead th.po-w-menu { display: table-cell !important; }
 .ar-search { height: 40px; border-radius: 12px; }
 .ar-select { height: 40px; border-radius: 12px; }
 @media (max-width: 600px) { .ar-chips { border-radius: 10px; } }
@@ -11276,8 +11334,19 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 /* Artikellistans inställningar (2026-11-24) */
 .ar-gear { margin-left: auto; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 9px; background: var(--bg-card); color: var(--text-secondary); cursor: pointer; flex-shrink: 0; }
 .ar-gear:hover { color: var(--text-main); background: var(--bg-muted); }
+.ar-set-note { font-size: 13px; color: var(--text-secondary); }
+.ar-set-note strong { color: var(--text-main); }
 .ar-w-sup { width: 170px; }
 .ar-w-unit { width: 70px; }
+/* Bred skärm (admin): kolumnerna delar på luften i stället för att Benämning tar allt (2026-11-26). */
+@media (min-width: 1101px) {
+  html.ws-v2 .ar-table th.ar-num-col { width: 10%; }
+  html.ws-v2 .ar-table th.ar-w-sup { width: 16%; }
+  html.ws-v2 .ar-table th.ar-w-unit { width: 7%; }
+  html.ws-v2 .ar-table th.ar-w-price, html.ws-v2 .ar-table th.ar-w-cost, html.ws-v2 .ar-table th.ar-w-value { width: 12%; }
+  html.ws-v2 .ar-table th.ar-w-tg { width: 8%; }
+  html.ws-v2 .ar-table th.ar-w-stock { width: 10%; }
+}
 .ar-ellip { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ar--compact .ar-table td { padding-top: 7px; padding-bottom: 7px; }
 .ar--compact .ar-table .ar-name small { display: none; }
@@ -11311,6 +11380,11 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .ar-set-sec h3 { margin: 0 0 8px; font-size: 13.5px; font-weight: 500; color: var(--text-main); }
 .ar-set-btns button { height: 34px; font-size: 12.5px; font-weight: 500; background: var(--bg-muted); border-color: var(--border-light, var(--border)); }
 .ar-set-btns button:disabled { opacity: .5; cursor: default; }
+/* Lång text i knapparna (2026-11-26): de växer på höjden och radbryts i stället för att sticka ut. */
+.ar-set-btns button { height: auto !important; min-height: 36px; padding: 8px 12px; line-height: 1.3; white-space: normal; text-align: center; border-radius: 14px; overflow-wrap: anywhere; }
+.ar-set-btns button svg { flex-shrink: 0; }
+/* Toppfältets kompakta rubrik är bara text: den får aldrig ta emot tryck (låg över kugghjulet i Lön på telefon). */
+.topbar-compact-title { pointer-events: none !important; }
 .ar-switch { padding: 5px 0; font-size: 14px; }
 .ar-switch-label { display: inline-flex; align-items: center; gap: 10px; }
 .ar-switch-label svg { color: var(--text-secondary); }
@@ -11340,6 +11414,34 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 :root[data-theme="dark"] .ar-chip.on span { background: rgba(0,0,0,.12); color: #111; }
 @media (max-width: 600px) { .ar-chips { border-radius: 999px; } }
 .ar-search, .ar-select, .ar-gear { border-radius: 999px; }
+/* Bank (admin): sökfält och statusknappar på samma rad, rullgardin på telefon. */
+.lfb-searchrow { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; container-type: inline-size; container-name: lfbsearch; }
+.lfb-searchrow .cf-select { display: none; }
+.lfb-primary:has(.lfb-searchrow) { flex: 1 1 auto; min-width: 0; }
+/* Statusknapparna blir rullgardin när raden inte räcker (halvskärm), i stället för att sticka ut. */
+@container lfbsearch (max-width: 860px) {
+  .lfb-searchrow .cf-chips { display: none !important; }
+  .lfb-searchrow .cf-select { display: inline-block !important; flex-shrink: 0; max-width: 170px; }
+}
+.lfb-searchrow > div:first-child { flex-shrink: 0; min-width: 0; }
+.lfb input[type="text"], .lfb input[type="search"] { text-overflow: ellipsis; min-width: 0; }
+.lfb-searchrow .cf-chips { flex-wrap: nowrap !important; }
+@media (max-width: 760px) {
+  .lfb-searchrow { flex-wrap: nowrap; }
+  .lfb-searchrow > div:first-child { flex: 1; min-width: 0; }
+  .lfb-searchrow > div:first-child input { width: 100% !important; }
+  .lfb-searchrow .cf-chips { display: none; }
+  .lfb-searchrow .cf-select { display: inline-block; flex-shrink: 0; max-width: 118px; text-overflow: ellipsis; }
+  .lfb-row:has(.lfb-searchrow) { flex-wrap: nowrap !important; }
+  .lfb-primary:has(.lfb-searchrow) { flex: 1 1 auto !important; max-width: none !important; min-width: 0; }
+  .lfb-searchrow { width: 100%; }
+  .lfb-row:has(.lfb-searchrow) .lfb-toggle { flex-shrink: 0; }
+  .lfb-row:has(.lfb-searchrow) .lfb-toggle { font-size: 0 !important; gap: 0 !important; padding: 0 12px !important; }
+  .lfb-row:has(.lfb-searchrow) .lfb-toggle .lfb-toggle-badge { font-size: 11px; margin-left: 4px; }
+}
+/* Samma runda form som Artiklar på alla listsidor (admin, 2026-11-26). */
+html.ws-v2 .lfb input[type="text"], html.ws-v2 .lfb input[type="search"], html.ws-v2 .lfb select, html.ws-v2 .lfb-toggle, html.ws-v2 .lfb .rc-segmented, html.ws-v2 .lph-secondary { border-radius: 999px !important; }
+html.ws-v2 .lfb .rc-segmented button { border-radius: 999px !important; }
 @media (max-width: 1100px) { .ar-tools .ar-select { margin-left: 0; } .ar-tools .ar-gear { margin-left: auto; } }
 @media (max-width: 1100px) { .pz-table .ar-w-cost, .pz-table td.ar-cost-td { display: none; } }
 
@@ -11361,10 +11463,34 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
    sidhuvud, sökrad och filter, med sidans bakgrund på sidorna (grundarens val). */
 .lt-page-narrow > * { max-width: 1180px; width: 100%; margin-left: auto !important; margin-right: auto !important; box-sizing: border-box; }
 .lt-page-narrow .lt-page-band-inner { max-width: 1180px; margin: 0 auto; }
+/* Smal (2026-11-26): listan får aldrig rulla i sidled. Innehållet styr kolumnbredden; ord bryts bara när
+   de annars inte får plats, och status, belopp och datum hålls alltid hela. */
+.lt-page-narrow .responsive-table { width: 100%; table-layout: auto; }
+.lt-page-narrow .responsive-table th { white-space: normal !important; overflow-wrap: normal; font-size: 11px !important; letter-spacing: 0.02em !important; }
+.lt-page-narrow .responsive-table td.lt-cell, .lt-page-narrow .responsive-table td.lt-cell * { white-space: normal !important; overflow-wrap: anywhere; }
+.lt-page-narrow .responsive-table td.lt-cell:is([data-col="status"], [data-col="amount"], [data-col="total"], [data-col="totalInvoicedThisYear"], [data-col="salary"], [data-col="date"], [data-col="dueDate"], [data-col="chevron"], [data-col="actions"]),
+.lt-page-narrow .responsive-table td.lt-cell:is([data-col="status"], [data-col="amount"], [data-col="total"], [data-col="totalInvoicedThisYear"], [data-col="salary"], [data-col="date"], [data-col="dueDate"], [data-col="chevron"], [data-col="actions"]) * { white-space: nowrap !important; overflow-wrap: normal; }
+/* Halvskärm (admin): samma regler som Smal, så att listorna inte rullar i sidled och ⋮ syns. */
+@media (max-width: 1100px) {
+  html.ws-v2 .responsive-table { width: 100%; table-layout: auto; }
+  html.ws-v2 .responsive-table th { white-space: normal !important; overflow-wrap: normal; font-size: 11px !important; letter-spacing: 0.02em !important; }
+  html.ws-v2 .responsive-table td.lt-cell, html.ws-v2 .responsive-table td.lt-cell * { white-space: normal !important; overflow-wrap: anywhere; }
+  html.ws-v2 .responsive-table td.lt-cell:is([data-col="status"], [data-col="amount"], [data-col="total"], [data-col="totalInvoicedThisYear"], [data-col="salary"], [data-col="date"], [data-col="dueDate"], [data-col="chevron"], [data-col="actions"]),
+  html.ws-v2 .responsive-table td.lt-cell:is([data-col="status"], [data-col="amount"], [data-col="total"], [data-col="totalInvoicedThisYear"], [data-col="salary"], [data-col="date"], [data-col="dueDate"], [data-col="chevron"], [data-col="actions"]) * { white-space: nowrap !important; overflow-wrap: normal; }
+}
 .so-listbody .ar-table-wrap { border: none; border-radius: 0; box-shadow: none; }
 .lt-page-narrow .so-listbody .ar-table-wrap { border-left: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); border-radius: 0 0 12px 12px; }
 /* Artiklar: listan i jämnhöjd med sidhuvudet i smal bredd */
 .lt-page-narrow .art-tab > .ar { padding-left: 0; padding-right: 0; }
+/* Artiklar som de andra listsidorna (2026-11-26): sökraden på ett band med kortets bakgrund
+   och en linje under, tabellen direkt under. */
+.art-tab > .ar { padding: 0 !important; background: var(--bg-page); }
+.art-tab > .ar > .ar-tools { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 10px 20px; }
+.art-tab > .ar > .ar-bulk { margin: 10px 20px; }
+.art-tab > .ar .ar-table-wrap { border: none; border-bottom: 1px solid var(--border); border-radius: 0; box-shadow: none; }
+.art-tab > .ar .ar-foot { padding: 10px 20px; }
+.lt-page-narrow .art-tab > .ar .ar-table-wrap { border-left: 1px solid var(--border); border-right: 1px solid var(--border); border-radius: 0 0 12px 12px; }
+.lt-page-narrow .art-tab > .ar > .ar-tools { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
 
 /* Underlag-listan (2026-11-25): sök till vänster, ladda upp och inställningar till höger */
 .ut-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -11545,4 +11671,40 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
   .ut-addr-top { flex-wrap: wrap; }
   .ut-addr-top .ut-hero-ico { display: none; }
   .ut-addr-card .uw-copy { width: 100%; justify-content: center; }
+}
+/* Underlag som de andra listsidorna (2026-11-26): vanligt sidhuvud, sökrad på bandet, tabellen direkt under. */
+.ut-std { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--bg-page); }
+.ut-std-main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.ut-std-main > .ut-pv-wrap { flex: 1 1 auto; min-height: 0; }
+.ut.ut--std { padding: 0 !important; gap: 0; max-width: none !important; margin: 0 !important; }
+.ut--std .ut-std-bar { order: -10; }
+.ut--std .ut-count { order: -9; }
+.ut-wrap:has(.ut-std) { overflow: visible; }
+.ut--std .ut-std-bar { padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--bg-card); flex-shrink: 0; }
+.ut--std .ut-std-bar .ut-toggle { flex-shrink: 0; font-size: 12.5px; }
+.ut--std .ut-count { margin: 0; padding: 6px 20px; background: var(--bg-card); border-bottom: 1px solid var(--border-light, var(--border)); }
+.ut--std .ut-table-wrap { border: none; border-radius: 0; flex: 1 1 auto; }
+.ut-std-main > :not(.ut-pv-wrap) { padding: 16px 20px; }
+.ut-std-main > :not(.ut-pv-wrap) .ut-head h1 { display: none; }
+/* Underlag i Smal: innehållet i en centrerad kolumn med kant på sidorna, som Order. */
+.ut-std.lt-page-narrow > .ut-std-main { border-left: 1px solid var(--border); border-right: 1px solid var(--border); background: var(--bg-card); }
+@media (max-width: 760px) { .ut-std.lt-page-narrow > .ut-std-main { border-left: none; border-right: none; } }
+/* Att granska, Kompakt radstorlek (admin). */
+.rq-compact .rq-row { padding-top: 8px !important; padding-bottom: 8px !important; }
+/* Underlags lista som de andra listorna (2026-11-26): samma rubriker, luft och jämnt fördelade kolumner. */
+.ut--std .ut-table th { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); padding: 11px 14px; background: var(--bg-card); }
+.ut--std .ut-table td { padding: 12px 14px; font-size: 13.5px; }
+.ut--std .ut-table th:first-child, .ut--std .ut-table td:first-child { padding-left: 20px; }
+.ut--std .ut-table th:last-child, .ut--std .ut-table td:last-child { padding-right: 20px; text-align: right; }
+.ut--std .ut-table td.ut-c-num { font-weight: 700; color: var(--text-main); }
+.ut--std .ut-table .ut-doc-text b { font-weight: 650; }
+.ut--std .ut-table .ut-doc-text small { color: var(--text-muted); }
+.ut--std .ut-table .ut-status { white-space: nowrap; }
+@media (min-width: 1101px) {
+  .ut--std .ut-table th:nth-child(3) { width: 9%; }
+  .ut--std .ut-table th:nth-child(4) { width: 11%; }
+  .ut--std .ut-table th:nth-child(5) { width: 10%; }
+  .ut--std .ut-table th:nth-child(6) { width: 13%; }
+  .ut--std .ut-table th:nth-child(7) { width: 15%; }
+  .ut--std .ut-table th:nth-child(8) { width: 13%; }
 }

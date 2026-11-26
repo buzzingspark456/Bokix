@@ -98,3 +98,26 @@ describe('kundorder', () => {
     expect(orderStatus(res)).toBe('delivered');
   });
 });
+
+describe('orderTone: radens färg i orderlistan', async () => {
+  const { orderTone } = await import('./salesOrders')
+  const today = '2026-11-26'
+  const row = (qty, delivered = 0, invoiced = 0) => ({ key: 'r' + Math.random(), qty, delivered, invoiced, unitPrice: 100 })
+  it('öppen order med leverans framåt är ofärgad', () => {
+    expect(orderTone({ deliveryDate: '2026-12-05', rows: [row(2)] }, today)).toBe('open')
+  })
+  it('passerad leveransdag utan full leverans är försenad', () => {
+    expect(orderTone({ deliveryDate: '2026-11-20', rows: [row(2)] }, today)).toBe('late')
+    expect(orderTone({ deliveryDate: '2026-11-20', rows: [row(4, 1)] }, today)).toBe('late')
+  })
+  it('levererad men inte fakturerad ska faktureras, även om leveransdagen passerat', () => {
+    expect(orderTone({ deliveryDate: '2026-11-20', rows: [row(2, 2)] }, today)).toBe('toInvoice')
+  })
+  it('fakturerad och makulerad', () => {
+    expect(orderTone({ deliveryDate: '2026-11-01', rows: [row(2, 2, 2)] }, today)).toBe('invoiced')
+    expect(orderTone({ deliveryDate: '2026-11-01', cancelled: true, rows: [row(2)] }, today)).toBe('cancelled')
+  })
+  it('utan leveransdag blir den aldrig försenad', () => {
+    expect(orderTone({ deliveryDate: '', rows: [row(2)] }, today)).toBe('open')
+  })
+})

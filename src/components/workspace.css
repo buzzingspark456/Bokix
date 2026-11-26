@@ -1240,7 +1240,14 @@ button.lg-kpi:hover { filter: brightness(1.06); box-shadow: 0 6px 18px rgba(0,0,
 .so-top-title { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 .so-top-title h2 { margin: 0; font-size: 19px; font-weight: 700; color: var(--text-main); white-space: nowrap; }
 .so-top-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.so-subbar { display: flex; align-items: center; gap: 6px; padding: 6px 28px; border-bottom: 1px solid var(--border-light); background: var(--bg-card); flex-wrap: wrap; }
+.so-subbar { display: flex; align-items: center; gap: 6px; padding: 6px 28px; border-bottom: 1px solid var(--border-light); background: var(--bg-card); flex-wrap: nowrap; container-type: inline-size; container-name: sosub; }
+.so-tools-inline { display: inline-flex; align-items: center; gap: 2px; flex-wrap: nowrap; }
+.so-tools-more { display: none; }
+@container sosub (max-width: 980px) {
+  .so-tools-inline { display: none; }
+  .so-tools-more { display: inline-flex; }
+}
+.so-subbar .po-track { min-width: 0; }
 .so-track { margin: 0; flex: 0 1 460px; }
 .so-track li { padding: 8px 10px; }
 .so-tool { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: none; border-radius: 8px; background: none; font: inherit; font-size: 13px; font-weight: 500; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }

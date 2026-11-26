@@ -3,7 +3,9 @@ import {
   Plus, Search, ChevronLeft, ChevronRight, X, Send, ClipboardCheck, CheckCircle2, Undo2, Trash2, Pencil,
 } from './icons';
 import { ProjectSearch, EntitySearch } from './shared/SearchInputs';
-import ListPageHeader, { ListFilterBar } from './shared/ListPageHeader';
+import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
+import ListSettings, { useListPrefs } from './shared/ListSettings';
+import ChipFilter from './shared/ChipFilter';
 import ListTable from './shared/ListTable';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { Panel, Kpi, KpiGrid, Overview, usePalette } from './shared/Workspace';
@@ -782,6 +784,9 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
   // Kort eller lista. Lista är förvalet och står först; kort går att välja.
   const [view, setViewState] = useState(() => { try { return localStorage.getItem('bokix_projects_view') || 'list'; } catch { return 'list'; } });
   const setView = (v) => { setViewState(v); try { localStorage.setItem('bokix_projects_view', v); } catch { /* privat läge */ } };
+  // Inställningar som på de andra listsidorna (2026-11-26): kugghjulet vid rubriken.
+  const [lp, setLp] = useListPrefs('bokix.projects.prefs', {});
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [timeSubTab, setTimeSubTab] = useState('week');
   const [timePersonId, setTimePersonId] = useState(SELF_PERSON_ID);
@@ -885,23 +890,31 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
   const palette = usePalette();
 
   return (
-    <div style={{ flex: 1, minHeight: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+    <div className={!openProject && lp.width === 'narrow' ? 'lt-page-narrow' : undefined} style={{ flex: 1, minHeight: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
         title={tr('nav.projects')}
+        onSettings={openProject ? null : () => setSettingsOpen(true)}
         actions={openProject ? [] : [{ key: 'new', label: tr('ui.nytt_projekt'), icon: Plus, onClick: openNewProjectForm, variant: 'primary', dataTour: 'page-projects-cta' }]}
         tabs={{ items: [{ id: 'projects', label: tr('ui.projekt') }, { id: 'time', label: tr('ui.tidrapportering') }], activeId: activeTab, onChange: handleSetTab }}
       />
 
+      {!openProject && (
+        <ListSettings
+          open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={setLp}
+          actions={[{ key: 'new', label: tr('ui.nytt_projekt'), icon: Plus, onClick: openNewProjectForm }]}
+          sections={activeTab === 'projects' ? [{ key: 'view', title: tr('verSet.view'), options: [['list', tr('proj.viewList')], ['cards', tr('proj.viewCards')]], value: view, onChange: setView }] : []}
+          showPerPage={false}
+        />
+      )}
+
       {activeTab === 'projects' && !openProject && projects.length > 0 && (
         <ListFilterBar>
-          <div style={{ position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input type="text" className="ws-input" style={{ height: '34px', paddingLeft: '32px', fontSize: '13px' }} placeholder={tr('ui.sok_projekt_eller_kund')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-          </div>
-          <div className="ws-seg">
-            {[{ id: 'active', label: tr('proj.ongoing') }, { id: 'archived', label: tr('proj.finished') }, { id: 'all', label: tr('ui.alla') }].map(f => (
-              <button key={f.id} type="button" className={statusFilter === f.id ? 'on' : ''} onClick={() => setStatusFilter(f.id)}>{f.label}</button>
-            ))}
+          <div className="lfb-searchrow">
+            <div style={{ position: 'relative' }}>
+              <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input type="search" placeholder={tr('ui.sok_projekt_eller_kund')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ ...listSearchInputStyle, width: '240px' }} />
+            </div>
+            <ChipFilter label={tr('ui.status')} value={statusFilter} onChange={setStatusFilter} items={[['active', tr('proj.ongoing')], ['archived', tr('proj.finished')], ['all', tr('ui.alla')]]} />
           </div>
           {departmentNames.length > 0 && (
             <select className="ws-input" style={{ width: 'auto', height: '34px' }} value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)}>
@@ -968,10 +981,6 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
 
             <Panel
               title={statusFilter === 'archived' ? tr('proj.finished') : statusFilter === 'all' ? tr('proj.allProjects') : tr('proj.ongoingProjects')}
-              actions={<div className="ws-seg">
-                <button type="button" className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>{tr('proj.viewList')}</button>
-                <button type="button" className={view === 'cards' ? 'on' : ''} onClick={() => setView('cards')}>{tr('proj.viewCards')}</button>
-              </div>}
             >
             {view === 'cards' ? (
               <div className="pj-grid">
@@ -1013,7 +1022,7 @@ export default function Projects({ projects: storedProjects = [], invoices = [],
                 )}
               </div>
             ) : (
-            <div className="wsp-flush">
+            <div className={`wsp-flush${lp.density === 'compact' ? ' lt-compact' : ''}`}>
               <ListTable
                 bordered={false}
                 rowKey={p => p.id}

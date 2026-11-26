@@ -3,7 +3,7 @@ import { Plus, CheckCircle2, XCircle, Users, Truck, ChevronDown, AlertTriangle, 
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
-import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
+import ListSettings, { useListPrefs } from './shared/ListSettings';
 import { isAdminPreview } from '../utils/adminPreview';
 import { getCountryOptions, getDefaultCountry, SWEDEN, countryLabel } from '../utils/countries';
 import { validateEmailList, isValidIban } from '../utils/validators';
@@ -688,6 +688,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
       {/* ── Header & Tabs ── */}
       <ListPageHeader
         title={headerTitle || title}
+        onSettings={adminList && viewState === 'list' ? () => setSettingsOpen(true) : null}
         actions={viewState === 'list' ? [
           ...(adminList ? [] : [{ key: 'export', label: c('actions.export'), icon: Download, onClick: handleExportCsv, title: c('actions.exportTitle', { what: title.toLowerCase() }) },
           { key: 'import', label: c('actions.import'), icon: Upload, onClick: handleImportClick, title: c('actions.importTitle', { what: title.toLowerCase() }) }]),
@@ -716,7 +717,6 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
           countLabel={countWord(filtered.length)}
           pageSize={adminList ? undefined : pageSize}
           onPageSizeChange={adminList ? undefined : setPageSize}
-          trailing={adminList ? <ListSettingsButton onClick={() => setSettingsOpen(true)} /> : null}
         >
           <div style={{ position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />

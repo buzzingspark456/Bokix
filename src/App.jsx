@@ -1513,8 +1513,10 @@ function App() {
   }, [location.pathname]);
 
   const [user, setUser] = useState(null);
-  // Underlag fäller ihop huvudmenyn (se autoRail ovan).
-  const wantAutoRail = isNewUnderlagUser(user?.email) && activeTab === 'expenses';
+  // Underlag fällde förut ihop huvudmenyn av sig själv. Avstängt 2026-11-26
+  // (grundaren): menyn är som på alla andra sidor och fälls bara ihop med
+  // Fäll ihop menyn.
+  const wantAutoRail = false;
   useEffect(() => { setAutoRail(wantAutoRail); }, [wantAutoRail]);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
@@ -5604,19 +5606,48 @@ function App() {
   // lönerelevanta fält vid skapandet — en historisk körning ska alltid visa
   // exakt det som gällde då, även om den anställdas profil ändras senare
   // (samma princip som för fakturor).
-  const handleCreateRun = ({ period, payDate, employees: employeesForRun }) => {
+  const newRunRow = (e, { period, payDate }) => ({
+    employeeId: e.id,
+    period,
+    hoursWorked: 0,
+    additions: 0, absenceDeduction: 0, grossDeduction: 0, benefits: 0, netDeduction: 0,
+    employeeSnapshot: payrollSnapshot(e, { payDate, period }),
+    // Åldersanpassad arbetsgivaravgift (payrollConfig.employerFeeFor).
+    feeRules: FEE_RULES_VERSION,
+  });
+  // parkHourly (nya lönevyn, 2026-11-26, som Fortnox): timanställda börjar
+  // utanför körningen (parkedRows) tills man fyller i timmar eller kryssar i
+  // dem. Den som inte är med får varken lönebesked, bokföring eller AGI-rad.
+  const handleCreateRun = ({ period, payDate, employees: employeesForRun, parkHourly = false }) => {
     const runId = `run_${Date.now()}`;
-    const rows = employeesForRun.map(e => ({
-      employeeId: e.id,
-      period,
-      hoursWorked: 0,
-      additions: 0, absenceDeduction: 0, grossDeduction: 0, benefits: 0, netDeduction: 0,
-      employeeSnapshot: payrollSnapshot(e, { payDate, period }),
-      // Åldersanpassad arbetsgivaravgift (payrollConfig.employerFeeFor).
-      feeRules: FEE_RULES_VERSION,
-    }));
-    setPayrollRuns(prev => [...prev, { id: runId, period, payDate, completedSteps: [], rows, createdAt: new Date().toISOString() }]);
+    const all = employeesForRun.map(e => newRunRow(e, { period, payDate }));
+    const parked = (row) => parkHourly && row.employeeSnapshot?.salaryForm === 'timlon';
+    const rows = all.filter(r => !parked(r));
+    const parkedRows = all.filter(parked);
+    setPayrollRuns(prev => [...prev, { id: runId, period, payDate, completedSteps: [], rows, ...(parkedRows.length ? { parkedRows } : {}), createdAt: new Date().toISOString() }]);
     return runId;
+  };
+
+  // Kryssrutan i Lön och timmar: ta med eller ta bort en anställd ur
+  // körningen. En borttagen rad sparas i parkedRows så att timmar och
+  // lönearter finns kvar om man kryssar i igen. orderIds håller ordningen.
+  const handleSetRunIncluded = (runId, employee, included, { patch = {}, orderIds = [] } = {}) => {
+    setPayrollRuns(prev => prev.map(r => {
+      if (r.id !== runId) return r;
+      const parkedRows = r.parkedRows || [];
+      if (!included) {
+        const row = r.rows.find(x => x.employeeId === employee.id);
+        if (!row) return r;
+        return { ...r, rows: r.rows.filter(x => x.employeeId !== employee.id), parkedRows: [...parkedRows.filter(x => x.employeeId !== employee.id), row] };
+      }
+      if (r.rows.some(x => x.employeeId === employee.id)) return r;
+      const old = parkedRows.find(x => x.employeeId === employee.id);
+      // Uppgifterna från den anställda som de är nu (körningen är ett utkast).
+      const base = old ? { ...old, employeeSnapshot: payrollSnapshot(employee, { payDate: r.payDate, period: r.period }) } : newRunRow(employee, { period: r.period, payDate: r.payDate });
+      const pos = (id) => { const i = orderIds.indexOf(id); return i < 0 ? Infinity : i; };
+      const rows = [...r.rows, { ...base, ...patch }].sort((a, b) => pos(a.employeeId) - pos(b.employeeId));
+      return { ...r, rows, parkedRows: parkedRows.filter(x => x.employeeId !== employee.id) };
+    }));
   };
 
   // AGI-översikten (Skatt och bokslut → Arbetsgivardeklaration): en AGI-
@@ -6179,6 +6210,10 @@ function App() {
         return (
           <PayrollView
             key={company?.id || data.activeCompanyId}
+            // Föll bort av misstag i 481f395 (2026-11-05): utan company fick
+            // lönebeskeden ingen arbetsgivare, mejlutskicket saknade
+            // company_id och betalfilen och AGI-filen saknade företaget.
+            company={company}
             employees={employees}
             onSaveEmployee={handleSaveEmployee}
             onImportEmployees={handleImportEmployees}
@@ -6190,6 +6225,7 @@ function App() {
             onCreateRun={handleCreateRun}
             onUpdateRunRow={handleUpdateRunRow}
             onUpdateRun={handleUpdateRun}
+            onSetRunIncluded={handleSetRunIncluded}
             onAdvanceRunStep={handleAdvanceRunStep}
             onBookRun={handleBookRun}
             onMarkRunPaid={handleMarkRunPaid}
@@ -7282,6 +7318,8 @@ function App() {
         currentTab={resolveTab(activeTab)}
         hiddenTabs={featureHiddenNavIds}
         openArticleId={helpArticleId}
+        // Se hur för sidan man står på (förut bredvid sidans rubrik).
+        onShowPageGuide={pageGuides.length > 0 ? () => { setIsHelpDrawerOpen(false); setGuideModalOpen(true); } : null}
         onNavigate={(tab, action) => (action ? handleGlobalAction(action, tab) : handleNavTabChange(tab))}
       />
 

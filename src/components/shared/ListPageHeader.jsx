@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
-import { Search, RefreshCw, SlidersHorizontal, Plus, MoreHorizontal, PlayCircle } from '../icons';
+import { Search, RefreshCw, Plus, MoreHorizontal, PlayCircle, Settings2, FilterList } from '../icons';
+import { isAdminPreview } from '../../utils/adminPreview';
 import { GuideContext } from './GuideContext';
 import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 import { t } from '../../i18n';
@@ -98,10 +99,15 @@ const tabPillStyle = (active) => ({
  *     (Inställningar, åtta stycken) — annars gäller understrykningen.
  * @param {React.ReactNode} [children] - Extra rad mellan sidhuvud och flikar, t.ex. en importstatus-banner.
  */
-export default function ListPageHeader({ title, subtitle, actions = [], tabs, children }) {
+// onSettings (2026-11-26, admin): kugghjulet med sidans inställningar direkt
+// efter rubriken, på dator och telefon. titleExtra: t.ex. årsväljaren i Lön,
+// på samma rad som rubriken. För admin ligger Se hur i Hjälp och support i
+// stället för bredvid rubriken.
+export default function ListPageHeader({ title, subtitle, actions = [], tabs, children, onSettings = null, titleExtra = null }) {
   const hasTabs = tabs && tabs.items?.length > 0;
   // Se hur: filmen för sidan (App.jsx sätter GuideContext, utils/pageGuides.js).
-  const guide = useContext(GuideContext);
+  const guideCtx = useContext(GuideContext);
+  const guide = isAdminPreview() ? null : guideCtx;
   const pills = Boolean(hasTabs && tabs.variant === 'pills');
   // Kompakt sidhuvud (2026-11-14): på bred skärm står flikarna på samma rad
   // som rubriken, och undertexten visas inte när det finns flikar. Listan
@@ -152,6 +158,10 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
               utan att blåsa upp den kompakta verktygsrads-höjden här. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-main)' }}>{title}</h1>
+            {onSettings && (
+              <button type="button" className="ar-gear lph-gear" onClick={onSettings} title={t('artSet.title')} aria-label={t('artSet.title')}><Settings2 size={16} /></button>
+            )}
+            {titleExtra && <div className="lph-title-extra">{titleExtra}</div>}
             {guide?.guides?.length > 0 && (
               <button type="button" className="lph-guide" onClick={guide.open} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', border: 'none', borderRadius: '999px', background: 'var(--bg-muted)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                 <PlayCircle size={14} /> {t('ui.se_hur')}
@@ -186,7 +196,7 @@ export default function ListPageHeader({ title, subtitle, actions = [], tabs, ch
               <button
                 key={a.key ?? a.label ?? i}
                 type="button"
-                className={a.variant === 'primary' ? (a.icon === Plus ? 'page-fab' : undefined) : 'lph-secondary'}
+                className={a.variant === 'primary' ? (a.icon === Plus || a.fab ? 'page-fab' : undefined) : 'lph-secondary'}
                 data-tour={a.dataTour}
                 onClick={a.onClick}
                 title={a.title}
@@ -346,7 +356,7 @@ export function ListFilterBar({ children, onClear, count, countLabel, pageSize, 
         <div className="lfb-primary">{first}</div>
         {hasMore && (
           <button type="button" className={'lfb-toggle' + (rest.length === 0 && !onClear ? ' lfb-toggle--phone-only' : '')} onClick={() => setOpen(o => !o)} aria-expanded={open}>
-            <SlidersHorizontal size={16} />
+            <FilterList size={16} />
             {t('shared.filterBar.filter')}
             {activeFilters > 0 && <span className="lfb-toggle-badge">{activeFilters}</span>}
           </button>

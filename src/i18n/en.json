@@ -4900,6 +4900,49 @@
     "noTaxTable": "no tax table",
     "createRun": "Create pay run"
   },
+  "helpGuide": {
+    "pageSub": "A short film about the page you are on"
+  },
+  "verSet": {
+    "view": "View"
+  },
+  "soTone": {
+    "pill_late": "Late",
+    "pill_toInvoice": "To invoice",
+    "pill_invoiced": "Invoiced",
+    "pill_cancelled": "Cancelled",
+    "notInvoiced": "Not invoiced",
+    "late": "Late",
+    "toInvoice": "To invoice",
+    "invoiced": "Invoiced",
+    "cancelled": "Cancelled"
+  },
+  "supSet": {
+    "countOne": "{{n}} invoice",
+    "countMany": "{{n}} invoices"
+  },
+  "soMenu": {
+    "aria": "Actions for order {{n}}",
+    "open": "View order",
+    "pdf": "Download order confirmation",
+    "copy": "Copy order"
+  },
+  "payrollPick": {
+    "newRunHint": "The {{n}} hourly employees are added when you enter their hours in the next step.",
+    "note": "{{n}} of {{total}} are paid this month.",
+    "noteOutside": "Tick the people who should be paid, or enter hours and they are added.",
+    "remove": "Remove from the run",
+    "add": "Add to the run",
+    "includeName": "In the run: {{name}}",
+    "notIncluded": "Not paid this month",
+    "hourlyMeta": "Hourly {{rate}} kr/h",
+    "enterHours": "Enter hours",
+    "hoursFor": "Hours for {{name}}",
+    "summary": "Summary",
+    "employees": "Employees",
+    "pcs": "",
+    "afterBook": "Once approved, pay the net salaries from your bank. Payslips, bookkeeping and the employer declaration follow in the next steps."
+  },
   "payslips": {
     "title": "Payslips",
     "intro": "{{n}} employees in this run, {{withEmail}} with an email address. {{sent}} have had their payslip emailed.",

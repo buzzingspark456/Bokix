@@ -13,7 +13,7 @@ import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/Li
 import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, STRONG_DRAFT } from './shared/invoiceStatusStyle';
 import RowActionMenu from './shared/RowActionMenu';
 import ListTable from './shared/ListTable';
-import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
+import ListSettings, { useListPrefs } from './shared/ListSettings';
 import { isAdminPreview } from '../utils/adminPreview';
 import { downloadCsv } from '../utils/csvRegister';
 import { confirmDialog } from './shared/ConfirmDialog';
@@ -1297,6 +1297,7 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
     <div className={adminList && lp.width === 'narrow' ? 'lt-page-narrow' : undefined} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
         title={t('ui.offerter')}
+        onSettings={adminList ? () => setSettingsOpen(true) : null}
         subtitle={t('ui.skapa_offerter_med_samma_mall_som_dina_fakturor')}
         actions={[
           { key: 'new', label: t('ui.ny_offert'), icon: Plus, onClick: openNew, variant: 'primary' },
@@ -1310,7 +1311,6 @@ export default function Quotes({ activeCompanyId, quotes = [], setQuotes, onConv
         countLabel={filtered.length === 1 ? t('ui.offert_2') : t('ui.offerter_2')}
         pageSize={adminList ? undefined : pageSize}
         onPageSizeChange={adminList ? undefined : setPageSize}
-        trailing={adminList ? <ListSettingsButton onClick={() => setSettingsOpen(true)} /> : null}
       >
         <div style={{ position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />

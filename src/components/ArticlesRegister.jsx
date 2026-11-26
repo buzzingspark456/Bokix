@@ -32,7 +32,7 @@ const marginOf = (a) => {
   return p > 0 && c > 0 ? ((p - c) / p) * 100 : null;
 };
 
-export default function ArticlesRegister({ articles = [], setArticles, company, setCompanyInfo, invoices = [], onEdit, onNew, onDuplicate, onImport, onExport, showStock = true }) {
+export default function ArticlesRegister({ articles = [], setArticles, company, setCompanyInfo, invoices = [], onEdit, onNew, onDuplicate, onImport, onExport, showStock = true, settingsOpen: settingsOpenProp, onSettingsOpenChange }) {
   // Redigera priser från inställningarna: alla artiklar i listan som visas.
   const [bulkItems, setBulkItems] = useState(null);
   const [q, setQ] = useState('');
@@ -40,7 +40,11 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
   const [supplier, setSupplier] = useState('');
   const [sort, setSort] = useState({ key: 'articleNumber', dir: 1 });
   const [prefs, setPrefs] = useState(loadPrefs);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Kugghjulet står bredvid sidans rubrik (Articles.jsx) när den styr panelen.
+  const [settingsOpenOwn, setSettingsOpenOwn] = useState(false);
+  const controlled = typeof onSettingsOpenChange === 'function';
+  const settingsOpen = controlled ? Boolean(settingsOpenProp) : settingsOpenOwn;
+  const setSettingsOpen = controlled ? onSettingsOpenChange : setSettingsOpenOwn;
   const pageSize = prefs.pageSize;
   const cols = prefs.cols;
   const updatePrefs = (patch) => setPrefs(prev => {
@@ -202,7 +206,7 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
             {suppliers.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         )}
-        <button type="button" className="ar-gear" onClick={() => setSettingsOpen(true)} title={t('artSet.title')} aria-label={t('artSet.title')}><Settings2 size={16} /></button>
+        {!controlled && <button type="button" className="ar-gear" onClick={() => setSettingsOpen(true)} title={t('artSet.title')} aria-label={t('artSet.title')}><Settings2 size={16} /></button>}
       </div>
 
       {picked.size > 0 && (
@@ -287,9 +291,7 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
           <div className="ar-foot">
             <span>{t('artReg.showing', { from: pageSize ? current * pageSize + 1 : 1, to: pageSize ? Math.min(rows.length, (current + 1) * pageSize) : rows.length, n: rows.length })}{stock.any && totalValue > 0 ? ` · ${t('artReg.totalValue', { kr: fmtKr(totalValue) })}` : ''}</span>
             <span className="ar-pager">
-              <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(0); }} aria-label={t('artReg.perPage')}>
-                {PAGE_SIZES.map(n => <option key={n} value={n}>{n ? t('artReg.perPageN', { n }) : t('artReg.perPageAll')}</option>)}
-              </select>
+              {/* Rader per sida ligger i inställningspanelen (2026-11-26). */}
               {pages > 1 && <>
                 <button type="button" disabled={current === 0} onClick={() => setPage(current - 1)} aria-label={t('artReg.prev')}><ChevronLeft size={16} /></button>
                 <span>{current + 1} / {pages}</span>
