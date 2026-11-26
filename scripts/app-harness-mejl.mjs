@@ -64,7 +64,7 @@ await page.route(`${SUPA}/**`, async (route) => {
   if (table === 'subscriptions') return reply(route, { user_id: UID, status: 'active', current_period_end: '2030-01-01T00:00:00Z', cancel_at_period_end: false }, wantsObject);
   return reply(route, wantsObject ? null : [], wantsObject);
 });
-await page.route("**/api/**", r => r.fulfill({ json: {} }));
+await page.route("**/api/**", r => r.request().url().includes("/api/inbox") ? r.fulfill({ json: { address: "kvitto-7k2m9q@inbox.bokix.se", lastReceivedAt: new Date(Date.now() - 12 * 60000).toISOString(), allowedSenders: [] } }) : r.fulfill({ json: {} }));
 const tag = "-" + WIDTH + (process.env.DARK ? "-dark" : "");
 const shot = async (name) => { await page.waitForTimeout(700); await page.screenshot({ path: `test-results/mejl-${name}${tag}.png`, fullPage: false }); };
 
@@ -82,5 +82,19 @@ await shot("tva-bilagor");
 console.log("bilagor:", await page.locator(".mc-att").count());
 await page.locator(".mc-item", { hasText: "Faktura november" }).first().click().catch(() => {});
 await shot("utan-bilaga");
+await page.locator(".mc-address").click().catch(() => console.log("ingen adressknapp"));
+await page.waitForTimeout(600);
+console.log("mejla in-dialog med guide:", await page.locator(".ut-mi .ut-fwd").count());
+await shot("mejla-in");
+await page.keyboard.press("Escape");
+await page.waitForTimeout(400);
+if (process.env.SETTINGS) {
+  if (WIDTH < 600) { await page.locator(".ut-nav-morebtn").click(); await page.waitForTimeout(400); await page.locator(".ut-sheet button", { hasText: "Inställningar" }).click(); }
+  else await page.locator(".ut-nav-side button", { hasText: "Inställningar" }).first().click();
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: `test-results/mejl-installningar${tag}.png`, fullPage: true });
+  const tabs = page.locator(".ut-mb-tabs button, [role=tablist] button");
+  for (let i = 1; i < Math.min(await tabs.count(), 4); i++) { await tabs.nth(i).click().catch(() => {}); await page.waitForTimeout(600); await page.screenshot({ path: `test-results/mejl-installningar-${i}${tag}.png`, fullPage: true }); }
+}
 console.log("fel:", errors.length ? errors : "inga");
 await browser.close();

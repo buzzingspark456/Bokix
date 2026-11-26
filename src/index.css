@@ -11511,3 +11511,26 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 :root[data-theme="dark"] .mc-item.is-open { box-shadow: inset 3px 0 0 #3fbf6c; }
 :root[data-theme="dark"] .mc-dot { background: #3fbf6c; }
 :root[data-theme="dark"] .mc-att.is-on { border-color: #3fbf6c; box-shadow: 0 0 0 1px #3fbf6c; }
+
+/* Inställningar för inkorgen (2026-11-26): adresskort och vidarebefordring. */
+.ut-set.ut-addr-card, .ut-set.ut-fwd-card { margin-top: 0; padding: 18px 20px; overflow: visible; }
+.ut-addr-top { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.ut-addr-main { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.ut-addr-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 16px; font-weight: 600; color: var(--text-main); overflow-wrap: anywhere; }
+.ut-addr-state { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-muted); }
+.ut-addr-state i { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); opacity: .6; }
+.ut-addr-state.is-on i { background: #1f9a4a; opacity: 1; box-shadow: 0 0 0 3px color-mix(in srgb, #1f9a4a 20%, transparent); }
+.ut-addr-card .uw-copy { height: 34px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text-main); font-weight: 600; }
+.ut-addr-card .uw-copy:hover { background: var(--bg-muted); }
+.ut-addr-facts { list-style: none; margin: 16px 0 0; padding: 14px 0 0; border-top: 1px solid var(--border-light); display: flex; flex-direction: column; gap: 8px; }
+.ut-addr-facts li { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; font-size: 13px; color: var(--text-secondary); }
+.ut-addr-facts li svg { flex-shrink: 0; color: var(--text-muted); }
+.ut-fwd .ut-mi-tabs { margin-top: 0; }
+.ut-fwd .ut-steps { margin-bottom: 0; }
+.ut-fwd .ut-mi-note { margin-bottom: 0; }
+@media (max-width: 760px) {
+  .ut-set.ut-addr-card, .ut-set.ut-fwd-card { padding: 14px; }
+  .ut-addr-top { flex-wrap: wrap; }
+  .ut-addr-top .ut-hero-ico { display: none; }
+  .ut-addr-card .uw-copy { width: 100%; justify-content: center; }
+}

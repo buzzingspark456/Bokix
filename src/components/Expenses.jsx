@@ -2018,6 +2018,31 @@ function MailboxView({ info, notify = true, onNotify, onSaveSenders, receipts = 
         <h1>{tr('underlag.setTitle')}</h1>
       </div>
       {tabs}
+      {sec(tr('underlag.setAddressTitle'), tr('underlag.sxAddressText'), (
+        <div className="ut-set ut-addr-card">
+          <div className="ut-addr-top">
+            <span className="ut-hero-ico"><Mail size={18} /></span>
+            <div className="ut-addr-main">
+              {info?.address ? <code className="ut-addr-code">{info.address}</code> : <b>{tr('underlag.mbxAddressMissing')}</b>}
+              <span className={`ut-addr-state${info?.lastReceivedAt ? ' is-on' : ''}`}>
+                <i aria-hidden="true" />
+                {info?.lastReceivedAt
+                  ? tr('underlag.setReceiving', { when: new Date(info.lastReceivedAt).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }) })
+                  : tr('underlag.mbxNoneYet')}
+              </span>
+            </div>
+            {info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />}
+          </div>
+          <ul className="ut-addr-facts">
+            <li><Paperclip size={14} /> {tr('underlag.setFactFiles')}</li>
+            <li><FileText size={14} /> {tr('underlag.setFactBody')}</li>
+            <li><CheckCircle2 size={14} /> {tr('underlag.setFactSenders')} <button type="button" className="ut-link ut-link-inline" onClick={() => setTab('senders')}>{tr('underlag.navSenders')}</button></li>
+          </ul>
+        </div>
+      ))}
+      {sec(tr('underlag.setForwardTitle'), tr('underlag.miForwardText'), (
+        <div className="ut-set ut-fwd-card"><ForwardGuide info={info} /></div>
+      ))}
       {sec(tr('underlag.setNotifyTitle'), tr('underlag.sxNotifyText'), (
         <div className="ut-set">
           <div className="ut-set-row">
@@ -2026,15 +2051,48 @@ function MailboxView({ info, notify = true, onNotify, onSaveSenders, receipts = 
           </div>
         </div>
       ))}
-      {sec(tr('underlag.setAddressTitle'), tr('underlag.sxAddressText'), (
-        <div className="ut-set">
-          <div className="ut-set-row ut-sx-addr">
-            <span className="ut-hero-ico"><Mail size={18} /></span>
-            <div className="ut-set-text">{info?.address ? <code className="ut-set-code">{info.address}</code> : <b>{tr('underlag.mbxAddressMissing')}</b>}<span>{info?.lastReceivedAt ? tr('underlag.mbxLast', { when: new Date(info.lastReceivedAt).toLocaleString('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }) }) : tr('underlag.mbxNoneYet')}</span></div>
-            <div className="ut-set-right">{info?.address && <CopyButton text={info.address} label={tr('underlag.copyAddress')} />}</div>
-          </div>
+    </div>
+  );
+}
+
+/** Vidarebefordra automatiskt: Gmail (med kod), Outlook, Apple Mail, annan e-post.
+ * Samma guide i Mejla in underlag och i Inställningar för inkorgen. */
+function ForwardGuide({ info }) {
+  const gmailConnected = Boolean(info?.gmailCodeAt && info?.lastReceivedAt && Date.parse(info.lastReceivedAt) - Date.parse(info.gmailCodeAt) > 60 * 1000);
+  const [gmailOpen, setGmailOpen] = useState(false);
+  const [client, setClient] = useState('gmail');
+  const steps = (prefix, n) => (
+    <ol className="ut-steps">{Array.from({ length: n }, (_, i) => <li key={i}>{tr(`underlag.${prefix}${i + 1}`, { address: info?.address || tr('underlag.miYourAddress').toLowerCase() })}</li>)}</ol>
+  );
+  return (
+    <div className="ut-fwd">
+      <div className="ut-seg ut-mi-tabs" role="tablist">
+        {[['gmail', 'Gmail'], ['outlook', 'Outlook'], ['apple', tr('underlag.miApple')], ['other', tr('underlag.miOther')]].map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={client === id} className={client === id ? 'on' : undefined} onClick={() => setClient(id)}>{label}</button>
+        ))}
+      </div>
+      {client === 'gmail' && <>
+      <div className="ut-mi-gmail">
+        <span className="ut-way-logo"><GmailLogo height={20} /></span>
+        <div>
+          <b>{tr('underlag.mbxGmail')}</b>
+          <span>{gmailConnected ? tr('underlag.mbxGmailOn') : tr('underlag.mbxGmailSub')}</span>
         </div>
-      ))}
+        {gmailConnected
+          ? <span className="ut-way-on"><CheckCircle2 size={13} /> {tr('underlag.mbxConnected')}</span>
+          : <a className="ut-way-btn" href={GMAIL_FORWARDING_URL} target="_blank" rel="noopener noreferrer" onClick={() => setGmailOpen(true)}>{tr('underlag.mbxConnectGmail')}</a>}
+      </div>
+      {!gmailConnected && (gmailOpen || info?.gmailCode) && (
+        <ol className="ut-steps">
+          <li>{tr('underlag.mbxStepA')}</li>
+          <li>{tr('underlag.mbxStep2')} {info?.gmailCode ? <b className="uw-mbx-code">{info.gmailCode}</b> : <em>{tr('underlag.mbxCodeWait')}</em>}</li>
+          <li>{tr('underlag.mbxStepB')} <a href={GMAIL_FILTERS_URL} target="_blank" rel="noopener noreferrer">{tr('underlag.mbxFilters')}</a></li>
+        </ol>
+      )}
+      </>}
+      {client === 'outlook' && <div className="ut-mi-client">{steps('miOl', 4)}<p className="ut-mi-note">{tr('underlag.miOlNote')}</p></div>}
+      {client === 'apple' && <div className="ut-mi-client">{steps('miAp', 4)}<p className="ut-mi-note">{tr('underlag.miApNote')}</p></div>}
+      {client === 'other' && <div className="ut-mi-client">{steps('miOt', 3)}<p className="ut-mi-note">{tr('underlag.miOtNote')}</p></div>}
     </div>
   );
 }
@@ -2042,12 +2100,6 @@ function MailboxView({ info, notify = true, onNotify, onSaveSenders, receipts = 
 /** Mejla in underlag (2026-11-20, som Fortnox): adressen, vad Mejl gör,
  * vidarebefordring med Gmail och andra, borttagna filer. Knapp till Inställningar. */
 function MailInDialog({ info, onClose, onSettings, onTrash }) {
-  const gmailConnected = Boolean(info?.gmailCodeAt && info?.lastReceivedAt && Date.parse(info.lastReceivedAt) - Date.parse(info.gmailCodeAt) > 60 * 1000);
-  const [gmailOpen, setGmailOpen] = useState(false);
-  const [client, setClient] = useState('gmail');
-  const steps = (prefix, n) => (
-    <ol className="ut-steps">{Array.from({ length: n }, (_, i) => <li key={i}>{tr(`underlag.${prefix}${i + 1}`, { address: info?.address || tr('underlag.miYourAddress').toLowerCase() })}</li>)}</ol>
-  );
   return (
     <UwDialog title={tr('underlag.mailIn')} sub={tr('underlag.miLead')} onClose={onClose}>
       <div className="ut-mi">
@@ -2063,33 +2115,7 @@ function MailInDialog({ info, onClose, onSettings, onTrash }) {
         <section>
           <h3>{tr('underlag.miForwardTitle')}</h3>
           <p>{tr('underlag.miForwardText')}</p>
-          <div className="ut-seg ut-mi-tabs" role="tablist">
-            {[['gmail', 'Gmail'], ['outlook', 'Outlook'], ['apple', tr('underlag.miApple')], ['other', tr('underlag.miOther')]].map(([id, label]) => (
-              <button key={id} type="button" role="tab" aria-selected={client === id} className={client === id ? 'on' : undefined} onClick={() => setClient(id)}>{label}</button>
-            ))}
-          </div>
-          {client === 'gmail' && <>
-          <div className="ut-mi-gmail">
-            <span className="ut-way-logo"><GmailLogo height={20} /></span>
-            <div>
-              <b>{tr('underlag.mbxGmail')}</b>
-              <span>{gmailConnected ? tr('underlag.mbxGmailOn') : tr('underlag.mbxGmailSub')}</span>
-            </div>
-            {gmailConnected
-              ? <span className="ut-way-on"><CheckCircle2 size={13} /> {tr('underlag.mbxConnected')}</span>
-              : <a className="ut-way-btn" href={GMAIL_FORWARDING_URL} target="_blank" rel="noopener noreferrer" onClick={() => setGmailOpen(true)}>{tr('underlag.mbxConnectGmail')}</a>}
-          </div>
-          {!gmailConnected && (gmailOpen || info?.gmailCode) && (
-            <ol className="ut-steps">
-              <li>{tr('underlag.mbxStepA')}</li>
-              <li>{tr('underlag.mbxStep2')} {info?.gmailCode ? <b className="uw-mbx-code">{info.gmailCode}</b> : <em>{tr('underlag.mbxCodeWait')}</em>}</li>
-              <li>{tr('underlag.mbxStepB')} <a href={GMAIL_FILTERS_URL} target="_blank" rel="noopener noreferrer">{tr('underlag.mbxFilters')}</a></li>
-            </ol>
-          )}
-          </>}
-          {client === 'outlook' && <div className="ut-mi-client">{steps('miOl', 4)}<p className="ut-mi-note">{tr('underlag.miOlNote')}</p></div>}
-          {client === 'apple' && <div className="ut-mi-client">{steps('miAp', 4)}<p className="ut-mi-note">{tr('underlag.miApNote')}</p></div>}
-          {client === 'other' && <div className="ut-mi-client">{steps('miOt', 3)}<p className="ut-mi-note">{tr('underlag.miOtNote')}</p></div>}
+          <ForwardGuide info={info} />
         </section>
         <section>
           <h3>{tr('underlag.miDeletedTitle')}</h3>
