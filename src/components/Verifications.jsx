@@ -11,6 +11,8 @@ import { BRAND } from '../utils/brandColors';
 import { PartySearch, ProjectSearch, AccountSearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle, listFilterFieldStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
+import ListSettings, { useListPrefs } from './shared/ListSettings';
+import { isAdminPreview } from '../utils/adminPreview';
 import DateField from './shared/DateField';
 import { findLockedVatPeriod } from '../utils/vatCalculation';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
@@ -1376,7 +1378,13 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
   // "Visa N"-väljaren (kundönskemål: samma väljare, som faktiskt
   // fungerar, på alla listsidor). ListFilterBar ritar den, sidan äger
   // state:t och skär av sin egen lista — se den komponentens JSDoc.
-  const [pageSize, setPageSize] = useState(30);
+  const [pageSizeOld, setPageSize] = useState(30);
+  // Admin (2026-11-26): rader per sida, radstorlek, sidbredd, Lista/Grupperat
+  // och Exportera ligger i inställningspanelen bakom kugghjulet vid rubriken.
+  const adminList = isAdminPreview();
+  const [lp, setLp] = useListPrefs('bokix.verifications.prefs', {});
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const pageSize = adminList ? (lp.pageSize || 'all') : pageSizeOld;
   // Månadsgruppering (samma mönster/namn som Kvitton, Expenses.jsx): 'all'
   // grupperar kronologiskt (September 2026, Augusti 2026, …), en specifik
   // månad ('01'-'12') visar bara DEN kalendermånaden från alla år,
@@ -1569,19 +1577,27 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
     );
   }
 
+  const canExport = filteredVers.some(v => (v.status || 'booked') !== 'draft');
+  const exportExcel = async () => {
+    try { await exportVerificationsToExcel(filteredVers, { accounts, contacts, projects, invoices, expenses }); }
+    catch (e) { console.error(e); confirmDialog(tr('ui.exportera_till_excel_fel'), { title: tr('ui.exportera_till_excel'), confirmLabel: 'OK', cancelLabel: null }); }
+  };
+  const listMode = adminList && activeTab === 'verifications';
+
   return (
-    <div style={{ flex: 1, minHeight: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+    <div className={listMode && lp.width === 'narrow' ? 'lt-page-narrow' : undefined} style={{ flex: 1, minHeight: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
 
       {/* ── Top section: title + tabs ─────────────────────────── */}
       <ListPageHeader
         title={tr('ui.bokforing')}
+        onSettings={listMode ? () => setSettingsOpen(true) : null}
         actions={
           activeTab === 'verifications' ? [
             ...(headerSlot ? [{ key: 'check', type: 'node', node: headerSlot }] : []),
-            { key: 'next', type: 'note', label: tr('ui.nasta'), value: nextNumber },
+            ...(adminList ? [] : [{ key: 'next', type: 'note', label: tr('ui.nasta'), value: nextNumber }]),
             // Exportera till Excel: de verifikationer som syns med filtren
             // (period, serie, månad, sökning), en rad per kontorad.
-            ...(filteredVers.some(v => (v.status || 'booked') !== 'draft') ? [{
+            ...(!adminList && canExport ? [{
               key: 'export-excel', label: tr('ui.exportera_till_excel'), icon: Download, title: tr('ui.exportera_till_excel_hint'),
               onClick: async () => {
                 try { await exportVerificationsToExcel(filteredVers, { accounts, contacts, projects, invoices, expenses }); }
@@ -1602,6 +1618,18 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
         }}
       />
 
+      {listMode && (
+        <ListSettings
+          open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={setLp}
+          note={<>{tr('ui.nasta')} <strong>{nextNumber}</strong></>}
+          actions={[
+            { key: 'new', label: tr('ui.ny_verifikation'), icon: Plus, onClick: () => { setEditingVer(null); setShowForm(true); } },
+            { key: 'export', label: tr('ui.exportera_till_excel'), icon: Download, onClick: exportExcel, disabled: !canExport },
+          ]}
+          sections={[{ key: 'view', title: tr('verSet.view'), options: [[true, tr('ui.lista')], [false, tr('ui.grupperat')]], value: flatView, onChange: setFlatView }]}
+        />
+      )}
+
       {/* ── VERIFIKATIONER TAB ───────────────────────────────────── */}
       {activeTab === 'verifications' && (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -1613,14 +1641,14 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
             onClear={() => { setSearchInput(''); setDateFrom(''); setDateTo(''); setSeries('all'); setMonthFilter('all'); }}
             count={filteredVers.length}
             countLabel={tr('ui.bokningar_sma')}
-            pageSize={pageSize}
-            onPageSizeChange={setPageSize}
+            pageSize={adminList ? undefined : pageSize}
+            onPageSizeChange={adminList ? undefined : setPageSize}
             activeFilters={(dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (series !== 'all' ? 1 : 0) + (monthFilter !== 'all' ? 1 : 0)}
             collapsed
           >
             <div style={{ position: 'relative' }}>
               <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder={tr('ui.sok_verifikation_text_belopp')} style={{ ...listSearchInputStyle, width: '240px' }} />
+              <input type="search" value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder={tr('ui.sok_verifikation_text_belopp')} style={{ ...listSearchInputStyle, width: '240px' }} />
             </div>
             <div className="lfb-daterange">
               <DateField value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder={tr('ui.fran_datum')} style={listFilterFieldStyle} />
@@ -1639,14 +1667,14 @@ export default function Bokforing({ seriesNames, verifications = [], accounts = 
               <option value="all">{tr('ui.alla_manader')}</option>
               {MONTH_NAMES.map(m => <option key={m.v} value={m.v}>{m.label} {tr('ui.alla_ar')}</option>)}
             </select>
-            <div className="rc-segmented">
+            {!adminList && <div className="rc-segmented">
               <button type="button" onClick={() => setFlatView(true)} className={flatView ? 'active' : ''}>{tr('ui.lista')}</button>
               <button type="button" onClick={() => setFlatView(false)} className={!flatView ? 'active' : ''}>{tr('ui.grupperat')}</button>
-            </div>
+            </div>}
           </ListFilterBar>
 
           {/* Table */}
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div className={listMode && lp.density === 'compact' ? 'lt-compact' : undefined} style={{ flex: 1, overflowY: 'auto' }}>
             {visibleVers.length === 0 ? (
               // Samma tomt-läge-mönster som Bank/Offerter/Kontakter (facit):
               // samma kortram som tabellen nedan (flush mot filterraden,

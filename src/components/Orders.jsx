@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, X, Trash2, Download, Truck, Check, Search, FileText, ClipboardList, ChevronLeft, ChevronRight, Send } from './icons';
 import ChipFilter from './shared/ChipFilter';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
-import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
+import ListSettings, { useListPrefs } from './shared/ListSettings';
 import { downloadCsv } from '../utils/csvRegister';
 import ArticleCombobox from './shared/ArticleCombobox';
 import { confirmDialog } from './shared/ConfirmDialog';
@@ -158,12 +158,12 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
       {/* Samma sidhuvud, sökrad och filter som Offerter och Kundfakturor (2026-11-24). */}
       <ListPageHeader
         title={t('so.title')}
+        onSettings={() => setSettingsOpen(true)}
         subtitle={orders.length === 0 ? t('so.subEmpty') : toDeliver > 0 ? t('so.subToDeliver', { n: toDeliver }) : t('so.subAllDone')}
         actions={[{ key: 'new', label: t('so.new'), icon: Plus, onClick: startNew, variant: 'primary' }]}
       />
       {orders.length > 0 && (
-        <ListFilterBar count={rows.length} countLabel={rows.length === 1 ? t('so.countOne') : t('so.countMany')}
-          trailing={<ListSettingsButton onClick={() => setSettingsOpen(true)} />}>
+        <ListFilterBar count={rows.length} countLabel={rows.length === 1 ? t('so.countOne') : t('so.countMany')}>
           <div style={{ position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input type="text" placeholder={t('so.search')} value={q} onChange={e => { setQ(e.target.value); setPage(0); }} style={listSearchInputStyle} />

@@ -87,7 +87,7 @@ await page.waitForTimeout(600);
 const headBtns = await page.locator('.list-page-header button').allInnerTexts();
 check(!headBtns.some(t => /Importera|Exportera|skattetabell/i.test(t)), 'sidhuvudet i Anställda har inte import/export/skattetabeller: ' + JSON.stringify(headBtns.filter(Boolean)));
 await shot('anstallda');
-await page.locator('.lfb-trailing .ar-gear').click();
+await page.locator('.lph-gear').click();
 await page.waitForSelector('.ar-set');
 const setBtns = await page.locator('.ar-set-btns button').allInnerTexts();
 check(['Ny anställd', 'skattetabell', 'Importera', 'Exportera'].every(w => setBtns.some(t => t.toLowerCase().includes(w.toLowerCase()))), 'panelen har Ny anställd, skattetabeller, import, export: ' + JSON.stringify(setBtns));
@@ -104,11 +104,12 @@ check(ths.some(t => /e-post/i.test(t)), 'e-postkolumnen syns efter att den slagi
 // Lönekörningar: kugghjulet i sidhuvudet, bara åtgärder.
 await page.getByText('Lönekörningar', { exact: true }).first().click();
 await page.waitForTimeout(600);
-await page.locator('.list-page-header .ar-gear').click();
+await page.locator('.lph-gear').click();
 await page.waitForSelector('.ar-set');
 const runBtns = await page.locator('.ar-set-btns button').allInnerTexts();
 check(runBtns.some(t => /Ny lönekörning/.test(t)) && runBtns.some(t => /Importera/.test(t)), 'panelen i Lönekörningar: ' + JSON.stringify(runBtns));
-check(await page.locator('.ar-set .ar-set-seg').count() === 0, 'inga listval (radstorlek, rader per sida) i Lönekörningar');
+const runPanel = await page.locator('.ar-set').innerText();
+check(/Sidbredd/.test(runPanel) && !/Rader per sida/.test(runPanel) && /Semester/.test(runPanel), 'Lönekörningar: sidbredd och Semester i panelen, inga rader per sida');
 await shot('korningar-panel');
 await page.locator('.ar-set-overlay').click({ position: { x: 5, y: 5 } });
 await page.waitForTimeout(300);

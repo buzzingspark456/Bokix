@@ -4876,6 +4876,12 @@
     "noTaxTable": "no tax table",
     "createRun": "Create pay run"
   },
+  "helpGuide": {
+    "pageSub": "A short film about the page you are on"
+  },
+  "verSet": {
+    "view": "View"
+  },
   "payrollPick": {
     "newRunHint": "Hourly employees are added when you enter their hours in the next step.",
     "note": "{{n}} of {{total}} are paid this month.",

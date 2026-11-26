@@ -7297,6 +7297,8 @@ function App() {
         currentTab={resolveTab(activeTab)}
         hiddenTabs={featureHiddenNavIds}
         openArticleId={helpArticleId}
+        // Se hur för sidan man står på (förut bredvid sidans rubrik).
+        onShowPageGuide={pageGuides.length > 0 ? () => { setIsHelpDrawerOpen(false); setGuideModalOpen(true); } : null}
         onNavigate={(tab, action) => (action ? handleGlobalAction(action, tab) : handleNavTabChange(tab))}
       />
 

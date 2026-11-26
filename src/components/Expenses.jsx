@@ -3048,7 +3048,6 @@ export default function Expenses({
               </span>
               {navPos >= 0 && navIds.length > 1 && (
                 <span className="ut-nav">
-                  <span className="ut-keys" title={tr('underlag.navKeys')}><kbd>←</kbd><kbd>→</kbd></span>
                   <span className="ut-pager">
                     <button type="button" onClick={() => goNav(-1)} disabled={navPos <= 0} aria-label={tr('underlag.prev')} title={tr('underlag.prev')}><ChevronLeft size={18} /></button>
                     <span className="ut-pager-pos">{tr('underlag.navPos', { i: navPos + 1, n: navIds.length })}</span>

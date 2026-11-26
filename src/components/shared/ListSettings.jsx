@@ -46,8 +46,12 @@ export function ListSettingsButton({ onClick, className = '' }) {
  * actions: [{ key, label, icon: Icon, onClick, disabled? }]
  * columns: [{ key, label, icon: Icon }]
  * listOptions: false när sidan inte är en lista, då visas bara åtgärderna.
+ * showPerPage: false när listan inte delas upp i sidor (t.ex. lönekörningarna).
+ * note: en rad information överst, t.ex. nästa verifikationsnummer.
+ * sections: [{ key, title, options: [[value, label]], value, onChange }] egna val
+ *   i samma knappstil som radstorleken (t.ex. Lista/Grupperat i Bokföring).
  */
-export default function ListSettings({ open, onClose, actions = [], columns = [], prefs, onChange, showWidth = true, listOptions = true }) {
+export default function ListSettings({ open, onClose, actions = [], columns = [], prefs, onChange, showWidth = true, listOptions = true, showPerPage = true, note = null, sections = [] }) {
   if (!open) return null;
   // I en portal (2026-11-25): Smal sidbredd centrerade annars panelen med sidan.
   return createPortal(
@@ -57,6 +61,7 @@ export default function ListSettings({ open, onClose, actions = [], columns = []
           <h2>{t('artSet.title')}</h2>
           <button type="button" className="modal-close" onClick={onClose} aria-label={t('ui.stang')}><X size={18} /></button>
         </div>
+        {note && <div className="ar-set-sec ar-set-note">{note}</div>}
         {actions.length > 0 && (
           <div className="ar-set-sec ar-set-btns">
             {actions.map(({ key, label, icon: Icon, onClick, disabled }) => (
@@ -76,6 +81,16 @@ export default function ListSettings({ open, onClose, actions = [], columns = []
             ))}
           </div>
         )}
+        {sections.map(sec => (
+          <div key={sec.key} className="ar-set-sec">
+            <h3>{sec.title}</h3>
+            <div className="ar-set-seg">
+              {sec.options.map(([v, label]) => (
+                <button key={String(v)} type="button" className={sec.value === v ? 'on' : ''} onClick={() => sec.onChange(v)}>{label}</button>
+              ))}
+            </div>
+          </div>
+        ))}
         {listOptions && (<>
         <div className={`ar-set-sec${showWidth ? ' ar-set-two' : ''}`}>
           <div>
@@ -97,6 +112,7 @@ export default function ListSettings({ open, onClose, actions = [], columns = []
             </div>
           )}
         </div>
+        {showPerPage && (
         <div className="ar-set-sec">
           <h3>{t('artSet.perPage')}</h3>
           <div className="ar-set-seg">
@@ -105,6 +121,7 @@ export default function ListSettings({ open, onClose, actions = [], columns = []
             ))}
           </div>
         </div>
+        )}
         </>)}
       </aside>
     </div>,

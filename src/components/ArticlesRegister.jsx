@@ -32,7 +32,7 @@ const marginOf = (a) => {
   return p > 0 && c > 0 ? ((p - c) / p) * 100 : null;
 };
 
-export default function ArticlesRegister({ articles = [], setArticles, company, setCompanyInfo, invoices = [], onEdit, onNew, onDuplicate, onImport, onExport }) {
+export default function ArticlesRegister({ articles = [], setArticles, company, setCompanyInfo, invoices = [], onEdit, onNew, onDuplicate, onImport, onExport, settingsOpen: settingsOpenProp, onSettingsOpenChange }) {
   // Redigera priser från inställningarna: alla artiklar i listan som visas.
   const [bulkItems, setBulkItems] = useState(null);
   const [q, setQ] = useState('');
@@ -40,7 +40,11 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
   const [supplier, setSupplier] = useState('');
   const [sort, setSort] = useState({ key: 'articleNumber', dir: 1 });
   const [prefs, setPrefs] = useState(loadPrefs);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Kugghjulet står bredvid sidans rubrik (Articles.jsx) när den styr panelen.
+  const [settingsOpenOwn, setSettingsOpenOwn] = useState(false);
+  const controlled = typeof onSettingsOpenChange === 'function';
+  const settingsOpen = controlled ? Boolean(settingsOpenProp) : settingsOpenOwn;
+  const setSettingsOpen = controlled ? onSettingsOpenChange : setSettingsOpenOwn;
   const pageSize = prefs.pageSize;
   const cols = prefs.cols;
   const updatePrefs = (patch) => setPrefs(prev => {
@@ -200,7 +204,7 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
             {suppliers.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         )}
-        <button type="button" className="ar-gear" onClick={() => setSettingsOpen(true)} title={t('artSet.title')} aria-label={t('artSet.title')}><Settings2 size={16} /></button>
+        {!controlled && <button type="button" className="ar-gear" onClick={() => setSettingsOpen(true)} title={t('artSet.title')} aria-label={t('artSet.title')}><Settings2 size={16} /></button>}
       </div>
 
       {picked.size > 0 && (

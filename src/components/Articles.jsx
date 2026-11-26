@@ -93,6 +93,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
   // Sidbredd (Smal/Bred) från artikellistans inställningar gäller alla tre flikarna.
   const readWidth = () => { try { return JSON.parse(localStorage.getItem('bokix.artReg.prefs') || '{}').width === 'narrow' ? 'narrow' : 'wide'; } catch { return 'wide'; } };
   const [pageWidth, setPageWidth] = useState(readWidth);
+  const [regSettingsOpen, setRegSettingsOpen] = useState(false);
   useEffect(() => {
     const onPrefs = (e) => setPageWidth(e.detail?.width === 'narrow' ? 'narrow' : 'wide');
     window.addEventListener('bokix:artprefs', onPrefs);
@@ -341,6 +342,7 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
     <div className={v2 && pageWidth === 'narrow' ? 'lt-page-narrow' : undefined} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       <ListPageHeader
         title={t('nav.articles')}
+        onSettings={v2 && tab === 'articles' ? () => setRegSettingsOpen(true) : null}
         tabs={setCompanyInfo ? {
           items: [{ id: 'articles', label: t('ui.artiklar') }, { id: 'inventory', label: t('ui.lager') }, { id: 'pricing', label: t('ui.prissattning') }],
           activeId: tab, onChange: setTab,
@@ -382,7 +384,8 @@ export default function Articles({ articles = [], setArticles, accounts = [], co
           <ArticlesRegister
             articles={articles} setArticles={setArticles} company={company} setCompanyInfo={setCompanyInfo} invoices={invoices}
             onEdit={startEdit} onNew={startNew}
-            onDuplicate={(a) => { setEditing({ ...emptyArticle(), ...a, id: undefined, articleNumber: v2 ? nextArticleNumber(articles) : '', description: `${a.description} ${t('artReg.copySuffix')}` }); setEditingOriginal(null); setMoreOpen(true); }} onImport={handleImportClick} onExport={handleExportCsv} />
+            onDuplicate={(a) => { setEditing({ ...emptyArticle(), ...a, id: undefined, articleNumber: v2 ? nextArticleNumber(articles) : '', description: `${a.description} ${t('artReg.copySuffix')}` }); setEditingOriginal(null); setMoreOpen(true); }} onImport={handleImportClick} onExport={handleExportCsv}
+            {...(v2 ? { settingsOpen: regSettingsOpen, onSettingsOpenChange: setRegSettingsOpen } : {})} />
         </div>
       )}
       {tab === 'articles' && !v2 && <ListFilterBar count={filtered.length} countLabel={filtered.length === 1 ? t('ui.artikel_2') : t('ui.artiklar_2')}>

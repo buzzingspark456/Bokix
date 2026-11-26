@@ -21,7 +21,7 @@ import { BRAND } from '../utils/brandColors';
 import { getNextInvoiceNumber } from '../utils/invoiceNumbering';
 import { confirmDialog } from './shared/ConfirmDialog';
 import { showUndo, restoreAt } from './shared/undoToast';
-import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
+import ListSettings, { useListPrefs } from './shared/ListSettings';
 import { downloadCsv } from '../utils/csvRegister';
 import ListPageHeader, { listHeaderButtonStyle, listSearchInputStyle, listFilterFieldStyle, PAGE_SIZE_OPTIONS } from './shared/ListPageHeader';
 import RowActionMenu from './shared/RowActionMenu';
@@ -2915,8 +2915,10 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
       <div data-inv-tour="tabs">
         <ListPageHeader
           title={tr('ui.kundfakturor')}
+          onSettings={adminList ? () => setSettingsOpen(true) : null}
           subtitle={tr('ui.fakturor_du_skickar_till_dina_kunder')}
-          actions={!invoiceTourSeen ? [
+          // Admin: Så funkar fakturering ligger bara i Hjälp och support (Fakturaguide).
+          actions={!invoiceTourSeen && !adminList ? [
             // Fakturaguiden — döljs så fort den stängts en gång, se invoiceTourSeen
             // ovan. Kvar därefter under Hjälp och support.
             { key: 'tour', label: tr('ui.sa_funkar_fakturering'), icon: Sparkles, onClick: handleStartInvoiceTour, variant: 'secondary' },
@@ -3047,7 +3049,7 @@ export default function Invoices({ activeCompanyId, ufQuota = { limited: false }
             — gäller nu HELA listan (en tabell), inte per statussektion, och
             samma väljare/ordning som ListFilterBar ritar på Bokföring och de
             andra listsidorna. */}
-        {adminList ? <ListSettingsButton onClick={() => setSettingsOpen(true)} /> : <>
+        {adminList ? null : <>
         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
           {tr('ui.visa')}
           <select

@@ -4876,6 +4876,12 @@
     "noTaxTable": "saknar skattetabell",
     "createRun": "Skapa lönekörning"
   },
+  "helpGuide": {
+    "pageSub": "Kort film om hur sidan du står på fungerar"
+  },
+  "verSet": {
+    "view": "Visning"
+  },
   "payrollPick": {
     "newRunHint": "Timanställda är med när du fyller i deras timmar i nästa steg.",
     "note": "{{n}} av {{total}} får lön den här månaden.",

@@ -181,7 +181,7 @@ function GuideCard({ article, onOpen }) {
   );
 }
 
-const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour, onContactSupport, currentTab, onNavigate, hiddenTabs = [], openArticleId = null }) => {
+const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour, onContactSupport, currentTab, onNavigate, hiddenTabs = [], openArticleId = null, onShowPageGuide = null }) => {
   const [search, setSearch] = useState('');
   const [view, setView] = useState('home'); // home | category | article | glossary
   const [article, setArticle] = useState(null);
@@ -414,10 +414,17 @@ const HelpDrawer = ({ isOpen, onClose, onStartTour, onStartInvoiceTour, onContac
           </>
         ) : (
           <>
-            {forPage.length > 0 && (
+            {(forPage.length > 0 || onShowPageGuide) && (
               <section>
                 <div className="hc-eyebrow">Den här sidan</div>
-                <div className="hc-list">{forPage.map(a => <GuideCard key={a.id} article={a} onOpen={openArticle} />)}</div>
+                {/* Se hur (filmen för sidan) ligger här i stället för bredvid sidans rubrik. */}
+                {onShowPageGuide && (
+                  <button type="button" className="hc-page-guide" onClick={onShowPageGuide}>
+                    <PlayCircle size={18} aria-hidden="true" />
+                    <span><strong>{t('ui.se_hur')}</strong><span>{t('helpGuide.pageSub')}</span></span>
+                  </button>
+                )}
+                {forPage.length > 0 && <div className="hc-list">{forPage.map(a => <GuideCard key={a.id} article={a} onOpen={openArticle} />)}</div>}
               </section>
             )}
 

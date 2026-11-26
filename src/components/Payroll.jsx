@@ -9,7 +9,7 @@ import EmployeeForm from './EmployeeForm';
 import PayrollRunDetail from './PayrollRunDetail';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle, listHeaderButtonStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
-import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
+import ListSettings, { useListPrefs } from './shared/ListSettings';
 import { BRAND } from '../utils/brandColors';
 import { t, dateLocale } from '../i18n';
 import { computeEmployeePayroll, summarizePayrollRun } from '../utils/payrollCalculation';
@@ -81,7 +81,6 @@ export default function Payroll({
       return summarizePayrollRun(run.rows.map(row => computeEmployeePayroll(row.employeeSnapshot || {}, row))).gross;
     } catch { return null; }
   };
-  const yearGross = yearRuns.reduce((sum, r) => sum + (runGross(r) || 0), 0);
   const fmtShortDate = (d) => dateTimeFormat(dateLocale(), { day: 'numeric', month: 'short' }).format(d);
   const agiInfo = (row) => {
     const due = agiDueDate(row.period);
@@ -167,42 +166,46 @@ export default function Payroll({
         <strong>{shownYear}</strong>
         <button type="button" aria-label={String(shownYear + 1)} disabled={!runYears.some(y => y > shownYear)} onClick={() => setRunYear(Math.min(...runYears.filter(y => y > shownYear)))}><ChevronRight size={16} /></button>
       </div>
-      {yearGross > 0 && (
-        <span className="pay-year-total">{t('payrollYear.total', { year: shownYear })} <strong>{formatSEK(yearGross)}</strong></span>
-      )}
     </div>
   );
 
   const openNewEmployee = () => { setActiveTab('employees'); setSelectedEmployee(null); setViewState('new'); };
   const openNewRun = () => { if (employees.length === 0) { openNewEmployee(); } else { if (!newRunPayDate) setNewRunPayDate(`${newRunPeriod}-25`); setShowNewRun(true); } };
   const settingsActions = [
-    activeTab === 'runs'
+    activeTab !== 'employees'
       ? { key: 'new-run', label: t('ui.ny_lonekorning'), icon: Plus, onClick: openNewRun }
       : { key: 'new-employee', label: t('ui.ny_anstalld'), icon: Plus, onClick: openNewEmployee },
     ...(onApplyFos ? [{ key: 'fos', label: t('fos.button'), icon: Landmark, onClick: () => setShowFos(true), disabled: employees.length === 0 }] : []),
     ...(onImportEmployees ? [{ key: 'import-employees', label: t('employeeImport.import_button'), icon: Upload, onClick: () => setShowImport(true) }] : []),
     { key: 'export-employees', label: t('employeeImport.export_button'), icon: Download, onClick: () => downloadCsv(`anstallda_${new Date().toISOString().slice(0, 10)}.csv`, employeesToCsv(employees)), disabled: employees.length === 0 },
+    // Semester ligger i panelen i stället för som en egen flik (2026-11-26),
+    // så att flikarna får plats på en rad på telefon.
+    ...(activeTab !== 'vacation' ? [{ key: 'vacation', label: t('ui.semester'), icon: Palmtree, onClick: () => { setActiveTab('vacation'); setViewState('list'); setSelectedEmployee(null); } }] : []),
   ];
-  const showGear = viewState === 'list' && (activeTab === 'employees' || activeTab === 'runs');
+  // Kugghjulet står bredvid rubriken på alla tre flikarna (2026-11-26).
+  const showGear = viewState === 'list';
+  const compact = lp.density === 'compact';
 
   return (
-    <div className={activeTab === 'employees' && viewState === 'list' && lp.width === 'narrow' ? 'lt-page-narrow' : undefined} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+    <div className={viewState === 'list' && lp.width === 'narrow' ? 'lt-page-narrow' : undefined} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       {/* Header i samma mönster som Kunder/Bokföring/Skatt och bokslut
           (kort-bakgrund + kantlinje, inte flytande text på sidbakgrunden)
           — se motsvarande kommentar i Contacts.jsx. */}
       <ListPageHeader
         title={t('ui.anstallda_och_lon')}
+        onSettings={showGear ? () => setSettingsOpen(true) : null}
+        titleExtra={activeTab === 'runs' && viewState === 'list' ? yearPicker : null}
         actions={
           activeTab === 'employees' && viewState === 'list'
             ? [
                 { key: 'new-employee', label: t('ui.ny_anstalld'), icon: Plus, onClick: openNewEmployee, variant: 'primary' },
               ]
             : activeTab === 'runs'
-              ? [{ key: 'year', type: 'node', node: <div className="pay-year-head">{yearPicker}</div> }, {
+              ? [{
                   key: 'new-run', label: t('ui.ny_lonekorning'), icon: Plus, variant: 'primary',
                   onClick: openNewRun,
                   title: employees.length === 0 ? t('ui.lagg_till_en_anstalld_forst') : undefined,
-                }, { key: 'settings', type: 'node', node: <ListSettingsButton onClick={() => setSettingsOpen(true)} /> }]
+                }]
               : []
         }
         tabs={{
@@ -212,7 +215,8 @@ export default function Payroll({
             // Semestersaldon hör hemma bredvid lönekörningarna och inte inne
             // i en enskild anställd: frågan "hur mycket semester ligger vi på"
             // är en företagsfråga (och en balanspost), inte en personalfråga.
-            { id: 'vacation', label: t('ui.semester'), icon: Palmtree },
+            // Bara medan man står i Semester (öppnas från kugghjulet).
+            ...(activeTab === 'vacation' ? [{ id: 'vacation', label: t('ui.semester'), icon: Palmtree }] : []),
           ],
           activeId: activeTab,
           onChange: (id) => { setActiveTab(id); setViewState('list'); setSelectedEmployee(null); setReturnRunId(null); },
@@ -225,10 +229,10 @@ export default function Payroll({
           Lönekörningar-fliken saknade den här raden helt, till skillnad
           från Anställda — samma ListFilterBar/sökfält-mönster nu på båda. */}
       {activeTab === 'employees' && viewState === 'list' && (
-        <ListFilterBar trailing={<ListSettingsButton onClick={() => setSettingsOpen(true)} />}>
+        <ListFilterBar>
           <div style={{ position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input type="text" placeholder={t('ui.sok_anstalld')} value={search} onChange={e => setSearch(e.target.value)} style={listSearchInputStyle} />
+            <input type="search" placeholder={t('ui.sok_anstalld')} value={search} onChange={e => setSearch(e.target.value)} style={listSearchInputStyle} />
           </div>
         </ListFilterBar>
       )}
@@ -236,7 +240,7 @@ export default function Payroll({
         <ListSettings
           open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={setLp}
           actions={settingsActions}
-          listOptions={activeTab === 'employees'}
+          showPerPage={activeTab === 'employees'}
           columns={activeTab === 'employees' ? [
             { key: 'type', label: t('ui.typ') },
             { key: 'startDate', label: t('ui.anstallningsdatum_2') },
@@ -368,16 +372,18 @@ export default function Payroll({
       )}
 
       {activeTab === 'vacation' && (
+        <div className={compact ? 'lt-compact' : undefined} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         <VacationOverview
           employees={employees}
           payrollRuns={payrollRuns}
           onSelectEmployee={(employee) => { setActiveTab('employees'); setSelectedEmployee(employee); setViewState('edit'); }}
           onOpenRuns={() => setActiveTab('runs')}
         />
+        </div>
       )}
 
       {activeTab === 'runs' && (
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <div className={compact ? 'lt-compact' : undefined} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
           {/* Kundfeedback ("samma vy som resten av sidorna, den ska täcka,
               inga spaces"): den här fliken låg tidigare hel i en padded
               24px-box, till skillnad från Anställda-fliken och "facit"-
@@ -443,8 +449,6 @@ export default function Payroll({
             </div>
           )}
 
-          {/* På telefon står årsväljaren här, så att rubriken inte klipps. */}
-          <div className="pay-year-phone">{yearPicker}</div>
           <ListTable
             rowKey={r => r.key}
             onRowClick={openRow}

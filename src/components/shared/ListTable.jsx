@@ -286,6 +286,7 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
                     <td
                       key={col.key}
                       data-label={col.label}
+                      data-col={col.key}
                       className={`lt-cell${col.key === 'actions' ? ' td-actions' : ''}${col.wrap ? ' lt-cell-wrap' : ''}`}
                       style={{
                         textAlign: col.align || 'left', verticalAlign: 'middle',
