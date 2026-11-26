@@ -112,3 +112,4 @@ const SUBPATHS = PATH_D.split(/(?=M)/);
 export const WORDMARK_LETTERS = LETTER_GROUPS.map(([letter, idx]) => ({ letter, d: idx.map(i => SUBPATHS[i]).join('') }));
 export const WORDMARK_VIEWBOX = `0 0 ${VB_WIDTH} ${VB_HEIGHT}`;
 export const WORDMARK_GRADIENT = ['#0ea5e9', '#14b8a6', '#84cc16'];
+export const BOKIX_LOGO_PATH = PATH_D;

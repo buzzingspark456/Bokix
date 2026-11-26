@@ -45,8 +45,9 @@ export function ListSettingsButton({ onClick, className = '' }) {
 /**
  * actions: [{ key, label, icon: Icon, onClick, disabled? }]
  * columns: [{ key, label, icon: Icon }]
+ * listOptions: false när sidan inte är en lista, då visas bara åtgärderna.
  */
-export default function ListSettings({ open, onClose, actions = [], columns = [], prefs, onChange, showWidth = true }) {
+export default function ListSettings({ open, onClose, actions = [], columns = [], prefs, onChange, showWidth = true, listOptions = true }) {
   if (!open) return null;
   // I en portal (2026-11-25): Smal sidbredd centrerade annars panelen med sidan.
   return createPortal(
@@ -75,6 +76,7 @@ export default function ListSettings({ open, onClose, actions = [], columns = []
             ))}
           </div>
         )}
+        {listOptions && (<>
         <div className={`ar-set-sec${showWidth ? ' ar-set-two' : ''}`}>
           <div>
             <h3>{t('artSet.rowSize')}</h3>
@@ -103,6 +105,7 @@ export default function ListSettings({ open, onClose, actions = [], columns = []
             ))}
           </div>
         </div>
+        </>)}
       </aside>
     </div>,
     document.body,

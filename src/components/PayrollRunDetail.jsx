@@ -13,7 +13,7 @@ import { loadPdfjs } from '../utils/pdfjs';
 import { computeEmployeePayroll, summarizePayrollRun, FEE_RULES_VERSION } from '../utils/payrollCalculation';
 import { PAY_TYPE_GROUPS, PAY_LINE_KINDS, getPayType, defaultRateFor } from '../utils/payTypes';
 import { PAYROLL_RUN_STEPS, PAYROLL_ACCOUNTS } from '../utils/payrollConfig';
-import { generatePayslipPdf, generateAllPayslipsPdf, yearToDate, loadLogoForPdf, payslipPassword } from '../utils/payslipExport';
+import { generatePayslipPdf, generateAllPayslipsPdf, yearToDate, loadLogoForPdf, payslipPassword, hasPayslip } from '../utils/payslipExport';
 import { describeRow } from '../utils/plainBooking';
 import { downloadAgiPdf } from '../utils/agiExport';
 import { downloadAgiXml } from '../utils/agiXml';
@@ -679,9 +679,28 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
 
   // ── Lönebesked till alla (se panelen längre ner) ──
   const [mailState, setMailState] = useState({ busy: false, done: 0, total: 0, result: null });
-  const withEmail = computedRows.filter(r => String(r.row.employeeSnapshot?.email || '').includes('@'));
-  const withoutEmail = computedRows.filter(r => !String(r.row.employeeSnapshot?.email || '').includes('@'));
-  const sentCount = run.rows.filter(r => r.payslipSentAt).length;
+  // Den som står på 0 kr den här månaden får inget lönebesked: inte i mejlet,
+  // inte i PDF:en med alla och inte i förhandsvisningen (se hasPayslip).
+  const payslipRows = computedRows.filter(r => hasPayslip(r.computed));
+  const withEmail = payslipRows.filter(r => String(r.row.employeeSnapshot?.email || '').includes('@'));
+  const withoutEmail = payslipRows.filter(r => !String(r.row.employeeSnapshot?.email || '').includes('@'));
+  const sentCount = payslipRows.filter(r => r.row.payslipSentAt).length;
+  // Vilka som får mejlet: kryssrutor i panelen. Förvalt är alla med e-post
+  // som inte fått sitt lönebesked än (picked === null), så att ett andra
+  // klick inte skickar om till dem som redan fått det.
+  const [pickState, setPickState] = useState({ runId: null, ids: null });
+  const picked = pickState.runId === run.id ? pickState.ids : null;
+  const setPicked = (ids) => setPickState({ runId: run.id, ids });
+  const defaultPicked = withEmail.filter(r => !r.row.payslipSentAt).map(r => r.row.employeeId);
+  const pickedIds = new Set(picked ?? defaultPicked);
+  const toSend = withEmail.filter(r => pickedIds.has(r.row.employeeId));
+  const allPicked = withEmail.length > 0 && toSend.length === withEmail.length;
+  const togglePick = (id) => {
+    const next = new Set(pickedIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setPicked([...next]);
+  };
+  const togglePickAll = () => setPicked(allPicked ? [] : withEmail.map(r => r.row.employeeId));
   const payslipArgs = ({ row, computed }) => ({
     employee: row.employeeSnapshot, computed, period: row.period || run.period, company, payDate: run.payDate,
     logo: payslipLogo, message: run.payslipMessage || '',
@@ -697,17 +716,17 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
     }),
   });
   const handleDownloadAllPayslips = () => {
-    generateAllPayslipsPdf(computedRows.map(payslipArgs)).save(`lonebesked-${run.period}.pdf`);
+    generateAllPayslipsPdf(payslipRows.map(payslipArgs)).save(`lonebesked-${run.period}.pdf`);
   };
   const handleEmailPayslips = async () => {
-    if (withEmail.length === 0) return;
+    if (toSend.length === 0) return;
     // Mottagaren slås upp på servern ur den sparade anställda, så det som
     // står på skärmen måste vara sparat först.
     try { await onSyncBeforeServerCall?.(); } catch { /* skickar ändå, servern säger till om e-post saknas */ }
-    setMailState({ busy: true, done: 0, total: withEmail.length, result: null });
+    setMailState({ busy: true, done: 0, total: toSend.length, result: null });
     let sent = 0;
     const failed = [];
-    for (const r of withEmail) {
+    for (const r of toSend) {
       const name = `${r.row.employeeSnapshot.firstName} ${r.row.employeeSnapshot.lastName}`;
       try {
         // Mejlat lönebesked är lösenordsskyddat (de fyra sista siffrorna i
@@ -723,6 +742,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
       setMailState(s => ({ ...s, done: s.done + 1 }));
     }
     setMailState({ busy: false, done: 0, total: 0, result: { sent, failed } });
+    setPicked(null);
   };
 
   const previousComputedByEmployee = useMemo(() => {
@@ -1099,11 +1119,11 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
       {/* Lönebesked till alla på en gång: en PDF med alla (att skriva ut eller
           arkivera) eller ett mejl per anställd med sitt eget lönebesked.
           Med många timanställda är en knapp per person inte hållbart. */}
-      {(stage === 'payslips' || stage === 'done') && computedRows.length > 0 && (
+      {(stage === 'payslips' || stage === 'done') && payslipRows.length > 0 && (
         <div className="pr-panel" style={{ ...panelCard, marginBottom: '20px', padding: '20px' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 8px' }}>{tr('payslips.title')}</h3>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.5 }}>
-            {tr('payslips.intro', { n: computedRows.length, withEmail: withEmail.length, sent: sentCount })}
+            {tr('payslips.intro', { n: payslipRows.length, withEmail: withEmail.length, sent: sentCount })}
           </p>
           <div style={{ marginBottom: '14px' }}>
             <label htmlFor="payslip-message" style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>{tr('payslips.messageLabel')}</label>
@@ -1116,12 +1136,39 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
             />
             <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>{tr('payslips.messageHint')}</div>
           </div>
+          {/* Vilka som får mejlet: en kryssruta per anställd med e-post och
+              Välj alla överst. Förvalt är de som inte fått sitt än. */}
+          {withEmail.length > 0 && (
+            <div className="ps-pick">
+              <label className="ps-pick-all">
+                <input type="checkbox" checked={allPicked} ref={el => { if (el) el.indeterminate = toSend.length > 0 && !allPicked; }} onChange={togglePickAll} disabled={mailState.busy} />
+                <span>{tr('payslips.pickAll')}</span>
+                <span className="ps-pick-count">{tr('payslips.pickedCount', { n: toSend.length, total: withEmail.length })}</span>
+              </label>
+              <ul>
+                {withEmail.map(r => {
+                  const id = r.row.employeeId;
+                  return (
+                    <li key={id}>
+                      <label>
+                        <input type="checkbox" checked={pickedIds.has(id)} onChange={() => togglePick(id)} disabled={mailState.busy} />
+                        <span className="ps-pick-name">{r.row.employeeSnapshot.firstName} {r.row.employeeSnapshot.lastName}</span>
+                        <span className={`ps-pick-status${r.row.payslipSentAt ? ' is-sent' : ''}`}>
+                          {r.row.payslipSentAt ? tr('payslipList.sent', { date: new Date(r.row.payslipSentAt).toLocaleDateString('sv-SE') }) : tr('payslipList.notSent')}
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button type="button" onClick={handleDownloadAllPayslips} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', fontFamily: 'inherit' }}>
               <Download size={14} /> {tr('payslips.downloadAll')}
             </button>
-            <button type="button" onClick={async () => { if (!isAdminPreview() || await confirmDialog(tr('payConfirm.mailText', { n: withEmail.length }), { title: tr('payConfirm.mailTitle'), confirmLabel: tr('payslips.emailAll', { n: withEmail.length }) })) handleEmailPayslips(); }} disabled={withEmail.length === 0 || mailState.busy} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: withEmail.length === 0 || mailState.busy ? 'var(--gray-300)' : BRAND.green, border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, color: 'white', cursor: withEmail.length === 0 || mailState.busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
-              <Send size={14} /> {mailState.busy ? tr('payslips.sending', { done: mailState.done, total: mailState.total }) : tr('payslips.emailAll', { n: withEmail.length })}
+            <button type="button" onClick={async () => { if (!isAdminPreview() || await confirmDialog(tr('payConfirm.mailText', { n: toSend.length }), { title: tr('payConfirm.mailTitle'), confirmLabel: tr('payslips.emailPicked', { n: toSend.length }) })) handleEmailPayslips(); }} disabled={toSend.length === 0 || mailState.busy} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: toSend.length === 0 || mailState.busy ? 'var(--gray-300)' : BRAND.green, border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, color: 'white', cursor: toSend.length === 0 || mailState.busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+              <Send size={14} /> {mailState.busy ? tr('payslips.sending', { done: mailState.done, total: mailState.total }) : tr('payslips.emailPicked', { n: toSend.length })}
             </button>
           </div>
           {withEmail.length > 0 && (
@@ -1140,8 +1187,8 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
           )}
         </div>
       )}
-      {stage === 'payslips' && computedRows.length > 0 && (
-        <PayslipPreview computedRows={computedRows} payslipArgs={payslipArgs} period={run.period} refreshKey={`${run.payslipMessage || ''}|${payslipLogo ? 1 : 0}`} />
+      {stage === 'payslips' && payslipRows.length > 0 && (
+        <PayslipPreview computedRows={payslipRows} payslipArgs={payslipArgs} period={run.period} refreshKey={`${run.payslipMessage || ''}|${payslipLogo ? 1 : 0}`} />
       )}
 
       {/* Bugfix (kundrapport: "funkar inte som den ska"): gated tidigare på

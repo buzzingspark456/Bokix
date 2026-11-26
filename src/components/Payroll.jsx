@@ -9,6 +9,7 @@ import EmployeeForm from './EmployeeForm';
 import PayrollRunDetail from './PayrollRunDetail';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle, listHeaderButtonStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
+import ListSettings, { useListPrefs, ListSettingsButton } from './shared/ListSettings';
 import { BRAND } from '../utils/brandColors';
 import { t, dateLocale } from '../i18n';
 import { computeEmployeePayroll, summarizePayrollRun } from '../utils/payrollCalculation';
@@ -42,6 +43,10 @@ export default function Payroll({
   const [afterImport, setAfterImport] = useState(null);
   const [newRunPeriod, setNewRunPeriod] = useState(new Date().toISOString().slice(0, 7));
   const [newRunPayDate, setNewRunPayDate] = useState('');
+  // Inställningar som i Kunder och Offerter (2026-11-26): import, export och
+  // skattetabeller bakom kugghjulet, plus kolumner och radstorlek för listan.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [lp, setLp] = useListPrefs('bokix.employees.prefs', { type: true, startDate: true, salary: true, status: true, email: false });
 
   const filteredEmployees = employees.filter(e => {
     if (!search) return true;
@@ -166,8 +171,20 @@ export default function Payroll({
     </div>
   );
 
+  const openNewEmployee = () => { setActiveTab('employees'); setSelectedEmployee(null); setViewState('new'); };
+  const openNewRun = () => { if (employees.length === 0) { openNewEmployee(); } else { if (!newRunPayDate) setNewRunPayDate(`${newRunPeriod}-25`); setShowNewRun(true); } };
+  const settingsActions = [
+    activeTab === 'runs'
+      ? { key: 'new-run', label: t('ui.ny_lonekorning'), icon: Plus, onClick: openNewRun }
+      : { key: 'new-employee', label: t('ui.ny_anstalld'), icon: Plus, onClick: openNewEmployee },
+    ...(onApplyFos ? [{ key: 'fos', label: t('fos.button'), icon: Landmark, onClick: () => setShowFos(true), disabled: employees.length === 0 }] : []),
+    ...(onImportEmployees ? [{ key: 'import-employees', label: t('employeeImport.import_button'), icon: Upload, onClick: () => setShowImport(true) }] : []),
+    { key: 'export-employees', label: t('employeeImport.export_button'), icon: Download, onClick: () => downloadCsv(`anstallda_${new Date().toISOString().slice(0, 10)}.csv`, employeesToCsv(employees)), disabled: employees.length === 0 },
+  ];
+  const showGear = viewState === 'list' && (activeTab === 'employees' || activeTab === 'runs');
+
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
+    <div className={activeTab === 'employees' && viewState === 'list' && lp.width === 'narrow' ? 'lt-page-narrow' : undefined} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       {/* Header i samma mönster som Kunder/Bokföring/Skatt och bokslut
           (kort-bakgrund + kantlinje, inte flytande text på sidbakgrunden)
           — se motsvarande kommentar i Contacts.jsx. */}
@@ -176,17 +193,14 @@ export default function Payroll({
         actions={
           activeTab === 'employees' && viewState === 'list'
             ? [
-                ...(employees.length > 0 ? [{ key: 'export-employees', label: t('employeeImport.export_button'), icon: Download, onClick: () => downloadCsv(`anstallda_${new Date().toISOString().slice(0, 10)}.csv`, employeesToCsv(employees)) }] : []),
-                ...(onApplyFos && employees.length > 0 ? [{ key: 'fos', label: t('fos.button'), icon: Landmark, onClick: () => setShowFos(true) }] : []),
-                ...(onImportEmployees ? [{ key: 'import-employees', label: t('employeeImport.import_button'), icon: Upload, onClick: () => setShowImport(true) }] : []),
-                { key: 'new-employee', label: t('ui.ny_anstalld'), icon: Plus, onClick: () => { setSelectedEmployee(null); setViewState('new'); }, variant: 'primary' },
+                { key: 'new-employee', label: t('ui.ny_anstalld'), icon: Plus, onClick: openNewEmployee, variant: 'primary' },
               ]
             : activeTab === 'runs'
               ? [{ key: 'year', type: 'node', node: <div className="pay-year-head">{yearPicker}</div> }, {
                   key: 'new-run', label: t('ui.ny_lonekorning'), icon: Plus, variant: 'primary',
-                  onClick: () => { if (employees.length === 0) { setActiveTab('employees'); setViewState('new'); } else { if (!newRunPayDate) setNewRunPayDate(`${newRunPeriod}-25`); setShowNewRun(true); } },
+                  onClick: openNewRun,
                   title: employees.length === 0 ? t('ui.lagg_till_en_anstalld_forst') : undefined,
-                }]
+                }, { key: 'settings', type: 'node', node: <ListSettingsButton onClick={() => setSettingsOpen(true)} /> }]
               : []
         }
         tabs={{
@@ -209,14 +223,26 @@ export default function Payroll({
           Lönekörningar-fliken saknade den här raden helt, till skillnad
           från Anställda — samma ListFilterBar/sökfält-mönster nu på båda. */}
       {activeTab === 'employees' && viewState === 'list' && (
-        <ListFilterBar>
-          {activeTab === 'employees' ? (
-            <div style={{ position: 'relative' }}>
-              <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input type="text" placeholder={t('ui.sok_anstalld')} value={search} onChange={e => setSearch(e.target.value)} style={listSearchInputStyle} />
-            </div>
-          ) : null}
+        <ListFilterBar trailing={<ListSettingsButton onClick={() => setSettingsOpen(true)} />}>
+          <div style={{ position: 'relative' }}>
+            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input type="text" placeholder={t('ui.sok_anstalld')} value={search} onChange={e => setSearch(e.target.value)} style={listSearchInputStyle} />
+          </div>
         </ListFilterBar>
+      )}
+      {showGear && (
+        <ListSettings
+          open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={setLp}
+          actions={settingsActions}
+          listOptions={activeTab === 'employees'}
+          columns={activeTab === 'employees' ? [
+            { key: 'type', label: t('ui.typ') },
+            { key: 'startDate', label: t('ui.anstallningsdatum_2') },
+            { key: 'salary', label: t('ui.lon') },
+            { key: 'email', label: t('so.email') },
+            { key: 'status', label: t('ui.status') },
+          ] : []}
+        />
       )}
 
       {/* Ingen padding på den yttre raden längre — matchar "facit"
@@ -273,7 +299,9 @@ export default function Payroll({
           ) : (
           /* Kundfeedback: en populerad (om än kort) lista ska inte
              centreras lodrätt — bara det helt tomma läget ovan. */
+          <div className={lp.density === 'compact' ? 'lt-compact' : undefined} style={{ width: '100%' }}>
           <ListTable
+            pageSize={lp.pageSize}
             rowKey={e => e.id}
             onRowClick={e => { setSelectedEmployee(e); setViewState('edit'); }}
             rows={filteredEmployees}
@@ -307,9 +335,11 @@ export default function Payroll({
                   );
                 },
               },
+              { key: 'email', label: t('so.email'), render: e => e.email || '—' },
               { key: 'chevron', label: '', align: 'right', render: () => <ChevronRight size={16} color="var(--text-muted)" /> },
-            ]}
+            ].filter(col => col.key === 'name' || col.key === 'chevron' || lp.cols[col.key])}
           />
+          </div>
           )}
         </div>
       )}
