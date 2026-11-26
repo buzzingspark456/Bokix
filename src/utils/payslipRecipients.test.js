@@ -43,3 +43,14 @@ describe('vem får lönebesked', () => {
     expect(hasPayslip({ gross: 0.001, net: 0, tax: 0, employerFee: 0 })).toBe(false)
   })
 })
+
+describe('personnummer på lönebeskedet', async () => {
+  const { formatSsn } = await import('./payslipExport')
+  it('skrivs med bindestreck oavsett inmatning', () => {
+    expect(formatSsn('199003011234')).toBe('19900301-1234')
+    expect(formatSsn('19900301-1234')).toBe('19900301-1234')
+    expect(formatSsn('900301-1234')).toBe('900301-1234')
+    expect(formatSsn('9003011234')).toBe('900301-1234')
+    expect(formatSsn('')).toBe('')
+  })
+})

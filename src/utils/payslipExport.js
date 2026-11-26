@@ -11,7 +11,7 @@ const RIGHT = 551;
 const GREY = [246, 247, 246];
 const LINE = [222, 226, 224];
 const MUTED = 105;
-const GREEN_BG = [233, 244, 236];
+const NET_BG = [246, 247, 246];
 
 /** Kontonummer med bara de fyra sista siffrorna synliga. */
 export function maskedAccount(employee = {}) {
@@ -30,6 +30,13 @@ export function maskedAccount(employee = {}) {
 export function hasPayslip(computed) {
   if (!computed) return false;
   return ['gross', 'net', 'tax', 'employerFee'].some(k => Math.round(Number(computed[k]) || 0) !== 0);
+}
+
+/** Personnummer som ÅÅÅÅMMDD-NNNN (eller ÅÅMMDD-NNNN) oavsett hur det skrevs in. */
+export function formatSsn(ssn) {
+  const d = String(ssn || '').replace(/\D/g, '');
+  if (d.length === 12 || d.length === 10) return `${d.slice(0, -4)}-${d.slice(-4)}`;
+  return String(ssn || '');
 }
 
 export function payslipPassword(employee = {}) {
@@ -59,7 +66,7 @@ function drawPayslip(doc, { employee = {}, computed, period, company = {}, payDa
     doc.setTextColor(color);
     doc.text(String(str ?? ''), x, yy, align ? { align } : undefined);
   };
-  const ensure = (h) => { if (y + h > 800) { doc.addPage(); y = 50; } };
+  const ensure = (h) => { if (y + h > 780) { doc.addPage(); y = 50; } };
 
   // ── Sidhuvud: logga eller företagsnamn, rubrik till höger ──
   if (logo?.data && /^data:image\/(png|jpe?g)/i.test(logo.data)) {
@@ -84,7 +91,7 @@ function drawPayslip(doc, { employee = {}, computed, period, company = {}, payDa
     return lines.filter(Boolean).length;
   };
   const employerLines = [company.name, company.address, [company.postalCode, company.city].filter(Boolean).join(' '), company.orgNr ? `Org.nr ${company.orgNr}` : ''];
-  const employeeLines = [`${employee.firstName || ''} ${employee.lastName || ''}`.trim(), employee.address, [employee.postalCode, employee.city].filter(Boolean).join(' '), employee.ssn ? `Personnr ${employee.ssn}` : ''];
+  const employeeLines = [`${employee.firstName || ''} ${employee.lastName || ''}`.trim(), employee.address, [employee.postalCode, employee.city].filter(Boolean).join(' '), employee.ssn ? `Personnr ${formatSsn(employee.ssn)}` : ''];
   const n = Math.max(block(X, 'Arbetsgivare', employerLines), block(col2, 'Anställd', employeeLines));
   y += 15 + n * 13.5 + 12;
 
@@ -132,13 +139,13 @@ function drawPayslip(doc, { employee = {}, computed, period, company = {}, payDa
   row('Bruttolön', '', '', '', computed.gross, { bold: true });
   lines.filter(l => l.kind === 'benefit').forEach(l => row(`Förmån: ${l.name}`, '', '', '', l.amount, { color: MUTED, note: 'Beskattas men betalas inte ut' }));
   row('Skatteavdrag', '', '', '', -computed.tax);
-  lines.filter(l => l.kind === 'taxFree').forEach(l => row(`${l.name} (skattefri)`, l.quantity, l.unit, l.rate, l.amount));
-  lines.filter(l => l.kind === 'netDeduction').forEach(l => row(`${l.name} (nettoavdrag)`, '', '', '', -l.amount));
+  lines.filter(l => l.kind === 'taxFree').forEach(l => row(`${l.name}, skattefri`, l.quantity, l.unit, l.rate, l.amount));
+  lines.filter(l => l.kind === 'netDeduction').forEach(l => row(`${l.name}, nettoavdrag`, '', '', '', -l.amount));
   y += 4;
 
   // ── Att betala ut ──
   ensure(60);
-  doc.setFillColor(...GREEN_BG); doc.roundedRect(X, y, RIGHT - X, 46, 8, 8, 'F');
+  doc.setFillColor(...NET_BG); doc.setDrawColor(...LINE); doc.setLineWidth(0.8); doc.roundedRect(X, y, RIGHT - X, 46, 8, 8, 'FD');
   text('Att betala ut', X + 14, y + 20, { bold: true, size: 12 });
   const acct = maskedAccount(employee);
   text([payDate ? `Utbetalas ${payDate}` : '', acct ? `till konto ${acct}` : ''].filter(Boolean).join(' '), X + 14, y + 35, { size: 9, color: MUTED });
@@ -202,7 +209,11 @@ function drawPayslip(doc, { employee = {}, computed, period, company = {}, payDa
 
   ensure(30);
   text(`Arbetsgivarens kostnader, dras inte från lönen: arbetsgivaravgifter ${fmtKr(computed.employerFee)}, semesteravsättning ${fmtKr(computed.vacationProvision)}.`, X, y + 4, { size: 8, color: 120 });
-  text('Lönebesked skapat i Bokix', RIGHT, 815, { size: 7.5, color: 150, align: 'right' });
+  // Sidfot: arbetsgivarens uppgifter, som på en faktura.
+  const footer = [company.name, [company.address, [company.postalCode, company.city].filter(Boolean).join(' ')].filter(Boolean).join(', '), company.orgNr ? `Org.nr ${company.orgNr}` : '', company.email, company.phone].filter(Boolean).join('  ·  ');
+  doc.setDrawColor(...LINE); doc.setLineWidth(0.6); doc.line(X, 798, RIGHT, 798);
+  if (footer) text(footer, X, 813, { size: 7.5, color: MUTED });
+  text('Bokix', RIGHT, 813, { size: 7.5, color: 160, align: 'right' });
 }
 
 /** Ett lönebesked som egen PDF. Med `password` krävs lösenordet för att öppna den. */

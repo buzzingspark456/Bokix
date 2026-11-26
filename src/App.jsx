@@ -6199,6 +6199,10 @@ function App() {
         return (
           <PayrollView
             key={company?.id || data.activeCompanyId}
+            // Föll bort av misstag i 481f395 (2026-11-05): utan company fick
+            // lönebeskeden ingen arbetsgivare, mejlutskicket saknade
+            // company_id och betalfilen och AGI-filen saknade företaget.
+            company={company}
             employees={employees}
             onSaveEmployee={handleSaveEmployee}
             onImportEmployees={handleImportEmployees}
