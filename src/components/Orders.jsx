@@ -526,12 +526,29 @@ function OrderPage({ initial, company, articles, contacts, stockQty, reservedEls
           </ol>
         )}
         <span style={{ flex: 1 }} />
-        {status !== 'cancelled' && !o.isNew && <button type="button" className="so-tool" onClick={openMail}><Send size={14} /> {o.confirmationSentAt ? t('so.mailAgain') : t('so.mailConfirm')}</button>}
-        {status !== 'cancelled' && <button type="button" className="so-tool" onClick={downloadConfirmation} disabled={pdfBusy}><Download size={14} /> {t('so.pdfConfirm')}</button>}
-        {(o.deliveries || []).length > 0 && <button type="button" className="so-tool" onClick={() => downloadSalesOrderPdf({ company, order: o, kind: 'delivery' })}><Download size={14} /> {t('so.pdfDelivery')}</button>}
-        {(o.invoiceIds || []).map((id, i) => onOpenInvoice && <button key={id} type="button" className="so-tool" onClick={() => { onClose(); onOpenInvoice(id); }}><FileText size={14} /> {(o.invoiceIds || []).length > 1 ? t('so.invoiceN', { n: i + 1 }) : t('so.openInvoice')}</button>)}
-        {editable && !o.isNew && <button type="button" className="so-tool danger" onClick={async () => { if (await confirmDialog(t('so.deleteConfirm', { n: o.number }))) { onDelete(o); onClose(); } }}><Trash2 size={14} /> {t('so.delete')}</button>}
-        {!editable && (status === 'open' || status === 'partial') && <button type="button" className="so-tool danger" onClick={async () => { if (await confirmDialog(t('so.cancelConfirm', { n: o.number }))) { onSave({ ...o, cancelled: true }); onClose(); } }}><X size={14} /> {t('so.cancel')}</button>}
+        {/* Verktygen: på rad när det får plats, annars bakom ⋯ (container query
+            på .so-subbar), så att inget hänger kvar under stegen i halvskärm. */}
+        {(() => {
+          const tools = [
+            ...(status !== 'cancelled' && !o.isNew ? [{ key: 'mail', label: o.confirmationSentAt ? t('so.mailAgain') : t('so.mailConfirm'), icon: Send, onClick: openMail }] : []),
+            ...(status !== 'cancelled' ? [{ key: 'pdf', label: t('so.pdfConfirm'), icon: Download, onClick: downloadConfirmation, disabled: pdfBusy }] : []),
+            ...((o.deliveries || []).length > 0 ? [{ key: 'delivery', label: t('so.pdfDelivery'), icon: Download, onClick: () => downloadSalesOrderPdf({ company, order: o, kind: 'delivery' }) }] : []),
+            ...(onOpenInvoice ? (o.invoiceIds || []).map((id, i) => ({ key: id, label: (o.invoiceIds || []).length > 1 ? t('so.invoiceN', { n: i + 1 }) : t('so.openInvoice'), icon: FileText, onClick: () => { onClose(); onOpenInvoice(id); } })) : []),
+            ...(editable && !o.isNew ? [{ key: 'delete', label: t('so.delete'), icon: Trash2, danger: true, onClick: async () => { if (await confirmDialog(t('so.deleteConfirm', { n: o.number }))) { onDelete(o); onClose(); } } }] : []),
+            ...(!editable && (status === 'open' || status === 'partial') ? [{ key: 'cancel', label: t('so.cancel'), icon: X, danger: true, onClick: async () => { if (await confirmDialog(t('so.cancelConfirm', { n: o.number }))) { onSave({ ...o, cancelled: true }); onClose(); } } }] : []),
+          ];
+          if (!tools.length) return null;
+          return (<>
+            <span className="so-tools-inline">
+              {tools.map(({ key, label, icon: Icon, onClick, disabled, danger }) => (
+                <button key={key} type="button" className={`so-tool${danger ? ' danger' : ''}`} onClick={onClick} disabled={disabled}><Icon size={14} /> {label}</button>
+              ))}
+            </span>
+            <span className="so-tools-more">
+              <RowActionMenu ariaLabel={t('shared.moreActions')} items={tools.map(({ key, label, icon, onClick, disabled, danger }) => ({ key, label, icon, onClick, disabled, ...(danger ? { variant: 'danger' } : {}) }))} />
+            </span>
+          </>);
+        })()}
       </div>
       {error && <div className="so-error">{error}</div>}
       {!error && (notice || guide) && (

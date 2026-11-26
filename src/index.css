@@ -11406,9 +11406,14 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 @media (max-width: 600px) { .ar-chips { border-radius: 999px; } }
 .ar-search, .ar-select, .ar-gear { border-radius: 999px; }
 /* Bank (admin): sökfält och statusknappar på samma rad, rullgardin på telefon. */
-.lfb-searchrow { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.lfb-searchrow { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; container-type: inline-size; container-name: lfbsearch; }
 .lfb-searchrow .cf-select { display: none; }
 .lfb-primary:has(.lfb-searchrow) { flex: 1 1 auto; min-width: 0; }
+/* Statusknapparna blir rullgardin när raden inte räcker (halvskärm), i stället för att sticka ut. */
+@container lfbsearch (max-width: 860px) {
+  .lfb-searchrow .cf-chips { display: none !important; }
+  .lfb-searchrow .cf-select { display: inline-block !important; flex-shrink: 0; max-width: 170px; }
+}
 .lfb-searchrow > div:first-child { flex-shrink: 0; min-width: 0; }
 .lfb input[type="text"], .lfb input[type="search"] { text-overflow: ellipsis; min-width: 0; }
 .lfb-searchrow .cf-chips { flex-wrap: nowrap !important; }
@@ -11456,10 +11461,27 @@ html.ws-v2 .lfb .rc-segmented button { border-radius: 999px !important; }
 .lt-page-narrow .responsive-table td.lt-cell, .lt-page-narrow .responsive-table td.lt-cell * { white-space: normal !important; overflow-wrap: anywhere; }
 .lt-page-narrow .responsive-table td.lt-cell:is([data-col="status"], [data-col="amount"], [data-col="total"], [data-col="totalInvoicedThisYear"], [data-col="salary"], [data-col="date"], [data-col="dueDate"], [data-col="chevron"], [data-col="actions"]),
 .lt-page-narrow .responsive-table td.lt-cell:is([data-col="status"], [data-col="amount"], [data-col="total"], [data-col="totalInvoicedThisYear"], [data-col="salary"], [data-col="date"], [data-col="dueDate"], [data-col="chevron"], [data-col="actions"]) * { white-space: nowrap !important; overflow-wrap: normal; }
+/* Halvskärm (admin): samma regler som Smal, så att listorna inte rullar i sidled och ⋮ syns. */
+@media (max-width: 1100px) {
+  html.ws-v2 .responsive-table { width: 100%; table-layout: auto; }
+  html.ws-v2 .responsive-table th { white-space: normal !important; overflow-wrap: normal; font-size: 11px !important; letter-spacing: 0.02em !important; }
+  html.ws-v2 .responsive-table td.lt-cell, html.ws-v2 .responsive-table td.lt-cell * { white-space: normal !important; overflow-wrap: anywhere; }
+  html.ws-v2 .responsive-table td.lt-cell:is([data-col="status"], [data-col="amount"], [data-col="total"], [data-col="totalInvoicedThisYear"], [data-col="salary"], [data-col="date"], [data-col="dueDate"], [data-col="chevron"], [data-col="actions"]),
+  html.ws-v2 .responsive-table td.lt-cell:is([data-col="status"], [data-col="amount"], [data-col="total"], [data-col="totalInvoicedThisYear"], [data-col="salary"], [data-col="date"], [data-col="dueDate"], [data-col="chevron"], [data-col="actions"]) * { white-space: nowrap !important; overflow-wrap: normal; }
+}
 .so-listbody .ar-table-wrap { border: none; border-radius: 0; box-shadow: none; }
 .lt-page-narrow .so-listbody .ar-table-wrap { border-left: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); border-radius: 0 0 12px 12px; }
 /* Artiklar: listan i jämnhöjd med sidhuvudet i smal bredd */
 .lt-page-narrow .art-tab > .ar { padding-left: 0; padding-right: 0; }
+/* Artiklar som de andra listsidorna (2026-11-26): sökraden på ett band med kortets bakgrund
+   och en linje under, tabellen direkt under. */
+.art-tab > .ar { padding: 0 !important; background: var(--bg-page); }
+.art-tab > .ar > .ar-tools { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 10px 20px; }
+.art-tab > .ar > .ar-bulk { margin: 10px 20px; }
+.art-tab > .ar .ar-table-wrap { border: none; border-bottom: 1px solid var(--border); border-radius: 0; box-shadow: none; }
+.art-tab > .ar .ar-foot { padding: 10px 20px; }
+.lt-page-narrow .art-tab > .ar .ar-table-wrap { border-left: 1px solid var(--border); border-right: 1px solid var(--border); border-radius: 0 0 12px 12px; }
+.lt-page-narrow .art-tab > .ar > .ar-tools { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
 
 /* Underlag-listan (2026-11-25): sök till vänster, ladda upp och inställningar till höger */
 .ut-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
