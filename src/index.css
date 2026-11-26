@@ -11708,3 +11708,17 @@ html.ws-v2 .lfb .rc-segmented button { border-radius: 999px !important; }
   .ut--std .ut-table th:nth-child(7) { width: 15%; }
   .ut--std .ut-table th:nth-child(8) { width: 13%; }
 }
+
+/* Smal och Kompakt ska synas (2026-11-27): Smal 960 px i stället för 1180
+   (på en laptop blev skillnaden mot Bred bara 170 px), Kompakt tätare rader
+   och utan andraraden, samma på alla listsidor. */
+.lt-page-narrow > *, .lt-page-narrow .lt-page-band-inner { max-width: 960px !important; }
+.lt-compact .responsive-table td,
+.ar--compact .ar-table td,
+.so-compact .ar-table td,
+.ut-table.ut-compact td { padding-top: 4px !important; padding-bottom: 4px !important; font-size: 13px; }
+.rq-compact .rq-row { padding-top: 5px !important; padding-bottom: 5px !important; }
+.lt-compact .responsive-table td small,
+.ut-table.ut-compact .ut-doc-text small,
+.ut-table.ut-compact .ut-thumb { display: none !important; }
+.ut-table.ut-compact .ut-doc { gap: 0; }
