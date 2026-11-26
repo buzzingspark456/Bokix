@@ -8,6 +8,9 @@ import ListPageHeader, { listHeaderButtonStyle, listSearchInputStyle, listFilter
 import RowActionMenu from './shared/RowActionMenu';
 import { STRONG_PAID, STRONG_UNPAID, STRONG_OVERDUE, getRowBg, STATUS_PILL } from './shared/invoiceStatusStyle';
 import ListTable from './shared/ListTable';
+import ListSettings, { useListPrefs } from './shared/ListSettings';
+import ChipFilter from './shared/ChipFilter';
+import { isAdminPreview } from '../utils/adminPreview';
 import { uploadFileToStorage } from '../utils/fileUpload';
 import { useSignedUrl } from '../utils/signedUrls';
 import { BRAND } from '../utils/brandColors';
@@ -869,7 +872,13 @@ export default function SupplierInvoices({
   const [fixAccount, setFixAccount] = useState('');
   // Samma statusfilter, sortering och "Visa N" som Kundfakturor.
   const [statusFilter, setStatusFilter] = useState('all');
-  const [pageSize, setPageSize] = useState(30);
+  const [pageSizeOld, setPageSize] = useState(30);
+  // Admin (2026-11-26): samma mönster som de andra listsidorna, kugghjulet vid
+  // rubriken och statusfiltret bredvid sökfältet.
+  const adminList = isAdminPreview();
+  const [lp, setLp] = useListPrefs('bokix.supplierInvoices.prefs', {});
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const pageSize = adminList ? (lp.pageSize || 'all') : pageSizeOld;
   const [sortKey, setSortKey] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
 
@@ -970,14 +979,46 @@ export default function SupplierInvoices({
     { value: 'paid', label: t('ui.betald'), bg: STRONG_PAID.bg, color: STRONG_PAID.text, strong: true },
   ];
 
+  const statusChips = [
+    ['all', t('ui.alla'), filtered.length],
+    ['review', t('ui.granska'), statusCounts.review || 0, 'dot-review'],
+    ['sent', t('ui.obetald'), statusCounts.sent || 0, 'dot-toinvoice'],
+    ['overdue', t('ui.forfallen'), statusCounts.overdue || 0, 'dot-late'],
+    ['paid', t('ui.betald'), statusCounts.paid || 0, 'dot-invoiced'],
+  ].filter(([id, , n]) => id === 'all' || n > 0 || id === statusFilter);
+
   const renderList = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: 'var(--bg-page)' }}>
+    <div className={adminList && lp.width === 'narrow' ? 'lt-page-narrow' : undefined} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: 'var(--bg-page)' }}>
       <ListPageHeader
         title={t('ui.leverantorsfakturor')}
         subtitle={t('ui.fakturor_du_fatt_fran_leverantorer_och_ska_betal')}
         tabs={headerTabs}
+        onSettings={adminList ? () => setSettingsOpen(true) : null}
+        actions={adminList ? [{ key: 'new', label: t('ui.ny_leverantorsfaktura'), icon: Plus, onClick: () => setShowForm(true), variant: 'primary' }] : []}
       />
+      {adminList && (
+        <ListSettings
+          open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={setLp}
+          actions={[{ key: 'new', label: t('ui.ny_leverantorsfaktura'), icon: Plus, onClick: () => setShowForm(true) }]}
+        />
+      )}
 
+      {adminList ? (
+        <div className="lfb" style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-card)', flexShrink: 0 }}>
+          <div className="lfb-row" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="lfb-primary">
+              <div className="lfb-searchrow">
+                <div style={{ position: 'relative' }}>
+                  <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input type="search" placeholder={t('ui.fakturanr_eller_leverantor')} value={search} onChange={e => setSearch(e.target.value)} style={{ ...listSearchInputStyle, width: '240px' }} />
+                </div>
+                {list.length > 0 && <ChipFilter label={t('ui.status')} value={statusFilter} onChange={setStatusFilter} items={statusChips} />}
+              </div>
+            </div>
+            <span className="lfb-count" style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{t(sorted.length === 1 ? 'supSet.countOne' : 'supSet.countMany', { n: sorted.length })}</span>
+          </div>
+        </div>
+      ) : (<>
       <div style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
         <div className="inv-searchrow" style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <div className="inv-search" style={{ position: 'relative' }}>
@@ -1045,6 +1086,7 @@ export default function SupplierInvoices({
           <Printer className="inv-pills-extra" size={15} style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} />
         </div>
       )}
+      </>)}
 
       {list.length === 0 ? (
         // Samma stora ikon/rubrik/knapp-mönster som Kunder och Offerter i tomt läge.
@@ -1061,7 +1103,7 @@ export default function SupplierInvoices({
       ) : sorted.length === 0 ? (
         <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-muted)' }}>{t('ui.ingen_faktura_matchar_sokningen_eller_filtret')}</div>
       ) : (
-        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+        <div className={adminList && lp.density === 'compact' ? 'lt-compact' : undefined} style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 12px 12px', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
             <ListTable
               bordered={false}

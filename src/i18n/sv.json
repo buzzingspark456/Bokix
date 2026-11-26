@@ -4882,6 +4882,17 @@
   "verSet": {
     "view": "Visning"
   },
+  "soTone": {
+    "notInvoiced": "Ej fakturerade",
+    "late": "Försenade",
+    "toInvoice": "Att fakturera",
+    "invoiced": "Fakturerade",
+    "cancelled": "Makulerade"
+  },
+  "supSet": {
+    "countOne": "{{n}} faktura",
+    "countMany": "{{n}} fakturor"
+  },
   "payrollPick": {
     "newRunHint": "Timanställda är med när du fyller i deras timmar i nästa steg.",
     "note": "{{n}} av {{total}} får lön den här månaden.",

@@ -4882,6 +4882,17 @@
   "verSet": {
     "view": "View"
   },
+  "soTone": {
+    "notInvoiced": "Not invoiced",
+    "late": "Late",
+    "toInvoice": "To invoice",
+    "invoiced": "Invoiced",
+    "cancelled": "Cancelled"
+  },
+  "supSet": {
+    "countOne": "{{n}} invoice",
+    "countMany": "{{n}} invoices"
+  },
   "payrollPick": {
     "newRunHint": "Hourly employees are added when you enter their hours in the next step.",
     "note": "{{n}} of {{total}} are paid this month.",

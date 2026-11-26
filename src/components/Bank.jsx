@@ -491,7 +491,7 @@ export default function Bank({
             sidan för den här komponenten) — sökikon + listSearchInputStyle
             oförändrad (36px vänsterpadding reserverad åt ikonen), inte en
             egen avvikande variant. */}
-        <div className="bank-searchrow">
+        <div className="lfb-searchrow">
           <div style={{ position: 'relative' }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={tr('ui.sok_text_belopp_referens')} style={{ ...listSearchInputStyle, width: '240px' }} />

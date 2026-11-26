@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, X, Trash2, Download, Truck, Check, Search, FileText, ClipboardList, ChevronLeft, ChevronRight, Send } from './icons';
 import ChipFilter from './shared/ChipFilter';
+import { getRowBg } from './shared/invoiceStatusStyle';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListSettings, { useListPrefs } from './shared/ListSettings';
 import { downloadCsv } from '../utils/csvRegister';
@@ -12,7 +13,7 @@ import { lockedPeriodFor } from '../utils/fiscalYear';
 import { valuateInventory, deriveInvoiceMovements } from '../utils/inventory';
 import {
   num, nextOrderNumber, orderStatus, orderEditable, orderTotals, rowNet, reservedByArticle,
-  rowLeftToDeliver, rowLeftToInvoice, deliverOrder, invoiceFromOrder, applyInvoiceExistence,
+  rowLeftToDeliver, rowLeftToInvoice, deliverOrder, invoiceFromOrder, applyInvoiceExistence, orderTone,
 } from '../utils/salesOrders';
 import { downloadSalesOrderPdf } from '../utils/salesOrderPdf';
 import { exportInvoicePdf, printInvoicePdf, getInvoicePdfBase64 } from '../utils/exportInvoicePdf';
@@ -35,12 +36,16 @@ const formatShort = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split(
 const emptyRow = () => ({ key: newId(), articleId: '', articleNumber: '', description: '', qty: 1, unit: 'st', unitPrice: '', vatRate: 25, discount: 0, account: '3001', delivered: 0, invoiced: 0 });
 const STATUS_PILL = { open: 'info', partial: 'warn', delivered: 'ok', invoiced: 'neutral', cancelled: 'late' };
 
+// Radens färg efter läge (orderTone i salesOrders.js), samma toner som fakturalistan.
+const isLate = (o, st) => ['open', 'partial'].includes(st) && o.deliveryDate && o.deliveryDate < todayIso();
+const TONE_BG = { late: getRowBg('overdue'), toInvoice: getRowBg('sent'), invoiced: getRowBg('paid'), cancelled: getRowBg('draft') };
+
 export default function Orders({ activeCompanyId, onSyncBeforeServerCall, company, setCompanyInfo, articles = [], contacts = [], invoices = [], onCreateContact, onCreateInvoice, onOpenInvoice, onOpenQuote, globalAction, clearGlobalAction }) {
   // Fakturerat räknas från fakturorna som finns (applyInvoiceExistence).
   const invoiceIdSet = useMemo(() => new Map((invoices || []).map(i => [i.id, i])), [invoices]);
   const orders = useMemo(() => (company?.salesOrders || []).map(o => applyInvoiceExistence(o, invoiceIdSet)), [company?.salesOrders, invoiceIdSet]);
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState('active');
+  const [filter, setFilter] = useState('all');
   const [page, setPage] = useState(0);
   const [open, setOpen] = useState(null); // ordern som visas i rutan
   const [openNotice, setOpenNotice] = useState('');
@@ -94,11 +99,13 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
   };
   const deleteOrder = (order) => setCompanyInfo(prev => ({ ...prev, salesOrders: (prev.salesOrders || []).filter(x => x.id !== order.id) }));
 
-  const GROUP = { active: ['open', 'partial', 'delivered'], deliver: ['open', 'partial'], invoice: ['delivered', 'partial'], invoiced: ['invoiced'], all: null };
+  // Filtret följer radernas färger: Ej fakturerade är allt som inte är
+  // fakturerat eller makulerat (även försenade och att fakturera).
   const inGroup = (o, k) => {
-    const st = orderStatus(o);
-    if (k === 'invoice') return (o.rows || []).some(r => rowLeftToInvoice(r) > 0);
-    return !GROUP[k] || GROUP[k].includes(st);
+    if (k === 'all') return true;
+    const tone = orderTone(o);
+    if (k === 'notInvoiced') return tone !== 'invoiced' && tone !== 'cancelled';
+    return tone === k;
   };
   const count = (k) => orders.filter(o => inGroup(o, k)).length;
   const rows = useMemo(() => {
@@ -164,17 +171,23 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
       />
       {orders.length > 0 && (
         <ListFilterBar count={rows.length} countLabel={rows.length === 1 ? t('so.countOne') : t('so.countMany')}>
-          <div style={{ position: 'relative' }}>
-            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input type="text" placeholder={t('so.search')} value={q} onChange={e => { setQ(e.target.value); setPage(0); }} style={listSearchInputStyle} />
+          {/* Status bredvid sökfältet, med samma färger som raderna. */}
+          <div className="lfb-searchrow">
+            <div style={{ position: 'relative' }}>
+              <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input type="search" placeholder={t('so.search')} value={q} onChange={e => { setQ(e.target.value); setPage(0); }} style={{ ...listSearchInputStyle, width: '240px' }} />
+            </div>
+            <ChipFilter label={t('artReg.filter')} value={filter} onChange={(id) => { setFilter(id); setPage(0); }}
+              items={[
+                ['all', t('accr.filterAll'), count('all')],
+                ['notInvoiced', t('soTone.notInvoiced'), count('notInvoiced')],
+                ['late', t('soTone.late'), count('late'), 'dot-late'],
+                ['toInvoice', t('soTone.toInvoice'), count('toInvoice'), 'dot-toinvoice'],
+                ['invoiced', t('soTone.invoiced'), count('invoiced'), 'dot-invoiced'],
+                ['cancelled', t('soTone.cancelled'), count('cancelled'), 'dot-cancelled'],
+              ].filter(([id, , n]) => id === 'all' || n > 0 || id === filter)} />
           </div>
         </ListFilterBar>
-      )}
-      {orders.length > 0 && (
-        <div className="so-pillsbar">
-          <ChipFilter label={t('artReg.filter')} value={filter} onChange={(id) => { setFilter(id); setPage(0); }}
-            items={[['active', t('so.fActive'), count('active')], ['deliver', t('so.fDeliver'), count('deliver'), 'low'], ['invoice', t('so.fInvoice'), count('invoice')], ['invoiced', t('so.fInvoiced'), count('invoiced')], ['all', t('accr.filterAll'), count('all')]]} />
-        </div>
       )}
       {message && <div className="so-listmsg"><Check size={14} /> {message}<button type="button" onClick={() => setMessage('')} aria-label={t('ui.stang')}><X size={13} /></button></div>}
 
@@ -218,10 +231,11 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
                         const real = (o.rows || []).filter(r => num(r.qty) > 0);
                         const all = real.reduce((s, r) => s + num(r.qty), 0);
                         const got = real.reduce((s, r) => s + num(r.delivered), 0);
-                        const late = ['open', 'partial'].includes(st) && o.deliveryDate && o.deliveryDate < todayIso();
+                        const late = isLate(o, st);
+                        const tone = orderTone(o);
                         const short = ['open', 'partial'].includes(st) && real.some(r => r.articleId && isStocked(r.articleId) && rowLeftToDeliver(r) > (stock.qty.get(r.articleId) || 0));
                         return (
-                          <tr key={o.id} className={`po-row is-${st}`} onClick={() => setOpen(o)}>
+                          <tr key={o.id} className={`po-row is-${st} tone-${tone}`} style={TONE_BG[tone] ? { background: TONE_BG[tone] } : undefined} onClick={() => setOpen(o)}>
                             {lp.cols.number && <td className="po-nr">{o.number}</td>}
                             <td className="ar-name">
                               <strong>{o.customerName || t('so.noCustomer')}</strong>
@@ -233,7 +247,7 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
                               <span className="po-prog"><span className="pz-m-track"><span style={{ width: `${Math.round((got / all) * 100)}%`, background: 'var(--status-green-text)' }} /></span><small>{t('po.progress', { got: fmtQty(got), all: fmtQty(all) })}</small></span>
                             )}</td>}
                             {lp.cols.amount && <td className="r ar-price">{fmtKr(orderTotals(o).net)}</td>}
-                            {lp.cols.status && <td className="r"><span className={`agi-pill ${STATUS_PILL[st]}`}>{t(`so.status_${st}`)}</span></td>}
+                            {lp.cols.status && <td className="r po-status"><span className={`agi-pill ${STATUS_PILL[st]}`}>{t(`so.status_${st}`)}</span></td>}
                           </tr>
                         );
                       })}
