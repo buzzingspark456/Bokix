@@ -11722,3 +11722,11 @@ html.ws-v2 .lfb .rc-segmented button { border-radius: 999px !important; }
 .ut-table.ut-compact .ut-doc-text small,
 .ut-table.ut-compact .ut-thumb { display: none !important; }
 .ut-table.ut-compact .ut-doc { gap: 0; }
+
+/* Telefon (2026-11-27, granskningen): verktygsraden i Artiklar ryms på en rad,
+   och listor med flytande knapp får luft under sista raden. */
+@media (max-width: 760px) {
+  .ar .ar-tools .ar-search, .pz-table .ar-tools .ar-search { flex: 1 1 0; min-width: 0; }
+  .ar .ar-tools .cf-select, .ar .ar-tools .ar-select, .pz-table .ar-tools .cf-select { flex: 0 1 auto; min-width: 0; max-width: 46%; }
+  .so-listbody, .art-tab > .ar { padding-bottom: 96px; }
+}
