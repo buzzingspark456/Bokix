@@ -42,7 +42,6 @@ const PLANS = [
       'Inköpsorder till leverantörer, kopplade till fakturan',
       'Prissättning med marginalmål och prisförslag',
       'Orderbekräftelse och följesedel',
-      'Kontantförsäljning bokförs som betald direkt',
     ],
   },
 ];

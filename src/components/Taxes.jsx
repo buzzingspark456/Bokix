@@ -367,7 +367,7 @@ export default function Taxes({
   employees = [], payrollRuns = [], agiReports = [],
   onCreateAgiReport, onMarkAgiSubmitted, onDeleteAgiReport,
   vatPeriods = {}, onBookVatPeriod, onNavigateToVerification,
-  onAddVerification, setCompanyInfo, setAccounts, onNavigateToTab, initialSection, showInventoryStep = true,
+  onAddVerification, setCompanyInfo, setAccounts, onNavigateToTab, initialSection, showInventoryStep = true, payrollIncluded = true,
   authorityPackage = null,
 }) {
   // Underlag till Skatteverket eller revisor (bara admin än, AuthorityPackageModal.jsx).
@@ -812,7 +812,8 @@ export default function Taxes({
   // i utils/ufMode.js — se den kommentaren för varför Moms är kvar men
   // Kontrolluppgifter och Inkomstdeklaration inte är det). Filtret ligger
   // sist så en flik aldrig kan smyga in genom att läggas till ovanför.
-  const hasPayroll = employees.length > 0 || payrollRuns.length > 0;
+  // Lön ingår inte i Bas: ingen arbetsgivardeklaration att visa (2026-11-27).
+  const hasPayroll = payrollIncluded && (employees.length > 0 || payrollRuns.length > 0);
   const hasEuCustomers = contacts.some(c => c.customerType === 'eu_company' && String(c.vatNumber || '').trim());
   const sectionTabs = [
     { id: 'dates', label: tr('ui.oversikt') },
