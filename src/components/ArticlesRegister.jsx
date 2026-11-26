@@ -47,12 +47,15 @@ export default function ArticlesRegister({ articles = [], setArticles, company, 
   const setSettingsOpen = controlled ? onSettingsOpenChange : setSettingsOpenOwn;
   const pageSize = prefs.pageSize;
   const cols = prefs.cols;
-  const updatePrefs = (patch) => setPrefs(prev => {
-    const next = { ...prev, ...patch, cols: { ...prev.cols, ...(patch.cols || {}) } };
+  // Sparas och meddelas utanför setPrefs: Artiklar-sidan lyssnar på
+  // bokix:artprefs, och en händelse inifrån uppdateringen ändrade dess
+  // tillstånd mitt i ritningen (React-varning, 2026-11-27).
+  const updatePrefs = (patch) => {
+    const next = { ...prefs, ...patch, cols: { ...prefs.cols, ...(patch.cols || {}) } };
+    setPrefs(next);
     try { localStorage.setItem(PREFS_KEY, JSON.stringify(next)); } catch { /* privat läge */ }
     try { window.dispatchEvent(new CustomEvent('bokix:artprefs', { detail: next })); } catch { /* äldre webbläsare */ }
-    return next;
-  });
+  };
   const setPageSize = (n) => updatePrefs({ pageSize: n });
   const [page, setPage] = useState(0);
   const [picked, setPicked] = useState(() => new Set());

@@ -99,8 +99,17 @@ const audit = () => page.evaluate(() => {
 for (const p of PAGES) {
   await page.evaluate((h) => { location.hash = h; }, p);
   await page.waitForTimeout(1800);
+  if (process.env.NARROW) {
+    const gear = page.locator('.ar-gear:visible').first();
+    if (await gear.isVisible().catch(() => false)) {
+      await gear.click(); await page.waitForTimeout(400);
+      for (const l of ['Smal', 'Kompakt']) { const b = page.locator('.ar-set .ar-set-seg button', { hasText: new RegExp('^' + l + '$') }).first(); if (await b.isVisible().catch(() => false)) { await b.click(); await page.waitForTimeout(250); } }
+      await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+      if (await page.locator('.ar-set').isVisible().catch(() => false)) { await page.locator('.ar-set-overlay').click({ position: { x: 5, y: 5 } }).catch(() => {}); await page.waitForTimeout(300); }
+    }
+  }
   const issues = await audit();
-  await page.screenshot({ path: `test-results/granskning-${p}-${WIDTH}.png` });
+  await page.screenshot({ path: `test-results/granskning-${p}-${WIDTH}${process.env.NARROW ? '-smal' : ''}.png` });
   console.log(p.padEnd(18), issues.length ? '\n   - ' + issues.join('\n   - ') : 'ok');
 }
 console.log('JS-fel:', errors.length ? errors : 'inga');
