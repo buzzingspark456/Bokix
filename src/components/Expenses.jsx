@@ -2475,6 +2475,242 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
   );
 }
 
+/** Mejl i Underlag som ett riktigt mejlprogram (2026-11-26, efter Accounted):
+ * brevlistan till vänster, det öppna brevet till höger med avsändare, tid
+ * och bilagorna som kort. Varje bilaga är ett eget underlag; brev med samma
+ * avsändare och ämne som kom in inom två minuter visas som ett brev. */
+function mailAddress(from) {
+  const s = String(from || '');
+  const m = /<([^>]+)>/.exec(s);
+  return (m ? m[1] : s).trim();
+}
+function mailTime(ms, long = false) {
+  if (!ms) return '';
+  const d = new Date(ms);
+  const now = new Date();
+  if (long) return d.toLocaleString('sv-SE', { weekday: 'short', day: 'numeric', month: 'long', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric', hour: '2-digit', minute: '2-digit' });
+  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+  const yest = new Date(now); yest.setDate(now.getDate() - 1);
+  if (d.toDateString() === yest.toDateString()) return tr('underlag.mcYesterday');
+  return d.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric' });
+}
+function receivedMs(r) {
+  const t = Date.parse(r.inbox?.receivedAt || '');
+  if (t) return t;
+  const ts = Number((/^exp_(\d{13})/.exec(String(r.id || '')) || [])[1]);
+  return ts > 1.5e12 ? ts : (Date.parse(r.date || '') || 0);
+}
+function groupMails(rows) {
+  const sorted = [...rows].sort((a, b) => receivedMs(b) - receivedMs(a));
+  const mails = [];
+  for (const r of sorted) {
+    const from = mailAddress(r.inbox?.from || r.uploadedBy?.email).toLowerCase();
+    const subject = String(r.inbox?.subject || '').trim();
+    const at = receivedMs(r);
+    const hit = mails.find(m => m.from === from && m.subject === subject && Math.abs(m.at - at) < 120000);
+    if (hit) hit.items.push(r);
+    else mails.push({ id: r.id, from, subject, at, items: [r], name: [senderName(r.inbox?.from || ''), r.uploadedBy?.name].find(n => n && !n.includes('@')) || '' });
+  }
+  for (const m of mails) m.items.sort((a, b) => receivedMs(a) - receivedMs(b));
+  return mails;
+}
+// Mejlets text som PDF (inget bifogat) heter som ämnet.
+function isBodyPdf(r, subject) {
+  const n = String(r.inbox?.fileName || '');
+  if (!(r.receiptType === 'application/pdf' || /\.pdf$/i.test(n))) return false;
+  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9åäö]+/g, '');
+  const base = norm(n.replace(/\.pdf$/i, ''));
+  return Boolean(base) && (norm(subject || 'Mejl').startsWith(base));
+}
+
+function MailClient({ receipts: allRows, statusOf, stepOf, readingId, onMarkSeen, onOpen, onTrash, onRefresh, onSenders, onMailIn, inboxAddress, wide = true }) {
+  const rows = useMemo(() => allRows.filter(r => r.inbox?.source === 'email'), [allRows]);
+  const mails = useMemo(() => groupMails(rows), [rows]);
+  const [filter, setFilter] = useState('all'); // all | unread | todo
+  const [q, setQ] = useState('');
+  const [openId, setOpenId] = useState(null);
+  const [attId, setAttId] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const isTodo = (r) => ['unhandled', 'pending'].includes(statusOf(r));
+  const isUnread = (m) => Boolean(onMarkSeen) && m.items.some(r => !r.inbox.seenAt);
+  const needle = q.trim().toLowerCase();
+  const shown = mails
+    .filter(m => filter === 'all' || (filter === 'unread' ? isUnread(m) : m.items.some(isTodo)))
+    .filter(m => !needle || [m.name, m.from, m.subject, ...m.items.map(r => r.inbox?.fileName)].some(v => String(v || '').toLowerCase().includes(needle)));
+  const counts = { unread: mails.filter(isUnread).length, todo: mails.filter(m => m.items.some(isTodo)).length };
+  // Dator: första brevet är öppet direkt, som i ett mejlprogram.
+  const open = shown.find(m => m.id === openId) || (wide ? shown[0] : null) || null;
+  const att = open ? (open.items.find(r => r.id === attId) || open.items[0]) : null;
+  const openMail = (m) => {
+    setOpenId(m.id);
+    setAttId(null);
+  };
+  useEffect(() => {
+    // Läst först när man själv klickat på brevet, inte när det öppnas automatiskt.
+    if (open && onMarkSeen && open.id === openId) {
+      const ids = open.items.filter(r => !r.inbox.seenAt).map(r => r.id);
+      if (ids.length) onMarkSeen(ids);
+    }
+  }, [open?.id, openId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ↑/↓ byter brev, Enter öppnar bilagan för bokföring.
+  const shownKey = shown.map(m => m.id).join('|');
+  useEffect(() => {
+    if (!wide) return undefined;
+    const onKey = (e) => {
+      const tag = (e.target?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      const i = shown.findIndex(m => m.id === open?.id);
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const next = shown[Math.min(shown.length - 1, Math.max(0, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+        if (next) openMail(next);
+      } else if (e.key === 'Enter' && att) { e.preventDefault(); onOpen(att.id, rows.map(r => r.id)); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [shownKey, open?.id, att?.id, wide]); // eslint-disable-line react-hooks/exhaustive-deps
+  const refresh = async () => { if (refreshing) return; setRefreshing(true); try { await onRefresh?.(); } finally { setTimeout(() => setRefreshing(false), 600); } };
+  const markUnread = () => { if (open && onMarkSeen) { onMarkSeen(open.items.map(r => r.id), false); setOpenId(wide ? '__none__' : null); } };
+  const trashMail = async () => {
+    const ids = open.items.filter(isTodo).map(r => r.id);
+    if (!ids.length) return;
+    if (!(await confirmDialog(tr('underlag.trashManyConfirm', { n: ids.length })))) return;
+    ids.forEach(id => onTrash?.(id));
+    setOpenId(null);
+  };
+  const showReader = wide || Boolean(open);
+  const showList = wide || !open;
+
+  return (
+    <div className={`mc${wide ? ' mc-wide' : ' mc-narrow'}`}>
+      {showList && (
+        <section className="mc-list" aria-label={tr('underlag.navMail')}>
+          <div className="mc-list-head">
+            <div className="mc-title">
+              <h1>{tr('underlag.navMail')}</h1>
+              <span className="mc-title-actions">
+                {onRefresh && <button type="button" className="mc-icon" onClick={refresh} disabled={refreshing} title={tr('underlag.refresh')} aria-label={tr('underlag.refresh')}><RotateCcw size={16} className={refreshing ? 'ut-spin' : undefined} /></button>}
+                {onSenders && <button type="button" className="mc-icon" onClick={onSenders} title={tr('underlag.navSettings')} aria-label={tr('underlag.navSettings')}><Cog size={16} /></button>}
+              </span>
+            </div>
+            {inboxAddress && (
+              <button type="button" className="mc-address" onClick={onMailIn} title={tr('underlag.mailIn')}>
+                <Mail size={13} /><span>{inboxAddress}</span>
+              </button>
+            )}
+            <div className="mc-search">
+              <Search size={15} />
+              <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={tr('underlag.mcSearch')} aria-label={tr('underlag.mcSearch')} />
+            </div>
+            <div className="mc-tabs" role="tablist">
+              {[['all', tr('underlag.mcAll'), null], ['unread', tr('underlag.mcUnread'), onMarkSeen ? counts.unread : null], ['todo', tr('underlag.mcTodo'), counts.todo]].filter(([id]) => id !== 'unread' || onMarkSeen).map(([id, label, n]) => (
+                <button key={id} type="button" role="tab" aria-selected={filter === id} className={filter === id ? 'on' : undefined} onClick={() => setFilter(id)}>
+                  {label}{n > 0 && <em>{n}</em>}
+                </button>
+              ))}
+              {onMarkSeen && counts.unread > 0 && (
+                <button type="button" className="mc-allread" onClick={() => onMarkSeen(rows.filter(r => !r.inbox.seenAt).map(r => r.id))} title={tr('underlag.markAllRead')} aria-label={tr('underlag.markAllRead')}><MailOpen size={15} /></button>
+              )}
+            </div>
+          </div>
+          <div className="mc-items">
+            {shown.length === 0 && (
+              <div className="mc-empty">
+                <span className="ut-empty-ico">{needle ? <Search size={24} /> : <Mail size={24} />}</span>
+                <strong>{needle ? tr('underlag.noHits') : filter === 'all' ? tr('underlag.mcEmpty') : tr('underlag.noMailHere')}</strong>
+                {!needle && filter === 'all' && inboxAddress && <span>{tr('underlag.noMailText', { address: inboxAddress })}</span>}
+              </div>
+            )}
+            {shown.map(m => {
+              const unread = isUnread(m);
+              const todo = m.items.filter(isTodo).length;
+              const files = m.items.filter(r => !isBodyPdf(r, m.subject));
+              return (
+                <button key={m.id} type="button" className={['mc-item', unread && 'is-unread', open?.id === m.id && 'is-open'].filter(Boolean).join(' ')} onClick={() => openMail(m)}>
+                  <span className="mc-item-top">
+                    {unread && <i className="mc-dot" aria-label={tr('underlag.unread')} />}
+                    <b className="mc-item-from">{m.name || m.from || tr('underlag.mcUnknown')}</b>
+                    <time>{mailTime(m.at)}</time>
+                  </span>
+                  <span className="mc-item-subject">{m.subject || tr('underlag.mcNoSubject')}</span>
+                  <span className="mc-item-foot">
+                    {files.length > 0
+                      ? <span className="mc-item-files"><Paperclip size={12} /><span>{files.length === 1 ? files[0].inbox?.fileName : tr('underlag.mcFiles', { n: files.length })}</span></span>
+                      : <span className="mc-item-files"><FileText size={12} /><span>{tr('underlag.mcBodyOnly')}</span></span>}
+                    {todo > 0
+                      ? <span className="mc-pill is-todo">{tr('underlag.mcToBook', { n: todo })}</span>
+                      : <span className="mc-pill is-done"><Check size={11} /> {tr('underlag.mcHandled')}</span>}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+      {showReader && (
+        <section className="mc-reader" aria-label={tr('underlag.mcReader')}>
+          {!open ? (
+            <div className="mc-reader-empty">
+              <span className="ut-empty-ico"><MailOpen size={26} /></span>
+              <strong>{mails.length ? tr('underlag.mcPick') : tr('underlag.mcEmpty')}</strong>
+              {!mails.length && inboxAddress && <span>{tr('underlag.noMailText', { address: inboxAddress })}</span>}
+            </div>
+          ) : (
+            <>
+              <div className="mc-reader-bar">
+                {!wide && <button type="button" className="ut-back" onClick={() => setOpenId(null)}><ChevronLeft size={18} /> {tr('underlag.navMail')}</button>}
+                <span className="mc-reader-tools">
+                  {onMarkSeen && <button type="button" className="mc-icon" onClick={markUnread} title={tr('underlag.mcMarkUnread')} aria-label={tr('underlag.mcMarkUnread')}><Mail size={16} /></button>}
+                  {onTrash && open.items.some(isTodo) && <button type="button" className="mc-icon" onClick={trashMail} title={tr('ui.ta_bort')} aria-label={tr('ui.ta_bort')}><Trash2 size={16} /></button>}
+                </span>
+              </div>
+              <div className="mc-reader-scroll">
+                <h2 className="mc-subject">{open.subject || tr('underlag.mcNoSubject')}</h2>
+                <div className="mc-sender">
+                  <span className="mc-avatar" aria-hidden="true">{(open.name || open.from || '?').trim().charAt(0).toUpperCase()}</span>
+                  <span className="mc-sender-text">
+                    <b>{open.name || open.from}</b>
+                    <small>{open.name && open.from ? `${open.from} · ` : ''}{tr('underlag.mcTo', { address: inboxAddress || tr('underlag.mcInbox') })}</small>
+                  </span>
+                  <time className="mc-sender-time">{mailTime(open.at, true)}</time>
+                </div>
+                <div className="mc-atts" role="list">
+                  {open.items.map(r => {
+                    const s = statusOf(r);
+                    const step = stepOf && isTodo(r) ? stepOf(r) : null;
+                    const rs = readState(r, s, readingId);
+                    const amount = r.amount ? Math.abs(r.amount) : parseAmount(r.ocrDraft?.form?.amount);
+                    const kind = docKind(r);
+                    const body = isBodyPdf(r, open.subject);
+                    return (
+                      <div key={r.id} role="listitem" className={`mc-att${att?.id === r.id ? ' is-on' : ''}`} onClick={() => setAttId(r.id)}>
+                        <span className="mc-att-thumb"><ReceiptThumb receipt={r} /></span>
+                        <span className="mc-att-text">
+                          <b title={r.inbox?.fileName}>{body ? tr('underlag.mcBodyPdf') : (r.supplier || r.ocrDraft?.form?.supplier || r.inbox?.fileName || tr('underlag.unnamed'))}</b>
+                          <small>{[kind === 'invoice' ? tr('underlag.typeInvoice') : kind === 'receipt' ? tr('underlag.typeReceipt') : null, amount > 0 ? formatSEK(amount) : null, isTodo(r) ? rs.text : null].filter(Boolean).join(' · ') || r.inbox?.fileName}</small>
+                        </span>
+                        {step
+                          ? <button type="button" className="mc-att-btn" onClick={e => { e.stopPropagation(); onOpen(r.id, rows.map(x => x.id)); }}>{tr('underlag.openAndBook')} <ChevronRight size={15} /></button>
+                          : <span className="mc-pill is-done"><Check size={11} /> {STATUS_SINGULAR[s] || tr('underlag.mcHandled')}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+                {att && (
+                  <div className="mc-doc">
+                    <DocumentPane key={att.id} url={att.receiptUrl} type={att.receiptType} name={att.inbox?.fileName} expandable emptyText={tr('underlag.pvNoFile')} />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
+
 /** Förhandsvisning till höger i Underlag (2026-11-20): dokumentet med zoom,
  * de viktigaste uppgifterna och Öppna och bokför. Hela arbetsytan öppnas därifrån. */
 function UnderlagPreview({ receipt: r, step, onOpen, onClose, onTrash }) {
@@ -2955,7 +3191,7 @@ export default function Expenses({
         <input type="file" id="uw-upload" style={{ display: 'none' }} multiple accept={ACCEPT_ATTR} onChange={handleFileInput} />
         {/* Telefon: en flytande kameraknapp i stället för Ladda upp-knappen. */}
         <input type="file" id="uw-camera" style={{ display: 'none' }} accept="image/*" capture="environment" onChange={handleFileInput} />
-        {!wide && !detailReceipt && (uwView === 'underlag' || uwView === 'mail') && (
+        {!wide && !detailReceipt && uwView === 'underlag' && (
           <>
             {fabOpen && <div className="ut-fab-backdrop" onClick={() => setFabOpen(false)} />}
             {fabOpen && (
@@ -2985,13 +3221,28 @@ export default function Expenses({
               }}
             />
             <div className="ut-main">
-              {(uwView === 'underlag' || uwView === 'mail') && (
+              {uwView === 'mail' && (
+                <MailClient
+                  wide={wide}
+                  receipts={receiptsList}
+                  statusOf={(r) => getReceiptStatus(r, verIndex)}
+                  stepOf={(r) => underlagStep(r, expenses)}
+                  readingId={autoReading}
+                  onMarkSeen={onMarkSeen}
+                  onOpen={(id, ids) => { setNavIds(ids); setDetailReceiptId(id); }}
+                  onTrash={(id) => (onTrashExpense ? onTrashExpense(id) : onDeleteExpense?.(id))}
+                  onRefresh={async () => { window.dispatchEvent(new Event('bokix:inbox-pull')); await reloadInbox?.(); }}
+                  onSenders={() => setUwView('mailbox')}
+                  onMailIn={() => setMailInOpen(true)}
+                  inboxAddress={inboxInfo?.address}
+                />
+              )}
+              {uwView === 'underlag' && (
                 <div className={`ut-pv-wrap${previewReceipt ? ' on' : ''}`}>
                 <UnderlagTable
                   previewId={previewReceipt?.id || null}
                   onPreview={wide ? setPreviewId : undefined}
                   key={uwView}
-                  onlyEmail={uwView === 'mail'}
                   uploading={uploadingFiles}
                   receipts={receiptsList}
                   statusOf={(r) => getReceiptStatus(r, verIndex)}
