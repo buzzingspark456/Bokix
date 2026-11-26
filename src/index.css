@@ -11338,6 +11338,15 @@ html[data-theme='dark'] .emp-summary dl div.is-missing dd { color: #fb923c; }
 .ar-set-note strong { color: var(--text-main); }
 .ar-w-sup { width: 170px; }
 .ar-w-unit { width: 70px; }
+/* Bred skärm (admin): kolumnerna delar på luften i stället för att Benämning tar allt (2026-11-26). */
+@media (min-width: 1101px) {
+  html.ws-v2 .ar-table th.ar-num-col { width: 10%; }
+  html.ws-v2 .ar-table th.ar-w-sup { width: 16%; }
+  html.ws-v2 .ar-table th.ar-w-unit { width: 7%; }
+  html.ws-v2 .ar-table th.ar-w-price, html.ws-v2 .ar-table th.ar-w-cost, html.ws-v2 .ar-table th.ar-w-value { width: 12%; }
+  html.ws-v2 .ar-table th.ar-w-tg { width: 8%; }
+  html.ws-v2 .ar-table th.ar-w-stock { width: 10%; }
+}
 .ar-ellip { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ar--compact .ar-table td { padding-top: 7px; padding-bottom: 7px; }
 .ar--compact .ar-table .ar-name small { display: none; }
