@@ -2191,7 +2191,7 @@ function TrashView({ items, onRestore, onPurge }) {
 
 /** Underlag som tabell, som Fortnox (2026-11-18): kryssrutor, kolumner för
  * belopp, inkommet, avläsning, källa och avsändare. En rad öppnar underlaget. */
-function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readingId, onOpen, onPreview, previewId = null, onDeleteMany, onUpload, onMailIn, onSenders, onRefresh, inboxAddress, onlyEmail = false, uploading = [], std = false, settingsOpen: settingsOpenProp, onSettingsOpenChange }) {
+function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readingId, onOpen, onPreview, previewId = null, onDeleteMany, onUpload, onMailIn, onSenders, onRefresh, inboxAddress, onlyEmail = false, uploading = [], std = false, settingsOpen: settingsOpenProp, onSettingsOpenChange, pageWidth = null, onPageWidth = null }) {
   // Listans inställningar som i Artiklar (2026-11-25). std (2026-11-26): samma
   // sidhuvud och sökrad som de andra listsidorna; kugghjulet sitter då i
   // sidhuvudet och styr panelen här.
@@ -2345,7 +2345,7 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
       </div>
       </div>
       </>)}
-      <ListSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={lp} onChange={setLp} showWidth={false}
+      <ListSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} prefs={pageWidth ? { ...lp, width: pageWidth } : lp} onChange={(p) => { if (p.width && onPageWidth) onPageWidth(p.width); setLp(p); }} showWidth={Boolean(onPageWidth)}
         actions={[
           ...(onlyEmail ? [] : [{ key: 'upload', label: tr('underlag.uploadDocs'), icon: UploadCloud, onClick: onUpload }]),
           ...(onlyEmail && std ? [{ key: 'read', label: tr('underlag.markAllRead'), icon: MailOpen, onClick: () => onMarkSeen?.(unreadIds), disabled: !unreadIds.length }] : []),
@@ -2764,6 +2764,9 @@ export default function Expenses({
   const [navIds, setNavIds] = useState([]);
   const [mailInOpen, setMailInOpen] = useState(false);
   const [utSettingsOpen, setUtSettingsOpen] = useState(false);
+  // Smal eller Bred för hela Underlag (alla flikar), som på de andra sidorna.
+  const [utWidth, setUtWidthState] = useState(() => { try { return localStorage.getItem('bokix.underlag.width') === 'narrow' ? 'narrow' : 'wide'; } catch { return 'wide'; } });
+  const setUtWidth = (w) => { setUtWidthState(w); try { localStorage.setItem('bokix.underlag.width', w); } catch { /* privat läge */ } };
   const { info: inboxInfo, saveSenders, reload: reloadInbox } = useInboxAddress(newUnderlag ? companyId : null, { poll: mailboxOpen || uwView === 'mailbox' });
   // Den gamla listan finns kvar bakom "Visa som lista". Valet sparas i webbläsaren.
   const [listView, setListViewState] = useState(() => { try { return localStorage.getItem('bokix.underlagView') === 'list'; } catch { return false; } });
@@ -2945,7 +2948,7 @@ export default function Expenses({
           </>
         )}
         {!detailReceipt ? (
-          <div className="ut-std">
+          <div className={`ut-std${utWidth === 'narrow' ? ' lt-page-narrow' : ''}`}>
             {/* Samma sidhuvud som de andra listsidorna (2026-11-26): rubrik,
                 kugghjul, flikar och Ladda upp; ingen egen undermeny längre. */}
             {(() => {
@@ -2970,7 +2973,7 @@ export default function Expenses({
               );
             })()}
             {!(uwView === 'underlag' || uwView === 'mail') && (
-              <ListSettings open={utSettingsOpen} onClose={() => setUtSettingsOpen(false)} prefs={{ cols: {}, density: 'normal', width: 'wide', pageSize: 50 }} onChange={() => {}} listOptions={false}
+              <ListSettings open={utSettingsOpen} onClose={() => setUtSettingsOpen(false)} prefs={{ cols: {}, density: 'normal', width: utWidth, pageSize: 50 }} onChange={(p) => { if (p.width) setUtWidth(p.width); }} showPerPage={false}
                 actions={[
                   { key: 'upload', label: tr('underlag.uploadDocs'), icon: UploadCloud, onClick: () => document.getElementById('uw-upload').click() },
                   { key: 'mailin', label: tr('underlag.mailIn'), icon: Mail, onClick: () => setMailInOpen(true) },
@@ -3001,6 +3004,8 @@ export default function Expenses({
                   std
                   settingsOpen={utSettingsOpen}
                   onSettingsOpenChange={setUtSettingsOpen}
+                  pageWidth={utWidth}
+                  onPageWidth={setUtWidth}
                 />
                 {previewReceipt && (
                   <UnderlagPreview

@@ -11571,3 +11571,6 @@ html.ws-v2 .lfb .rc-segmented button { border-radius: 999px !important; }
 .ut--std .ut-table-wrap { border: none; border-radius: 0; flex: 1 1 auto; }
 .ut-std-main > :not(.ut-pv-wrap) { padding: 16px 20px; }
 .ut-std-main > :not(.ut-pv-wrap) .ut-head h1 { display: none; }
+/* Underlag i Smal: innehållet i en centrerad kolumn med kant på sidorna, som Order. */
+.ut-std.lt-page-narrow > .ut-std-main { border-left: 1px solid var(--border); border-right: 1px solid var(--border); background: var(--bg-card); }
+@media (max-width: 760px) { .ut-std.lt-page-narrow > .ut-std-main { border-left: none; border-right: none; } }
