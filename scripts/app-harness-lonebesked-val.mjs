@@ -45,7 +45,8 @@ const saved = () => server.row.state.companies[id];
 
 const page = await ctx.newPage();
 const errors = [];
-page.on('pageerror', e => errors.push(String(e).slice(0, 300)));
+page.on('pageerror', e => { errors.push(String(e).slice(0, 300)); console.log('SIDFEL', String(e).slice(0, 300)); });
+page.on('console', m => { if (m.type() === 'error') console.log('KONSOL', m.text().slice(0, 300)); });
 await page.addInitScript(([key, val]) => { sessionStorage.setItem(key, val); localStorage.setItem('bokix_tour_done_v3_11111111-1111-4111-8111-111111111111', '1'); }, [`sb-${REF}-auth-token`, JSON.stringify(session)]);
 const reply = (route, data, wantsObject) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(wantsObject ? data : (data == null ? [] : Array.isArray(data) ? data : [data])) });
 await page.route(`${SUPA}/**`, async (route) => {
@@ -114,11 +115,47 @@ await page.waitForTimeout(300);
 
 // Ny lönekörning genom stegen till Lönebesked.
 await click(/Ny lönekörning/);
+await shot('ny-korning');
 await click(/Skapa lönekörning/);
+// Välj vilka som får lön (som Fortnox): timanställda börjar utanför.
+check(await heading() === 'Lön och timmar', 'Lön och timmar visas');
+const runRows = () => saved().payrollRuns?.[0]?.rows?.map(r => r.employeeSnapshot.firstName) || [];
+// Sparningen sker med fördröjning: vänta tills villkoret stämmer (högst 8 s).
+const until = async (fn) => { for (let i = 0; i < 40; i++) { try { if (fn()) return true; } catch { /* inte sparat än */ } await page.waitForTimeout(200); } return false; };
+check(await until(() => runRows().length === 6) && !runRows().some(n => ['Greta', 'Hugo', 'Ida'].includes(n)), 'sex med från början, timanställda utanför: ' + JSON.stringify(runRows()));
+check(await page.locator('.pr-parked').count() === 3, 'tre rader utanför körningen');
+check(/6 av 9/.test(await page.locator('.pr-pick-note').innerText()), 'texten säger 6 av 9');
+await shot('lon-och-timmar-fore');
+// Greta får tio timmar direkt i sin rad och tas med.
+const greta = page.locator('.pr-parked', { hasText: 'Greta' });
+await greta.locator('.pr-parked-hours input').fill('10');
+await greta.locator('.pr-parked-hours input').press('Enter');
+await page.waitForTimeout(700);
+check(await until(() => runRows().includes('Greta')) && saved().payrollRuns[0].rows.find(r => r.employeeSnapshot.firstName === 'Greta').hoursWorked === '10', 'Greta med i körningen med 10 timmar');
+check(runRows().indexOf('Greta') === 6, 'Greta hamnar i rätt ordning (efter de sex månadsanställda)');
+// Fredrik kryssas ur.
+await page.locator('.payroll-emp-head', { hasText: 'Fredrik' }).locator('.pr-include input').click();
+await page.waitForTimeout(700);
+check(await until(() => !runRows().includes('Fredrik')) && (saved().payrollRuns[0].parkedRows || []).some(r => r.employeeSnapshot.firstName === 'Fredrik'), 'Fredrik ur körningen, sparad som åtsidosatt');
+// Kryssa i Fredrik igen och ur igen: raden kommer tillbaka.
+await page.locator('.pr-parked', { hasText: 'Fredrik' }).locator('.pr-include input').click();
+await page.waitForTimeout(500);
+check(await until(() => runRows().indexOf('Fredrik') === 5), 'Fredrik tillbaka på sin plats');
+await page.locator('.payroll-emp-head', { hasText: 'Fredrik' }).locator('.pr-include input').click();
+await page.waitForTimeout(500);
+check(/6 av 9/.test(await page.locator('.pr-pick-note').innerText()), 'texten säger 6 av 9 efter ändringarna');
+await shot('lon-och-timmar-efter');
 for (let i = 0; i < 6; i++) {
   const h = await heading();
   if (h === 'Lön och timmar') await click(/Beräkna lönerna/);
-  else if (h === 'Granska') await click(/Godkänn lönerna/);
+  else if (h === 'Granska') {
+    check(await page.locator('.pr-review .pr-sum').count() === 1, 'Granska har summeringen bredvid tabellen');
+    const sum = await page.locator('.pr-sum-box').innerText();
+    check(/Antal anställda\s+6 st/.test(sum) && /Total kostnad/.test(sum), 'summeringen: 6 st och total kostnad');
+    check(await page.locator('.pr-review table tbody tr').count() === 6, 'tabellen har sex rader');
+    await shot('granska');
+    await click(/Godkänn lönerna/);
+  }
   else if (h === 'Betala') await click(/^Markera som betald$/);
   else break;
   // Admin får en bekräftelse på vissa steg.
@@ -127,20 +164,20 @@ for (let i = 0; i < 6; i++) {
 }
 check(await heading() === 'Lönebesked', 'kom fram till Lönebesked');
 const names = await page.locator('.ps-pick li .ps-pick-name').allInnerTexts();
-check(names.length === 5, `fem i mejllistan (sex med lön, en saknar e-post): ${JSON.stringify(names)}`);
-check(!names.some(n => /Tim/.test(n)), 'ingen av timanställda utan timmar i listan');
-check(await page.locator('.ps-pick li input:checked').count() === 5, 'alla fem ikryssade från början');
+check(names.length === 6 && names.includes('Greta Tim') && !names.includes('Fredrik Månad'), `sex i mejllistan (Greta med, Fredrik inte): ${JSON.stringify(names)}`);
+check(!names.some(n => /Hugo|Ida/.test(n)), 'Hugo och Ida (inga timmar) inte i listan');
+check(await page.locator('.ps-pick li input:checked').count() === 6, 'alla sex ikryssade från början');
 const intro = await page.locator('.pr-panel p').first().innerText();
 check(/^6 anställda/.test(intro), 'texten säger 6 anställda: ' + intro);
 await shot('lonebesked-panel', page.locator('.ps-pick').locator('..'));
 // Kryssa ur en, knappen ska säga 4.
 await page.locator('.ps-pick li input').nth(1).uncheck();
 const btn = page.getByRole('button', { name: /Mejla till valda/ });
-check(/\(4\)/.test(await btn.innerText()), 'knappen visar 4 efter urkryss: ' + await btn.innerText());
+check(/\(5\)/.test(await btn.innerText()), 'knappen visar 5 efter urkryss: ' + await btn.innerText());
 check(await page.locator('.ps-pick-all input').evaluate(el => el.indeterminate), 'Välj alla visar delvis vald');
 // Välj alla och sedan ingen.
 await page.locator('.ps-pick-all input').click();
-check(/\(5\)/.test(await btn.innerText()), 'Välj alla ger 5');
+check(/\(6\)/.test(await btn.innerText()), 'Välj alla ger 6');
 await page.locator('.ps-pick-all input').click();
 check(await btn.isDisabled(), 'ingen vald: knappen avstängd');
 // Välj två och skicka.
@@ -160,7 +197,7 @@ await page.waitForTimeout(1500);
 const sentNames = (runNow?.rows || []).filter(r => r.payslipSentAt).map(r => r.employeeSnapshot.firstName);
 console.log('Markerade som skickade:', JSON.stringify(sentNames));
 // Efter utskicket: förvalt är de tre som inte fått något.
-check(await page.locator('.ps-pick li input:checked').count() === 3, 'efter utskick är de tre som inte fått förvalda');
+check(await page.locator('.ps-pick li input:checked').count() === 4, 'efter utskick är de fyra som inte fått förvalda');
 check(await page.locator('.ps-pick-status.is-sent').count() === 2, 'två visar Mejlat');
 await shot('lonebesked-efter', page.locator('.ps-pick').locator('..'));
 console.log(errors.length ? 'Sidfel: ' + JSON.stringify(errors) : 'Inga sidfel');

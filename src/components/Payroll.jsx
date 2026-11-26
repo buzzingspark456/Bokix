@@ -24,7 +24,7 @@ const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: 
 
 export default function Payroll({
   company, employees = [], onSaveEmployee, onImportEmployees, onApplyFos, onSyncBeforeServerCall, accounts = [], projects = [],
-  payrollRuns = [], onCreateRun, onUpdateRunRow, onUpdateRun, onAdvanceRunStep, onBookRun, onMarkRunPaid, onDeleteRun, onRefreshRunSnapshots, agiReports = [],
+  payrollRuns = [], onCreateRun, onUpdateRunRow, onUpdateRun, onSetRunIncluded, onAdvanceRunStep, onBookRun, onMarkRunPaid, onDeleteRun, onRefreshRunSnapshots, agiReports = [],
   outlays = [],
 }) {
   const [activeTab, setActiveTab] = useState(() => (employees.length > 0 ? 'runs' : 'employees'));
@@ -123,7 +123,7 @@ export default function Payroll({
 
   const handleCreateRun = () => {
     if (activeEmployeesForPeriod.length === 0) return; // extra skydd, knappen är redan spärrad
-    const runId = onCreateRun({ period: newRunPeriod, payDate: newRunPayDate, employees: activeEmployeesForPeriod });
+    const runId = onCreateRun({ period: newRunPeriod, payDate: newRunPayDate, employees: activeEmployeesForPeriod, parkHourly: Boolean(onSetRunIncluded) });
     setShowNewRun(false);
     setSelectedRunId(runId);
   };
@@ -150,6 +150,8 @@ export default function Payroll({
         onDelete={onDeleteRun ? async () => { if (await onDeleteRun(selectedRun.id)) setSelectedRunId(null); } : undefined}
         onUpdateRow={(employeeId, patch) => onUpdateRunRow(selectedRun.id, employeeId, patch)}
         onUpdateRun={(patch) => onUpdateRun?.(selectedRun.id, patch)}
+        employees={employees}
+        onSetIncluded={onSetRunIncluded ? (emp, included, opts = {}) => onSetRunIncluded(selectedRun.id, emp, included, { ...opts, orderIds: employees.map(e => e.id) }) : undefined}
         onRefreshSnapshots={() => onRefreshRunSnapshots?.(selectedRun.id, employees)}
         onOpenEmployee={(id) => { const emp = employees.find(e => e.id === id); if (!emp) return; setReturnRunId(selectedRun.id); setSelectedRunId(null); setActiveTab('employees'); setSelectedEmployee(emp); setViewState('edit'); }}
       />
@@ -408,6 +410,9 @@ export default function Payroll({
                 <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden', marginBottom: '14px' }}>
                   <div style={{ padding: '10px 14px', background: 'var(--bg-muted)', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
                     {t('ui.kommer_att_inkluderas_i_denna_korning', { length: activeEmployeesForPeriod.length, v1: activeEmployeesForPeriod.length === 1 ? 'anställd' : 'anställda' })}
+                    {onSetRunIncluded && activeEmployeesForPeriod.some(e => e.salaryForm === 'timlon') && (
+                      <div style={{ fontWeight: 500, marginTop: '3px' }}>{t('payrollPick.newRunHint')}</div>
+                    )}
                   </div>
                   {activeEmployeesForPeriod.map(e => {
                     const hourly = e.salaryForm === 'timlon';

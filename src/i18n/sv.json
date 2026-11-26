@@ -4876,6 +4876,22 @@
     "noTaxTable": "saknar skattetabell",
     "createRun": "Skapa lönekörning"
   },
+  "payrollPick": {
+    "newRunHint": "Timanställda är med när du fyller i deras timmar i nästa steg.",
+    "note": "{{n}} av {{total}} får lön den här månaden.",
+    "noteOutside": "Kryssa i den som ska få lön, eller fyll i timmar så tas personen med.",
+    "remove": "Ta bort ur körningen",
+    "add": "Ta med i körningen",
+    "includeName": "Med i körningen: {{name}}",
+    "notIncluded": "Inte med den här månaden",
+    "hourlyMeta": "Timlön {{rate}} kr/tim",
+    "enterHours": "Ange timmar",
+    "hoursFor": "Timmar för {{name}}",
+    "summary": "Summering",
+    "employees": "Antal anställda",
+    "pcs": "st",
+    "afterBook": "När lönen är godkänd betalar du nettolönen från banken. Lönebesked, bokföring och AGI gör Bokix i stegen efter."
+  },
   "payslips": {
     "title": "Lönebesked",
     "intro": "{{n}} anställda i körningen, {{withEmail}} med e-postadress. {{sent}} har fått sitt lönebesked mejlat.",

@@ -9926,6 +9926,31 @@ img.hc-player { object-fit: cover; }
 .uw-paidby-note { font-size: 12px; font-weight: 400; color: var(--text-muted); }
 .pr-outlays { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding: 10px 12px; border-radius: 10px; background: var(--status-amber-bg, #fdf3d7); color: var(--status-amber-text, #8a5a00); font-size: 13px; font-weight: 600; }
 .pr-outlays button { flex-shrink: 0; padding: 6px 12px; border: none; border-radius: 999px; background: var(--text-main); color: var(--bg-card); font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+/* Lönekörning: välj vilka som får lön, och summeringen i Granska (2026-11-26, nya lönevyn). */
+.pr-include { display: flex; align-items: center; flex-shrink: 0; cursor: pointer; }
+.pr-include input { width: 17px; height: 17px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.pr-pick-note { margin: -4px 0 12px; font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; }
+.pr-parked { display: flex; align-items: center; gap: 12px; padding: 14px 24px; border-bottom: 1px solid var(--border-light); background: var(--bg-card); }
+.pr-parked-body { flex: 1; min-width: 0; }
+.pr-parked-name { font-size: 14.5px; font-weight: 700; color: var(--text-secondary); }
+.pr-parked-meta { font-size: 12.5px; color: var(--text-muted); margin-top: 3px; }
+.pr-parked-amount { font-size: 14px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pr-parked-hours { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-secondary); }
+.pr-parked-hours input { width: 110px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; text-align: right; background: var(--bg-card); color: var(--text-main); font-family: inherit; }
+.pr-review { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; margin-top: 16px; }
+.payroll-stage-body .pr-review > .pr-panel { margin-bottom: 0 !important; margin-right: 0 !important; border-right: 1px solid var(--border-light) !important; }
+.pr-review .pr-sum { padding-top: 4px; }
+.pr-sum h3 { margin: 0 0 10px; font-size: 15px; font-weight: 700; color: var(--text-main); }
+.pr-sum-box { border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; background: var(--bg-card); }
+.pr-sum-line { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 13.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.pr-sum-line span:last-child { color: var(--text-main); white-space: nowrap; }
+.pr-sum-line.is-strong, .pr-sum-line.is-strong span:last-child { font-weight: 700; color: var(--text-main); }
+.pr-sum-box hr { border: none; border-top: 1px solid var(--border-light); margin: 8px 0; }
+.pr-sum p { margin: 10px 2px 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; }
+@media (max-width: 900px) {
+  .pr-review { grid-template-columns: minmax(0, 1fr); }
+  .pr-parked { padding: 12px 16px; }
+}
 /* Lönebesked: vilka som får mejlet (2026-11-26). */
 .ps-pick { margin: 0 0 14px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .ps-pick label { display: flex; align-items: center; gap: 10px; padding: 9px 14px; cursor: pointer; font-size: 13.5px; color: var(--text-main); }

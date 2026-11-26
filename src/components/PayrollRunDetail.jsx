@@ -309,7 +309,7 @@ function PayLinesEditor({ row, computed, onUpdateRow, locked, pendingOutlays = [
     </div>
   );
 }
-function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, flat = false, defaultOpen = false, vacationLeft = null, pendingOutlays = [] }) {
+function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, flat = false, defaultOpen = false, vacationLeft = null, pendingOutlays = [], onToggleIncluded = null }) {
   const [expanded, setExpanded] = useState(defaultOpen);
   const isZero = computed.gross === 0 && computed.net === 0 && computed.tax === 0;
   const diff = previousComputed ? computed.net - previousComputed.net : null;
@@ -323,6 +323,11 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, fla
         onMouseEnter={e => { if (flat) e.currentTarget.style.background = 'var(--bg-muted)'; else e.currentTarget.parentElement.style.boxShadow = 'var(--shadow-sm)'; }}
         onMouseLeave={e => { if (flat) e.currentTarget.style.background = ''; else e.currentTarget.parentElement.style.boxShadow = panelCard.boxShadow; }}
       >
+        {onToggleIncluded && (
+          <label className="pr-include" onClick={e => e.stopPropagation()} title={tr('payrollPick.remove')}>
+            <input type="checkbox" checked onChange={onToggleIncluded} aria-label={tr('payrollPick.includeName', { name: `${row.employeeSnapshot.firstName} ${row.employeeSnapshot.lastName}` })} />
+          </label>
+        )}
         {/* flex:1 + minWidth:0 (mobil): utan detta orsakade den langa
             "Skatt X kr · Netto Y kr..."-sammanfattningsraden nedan sidledes
             overflow istallet for att helt enkelt radbryta inom raden. */}
@@ -404,6 +409,65 @@ function EmployeeRow({ row, computed, previousComputed, onUpdateRow, locked, fla
         </div>
       )}
     </div>
+  );
+}
+
+// En anställd som inte är med i körningen (nya lönevyn, som Fortnox): tom
+// kryssruta. En timanställd kan få timmar direkt här, då tas hen med.
+// Timmarna sparas när fältet lämnas eller med Enter, inte per tangent, så
+// att raden inte byts ut mitt i skrivandet.
+function ParkedEmployeeRow({ employee, onInclude }) {
+  const [hours, setHours] = useState('');
+  const isHourly = employee.salaryForm === 'timlon';
+  const name = `${employee.firstName || ''} ${employee.lastName || ''}`.trim();
+  const commit = () => { const h = Number(String(hours).replace(',', '.')); if (h > 0) onInclude({ hoursWorked: String(h) }); };
+  return (
+    <div className="pr-parked">
+      <label className="pr-include" title={tr('payrollPick.add')}>
+        <input type="checkbox" checked={false} onChange={() => onInclude({})} aria-label={tr('payrollPick.includeName', { name })} />
+      </label>
+      <div className="pr-parked-body">
+        <div className="pr-parked-name">{name}</div>
+        <div className="pr-parked-meta">{isHourly ? tr('payrollPick.hourlyMeta', { rate: fmt(employee.hourlyRate) }) : tr('payrollPick.notIncluded')}</div>
+      </div>
+      {isHourly ? (
+        <label className="pr-parked-hours">
+          <input
+            type="number" min="0" step="0.5" inputMode="decimal" placeholder={tr('payrollPick.enterHours')} value={hours}
+            onChange={e => setHours(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); }}
+            aria-label={tr('payrollPick.hoursFor', { name })}
+          />
+          {tr('payrollUi.hoursShort')}
+        </label>
+      ) : (
+        <span className="pr-parked-amount">{fmt(employee.monthlySalary)} {tr('ui.kr')}</span>
+      )}
+    </div>
+  );
+}
+
+// Summeringen bredvid tabellen i Granska (nya lönevyn, som Fortnox): allt en
+// ägare vill veta före godkännandet, med total kostnad framhävd.
+function RunSummaryAside({ totals, count }) {
+  const fees = totals.employerFee + totals.vacationFee - (totals.vacationUsedFee || 0);
+  const line = (label, value, strong) => (
+    <div className={`pr-sum-line${strong ? ' is-strong' : ''}`}><span>{label}</span><span>{fmt(value)} {tr('ui.kr')}</span></div>
+  );
+  return (
+    <aside className="pr-sum">
+      <h3>{tr('payrollPick.summary')}</h3>
+      <div className="pr-sum-box">
+        <div className="pr-sum-line"><span>{tr('payrollPick.employees')}</span><span>{count} {tr('payrollPick.pcs')}</span></div>
+        {line(tr('payrollStages.gross'), totals.gross)}
+        <hr />
+        {line(tr('ui.skatt'), totals.tax)}
+        {line(tr('ui.avgifter'), fees)}
+        <hr />
+        {line(tr('ui.total_kostnad'), totals.totalCost, true)}
+        {line(tr('payrollStages.net'), totals.net, true)}
+      </div>
+      <p>{tr('payrollPick.afterBook')}</p>
+    </aside>
   );
 }
 
@@ -597,7 +661,7 @@ export function VerificationBlock({ title, rows, accounts }) {
   );
 }
 
-export default function PayrollRunDetail({ run, previousRun, allRuns = [], outlays = [], onSyncBeforeServerCall, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onDelete, onUpdateRow, onUpdateRun, onRefreshSnapshots, onOpenEmployee }) {
+export default function PayrollRunDetail({ run, previousRun, allRuns = [], outlays = [], onSyncBeforeServerCall, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onDelete, onUpdateRow, onUpdateRun, onRefreshSnapshots, onOpenEmployee, employees = [], onSetIncluded }) {
   const isPhone = useIsMobileViewport();
   // Fakturans logga på lönebeskeden, hämtad en gång som PNG.
   const [payslipLogo, setPayslipLogo] = useState(null);
@@ -791,6 +855,21 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
   // ändras i efterhand.
   const missingTaxTable = run.rows.filter(r => !r.employeeSnapshot?.secondaryIncome && !r.employeeSnapshot?.taxTable?.tabellnr);
   const isDraftRun = !run.completedSteps.includes('calculated');
+  // Välj vilka som får lön (nya lönevyn, som Fortnox). Går att ändra tills
+  // lönen är betald eller bokförd. Ordningen följer listan med anställda.
+  const canPick = Boolean(onSetIncluded) && !run.completedSteps.includes('paid') && !run.completedSteps.includes('booked');
+  const pickList = useMemo(() => {
+    if (!canPick) return null;
+    const inRun = new Map(run.rows.map(r => [r.employeeId, r]));
+    const start = `${run.period}-01`;
+    const end = `${run.period}-31`;
+    const order = employees.filter(e => inRun.has(e.id) || ((!e.endDate || e.endDate >= start) && (!e.startDate || e.startDate <= end)));
+    const items = order.map(e => (inRun.has(e.id) ? { id: e.id, inRun: true } : { id: e.id, inRun: false, employee: e }));
+    // Rader vars anställda inte finns i listan längre ligger kvar sist.
+    run.rows.forEach(r => { if (!order.some(e => e.id === r.employeeId)) items.push({ id: r.employeeId, inRun: true }); });
+    return items;
+  }, [canPick, run.rows, run.period, employees]);
+  const outsideCount = pickList ? pickList.filter(i => !i.inRun).length : 0;
 
   const period = run.period;
   const verBlocks = useMemo(() => {
@@ -943,7 +1022,7 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
         </div>
       )}
 
-      {(stage === 'calculated' || stage === 'approved' || stage === 'done') && <SummaryCards totals={totals} flat />}
+      {(stage === 'calculated' || (stage === 'approved' && !onSetIncluded) || stage === 'done') && <SummaryCards totals={totals} flat />}
       {stage === 'calculated' && (<>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', margin: '22px 0 12px' }}>
         <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>{tr('ui.anstallda_i_korningen')}</h3>
@@ -966,8 +1045,33 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
           )}
         </div>
       )}
+      {pickList && (
+        <div className="pr-pick-note">
+          {tr('payrollPick.note', { n: run.rows.length, total: pickList.length })}
+          {outsideCount > 0 && ` ${tr('payrollPick.noteOutside')}`}
+        </div>
+      )}
       <div style={{ margin: '0 -24px -18px', borderTop: '1px solid var(--border-light)' }}>
-      {computedRows.map(({ row, computed }) => (
+      {pickList ? pickList.map(item => {
+        if (!item.inRun) {
+          return <ParkedEmployeeRow key={item.id} employee={item.employee} onInclude={(patch) => onSetIncluded(item.employee, true, { patch })} />;
+        }
+        const cr = computedRows.find(r => r.row.employeeId === item.id);
+        if (!cr) return null;
+        const { row, computed } = cr;
+        const emp = employees.find(e => e.id === row.employeeId) || { id: row.employeeId };
+        return (
+          <EmployeeRow flat defaultOpen={isPhone ? computed.gross === 0 : (computedRows.length <= 5 || computed.gross === 0)}
+            vacationLeft={vacationLeftById[row.employeeId]}
+            pendingOutlays={pendingOutlays}
+            key={row.employeeId} row={row} computed={computed}
+            previousComputed={previousComputedByEmployee[row.employeeId]}
+            accounts={accounts} onUpdateRow={onUpdateRow}
+            locked={run.completedSteps.includes('booked')}
+            onToggleIncluded={() => onSetIncluded(emp, false)}
+          />
+        );
+      }) : computedRows.map(({ row, computed }) => (
         // Telefon: ihopfällda utom de som saknar lön, så stegknappen inte
         // hamnar under alla uträkningar (2026-11-06).
         <EmployeeRow flat defaultOpen={isPhone ? computed.gross === 0 : (computedRows.length <= 5 || computed.gross === 0)}
@@ -983,7 +1087,13 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
       </>)}
       </div>
       <div className="payroll-stage-body" style={{ padding: stage === 'calculated' ? 0 : '4px 24px 20px', flex: 1, background: 'var(--bg-card)' }}>
-      {(stage === 'approved' || stage === 'done') && (
+      {stage === 'approved' && onSetIncluded && (
+        <div className="pr-review">
+          <EmployeeSummaryTable computedRows={computedRows} />
+          <RunSummaryAside totals={totals} count={computedRows.length} />
+        </div>
+      )}
+      {(stage === 'done' || (stage === 'approved' && !onSetIncluded)) && (
         <EmployeeSummaryTable computedRows={computedRows} onDownload={stage === 'done' ? (r) => generatePayslipPdf(payslipArgs(r)).save(`lonebesked-${r.row.employeeSnapshot.lastName}-${run.period}.pdf`) : null} />
       )}
 
