@@ -11556,3 +11556,18 @@ html.ws-v2 .lfb .rc-segmented button { border-radius: 999px !important; }
 .ar-set-overlay { background: rgba(15, 23, 42, .10) !important; max-width: none !important; margin: 0 !important; width: auto !important; }
 :root[data-theme="dark"] .ar-set-overlay { background: rgba(0, 0, 0, .28) !important; }
 .ar-set { box-shadow: -12px 0 40px rgba(0,0,0,.14); }
+
+/* Underlag som de andra listsidorna (2026-11-26): vanligt sidhuvud, sökrad på bandet, tabellen direkt under. */
+.ut-std { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--bg-page); }
+.ut-std-main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.ut-std-main > .ut-pv-wrap { flex: 1 1 auto; min-height: 0; }
+.ut.ut--std { padding: 0 !important; gap: 0; max-width: none !important; margin: 0 !important; }
+.ut--std .ut-std-bar { order: -10; }
+.ut--std .ut-count { order: -9; }
+.ut-wrap:has(.ut-std) { overflow: visible; }
+.ut--std .ut-std-bar { padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--bg-card); flex-shrink: 0; }
+.ut--std .ut-std-bar .ut-toggle { flex-shrink: 0; font-size: 12.5px; }
+.ut--std .ut-count { margin: 0; padding: 6px 20px; background: var(--bg-card); border-bottom: 1px solid var(--border-light, var(--border)); }
+.ut--std .ut-table-wrap { border: none; border-radius: 0; flex: 1 1 auto; }
+.ut-std-main > :not(.ut-pv-wrap) { padding: 16px 20px; }
+.ut-std-main > :not(.ut-pv-wrap) .ut-head h1 { display: none; }

@@ -1513,8 +1513,10 @@ function App() {
   }, [location.pathname]);
 
   const [user, setUser] = useState(null);
-  // Underlag fäller ihop huvudmenyn (se autoRail ovan).
-  const wantAutoRail = isNewUnderlagUser(user?.email) && activeTab === 'expenses';
+  // Underlag fällde förut ihop huvudmenyn av sig själv. Avstängt 2026-11-26
+  // (grundaren): menyn är som på alla andra sidor och fälls bara ihop med
+  // Fäll ihop menyn.
+  const wantAutoRail = false;
   useEffect(() => { setAutoRail(wantAutoRail); }, [wantAutoRail]);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
