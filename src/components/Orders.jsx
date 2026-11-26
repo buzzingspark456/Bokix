@@ -46,7 +46,7 @@ const TONE_PILL = {
   toInvoice: { background: STRONG_UNPAID.bg, color: STRONG_UNPAID.text },
   invoiced: { background: STRONG_PAID.bg, color: STRONG_PAID.text },
   cancelled: { background: STRONG_DRAFT.bg, color: STRONG_DRAFT.text, border: STRONG_DRAFT.border },
-  open: { background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border)' },
+  open: { background: 'var(--status-blue-bg)', color: 'var(--status-blue-text)' },
 };
 const tonePillLabel = (tone, st) => (tone === 'open' ? t(`so.status_${st}`) : t(`soTone.pill_${tone}`));
 
@@ -255,7 +255,7 @@ export default function Orders({ activeCompanyId, onSyncBeforeServerCall, compan
                     <thead>
                       <tr>
                         {lp.cols.number && <th className="po-w-nr">{t('so.colNumber')}</th>}
-                        <th>{t('so.colCustomer')}</th>
+                        <th className="po-w-customer">{t('so.colCustomer')}</th>
                         {lp.cols.date && <th className="po-w-date ar-hide-md">{t('so.colDate')}</th>}
                         {lp.cols.delivery && <th className="po-w-date">{t('so.colDelivery')}</th>}
                         {lp.cols.delivered && <th className="po-w-prog ar-hide-md">{t('so.colDelivered')}</th>}

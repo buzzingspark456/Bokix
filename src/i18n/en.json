@@ -4904,7 +4904,7 @@
     "copy": "Copy order"
   },
   "payrollPick": {
-    "newRunHint": "Hourly employees are added when you enter their hours in the next step.",
+    "newRunHint": "The {{n}} hourly employees are added when you enter their hours in the next step.",
     "note": "{{n}} of {{total}} are paid this month.",
     "noteOutside": "Tick the people who should be paid, or enter hours and they are added.",
     "remove": "Remove from the run",

@@ -4904,7 +4904,7 @@
     "copy": "Kopiera order"
   },
   "payrollPick": {
-    "newRunHint": "Timanställda är med när du fyller i deras timmar i nästa steg.",
+    "newRunHint": "De {{n}} timanställda är med när du fyller i deras timmar i nästa steg.",
     "note": "{{n}} av {{total}} får lön den här månaden.",
     "noteOutside": "Kryssa i den som ska få lön, eller fyll i timmar så tas personen med.",
     "remove": "Ta bort ur körningen",

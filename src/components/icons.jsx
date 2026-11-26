@@ -37,6 +37,7 @@ import {
   MdOutlineVideocam, MdOutlineViewColumn, MdOutlineVisibility, MdOutlineVisibilityOff,
   MdOutlineVpnKey, MdOutlineWarningAmber, MdOutlineWorkOutline, MdOutlineZoomIn,
   MdOutlineZoomOut, MdOutlineCrop,
+  MdFilterList,
 } from 'react-icons/md';
 
 // Appens ikoner: Googles Material Icons (outlined), via react-icons/md, med
@@ -181,6 +182,8 @@ export const ShieldAlert = make(MdOutlineGppMaybe, 'ShieldAlert');
 export const ShieldCheck = make(MdOutlineVerifiedUser, 'ShieldCheck');
 export const ShieldOff = make(MdOutlineRemoveModerator, 'ShieldOff');
 export const SlidersHorizontal = make(MdOutlineTune, 'SlidersHorizontal');
+// Filterknappen i listornas sökrad: egen symbol, så den inte förväxlas med kugghjulet (inställningar).
+export const FilterList = make(MdFilterList, 'FilterList');
 export const Sparkles = make(MdOutlineAutoAwesome, 'Sparkles');
 export const Sun = make(MdOutlineLightMode, 'Sun');
 export const Table2 = make(MdOutlineTableChart, 'Table2');

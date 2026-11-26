@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
-import { Search, RefreshCw, SlidersHorizontal, Plus, MoreHorizontal, PlayCircle, Settings2 } from '../icons';
+import { Search, RefreshCw, Plus, MoreHorizontal, PlayCircle, Settings2, FilterList } from '../icons';
 import { isAdminPreview } from '../../utils/adminPreview';
 import { GuideContext } from './GuideContext';
 import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
@@ -356,7 +356,7 @@ export function ListFilterBar({ children, onClear, count, countLabel, pageSize, 
         <div className="lfb-primary">{first}</div>
         {hasMore && (
           <button type="button" className={'lfb-toggle' + (rest.length === 0 && !onClear ? ' lfb-toggle--phone-only' : '')} onClick={() => setOpen(o => !o)} aria-expanded={open}>
-            <SlidersHorizontal size={16} />
+            <FilterList size={16} />
             {t('shared.filterBar.filter')}
             {activeFilters > 0 && <span className="lfb-toggle-badge">{activeFilters}</span>}
           </button>

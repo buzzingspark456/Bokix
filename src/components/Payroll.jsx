@@ -415,9 +415,9 @@ export default function Payroll({
               ) : (
                 <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden', marginBottom: '14px' }}>
                   <div style={{ padding: '10px 14px', background: 'var(--bg-muted)', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                    {t('ui.kommer_att_inkluderas_i_denna_korning', { length: activeEmployeesForPeriod.length, v1: activeEmployeesForPeriod.length === 1 ? 'anställd' : 'anställda' })}
+                    {(() => { const n = onSetRunIncluded ? activeEmployeesForPeriod.filter(e => e.salaryForm !== 'timlon').length : activeEmployeesForPeriod.length; return t('ui.kommer_att_inkluderas_i_denna_korning', { length: n, v1: n === 1 ? 'anställd' : 'anställda' }); })()}
                     {onSetRunIncluded && activeEmployeesForPeriod.some(e => e.salaryForm === 'timlon') && (
-                      <div style={{ fontWeight: 500, marginTop: '3px' }}>{t('payrollPick.newRunHint')}</div>
+                      <div style={{ fontWeight: 500, marginTop: '3px' }}>{t('payrollPick.newRunHint', { n: activeEmployeesForPeriod.filter(e => e.salaryForm === 'timlon').length })}</div>
                     )}
                   </div>
                   {activeEmployeesForPeriod.map(e => {
