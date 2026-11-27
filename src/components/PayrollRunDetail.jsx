@@ -661,7 +661,7 @@ export function VerificationBlock({ title, rows, accounts }) {
   );
 }
 
-export default function PayrollRunDetail({ run, previousRun, allRuns = [], outlays = [], onSyncBeforeServerCall, accounts, company, onBack, onAdvanceStep, onBookRun, onMarkPaid, onDelete, onUpdateRow, onUpdateRun, onRefreshSnapshots, onOpenEmployee, employees = [], onSetIncluded }) {
+export default function PayrollRunDetail({ run, previousRun, allRuns = [], outlays = [], onSyncBeforeServerCall, accounts, company, companyId, onBack, onAdvanceStep, onBookRun, onMarkPaid, onDelete, onUpdateRow, onUpdateRun, onRefreshSnapshots, onOpenEmployee, employees = [], onSetIncluded }) {
   const isPhone = useIsMobileViewport();
   // Fakturans logga på lönebeskeden, hämtad en gång som PNG.
   const [payslipLogo, setPayslipLogo] = useState(null);
@@ -797,7 +797,9 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
         // personnumret), eftersom det innehåller personnummer och lön.
         const password = payslipPassword(r.row.employeeSnapshot);
         const base64 = generatePayslipPdf(payslipArgs(r), { password }).output('datauristring').split(',')[1];
-        await sendPayslipEmail({ companyId: company?.id, employeeId: r.row.employeeId, period: run.period, attachmentBase64: base64, passwordProtected: Boolean(password) });
+        // Företagets id tas från aktivt företag (som fakturorna), inte från
+        // company.id, som saknas i vissa företagsposter (kundfel 2026-11-27).
+        await sendPayslipEmail({ companyId: companyId || company?.id, employeeId: r.row.employeeId || r.row.employeeSnapshot?.id, period: run.period, attachmentBase64: base64, passwordProtected: Boolean(password) });
         onUpdateRow(r.row.employeeId, { payslipSentAt: new Date().toISOString() });
         sent++;
       } catch (err) {

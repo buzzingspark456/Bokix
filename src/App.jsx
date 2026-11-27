@@ -6214,6 +6214,7 @@ function App() {
             // lönebeskeden ingen arbetsgivare, mejlutskicket saknade
             // company_id och betalfilen och AGI-filen saknade företaget.
             company={company}
+            activeCompanyId={data.activeCompanyId}
             employees={employees}
             onSaveEmployee={handleSaveEmployee}
             onImportEmployees={handleImportEmployees}

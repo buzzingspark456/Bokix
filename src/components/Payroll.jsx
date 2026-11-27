@@ -23,7 +23,7 @@ const labelSt = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'v
 const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-xs)', overflow: 'hidden' };
 
 export default function Payroll({
-  company, employees = [], onSaveEmployee, onImportEmployees, onApplyFos, onSyncBeforeServerCall, accounts = [], projects = [],
+  company, activeCompanyId, employees = [], onSaveEmployee, onImportEmployees, onApplyFos, onSyncBeforeServerCall, accounts = [], projects = [],
   payrollRuns = [], onCreateRun, onUpdateRunRow, onUpdateRun, onSetRunIncluded, onAdvanceRunStep, onBookRun, onMarkRunPaid, onDeleteRun, onRefreshRunSnapshots, agiReports = [],
   outlays = [],
 }) {
@@ -142,6 +142,7 @@ export default function Payroll({
         onSyncBeforeServerCall={onSyncBeforeServerCall}
         accounts={accounts}
         company={company}
+        companyId={activeCompanyId || company?.id}
         onBack={() => setSelectedRunId(null)}
         onAdvanceStep={onAdvanceRunStep}
         onBookRun={onBookRun}
