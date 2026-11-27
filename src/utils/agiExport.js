@@ -15,6 +15,17 @@ const fmtKr = (v) => `${Math.round(v || 0).toLocaleString('sv-SE')} kr`;
  * som redan används för att räkna ut lönekörningens totaler, så PDF:en
  * aldrig kan visa andra siffror än vad som redan syns på skärmen.
  */
+/**
+ * Har den anställda något att deklarera den här perioden? Samma regel som
+ * AGI-filen (agiXml.js): lön, förmån eller avdragen skatt. Den som står på
+ * 0 kr visas inte i arbetsgivardeklarationen (kundrapport Hembiet 2026-11-27).
+ */
+export function hasAgiData(computed) {
+  if (!computed) return false;
+  const benefits = (computed.payLines || []).some(l => l.kind === 'benefit' && (Number(l.amount) || 0) !== 0);
+  return ['gross', 'tax'].some(k => Math.round(Number(computed[k]) || 0) !== 0) || benefits || Math.round(Number(computed.benefits) || 0) !== 0;
+}
+
 export function generateAgiPdf({ company, period, computedRows, totals }) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const marginX = 48;
@@ -71,7 +82,7 @@ export function generateAgiPdf({ company, period, computedRows, totals }) {
 
   doc.setFont('helvetica', 'normal');
   // F-skatt redovisas inte i arbetsgivardeklarationen.
-  computedRows.filter(({ computed }) => !computed.fTax).forEach(({ row, computed }) => {
+  computedRows.filter(({ computed }) => !computed.fTax && hasAgiData(computed)).forEach(({ row, computed }) => {
     if (y > 760) { doc.addPage(); y = 56; }
     const emp = row.employeeSnapshot;
     doc.text(`${emp.firstName || ''} ${emp.lastName || ''}`.trim() || '—', marginX, y);

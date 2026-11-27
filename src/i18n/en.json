@@ -1,4 +1,7 @@
 {
+  "payslipBar": {
+    "count": "{{n}} employees with pay"
+  },
   "nav": {
     "help": "Help and support",
     "logout": "Log out",

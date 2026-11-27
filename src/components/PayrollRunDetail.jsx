@@ -1100,6 +1100,14 @@ export default function PayrollRunDetail({ run, previousRun, allRuns = [], outla
       )}
 
 
+      {/* Lönebesked som PDF finns kvar i stegen efter Lönebesked (kundrapport
+          Hembiet 2026-11-27: "not showing salary pdf creation option" i AGI-steget). */}
+      {['paid', 'booked', 'agi'].includes(stage) && payslipRows.length > 0 && (
+        <div className="pr-payslip-bar">
+          <span><b>{tr('payslips.title')}</b> · {tr('payslipBar.count', { n: payslipRows.length })}</span>
+          <button type="button" onClick={handleDownloadAllPayslips}><Download size={14} /> {tr('payslips.downloadAll')}</button>
+        </div>
+      )}
       {stage === 'booked' && (
         <div>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 4px' }}>{tr('ui.forhandsgranskning_verifikationer')}</h3>

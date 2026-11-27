@@ -11730,3 +11730,9 @@ html.ws-v2 .lfb .rc-segmented button { border-radius: 999px !important; }
   .ar .ar-tools .cf-select, .ar .ar-tools .ar-select, .pz-table .ar-tools .cf-select { flex: 0 1 auto; min-width: 0; max-width: 46%; }
   .so-listbody, .art-tab > .ar { padding-bottom: 96px; }
 }
+
+/* Lönebesked som PDF i stegen efter Lönebesked (Hembiet 2026-11-27). */
+.pr-payslip-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 16px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); font-size: 13px; color: var(--text-secondary); }
+.pr-payslip-bar b { color: var(--text-main); }
+.pr-payslip-bar button { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text-main); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.pr-payslip-bar button:hover { background: var(--bg-muted); }
