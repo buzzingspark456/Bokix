@@ -441,7 +441,10 @@
       "payment": "Payment details",
       "defaultAccount": "Default account",
       "defaultCurrency": "Default currency",
-      "personDetails": "Personal details"
+      "personDetails": "Personal details",
+      "customerCard": "Customer",
+      "supplierCard": "Supplier",
+      "billing": "Invoicing"
     },
     "help": {
       "customerType": "The customer type decides how VAT is handled on invoices.",
@@ -528,7 +531,28 @@
       "emptyCustomers": "No customers yet",
       "emptySuppliers": "No suppliers yet",
       "emptyCustomersText": "Add your first customer to get started",
-      "emptySuppliersText": "Add your first supplier to get started"
+      "emptySuppliersText": "Add your first supplier to get started",
+      "colCustNr": "Cust. no.",
+      "colOrgPers": "Org./ID no.",
+      "colPostal": "Postcode",
+      "colCity": "City",
+      "colCountry": "Country",
+      "colPhone": "Phone",
+      "colEmail": "Email",
+      "colPayment": "Bankgiro",
+      "colAccount": "Account",
+      "filterActive": "Active",
+      "filterInactive": "Inactive",
+      "filterAll": "All",
+      "picked": "{{n}} selected",
+      "clearPick": "Clear",
+      "edit": "Edit",
+      "rowAria": "Actions for {{name}}",
+      "deactivatedMany": "{{n}} deactivated",
+      "activatedMany": "{{n}} activated",
+      "newInvoice": "New invoice",
+      "emptyInactive": "No inactive contacts",
+      "emptyInactiveText": "Customers and suppliers you deactivate end up here. They can't be picked on new documents, but their history stays."
     },
     "dialogs": {
       "cannotDeleteTitle": "Cannot be deleted",

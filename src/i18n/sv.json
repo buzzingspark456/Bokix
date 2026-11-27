@@ -441,7 +441,10 @@
       "payment": "Betalningsuppgifter",
       "defaultAccount": "Standardkonto",
       "defaultCurrency": "Standardvaluta",
-      "personDetails": "Personuppgifter"
+      "personDetails": "Personuppgifter",
+      "customerCard": "Kund",
+      "supplierCard": "Leverantör",
+      "billing": "Fakturering"
     },
     "help": {
       "customerType": "Kundtypen påverkar hur moms hanteras på fakturor.",
@@ -528,7 +531,28 @@
       "emptyCustomers": "Inga kunder ännu",
       "emptySuppliers": "Inga leverantörer ännu",
       "emptyCustomersText": "Lägg till din första kund för att komma igång",
-      "emptySuppliersText": "Lägg till din första leverantör för att komma igång"
+      "emptySuppliersText": "Lägg till din första leverantör för att komma igång",
+      "colCustNr": "Kundnr",
+      "colOrgPers": "Org-/Persnr",
+      "colPostal": "Postnr",
+      "colCity": "Ort",
+      "colCountry": "Land",
+      "colPhone": "Telefon",
+      "colEmail": "E-post",
+      "colPayment": "Bankgiro",
+      "colAccount": "Konto",
+      "filterActive": "Aktiva",
+      "filterInactive": "Inaktiva",
+      "filterAll": "Alla",
+      "picked": "{{n}} valda",
+      "clearPick": "Avmarkera",
+      "edit": "Redigera",
+      "rowAria": "Åtgärder för {{name}}",
+      "deactivatedMany": "{{n}} inaktiverade",
+      "activatedMany": "{{n}} aktiverade",
+      "newInvoice": "Ny faktura",
+      "emptyInactive": "Inga inaktiva",
+      "emptyInactiveText": "Kunder och leverantörer du inaktiverar hamnar här. De går inte att välja på nya dokument, men historiken finns kvar."
     },
     "dialogs": {
       "cannotDeleteTitle": "Kan inte tas bort",

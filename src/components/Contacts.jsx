@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, CheckCircle2, XCircle, Users, Truck, ChevronDown, AlertTriangle, Download, Upload, Check, Search, Trash2, Power } from './icons';
+import { Plus, CheckCircle2, XCircle, Users, Truck, ChevronDown, AlertTriangle, Download, Upload, Check, Search, Trash2, Power, Pencil } from './icons';
+import RowActionMenu from './shared/RowActionMenu';
+import ChipFilter from './shared/ChipFilter';
 import { AccountSearch } from './shared/SearchInputs';
 import ListPageHeader, { ListFilterBar, listSearchInputStyle } from './shared/ListPageHeader';
 import ListTable from './shared/ListTable';
@@ -68,8 +70,8 @@ function emptyCustomer() {
   };
 }
 
-function CustomerForm({ initial, onSave, onCancel }) {
-  const [form, setForm] = useState(initial ? { ...emptyCustomer(), ...initial } : emptyCustomer());
+function CustomerForm({ initial, onSave, onCancel, v2 = false, nextNumber = '' }) {
+  const [form, setForm] = useState(initial ? { ...emptyCustomer(), ...initial } : { ...emptyCustomer(), customerNumber: v2 ? nextNumber : '' });
   const [errors, setErrors] = useState({});
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const handleTypeChange = (customerType) => {
@@ -109,6 +111,97 @@ function CustomerForm({ initial, onSave, onCancel }) {
     eu_company: form.vatNumber.trim() ? c('vatNote.euCompany') : null,
     non_eu_company: c('vatNote.nonEuCompany'),
   }[form.customerType];
+
+  if (v2) {
+    const field = (label, input, opts = {}) => (
+      <div className={opts.wide ? 'ctf-wide' : undefined}>
+        <label style={labelStyle}>{label}</label>
+        {input}
+        {opts.error && <div style={errorTextStyle}>{opts.error}</div>}
+        {opts.help && <p style={helpTextStyle}>{opts.help}</p>}
+      </div>
+    );
+    return (
+      <form id="contact-form" className="ctf" onSubmit={handleSubmit}>
+        <section className="ctf-card">
+          <h3>{c('sections.customerCard')}</h3>
+          <div className="ctf-seg" role="radiogroup" aria-label={c('sections.customerType')}>
+            {CUSTOMER_TYPES.map(o => (
+              <button key={o.id} type="button" role="radio" aria-checked={form.customerType === o.id} className={form.customerType === o.id ? 'on' : undefined} onClick={() => handleTypeChange(o.id)}>{c(o.labelKey)}</button>
+            ))}
+          </div>
+          {vatNote && <p className="ctf-note">{vatNote}</p>}
+          {isEuNoVat && (
+            <div style={warningBoxStyle}>
+              <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>{c('help.euNoVat')}</span>
+            </div>
+          )}
+          <div className="ctf-grid">
+            {field(isPerson ? c('fields.personName') : c('fields.name'),
+              <input data-tour="page-contacts-field" type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder={isPerson ? c('placeholders.personName') : c('placeholders.companyName')} autoFocus={!initial} />,
+              { wide: true, error: errors.name })}
+            {field(`${isPerson ? c('fields.personalNumber') : c('fields.orgNr')}${orgNrRequired ? ' *' : ''}`,
+              <input type="text" value={form.orgNr} onChange={e => set('orgNr', e.target.value)} style={inputStyle(errors.orgNr)} placeholder={isPerson ? 'ÅÅÅÅMMDD-XXXX' : 'XXXXXX-XXXX'} />,
+              { error: errors.orgNr })}
+            {field(c('fields.customerNumber'),
+              <input type="text" value={form.customerNumber} onChange={e => set('customerNumber', e.target.value)} style={inputBase} />)}
+            {form.customerType === 'eu_company' && field(c('fields.vatNumber'),
+              <input type="text" value={form.vatNumber} onChange={e => set('vatNumber', e.target.value)} style={inputBase} placeholder="DE123456789" />, { wide: true })}
+          </div>
+        </section>
+
+        <section className="ctf-card">
+          <h3>{c('sections.contact')}</h3>
+          <div className="ctf-grid">
+            {!isPerson && field(c('fields.contactPerson'), <input type="text" value={form.contactPerson} onChange={e => set('contactPerson', e.target.value)} style={inputBase} />, { wide: true })}
+            {field(c('fields.email'), <input type="email" value={form.email} onChange={e => set('email', e.target.value)} style={inputStyle(errors.email)} placeholder={isPerson ? c('placeholders.personEmail') : c('placeholders.email')} />, { error: errors.email })}
+            {field(c('fields.phone'), <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} style={inputBase} placeholder="070-123 45 67" />)}
+          </div>
+        </section>
+
+        <section className="ctf-card">
+          <h3>{c('sections.address')}</h3>
+          <div className="ctf-grid ctf-grid-addr">
+            {field(c('fields.street'), <input type="text" value={form.address} onChange={e => set('address', e.target.value)} style={inputBase} />, { wide: true })}
+            {field(c('fields.postalCode'), <input type="text" inputMode="numeric" value={form.postalCode} onChange={e => set('postalCode', e.target.value)} style={inputBase} />)}
+            {field(c('fields.city'), <input type="text" value={form.city} onChange={e => set('city', e.target.value)} style={inputBase} />)}
+            {field(c('fields.country'),
+              <select value={form.country} onChange={e => set('country', e.target.value)} style={inputBase}>
+                {countryOptions.map(name => <option key={name} value={name}>{countryLabel(name, getLanguage())}</option>)}
+              </select>, { wide: true })}
+          </div>
+        </section>
+
+        <section className="ctf-card">
+          <h3>{c('sections.billing')}</h3>
+          <div className="ctf-grid">
+            {field(c('fields.paymentTerms'), <input type="number" value={form.paymentTerms} onChange={e => set('paymentTerms', Number(e.target.value))} style={inputBase} min={0} />)}
+            {field(c('sections.invoiceLanguage'),
+              <select value={form.invoiceLanguage} onChange={e => set('invoiceLanguage', e.target.value)} style={inputBase}>
+                <option value="sv">{c('fields.swedish')}</option>
+                <option value="en">{c('fields.english')}</option>
+              </select>)}
+          </div>
+          <div className="ctf-sub">
+            <h4>{c('sections.extraRecipients')}</h4>
+            <div className="ctf-grid">
+              {field(c('fields.cc'), <input type="text" value={form.ccEmails} onChange={e => set('ccEmails', e.target.value)} style={inputStyle(errors.ccEmails)} placeholder={c('placeholders.cc')} />, { error: errors.ccEmails })}
+              {field(c('fields.bcc'), <input type="text" value={form.bccEmails} onChange={e => set('bccEmails', e.target.value)} style={inputStyle(errors.bccEmails)} placeholder={c('placeholders.bcc')} />, { error: errors.bccEmails })}
+            </div>
+            <p style={helpTextStyle}>{c('help.extraRecipients')}</p>
+          </div>
+        </section>
+
+        <section className="ctf-card">
+          <h3>{c('sections.notes')}</h3>
+          <textarea value={form.notes} onChange={e => set('notes', e.target.value)} style={{ ...inputBase, minHeight: '80px', resize: 'vertical' }} placeholder={c('help.notesCustomer')} />
+        </section>
+
+        <FormActions onCancel={onCancel} saveLabel={c('actions.saveCustomer')} formId="contact-form" />
+      </form>
+    );
+  }
 
   return (
     <form id="contact-form" onSubmit={handleSubmit}>
@@ -480,7 +573,13 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
   const [pageSize, setPageSize] = useState(30);
   // Listans inställningar som i Artiklar (2026-11-24, bara admin än).
   const adminList = isAdminPreview();
-  const [lp, setLp] = useListPrefs('bokix.contacts.prefs', { orgNr: true, contactPerson: true, lastInvoiceDate: true, totalInvoicedThisYear: true, status: true, email: false, phone: false, city: false });
+  // Kolumner som Fortnox kundregister (2026-11-27): Kundnr, Namn, Org-/Persnr,
+  // Postnr, Ort, Land, Telefon, E-post. Leverantörer har betalning och konto.
+  const [lp, setLp] = useListPrefs('bokix.contacts.prefs2', { customerNumber: true, orgNr: true, postalCode: true, city: true, country: true, phone: true, email: true, bankgiro: true, defaultAccount: true, contactPerson: false, lastInvoiceDate: false, totalInvoicedThisYear: false });
+  // Aktiva som förval, Inaktiva och Alla som i Fortnox. Flerval för att
+  // inaktivera eller aktivera många på en gång.
+  const [statusFilter, setStatusFilter] = useState('active');
+  const [picked, setPicked] = useState(() => new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [viewState, setViewState] = useState('list'); // 'list' | 'new' | 'edit'
   const [selectedContact, setSelectedContact] = useState(null);
@@ -596,16 +695,46 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
   // Senaste faktura och Fakturerat i år räknas ur fakturorna, se utils/contactTotals.js.
   const totalsById = useMemo(() => contactTotals({ invoices, expenses }), [invoices, expenses]);
   const withTotals = (ct) => ({ ...ct, ...(totalsById.get(ct.id) || { lastInvoiceDate: null, totalInvoicedThisYear: 0 }) });
-  const filtered = contacts.filter(c => c.type === activeTab).map(withTotals).filter(c => {
+  const searched = contacts.filter(c => c.type === activeTab).map(withTotals).filter(c => {
     if (!searchTerm) return true;
     const s = searchTerm.toLowerCase();
     return (
       c.name?.toLowerCase().includes(s) ||
       c.orgNr?.toLowerCase().includes(s) ||
       c.email?.toLowerCase().includes(s) ||
-      c.phone?.toLowerCase().includes(s)
+      c.phone?.toLowerCase().includes(s) ||
+      String(c.customerNumber || '').toLowerCase().includes(s) ||
+      c.city?.toLowerCase().includes(s)
     );
   });
+  const statusCount = {
+    active: searched.filter(c => c.active !== false).length,
+    inactive: searched.filter(c => c.active === false).length,
+    all: searched.length,
+  };
+  const filtered = adminList && statusFilter !== 'all'
+    ? searched.filter(c => (statusFilter === 'active' ? c.active !== false : c.active === false))
+    : searched;
+  const typeCount = contacts.filter(c => c.type === activeTab).length;
+  // Flerval: bara synliga rader räknas, och valet nollas när fliken byts.
+  useEffect(() => { setPicked(new Set()); }, [activeTab, statusFilter]);
+  const pickedRows = filtered.filter(ct => picked.has(ct.id));
+  const setActiveMany = (active) => {
+    const ids = new Set(pickedRows.map(ct => ct.id));
+    if (!ids.size) return;
+    setContacts(prev => prev.map(ct => (ids.has(ct.id) ? { ...ct, active } : ct)));
+    showUndo({
+      message: c(active ? 'list.activatedMany' : 'list.deactivatedMany', { n: ids.size }),
+      onUndo: () => setContacts(prev => prev.map(ct => (ids.has(ct.id) ? { ...ct, active: !active } : ct))),
+    });
+    setPicked(new Set());
+  };
+  const rowMenu = (ct) => [
+    { key: 'edit', label: c('list.edit'), icon: Pencil, onClick: () => openDetail(ct) },
+    { key: 'toggle', label: c(ct.active === false ? 'actions.activate' : 'actions.deactivate'), icon: Power, onClick: () => handleToggleActive(ct), title: c(ct.active === false ? 'actions.activateTitle' : 'actions.deactivateTitle') },
+    { divider: true },
+    { key: 'delete', label: c('actions.delete'), icon: Trash2, onClick: () => handleDeleteContact(ct), variant: 'danger' },
+  ];
   // "Visa N åt gången" skär bara av VYN — export/import ovan använder
   // fortfarande hela `filtered`/den obeskurna listan, inte den här.
   const effPageSize = adminList ? (lp.pageSize || 'all') : pageSize;
@@ -683,6 +812,37 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
     e.target.value = '';
   };
 
+  // Admin (2026-11-27): kolumner som Fortnox, ingen bokstavsruta, status bara
+  // när Alla visas, och åtgärderna i en ⋮-meny på raden.
+  const dash = (v) => (v ? v : <span className="ct-dash">–</span>);
+  const kr = (v) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(v || 0);
+  const adminColumns = [
+    ...(isCustomerTab ? [{ key: 'customerNumber', label: c('list.colCustNr'), render: ct => <span className="ct-num">{dash(ct.customerNumber)}</span> }] : []),
+    { key: 'name', label: c('list.colName'), wrap: true, render: ct => (
+      <span className="ct-name">
+        <b className={ct.active === false ? 'is-off' : undefined}>{ct.name || c('list.unnamed')}</b>
+        {statusFilter === 'all' && ct.active === false && <em className="ct-off">{c('list.inactive')}</em>}
+      </span>
+    ) },
+    { key: 'orgNr', label: c('list.colOrgPers'), render: ct => <span className="ct-num">{dash(ct.orgNr)}</span> },
+    ...(isCustomerTab
+      ? [{ key: 'postalCode', label: c('list.colPostal'), render: ct => <span className="ct-num">{dash(ct.postalCode)}</span> }]
+      : [{ key: 'bankgiro', label: c('list.colPayment'), render: ct => <span className="ct-num">{dash(ct.bankgiro || (ct.plusgiro ? `PG ${ct.plusgiro}` : ''))}</span> }]),
+    { key: 'city', label: c('list.colCity'), render: ct => dash(ct.city) },
+    ...(isCustomerTab
+      ? [{ key: 'country', label: c('list.colCountry'), render: ct => dash(ct.country ? countryLabel(ct.country, getLanguage()) : '') }]
+      : [{ key: 'defaultAccount', label: c('list.colAccount'), render: ct => (ct.defaultAccount ? <span className="ct-acc"><span className="ct-num">{ct.defaultAccount}</span> {accounts.find(a => String(a.code) === String(ct.defaultAccount))?.name || ''}</span> : dash('')) }]),
+    { key: 'phone', label: c('list.colPhone'), render: ct => dash(ct.phone) },
+    { key: 'email', label: c('list.colEmail'), wrap: true, render: ct => dash(ct.email) },
+    { key: 'contactPerson', label: c('list.colContact'), render: ct => dash(ct.contactPerson) },
+    { key: 'lastInvoiceDate', label: c(isCustomerTab ? 'list.lastInvoice' : 'list.lastPurchase'), render: ct => dash(ct.lastInvoiceDate) },
+    { key: 'totalInvoicedThisYear', label: c(isCustomerTab ? 'list.invoicedThisYear' : 'list.purchasedThisYear'), render: ct => kr(ct.totalInvoicedThisYear) },
+  ].filter(col => col.key === 'name' || lp.cols[col.key] !== false).concat([
+    { key: 'actions', label: '', render: ct => (
+      <span className="ct-menu" onClick={e => e.stopPropagation()}><RowActionMenu ariaLabel={c('list.rowAria', { name: ct.name || '' })} items={rowMenu(ct)} /></span>
+    ) },
+  ]);
+
   return (
     <div className={adminList && viewState === 'list' && lp.width === 'narrow' ? 'lt-page-narrow' : undefined} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-page)' }}>
       {/* ── Header & Tabs ── */}
@@ -718,10 +878,26 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
           pageSize={adminList ? undefined : pageSize}
           onPageSizeChange={adminList ? undefined : setPageSize}
         >
-          <div style={{ position: 'relative' }}>
-            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input type="text" placeholder={c(isCustomerTab ? 'list.searchCustomer' : 'list.searchSupplier')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={listSearchInputStyle} />
-          </div>
+          {adminList ? (
+            // Status bredvid sökfältet, som i Order (2026-11-27).
+            <div className="lfb-searchrow">
+              <div style={{ position: 'relative' }}>
+              <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input type="text" placeholder={c(isCustomerTab ? 'list.searchCustomer' : 'list.searchSupplier')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ ...listSearchInputStyle, width: '260px' }} />
+            </div>
+              <ChipFilter label={c('list.status')} value={statusFilter} onChange={setStatusFilter}
+                items={[
+                  ['active', c('list.filterActive'), statusCount.active],
+                  ['inactive', c('list.filterInactive'), statusCount.inactive],
+                  ['all', c('list.filterAll'), statusCount.all],
+                ]} />
+            </div>
+          ) : (
+            <div style={{ position: 'relative' }}>
+              <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input type="text" placeholder={c(isCustomerTab ? 'list.searchCustomer' : 'list.searchSupplier')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={listSearchInputStyle} />
+            </div>
+          )}
         </ListFilterBar>
       )}
       {viewState === 'list' && (
@@ -732,11 +908,15 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
             { key: 'export', label: c('actions.export'), icon: Download, onClick: handleExportCsv },
           ]}
           columns={[
-            { key: 'orgNr', label: c('list.colOrgNr') }, { key: 'contactPerson', label: c('list.colContact') },
-            { key: 'email', label: t('so.email') }, { key: 'phone', label: t('lset.phone') }, { key: 'city', label: t('lset.city') },
+            ...(isCustomerTab ? [{ key: 'customerNumber', label: c('list.colCustNr') }] : []),
+            { key: 'orgNr', label: c('list.colOrgPers') },
+            ...(isCustomerTab ? [{ key: 'postalCode', label: c('list.colPostal') }] : [{ key: 'bankgiro', label: c('list.colPayment') }]),
+            { key: 'city', label: c('list.colCity') },
+            ...(isCustomerTab ? [{ key: 'country', label: c('list.colCountry') }] : [{ key: 'defaultAccount', label: c('list.colAccount') }]),
+            { key: 'phone', label: c('list.colPhone') }, { key: 'email', label: c('list.colEmail') },
+            { key: 'contactPerson', label: c('list.colContact') },
             { key: 'lastInvoiceDate', label: c(isCustomerTab ? 'list.lastInvoice' : 'list.lastPurchase') },
             { key: 'totalInvoicedThisYear', label: c(isCustomerTab ? 'list.invoicedThisYear' : 'list.purchasedThisYear') },
-            { key: 'status', label: c('list.status') },
           ]} />
       )}
 
@@ -751,17 +931,31 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         {viewState === 'list' ? (
           <>
-            {filtered.length > 0 || searchTerm ? (
+            {filtered.length > 0 || searchTerm || (adminList && typeCount > 0) ? (
               /* Kundfeedback: en lista med resultat ska INTE centreras
                  lodrätt (försökte det — kändes bara fel, "sämst") — bara
                  det HELT tomma läget (grenen nedan) ska centreras. En
                  populerad (om än kort) lista ligger kvar uppe vid
                  sök/toppen, som en vanlig tabellsida. */
-              <div className={`contacts-table${adminList && lp.density === 'compact' ? ' lt-compact' : ''}`} style={{ width: '100%' }}>
+              <div className={`contacts-table${adminList && lp.density === 'compact' ? ' lt-compact' : ''}${adminList ? ' ct-v2' : ''}`} style={{ width: '100%' }}>
+                {adminList && pickedRows.length > 0 && (
+                  <div className="ct-bulk" role="toolbar" aria-label={c('list.picked', { n: pickedRows.length })}>
+                    <b>{c('list.picked', { n: pickedRows.length })}</b>
+                    {pickedRows.some(ct => ct.active !== false) && <button type="button" onClick={() => setActiveMany(false)}><Power size={14} /> {c('actions.deactivate')}</button>}
+                    {pickedRows.some(ct => ct.active === false) && <button type="button" onClick={() => setActiveMany(true)}><Power size={14} /> {c('actions.activate')}</button>}
+                    <button type="button" className="ct-bulk-clear" onClick={() => setPicked(new Set())}>{c('list.clearPick')}</button>
+                  </div>
+                )}
                 <ListTable
                   rowKey={ct => ct.id}
                   onRowClick={openDetail}
-                  emptyMessage={c('list.noMatch')}
+                  emptyMessage={adminList && statusFilter === 'inactive' && !searchTerm ? c('list.emptyInactiveText') : c('list.noMatch')}
+                  selectable={adminList ? {
+                    checked: (ct) => picked.has(ct.id),
+                    onToggle: (ct) => setPicked(prev => { const n = new Set(prev); if (n.has(ct.id)) n.delete(ct.id); else n.add(ct.id); return n; }),
+                    allChecked: visible.length > 0 && visible.every(ct => picked.has(ct.id)),
+                    onToggleAll: () => setPicked(prev => (visible.every(ct => prev.has(ct.id)) ? new Set() : new Set(visible.map(ct => ct.id)))),
+                  } : undefined}
                   rows={visible}
                   pageSize={adminList ? lp.pageSize : undefined}
                   mobileList={ct => ({
@@ -800,7 +994,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                       }}>{ct.active !== false ? c('list.active') : c('list.inactive')}</span>
                     ),
                   })}
-                  columns={[
+                  columns={adminList ? adminColumns : [
                     {
                       key: 'name', label: c('list.colName'), wrap: true, render: ct => (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -869,7 +1063,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
             )}
           </>
         ) : (
-          <div className="mform-page" style={{ padding: '24px' }}>
+          <div className={`mform-page${adminList ? ' ctf-page' : ''}`} style={{ padding: '24px' }}>
             <div className="mform-head" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
               <button className="mform-back" onClick={() => setViewState('list')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', padding: 0 }}>
                 <span className="mform-back-desk">{c('actions.back')}</span><span className="mform-back-phone">{c('actions.cancel')}</span>
@@ -885,7 +1079,13 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                   ännu). Samma Fortnox-paritet som handleDeleteContact ovan:
                   radering blockeras tyst i den funktionen om kontakten har
                   kopplade affärshändelser, då erbjuds inaktivering istället. */}
-              {viewState === 'edit' && selectedContact && (
+              {adminList && viewState === 'edit' && selectedContact && (
+                <div className="mform-head-extra" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {selectedContact.active === false && <span className="ct-off">{c('list.inactive')}</span>}
+                  <RowActionMenu ariaLabel={c('list.rowAria', { name: selectedContact.name || '' })} items={rowMenu(selectedContact).filter(i => i.key !== 'edit')} />
+                </div>
+              )}
+              {!adminList && viewState === 'edit' && selectedContact && (
                 <div className="mform-head-extra" style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
                   {/* Samma "tonad pill"-look som Aktiv/Inaktiv-badgen i
                       listan (status-green/status-amber) i stället för en
@@ -930,6 +1130,11 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                 initial={viewState === 'edit' ? selectedContact : null}
                 onSave={handleSaveCustomer}
                 onCancel={() => setViewState('list')}
+                v2={adminList}
+                nextNumber={(() => {
+                  const nums = contacts.filter(x => x.type === 'customer').map(x => parseInt(String(x.customerNumber || '').replace(/\D/g, ''), 10)).filter(n => Number.isFinite(n));
+                  return nums.length ? String(Math.max(...nums) + 1) : '1001';
+                })()}
               />
             ) : (
               <SupplierForm

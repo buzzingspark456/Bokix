@@ -11730,3 +11730,40 @@ html.ws-v2 .lfb .rc-segmented button { border-radius: 999px !important; }
   .ar .ar-tools .cf-select, .ar .ar-tools .ar-select, .pz-table .ar-tools .cf-select { flex: 0 1 auto; min-width: 0; max-width: 46%; }
   .so-listbody, .art-tab > .ar { padding-bottom: 96px; }
 }
+
+/* Kunder och leverantörer (2026-11-27, admin): kolumner som Fortnox, ⋮ per rad, flerval. */
+.ct-v2 .ct-num { font-variant-numeric: tabular-nums; color: var(--text-secondary); white-space: nowrap; }
+.ct-v2 .ct-dash { color: var(--text-muted); }
+.ct-v2 .ct-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.ct-v2 .ct-name b { font-weight: 600; color: var(--text-main); }
+.ct-v2 .ct-name b.is-off { color: var(--text-muted); font-weight: 500; }
+.ct-off { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; background: var(--border-light, var(--bg-muted)); color: var(--text-secondary); font-size: 11.5px; font-weight: 600; font-style: normal; white-space: nowrap; }
+.ct-v2 .ct-menu { display: inline-flex; justify-content: flex-end; width: 100%; }
+.ct-v2 td[data-col="actions"], .ct-v2 th[data-col="actions"] { width: 44px; text-align: right; }
+.ct-bulk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 20px; background: var(--bg-card); border-bottom: 1px solid var(--border-light, var(--border)); position: sticky; top: 0; z-index: 4; }
+.ct-bulk b { font-size: 13px; font-weight: 600; color: var(--text-main); margin-right: 6px; }
+.ct-bulk button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text-main); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.ct-bulk button:hover { background: var(--bg-muted); }
+.ct-bulk .ct-bulk-clear { border-color: transparent; color: var(--text-secondary); font-weight: 500; }
+
+/* Ny/redigera kund och leverantör (2026-11-27, admin): en lugn, centrerad kolumn. */
+.ctf-page > * { max-width: 760px; margin-left: auto; margin-right: auto; }
+.ctf-page form > div > h3 { text-transform: none !important; letter-spacing: 0 !important; font-size: 15px !important; color: var(--text-main) !important; }
+.ctf { display: flex; flex-direction: column; gap: 14px; }
+.ctf-card { padding: 20px 22px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); }
+.ctf-card h3 { margin: 0 0 14px; font-size: 15px; font-weight: 700; color: var(--text-main); }
+.ctf-card h4 { margin: 0 0 10px; font-size: 13.5px; font-weight: 650; color: var(--text-main); }
+.ctf-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+.ctf-grid > .ctf-wide { grid-column: 1 / -1; }
+.ctf-grid-addr { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+.ctf-sub { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border-light, var(--border)); }
+.ctf-note { margin: 0 0 14px; font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; }
+.ctf-seg { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.ctf-seg button { height: 34px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text-secondary); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.ctf-seg button:hover { color: var(--text-main); background: var(--bg-muted); }
+.ctf-seg button.on { background: var(--text-main); border-color: var(--text-main); color: var(--bg-card); }
+.ct-v2 .ct-acc { color: var(--text-secondary); white-space: nowrap; }
+@media (max-width: 760px) {
+  .ctf-card { padding: 16px; }
+  .ctf-grid, .ctf-grid-addr { grid-template-columns: minmax(0, 1fr); }
+}
