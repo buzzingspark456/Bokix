@@ -1,50 +1,78 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, CreditCard, Check, Lock } from './icons';
+import { AlertTriangle, Check, Lock, X, CreditCard } from './icons';
 import { fetchPaymentIssue, retrySubscriptionPayment, openBillingPortal } from '../stripeApi';
 import { t } from '../i18n';
 
-// Banner när Bokix-abonnemanget inte går att dra (2026-11-27). Lugn, inte
-// skrikig: en smal list överst med vad som hänt, vad som händer härnäst och
-// två val, Försök igen (drar kortet direkt) och Byt kort (Stripes portal).
-// Själva spärren ligger i databasen och servern (src/utils/paymentAccess.js),
-// bannern är bara det kunden ser.
+// Misslyckad betalning för Bokix-abonnemanget (2026-11-27).
+// - PaymentBanner: en kort röd påminnelse överst. Försök igen tar en till
+//   Inställningar → Prenumeration, krysset påminner i morgon igen.
+// - PaymentFixCard: kortet på prenumerationssidan, där man gör försöket:
+//   vad som hände, Försök igen (drar kortet direkt) och Byt kort (Stripes portal).
+// Själva spärren ligger i databasen och servern (src/utils/paymentAccess.js).
 
-const fmtDay = (ms) => (ms ? new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'long' }).format(new Date(ms)) : '');
+const fmtLong = (ms) => (ms ? new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'long' }).format(new Date(ms)) : '');
+const fmtShort = (ms) => (ms ? new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short' }).format(new Date(ms)) : '');
 const BRANDS = { visa: 'Visa', mastercard: 'Mastercard', amex: 'American Express', maestro: 'Maestro' };
 
-export default function PaymentBanner({ access, companyId = null, shared = false, onPaid }) {
-  const [issue, setIssue] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState(null); // { tone: 'error'|'ok', text }
-  const [done, setDone] = useState(false);
+const isFailing = (access) => Boolean(access?.failing || access?.level === 'read');
 
-  const failing = access?.failing || access?.level === 'read';
-  useEffect(() => {
-    if (!failing || shared) return undefined;
-    let alive = true;
-    fetchPaymentIssue(companyId).then(r => { if (alive) setIssue(r || null); }).catch(() => {});
-    return () => { alive = false; };
-  }, [failing, shared, companyId]);
+export default function PaymentBanner({ access, companyId = null, shared = false, onOpen }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const snoozeKey = `bokix.payBanner.snooze.${companyId || 'default'}`;
+  const [snoozed, setSnoozed] = useState(() => { try { return localStorage.getItem(snoozeKey) === today; } catch { return false; } });
+  const snooze = () => { setSnoozed(true); try { localStorage.setItem(snoozeKey, today); } catch { /* privat läge */ } };
 
-  if (!failing || done) return null;
-
+  if (!isFailing(access) || snoozed) return null;
   const readOnly = access.level === 'read';
+
   if (shared) {
     return (
       <div className="pay-banner is-read" role="status">
-        <span className="pay-banner-ico"><Lock size={17} /></span>
-        <div className="pay-banner-text">
-          <b>{t('payBanner.sharedTitle')}</b>
-          <span>{t('payBanner.sharedText')}</span>
-        </div>
+        <span className="pay-banner-ico" aria-hidden="true"><Lock size={14} /></span>
+        <span className="pay-banner-text"><b>{t('payBanner.sharedTitle')}</b></span>
+        <span className="pay-banner-actions">
+          <button type="button" className="pay-banner-x" onClick={snooze} title={t('payBanner.snooze')} aria-label={t('payBanner.snooze')}><X size={14} /></button>
+        </span>
       </div>
     );
   }
 
+  const note = readOnly
+    ? t('payBanner.readShort', { date: fmtShort(access.lockAt) })
+    : (access.readOnlyAt ? t('payBanner.readOnlyShort', { date: fmtShort(access.readOnlyAt) }) : '');
+  return (
+    <div className={`pay-banner${readOnly ? ' is-read' : ''}`} role="alert">
+      <span className="pay-banner-ico" aria-hidden="true">{readOnly ? <Lock size={14} /> : <AlertTriangle size={14} />}</span>
+      <span className="pay-banner-text">
+        <b>{readOnly ? t('payBanner.readTitle') : t('payBanner.failedTitle')}</b>
+        {note && <span>{note}</span>}
+      </span>
+      <span className="pay-banner-actions">
+        <button type="button" className="pay-banner-btn is-primary" onClick={onOpen}>{t('payBanner.retry')}</button>
+        <button type="button" className="pay-banner-x" onClick={snooze} title={t('payBanner.snooze')} aria-label={t('payBanner.snooze')}><X size={14} /></button>
+      </span>
+    </div>
+  );
+}
+
+export function PaymentFixCard({ access, companyId = null, onPaid }) {
+  const [issue, setIssue] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(null); // { tone: 'error'|'ok', text }
+  const failing = isFailing(access);
+  useEffect(() => {
+    if (!failing) return undefined;
+    let alive = true;
+    fetchPaymentIssue(companyId).then(r => { if (alive) setIssue(r || null); }).catch(() => {});
+    return () => { alive = false; };
+  }, [failing, companyId]);
+  if (!failing && message?.tone !== 'ok') return null;
+
   const info = issue?.issue || null;
   const card = issue?.card || null;
-  const cardText = card ? `${BRANDS[card.brand] || card.brand || ''} •••• ${card.last4}`.trim() : null;
   const requiresAction = Boolean(info?.requiresAction);
+  const readOnly = access?.level === 'read';
+  const cardText = card ? `${BRANDS[card.brand] || card.brand || ''} •••• ${card.last4}`.trim() : null;
 
   const retry = async () => {
     setBusy(true);
@@ -53,7 +81,7 @@ export default function PaymentBanner({ access, companyId = null, shared = false
       const r = await retrySubscriptionPayment(companyId);
       if (r?.ok) {
         setMessage({ tone: 'ok', text: t('payBanner.paid') });
-        setTimeout(() => { setDone(true); onPaid?.(); }, 1600);
+        onPaid?.();
       } else if (r?.requiresAction && r?.hostedUrl) {
         window.location.href = r.hostedUrl;
       } else {
@@ -76,34 +104,39 @@ export default function PaymentBanner({ access, companyId = null, shared = false
     }
   };
 
-  const title = readOnly ? t('payBanner.readTitle') : requiresAction ? t('payBanner.actionTitle') : t('payBanner.failedTitle');
-  const parts = [];
-  if (cardText) parts.push(info?.declineReason ? `${cardText}: ${info.declineReason}` : cardText);
-  else if (info?.declineReason) parts.push(info.declineReason);
-  if (readOnly) parts.push(t('payBanner.readText', { date: fmtDay(access.lockAt) }));
-  else if (requiresAction) parts.push(t('payBanner.actionText'));
+  if (message?.tone === 'ok') {
+    return (
+      <div className="pay-fix is-ok" role="status">
+        <span className="pay-fix-ico"><Check size={18} /></span>
+        <div className="pay-fix-body"><b>{message.text}</b></div>
+      </div>
+    );
+  }
+
+  const lines = [];
+  if (cardText) lines.push(info?.declineReason ? `${cardText}: ${info.declineReason}` : cardText);
+  else if (info?.declineReason) lines.push(info.declineReason);
+  if (readOnly) lines.push(t('payBanner.readText', { date: fmtLong(access.lockAt) }));
+  else if (requiresAction) lines.push(t('payBanner.actionText'));
   else {
-    if (info?.nextAttempt) parts.push(t('payBanner.nextAttempt', { date: fmtDay(Date.parse(info.nextAttempt)) }));
-    if (access.readOnlyAt) parts.push(t('payBanner.readOnlyFrom', { date: fmtDay(access.readOnlyAt) }));
+    if (info?.nextAttempt) lines.push(t('payBanner.nextAttempt', { date: fmtLong(Date.parse(info.nextAttempt)) }));
+    if (access.readOnlyAt) lines.push(t('payBanner.readOnlyFrom', { date: fmtLong(access.readOnlyAt) }));
   }
 
   return (
-    <div className={`pay-banner${readOnly ? ' is-read' : ''}${message?.tone === 'ok' ? ' is-ok' : ''}`} role="alert">
-      <span className="pay-banner-ico">{message?.tone === 'ok' ? <Check size={17} /> : readOnly ? <Lock size={17} /> : <AlertTriangle size={17} />}</span>
-      <div className="pay-banner-text">
-        <b>{message?.tone === 'ok' ? message.text : title}</b>
-        {message?.tone === 'error'
-          ? <span className="pay-banner-err">{message.text}</span>
-          : message?.tone !== 'ok' && <span>{parts.join(' · ')}</span>}
-      </div>
-      {message?.tone !== 'ok' && (
-        <div className="pay-banner-actions">
+    <div className="pay-fix" role="alert">
+      <span className="pay-fix-ico">{readOnly ? <Lock size={18} /> : <AlertTriangle size={18} />}</span>
+      <div className="pay-fix-body">
+        <b>{readOnly ? t('payBanner.readTitle') : requiresAction ? t('payBanner.actionTitle') : t('payBanner.failedTitle')}</b>
+        {lines.map((l, i) => <span key={i}>{l}</span>)}
+        {message?.tone === 'error' && <span className="pay-fix-err">{message.text}</span>}
+        <div className="pay-fix-actions">
           {requiresAction && info?.hostedUrl
-            ? <a className="pay-banner-btn is-primary" href={info.hostedUrl}>{t('payBanner.confirm')}</a>
-            : <button type="button" className="pay-banner-btn is-primary" onClick={retry} disabled={busy}>{busy ? t('payBanner.trying') : t('payBanner.retry')}</button>}
-          <button type="button" className="pay-banner-btn" onClick={changeCard} disabled={busy}><CreditCard size={14} /> {t('payBanner.changeCard')}</button>
+            ? <a className="pay-fix-btn is-primary" href={info.hostedUrl}>{t('payBanner.confirm')}</a>
+            : <button type="button" className="pay-fix-btn is-primary" onClick={retry} disabled={busy}>{busy ? t('payBanner.trying') : t('payBanner.retry')}</button>}
+          <button type="button" className="pay-fix-btn" onClick={changeCard} disabled={busy}><CreditCard size={14} /> {t('payBanner.changeCard')}</button>
         </div>
-      )}
+      </div>
     </div>
   );
 }

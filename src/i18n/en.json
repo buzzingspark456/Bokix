@@ -3,6 +3,9 @@
     "count": "{{n}} employees with pay"
   },
   "payBanner": {
+    "readOnlyShort": "Read-only from {{date}}",
+    "readShort": "Account closes {{date}}",
+    "snooze": "Remind me tomorrow",
     "failedTitle": "The payment didn't go through",
     "actionTitle": "Your bank wants you to confirm the payment",
     "readTitle": "Read-only: payment missing",

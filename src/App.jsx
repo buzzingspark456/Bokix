@@ -6685,6 +6685,8 @@ function App() {
         return (
           <Settings
             subscriptionPlan={(subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan || null}
+            paymentAccess={sharedPaymentInfo ? null : paymentAccess}
+            onPaymentFixed={refreshSubscriptions}
             subscriptionCreatedAt={(subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).created_at || null}
             onOpenHelp={() => setIsHelpDrawerOpen(true)}
             onLogout={() => setShowLogoutConfirm(true)}
@@ -7238,7 +7240,7 @@ function App() {
               access={paymentAccess}
               companyId={company?.requiresOwnPayment ? company.id : null}
               shared={Boolean(sharedPaymentInfo)}
-              onPaid={refreshSubscriptions}
+              onOpen={() => handleNavTabChange('settings_subscription')}
             />
           )}
           <Suspense fallback={<PageContentSkeleton tab={activeTab} />}>

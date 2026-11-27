@@ -34,6 +34,7 @@ const page = await ctx.newPage();
 await page.addInitScript((d) => localStorage.setItem('bokix_theme_pref', d ? 'dark' : 'light'), Boolean(process.env.DARK));
 const errors = [];
 page.on('pageerror', e => errors.push(String(e).slice(0, 300)));
+page.on('console', m => { if (m.type() === 'error' && !/Failed to load/.test(m.text())) Promise.all(m.args().map(a => a.jsonValue().catch(() => '?'))).then(v => errors.push('KONSOL ' + JSON.stringify(v).slice(0, 700))); });
 await page.addInitScript(([key, val]) => { sessionStorage.setItem(key, val); localStorage.setItem('bokix_tour_done_v3_11111111-1111-4111-8111-111111111111', '1'); }, [`sb-${REF}-auth-token`, JSON.stringify(session)]);
 const reply = (route, data, wantsObject) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(wantsObject ? data : (data == null ? [] : Array.isArray(data) ? data : [data])) });
 await page.route(`${SUPA}/**`, async (route) => {
@@ -86,14 +87,19 @@ console.log('banner:', banner.replace(/\s+/g, ' ').slice(0, 260));
 console.log('betalsidan visas:', await page.locator('text=Din bokföring finns kvar').count() > 0 || await page.locator('.payment-gate, [data-gate]').count() > 0);
 await page.screenshot({ path: `test-results/betalning-${tag}.png` });
 if (MODE === 'failed') {
+  // Bannern tar en till Prenumeration, där försöket görs.
   await page.locator('.pay-banner-btn.is-primary').click();
+  await page.waitForTimeout(1500);
+  console.log('Försök igen i bannern tog mig till:', (await page.locator('.main-content-inner h1, .main-content-inner h2').first().innerText().catch(() => '?')), '| kort på sidan:', await page.locator('.pay-fix').count());
+  console.log('kortet:', (await page.locator('.pay-fix').innerText().catch(() => '')).replace(/s+/g, ' ').slice(0, 200));
+  await page.screenshot({ path: 'test-results/betalning-' + tag + '-prenumeration.png' }); console.log('KRASCH?', errors);
+  await page.locator('.pay-fix-btn.is-primary').click();
   await page.waitForTimeout(800);
-  console.log('efter första försöket:', (await page.locator('.pay-banner').innerText()).replace(/\s+/g, ' ').slice(0, 160));
-  await page.screenshot({ path: `test-results/betalning-${tag}-nekad.png` });
-  await page.locator('.pay-banner-btn.is-primary').click();
-  await page.waitForTimeout(700);
-  console.log('efter andra försöket:', (await page.locator('.pay-banner').innerText().catch(() => '(borta)')).replace(/\s+/g, ' ').slice(0, 160));
-  await page.screenshot({ path: `test-results/betalning-${tag}-klar.png` });
+  console.log('efter första försöket:', (await page.locator('.pay-fix').innerText()).replace(/s+/g, ' ').slice(0, 160));
+  await page.locator('.pay-fix-btn.is-primary').click();
+  await page.waitForTimeout(900);
+  console.log('efter andra försöket:', (await page.locator('.pay-fix').innerText().catch(() => '(borta)')).replace(/s+/g, ' ').slice(0, 160));
+  await page.screenshot({ path: 'test-results/betalning-' + tag + '-klar.png' });
 }
 if (MODE === 'read') {
   // Försök ändra: skapa faktura och spara, och ändra en kund

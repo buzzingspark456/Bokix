@@ -1,3 +1,4 @@
+import { PaymentFixCard } from './PaymentBanner';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -2817,6 +2818,8 @@ export default function Settings({
   user,
   // Aktiva företagets abonnemang, för användargränsen (utils/plans.js).
   subscriptionPlan = null, subscriptionCreatedAt = null,
+  // Misslyckad betalning: kortet med Försök igen och Byt kort (PaymentBanner.jsx).
+  paymentAccess = null, onPaymentFixed,
   // Hjälp och Logga ut ligger i Inställningar på telefon (på dator finns de
   // längst ned i sidomenyn). Skickas inte ned i landningssidans demo.
   onOpenHelp, onLogout,
@@ -4791,6 +4794,7 @@ export default function Settings({
           {/* Prenumeration */}
           {activeTab === 'subscription' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
+              {paymentAccess && !sharedAccess && <PaymentFixCard access={paymentAccess} companyId={company?.requiresOwnPayment ? company.id : null} onPaid={onPaymentFixed} />}
               
               {/* Plan och kvitton sida vid sida — kvittolistan är oftast en
                   rad och behöver ingen egen skärmhöjd (kundfeedback: för

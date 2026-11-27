@@ -3,6 +3,9 @@
     "count": "{{n}} anställda med lön"
   },
   "payBanner": {
+    "readOnlyShort": "Skrivskyddat från {{date}}",
+    "readShort": "Kontot stängs {{date}}",
+    "snooze": "Påminn mig i morgon",
     "failedTitle": "Betalningen gick inte igenom",
     "actionTitle": "Banken vill att du bekräftar betalningen",
     "readTitle": "Läsläge: betalningen saknas",
