@@ -123,8 +123,15 @@ function CustomerForm({ initial, onSave, onCancel, v2 = false, nextNumber = '' }
     );
     return (
       <form id="contact-form" className="ctf" onSubmit={handleSubmit}>
-        <section className="ctf-card">
-          <h3>{c('sections.customerCard')}</h3>
+        <section className="ctf-card ctf-full">
+          <div className="ctf-head">
+            <h3>{c('sections.customerCard')}</h3>
+            <div className="ctf-active" role="radiogroup" aria-label={c('fields.active')}>
+              <span>{c('fields.active')}</span>
+              <button type="button" role="radio" aria-checked={form.active !== false} className={form.active !== false ? 'on' : undefined} onClick={() => set('active', true)}>{c('fields.activeYes')}</button>
+              <button type="button" role="radio" aria-checked={form.active === false} className={form.active === false ? 'on is-no' : undefined} onClick={() => set('active', false)}>{c('fields.activeNo')}</button>
+            </div>
+          </div>
           <div className="ctf-seg" role="radiogroup" aria-label={c('sections.customerType')}>
             {CUSTOMER_TYPES.map(o => (
               <button key={o.id} type="button" role="radio" aria-checked={form.customerType === o.id} className={form.customerType === o.id ? 'on' : undefined} onClick={() => handleTypeChange(o.id)}>{c(o.labelKey)}</button>
@@ -137,10 +144,10 @@ function CustomerForm({ initial, onSave, onCancel, v2 = false, nextNumber = '' }
               <span>{c('help.euNoVat')}</span>
             </div>
           )}
-          <div className="ctf-grid">
+          <div className="ctf-grid ctf-grid-3">
             {field(isPerson ? c('fields.personName') : c('fields.name'),
               <input data-tour="page-contacts-field" type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder={isPerson ? c('placeholders.personName') : c('placeholders.companyName')} autoFocus={!initial} />,
-              { wide: true, error: errors.name })}
+              { error: errors.name })}
             {field(`${isPerson ? c('fields.personalNumber') : c('fields.orgNr')}${orgNrRequired ? ' *' : ''}`,
               <input type="text" value={form.orgNr} onChange={e => set('orgNr', e.target.value)} style={inputStyle(errors.orgNr)} placeholder={isPerson ? 'ÅÅÅÅMMDD-XXXX' : 'XXXXXX-XXXX'} />,
               { error: errors.orgNr })}
@@ -151,52 +158,56 @@ function CustomerForm({ initial, onSave, onCancel, v2 = false, nextNumber = '' }
           </div>
         </section>
 
-        <section className="ctf-card">
-          <h3>{c('sections.contact')}</h3>
-          <div className="ctf-grid">
-            {!isPerson && field(c('fields.contactPerson'), <input type="text" value={form.contactPerson} onChange={e => set('contactPerson', e.target.value)} style={inputBase} />, { wide: true })}
-            {field(c('fields.email'), <input type="email" value={form.email} onChange={e => set('email', e.target.value)} style={inputStyle(errors.email)} placeholder={isPerson ? c('placeholders.personEmail') : c('placeholders.email')} />, { error: errors.email })}
-            {field(c('fields.phone'), <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} style={inputBase} placeholder="070-123 45 67" />)}
-          </div>
-        </section>
-
-        <section className="ctf-card">
-          <h3>{c('sections.address')}</h3>
-          <div className="ctf-grid ctf-grid-addr">
-            {field(c('fields.street'), <input type="text" value={form.address} onChange={e => set('address', e.target.value)} style={inputBase} />, { wide: true })}
-            {field(c('fields.postalCode'), <input type="text" inputMode="numeric" value={form.postalCode} onChange={e => set('postalCode', e.target.value)} style={inputBase} />)}
-            {field(c('fields.city'), <input type="text" value={form.city} onChange={e => set('city', e.target.value)} style={inputBase} />)}
-            {field(c('fields.country'),
-              <select value={form.country} onChange={e => set('country', e.target.value)} style={inputBase}>
-                {countryOptions.map(name => <option key={name} value={name}>{countryLabel(name, getLanguage())}</option>)}
-              </select>, { wide: true })}
-          </div>
-        </section>
-
-        <section className="ctf-card">
-          <h3>{c('sections.billing')}</h3>
-          <div className="ctf-grid">
-            {field(c('fields.paymentTerms'), <input type="number" value={form.paymentTerms} onChange={e => set('paymentTerms', Number(e.target.value))} style={inputBase} min={0} />)}
-            {field(c('sections.invoiceLanguage'),
-              <select value={form.invoiceLanguage} onChange={e => set('invoiceLanguage', e.target.value)} style={inputBase}>
-                <option value="sv">{c('fields.swedish')}</option>
-                <option value="en">{c('fields.english')}</option>
-              </select>)}
-          </div>
-          <div className="ctf-sub">
-            <h4>{c('sections.extraRecipients')}</h4>
+        <div className="ctf-col">
+          <section className="ctf-card">
+            <h3>{c('sections.contact')}</h3>
             <div className="ctf-grid">
-              {field(c('fields.cc'), <input type="text" value={form.ccEmails} onChange={e => set('ccEmails', e.target.value)} style={inputStyle(errors.ccEmails)} placeholder={c('placeholders.cc')} />, { error: errors.ccEmails })}
-              {field(c('fields.bcc'), <input type="text" value={form.bccEmails} onChange={e => set('bccEmails', e.target.value)} style={inputStyle(errors.bccEmails)} placeholder={c('placeholders.bcc')} />, { error: errors.bccEmails })}
+              {!isPerson && field(c('fields.contactPerson'), <input type="text" value={form.contactPerson} onChange={e => set('contactPerson', e.target.value)} style={inputBase} />, { wide: true })}
+              {field(c('fields.email'), <input type="email" value={form.email} onChange={e => set('email', e.target.value)} style={inputStyle(errors.email)} placeholder={isPerson ? c('placeholders.personEmail') : c('placeholders.email')} />, { error: errors.email })}
+              {field(c('fields.phone'), <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} style={inputBase} placeholder="070-123 45 67" />)}
             </div>
-            <p style={helpTextStyle}>{c('help.extraRecipients')}</p>
-          </div>
-        </section>
+          </section>
+          <section className="ctf-card">
+            <h3>{c('sections.billing')}</h3>
+            <div className="ctf-grid">
+              {field(c('fields.paymentTerms'), <input type="number" value={form.paymentTerms} onChange={e => set('paymentTerms', Number(e.target.value))} style={inputBase} min={0} />)}
+              {field(c('sections.invoiceLanguage'),
+                <select value={form.invoiceLanguage} onChange={e => set('invoiceLanguage', e.target.value)} style={inputBase}>
+                  <option value="sv">{c('fields.swedish')}</option>
+                  <option value="en">{c('fields.english')}</option>
+                </select>)}
+            </div>
+            <div className="ctf-sub">
+              <h4>{c('sections.extraRecipients')}</h4>
+              <div className="ctf-grid">
+                {field(c('fields.cc'), <input type="text" value={form.ccEmails} onChange={e => set('ccEmails', e.target.value)} style={inputStyle(errors.ccEmails)} placeholder={c('placeholders.cc')} />, { error: errors.ccEmails })}
+                {field(c('fields.bcc'), <input type="text" value={form.bccEmails} onChange={e => set('bccEmails', e.target.value)} style={inputStyle(errors.bccEmails)} placeholder={c('placeholders.bcc')} />, { error: errors.bccEmails })}
+              </div>
+              <p style={helpTextStyle}>{c('help.extraRecipients')}</p>
+            </div>
+          </section>
+        </div>
+        <div className="ctf-col">
+          <section className="ctf-card">
+            <h3>{c('sections.address')}</h3>
+            <div className="ctf-grid ctf-grid-addr">
+              {field(c('fields.street'), <input type="text" value={form.address} onChange={e => set('address', e.target.value)} style={inputBase} />, { wide: true })}
+              {field(c('fields.postalCode'), <input type="text" inputMode="numeric" value={form.postalCode} onChange={e => set('postalCode', e.target.value)} style={inputBase} />)}
+              {field(c('fields.city'), <input type="text" value={form.city} onChange={e => set('city', e.target.value)} style={inputBase} />)}
+              {field(c('fields.country'),
+                <select value={form.country} onChange={e => set('country', e.target.value)} style={inputBase}>
+                  {countryOptions.map(name => <option key={name} value={name}>{countryLabel(name, getLanguage())}</option>)}
+                </select>, { wide: true })}
+            </div>
+          </section>
+          <section className="ctf-card">
+            <h3>{c('sections.notes')}</h3>
+            <textarea value={form.notes} onChange={e => set('notes', e.target.value)} style={{ ...inputBase, minHeight: '56px', resize: 'vertical' }} placeholder={c('help.notesCustomer')} />
+          </section>
+        </div>
 
-        <section className="ctf-card">
-          <h3>{c('sections.notes')}</h3>
-          <textarea value={form.notes} onChange={e => set('notes', e.target.value)} style={{ ...inputBase, minHeight: '80px', resize: 'vertical' }} placeholder={c('help.notesCustomer')} />
-        </section>
+
+
 
         <FormActions onCancel={onCancel} saveLabel={c('actions.saveCustomer')} formId="contact-form" />
       </form>
@@ -355,7 +366,7 @@ function emptySupplier() {
   };
 }
 
-function SupplierForm({ initial, onSave, onCancel, accounts }) {
+function SupplierForm({ initial, onSave, onCancel, accounts, v2 = false }) {
   const [form, setForm] = useState(initial ? { ...emptySupplier(), ...initial } : emptySupplier());
   const [errors, setErrors] = useState({});
   const isNew = !initial;
@@ -390,6 +401,108 @@ function SupplierForm({ initial, onSave, onCancel, accounts }) {
     if (!validate()) return;
     onSave(form);
   };
+
+  if (v2) {
+    const field = (label, input, opts = {}) => (
+      <div className={opts.wide ? 'ctf-wide' : undefined}>
+        <label style={labelStyle}>{label}</label>
+        {input}
+        {opts.error && <div style={errorTextStyle}>{opts.error}</div>}
+        {opts.help && <p style={helpTextStyle}>{opts.help}</p>}
+      </div>
+    );
+    return (
+      <form id="contact-form" className="ctf" onSubmit={handleSubmit}>
+        <section className="ctf-card ctf-full">
+          <div className="ctf-head">
+            <h3>{c('sections.supplierCard')}</h3>
+            <div className="ctf-active" role="radiogroup" aria-label={c('fields.active')}>
+              <span>{c('fields.active')}</span>
+              <button type="button" role="radio" aria-checked={form.active !== false} className={form.active !== false ? 'on' : undefined} onClick={() => set('active', true)}>{c('fields.activeYes')}</button>
+              <button type="button" role="radio" aria-checked={form.active === false} className={form.active === false ? 'on is-no' : undefined} onClick={() => set('active', false)}>{c('fields.activeNo')}</button>
+            </div>
+          </div>
+          <div className="ctf-seg" role="radiogroup" aria-label={c('sections.supplierType')}>
+            {SUPPLIER_TYPES.map(o => (
+              <button key={o.id} type="button" role="radio" aria-checked={form.supplierType === o.id} className={form.supplierType === o.id ? 'on' : undefined} onClick={() => handleTypeChange(o.id)}>{c(o.labelKey)}</button>
+            ))}
+          </div>
+          <div className="ctf-grid ctf-grid-3">
+            {field(c('fields.name'), <input data-tour="page-contacts-field" type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder={c('placeholders.companyName')} autoFocus={isNew} />, { error: errors.name })}
+            {field(`${c('fields.orgNr')} *`, <input type="text" value={form.orgNr} onChange={e => set('orgNr', e.target.value)} style={inputStyle(errors.orgNr)} placeholder="XXXXXX-XXXX" />, { error: errors.orgNr })}
+            {isSwedish
+              ? field(c('sections.defaultCurrency'), <select value={form.defaultCurrency} onChange={e => set('defaultCurrency', e.target.value)} style={inputBase}>{CURRENCIES.map(x => <option key={x} value={x}>{x}</option>)}</select>)
+              : field(c('fields.vatNumber'), <input type="text" value={form.vatNumber} onChange={e => set('vatNumber', e.target.value)} style={inputBase} />)}
+          </div>
+        </section>
+
+        <div className="ctf-col">
+          <section className="ctf-card">
+            <h3>{c('sections.contact')}</h3>
+            <div className="ctf-grid">
+              {field(c('fields.contactPerson'), <input type="text" value={form.contactPerson} onChange={e => set('contactPerson', e.target.value)} style={inputBase} />, { wide: true })}
+              {field(c('fields.email'), <input type="email" value={form.email} onChange={e => set('email', e.target.value)} style={inputStyle(errors.email)} />, { error: errors.email })}
+              {field(c('fields.phone'), <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} style={inputBase} />)}
+            </div>
+          </section>
+          <section className="ctf-card">
+            <h3>{c('sections.payment')}</h3>
+            <div className="ctf-grid">
+              {isSwedish ? (<>
+                {field(t('ui.bankgiro'), <input type="text" value={form.bankgiro} onChange={e => set('bankgiro', e.target.value)} style={inputBase} placeholder="123-4567" />)}
+                {field(t('ui.plusgiro'), <input type="text" value={form.plusgiro} onChange={e => set('plusgiro', e.target.value)} style={inputBase} placeholder="12 34 56-7" />)}
+                {form.showMorePayment && field(c('fields.clearing'), <input type="text" inputMode="numeric" value={form.clearingNumber} onChange={e => set('clearingNumber', e.target.value)} style={inputBase} />)}
+                {form.showMorePayment && field(c('fields.accountNumber'), <input type="text" inputMode="numeric" value={form.accountNumber} onChange={e => set('accountNumber', e.target.value)} style={inputBase} />)}
+              </>) : (<>
+                {field(t('ui.iban'), <input type="text" value={form.iban} onChange={e => set('iban', e.target.value)} style={inputStyle(errors.iban)} placeholder="DE89 3704 0044 0532 0130 00" />, { error: errors.iban })}
+                {field(t('ui.swift_bic'), <input type="text" value={form.swift} onChange={e => set('swift', e.target.value.toUpperCase())} style={inputBase} placeholder="COBADEFFXXX" />)}
+              </>)}
+            </div>
+            {isSwedish && (
+              <button type="button" className="ctf-more" onClick={() => set('showMorePayment', !form.showMorePayment)}>
+                <ChevronDown size={14} style={{ transform: form.showMorePayment ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+                {c('fields.morePayment')}
+              </button>
+            )}
+          </section>
+          <section className="ctf-card">
+            <h3>{c('sections.notes')}</h3>
+            <textarea value={form.notes} onChange={e => set('notes', e.target.value)} style={{ ...inputBase, minHeight: '56px', resize: 'vertical' }} placeholder={c('help.notesSupplier')} />
+          </section>
+        </div>
+        <div className="ctf-col">
+          <section className="ctf-card">
+            <h3>{c('sections.address')}</h3>
+            <div className="ctf-grid ctf-grid-addr">
+              {field(c('fields.street'), <input type="text" value={form.address} onChange={e => set('address', e.target.value)} style={inputBase} />, { wide: true })}
+              {field(c('fields.postalCode'), <input type="text" inputMode="numeric" value={form.postalCode} onChange={e => set('postalCode', e.target.value)} style={inputBase} />)}
+              {field(c('fields.city'), <input type="text" value={form.city} onChange={e => set('city', e.target.value)} style={inputBase} />)}
+              {field(c('fields.country'),
+                <select value={form.country} onChange={e => set('country', e.target.value)} style={inputBase}>
+                  {countryOptions.map(name => <option key={name} value={name}>{countryLabel(name, getLanguage())}</option>)}
+                </select>, { wide: true })}
+            </div>
+          </section>
+          <section className="ctf-card">
+            <h3>{c('sections.defaultAccount')}</h3>
+            <AccountSearch value={form.defaultAccount} onChange={code => set('defaultAccount', code)} accounts={accounts || []} placeholder={c('help.searchAccount')} />
+            <p style={helpTextStyle}>{c('help.defaultAccount')}</p>
+            {!isSwedish && (
+              <div className="ctf-grid" style={{ marginTop: 10 }}>
+                {field(c('sections.defaultCurrency'), <select value={form.defaultCurrency} onChange={e => set('defaultCurrency', e.target.value)} style={inputBase}>{CURRENCIES.map(x => <option key={x} value={x}>{x}</option>)}</select>)}
+              </div>
+            )}
+          </section>
+        </div>
+
+
+
+
+
+        <FormActions onCancel={onCancel} saveLabel={c('actions.saveSupplier')} formId="contact-form" />
+      </form>
+    );
+  }
 
   return (
     <form id="contact-form" onSubmit={handleSubmit}>
@@ -644,6 +757,15 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
     // uppdateringen hade badgen i redigeringsvyn visat det gamla värdet
     // tills man lämnade och gick tillbaka.
     setSelectedContact(prev => (prev && prev.id === contact.id) ? { ...prev, active: nextActive } : prev);
+    if (adminList) {
+      showUndo({
+        message: c(nextActive ? 'list.activatedMany' : 'list.deactivatedMany', { n: 1 }),
+        onUndo: () => {
+          setContacts(prev => prev.map(x => (x.id === contact.id ? { ...x, active: !nextActive } : x)));
+          setSelectedContact(prev => (prev && prev.id === contact.id) ? { ...prev, active: !nextActive } : prev);
+        },
+      });
+    }
   };
 
   const handleDeleteContact = async (contact) => {
@@ -726,6 +848,24 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
     showUndo({
       message: c(active ? 'list.activatedMany' : 'list.deactivatedMany', { n: ids.size }),
       onUndo: () => setContacts(prev => prev.map(ct => (ids.has(ct.id) ? { ...ct, active: !active } : ct))),
+    });
+    setPicked(new Set());
+  };
+  const deleteMany = async () => {
+    const del = pickedRows.filter(ct => !hasBusinessHistory(ct));
+    const keep = pickedRows.filter(ct => hasBusinessHistory(ct));
+    if (!del.length && !keep.length) return;
+    const ok = keep.length
+      ? await confirmDialog(del.length ? c('dialogs.someHaveHistory', { n: keep.length, m: del.length }) : c('dialogs.allHaveHistory', { n: keep.length }), { title: c('dialogs.cannotDeleteTitle'), confirmLabel: del.length ? c('dialogs.deleteAndInactivate') : c('dialogs.setInactive'), cancelLabel: c('actions.cancel') })
+      : await confirmDialog(c('dialogs.deleteMany', { n: del.length }), { confirmLabel: c('actions.delete'), cancelLabel: c('actions.cancel') });
+    if (!ok) return;
+    const delIds = new Set(del.map(ct => ct.id));
+    const keepIds = new Set(keep.map(ct => ct.id));
+    const before = contacts;
+    setContacts(prev => prev.filter(x => !delIds.has(x.id)).map(x => (keepIds.has(x.id) ? { ...x, active: false } : x)));
+    showUndo({
+      message: del.length ? c('list.deletedMany', { n: del.length }) : c('list.deactivatedMany', { n: keep.length }),
+      onUndo: () => setContacts(() => before),
     });
     setPicked(new Set());
   };
@@ -941,6 +1081,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                     <b>{c('list.picked', { n: pickedRows.length })}</b>
                     {pickedRows.some(ct => ct.active !== false) && <button type="button" onClick={() => setActiveMany(false)}><Power size={14} /> {c('actions.deactivate')}</button>}
                     {pickedRows.some(ct => ct.active === false) && <button type="button" onClick={() => setActiveMany(true)}><Power size={14} /> {c('actions.activate')}</button>}
+                    <button type="button" className="ct-bulk-del" onClick={deleteMany}><Trash2 size={14} /> {c('actions.delete')}</button>
                     <button type="button" className="ct-bulk-clear" onClick={() => setPicked(new Set())}>{c('list.clearPick')}</button>
                   </div>
                 )}
@@ -1140,6 +1281,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                 onSave={handleSaveSupplier}
                 onCancel={() => setViewState('list')}
                 accounts={accounts}
+                v2={adminList}
               />
             )}
           </div>

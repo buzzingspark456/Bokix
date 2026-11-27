@@ -70,9 +70,18 @@ if (process.env.MENU) {
   const menu = page.locator('.main-content-inner button[aria-label^="Åtgärder"], .main-content-inner .row-action-trigger, .main-content-inner button[aria-haspopup]').first();
   if (await menu.isVisible().catch(() => false)) { await menu.click(); await shot('meny'); await page.keyboard.press('Escape'); }
   const boxes = page.locator('.main-content-inner tbody input[type=checkbox]');
-  if (await boxes.count() > 1) { await boxes.nth(0).check(); await boxes.nth(1).check(); await shot('flerval'); await boxes.nth(0).uncheck(); await boxes.nth(1).uncheck(); }
+  if (await boxes.count() > 1) { await boxes.nth(0).check(); await boxes.nth(1).check(); await shot('flerval');
+  const del = page.locator('.ct-bulk-del').first();
+  if (await del.isVisible().catch(() => false)) { await del.click(); await page.waitForTimeout(500); await shot('bulk-ta-bort'); const dlg = page.locator('.confirm-dialog-overlay').last(); console.log('dialog:', (await dlg.innerText().catch(() => '')).replace(/s+/g, ' ').slice(0, 220)); await dlg.locator('button').last().click().catch(() => {}); await page.waitForTimeout(600); console.log('aktiva kvar:', await page.locator('.cf-chips button.on').first().innerText().catch(() => '?')); await shot('efter-bulk'); }  }
 }
 const ny = page.locator('button', { hasText: /Ny kund/ }).first();
-if (await ny.isVisible().catch(() => false)) { await ny.click(); await shot('ny-kund'); }
+if (await ny.isVisible().catch(() => false)) { await ny.click(); await shot('ny-kund'); console.log('kund skroll:', await page.evaluate(() => { const el = [...document.querySelectorAll('*')].find(e => e.querySelector && e.querySelector('form.ctf') && /(auto|scroll)/.test(getComputedStyle(e).overflowY)); return el ? { synligt: el.clientHeight, totalt: el.scrollHeight } : null; })); }
+const back = page.locator('.mform-back').first(); if (await back.isVisible().catch(() => false)) { await back.click(); await page.waitForTimeout(500); }
+const st = page.locator('[role=tab], .lph-inline-tab, button', { hasText: /^Leverantörer/ }).first();
+if (await st.isVisible().catch(() => false)) { await st.click(); await page.waitForTimeout(500); }
+const nyl = page.locator('button', { hasText: /Ny leverantör/ }).first();
+if (await nyl.isVisible().catch(() => false)) { await nyl.click(); await shot('ny-leverantor'); }
+const sh = await page.evaluate(() => { const el = [...document.querySelectorAll('*')].find(e => e.querySelector && e.querySelector('form.ctf') && /(auto|scroll)/.test(getComputedStyle(e).overflowY)); return el ? { synligt: el.clientHeight, totalt: el.scrollHeight } : null; });
+console.log('leverantör skroll:', sh);
 console.log('fel:', errors.length ? errors : 'inga');
 await browser.close();

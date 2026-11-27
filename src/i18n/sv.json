@@ -459,6 +459,9 @@
       "searchAccount": "Sök konto, t.ex. 4010..."
     },
     "fields": {
+      "active": "Aktiv",
+      "activeYes": "Ja",
+      "activeNo": "Nej",
       "name": "Namn *",
       "customerNumber": "Kundnummer",
       "contactPerson": "Kontaktperson",
@@ -502,6 +505,7 @@
       "delete": "Ta bort"
     },
     "list": {
+      "deletedMany": "{{n}} borttagna",
       "customers": "Kunder",
       "suppliers": "Leverantörer",
       "customerOne": "kund",
@@ -555,6 +559,10 @@
       "emptyInactiveText": "Kunder och leverantörer du inaktiverar hamnar här. De går inte att välja på nya dokument, men historiken finns kvar."
     },
     "dialogs": {
+      "deleteMany": "Ta bort {{n}} markerade? Det går att ångra direkt efteråt.",
+      "someHaveHistory": "{{n}} av de markerade har fakturor eller andra affärshändelser och kan inte tas bort. De inaktiveras i stället, och övriga {{m}} tas bort.",
+      "allHaveHistory": "De markerade har fakturor eller andra affärshändelser och kan inte tas bort. Vill du inaktivera dem i stället? De går inte att välja på nya dokument, men historiken finns kvar.",
+      "deleteAndInactivate": "Ta bort och inaktivera",
       "cannotDeleteTitle": "Kan inte tas bort",
       "cannotDeleteCustomer": "{{name}} har fakturor eller offerter kopplade och kan inte tas bort helt, eftersom historiska dokument måste kunna peka på den. Sätt kontakten som inaktiv i stället: den går då inte längre att välja på nya dokument, men historiken finns kvar.",
       "cannotDeleteSupplier": "{{name}} har leverantörsfakturor kopplade och kan inte tas bort helt, eftersom historiska dokument måste kunna peka på den. Sätt kontakten som inaktiv i stället: den går då inte längre att välja på nya dokument, men historiken finns kvar.",

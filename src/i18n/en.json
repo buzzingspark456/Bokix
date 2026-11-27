@@ -459,6 +459,9 @@
       "searchAccount": "Search account, e.g. 4010..."
     },
     "fields": {
+      "active": "Active",
+      "activeYes": "Yes",
+      "activeNo": "No",
       "name": "Name *",
       "customerNumber": "Customer number",
       "contactPerson": "Contact person",
@@ -502,6 +505,7 @@
       "delete": "Delete"
     },
     "list": {
+      "deletedMany": "{{n}} deleted",
       "customers": "Customers",
       "suppliers": "Suppliers",
       "customerOne": "customer",
@@ -555,6 +559,10 @@
       "emptyInactiveText": "Customers and suppliers you deactivate end up here. They can't be picked on new documents, but their history stays."
     },
     "dialogs": {
+      "deleteMany": "Delete {{n}} selected? You can undo right after.",
+      "someHaveHistory": "{{n}} of the selected have invoices or other transactions and can't be deleted. They will be deactivated instead, and the other {{m}} deleted.",
+      "allHaveHistory": "The selected contacts have invoices or other transactions and can't be deleted. Deactivate them instead? They can't be picked on new documents, but their history stays.",
+      "deleteAndInactivate": "Delete and deactivate",
       "cannotDeleteTitle": "Cannot be deleted",
       "cannotDeleteCustomer": "{{name}} has linked invoices or quotes and cannot be deleted completely, because older documents must still point to it. Mark the contact as inactive instead: it can then no longer be chosen on new documents, but the history is kept.",
       "cannotDeleteSupplier": "{{name}} has linked supplier invoices and cannot be deleted completely, because older documents must still point to it. Mark the contact as inactive instead: it can then no longer be chosen on new documents, but the history is kept.",
