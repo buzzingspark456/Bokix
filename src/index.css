@@ -11839,8 +11839,8 @@ html.ws-v2 .lfb .rc-segmented button { border-radius: 999px !important; }
 
 /* Tabeller som ryms (utils/fitTable.js, 2026-11-27): nowrap -> tight -> fit. */
 table.lt-nowrap td, table.lt-nowrap td *, .lt-page-narrow table.lt-nowrap td.lt-cell, .lt-page-narrow table.lt-nowrap td.lt-cell * { white-space: nowrap !important; overflow-wrap: normal !important; }
-table.lt-tight th, table.lt-tight th * { white-space: normal !important; line-height: 1.25; }
-table.lt-tight th { vertical-align: bottom; }
+table.lt-nowrap th, table.lt-nowrap th * { white-space: nowrap !important; }
+table.lt-nowrap th { vertical-align: middle; }
 table.lt-tight th, table.lt-tight td { padding-left: 7px !important; padding-right: 7px !important; }
 table.lt-tight th:first-child, table.lt-tight td:first-child { padding-left: 14px !important; }
 table.lt-fit th, table.lt-fit td { overflow: hidden; text-overflow: ellipsis; }
@@ -11852,3 +11852,28 @@ table.lt-fit .ct-ellip { max-width: 100%; }
    tydligt smalare än Bred på laptop, en lugn kolumn på stor skärm. */
 .lt-page-narrow > *, .lt-page-narrow .lt-page-band-inner { max-width: min(1100px, 86%) !important; }
 @media (max-width: 760px) { .lt-page-narrow > *, .lt-page-narrow .lt-page-band-inner { max-width: 100% !important; } }
+/* Trångt läge: något mindre text så att mer ryms utan att rubriker klipps. */
+table.lt-tight td, table.lt-tight td * { font-size: 12.5px !important; }
+table.lt-tight th, table.lt-tight th * { font-size: 10.5px !important; letter-spacing: 0.02em !important; }
+table.lt-fit .ct-ellip, table.lt-fit .ct-name, table.lt-fit .ct-name b { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Formulären på större skärm (2026-11-27): laptop behåller den kompakta
+   storleken, en stor skärm får mer luft och större fält så att det inte ser tomt ut. */
+@media (min-width: 1700px) {
+  .ctf-page > * { max-width: 1240px; }
+  .ctf-page { padding-top: 22px !important; }
+  .ctf { gap: 16px; }
+  .ctf-col { gap: 16px; }
+  .ctf-card { padding: 20px 24px; border-radius: 14px; }
+  .ctf-card h3 { font-size: 15.5px; margin-bottom: 14px; }
+  .ctf-grid { gap: 14px 18px; }
+  .ctf label { font-size: 13px !important; margin-bottom: 6px !important; }
+  .ctf input:not([type=checkbox]):not([type=radio]), .ctf select, .ctf textarea { padding: 10px 12px !important; font-size: 14.5px !important; }
+  .ctf p { font-size: 12.5px !important; }
+  .ctf-seg button { height: 34px; padding: 0 15px; font-size: 13.5px; }
+}
+@media (min-width: 2200px) {
+  .ctf-page > * { max-width: 1400px; }
+  .ctf-card { padding: 24px 28px; }
+  .ctf input:not([type=checkbox]):not([type=radio]), .ctf select, .ctf textarea { padding: 11px 14px !important; font-size: 15px !important; }
+}

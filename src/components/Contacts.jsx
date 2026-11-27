@@ -348,7 +348,7 @@ const CURRENCIES = ['SEK', 'EUR', 'USD', 'GBP', 'NOK', 'DKK'];
 
 function emptySupplier() {
   return {
-    type: 'supplier', supplierType: 'se_company', name: '',
+    type: 'supplier', supplierType: 'se_company', name: '', supplierNumber: '', ourCustomerNumber: '', paymentTerms: 30,
     contactPerson: '', email: '', phone: '',
     address: '', postalCode: '', city: '', country: SWEDEN,
     orgNr: '', vatNumber: '',
@@ -359,8 +359,8 @@ function emptySupplier() {
   };
 }
 
-function SupplierForm({ initial, onSave, onCancel, accounts, v2 = false }) {
-  const [form, setForm] = useState(initial ? { ...emptySupplier(), ...initial } : emptySupplier());
+function SupplierForm({ initial, onSave, onCancel, accounts, v2 = false, nextNumber = '' }) {
+  const [form, setForm] = useState(initial ? { ...emptySupplier(), ...initial } : { ...emptySupplier(), supplierNumber: v2 ? nextNumber : '' });
   const [errors, setErrors] = useState({});
   const isNew = !initial;
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -416,9 +416,11 @@ function SupplierForm({ initial, onSave, onCancel, accounts, v2 = false }) {
           <div className="ctf-grid ctf-grid-3">
             {field(c('fields.name'), <input data-tour="page-contacts-field" type="text" value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle(errors.name)} placeholder={c('placeholders.companyName')} autoFocus={isNew} />, { error: errors.name })}
             {field(`${c('fields.orgNr')} *`, <input type="text" value={form.orgNr} onChange={e => set('orgNr', e.target.value)} style={inputStyle(errors.orgNr)} placeholder="XXXXXX-XXXX" />, { error: errors.orgNr })}
-            {isSwedish
-              ? field(c('sections.defaultCurrency'), <select value={form.defaultCurrency} onChange={e => set('defaultCurrency', e.target.value)} style={inputBase}>{CURRENCIES.map(x => <option key={x} value={x}>{x}</option>)}</select>)
-              : field(c('fields.vatNumber'), <input type="text" value={form.vatNumber} onChange={e => set('vatNumber', e.target.value)} style={inputBase} />)}
+            {field(c('fields.supplierNumber'), <input type="text" value={form.supplierNumber} onChange={e => set('supplierNumber', e.target.value)} style={inputBase} />)}
+          </div>
+          <div className="ctf-grid" style={{ marginTop: 10 }}>
+            {field(c('fields.ourCustomerNumber'), <input type="text" value={form.ourCustomerNumber} onChange={e => set('ourCustomerNumber', e.target.value)} style={inputBase} placeholder={c('placeholders.ourCustomerNumber')} />)}
+            {!isSwedish && field(c('fields.vatNumber'), <input type="text" value={form.vatNumber} onChange={e => set('vatNumber', e.target.value)} style={inputBase} />)}
           </div>
         </section>
 
@@ -434,6 +436,8 @@ function SupplierForm({ initial, onSave, onCancel, accounts, v2 = false }) {
           <section className="ctf-card">
             <h3>{c('sections.payment')}</h3>
             <div className="ctf-grid">
+              {field(c('fields.supplierPaymentTerms'), <input type="number" min={0} value={form.paymentTerms} onChange={e => set('paymentTerms', e.target.value === '' ? '' : Number(e.target.value))} style={inputBase} />)}
+              {field(c('sections.defaultCurrency'), <select value={form.defaultCurrency} onChange={e => set('defaultCurrency', e.target.value)} style={inputBase}>{CURRENCIES.map(x => <option key={x} value={x}>{x}</option>)}</select>)}
               {isSwedish ? (<>
                 {field(t('ui.bankgiro'), <input type="text" value={form.bankgiro} onChange={e => set('bankgiro', e.target.value)} style={inputBase} placeholder="123-4567" />)}
                 {field(t('ui.plusgiro'), <input type="text" value={form.plusgiro} onChange={e => set('plusgiro', e.target.value)} style={inputBase} placeholder="12 34 56-7" />)}
@@ -450,10 +454,6 @@ function SupplierForm({ initial, onSave, onCancel, accounts, v2 = false }) {
                 {c('fields.morePayment')}
               </button>
             )}
-          </section>
-          <section className="ctf-card">
-            <h3>{c('sections.notes')}</h3>
-            <textarea value={form.notes} onChange={e => set('notes', e.target.value)} style={{ ...inputBase, minHeight: '56px', resize: 'vertical' }} placeholder={c('help.notesSupplier')} />
           </section>
         </div>
         <div className="ctf-col">
@@ -473,11 +473,10 @@ function SupplierForm({ initial, onSave, onCancel, accounts, v2 = false }) {
             <h3>{c('sections.defaultAccount')}</h3>
             <AccountSearch value={form.defaultAccount} onChange={code => set('defaultAccount', code)} accounts={accounts || []} placeholder={c('help.searchAccount')} />
             <p style={helpTextStyle}>{c('help.defaultAccount')}</p>
-            {!isSwedish && (
-              <div className="ctf-grid" style={{ marginTop: 10 }}>
-                {field(c('sections.defaultCurrency'), <select value={form.defaultCurrency} onChange={e => set('defaultCurrency', e.target.value)} style={inputBase}>{CURRENCIES.map(x => <option key={x} value={x}>{x}</option>)}</select>)}
-              </div>
-            )}
+          </section>
+          <section className="ctf-card">
+            <h3>{c('sections.notes')}</h3>
+            <textarea value={form.notes} onChange={e => set('notes', e.target.value)} style={{ ...inputBase, minHeight: '56px', resize: 'vertical' }} placeholder={c('help.notesSupplier')} />
           </section>
         </div>
 
@@ -674,7 +673,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
   const adminList = isAdminPreview();
   // Kolumner som Fortnox kundregister (2026-11-27): Kundnr, Namn, Org-/Persnr,
   // Postnr, Ort, Land, Telefon, E-post. Leverantörer har betalning och konto.
-  const [lp, setLp] = useListPrefs('bokix.contacts.prefs2', { customerNumber: true, orgNr: true, postalCode: true, city: true, country: true, phone: true, email: true, bankgiro: true, defaultAccount: true, contactPerson: false, lastInvoiceDate: false, totalInvoicedThisYear: false });
+  const [lp, setLp] = useListPrefs('bokix.contacts.prefs2', { customerNumber: true, supplierNumber: true, orgNr: true, postalCode: true, city: true, country: true, phone: true, email: true, bankgiro: true, defaultAccount: true, contactPerson: false, lastInvoiceDate: false, totalInvoicedThisYear: false });
   // Aktiva som förval, Inaktiva och Alla som i Fortnox. Flerval för att
   // inaktivera eller aktivera många på en gång.
   const [statusFilter, setStatusFilter] = useState('active');
@@ -812,6 +811,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
       c.email?.toLowerCase().includes(s) ||
       c.phone?.toLowerCase().includes(s) ||
       String(c.customerNumber || '').toLowerCase().includes(s) ||
+      String(c.supplierNumber || '').toLowerCase().includes(s) ||
       c.city?.toLowerCase().includes(s)
     );
   });
@@ -943,7 +943,9 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
   const dash = (v) => (v ? v : <span className="ct-dash">–</span>);
   const kr = (v) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(v || 0);
   const adminColumns = [
-    ...(isCustomerTab ? [{ key: 'customerNumber', label: c('list.colCustNr'), render: ct => <span className="ct-num">{dash(ct.customerNumber)}</span> }] : []),
+    ...(isCustomerTab
+      ? [{ key: 'customerNumber', label: c('list.colCustNr'), render: ct => <span className="ct-num">{dash(ct.customerNumber)}</span> }]
+      : [{ key: 'supplierNumber', label: c('list.colSupNr'), render: ct => <span className="ct-num">{dash(ct.supplierNumber)}</span> }]),
     { key: 'name', label: c('list.colName'), render: ct => (
       <span className="ct-name">
         <b className={`ct-ellip${ct.active === false ? ' is-off' : ''}`} title={ct.name || ''}>{ct.name || c('list.unnamed')}</b>
@@ -1034,7 +1036,7 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
             { key: 'export', label: c('actions.export'), icon: Download, onClick: handleExportCsv },
           ]}
           columns={[
-            ...(isCustomerTab ? [{ key: 'customerNumber', label: c('list.colCustNr') }] : []),
+            ...(isCustomerTab ? [{ key: 'customerNumber', label: c('list.colCustNr') }] : [{ key: 'supplierNumber', label: c('list.colSupNr') }]),
             { key: 'orgNr', label: c('list.colOrgPers') },
             ...(isCustomerTab ? [{ key: 'postalCode', label: c('list.colPostal') }] : [{ key: 'bankgiro', label: c('list.colPayment') }]),
             { key: 'city', label: c('list.colCity') },
@@ -1270,6 +1272,10 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                 onCancel={() => setViewState('list')}
                 accounts={accounts}
                 v2={adminList}
+                nextNumber={(() => {
+                  const nums = contacts.filter(x => x.type === 'supplier').map(x => parseInt(String(x.supplierNumber || '').replace(/\D/g, ''), 10)).filter(n => Number.isFinite(n));
+                  return nums.length ? String(Math.max(...nums) + 1) : '1';
+                })()}
               />
             )}
           </div>

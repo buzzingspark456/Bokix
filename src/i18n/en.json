@@ -401,6 +401,7 @@
   },
   "contacts": {
     "placeholders": {
+      "ourCustomerNumber": "Often printed on their invoices",
       "companyName": "Example Company AB",
       "email": "email@company.com",
       "cc": "john@company.com, anna@company.com",
@@ -459,6 +460,9 @@
       "searchAccount": "Search account, e.g. 4010..."
     },
     "fields": {
+      "supplierNumber": "Supplier number",
+      "ourCustomerNumber": "Our customer number with them",
+      "supplierPaymentTerms": "Payment terms (days)",
       "active": "Active",
       "activeYes": "Yes",
       "activeNo": "No",
@@ -505,6 +509,7 @@
       "delete": "Delete"
     },
     "list": {
+      "colSupNr": "Supp. no.",
       "deletedMany": "{{n}} deleted",
       "customers": "Customers",
       "suppliers": "Suppliers",

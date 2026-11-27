@@ -392,7 +392,12 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
           {/* Leverantör */}
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
             <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.leverantor_2')}</h3>
-            <SupplierCombo value={supplierId} onChange={setSupplierId} contacts={contacts} setContacts={setContacts} />
+            <SupplierCombo value={supplierId} onChange={(id) => {
+              setSupplierId(id);
+              // Leverantörens betalningsvillkor fyller i förfallodatum (2026-11-27), bara om det är tomt.
+              const terms = Number(contacts.find(c => c.id === id)?.paymentTerms);
+              if (!dueDate && date && terms > 0) { const d = new Date(`${date}T12:00:00`); d.setDate(d.getDate() + terms); setDueDate(d.toISOString().slice(0, 10)); }
+            }} contacts={contacts} setContacts={setContacts} />
             {errors.supplierId && <div style={errSt}>{errors.supplierId}</div>}
           </div>
 

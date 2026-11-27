@@ -401,6 +401,7 @@
   },
   "contacts": {
     "placeholders": {
+      "ourCustomerNumber": "Står ofta på deras fakturor",
       "companyName": "Exempelföretag AB",
       "email": "epost@foretag.se",
       "cc": "kalle@företag.se, anna@företag.se",
@@ -459,6 +460,9 @@
       "searchAccount": "Sök konto, t.ex. 4010..."
     },
     "fields": {
+      "supplierNumber": "Leverantörsnummer",
+      "ourCustomerNumber": "Vårt kundnummer hos dem",
+      "supplierPaymentTerms": "Betalningsvillkor (dagar)",
       "active": "Aktiv",
       "activeYes": "Ja",
       "activeNo": "Nej",
@@ -505,6 +509,7 @@
       "delete": "Ta bort"
     },
     "list": {
+      "colSupNr": "Levnr",
       "deletedMany": "{{n}} borttagna",
       "customers": "Kunder",
       "suppliers": "Leverantörer",
