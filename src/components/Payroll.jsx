@@ -458,7 +458,7 @@ export default function Payroll({
             const today = new Date().toISOString().slice(0, 10);
             const next = sortedRuns.filter(r => r.payDate && r.payDate >= today).sort((a, b) => String(a.payDate).localeCompare(String(b.payDate)))[0];
             return (
-              <div className="pr-sum">
+              <div className="pr-year">
                 <div><span>{t('payrollYear.sumGross', { year: shownYear })}</span><b>{formatSEK(gross)}</b></div>
                 <div><span>{t('payrollYear.sumRuns')}</span><b>{filteredRuns.length}</b></div>
                 <div><span>{t('payrollYear.sumNext')}</span><b>{next ? fmtShortDate(new Date(`${next.payDate}T12:00:00`)) : '–'}</b></div>

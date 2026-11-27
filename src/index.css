@@ -11769,11 +11769,11 @@ html.ws-v2 .lfb .rc-segmented button { border-radius: 999px !important; }
 }
 
 /* Lönekörningar (2026-11-27, admin): året i korthet, månadsruta per rad, eget tomt läge. */
-.pr-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--border); background: var(--bg-card); }
-.pr-sum > div { display: flex; flex-direction: column; gap: 4px; padding: 14px 20px; }
-.pr-sum > div + div { border-left: 1px solid var(--border-light, var(--border)); }
-.pr-sum span { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
-.pr-sum b { font-size: 19px; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.pr-year { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--border); background: var(--bg-card); }
+.pr-year > div { display: flex; flex-direction: column; gap: 4px; padding: 14px 20px; }
+.pr-year > div + div { border-left: 1px solid var(--border-light, var(--border)); }
+.pr-year span { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.pr-year b { font-size: 19px; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .pr-month { display: inline-flex; align-items: center; gap: 12px; }
 .pr-month-tile { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); line-height: 1; flex-shrink: 0; }
 .pr-month-tile b { font-size: 11px; font-weight: 800; letter-spacing: .04em; color: var(--text-main); }
@@ -11786,7 +11786,7 @@ html.ws-v2 .lfb .rc-segmented button { border-radius: 999px !important; }
 .pr-empty-ico { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 50%; background: var(--bg-muted); color: var(--text-secondary); margin-bottom: 4px; }
 .pr-empty-btn { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 16px; border: none; border-radius: 999px; background: #0b6329; color: #fff; font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
 .pr-empty-btn:hover { background: #0e7531; }
-@media (max-width: 760px) { .pr-sum { grid-template-columns: 1fr 1fr; } .pr-sum > div:last-child { grid-column: 1 / -1; border-left: none; border-top: 1px solid var(--border-light, var(--border)); } }
+@media (max-width: 760px) { .pr-year { grid-template-columns: 1fr 1fr; } .pr-year > div:last-child { grid-column: 1 / -1; border-left: none; border-top: 1px solid var(--border-light, var(--border)); } }
 
 /* Att granska, Kompakt (2026-11-27): raderna heter rqt, inte rq-row – nu gör valet skillnad. */
 .rq-compact .rqt-main { min-height: 38px; padding-top: 3px; padding-bottom: 3px; gap: 12px; }
@@ -11911,3 +11911,9 @@ table.lt-fit td > div, table.lt-fit td > span { overflow: hidden; text-overflow:
 @media (prefers-reduced-motion: reduce) { .pay-banner { animation: none; } }
 /* Bannern tar bara sin egen höjd (barnen i .main-content-inner får annars flex: 1). */
 .main-content-inner > .pay-banner { flex: 0 0 auto; }
+
+/* Lönebesked som PDF i stegen efter Lönebesked (Hembiet 2026-11-27). */
+.pr-payslip-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 16px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); font-size: 13px; color: var(--text-secondary); }
+.pr-payslip-bar b { color: var(--text-main); }
+.pr-payslip-bar button { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text-main); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.pr-payslip-bar button:hover { background: var(--bg-muted); }

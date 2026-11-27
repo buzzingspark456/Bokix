@@ -1,4 +1,7 @@
 {
+  "payslipBar": {
+    "count": "{{n}} employees with pay"
+  },
   "payBanner": {
     "failedTitle": "The payment didn't go through",
     "actionTitle": "Your bank wants you to confirm the payment",

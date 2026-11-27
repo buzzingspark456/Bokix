@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Download, ExternalLink, Loader2 } from './icons';
 import { computeEmployeePayroll } from '../utils/payrollCalculation';
 import { preloadSkattetabell } from '../utils/skattetabell';
-import { downloadAgiPdf } from '../utils/agiExport';
+import { downloadAgiPdf, hasAgiData } from '../utils/agiExport';
 import { downloadAgiXml } from '../utils/agiXml';
 import { AGI_XML_ENABLED } from '../utils/featureFlags';
 import { dueDayForMonth, rollForwardPastWeekend } from '../utils/declarationDeadlines';
@@ -96,7 +96,7 @@ export default function AgiReportDetails({ report, run, company }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {computedRows.map(({ row, computed }) => (
+                  {computedRows.filter(({ computed }) => hasAgiData(computed)).map(({ row, computed }) => (
                     <tr key={row.employeeId} style={{ borderTop: '1px solid var(--border-light)' }}>
                       <td style={{ ...cell, textAlign: 'left', fontWeight: 700, color: 'var(--text-main)' }}>{row.employeeSnapshot.firstName} {row.employeeSnapshot.lastName}</td>
                       <td style={{ ...cell, textAlign: 'left', color: 'var(--text-secondary)' }}>{row.employeeSnapshot.ssn || '—'}</td>

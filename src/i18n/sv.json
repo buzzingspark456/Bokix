@@ -1,4 +1,7 @@
 {
+  "payslipBar": {
+    "count": "{{n}} anställda med lön"
+  },
   "payBanner": {
     "failedTitle": "Betalningen gick inte igenom",
     "actionTitle": "Banken vill att du bekräftar betalningen",

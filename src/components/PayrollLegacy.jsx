@@ -25,7 +25,7 @@ const panelCard = { background: 'var(--bg-card)', borderRadius: '14px', border: 
 
 export default function Payroll({
   company, activeCompanyId, employees = [], onSaveEmployee, onImportEmployees, onApplyFos, onSyncBeforeServerCall, accounts = [], projects = [],
-  payrollRuns = [], onCreateRun, onUpdateRunRow, onUpdateRun, onAdvanceRunStep, onBookRun, onMarkRunPaid, onDeleteRun, onRefreshRunSnapshots, agiReports = [],
+  payrollRuns = [], onCreateRun, onUpdateRunRow, onUpdateRun, onSetRunIncluded, onAdvanceRunStep, onBookRun, onMarkRunPaid, onDeleteRun, onRefreshRunSnapshots, agiReports = [],
   outlays = [],
 }) {
   const [activeTab, setActiveTab] = useState('employees');
@@ -144,6 +144,10 @@ export default function Payroll({
         onUpdateRow={(employeeId, patch) => onUpdateRunRow(selectedRun.id, employeeId, patch)}
         onUpdateRun={(patch) => onUpdateRun?.(selectedRun.id, patch)}
         onRefreshSnapshots={() => onRefreshRunSnapshots?.(selectedRun.id, employees)}
+        // Välj vilka som får lön i körningen (kundrapport Hembiet 2026-11-27: nio
+        // anställda, sex fick lön). Den som väljs bort flyttas ur körningen helt.
+        employees={employees}
+        onSetIncluded={onSetRunIncluded ? (emp, included, opts = {}) => onSetRunIncluded(selectedRun.id, emp, included, { ...opts, orderIds: employees.map(e => e.id) }) : undefined}
       />
     );
   }
