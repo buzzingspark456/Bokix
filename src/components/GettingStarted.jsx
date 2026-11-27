@@ -14,7 +14,7 @@ const store = {
   set: (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* privat läge */ } },
 };
 
-export default function GettingStarted({ companyId, steps, isDone = (s) => s.done, onGo, onClose, title, subtitle }) {
+export default function GettingStarted({ companyId, companyName, steps, isDone = (s) => s.done, onGo, onClose, onTour, title, subtitle }) {
   const miniKey = `bokix.komIgang.mini.${companyId || 'default'}`;
   const [mini, setMini] = useState(() => store.get(miniKey) === '1');
   const done = steps.filter(isDone).length;
@@ -34,18 +34,23 @@ export default function GettingStarted({ companyId, steps, isDone = (s) => s.don
 
   return (
     <section className="kig" aria-label={title}>
-      <header className="kig-head">
-        <div>
-          <h2>{title}</h2>
-          <p>{subtitle}</p>
+      <div className="kig-band">
+        <header className="kig-head">
+          <div>
+            <span className="kig-eyebrow"><i aria-hidden="true" />Bokix{companyName ? ` · ${companyName}` : ''}</span>
+            <h2>{title}</h2>
+            <p>{subtitle}</p>
+          </div>
+          <span className="kig-head-actions">
+            <button type="button" className="kig-icon kig-min" onClick={() => setMinimized(true)} title={t('gettingStarted.minimize')} aria-label={t('gettingStarted.minimize')}><span aria-hidden="true">–</span></button>
+            {onClose && <button type="button" className="kig-icon" onClick={onClose} title={t('gettingStarted.close')} aria-label={t('gettingStarted.close')}><X size={15} /></button>}
+          </span>
+        </header>
+        <div className="kig-meter">
+          <div className="kig-progress" aria-hidden="true"><i style={{ width: `${(done / steps.length) * 100}%` }} /></div>
+          <span className="kig-count">{t('gettingStarted.count', { done, total: steps.length })}</span>
         </div>
-        <span className="kig-head-actions">
-          <button type="button" className="kig-icon kig-min" onClick={() => setMinimized(true)} title={t('gettingStarted.minimize')} aria-label={t('gettingStarted.minimize')}><span aria-hidden="true">–</span></button>
-          {onClose && <button type="button" className="kig-icon" onClick={onClose} title={t('gettingStarted.close')} aria-label={t('gettingStarted.close')}><X size={15} /></button>}
-        </span>
-      </header>
-      <div className="kig-progress" aria-hidden="true"><i style={{ width: `${(done / steps.length) * 100}%` }} /></div>
-      <div className="kig-count">{t('gettingStarted.count', { done, total: steps.length })}</div>
+      </div>
       <ol className="kig-steps">
         {steps.map((s, i) => {
           const ok = isDone(s);
@@ -64,6 +69,11 @@ export default function GettingStarted({ companyId, steps, isDone = (s) => s.don
           );
         })}
       </ol>
+      {onTour && (
+        <footer className="kig-foot">
+          <button type="button" onClick={onTour}>{t('gettingStarted.tour')}</button>
+        </footer>
+      )}
     </section>
   );
 }

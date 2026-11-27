@@ -6648,6 +6648,7 @@
     "moreHint": "Valuta, leveransdatum, öresavrundning, projekt och anteckningar"
   },
   "gettingStarted": {
+    "tour": "Visa mig runt i Bokix",
     "short": "Kom igång",
     "subtitle": "Några korta steg, så är du igång. Klicka på ett steg så tar vi dig dit.",
     "count": "{{done}} av {{total}} klara",

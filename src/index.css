@@ -12119,3 +12119,41 @@ table.lt-fit td > div, table.lt-fit td > span { overflow: hidden; text-overflow:
 /* Lokalt ligger planväljaren nere till höger; Kom igång flyttar upp över den. */
 @media (min-width: 861px) { body:has(.dev-plan) .kig, body:has(.dev-plan) .kig-pill { bottom: 76px; } }
 .kig { max-height: calc(100vh / var(--app-zoom, 1) - 110px); overflow-y: auto; }
+
+/* Kom igång med Bokix-känsla (2026-11-27): grönt band som sidomenyn, rubrik i
+   Newsreader, framsteg och nästa steg i loggans färgövergång. */
+.kig { padding: 0; overflow: hidden auto; border: none; box-shadow: 0 24px 60px rgba(6, 48, 21, .22), 0 2px 8px rgba(6, 48, 21, .10); }
+.kig-band { position: relative; padding: 18px 18px 16px; color: #fff; background:
+  radial-gradient(120% 90% at 100% 0%, rgba(132, 204, 22, .22) 0%, transparent 55%),
+  radial-gradient(90% 80% at 0% 100%, rgba(14, 165, 233, .18) 0%, transparent 60%),
+  linear-gradient(160deg, #0b6329 0%, #08491f 100%); }
+.kig-band .kig-head h2 { margin-top: 6px; font-family: 'Newsreader', Georgia, serif; font-size: 23px; font-weight: 600; letter-spacing: -.01em; color: #fff; line-height: 1.15; }
+.kig-band .kig-head p { color: rgba(255, 255, 255, .78); }
+.kig-eyebrow { display: inline-flex; align-items: center; gap: 7px; font-size: 10.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: rgba(255, 255, 255, .72); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kig-eyebrow i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: linear-gradient(135deg, #0ea5e9, #14b8a6 50%, #84cc16); box-shadow: 0 0 0 3px rgba(255, 255, 255, .12); }
+.kig-band .kig-icon { color: rgba(255, 255, 255, .75); }
+.kig-band .kig-icon:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+.kig-meter { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.kig-band .kig-progress { flex: 1; margin: 0; height: 6px; background: rgba(255, 255, 255, .16); }
+.kig-band .kig-progress i { background: linear-gradient(90deg, #0ea5e9, #14b8a6 50%, #84cc16); box-shadow: 0 0 12px rgba(132, 204, 22, .45); }
+.kig-band .kig-count { flex-shrink: 0; font-size: 11.5px; font-weight: 700; color: #fff; text-align: right; }
+.kig .kig-steps { margin: 0; padding: 8px 10px 6px; }
+.kig-step { padding: 10px 8px; }
+.kig-step.is-next { background: color-mix(in srgb, #0b6329 6%, var(--bg-card)); }
+.kig-step.is-next .kig-num { border: none; color: #0b6329; background:
+  linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+  linear-gradient(135deg, #0ea5e9, #14b8a6 50%, #84cc16) border-box; border: 2.5px solid transparent; box-shadow: 0 4px 12px rgba(20, 184, 166, .25); }
+.kig-step.is-next .kig-text b { color: var(--text-main); font-weight: 700; }
+.kig-step:disabled { cursor: default; }
+.kig-step:disabled:hover { background: none; }
+.kig-foot { padding: 4px 18px 14px; }
+.kig-foot button { border: none; background: none; padding: 6px 0; font: inherit; font-size: 12.5px; font-weight: 600; color: #0b6329; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.kig-pill { border: none; color: #fff; background: linear-gradient(160deg, #0b6329 0%, #08491f 100%); box-shadow: 0 12px 30px rgba(6, 48, 21, .28); }
+.kig-pill small { color: rgba(255, 255, 255, .7); }
+.kig-pill .kig-pill-ring { background: conic-gradient(#84cc16 calc(var(--p) * 360deg), rgba(255, 255, 255, .2) 0); }
+.kig-pill .kig-pill-ring::before { background: #0a5524; }
+.kig-pill .kig-pill-ring b { color: #fff; }
+:root[data-theme="dark"] .kig-step.is-next { background: color-mix(in srgb, #3fbf6c 9%, var(--bg-card)); }
+:root[data-theme="dark"] .kig-step.is-next .kig-num { color: #3fbf6c; }
+:root[data-theme="dark"] .kig-foot button { color: #3fbf6c; }
+@media (max-width: 860px) { .kig { box-shadow: 0 6px 20px rgba(6, 48, 21, .12); } }

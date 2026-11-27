@@ -887,6 +887,8 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
       {showKigPanel && (
         <GettingStarted
           companyId={company.id}
+          companyName={company?.name || ''}
+          onTour={onStartTour}
           steps={kigSteps}
           isDone={(st) => st.done || kigSkipped.includes(st.id)}
           onGo={openKigStep}
