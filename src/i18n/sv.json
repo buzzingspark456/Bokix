@@ -6636,5 +6636,15 @@
     "order": "Order",
     "paidDate": "Betald den",
     "noAmount": "Fakturan saknar belopp."
+  },
+  "supForm": {
+    "docTitle": "Fakturan",
+    "dropTitle": "Dra fakturan hit",
+    "dropText": "PDF, JPG eller PNG, högst {{mb}} MB. Fakturan syns här medan du fyller i uppgifterna.",
+    "chooseFile": "Välj fil",
+    "replace": "Byt fil",
+    "basics": "Faktura",
+    "more": "Fler val",
+    "moreHint": "Valuta, leveransdatum, öresavrundning, projekt och anteckningar"
   }
 }

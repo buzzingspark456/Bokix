@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import DateField from './shared/DateField';
+import { DocumentPane } from './shared/DocumentViewer';
 import { isReverseChargePurchaseAccount } from '../utils/reverseCharge';
 import {
   Plus, Check, X, AlertCircle, Landmark, CreditCard, UploadCloud, FileText, Inbox, Trash2, Search, RefreshCw, Printer, Eye, Paperclip } from './icons';
@@ -209,6 +210,45 @@ function AttachmentField({ file, previewUrl, onSelect, onRemove, error, busy }) 
   );
 }
 
+// ── Fakturan till vänster (2026-11-27): stor yta att släppa filen på, och när
+// den ligger där syns hela fakturan, så att uppgifterna till höger skrivs av
+// rakt från dokumentet. Samma ordning som kvittovyn: dokument vänster, fält höger.
+function SifDocPanel({ file, previewUrl, onSelect, onRemove, error, busy }) {
+  const [dragOver, setDragOver] = useState(false);
+  const inputRef = useRef(null);
+  const pick = () => inputRef.current?.click();
+  const handleFiles = (files) => { if (files?.[0]) onSelect(files[0]); };
+  const dropProps = {
+    onDragOver: e => { e.preventDefault(); setDragOver(true); },
+    onDragLeave: e => { e.preventDefault(); setDragOver(false); },
+    onDrop: e => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); },
+  };
+  return (
+    <div className={`sif-doc-inner${dragOver ? ' is-over' : ''}`} {...dropProps}>
+      <input ref={inputRef} type="file" accept={ACCEPTED_ATTACHMENT_TYPES.join(',')} style={{ display: 'none' }}
+        onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+      {file ? (
+        <>
+          <DocumentPane key={previewUrl} url={previewUrl} type={file.type} name={file.name} expandable fitPage className="sif-pane" />
+          <div className="sif-doc-actions">
+            <button type="button" className="sif-chip" onClick={pick}><RefreshCw size={13} /> {t('supForm.replace')}</button>
+            <button type="button" className="sif-chip" onClick={onRemove}><Trash2 size={13} /> {t('ui.ta_bort')}</button>
+          </div>
+        </>
+      ) : (
+        <button type="button" className="sif-drop" onClick={pick}>
+          <span className="sif-drop-ico"><UploadCloud size={26} /></span>
+          <strong>{t('supForm.dropTitle')}</strong>
+          <span>{t('supForm.dropText', { mb: MAX_ATTACHMENT_MB })}</span>
+          <span className="sif-drop-btn">{t('supForm.chooseFile')}</span>
+        </button>
+      )}
+      {busy && <div className="sif-doc-note">{t('ui.laddar_upp_underlag')}</div>}
+      {error && <div className="sif-doc-note is-err"><AlertCircle size={12} /> {error}</div>}
+    </div>
+  );
+}
+
 // ── Fullsidesformulär: registrera en leverantörsfaktura ──────────────────
 // Samma mönster som Kundfakturans InvoiceForm (Invoices.jsx): fyller HELA
 // sidan (ersätter listan i samma komponent) istället för att öppnas som en
@@ -371,198 +411,154 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
         </button>
       </MobileFormBar>
 
-      <div className="sup-form" style={{ flex: 1, overflowY: 'auto' }}>
-        {/* Kundfeedback: kändes smalare/mindre "rymlig" än Kundfakturans
-            InvoiceForm, som stretchar hela bredden. 820px var i smalaste
-            laget för ett formulär med flera 2-kolumnsrader (varje fält blev
-            väldigt smalt) — bredare kolumn (inte hela bredden, medvetet:
-            en riktig faktura med rader/mallval/förhandsgranskning är en
-            annan sorts sida än den här enklare kvitto-registreringen, se
-            kommentaren vid Fler alternativ-borttaget i Invoices.jsx för
-            samma resonemang åt andra hållet) — mer luft utan att sträcka ut
-            varje enskilt inputfält orimligt brett på en stor skärm. */}
-        <div style={{ maxWidth: '1040px', margin: '0 auto' }}>
+      <div className="sup-form sif">
+        <div className="sif-grid">
+          <aside className="sif-doc" aria-label={t('supForm.docTitle')}>
+            <SifDocPanel file={attachment} previewUrl={attachmentPreviewUrl} onSelect={selectAttachment} onRemove={() => setAttachment(null)} error={attachmentError} busy={attachmentBusy} />
+          </aside>
 
-          {/* Underlag */}
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, margin: '0 0 12px' }}>{t('ui.kvitto_eller_fil')} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{t('ui.rekommenderas')}</span></h3>
-            <AttachmentField file={attachment} previewUrl={attachmentPreviewUrl} onSelect={selectAttachment} onRemove={() => setAttachment(null)} error={attachmentError} busy={attachmentBusy} />
-          </div>
-
-          {/* Leverantör */}
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.leverantor_2')}</h3>
-            <SupplierCombo value={supplierId} onChange={(id) => {
-              setSupplierId(id);
-              // Leverantörens betalningsvillkor fyller i förfallodatum (2026-11-27), bara om det är tomt.
-              const terms = Number(contacts.find(c => c.id === id)?.paymentTerms);
-              if (!dueDate && date && terms > 0) { const d = new Date(`${date}T12:00:00`); d.setDate(d.getDate() + terms); setDueDate(d.toISOString().slice(0, 10)); }
-            }} contacts={contacts} setContacts={setContacts} />
-            {errors.supplierId && <div style={errSt}>{errors.supplierId}</div>}
-          </div>
-
-          {/* Fakturauppgifter */}
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.fakturauppgifter')}</h3>
-            <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-              <div>
-                <label style={labelSt}>{t('ui.leverantorens_fakturanummer')}</label>
-                <input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder={t('ui.fakturanr_fran_leverantoren')} style={inputStErr(errors.invoiceNumber)} />
-                {errors.invoiceNumber && <div style={errSt}>{errors.invoiceNumber}</div>}
-              </div>
-            </div>
-            <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-              <div>
-                <label style={labelSt}>{t('ui.fakturadatum_2')}</label>
-                <DateField value={date} onChange={e => setDate(e.target.value)} placeholder={t('ui.valj_datum')} style={inputStErr(errors.date)} />
-                {errors.date && <div style={errSt}>{errors.date}</div>}
-              </div>
-              <div>
-                <label style={labelSt}>{t('ui.forfallodatum')}</label>
-                <DateField value={dueDate} onChange={e => setDueDate(e.target.value)} placeholder={t('ui.valj_datum')} style={inputStErr(errors.dueDate)} />
-                {errors.dueDate && <div style={errSt}>{errors.dueDate}</div>}
-              </div>
-            </div>
-          </div>
-
-          {/* Kontering */}
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.kontering_2')}</h3>
-            <div className="sup-rows-scroll" style={{ overflowX: 'auto' }}>
-              <div className="sup-rows-min" style={{ minWidth: '680px' }}>
-                <div className="sup-rows-header" style={{ display: 'grid', gridTemplateColumns: '1.3fr 1.6fr 1fr 0.8fr 0.9fr auto', gap: '10px', marginBottom: '8px', padding: '0 2px' }}>
-                  {['Konto', 'Beskrivning', 'Belopp (exkl.)', 'Momssats', 'Moms', ''].map((h, i) => (
-                    <span key={i} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: (i === 2 || i === 3 || i === 4) ? 'right' : 'left' }}>{h}</span>
-                  ))}
+          <div className="sif-form">
+            {/* Leverantör och fakturans uppgifter */}
+            <section className="sif-card">
+              <h3 className="sif-h">{t('supForm.basics')}</h3>
+              <label style={labelSt}>{t('ui.leverantor_2')}</label>
+              <SupplierCombo value={supplierId} onChange={(id) => {
+                setSupplierId(id);
+                // Leverantörens betalningsvillkor fyller i förfallodatum (2026-11-27), bara om det är tomt.
+                const terms = Number(contacts.find(c => c.id === id)?.paymentTerms);
+                if (!dueDate && date && terms > 0) { const d = new Date(`${date}T12:00:00`); d.setDate(d.getDate() + terms); setDueDate(d.toISOString().slice(0, 10)); }
+              }} contacts={contacts} setContacts={setContacts} />
+              {errors.supplierId && <div style={errSt}>{errors.supplierId}</div>}
+              <div className="sif-row3">
+                <div>
+                  <label style={labelSt} title={t('ui.leverantorens_fakturanummer')}>{t('ui.fakturanummer')} *</label>
+                  <input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder={t('ui.fakturanr_fran_leverantoren')} style={inputStErr(errors.invoiceNumber)} />
+                  {errors.invoiceNumber && <div style={errSt}>{errors.invoiceNumber}</div>}
                 </div>
-                {rows.map((row, i) => {
-                  const { vat } = calcRow(row);
-                  return (
-                    <div key={row.id} className="sup-row" style={{ display: 'grid', gridTemplateColumns: '1.3fr 1.6fr 1fr 0.8fr 0.9fr auto', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                <div>
+                  <label style={labelSt}>{t('ui.fakturadatum_2')}</label>
+                  <DateField value={date} onChange={e => setDate(e.target.value)} placeholder={t('ui.valj_datum')} style={inputStErr(errors.date)} />
+                  {errors.date && <div style={errSt}>{errors.date}</div>}
+                </div>
+                <div>
+                  <label style={labelSt}>{t('ui.forfallodatum')}</label>
+                  <DateField value={dueDate} onChange={e => setDueDate(e.target.value)} placeholder={t('ui.valj_datum')} style={inputStErr(errors.dueDate)} />
+                  {errors.dueDate && <div style={errSt}>{errors.dueDate}</div>}
+                </div>
+              </div>
+            </section>
+
+            {/* Kontering */}
+            <section className="sif-card">
+              <h3 className="sif-h">{t('ui.kontering_2')}</h3>
+              <div className="sup-rows-scroll">
+                <div className="sup-rows-min">
+                  <div className="sup-rows-header sif-rows-grid">
+                    {[t('ui.konto_2'), t('ui.beskrivning'), t('ui.belopp_exkl_moms'), t('ui.momssats'), ''].map((h, i) => (
+                      <span key={i} className={i === 2 || i === 3 ? 'is-num' : undefined}>{h}</span>
+                    ))}
+                  </div>
+                  {rows.map((row, i) => (
+                    <div key={row.id} className="sup-row sif-rows-grid">
                       <div className="qr-cell sup-acct"><span className="qr-lbl">{t('ui.konto_2')}</span>
-                      <AccountSearch value={row.account} onChange={code => updateRow(i, 'account', code)} accounts={accounts} placeholder={t('ui.sok_konto')} />
+                        <AccountSearch value={row.account} onChange={code => updateRow(i, 'account', code)} accounts={accounts} placeholder={t('ui.sok_konto')} />
                       </div>
                       <div className="qr-cell sup-desc"><span className="qr-lbl">{t('ui.beskrivning')}</span>
-                      <input value={row.description} onChange={e => updateRow(i, 'description', e.target.value)} placeholder="beskrivning" style={inputSt} />
+                        <input value={row.description} onChange={e => updateRow(i, 'description', e.target.value)} placeholder={t('ui.beskrivning')} style={inputSt} />
                       </div>
                       <div className="qr-cell"><span className="qr-lbl">{t('ui.belopp_exkl_moms')}</span>
-                      <AmountInput value={row.netAmount} onChange={v => updateRow(i, 'netAmount', v)} style={{ ...inputSt, textAlign: 'right' }} />
+                        <AmountInput value={row.netAmount} onChange={v => updateRow(i, 'netAmount', v)} style={{ ...inputSt, textAlign: 'right' }} />
                       </div>
                       <div className="qr-cell"><span className="qr-lbl">{t('ui.momssats')}</span>
-                      {reverseCharge ? (
-                        <div style={{ ...inputSt, textAlign: 'right', color: 'var(--text-muted)' }}>—</div>
-                      ) : (
-                        <select value={row.vatRate} onChange={e => updateRow(i, 'vatRate', Number(e.target.value))} style={inputSt}>
-                          {VAT_RATES.map(v => <option key={v} value={v}>{v} %</option>)}
-                        </select>
-                      )}
+                        {reverseCharge ? (
+                          <div style={{ ...inputSt, textAlign: 'right', color: 'var(--text-muted)' }}>—</div>
+                        ) : (
+                          <select value={row.vatRate} onChange={e => updateRow(i, 'vatRate', Number(e.target.value))} style={inputSt}>
+                            {VAT_RATES.map(v => <option key={v} value={v}>{v} %</option>)}
+                          </select>
+                        )}
                       </div>
-                      <div className="qr-cell"><span className="qr-lbl">{t('ui.moms')}</span>
-                      <div style={{ ...inputSt, textAlign: 'right', background: 'var(--bg-muted)', color: 'var(--text-secondary)' }}>{reverseCharge ? '—' : fmtNum(vat)}</div>
-                      </div>
-                      <button className="qr-remove" type="button" onClick={() => removeRow(i)} disabled={rows.length === 1} title={t('ui.ta_bort_rad')} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', color: rows.length === 1 ? 'var(--border)' : '#ef4444' }}>
+                      <button className="qr-remove sif-del" type="button" onClick={() => removeRow(i)} disabled={rows.length === 1} title={t('ui.ta_bort_rad')} aria-label={t('ui.ta_bort_rad')}>
                         <Trash2 size={15} />
                       </button>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-            <button type="button" onClick={addRow} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '9px', fontSize: '12.5px', fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', marginTop: '4px' }}>
-              <Plus size={14} /> {t('ui.lagg_till_rad')}
-            </button>
-            {errors.rows && <div style={{ ...errSt, marginTop: '8px' }}>{errors.rows}</div>}
-          </div>
-
-          {/* Förval */}
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>{t('ui.forval')}</h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 12px' }}>{t('ui.bokfors_vid_registrering')}</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <ToggleCard
-                checked={paidByOwnerPrivately} onChange={setPaidByOwnerPrivately}
-                title={t('ui.jag_har_betalat_detta_privat')}
-                description={t('ui.bokfors_som_skuld_fran_bolaget_till_dig_2018_ege')}
-              />
-              <ToggleCard
-                checked={reverseCharge} onChange={setReverseCharge}
-                title={t('ui.omvand_skattskyldighet')}
-                description={reverseCharge && !rows.some(r => isReverseChargePurchaseAccount(r.account))
-                  ? t('ui.tjanst_fran_utlandet_valj_konto_4535_eu_eller_45')
-                  : t('ui.tjanst_fran_utlandet_momsen_redovisas_av_dig_fak')}
-              />
-            </div>
-          </div>
-
-          {/* Valuta + Öresavrundning */}
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
-              <div>
-                <label style={labelSt}>{t('ui.valuta')}</label>
-                <select value={currency} onChange={e => setCurrency(e.target.value)} style={inputSt}>
-                  {CURRENCIES.map(c => <option key={c}>{c}</option>)}
-                </select>
-                {currency !== 'SEK' && <p style={helpSt}>{t('ui.beloppen_ovan_bokfors_i_sek_som_de_anges_omrakni')}</p>}
-              </div>
-              <div>
-                <label className="sup-hidden-label" style={{ ...labelSt, visibility: 'hidden' }}>{t('ui.oresavrundning')}</label>
-                <ToggleCard checked={roundToKrona} onChange={setRoundToKrona} title={t('ui.oresavrundning')} description={t('ui.avrunda_fakturatotal_till_hel_krona')} />
-              </div>
-            </div>
-          </div>
-
-          {/* Leveransdatum */}
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <label style={labelSt}>{t('ui.leveransdatum')} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{t('ui.ml_krav')}</span></label>
-            <DateField value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} placeholder={t('ui.valj_leveransdatum')} style={{ ...inputSt, maxWidth: '220px' }} />
-          </div>
-
-          {/* Kostnadsställe/Projekt */}
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>{t('ui.kostnadsstalle_projekt_2')}</h3>
-            <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-              <div>
-                <label style={labelSt}>{t('ui.kostnadsstalle')}</label>
-                <input value={costCenter} onChange={e => setCostCenter(e.target.value)} placeholder={t('ui.ange_kostnadsstalle')} style={inputSt} />
-              </div>
-              <div>
-                <label style={labelSt}>{t('ui.projekt')}</label>
-                <ProjectSearch value={projectId} onChange={setProjectId} projects={projects} />
-              </div>
-            </div>
-          </div>
-
-          {/* Anteckningar */}
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-light)' }}>
-            <label style={labelSt}>{t('ui.anteckningar')}</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder={t('ui.interna_anteckningar_om_denna_faktura')} style={{ ...inputSt, resize: 'vertical' }} />
-          </div>
-
-          {/* Summering */}
-          <div style={{ padding: '24px 32px' }}>
-            <div style={{ background: 'var(--bg-muted)', border: '1px solid var(--border-light)', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '360px', marginLeft: 'auto', fontSize: '13px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                <span>{t('ui.netto_exkl_moms')}</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatSEK(totals.net)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                <span>{t('ui.moms')}</span><span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{formatSEK(totals.vat)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', marginTop: '4px', borderTop: '1px solid var(--border)' }}>
-                <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{t('ui.totalt_att_betala')}</span>
-                <span style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)' }}>{formatSEK(roundedGross)}</span>
-              </div>
-            </div>
-            <div style={{ maxWidth: '360px', marginLeft: 'auto', marginTop: '14px' }}>
-              <label style={labelSt}>{t('ui.totalt_enligt_fakturan')} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{t('ui.valfritt_3')}</span></label>
-              <AmountInput value={statedTotal} onChange={setStatedTotal} placeholder="0,00" style={inputSt} />
-              {showTotalMismatch && (
-                <div style={{ ...errSt, color: BRAND.amberText }}>
-                  {t('ui.skiljer_sig')} {formatSEK(Math.abs(statedTotalNum - gross))} {t('ui.fran_konteringens_summa_kontrollera_raderna_inna')}
+                  ))}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
+              <button type="button" className="sif-add" onClick={addRow}><Plus size={14} /> {t('ui.lagg_till_rad')}</button>
+              {errors.rows && <div style={{ ...errSt, marginTop: '8px' }}>{errors.rows}</div>}
 
+              {/* Summa direkt under raderna */}
+              <div className="sif-sum">
+                <div><span>{t('ui.netto_exkl_moms')}</span><b>{formatSEK(totals.net)}</b></div>
+                <div><span>{t('ui.moms')}</span><b>{reverseCharge ? '—' : formatSEK(totals.vat)}</b></div>
+                <div className="is-total"><span>{t('ui.totalt_att_betala')}</span><b>{formatSEK(roundedGross)}</b></div>
+              </div>
+              <div className="sif-stated">
+                <label style={labelSt}>{t('ui.totalt_enligt_fakturan')} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{t('ui.valfritt_3')}</span></label>
+                <AmountInput value={statedTotal} onChange={setStatedTotal} placeholder="0,00" style={inputSt} />
+                {showTotalMismatch && (
+                  <div style={{ ...errSt, color: BRAND.amberText }}>
+                    {t('ui.skiljer_sig')} {formatSEK(Math.abs(statedTotalNum - gross))} {t('ui.fran_konteringens_summa_kontrollera_raderna_inna')}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Förval */}
+            <section className="sif-card">
+              <h3 className="sif-h">{t('ui.forval')} <small>{t('ui.bokfors_vid_registrering')}</small></h3>
+              <div className="sif-toggles">
+                <ToggleCard
+                  checked={paidByOwnerPrivately} onChange={setPaidByOwnerPrivately}
+                  title={t('ui.jag_har_betalat_detta_privat')}
+                  description={t('ui.bokfors_som_skuld_fran_bolaget_till_dig_2018_ege')}
+                />
+                <ToggleCard
+                  checked={reverseCharge} onChange={setReverseCharge}
+                  title={t('ui.omvand_skattskyldighet')}
+                  description={reverseCharge && !rows.some(r => isReverseChargePurchaseAccount(r.account))
+                    ? t('ui.tjanst_fran_utlandet_valj_konto_4535_eu_eller_45')
+                    : t('ui.tjanst_fran_utlandet_momsen_redovisas_av_dig_fak')}
+                />
+              </div>
+            </section>
+
+            {/* Sällan använt: ihopfällt */}
+            <details className="sif-card sif-more" open={Boolean(currency !== 'SEK' || roundToKrona || deliveryDate || costCenter || projectId || notes) || undefined}>
+              <summary><span>{t('supForm.more')}</span><small>{t('supForm.moreHint')}</small></summary>
+              <div className="sif-more-body">
+                <div className="sif-row2">
+                  <div>
+                    <label style={labelSt}>{t('ui.valuta')}</label>
+                    <select value={currency} onChange={e => setCurrency(e.target.value)} style={inputSt}>
+                      {CURRENCIES.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                    {currency !== 'SEK' && <p style={helpSt}>{t('ui.beloppen_ovan_bokfors_i_sek_som_de_anges_omrakni')}</p>}
+                  </div>
+                  <div>
+                    <label style={labelSt}>{t('ui.leveransdatum')} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{t('ui.ml_krav')}</span></label>
+                    <DateField value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} placeholder={t('ui.valj_leveransdatum')} style={inputSt} />
+                  </div>
+                </div>
+                <ToggleCard checked={roundToKrona} onChange={setRoundToKrona} title={t('ui.oresavrundning')} description={t('ui.avrunda_fakturatotal_till_hel_krona')} />
+                <div className="sif-row2">
+                  <div>
+                    <label style={labelSt}>{t('ui.kostnadsstalle')}</label>
+                    <input value={costCenter} onChange={e => setCostCenter(e.target.value)} placeholder={t('ui.ange_kostnadsstalle')} style={inputSt} />
+                  </div>
+                  <div>
+                    <label style={labelSt}>{t('ui.projekt')}</label>
+                    <ProjectSearch value={projectId} onChange={setProjectId} projects={projects} />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelSt}>{t('ui.anteckningar')}</label>
+                  <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder={t('ui.interna_anteckningar_om_denna_faktura')} style={{ ...inputSt, resize: 'vertical' }} />
+                </div>
+              </div>
+            </details>
+          </div>
         </div>
       </div>
     </div>

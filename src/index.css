@@ -12003,3 +12003,79 @@ table.lt-fit td > div, table.lt-fit td > span { overflow: hidden; text-overflow:
   .ut-table-static tr, .ut-table-miss tr { margin-bottom: 8px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); padding: 12px 14px; }
   .ut-table-static tr + tr::before, .ut-table-miss tr + tr::before { display: none; }
 }
+
+/* Ny leverantörsfaktura (2026-11-27): fakturan till vänster, uppgifterna till
+   höger, som kvittovyn. Kort i appens stil, sällan använda fält ihopfällda. */
+.sif { flex: 1; min-height: 0; overflow: hidden; display: flex; }
+.sif-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(440px, 600px); gap: 0; max-width: 1500px; margin: 0 auto; width: 100%; }
+.sif-doc { min-height: 0; padding: 20px 12px 20px 24px; display: flex; }
+.sif-doc-inner { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+.sif-doc-inner .sif-pane { flex: 1; min-height: 0; border-radius: 14px; overflow: hidden; }
+.sif-doc-inner .sif-pane, .sif-doc-inner .sif-pane * { scrollbar-width: none; }
+.sif-doc-inner .dv-pdf-fit { justify-content: center; overflow: hidden; }
+.sif-doc-inner .dv-expand { display: inline-flex; }
+@media (min-width: 861px) { .sif-doc-inner .dv-expand-label { display: none; } }
+.sif-doc-actions { display: flex; gap: 8px; justify-content: center; }
+.sif-chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text-main); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.sif-chip:hover { background: var(--bg-muted); }
+.sif-drop { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 32px 24px; border: 1.5px dashed var(--border); border-radius: 16px; background: var(--bg-card); color: var(--text-secondary); font: inherit; font-size: 13px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+.sif-drop strong { font-size: 16px; color: var(--text-main); }
+.sif-drop > span:not(.sif-drop-ico):not(.sif-drop-btn) { max-width: 320px; line-height: 1.5; }
+.sif-drop:hover, .sif-doc-inner.is-over .sif-drop { border-color: #0b6329; background: color-mix(in srgb, #0b6329 4%, var(--bg-card)); }
+.sif-drop-ico { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 16px; background: var(--bg-muted); color: var(--text-main); margin-bottom: 4px; }
+.sif-drop-btn { margin-top: 8px; display: inline-flex; align-items: center; height: 36px; padding: 0 18px; border-radius: 999px; background: #0b6329; color: #fff; font-weight: 600; font-size: 13.5px; }
+.sif-doc-note { font-size: 12.5px; color: var(--text-secondary); text-align: center; }
+.sif-doc-note.is-err { color: var(--status-red-text, #b42318); }
+.sif-form { min-height: 0; overflow-y: auto; padding: 20px 24px 40px 12px; display: flex; flex-direction: column; gap: 14px; }
+.sif-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 14px; padding: 18px 20px; }
+.sif-h { margin: 0 0 12px; font-size: 14.5px; font-weight: 700; color: var(--text-main); display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.sif-h small { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+.sif-row3 { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 12px; margin-top: 14px; }
+.sif-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sif-rows-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) minmax(0, 1fr) 78px 30px; gap: 8px; align-items: center; margin-bottom: 8px; }
+.sup-rows-header.sif-rows-grid span { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
+.sup-rows-header.sif-rows-grid span.is-num { text-align: right; }
+.sif-del { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: none; border-radius: 8px; background: none; color: var(--text-muted); cursor: pointer; }
+.sif-del:hover:not(:disabled) { background: var(--status-red-bg, #fdecea); color: var(--status-red-text, #b42318); }
+.sif-del:disabled { opacity: .35; cursor: default; }
+.sif-add { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px dashed var(--border); border-radius: 9px; background: none; color: var(--text-main); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; margin-top: 2px; }
+.sif-add:hover { background: var(--bg-muted); }
+.sif-sum { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-light); display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.sif-sum > div { display: flex; justify-content: space-between; color: var(--text-secondary); }
+.sif-sum b { color: var(--text-main); font-weight: 600; font-variant-numeric: tabular-nums; }
+.sif-sum .is-total { margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border-light); color: var(--text-main); font-weight: 700; }
+.sif-sum .is-total b { font-size: 17px; font-weight: 800; }
+.sif-stated { margin-top: 14px; max-width: 260px; margin-left: auto; }
+.sif-toggles { display: flex; flex-direction: column; gap: 10px; }
+.sif-more { padding: 0; }
+.sif-more summary { list-style: none; display: flex; flex-direction: column; gap: 2px; padding: 16px 20px; cursor: pointer; position: relative; }
+.sif-more summary::-webkit-details-marker { display: none; }
+.sif-more summary::after { content: ''; position: absolute; right: 20px; top: 50%; width: 8px; height: 8px; border-right: 2px solid var(--text-muted); border-bottom: 2px solid var(--text-muted); transform: translateY(-70%) rotate(45deg); transition: transform .15s; }
+.sif-more[open] summary::after { transform: translateY(-30%) rotate(225deg); }
+.sif-more summary span { font-size: 14.5px; font-weight: 700; color: var(--text-main); }
+.sif-more summary small { font-size: 12px; color: var(--text-muted); padding-right: 24px; }
+.sif-more-body { padding: 0 20px 18px; display: flex; flex-direction: column; gap: 14px; }
+@media (max-width: 1099px) {
+  .sif { overflow-y: auto; display: block; }
+  .sif-grid { display: flex; flex-direction: column; }
+  .sif-doc { padding: 14px 14px 0; height: 46vh; min-height: 280px; }
+  .sif-doc:has(.sif-drop) { height: auto; min-height: 0; }
+  .sif-drop { padding: 22px 16px; }
+  .sif-form { overflow: visible; padding: 14px 14px 110px; }
+}
+@media (max-width: 760px) {
+  .sif-row3, .sif-row2 { grid-template-columns: 1fr; }
+  .sif-card { padding: 16px; }
+  .sif-stated { max-width: none; }
+  .sif-rows-grid.sup-row { display: grid; grid-template-columns: 1fr 1fr; }
+}
+/* Dator: fast höjd, formuläret skrollar själv, fakturan till HÖGER som i
+   Verifikationer (grundarens val 2026-11-27). */
+@media (min-width: 1100px) {
+  .sif { height: calc(100vh / var(--app-zoom, 1) - 70px); flex: none; overflow: hidden; display: flex; }
+  .sif-grid { grid-template-columns: minmax(440px, 600px) minmax(0, 1fr); }
+  .sif-doc { order: 2; padding: 20px 24px 20px 12px; }
+  .sif-form { order: 1; padding: 20px 12px 40px 24px; }
+}
+.sif-row3 { align-items: start; }
+.sup-rows-header.sif-rows-grid span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

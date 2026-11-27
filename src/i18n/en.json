@@ -6636,5 +6636,15 @@
     "order": "Order",
     "paidDate": "Paid on",
     "noAmount": "The invoice has no amount."
+  },
+  "supForm": {
+    "docTitle": "The invoice",
+    "dropTitle": "Drop the invoice here",
+    "dropText": "PDF, JPG or PNG, max {{mb}} MB. The invoice stays visible while you fill in the details.",
+    "chooseFile": "Choose file",
+    "replace": "Replace file",
+    "basics": "Invoice",
+    "more": "More options",
+    "moreHint": "Currency, delivery date, rounding, project and notes"
   }
 }
