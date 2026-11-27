@@ -2527,6 +2527,13 @@ function isBodyPdf(r, subject) {
   return Boolean(base) && (norm(subject || 'Mejl').startsWith(base));
 }
 
+// Samma avsändare får alltid samma färg på sin cirkel (mobilens mejllista).
+function senderHue(from = '') {
+  let h = 0;
+  for (const ch of String(from).toLowerCase()) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return h;
+}
+
 function MailClient({ receipts: allRows, statusOf, stepOf, readingId, onMarkSeen, onOpen, onTrash, onRefresh, onSenders, onMailIn, inboxAddress, wide = true, onFile, verifications = [] }) {
   const [linking, setLinking] = useState(null); // underlaget som ska kopplas till en verifikation
   const rows = useMemo(() => allRows.filter(r => r.inbox?.source === 'email'), [allRows]);
@@ -2633,6 +2640,7 @@ function MailClient({ receipts: allRows, statusOf, stepOf, readingId, onMarkSeen
               const files = m.items.filter(r => !isBodyPdf(r, m.subject));
               return (
                 <button key={m.id} type="button" className={['mc-item', unread && 'is-unread', open?.id === m.id && 'is-open'].filter(Boolean).join(' ')} onClick={() => openMail(m)}>
+                  <span className="mc-item-av" aria-hidden="true" style={{ '--h': senderHue(m.from || m.name) }}>{(m.name || m.from || '?').trim().charAt(0).toUpperCase()}</span>
                   <span className="mc-item-top">
                     {unread && <i className="mc-dot" aria-label={tr('underlag.unread')} />}
                     <b className="mc-item-from">{m.name || m.from || tr('underlag.mcUnknown')}</b>
@@ -2696,7 +2704,7 @@ function MailClient({ receipts: allRows, statusOf, stepOf, readingId, onMarkSeen
                           <small>{[kind === 'invoice' ? tr('underlag.typeInvoice') : kind === 'receipt' ? tr('underlag.typeReceipt') : null, amount > 0 ? formatSEK(amount) : null, isTodo(r) ? rs.text : null].filter(Boolean).join(' · ') || r.inbox?.fileName}</small>
                         </span>
                         {step
-                          ? <button type="button" className="mc-att-btn" onClick={e => { e.stopPropagation(); onOpen(r.id, rows.map(x => x.id)); }}>{tr('underlag.openAndBook')} <ChevronRight size={15} /></button>
+                          ? <button type="button" className="mc-att-btn" aria-label={tr('underlag.openAndBook')} onClick={e => { e.stopPropagation(); onOpen(r.id, rows.map(x => x.id)); }}><span className="mc-att-btn-long">{tr('underlag.openAndBook')}</span><span className="mc-att-btn-short">{tr('underlag.book')}</span> <ChevronRight size={15} /></button>
                           : <span className="mc-pill is-done"><Check size={11} /> {s === 'filed' && r.filedAs === 'verification' ? tr('underlag.filedToVerShort', { n: verifications.find(v => v.id === r.filedVerificationId)?.number || '' }) : (STATUS_SINGULAR[s] || tr('underlag.mcHandled'))}</span>}
                         {step && onFile && r.receiptUrl && (
                           <span className="mc-att-menu" onClick={e => e.stopPropagation()}>
