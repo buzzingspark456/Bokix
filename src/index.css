@@ -11917,3 +11917,5 @@ table.lt-fit td > div, table.lt-fit td > span { overflow: hidden; text-overflow:
 .pr-payslip-bar b { color: var(--text-main); }
 .pr-payslip-bar button { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text-main); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .pr-payslip-bar button:hover { background: var(--bg-muted); }
+/* Mejl: ⋮ på bilagekortet (Spara som dokument, Koppla till verifikation). */
+.mc-att-menu { display: inline-flex; flex-shrink: 0; }

@@ -28,7 +28,8 @@ import { bankRowsForReceipt } from '../utils/bankMatching';
 import { ScanOverlay, OcrChecklist, ReadDetails, ReadText, photoHintText, MIN_SCAN_MS, REVEAL_STEP_MS, CACHED_SCAN_MS } from './shared/ScanExperience';
 import { buyerDetailsCheck } from '../utils/receiptBuyer';
 import { newDocument } from '../utils/looseDocuments';
-import DocumentsToLink from './DocumentsToLink';
+import DocumentsToLink, { LinkModal } from './DocumentsToLink';
+import RowActionMenu from './shared/RowActionMenu';
 import { GmailLogo } from './shared/BrandLogos';
 import { convertToSek } from '../utils/currencyConversion';
 import { historyForSupplier, historyFromVerifications } from '../utils/receiptHistory';
@@ -142,6 +143,8 @@ function receiptVerificationIndex(verifications) {
 
 function getReceiptStatus(receipt, index) {
   if (index.reversed.has(receipt.id)) return 'reversed';
+  // Sparat som dokument eller kopplat till en verifikation: hanterat, bokförs inte.
+  if (receipt.filedAs && !receipt.costAccount) return 'filed';
   if (!receipt.costAccount) return 'unhandled';
   const ver = index.booked.get(receipt.id);
   if (ver && (ver.status || 'booked') === 'draft') return 'pending';
@@ -156,6 +159,7 @@ const STATUS_META = {
   pending: { label: tr('ui.pagaende'), bg: BRAND.grayBg, color: BRAND.grayText },
   booked: { label: tr('ui.bokforda'), bg: BRAND.greenLight, color: BRAND.greenDark },
   reversed: { label: tr('ui.rattade'), bg: BRAND.grayBg, color: BRAND.grayText },
+  filed: { label: tr('underlag.filedMany'), bg: BRAND.grayBg, color: BRAND.grayText },
 };
 
 /** Bästa tillgängliga visningsnamn för den som laddade upp kvittot. */
@@ -234,7 +238,7 @@ const formatSEK2 = (val) => numberFormat('sv-SE', { style: 'currency', currency:
 
 // Statusetiketterna i STATUS_META är plural (de sitter på filterpillren som
 // räknar flera kvitton). Här handlar det om ETT kvitto.
-const STATUS_SINGULAR = { unhandled: tr('ui.ej_hanterad'), pending: tr('ui.pagaende'), booked: tr('ui.bokford'), reversed: tr('ui.rattad') };
+const STATUS_SINGULAR = { unhandled: tr('ui.ej_hanterad'), pending: tr('ui.pagaende'), booked: tr('ui.bokford'), reversed: tr('ui.rattad'), filed: tr('underlag.filedOne') };
 
 // Liten badge som visas intill fältets label när OCR fyllt i det.
 // Försvinner så fort användaren redigerar fältet manuellt.
@@ -2523,7 +2527,8 @@ function isBodyPdf(r, subject) {
   return Boolean(base) && (norm(subject || 'Mejl').startsWith(base));
 }
 
-function MailClient({ receipts: allRows, statusOf, stepOf, readingId, onMarkSeen, onOpen, onTrash, onRefresh, onSenders, onMailIn, inboxAddress, wide = true }) {
+function MailClient({ receipts: allRows, statusOf, stepOf, readingId, onMarkSeen, onOpen, onTrash, onRefresh, onSenders, onMailIn, inboxAddress, wide = true, onFile, verifications = [] }) {
+  const [linking, setLinking] = useState(null); // underlaget som ska kopplas till en verifikation
   const rows = useMemo(() => allRows.filter(r => r.inbox?.source === 'email'), [allRows]);
   const mails = useMemo(() => groupMails(rows), [rows]);
   const [filter, setFilter] = useState('all'); // all | unread | todo
@@ -2692,7 +2697,17 @@ function MailClient({ receipts: allRows, statusOf, stepOf, readingId, onMarkSeen
                         </span>
                         {step
                           ? <button type="button" className="mc-att-btn" onClick={e => { e.stopPropagation(); onOpen(r.id, rows.map(x => x.id)); }}>{tr('underlag.openAndBook')} <ChevronRight size={15} /></button>
-                          : <span className="mc-pill is-done"><Check size={11} /> {STATUS_SINGULAR[s] || tr('underlag.mcHandled')}</span>}
+                          : <span className="mc-pill is-done"><Check size={11} /> {s === 'filed' && r.filedAs === 'verification' ? tr('underlag.filedToVerShort', { n: verifications.find(v => v.id === r.filedVerificationId)?.number || '' }) : (STATUS_SINGULAR[s] || tr('underlag.mcHandled'))}</span>}
+                        {step && onFile && r.receiptUrl && (
+                          <span className="mc-att-menu" onClick={e => e.stopPropagation()}>
+                            <RowActionMenu ariaLabel={tr('underlag.moreFor', { name: r.inbox?.fileName || '' })} items={[
+                              { key: 'book', label: tr('underlag.openAndBook'), icon: ChevronRight, onClick: () => onOpen(r.id, rows.map(x => x.id)) },
+                              { key: 'doc', label: tr('underlag.saveAsDocument'), icon: FileText, onClick: () => onFile(r.id) },
+                              { key: 'link', label: tr('underlag.linkToVer'), icon: Paperclip, onClick: () => setLinking(r) },
+                              ...(onTrash ? [{ divider: true }, { key: 'trash', label: tr('ui.ta_bort'), icon: Trash2, variant: 'danger', onClick: () => onTrash(r.id) }] : []),
+                            ]} />
+                          </span>
+                        )}
                       </div>
                     );
                   })}
@@ -2706,6 +2721,14 @@ function MailClient({ receipts: allRows, statusOf, stepOf, readingId, onMarkSeen
             </>
           )}
         </section>
+      )}
+      {linking && (
+        <LinkModal
+          doc={{ name: linking.inbox?.fileName || tr('underlag.unnamed'), type: linking.receiptType || '', uploadedAt: linking.inbox?.receivedAt || null, url: linking.receiptUrl }}
+          verifications={verifications}
+          onClose={() => setLinking(null)}
+          onPick={(verId) => { onFile?.(linking.id, { verificationId: verId }); setLinking(null); }}
+        />
       )}
     </div>
   );
@@ -2794,6 +2817,8 @@ export default function Expenses({
   globalAction, clearGlobalAction,
   // Saknar underlag: fil eller pappersoriginal till en bokförd verifikation.
   onAttachToVerification,
+  // Mejl: spara som dokument eller koppla till en verifikation (bokförs inte).
+  onFileReceipt,
   // Mejl läst/oläst (inbox.seenAt).
   onMarkSeen,
 }) {
@@ -3257,6 +3282,8 @@ export default function Expenses({
                   onSenders={() => setUwView('mailbox')}
                   onMailIn={() => setMailInOpen(true)}
                   inboxAddress={inboxInfo?.address}
+                  onFile={onFileReceipt}
+                  verifications={verifications}
                 />
               )}
               {uwView === 'underlag' && (

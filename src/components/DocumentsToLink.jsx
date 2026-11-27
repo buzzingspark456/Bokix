@@ -18,7 +18,7 @@ const dayOf = (iso) => String(iso || '').slice(0, 10);
 const isImage = (d) => /^image\//.test(d.type || '') || /\.(jpe?g|png|webp|heic)$/i.test(d.name || '');
 const verAmount = (v) => (v.rows || []).reduce((sum, r) => sum + getDebet(r), 0);
 
-function LinkModal({ doc, verifications, onPick, onClose }) {
+export function LinkModal({ doc, verifications, onPick, onClose }) {
   const [q, setQ] = useState('');
   const suggestions = useMemo(() => suggestVerifications(doc, verifications, 6), [doc, verifications]);
   const results = useMemo(() => {

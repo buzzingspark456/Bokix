@@ -882,7 +882,7 @@ export default function ReviewQueue({ expenses = [], accounts = [], reviewHistor
   const pendingItems = useMemo(() => {
     return expenses
       // Nya Underlag: saknas leverantör eller belopp hör posten hemma i Underlag.
-      .filter(e => !e.costAccount && !(newUnderlag && needsUnderlagWork(e)))
+      .filter(e => !e.costAccount && !e.filedAs && !(newUnderlag && needsUnderlagWork(e)))
       .map(e => ({ ...e, ...suggestAccount(e, expenses) }))
       .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   }, [expenses, newUnderlag]);

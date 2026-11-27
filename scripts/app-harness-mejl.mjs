@@ -20,7 +20,7 @@ const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: WIDTH, height: 900 }, ...(WIDTH < 600 ? { isMobile: true, hasTouch: true } : {}) });
 await ctx.addCookies([{ name: 'bokix_cookie_consent', value: 'denied', url: BASE }]);
 const p0 = await ctx.newPage();
-await p0.goto(`${BASE}/scripts/ocr-harness.html`);
+await p0.goto(`${process.env.SEED_BASE || BASE}/scripts/ocr-harness.html`);
 const company = await p0.evaluate(async () => {
   const { createDemoSeed } = await import('/src/utils/landingDemoData.js');
   return JSON.parse(JSON.stringify(createDemoSeed()));
@@ -88,6 +88,26 @@ console.log("mejla in-dialog med guide:", await page.locator(".ut-mi .ut-fwd").c
 await shot("mejla-in");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
+if (process.env.ARKIV) {
+  // ARKIV=1: Spara som dokument och Koppla till verifikation (2026-11-27)
+  await page.locator('.mc-item', { hasText: 'Gusto' }).first().click(); await page.waitForTimeout(600);
+  await page.locator('.mc-att-menu button').first().click(); await page.waitForTimeout(400);
+  await page.locator('[role=menu] button, [role=menuitem]', { hasText: /Spara som dokument/ }).first().click(); await page.waitForTimeout(900);
+  console.log('Gusto efter Spara som dokument:', (await page.locator('.mc-att').first().innerText()).replace(/s+/g, ' '));
+  await page.locator('.mc-item', { hasText: 'Clas Ohlson' }).first().click(); await page.waitForTimeout(600);
+  await page.locator('.mc-att-menu button').first().click(); await page.waitForTimeout(400);
+  await page.locator('[role=menu] button, [role=menuitem]', { hasText: /Koppla till verifikation/ }).first().click(); await page.waitForTimeout(700);
+  await page.screenshot({ path: 'test-results/mejl-koppla-ruta.png' });
+  await page.locator('.dl-result').first().click(); await page.waitForTimeout(900);
+  console.log('Clas efter koppling:', (await page.locator('.mc-att').first().innerText()).replace(/s+/g, ' '));
+  console.log('flikarna:', (await page.locator('.mc-tabs').innerText()).replace(/s+/g, ' '));
+  await page.waitForTimeout(2500);
+  const st = saved();
+  const ver = (st.verifications || []).find(v => v.attachmentUrl?.includes('exempelkvitto') || (v.attachments || []).some(a => a.url?.includes('exempelkvitto')));
+  console.log('verifikation med filen sparad:', ver ? ver.number || ver.id : 'NEJ');
+  console.log('arkiverade poster:', (st.expenses || []).filter(e => e.filedAs).map(e => e.filedAs).join(', '));
+  await page.screenshot({ path: 'test-results/mejl-arkiverad.png' });
+}
 if (process.env.SETTINGS) {
   if (WIDTH < 600) { await page.locator(".ut-nav-morebtn").click(); await page.waitForTimeout(400); await page.locator(".ut-sheet button", { hasText: "Inställningar" }).click(); }
   else await page.locator(".ut-nav-side button", { hasText: "Inställningar" }).first().click();

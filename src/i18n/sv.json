@@ -4330,6 +4330,14 @@
     }
   },
   "underlag": {
+    "filedMany": "Arkiverade",
+    "filedOne": "Arkiverad",
+    "filedAsDoc": "Sparat som dokument. Det bokförs inte.",
+    "filedToVer": "Kopplat till verifikationen.",
+    "filedToVerShort": "Kopplad till {{n}}",
+    "saveAsDocument": "Spara som dokument (bokförs inte)",
+    "linkToVer": "Koppla till verifikation",
+    "moreFor": "Fler val för {{name}}",
     "todo": "Att göra",
     "booked": "Bokförda",
     "all": "Alla",

@@ -4330,6 +4330,14 @@
     }
   },
   "underlag": {
+    "filedMany": "Filed",
+    "filedOne": "Filed",
+    "filedAsDoc": "Saved as a document. It won't be booked.",
+    "filedToVer": "Linked to the verification.",
+    "filedToVerShort": "Linked to {{n}}",
+    "saveAsDocument": "Save as document (not booked)",
+    "linkToVer": "Link to verification",
+    "moreFor": "More options for {{name}}",
     "todo": "To do",
     "booked": "Booked",
     "all": "All",

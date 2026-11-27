@@ -20,9 +20,15 @@ export function suggestAccount(item, allExpenses) {
   return { account: latest.costAccount, confident: false };
 }
 
+/** Sparat som dokument eller kopplat till en verifikation (2026-11-27): ett
+ * underlag som inte ska bokföras. Räknas aldrig som något att göra. */
+export function isFiled(e) {
+  return Boolean(e?.filedAs);
+}
+
 /** Saknar leverantör eller belopp: hanteras i Underlag, inte i Granska. */
 export function needsUnderlagWork(e) {
-  return !e?.costAccount && (!String(e?.supplier || '').trim() || !Number(e?.amount));
+  return !e?.costAccount && !isFiled(e) && (!String(e?.supplier || '').trim() || !Number(e?.amount));
 }
 
 /** Nästa steg för ett obokfört underlag:
@@ -31,7 +37,7 @@ export function needsUnderlagWork(e) {
  *  'ready'   säkert kontoförslag, klart att bokföra
  *  'account' konto behöver väljas */
 export function underlagStep(e, allExpenses = []) {
-  if (e?.costAccount) return null;
+  if (e?.costAccount || isFiled(e)) return null;
   if (needsUnderlagWork(e)) return e?.ocrDraft ? 'fill' : 'read';
   return suggestAccount(e, allExpenses).confident ? 'ready' : 'account';
 }

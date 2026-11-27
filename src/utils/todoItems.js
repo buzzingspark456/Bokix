@@ -213,7 +213,7 @@ export function buildTodoItems({
 
   // Granskning: kvitton utan konto plus betalningar från Stripe och Zettle
   // (reviewTotal är samma siffra som menyns märke).
-  const unhandledReceipts = expenses.filter(e => !e.costAccount);
+  const unhandledReceipts = expenses.filter(e => !e.costAccount && !e.filedAs);
   const reviewCount = Math.max(reviewTotal ?? 0, unhandledReceipts.length);
   if (reviewCount > 0) {
     const receipts = unhandledReceipts.length;

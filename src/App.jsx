@@ -1257,6 +1257,7 @@ const isFreeAccountEmail = (email) => {
 // grundarens konto (2026-11-18). Hash, inte adressen, av samma skäl som ovan.
 // Andra kan slå på det i sin webbläsare med ?nyttunderlag=1 (av med =0).
 const NEW_UNDERLAG_EMAIL_HASHES = ['1hingei7r5i'];
+const UNDERLAG_FOR_ALL = true;
 const isNewUnderlagUser = (email) => {
   // Lokalt (npm run dev, localhost) visas alltid det nya, så att det går att
   // testa med testkontona. Byggd app (produktion och preview) påverkas inte.
@@ -4236,6 +4237,35 @@ function App() {
     if (!v.attachmentUrl) return { ...v, attachmentUrl: patch.url, attachmentName: patch.name, attachmentType: patch.type || '' };
     return { ...v, attachments: [...(Array.isArray(v.attachments) ? v.attachments : []), { url: patch.url, name: patch.name, type: patch.type }] };
   }));
+  // Mejl/Underlag (2026-11-27): ett underlag som inte ska bokföras sparas som
+  // dokument, eller kopplas till en verifikation (filen läggs på den). Filen
+  // behålls i båda fallen och posten ligger kvar som hanterad (filedAs), så att
+  // mejlet syns i Mejl och revisorn hittar den. Med Ångra.
+  const handleFileReceipt = (expenseId, { verificationId = null } = {}) => {
+    const ex = expenses.find(e => e.id === expenseId);
+    if (!ex || ex.costAccount || !ex.receiptUrl) return;
+    const name = ex.inbox?.fileName || ex.receiptName || ex.description || tr('underlag.unnamed');
+    setExpenses(prev => prev.map(e => (e.id === expenseId ? { ...e, filedAs: verificationId ? 'verification' : 'document', filedVerificationId: verificationId || undefined, filedAt: new Date().toISOString() } : e)));
+    if (verificationId) handleAttachToVerification(verificationId, { url: ex.receiptUrl, name, type: ex.receiptType || '' });
+    showUndo({
+      message: tr(verificationId ? 'underlag.filedToVer' : 'underlag.filedAsDoc'),
+      onUndo: () => {
+        setExpenses(prev => prev.map(e => {
+          if (e.id !== expenseId) return e;
+          const { filedAs, filedVerificationId, filedAt, ...rest } = e; // eslint-disable-line no-unused-vars
+          return rest;
+        }));
+        if (verificationId) setVerifications(prev => (prev || []).map(v => {
+          if (v.id !== verificationId) return v;
+          if (v.attachmentUrl === ex.receiptUrl) {
+            const { attachmentUrl, attachmentName, attachmentType, ...rest } = v; // eslint-disable-line no-unused-vars
+            return rest;
+          }
+          return { ...v, attachments: (v.attachments || []).filter(a => a.url !== ex.receiptUrl) };
+        }));
+      },
+    });
+  };
   const handleLinkDocument = (docId, verificationId) => {
     const r = linkDocument(currentCompany.verifications || [], currentCompany.documents || [], docId, verificationId);
     setVerifications(r.verifications);
@@ -5954,8 +5984,8 @@ function App() {
   const ProjectsView = newUnderlagOn ? Projects : ProjectsLegacy;
   const AccrualsView = newUnderlagOn ? Accruals : AccrualsLegacy;
   const FixedAssetsView = newUnderlagOn ? FixedAssets : FixedAssetsLegacy;
-  const reviewCount = expenses.filter(e => !e.costAccount && !(newUnderlagOn && needsUnderlagWork(e))).length;
-  const underlagWorkCount = newUnderlagOn ? expenses.filter(needsUnderlagWork).length : 0;
+  const reviewCount = expenses.filter(e => !e.costAccount && !e.filedAs && !(newUnderlagOn && needsUnderlagWork(e))).length;
+  const underlagWorkCount = expenses.filter(needsUnderlagWork).length;
   // Granskning-sidan har också flikarna Stripe och Zettle. Deras rader räknas
   // i integrationReviewCount (hämtas högre upp) och ingår i det som menyn visar.
   const reviewTotal = reviewCount + integrationReviewCount;
@@ -5975,7 +6005,7 @@ function App() {
     const submitted = agiReports.some(r => r.period === d.periodKey && r.status === 'submitted');
     return booked && !submitted && d.daysLeft <= 7 ? d : null;
   })();
-  const notifications = buildNotificationFeed({ t, invoices, expenses: isNewUnderlagUser(user?.email) && (() => { try { return localStorage.getItem('bokix.inboxNotify') !== '0'; } catch { return true; } })() ? expenses : [], integrationEvents, vat: vatSoon, agi: agiSoon })
+  const notifications = buildNotificationFeed({ t, invoices, expenses: (UNDERLAG_FOR_ALL || isNewUnderlagUser(user?.email)) && (() => { try { return localStorage.getItem('bokix.inboxNotify') !== '0'; } catch { return true; } })() ? expenses : [], integrationEvents, vat: vatSoon, agi: agiSoon })
     .filter(n => !n.keys.every(k => dismissedNotifKeys.has(k)));
   const notificationCount = notifications.filter(n => isUnread(n, seenNotifKeys)).length;
   const toggleNotifMenu = () => {
@@ -6006,7 +6036,7 @@ function App() {
         sound: notifySoundEnabled(user),
         onSound: (on) => { supabase.auth.updateUser({ data: { notif_sound: on } }).then(({ data: res }) => { if (res?.user) setUser(res.user); }).catch(() => {}); },
         onPreview: () => previewNotifySound(),
-        inboxNotify: isNewUnderlagUser(user?.email) ? (() => { try { return localStorage.getItem('bokix.inboxNotify') !== '0'; } catch { return true; } })() : null,
+        inboxNotify: (UNDERLAG_FOR_ALL || isNewUnderlagUser(user?.email)) ? (() => { try { return localStorage.getItem('bokix.inboxNotify') !== '0'; } catch { return true; } })() : null,
         onInboxNotify: (on) => { try { localStorage.setItem('bokix.inboxNotify', on ? '1' : '0'); window.dispatchEvent(new Event('bokix-inbox-notify')); } catch { /* privat läge */ } setNotifPrefTick(n => n + 1); },
       }}
     />
@@ -6052,7 +6082,7 @@ function App() {
   const mobileNavItems = [
     { id: 'dashboard',     label: t('navShort.dashboard'), icon: NavHomeIcon },
     { id: 'verifications', label: tr('ui.bokforing'), icon: BookOpen },
-    { id: 'expenses',      label: isNewUnderlagUser(user?.email) ? tr('nav.underlag') : tr('nav.expenses'),   icon: isNewUnderlagUser(user?.email) ? NavUnderlagIcon : NavReceiptsIcon },
+    { id: 'expenses',      label: (UNDERLAG_FOR_ALL || isNewUnderlagUser(user?.email)) ? tr('nav.underlag') : tr('nav.expenses'),   icon: (UNDERLAG_FOR_ALL || isNewUnderlagUser(user?.email)) ? NavUnderlagIcon : NavReceiptsIcon },
     { id: 'reports',       label: t('navShort.reports'), icon: NavReportsIcon },
   ];
   // Telefonens Meny har samma grupper som sidomenyn på datorn, utan det som redan
@@ -6075,7 +6105,7 @@ function App() {
       { id: 'projects', label: t('nav.projects'), icon: Briefcase },
     ] },
     { key: 'finance', title: t('nav.groupFinance'), items: [
-      { id: 'expenses', label: isNewUnderlagUser(user?.email) ? t('nav.underlag') : t('nav.expenses'), icon: isNewUnderlagUser(user?.email) ? NavUnderlagIcon : NavReceiptsIcon },
+      { id: 'expenses', label: (UNDERLAG_FOR_ALL || isNewUnderlagUser(user?.email)) ? t('nav.underlag') : t('nav.expenses'), icon: (UNDERLAG_FOR_ALL || isNewUnderlagUser(user?.email)) ? NavUnderlagIcon : NavReceiptsIcon },
       { id: 'supplier_invoices', label: t('nav.supplierInvoices'), icon: NavSupplierInvoicesIcon, exact: true },
       { id: 'payroll', label: t('nav.payroll'), icon: NavPayrollIcon },
     ] },
@@ -6410,13 +6440,14 @@ function App() {
             onTrashExpense={handleTrashExpense}
             onRestoreExpense={handleRestoreExpense}
             onPurgeTrash={handlePurgeTrash}
-            pageTitle={isNewUnderlagUser(user?.email) ? tr('nav.underlag') : tr('nav.expenses')}
+            pageTitle={(UNDERLAG_FOR_ALL || isNewUnderlagUser(user?.email)) ? tr('nav.underlag') : tr('nav.expenses')}
             onOpenMenu={() => setSidebarOpen(true)}
-            newUnderlag={isNewUnderlagUser(user?.email)}
+            newUnderlag={(UNDERLAG_FOR_ALL || isNewUnderlagUser(user?.email))}
             globalAction={globalAction}
             clearGlobalAction={() => setGlobalAction(null)}
-            onAttachToVerification={isNewUnderlagUser(user?.email) ? handleAttachToVerification : undefined}
-            onMarkSeen={isNewUnderlagUser(user?.email) ? handleMarkInboxSeen : undefined}
+            onAttachToVerification={(UNDERLAG_FOR_ALL || isNewUnderlagUser(user?.email)) ? handleAttachToVerification : undefined}
+            onMarkSeen={(UNDERLAG_FOR_ALL || isNewUnderlagUser(user?.email)) ? handleMarkInboxSeen : undefined}
+            onFileReceipt={handleFileReceipt}
           />
         );
       case 'supplier_invoices': {
@@ -6857,7 +6888,7 @@ function App() {
               key: 'finance',
               title: t('nav.groupFinance'),
               items: [
-                { id: 'expenses', label: isNewUnderlagUser(user?.email) ? t('nav.underlag') : t('nav.expenses'), short: isNewUnderlagUser(user?.email) ? t('navShort.underlag') : t('navShort.expenses'), badge: underlagWorkCount, icon: isNewUnderlagUser(user?.email) ? NavUnderlagIcon : NavReceiptsIcon },
+                { id: 'expenses', label: (UNDERLAG_FOR_ALL || isNewUnderlagUser(user?.email)) ? t('nav.underlag') : t('nav.expenses'), short: (UNDERLAG_FOR_ALL || isNewUnderlagUser(user?.email)) ? t('navShort.underlag') : t('navShort.expenses'), badge: underlagWorkCount, icon: isNewUnderlagUser(user?.email) ? NavUnderlagIcon : NavReceiptsIcon },
                 { id: 'supplier_invoices', label: t('nav.supplierInvoices'), short: t('navShort.supplierInvoices'), icon: NavSupplierInvoicesIcon, exact: true },
                 { id: 'payroll', label: t('nav.payroll'), short: t('navShort.payroll'), icon: NavPayrollIcon },
               ],
