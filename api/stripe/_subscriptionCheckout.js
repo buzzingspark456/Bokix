@@ -278,7 +278,11 @@ export default async function handler(req, res) {
         return;
       }
       const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
-      const open = (await stripe.invoices.list({ subscription: sub.id, status: 'open', limit: 1 })).data[0] || null;
+      // Äldsta öppna fakturan först: har flera månader hunnit misslyckas ska
+      // alla betalas, annars står abonnemanget kvar som obetalt.
+      const openInvoices = (await stripe.invoices.list({ subscription: sub.id, status: 'open', limit: 10 })).data
+        .sort((a, b) => (a.created || 0) - (b.created || 0));
+      const open = openInvoices[0] || null;
       const card = await subscriptionCard(stripe, sub, customerId);
 
       if (body.action === 'payment-issue') {
@@ -300,14 +304,19 @@ export default async function handler(req, res) {
       }
 
       // Försök igen
+      const LIVE = ['trialing', 'active'];
       if (!open) {
-        // Ingen öppen faktura: redan betald (t.ex. Stripe hann försöka). Spara läget.
+        // Ingen öppen faktura: redan betald (Stripe hann försöka), eller
+        // abonnemanget är avslutat och kan inte dras längre. Bara det första är
+        // ett ja; ett avslutat abonnemang får aldrig svaret "betald".
         await upsertSubscription(subscriptionFieldsFromStripe(sub));
-        res.status(200).json({ ok: true, status: sub.status });
+        res.status(200).json(LIVE.includes(sub.status)
+          ? { ok: true, status: sub.status }
+          : { ok: false, status: sub.status, reason: 'Abonnemanget är avslutat och kan inte dras längre. Skriv till support@bokix.se så hjälper vi dig.' });
         return;
       }
       try {
-        await stripe.invoices.pay(open.id);
+        for (const inv of openInvoices) await stripe.invoices.pay(inv.id);
       } catch (err) {
         const pi = await invoicePaymentIntent(stripe, open);
         const requiresAction = err?.code === 'authentication_required' || err?.raw?.code === 'authentication_required' || pi?.status === 'requires_action';
@@ -322,7 +331,9 @@ export default async function handler(req, res) {
       // Gick igenom: spara direkt så att appen låses upp utan att vänta på webhooken.
       const fresh = await stripe.subscriptions.retrieve(sub.id);
       await upsertSubscription(subscriptionFieldsFromStripe(fresh));
-      res.status(200).json({ ok: true, status: fresh.status });
+      res.status(200).json(LIVE.includes(fresh.status)
+        ? { ok: true, status: fresh.status }
+        : { ok: false, status: fresh.status, reason: 'Betalningen gick igenom men abonnemanget är inte aktivt än. Ladda om sidan om en minut.' });
       return;
     }
 

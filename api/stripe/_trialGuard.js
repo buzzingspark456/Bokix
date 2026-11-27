@@ -22,6 +22,8 @@ export const IP_TRIAL_LIMIT = 3;
 // Provperioder med samma kort på samma konto (nya företag via Lägg till företag).
 export const SAME_ACCOUNT_CARD_TRIALS = 3;
 const IP_WINDOW_SECONDS = 30 * 24 * 3600;
+// Prenumerationer som inte längre gäller: deras provperiod är förbrukad.
+const ENDED_STATUSES = ['canceled', 'unpaid', 'past_due', 'incomplete_expired', 'paused'];
 
 /** E-post som en person: gmail.com/googlemail.com utan punkter, alla utan +tillägg. */
 export function normalizeEmail(email) {
@@ -64,9 +66,12 @@ export function trialMetadata({ email, orgNr, ip }) {
 // Stripe Search tillåter bara vissa tecken i ett värde.
 const q = (v) => String(v).replace(/['\\]/g, '');
 
-async function priorTrials(stripe, key, value) {
+async function priorSubs(stripe, key, value) {
   const res = await stripe.subscriptions.search({ query: `metadata['${key}']:'${q(value)}'`, limit: 20 });
-  return res.data.filter(s => s.trial_start);
+  return res.data;
+}
+async function priorTrials(stripe, key, value) {
+  return (await priorSubs(stripe, key, value)).filter(s => s.trial_start);
 }
 
 /**
@@ -80,12 +85,20 @@ async function priorTrials(stripe, key, value) {
 export async function trialDecision(stripe, { email, orgNr, ip, excludeUserId = null, companyId = null }) {
   const reasons = [];
   const notMine = (s) => !excludeUserId || s.metadata?.user_id !== excludeUserId;
+  // Kontots EGEN tidigare provperiod för samma företag räknas också när den
+  // prenumerationen tagit slut (2026-11-27). Annars fick ett konto som slutat
+  // betala och blivit låst en ny gratis provperiod via betalspärren, gång på
+  // gång. En prenumeration som fortfarande gäller (dubbel checkout) räknas inte.
+  // Även en egen prenumeration UTAN provperiod räknas när den tagit slut: annars
+  // gav en misslyckad betalning och en ny checkout 30 gratis dagar.
+  const ended = (s) => ENDED_STATUSES.includes(s.status);
+  const ownEnded = (s) => !notMine(s) && ended(s) && (s.metadata?.company_id || null) === companyId;
   try {
     const o = normalizeOrgNr(orgNr);
-    const otherCheckout = (s) => notMine(s) || (s.metadata?.company_id || null) !== companyId;
-    if (o && (await priorTrials(stripe, 'bokix_orgnr', o)).some(otherCheckout)) reasons.push('orgnr');
+    const otherCheckout = (s) => s.trial_start && (notMine(s) || (s.metadata?.company_id || null) !== companyId);
+    if (o && (await priorSubs(stripe, 'bokix_orgnr', o)).some(s => otherCheckout(s) || ownEnded(s))) reasons.push('orgnr');
     const e = normalizeEmail(email);
-    if (e && (await priorTrials(stripe, 'bokix_email_norm', e)).some(notMine)) reasons.push('email');
+    if (e && (await priorSubs(stripe, 'bokix_email_norm', e)).some(s => (s.trial_start && notMine(s)) || ownEnded(s))) reasons.push('email');
     const i = hashIp(ip);
     if (i) {
       const since = Math.floor(Date.now() / 1000) - IP_WINDOW_SECONDS;

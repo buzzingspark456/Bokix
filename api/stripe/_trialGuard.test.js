@@ -64,6 +64,27 @@ describe('provperiod eller inte', () => {
     expect((await trialDecision(fakeStripe(earlier.slice(0, IP_TRIAL_LIMIT - 1)), { email: 'x@y.se', ip })).allowTrial).toBe(true);
     expect((await trialDecision(fakeStripe(earlier), { email: 'x@y.se', ip })).reasons).toEqual(['ip']);
   });
+  it('låst konto som slutat betala får ingen ny provperiod för samma företag', async () => {
+    const stripe = fakeStripe([{ id: 's1', status: 'unpaid', trial_start: now - 90 * 86400, created: now - 90 * 86400, metadata: { user_id: 'u1', bokix_orgnr: '5561234567', bokix_email_norm: 'a@b.se' } }]);
+    const d = await trialDecision(stripe, { email: 'a@b.se', orgNr: '5561234567', excludeUserId: 'u1', companyId: null });
+    expect(d.allowTrial).toBe(false);
+  });
+  it('avslutat abonnemang utan org.nr (bara e-post): ingen ny provperiod', async () => {
+    const stripe = fakeStripe([{ id: 's1', status: 'canceled', trial_start: now - 90 * 86400, created: now - 90 * 86400, metadata: { user_id: 'u1', bokix_email_norm: 'a@b.se' } }]);
+    expect((await trialDecision(stripe, { email: 'a@b.se', excludeUserId: 'u1' })).reasons).toEqual(['email']);
+  });
+  it('egen obetald prenumeration UTAN provperiod: ingen provperiod vid ny checkout', async () => {
+    const stripe = fakeStripe([{ id: 's1', status: 'past_due', created: now - 40 * 86400, metadata: { user_id: 'u1', bokix_orgnr: '5561234567', bokix_email_norm: 'a@b.se' } }]);
+    expect((await trialDecision(stripe, { email: 'a@b.se', orgNr: '5561234567', excludeUserId: 'u1' })).allowTrial).toBe(false);
+  });
+  it('egen provperiod som fortfarande gäller (dubbel checkout) räknas inte', async () => {
+    const stripe = fakeStripe([{ id: 's1', status: 'trialing', trial_start: now, created: now, metadata: { user_id: 'u1', bokix_orgnr: '5561234567', bokix_email_norm: 'a@b.se' } }]);
+    expect((await trialDecision(stripe, { email: 'a@b.se', orgNr: '5561234567', excludeUserId: 'u1' })).allowTrial).toBe(true);
+  });
+  it('avslutat abonnemang för ett ANNAT eget företag hindrar inte e-posten', async () => {
+    const stripe = fakeStripe([{ id: 's1', status: 'canceled', trial_start: now, created: now, metadata: { user_id: 'u1', company_id: 'c1', bokix_email_norm: 'a@b.se' } }]);
+    expect((await trialDecision(stripe, { email: 'a@b.se', excludeUserId: 'u1', companyId: 'c2' })).allowTrial).toBe(true);
+  });
   it('kontots egen avbrutna checkout räknas inte', async () => {
     const stripe = fakeStripe([{ id: 'sub1', trial_start: now, created: now, metadata: { bokix_email_norm: 'a@b.se', user_id: 'u1' } }]);
     expect((await trialDecision(stripe, { email: 'a@b.se', excludeUserId: 'u1' })).allowTrial).toBe(true);

@@ -23,6 +23,22 @@ async function freshSubscription(stripe, sub) {
   }
 }
 
+// Kunden betalade på nytt (ny prenumeration) efter att den gamla misslyckats
+// eller tagit slut: den gamla avslutas, utan slutfaktura, så att den inte kan
+// dras senare eller fortsätta skicka händelser. Ett fel här stoppar inget.
+async function cancelReplacedSubscription(result) {
+  const oldId = result?.replacedSubscriptionId;
+  if (!oldId) return;
+  try {
+    const old = await stripe.subscriptions.retrieve(oldId);
+    if (old.status === 'canceled' || old.status === 'incomplete_expired') return;
+    await stripe.subscriptions.cancel(oldId, { invoice_now: false, prorate: false });
+    console.log('Gammal prenumeration avslutad efter ny betalning:', oldId);
+  } catch (err) {
+    console.warn('Kunde inte avsluta den gamla prenumerationen', oldId, err.message);
+  }
+}
+
 // Första mejlet när dragningen misslyckas skickas direkt, resten av nattjobbet.
 async function sendFirstDunningEmail(result) {
   if (!result?.newlyFailed) return;
@@ -242,6 +258,7 @@ async function handler(req, res) {
         // den nya statusen, som sparas av raden ovan.
         if (event.type === 'customer.subscription.created') await enforceCardTrialLimit(stripe, sub);
         await sendFirstDunningEmail(upserted);
+        await cancelReplacedSubscription(upserted);
         break;
       }
       case 'customer.subscription.deleted': {

@@ -155,14 +155,21 @@ export async function upsertSubscription({
   if (!hasDunningColumns) {
     ({ data: existing } = await supabaseAdmin.from('subscriptions').select('id, stripe_subscription_id, status').eq('user_id', userId).eq('company_id', legacyCompanyId(companyId)).maybeSingle());
   }
-  if (!PAID_STATUSES.includes(status) && stripeSubscriptionId) {
-    if (existing?.stripe_subscription_id
-      && existing.stripe_subscription_id !== stripeSubscriptionId
-      && PAID_STATUSES.includes(existing.status)) {
-      console.warn('Hoppar över', status, 'för', stripeSubscriptionId, '— kontot har redan en giltig prenumeration:', existing.stripe_subscription_id);
-      return;
-    }
+  const LIVE = ['trialing', 'active'];
+  const otherSub = Boolean(stripeSubscriptionId && existing?.stripe_subscription_id && existing.stripe_subscription_id !== stripeSubscriptionId);
+  // En ANNAN prenumeration får bara ta över raden när den själv är bättre:
+  // en avslutad får aldrig ersätta en som gäller, och en som misslyckas
+  // (past_due) får aldrig ersätta en betald (2026-11-27: en gammal, obetald
+  // prenumeration låste annars kunden igen efter att hen betalat på nytt).
+  if (otherSub && ((!PAID_STATUSES.includes(status) && PAID_STATUSES.includes(existing.status))
+    || (status === 'past_due' && LIVE.includes(existing.status)))) {
+    console.warn('Hoppar över', status, 'för', stripeSubscriptionId, '— kontot har redan en giltig prenumeration:', existing.stripe_subscription_id);
+    return;
   }
+  // Ny prenumeration som gäller ersätter en gammal som misslyckats eller
+  // tagit slut: den gamla avslutas i Stripe av anroparen (webhook.js).
+  const replacedSubscriptionId = otherSub && LIVE.includes(status) && !LIVE.includes(existing.status)
+    ? existing.stripe_subscription_id : null;
   // Misslyckad betalning (2026-11-27): tidpunkten för första misslyckade
   // dragningen styr banner, läsläge (dag 14) och lås (dag 30), se
   // src/utils/paymentAccess.js. Betald igen: nollas, och påminnelserna börjar om.
@@ -199,5 +206,5 @@ export async function upsertSubscription({
       { onConflict: 'user_id,company_id' }
     );
   if (error) throw error;
-  return { newlyFailed: newlyFailed && hasDunningColumns, userId, companyId: legacyCompanyId(companyId) };
+  return { newlyFailed: newlyFailed && hasDunningColumns, userId, companyId: legacyCompanyId(companyId), replacedSubscriptionId };
 }
