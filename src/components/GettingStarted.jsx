@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, ChevronRight, X } from './icons';
+import { Check, ChevronRight, X, Minus } from './icons';
 import { t } from '../i18n';
 
 // Kom igång som panel (2026-11-27, efter Bokios lista som grundaren gillade).
@@ -37,13 +37,13 @@ export default function GettingStarted({ companyId, companyName, steps, isDone =
       <div className="kig-band">
         <header className="kig-head">
           <div>
-            <span className="kig-eyebrow"><i aria-hidden="true" />Bokix{companyName ? ` · ${companyName}` : ''}</span>
+            {companyName && <span className="kig-company"><i aria-hidden="true">{companyName.trim().charAt(0).toUpperCase()}</i>{companyName}</span>}
             <h2>{title}</h2>
             <p>{subtitle}</p>
           </div>
           <span className="kig-head-actions">
-            <button type="button" className="kig-icon kig-min" onClick={() => setMinimized(true)} title={t('gettingStarted.minimize')} aria-label={t('gettingStarted.minimize')}><span aria-hidden="true">–</span></button>
-            {onClose && <button type="button" className="kig-icon" onClick={onClose} title={t('gettingStarted.close')} aria-label={t('gettingStarted.close')}><X size={15} /></button>}
+            <button type="button" className="kig-icon kig-min" onClick={() => setMinimized(true)} title={t('gettingStarted.minimize')} aria-label={t('gettingStarted.minimize')}><Minus size={16} /></button>
+            {onClose && <button type="button" className="kig-icon" onClick={onClose} title={t('gettingStarted.close')} aria-label={t('gettingStarted.close')}><X size={16} /></button>}
           </span>
         </header>
         <div className="kig-meter">
@@ -57,13 +57,13 @@ export default function GettingStarted({ companyId, companyName, steps, isDone =
           const isNext = next?.id === s.id;
           return (
             <li key={s.id}>
-              <button type="button" className={`kig-step${ok ? ' is-done' : ''}${isNext ? ' is-next' : ''}`} onClick={() => !ok && onGo?.(s)} disabled={ok}>
-                <span className="kig-num">{ok ? <Check size={14} /> : i + 1}</span>
+              <button type="button" className={`kig-step${ok ? ' is-done' : ''}${isNext ? ' is-next' : ''}`} onClick={() => onGo?.(s)}>
+                <span className="kig-num" aria-label={ok ? t('gettingStarted.done') : String(i + 1)}>{ok ? <Check size={16} /> : i + 1}</span>
                 <span className="kig-text">
                   <b>{s.title}</b>
                   {isNext && s.detail && <small>{s.detail}</small>}
                 </span>
-                {!ok && <ChevronRight size={16} />}
+                <ChevronRight size={16} />
               </button>
             </li>
           );

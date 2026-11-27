@@ -467,9 +467,12 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   const openKigStep = (st) => {
     if (st.action === 'sie') setShowSieImportModal(true);
     else if (st.openAction && onOpenItem) onOpenItem(st.openAction, st.tab);
-    else if (st.tab) setActiveTab(st.tab);
+    else setActiveTab(st.tab || 'company'); // Kontot är skapat: företagets uppgifter
   };
-  const closeKig = () => { const next = { ...gsState, path: kigPath, dismissed: true, dismissedAt: Date.now() }; writeGetStarted(company.id, next); changeGsState(next); };
+  const [kigUndo, setKigUndo] = useState(false);
+  useEffect(() => { if (!kigUndo) return undefined; const id = setTimeout(() => setKigUndo(false), 7000); return () => clearTimeout(id); }, [kigUndo]);
+  const closeKig = () => { const next = { ...gsState, path: kigPath, dismissed: true, dismissedAt: Date.now() }; writeGetStarted(company.id, next); changeGsState(next); setKigUndo(true); };
+  const undoCloseKig = () => { const next = { ...gsState, path: kigPath, dismissed: false }; writeGetStarted(company.id, next); changeGsState(next); setKigUndo(false); };
 
   // ── Att göra ── (utils/todoItems.js, samma lista som notisklockan)
   const todos = buildTodoItems({
@@ -896,6 +899,12 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
           title={t(kigPath === 'move' ? 'dashboard.getStarted.titleMove' : 'dashboard.getStarted.titleNew')}
           subtitle={t('gettingStarted.subtitle')}
         />
+      )}
+      {gettingStarted && kigUndo && gsState.dismissed && (
+        <div className="kig-undo" role="status">
+          <span>{t('gettingStarted.closedText')}</span>
+          <button type="button" onClick={undoCloseKig}>{t('gettingStarted.undo')}</button>
+        </div>
       )}
       {showGetStarted && !showKigPanel && (
         <GetStarted

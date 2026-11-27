@@ -78,5 +78,36 @@ await page.locator('.kig-step:not(.is-done)').first().click().catch(() => {});
 await page.waitForTimeout(1200);
 await page.screenshot({ path: `test-results/komigang-efter-klick${tag}.png` });
 console.log('nästa steg tog mig till:', await page.locator('.main-content-inner h1').first().innerText().catch(() => '?'));
+if (process.env.CLOSE) {
+  await page.goto(BASE + '/?app=1#dashboard'); await page.waitForTimeout(3500);
+  await page.locator('.kig-head-actions .kig-icon').last().click();
+  await page.waitForTimeout(600);
+  console.log('efter Stäng – panel:', await page.locator('.kig').count(), '| ångra-ruta:', await page.locator('.kig-undo').count());
+  await page.screenshot({ path: `test-results/komigang-stangd${tag}.png` });
+  await page.locator('.kig-undo button').click();
+  await page.waitForTimeout(600);
+  console.log('efter Ångra – panel:', await page.locator('.kig').count());
+}
+if (process.env.STEPS) {
+  // Varje steg, ett i taget: vart hamnar man?
+  await page.goto(BASE + '/?app=1#dashboard'); await page.waitForTimeout(3500);
+  const n = await page.locator('.kig-step').count();
+  console.log('steg:', n, '| ihopfälld:', await page.locator('.kig-pill').count());
+  for (let i = 0; i < n; i++) {
+    await page.goto(BASE + '/?app=1#dashboard');
+    await page.waitForTimeout(3500);
+    const step = page.locator('.kig-step').nth(i);
+    const label = (await step.locator('.kig-text b').innerText()).trim();
+    await step.click();
+    await page.waitForTimeout(1500);
+    const where = await page.evaluate(() => {
+      const main = document.querySelector('.main-content-inner');
+      const h = [...(main?.querySelectorAll('h1, h2, h3') || [])].map(e => e.innerText.trim()).filter(Boolean).slice(0, 3);
+      const modal = document.querySelector('[role=dialog] h1, [role=dialog] h2, .mform-title');
+      return (modal ? 'formulär: ' + modal.innerText.trim() + ' | ' : '') + h.join(' › ');
+    });
+    console.log(`${i + 1}. ${label} → ${where}`);
+  }
+}
 console.log('fel:', errors.length ? errors : 'inga', consoleErrors.length ? consoleErrors : '');
 await browser.close();

@@ -361,7 +361,7 @@
       "cancel": "Cancel",
       "hide": "Hide",
       "tour": "Take a quick tour",
-      "stepEmail": "Send invoices from your own email",
+      "stepEmail": "Connect your email",
       "stepEmailDetail": "Connect Gmail or your business address, so invoices come from you and replies reach your inbox.",
       "stepEmailDone": "Invoices are sent from {{email}}"
     }
@@ -6648,6 +6648,9 @@
     "moreHint": "Currency, delivery date, rounding, project and notes"
   },
   "gettingStarted": {
+    "closedText": "Get started is hidden. Find it again under Settings → Appearance.",
+    "undo": "Undo",
+    "done": "Done",
     "tour": "Show me around Bokix",
     "short": "Get started",
     "subtitle": "A few short steps and you are up and running. Click a step and we take you there.",

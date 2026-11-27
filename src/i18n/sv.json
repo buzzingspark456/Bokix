@@ -361,7 +361,7 @@
       "cancel": "Avbryt",
       "hide": "Dölj",
       "tour": "Ta en snabb rundtur",
-      "stepEmail": "Skicka fakturor från din egen mejl",
+      "stepEmail": "Koppla din mejl",
       "stepEmailDetail": "Koppla Gmail eller företagets mejladress, så kommer fakturorna från dig och svaren till din inkorg.",
       "stepEmailDone": "Fakturor skickas från {{email}}"
     }
@@ -6648,6 +6648,9 @@
     "moreHint": "Valuta, leveransdatum, öresavrundning, projekt och anteckningar"
   },
   "gettingStarted": {
+    "closedText": "Kom igång är dold. Du hittar den igen under Inställningar → Utseende.",
+    "undo": "Ångra",
+    "done": "Klart",
     "tour": "Visa mig runt i Bokix",
     "short": "Kom igång",
     "subtitle": "Några korta steg, så är du igång. Klicka på ett steg så tar vi dig dit.",

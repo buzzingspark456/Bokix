@@ -12157,3 +12157,40 @@ table.lt-fit td > div, table.lt-fit td > span { overflow: hidden; text-overflow:
 :root[data-theme="dark"] .kig-step.is-next .kig-num { color: #3fbf6c; }
 :root[data-theme="dark"] .kig-foot button { color: #3fbf6c; }
 @media (max-width: 860px) { .kig { box-shadow: 0 6px 20px rgba(6, 48, 21, .12); } }
+
+/* Kom igång, finputs (2026-11-27): företagsnamnet som en liten bricka, stegens
+   egna ikoner, tydlig bock, runda knappar för fäll ihop och stäng. */
+.kig-company { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 3px 10px 3px 3px; border-radius: 999px; background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .14); font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, .92); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kig-company i { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; font-style: normal; font-size: 11px; font-weight: 800; color: #08491f; background: linear-gradient(135deg, #7dd3fc, #5eead4 50%, #bef264); }
+.kig-band .kig-head h2 { margin-top: 10px; }
+.kig-band .kig-icon { width: 30px; height: 30px; border-radius: 50%; background: rgba(255, 255, 255, .10); color: #fff; }
+.kig-band .kig-icon:hover { background: rgba(255, 255, 255, .22); }
+.kig-band .kig-head-actions { gap: 6px; margin: 0; }
+.kig-num { position: relative; width: 34px; height: 34px; border: none; border-radius: 11px; background: var(--bg-muted); color: var(--text-secondary); }
+.kig-step.is-next .kig-num { border-radius: 11px; color: #0b6329; }
+.kig-step.is-done .kig-num { border-radius: 50%; background: linear-gradient(145deg, #12803a, #0b6329); color: #fff; box-shadow: 0 3px 8px rgba(11, 99, 41, .28); }
+.kig-step.is-done .kig-num svg { width: 18px; height: 18px; }
+.kig-step > svg { opacity: .5; transition: transform .15s, opacity .15s; }
+.kig-step:hover > svg { opacity: 1; transform: translateX(2px); }
+.kig-step.is-done .kig-text b { text-decoration: none; color: var(--text-muted); font-weight: 500; }
+.kig-step.is-done:hover .kig-text b { color: var(--text-main); }
+:root[data-theme="dark"] .kig-step.is-done .kig-num { background: linear-gradient(145deg, #3fbf6c, #2a9a52); color: #06240f; }
+
+/* Kom igång, enklare (2026-11-27, grundaren: "nice, inte AI"): ett lugnt grönt
+   band, siffror i ringar, en ren grön bock när steget är klart. */
+.kig { box-shadow: 0 16px 40px rgba(15, 23, 42, .14), 0 1px 3px rgba(15, 23, 42, .08); }
+.kig-band { background: #0b6329; }
+.kig-band .kig-progress i { background: #a3e635; box-shadow: none; }
+.kig-company { background: rgba(255, 255, 255, .10); border-color: rgba(255, 255, 255, .16); }
+.kig-company i { background: #fff; color: #0b6329; }
+.kig-num { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--bg-card); color: var(--text-secondary); font-size: 13px; font-weight: 700; box-shadow: none; }
+.kig-step.is-next .kig-num { border: 2px solid #0b6329; border-radius: 50%; background: var(--bg-card); color: #0b6329; box-shadow: none; }
+.kig-step.is-done .kig-num { border: none; border-radius: 50%; background: #0b6329; color: #fff; box-shadow: none; }
+.kig-step.is-done .kig-num svg { width: 17px; height: 17px; }
+.kig-step.is-next { background: var(--bg-muted); }
+.kig-undo { position: fixed; right: 24px; bottom: 24px; z-index: 60; display: flex; align-items: center; gap: 14px; max-width: 420px; padding: 12px 14px 12px 16px; border-radius: 12px; background: #1f2421; color: #fff; font-size: 13px; line-height: 1.4; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
+.kig-undo button { flex-shrink: 0; border: none; background: none; padding: 4px 2px; font: inherit; font-weight: 700; color: #a3e635; cursor: pointer; }
+@media (min-width: 861px) { body:has(.dev-plan) .kig-undo { bottom: 76px; } }
+@media (max-width: 860px) { .kig-undo { left: 12px; right: 12px; bottom: calc(var(--mobile-nav-height, 72px) + 12px); max-width: none; } }
+:root[data-theme="dark"] .kig-step.is-next .kig-num { border-color: #3fbf6c; color: #3fbf6c; }
+:root[data-theme="dark"] .kig-step.is-done .kig-num { background: #3fbf6c; color: #06240f; }
