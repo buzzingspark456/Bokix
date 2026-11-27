@@ -17,6 +17,7 @@ import { withSentry } from '../_sentry.js';
 import { withTablesState } from '../_companyStore.js';
 import { processDueTrustpilotInvites } from './_trustpilotInvites.js';
 import { processOnboardingEmails } from './_onboardingEmails.js';
+import { dueStage, sendDunningStage, buildDunningEmail } from '../_dunning.js';
 
 // Bugkritiskt (lokal utveckling, samma orsak/fix som api/_resend.js): måste
 // vara en LAT, memoiserad getter, inte en toppnivå-konstant. server.js
@@ -158,7 +159,7 @@ async function handler(req, res) {
   // skarp körning skulle ha gjort.
   const dryRun = req.query?.dryRun === 'true' || req.query?.dryRun === '1';
 
-  const summary = { dryRun, usersScanned: 0, invoiceReminders: 0, vatReminders: 0, agiReminders: 0, trialReminders: 0, trustpilotInvites: { sent: 0, wouldSend: 0, failed: 0, errors: [] }, stripeLedgerEvents: 0, zettleLedgerEvents: 0, skippedUnpaid: 0, errors: [], wouldSend: [] };
+  const summary = { dryRun, usersScanned: 0, invoiceReminders: 0, vatReminders: 0, agiReminders: 0, trialReminders: 0, dunningEmails: 0, cardExpiryEmails: 0, trustpilotInvites: { sent: 0, wouldSend: 0, failed: 0, errors: [] }, stripeLedgerEvents: 0, zettleLedgerEvents: 0, skippedUnpaid: 0, errors: [], wouldSend: [] };
 
   try {
     const today = startOfToday();
@@ -254,6 +255,84 @@ async function handler(req, res) {
     } catch (err) {
       summary.errors.push(`trial scan: ${err.message}`);
     }
+    // ── 5) Misslyckad betalning (2026-11-27) ── påminnelser dag 3, 7, 12, 14,
+    // 28 och 30 efter första misslyckade dragningen (dag 0 skickas av webhooken,
+    // eller här om den missades). Se api/_dunning.js.
+    try {
+      let { data: failRows, error: failError } = await admin
+        .from('subscriptions')
+        .select('id, user_id, status, plan, payment_failed_at, payment_reminder_stage')
+        .not('payment_failed_at', 'is', null);
+      if (failError && /payment_failed_at|payment_reminder_stage/.test(failError.message || '')) failRows = []; // migrationen inte körd än
+      else if (failError) throw failError;
+      for (const row of failRows || []) {
+        const due = dueStage(row);
+        if (!due) continue;
+        try {
+          if (await sendDunningStage(admin, row, due, { dryRun })) {
+            summary.dunningEmails += 1;
+            if (dryRun) summary.wouldSend.push({ type: 'payment_' + due.key, userId: row.user_id });
+          }
+        } catch (err) {
+          summary.errors.push(`betalning ${row.user_id}: ${err.message}`);
+        }
+      }
+    } catch (err) {
+      summary.errors.push(`betalning scan: ${err.message}`);
+    }
+
+    // ── 6) Kortet går ut snart ── 14 dagar före månadens slut när kortet
+    // abonnemanget dras från går ut den månaden. En gång per kort.
+    try {
+      const stripe = getStripeClient();
+      let { data: activeRows, error: activeError } = await admin
+        .from('subscriptions')
+        .select('id, user_id, stripe_subscription_id, card_expiry_reminded_for')
+        .eq('status', 'active')
+        .not('stripe_subscription_id', 'is', null);
+      if (activeError && /card_expiry_reminded_for/.test(activeError.message || '')) activeRows = [];
+      else if (activeError) throw activeError;
+      const nowDate = new Date();
+      const monthEnd = new Date(Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth() + 1, 0));
+      const daysToMonthEnd = Math.ceil((monthEnd - nowDate) / 86400000);
+      const thisMonth = `${nowDate.getUTCFullYear()}-${String(nowDate.getUTCMonth() + 1).padStart(2, '0')}`;
+      if (stripe && daysToMonthEnd <= 14) {
+        for (const row of activeRows || []) {
+          if (row.card_expiry_reminded_for === thisMonth) continue;
+          try {
+            const sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id);
+            let pmId = typeof sub.default_payment_method === 'string' ? sub.default_payment_method : sub.default_payment_method?.id;
+            if (!pmId) {
+              const customer = await stripe.customers.retrieve(typeof sub.customer === 'string' ? sub.customer : sub.customer?.id);
+              const dpm = customer?.invoice_settings?.default_payment_method;
+              pmId = typeof dpm === 'string' ? dpm : dpm?.id;
+            }
+            if (!pmId) continue;
+            const pm = await stripe.paymentMethods.retrieve(pmId);
+            const exp = pm?.card ? `${pm.card.exp_year}-${String(pm.card.exp_month).padStart(2, '0')}` : null;
+            if (exp !== thisMonth) continue;
+            if (dryRun) {
+              summary.cardExpiryEmails += 1;
+              summary.wouldSend.push({ type: 'card_expiring', userId: row.user_id });
+              continue;
+            }
+            const { data: authUserData } = await admin.auth.admin.getUserById(row.user_id);
+            const to = authUserData?.user?.email;
+            if (!to) continue;
+            const mail = buildDunningEmail({ key: 'cardExpiring' });
+            const result = await sendWithFallback({ to: [to], subject: mail.subject, html: mail.html });
+            if (!result.ok) throw new Error(result.data?.message || 'Resend-fel');
+            await admin.from('subscriptions').update({ card_expiry_reminded_for: thisMonth }).eq('id', row.id);
+            summary.cardExpiryEmails += 1;
+          } catch (err) {
+            summary.errors.push(`kort ${row.user_id}: ${err.message}`);
+          }
+        }
+      }
+    } catch (err) {
+      summary.errors.push(`kort scan: ${err.message}`);
+    }
+
     // Sidindelad hämtning, inte ett enda .select() — PostgREST (Supabase)
     // begränsar tyst ett oavgränsat svar till projektets "max rows"
     // (default 1000). Utan detta skulle cronen efter ~1000 rader i

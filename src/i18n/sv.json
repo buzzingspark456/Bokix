@@ -1,4 +1,22 @@
 {
+  "payBanner": {
+    "failedTitle": "Betalningen gick inte igenom",
+    "actionTitle": "Banken vill att du bekräftar betalningen",
+    "readTitle": "Läsläge: betalningen saknas",
+    "readText": "Du kan se och ladda ner allt, men inte bokföra nytt. Kontot stängs {{date}} om betalningen saknas",
+    "actionText": "Bekräfta i din bank, så är allt klart",
+    "nextAttempt": "Vi försöker igen {{date}}",
+    "readOnlyFrom": "Skrivskyddat från {{date}} om det inte löser sig",
+    "retry": "Försök igen",
+    "trying": "Försöker …",
+    "changeCard": "Byt kort",
+    "confirm": "Bekräfta betalningen",
+    "paid": "Klart, betalningen gick igenom",
+    "declined": "Kortet nekades. Byt kort eller försök igen senare.",
+    "sharedTitle": "Läsläge: ägaren behöver uppdatera betalningen",
+    "sharedText": "Du kan se allt men inte ändra något förrän ägaren betalat.",
+    "readOnlyToast": "Läsläge: uppdatera betalningen för att kunna ändra."
+  },
   "nav": {
     "help": "Hjälp och support",
     "logout": "Logga ut",

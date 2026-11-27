@@ -111,6 +111,57 @@ async function isFreshSignup(userId) {
   return Date.now() - new Date(data.user.created_at).getTime() < 60 * 60 * 1000;
 }
 
+// ── Hjälp för misslyckad betalning (2026-11-27) ──
+// Nyare Stripe-versioner har flyttat fakturans PaymentIntent till invoice.payments.
+async function invoicePaymentIntent(stripe, invoice) {
+  try {
+    if (typeof invoice.payment_intent === 'string') return await stripe.paymentIntents.retrieve(invoice.payment_intent);
+    if (invoice.payment_intent?.id) return invoice.payment_intent;
+    const list = await stripe.invoicePayments.list({ invoice: invoice.id, limit: 1, expand: ['data.payment.payment_intent'] });
+    const pi = list.data?.[0]?.payment?.payment_intent;
+    if (!pi) return null;
+    return typeof pi === 'string' ? await stripe.paymentIntents.retrieve(pi) : pi;
+  } catch {
+    return null;
+  }
+}
+
+// Kortet abonnemanget dras från: märke, fyra sista siffror och utgång.
+async function subscriptionCard(stripe, sub, customerId) {
+  try {
+    let pmId = typeof sub.default_payment_method === 'string' ? sub.default_payment_method : sub.default_payment_method?.id;
+    if (!pmId && customerId) {
+      const customer = await stripe.customers.retrieve(customerId);
+      const dpm = customer?.invoice_settings?.default_payment_method;
+      pmId = typeof dpm === 'string' ? dpm : dpm?.id;
+    }
+    if (!pmId) return null;
+    const pm = await stripe.paymentMethods.retrieve(pmId);
+    if (!pm?.card) return null;
+    return { brand: pm.card.brand, last4: pm.card.last4, expMonth: pm.card.exp_month, expYear: pm.card.exp_year };
+  } catch {
+    return null;
+  }
+}
+
+// Bankens svar på svenska, utan tekniska koder.
+function declineText(error) {
+  const code = error?.decline_code || error?.code;
+  if (!code) return null;
+  return ({
+    insufficient_funds: 'Kortet saknar täckning.',
+    expired_card: 'Kortet har gått ut.',
+    card_declined: 'Banken nekade köpet.',
+    do_not_honor: 'Banken nekade köpet.',
+    generic_decline: 'Banken nekade köpet.',
+    lost_card: 'Kortet är spärrat.',
+    stolen_card: 'Kortet är spärrat.',
+    incorrect_cvc: 'Säkerhetskoden stämmer inte.',
+    processing_error: 'Ett tillfälligt fel hos banken. Försök igen om en stund.',
+    authentication_required: 'Banken vill att du bekräftar betalningen.',
+  })[code] || 'Banken nekade köpet.';
+}
+
 export default async function handler(req, res) {
   applySecurityHeaders(res);
   if (req.method !== 'POST') {
@@ -203,6 +254,75 @@ export default async function handler(req, res) {
       }
       await stripe.customers.update(customerId, { metadata: { billing_cc: email || '' } });
       res.status(200).json({ email: email || '' });
+      return;
+    }
+
+    // ── Misslyckad betalning (2026-11-27): läget för bannern i appen, och
+    // Försök igen som drar kortet direkt. Bara den inloggade ägaren, bara
+    // det egna abonnemanget. Försök igen är begränsat till tre gånger per
+    // tio minuter, så att det inte går att använda för att testa kort.
+    if (body.action === 'payment-issue' || body.action === 'retry-payment') {
+      const authedUser = await requireAuthedUser(req, res);
+      if (!authedUser) return;
+      if (body.action === 'retry-payment'
+        && !(await checkRateLimit(req, res, { key: 'retry-payment', max: 3, windowMs: 10 * 60 * 1000, identifier: authedUser.id }))) return;
+      const companyId = body.company_id || null;
+      const subRow = await getSubscriptionRow(authedUser.id, companyId);
+      if (!subRow?.stripe_subscription_id) {
+        res.status(200).json({ issue: null });
+        return;
+      }
+      const sub = await stripe.subscriptions.retrieve(subRow.stripe_subscription_id);
+      if (sub.metadata?.user_id && sub.metadata.user_id !== authedUser.id) {
+        res.status(403).json({ error: 'Abonnemanget tillhör inte ditt konto.' });
+        return;
+      }
+      const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
+      const open = (await stripe.invoices.list({ subscription: sub.id, status: 'open', limit: 1 })).data[0] || null;
+      const card = await subscriptionCard(stripe, sub, customerId);
+
+      if (body.action === 'payment-issue') {
+        const pi = open ? await invoicePaymentIntent(stripe, open) : null;
+        res.status(200).json({
+          issue: open ? {
+            amount: Math.round((open.amount_remaining ?? open.amount_due ?? 0) / 100),
+            currency: open.currency,
+            attempts: open.attempt_count || 0,
+            nextAttempt: open.next_payment_attempt ? new Date(open.next_payment_attempt * 1000).toISOString() : null,
+            requiresAction: pi?.status === 'requires_action',
+            declineReason: declineText(pi?.last_payment_error),
+            hostedUrl: open.hosted_invoice_url || null,
+          } : null,
+          status: sub.status,
+          card,
+        });
+        return;
+      }
+
+      // Försök igen
+      if (!open) {
+        // Ingen öppen faktura: redan betald (t.ex. Stripe hann försöka). Spara läget.
+        await upsertSubscription(subscriptionFieldsFromStripe(sub));
+        res.status(200).json({ ok: true, status: sub.status });
+        return;
+      }
+      try {
+        await stripe.invoices.pay(open.id);
+      } catch (err) {
+        const pi = await invoicePaymentIntent(stripe, open);
+        const requiresAction = err?.code === 'authentication_required' || err?.raw?.code === 'authentication_required' || pi?.status === 'requires_action';
+        res.status(200).json({
+          ok: false,
+          requiresAction,
+          hostedUrl: open.hosted_invoice_url || null,
+          reason: requiresAction ? 'Banken vill att du bekräftar betalningen.' : (declineText(err?.raw || err) || 'Kortet nekades.'),
+        });
+        return;
+      }
+      // Gick igenom: spara direkt så att appen låses upp utan att vänta på webhooken.
+      const fresh = await stripe.subscriptions.retrieve(sub.id);
+      await upsertSubscription(subscriptionFieldsFromStripe(fresh));
+      res.status(200).json({ ok: true, status: fresh.status });
       return;
     }
 

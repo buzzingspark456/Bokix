@@ -155,3 +155,22 @@ export async function syncStripeSubscription({ sessionId = null, companyId = nul
   const { status } = await requestStripeApi('create-subscription-checkout', { action: 'sync', session_id: sessionId || undefined, company_id: companyId || undefined }, session.access_token);
   return status || null;
 }
+
+// Misslyckad betalning (2026-11-27): läget för bannern i appen.
+export async function fetchPaymentIssue(companyId = null) {
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  if (!session?.access_token) return null;
+  return requestStripeApi('create-subscription-checkout', { action: 'payment-issue', company_id: companyId || undefined }, session.access_token);
+}
+
+// Försök igen: drar kortet direkt. Bara ett anrop, inga automatiska omförsök,
+// så att ett klick aldrig blir flera dragningar. Servern betalar bara den
+// öppna fakturan, så ett dubbelklick drar inte två gånger.
+export async function retrySubscriptionPayment(companyId = null) {
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Du måste vara inloggad.');
+  const { response, payload } = await fetchOnce('create-subscription-checkout', { action: 'retry-payment', company_id: companyId || undefined }, session.access_token);
+  if (response.status === 429) return { ok: false, reason: 'Du har försökt flera gånger. Vänta några minuter, eller byt kort.' };
+  if (!response.ok) throw new Error(payload?.error || 'Kunde inte försöka igen just nu.');
+  return payload;
+}

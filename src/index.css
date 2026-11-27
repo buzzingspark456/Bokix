@@ -11878,3 +11878,36 @@ table.lt-fit .ct-ellip, table.lt-fit .ct-name, table.lt-fit .ct-name b { display
   .ctf input:not([type=checkbox]):not([type=radio]), .ctf select, .ctf textarea { padding: 11px 14px !important; font-size: 15px !important; }
 }
 table.lt-fit td > div, table.lt-fit td > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Banner vid misslyckad betalning (2026-11-27): lugn, smal, två val. */
+.pay-banner { display: flex; align-items: center; gap: 12px; margin: 10px 16px 0; padding: 10px 12px 10px 14px; border: 1px solid #f0d9a8; border-radius: 12px; background: #fdf7ea; color: #5c3d00; animation: pay-banner-in .2s ease both; }
+.pay-banner.is-read { border-color: var(--border); background: var(--bg-card); color: var(--text-main); }
+.pay-banner.is-ok { border-color: #bfe3cb; background: #eef8f1; color: #125a2c; }
+.pay-banner-ico { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: rgba(176, 116, 0, .12); color: #9a6400; }
+.pay-banner.is-read .pay-banner-ico { background: var(--bg-muted); color: var(--text-secondary); }
+.pay-banner.is-ok .pay-banner-ico { background: rgba(18, 107, 54, .12); color: #126b36; }
+.pay-banner-text { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.pay-banner-text b { font-size: 13.5px; font-weight: 650; }
+.pay-banner-text span { font-size: 12.5px; opacity: .85; }
+.pay-banner-text .pay-banner-err { color: var(--status-red-text); opacity: 1; font-weight: 600; }
+.pay-banner-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.pay-banner-btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 13px; border: 1px solid rgba(92, 61, 0, .25); border-radius: 999px; background: transparent; color: inherit; font-family: inherit; font-size: 12.5px; font-weight: 650; text-decoration: none; white-space: nowrap; cursor: pointer; }
+.pay-banner.is-read .pay-banner-btn { border-color: var(--border); }
+.pay-banner-btn:hover { background: rgba(0, 0, 0, .04); }
+.pay-banner-btn.is-primary { border-color: transparent; background: #1f2329; color: #fff; }
+.pay-banner-btn.is-primary:hover { background: #33383f; }
+.pay-banner-btn:disabled { opacity: .6; cursor: default; }
+@keyframes pay-banner-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+:root[data-theme="dark"] .pay-banner:not(.is-read):not(.is-ok) { border-color: #5a4518; background: #2a2414; color: #f3dfb0; }
+:root[data-theme="dark"] .pay-banner:not(.is-read):not(.is-ok) .pay-banner-ico { background: rgba(243, 200, 110, .14); color: #f3c86e; }
+:root[data-theme="dark"] .pay-banner:not(.is-read):not(.is-ok) .pay-banner-btn { border-color: rgba(243, 223, 176, .3); }
+:root[data-theme="dark"] .pay-banner.is-ok { border-color: #22543a; background: #14281d; color: #a9e0bd; }
+:root[data-theme="dark"] .pay-banner-btn.is-primary { background: #f2f3f5; color: #15181c; }
+@media (max-width: 760px) {
+  .pay-banner { flex-wrap: wrap; margin: 8px 10px 0; }
+  .pay-banner-actions { width: 100%; }
+  .pay-banner-btn { flex: 1; justify-content: center; }
+}
+@media (prefers-reduced-motion: reduce) { .pay-banner { animation: none; } }
+/* Bannern tar bara sin egen höjd (barnen i .main-content-inner får annars flex: 1). */
+.main-content-inner > .pay-banner { flex: 0 0 auto; }

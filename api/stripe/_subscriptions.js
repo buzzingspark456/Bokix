@@ -144,13 +144,18 @@ export async function upsertSubscription({
   // flera för samma konto (kunden gick igenom Checkout igen när spärren
   // felaktigt sa obetalt). En annan prenumeration som avslutas eller
   // misslyckas får inte skriva över en som fortfarande gäller.
+  let { data: existing, error: readError } = await supabaseAdmin
+    .from('subscriptions')
+    .select('id, stripe_subscription_id, status, payment_failed_at, payment_reminder_stage')
+    .eq('user_id', userId)
+    .eq('company_id', legacyCompanyId(companyId))
+    .maybeSingle();
+  // Kolumnerna finns inte än (migrationen 2026-11-27 inte körd): läs som förut.
+  const hasDunningColumns = !(readError && /payment_failed_at|payment_reminder_stage/.test(readError.message || ''));
+  if (!hasDunningColumns) {
+    ({ data: existing } = await supabaseAdmin.from('subscriptions').select('id, stripe_subscription_id, status').eq('user_id', userId).eq('company_id', legacyCompanyId(companyId)).maybeSingle());
+  }
   if (!PAID_STATUSES.includes(status) && stripeSubscriptionId) {
-    const { data: existing } = await supabaseAdmin
-      .from('subscriptions')
-      .select('stripe_subscription_id, status')
-      .eq('user_id', userId)
-      .eq('company_id', legacyCompanyId(companyId))
-      .maybeSingle();
     if (existing?.stripe_subscription_id
       && existing.stripe_subscription_id !== stripeSubscriptionId
       && PAID_STATUSES.includes(existing.status)) {
@@ -158,6 +163,20 @@ export async function upsertSubscription({
       return;
     }
   }
+  // Misslyckad betalning (2026-11-27): tidpunkten för första misslyckade
+  // dragningen styr banner, läsläge (dag 14) och lås (dag 30), se
+  // src/utils/paymentAccess.js. Betald igen: nollas, och påminnelserna börjar om.
+  const failing = status === 'past_due' || status === 'unpaid';
+  const sameSub = !existing?.stripe_subscription_id || existing.stripe_subscription_id === stripeSubscriptionId;
+  const previousFailedAt = sameSub ? existing?.payment_failed_at || null : null;
+  let paymentFailedAt = previousFailedAt;
+  if (failing) paymentFailedAt = previousFailedAt || new Date().toISOString();
+  else if (status === 'trialing' || status === 'active') paymentFailedAt = null;
+  const newlyFailed = failing && !previousFailedAt;
+  const dunning = hasDunningColumns
+    ? { payment_failed_at: paymentFailedAt, ...(paymentFailedAt ? (newlyFailed ? { payment_reminder_stage: 0 } : {}) : { payment_reminder_stage: 0 }) }
+    : {};
+
   // upsert på (user_id, company_id) — EN riktig, fullständig unik
   // constraint (se supabase-setup.sql:s kommentar för varför company_id är
   // '' istället för NULL för legacy-raden, inte ett partiellt index).
@@ -175,8 +194,10 @@ export async function upsertSubscription({
         trial_ends_at: trialEndsAt,
         current_period_end: currentPeriodEnd,
         cancel_at_period_end: cancelAtPeriodEnd,
+        ...dunning,
       },
       { onConflict: 'user_id,company_id' }
     );
   if (error) throw error;
+  return { newlyFailed: newlyFailed && hasDunningColumns, userId, companyId: legacyCompanyId(companyId) };
 }

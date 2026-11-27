@@ -1,7 +1,7 @@
 import { applySecurityHeaders } from './_security.js';
 import { canWriteField } from '../src/utils/pageAccess.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
-import { requireAuthedUser, loadMemberCompany, requireActiveSubscription, requireOwnerPaidAccess, hasPaidAccess, isFreeUser, findCompanyEntry } from './_auth.js';
+import { requireAuthedUser, loadMemberCompany, requireActiveSubscription, requireOwnerPaidAccess, hasPaidAccess, paidAccessLevel, isFreeUser, findCompanyEntry } from './_auth.js';
 import { checkRateLimit } from './_rateLimit.js';
 import { memberCompanyView, redactCompany, mergeMemberCompanyWrite, pinServerConnections, foreignStoragePaths } from './_memberView.js';
 import { createClient } from '@supabase/supabase-js';
@@ -540,6 +540,9 @@ async function handler(req, res) {
       const owners = [...new Set((memberships || []).map(m => m.owner_user_id))];
       const ownerState = new Map();
       const ownerPaid = new Map();
+      // Ägarens nivå (full/read/locked, 2026-11-27): 'read' = läsläge efter
+      // misslyckad betalning, medlemmen får se men inte ändra.
+      const ownerAccess = new Map();
       // Alla ägares rader i en fråga, inte en per ägare (N+1). Bara
       // companies-delen av state, inte resten av raden.
       if (owners.length) {
@@ -555,7 +558,9 @@ async function handler(req, res) {
         }
       }
       await Promise.all(owners.map(async (ownerId) => {
-        ownerPaid.set(ownerId, await hasPaidAccess(admin, ownerId));
+        const level = await paidAccessLevel(admin, ownerId);
+        ownerAccess.set(ownerId, level);
+        ownerPaid.set(ownerId, level === 'full');
       }));
       const companies = (memberships || []).map((m) => {
         const entry = findCompanyEntry(ownerState.get(m.owner_user_id), m.company_id);
@@ -567,6 +572,7 @@ async function handler(req, res) {
           role: m.role,
           pageAccess: m.page_access || null,
           ownerPaid: ownerPaid.get(m.owner_user_id) !== false,
+          ownerAccess: ownerAccess.get(m.owner_user_id) || 'full',
         };
       }).filter(Boolean);
       res.status(200).json({ companies });
@@ -587,11 +593,12 @@ async function handler(req, res) {
       // Kan det inte avgöras räknas ägaren som betalande (hasPaidAccess).
       const url = process.env.VITE_SUPABASE_URL;
       const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      const ownerPaid = url && key ? await hasPaidAccess(createClient(url, key), member.ownerUserId) : true;
+      const ownerAccess = url && key ? await paidAccessLevel(createClient(url, key), member.ownerUserId) : 'full';
+      const ownerPaid = ownerAccess === 'full';
       // Stora företag (flera års bokföring) kan bli större än Vercels gräns
       // för svar (4,5 MB). Över 1 MB skickas svaret komprimerat; webbläsaren
       // packar upp det själv.
-      const body = JSON.stringify({ company: memberCompanyView(member.companyData, member.pageAccess, member.role), role: member.role, pageAccess: member.pageAccess || null, ownerPaid });
+      const body = JSON.stringify({ company: memberCompanyView(member.companyData, member.pageAccess, member.role), role: member.role, pageAccess: member.pageAccess || null, ownerPaid, ownerAccess });
       const acceptsGzip = /gzip/.test(String(req.headers?.['accept-encoding'] || ''));
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');

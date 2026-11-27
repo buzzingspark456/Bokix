@@ -9,6 +9,40 @@ import { sendBillingCc } from './_billingCc.js';
 import { createClient } from '@supabase/supabase-js';
 import { readOwnerCompany } from '../_companyStore.js';
 import { withSentry } from '../_sentry.js';
+import { dueStage, sendDunningStage } from '../_dunning.js';
+
+// Stripe kan skicka händelser i fel ordning (t.ex. en äldre "trialing" efter
+// "active"). Prenumerationen hämtas därför färsk, så att det alltid är det
+// aktuella läget som sparas (2026-11-27). Går hämtningen inte används händelsens objekt.
+async function freshSubscription(stripe, sub) {
+  try {
+    return await stripe.subscriptions.retrieve(sub.id);
+  } catch (err) {
+    console.warn('Kunde inte hämta prenumerationen färskt, använder händelsen:', err.message);
+    return sub;
+  }
+}
+
+// Första mejlet när dragningen misslyckas skickas direkt, resten av nattjobbet.
+async function sendFirstDunningEmail(result) {
+  if (!result?.newlyFailed) return;
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return;
+  try {
+    const admin = createClient(url, key);
+    const { data: row } = await admin
+      .from('subscriptions')
+      .select('id, user_id, status, plan, payment_failed_at, payment_reminder_stage')
+      .eq('user_id', result.userId)
+      .eq('company_id', result.companyId)
+      .maybeSingle();
+    if (row) await sendDunningStage(admin, row, dueStage(row));
+  } catch (err) {
+    // Webhooken ska inte misslyckas för ett mejl; nattjobbet skickar det i morgon.
+    console.warn('Kunde inte skicka mejlet om misslyckad betalning:', err.message);
+  }
+}
 
 // Är det anslutna kontot som skickade händelsen verkligen det konto
 // företaget har kopplat? Metadatan på en checkout-session på ett anslutet
@@ -183,8 +217,8 @@ async function handler(req, res) {
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         if (fromConnected) break;
-        const sub = event.data.object;
-        await upsertSubscription({
+        const sub = await freshSubscription(stripe, event.data.object);
+        const upserted = await upsertSubscription({
           userId: sub.metadata?.user_id,
           // Vilket abonnemang som köptes, satt som metadata av
           // create-subscription-checkout.js. Följer med på varje
@@ -207,6 +241,7 @@ async function handler(req, res) {
         // (se _trialGuard.js). Stripe skickar då en ny updated-händelse med
         // den nya statusen, som sparas av raden ovan.
         if (event.type === 'customer.subscription.created') await enforceCardTrialLimit(stripe, sub);
+        await sendFirstDunningEmail(upserted);
         break;
       }
       case 'customer.subscription.deleted': {

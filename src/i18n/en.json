@@ -1,4 +1,22 @@
 {
+  "payBanner": {
+    "failedTitle": "The payment didn't go through",
+    "actionTitle": "Your bank wants you to confirm the payment",
+    "readTitle": "Read-only: payment missing",
+    "readText": "You can view and download everything, but not book anything new. The account closes {{date}} if payment is still missing",
+    "actionText": "Confirm in your bank and you're done",
+    "nextAttempt": "We'll try again {{date}}",
+    "readOnlyFrom": "Read-only from {{date}} if not resolved",
+    "retry": "Try again",
+    "trying": "Trying …",
+    "changeCard": "Change card",
+    "confirm": "Confirm payment",
+    "paid": "Done, the payment went through",
+    "declined": "The card was declined. Change card or try again later.",
+    "sharedTitle": "Read-only: the owner needs to update payment",
+    "sharedText": "You can view everything but not change anything until the owner has paid.",
+    "readOnlyToast": "Read-only: update the payment to make changes."
+  },
   "nav": {
     "help": "Help and support",
     "logout": "Log out",

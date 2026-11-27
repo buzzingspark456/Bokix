@@ -447,6 +447,8 @@ import { suggestHelpArticles } from './content/help/articles';
 import Toast from './components/shared/Toast';
 import { ConfirmDialogHost, confirmDialog } from './components/shared/ConfirmDialog';
 import PaymentRequiredGate from './components/PaymentRequiredGate';
+import PaymentBanner from './components/PaymentBanner';
+import { subscriptionAccess } from './utils/paymentAccess';
 // Spärrsidan för funktioner som inte ingår i UF-läget (utils/ufMode.js).
 // Statisk import av samma skäl som PaymentRequiredGate ovan: några rader
 // markup som hör till renderingen av en helt vanlig flik — en lazy-gräns
@@ -1205,6 +1207,10 @@ const resolveNavGroup = (id) => resolveTab(navAccessId(id));
 // isActiveCompanyPaid (reaktiv, per aktivt företag) längre ner — måste
 // vara EXAKT samma lista på båda ställena.
 const ALLOWED_SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due'];
+// Kolumnerna appen läser ur public.subscriptions. payment_failed_at styr
+// banner, läsläge och lås vid misslyckad betalning (utils/paymentAccess.js).
+const SUBSCRIPTION_COLUMNS_OLD = 'company_id, status, plan, created_at, trial_ends_at, current_period_end, cancel_at_period_end';
+const SUBSCRIPTION_COLUMNS = 'company_id, status, plan, created_at, trial_ends_at, current_period_end, cancel_at_period_end, payment_failed_at';
 
 // Kundönskemål: ägarens eget konto ska aldrig blockeras av betalspärren,
 // varken kontots ORIGINALspärr (fetchUserData) eller den nya per-företags-
@@ -1399,6 +1405,16 @@ function App() {
   // active/past_due) — se PaymentRequiredGate.jsx. Satt i fetchUserData,
   // FÖRE isLoggedIn(true), så appen aldrig hinner visas ens ett ögonblick.
   const [subscriptionGate, setSubscriptionGate] = useState(null);
+  // Efter Försök igen i bannern: läs om raderna så att läsläget släpper direkt.
+  const refreshSubscriptions = async () => {
+    if (!user?.id || !supabaseEnabled) return;
+    let { data: rows, error } = await supabase.from('subscriptions').select(SUBSCRIPTION_COLUMNS).eq('user_id', user.id);
+    if (error && /payment_failed_at/.test(error.message || '')) ({ data: rows, error } = await supabase.from('subscriptions').select(SUBSCRIPTION_COLUMNS_OLD).eq('user_id', user.id));
+    if (error) return;
+    const map = {};
+    (rows || []).forEach(r => { map[r.company_id || ''] = r; });
+    setSubscriptionsMap(map);
+  };
   // Spärrad för att ägaren till företagen man är inbjuden till slutat
   // betala (inte för att man själv saknar prenumeration). Styr texten i
   // PaymentRequiredGate.
@@ -1678,6 +1694,8 @@ function App() {
   // { message, variant } | null — se Toast.jsx samt stripe_connect-
   // useEffect nedan, som satte en blockerande alert() innan.
   const [toast, setToast] = useState(null);
+  // Läsläge vid misslyckad betalning (satt längre ner, se paymentAccess).
+  const readOnlyRef = useRef(false);
   // Ångra-notisen (shared/undoToast.js). pendingUndoRef håller den ångring
   // som visas just nu; stängs notisen utan Ångra körs dess onCommit.
   const pendingUndoRef = useRef(null);
@@ -1873,6 +1891,10 @@ function App() {
   // varje anrop samma gamla värde och den sista skriver över de andra —
   // två av tre bokförda verifikationer försvann tyst på det sättet.
   const updateCompanyField = useCallback((field, value) => {
+    if (readOnlyRef.current) {
+      setToast({ message: tr('payBanner.readOnlyToast'), variant: 'error' });
+      return;
+    }
     setData(prev => {
       const company = prev.companies[prev.activeCompanyId];
       const nextFieldValue = typeof value === 'function' ? value(company[field]) : value;
@@ -2069,7 +2091,7 @@ function App() {
           return Object.fromEntries(companies.map(c => [c.company_id, {
             company: c.company,
             __stub: true,
-            __shared: { ownerUserId: c.owner_user_id, role: c.role, pageAccess: c.pageAccess || null, ownerPaid: c.ownerPaid !== false },
+            __shared: { ownerUserId: c.owner_user_id, role: c.role, pageAccess: c.pageAccess || null, ownerPaid: c.ownerPaid !== false, ownerAccess: c.ownerAccess || null },
           }]));
         }
       } catch (err) {
@@ -2097,7 +2119,7 @@ function App() {
           // __shared markerar företaget som INTE mitt eget — se
           // persist-effekten längre ner, som aldrig får skriva in det här i
           // min egen user_data-rad, bara via set_company_field.
-          results[m.company_id] = { ...json.company, __shared: { ownerUserId: m.owner_user_id, role: json.role, pageAccess: json.pageAccess || null, ownerPaid: json.ownerPaid !== false } };
+          results[m.company_id] = { ...json.company, __shared: { ownerUserId: m.owner_user_id, role: json.role, pageAccess: json.pageAccess || null, ownerPaid: json.ownerPaid !== false, ownerAccess: json.ownerAccess || null } };
         }
       } catch (err) {
         console.error('Kunde inte hämta delat företag', m.company_id, err);
@@ -2122,7 +2144,7 @@ function App() {
       setData(prev => {
         const stub = prev.companies?.[companyId];
         if (!stub?.__stub) return prev;
-        return { ...prev, companies: { ...prev.companies, [companyId]: { ...json.company, __shared: { ...stub.__shared, role: json.role, pageAccess: json.pageAccess || null, ownerPaid: json.ownerPaid !== false } } } };
+        return { ...prev, companies: { ...prev.companies, [companyId]: { ...json.company, __shared: { ...stub.__shared, role: json.role, pageAccess: json.pageAccess || null, ownerPaid: json.ownerPaid !== false, ownerAccess: json.ownerAccess || null } } } };
       });
     } catch (err) {
       console.error('Kunde inte hämta delat företag', companyId, err);
@@ -2245,6 +2267,8 @@ function App() {
   // fortsätter fungera precis som förut.
   const saveUserDataToSupabase = async (stateData, extras = {}) => {
     if (!user || !supabaseEnabled) return false;
+    // Läsläge: databasen nekar ändå, så inget skickas (och inga sparfel visas).
+    if (readOnlyRef.current) return false;
     if (tablesModeRef.current && tablesOnlyRef.current) return saveStateViaTables(stateData, extras);
 
     const payload = {
@@ -2828,7 +2852,7 @@ function App() {
       const ownedMembershipsPromise = supabase.from('company_members').select('company_id').eq('owner_user_id', authUser.id).eq('status', 'active').then(r => r);
       const firstSubscriptionsPromise = supabase
         .from('subscriptions')
-        .select('company_id, status, plan, created_at, trial_ends_at, current_period_end, cancel_at_period_end')
+        .select(SUBSCRIPTION_COLUMNS)
         .eq('user_id', authUser.id)
         .then(r => r);
 
@@ -2842,7 +2866,7 @@ function App() {
         : {};
       // Bara företag vars ägare betalar ger åtkomst. Ett företag vars ägare
       // slutat betala finns kvar i listan men är låst (isActiveCompanyPaid).
-      const hasSharedAccess = Object.values(sharedCompanies).some(c => c.__shared?.ownerPaid !== false);
+      const hasSharedAccess = Object.values(sharedCompanies).some(c => c.__shared?.ownerPaid !== false || c.__shared?.ownerAccess === 'read');
 
       // ── Betalspärr: en inloggad Supabase-användare får bara in i appen med
       // en giltig prenumeration på kontots LEGACY-rad (trialing/active/
@@ -2870,10 +2894,15 @@ function App() {
       const fetchSubscriptionsMap = async () => {
         const pending = subscriptionsPromise;
         subscriptionsPromise = null;
-        const { data, error } = pending ? await pending : await supabase
+        let { data, error } = pending ? await pending : await supabase
           .from('subscriptions')
-          .select('company_id, status, plan, created_at, trial_ends_at, current_period_end, cancel_at_period_end')
+          .select(SUBSCRIPTION_COLUMNS)
           .eq('user_id', authUser.id);
+        // Kolumnen payment_failed_at finns inte än (migrationen 2026-11-27 inte
+        // körd): hämta som förut, annars hade alla låsts ute.
+        if (error && /payment_failed_at/.test(error.message || '')) {
+          ({ data, error } = await supabase.from('subscriptions').select(SUBSCRIPTION_COLUMNS_OLD).eq('user_id', authUser.id));
+        }
         if (error) return {};
         const map = {};
         (data || []).forEach(row => { map[row.company_id || ''] = row; });
@@ -2950,7 +2979,7 @@ function App() {
       // Ett avslutat UF-år (app_metadata, se utils/ufClose.js) räknas som slut.
       const withinUfFreePeriod = Boolean(ufFree && !ufFree.expired) && !authUser.app_metadata?.uf_closed_at;
 
-      if (!hasSharedAccess && !withinUfFreePeriod && !isFreeAccountEmail(authUser.email) && (!subRow || !ALLOWED_SUBSCRIPTION_STATUSES.includes(subRow.status))) {
+      if (!hasSharedAccess && !withinUfFreePeriod && !isFreeAccountEmail(authUser.email) && (!subRow || subscriptionAccess(subRow).level === 'locked')) {
         setSharedOwnerUnpaid(Object.keys(sharedCompanies).length > 0);
         setSubscriptionGate('blocked');
         setIsLoadingAuth(false);
@@ -3729,7 +3758,7 @@ function App() {
     const activeCompany = data.companies?.[data.activeCompanyId]?.company;
     const paid = isFreeAccountEmail(user?.email)
       || !activeCompany?.requiresOwnPayment
-      || ALLOWED_SUBSCRIPTION_STATUSES.includes(subscriptionsMap[activeCompany?.id]?.status);
+      || subscriptionAccess(subscriptionsMap[activeCompany?.id]).level !== 'locked';
     if (paid) setShowOnboarding(true);
   }, [isLoggedIn, showOnboarding, activeNeedsSetup, subscriptionGate, user, data.activeCompanyId, data.companies, subscriptionsMap]);
 
@@ -3739,7 +3768,7 @@ function App() {
     const activeCompany = data.companies?.[data.activeCompanyId]?.company;
     const paid = isFreeAccountEmail(user?.email)
       || !activeCompany?.requiresOwnPayment
-      || ALLOWED_SUBSCRIPTION_STATUSES.includes(subscriptionsMap[activeCompany?.id]?.status);
+      || subscriptionAccess(subscriptionsMap[activeCompany?.id]).level !== 'locked';
     if (!paid) return;
     tourAutoStartedRef.current = true;
     // maybeAutoStartTour väntar själv in Dashboard-fliken (lat-laddad, se
@@ -4103,9 +4132,9 @@ function App() {
   // varje företagsbyte eftersom `company` då ändras.
   // Delat företag vars ägare slutat betala: låst för medlemmen, med en
   // egen förklaring i betalspärren (det är ägaren som ska betala).
-  const activeSharedLocked = data.companies?.[data.activeCompanyId]?.__shared?.ownerPaid === false;
+  const activeSharedLocked = data.companies?.[data.activeCompanyId]?.__shared?.ownerPaid === false && data.companies?.[data.activeCompanyId]?.__shared?.ownerAccess !== 'read';
   const unlockedCompanyId = activeSharedLocked
-    ? Object.keys(data.companies || {}).find(id => id !== data.activeCompanyId && data.companies[id]?.__shared?.ownerPaid !== false)
+    ? Object.keys(data.companies || {}).find(id => id !== data.activeCompanyId && (data.companies[id]?.__shared?.ownerPaid !== false || data.companies[id]?.__shared?.ownerAccess === 'read'))
     : null;
   // Ett delat företag betalas av ägaren (ownerPaid ovan, kollat på servern).
   // Den inbjudnas egen subscriptionsMap har aldrig ägarens rader, så
@@ -4113,7 +4142,17 @@ function App() {
   const isActiveCompanyPaid = !activeSharedLocked && (isFreeAccountEmail(user?.email)
     || Boolean(currentCompany?.__shared)
     || !company?.requiresOwnPayment
-    || ALLOWED_SUBSCRIPTION_STATUSES.includes(subscriptionsMap[company.id]?.status));
+    || subscriptionAccess(subscriptionsMap[company.id]).level !== 'locked');
+  // Misslyckad betalning (2026-11-27): banner och läsläge, se utils/paymentAccess.js.
+  // Databasen och servern stoppar skrivningar i läsläget; här stoppas de i appen
+  // först (readOnlyRef i updateCompanyField), så att inget ser sparat ut som inte är det.
+  const sharedPaymentInfo = currentCompany?.__shared || null;
+  const ownPaymentRow = sharedPaymentInfo ? null : ((company?.requiresOwnPayment ? subscriptionsMap[company?.id] : subscriptionsMap['']) || null);
+  const paymentAccess = sharedPaymentInfo
+    ? { level: sharedPaymentInfo.ownerAccess === 'read' ? 'read' : 'full', failing: false }
+    : (isFreeAccountEmail(user?.email) || !ownPaymentRow) ? { level: 'full', failing: false } : subscriptionAccess(ownPaymentRow);
+  const paymentReadOnly = paymentAccess.level === 'read';
+  readOnlyRef.current = paymentReadOnly;
   const accounts = currentCompany.accounts;
   const verifications = currentCompany.verifications;
   // Kreditfakturor reglerar sitt original (utils/creditNotes.js).
@@ -7162,6 +7201,14 @@ function App() {
           <div className="offline-banner" role="status">{tr('ui.offline_banner')}</div>
         )}
         <div className="main-content-inner">
+          {(paymentAccess.failing || paymentReadOnly) && (
+            <PaymentBanner
+              access={paymentAccess}
+              companyId={company?.requiresOwnPayment ? company.id : null}
+              shared={Boolean(sharedPaymentInfo)}
+              onPaid={refreshSubscriptions}
+            />
+          )}
           <Suspense fallback={<PageContentSkeleton tab={activeTab} />}>
             {/* Kundfeedback ("menyn står i vägen"): den fasta bottennaven
                 (.mobile-bottom-nav, en syskon-yta UTANFÖR .main-wrapper)

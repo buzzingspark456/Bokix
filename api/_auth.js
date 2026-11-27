@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { readOwnerCompany } from './_companyStore.js';
 import { logSystemEvent } from './_systemEvents.js';
+import { bestAccess } from '../src/utils/paymentAccess.js';
 
 // Säkerhetsfix (se säkerhetsgranskningen): flera endpoints litade tidigare
 // blint på user_id/company_id i request-body:n — vem som helst som kände
@@ -257,7 +258,9 @@ export async function loadMemberCompany(userId, companyId, res) {
 // cron, lösenordsåterställning, signed_url för läsning) ska INTE anropa
 // det här — läsrätten finns kvar i sju år även utan prenumeration.
 
-const ALLOWED_SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due'];
+// Vilka statusar som ger skrivrätt avgörs av src/utils/paymentAccess.js
+// (past_due bara de första 14 dagarna, sedan läsläge). Samma regel som
+// public.has_paid_access i supabase-2026-11-27-betalning-lasläge.sql.
 
 // Samma två konton som App.jsx FREE_ACCOUNT_EMAIL_HASHES och
 // admin/index.js ADMIN_EMAILS. Klartext går bra här: serverkod hamnar
@@ -324,15 +327,40 @@ export async function hasPaidAccess(admin, userId, knownUser = null) {
   if (user && isFreeUser(user)) return true;
   if (user && isWithinUfFreePeriod(user)) return true;
 
-  const { data: subs, error } = await admin
-    .from('subscriptions')
-    .select('status')
-    .eq('user_id', userId);
-  if (error) {
-    console.warn('hasPaidAccess: kunde inte läsa subscriptions, släpper igenom.', error.message);
-    return true;
+  return (await paidAccessLevel(admin, userId, user)) === 'full';
+}
+
+/**
+ * Kontots nivå: 'full' (får skriva), 'read' (läsläge efter misslyckad
+ * betalning) eller 'locked'. Gratis- och UF-konton är alltid 'full'.
+ */
+export async function paidAccessLevel(admin, userId, knownUser = null) {
+  let user = knownUser;
+  if (!user) {
+    const { data, error } = await admin.auth.admin.getUserById(userId);
+    if (error && (error.status === 404 || error.code === 'user_not_found' || /user not found/i.test(error.message || ''))) return 'locked';
+    if (error) {
+      console.warn('paidAccessLevel: kunde inte läsa kontot, släpper igenom.', error.message);
+      return 'full';
+    }
+    user = data?.user || null;
   }
-  return (subs || []).some(s => ALLOWED_SUBSCRIPTION_STATUSES.includes(s.status));
+  if (user && isFreeUser(user)) return 'full';
+  if (user && isWithinUfFreePeriod(user)) return 'full';
+
+  let { data: subs, error } = await admin
+    .from('subscriptions')
+    .select('status, payment_failed_at')
+    .eq('user_id', userId);
+  // Kolumnen finns inte än (migrationen inte körd): samma regel som förut.
+  if (error && /payment_failed_at/.test(error.message || '')) {
+    ({ data: subs, error } = await admin.from('subscriptions').select('status').eq('user_id', userId));
+  }
+  if (error) {
+    console.warn('paidAccessLevel: kunde inte läsa subscriptions, släpper igenom.', error.message);
+    return 'full';
+  }
+  return bestAccess(subs || []).level;
 }
 
 function paymentRequired(res, message = 'Ingen aktiv prenumeration. Gå till betalningssidan.') {
@@ -388,8 +416,7 @@ export async function payingAccountFor(user) {
   if (isWithinUfFreePeriod(user)) return { id: user.id, uf: true };
   const admin = adminClient();
   if (!admin || isFreeUser(user)) return { id: user.id, uf: false };
-  const { data: subs } = await admin.from('subscriptions').select('status').eq('user_id', user.id);
-  if ((subs || []).some(s => ALLOWED_SUBSCRIPTION_STATUSES.includes(s.status))) return { id: user.id, uf: false };
+  if ((await paidAccessLevel(admin, user.id, user)) === 'full') return { id: user.id, uf: false };
   const { data: memberships } = await admin
     .from('company_members')
     .select('owner_user_id')
