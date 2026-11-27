@@ -608,7 +608,7 @@ export function createDemoSeed() {
     // själv till konton hen behöver. Det ger Kostnadsfördelningen en
     // Marknadsföring-kategori (5900–5999) att visa vid sidan av Lokal,
     // Personal och Övriga externa kostnader.
-    accounts: [...DEFAULT_ACCOUNTS.map(a => ({ ...a })), { code: '5910', name: 'Annonsering', type: 'kostnad' }],
+    accounts: [...DEFAULT_ACCOUNTS.map(a => ({ ...a })), ...(DEFAULT_ACCOUNTS.some(a => a.code === '5910') ? [] : [{ code: '5910', name: 'Annonsering', type: 'kostnad' }])],
     verifications,
     invoices,
     expenses,

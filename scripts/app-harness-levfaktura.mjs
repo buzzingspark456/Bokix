@@ -38,7 +38,7 @@ await page.addInitScript((d) => localStorage.setItem('bokix_theme_pref', d ? 'da
 const errors = [];
 page.on('pageerror', e => errors.push(String(e).slice(0, 300)));
 const consoleErrors = [];
-page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|favicon|posthog|sentry/i.test(m.text())) consoleErrors.push(m.text().slice(0, 200)); });
+page.on('console', async m => { if (process.env.DBG && /same key/.test(m.text())) console.log('NYCKEL', JSON.stringify(await Promise.all(m.args().map(a => a.jsonValue().catch(() => '?')))).slice(0, 600)); if (m.type() === 'error' && !/Failed to load resource|favicon|posthog|sentry/i.test(m.text())) consoleErrors.push(m.text().slice(0, 200)); });
 page.on('requestfailed', r => { if (process.env.DBG) console.log('MISSLYCKAD', r.url().slice(0, 120), r.failure()?.errorText); });
 await page.addInitScript(([key, val]) => { sessionStorage.setItem(key, val); localStorage.setItem('bokix_tour_done_v3_11111111-1111-4111-8111-111111111111', '1'); }, [`sb-${REF}-auth-token`, JSON.stringify(session)]);
 const reply = (route, data, wantsObject) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(wantsObject ? data : (data == null ? [] : Array.isArray(data) ? data : [data])) });
@@ -85,5 +85,27 @@ await page.waitForTimeout(500);
 await page.locator(".sif-form").evaluate(el => el.scrollTo(0, 99999)).catch(() => {});
 console.log("formuläret går att skrolla till slutet:", await page.locator(".sif-more-body textarea").isVisible().catch(() => false));
 await shot('fler-val');
+if (process.env.SUBMIT) {
+  // Fyll i och registrera: leverantör, nummer, konto, belopp.
+  const sup = () => (saved().expenses || []).filter(e => e.type === 'supplier_invoice'); const before = sup().length; console.log('nycklar:', Object.keys(saved()).filter(k => /suppl|invoice/i.test(k)).join(','));
+  await page.locator('.sif-form').evaluate(el => el.scrollTo(0, 0));
+  const sel = page.locator('.sif-card select').first();
+  const opts = await sel.locator('option').evaluateAll(o => o.map(x => x.value).filter(v => v && v !== '__new__'));
+  await sel.selectOption(opts[0]);
+  await page.locator('.sif-row3 input').first().fill('F-2026-118');
+  const acct = page.locator('.sup-acct input').first();
+  await acct.click(); await acct.fill('5410'); await page.waitForTimeout(500);
+  await page.keyboard.press('Enter'); await page.waitForTimeout(300);
+  await page.locator('.sup-row input[inputmode], .sup-row .qr-cell input').nth(2).fill('396');
+  await page.waitForTimeout(300);
+  console.log('summa på sidan:', (await page.locator('.sif-sum .is-total b').innerText()));
+  await page.locator('button', { hasText: /^\s*Registrera faktura/ }).first().click();
+  await page.waitForTimeout(2500);
+  const after = sup(); const vers = saved().verifications || [];
+  const last = after[after.length - 1];
+  console.log('registrerad:', after.length - before, last ? JSON.stringify({ supplier: last.supplier, nr: last.invoiceNumber, amount: last.amount, rows: last.rows?.map(r => r.account + ':' + r.netAmount) }) : '');
+  console.log('verifikation:', JSON.stringify((vers.find(v => (v.description||'').includes('F-2026-118'))||{}).rows?.map(r => JSON.stringify(r)) || 'ingen'));
+  console.log('formuläret stängt:', (await page.locator('.sif').count()) === 0);
+}
 console.log('fel:', errors.length ? errors : 'inga', consoleErrors.length ? consoleErrors : '');
 await browser.close();

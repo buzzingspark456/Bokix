@@ -346,9 +346,11 @@ export function AccountSearch({ value, onChange, accounts, placeholder = 'Konto.
   // här funktionen fanns) ska visa ALLA konton som förut, inte en tom
   // lista — annars ser fältet trasigt ut för just den kontoplanen.
   const activeAccounts = (accounts || []).filter(a => a.active || a.system);
-  const matches = query
+  // Samma kontonummer två gånger (t.ex. en importerad kontoplan) visas en gång.
+  const seenCodes = new Set();
+  const matches = (query
     ? (accounts || []).filter(a => accountMatches(a, query))
-    : (activeAccounts.length > 0 ? activeAccounts : (accounts || []));
+    : (activeAccounts.length > 0 ? activeAccounts : (accounts || []))).filter(a => (seenCodes.has(a.code) ? false : (seenCodes.add(a.code), true)));
 
   useEffect(() => { setHighlight(0); }, [q]);
 
