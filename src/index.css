@@ -11829,3 +11829,10 @@ html.ws-v2 .lfb .rc-segmented button { border-radius: 999px !important; }
 .ctf-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .ctf > .ctf-col { grid-column: auto; }
 @media (max-width: 1100px) { .ctf > .ctf-col { grid-column: 1 / -1; } }
+
+/* Kundlistan i Smal (2026-11-27): ingen radbrytning mitt i ord, långa namn och e-post får "…". */
+.ct-v2 td.lt-cell, .ct-v2 td.lt-cell * { white-space: nowrap !important; overflow-wrap: normal !important; }
+.ct-v2 .ct-ellip { display: inline-block; max-width: 240px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+.lt-page-narrow .ct-v2 .ct-ellip { max-width: 150px; }
+.lt-page-narrow .ct-v2 .responsive-table th, .lt-page-narrow .ct-v2 .responsive-table td { padding-left: 9px !important; padding-right: 9px !important; }
+.lt-page-narrow .ct-v2 .responsive-table th:first-child, .lt-page-narrow .ct-v2 .responsive-table td:first-child { padding-left: 16px !important; }

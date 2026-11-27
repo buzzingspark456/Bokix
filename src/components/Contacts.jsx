@@ -124,14 +124,7 @@ function CustomerForm({ initial, onSave, onCancel, v2 = false, nextNumber = '' }
     return (
       <form id="contact-form" className="ctf" onSubmit={handleSubmit}>
         <section className="ctf-card ctf-full">
-          <div className="ctf-head">
-            <h3>{c('sections.customerCard')}</h3>
-            <div className="ctf-active" role="radiogroup" aria-label={c('fields.active')}>
-              <span>{c('fields.active')}</span>
-              <button type="button" role="radio" aria-checked={form.active !== false} className={form.active !== false ? 'on' : undefined} onClick={() => set('active', true)}>{c('fields.activeYes')}</button>
-              <button type="button" role="radio" aria-checked={form.active === false} className={form.active === false ? 'on is-no' : undefined} onClick={() => set('active', false)}>{c('fields.activeNo')}</button>
-            </div>
-          </div>
+          <h3>{c('sections.customerCard')}</h3>
           <div className="ctf-seg" role="radiogroup" aria-label={c('sections.customerType')}>
             {CUSTOMER_TYPES.map(o => (
               <button key={o.id} type="button" role="radio" aria-checked={form.customerType === o.id} className={form.customerType === o.id ? 'on' : undefined} onClick={() => handleTypeChange(o.id)}>{c(o.labelKey)}</button>
@@ -414,14 +407,7 @@ function SupplierForm({ initial, onSave, onCancel, accounts, v2 = false }) {
     return (
       <form id="contact-form" className="ctf" onSubmit={handleSubmit}>
         <section className="ctf-card ctf-full">
-          <div className="ctf-head">
-            <h3>{c('sections.supplierCard')}</h3>
-            <div className="ctf-active" role="radiogroup" aria-label={c('fields.active')}>
-              <span>{c('fields.active')}</span>
-              <button type="button" role="radio" aria-checked={form.active !== false} className={form.active !== false ? 'on' : undefined} onClick={() => set('active', true)}>{c('fields.activeYes')}</button>
-              <button type="button" role="radio" aria-checked={form.active === false} className={form.active === false ? 'on is-no' : undefined} onClick={() => set('active', false)}>{c('fields.activeNo')}</button>
-            </div>
-          </div>
+          <h3>{c('sections.supplierCard')}</h3>
           <div className="ctf-seg" role="radiogroup" aria-label={c('sections.supplierType')}>
             {SUPPLIER_TYPES.map(o => (
               <button key={o.id} type="button" role="radio" aria-checked={form.supplierType === o.id} className={form.supplierType === o.id ? 'on' : undefined} onClick={() => handleTypeChange(o.id)}>{c(o.labelKey)}</button>
@@ -958,9 +944,9 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
   const kr = (v) => numberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(v || 0);
   const adminColumns = [
     ...(isCustomerTab ? [{ key: 'customerNumber', label: c('list.colCustNr'), render: ct => <span className="ct-num">{dash(ct.customerNumber)}</span> }] : []),
-    { key: 'name', label: c('list.colName'), wrap: true, render: ct => (
+    { key: 'name', label: c('list.colName'), render: ct => (
       <span className="ct-name">
-        <b className={ct.active === false ? 'is-off' : undefined}>{ct.name || c('list.unnamed')}</b>
+        <b className={`ct-ellip${ct.active === false ? ' is-off' : ''}`} title={ct.name || ''}>{ct.name || c('list.unnamed')}</b>
       </span>
     ) },
     { key: 'orgNr', label: c('list.colOrgPers'), render: ct => <span className="ct-num">{dash(ct.orgNr)}</span> },
@@ -970,13 +956,15 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
     { key: 'city', label: c('list.colCity'), render: ct => dash(ct.city) },
     ...(isCustomerTab
       ? [{ key: 'country', label: c('list.colCountry'), render: ct => dash(ct.country ? countryLabel(ct.country, getLanguage()) : '') }]
-      : [{ key: 'defaultAccount', label: c('list.colAccount'), render: ct => (ct.defaultAccount ? <span className="ct-acc"><span className="ct-num">{ct.defaultAccount}</span> {accounts.find(a => String(a.code) === String(ct.defaultAccount))?.name || ''}</span> : dash('')) }]),
+      : [{ key: 'defaultAccount', label: c('list.colAccount'), render: ct => (ct.defaultAccount ? <span className="ct-acc" title={accounts.find(a => String(a.code) === String(ct.defaultAccount))?.name || ''}><span className="ct-num">{ct.defaultAccount}</span>{lp.width !== 'narrow' && <> {accounts.find(a => String(a.code) === String(ct.defaultAccount))?.name || ''}</>}</span> : dash('')) }]),
     { key: 'phone', label: c('list.colPhone'), render: ct => dash(ct.phone) },
-    { key: 'email', label: c('list.colEmail'), wrap: true, render: ct => dash(ct.email) },
+    { key: 'email', label: c('list.colEmail'), render: ct => (ct.email ? <span className="ct-ellip" title={ct.email}>{ct.email}</span> : dash('')) },
     { key: 'contactPerson', label: c('list.colContact'), render: ct => dash(ct.contactPerson) },
     { key: 'lastInvoiceDate', label: c(isCustomerTab ? 'list.lastInvoice' : 'list.lastPurchase'), render: ct => dash(ct.lastInvoiceDate) },
     { key: 'totalInvoicedThisYear', label: c(isCustomerTab ? 'list.invoicedThisYear' : 'list.purchasedThisYear'), render: ct => kr(ct.totalInvoicedThisYear) },
-  ].filter(col => col.key === 'name' || lp.cols[col.key] !== false).concat([
+  ].filter(col => col.key === 'name' || lp.cols[col.key] !== false)
+    // Smal (2026-11-27): Land döljs så att raden ryms utan radbrytning.
+    .filter(col => lp.width !== 'narrow' || col.key !== 'country').concat([
     { key: 'actions', label: '', render: ct => (
       <span className="ct-menu" onClick={e => e.stopPropagation()}><RowActionMenu ariaLabel={c('list.rowAria', { name: ct.name || '' })} items={rowMenu(ct)} /></span>
     ) },
