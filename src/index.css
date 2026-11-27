@@ -12079,3 +12079,43 @@ table.lt-fit td > div, table.lt-fit td > span { overflow: hidden; text-overflow:
 }
 .sif-row3 { align-items: start; }
 .sup-rows-header.sif-rows-grid span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Kom igång (2026-11-27): panel nere till höger på dator, kort överst på telefon. */
+.kig { position: fixed; right: 24px; bottom: 24px; z-index: 60; width: 360px; max-width: calc(100vw - 48px); background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 18px; box-shadow: 0 18px 50px rgba(15, 23, 42, .16), 0 2px 6px rgba(15, 23, 42, .06); padding: 18px 18px 12px; animation: kig-in .25s ease; }
+@keyframes kig-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.kig-head { display: flex; align-items: flex-start; gap: 10px; }
+.kig-head > div { flex: 1; min-width: 0; }
+.kig-head h2 { margin: 0; font-size: 17px; font-weight: 750; letter-spacing: -.01em; color: var(--text-main); }
+.kig-head p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--text-secondary); }
+.kig-head-actions { display: flex; gap: 2px; margin: -4px -6px 0 0; }
+.kig-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: none; border-radius: 8px; background: none; color: var(--text-muted); cursor: pointer; font-size: 18px; line-height: 1; }
+.kig-icon:hover { background: var(--bg-muted); color: var(--text-main); }
+.kig-progress { height: 5px; margin: 14px 0 6px; border-radius: 999px; background: var(--border-light); overflow: hidden; }
+.kig-progress i { display: block; height: 100%; border-radius: 999px; background: #0b6329; transition: width .4s ease; }
+.kig-count { font-size: 11.5px; font-weight: 600; color: var(--text-muted); text-align: right; }
+.kig-steps { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; }
+.kig-step { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 6px; border: none; border-radius: 10px; background: none; font: inherit; text-align: left; color: var(--text-main); cursor: pointer; }
+.kig-step:hover { background: var(--bg-muted); }
+.kig-step > svg { color: var(--text-muted); flex-shrink: 0; }
+.kig-num { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--border); font-size: 13px; font-weight: 700; color: var(--text-secondary); background: var(--bg-card); }
+.kig-step.is-next .kig-num { border-color: #0b6329; color: #0b6329; box-shadow: 0 0 0 4px color-mix(in srgb, #0b6329 12%, transparent); }
+.kig-step.is-done .kig-num { border-color: #0b6329; background: #0b6329; color: #fff; }
+.kig-text { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 2px; }
+.kig-text b { font-size: 13.5px; font-weight: 600; }
+.kig-step.is-done .kig-text b { color: var(--text-muted); text-decoration: line-through; font-weight: 500; }
+.kig-text small { font-size: 12px; line-height: 1.4; color: var(--text-secondary); }
+.kig-pill { position: fixed; right: 24px; bottom: 24px; z-index: 60; display: inline-flex; align-items: center; gap: 10px; height: 46px; padding: 0 16px 0 8px; border: 1px solid var(--border-light); border-radius: 999px; background: var(--bg-card); box-shadow: 0 10px 30px rgba(15, 23, 42, .14); font: inherit; font-size: 13.5px; font-weight: 650; color: var(--text-main); cursor: pointer; }
+.kig-pill small { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.kig-pill-ring { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: conic-gradient(#0b6329 calc(var(--p) * 360deg), var(--border-light) 0); position: relative; }
+.kig-pill-ring::before { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: var(--bg-card); }
+.kig-pill-ring b { position: relative; font-size: 12px; }
+:root[data-theme="dark"] .kig-progress i, :root[data-theme="dark"] .kig-step.is-done .kig-num { background: #3fbf6c; border-color: #3fbf6c; }
+:root[data-theme="dark"] .kig-step.is-next .kig-num { border-color: #3fbf6c; color: #3fbf6c; }
+:root[data-theme="dark"] .kig-pill-ring { background: conic-gradient(#3fbf6c calc(var(--p) * 360deg), var(--border-light) 0); }
+@media (max-width: 860px) {
+  .kig { position: static; width: auto; max-width: none; margin: 4px 0 16px; box-shadow: none; animation: none; }
+  .kig-pill { position: static; margin: 4px 0 14px; box-shadow: none; }
+}
+/* Lokalt ligger planväljaren nere till höger; Kom igång flyttar upp över den. */
+@media (min-width: 861px) { body:has(.dev-plan) .kig, body:has(.dev-plan) .kig-pill { bottom: 76px; } }
+.kig { max-height: calc(100vh / var(--app-zoom, 1) - 110px); overflow-y: auto; }

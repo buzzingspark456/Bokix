@@ -20,7 +20,7 @@ const STORE_PREFIX = 'bokix_getstarted_';
 export function readGetStarted(companyId) {
   try { return JSON.parse(localStorage.getItem(STORE_PREFIX + companyId) || 'null') || {}; } catch { return {}; }
 }
-function writeGetStarted(companyId, state) {
+export function writeGetStarted(companyId, state) {
   try { localStorage.setItem(STORE_PREFIX + companyId, JSON.stringify(state)); } catch { /* privat läge, inte kritiskt */ }
 }
 

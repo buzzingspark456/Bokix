@@ -6646,5 +6646,13 @@
     "basics": "Invoice",
     "more": "More options",
     "moreHint": "Currency, delivery date, rounding, project and notes"
+  },
+  "gettingStarted": {
+    "short": "Get started",
+    "subtitle": "A few short steps and you are up and running. Click a step and we take you there.",
+    "count": "{{done}} of {{total}} done",
+    "open": "Open Get started",
+    "minimize": "Minimize",
+    "close": "Close, I am fine"
   }
 }

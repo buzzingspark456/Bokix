@@ -6646,5 +6646,13 @@
     "basics": "Faktura",
     "more": "Fler val",
     "moreHint": "Valuta, leveransdatum, öresavrundning, projekt och anteckningar"
+  },
+  "gettingStarted": {
+    "short": "Kom igång",
+    "subtitle": "Några korta steg, så är du igång. Klicka på ett steg så tar vi dig dit.",
+    "count": "{{done}} av {{total}} klara",
+    "open": "Öppna Kom igång",
+    "minimize": "Fäll ihop",
+    "close": "Stäng, jag klarar mig"
   }
 }

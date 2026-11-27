@@ -6252,6 +6252,7 @@ function App() {
             payrollIncluded={planIncludesPayroll((subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan)}
             onStartTour={() => startProductTourWhenReady({ uid: user?.id, navigate: handleNavTabChange, hiddenTabs: hiddenFeatureNavIds(currentCompany) })}
             onOpenItem={handleGlobalAction}
+            gettingStarted={isNewUnderlagUser(user?.email)}
             onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears}
           />
         );
@@ -6732,7 +6733,7 @@ function App() {
           />
         );
       default:
-        return <Dashboard {...commonProps} invoices={invoices} expenses={expenses} contacts={contacts} setActiveTab={handleNavTabChange} company={company} vatPeriods={vatPeriods} payrollRuns={payrollRuns} employees={employees} reviewTotal={reviewTotal} agiReports={agiReports} bankTransactions={bankTransactions} documents={currentCompany.documents || []} onToggleTaxFiling={handleToggleTaxFiling} onSetAgiSubmitted={handleSetAgiSubmitted} hiddenNavIds={featureHiddenNavIds} payrollIncluded={planIncludesPayroll((subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan)} onOpenItem={handleGlobalAction} onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears} />;
+        return <Dashboard {...commonProps} invoices={invoices} expenses={expenses} contacts={contacts} setActiveTab={handleNavTabChange} company={company} vatPeriods={vatPeriods} payrollRuns={payrollRuns} employees={employees} reviewTotal={reviewTotal} agiReports={agiReports} bankTransactions={bankTransactions} documents={currentCompany.documents || []} onToggleTaxFiling={handleToggleTaxFiling} onSetAgiSubmitted={handleSetAgiSubmitted} hiddenNavIds={featureHiddenNavIds} payrollIncluded={planIncludesPayroll((subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan)} onOpenItem={handleGlobalAction} gettingStarted={isNewUnderlagUser(user?.email)} onBulkImportSie={handleBulkImportVerifications} onCloseImportedYears={handleCloseImportedYears} />;
     }
   };
 

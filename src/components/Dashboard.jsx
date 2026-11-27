@@ -1,3 +1,4 @@
+import GettingStarted from './GettingStarted';
 import React, { useMemo, useState, useEffect, useLayoutEffect, useRef, lazy, Suspense } from 'react';
 import { useDashboardLayout } from '../hooks/useDashboardLayout';
 import {
@@ -14,7 +15,7 @@ import {
 import { buildTodoItems, todoDismissedKey, calendarDaysOverdue } from '../utils/todoItems';
 import { getGreeting } from '../utils/greeting';
 import SieImportModal from './SieImportModal';
-import GetStarted, { readGetStarted, shouldShowGetStarted } from './dashboard/GetStarted';
+import GetStarted, { readGetStarted, shouldShowGetStarted, buildSteps, writeGetStarted } from './dashboard/GetStarted';
 import { supabase } from '../supabaseClient';
 import { BRAND } from '../utils/brandColors';
 import { resolveChartPalette } from '../utils/chartPalette';
@@ -295,7 +296,7 @@ function useIsPhone(maxWidth = 640) {
   return phone;
 }
 
-export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie, onCloseImportedYears, agiReports = [], bankTransactions = [], documents = [], hiddenNavIds = [], payrollIncluded = true, onOpenItem, onStartTour, onToggleTaxFiling, onSetAgiSubmitted }) {
+export default function Dashboard({ verifications, accounts = [], invoices, expenses, contacts, setActiveTab, company, user, vatPeriods = {}, payrollRuns = [], employees = [], reviewTotal, onBulkImportSie, onCloseImportedYears, agiReports = [], bankTransactions = [], documents = [], hiddenNavIds = [], payrollIncluded = true, onOpenItem, onStartTour, onToggleTaxFiling, onSetAgiSubmitted, gettingStarted = false }) {
   const { t } = useTranslation();
   const FORMAT_MODES = formatModes(t);
   // Har företaget personal? Avgörs på verkliga anställda och lönekörningar,
@@ -457,12 +458,24 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
   };
   const hasAnyData = (verifications || []).length > 0 || (expenses || []).length > 0 || (invoices || []).length > 0;
   const showGetStarted = Boolean(company?.id) && shouldShowGetStarted(gsState, { hasAnyData });
+  // Kom igång som panel (admin, 2026-11-27): samma steg, även för konton som
+  // inte valde väg i registreringen. Ersätter då kortet ovanför Att göra.
+  const showKigPanel = gettingStarted && Boolean(company?.id) && !gsState.dismissed;
+  const kigPath = gsState.path || 'new';
+  const kigSteps = showKigPanel ? buildSteps(kigPath, { t, company, verifications: verifications || [], expenses: expenses || [], invoices: invoices || [], contacts: contacts || [], employees, bankTransactions, hiddenNavIds, payrollIncluded }) : [];
+  const kigSkipped = gsState.skipped || [];
+  const openKigStep = (st) => {
+    if (st.action === 'sie') setShowSieImportModal(true);
+    else if (st.openAction && onOpenItem) onOpenItem(st.openAction, st.tab);
+    else if (st.tab) setActiveTab(st.tab);
+  };
+  const closeKig = () => { const next = { ...gsState, path: kigPath, dismissed: true, dismissedAt: Date.now() }; writeGetStarted(company.id, next); changeGsState(next); };
 
   // ── Att göra ── (utils/todoItems.js, samma lista som notisklockan)
   const todos = buildTodoItems({
     t, company, invoices, expenses, contacts, verifications, payrollRuns, employees, agiReports, bankTransactions, documents,
     vatPeriods, reviewTotal, hiddenNavIds, dismissedKeys: dismissedTodoKeys,
-  }).filter(item => !((showGetStarted || gsState.path || gsState.dismissed) && item.group === 'start')).map(item => ({ ...item, icon: TODO_ICONS[item.kind] || TodoDraftIcon }));
+  }).filter(item => !((showGetStarted || showKigPanel || gsState.path || gsState.dismissed) && item.group === 'start')).map(item => ({ ...item, icon: TODO_ICONS[item.kind] || TodoDraftIcon }));
 
   // ── Onboarding ──
   const hasCustomers  = contacts.some(c => c.type === 'customer');
@@ -871,7 +884,18 @@ export default function Dashboard({ verifications, accounts = [], invoices, expe
         )}
       </div>
 
-      {showGetStarted && (
+      {showKigPanel && (
+        <GettingStarted
+          companyId={company.id}
+          steps={kigSteps}
+          isDone={(st) => st.done || kigSkipped.includes(st.id)}
+          onGo={openKigStep}
+          onClose={closeKig}
+          title={t(kigPath === 'move' ? 'dashboard.getStarted.titleMove' : 'dashboard.getStarted.titleNew')}
+          subtitle={t('gettingStarted.subtitle')}
+        />
+      )}
+      {showGetStarted && !showKigPanel && (
         <GetStarted
           companyId={company.id}
           firstName={user?.user_metadata?.first_name || ''}
