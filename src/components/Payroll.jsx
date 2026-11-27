@@ -450,7 +450,29 @@ export default function Payroll({
             </div>
           )}
 
-          <ListTable
+          {/* Lönekörningar är tid, inte ett register (2026-11-27): året i
+              korthet överst och en månadsruta per rad, så att fliken inte
+              känns som Anställda. */}
+          {filteredRuns.length > 0 ? (() => {
+            const gross = filteredRuns.reduce((sum, r) => sum + (runGross(r.run) || 0), 0);
+            const today = new Date().toISOString().slice(0, 10);
+            const next = sortedRuns.filter(r => r.payDate && r.payDate >= today).sort((a, b) => String(a.payDate).localeCompare(String(b.payDate)))[0];
+            return (
+              <div className="pr-sum">
+                <div><span>{t('payrollYear.sumGross', { year: shownYear })}</span><b>{formatSEK(gross)}</b></div>
+                <div><span>{t('payrollYear.sumRuns')}</span><b>{filteredRuns.length}</b></div>
+                <div><span>{t('payrollYear.sumNext')}</span><b>{next ? fmtShortDate(new Date(`${next.payDate}T12:00:00`)) : '–'}</b></div>
+              </div>
+            );
+          })() : (
+            <div className="pr-empty">
+              <span className="pr-empty-ico"><CalendarClock size={26} /></span>
+              <strong>{t('payrollYear.emptyTitle', { year: shownYear })}</strong>
+              <p>{employees.length ? t('payrollYear.emptyText') : t('payrollYear.emptyNoEmp')}</p>
+              <button type="button" className="pr-empty-btn" onClick={openNewRun}><Plus size={15} /> {employees.length ? t('ui.ny_lonekorning') : t('payrollYear.addEmployee')}</button>
+            </div>
+          )}
+          {filteredRuns.length > 0 && <ListTable
             rowKey={r => r.key}
             onRowClick={openRow}
             // Utan anställda finns inget att köra: då visas tomt-läget med
@@ -484,7 +506,15 @@ export default function Payroll({
               };
             }}
             columns={[
-              { key: 'period', label: t('payrollYear.month'), fontWeight: 700, color: 'var(--text-main)', fontSize: '14px', render: row => <span style={{ color: row.run ? 'var(--text-main)' : 'var(--text-secondary)', fontWeight: row.run ? 700 : 500 }}>{monthName(row.period)}</span> },
+              { key: 'period', label: t('payrollYear.month'), fontWeight: 700, color: 'var(--text-main)', fontSize: '14px', render: row => (
+                <span className="pr-month">
+                  <span className="pr-month-tile" aria-hidden="true">
+                    <b>{monthName(row.period).slice(0, 3).toUpperCase()}</b>
+                    <small>{String(row.period).slice(0, 4)}</small>
+                  </span>
+                  <span style={{ color: row.run ? 'var(--text-main)' : 'var(--text-secondary)', fontWeight: row.run ? 700 : 500 }}>{monthName(row.period)}</span>
+                </span>
+              ) },
               { key: 'gross', label: t('payrollYear.gross'), color: 'var(--text-main)', fontSize: '14px', render: row => {
                 if (!row.run) return <span style={{ color: 'var(--text-muted)' }}>–</span>;
                 const gross = runGross(row.run);
@@ -506,7 +536,7 @@ export default function Payroll({
               },
               { key: 'chevron', label: '', align: 'right', render: () => <ChevronRight size={16} color="var(--text-muted)" /> },
             ]}
-          />
+          />}
         </div>
       )}
       </div>

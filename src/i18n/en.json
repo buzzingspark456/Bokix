@@ -5082,6 +5082,13 @@
     "noDate": "No date"
   },
   "payrollYear": {
+    "sumGross": "Gross pay {{year}}",
+    "sumRuns": "Pay runs",
+    "sumNext": "Next payday",
+    "emptyTitle": "No pay run in {{year}}",
+    "emptyText": "Create this month's pay run and Bokix works out tax, employer contributions and payslips for you.",
+    "emptyNoEmp": "Add your first employee, then you can run payroll.",
+    "addEmployee": "Add employee",
     "month": "Month",
     "gross": "Pay before tax",
     "payout": "Payout",

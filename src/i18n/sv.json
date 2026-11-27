@@ -5082,6 +5082,13 @@
     "noDate": "Inget datum"
   },
   "payrollYear": {
+    "sumGross": "Bruttolön {{year}}",
+    "sumRuns": "Lönekörningar",
+    "sumNext": "Nästa löndag",
+    "emptyTitle": "Ingen lönekörning {{year}}",
+    "emptyText": "Skapa månadens lönekörning så räknar Bokix skatt, arbetsgivaravgift och lönebesked åt dig.",
+    "emptyNoEmp": "Lägg till din första anställd, sedan kan du köra lön.",
+    "addEmployee": "Lägg till anställd",
     "month": "Månad",
     "gross": "Lön före skatt",
     "payout": "Löneutbetalning",

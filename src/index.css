@@ -11767,3 +11767,23 @@ html.ws-v2 .lfb .rc-segmented button { border-radius: 999px !important; }
   .ctf-card { padding: 16px; }
   .ctf-grid, .ctf-grid-addr { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Lönekörningar (2026-11-27, admin): året i korthet, månadsruta per rad, eget tomt läge. */
+.pr-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--border); background: var(--bg-card); }
+.pr-sum > div { display: flex; flex-direction: column; gap: 4px; padding: 14px 20px; }
+.pr-sum > div + div { border-left: 1px solid var(--border-light, var(--border)); }
+.pr-sum span { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.pr-sum b { font-size: 19px; font-weight: 700; color: var(--text-main); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.pr-month { display: inline-flex; align-items: center; gap: 12px; }
+.pr-month-tile { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); line-height: 1; flex-shrink: 0; }
+.pr-month-tile b { font-size: 11px; font-weight: 800; letter-spacing: .04em; color: var(--text-main); }
+.pr-month-tile small { margin-top: 3px; font-size: 9.5px; font-weight: 600; color: var(--text-muted); }
+.lt-compact .pr-month-tile { width: 32px; height: 32px; border-radius: 8px; }
+.lt-compact .pr-month-tile small { display: none; }
+.pr-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 56px 24px; text-align: center; background: var(--bg-card); border-bottom: 1px solid var(--border); }
+.pr-empty strong { font-size: 16px; color: var(--text-main); }
+.pr-empty p { margin: 0 0 8px; max-width: 380px; font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; }
+.pr-empty-ico { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 50%; background: var(--bg-muted); color: var(--text-secondary); margin-bottom: 4px; }
+.pr-empty-btn { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 16px; border: none; border-radius: 999px; background: #0b6329; color: #fff; font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.pr-empty-btn:hover { background: #0e7531; }
+@media (max-width: 760px) { .pr-sum { grid-template-columns: 1fr 1fr; } .pr-sum > div:last-child { grid-column: 1 / -1; border-left: none; border-top: 1px solid var(--border-light, var(--border)); } }
