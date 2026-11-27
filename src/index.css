@@ -3560,6 +3560,7 @@ textarea.form-control {
 @media (max-width: 560px) {
   .rc-scan-offer { flex-direction: column; align-items: stretch; gap: 11px; }
   .rc-scan-offer-btn { margin-left: 0; justify-content: center; }
+  .rc-scan-offer-text { flex: 0 0 auto; min-width: 0; }
 }
 
 /* Momskontrollen mot beloppen på kvittot. */
@@ -11978,4 +11979,27 @@ table.lt-fit td > div, table.lt-fit td > span { overflow: hidden; text-overflow:
   .mc-item { padding-left: 22px; }
   .mc-item::after { left: 78px; }
   .mc-items:has(.mc-empty) { border: none; background: none; }
+}
+
+/* Underlag på telefon (2026-11-27): en lista i ett kort som i Mejl, avsändaren
+   som rubrik, inget "–" när beloppet saknas. Datorn oförändrad. */
+.ut-doc-m { display: none; }
+@media (max-width: 760px) {
+  .ut-table tbody { border: 1px solid var(--border-light); border-radius: 14px; overflow: hidden; background: var(--bg-card); }
+  .ut-table tbody:has(td.ut-empty) { border: none; background: none; }
+  .ut-table tr { margin-bottom: 0; border: none; border-radius: 0; padding: 12px 14px 12px 22px; position: relative; background: none; }
+  .ut-table tr + tr::before { content: ''; position: absolute; top: 0; left: 72px; right: 0; height: 1px; background: var(--border-light); }
+  .ut-table tr:active { background: var(--bg-muted); }
+  .ut-table .ut-doc-text { display: none; }
+  .ut-table .ut-doc-m { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 2px; }
+  .ut-doc-m b { font-size: 15px; font-weight: 600; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ut-doc-m small { font-size: 13px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ut-table tr.ut-unread .ut-doc-m b { font-weight: 750; }
+  .ut-table .ut-thumb { width: 40px; height: 40px; border-radius: 9px; overflow: hidden; flex-shrink: 0; }
+  .ut-unread-dot { left: -14px; width: 8px; height: 8px; margin-top: -4px; }
+  .ut-noamt { display: none; }
+  .ut-table tr td:nth-child(4) { font-size: 14.5px; }
+  .ut-table-static tbody, .ut-table-miss tbody { border: none; background: none; overflow: visible; }
+  .ut-table-static tr, .ut-table-miss tr { margin-bottom: 8px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); padding: 12px 14px; }
+  .ut-table-static tr + tr::before, .ut-table-miss tr + tr::before { display: none; }
 }

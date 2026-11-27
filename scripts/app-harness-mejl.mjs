@@ -79,6 +79,14 @@ const shot = async (name) => { await page.waitForTimeout(700); await page.screen
 
 await page.goto(BASE + "/?app=1#expenses");
 await page.waitForTimeout(4000);
+if (process.env.UNDERLAG) {
+  await shot('underlag-lista');
+  const row = page.locator('.main-content-inner tbody tr, .main-content-inner .ut-card, .main-content-inner [role=row]').nth(1);
+  if (await row.count()) { await row.click().catch(() => {}); await page.waitForTimeout(1200); await shot('underlag-oppnad'); }
+  console.log('fel:', errors.length ? errors : 'inga');
+  await browser.close();
+  process.exit(0);
+}
 const navMail = page.locator(".ut-nav-side button", { hasText: /^Mejl/ }).first();
 if (await navMail.isVisible().catch(() => false)) await navMail.click();
 else await page.locator("button", { hasText: /^Mejl/ }).first().click();

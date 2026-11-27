@@ -2196,7 +2196,7 @@ function TrashView({ items, onRestore, onPurge }) {
                       <span className="ut-doc-text"><b>{r.supplier || r.ocrDraft?.form?.supplier || r.inbox?.fileName || tr('underlag.unnamed')}</b>{r.inbox?.subject && <small>{r.inbox.subject}</small>}</span>
                     </span>
                   </td>
-                  <td className="ut-c-num">{amount > 0 ? formatSEK(amount) : '–'}</td>
+                  <td className="ut-c-num">{amount > 0 ? formatSEK(amount) : <span className="ut-noamt">–</span>}</td>
                   <td className="ut-muted">{arrivedLabel(r)}</td>
                   <td className="ut-muted">{(() => {
                     if (!r.trashedAt) return '';
@@ -2453,10 +2453,15 @@ function UnderlagTable({ receipts: allRows, statusOf, stepOf, onMarkSeen, readin
                           ? <><b>{r.inbox.subject}</b><small>{name}</small></>
                           : <><b>{name}</b>{r.inbox?.subject && <small>{r.inbox.subject}</small>}</>}
                       </span>
+                      {/* Telefon (2026-11-27): vem det kommer från som rubrik, inte filnamnet. */}
+                      <span className="ut-doc-m">
+                        <b>{r.supplier || r.ocrDraft?.form?.supplier || r.description || senderName(sender) || name}</b>
+                        <small>{[arrivedLabel(r), r.inbox?.subject || ((r.supplier || r.ocrDraft?.form?.supplier || r.description || senderName(sender)) ? r.inbox?.fileName : '')].filter(Boolean).join(' · ')}</small>
+                      </span>
                     </span>
                   </td>
                   <td className="ut-muted">{docKind(r) === 'invoice' ? tr('underlag.typeInvoice') : docKind(r) === 'receipt' ? tr('underlag.typeReceipt') : '–'}</td>
-                  <td className="ut-c-num">{amount > 0 ? formatSEK(amount) : '–'}</td>
+                  <td className="ut-c-num">{amount > 0 ? formatSEK(amount) : <span className="ut-noamt">–</span>}</td>
                   <td className="ut-muted">{arrivedLabel(r)}</td>
                   <td><span className={`ut-read ut-read-${rs.key}`}>{rs.text}</span></td>
                   <td className="ut-muted ut-from" title={[src.text, sender].filter(Boolean).join(' · ')}>
