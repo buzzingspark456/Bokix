@@ -12241,3 +12241,37 @@ table.lt-fit td > div, table.lt-fit td > span { overflow: hidden; text-overflow:
 :root[data-theme="dark"] .pay-fix:not(.is-ok) b { color: #fbd5d1; }
 :root[data-theme="dark"] .pay-fix:not(.is-ok) .pay-fix-ico { background: rgba(246, 120, 108, .16); color: #f6786c; }
 :root[data-theme="dark"] .pay-fix:not(.is-ok) .pay-fix-btn:not(.is-primary) { background: transparent; color: #f6c7c2; border-color: rgba(246, 199, 194, .3); }
+
+/* Betalkortet i appen (2026-11-27) och luft i det röda kortet. */
+.pay-fix { gap: 16px; padding: 22px 24px; margin-bottom: 22px; }
+.pay-fix-body { gap: 4px; }
+.pay-fix-body b { margin-bottom: 2px; }
+.pay-fix-actions { margin-top: 14px; }
+.pay-fix .bc-form { margin-top: 14px; background: var(--bg-card); }
+.bc { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.bc-tile { display: flex; align-items: center; gap: 16px; width: 100%; max-width: 420px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); }
+.bc-tile--loading { height: 76px; background: var(--bg-muted); border-color: transparent; animation: bc-pulse 1.2s ease-in-out infinite; }
+@keyframes bc-pulse { 50% { opacity: .55; } }
+.bc-brand { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 64px; height: 44px; border-radius: 8px; background: var(--bg-muted); color: var(--text-secondary); font-size: 15px; font-weight: 800; letter-spacing: .02em; }
+.bc-brand--visa { color: #1a1f71; font-style: italic; font-size: 19px; letter-spacing: .04em; }
+.bc-brand--mastercard { color: #eb001b; font-size: 12px; }
+.bc-brand--amex { color: #2e77bb; }
+.bc-tile-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: 13px; color: var(--text-main); }
+.bc-tile-text b { font-size: 14px; }
+.bc-tile-text span { letter-spacing: .06em; }
+.bc-tile-text small { font-size: 12px; color: var(--text-muted); }
+.bc-empty { font-size: 13px; color: var(--text-secondary); }
+.bc-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text-main); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+.bc-btn:hover { background: var(--bg-muted); }
+.bc-btn.is-primary { border-color: transparent; background: #0b6329; color: #fff; }
+.bc-btn.is-primary:hover { background: #0e7531; }
+.bc-btn:disabled { opacity: .6; cursor: default; }
+.bc-form { width: 100%; max-width: 520px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); }
+.bc-element { min-height: 10px; }
+.bc-wait { font-size: 13px; color: var(--text-muted); padding: 10px 0; }
+.bc-err { font-size: 13px; font-weight: 600; color: var(--status-red-text, #b42318); }
+.bc-ok { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--status-green-text, #126b36); }
+.bc-form-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+.bc-secure { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+.bc-form-actions { display: flex; gap: 8px; margin-left: auto; }
+:root[data-theme="dark"] .bc-brand--visa { color: #c9d1ff; }

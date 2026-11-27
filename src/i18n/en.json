@@ -6661,5 +6661,20 @@
     "open": "Open Get started",
     "minimize": "Minimize",
     "close": "Close, I am fine"
+  },
+  "billingCard": {
+    "card": "Card",
+    "expires": "Expires {{date}}",
+    "none": "No card saved yet.",
+    "change": "Change card",
+    "add": "Add card",
+    "save": "Save card",
+    "saveAndPay": "Save and pay",
+    "saving": "Saving …",
+    "loading": "Loading the card field …",
+    "secure": "The card is stored with Stripe, never with Bokix",
+    "saved": "Card saved. The next charge uses the new card.",
+    "savedButDeclined": "Card saved but the payment was declined: {{reason}}",
+    "failed": "The card could not be saved."
   }
 }

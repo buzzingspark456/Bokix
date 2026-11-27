@@ -337,6 +337,74 @@ export default async function handler(req, res) {
       return;
     }
 
+    // ── Betalkort i appen (2026-11-27): visa kortet och byt det utan att lämna
+    // Bokix. card-setup skapar en SetupIntent för abonnemangets Stripe-kund
+    // (kortet matas in i Stripes eget fält, aldrig hos oss), card-save gör det
+    // nya kortet till standard för kunden och abonnemanget och drar direkt de
+    // fakturor som är obetalda. Bara den inloggade ägaren, bara det egna abonnemanget.
+    if (body.action === 'card-info' || body.action === 'card-setup' || body.action === 'card-save') {
+      const authedUser = await requireAuthedUser(req, res);
+      if (!authedUser) return;
+      if (body.action !== 'card-info'
+        && !(await checkRateLimit(req, res, { key: 'card-change', max: 6, windowMs: 10 * 60 * 1000, identifier: authedUser.id }))) return;
+      const companyId = body.company_id || null;
+      const subRow = await getSubscriptionRow(authedUser.id, companyId);
+      if (!subRow?.stripe_subscription_id) {
+        res.status(body.action === 'card-info' ? 200 : 404).json(body.action === 'card-info' ? { card: null } : { error: 'Ingen prenumeration hittades för det här företaget.' });
+        return;
+      }
+      const sub = await stripe.subscriptions.retrieve(subRow.stripe_subscription_id);
+      if (sub.metadata?.user_id && sub.metadata.user_id !== authedUser.id) {
+        res.status(403).json({ error: 'Abonnemanget tillhör inte ditt konto.' });
+        return;
+      }
+      const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
+
+      if (body.action === 'card-info') {
+        res.status(200).json({ card: await subscriptionCard(stripe, sub, customerId), status: sub.status });
+        return;
+      }
+
+      if (body.action === 'card-setup') {
+        const intent = await stripe.setupIntents.create({
+          customer: customerId,
+          usage: 'off_session',
+          payment_method_types: ['card'],
+          metadata: { user_id: authedUser.id, purpose: 'bokix_subscription_card', subscription_id: sub.id },
+        });
+        res.status(200).json({ clientSecret: intent.client_secret });
+        return;
+      }
+
+      // card-save
+      const setupId = typeof body.setup_intent_id === 'string' && body.setup_intent_id.startsWith('seti_') ? body.setup_intent_id : null;
+      if (!setupId) { res.status(400).json({ error: 'Kortet kunde inte sparas. Försök igen.' }); return; }
+      const intent = await stripe.setupIntents.retrieve(setupId);
+      const intentCustomer = typeof intent.customer === 'string' ? intent.customer : intent.customer?.id;
+      if (intentCustomer !== customerId || intent.metadata?.user_id !== authedUser.id || intent.status !== 'succeeded') {
+        res.status(400).json({ error: 'Kortet kunde inte bekräftas. Försök igen.' });
+        return;
+      }
+      const pmId = typeof intent.payment_method === 'string' ? intent.payment_method : intent.payment_method?.id;
+      await stripe.customers.update(customerId, { invoice_settings: { default_payment_method: pmId } });
+      await stripe.subscriptions.update(sub.id, { default_payment_method: pmId });
+      // Obetalt: dra fakturorna direkt med det nya kortet, äldsta först.
+      let payError = null;
+      if (sub.status === 'past_due' || sub.status === 'unpaid') {
+        const openInvoices = (await stripe.invoices.list({ subscription: sub.id, status: 'open', limit: 10 })).data
+          .sort((a, b) => (a.created || 0) - (b.created || 0));
+        try {
+          for (const inv of openInvoices) await stripe.invoices.pay(inv.id, { payment_method: pmId });
+        } catch (err) {
+          payError = declineText(err?.raw || err) || 'Kortet nekades.';
+        }
+      }
+      const fresh = await stripe.subscriptions.retrieve(sub.id);
+      await upsertSubscription(subscriptionFieldsFromStripe(fresh));
+      res.status(200).json({ card: await subscriptionCard(stripe, fresh, customerId), status: fresh.status, paid: ['active', 'trialing'].includes(fresh.status), payError });
+      return;
+    }
+
     // ── Stripes Billing Portal (Inställningar → Prenumeration →
     // Betalningsuppgifter → byt kort). Fakturahistoriken visas i appen så
     // att den kan omfatta flera Stripe-kunder för samma Bokix-konto.

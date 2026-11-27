@@ -6661,5 +6661,20 @@
     "open": "Öppna Kom igång",
     "minimize": "Fäll ihop",
     "close": "Stäng, jag klarar mig"
+  },
+  "billingCard": {
+    "card": "Kort",
+    "expires": "Går ut {{date}}",
+    "none": "Inget kort sparat än.",
+    "change": "Byt kort",
+    "add": "Lägg till kort",
+    "save": "Spara kortet",
+    "saveAndPay": "Spara och betala",
+    "saving": "Sparar …",
+    "loading": "Hämtar kortfältet …",
+    "secure": "Kortet sparas hos Stripe, aldrig hos Bokix",
+    "saved": "Kortet är sparat. Nästa dragning görs från det nya kortet.",
+    "savedButDeclined": "Kortet är sparat men betalningen nekades: {{reason}}",
+    "failed": "Kortet kunde inte sparas."
   }
 }

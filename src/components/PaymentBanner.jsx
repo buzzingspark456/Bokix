@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Check, Lock, X, CreditCard } from './icons';
 import { fetchPaymentIssue, retrySubscriptionPayment, openBillingPortal } from '../stripeApi';
 import { t } from '../i18n';
+import { CardChangeForm, inAppCardChange } from './BillingCard';
 
 // Misslyckad betalning för Bokix-abonnemanget (2026-11-27).
 // - PaymentBanner: en kort röd påminnelse överst. Försök igen tar en till
@@ -59,6 +60,7 @@ export function PaymentFixCard({ access, companyId = null, onPaid }) {
   const [issue, setIssue] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null); // { tone: 'error'|'ok', text }
+  const [changing, setChanging] = useState(false);
   const failing = isFailing(access);
   useEffect(() => {
     if (!failing) return undefined;
@@ -94,8 +96,10 @@ export function PaymentFixCard({ access, companyId = null, onPaid }) {
     }
   };
   const changeCard = async () => {
-    setBusy(true);
     setMessage(null);
+    // Byt kort direkt här när Stripes kortfält finns, annars Stripes portal.
+    if (inAppCardChange) { setChanging(true); return; }
+    setBusy(true);
     try {
       window.location.href = await openBillingPortal(companyId);
     } catch (err) {
@@ -130,12 +134,25 @@ export function PaymentFixCard({ access, companyId = null, onPaid }) {
         <b>{readOnly ? t('payBanner.readTitle') : requiresAction ? t('payBanner.actionTitle') : t('payBanner.failedTitle')}</b>
         {lines.map((l, i) => <span key={i}>{l}</span>)}
         {message?.tone === 'error' && <span className="pay-fix-err">{message.text}</span>}
+        {changing ? (
+          <CardChangeForm
+            companyId={companyId}
+            payNow
+            onCancel={() => setChanging(false)}
+            onDone={(r) => {
+              setChanging(false);
+              if (r?.paid) { setMessage({ tone: 'ok', text: t('payBanner.paid') }); onPaid?.(); }
+              else setMessage({ tone: 'error', text: r?.payError ? t('billingCard.savedButDeclined', { reason: r.payError }) : t('billingCard.saved') });
+            }}
+          />
+        ) : (
         <div className="pay-fix-actions">
           {requiresAction && info?.hostedUrl
             ? <a className="pay-fix-btn is-primary" href={info.hostedUrl}>{t('payBanner.confirm')}</a>
             : <button type="button" className="pay-fix-btn is-primary" onClick={retry} disabled={busy}>{busy ? t('payBanner.trying') : t('payBanner.retry')}</button>}
           <button type="button" className="pay-fix-btn" onClick={changeCard} disabled={busy}><CreditCard size={14} /> {t('payBanner.changeCard')}</button>
         </div>
+        )}
       </div>
     </div>
   );

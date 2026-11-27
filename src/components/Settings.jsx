@@ -1,4 +1,5 @@
 import { PaymentFixCard } from './PaymentBanner';
+import BillingCard from './BillingCard';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -4815,7 +4816,7 @@ export default function Settings({
                   <SettingsSection title={tr('ui.betalningsuppgifter')} description={tr('ui.plan_betalning_beskrivning')}>
                     <SettingCard>
                       <div className="plan-payment">
-                        <BillingPortalButton companyId={company?.requiresOwnPayment ? company.id : null} label={tr('ui.byt_betalkort')} />
+                        <BillingCard companyId={company?.requiresOwnPayment ? company.id : null} onPaid={onPaymentFixed} />
                         <SubscriptionInvoices companyId={company?.requiresOwnPayment ? company.id : null} enabled={!readOnly} />
                         <BillingCcEmail companyId={company?.requiresOwnPayment ? company.id : null} enabled={!readOnly} />
                         <p>{tr('ui.plan_kortbyte_stripe')}</p>

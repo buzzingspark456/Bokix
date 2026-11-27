@@ -67,6 +67,7 @@ await page.route('**/api/**', async (r) => {
   if (url.includes('create-subscription-checkout') && body.action === 'payment-issue') {
     return r.fulfill({ json: { status: SUB.status, card: { brand: 'visa', last4: '4242', expMonth: 11, expYear: 2026 }, issue: { amount: 179, currency: 'sek', attempts: 2, nextAttempt: new Date(Date.now() + 2 * 86400000).toISOString(), requiresAction: MODE === 'action', declineReason: MODE === 'action' ? 'Banken vill att du bekräftar betalningen.' : 'Kortet saknar täckning.', hostedUrl: 'https://invoice.stripe.com/test' } } });
   }
+  if (url.includes('create-subscription-checkout') && body.action === 'card-info') return r.fulfill({ json: { card: { brand: 'visa', last4: '4242', expMonth: 12, expYear: 2028 }, status: SUB.status } });
   if (url.includes('create-subscription-checkout') && body.action === 'retry-payment') {
     retried += 1;
     return r.fulfill({ json: retried === 1 ? { ok: false, reason: 'Kortet saknar täckning.' } : { ok: true, status: 'active' } });
@@ -93,6 +94,9 @@ if (MODE === 'failed') {
   console.log('Försök igen i bannern tog mig till:', (await page.locator('.main-content-inner h1, .main-content-inner h2').first().innerText().catch(() => '?')), '| kort på sidan:', await page.locator('.pay-fix').count());
   console.log('kortet:', (await page.locator('.pay-fix').innerText().catch(() => '')).replace(/s+/g, ' ').slice(0, 200));
   await page.screenshot({ path: 'test-results/betalning-' + tag + '-prenumeration.png' }); console.log('KRASCH?', errors);
+  await page.locator('.bc-tile').scrollIntoViewIfNeeded().catch(() => {}); await page.waitForTimeout(400);
+  console.log('kortet i Betalningsuppgifter:', (await page.locator('.bc-tile').innerText().catch(() => '(inget)')).replace(/s+/g, ' '));
+  await page.screenshot({ path: 'test-results/betalning-' + tag + '-kort.png' });
   await page.locator('.pay-fix-btn.is-primary').click();
   await page.waitForTimeout(800);
   console.log('efter första försöket:', (await page.locator('.pay-fix').innerText()).replace(/s+/g, ' ').slice(0, 160));

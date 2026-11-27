@@ -174,3 +174,13 @@ export async function retrySubscriptionPayment(companyId = null) {
   if (!response.ok) throw new Error(payload?.error || 'Kunde inte försöka igen just nu.');
   return payload;
 }
+
+/** Betalkortet i appen (2026-11-27): card-info, card-setup och card-save. */
+export async function subscriptionCardAction(action, companyId = null, extra = {}) {
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Du måste vara inloggad.');
+  const { response, payload } = await fetchOnce('create-subscription-checkout', { action, company_id: companyId || undefined, ...extra }, session.access_token);
+  if (response.status === 429) throw new Error('Du har försökt flera gånger. Vänta några minuter och försök igen.');
+  if (!response.ok) throw new Error(payload?.error || 'Det gick inte just nu. Försök igen om en stund.');
+  return payload;
+}
