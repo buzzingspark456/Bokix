@@ -19,6 +19,8 @@ ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS payment_failed_at time
 ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS payment_reminder_stage integer NOT NULL DEFAULT 0;
 -- Kortets utgångsmånad som påminnelsen "kortet går ut snart" redan skickats för (ÅÅÅÅ-MM).
 ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS card_expiry_reminded_for text;
+-- Nattjobbet letar efter abonnemang med misslyckad betalning; bara de raderna indexeras.
+CREATE INDEX IF NOT EXISTS subscriptions_payment_failed_idx ON public.subscriptions (payment_failed_at) WHERE payment_failed_at IS NOT NULL;
 
 -- Skrivrätten: past_due räknas bara de första 14 dagarna. Allt annat oförändrat
 -- (gratiskonton, UF-period från kontots skapande, app_metadata).
