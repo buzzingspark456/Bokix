@@ -11787,3 +11787,11 @@ html.ws-v2 .lfb .rc-segmented button { border-radius: 999px !important; }
 .pr-empty-btn { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 16px; border: none; border-radius: 999px; background: #0b6329; color: #fff; font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
 .pr-empty-btn:hover { background: #0e7531; }
 @media (max-width: 760px) { .pr-sum { grid-template-columns: 1fr 1fr; } .pr-sum > div:last-child { grid-column: 1 / -1; border-left: none; border-top: 1px solid var(--border-light, var(--border)); } }
+
+/* Att granska, Kompakt (2026-11-27): raderna heter rqt, inte rq-row – nu gör valet skillnad. */
+.rq-compact .rqt-main { min-height: 38px; padding-top: 3px; padding-bottom: 3px; gap: 12px; }
+.rq-compact .rqt-name { flex-direction: row; align-items: baseline; gap: 8px; }
+.rq-compact .rqt-name small { font-size: 11.5px; }
+.rq-compact .rqt-account input { height: 28px; }
+.rq-compact .rqt-btn { height: 28px; padding: 0 10px; }
+.rq-compact .rq-section { padding-top: 6px !important; padding-bottom: 6px !important; }
