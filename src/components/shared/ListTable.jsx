@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useFitTable } from '../../utils/fitTable';
 import { ChevronDown, ChevronUp } from '../icons';
 import { useTranslation } from '../../i18n';
 import { haptic } from '../../utils/haptics';
@@ -123,6 +124,10 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
   // listan vanlig igen — läget följer markeringen, inget eget state.
   const mobileSelecting = Boolean(selectable && rows.some(r => selectable.checked(r)));
   const longPress = useRef({ timer: null, x: 0, y: 0, fired: false });
+  // Tabellen ryms i bredden i stället för att rulla i sidled (utils/fitTable.js).
+  const fitWrapRef = useRef(null);
+  const fitTableRef = useRef(null);
+  useFitTable(fitTableRef, fitWrapRef, [shownRows, columns.map(c => c.key).join('|'), Boolean(selectable)]);
   const cancelLongPress = () => { clearTimeout(longPress.current.timer); longPress.current.timer = null; };
   const longPressHandlers = (row) => ({
     onTouchStart: (e) => {
@@ -190,13 +195,13 @@ export default function ListTable({ columns, rows, rowKey, onRowClick, emptyMess
     // filterraden ovanför. Bara nederkanten rundad nu (samma "fäst mot det
     // ovanför, avrundad mot sidbakgrunden under"-princip som ListFilterBar/
     // ListPageHeader redan följer på sina egna nederkanter).
-    <div style={bordered
+    <div ref={fitWrapRef} style={bordered
       ? { background: 'var(--bg-card)', borderRadius: roundedBottom ? '0 0 12px 12px' : 0, border: '1px solid var(--border)', borderBottom: roundedBottom ? '1px solid var(--border)' : 'none', boxShadow: roundedBottom ? 'var(--shadow-sm)' : 'none', overflowX: 'auto', overflowY: 'hidden' }
       : { overflowX: 'auto', overflowY: 'hidden' }}>
       {/* .responsive-table (Sida 38, punkt 1): staplar kolumnerna med
           data-label-etiketter under en brytpunkt istället för att tvinga
           sidledesskroll — samma klass alla listsidors tabeller redan delar. */}
-      <table className={`responsive-table${mobileList ? ' has-mobile-list' : ''}`} style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table ref={fitTableRef} className={`responsive-table${mobileList ? ' has-mobile-list' : ''}`} style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ background: 'var(--bg-muted)' }}>
             {selectable && (

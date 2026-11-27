@@ -60,6 +60,7 @@ const consoleErrors = [];
 page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 200)); });
 const PAGES = (process.env.PAGES || 'dashboard,review,contacts,quotes,orders,invoices,articles,projects,expenses,supplier_invoices,payroll,bank,verifications,reports,taxes,settings').split(',');
 await page.addInitScript((p) => localStorage.setItem('bokix.devPlan', p), process.env.PLAN || 'trade_monthly');
+if (process.env.ALLCOLS) await page.addInitScript(() => { const all = { customerNumber: true, orgNr: true, postalCode: true, city: true, country: true, phone: true, email: true, bankgiro: true, defaultAccount: true, contactPerson: true, lastInvoiceDate: true, totalInvoicedThisYear: true }; localStorage.setItem('bokix.contacts.prefs2', JSON.stringify({ cols: all, density: 'normal', width: 'wide', pageSize: 50 })); });
 await page.goto(BASE + '/?app=1#dashboard');
 await page.waitForTimeout(5000);
 const audit = () => page.evaluate(() => {
@@ -68,6 +69,7 @@ const audit = () => page.evaluate(() => {
   const label = (e) => (e.getAttribute('aria-label') || e.textContent || e.className || e.tagName).toString().trim().replace(/\s+/g, ' ').slice(0, 40);
   const visible = (e) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return r.width > 2 && r.height > 2 && cs.visibility !== 'hidden' && cs.display !== 'none' && cs.opacity !== '0'; };
   if (document.documentElement.scrollWidth > vw + 2) out.push(`sidan rullar i sidled (${document.documentElement.scrollWidth} > ${vw})`);
+  document.querySelectorAll('.main-content-inner *').forEach(e => { const cs = getComputedStyle(e); if (/(auto|scroll)/.test(cs.overflowX) && e.scrollWidth > e.clientWidth + 2 && e.querySelector('table') && e.clientWidth > 0) out.push(`tabell rullar i sidled (${e.scrollWidth} > ${e.clientWidth}): ${(e.className || e.tagName).toString().slice(0, 30)}`); });
   const btns = [...document.querySelectorAll('.main-content-inner button, .main-content-inner a.btn, .main-content-inner [role=tab], .main-content-inner input, .main-content-inner select')].filter(visible);
   for (const b of btns) {
     const r = b.getBoundingClientRect();

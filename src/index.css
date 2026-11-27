@@ -11836,3 +11836,19 @@ html.ws-v2 .lfb .rc-segmented button { border-radius: 999px !important; }
 .lt-page-narrow .ct-v2 .ct-ellip { max-width: 150px; }
 .lt-page-narrow .ct-v2 .responsive-table th, .lt-page-narrow .ct-v2 .responsive-table td { padding-left: 9px !important; padding-right: 9px !important; }
 .lt-page-narrow .ct-v2 .responsive-table th:first-child, .lt-page-narrow .ct-v2 .responsive-table td:first-child { padding-left: 16px !important; }
+
+/* Tabeller som ryms (utils/fitTable.js, 2026-11-27): nowrap -> tight -> fit. */
+table.lt-nowrap td, table.lt-nowrap td *, .lt-page-narrow table.lt-nowrap td.lt-cell, .lt-page-narrow table.lt-nowrap td.lt-cell * { white-space: nowrap !important; overflow-wrap: normal !important; }
+table.lt-tight th, table.lt-tight th * { white-space: normal !important; line-height: 1.25; }
+table.lt-tight th { vertical-align: bottom; }
+table.lt-tight th, table.lt-tight td { padding-left: 7px !important; padding-right: 7px !important; }
+table.lt-tight th:first-child, table.lt-tight td:first-child { padding-left: 14px !important; }
+table.lt-fit th, table.lt-fit td { overflow: hidden; text-overflow: ellipsis; }
+table.lt-fit td > *, table.lt-fit th > * { max-width: 100%; }
+table.lt-fit td span, table.lt-fit td b, table.lt-fit td a { overflow: hidden; text-overflow: ellipsis; }
+table.lt-fit .ct-ellip { max-width: 100%; }
+
+/* Sidbredd som känns rätt (2026-11-27): Smal 86 % av ytan men högst 1100 px –
+   tydligt smalare än Bred på laptop, en lugn kolumn på stor skärm. */
+.lt-page-narrow > *, .lt-page-narrow .lt-page-band-inner { max-width: min(1100px, 86%) !important; }
+@media (max-width: 760px) { .lt-page-narrow > *, .lt-page-narrow .lt-page-band-inner { max-width: 100% !important; } }

@@ -51,6 +51,7 @@ import { calcRotRutDeduction, invoiceCustomerDue, invoiceCustomerRemaining } fro
 import { applyCreditNotes } from './utils/creditNotes';
 import { mergeImportedEmployees } from './utils/employeeCsv';
 import { planFromId, planIncludesPayroll, planIncludesTrade } from './utils/plans';
+import { installFitTables } from './utils/fitTable';
 import { detectOrgType } from './utils/orgType';
 import { ownerPaidAccount } from './utils/paidBy';
 import { buildSpreadStart } from './utils/accrualSpread';
@@ -1296,6 +1297,8 @@ function App() {
     }
     return 'dashboard';
   });
+  // Artiklars, Orders och Underlags tabeller ryms i bredden (utils/fitTable.js).
+  useEffect(() => installFitTables(), []);
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
