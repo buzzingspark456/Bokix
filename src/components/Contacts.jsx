@@ -821,7 +821,6 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
     { key: 'name', label: c('list.colName'), wrap: true, render: ct => (
       <span className="ct-name">
         <b className={ct.active === false ? 'is-off' : undefined}>{ct.name || c('list.unnamed')}</b>
-        {statusFilter === 'all' && ct.active === false && <em className="ct-off">{c('list.inactive')}</em>}
       </span>
     ) },
     { key: 'orgNr', label: c('list.colOrgPers'), render: ct => <span className="ct-num">{dash(ct.orgNr)}</span> },
@@ -889,7 +888,6 @@ export default function Contacts({ contacts, setContacts, accounts = [], invoice
                 items={[
                   ['active', c('list.filterActive'), statusCount.active],
                   ['inactive', c('list.filterInactive'), statusCount.inactive],
-                  ['all', c('list.filterAll'), statusCount.all],
                 ]} />
             </div>
           ) : (
