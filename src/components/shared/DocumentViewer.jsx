@@ -9,7 +9,7 @@ import { loadPdfjs } from '../../utils/pdfjs';
 // smal ruta. Går ritningen inte (gammal webbläsare, nätfel) används den
 // ändå, som reserv.
 const MAX_PDF_PAGES = 20;
-function PdfPages({ url, label, fallback }) {
+function PdfPages({ url, label, fallback, fitPage = false }) {
   const boxRef = useRef(null);
   const [doc, setDoc] = useState(null);
   const [failed, setFailed] = useState(false);
@@ -31,18 +31,28 @@ function PdfPages({ url, label, fallback }) {
     const el = boxRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return undefined;
     let timer = null;
+    // fitPage (Mejl, 2026-11-27): bredden väljs så att hela första sidan ryms
+    // på höjden också, ingen skrollning. Annars sidans bredd som förut.
+    let ratio = 0;
+    const measure = () => {
+      const byWidth = Math.floor(el.clientWidth - 36);
+      if (!fitPage || !ratio) return Math.max(fitPage ? 120 : 200, byWidth);
+      return Math.max(120, Math.min(byWidth, Math.floor((el.clientHeight - 28) * ratio)));
+    };
     const ro = new ResizeObserver(() => {
       clearTimeout(timer);
-      timer = setTimeout(() => setWidth(Math.max(200, Math.floor(el.clientWidth - 36))), 120);
+      timer = setTimeout(() => setWidth(measure()), 120);
     });
     ro.observe(el);
-    setWidth(Math.max(200, Math.floor(el.clientWidth - 36)));
+    if (fitPage && doc) {
+      doc.getPage(1).then(p => { const v = p.getViewport({ scale: 1 }); ratio = v.width / v.height; setWidth(measure()); }).catch(() => setWidth(measure()));
+    } else setWidth(measure());
     return () => { clearTimeout(timer); ro.disconnect(); };
   }, [doc]);
 
   if (failed) return fallback;
   return (
-    <div ref={boxRef} className="dv-pdf" aria-label={label}>
+    <div ref={boxRef} className={`dv-pdf${fitPage ? ' dv-pdf-fit' : ''}`} aria-label={label}>
       {!doc && <span className="dv-pdf-wait">{t('ui.hamtar_underlaget')}</span>}
       {doc && width > 0 && Array.from({ length: Math.min(doc.numPages, MAX_PDF_PAGES) }, (_, i) => (
         <PdfPage key={i} doc={doc} pageNumber={i + 1} width={width} onFail={() => setFailed(true)} />
@@ -139,7 +149,7 @@ function fileNameFromUrl(url, fallback) {
 // underlaget syns med luft runt. Tills man själv zoomar är det 80 % av
 // YTAN (följer med när ytan ändrar storlek), inte ett fast pixelmått.
 // En PDF får samma zoom via #zoom=.
-export function DocumentPane({ url, type, name, emptyText, className = '', expandable = false, imageTools = null, highlight = null, initialZoom = FIT_ZOOM }) {
+export function DocumentPane({ url, type, name, emptyText, className = '', expandable = false, imageTools = null, highlight = null, initialZoom = FIT_ZOOM, fitPage = false }) {
   const activeUrl = useSignedUrl(url);
   const [zoom, setZoom] = useState(initialZoom);
   // true = startzoomen gäller fortfarande, räknad som andel av ytan.
@@ -245,7 +255,7 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
           )}
           {expandable && url && (
             <button type="button" className="dv-btn dv-expand" onClick={() => setExpanded(true)} aria-label={t('ui.visa_i_helskarm')} title={t('ui.visa_i_helskarm')}>
-              <Maximize2 size={14} /> {t('ui.helskarm')}
+              <Maximize2 size={14} /> <span className="dv-expand-label">{t('ui.helskarm')}</span>
             </button>
           )}
           {activeUrl && (
@@ -275,7 +285,7 @@ export function DocumentPane({ url, type, name, emptyText, className = '', expan
               : { width: fitWidthRef.current ? `${Math.round(fitWidthRef.current * zoom)}px` : `${zoom * 100}%`, maxWidth: 'none', maxHeight: 'none' }}
           />
         ) : kind === 'pdf' ? (
-          <PdfPages url={activeUrl} label={label} fallback={<iframe className="dv-frame" src={initialZoom !== FIT_ZOOM ? `${activeUrl}#zoom=${Math.round(initialZoom * 100)}&navpanes=0` : `${activeUrl}#navpanes=0&view=FitH`} title={label} />} />
+          <PdfPages url={activeUrl} label={label} fitPage={fitPage} fallback={<iframe className="dv-frame" src={initialZoom !== FIT_ZOOM ? `${activeUrl}#zoom=${Math.round(initialZoom * 100)}&navpanes=0` : `${activeUrl}#navpanes=0&view=FitH`} title={label} />} />
         ) : (
           <div className="dv-empty">
             <Receipt size={38} strokeWidth={1.5} />

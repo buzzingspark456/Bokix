@@ -11919,3 +11919,17 @@ table.lt-fit td > div, table.lt-fit td > span { overflow: hidden; text-overflow:
 .pr-payslip-bar button:hover { background: var(--bg-muted); }
 /* Mejl: ⋮ på bilagekortet (Spara som dokument, Koppla till verifikation). */
 .mc-att-menu { display: inline-flex; flex-shrink: 0; }
+
+/* Mejl: underlaget ryms helt i rutan, utan skrollning och utan synlig
+   rullist (2026-11-27). Förstora-ikonen i verktygsraden öppnar helskärm. */
+.mc-wide .mc-reader-scroll { overflow: hidden; }
+.mc-wide .mc-doc { flex: 1 1 0; min-height: 220px; }
+.mc-doc .dv-pdf-fit { justify-content: center; overflow: hidden; }
+.mc-doc, .mc-doc * { scrollbar-width: none; }
+.mc-doc ::-webkit-scrollbar { display: none; }
+@media (max-width: 1099px) { .mc-doc { flex: 0 0 auto; min-height: 0; height: 62vh; } }
+
+/* Mejl (2026-11-27): hela dokumentet syns, så förstoring sker via en liten
+   helskärmsikon i stället för skrollning. Bara ikonen på dator. */
+.mc-doc .dv-expand { display: inline-flex; }
+@media (min-width: 861px) { .mc-doc .dv-expand-label { display: none; } }

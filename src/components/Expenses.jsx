@@ -2714,7 +2714,7 @@ function MailClient({ receipts: allRows, statusOf, stepOf, readingId, onMarkSeen
                 </div>
                 {att && (
                   <div className="mc-doc">
-                    <DocumentPane key={att.id} url={att.receiptUrl} type={att.receiptType} name={att.inbox?.fileName} expandable emptyText={tr('underlag.pvNoFile')} />
+                    <DocumentPane key={att.id} url={att.receiptUrl} type={att.receiptType} name={att.inbox?.fileName} expandable fitPage emptyText={tr('underlag.pvNoFile')} />
                   </div>
                 )}
               </div>

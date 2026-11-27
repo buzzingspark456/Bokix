@@ -17,6 +17,7 @@ let tick = 0;
 const newTs = () => new Date(Date.UTC(2026, 9, 10, 12, 0, 0) + (++tick) * 1000).toISOString().replace('Z', '+00:00');
 
 const browser = await chromium.launch();
+const logs = [];
 const ctx = await browser.newContext({ viewport: { width: WIDTH, height: 900 }, ...(WIDTH < 600 ? { isMobile: true, hasTouch: true } : {}) });
 await ctx.addCookies([{ name: 'bokix_cookie_consent', value: 'denied', url: BASE }]);
 const p0 = await ctx.newPage();
@@ -28,7 +29,13 @@ const company = await p0.evaluate(async () => {
 await p0.close();
 const now = Date.now();
 const img = BASE + "/scripts/guide-assets/exempelkvitto.png";
-const mk = (n, minAgo, from, subject, fileName, type, seen) => ({ id: "exp_" + (now - minAgo * 60000 + n), type: "receipt", date: new Date(now - minAgo * 60000).toISOString().slice(0, 10), description: "", supplier: "", amount: 0, netAmount: 0, vatAmount: 0, vatRate: 25, costAccount: "", receiptUrl: img, receiptType: type, uploadedBy: { source: "email", name: "", email: from }, inbox: { source: "email", from, subject, fileName, receivedAt: new Date(now - minAgo * 60000 + n).toISOString(), ...(seen ? { seenAt: new Date().toISOString() } : {}) } });
+const pdfUrl = BASE + (process.env.PDF_PATH || "/test-results/faktura-test.pdf");
+const pp = await ctx.newPage();
+await pp.setContent("<h1 style='font:32px sans-serif'>Faktura 1042</h1><p style='font:16px sans-serif'>Telia Sverige AB</p>" + "<p style='font:14px sans-serif'>Rad med text</p>".repeat(30) + "<h2 style='font:24px sans-serif'>Att betala 499,00 kr</h2>");
+const pdfBuf = await pp.pdf({ format: "A4" });
+await pp.close();
+fs.mkdirSync("test-results", { recursive: true }); fs.writeFileSync("test-results/faktura-test.pdf", pdfBuf);
+const mk = (n, minAgo, from, subject, fileName, type, seen) => ({ id: "exp_" + (now - minAgo * 60000 + n), type: "receipt", date: new Date(now - minAgo * 60000).toISOString().slice(0, 10), description: "", supplier: "", amount: 0, netAmount: 0, vatAmount: 0, vatRate: 25, costAccount: "", receiptUrl: type === "application/pdf" ? pdfUrl : img, receiptType: type, uploadedBy: { source: "email", name: "", email: from }, inbox: { source: "email", from, subject, fileName, receivedAt: new Date(now - minAgo * 60000 + n).toISOString(), ...(seen ? { seenAt: new Date().toISOString() } : {}) } });
 company.expenses.push(
   mk(1, 12, "Gusto Kaffebar <kvitto@gusto.se>", "Ditt kvitto från Gusto Kaffebar", "kvitto-4471.png", "image/png", false),
   mk(2, 90, "Clas Ohlson <order@clasohlson.se>", "Orderbekräftelse 88213 – två kvitton", "kvitto-del1.png", "image/png", false),
@@ -43,6 +50,8 @@ const page = await ctx.newPage();
 await page.addInitScript((d) => localStorage.setItem('bokix_theme_pref', d ? 'dark' : 'light'), Boolean(process.env.DARK));
 const errors = [];
 page.on('pageerror', e => errors.push(String(e).slice(0, 300)));
+page.on('console', m => { if (process.env.DBG) console.log('KONSOL', m.type(), m.text().slice(0, 300)); });
+page.on('requestfailed', r => { if (process.env.DBG) console.log('MISSLYCKAD', r.url().slice(0, 120), r.failure()?.errorText); });
 await page.addInitScript(([key, val]) => { sessionStorage.setItem(key, val); localStorage.setItem('bokix_tour_done_v3_11111111-1111-4111-8111-111111111111', '1'); }, [`sb-${REF}-auth-token`, JSON.stringify(session)]);
 const reply = (route, data, wantsObject) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(wantsObject ? data : (data == null ? [] : Array.isArray(data) ? data : [data])) });
 await page.route(`${SUPA}/**`, async (route) => {
@@ -74,14 +83,24 @@ const navMail = page.locator(".ut-nav-side button", { hasText: /^Mejl/ }).first(
 if (await navMail.isVisible().catch(() => false)) await navMail.click();
 else await page.locator("button", { hasText: /^Mejl/ }).first().click();
 await page.waitForTimeout(1200);
+const measureDoc = async (l) => console.log(l, JSON.stringify(await page.evaluate(() => [...document.querySelectorAll(".mc-doc, .mc-doc *")].filter(e => (e.scrollHeight > e.clientHeight + 2 && getComputedStyle(e).overflowY !== "hidden" && getComputedStyle(e).overflowY !== "visible") || (e.scrollWidth > e.clientWidth + 2 && getComputedStyle(e).overflowX !== "hidden" && getComputedStyle(e).overflowX !== "visible")).map(e => e.className + " " + e.scrollHeight + "/" + e.clientHeight))), "| knappar:", await page.locator(".mc-doc button").count(), "| canvas:", JSON.stringify(await page.evaluate(() => [...document.querySelectorAll(".mc-doc canvas, .mc-doc img")].map(c => c.offsetWidth + "x" + c.offsetHeight + " i " + c.closest(".mc-doc").clientWidth + "x" + c.closest(".mc-doc").clientHeight))));
 await shot("lista");
 const items = await page.locator(".mc-item").count();
 console.log("brev i listan:", items);
 await page.locator(".mc-item", { hasText: "Clas Ohlson" }).first().click();
 await shot("tva-bilagor");
+await measureDoc("bild, skrollar:");
+const exp = page.locator(".mc-doc .dv-expand").first();
+console.log("helskärmsikon synlig:", await exp.isVisible());
+if (await exp.isVisible()) { await exp.click(); await page.waitForTimeout(700); await page.screenshot({ path: `test-results/mejl-helskarm${tag}.png` }); await page.keyboard.press("Escape"); await page.waitForTimeout(500); }
 console.log("bilagor:", await page.locator(".mc-att").count());
 await page.locator(".mc-item", { hasText: "Faktura november" }).first().click().catch(() => {});
+await page.waitForTimeout(1500);
 await shot("utan-bilaga");
+await page.waitForTimeout(3000);
+await measureDoc("pdf, skrollar:");
+if (process.env.DBG) console.log("HTML:", (await page.locator(".mc-doc .dv-body").first().innerHTML()).slice(0, 400));
+if (process.env.DBG) console.log("PDFJS:", await page.evaluate(async (u) => { try { const { loadPdfjs } = await import("/src/utils/pdfjs.js"); const p = await loadPdfjs(); const d = await p.getDocument({ url: u }).promise; return "ok sidor " + d.numPages; } catch (e) { return "FEL " + (e && (e.stack || e.message || e)); } }, pdfUrl));
 await page.locator(".mc-address").click().catch(() => console.log("ingen adressknapp"));
 await page.waitForTimeout(600);
 console.log("mejla in-dialog med guide:", await page.locator(".ut-mi .ut-fwd").count());
