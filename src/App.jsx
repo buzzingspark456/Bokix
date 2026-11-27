@@ -6170,6 +6170,8 @@ function App() {
         return (
           <PayrollView
             key={company?.id || data.activeCompanyId}
+            company={company}
+            activeCompanyId={data.activeCompanyId}
             employees={employees}
             onSaveEmployee={handleSaveEmployee}
             onImportEmployees={handleImportEmployees}
