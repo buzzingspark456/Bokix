@@ -11877,3 +11877,4 @@ table.lt-fit .ct-ellip, table.lt-fit .ct-name, table.lt-fit .ct-name b { display
   .ctf-card { padding: 24px 28px; }
   .ctf input:not([type=checkbox]):not([type=radio]), .ctf select, .ctf textarea { padding: 11px 14px !important; font-size: 15px !important; }
 }
+table.lt-fit td > div, table.lt-fit td > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

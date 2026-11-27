@@ -11,7 +11,10 @@ import { useLayoutEffect } from 'react';
 
 const KEEP = 100; // kolumner smalare än så krymps aldrig
 const MIN = 72;   // ingen textkolumn krymps under så här
-const NUMERIC = /^[-–+\d\s.,:%kr]+$/i;
+// Tal, belopp, datum och nummer: siffror med tecken och enheter, även det
+// typografiska minustecknet (−, U+2212) som beloppen använder.
+const NUMERIC_RE = /^[\s\d.,:+\-−–()/#]+$/;
+const NUMERIC = { test: (txt) => /\d/.test(txt) && NUMERIC_RE.test(String(txt).replace(/\b(kr|sek|eur|usd|gbp|nok|dkk|st|tim|h)\b/gi, '').replace(/%/g, '')) };
 
 export function fitTable(table, wrap, hide = 0) {
   if (!table || !wrap) return;

@@ -418,17 +418,19 @@ function SupplierForm({ initial, onSave, onCancel, accounts, v2 = false, nextNum
             {field(`${c('fields.orgNr')} *`, <input type="text" value={form.orgNr} onChange={e => set('orgNr', e.target.value)} style={inputStyle(errors.orgNr)} placeholder="XXXXXX-XXXX" />, { error: errors.orgNr })}
             {field(c('fields.supplierNumber'), <input type="text" value={form.supplierNumber} onChange={e => set('supplierNumber', e.target.value)} style={inputBase} />)}
           </div>
-          <div className="ctf-grid" style={{ marginTop: 10 }}>
-            {field(c('fields.ourCustomerNumber'), <input type="text" value={form.ourCustomerNumber} onChange={e => set('ourCustomerNumber', e.target.value)} style={inputBase} placeholder={c('placeholders.ourCustomerNumber')} />)}
-            {!isSwedish && field(c('fields.vatNumber'), <input type="text" value={form.vatNumber} onChange={e => set('vatNumber', e.target.value)} style={inputBase} />)}
-          </div>
+          {!isSwedish && (
+            <div className="ctf-grid" style={{ marginTop: 10 }}>
+              {field(c('fields.vatNumber'), <input type="text" value={form.vatNumber} onChange={e => set('vatNumber', e.target.value)} style={inputBase} />)}
+            </div>
+          )}
         </section>
 
         <div className="ctf-col">
           <section className="ctf-card">
             <h3>{c('sections.contact')}</h3>
             <div className="ctf-grid">
-              {field(c('fields.contactPerson'), <input type="text" value={form.contactPerson} onChange={e => set('contactPerson', e.target.value)} style={inputBase} />, { wide: true })}
+              {field(c('fields.contactPerson'), <input type="text" value={form.contactPerson} onChange={e => set('contactPerson', e.target.value)} style={inputBase} />)}
+              {field(c('fields.ourCustomerNumber'), <input type="text" value={form.ourCustomerNumber} onChange={e => set('ourCustomerNumber', e.target.value)} style={inputBase} placeholder={c('placeholders.ourCustomerNumber')} />)}
               {field(c('fields.email'), <input type="email" value={form.email} onChange={e => set('email', e.target.value)} style={inputStyle(errors.email)} />, { error: errors.email })}
               {field(c('fields.phone'), <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} style={inputBase} />)}
             </div>
