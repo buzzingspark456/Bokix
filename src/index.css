@@ -12469,3 +12469,21 @@ body:has(.notif-dropdown) .kig, body:has(.notif-dropdown) .kig-pill { opacity: 0
 .pp-list li { flex: 0 0 auto; }
 .pp-card .pp-pick, .pp-card .pp-soon { margin-top: auto; }
 .pp-card .pp-list { margin-bottom: 16px; }
+
+/* Planerna: en ikon per funktion och kopplingarna i sina färger. */
+.pp-list li { align-items: center; }
+.pp-fico { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 24px; height: 24px; border-radius: 7px; background: #e3f4e8; color: #0b6329; }
+.pp-list li svg { margin-top: 0; color: inherit; }
+.pp-employer .pp-fico { background: #e8f0fe; color: #1d5fd6; }
+.pp-trade .pp-fico { background: #fdf3dc; color: #a15c00; }
+.pp-free .pp-fico { background: var(--bg-muted); color: var(--text-secondary); }
+.pp-conn { margin: -4px 0 16px; padding-top: 12px; border-top: 1px solid var(--border-light); display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--text-muted); font-weight: 600; }
+.pp-conn-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.pp-c { font-style: normal; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 750; letter-spacing: .01em; }
+.pp-c-stripe { background: #635bff; color: #fff; }
+.pp-c-zettle { background: #1f1f1f; color: #fff; }
+.pp-c-gmail { background: #fdecea; color: #c5221f; }
+.pp-c-sie { background: var(--bg-muted); color: var(--text-main); }
+:root[data-theme="dark"] .pp-fico { background: rgba(63, 191, 108, .16); color: #6ee7a0; }
+:root[data-theme="dark"] .pp-employer .pp-fico { background: rgba(83, 141, 255, .16); color: #8ab4ff; }
+:root[data-theme="dark"] .pp-trade .pp-fico { background: rgba(245, 180, 60, .16); color: #fcd27b; }

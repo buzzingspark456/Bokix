@@ -15,6 +15,7 @@ import { passkeysAvailable, isPasskeyCancel, isPasskeyAlreadyOnDevice, appLockEn
 import { sendInvoiceEmail } from '../emailApi';
 import { cancelStripeSubscription, changeStripePlan, reactivateStripeSubscription, openBillingPortal, getSubscriptionInvoices, syncStripeSubscription, billingCcEmail } from '../stripeApi';
 import BokixWordmark from './shared/BokixWordmark';
+import * as PlanIcons from './icons';
 import { BRAND } from '../utils/brandColors';
 import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
@@ -40,7 +41,7 @@ import { downloadSie4 } from '../utils/sieExport';
 import { exportVerificationsToExcel, fiscalYearChoices, verificationsInRange } from '../utils/excelExport';
 import { downloadUnderlagZip } from '../utils/underlagExport';
 import { companyFiscalYearSetting, fiscalYearBounds } from '../utils/reportCalculations';
-import { planFromId, PLAN_TIERS, TRADE_TIER, PLAN_LIMITS, PLAN_FEATURES, invitedUserLimit, ACCOUNTANT_SEATS } from '../utils/plans';
+import { planFromId, PLAN_TIERS, TRADE_TIER, PLAN_LIMITS, PLAN_FEATURES, PLAN_CONNECTIONS, invitedUserLimit, ACCOUNTANT_SEATS } from '../utils/plans';
 import { isAdminPreview } from '../utils/adminPreview';
 import { ACCESS_PAGES, ACCESS_LEVELS, defaultPageAccess, accessForPage, canWriteField, ACCOUNTANT_PRESET, accountantPageAccess } from '../utils/pageAccess';
 import { isUfCompany, ufSettingsSections, ufFreePeriod, UF_FREE_MONTHS } from '../utils/ufMode';
@@ -2689,9 +2690,18 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
                           </div>
                           <ul className="pp-list">
                             {below && <li className="pp-lead">{tr('planPick.allIn', { name: below })}</li>}
-                            {(PLAN_FEATURES[tier.id] || []).flatMap(g => g.items).map(x => <li key={x}><Check size={14} /> {tr(`planPick.${x}`)}</li>)}
-                            <li className="pp-free"><Check size={14} /> {tr('planPick.f_accountant')}</li>
+                            {(PLAN_FEATURES[tier.id] || []).map(({ key, icon }) => {
+                              const FIcon = PlanIcons[icon] || Check;
+                              return <li key={key}><span className="pp-fico" aria-hidden="true"><FIcon size={14} /></span> {tr(`planPick.${key}`)}</li>;
+                            })}
+                            <li className="pp-free"><span className="pp-fico" aria-hidden="true"><Check size={14} /></span> {tr('planPick.f_accountant')}</li>
                           </ul>
+                          {idx === 0 && (
+                            <div className="pp-conn">
+                              <span>{tr('planPick.connections')}</span>
+                              <span className="pp-conn-list">{PLAN_CONNECTIONS.map(c => <i key={c} className={`pp-c pp-c-${c}`}>{tr(`planPick.c_${c}`)}</i>)}</span>
+                            </div>
+                          )}
                           {p.minimumMonths > 0 && <span className="sub-plan-note">{tr('sub.minimum', { n: p.minimumMonths })}</span>}
                           {soon
                             ? <span className="pp-soon">{tr('planPick.soon')}</span>

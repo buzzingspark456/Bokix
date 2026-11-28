@@ -105,16 +105,33 @@ export const PLAN_LIMITS = {
 /** Innehållet per nivå i grupper, nyckel = i18n under planPick.*. */
 export const PLAN_FEATURES = {
   solo: [
-    { group: 'book', items: ['f_book', 'f_invoices', 'f_supplier', 'f_bank'] },
-    { group: 'tax', items: ['f_vat', 'f_annual', 'f_sie'] },
+    { key: 'f_ver', icon: 'BookOpen' },
+    { key: 'f_invoices', icon: 'FileText' },
+    { key: 'f_scan', icon: 'ScanLine' },
+    { key: 'f_supplier', icon: 'Inbox' },
+    { key: 'f_bank', icon: 'Landmark' },
+    { key: 'f_vat', icon: 'Percent' },
+    { key: 'f_annual', icon: 'FileCheck' },
+    { key: 'f_reports', icon: 'BarChart3' },
   ],
   employer: [
-    { group: 'pay', items: ['f_pay', 'f_agi', 'f_outlays', 'f_payfile'] },
+    { key: 'f_pay', icon: 'Wallet' },
+    { key: 'f_payslip', icon: 'Mail' },
+    { key: 'f_agi', icon: 'Send' },
+    { key: 'f_outlays', icon: 'Calendar' },
+    { key: 'f_payfile', icon: 'Banknote' },
   ],
   trade: [
-    { group: 'trade', items: ['f_orders', 'f_stock', 'f_buy', 'f_price', 'f_docs'] },
+    { key: 'f_orders', icon: 'ClipboardList' },
+    { key: 'f_stock', icon: 'Package' },
+    { key: 'f_buy', icon: 'Truck' },
+    { key: 'f_price', icon: 'Tag' },
+    { key: 'f_docs', icon: 'FileText' },
   ],
 };
+
+/** Kopplingar som ingår i alla planer, visas med sina färger i planvalet. */
+export const PLAN_CONNECTIONS = ['stripe', 'zettle', 'gmail', 'sie'];
 
 export function getTier(tierId) {
   return PLAN_TIERS.find(t => t.id === tierId) || (tierId === TRADE_TIER.id ? TRADE_TIER : null);
