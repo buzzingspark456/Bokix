@@ -84,6 +84,7 @@ async function priorTrials(stripe, key, value) {
  */
 export async function trialDecision(stripe, { email, orgNr, ip, excludeUserId = null, companyId = null }) {
   const reasons = [];
+  let trialEnd = null;
   const notMine = (s) => !excludeUserId || s.metadata?.user_id !== excludeUserId;
   // Kontots EGEN tidigare provperiod för samma företag räknas också när den
   // prenumerationen tagit slut (2026-11-27). Annars fick ett konto som slutat
@@ -98,7 +99,16 @@ export async function trialDecision(stripe, { email, orgNr, ip, excludeUserId = 
     const otherCheckout = (s) => s.trial_start && (notMine(s) || (s.metadata?.company_id || null) !== companyId);
     if (o && (await priorSubs(stripe, 'bokix_orgnr', o)).some(s => otherCheckout(s) || ownEnded(s))) reasons.push('orgnr');
     const e = normalizeEmail(email);
-    if (e && (await priorSubs(stripe, 'bokix_email_norm', e)).some(s => (s.trial_start && notMine(s)) || ownEnded(s))) reasons.push('email');
+    const emailSubs = e ? await priorSubs(stripe, 'bokix_email_norm', e) : [];
+    if (emailSubs.some(s => (s.trial_start && notMine(s)) || ownEnded(s))) reasons.push('email');
+    // Kontots egen prenumeration för samma företag som fortfarande gäller
+    // (säkerhetsgranskningen 2026-11-28): en ny checkout under provperioden
+    // gav tidigare 30 nya dagar. Nu ärver den nya prenumerationen samma
+    // slutdatum (trialEnd), och en betald prenumeration ger ingen provperiod.
+    const ownLive = emailSubs.filter(s => !notMine(s) && !ended(s) && (s.metadata?.company_id || null) === companyId);
+    const liveTrialEnds = ownLive.filter(s => s.status === 'trialing' && s.trial_end).map(s => s.trial_end);
+    if (liveTrialEnds.length) trialEnd = Math.max(...liveTrialEnds);
+    else if (ownLive.some(s => s.status === 'active')) reasons.push('own_active');
     const i = hashIp(ip);
     if (i) {
       const since = Math.floor(Date.now() / 1000) - IP_WINDOW_SECONDS;
@@ -109,7 +119,7 @@ export async function trialDecision(stripe, { email, orgNr, ip, excludeUserId = 
     console.warn('[provperiod] kunde inte kontrollera tidigare provperioder, släpper igenom:', err.message);
     return { allowTrial: true, reasons: [], error: true };
   }
-  return { allowTrial: reasons.length === 0, reasons };
+  return { allowTrial: reasons.length === 0, reasons, ...(trialEnd ? { trialEnd } : {}) };
 }
 
 /**

@@ -673,6 +673,14 @@ export default async function handler(req, res) {
       res.status(400).json({ error: 'Organisationsnumret är inte ett giltigt svenskt nummer. Bokix är för svenska företag. Kontakta support@bokix.se om något är fel.' });
       return;
     }
+    // Ett företag som inte finns på kontot får ingen checkout
+    // (säkerhetsgranskningen 2026-11-28): med ett påhittat company_id blev
+    // org.numret tomt, Bolagsverket-kontrollen hoppades över och kontot fick
+    // en ny provperiod som låste upp alla dess riktiga företag.
+    if (body.company_id && !account?.companyFound) {
+      res.status(account ? 404 : 503).json({ error: account ? 'Företaget hittades inte på ditt konto.' : 'Kunde inte läsa företaget just nu. Försök igen om en stund.' });
+      return;
+    }
     // Lägg till företag: företaget måste ha ett nummer och finnas på riktigt.
     if (body.company_id && account?.companyFound && !account.isUf) {
       if (!account.orgNr) {
@@ -687,6 +695,11 @@ export default async function handler(req, res) {
     }
     const trialSignals = { email: account?.email || body.customer_email, orgNr: account?.orgNr, ip: getClientIp(req) };
     const decision = await trialDecision(stripe, { ...trialSignals, excludeUserId: body.user_id, companyId: body.company_id || null });
+    // Pågående egen provperiod: den nya prenumerationen slutar samma dag.
+    // Stripe kräver minst 48 timmar kvar; annars ingen ny provperiod.
+    if (decision.allowTrial && decision.trialEnd) {
+      if (decision.trialEnd - Math.floor(Date.now() / 1000) < 49 * 3600) { decision.allowTrial = false; decision.reasons = ['own_trial_ending']; }
+    }
     if (!decision.allowTrial) console.warn('[provperiod] ingen provperiod:', decision.reasons.join(','), body.user_id);
     const guardMetadata = {
       ...trialMetadata(trialSignals),
@@ -717,7 +730,7 @@ export default async function handler(req, res) {
       subscription_data: {
         // Ingen provperiod när samma företag, person eller nätverk redan haft
         // en (_trialGuard.js). Kortet dras då direkt, som efter en provperiod.
-        ...(decision.allowTrial ? { trial_period_days: TRIAL_DAYS } : {}),
+        ...(decision.allowTrial ? (decision.trialEnd ? { trial_end: decision.trialEnd } : { trial_period_days: TRIAL_DAYS }) : {}),
         // Sätts på själva Subscription-objektet (inte bara Sessionen) — så
         // metadata följer med automatiskt på VARJE efterföljande
         // customer.subscription.*-händelse (webhook.js), utan att behöva
