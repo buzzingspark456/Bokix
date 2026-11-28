@@ -51,7 +51,7 @@ const sek = (n) => `${numberFormat('sv-SE', { maximumFractionDigits: 0 }).format
  * @param vat             { key, label, quarter, dueDate, daysLeft } när momsen snart ska in, annars null
  * @param agi             { periodKey, dueDate, daysLeft } när AGI snart ska in, annars null
  */
-export function buildNotificationFeed({ t, invoices = [], expenses = [], integrationEvents = [], vat = null, agi = null, now = new Date() }) {
+export function buildNotificationFeed({ t, invoices = [], expenses = [], integrationEvents = [], vat = null, agi = null, payment = null, now = new Date() }) {
   const since = new Date(now.getTime() - KEEP_DAYS * DAY).toISOString();
   const items = [];
 
@@ -99,7 +99,7 @@ export function buildNotificationFeed({ t, invoices = [], expenses = [], integra
     const source = key.split('|')[0];
     const name = source === 'zettle' ? 'Zettle' : 'Stripe';
     items.push({
-      keys: list.map(ev => `${source}:${ev.id}`), at: list.map(ev => ev.at).sort().at(-1), kind: 'integration', tone: 'green',
+      keys: list.map(ev => `${source}:${ev.id}`), at: list.map(ev => ev.at).sort().at(-1), kind: 'integration', source, tone: 'green',
       title: list.length === 1 ? t('notifFeed.integrationOneTitle', { name }) : t('notifFeed.integrationManyTitle', { name, count: list.length }),
       detail: t('notifFeed.integrationDetail'),
       target: { tab: 'review' },
@@ -124,6 +124,17 @@ export function buildNotificationFeed({ t, invoices = [], expenses = [], integra
       title: t('notifFeed.agiSoonTitle', { when: when(agi.daysLeft) }),
       detail: t('notifFeed.agiDetail', { period: agi.periodKey }),
       target: { tab: 'taxes' },
+    });
+  }
+
+  // Misslyckad betalning (2026-11-27): en påminnelse per dag tills den är
+  // ordnad, så att klockan plingar igen nästa dag. Överst i listan.
+  if (payment) {
+    items.push({
+      keys: [`pay:${now.toISOString().slice(0, 10)}`], at: now.toISOString(), kind: 'payment', tone: 'red',
+      title: payment.readOnly ? t('notifFeed.payReadTitle') : t('notifFeed.payTitle'),
+      detail: payment.readOnly ? t('notifFeed.payReadDetail') : t('notifFeed.payDetail'),
+      target: { tab: 'settings_subscription' },
     });
   }
 

@@ -3,6 +3,7 @@
     "count": "{{n}} anställda med lön"
   },
   "payBanner": {
+    "leadFailedUntil": "Vi kunde inte dra månadens betalning. Allt fungerar som vanligt till {{date}}.",
     "leadFailed": "Vi kunde inte dra månadens betalning. Allt fungerar som vanligt medan du ordnar det.",
     "leadRead": "Du kan se och ladda ner allt, men inte bokföra nytt förrän betalningen är ordnad.",
     "stepFailed": "Dragningen misslyckades",
@@ -5356,6 +5357,10 @@
     "download": "Ladda ner och skriv under"
   },
   "notifFeed": {
+    "payTitle": "Betalningen gick inte igenom",
+    "payDetail": "Försök igen eller byt kort under Prenumeration",
+    "payReadTitle": "Bokix är skrivskyddat",
+    "payReadDetail": "Ordna betalningen under Prenumeration för att bokföra igen",
     "inboxDetail": "Öppna Underlag",
     "inboxOne": "Nytt underlag via mejl från {{from}}",
     "inboxMany": "{{count}} nya underlag via mejl från {{from}}",

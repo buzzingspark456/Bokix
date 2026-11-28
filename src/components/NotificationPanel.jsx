@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Bell, Banknote, CalendarClock, ChevronRight, ChevronLeft, X, Cog, Mail } from './icons';
+import { Bell, Banknote, CalendarClock, ChevronRight, ChevronLeft, X, Cog, Mail, CreditCard } from './icons';
 import { notificationWhen } from '../utils/notificationFeed';
 
 // Notispanelen under klockan (2026-11-12). Delas av appen (App.jsx) och
 // demon (DemoWorkspace.jsx), så att de alltid ser likadana ut.
 // Nytt och Tidigare, rubrik + detalj, färgad ikon per sort, Att göra längst
 // ner. Stilarna ligger i index.css (.np-*).
-const ICON = { paid: Banknote, integration: Banknote, deadline: CalendarClock, inbox: Mail };
+const ICON = { paid: Banknote, integration: Banknote, deadline: CalendarClock, inbox: Mail, payment: CreditCard };
 
 // Belopp ("72 500 kr") och fakturanummer ("Faktura 1011") i fetstil, så att
 // det viktiga syns direkt.
@@ -68,7 +68,9 @@ export default function NotificationPanel({ t, title, notifications, openedUnrea
     return (
       <div key={n.keys.join('|')} className={fresh ? 'np-item fresh' : 'np-item'}>
         <button type="button" className="np-main" onClick={() => onOpen(n)}>
-          <span className="np-icon" style={{ background: `var(--status-${n.tone}-bg)`, color: `var(--status-${n.tone}-text)` }}><Icon size={17} /></span>
+          {/* Ikonen visar vad det gäller (2026-11-27): röd betalning, blått mejl, grön
+              inbetalning, gul deadline; Stripe och Zettle med sin egen färg. */}
+          <span className={`np-icon np-tone-${n.tone}${n.source ? ` np-src-${n.source}` : ''}`}>{n.source ? <b>{n.source === 'zettle' ? 'Z' : 'S'}</b> : <Icon size={17} />}</span>
           <span className="np-body">
             <span className="np-title">{emphasize(n.title || n.text)}</span>
             {n.detail && <span className="np-detail">{emphasize(n.detail)}</span>}

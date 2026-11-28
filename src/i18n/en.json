@@ -3,6 +3,7 @@
     "count": "{{n}} employees with pay"
   },
   "payBanner": {
+    "leadFailedUntil": "We couldn't charge this month's payment. Everything works as usual until {{date}}.",
     "leadFailed": "We couldn't charge this month's payment. Everything works as usual while you sort it out.",
     "leadRead": "You can view and download everything, but not book anything new until the payment is sorted.",
     "stepFailed": "Charge failed",
@@ -5356,6 +5357,10 @@
     "download": "Download and sign"
   },
   "notifFeed": {
+    "payTitle": "The payment did not go through",
+    "payDetail": "Try again or change card under Subscription",
+    "payReadTitle": "Bokix is read-only",
+    "payReadDetail": "Sort out the payment under Subscription to book again",
     "inboxDetail": "Open Documents",
     "inboxOne": "New document by email from {{from}}",
     "inboxMany": "{{count}} new documents by email from {{from}}",

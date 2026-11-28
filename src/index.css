@@ -12341,3 +12341,25 @@ table.lt-fit td > div, table.lt-fit td > span { overflow: hidden; text-overflow:
 }
 .pay-banner-btn.is-primary { background: #d92d20; }
 .pay-banner-btn.is-primary:hover { background: #b42318; }
+/* Notiser med olika färger (2026-11-27): ikonen säger vad det gäller, den nya
+   markeringen är neutral i stället för grön. */
+.notif-dropdown.np .np-item.fresh { background: color-mix(in srgb, var(--bg-muted) 70%, transparent); }
+.notif-dropdown.np .np-item.fresh:hover { background: var(--bg-muted); }
+.notif-dropdown.np .np-item.fresh .np-icon { box-shadow: none; }
+.notif-dropdown.np .np-item .np-icon.np-tone-red, .notif-dropdown.np .np-item.fresh .np-icon.np-tone-red { background: #fdecea !important; color: #d92d20 !important; }
+.notif-dropdown.np .np-item .np-icon.np-tone-blue, .notif-dropdown.np .np-item.fresh .np-icon.np-tone-blue { background: #e8f0fe !important; color: #1d5fd6 !important; }
+.notif-dropdown.np .np-item .np-icon.np-tone-green, .notif-dropdown.np .np-item.fresh .np-icon.np-tone-green { background: #e3f4e8 !important; color: #12803a !important; }
+.notif-dropdown.np .np-item .np-icon.np-tone-amber, .notif-dropdown.np .np-item.fresh .np-icon.np-tone-amber { background: #fdf3dc !important; color: #a15c00 !important; }
+.notif-dropdown.np .np-item .np-icon.np-src-stripe, .notif-dropdown.np .np-item.fresh .np-icon.np-src-stripe { background: #635bff !important; color: #fff !important; }
+.notif-dropdown.np .np-item .np-icon.np-src-zettle, .notif-dropdown.np .np-item.fresh .np-icon.np-src-zettle { background: #1f1f1f !important; color: #fff !important; }
+.np-icon b { font-size: 16px; font-weight: 800; font-family: Inter, system-ui, sans-serif; }
+.notif-dropdown.np .np-item:has(.np-tone-red) .np-title { color: #b42318; }
+:root[data-theme="dark"] .notif-dropdown.np .np-item .np-icon.np-tone-red, :root[data-theme="dark"] .notif-dropdown.np .np-item.fresh .np-icon.np-tone-red { background: rgba(240, 68, 56, .16) !important; color: #f97066 !important; }
+:root[data-theme="dark"] .notif-dropdown.np .np-item .np-icon.np-tone-blue, :root[data-theme="dark"] .notif-dropdown.np .np-item.fresh .np-icon.np-tone-blue { background: rgba(83, 141, 255, .16) !important; color: #8ab4ff !important; }
+:root[data-theme="dark"] .notif-dropdown.np .np-item .np-icon.np-tone-green, :root[data-theme="dark"] .notif-dropdown.np .np-item.fresh .np-icon.np-tone-green { background: rgba(63, 191, 108, .16) !important; color: #6ee7a0 !important; }
+:root[data-theme="dark"] .notif-dropdown.np .np-item .np-icon.np-tone-amber, :root[data-theme="dark"] .notif-dropdown.np .np-item.fresh .np-icon.np-tone-amber { background: rgba(245, 180, 60, .16) !important; color: #fcd27b !important; }
+:root[data-theme="dark"] .notif-dropdown.np .np-item:has(.np-tone-red) .np-title { color: #fda29b; }
+/* Kom igång lägger sig inte över notispanelen. */
+body:has(.notif-dropdown) .kig, body:has(.notif-dropdown) .kig-pill { opacity: 0; pointer-events: none; }
+/* Ikonen i en notis får sin egen färg (profile-dropdown gör annars alla svg grå). */
+.notif-dropdown.np .np-icon svg { color: currentColor !important; opacity: 1 !important; }

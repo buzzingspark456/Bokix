@@ -517,6 +517,12 @@ function NotifSoundWatcher({ notifications, seenKeys, companyId, soundOn, soundI
     const known = knownRef.current;
     if (!known || known.company !== companyId) {
       knownRef.current = { company: companyId, keys: new Set(keys) };
+      // Betalningspåminnelsen plingar även när man öppnar appen (en gång per dag,
+      // nyckeln byts varje dag), inte bara när den dyker upp medan appen är öppen.
+      if (keys.some(k => k.startsWith('pay:') && !seenKeys.has(k))) {
+        onRing();
+        if (soundOn) playNotifySound(soundId);
+      }
       return;
     }
     const fresh = keys.filter(k => !known.keys.has(k) && !seenKeys.has(k));
@@ -6005,7 +6011,7 @@ function App() {
     const submitted = agiReports.some(r => r.period === d.periodKey && r.status === 'submitted');
     return booked && !submitted && d.daysLeft <= 7 ? d : null;
   })();
-  const notifications = buildNotificationFeed({ t, invoices, expenses: (UNDERLAG_FOR_ALL || isNewUnderlagUser(user?.email)) && (() => { try { return localStorage.getItem('bokix.inboxNotify') !== '0'; } catch { return true; } })() ? expenses : [], integrationEvents, vat: vatSoon, agi: agiSoon })
+  const notifications = buildNotificationFeed({ t, invoices, expenses: (UNDERLAG_FOR_ALL || isNewUnderlagUser(user?.email)) && (() => { try { return localStorage.getItem('bokix.inboxNotify') !== '0'; } catch { return true; } })() ? expenses : [], integrationEvents, vat: vatSoon, agi: agiSoon, payment: paymentAccess.failing && !sharedPaymentInfo ? { readOnly: paymentReadOnly } : null })
     .filter(n => !n.keys.every(k => dismissedNotifKeys.has(k)));
   const notificationCount = notifications.filter(n => isUnread(n, seenNotifKeys)).length;
   const toggleNotifMenu = () => {
@@ -7235,7 +7241,7 @@ function App() {
           <div className="offline-banner" role="status">{tr('ui.offline_banner')}</div>
         )}
         <div className="main-content-inner">
-          {(paymentAccess.failing || paymentReadOnly) && (
+          {paymentReadOnly && (
             <PaymentBanner
               access={paymentAccess}
               companyId={company?.requiresOwnPayment ? company.id : null}

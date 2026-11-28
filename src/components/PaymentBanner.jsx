@@ -119,15 +119,8 @@ export function PaymentFixCard({ access, companyId = null, onPaid }) {
 
   const reason = info?.declineReason || null;
   const title = readOnly ? t('payBanner.readTitle') : requiresAction ? t('payBanner.actionTitle') : t('payBanner.failedTitle');
-  const lead = readOnly ? t('payBanner.leadRead') : requiresAction ? t('payBanner.actionText') : t('payBanner.leadFailed');
-  // Tidslinjen: vad som hänt och vad som händer härnäst.
-  const now = Date.now();
-  const steps = [
-    access.failedAt && { key: 'failed', label: t('payBanner.stepFailed'), at: access.failedAt, done: true, bad: true },
-    !readOnly && info?.nextAttempt && { key: 'retry', label: t('payBanner.stepRetry'), at: Date.parse(info.nextAttempt) },
-    access.readOnlyAt && { key: 'read', label: t('payBanner.stepRead'), at: access.readOnlyAt, done: now >= access.readOnlyAt },
-    access.lockAt && { key: 'lock', label: t('payBanner.stepLock'), at: access.lockAt },
-  ].filter(Boolean);
+  const lead = readOnly ? t('payBanner.leadRead') : requiresAction ? t('payBanner.actionText')
+    : access.readOnlyAt ? t('payBanner.leadFailedUntil', { date: fmtLong(access.readOnlyAt) }) : t('payBanner.leadFailed');
 
   return (
     <section className="pay-fix" role="alert">
@@ -144,18 +137,6 @@ export function PaymentFixCard({ access, companyId = null, onPaid }) {
           <CreditCard size={15} />
           <span>{cardText && <b>{cardText}</b>}{cardText && reason ? ' · ' : ''}{reason}</span>
         </div>
-      )}
-
-      {steps.length > 1 && (
-        <ol className="pay-fix-steps">
-          {steps.map(st => (
-            <li key={st.key} className={`${st.done ? 'is-done' : ''}${st.bad ? ' is-bad' : ''}`}>
-              <i aria-hidden="true" />
-              <b>{st.label}</b>
-              <span>{fmtLong(st.at)}</span>
-            </li>
-          ))}
-        </ol>
       )}
 
       {message?.tone === 'error' && <div className="pay-fix-err">{message.text}</div>}

@@ -83,6 +83,13 @@ await page.addInitScript(() => { const s = () => { const st = document.createEle
 await page.goto(BASE + '/?app=1#invoices');
 await page.waitForTimeout(6000);
 const tag = `${MODE}-${WIDTH}${process.env.DARK ? '-dark' : ''}`;
+// NOTIS-KOLL
+console.log('klockan plingade:', await page.locator('.bell-ring, [class*=ring]').count(), '| röd prick:', await page.locator('.notif-badge, [class*=badge]').first().innerText().catch(() => '?'));
+await page.goto(BASE + '/?app=1#dashboard'); await page.waitForTimeout(3500);
+console.log('pling vid start:', await page.locator('.bell-ring').count());
+await page.locator('.topbar-icon-btn[title=Notiser]').first().click().catch(() => {}); await page.waitForTimeout(600);
+console.log('notisen:', (await page.locator('.np-title').first().innerText().catch(() => '(ingen)')));
+await page.screenshot({ path: 'test-results/betalning-' + tag + '-notis.png' }); await page.keyboard.press('Escape');
 const banner = await page.locator('.pay-banner').first().innerText().catch(() => '(ingen banner)');
 console.log('banner:', banner.replace(/\s+/g, ' ').slice(0, 260));
 console.log('betalsidan visas:', await page.locator('text=Din bokföring finns kvar').count() > 0 || await page.locator('.payment-gate, [data-gate]').count() > 0);
