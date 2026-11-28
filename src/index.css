@@ -12523,3 +12523,26 @@ body:has(.notif-dropdown) .kig, body:has(.notif-dropdown) .kig-pill { opacity: 0
   .invoice-toolbar button:hover:not(:disabled) { background: var(--bg-muted) !important; }
 }
 @media (max-width: 1100px) { .doc-head-send { display: none; } }
+/* Att granska snyggare (2026-11-27): lätt grupprubrik, cirkel med initial,
+   markerad rad vid hovring. */
+.rq-section { position: static !important; padding: 16px 20px 6px !important; background: transparent !important; border-bottom: none !important; font-size: 11.5px !important; color: var(--text-muted) !important; }
+.rq-row + .rq-section { border-top: none !important; }
+.rqt-main { padding: 8px 16px 8px 20px; min-height: 56px; }
+.rqt:hover { background: color-mix(in srgb, var(--bg-muted) 60%, transparent); }
+.rqt.is-open { background: var(--bg-muted); }
+.rqt-name { flex-direction: row; align-items: center; gap: 12px; }
+.rqt-name-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.rqt-av { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px; background: hsl(var(--h, 140) 42% 90%); color: hsl(var(--h, 140) 45% 28%); font-size: 14px; font-weight: 750; }
+:root[data-theme="dark"] .rqt-av { background: hsl(var(--h, 140) 28% 22%); color: hsl(var(--h, 140) 55% 80%); }
+.rqt-amount { font-size: 14.5px; font-weight: 700; }
+.rqt + .rqt { border-top: 1px solid var(--border-light); margin: 0 16px; padding: 0; }
+.rqt + .rqt .rqt-main { padding-left: 4px; padding-right: 0; }
+.rqt:first-of-type .rqt-main, .rq-section + .rqt .rqt-main { padding-left: 20px; }
+/* Underlag och Mejl: tätare rader på dator, som de andra listorna. */
+@media (min-width: 761px) {
+  .ut-table td { padding-top: 7px; padding-bottom: 7px; }
+  .ut-thumb .rc-row-thumb { width: 26px; height: 32px; }
+  .mc-item { padding: 8px 12px 8px 22px; gap: 2px; }
+  .mc-dot { top: 14px; }
+  .mc-item-foot { margin-top: 1px; }
+}

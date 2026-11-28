@@ -156,8 +156,10 @@ function ThinReviewRow({ item, accounts, onApprove, onReject, exiting, selected,
           title={item.account ? t('ui.markera_for_att_godkanna_flera_pa_en_gang') : t('ui.posten_saknar_konto')}
         />
         <button type="button" className="rqt-name" onClick={() => setOpen(o => !o)} aria-expanded={open}>
-          <b>{who}</b>
-          <small>{kind} · {formatDate(item.date)}{Number(item.vatAmount) ? ` · ${t('underlag.rowVat', { kr: formatSEK(item.vatAmount) })}` : ''}</small>
+          {/* Cirkel med initialen, samma färg för samma leverantör (som i Mejl). */}
+          <span className="rqt-av" aria-hidden="true" style={{ '--h': [...String(who || '')].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 0) }}>{String(who || '?').trim().charAt(0).toUpperCase()}</span>
+          <span className="rqt-name-text"><b>{who}</b>
+          <small>{kind} · {formatDate(item.date)}{Number(item.vatAmount) ? ` · ${t('underlag.rowVat', { kr: formatSEK(item.vatAmount) })}` : ''}</small></span>
         </button>
         <span className="rqt-amount">{Number(item.amount) ? formatSEK(item.amount) : '–'}</span>
         <div className="rqt-account">

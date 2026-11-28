@@ -9,6 +9,10 @@ import { useLayoutEffect } from 'react';
 // den i sidled hellre än att klippa siffror. Används av ListTable och de
 // egna tabellerna (Artiklar, Order, Underlag).
 
+// Kolumner som sidan själv döljer (display: none) finns inte i tabellens rutnät
+// och får ingen <col>, annars förskjuts bredderna ett steg (Artiklar 2026-11-27).
+const shown = (c) => c && getComputedStyle(c).display !== 'none';
+
 const KEEP = 100; // kolumner smalare än så krymps aldrig
 const MIN = 72;   // ingen textkolumn krymps under så här
 // Tal, belopp, datum och nummer: siffror med tecken och enheter, även det
@@ -42,7 +46,7 @@ export function fitTable(table, wrap, hide = 0) {
   table.classList.add('lt-tight');
   if (fits()) return;
 
-  const cells = [...head.cells].filter(c => !c.hasAttribute('data-fit-hide'));
+  const cells = [...head.cells].filter(c => !c.hasAttribute('data-fit-hide') && shown(c));
   if (cells.some(c => c.colSpan > 1)) return;
   // offsetWidth, inte getBoundingClientRect: appen är zoomad till 90 % på dator,
   // och kolumnbredderna sätts i samma (ozoomade) enhet som clientWidth.
@@ -107,14 +111,15 @@ function hideOrder(table) {
 // kolumnerna ligger jämnt oavsett hur många som visas.
 function spread(table, avail) {
   const head = table.tHead?.rows?.[0];
-  const cells = head ? [...head.cells] : [];
+  const all = head ? [...head.cells] : [];
+  const cells = all.filter(shown);
   if (!cells.length || cells.some(c => c.colSpan > 1)) return;
   table.style.width = 'auto';
   const raw = cells.map(c => c.offsetWidth);
   table.style.width = '100%';
   const body = table.tBodies?.[0]?.rows?.[0];
-  if (!body || body.cells.length !== cells.length) return;
-  const text = cells.map((c, i) => { const txt = (body.cells[i]?.textContent || '').trim(); return raw[i] > 60 && txt.length > 0 && !NUMERIC.test(txt); });
+  if (!body || body.cells.length !== all.length) return;
+  const text = cells.map((c, i) => { const txt = (body.cells[c.cellIndex]?.textContent || '').trim(); return raw[i] > 60 && txt.length > 0 && !NUMERIC.test(txt); });
   const base = raw.map((x, i) => (text[i] ? x : x + 2)); // 2 px marginal mot avrundning
   const extra = avail - base.reduce((a, b) => a + b, 0) - 2;
   const textSum = raw.reduce((a, x, i) => a + (text[i] ? x : 0), 0);
