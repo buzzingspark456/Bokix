@@ -40,7 +40,7 @@ import { downloadSie4 } from '../utils/sieExport';
 import { exportVerificationsToExcel, fiscalYearChoices, verificationsInRange } from '../utils/excelExport';
 import { downloadUnderlagZip } from '../utils/underlagExport';
 import { companyFiscalYearSetting, fiscalYearBounds } from '../utils/reportCalculations';
-import { planFromId, PLAN_TIERS, TRADE_TIER, invitedUserLimit, ACCOUNTANT_SEATS } from '../utils/plans';
+import { planFromId, PLAN_TIERS, TRADE_TIER, PLAN_LIMITS, PLAN_FEATURES, invitedUserLimit, ACCOUNTANT_SEATS } from '../utils/plans';
 import { isAdminPreview } from '../utils/adminPreview';
 import { ACCESS_PAGES, ACCESS_LEVELS, defaultPageAccess, accessForPage, canWriteField, ACCOUNTANT_PRESET, accountantPageAccess } from '../utils/pageAccess';
 import { isUfCompany, ufSettingsSections, ufFreePeriod, UF_FREE_MONTHS } from '../utils/ufMode';
@@ -2645,6 +2645,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
             <div className="sub-panel">
               <div className="sub-panel-head">
                 <div>
+                  <span className="pp-brand"><BokixWordmark height={22} /></span>
                   <h3>{tr('sub.changePlan')}</h3>
                   <p>{tr('sub.changeLead')}</p>
                 </div>
@@ -2663,11 +2664,6 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
                 const tiers = admin ? [...PLAN_TIERS, TRADE_TIER] : PLAN_TIERS;
                 const NAMES = admin ? { solo: 'Bas', employer: 'Personal', trade: 'Handel' } : {};
                 const ICONS = { solo: Receipt, employer: Users, trade: Package };
-                const FEATURES = {
-                  solo: [tr('planPick.f_book'), tr('planPick.f_scan'), tr('planPick.f_vat')],
-                  employer: [tr('planPick.f_pay'), tr('planPick.f_agi'), tr('planPick.f_outlays')],
-                  trade: [tr('planPick.f_orders'), tr('planPick.f_stock'), tr('planPick.f_buy')],
-                };
                 const order = tiers.map(x => x.id);
                 return (
                   <div className={`sub-plans pp-grid pp-n${tiers.length}`}>
@@ -2687,9 +2683,14 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
                           <span className="pp-who">{p.subtitle}</span>
                           <div className="pp-price"><strong>{p.price}</strong><span>{tr('ui.kr_man_2')}</span></div>
                           {p.savingPerYear > 0 && <span className="pp-save">{tr('planPick.save', { amount: p.savingPerYear })}</span>}
+                          <div className="pp-limits">
+                            <span><b>{PLAN_LIMITS[tier.id]?.ocrPerMonth?.toLocaleString('sv-SE')}</b> {tr('planPick.ocrUnit')}</span>
+                            <span><b>{PLAN_LIMITS[tier.id]?.invites}</b> {tr(PLAN_LIMITS[tier.id]?.invites === 1 ? 'planPick.inviteOne' : 'planPick.inviteMany')}</span>
+                          </div>
                           <ul className="pp-list">
                             {below && <li className="pp-lead">{tr('planPick.allIn', { name: below })}</li>}
-                            {(FEATURES[tier.id] || []).map(x => <li key={x}><Check size={14} /> {x}</li>)}
+                            {(PLAN_FEATURES[tier.id] || []).flatMap(g => g.items).map(x => <li key={x}><Check size={14} /> {tr(`planPick.${x}`)}</li>)}
+                            <li className="pp-free"><Check size={14} /> {tr('planPick.f_accountant')}</li>
                           </ul>
                           {p.minimumMonths > 0 && <span className="sub-plan-note">{tr('sub.minimum', { n: p.minimumMonths })}</span>}
                           {soon

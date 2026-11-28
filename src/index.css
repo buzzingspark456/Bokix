@@ -12457,3 +12457,15 @@ body:has(.notif-dropdown) .kig, body:has(.notif-dropdown) .kig-pill { opacity: 0
 :root[data-theme="dark"] .pp-card.is-current, :root[data-theme="dark"] .pp-card.is-picked { border-color: #3fbf6c; }
 :root[data-theme="dark"] .pp-flag { background: #3fbf6c; color: #06240f; }
 :root[data-theme="dark"] .pp-list li svg { color: #3fbf6c; }
+
+/* Planerna: allt man får och gränserna (2026-11-27). */
+.pp-brand { display: inline-flex; margin-bottom: 8px; }
+.pp-limits { display: grid; gap: 4px; margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--bg-muted); font-size: 12.5px; color: var(--text-secondary); }
+.pp-limits b { color: var(--text-main); font-weight: 750; font-variant-numeric: tabular-nums; }
+.pp-list { gap: 6px; font-size: 12.8px; }
+.pp-list .pp-free { color: var(--text-secondary); }
+.pp-trade.pp-card { background: linear-gradient(180deg, color-mix(in srgb, #f59e0b 5%, var(--bg-card)), var(--bg-card) 40%); }
+.pp-list { flex: 0 0 auto; justify-content: flex-start; }
+.pp-list li { flex: 0 0 auto; }
+.pp-card .pp-pick, .pp-card .pp-soon { margin-top: auto; }
+.pp-card .pp-list { margin-bottom: 16px; }

@@ -33,7 +33,7 @@ const PLANS = [
     ],
   },
   {
-    id: 'handel', name: 'Handel', who: 'För dig som säljer varor', price: 299, yearly: 259, popular: true,
+    id: 'handel', name: 'Handel', who: 'För dig som säljer varor', price: 349, yearly: 299, popular: true,
     pitch: 'Från offert till order, leverans och faktura, med lagret som räknar själv.',
     lead: 'Allt i Personal, och',
     features: [

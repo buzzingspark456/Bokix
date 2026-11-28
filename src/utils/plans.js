@@ -83,10 +83,37 @@ export const TRADE_TIER = {
   id: 'trade',
   name: 'Handel',
   subtitle: 'För dig som säljer varor',
-  monthlyPrice: 299,
-  yearlyMonthlyPrice: 259,
+  // Grundarens pris 2026-11-27: 349 kr, årsplan 299 kr/mån.
+  monthlyPrice: 349,
+  yearlyMonthlyPrice: 299,
   includesPayroll: true,
   includesTrade: true,
+};
+
+/**
+ * Vad varje nivå innehåller och dess gränser (2026-11-27), ett ställe för
+ * planvalet i appen och prissidan. ocrPerMonth = kvittoavläsningar per månad
+ * (grundarens förslag att bekräfta; spärren byggs i servern). invites =
+ * personer man kan bjuda in utöver konsult/revisor (se invitedUserLimit).
+ */
+export const PLAN_LIMITS = {
+  solo: { ocrPerMonth: 100, invites: 1 },
+  employer: { ocrPerMonth: 300, invites: 2 },
+  trade: { ocrPerMonth: 1000, invites: 2 },
+};
+
+/** Innehållet per nivå i grupper, nyckel = i18n under planPick.*. */
+export const PLAN_FEATURES = {
+  solo: [
+    { group: 'book', items: ['f_book', 'f_invoices', 'f_supplier', 'f_bank'] },
+    { group: 'tax', items: ['f_vat', 'f_annual', 'f_sie'] },
+  ],
+  employer: [
+    { group: 'pay', items: ['f_pay', 'f_agi', 'f_outlays', 'f_payfile'] },
+  ],
+  trade: [
+    { group: 'trade', items: ['f_orders', 'f_stock', 'f_buy', 'f_price', 'f_docs'] },
+  ],
 };
 
 export function getTier(tierId) {
