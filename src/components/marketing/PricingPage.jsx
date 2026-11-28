@@ -167,7 +167,6 @@ export default function PricingPage({ locale = 'sv' }) {
         .pp-table { margin-top: 32px; border: 1px solid var(--mkt-card-border); border-radius: 22px; background: var(--mkt-card-bg); }
         .pp-row { display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr)); }
         .pp-card.soon { background: var(--mkt-card-bg); }
-        .pp-card.soon .pp-price { color: ${MUTED}; }
         .pp-btn:disabled { cursor: default; opacity: .55; }
         .pp-soon-tag { position: absolute; top: -13px; left: 30px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 10px; background-color: var(--mkt-card-bg) !important; border-radius: 999px; border: 1px solid color-mix(in srgb, ${G} 30%, transparent); background: color-mix(in srgb, ${G} 9%, transparent); font-size: 12.5px; font-weight: 700; color: var(--mkt-accent-green-fg, ${G}); }
         .pp-soon-tag i { width: 7px; height: 7px; border-radius: 50%; background: #2fbf63; }
