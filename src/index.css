@@ -12546,3 +12546,30 @@ body:has(.notif-dropdown) .kig, body:has(.notif-dropdown) .kig-pill { opacity: 0
   .mc-dot { top: 14px; }
   .mc-item-foot { margin-top: 1px; }
 }
+/* Listor: luft efter en högerjusterad kolumn (Belopp → Status). */
+table th.fit-gap, table td.fit-gap { padding-left: 32px !important; }
+/* Cookierutan: liten och lugn nere till vänster (2026-11-27). */
+.ck { position: fixed; left: 16px; bottom: 16px; z-index: 2000; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; width: 380px; max-width: calc(100vw - 32px); padding: 12px 14px; border: 1px solid var(--border-light); border-radius: 14px; background: var(--bg-card); box-shadow: 0 10px 30px rgba(15, 23, 42, .14); font-family: Inter, system-ui, sans-serif; animation: ck-in .25s ease; }
+@keyframes ck-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.ck-ico { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 30px; height: 30px; border-radius: 9px; background: color-mix(in srgb, #d9a441 16%, transparent); }
+.ck-text { flex: 1 1 260px; min-width: 0; margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--text-secondary); }
+.ck-text a { color: var(--text-main); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.ck-actions { display: flex; gap: 8px; width: 100%; }
+.ck-actions button { flex: 1; height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg-card); color: var(--text-main); font: inherit; font-size: 12.5px; font-weight: 650; white-space: nowrap; cursor: pointer; }
+.ck-actions button:hover { background: var(--bg-muted); }
+@media (max-width: 640px) {
+  .ck { left: 8px; right: 8px; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); width: auto; max-width: none; padding: 10px 12px; }
+}
+/* Underlag på halv skärm och laptop (761–1099 px): listan som tabell, inte
+   kort. Korten bara på telefon (2026-11-27). */
+@media (min-width: 761px) and (max-width: 1099px) {
+  .ut-table-wrap { border: 1px solid var(--border) !important; background: var(--bg-card) !important; overflow: auto !important; }
+  .ut-table { display: table !important; }
+  .ut-table thead { display: table-header-group !important; }
+  .ut-table tbody { display: table-row-group !important; }
+  .ut-table tr { display: table-row !important; margin: 0 !important; padding: 0 !important; border: none !important; border-radius: 0 !important; background: none !important; }
+  .ut-table tr td { display: table-cell !important; padding: 7px 10px !important; border-bottom: 1px solid var(--border-light) !important; }
+  .ut-table th { display: table-cell !important; }
+  .ut-table tr:has(td.ut-empty) { display: table-row !important; }
+}
+@media (min-width: 761px) and (max-width: 1099px) { .ut-table-wrap { flex: 0 1 auto !important; height: auto !important; } }

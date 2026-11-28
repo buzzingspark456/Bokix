@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BokixWordmark } from './marketing/MarketingLayout';
-import { BRAND } from '../utils/brandColors';
 import { CookieFilled } from './icons';
 import { getStoredConsent, storeConsent, updateGtagConsent, updateClarityConsent, updatePosthogConsent } from '../utils/consent';
 
@@ -73,54 +71,19 @@ export default function CookieBanner() {
 
   if (!visible || !ready) return null;
 
-  const buttonStyle = {
-    flex: 1, minWidth: '140px', minHeight: '44px', padding: '10px 8px', whiteSpace: 'nowrap', background: BRAND.green, border: 'none',
-    borderRadius: '9px', color: '#fff', fontWeight: 700, fontSize: '14px', fontFamily: 'inherit', cursor: 'pointer',
-  };
-
-  const kinds = [
-    { title: 'Nödvändiga', text: 'Behövs för inloggning och för att Bokix ska fungera.' },
-    { title: 'Statistik', text: 'Google Analytics, Microsoft Clarity och PostHog visar oss hur Bokix används, så att vi kan göra det bättre.' },
-  ];
-
-  // pointerEvents: ytan runt kortet släpper igenom klick, sidan bakom går att använda.
+  // Liten och lugn (2026-11-27, grundaren: 'stör inte, inte så mycket plats'):
+  // en ruta nere till vänster med en rad text och två lika knappar. Inget är
+  // förvalt och knapparna väger lika, så valet är fortfarande ärligt.
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '16px', pointerEvents: 'none' }}>
-      <div
-        role="dialog"
-        aria-label="Cookies"
-        style={{
-          width: '100%', maxWidth: '560px', maxHeight: '100%', overflowY: 'auto', pointerEvents: 'auto', boxSizing: 'border-box',
-          background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: '0 16px 48px rgba(15,23,42,0.28)',
-        }}
-      >
-        <div style={{ padding: '18px 22px 14px', borderBottom: '1px solid var(--border-light)' }}>
-          <BokixWordmark height={24} />
-        </div>
-        <div style={{ padding: '16px 22px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-            <span aria-hidden="true" style={{ width: 34, height: 34, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: '10px', background: 'color-mix(in srgb, #d9a441 18%, transparent)' }}>
-              <CookieFilled size={21} color="#c98a2b" />
-            </span>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>Den här webbplatsen använder cookies</div>
-          </div>
-          <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
-            Vi använder cookies för att Bokix ska fungera och för att förstå hur tjänsten används.{' '}
-            <Link to="/cookies" style={{ color: BRAND.greenDark, fontWeight: 600, textDecoration: 'underline' }}>Läs vår cookiepolicy</Link>
-          </p>
-          <div style={{ margin: '12px 0 16px', border: '1px solid var(--border-light)', borderRadius: '10px' }}>
-            {kinds.map((k, i) => (
-              <div key={k.title} style={{ padding: '10px 12px', borderTop: i ? '1px solid var(--border-light)' : 'none' }}>
-                <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-main)' }}>{k.title}</div>
-                <div style={{ marginTop: '2px', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.45 }}>{k.text}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: '10px', padding: '0 22px 18px', flexWrap: 'wrap' }}>
-          <button type="button" onClick={() => choose(false)} style={buttonStyle}>Endast nödvändiga</button>
-          <button type="button" onClick={() => choose(true)} style={buttonStyle}>Acceptera alla</button>
-        </div>
+    <div className="ck" role="dialog" aria-label="Cookies">
+      <span className="ck-ico" aria-hidden="true"><CookieFilled size={18} color="#c98a2b" /></span>
+      <p className="ck-text">
+        Vi använder cookies för inloggning och för att förstå hur Bokix används.{' '}
+        <Link to="/cookies">Läs mer</Link>
+      </p>
+      <div className="ck-actions">
+        <button type="button" onClick={() => choose(false)}>Endast nödvändiga</button>
+        <button type="button" onClick={() => choose(true)}>Acceptera alla</button>
       </div>
     </div>
   );

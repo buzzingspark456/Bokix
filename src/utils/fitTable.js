@@ -13,6 +13,7 @@ import { useLayoutEffect } from 'react';
 // och får ingen <col>, annars förskjuts bredderna ett steg (Artiklar 2026-11-27).
 const shown = (c) => c && getComputedStyle(c).display !== 'none';
 
+const PRIMARY_EXTRA = 120; // mest extra luft namnkolumnen får när tabellen ryms
 const KEEP = 100; // kolumner smalare än så krymps aldrig
 const MIN = 72;   // ingen textkolumn krymps under så här
 // Tal, belopp, datum och nummer: siffror med tecken och enheter, även det
@@ -24,6 +25,7 @@ export function fitTable(table, wrap, hide = 0) {
   if (!table || !wrap) return;
   table.classList.remove('lt-nowrap', 'lt-tight', 'lt-fit');
   table.querySelectorAll('[data-fit-hide]').forEach(el => { el.style.display = ''; el.removeAttribute('data-fit-hide'); });
+  table.querySelectorAll('.fit-gap').forEach(el => el.classList.remove('fit-gap'));
   table.style.tableLayout = '';
   table.style.width = '100%';
   const old = table.querySelector('colgroup[data-fit]');
@@ -42,7 +44,7 @@ export function fitTable(table, wrap, hide = 0) {
   }
 
   table.classList.add('lt-nowrap');
-  if (fits()) { spread(table, avail); return; }
+  if (fits()) { spread(table, avail); gapAfterNumbers(table); return; }
   table.classList.add('lt-tight');
   if (fits()) return;
 
@@ -106,9 +108,10 @@ function hideOrder(table) {
   return out;
 }
 
-// Ryms tabellen: nummer, datum och belopp får exakt sin bredd, och den
-// överblivna platsen går till textkolumnerna (namn, e-post, ort …), så att
-// kolumnerna ligger jämnt oavsett hur många som visas.
+// Ryms tabellen (2026-11-27): varje kolumn får sin naturliga bredd och samma
+// luft, och hela den överblivna bredden går till namnkolumnen (första
+// textkolumnen). Tidigare delades den på alla textkolumner, så att få valda
+// kolumner gav stora, ojämna luckor mellan dem.
 function spread(table, avail) {
   const head = table.tHead?.rows?.[0];
   const all = head ? [...head.cells] : [];
@@ -119,18 +122,46 @@ function spread(table, avail) {
   table.style.width = '100%';
   const body = table.tBodies?.[0]?.rows?.[0];
   if (!body || body.cells.length !== all.length) return;
-  const text = cells.map((c, i) => { const txt = (body.cells[c.cellIndex]?.textContent || '').trim(); return raw[i] > 60 && txt.length > 0 && !NUMERIC.test(txt); });
-  const base = raw.map((x, i) => (text[i] ? x : x + 2)); // 2 px marginal mot avrundning
+  const isText = cells.map((c, i) => { const txt = (body.cells[c.cellIndex]?.textContent || '').trim(); return raw[i] > 60 && txt.length > 0 && !NUMERIC.test(txt); });
+  const labelled = cells.map(c => (c.textContent || '').trim().length > 0 && !c.querySelector('input'));
+  // Namnkolumnen: första textkolumnen som är nästan lika bred som den bredaste
+  // (så att ett kort nummer som O-1003 inte räknas som namn).
+  const widest = Math.max(0, ...raw.filter((x, i) => isText[i] && labelled[i]));
+  let primary = cells.findIndex((c, i) => isText[i] && labelled[i] && raw[i] >= widest * 0.7);
+  if (primary < 0) primary = isText.indexOf(true);
+  if (primary < 0) return;
+  const base = raw.map((x, i) => (i === primary ? x : x + 2)); // 2 px marginal mot avrundning
   const extra = avail - base.reduce((a, b) => a + b, 0) - 2;
-  const textSum = raw.reduce((a, x, i) => a + (text[i] ? x : 0), 0);
-  if (extra <= 0 || textSum <= 0) return;
-  const next = base.map((x, i) => Math.floor(text[i] ? x + extra * (x / textSum) : x));
+  if (extra <= 0) return;
+  // Namnet får högst PRIMARY_EXTRA px; resten delas lika mellan de andra
+  // kolumnerna med rubrik, så att mellanrummen blir jämna (inte en stor tom yta).
+  const others = cells.map((c, i) => i !== primary && labelled[i]);
+  const nOthers = others.filter(Boolean).length;
+  const toPrimary = nOthers ? Math.min(extra, PRIMARY_EXTRA) : extra;
+  const each = nOthers ? (extra - toPrimary) / nOthers : 0;
+  const next = base.map((x, i) => Math.floor(i === primary ? x + toPrimary : others[i] ? x + each : x));
   const cg = document.createElement('colgroup');
   cg.setAttribute('data-fit', '');
-  next.forEach(px => { const col = document.createElement('col'); col.style.width = `${px}px`; cg.appendChild(col); });
+  next.forEach(px => { const col = document.createElement('col'); col.style.width = px + 'px'; cg.appendChild(col); });
   table.insertBefore(cg, table.firstChild);
   table.style.tableLayout = 'fixed';
   table.style.width = '100%';
+}
+
+// En vänsterjusterad kolumn direkt efter en högerjusterad (Belopp → Status)
+// hamnar annars kant i kant: den får extra luft till vänster (2026-11-27).
+function gapAfterNumbers(table) {
+  const head = table.tHead?.rows?.[0];
+  const body = table.tBodies?.[0]?.rows?.[0];
+  if (!head || !body || body.cells.length !== head.cells.length) return;
+  const idx = [...head.cells].map((c, i) => i).filter(i => shown(head.cells[i]));
+  const align = (i) => getComputedStyle(body.cells[i]).textAlign;
+  for (let k = 0; k < idx.length - 1; k++) {
+    const a = idx[k], b = idx[k + 1];
+    if (!/right|end/.test(align(a)) || /right|end/.test(align(b))) continue;
+    if (!(head.cells[b].textContent || '').trim()) continue;
+    [...table.rows].forEach(r => { if (r.cells.length === head.cells.length) r.cells[b].classList.add('fit-gap'); });
+  }
 }
 
 /** Kör fitTable när innehållet ändras och när ytan byter bredd. */

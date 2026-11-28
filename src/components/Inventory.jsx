@@ -205,10 +205,9 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
     return { ...line, min, status, salePrice: Number(g.unitPrice) || 0, unit: g.unit || tr('ui.st') };
   });
   const order = { low: 0, out: 1, ok: 2, none: 3 };
-  const tracked = allRows.filter(r => r.status !== 'none');
   const q = search.trim().toLowerCase();
   const rows = allRows
-    .filter(r => (filter === 'all' ? r.status !== 'none' : filter === 'instock' ? r.qty > 0 : r.status === filter))
+    .filter(r => (filter === 'all' ? true : filter === 'instock' ? r.qty > 0 : r.status === filter))
     .filter(r => !q || r.description.toLowerCase().includes(q) || (r.articleNumber || '').toLowerCase().includes(q) || (supplierOf(r.articleId) || '').toLowerCase().includes(q) || String(locationOf(r.articleId) || '').toLowerCase().includes(q))
     .sort((a, b) => order[a.status] - order[b.status] || a.description.localeCompare(b.description, 'sv'));
   const count = (s) => allRows.filter(r => r.status === s).length;
@@ -544,7 +543,7 @@ export default function Inventory({ articles = [], invoices = [], expenses = [],
                     </div>
                   )}
                   <ChipFilter label={tr('artReg.filter')} value={filter} onChange={(id) => { setFilter(id); setGoodsPage(0); }}
-                    items={[['all', tr('accr.filterAll'), tracked.length], ['instock', tr('lager.inStockPill'), inStock.length], ['low', tr('lager.low'), count('low'), 'low'], ['out', tr('lager.outOfStock'), count('out'), 'out'], ...(count('none') ? [['none', tr('lager.untracked'), count('none')]] : [])]} />
+                    items={[['all', tr('accr.filterAll'), allRows.length], ['instock', tr('lager.inStockPill'), inStock.length], ['low', tr('lager.low'), count('low'), 'low'], ['out', tr('lager.outOfStock'), count('out'), 'out'], ...(count('none') ? [['none', tr('lager.untracked'), count('none')]] : [])]} />
                 </div>}
                 {view === 'moves' && (
                   <div className="lg-listtools">
