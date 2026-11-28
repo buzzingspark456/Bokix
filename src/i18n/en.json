@@ -6717,6 +6717,8 @@
     "receiptCopy": "Copy of receipts"
   },
   "planPick": {
+    "c_skatteverket": "Swedish Tax Agency",
+    "c_bolagsverket": "Companies Registration Office",
     "f_ver": "Vouchers, chart of accounts and ledger",
     "f_invoices": "Invoices and quotes with Pay now",
     "f_scan": "Receipt scanning from photo, PDF and email",
@@ -6739,7 +6741,6 @@
     "c_stripe": "Stripe",
     "c_zettle": "Zettle",
     "c_gmail": "Gmail",
-    "c_sie": "SIE",
     "ocrUnit": "receipt scans per month",
     "inviteOne": "person to invite",
     "inviteMany": "people to invite",

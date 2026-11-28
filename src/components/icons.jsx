@@ -150,6 +150,7 @@ export const Minus = make(MdOutlineRemove, 'Minus');
 export const Moon = make(MdOutlineDarkMode, 'Moon');
 export const MoreVertical = make(MdOutlineMoreVert, 'MoreVertical');
 export const Package = make(MdOutlineInventory2, 'Package');
+export const Store = make(MdOutlineStorefront, 'Store');
 export const PackageMinus = make(MdOutlineDeleteSweep, 'PackageMinus');
 export const Palette = make(MdOutlinePalette, 'Palette');
 export const Palmtree = make(MdOutlineBeachAccess, 'Palmtree');

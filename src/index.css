@@ -12487,3 +12487,8 @@ body:has(.notif-dropdown) .kig, body:has(.notif-dropdown) .kig-pill { opacity: 0
 :root[data-theme="dark"] .pp-fico { background: rgba(63, 191, 108, .16); color: #6ee7a0; }
 :root[data-theme="dark"] .pp-employer .pp-fico { background: rgba(83, 141, 255, .16); color: #8ab4ff; }
 :root[data-theme="dark"] .pp-trade .pp-fico { background: rgba(245, 180, 60, .16); color: #fcd27b; }
+/* Riktiga loggor för kopplingarna i planvalet. */
+.pp-conn-list { align-items: center; gap: 8px; }
+.pp-logo { display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 10px; border: 1px solid var(--border-light); border-radius: 8px; background: #fff; }
+.pp-logo img, .pp-logo svg { max-height: 16px; width: auto; }
+.pp-logo-skatteverket img, .pp-logo-bolagsverket img, .pp-logo-skatteverket svg, .pp-logo-bolagsverket svg { max-height: 22px; }

@@ -9,13 +9,14 @@ import {
   Palette, Hash, Calendar, X, ZoomIn, ZoomOut, Maximize2, ExternalLink, Sun, Moon,
   UserRound, Users, Cog, ArrowLeft, ArrowRight,
   Sparkles, CheckCircle2, HelpCircle, LogOut, Search, ChevronRight, Fingerprint, CalendarFilled, MailFilled, BankFilled, Copy,
-  FileText, BookOpen, Plug, Bell, ChevronLeft, Package, Receipt } from './icons';
+  FileText, BookOpen, Plug, Bell, ChevronLeft, Package, Receipt, User, Store } from './icons';
 import { supabase } from '../supabaseClient';
 import { passkeysAvailable, isPasskeyCancel, isPasskeyAlreadyOnDevice, appLockEnabledFor, setAppLock, rememberPasskeyOnDevice } from '../utils/sessionPolicy';
 import { sendInvoiceEmail } from '../emailApi';
 import { cancelStripeSubscription, changeStripePlan, reactivateStripeSubscription, openBillingPortal, getSubscriptionInvoices, syncStripeSubscription, billingCcEmail } from '../stripeApi';
 import BokixWordmark from './shared/BokixWordmark';
 import * as PlanIcons from './icons';
+
 import { BRAND } from '../utils/brandColors';
 import InvoiceDocument, { INVOICE_TEMPLATES, DEFAULT_INVOICE_TEMPLATE } from './InvoiceDocument';
 import { useIsMobileViewport } from '../hooks/useIsMobileViewport';
@@ -2664,7 +2665,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
                 const admin = isAdminPreview();
                 const tiers = admin ? [...PLAN_TIERS, TRADE_TIER] : PLAN_TIERS;
                 const NAMES = admin ? { solo: 'Bas', employer: 'Personal', trade: 'Handel' } : {};
-                const ICONS = { solo: Receipt, employer: Users, trade: Package };
+                const ICONS = { solo: User, employer: Users, trade: Store };
                 const order = tiers.map(x => x.id);
                 return (
                   <div className={`sub-plans pp-grid pp-n${tiers.length}`}>
@@ -2699,7 +2700,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
                           {idx === 0 && (
                             <div className="pp-conn">
                               <span>{tr('planPick.connections')}</span>
-                              <span className="pp-conn-list">{PLAN_CONNECTIONS.map(c => <i key={c} className={`pp-c pp-c-${c}`}>{tr(`planPick.c_${c}`)}</i>)}</span>
+                              <span className="pp-conn-list">{PLAN_CONNECTIONS.map(c => { const Logo = { stripe: StripeLogo, zettle: ZettleLogo, gmail: GmailLogo }[c]; return <span key={c} className={`pp-logo pp-logo-${c}`} title={tr(`planPick.c_${c}`)}>{Logo ? <Logo height={16} /> : tr(`planPick.c_${c}`)}</span>; })}</span>
                             </div>
                           )}
                           {p.minimumMonths > 0 && <span className="sub-plan-note">{tr('sub.minimum', { n: p.minimumMonths })}</span>}

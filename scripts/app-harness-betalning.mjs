@@ -105,6 +105,8 @@ if (MODE === 'failed') {
   await page.locator('.plan-card-btn').first().click().catch(() => {}); await page.waitForTimeout(700);
   console.log('planer:', (await page.locator('.pp-name').allInnerTexts()).join(' / '));
   await page.screenshot({ path: 'test-results/betalning-' + tag + '-planer.png' });
+  await page.locator('.pp-conn').first().scrollIntoViewIfNeeded().catch(() => {}); await page.waitForTimeout(300);
+  await page.screenshot({ path: 'test-results/betalning-' + tag + '-planer-loggor.png' });
   await page.locator('.sub-x').first().click().catch(() => {}); await page.waitForTimeout(400);
   await page.locator('.sub-tabs button', { hasText: 'Betalning' }).click(); await page.waitForTimeout(600);
   console.log('fliken Betalning, kortet:', (await page.locator('.bc-card').innerText().catch(() => '(inget)')).replace(/s+/g, ' '));

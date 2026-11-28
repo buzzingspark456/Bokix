@@ -131,7 +131,7 @@ export const PLAN_FEATURES = {
 };
 
 /** Kopplingar som ingår i alla planer, visas med sina färger i planvalet. */
-export const PLAN_CONNECTIONS = ['stripe', 'zettle', 'gmail', 'sie'];
+export const PLAN_CONNECTIONS = ['stripe', 'zettle', 'gmail'];
 
 export function getTier(tierId) {
   return PLAN_TIERS.find(t => t.id === tierId) || (tierId === TRADE_TIER.id ? TRADE_TIER : null);

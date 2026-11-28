@@ -6717,6 +6717,8 @@
     "receiptCopy": "Kopia av kvittona"
   },
   "planPick": {
+    "c_skatteverket": "Skatteverket",
+    "c_bolagsverket": "Bolagsverket",
     "f_ver": "Verifikationer, kontoplan och huvudbok",
     "f_invoices": "Fakturor och offerter med Betala nu",
     "f_scan": "Kvittoavläsning från foto, PDF och mejl",
@@ -6739,7 +6741,6 @@
     "c_stripe": "Stripe",
     "c_zettle": "Zettle",
     "c_gmail": "Gmail",
-    "c_sie": "SIE",
     "ocrUnit": "kvittoavläsningar per månad",
     "inviteOne": "person att bjuda in",
     "inviteMany": "personer att bjuda in",
