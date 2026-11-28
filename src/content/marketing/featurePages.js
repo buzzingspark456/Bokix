@@ -143,7 +143,7 @@ export const FEATURE_PAGES = [
       { q: 'Vilka lagervärderingsmetoder har Bokix?', a: 'Först in, först ut (FIFO) och vägt genomsnittligt anskaffningsvärde. Lägsta värdets princip tillämpas per artikel.' },
       { q: 'Dras sålda varor från lagret automatiskt?', a: 'Ja, varor på dina fakturor dras från lagret. Ändrar eller tar du bort en faktura räknas saldot om direkt.' },
       { q: 'Kan jag se marginalen på mina varor?', a: 'Ja. Fliken Prissättning visar påslag och marginal per artikel, markerar artiklar som säljs under din målmarginal och föreslår ett nytt pris.' },
-      { q: 'Kostar lagret extra?', a: PRICE + ' Lager och artiklar ingår, det finns inga tillägg.' },
+      { q: 'Ingår lagret i alla planer?', a: 'Nej. Lager ingår i Handel, som kommer snart för 349 kr/mån och också har order och inköp. Artikelregistret för fakturor och offerter finns i alla planer. Började du använda Bokix före den 28 november 2026 behåller du lagret i din plan.' },
     ],
     related: [
       { label: 'Videoguide: lägg upp en artikel', to: '/guider/ny-artikel' },

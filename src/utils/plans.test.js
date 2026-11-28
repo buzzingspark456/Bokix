@@ -114,3 +114,22 @@ describe('resolveCancellation', () => {
     expect(resolveCancellation({ planId: 'finns_inte', startedAt: start }).atPeriodEnd).toBe(true)
   })
 })
+
+describe('lager bara i Handel (2026-11-28)', () => {
+  it('Solo och Team från och med 2026-11-28 har inget lager', async () => {
+    const { planIncludesTrade } = await import('./plans.js');
+    expect(planIncludesTrade('solo_monthly', '2026-11-28T10:00:00Z')).toBe(false);
+    expect(planIncludesTrade('employer_yearly', '2026-12-05T10:00:00Z')).toBe(false);
+  });
+  it('äldre Solo/Team behåller lagret, Handel och saknad plan har det alltid', async () => {
+    const { planIncludesTrade } = await import('./plans.js');
+    expect(planIncludesTrade('solo_monthly', '2026-10-22T10:00:00Z')).toBe(true);
+    expect(planIncludesTrade('trade_monthly', '2026-12-01T00:00:00Z')).toBe(true);
+    expect(planIncludesTrade(null, '2026-12-01T00:00:00Z')).toBe(true);
+    expect(planIncludesTrade('employer_monthly', null)).toBe(false);
+  });
+  it('Handel får bjuda in 3', async () => {
+    const { invitedUserLimit } = await import('./plans.js');
+    expect(invitedUserLimit('trade_monthly', '2026-12-01')).toBe(3);
+  });
+});

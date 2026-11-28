@@ -254,16 +254,21 @@ async function uploadedWhileMember(admin, path, membership) {
 async function ownerPlans(admin, owners) {
   if (!owners.length) return [];
   try {
-    const { data } = await admin.from('subscriptions').select('user_id, company_id, plan').in('user_id', owners);
+    const { data } = await admin.from('subscriptions').select('user_id, company_id, plan, created_at').in('user_id', owners);
     return data || [];
   } catch {
     return []; // okänd plan = som förut, inget låses ute
   }
 }
+function ownerRowFor(rows, ownerId, companyId) {
+  return rows.find(r => r.user_id === ownerId && r.company_id === companyId)
+    || rows.find(r => r.user_id === ownerId && (r.company_id || '') === '') || null;
+}
 function ownerPlanFor(rows, ownerId, companyId) {
-  const own = rows.find(r => r.user_id === ownerId && r.company_id === companyId);
-  const account = rows.find(r => r.user_id === ownerId && (r.company_id || '') === '');
-  return (own || account)?.plan || null;
+  return ownerRowFor(rows, ownerId, companyId)?.plan || null;
+}
+function ownerPlanCreatedAtFor(rows, ownerId, companyId) {
+  return ownerRowFor(rows, ownerId, companyId)?.created_at || null;
 }
 
 function getForetagsApiKey() {
@@ -593,6 +598,7 @@ async function handler(req, res) {
           ownerPaid: ownerPaid.get(m.owner_user_id) !== false,
           ownerAccess: ownerAccess.get(m.owner_user_id) || 'full',
           ownerPlan: ownerPlanFor(plans, m.owner_user_id, m.company_id),
+          ownerPlanCreatedAt: ownerPlanCreatedAtFor(plans, m.owner_user_id, m.company_id),
         };
       }).filter(Boolean);
       res.status(200).json({ companies });
@@ -615,11 +621,13 @@ async function handler(req, res) {
       const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
       const ownerAccess = url && key ? await paidAccessLevel(createClient(url, key), member.ownerUserId) : 'full';
       const ownerPaid = ownerAccess === 'full';
-      const ownerPlan = url && key ? ownerPlanFor(await ownerPlans(createClient(url, key), [member.ownerUserId]), member.ownerUserId, companyId) : null;
+      const ownerRows = url && key ? await ownerPlans(createClient(url, key), [member.ownerUserId]) : [];
+      const ownerPlan = ownerPlanFor(ownerRows, member.ownerUserId, companyId);
+      const ownerPlanCreatedAt = ownerPlanCreatedAtFor(ownerRows, member.ownerUserId, companyId);
       // Stora företag (flera års bokföring) kan bli större än Vercels gräns
       // för svar (4,5 MB). Över 1 MB skickas svaret komprimerat; webbläsaren
       // packar upp det själv.
-      const body = JSON.stringify({ company: memberCompanyView(member.companyData, member.pageAccess, member.role), role: member.role, pageAccess: member.pageAccess || null, ownerPaid, ownerAccess, ownerPlan });
+      const body = JSON.stringify({ company: memberCompanyView(member.companyData, member.pageAccess, member.role), role: member.role, pageAccess: member.pageAccess || null, ownerPaid, ownerAccess, ownerPlan, ownerPlanCreatedAt });
       const acceptsGzip = /gzip/.test(String(req.headers?.['accept-encoding'] || ''));
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');

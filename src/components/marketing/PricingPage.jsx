@@ -7,6 +7,7 @@ import { SERIF, INK, INK_SOFT, MUTED, IVORY } from './marketingTokens';
 import { KitStyles, KitFaq } from './subpageKit';
 import { PRICING_TIERS, TRADE_PRICING_TIER } from './pricingTiers';
 import { PLAN_LIMITS } from '../../utils/plans';
+import TradeInterestModal from './TradeInterestModal';
 import { StripeLogo, ZettleLogo, GmailLogo } from '../shared/BrandLogos';
 import { localizedPricingTiers } from '../../content/marketing/pricingTiers';
 import { PRICING_CONTENT } from '../../content/marketing/pricing';
@@ -93,7 +94,7 @@ const COMPARE_BASE = [
   { title: 'Betalfil till banken', desc: 'Lönerna betalas ut med en fil.', values: [NO, IN] },
   { group: 'Mer' },
   { title: 'Stripe och Zettle', desc: 'Kortbetalningar och kassa bokförs.', values: [IN, IN] },
-  { title: 'Lager och artiklar', desc: 'Lagervärde, påslag och inventering.', values: [IN, IN] },
+  { title: 'Artiklar', desc: 'Artikelregister för fakturor och offerter.', values: [IN, IN] },
   { title: 'Projekt och tid', desc: 'Tid och resultat per uppdrag.', values: [IN, IN] },
   { title: 'Anläggningsregister', desc: 'Avskrivningar varje månad.', values: [IN, IN] },
   { title: 'Bjud in fler', desc: 'Utöver dig själv. Din redovisningskonsult eller revisor räknas inte och ingår gratis.', values: [{ kind: 'yes', text: '1 person' }, { kind: 'yes', text: '2 personer' }] },
@@ -101,8 +102,9 @@ const COMPARE_BASE = [
 ];
 // Handel får samma värde som Personal på varje rad, plus en egen grupp.
 const COMPARE = [
-  ...COMPARE_BASE.map(r => (r.group ? r : { ...r, values: [...r.values, r.title === 'Kvittoavläsning' ? { kind: 'yes', text: `${fmtNum(PLAN_LIMITS.trade.ocrPerMonth)} per månad` } : r.values[1]] })),
+  ...COMPARE_BASE.map(r => (r.group ? r : { ...r, values: [...r.values, r.title === 'Kvittoavläsning' ? { kind: 'yes', text: `${fmtNum(PLAN_LIMITS.trade.ocrPerMonth)} per månad` } : r.title === 'Bjud in fler' ? { kind: 'yes', text: `${PLAN_LIMITS.trade.invites} personer` } : r.values[1]] })),
   { group: 'Handel' },
+  { title: 'Lager', desc: 'Saldo som dras automatiskt, lagervärde och inventering.', values: [NO, NO, SOON] },
   { title: 'Order', desc: 'Order, delleverans och restorder.', values: [NO, NO, SOON] },
   { title: 'Inköpsorder', desc: 'Beställ från leverantörer och ta emot varorna i lagret.', values: [NO, NO, SOON] },
   { title: 'Prissättning', desc: 'Priser med marginalmål per artikel.', values: [NO, NO, SOON] },
@@ -127,6 +129,8 @@ export default function PricingPage({ locale = 'sv' }) {
   // Månadsvis eller årsplan. Valet följer med hela vägen till Stripe.
   const [interval, setInterval] = useState('monthly');
   const [mt, setMt] = useState('employer');
+  // Anmäl intresse för Handel öppnas här på sidan (/priser?handel=1 öppnar direkt).
+  const [interestOpen, setInterestOpen] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('handel'));
   const enterApp = (planId = 'employer_monthly') => navigate('/', { state: { enterApp: true, authMode: 'signup', plan: planId } });
   const cell = (t) => [t.featured ? 'feat' : '', t.key !== mt ? 'mhide' : ''].filter(Boolean).join(' ') || undefined;
 
@@ -279,7 +283,7 @@ export default function PricingPage({ locale = 'sv' }) {
                 <p className="pp-desc">{t.recommend}</p>
                 <hr className="pp-hr" />
                 {t.comingSoon
-                  ? <button type="button" className="pp-btn" onClick={() => navigate('/handel-intresse')}>Anmäl intresse</button>
+                  ? <button type="button" className="pp-btn" onClick={() => setInterestOpen(true)}>Anmäl intresse</button>
                   : <button type="button" className="pp-btn" onClick={() => enterApp(plan.id)}>{c.cta}</button>}
                 <div className="pp-small">{t.comingSoon ? 'Vi hör av oss när Handel släpps' : interval === 'yearly' ? c.yearlyMinimumNote(YEARLY_MINIMUM_MONTHS) : c.monthlyNote}</div>
                 <hr className="pp-hr" />
@@ -329,7 +333,7 @@ export default function PricingPage({ locale = 'sv' }) {
                     <span className="pp-head-name">{t.name}</span>
                     <span className="pp-head-price">{plan.price} kr/mån</span>
                     {t.comingSoon
-                      ? <button type="button" className="pp-btn" onClick={() => navigate('/handel-intresse')}>Anmäl intresse</button>
+                      ? <button type="button" className="pp-btn" onClick={() => setInterestOpen(true)}>Anmäl intresse</button>
                       : <button type="button" className="pp-btn" onClick={() => enterApp(plan.id)}>{c.ctaShort}</button>}
                   </span>
                 );
@@ -350,6 +354,8 @@ export default function PricingPage({ locale = 'sv' }) {
           </div>
         </div>
       </section>
+
+      <TradeInterestModal open={interestOpen} onClose={() => setInterestOpen(false)} />
 
       <section className="pp-faq-sec">
         <div className="pp-faq">

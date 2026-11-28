@@ -2116,7 +2116,7 @@ function App() {
           return Object.fromEntries(companies.map(c => [c.company_id, {
             company: c.company,
             __stub: true,
-            __shared: { ownerUserId: c.owner_user_id, role: c.role, pageAccess: c.pageAccess || null, ownerPaid: c.ownerPaid !== false, ownerAccess: c.ownerAccess || null, ownerPlan: c.ownerPlan || null },
+            __shared: { ownerUserId: c.owner_user_id, role: c.role, pageAccess: c.pageAccess || null, ownerPaid: c.ownerPaid !== false, ownerAccess: c.ownerAccess || null, ownerPlan: c.ownerPlan || null, ownerPlanCreatedAt: c.ownerPlanCreatedAt || null },
           }]));
         }
       } catch (err) {
@@ -2144,7 +2144,7 @@ function App() {
           // __shared markerar företaget som INTE mitt eget — se
           // persist-effekten längre ner, som aldrig får skriva in det här i
           // min egen user_data-rad, bara via set_company_field.
-          results[m.company_id] = { ...json.company, __shared: { ownerUserId: m.owner_user_id, role: json.role, pageAccess: json.pageAccess || null, ownerPaid: json.ownerPaid !== false, ownerAccess: json.ownerAccess || null, ownerPlan: json.ownerPlan || null } };
+          results[m.company_id] = { ...json.company, __shared: { ownerUserId: m.owner_user_id, role: json.role, pageAccess: json.pageAccess || null, ownerPaid: json.ownerPaid !== false, ownerAccess: json.ownerAccess || null, ownerPlan: json.ownerPlan || null, ownerPlanCreatedAt: json.ownerPlanCreatedAt || null } };
         }
       } catch (err) {
         console.error('Kunde inte hämta delat företag', m.company_id, err);
@@ -2169,7 +2169,7 @@ function App() {
       setData(prev => {
         const stub = prev.companies?.[companyId];
         if (!stub?.__stub) return prev;
-        return { ...prev, companies: { ...prev.companies, [companyId]: { ...json.company, __shared: { ...stub.__shared, role: json.role, pageAccess: json.pageAccess || null, ownerPaid: json.ownerPaid !== false, ownerAccess: json.ownerAccess || null, ownerPlan: json.ownerPlan || null } } } };
+        return { ...prev, companies: { ...prev.companies, [companyId]: { ...json.company, __shared: { ...stub.__shared, role: json.role, pageAccess: json.pageAccess || null, ownerPaid: json.ownerPaid !== false, ownerAccess: json.ownerAccess || null, ownerPlan: json.ownerPlan || null, ownerPlanCreatedAt: json.ownerPlanCreatedAt || null } } } };
       });
     } catch (err) {
       console.error('Kunde inte hämta delat företag', companyId, err);
@@ -6117,8 +6117,11 @@ function App() {
   const devPlan = import.meta.env.DEV ? (() => { try { return localStorage.getItem('bokix.devPlan'); } catch { return null; } })() : null;
   // Delat företag: ägarens plan, så att en inbjuden aldrig får mer än ägaren betalar för.
   const sharedActive = data.companies?.[data.activeCompanyId]?.__shared;
-  const activePlanId = devPlan || (sharedActive ? sharedActive.ownerPlan : (subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan);
-  const tradeIncluded = !newUnderlagOn || planIncludesTrade(activePlanId);
+  const activeSub = sharedActive ? { plan: sharedActive.ownerPlan, created_at: sharedActive.ownerPlanCreatedAt } : (subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {});
+  const activePlanId = devPlan || activeSub.plan;
+  // Lagret ingår bara i Handel (2026-11-28), för alla och inte bara admin.
+  // Prenumerationer från före den dagen behåller det (planIncludesTrade).
+  const tradeIncluded = planIncludesTrade(activePlanId, devPlan ? null : activeSub.created_at);
   const payrollIncludedPlan = !newUnderlagOn || planIncludesPayroll(activePlanId);
   const articlesNavLabel = tradeIncluded ? t('nav.articles') : t('nav.articlesOnly');
   const mobileSheetSections = [
@@ -6157,7 +6160,7 @@ function App() {
   // delar behörighet med Kundfakturor (navAccessId).
   // Order syns bara för admin med artiklar påslaget (senare: Handel-planen).
   const ordersOn = newUnderlagOn && isFeatureOn(currentCompany, 'articles') && tradeIncluded;
-  const featureHiddenNavIds = [...hiddenFeatureNavIds(currentCompany), ...(ordersOn ? [] : ['orders']), ...(payrollIncludedPlan ? [] : ['payroll']), ...(tradeIncluded ? [] : ['articles'])];
+  const featureHiddenNavIds = [...hiddenFeatureNavIds(currentCompany), ...(ordersOn ? [] : ['orders']), ...(payrollIncludedPlan ? [] : ['payroll']), ];
   // Bas och Personal (2026-11-27, som planerna): ingen artikelsida, den ingår i Handel. Artiklar sparas och söks fram direkt på fakturor och offerter.
   const isNavItemShown = (item) => !featureHiddenNavIds.includes(item.id) && isNavIdAllowed(navAccessId(item.id));
   // Offerter, Kundfakturor, Artiklar och Leverantörsfakturor markeras bara på sin egen sida.

@@ -420,7 +420,7 @@
       ]
     },
     {
-      "source": "/(privacy|terms|cookies|pub|gdpr|logotyper|handel-intresse)",
+      "source": "/(privacy|terms|cookies|pub|gdpr|logotyper)",
       "headers": [
         {
           "key": "X-Robots-Tag",

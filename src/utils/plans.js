@@ -99,7 +99,7 @@ export const TRADE_TIER = {
 export const PLAN_LIMITS = {
   solo: { ocrPerMonth: 100, invites: 1 },
   employer: { ocrPerMonth: 300, invites: 2 },
-  trade: { ocrPerMonth: 1000, invites: 2 },
+  trade: { ocrPerMonth: 1000, invites: 3 },
 };
 
 /** Innehållet per nivå i grupper, nyckel = i18n under planPick.*. */
@@ -204,13 +204,22 @@ export function planIncludesPayroll(planId) {
   return plan ? plan.includesPayroll : true;
 }
 
+/** Från och med det här datumet ingår lagret bara i Handel (2026-11-28).
+ * Prenumerationer som startade tidigare köptes när lager ingick i alla planer
+ * och behåller det. */
+export const TRADE_ONLY_FROM = '2026-11-28';
+
 /**
  * Ingår order, lager, inköp och prissättning (Handel)? Saknad plan ger true av
- * samma skäl som planIncludesPayroll: äldre konton behåller det de har.
+ * samma skäl som planIncludesPayroll: äldre konton behåller det de har. En
+ * Solo- eller Team-prenumeration som startade före TRADE_ONLY_FROM behåller
+ * också lagret.
  */
-export function planIncludesTrade(planId) {
+export function planIncludesTrade(planId, createdAt = null) {
   const plan = planFromId(planId);
-  return plan ? plan.includesTrade : true;
+  if (!plan) return true;
+  if (plan.includesTrade) return true;
+  return Boolean(createdAt) && new Date(createdAt) < new Date(`${TRADE_ONLY_FROM}T00:00:00Z`);
 }
 
 /**
@@ -275,6 +284,7 @@ export const INVITE_LIMIT_FROM = '2026-11-22';
 export const ACCOUNTANT_SEATS = 2;
 export function invitedUserLimit(planId, createdAt) {
   const plan = planFromId(planId);
+  if (plan?.tierId === 'trade') return 3;
   if (!plan || plan.tierId !== 'solo') return 2;
   if (createdAt && new Date(createdAt) < new Date(`${INVITE_LIMIT_FROM}T00:00:00Z`)) return 2;
   return 1;
