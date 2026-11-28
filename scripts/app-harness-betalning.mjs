@@ -108,6 +108,8 @@ if (MODE === 'failed') {
   await page.locator('.pp-conn').first().scrollIntoViewIfNeeded().catch(() => {}); await page.waitForTimeout(300);
   await page.screenshot({ path: 'test-results/betalning-' + tag + '-planer-loggor.png' });
   await page.locator('.sub-x').first().click().catch(() => {}); await page.waitForTimeout(400);
+  if (await page.locator('.pp-grid').count()) { await page.keyboard.press('Escape'); await page.waitForTimeout(400); }
+  if (await page.locator('.pp-grid').count()) { await page.locator('button', { hasText: /^Prenumeration$/ }).first().click().catch(() => {}); await page.waitForTimeout(400); }
   await page.locator('.sub-tabs button', { hasText: 'Betalning' }).click(); await page.waitForTimeout(600);
   console.log('fliken Betalning, kortet:', (await page.locator('.bc-card').innerText().catch(() => '(inget)')).replace(/s+/g, ' '));
   await page.screenshot({ path: 'test-results/betalning-' + tag + '-kort.png' });
@@ -121,6 +123,7 @@ if (MODE === 'failed') {
   console.log('efter första försöket:', (await page.locator('.pay-fix').innerText()).replace(/s+/g, ' ').slice(0, 120));
   await page.locator('.pay-fix-btn.is-primary').click(); await page.waitForTimeout(900);
   console.log('efter andra försöket:', (await page.locator('.pay-fix').innerText().catch(() => '(borta)')).replace(/s+/g, ' ').slice(0, 120));
+  await page.waitForTimeout(4500); console.log('rutan efter 4 s:', (await page.locator('.pay-fix').count()) ? 'kvar' : 'borta');
 }
 if (MODE === 'read') {
   // Försök ändra: skapa faktura och spara, och ändra en kund

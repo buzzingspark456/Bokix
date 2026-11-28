@@ -65,9 +65,23 @@ export function PaymentFixCard({ access, companyId = null, onPaid }) {
   useEffect(() => {
     if (!failing) return undefined;
     let alive = true;
-    fetchPaymentIssue(companyId).then(r => { if (alive) setIssue(r || null); }).catch(() => {});
+    fetchPaymentIssue(companyId).then(r => {
+      if (!alive) return;
+      setIssue(r || null);
+      // Betalt enligt Stripe (servern har redan rättat databasen): läs om läget,
+      // så försvinner rutan, notisen och den röda pricken.
+      if (r && ['active', 'trialing'].includes(r.status)) onPaid?.();
+    }).catch(() => {});
     return () => { alive = false; };
-  }, [failing, companyId]);
+  }, [failing, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    if (message?.tone !== 'ok') return undefined;
+    const id = setTimeout(() => setHidden(true), 4000);
+    return () => clearTimeout(id);
+  }, [message]);
+  if (hidden) return null;
+  if (issue && ['active', 'trialing'].includes(issue.status) && message?.tone !== 'ok') return null;
   if (!failing && message?.tone !== 'ok') return null;
 
   const info = issue?.issue || null;

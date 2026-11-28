@@ -286,6 +286,9 @@ export default async function handler(req, res) {
       const card = await subscriptionCard(stripe, sub, customerId);
 
       if (body.action === 'payment-issue') {
+        // Stripe är facit (2026-11-27): har databasen inte hunnit med (missad
+        // webhook) rättas den här, så att rutan aldrig visar ett fel som inte finns.
+        try { await upsertSubscription(subscriptionFieldsFromStripe(sub)); } catch (err) { console.warn('payment-issue: kunde inte spara läget', err.message); }
         const pi = open ? await invoicePaymentIntent(stripe, open) : null;
         res.status(200).json({
           issue: open ? {
