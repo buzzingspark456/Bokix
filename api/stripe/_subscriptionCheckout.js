@@ -135,10 +135,18 @@ async function subscriptionCard(stripe, sub, customerId) {
       const dpm = customer?.invoice_settings?.default_payment_method;
       pmId = typeof dpm === 'string' ? dpm : dpm?.id;
     }
-    if (!pmId) return null;
-    const pm = await stripe.paymentMethods.retrieve(pmId);
-    if (!pm?.card) return null;
-    return { brand: pm.card.brand, last4: pm.card.last4, expMonth: pm.card.exp_month, expYear: pm.card.exp_year };
+    const pm = pmId ? await stripe.paymentMethods.retrieve(pmId) : null;
+    if (pm?.card) return { brand: pm.card.brand, last4: pm.card.last4, expMonth: pm.card.exp_month, expYear: pm.card.exp_year };
+    // Betalt med Link (2026-11-28): det finns inga kortuppgifter på metoden,
+    // bara Link-kontots e-post. Visas som Link i stället för "Inget kort".
+    if (pm?.type === 'link') return { brand: 'link', email: pm.link?.email || null };
+    // Ingen standardmetod: kundens senast sparade kort.
+    if (customerId) {
+      const cards = await stripe.paymentMethods.list({ customer: customerId, type: 'card', limit: 1 });
+      const c = cards?.data?.[0]?.card;
+      if (c) return { brand: c.brand, last4: c.last4, expMonth: c.exp_month, expYear: c.exp_year };
+    }
+    return null;
   } catch {
     return null;
   }

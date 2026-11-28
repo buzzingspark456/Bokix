@@ -6675,6 +6675,7 @@
     "close": "Close, I am fine"
   },
   "billingCard": {
+    "viaLink": "Paid via Link",
     "validThru": "Valid thru",
     "card": "Card",
     "expires": "Expires {{date}}",
@@ -6691,6 +6692,8 @@
     "failed": "The card could not be saved."
   },
   "receipts": {
+    "credit": "Applied credit",
+    "discount": "Discount",
     "title": "Receipts",
     "count": "{{n}}",
     "empty": "Receipts appear here after the first charge.",

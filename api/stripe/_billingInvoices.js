@@ -73,6 +73,10 @@ export async function listSubscriptionInvoices(stripe, customerIds) {
           status: invoice.status || 'unknown',
           amount_due: invoice.amount_due,
           amount_paid: invoice.amount_paid,
+          // Så att kvittot går ihop när rabatt eller tillgodo betalat (2026-11-28).
+          subtotal: invoice.subtotal ?? null,
+          total: invoice.total ?? null,
+          starting_balance: invoice.starting_balance ?? 0,
           currency: invoice.currency,
           hosted_invoice_url: invoice.hosted_invoice_url || null,
           invoice_pdf: invoice.invoice_pdf || null,

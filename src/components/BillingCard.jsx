@@ -23,6 +23,19 @@ export const inAppCardChange = Boolean(PK);
 
 export function CardTile({ card }) {
   if (!card) return null;
+  // Link (Stripes sparade betalning): ingen kortsiffra, bara e-posten.
+  if (card.brand === 'link') {
+    return (
+      <div className="bc-card bc-card--link" aria-label={`Link ${card.email || ''}`}>
+        <div className="bc-card-top">
+          <span className="bc-chip" aria-hidden="true" />
+          <span className="bc-card-brand">Link</span>
+        </div>
+        <div className="bc-card-num bc-card-num--email">{card.email || 'Link'}</div>
+        <div className="bc-card-foot"><span>{t('billingCard.viaLink')}</span></div>
+      </div>
+    );
+  }
   const exp = card.expMonth && card.expYear ? `${String(card.expMonth).padStart(2, '0')}/${String(card.expYear).slice(-2)}` : '';
   return (
     <div className={`bc-card bc-card--${card.brand || 'card'}`} aria-label={`${BRAND_NAME[card.brand] || t('billingCard.card')} •••• ${card.last4}`}>
@@ -63,7 +76,7 @@ export function CardChangeForm({ companyId = null, onDone, onCancel, payNow = fa
           },
           fonts: [{ cssSrc: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap' }],
         });
-        const el = elements.create('payment', { layout: 'tabs', wallets: { applePay: 'never', googlePay: 'never' } });
+        const el = elements.create('payment', { layout: 'tabs', wallets: { applePay: 'never', googlePay: 'never', link: 'never' } });
         el.on('ready', () => alive && setReady(true));
         el.mount(boxRef.current);
         ctx.current = { stripe, elements, el };

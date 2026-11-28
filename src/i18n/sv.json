@@ -6675,6 +6675,7 @@
     "close": "Stäng, jag klarar mig"
   },
   "billingCard": {
+    "viaLink": "Betalas via Link",
     "validThru": "Giltigt t.o.m.",
     "card": "Kort",
     "expires": "Går ut {{date}}",
@@ -6691,6 +6692,8 @@
     "failed": "Kortet kunde inte sparas."
   },
   "receipts": {
+    "credit": "Avräknat mot tillgodo",
+    "discount": "Rabatt",
     "title": "Kvitton",
     "count": "{{n}} st",
     "empty": "Kvittona dyker upp här efter första dragningen.",

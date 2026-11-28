@@ -24,6 +24,9 @@ function ReceiptView({ inv, onClose }) {
   }, [onClose]);
   const paid = inv.status === 'paid';
   const total = paid ? inv.amount_paid : inv.amount_due;
+  // Rabatt (kampanjkod) och tillgodo som drogs av, så att raderna går ihop med det som betalades.
+  const discount = inv.subtotal != null && inv.total != null ? Math.max(0, inv.subtotal - inv.total) : 0;
+  const credit = inv.total != null ? Math.max(0, inv.total - inv.amount_due) : 0;
   return (
     <div className="sr-overlay" role="dialog" aria-modal="true" aria-label={t('receipts.receipt')} onClick={onClose}>
       <div className="sr-sheet" onClick={e => e.stopPropagation()}>
@@ -43,6 +46,8 @@ function ReceiptView({ inv, onClose }) {
               <li key={i}><span>{l.description || t('receipts.subscription')}</span><b>{money(l.amount, inv.currency)}</b></li>
             ))}
           </ul>
+          {discount > 0 && <div className="sr-sub"><span>{t('receipts.discount')}</span><span>−{money(discount, inv.currency)}</span></div>}
+          {credit > 0 && <div className="sr-sub"><span>{t('receipts.credit')}</span><span>−{money(credit, inv.currency)}</span></div>}
           <div className="sr-total"><span>{paid ? t('receipts.totalPaid') : t('receipts.totalDue')}</span><b>{money(total, inv.currency)}</b></div>
           <p className="sr-note">{t('receipts.noVat')}</p>
         </div>

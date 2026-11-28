@@ -12327,6 +12327,10 @@ table.lt-fit td > div, table.lt-fit td > span { overflow: hidden; text-overflow:
 .bc-chip { width: 36px; height: 27px; border-radius: 6px; background: linear-gradient(135deg, #f5d98b, #c9a24a); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .15); }
 .bc-card-brand { font-size: 20px; font-weight: 800; font-style: italic; letter-spacing: .04em; }
 .bc-card--mastercard .bc-card-brand { font-style: normal; font-size: 14px; }
+/* Link (2026-11-28): Stripes gröna, med e-posten i stället för kortnumret. */
+.bc-card--link { background: radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .16), transparent 55%), linear-gradient(140deg, #00a85a 0%, #00753f 100%); }
+.bc-card--link .bc-card-brand { font-style: normal; font-size: 15px; font-weight: 800; }
+.bc-card-num.bc-card-num--email { font-size: 14px; letter-spacing: .01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bc-card-num { font-size: 18px; font-weight: 600; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
 .bc-card-foot { display: flex; justify-content: space-between; align-items: flex-end; font-size: 12.5px; font-weight: 600; opacity: .9; }
 .bc-card-foot small { display: block; font-size: 9px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
@@ -12404,6 +12408,7 @@ body:has(.notif-dropdown) .kig, body:has(.notif-dropdown) .kig-pill { opacity: 0
 .sr-lines { list-style: none; margin: 0; padding: 12px 0; border-top: 1px dashed #d1d5db; border-bottom: 1px dashed #d1d5db; display: grid; gap: 8px; font-size: 13px; }
 .sr-lines li { display: flex; justify-content: space-between; gap: 12px; }
 .sr-lines b { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sr-sub { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .sr-total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 12px; font-size: 14px; font-weight: 700; }
 .sr-total b { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .sr-note { margin: 12px 0 0; font-size: 11.5px; color: #6b7280; }
