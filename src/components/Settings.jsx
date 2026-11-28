@@ -4845,6 +4845,8 @@ export default function Settings({
                     { id: 'payment', label: tr('subTabs.payment'), alert: Boolean(paymentAccess?.failing || paymentAccess?.level === 'read') },
                     { id: 'receipts', label: tr('subTabs.receipts') },
                   ] : []),
+                  // Inbjuden: ägarens kvitton att läsa och ladda ner, aldrig kort eller plan.
+                  ...(sharedAccess && !isUfCompany(company) ? [{ id: 'receipts', label: tr('subTabs.receipts') }] : []),
                   { id: 'usage', label: tr('subTabs.usage') },
                 ];
                 const current = tabs.some(x => x.id === subTab) ? subTab : 'plan';
@@ -4870,7 +4872,9 @@ export default function Settings({
                           </div>
                         </div>
                       )}
-                      {current === 'receipts' && <SubscriptionReceipts companyId={cid} enabled={!readOnly} />}
+                      {current === 'receipts' && (sharedAccess
+                        ? <SubscriptionReceipts sharedCompanyId={activeCompanyId} />
+                        : <SubscriptionReceipts companyId={cid} enabled={!readOnly} />)}
                       {current === 'usage' && <UsageCard invoices={invoices} verifications={verifications} contacts={contacts} expenses={expenses} />}
                     </div>
                   </>

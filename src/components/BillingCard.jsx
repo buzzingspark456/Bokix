@@ -31,8 +31,8 @@ export function CardTile({ card }) {
           <span className="bc-chip" aria-hidden="true" />
           <span className="bc-card-brand">Link</span>
         </div>
-        <div className="bc-card-num bc-card-num--email">{card.email || 'Link'}</div>
-        <div className="bc-card-foot"><span>{t('billingCard.viaLink')}</span></div>
+        <div className="bc-card-num bc-card-num--email">{t('billingCard.linkSaved')}</div>
+        <div className="bc-card-foot"><span>{card.email || ''}</span></div>
       </div>
     );
   }
@@ -45,7 +45,7 @@ export function CardTile({ card }) {
       </div>
       <div className="bc-card-num">•••• •••• •••• {card.last4}</div>
       <div className="bc-card-foot">
-        <span>{BRAND_NAME[card.brand] || t('billingCard.card')}</span>
+        <span>{BRAND_NAME[card.brand] || t('billingCard.card')}{card.via === 'link' ? ` · ${t('billingCard.viaLink')}` : ''}</span>
         {exp && <span><small>{t('billingCard.validThru')}</small> {exp}</span>}
       </div>
     </div>

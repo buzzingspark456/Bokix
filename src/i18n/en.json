@@ -6675,7 +6675,8 @@
     "close": "Close, I am fine"
   },
   "billingCard": {
-    "viaLink": "Paid via Link",
+    "linkSaved": "Card saved in your Link wallet",
+    "viaLink": "via Link",
     "validThru": "Valid thru",
     "card": "Card",
     "expires": "Expires {{date}}",

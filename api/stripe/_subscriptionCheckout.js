@@ -7,7 +7,7 @@ import { checkRateLimit, getClientIp } from '../_rateLimit.js';
 import { createClient } from '@supabase/supabase-js';
 import { trialDecision, trialMetadata } from './_trialGuard.js';
 import { checkCompanyInRegistry } from './_registryGuard.js';
-import { requireAuthedUser } from '../_auth.js';
+import { requireAuthedUser, loadMemberCompany } from '../_auth.js';
 import { readOwnerCompany } from '../_companyStore.js';
 import { hasExistingSubscription, getSubscriptionRow, getStripeCustomerId, getStripeCustomerIds, upsertSubscription, subscriptionFieldsFromStripe, stripePeriodEnd, PAID_STATUSES } from './_subscriptions.js';
 import { listSubscriptionCustomerIds, listSubscriptionInvoices, invoicesForCompany } from './_billingInvoices.js';
@@ -139,12 +139,18 @@ async function subscriptionCard(stripe, sub, customerId) {
     if (pm?.card) return { brand: pm.card.brand, last4: pm.card.last4, expMonth: pm.card.exp_month, expYear: pm.card.exp_year };
     // Betalt med Link (2026-11-28): det finns inga kortuppgifter på metoden,
     // bara Link-kontots e-post. Visas som Link i stället för "Inget kort".
-    if (pm?.type === 'link') return { brand: 'link', email: pm.link?.email || null };
-    // Ingen standardmetod: kundens senast sparade kort.
-    if (customerId) {
+    // Link lämnar inte ut kortets siffror; har kunden ett vanligt kort sparat
+    // visas det (med "via Link"), annars Link med maskerad e-post.
+    const viaLink = pm?.type === 'link';
+    if (customerId && (viaLink || !pm)) {
       const cards = await stripe.paymentMethods.list({ customer: customerId, type: 'card', limit: 1 });
       const c = cards?.data?.[0]?.card;
-      if (c) return { brand: c.brand, last4: c.last4, expMonth: c.exp_month, expYear: c.exp_year };
+      if (c) return { brand: c.brand, last4: c.last4, expMonth: c.exp_month, expYear: c.exp_year, ...(viaLink ? { via: 'link' } : {}) };
+    }
+    if (viaLink) {
+      const email = pm.link?.email || '';
+      const at = email.indexOf('@');
+      return { brand: 'link', email: at > 0 ? `${email.slice(0, Math.min(2, at))}…${email.slice(at)}` : null };
     }
     return null;
   } catch {
@@ -215,6 +221,24 @@ export default async function handler(req, res) {
     if (body.action === 'billing-invoices') {
       const authedUser = await requireAuthedUser(req, res);
       if (!authedUser) return;
+
+      // Inbjuden användare (2026-11-28): ägarens kvitton för det delade
+      // företaget, bara att läsa och ladda ner. Bara betalda, och utan länken
+      // till Stripes betalsida: en inbjuden ser aldrig kort eller betalning.
+      if (body.shared_company_id) {
+        const member = await loadMemberCompany(authedUser.id, String(body.shared_company_id), res);
+        if (!member) return;
+        const ownerId = member.ownerUserId;
+        const ownRow = await getSubscriptionRow(ownerId, member.companyKey);
+        const filterId = ownRow ? member.companyKey : null;
+        const row = ownRow || await getSubscriptionRow(ownerId, null);
+        const ownerCustomers = await listSubscriptionCustomerIds(stripe, ownerId, await getStripeCustomerIds(ownerId));
+        const invoices = invoicesForCompany(await listSubscriptionInvoices(stripe, ownerCustomers), filterId, row?.stripe_subscription_id)
+          .filter(i => i.status === 'paid')
+          .map(i => ({ ...i, hosted_invoice_url: null }));
+        res.status(200).json({ invoices });
+        return;
+      }
 
       const storedCustomerIds = await getStripeCustomerIds(authedUser.id);
       const customerIds = await listSubscriptionCustomerIds(stripe, authedUser.id, storedCustomerIds);

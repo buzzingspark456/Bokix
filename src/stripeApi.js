@@ -138,10 +138,10 @@ export async function billingCcEmail(companyId = null, email) {
   return res.email || '';
 }
 
-export async function getSubscriptionInvoices(companyId = null) {
+export async function getSubscriptionInvoices(companyId = null, sharedCompanyId = null) {
   const { data: { session } = {} } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('Du måste vara inloggad för att se fakturor och kvitton.');
-  const { invoices } = await requestStripeApi('create-subscription-checkout', { action: 'billing-invoices', company_id: companyId || undefined }, session.access_token);
+  const { invoices } = await requestStripeApi('create-subscription-checkout', { action: 'billing-invoices', company_id: companyId || undefined, shared_company_id: sharedCompanyId || undefined }, session.access_token);
   return invoices;
 }
 

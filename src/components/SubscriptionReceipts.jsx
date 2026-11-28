@@ -60,7 +60,7 @@ function ReceiptView({ inv, onClose }) {
   );
 }
 
-export default function SubscriptionReceipts({ companyId, enabled = true }) {
+export default function SubscriptionReceipts({ companyId, sharedCompanyId = null, enabled = true }) {
   const [list, setList] = useState(null);
   const [error, setError] = useState('');
   const [all, setAll] = useState(false);
@@ -70,11 +70,11 @@ export default function SubscriptionReceipts({ companyId, enabled = true }) {
     let alive = true;
     setList(null); setError(''); setAll(false);
     if (!enabled) { setList([]); return undefined; }
-    getSubscriptionInvoices(companyId)
+    getSubscriptionInvoices(companyId, sharedCompanyId)
       .then(r => { if (alive) setList(r || []); })
       .catch(err => { if (alive) { setError(err.message || t('receipts.loadFailed')); setList([]); } });
     return () => { alive = false; };
-  }, [companyId, enabled]);
+  }, [companyId, sharedCompanyId, enabled]);
 
   const shown = all ? (list || []) : (list || []).slice(0, SHOWN);
   return (
