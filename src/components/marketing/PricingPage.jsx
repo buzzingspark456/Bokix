@@ -194,7 +194,7 @@ export default function PricingPage({ locale = 'sv' }) {
         .pp-cmp { max-width: 960px; margin: 0 auto; }
         .pp-cmp-h { font-family: ${SERIF}; font-size: clamp(28px, 4.2vw, 44px); font-weight: 700; color: ${INK}; margin: 0; letter-spacing: -0.02em; }
         .pp-cmp-lead { font-size: 16px; color: ${MUTED}; margin: 10px 0 0; }
-        .pp-table { margin-top: 32px; border: 1px solid var(--mkt-card-border); border-radius: 22px; background: var(--mkt-card-bg); }
+        .pp-table { margin-top: 36px; border: 1px solid var(--mkt-card-border); border-radius: 24px; background: var(--mkt-card-bg); box-shadow: 0 18px 50px rgba(0, 0, 0, .06); }
         .pp-row { display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr)); }
         .pp-card.soon { background: var(--mkt-card-bg); }
         .pp-btn:disabled { cursor: default; opacity: .55; }
@@ -204,22 +204,26 @@ export default function PricingPage({ locale = 'sv' }) {
         @media (prefers-reduced-motion: reduce) { .pp-btn { transition: none; } }
         .pp-soon-tag { position: absolute; top: -13px; left: 30px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 10px; background-color: var(--mkt-card-bg) !important; border-radius: 999px; border: 1px solid color-mix(in srgb, ${G} 30%, transparent); background: color-mix(in srgb, ${G} 9%, transparent); font-size: 12.5px; font-weight: 700; color: var(--mkt-accent-green-fg, ${G}); }
         .pp-soon-tag i { width: 7px; height: 7px; border-radius: 50%; background: #2fbf63; }
-        .pp-row > * { padding: 16px 12px; display: flex; align-items: center; justify-content: center; }
-        .pp-row > :first-child { justify-content: flex-start; padding-left: 24px; }
+        .pp-row > * { padding: 22px 16px; display: flex; align-items: center; justify-content: center; }
+        .pp-row > :first-child { justify-content: flex-start; padding-left: 32px; padding-right: 24px; }
         .pp-head { position: sticky; top: 64px; z-index: 2; background: var(--mkt-card-bg); border-radius: 22px 22px 0 0; border-bottom: 1px solid var(--mkt-card-border); }
-        .pp-head > * { flex-direction: column; gap: 4px; padding: 20px 12px; }
+        .pp-head > * { flex-direction: column; gap: 6px; padding: 26px 16px 24px; }
         .pp-head .feat { background: color-mix(in srgb, ${G} 9%, transparent); }
         .pp-head-label { font-family: ${SERIF}; font-size: 20px; font-weight: 700; color: ${INK}; align-items: flex-start !important; }
         .pp-head-name { font-family: ${SERIF}; font-size: 22px; font-weight: 700; color: ${INK}; }
         .pp-head-price { font-size: 15px; color: ${MUTED}; }
         .pp-head .pp-btn { margin-top: 10px; min-height: 40px; font-size: 14px; max-width: 170px; }
-        .pp-grp > * { padding-top: 22px !important; padding-bottom: 8px !important; }
-        .pp-grp > :first-child { font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: ${MUTED}; }
+        .pp-grp > * { padding-top: 40px !important; padding-bottom: 12px !important; }
+        .pp-grp + .pp-item > * { border-top: 0; }
+        .pp-grp > :first-child { border-bottom: 2px solid color-mix(in srgb, ${G} 35%, transparent); padding-bottom: 10px !important; margin-left: 32px; padding-left: 0 !important; width: max-content; }
+        .pp-grp > :first-child { font-size: 12.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--mkt-accent-green-fg, ${G}); }
         .pp-row > .feat { background: color-mix(in srgb, ${G} 5%, transparent); }
         .pp-item + .pp-item > * { border-top: 1px solid var(--mkt-border-soft); }
         .pp-ft { display: flex; flex-direction: column; align-items: flex-start !important; text-align: left; }
-        .pp-ft b { font-size: 15.5px; color: ${INK}; }
-        .pp-ft span { font-size: 14px; color: ${MUTED}; margin-top: 3px; line-height: 1.4; }
+        .pp-ft b { font-size: 16px; font-weight: 650; color: ${INK}; }
+        .pp-ft span { font-size: 14px; color: ${MUTED}; margin-top: 5px; line-height: 1.5; max-width: 360px; }
+        .pp-item:hover > * { background-color: color-mix(in srgb, ${G} 3%, transparent); }
+        .pp-item > * { transition: background-color .15s ease; }
         .pp-val-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
         .pp-pill { display: inline-flex; justify-content: center; min-width: 104px; padding: 8px 16px; border-radius: 999px; font-size: 14.5px; font-weight: 700; white-space: nowrap; }
         .pp-pill.yes { background: color-mix(in srgb, ${G} 20%, transparent); color: var(--mkt-accent-green-fg, ${G}); }
@@ -246,7 +250,7 @@ export default function PricingPage({ locale = 'sv' }) {
           .pp-row { grid-template-columns: minmax(0, 1fr) 128px; }
           .pp-row > .mhide { display: none !important; }
           .pp-row > :first-child { padding-left: 14px; }
-          .pp-row > * { padding: 12px 6px; }
+          .pp-row > * { padding: 16px 8px; }
           .pp-mtabs { display: flex; gap: 6px; margin-top: 22px; padding: 5px; border-radius: 999px; background: var(--mkt-card-bg); border: 1px solid var(--mkt-card-border); }
           .pp-mtabs button { flex: 1; padding: 10px 0; border-radius: 999px; border: 0; background: transparent; color: ${MUTED}; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
           .pp-mtabs button.on { background: ${G}; color: #fff; }
