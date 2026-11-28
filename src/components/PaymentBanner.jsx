@@ -117,43 +117,69 @@ export function PaymentFixCard({ access, companyId = null, onPaid }) {
     );
   }
 
-  const lines = [];
-  if (cardText) lines.push(info?.declineReason ? `${cardText}: ${info.declineReason}` : cardText);
-  else if (info?.declineReason) lines.push(info.declineReason);
-  if (readOnly) lines.push(t('payBanner.readText', { date: fmtLong(access.lockAt) }));
-  else if (requiresAction) lines.push(t('payBanner.actionText'));
-  else {
-    if (info?.nextAttempt) lines.push(t('payBanner.nextAttempt', { date: fmtLong(Date.parse(info.nextAttempt)) }));
-    if (access.readOnlyAt) lines.push(t('payBanner.readOnlyFrom', { date: fmtLong(access.readOnlyAt) }));
-  }
+  const reason = info?.declineReason || null;
+  const title = readOnly ? t('payBanner.readTitle') : requiresAction ? t('payBanner.actionTitle') : t('payBanner.failedTitle');
+  const lead = readOnly ? t('payBanner.leadRead') : requiresAction ? t('payBanner.actionText') : t('payBanner.leadFailed');
+  // Tidslinjen: vad som hänt och vad som händer härnäst.
+  const now = Date.now();
+  const steps = [
+    access.failedAt && { key: 'failed', label: t('payBanner.stepFailed'), at: access.failedAt, done: true, bad: true },
+    !readOnly && info?.nextAttempt && { key: 'retry', label: t('payBanner.stepRetry'), at: Date.parse(info.nextAttempt) },
+    access.readOnlyAt && { key: 'read', label: t('payBanner.stepRead'), at: access.readOnlyAt, done: now >= access.readOnlyAt },
+    access.lockAt && { key: 'lock', label: t('payBanner.stepLock'), at: access.lockAt },
+  ].filter(Boolean);
 
   return (
-    <div className="pay-fix" role="alert">
-      <span className="pay-fix-ico">{readOnly ? <Lock size={18} /> : <AlertTriangle size={18} />}</span>
-      <div className="pay-fix-body">
-        <b>{readOnly ? t('payBanner.readTitle') : requiresAction ? t('payBanner.actionTitle') : t('payBanner.failedTitle')}</b>
-        {lines.map((l, i) => <span key={i}>{l}</span>)}
-        {message?.tone === 'error' && <span className="pay-fix-err">{message.text}</span>}
-        {changing ? (
-          <CardChangeForm
-            companyId={companyId}
-            payNow
-            onCancel={() => setChanging(false)}
-            onDone={(r) => {
-              setChanging(false);
-              if (r?.paid) { setMessage({ tone: 'ok', text: t('payBanner.paid') }); onPaid?.(); }
-              else setMessage({ tone: 'error', text: r?.payError ? t('billingCard.savedButDeclined', { reason: r.payError }) : t('billingCard.saved') });
-            }}
-          />
-        ) : (
+    <section className="pay-fix" role="alert">
+      <header className="pay-fix-head">
+        <span className="pay-fix-ico">{readOnly ? <Lock size={18} /> : <AlertTriangle size={18} />}</span>
+        <div className="pay-fix-titles">
+          <h3>{title}</h3>
+          <p>{lead}</p>
+        </div>
+      </header>
+
+      {(cardText || reason) && (
+        <div className="pay-fix-reason">
+          <CreditCard size={15} />
+          <span>{cardText && <b>{cardText}</b>}{cardText && reason ? ' · ' : ''}{reason}</span>
+        </div>
+      )}
+
+      {steps.length > 1 && (
+        <ol className="pay-fix-steps">
+          {steps.map(st => (
+            <li key={st.key} className={`${st.done ? 'is-done' : ''}${st.bad ? ' is-bad' : ''}`}>
+              <i aria-hidden="true" />
+              <b>{st.label}</b>
+              <span>{fmtLong(st.at)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      {message?.tone === 'error' && <div className="pay-fix-err">{message.text}</div>}
+
+      {changing ? (
+        <CardChangeForm
+          companyId={companyId}
+          payNow
+          onCancel={() => setChanging(false)}
+          onDone={(r) => {
+            setChanging(false);
+            if (r?.paid) { setMessage({ tone: 'ok', text: t('payBanner.paid') }); onPaid?.(); }
+            else setMessage({ tone: 'error', text: r?.payError ? t('billingCard.savedButDeclined', { reason: r.payError }) : t('billingCard.saved') });
+          }}
+        />
+      ) : (
         <div className="pay-fix-actions">
           {requiresAction && info?.hostedUrl
             ? <a className="pay-fix-btn is-primary" href={info.hostedUrl}>{t('payBanner.confirm')}</a>
             : <button type="button" className="pay-fix-btn is-primary" onClick={retry} disabled={busy}>{busy ? t('payBanner.trying') : t('payBanner.retry')}</button>}
-          <button type="button" className="pay-fix-btn" onClick={changeCard} disabled={busy}><CreditCard size={14} /> {t('payBanner.changeCard')}</button>
+          <button type="button" className="pay-fix-btn" onClick={changeCard} disabled={busy}>{t('payBanner.changeCard')}</button>
+          <span className="pay-fix-note"><Lock size={12} /> {t('billingCard.secure')}</span>
         </div>
-        )}
-      </div>
-    </div>
+      )}
+    </section>
   );
 }

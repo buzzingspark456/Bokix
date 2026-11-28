@@ -94,8 +94,9 @@ if (MODE === 'failed') {
   console.log('Försök igen i bannern tog mig till:', (await page.locator('.main-content-inner h1, .main-content-inner h2').first().innerText().catch(() => '?')), '| kort på sidan:', await page.locator('.pay-fix').count());
   console.log('kortet:', (await page.locator('.pay-fix').innerText().catch(() => '')).replace(/s+/g, ' ').slice(0, 200));
   await page.screenshot({ path: 'test-results/betalning-' + tag + '-prenumeration.png' }); console.log('KRASCH?', errors);
-  await page.locator('.bc-tile').scrollIntoViewIfNeeded().catch(() => {}); await page.waitForTimeout(400);
-  console.log('kortet i Betalningsuppgifter:', (await page.locator('.bc-tile').innerText().catch(() => '(inget)')).replace(/s+/g, ' '));
+  await page.goto(BASE + '/?app=1#dashboard'); await page.waitForTimeout(3000); await page.screenshot({ path: 'test-results/betalning-' + tag + '-start.png' }); await page.locator('.pay-banner-btn.is-primary').click(); await page.waitForTimeout(1500);
+  await page.locator('.bc-card').scrollIntoViewIfNeeded().catch(() => {}); await page.waitForTimeout(400);
+  console.log('kortet i Betalningsuppgifter:', (await page.locator('.bc-card').innerText().catch(() => '(inget)')).replace(/s+/g, ' '));
   await page.screenshot({ path: 'test-results/betalning-' + tag + '-kort.png' });
   await page.locator('.pay-fix-btn.is-primary').click();
   await page.waitForTimeout(800);

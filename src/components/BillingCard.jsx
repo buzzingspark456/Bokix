@@ -25,13 +25,16 @@ export function CardTile({ card }) {
   if (!card) return null;
   const exp = card.expMonth && card.expYear ? `${String(card.expMonth).padStart(2, '0')}/${String(card.expYear).slice(-2)}` : '';
   return (
-    <div className="bc-tile">
-      <span className={`bc-brand bc-brand--${card.brand || 'card'}`}>{BRAND_LABEL[card.brand] || <CreditCard size={20} />}</span>
-      <span className="bc-tile-text">
-        <b>{BRAND_NAME[card.brand] || t('billingCard.card')}</b>
-        <span>•••• {card.last4}</span>
-        {exp && <small>{t('billingCard.expires', { date: exp })}</small>}
-      </span>
+    <div className={`bc-card bc-card--${card.brand || 'card'}`} aria-label={`${BRAND_NAME[card.brand] || t('billingCard.card')} •••• ${card.last4}`}>
+      <div className="bc-card-top">
+        <span className="bc-chip" aria-hidden="true" />
+        <span className="bc-card-brand">{BRAND_LABEL[card.brand] || <CreditCard size={20} />}</span>
+      </div>
+      <div className="bc-card-num">•••• •••• •••• {card.last4}</div>
+      <div className="bc-card-foot">
+        <span>{BRAND_NAME[card.brand] || t('billingCard.card')}</span>
+        {exp && <span><small>{t('billingCard.validThru')}</small> {exp}</span>}
+      </div>
     </div>
   );
 }
@@ -128,7 +131,7 @@ export default function BillingCard({ companyId = null, onPaid }) {
   return (
     <div className="bc">
       {card === undefined
-        ? <div className="bc-tile bc-tile--loading" aria-busy="true" />
+        ? <div className="bc-card bc-card--loading" aria-busy="true" />
         : card ? <CardTile card={card} /> : <div className="bc-empty">{t('billingCard.none')}</div>}
       {note && <div className={note.tone === 'error' ? 'bc-err' : 'bc-ok'}>{note.tone === 'ok' && <Check size={14} />} {note.text}</div>}
       {editing ? (

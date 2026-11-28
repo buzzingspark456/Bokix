@@ -12275,3 +12275,69 @@ table.lt-fit td > div, table.lt-fit td > span { overflow: hidden; text-overflow:
 .bc-secure { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
 .bc-form-actions { display: flex; gap: 8px; margin-left: auto; }
 :root[data-theme="dark"] .bc-brand--visa { color: #c9d1ff; }
+
+/* Betalning, snyggare (2026-11-27): vitt kort med röd kant upptill, tidslinje,
+   betalkortet som ett riktigt kort. */
+.pay-fix { display: block; padding: 22px 24px 20px; border: 1px solid var(--border-light); border-top: 3px solid #d92d20; border-radius: 16px; background: var(--bg-card); color: var(--text-main); box-shadow: 0 1px 3px rgba(15, 23, 42, .05); }
+.pay-fix-head { display: flex; align-items: flex-start; gap: 14px; }
+.pay-fix-ico { width: 40px; height: 40px; background: #fdecea; color: #d92d20; }
+.pay-fix-titles { min-width: 0; }
+.pay-fix-titles h3 { margin: 2px 0 4px; font-size: 16px; font-weight: 700; color: var(--text-main); }
+.pay-fix-titles p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--text-secondary); max-width: 560px; }
+.pay-fix-reason { display: flex; align-items: center; gap: 9px; margin: 16px 0 0 54px; padding: 10px 12px; border-radius: 10px; background: #fdf3f2; color: #8e1d17; font-size: 13px; }
+.pay-fix-reason b { font-weight: 650; letter-spacing: .02em; }
+.pay-fix-steps { list-style: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; margin: 18px 0 0 54px; padding: 0; position: relative; }
+.pay-fix-steps::before { content: ''; position: absolute; left: 6px; right: 6px; top: 6px; height: 2px; background: var(--border-light); }
+.pay-fix-steps li { position: relative; display: flex; flex-direction: column; gap: 2px; padding-right: 10px; font-size: 12.5px; }
+.pay-fix-steps i { width: 14px; height: 14px; margin-bottom: 8px; border-radius: 50%; border: 2px solid var(--border); background: var(--bg-card); position: relative; z-index: 1; }
+.pay-fix-steps li.is-done i { border-color: #0b6329; background: #0b6329; }
+.pay-fix-steps li.is-bad i { border-color: #d92d20; background: #d92d20; }
+.pay-fix-steps b { font-weight: 650; color: var(--text-main); }
+.pay-fix-steps span { color: var(--text-muted); }
+.pay-fix-err { margin: 14px 0 0 54px; font-size: 13px; font-weight: 600; color: #b42318; }
+.pay-fix-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 18px 0 0 54px; }
+.pay-fix-btn { height: 38px; padding: 0 18px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); }
+.pay-fix-btn:hover:not(:disabled) { background: var(--bg-muted); }
+.pay-fix-btn.is-primary { border-color: transparent; background: #d92d20; color: #fff; box-shadow: 0 1px 2px rgba(217, 45, 32, .3); }
+.pay-fix-btn.is-primary:hover:not(:disabled) { background: #b42318; }
+.pay-fix-note { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; font-size: 12px; color: var(--text-muted); }
+.pay-fix .bc-form { margin: 16px 0 0 54px; width: auto; max-width: 560px; }
+.pay-fix.is-ok { display: flex; border-top-color: #12803a; }
+:root[data-theme="dark"] .pay-fix:not(.is-ok) { background: var(--bg-card); color: var(--text-main); border-color: var(--border-light); border-top-color: #f04438; }
+:root[data-theme="dark"] .pay-fix-ico { background: rgba(240, 68, 56, .14); color: #f97066; }
+:root[data-theme="dark"] .pay-fix-reason { background: rgba(240, 68, 56, .10); color: #fda29b; }
+:root[data-theme="dark"] .pay-fix:not(.is-ok) .pay-fix-btn:not(.is-primary) { color: var(--text-main); border-color: var(--border); }
+@media (max-width: 640px) {
+  .pay-fix { padding: 18px 16px; }
+  .pay-fix-reason, .pay-fix-steps, .pay-fix-actions, .pay-fix-err, .pay-fix .bc-form { margin-left: 0; }
+  .pay-fix-steps { grid-auto-flow: row; gap: 10px; }
+  .pay-fix-steps::before { display: none; }
+  .pay-fix-steps li { flex-direction: row; align-items: center; gap: 8px; }
+  .pay-fix-steps i { margin: 0; }
+  .pay-fix-note { margin-left: 0; width: 100%; }
+}
+
+.bc-card { position: relative; width: 300px; max-width: 100%; aspect-ratio: 1.586; padding: 18px 20px; border-radius: 16px; color: #fff; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;
+  background: radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .14), transparent 55%), linear-gradient(140deg, #1f2937 0%, #0f172a 100%);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, .22), inset 0 1px 0 rgba(255, 255, 255, .08); }
+.bc-card--visa { background: radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .16), transparent 55%), linear-gradient(140deg, #1a2a6c 0%, #0b1440 100%); }
+.bc-card--mastercard { background: radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .14), transparent 55%), linear-gradient(140deg, #2b2b2b 0%, #111 100%); }
+.bc-card--loading { background: var(--bg-muted); box-shadow: none; animation: bc-pulse 1.2s ease-in-out infinite; }
+.bc-card-top { display: flex; align-items: center; justify-content: space-between; }
+.bc-chip { width: 36px; height: 27px; border-radius: 6px; background: linear-gradient(135deg, #f5d98b, #c9a24a); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .15); }
+.bc-card-brand { font-size: 20px; font-weight: 800; font-style: italic; letter-spacing: .04em; }
+.bc-card--mastercard .bc-card-brand { font-style: normal; font-size: 14px; }
+.bc-card-num { font-size: 18px; font-weight: 600; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
+.bc-card-foot { display: flex; justify-content: space-between; align-items: flex-end; font-size: 12.5px; font-weight: 600; opacity: .9; }
+.bc-card-foot small { display: block; font-size: 9px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
+/* Bannern behövs inte där rutan redan står (Prenumeration). */
+.main-content-inner:has(.pay-fix) > .pay-banner { display: none; }
+@media (max-width: 640px) {
+  .pay-banner { flex-wrap: nowrap; align-items: center; padding: 8px 6px 8px 10px; }
+  .pay-banner-text { flex: 1 1 auto; flex-direction: column; align-items: flex-start; gap: 1px; }
+  .pay-banner-text span::before { display: none; }
+  .pay-banner-actions { width: auto; }
+  .pay-banner-btn.is-primary { height: 30px; padding: 0 12px; background: #d92d20; }
+}
+.pay-banner-btn.is-primary { background: #d92d20; }
+.pay-banner-btn.is-primary:hover { background: #b42318; }

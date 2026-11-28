@@ -3,6 +3,12 @@
     "count": "{{n}} anställda med lön"
   },
   "payBanner": {
+    "leadFailed": "Vi kunde inte dra månadens betalning. Allt fungerar som vanligt medan du ordnar det.",
+    "leadRead": "Du kan se och ladda ner allt, men inte bokföra nytt förrän betalningen är ordnad.",
+    "stepFailed": "Dragningen misslyckades",
+    "stepRetry": "Nytt försök",
+    "stepRead": "Skrivskyddat",
+    "stepLock": "Kontot stängs",
     "readOnlyShort": "Skrivskyddat från {{date}}",
     "readShort": "Kontot stängs {{date}}",
     "snooze": "Påminn mig i morgon",
@@ -3112,7 +3118,7 @@
     "senaste_3_manaderna": "Senaste 3 månaderna",
     "senaste_6_manaderna": "Senaste 6 månaderna",
     "senaste_12_manaderna": "Senaste 12 månaderna",
-    "senaste_betalningen_misslyckades_stripe_forsoker": "Senaste betalningen misslyckades. Stripe försöker automatiskt igen — uppdatera kortet om det upprepas.",
+    "senaste_betalningen_misslyckades_stripe_forsoker": "Betalningen behöver ordnas, se rutan ovanför. Sedan fortsätter planen som vanligt.",
     "senaste_lagerhandelser": "Senaste lagerhändelser",
     "senaste_manaden_mot_de_tolv_foregaende_med_avvik": "Senaste månaden mot de tolv föregående, med avvikelser markerade.",
     "senaste_utskicket_gick_inte_via_din_adress": "Senaste utskicket gick inte via din adress:",
@@ -3963,7 +3969,7 @@
     "vantar_pa_svar": "Väntar på svar",
     "aterkallad": "Återkallad",
     "provperiod": "Provperiod",
-    "betalning_misslyckades_forsoker": "Betalning misslyckades — försöker igen",
+    "betalning_misslyckades_forsoker": "Betalning saknas",
     "ofullstandig": "Ofullständig",
     "utgangen": "Utgången",
     "plan_rad_bokforing": "Bokföring, fakturor, offerter, kvitton och moms",
@@ -6663,6 +6669,7 @@
     "close": "Stäng, jag klarar mig"
   },
   "billingCard": {
+    "validThru": "Giltigt t.o.m.",
     "card": "Kort",
     "expires": "Går ut {{date}}",
     "none": "Inget kort sparat än.",

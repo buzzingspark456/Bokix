@@ -3,6 +3,12 @@
     "count": "{{n}} employees with pay"
   },
   "payBanner": {
+    "leadFailed": "We couldn't charge this month's payment. Everything works as usual while you sort it out.",
+    "leadRead": "You can view and download everything, but not book anything new until the payment is sorted.",
+    "stepFailed": "Charge failed",
+    "stepRetry": "Next attempt",
+    "stepRead": "Read-only",
+    "stepLock": "Account closes",
     "readOnlyShort": "Read-only from {{date}}",
     "readShort": "Account closes {{date}}",
     "snooze": "Remind me tomorrow",
@@ -3112,7 +3118,7 @@
     "senaste_3_manaderna": "Last 3 months",
     "senaste_6_manaderna": "Last 6 months",
     "senaste_12_manaderna": "Last 12 months",
-    "senaste_betalningen_misslyckades_stripe_forsoker": "The latest payment failed. Stripe retries automatically — update the card if it happens again.",
+    "senaste_betalningen_misslyckades_stripe_forsoker": "The payment needs sorting out, see the box above. Then the plan continues as usual.",
     "senaste_lagerhandelser": "Latest inventory events",
     "senaste_manaden_mot_de_tolv_foregaende_med_avvik": "The latest month against the previous twelve, with deviations marked.",
     "senaste_utskicket_gick_inte_via_din_adress": "The latest email did not go via your address:",
@@ -3963,7 +3969,7 @@
     "vantar_pa_svar": "Awaiting reply",
     "aterkallad": "Revoked",
     "provperiod": "Trial",
-    "betalning_misslyckades_forsoker": "Payment failed, retrying",
+    "betalning_misslyckades_forsoker": "Payment missing",
     "ofullstandig": "Incomplete",
     "utgangen": "Expired",
     "plan_rad_bokforing": "Bookkeeping, invoices, quotes, receipts and VAT",
@@ -6663,6 +6669,7 @@
     "close": "Close, I am fine"
   },
   "billingCard": {
+    "validThru": "Valid thru",
     "card": "Card",
     "expires": "Expires {{date}}",
     "none": "No card saved yet.",
