@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Check } from '../icons';
+import { Check, BookOpen, FileText, ScanLine, Inbox, Landmark, Percent, FileCheck, BarChart3, Wallet, Mail, Send, Calendar, Banknote, ClipboardList, Package, Truck, Tag } from '../icons';
 import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY } from './marketingTokens';
@@ -59,10 +59,11 @@ function buildSoftwareSchema(description) {
 
 // Korten som planvalet i appen (2026-11-28): gränser, hela listan med
 // "Allt i …, och" och konsult/revisor. Samma texter som planPick.* i appen.
+// [ikon, text]: samma ikoner som PLAN_FEATURES i utils/plans.js.
 const CARD_LISTS = {
-  solo: { intro: null, items: ['Verifikationer, kontoplan och huvudbok', 'Fakturor och offerter med Betala nu', 'Kvittoavläsning från foto, PDF och mejl', 'Leverantörsfakturor med förfallopåminnelse', 'Bank: import och avstämning', 'Momsdeklaration, fil till Skatteverket', 'Bokslut och årsredovisning (K2)', 'Resultat, balans och SIE-export'] },
-  employer: { intro: 'Allt i Solo, och', items: ['Lönekörning med skatteavdrag', 'Lönebesked som PDF och mejl', 'Arbetsgivardeklaration till Skatteverket', 'Semester och utlägg i lönen', 'Betalfil till banken'] },
-  trade: { intro: 'Allt i Team, och', items: ['Order, delleverans och restorder', 'Artiklar och lager som dras automatiskt', 'Inköpsorder till leverantörer', 'Prissättning med marginalmål', 'Orderbekräftelse och följesedel'] },
+  solo: { intro: null, items: [[BookOpen, 'Verifikationer, kontoplan och huvudbok'], [FileText, 'Fakturor och offerter med Betala nu'], [ScanLine, 'Kvittoavläsning från foto, PDF och mejl'], [Inbox, 'Leverantörsfakturor med förfallopåminnelse'], [Landmark, 'Bank: import och avstämning'], [Percent, 'Momsdeklaration, fil till Skatteverket'], [FileCheck, 'Bokslut och årsredovisning (K2)'], [BarChart3, 'Resultat, balans och SIE-export']] },
+  employer: { intro: 'Allt i Solo, och', items: [[Wallet, 'Lönekörning med skatteavdrag'], [Mail, 'Lönebesked som PDF och mejl'], [Send, 'Arbetsgivardeklaration till Skatteverket'], [Calendar, 'Semester och utlägg i lönen'], [Banknote, 'Betalfil till banken']] },
+  trade: { intro: 'Allt i Team, och', items: [[ClipboardList, 'Order, delleverans och restorder'], [Package, 'Artiklar och lager som dras automatiskt'], [Truck, 'Inköpsorder till leverantörer'], [Tag, 'Prissättning med marginalmål'], [FileText, 'Orderbekräftelse och följesedel']] },
 };
 const fmtNum = (n) => Number(n).toLocaleString('sv-SE');
 
@@ -168,6 +169,12 @@ export default function PricingPage({ locale = 'sv' }) {
         .prc-conn { display: flex; flex-direction: row !important; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; max-width: 900px; margin: 28px auto 0; padding: 0 16px; }
         .prc-conn-l { font-size: 14px; color: ${MUTED}; margin-right: 4px; }
         .prc-chip { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--mkt-card-border); background: var(--mkt-card-bg); font-size: 13.5px; font-weight: 700; color: ${INK}; }
+        .prc-fico { flex-shrink: 0; width: 26px; height: 26px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: #e3f4e8; color: #0b6329; margin-top: -1px; }
+        .prc-fico-employer { background: #e8f0fe; color: #1d5fd6; }
+        .prc-fico-trade { background: #fdf3dc; color: #a15c00; }
+        html[data-theme="dark"] .prc-fico { background: rgba(63, 191, 108, .16); color: #6ee7a0; }
+        html[data-theme="dark"] .prc-fico-employer { background: rgba(83, 141, 255, .16); color: #8ab4ff; }
+        html[data-theme="dark"] .prc-fico-trade { background: rgba(245, 180, 60, .16); color: #fcd27b; }
         .prc-more { font-size: 12.5px; color: ${MUTED}; }
         .prc-cardconn { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; font-size: 13px; font-weight: 600; color: ${MUTED}; }
         .prc-logos { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -283,8 +290,8 @@ export default function PricingPage({ locale = 'sv' }) {
                 </div>
                 {CARD_LISTS[t.key]?.intro && <p className="pp-hl-title">{CARD_LISTS[t.key].intro}</p>}
                 <ul className="pp-hl">
-                  {(CARD_LISTS[t.key]?.items || []).map(h => (
-                    <li key={h}><span className="pp-tick"><Check size={13} color={G} strokeWidth={3.2} /></span>{h}</li>
+                  {(CARD_LISTS[t.key]?.items || []).map(([Icon, h]) => (
+                    <li key={h}><span className={`prc-fico prc-fico-${t.key}`} aria-hidden="true"><Icon size={14} /></span>{h}</li>
                   ))}
                 </ul>
                 <p className="pp-acc">Bjud in din redovisningskonsult och revisor utan kostnad</p>

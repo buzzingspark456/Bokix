@@ -55,6 +55,9 @@ export async function readWithCloud(input, { quad = null } = {}) {
       const payload = await response.json().catch(() => ({}));
       if (response.status === 429 && (payload?.code === 'quota' || payload?.code === 'plan_quota')) quotaReached = true;
       if (response.status === 429 && payload?.code === 'plan_quota' && typeof window !== 'undefined') {
+        // Kom ihåg att gränsen nåddes den här månaden, så att Köp 100 till
+        // visas under Prenumeration → Användning (OcrTopupCard.jsx).
+        try { localStorage.setItem(`bokix.ocrQuota.${ocrCompanyId || '-'}`, new Date().toISOString().slice(0, 7)); } catch { /* privat läge */ }
         window.dispatchEvent(new CustomEvent('bokix:ocr-plan-quota', { detail: { limit: payload.limit, plan: payload.plan, message: payload.error } }));
       }
       if (!response.ok) {

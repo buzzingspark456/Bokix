@@ -15,7 +15,10 @@ export default function OcrTopupCard({ companyKey = '' }) {
     return () => { alive = false; };
   }, [companyKey]);
 
-  if (!info?.plan || !info.limit) return null;
+  // Bara när gränsen faktiskt har nåtts den här månaden (ocrCloud.js sparar
+  // det när servern svarar plan_quota), eller när det redan köpts extra.
+  const reached = (() => { try { return localStorage.getItem(`bokix.ocrQuota.${companyKey || '-'}`) === new Date().toISOString().slice(0, 7); } catch { return false; } })();
+  if (!info?.plan || !info.limit || (!reached && !info.extra)) return null;
   const total = info.limit + (info.extra || 0);
   const buy = async () => {
     if (!window.confirm(`Köpa ${info.reads} extra kvittoavläsningar för ${info.price} kr? Beloppet läggs på nästa faktura och avläsningarna gäller resten av månaden.`)) return;

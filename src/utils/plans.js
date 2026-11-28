@@ -82,7 +82,7 @@ export const BILLING_INTERVALS = [
 export const TRADE_TIER = {
   id: 'trade',
   name: 'Handel',
-  subtitle: 'Du säljer varor, med lager och kassa',
+  subtitle: 'Du säljer varor, med order och lager',
   // Grundarens pris 2026-11-27: 349 kr, årsplan 299 kr/mån.
   monthlyPrice: 349,
   yearlyMonthlyPrice: 299,

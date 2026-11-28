@@ -86,7 +86,7 @@ export const PRICING_TIERS = [
 export const TRADE_PRICING_TIER = {
   key: 'trade',
   name: 'Handel',
-  subtitle: 'Du säljer varor, med lager och kassa',
+  subtitle: 'Du säljer varor, med order och lager',
   comingSoon: true,
   recommend: 'Passar dig som säljer varor och vill ha order, lager och inköp i samma app som bokföringen.',
 };
