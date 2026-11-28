@@ -361,7 +361,6 @@ export default function AppRouter() {
         <Route path="/om-oss" element={<Suspense fallback={<AppLoadingFallback />}><AboutPage /></Suspense>} />
         <Route path="/belopp-och-regler" element={<Suspense fallback={<AppLoadingFallback />}><RulesPage /></Suspense>} />
         <Route path="/kontakt" element={<Suspense fallback={<AppLoadingFallback />}><ContactPage /></Suspense>} />
-        <Route path="/handel-intresse" element={<Navigate to="/priser?handel=1" replace />} />
         <Route path="/boka-genomgang" element={<Suspense fallback={<AppLoadingFallback />}><BookingPage /></Suspense>} />
         {/* Googles callback efter "Logga in med Google" i Inställningar.
             MÅSTE vara exakt den här sökvägen: adressen är registrerad hos

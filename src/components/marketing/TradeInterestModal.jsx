@@ -84,7 +84,7 @@ export default function TradeInterestModal({ open, onClose }) {
       <span className="tim-label">{label}<em> (valfritt)</em></span>
       <div className="tim-chips" role="radiogroup" aria-label={label}>
         {list.map(v => (
-          <button key={v} type="button" role="radio" aria-checked={form[id] === v} className={form[id] === v ? 'on' : undefined} onClick={() => update(id, form[id] === v ? '' : v)}>{v}</button>
+          <button key={v} type="button" role="radio" aria-checked={form[id] === v} className={form[id] === v ? 'on' : undefined} onClick={() => update(id, form[id] === v ? '' : v)}>{form[id] === v && <span className="tim-chip-ok" aria-hidden="true"><Check size={10} strokeWidth={3.4} /></span>}{v}</button>
         ))}
       </div>
     </div>
@@ -99,7 +99,8 @@ export default function TradeInterestModal({ open, onClose }) {
         @keyframes tim-rise { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
         @media (prefers-reduced-motion: reduce) { .tim-overlay, .tim-sheet { animation: none; } }
         .tim-x { position: absolute; top: 14px; right: 14px; width: 36px; height: 36px; border-radius: 50%; border: 0; background: transparent; color: ${INK_SOFT}; display: grid; place-items: center; cursor: pointer; }
-        .tim-x:hover { background: rgba(127, 127, 127, .14); }
+        .tim-x { transition: background .15s ease, transform .2s ease; }
+        .tim-x:hover { background: rgba(127, 127, 127, .14); transform: rotate(90deg); }
         .tim-title { font-family: ${SERIF}; font-size: clamp(24px, 3.4vw, 30px); font-weight: 700; letter-spacing: -.02em; color: ${INK}; margin: 0 40px 6px 0; line-height: 1.15; }
         .tim-lead { font-size: 15px; color: ${INK_SOFT}; line-height: 1.55; margin: 0 0 20px; }
         .tim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
@@ -107,15 +108,28 @@ export default function TradeInterestModal({ open, onClose }) {
         .tim-grid .tim-field { margin-bottom: 0; }
         .tim-label { font-size: 13.5px; font-weight: 650; color: ${INK}; }
         .tim-label em { font-style: normal; font-weight: 400; color: var(--mkt-muted); }
-        .tim-input { width: 100%; box-sizing: border-box; padding: 11px 13px; font: 15px inherit; font-family: inherit; color: ${INK}; background: var(--mkt-page-bg); border: 1.5px solid ${CARD_BORDER}; border-radius: 11px; outline: none; transition: border-color .15s ease; }
-        .tim-input:focus { border-color: ${BRAND.green}; }
+        .tim-input { width: 100%; box-sizing: border-box; padding: 11px 13px; font: 15px inherit; font-family: inherit; color: ${INK}; background: var(--mkt-page-bg); border: 1.5px solid ${CARD_BORDER}; border-radius: 11px; outline: none; transition: border-color .15s ease, box-shadow .2s ease, background .15s ease; }
+        .tim-input:hover { border-color: color-mix(in srgb, ${BRAND.green} 35%, ${CARD_BORDER}); }
+        .tim-input:focus { border-color: ${BRAND.green}; box-shadow: 0 0 0 4px color-mix(in srgb, ${BRAND.green} 16%, transparent); background: var(--mkt-card-bg); }
         textarea.tim-input { resize: vertical; min-height: 80px; }
         .tim-chips { display: flex; flex-wrap: wrap; gap: 7px; }
-        .tim-chips button { padding: 8px 13px; border-radius: 999px; border: 1.5px solid ${CARD_BORDER}; background: transparent; color: ${INK}; font: 600 13.5px inherit; font-family: inherit; cursor: pointer; }
+        .tim-chips button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border-radius: 999px; border: 1.5px solid ${CARD_BORDER}; background: transparent; color: ${INK}; font: 600 13.5px inherit; font-family: inherit; cursor: pointer; transition: transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .2s ease; }
+        .tim-chips button:hover { transform: translateY(-1px); border-color: color-mix(in srgb, ${BRAND.green} 45%, ${CARD_BORDER}); box-shadow: 0 4px 12px rgba(0, 0, 0, .08); }
+        .tim-chips button:active { transform: scale(.96); }
         .tim-chips button.on { border-color: ${BRAND.green}; background: color-mix(in srgb, ${BRAND.green} 12%, transparent); color: var(--mkt-accent-green-fg, ${BRAND.green}); }
-        .tim-more { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 14px; padding: 0; border: 0; background: none; color: var(--mkt-accent-green-fg, ${BRAND.green}); font: 650 14px inherit; font-family: inherit; cursor: pointer; }
-        .tim-submit { width: 100%; margin-top: 6px; padding: 14px; border: 0; border-radius: 12px; background: ${BRAND.green}; color: #fff; font: 700 15.5px inherit; font-family: inherit; cursor: pointer; }
-        .tim-submit:disabled { opacity: .6; cursor: default; }
+        .tim-chip-ok { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: ${BRAND.green}; color: #fff; animation: tim-pop .28s cubic-bezier(.2, 1.6, .4, 1); }
+        @keyframes tim-pop { from { transform: scale(0); } to { transform: scale(1); } }
+        .tim-more { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 14px; padding: 6px 10px 6px 8px; border: 0; border-radius: 999px; background: none; color: var(--mkt-accent-green-fg, ${BRAND.green}); font: 650 14px inherit; font-family: inherit; cursor: pointer; transition: background .15s ease; }
+        .tim-more:hover { background: color-mix(in srgb, ${BRAND.green} 10%, transparent); }
+        .tim-extra { animation: tim-open .28s ease; }
+        @keyframes tim-open { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+        .tim-submit { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin-top: 6px; padding: 14px; border: 0; border-radius: 12px; background: linear-gradient(180deg, #13803a 0%, ${BRAND.green} 100%); color: #fff; font: 700 15.5px inherit; font-family: inherit; cursor: pointer; box-shadow: 0 6px 18px color-mix(in srgb, ${BRAND.green} 35%, transparent), inset 0 1px 0 rgba(255, 255, 255, .18); transition: transform .15s ease, box-shadow .2s ease, filter .15s ease; }
+        .tim-submit:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 10px 26px color-mix(in srgb, ${BRAND.green} 42%, transparent), inset 0 1px 0 rgba(255, 255, 255, .2); }
+        .tim-submit:active:not(:disabled) { transform: scale(.985); }
+        .tim-submit:disabled { opacity: .75; cursor: default; }
+        .tim-spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .4); border-top-color: #fff; animation: tim-rot .7s linear infinite; }
+        @keyframes tim-rot { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) { .tim-chips button, .tim-submit, .tim-x { transition: none; } .tim-chip-ok, .tim-extra { animation: none; } }
         .tim-small { font-size: 12.5px; color: var(--mkt-muted); text-align: center; margin: 12px 0 0; }
         .tim-small a { color: inherit; }
         .tim-err { font-size: 14px; color: ${BRAND.redText}; margin: 0 0 12px; }
@@ -147,7 +161,7 @@ export default function TradeInterestModal({ open, onClose }) {
             {!more ? (
               <button type="button" className="tim-more" onClick={() => setMore(true)}>+ Berätta mer om er (valfritt)</button>
             ) : (
-              <>
+              <div className="tim-extra">
                 <div className="tim-grid">
                   {input('phone', 'Telefon', { type: 'tel', autoComplete: 'tel' }, true)}
                   {input('orgNr', 'Org.nr', { inputMode: 'numeric' }, true)}
@@ -159,11 +173,11 @@ export default function TradeInterestModal({ open, onClose }) {
                   <span className="tim-label">Något mer vi borde veta?<em> (valfritt)</em></span>
                   <textarea className="tim-input" rows={3} value={form.message} onChange={e => update('message', e.target.value)} />
                 </label>
-              </>
+              </div>
             )}
             {status === 'error' && <p role="alert" className="tim-err">{errorMsg}</p>}
             <Turnstile key={captchaRound} ref={captchaRef} onDemand />
-            <button type="submit" className="tim-submit" disabled={status === 'sending'}>{status === 'sending' ? 'Skickar …' : 'Anmäl intresse'}</button>
+            <button type="submit" className="tim-submit" disabled={status === 'sending'}>{status === 'sending' ? <><span className="tim-spin" aria-hidden="true" />Skickar …</> : 'Anmäl intresse'}</button>
             <p className="tim-small">Vi använder uppgifterna bara för att höra av oss om Handel. <Link to="/privacy">Integritetspolicy</Link></p>
           </form>
         )}
