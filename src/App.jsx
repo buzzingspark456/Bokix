@@ -2097,7 +2097,7 @@ function App() {
           return Object.fromEntries(companies.map(c => [c.company_id, {
             company: c.company,
             __stub: true,
-            __shared: { ownerUserId: c.owner_user_id, role: c.role, pageAccess: c.pageAccess || null, ownerPaid: c.ownerPaid !== false, ownerAccess: c.ownerAccess || null },
+            __shared: { ownerUserId: c.owner_user_id, role: c.role, pageAccess: c.pageAccess || null, ownerPaid: c.ownerPaid !== false, ownerAccess: c.ownerAccess || null, ownerPlan: c.ownerPlan || null },
           }]));
         }
       } catch (err) {
@@ -2125,7 +2125,7 @@ function App() {
           // __shared markerar företaget som INTE mitt eget — se
           // persist-effekten längre ner, som aldrig får skriva in det här i
           // min egen user_data-rad, bara via set_company_field.
-          results[m.company_id] = { ...json.company, __shared: { ownerUserId: m.owner_user_id, role: json.role, pageAccess: json.pageAccess || null, ownerPaid: json.ownerPaid !== false, ownerAccess: json.ownerAccess || null } };
+          results[m.company_id] = { ...json.company, __shared: { ownerUserId: m.owner_user_id, role: json.role, pageAccess: json.pageAccess || null, ownerPaid: json.ownerPaid !== false, ownerAccess: json.ownerAccess || null, ownerPlan: json.ownerPlan || null } };
         }
       } catch (err) {
         console.error('Kunde inte hämta delat företag', m.company_id, err);
@@ -2150,7 +2150,7 @@ function App() {
       setData(prev => {
         const stub = prev.companies?.[companyId];
         if (!stub?.__stub) return prev;
-        return { ...prev, companies: { ...prev.companies, [companyId]: { ...json.company, __shared: { ...stub.__shared, role: json.role, pageAccess: json.pageAccess || null, ownerPaid: json.ownerPaid !== false, ownerAccess: json.ownerAccess || null } } } };
+        return { ...prev, companies: { ...prev.companies, [companyId]: { ...json.company, __shared: { ...stub.__shared, role: json.role, pageAccess: json.pageAccess || null, ownerPaid: json.ownerPaid !== false, ownerAccess: json.ownerAccess || null, ownerPlan: json.ownerPlan || null } } } };
       });
     } catch (err) {
       console.error('Kunde inte hämta delat företag', companyId, err);
@@ -6096,7 +6096,9 @@ function App() {
   // lön och handel, Personal med lön, Handel med allt. Lokalt kan planen
   // väljas i förhandsvisningen (bokix.devPlan) för att se skillnaden.
   const devPlan = import.meta.env.DEV ? (() => { try { return localStorage.getItem('bokix.devPlan'); } catch { return null; } })() : null;
-  const activePlanId = devPlan || (subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan;
+  // Delat företag: ägarens plan, så att en inbjuden aldrig får mer än ägaren betalar för.
+  const sharedActive = data.companies?.[data.activeCompanyId]?.__shared;
+  const activePlanId = devPlan || (sharedActive ? sharedActive.ownerPlan : (subscriptionsMap[data.activeCompanyId] || subscriptionsMap[''] || {}).plan);
   const tradeIncluded = !newUnderlagOn || planIncludesTrade(activePlanId);
   const payrollIncludedPlan = !newUnderlagOn || planIncludesPayroll(activePlanId);
   const articlesNavLabel = tradeIncluded ? t('nav.articles') : t('nav.articlesOnly');

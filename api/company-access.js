@@ -248,6 +248,24 @@ async function uploadedWhileMember(admin, path, membership) {
 // ifylld .env ("FORETAGSAPI_KEY saknas" även med nyckeln på plats).
 // Fungerade ändå hela tiden i produktion (Vercel injicerar env-variabler
 // innan modulen ens laddas, inget dotenv/körordning inblandat där).
+// Ägarens plan för ett delat företag (2026-11-28): den inbjudna ska få samma
+// sidor som ägaren betalar för, inget som hör till Handel om ägaren har Bas
+// eller Personal. Företagets egen rad, annars kontots (company_id '').
+async function ownerPlans(admin, owners) {
+  if (!owners.length) return [];
+  try {
+    const { data } = await admin.from('subscriptions').select('user_id, company_id, plan').in('user_id', owners);
+    return data || [];
+  } catch {
+    return []; // okänd plan = som förut, inget låses ute
+  }
+}
+function ownerPlanFor(rows, ownerId, companyId) {
+  const own = rows.find(r => r.user_id === ownerId && r.company_id === companyId);
+  const account = rows.find(r => r.user_id === ownerId && (r.company_id || '') === '');
+  return (own || account)?.plan || null;
+}
+
 function getForetagsApiKey() {
   return process.env.FORETAGSAPI_KEY || null;
 }
@@ -562,6 +580,7 @@ async function handler(req, res) {
         ownerAccess.set(ownerId, level);
         ownerPaid.set(ownerId, level === 'full');
       }));
+      const plans = await ownerPlans(admin, owners);
       const companies = (memberships || []).map((m) => {
         const entry = findCompanyEntry(ownerState.get(m.owner_user_id), m.company_id);
         if (!entry?.data) return null;
@@ -573,6 +592,7 @@ async function handler(req, res) {
           pageAccess: m.page_access || null,
           ownerPaid: ownerPaid.get(m.owner_user_id) !== false,
           ownerAccess: ownerAccess.get(m.owner_user_id) || 'full',
+          ownerPlan: ownerPlanFor(plans, m.owner_user_id, m.company_id),
         };
       }).filter(Boolean);
       res.status(200).json({ companies });
@@ -595,10 +615,11 @@ async function handler(req, res) {
       const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
       const ownerAccess = url && key ? await paidAccessLevel(createClient(url, key), member.ownerUserId) : 'full';
       const ownerPaid = ownerAccess === 'full';
+      const ownerPlan = url && key ? ownerPlanFor(await ownerPlans(createClient(url, key), [member.ownerUserId]), member.ownerUserId, companyId) : null;
       // Stora företag (flera års bokföring) kan bli större än Vercels gräns
       // för svar (4,5 MB). Över 1 MB skickas svaret komprimerat; webbläsaren
       // packar upp det själv.
-      const body = JSON.stringify({ company: memberCompanyView(member.companyData, member.pageAccess, member.role), role: member.role, pageAccess: member.pageAccess || null, ownerPaid, ownerAccess });
+      const body = JSON.stringify({ company: memberCompanyView(member.companyData, member.pageAccess, member.role), role: member.role, pageAccess: member.pageAccess || null, ownerPaid, ownerAccess, ownerPlan });
       const acceptsGzip = /gzip/.test(String(req.headers?.['accept-encoding'] || ''));
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');
