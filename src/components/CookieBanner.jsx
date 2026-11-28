@@ -79,7 +79,7 @@ export default function CookieBanner() {
     <div className="ck" role="dialog" aria-label="Cookies">
       <div className="ck-brand"><BokixWordmark height={18} /><span className="ck-ico" aria-hidden="true"><CookieFilled size={16} color="#c98a2b" /></span></div>
       <p className="ck-text">
-        Vi använder cookies för inloggning och för att förstå hur Bokix används.{' '}
+        Vi använder cookies för inloggning, för att förstå hur Bokix används och för att mäta våra annonser.{' '}
         <Link to="/cookies">Läs mer</Link>
       </p>
       <div className="ck-actions">

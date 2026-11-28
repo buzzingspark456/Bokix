@@ -23,6 +23,10 @@ gtag('consent', 'default', {
 });
 gtag('js', new Date());
 gtag('config', 'G-9KXP9XW3MW');
+// Google Ads (2026-11-28): bara konverteringsmätning för Bokix egna annonser.
+// Samma tagg som GA4 ovan (en Google-tagg per sida), och samma samtycke:
+// ad_storage/ad_user_data är 'denied' tills besökaren valt "Acceptera alla".
+gtag('config', 'AW-18511670728');
 
 // Microsoft Clarity — samma konsent-krav som gtag.js ovan, av samma
 // GDPR/ePrivacy-skäl (Clarity är en egen tredjeparts spårningscookie,

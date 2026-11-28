@@ -32,13 +32,16 @@ export function storeConsent(status) {
   writeCookie(CONSENT_COOKIE_NAME, status, CONSENT_COOKIE_MAX_AGE_DAYS);
 }
 
-/** Uppdaterar Googles samtyckessignal. Bara analytics_storage rörs — Bokix
- * har ingen annonsintegration, så ad_storage/ad_user_data/ad_personalization
- * förblir 'denied' oavsett vad besökaren väljer (inget att bevilja där). */
+/** Uppdaterar Googles samtyckessignal. Sedan 2026-11-28 mäter Bokix sina
+ * egna Google Ads-annonser (vilka klick som blev konton), så "Acceptera alla"
+ * ger även ad_storage och ad_user_data. ad_personalization förblir 'denied':
+ * ingen retargeting och inga anpassade annonser. */
 export function updateGtagConsent(granted) {
   if (typeof window.gtag !== 'function') return;
   window.gtag('consent', 'update', {
     analytics_storage: granted ? 'granted' : 'denied',
+    ad_storage: granted ? 'granted' : 'denied',
+    ad_user_data: granted ? 'granted' : 'denied',
   });
 }
 

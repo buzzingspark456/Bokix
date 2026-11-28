@@ -29,7 +29,7 @@ export default function CookiesPolicy() {
     >
       <PolicySection n={1} title="Sammanfattning" first>
         <PolicyCallout>
-          Bokix använder inga marknadsförings- eller reklamcookies. Vi använder Google Analytics, Microsoft Clarity och PostHog för grundläggande besöksstatistik, men bara om du aktivt godkänt det i cookiebannern — ingen av dem sätts innan du sagt ja.
+          Vi använder Google Analytics, Microsoft Clarity och PostHog för grundläggande besöksstatistik, och Google Ads för att mäta om våra egna annonser leder till nya konton. Inget av det sätts innan du aktivt godkänt det i cookiebannern. Vi använder inga cookies för retargeting eller anpassade annonser.
         </PolicyCallout>
         <p style={policyP}>
           De nödvändiga cookies nedan kräver inget samtycke enligt gällande regler (de behövs för att logga in och för att tjänsten ska fungera), men analyscookies gör det, och sätts bara efter att du klickat "Acceptera alla" i cookiebannern som visas vid ditt första besök.
@@ -88,13 +88,16 @@ export default function CookiesPolicy() {
             [<>
               <PolicyCode>_clck</PolicyCode> / <PolicyCode>_clsk</PolicyCode> / <PolicyCode>CLID</PolicyCode>
             </>, 'Cookie (Microsoft Clarity)', 'Håller isär besökare och kopplar ihop sidvisningar till samma besök, för skärminspelningar och klickstatistik. Sätts bara efter att du klickat "Acceptera alla".', '_clck/CLID: 1 år, _clsk: 1 dag'],
+            [<>
+              <PolicyCode>_gcl_au</PolicyCode> / <PolicyCode>_gcl_aw</PolicyCode>
+            </>, 'Cookie (Google Ads)', 'Kommer ihåg att du kom till Bokix via en av våra annonser, så att vi kan se om annonsen ledde till ett konto. Används inte för retargeting eller anpassade annonser. Sätts bara efter att du klickat "Acceptera alla".', '90 dagar'],
             [<PolicyCode>ph_*_posthog</PolicyCode>, 'Cookie och localStorage (PostHog)', 'Ger webbläsaren ett slumpat, anonymt id så att sidvisningar och händelser från samma besök hänger ihop. Sätts bara efter att du klickat "Acceptera alla".', 'Cookie: 1 år. localStorage: tills du rensar webbläsardata'],
             [<PolicyCode>__ph_opt_in_out_*</PolicyCode>, 'localStorage (PostHog)', 'Kommer ihåg om du tackat ja eller nej till PostHog, så att valet respekteras vid nästa besök. Innehåller inget id.', 'Tills du rensar webbläsardata'],
             [<PolicyCode>bokix_cookie_consent</PolicyCode>, 'Cookie', 'Kommer ihåg ditt val i cookiebannern (accepterat eller nekat), så bannern inte visas på varje besök.', '12 månader'],
           ]}
         />
         <p style={policyP}>
-          Inga marknadsförings- eller reklamcookies används, oavsett vad du väljer i bannern. Vill du ändra ditt tidigare val, klicka "Cookieinställningar" längst ner på vilken sida som helst.
+          Väljer du "Endast nödvändiga" sätts varken statistik- eller annonscookies. Vill du ändra ditt tidigare val, klicka "Cookieinställningar" längst ner på vilken sida som helst.
         </p>
       </PolicySection>
 
