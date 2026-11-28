@@ -6688,5 +6688,32 @@
     "saved": "Kortet är sparat. Nästa dragning görs från det nya kortet.",
     "savedButDeclined": "Kortet är sparat men betalningen nekades: {{reason}}",
     "failed": "Kortet kunde inte sparas."
+  },
+  "receipts": {
+    "title": "Kvitton",
+    "count": "{{n}} st",
+    "empty": "Kvittona dyker upp här efter första dragningen.",
+    "loadFailed": "Kvittona gick inte att hämta just nu.",
+    "paid": "Betald",
+    "unpaid": "Obetald",
+    "receipt": "Kvitto",
+    "date": "Datum",
+    "period": "Period",
+    "subscription": "Bokix abonnemang",
+    "totalPaid": "Betalt",
+    "totalDue": "Att betala",
+    "noVat": "Bokix är inte momsregistrerat, beloppet är slutpris.",
+    "downloadPdf": "Ladda ner PDF",
+    "openStripe": "Visa hos Stripe",
+    "payStripe": "Betala hos Stripe",
+    "showAll": "Visa alla {{n}}"
+  },
+  "subTabs": {
+    "plan": "Plan",
+    "payment": "Betalning",
+    "receipts": "Kvitton",
+    "usage": "Användning",
+    "needsAction": "Behöver åtgärdas",
+    "receiptCopy": "Kopia av kvittona"
   }
 }

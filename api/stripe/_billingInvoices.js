@@ -76,6 +76,11 @@ export async function listSubscriptionInvoices(stripe, customerIds) {
           currency: invoice.currency,
           hosted_invoice_url: invoice.hosted_invoice_url || null,
           invoice_pdf: invoice.invoice_pdf || null,
+          // Kvittot i appen (2026-11-27): vad som betalades, för vilken period och när.
+          paid_at: invoice.status_transitions?.paid_at || null,
+          period_start: invoice.lines?.data?.[0]?.period?.start || invoice.period_start || null,
+          period_end: invoice.lines?.data?.[0]?.period?.end || invoice.period_end || null,
+          lines: (invoice.lines?.data || []).slice(0, 10).map(l => ({ description: l.description || null, amount: l.amount })),
         });
       }
       if (!page.has_more) break;

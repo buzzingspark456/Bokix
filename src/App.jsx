@@ -520,8 +520,7 @@ function NotifSoundWatcher({ notifications, seenKeys, companyId, soundOn, soundI
       // Betalningspåminnelsen plingar även när man öppnar appen (en gång per dag,
       // nyckeln byts varje dag), inte bara när den dyker upp medan appen är öppen.
       if (keys.some(k => k.startsWith('pay:') && !seenKeys.has(k))) {
-        onRing();
-        if (soundOn) playNotifySound(soundId);
+        onRing(); // bara klockan vickar, inget ljud när man öppnar appen
       }
       return;
     }

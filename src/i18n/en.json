@@ -6688,5 +6688,32 @@
     "saved": "Card saved. The next charge uses the new card.",
     "savedButDeclined": "Card saved but the payment was declined: {{reason}}",
     "failed": "The card could not be saved."
+  },
+  "receipts": {
+    "title": "Receipts",
+    "count": "{{n}}",
+    "empty": "Receipts appear here after the first charge.",
+    "loadFailed": "Receipts could not be loaded right now.",
+    "paid": "Paid",
+    "unpaid": "Unpaid",
+    "receipt": "Receipt",
+    "date": "Date",
+    "period": "Period",
+    "subscription": "Bokix subscription",
+    "totalPaid": "Paid",
+    "totalDue": "Due",
+    "noVat": "Bokix is not VAT registered; the amount is the final price.",
+    "downloadPdf": "Download PDF",
+    "openStripe": "View at Stripe",
+    "payStripe": "Pay at Stripe",
+    "showAll": "Show all {{n}}"
+  },
+  "subTabs": {
+    "plan": "Plan",
+    "payment": "Payment",
+    "receipts": "Receipts",
+    "usage": "Usage",
+    "needsAction": "Needs action",
+    "receiptCopy": "Copy of receipts"
   }
 }

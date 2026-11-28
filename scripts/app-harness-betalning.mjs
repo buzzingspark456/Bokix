@@ -67,6 +67,7 @@ await page.route('**/api/**', async (r) => {
   if (url.includes('create-subscription-checkout') && body.action === 'payment-issue') {
     return r.fulfill({ json: { status: SUB.status, card: { brand: 'visa', last4: '4242', expMonth: 11, expYear: 2026 }, issue: { amount: 179, currency: 'sek', attempts: 2, nextAttempt: new Date(Date.now() + 2 * 86400000).toISOString(), requiresAction: MODE === 'action', declineReason: MODE === 'action' ? 'Banken vill att du bekräftar betalningen.' : 'Kortet saknar täckning.', hostedUrl: 'https://invoice.stripe.com/test' } } });
   }
+  if (url.includes('create-subscription-checkout') && body.action === 'billing-invoices') { const d = (m) => Math.floor(new Date(2026, 10 - m, 26).getTime() / 1000); return r.fulfill({ json: { invoices: [0, 1, 2, 3].map(m => ({ id: 'in_' + m, number: 'BOKIX-000' + (4 - m), created: d(m), paid_at: m ? d(m) + 60 : null, status: m ? 'paid' : 'open', amount_due: 17900, amount_paid: m ? 17900 : 0, currency: 'sek', invoice_pdf: 'https://pay.stripe.com/x.pdf', hosted_invoice_url: 'https://invoice.stripe.com/x', period_start: d(m), period_end: d(m - 1), lines: [{ description: '1 × Bokix — Med personal (månadsvis)', amount: 17900 }] })) } }); }
   if (url.includes('create-subscription-checkout') && body.action === 'card-info') return r.fulfill({ json: { card: { brand: 'visa', last4: '4242', expMonth: 12, expYear: 2028 }, status: SUB.status } });
   if (url.includes('create-subscription-checkout') && body.action === 'retry-payment') {
     retried += 1;
@@ -95,23 +96,24 @@ console.log('banner:', banner.replace(/\s+/g, ' ').slice(0, 260));
 console.log('betalsidan visas:', await page.locator('text=Din bokföring finns kvar').count() > 0 || await page.locator('.payment-gate, [data-gate]').count() > 0);
 await page.screenshot({ path: `test-results/betalning-${tag}.png` });
 if (MODE === 'failed') {
-  // Bannern tar en till Prenumeration, där försöket görs.
-  await page.locator('.pay-banner-btn.is-primary').click();
-  await page.waitForTimeout(1500);
-  console.log('Försök igen i bannern tog mig till:', (await page.locator('.main-content-inner h1, .main-content-inner h2').first().innerText().catch(() => '?')), '| kort på sidan:', await page.locator('.pay-fix').count());
-  console.log('kortet:', (await page.locator('.pay-fix').innerText().catch(() => '')).replace(/s+/g, ' ').slice(0, 200));
-  await page.screenshot({ path: 'test-results/betalning-' + tag + '-prenumeration.png' }); console.log('KRASCH?', errors);
-  await page.goto(BASE + '/?app=1#dashboard'); await page.waitForTimeout(3000); await page.screenshot({ path: 'test-results/betalning-' + tag + '-start.png' }); await page.locator('.pay-banner-btn.is-primary').click(); await page.waitForTimeout(1500);
-  await page.locator('.bc-card').scrollIntoViewIfNeeded().catch(() => {}); await page.waitForTimeout(400);
-  console.log('kortet i Betalningsuppgifter:', (await page.locator('.bc-card').innerText().catch(() => '(inget)')).replace(/s+/g, ' '));
+  // Notisen leder till Prenumeration, där rutan och flikarna finns.
+  if (!(await page.locator('.np-main').first().isVisible().catch(() => false))) { await page.locator('.topbar-icon-btn[title=Notiser]').first().click(); await page.waitForTimeout(500); }
+  await page.locator('.np-main').first().click(); await page.waitForTimeout(1500);
+  console.log('notisen tog mig till:', await page.locator('.main-content-inner h1, .main-content-inner h2').first().innerText().catch(() => '?'), '| ruta:', await page.locator('.pay-fix').count(), '| flikar:', (await page.locator('.sub-tabs button').allInnerTexts()).join(' / '));
+  await page.screenshot({ path: 'test-results/betalning-' + tag + '-prenumeration.png' });
+  await page.locator('.sub-tabs button', { hasText: 'Betalning' }).click(); await page.waitForTimeout(600);
+  console.log('fliken Betalning, kortet:', (await page.locator('.bc-card').innerText().catch(() => '(inget)')).replace(/s+/g, ' '));
   await page.screenshot({ path: 'test-results/betalning-' + tag + '-kort.png' });
-  await page.locator('.pay-fix-btn.is-primary').click();
-  await page.waitForTimeout(800);
-  console.log('efter första försöket:', (await page.locator('.pay-fix').innerText()).replace(/s+/g, ' ').slice(0, 160));
-  await page.locator('.pay-fix-btn.is-primary').click();
-  await page.waitForTimeout(900);
-  console.log('efter andra försöket:', (await page.locator('.pay-fix').innerText().catch(() => '(borta)')).replace(/s+/g, ' ').slice(0, 160));
-  await page.screenshot({ path: 'test-results/betalning-' + tag + '-klar.png' });
+  await page.locator('.sub-tabs button', { hasText: 'Kvitton' }).click(); await page.waitForTimeout(800);
+  console.log('fliken Kvitton, rader:', await page.locator('.sr-row').count());
+  await page.screenshot({ path: 'test-results/betalning-' + tag + '-kvitton.png' });
+  await page.locator('.sr-row').nth(1).click().catch(() => {}); await page.waitForTimeout(600);
+  console.log('kvitto i appen:', (await page.locator('.sr-paper').innerText().catch(() => '(inget)')).replace(/s+/g, ' ').slice(0, 200));
+  await page.screenshot({ path: 'test-results/betalning-' + tag + '-kvitto.png' }); await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+  await page.locator('.pay-fix-btn.is-primary').click(); await page.waitForTimeout(800);
+  console.log('efter första försöket:', (await page.locator('.pay-fix').innerText()).replace(/s+/g, ' ').slice(0, 120));
+  await page.locator('.pay-fix-btn.is-primary').click(); await page.waitForTimeout(900);
+  console.log('efter andra försöket:', (await page.locator('.pay-fix').innerText().catch(() => '(borta)')).replace(/s+/g, ' ').slice(0, 120));
 }
 if (MODE === 'read') {
   // Försök ändra: skapa faktura och spara, och ändra en kund

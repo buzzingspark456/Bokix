@@ -1,5 +1,6 @@
 import { PaymentFixCard } from './PaymentBanner';
 import BillingCard from './BillingCard';
+import SubscriptionReceipts from './SubscriptionReceipts';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -2862,6 +2863,7 @@ export default function Settings({
   // som tidigare ledde till en EGEN, halvt överlappande företagssida).
   initialSection,
 }) {
+  const [subTab, setSubTab] = useState('plan'); // Prenumeration: Plan / Betalning / Kvitton / Användning
   // Kundönskemål (uppföljning, ny referensbild): tillbaka till att
   // "Inställningar" i sidomenyn landar på ÖVERSIKTEN (SettingsHub-
   // rutnätet, alla tio kort) där man VÄLJER vad man vill ändra, i stället
@@ -4796,45 +4798,49 @@ export default function Settings({
           {activeTab === 'subscription' && (
             <div style={{ animation: 'fadeIn 0.2s ease' }}>
               {paymentAccess && !sharedAccess && <PaymentFixCard access={paymentAccess} companyId={company?.requiresOwnPayment ? company.id : null} onPaid={onPaymentFixed} />}
-              
-              {/* Plan och kvitton sida vid sida — kvittolistan är oftast en
-                  rad och behöver ingen egen skärmhöjd (kundfeedback: för
-                  mycket tomrum). */}
-              <div className="settings-split">
-                <SettingsSection title={tr('ui.din_plan')} description={tr('ui.vad_bokix_kostar_for_det_har_foretaget')}>
-                  {/* UF-konton har ingen prenumerationsrad alls —
-                      registreringen hoppar över Stripe helt (Auth.jsx). Den
-                      vanliga vyn hade laddat, hittat noll rader och visat
-                      "ingen aktiv prenumeration", vilket låter som ett fel
-                      på ett konto som fungerar precis som det ska. */}
-                  {isUfCompany(company)
-                    ? <UfSubscriptionCard company={company} canClose={!sharedAccess && !readOnly} />
-                    : <SubscriptionSection user={user} company={company} sharedAccess={sharedAccess} readOnly={readOnly} />}
-                </SettingsSection>
-
-                {!isUfCompany(company) && !sharedAccess ? (
-                  <SettingsSection title={tr('ui.betalningsuppgifter')} description={tr('ui.plan_betalning_beskrivning')}>
-                    <SettingCard>
-                      <div className="plan-payment">
-                        <BillingCard companyId={company?.requiresOwnPayment ? company.id : null} onPaid={onPaymentFixed} />
-                        <SubscriptionInvoices companyId={company?.requiresOwnPayment ? company.id : null} enabled={!readOnly} />
-                        <BillingCcEmail companyId={company?.requiresOwnPayment ? company.id : null} enabled={!readOnly} />
-                        <p>{tr('ui.plan_kortbyte_stripe')}</p>
-                      </div>
-                    </SettingCard>
-                  </SettingsSection>
-                ) : (
-                  <SettingsSection title={tr('ui.kvitton')} description={tr('ui.dyker_upp_efter_forsta_dragningen')}>
-                    <SettingCard>
-                      <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{tr('ui.ingen_betalhistorik_annu')}</div>
-                    </SettingCard>
-                  </SettingsSection>
-                )}
-              </div>
-
-              <SettingsSection title={tr('ui.anvandning')} description={tr('ui.hur_mycket_du_anvander_bokix_till')}>
-                <UsageCard invoices={invoices} verifications={verifications} contacts={contacts} expenses={expenses} />
-              </SettingsSection>
+              {/* Flikar i stället för sektioner under varandra (2026-11-27, efter
+                  Bokios idé): Plan, Betalning och Kvitton. Betalning får en röd
+                  prick när något behöver ordnas. */}
+              {(() => {
+                const ownBilling = !isUfCompany(company) && !sharedAccess;
+                const cid = company?.requiresOwnPayment ? company.id : null;
+                const tabs = [
+                  { id: 'plan', label: tr('subTabs.plan') },
+                  ...(ownBilling ? [
+                    { id: 'payment', label: tr('subTabs.payment'), alert: Boolean(paymentAccess?.failing || paymentAccess?.level === 'read') },
+                    { id: 'receipts', label: tr('subTabs.receipts') },
+                  ] : []),
+                  { id: 'usage', label: tr('subTabs.usage') },
+                ];
+                const current = tabs.some(x => x.id === subTab) ? subTab : 'plan';
+                return (
+                  <>
+                    <div className="sub-tabs" role="tablist">
+                      {tabs.map(x => (
+                        <button key={x.id} type="button" role="tab" aria-selected={current === x.id} className={current === x.id ? 'on' : ''} onClick={() => setSubTab(x.id)}>
+                          {x.label}{x.alert && <i className="sub-tab-dot" aria-label={tr('subTabs.needsAction')} />}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="sub-tab-body">
+                      {current === 'plan' && (isUfCompany(company)
+                        ? <UfSubscriptionCard company={company} canClose={!sharedAccess && !readOnly} />
+                        : <SubscriptionSection user={user} company={company} sharedAccess={sharedAccess} readOnly={readOnly} />)}
+                      {current === 'payment' && (
+                        <div className="sub-pay">
+                          <BillingCard companyId={cid} onPaid={onPaymentFixed} />
+                          <div className="sub-pay-side">
+                            <h4>{tr('subTabs.receiptCopy')}</h4>
+                            <BillingCcEmail companyId={cid} enabled={!readOnly} />
+                          </div>
+                        </div>
+                      )}
+                      {current === 'receipts' && <SubscriptionReceipts companyId={cid} enabled={!readOnly} />}
+                      {current === 'usage' && <UsageCard invoices={invoices} verifications={verifications} contacts={contacts} expenses={expenses} />}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
 
