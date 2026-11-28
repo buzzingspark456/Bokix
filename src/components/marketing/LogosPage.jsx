@@ -1,9 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import MarketingLayout from './MarketingLayout';
 import BokixWordmark, { BOKIX_LOGO_PATH } from '../shared/BokixWordmark';
 import { PageMeta } from '../../utils/seo';
 
-function downloadableWordmarkSvg() {
+// Logotyper och färger (2026-11-28): en riktig varumärkessida för press,
+// partner och redovisningsbyråer. Ordmärket stort överst, logotyperna på ljus
+// och mörk bakgrund med nedladdning, färgerna (klick kopierar koden) och hur
+// logotypen används. Inte indexerad.
+
+function downloadableWordmarkSvg(onDark = false) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1250" height="400" viewBox="0 0 125 40">
   <defs>
     <linearGradient id="bokix-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -12,213 +17,172 @@ function downloadableWordmarkSvg() {
       <stop offset="100%" stop-color="#84cc16"/>
     </linearGradient>
   </defs>
+  ${onDark ? '<rect width="125" height="40" fill="#0c1f14"/>' : ''}
   <path d="${BOKIX_LOGO_PATH}" fill="url(#bokix-gradient)"/>
 </svg>`;
 }
 
-function downloadWordmark() {
-  const file = new Blob([downloadableWordmarkSvg()], { type: 'image/svg+xml;charset=utf-8' });
+function download(name, content, type) {
+  const file = new Blob([content], { type });
   const url = URL.createObjectURL(file);
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'bokix-logotyp.svg';
+  link.download = name;
   document.body.appendChild(link);
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const LOGO_BACKGROUNDS = [
-  { id: 'light', title: 'Ljus bakgrund', className: 'bx-logo-preview--light' },
-  { id: 'dark', title: 'Mörk bakgrund', className: 'bx-logo-preview--dark' },
+const COLORS = [
+  { name: 'Bokix-grön', hex: '#0B6329', use: 'Knappar, menyn och det mesta i appen', ink: '#fff' },
+  { name: 'Blå', hex: '#0EA5E9', use: 'Början av logotypens färgövergång', ink: '#fff' },
+  { name: 'Turkos', hex: '#14B8A6', use: 'Mitten av färgövergången', ink: '#fff' },
+  { name: 'Lime', hex: '#84CC16', use: 'Slutet av färgövergången', ink: '#10231a' },
+  { name: 'Skog', hex: '#0C1F14', use: 'Mörk bakgrund', ink: '#fff' },
 ];
 
-const LOGO_TYPES = [
-  { id: 'symbol', title: 'Bokix-symbolen', description: 'Samma B-form som faviconen, fristående på vitt och med grön platta på mörkt', height: 48 },
-  { id: 'wordmark', title: 'Bokix ordmärke', description: 'Hela namnet Bokix. Transparent SVG som förblir skarp i alla storlekar', height: 48 },
-];
+function Swatch({ c }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(c.hex); setCopied(true); window.setTimeout(() => setCopied(false), 1400); } catch { /* inget urklipp */ }
+  };
+  return (
+    <button type="button" className="bxl-swatch" onClick={copy} aria-label={`Kopiera ${c.name} ${c.hex}`}>
+      <span className="bxl-swatch-color" style={{ background: c.hex, color: c.ink }}>{copied ? 'Kopierad' : c.hex}</span>
+      <span className="bxl-swatch-text"><b>{c.name}</b><small>{c.use}</small></span>
+    </button>
+  );
+}
 
 export default function LogosPage() {
   return (
     <MarketingLayout>
       <PageMeta
-        title="Bokix logotyper"
-        description="Bokix-symbolen och ordmärket på ljus och mörk bakgrund."
+        title="Bokix logotyper och färger"
+        description="Bokix-symbolen, ordmärket och färgerna att ladda ner."
         path="/logotyper"
         noindex
       />
-      <main className="bx-logo-page">
+      <main className="bxl">
         <style>{`
-          .bx-logo-page {
-            max-width: 1120px;
-            margin: 0 auto;
-            padding: 150px 24px 96px;
+          .bxl { max-width: 1120px; margin: 0 auto; padding: 140px 24px 96px; }
+          .bxl-head { max-width: 640px; margin: 0 auto 36px; text-align: center; }
+          .bxl-kicker { margin: 0 0 12px; color: #14b8a6; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+          .bxl h1 { margin: 0; color: var(--mkt-ink); font-family: var(--font-serif, Georgia, serif); font-size: clamp(36px, 5vw, 56px); font-weight: 600; letter-spacing: -.035em; line-height: 1.08; }
+          .bxl-intro { margin: 16px 0 0; color: var(--mkt-muted); font-size: 16px; line-height: 1.65; }
+          .bxl-hero { display: grid; grid-template-columns: 1fr 1fr; border-radius: 24px; overflow: hidden; margin-bottom: 64px; box-shadow: 0 30px 80px rgba(0, 0, 0, .25); }
+          .bxl-hero > div { display: grid; place-items: center; min-height: 300px; padding: 40px; }
+          .bxl-hero-light { background: #fff; }
+          .bxl-hero-dark { background: #0c1f14; }
+          .bxl-section { margin-top: 56px; }
+          .bxl-section > h2 { margin: 0 0 6px; color: var(--mkt-ink); font-size: 24px; font-weight: 650; letter-spacing: -.02em; }
+          .bxl-section > p { margin: 0 0 20px; color: var(--mkt-muted); font-size: 14.5px; line-height: 1.55; }
+          .bxl-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+          .bxl-card { border: 1px solid var(--mkt-card-border); border-radius: 20px; overflow: hidden; background: var(--mkt-card-bg); box-shadow: var(--mkt-card-shadow-sm, none); }
+          .bxl-card-preview .is-light { border-right: 1px solid var(--mkt-border-soft); }
+          .bxl-card-preview { display: grid; grid-template-columns: 1fr 1fr; }
+          .bxl-card-preview > div { display: grid; place-items: center; min-height: 170px; padding: 22px; }
+          .bxl-card-preview .is-light { background: #fff; }
+          .bxl-card-preview .is-dark { background: #0c1f14; }
+          .bxl-card-preview img { width: 76px; height: 76px; object-fit: contain; }
+          .bxl-card-body { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 16px 18px; }
+          .bxl-card-body h3 { margin: 0; color: var(--mkt-ink); font-size: 16px; font-weight: 650; }
+          .bxl-card-body p { margin: 3px 0 0; color: var(--mkt-muted); font-size: 13px; }
+          .bxl-dl { display: flex; gap: 6px; flex-wrap: wrap; }
+          .bxl-dl a, .bxl-dl button { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border: 1px solid #0b6329; border-radius: 999px; background: #0b6329; color: #fff; font: 650 12.5px/1 var(--font-sans, Inter, Arial, sans-serif); text-decoration: none; cursor: pointer; white-space: nowrap; }
+          .bxl-dl a:hover, .bxl-dl button:hover { background: #084d21; }
+          .bxl-dl .is-ghost { background: transparent; color: var(--mkt-ink); border-color: var(--mkt-card-border); }
+          .bxl-dl .is-ghost:hover { background: rgba(127, 127, 127, .12); }
+          .bxl-swatches { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+          .bxl-swatch { display: flex; flex-direction: column; padding: 0; border: 1px solid var(--mkt-card-border); border-radius: 16px; overflow: hidden; background: var(--mkt-card-bg); text-align: left; cursor: pointer; font: inherit; transition: transform .15s ease; }
+          .bxl-swatch:hover { transform: translateY(-2px); }
+          .bxl-swatch-color { display: flex; align-items: flex-end; height: 96px; padding: 12px; font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .02em; }
+          .bxl-swatch-text { display: flex; flex-direction: column; gap: 3px; padding: 12px; }
+          .bxl-swatch-text b { color: var(--mkt-ink); font-size: 14px; }
+          .bxl-swatch-text small { color: var(--mkt-muted); font-size: 12px; line-height: 1.4; }
+          .bxl-gradient { margin-top: 12px; height: 14px; border-radius: 999px; background: linear-gradient(90deg, #0ea5e9, #14b8a6 50%, #84cc16); }
+          .bxl-rules { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+          .bxl-rule { padding: 18px; border: 1px solid var(--mkt-card-border); border-radius: 16px; background: var(--mkt-card-bg); }
+          .bxl-rule b { display: block; margin-bottom: 6px; color: var(--mkt-ink); font-size: 15px; }
+          .bxl-rule span { color: var(--mkt-muted); font-size: 13.5px; line-height: 1.55; }
+          .bxl-contact { margin-top: 48px; text-align: center; color: var(--mkt-muted); font-size: 14px; }
+          .bxl-contact a { color: #14b8a6; font-weight: 600; }
+          @media (max-width: 900px) {
+            .bxl-cards, .bxl-rules { grid-template-columns: 1fr; }
+            .bxl-swatches { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           }
-          .bx-logo-page-header {
-            max-width: 660px;
-            margin: 0 auto 42px;
-            text-align: center;
-          }
-          .bx-logo-page-kicker {
-            margin: 0 0 12px;
-            color: #0b7a56;
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-          }
-          .bx-logo-page h1 {
-            margin: 0;
-            color: var(--mkt-heading, #10231a);
-            font-family: ${'var(--font-serif, Georgia, serif)'};
-            font-size: clamp(36px, 5vw, 56px);
-            font-weight: 600;
-            letter-spacing: -0.035em;
-            line-height: 1.08;
-          }
-          .bx-logo-page-intro {
-            margin: 16px 0 0;
-            color: var(--mkt-text-muted, #617168);
-            font-size: 16px;
-            line-height: 1.65;
-          }
-          .bx-logo-group + .bx-logo-group { margin-top: 40px; }
-          .bx-logo-group-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 24px;
-            margin-bottom: 18px;
-          }
-          .bx-logo-group-header h2 {
-            margin: 0;
-            color: var(--mkt-heading, #10231a);
-            font-size: 22px;
-            font-weight: 650;
-            letter-spacing: -0.02em;
-          }
-          .bx-logo-group-header p {
-            margin: 5px 0 0;
-            color: var(--mkt-text-muted, #617168);
-            font-size: 14px;
-            line-height: 1.5;
-          }
-          .bx-logo-preview-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 16px;
-          }
-          .bx-logo-preview {
-            min-width: 0;
-            min-height: 220px;
-            margin: 0;
-            padding: 22px;
-            border: 1px solid transparent;
-            border-radius: 18px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-          }
-          .bx-logo-preview--light {
-            color: #10231a;
-            background: #ffffff;
-            border-color: #e4e9e5;
-          }
-          .bx-logo-preview--dark {
-            color: #ffffff;
-            background: #0c1f14;
-          }
-          .bx-logo-preview-visual {
-            display: grid;
-            place-items: center;
-            width: 100%;
-            min-height: 130px;
-          }
-          .bx-logo-preview-visual svg { max-width: 100%; height: auto; }
-          .bx-logo-preview-visual img { width: 112px; height: 112px; object-fit: contain; }
-          .bx-logo-preview figcaption {
-            color: currentColor;
-            font: 500 12px/1.4 var(--font-sans, Arial, sans-serif);
-            opacity: 0.66;
-          }
-          .bx-logo-download-button {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 44px;
-            padding: 0 18px;
-            border: 1px solid #0b6329;
-            border-radius: 999px;
-            color: #ffffff;
-            background: #0b6329;
-            font: 600 13px/1 var(--font-sans, Arial, sans-serif);
-            cursor: pointer;
-            transition: background-color 0.15s ease, transform 0.15s ease;
-            white-space: nowrap;
-            text-decoration: none;
-          }
-          .bx-logo-download-button:hover { background: #084d21; transform: translateY(-1px); }
-          .bx-logo-download-button--secondary {
-            color: #0b6329;
-            background: transparent;
-          }
-          .bx-logo-download-button--secondary:hover { color: #ffffff; }
-          .bx-logo-download-button:focus-visible { outline: 3px solid #14b8a6; outline-offset: 3px; }
-          .bx-logo-download-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-          @media (max-width: 760px) {
-            .bx-logo-page { padding: 126px 18px 72px; }
-            .bx-logo-group-header { align-items: flex-start; flex-direction: column; gap: 14px; }
-            .bx-logo-preview { min-height: 190px; padding: 16px; }
-          }
-          @media (max-width: 420px) {
-            .bx-logo-group-header h2 { font-size: 20px; }
-            .bx-logo-preview { min-height: 160px; gap: 12px; }
-            .bx-logo-preview-visual { min-height: 100px; }
+          @media (max-width: 640px) {
+            .bxl { padding: 118px 16px 72px; }
+            .bxl-hero { grid-template-columns: 1fr; }
+            .bxl-hero > div { min-height: 180px; }
           }
         `}</style>
-        <header className="bx-logo-page-header">
-          <p className="bx-logo-page-kicker">Bokix varumärke</p>
-          <h1>Våra logotyper</h1>
-          <p className="bx-logo-page-intro">
-            Bokix-symbolen och hela ordmärket, visade på ljus och mörk bakgrund.
-          </p>
+
+        <header className="bxl-head">
+          <p className="bxl-kicker">Bokix varumärke</p>
+          <h1>Logotyper och färger</h1>
+          <p className="bxl-intro">Allt du behöver för att visa Bokix, till exempel i en artikel, på en byrås hemsida eller i en presentation.</p>
         </header>
-        {LOGO_TYPES.map(({ id, title, description, height }) => (
-          <section className="bx-logo-group" key={id} aria-labelledby={`bx-logo-${id}-title`}>
-            <div className="bx-logo-group-header">
-              <div>
-                <h2 id={`bx-logo-${id}-title`}>{title}</h2>
-                <p>{description}.</p>
+
+        <div className="bxl-hero" aria-hidden="true">
+          <div className="bxl-hero-light"><BokixWordmark height={72} /></div>
+          <div className="bxl-hero-dark"><BokixWordmark height={72} /></div>
+        </div>
+
+        <section className="bxl-section" aria-labelledby="bxl-logos">
+          <h2 id="bxl-logos">Logotyper</h2>
+          <p>Transparenta filer som håller skärpan i alla storlekar.</p>
+          <div className="bxl-cards">
+            <article className="bxl-card">
+              <div className="bxl-card-preview">
+                <div className="is-light"><BokixWordmark height={40} /></div>
+                <div className="is-dark"><BokixWordmark height={40} /></div>
               </div>
-              <div className="bx-logo-download-actions">
-                {id === 'symbol' ? (
-                  <>
-                    <a className="bx-logo-download-button" href="/bokix-symbol.svg" download="bokix-symbol.svg">Hämta symbol · SVG</a>
-                    <a className="bx-logo-download-button bx-logo-download-button--secondary" href="/bokix-logo.png" download="bokix-symbol.png">Hämta symbol · PNG</a>
-                  </>
-                ) : (
-                  <button type="button" className="bx-logo-download-button" onClick={downloadWordmark}>
-                    Hämta ordmärke · SVG
-                  </button>
-                )}
+              <div className="bxl-card-body">
+                <div><h3>Ordmärke</h3><p>Hela namnet, förstahandsvalet.</p></div>
+                <div className="bxl-dl">
+                  <button type="button" onClick={() => download('bokix-ordmarke.svg', downloadableWordmarkSvg(), 'image/svg+xml;charset=utf-8')}>SVG</button>
+                  <button type="button" className="is-ghost" onClick={() => download('bokix-ordmarke-mork.svg', downloadableWordmarkSvg(true), 'image/svg+xml;charset=utf-8')}>SVG, mörk platta</button>
+                </div>
               </div>
-            </div>
-            <div className="bx-logo-preview-grid">
-              {LOGO_BACKGROUNDS.map((background) => (
-                <figure className={`bx-logo-preview ${background.className}`} key={background.id}>
-                  <div className="bx-logo-preview-visual">
-                    {id === 'symbol'
-                      ? <img src={background.id === 'light' ? '/bokix-symbol.svg' : '/bokix-logo.svg'} alt="Bokix B-symbol från faviconen" />
-                      : <BokixWordmark height={height} />}
-                  </div>
-                  <figcaption>{background.title}</figcaption>
-                </figure>
-              ))}
-            </div>
-          </section>
-        ))}
+            </article>
+            <article className="bxl-card">
+              <div className="bxl-card-preview">
+                <div className="is-light"><img src="/bokix-symbol.svg" alt="" /></div>
+                <div className="is-dark"><img src="/bokix-logo.svg" alt="" /></div>
+              </div>
+              <div className="bxl-card-body">
+                <div><h3>Symbol</h3><p>B:et för små ytor, som appikon och favicon.</p></div>
+                <div className="bxl-dl">
+                  <a href="/bokix-symbol.svg" download="bokix-symbol.svg">SVG</a>
+                  <a className="is-ghost" href="/bokix-logo.png" download="bokix-symbol.png">PNG</a>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section className="bxl-section" aria-labelledby="bxl-colors">
+          <h2 id="bxl-colors">Färger</h2>
+          <p>Klicka på en färg för att kopiera koden.</p>
+          <div className="bxl-swatches">
+            {COLORS.map(c => <Swatch key={c.hex} c={c} />)}
+          </div>
+          <div className="bxl-gradient" aria-hidden="true" />
+        </section>
+
+        <section className="bxl-section" aria-labelledby="bxl-rules">
+          <h2 id="bxl-rules">Använd logotypen rätt</h2>
+          <p>Några enkla regler, så att Bokix ser ut som Bokix överallt.</p>
+          <div className="bxl-rules">
+            <div className="bxl-rule"><b>Ge den luft</b><span>Lämna minst lika mycket fri yta runt logotypen som höjden på B:et.</span></div>
+            <div className="bxl-rule"><b>Inte för liten</b><span>Ordmärket minst 80 px brett på skärm, symbolen minst 24 px.</span></div>
+            <div className="bxl-rule"><b>Ändra den inte</b><span>Behåll färgövergången och formen. Ingen skugga, ingen kontur, ingen annan färg.</span></div>
+          </div>
+        </section>
+
+        <p className="bxl-contact">Behöver du något annat? Skriv till <a href="mailto:info@bokix.se">info@bokix.se</a>.</p>
       </main>
     </MarketingLayout>
   );
