@@ -14,6 +14,10 @@ let quotaReached = false;
 // Hur senaste Vision-försöket gick ('ok', 'kvot slut', 'svarade 403' …), för
 // felrapporten när hela avläsningen misslyckas (se ocrCache.js).
 let lastCloudStatus = '';
+// Företaget kvittona läses för (sätts av App.jsx), så att servern räknar mot
+// rätt plan. Nås planens gräns sägs det till en gång per besök.
+let ocrCompanyId = '';
+export const setOcrCompany = (id) => { if (id !== ocrCompanyId) { ocrCompanyId = id || ''; quotaReached = false; } };
 export const lastCloudReadStatus = () => lastCloudStatus;
 const docType = (doc) => (doc?.kind === 'pdf' ? 'pdf' : 'bild');
 
@@ -45,11 +49,14 @@ export async function readWithCloud(input, { quad = null } = {}) {
       const response = await fetch('/api/ocr-vision', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ [doc.kind]: doc.content }),
+        body: JSON.stringify({ [doc.kind]: doc.content, company_id: ocrCompanyId || undefined }),
         signal: controller.signal,
       });
       const payload = await response.json().catch(() => ({}));
-      if (response.status === 429 && payload?.code === 'quota') quotaReached = true;
+      if (response.status === 429 && (payload?.code === 'quota' || payload?.code === 'plan_quota')) quotaReached = true;
+      if (response.status === 429 && payload?.code === 'plan_quota' && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('bokix:ocr-plan-quota', { detail: { limit: payload.limit, plan: payload.plan, message: payload.error } }));
+      }
       if (!response.ok) {
         lastCloudStatus = quotaReached ? 'kvot slut' : `svarade ${response.status}`;
         // Kvoten är ett väntat läge; allt annat ska synas i /internal.

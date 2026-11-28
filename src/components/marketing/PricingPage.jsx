@@ -60,8 +60,8 @@ function buildSoftwareSchema(description) {
 // "Allt i …, och" och konsult/revisor. Samma texter som planPick.* i appen.
 const CARD_LISTS = {
   solo: { intro: null, items: ['Verifikationer, kontoplan och huvudbok', 'Fakturor och offerter med Betala nu', 'Kvittoavläsning från foto, PDF och mejl', 'Leverantörsfakturor med förfallopåminnelse', 'Bank: import och avstämning', 'Momsdeklaration, fil till Skatteverket', 'Bokslut och årsredovisning (K2)', 'Resultat, balans och SIE-export'] },
-  employer: { intro: 'Allt i Bas, och', items: ['Lönekörning med skatteavdrag', 'Lönebesked som PDF och mejl', 'Arbetsgivardeklaration till Skatteverket', 'Semester och utlägg i lönen', 'Betalfil till banken'] },
-  trade: { intro: 'Allt i Personal, och', items: ['Order, delleverans och restorder', 'Artiklar och lager som dras automatiskt', 'Inköpsorder till leverantörer', 'Prissättning med marginalmål', 'Orderbekräftelse och följesedel'] },
+  employer: { intro: 'Allt i Solo, och', items: ['Lönekörning med skatteavdrag', 'Lönebesked som PDF och mejl', 'Arbetsgivardeklaration till Skatteverket', 'Semester och utlägg i lönen', 'Betalfil till banken'] },
+  trade: { intro: 'Allt i Team, och', items: ['Order, delleverans och restorder', 'Artiklar och lager som dras automatiskt', 'Inköpsorder till leverantörer', 'Prissättning med marginalmål', 'Orderbekräftelse och följesedel'] },
 };
 const fmtNum = (n) => Number(n).toLocaleString('sv-SE');
 
@@ -263,7 +263,7 @@ export default function PricingPage({ locale = 'sv' }) {
                 <p className="pp-desc">{t.recommend}</p>
                 <hr className="pp-hr" />
                 {t.comingSoon
-                  ? <button type="button" className="pp-btn" onClick={() => navigate('/kontakt?amne=handel')}>Anmäl intresse</button>
+                  ? <button type="button" className="pp-btn" onClick={() => navigate('/handel-intresse')}>Anmäl intresse</button>
                   : <button type="button" className="pp-btn" onClick={() => enterApp(plan.id)}>{c.cta}</button>}
                 <div className="pp-small">{t.comingSoon ? 'Vi hör av oss när Handel släpps' : interval === 'yearly' ? c.yearlyMinimumNote(YEARLY_MINIMUM_MONTHS) : c.monthlyNote}</div>
                 <hr className="pp-hr" />
@@ -305,7 +305,7 @@ export default function PricingPage({ locale = 'sv' }) {
                     <span className="pp-head-name">{t.name}</span>
                     <span className="pp-head-price">{plan.price} kr/mån</span>
                     {t.comingSoon
-                      ? <button type="button" className="pp-btn" onClick={() => navigate('/kontakt?amne=handel')}>Anmäl intresse</button>
+                      ? <button type="button" className="pp-btn" onClick={() => navigate('/handel-intresse')}>Anmäl intresse</button>
                       : <button type="button" className="pp-btn" onClick={() => enterApp(plan.id)}>{c.ctaShort}</button>}
                   </span>
                 );

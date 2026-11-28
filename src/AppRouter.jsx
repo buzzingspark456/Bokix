@@ -22,6 +22,7 @@ const PlansPreviewPage = lazy(() => import('./components/marketing/PlansPreviewP
 const AboutPage = lazy(() => import('./components/marketing/AboutPage'));
 const RulesPage = lazy(() => import('./components/marketing/RulesPage'));
 const ContactPage = lazy(() => import('./components/marketing/ContactPage'));
+const TradeInterestPage = lazy(() => import('./components/marketing/TradeInterestPage'));
 const BookingPage = lazy(() => import('./components/marketing/BookingPage'));
 const GmailConnectCallback = lazy(() => import('./components/GmailConnectCallback'));
 // LÄRDOM, från en bugg på en numera borttagen sida: en statisk sida måste
@@ -361,6 +362,7 @@ export default function AppRouter() {
         <Route path="/om-oss" element={<Suspense fallback={<AppLoadingFallback />}><AboutPage /></Suspense>} />
         <Route path="/belopp-och-regler" element={<Suspense fallback={<AppLoadingFallback />}><RulesPage /></Suspense>} />
         <Route path="/kontakt" element={<Suspense fallback={<AppLoadingFallback />}><ContactPage /></Suspense>} />
+        <Route path="/handel-intresse" element={<Suspense fallback={<AppLoadingFallback />}><TradeInterestPage /></Suspense>} />
         <Route path="/boka-genomgang" element={<Suspense fallback={<AppLoadingFallback />}><BookingPage /></Suspense>} />
         {/* Googles callback efter "Logga in med Google" i Inställningar.
             MÅSTE vara exakt den här sökvägen: adressen är registrerad hos

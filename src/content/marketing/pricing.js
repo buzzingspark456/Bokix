@@ -12,12 +12,12 @@ export const PRICING_CONTENT = {
   sv: {
     meta: {
       title: 'Priser: bokföringsprogram från 129 kr/mån | Bokix',
-      description: 'Bas 129 kr/mån utan anställda och Personal 179 kr/mån med. Ingen moms tillkommer och inga dolda avgifter. Handel med order och lager kommer snart.',
+      description: 'Solo 129 kr/mån utan anställda och Team 179 kr/mån med. Ingen moms tillkommer och inga dolda avgifter. Handel med order och lager kommer snart.',
     },
     hero: {
       title: 'Välj det som passar ditt företag',
       subtitle: 'Samma bokföring och fakturering i båda, skillnaden är om du har personal på lönelistan. Inga tillägg att köpa till, ingen bindningstid på månadsplanen.',
-      lead: 'Samma bokföring i alla. Personal har lön, Handel har order och lager. 30 dagar gratis.',
+      lead: 'Samma bokföring i alla. Team har lön, Handel har order och lager. 30 dagar gratis.',
     },
     popular: 'Populärast',
     noVat: 'Ingen moms tillkommer',
@@ -25,7 +25,7 @@ export const PRICING_CONTENT = {
     ctaShort: 'Välj',
     footNote: 'Ingen moms tillkommer, beloppet är det som dras. Inga avgifter per kvitto eller faktura.',
     compareHeading: 'Jämför vad som ingår',
-    compareLead: 'Bokföringen finns i alla. Personal lägger till lön, Handel lägger till order, lager och inköp.',
+    compareLead: 'Bokföringen finns i alla. Team lägger till lön, Handel lägger till order, lager och inköp.',
     compareIncluded: 'Det här ingår',
     interval: { monthly: 'Månadsvis', yearly: 'Årsplan', yearlyBadge: 'spara upp till 360 kr/år' },
     freeTrialSuffix: 'gratis i 30 dagar',
@@ -38,8 +38,8 @@ export const PRICING_CONTENT = {
     schemaDescription: 'Bokföring, fakturering, lönehantering och momsredovisning för svenska företag i alla bolagsformer.',
     faqHeading: 'Vanliga frågor',
     faq: [
-      { q: 'Vilken nivå ska jag välja?', a: 'Har du ingen anställd väljer du Bas. Så fort du har eller planerar att ha någon anställd, även deltid, behöver du lönedelen som ingår i Personal. Handel, för dig som säljer varor och vill ha order och lager, kommer snart.' },
-      { q: 'Kan jag byta nivå senare?', a: 'Ja. Anställer du någon senare byter du till Personal när du behöver det, direkt i kontot.' },
+      { q: 'Vilken nivå ska jag välja?', a: 'Har du ingen anställd väljer du Solo. Så fort du har eller planerar att ha någon anställd, även deltid, behöver du lönedelen som ingår i Team. Handel, för dig som säljer varor och vill ha order och lager, kommer snart.' },
+      { q: 'Kan jag byta nivå senare?', a: 'Ja. Anställer du någon senare byter du till Team när du behöver det, direkt i kontot.' },
       { q: 'Behöver jag ange kortuppgifter för att prova?', a: 'Ja, du lägger in dina betaluppgifter hos Stripe redan vid registreringen, men du debiteras ingenting under de första 30 dagarna. Avslutar du innan dess kostar det dig aldrig något.' },
       { q: 'Vad händer när de 30 dagarna är slut?', a: 'Då dras priset för den nivå du valde, och sedan samma belopp varje månad. Vill du inte fortsätta avslutar du under Inställningar → Prenumeration innan dag 31, då kostar det ingenting.' },
       { q: 'Kan jag ta med min bokföring från ett annat program?', a: 'Ja. Exportera en SIE4-fil ur programmet du använder i dag och läs in den i Bokix. Kontoplan, verifikationer och ingående balanser följer med, och kunder, leverantörer, anställda och bankens kontoutdrag läser du in från CSV- eller Excelfiler.' },

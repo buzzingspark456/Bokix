@@ -43,8 +43,8 @@ export const EMPLOYER_FEATURES = [
 export const PRICING_TIERS = [
   {
     key: 'solo',
-    name: 'Bas',
-    subtitle: 'För dig utan anställda',
+    name: 'Solo',
+    subtitle: 'Du driver själv, utan anställda',
     price: 129,
     gradient: GRAD.blueTeal,
     // Tema-medvetet CSS-variabel-tema (ljust/mörkt), inte en rå hex från
@@ -66,8 +66,8 @@ export const PRICING_TIERS = [
   },
   {
     key: 'employer',
-    name: 'Personal',
-    subtitle: 'För dig med anställda',
+    name: 'Team',
+    subtitle: 'Du har anställda och betalar lön',
     price: 179,
     gradient: GRAD.tealLime,
     accent: ACCENT.green,
@@ -86,7 +86,7 @@ export const PRICING_TIERS = [
 export const TRADE_PRICING_TIER = {
   key: 'trade',
   name: 'Handel',
-  subtitle: 'För dig som säljer varor',
+  subtitle: 'Du säljer varor, med lager och kassa',
   comingSoon: true,
   recommend: 'Passar dig som säljer varor och vill ha order, lager och inköp i samma app som bokföringen.',
 };

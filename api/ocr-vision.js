@@ -6,7 +6,26 @@ import { applySecurityHeaders } from './_security.js';
 import { checkRateLimit, hitShared } from './_rateLimit.js';
 import { requireAuthedUser, requireActiveSubscription, payingAccountFor } from './_auth.js';
 import { parseJsonBody } from './stripe/_parseBody.js';
-import { documentFromBody, readWithVision, MONTHLY_LIMIT, monthQuotaKey, MONTH_WINDOW_MS, ACCOUNT_MONTHLY_LIMIT, UF_MONTHLY_LIMIT, accountQuotaKey } from './_vision.js';
+import { documentFromBody, readWithVision, MONTHLY_LIMIT, monthQuotaKey, MONTH_WINDOW_MS, ACCOUNT_MONTHLY_LIMIT, UF_MONTHLY_LIMIT, accountQuotaKey, companyQuotaKey } from './_vision.js';
+import { createClient } from '@supabase/supabase-js';
+import { planFromId, PLAN_LIMITS } from '../src/utils/plans.js';
+
+// Planen för företaget kvittot gäller: företagets egen prenumeration, annars
+// kontots (company_id ''). null = ingen plan sparad (äldre konto).
+async function planForCompany(accountId, companyId) {
+  const url = process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  try {
+    const { data } = await createClient(url, key).from('subscriptions').select('company_id, plan').eq('user_id', accountId);
+    const rows = data || [];
+    const own = companyId ? rows.find(r => r.company_id === companyId) : null;
+    const account = rows.find(r => (r.company_id || '') === '');
+    return planFromId((own || account)?.plan) || null;
+  } catch {
+    return null;
+  }
+}
 import { withSentry } from './_sentry.js';
 import { logSystemEvent } from './_systemEvents.js';
 
@@ -52,6 +71,18 @@ async function handler(req, res) {
   if (withinAccount === false) {
     res.status(429).json({ error: 'Månadens kvot för kvittoläsning är slut för ert konto.', code: 'quota' });
     return;
+  }
+  // Planens gräns för företaget (Solo 100, Team 300, Handel 1 000 per månad).
+  // Kvittot sparas ändå; bara den automatiska avläsningen hoppas över.
+  const companyId = typeof body.company_id === 'string' ? body.company_id.slice(0, 100) : '';
+  const plan = account.uf ? null : await planForCompany(account.id, companyId);
+  const planLimit = plan ? PLAN_LIMITS[plan.tierId]?.ocrPerMonth : null;
+  if (planLimit) {
+    const withinPlan = await hitShared(companyQuotaKey(account.id, companyId), MONTH_WINDOW_MS, planLimit);
+    if (withinPlan === false) {
+      res.status(429).json({ error: `Månadens ${planLimit.toLocaleString('sv-SE')} kvittoavläsningar i ${plan.name} är använda.`, code: 'plan_quota', limit: planLimit, plan: plan.tierId });
+      return;
+    }
   }
   // Månadens kvot, räknad i databasen så att alla serverinstanser delar den.
   // Nyckeln har månaden i sig, så räknaren börjar om den 1:a. Går räknaren

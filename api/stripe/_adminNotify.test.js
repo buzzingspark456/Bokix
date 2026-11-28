@@ -10,7 +10,7 @@ describe('buildAdminNotice', () => {
       data: { object: { status: 'trialing', customer: 'cus_1', trial_end: 1793000000, metadata: { plan: 'employer_monthly' } } },
     });
     expect(n.subject).toBe('Ny provperiod: kund@example.se');
-    expect(n.lines.join(' ')).toMatch(/Personal/);
+    expect(n.lines.join(' ')).toMatch(/Team/);
     expect(n.lines.join(' ')).toMatch(/Provperioden slutar/);
   });
 

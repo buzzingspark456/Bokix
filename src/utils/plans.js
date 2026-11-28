@@ -50,8 +50,8 @@ export const YEARLY_MINIMUM_MONTHS = 3;
 export const PLAN_TIERS = [
   {
     id: 'solo',
-    name: 'Bas',
-    subtitle: 'För dig utan anställda',
+    name: 'Solo',
+    subtitle: 'Du driver själv, utan anställda',
     monthlyPrice: 129,
     /** Månadspriset när kunden valt årsplanen. Ett eget, rent tal — inte en
      * uträknad procentsats, se filkommentaren. */
@@ -63,8 +63,8 @@ export const PLAN_TIERS = [
   },
   {
     id: 'employer',
-    name: 'Personal',
-    subtitle: 'För dig med anställda',
+    name: 'Team',
+    subtitle: 'Du har anställda och betalar lön',
     monthlyPrice: 179,
     yearlyMonthlyPrice: 149,
     includesPayroll: true,
@@ -82,7 +82,7 @@ export const BILLING_INTERVALS = [
 export const TRADE_TIER = {
   id: 'trade',
   name: 'Handel',
-  subtitle: 'För dig som säljer varor',
+  subtitle: 'Du säljer varor, med lager och kassa',
   // Grundarens pris 2026-11-27: 349 kr, årsplan 299 kr/mån.
   monthlyPrice: 349,
   yearlyMonthlyPrice: 299,

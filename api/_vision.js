@@ -28,6 +28,10 @@ export const MONTH_WINDOW_MS = 32 * 24 * 60 * 60 * 1000;
 export const ACCOUNT_MONTHLY_LIMIT = Number(process.env.OCR_VISION_ACCOUNT_LIMIT) || 1500;
 export const UF_MONTHLY_LIMIT = Number(process.env.OCR_VISION_UF_LIMIT) || 300;
 export const accountQuotaKey = (accountId, now = new Date()) => `ocr-vision-konto:${accountId}:${now.toISOString().slice(0, 7)}`;
+// Planens gräns per företag och månad (2026-11-28): Bas/Solo 100, Personal/Team
+// 300, Handel 1 000 (src/utils/plans.js PLAN_LIMITS). Konton utan sparad plan
+// (betalade innan planerna fanns) har ingen planspärr, bara kontotaket ovan.
+export const companyQuotaKey = (accountId, companyId, now = new Date()) => `ocr-vision-foretag:${accountId}:${companyId || '-'}:${now.toISOString().slice(0, 7)}`;
 
 /** Filen ur request-kroppen ({ image } eller { pdf }, base64), eller null om den saknas eller är för stor. */
 export function documentFromBody(body) {

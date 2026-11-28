@@ -195,7 +195,7 @@ export const HELP_ARTICLES = [
   {
     id: 'prenumeration', category: 'account', tab: 'settings_subscription', open: 'Öppna Prenumeration',
     title: 'Byt nivå eller avsluta',
-    summary: 'Bas eller Personal, och ingen bindningstid på månadsplanen.',
+    summary: 'Solo eller Team, och ingen bindningstid på månadsplanen.',
     steps: [
       'Öppna Inställningar och välj Prenumeration.',
       'Där ser du nivå, pris och nästa dragning.',

@@ -463,6 +463,7 @@ import { readServerState, rememberServerState, isCacheUsable, noteCachedAt, clea
 import { shadowReadDue, scheduleShadowRead } from './utils/shadowRead';
 import { loadFromTables, saveToTables } from './utils/tableStore';
 import { reportClientError } from './utils/errorReporting';
+import { setOcrCompany } from './utils/ocrCloud';
 import { finishLoginTiming } from './utils/loginTiming';
 
 // Fallback under den enda <Suspense> som omsluter App-komponentens JSX (se
@@ -1700,6 +1701,19 @@ function App() {
   // { message, variant } | null — se Toast.jsx samt stripe_connect-
   // useEffect nedan, som satte en blockerande alert() innan.
   const [toast, setToast] = useState(null);
+  // Kvittoavläsningen räknas per företag och plan (api/ocr-vision.js). När
+  // planens gräns nås sparas kvittot ändå, och kunden får veta varför det
+  // inte lästes av och vad som går att göra.
+  useEffect(() => { setOcrCompany(data.activeCompanyId); }, [data.activeCompanyId]);
+  useEffect(() => {
+    const onQuota = (e) => {
+      const msg = e.detail?.message || 'Månadens kvittoavläsningar är använda.';
+      const hint = e.detail?.plan === 'trade' ? ' Fyll i kvittot själv, det nollställs den 1:a.' : ' Fyll i kvittot själv, eller byt till en större plan under Inställningar → Prenumeration för fler avläsningar.';
+      setToast({ message: msg + hint, variant: 'error' });
+    };
+    window.addEventListener('bokix:ocr-plan-quota', onQuota);
+    return () => window.removeEventListener('bokix:ocr-plan-quota', onQuota);
+  }, []);
   // Läsläge vid misslyckad betalning (satt längre ner, se paymentAccess).
   const readOnlyRef = useRef(false);
   // Ångra-notisen (shared/undoToast.js). pendingUndoRef håller den ångring
@@ -6841,7 +6855,7 @@ function App() {
       {import.meta.env.DEV && newUnderlagOn && (
         <div className="dev-plan" role="group" aria-label="Förhandsvisa plan">
           <span>Plan</span>
-          {[['solo_monthly', 'Bas'], ['employer_monthly', 'Personal'], ['trade_monthly', 'Handel']].map(([id, label]) => (
+          {[['solo_monthly', 'Solo'], ['employer_monthly', 'Team'], ['trade_monthly', 'Handel']].map(([id, label]) => (
             <button key={id} type="button" className={activePlanId === id ? 'on' : undefined}
               onClick={() => { try { localStorage.setItem('bokix.devPlan', id); } catch { /* privat läge */ } window.location.reload(); }}>{label}</button>
           ))}

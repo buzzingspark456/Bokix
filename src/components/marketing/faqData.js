@@ -64,7 +64,7 @@ export const FAQ_GROUPS = [
     title: 'Lön och anställda',
     items: [
       { q: 'Kan Bokix sköta lönen?', a: 'Ja, med priset för anställda. Lönekörningen räknar skatteavdrag enligt Skatteverkets tabeller och arbetsgivaravgift efter ålder, ger lönebesked som pdf, en AGI-fil att lämna in hos Skatteverket och en betalfil till banken.' },
-      { q: 'Hur många användare kan vi vara?', a: 'Med Bas kan du bjuda in en person, med Personal två. Din redovisningskonsult eller revisor räknas inte och ingår gratis. Du kan ha flera företag under samma konto.' },
+      { q: 'Hur många användare kan vi vara?', a: 'Med Solo kan du bjuda in en person, med Team två. Din redovisningskonsult eller revisor räknas inte och ingår gratis. Du kan ha flera företag under samma konto.' },
     ],
   },
   {

@@ -2691,7 +2691,7 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
               {(() => {
                 const admin = isAdminPreview();
                 const tiers = admin ? [...PLAN_TIERS, TRADE_TIER] : PLAN_TIERS;
-                const NAMES = admin ? { solo: 'Bas', employer: 'Personal', trade: 'Handel' } : {};
+                const NAMES = admin ? { solo: 'Solo', employer: 'Team', trade: 'Handel' } : {};
                 const ICONS = { solo: User, employer: Users, trade: Store };
                 const order = tiers.map(x => x.id);
                 return (
