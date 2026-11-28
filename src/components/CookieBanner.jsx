@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CookieFilled } from './icons';
+import BokixWordmark from './shared/BokixWordmark';
 import { getStoredConsent, storeConsent, updateGtagConsent, updateClarityConsent, updatePosthogConsent } from '../utils/consent';
 
 // ── Sida 37: cookiebanner ──────────────────────────────────────────────
@@ -76,7 +77,7 @@ export default function CookieBanner() {
   // förvalt och knapparna väger lika, så valet är fortfarande ärligt.
   return (
     <div className="ck" role="dialog" aria-label="Cookies">
-      <span className="ck-ico" aria-hidden="true"><CookieFilled size={18} color="#c98a2b" /></span>
+      <div className="ck-brand"><BokixWordmark height={18} /><span className="ck-ico" aria-hidden="true"><CookieFilled size={16} color="#c98a2b" /></span></div>
       <p className="ck-text">
         Vi använder cookies för inloggning och för att förstå hur Bokix används.{' '}
         <Link to="/cookies">Läs mer</Link>

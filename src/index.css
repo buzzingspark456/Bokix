@@ -12573,3 +12573,15 @@ table th.fit-gap, table td.fit-gap { padding-left: 32px !important; }
   .ut-table tr:has(td.ut-empty) { display: table-row !important; }
 }
 @media (min-width: 761px) and (max-width: 1099px) { .ut-table-wrap { flex: 0 1 auto !important; height: auto !important; } }
+/* Cookierutan med lite Bokix-känsla på datorn. */
+.ck-brand { display: none; }
+@media (min-width: 641px) {
+  .ck { width: 400px; padding: 14px 16px 14px; border-top: 3px solid #0b6329; gap: 8px 12px; }
+  .ck-brand { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+  .ck > .ck-ico { display: none; }
+  .ck-brand .ck-ico { width: 26px; height: 26px; }
+  .ck-text { flex-basis: 100%; font-size: 13px; }
+  .ck-actions button { height: 36px; border-color: transparent; background: #0b6329; color: #fff; }
+  .ck-actions button:hover { background: #0e7531; }
+}
+:root[data-theme="dark"] .ck { border-top-color: #3fbf6c; }
