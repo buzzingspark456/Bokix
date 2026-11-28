@@ -55,6 +55,7 @@ function ReceiptView({ inv, onClose }) {
           {inv.invoice_pdf && <a className="sr-btn is-primary" href={inv.invoice_pdf} target="_blank" rel="noopener noreferrer"><Download size={15} /> {t('receipts.downloadPdf')}</a>}
           {inv.hosted_invoice_url && <a className="sr-btn" href={inv.hosted_invoice_url} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /> {paid ? t('receipts.openStripe') : t('receipts.payStripe')}</a>}
         </div>
+        {(inv.invoice_pdf || inv.hosted_invoice_url) && <p className="sr-via">{t('receipts.viaStripe')}</p>}
       </div>
     </div>
   );

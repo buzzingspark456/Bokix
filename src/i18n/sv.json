@@ -6710,8 +6710,9 @@
     "totalDue": "Att betala",
     "noVat": "Bokix är inte momsregistrerat, beloppet är slutpris.",
     "downloadPdf": "Ladda ner PDF",
-    "openStripe": "Visa hos Stripe",
-    "payStripe": "Betala hos Stripe",
+    "openStripe": "Visa kvitto",
+    "payStripe": "Visa och betala fakturan",
+    "viaStripe": "Kvitton och betalning hanteras av Stripe.",
     "showAll": "Visa alla {{n}}"
   },
   "subTabs": {

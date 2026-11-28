@@ -6710,8 +6710,9 @@
     "totalDue": "Due",
     "noVat": "Bokix is not VAT registered; the amount is the final price.",
     "downloadPdf": "Download PDF",
-    "openStripe": "View at Stripe",
-    "payStripe": "Pay at Stripe",
+    "openStripe": "View receipt",
+    "payStripe": "View and pay invoice",
+    "viaStripe": "Receipts and payments are handled by Stripe.",
     "showAll": "Show all {{n}}"
   },
   "subTabs": {
