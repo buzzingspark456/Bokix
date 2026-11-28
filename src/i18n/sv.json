@@ -6675,6 +6675,7 @@
     "close": "Stäng, jag klarar mig"
   },
   "billingCard": {
+    "expiresSoon": "Går ut",
     "linkSaved": "Kortet ligger i din Link-plånbok",
     "viaLink": "via Link",
     "validThru": "Giltigt t.o.m.",

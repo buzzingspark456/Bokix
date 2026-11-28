@@ -12320,20 +12320,41 @@ table.lt-fit td > div, table.lt-fit td > span { overflow: hidden; text-overflow:
 .bc-card { position: relative; width: 300px; max-width: 100%; aspect-ratio: 1.586; padding: 18px 20px; border-radius: 16px; color: #fff; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;
   background: radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .14), transparent 55%), linear-gradient(140deg, #1f2937 0%, #0f172a 100%);
   box-shadow: 0 12px 28px rgba(15, 23, 42, .22), inset 0 1px 0 rgba(255, 255, 255, .08); }
-.bc-card--visa { background: radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .16), transparent 55%), linear-gradient(140deg, #1a2a6c 0%, #0b1440 100%); }
-.bc-card--mastercard { background: radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .14), transparent 55%), linear-gradient(140deg, #2b2b2b 0%, #111 100%); }
+/* Kortet per märke (2026-11-28): märkets färg och ett enkelt ritat märke. */
+.bc-card:not(.bc-card--loading)::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(115deg, rgba(255, 255, 255, .035) 0 2px, transparent 2px 9px); pointer-events: none; }
+.bc-card--visa { background: radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .18), transparent 55%), linear-gradient(140deg, #1a3a9c 0%, #0b1a5c 100%); }
+.bc-card--mastercard { background: radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .12), transparent 55%), linear-gradient(140deg, #2d2d2d 0%, #0d0d0d 100%); }
+.bc-card--amex { background: radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .2), transparent 55%), linear-gradient(140deg, #2f7fc6 0%, #13497f 100%); }
+.bc-card--maestro { background: radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .14), transparent 55%), linear-gradient(140deg, #1d2b4a 0%, #0c1426 100%); }
+.bc-card--discover { background: radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .14), transparent 55%), linear-gradient(140deg, #3a3a3a 0%, #151515 100%); }
+.bc-card--link { background: radial-gradient(120% 90% at 100% 0%, rgba(0, 214, 111, .22), transparent 55%), linear-gradient(140deg, #1b2620 0%, #0b120e 100%); }
 .bc-card--loading { background: var(--bg-muted); box-shadow: none; animation: bc-pulse 1.2s ease-in-out infinite; }
+.bc-card-top, .bc-card-num, .bc-card-foot { position: relative; z-index: 1; }
 .bc-card-top { display: flex; align-items: center; justify-content: space-between; }
-.bc-chip { width: 36px; height: 27px; border-radius: 6px; background: linear-gradient(135deg, #f5d98b, #c9a24a); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .15); }
-.bc-card-brand { font-size: 20px; font-weight: 800; font-style: italic; letter-spacing: .04em; }
-.bc-card--mastercard .bc-card-brand { font-style: normal; font-size: 14px; }
-/* Link (2026-11-28): Stripes gröna, med e-posten i stället för kortnumret. */
-.bc-card--link { background: radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, .16), transparent 55%), linear-gradient(140deg, #00a85a 0%, #00753f 100%); }
-.bc-card--link .bc-card-brand { font-style: normal; font-size: 15px; font-weight: 800; }
-.bc-card-num.bc-card-num--email { font-size: 14px; letter-spacing: .01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-chip { display: block; width: 40px; height: 30px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .25)); }
+.bc-card-brand { display: inline-flex; align-items: center; }
+.bc-mk-visa { font: italic 900 26px/1 Inter, Arial, sans-serif; letter-spacing: .02em; }
+.bc-mk-circles { display: inline-flex; }
+.bc-mk-circles i { display: block; width: 30px; height: 30px; border-radius: 50%; }
+.bc-mk-circles i + i { margin-left: -12px; mix-blend-mode: screen; }
+.bc-mk-mc i:first-child { background: #eb001b; }
+.bc-mk-mc i + i { background: #f79e1b; }
+.bc-mk-maestro i:first-child { background: #0099df; }
+.bc-mk-maestro i + i { background: #e3001b; }
+.bc-mk-amex { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 6px 4px; border: 2px solid #fff; border-radius: 3px; font: 900 10.5px/1 Inter, Arial, sans-serif; letter-spacing: .04em; transform: scaleX(.92); transform-origin: right center; }
+.bc-mk-discover { display: inline-flex; align-items: center; gap: 1px; font: 800 14px/1 Inter, Arial, sans-serif; letter-spacing: .08em; }
+.bc-mk-discover b { display: inline-block; width: 13px; height: 13px; margin: 0 1px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ffb648, #e8590c); }
+.bc-mk-link { display: inline-flex; align-items: center; gap: 6px; font: 800 22px/1 Inter, Arial, sans-serif; letter-spacing: -.03em; color: #fff; }
+.bc-mk-link svg { display: block; width: 22px; height: 22px; }
+.bc-mk-card { position: relative; width: 30px; height: 22px; border: 2px solid rgba(255, 255, 255, .85); border-radius: 4px; }
+.bc-mk-card::after { content: ''; position: absolute; left: 0; right: 0; top: 5px; height: 4px; background: rgba(255, 255, 255, .85); }
 .bc-card-num { font-size: 18px; font-weight: 600; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
-.bc-card-foot { display: flex; justify-content: space-between; align-items: flex-end; font-size: 12.5px; font-weight: 600; opacity: .9; }
-.bc-card-foot small { display: block; font-size: 9px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
+.bc-card-num.bc-card-num--email { font-size: 14.5px; letter-spacing: .01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-card-foot { display: flex; justify-content: space-between; align-items: flex-end; font-size: 12.5px; font-weight: 600; opacity: .92; }
+.bc-card-foot > span:last-child { font-size: 15px; font-weight: 700; letter-spacing: .03em; font-variant-numeric: tabular-nums; text-align: right; }
+.bc-card-foot .bc-exp-warn { color: #ffd2cc; }
+.bc-via { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 999px; background: rgba(255, 255, 255, .16); font-size: 11px; }
+.bc-card-foot small { display: block; font-size: 9.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
 /* Bannern behövs inte där rutan redan står (Prenumeration). */
 .main-content-inner:has(.pay-fix) > .pay-banner { display: none; }
 @media (max-width: 640px) {

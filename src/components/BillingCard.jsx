@@ -9,7 +9,6 @@ import { t } from '../i18n';
 // nyckel (VITE_STRIPE_PUBLISHABLE_KEY) öppnas Stripes portal som förut.
 
 const PK = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '';
-const BRAND_LABEL = { visa: 'VISA', mastercard: 'Mastercard', amex: 'AMEX', maestro: 'Maestro', discover: 'Discover' };
 const BRAND_NAME = { visa: 'Visa', mastercard: 'Mastercard', amex: 'American Express', maestro: 'Maestro', discover: 'Discover' };
 
 let stripePromise = null;
@@ -21,32 +20,77 @@ const getStripe = () => {
 
 export const inAppCardChange = Boolean(PK);
 
+// Chipet: guld med kontaktytor, ritat som SVG så att det ser ut som ett riktigt chip.
+const CHIP = (
+  <svg className="bc-chip" viewBox="0 0 40 30" aria-hidden="true">
+    <defs>
+      <linearGradient id="bc-chip-g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor="#f6e3a1" /><stop offset=".45" stopColor="#d9b45a" /><stop offset="1" stopColor="#a8822f" />
+      </linearGradient>
+    </defs>
+    <rect x=".5" y=".5" width="39" height="29" rx="5.5" fill="url(#bc-chip-g)" stroke="rgba(0,0,0,.25)" />
+    <g fill="none" stroke="rgba(80,55,10,.55)" strokeWidth="1">
+      <path d="M0 10.5h12.5M0 19.5h12.5M27.5 10.5H40M27.5 19.5H40" />
+      <path d="M12.5 4.5v21M27.5 4.5v21" />
+      <rect x="12.5" y="8" width="15" height="14" rx="3" />
+      <path d="M20 0v8M20 22v8" />
+    </g>
+  </svg>
+);
+
+const LINK_MARK = (
+  <span className="bc-mk-link">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#00d66f" /><path d="M10 7.5l4.5 4.5-4.5 4.5" fill="none" stroke="#0b120e" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    link
+  </span>
+);
+
+// Märket uppe till höger: enkla ritade märken, inte de officiella logotyperna.
+function BrandMark({ brand }) {
+  if (brand === 'visa') return <span className="bc-mk-visa">VISA</span>;
+  if (brand === 'mastercard') return <span className="bc-mk-circles bc-mk-mc"><i /><i /></span>;
+  if (brand === 'maestro') return <span className="bc-mk-circles bc-mk-maestro"><i /><i /></span>;
+  if (brand === 'amex') return <span className="bc-mk-amex"><b>AMERICAN</b><b>EXPRESS</b></span>;
+  if (brand === 'discover') return <span className="bc-mk-discover">DISC<b />VER</span>;
+  return <span className="bc-mk-card" />;
+}
+
+// Går kortet ut denna eller nästa månad?
+function expiresSoon(month, year) {
+  if (!month || !year) return false;
+  const now = new Date();
+  const months = (Number(year) - now.getFullYear()) * 12 + (Number(month) - (now.getMonth() + 1));
+  return months <= 1;
+}
+
 export function CardTile({ card }) {
   if (!card) return null;
-  // Link (Stripes sparade betalning): ingen kortsiffra, bara e-posten.
+  // Link (Stripes sparade betalning): ingen kortsiffra, bara maskerad e-post.
   if (card.brand === 'link') {
     return (
-      <div className="bc-card bc-card--link" aria-label={`Link ${card.email || ''}`}>
-        <div className="bc-card-top">
-          <span className="bc-chip" aria-hidden="true" />
-          <span className="bc-card-brand">Link</span>
-        </div>
+      <div className="bc-card bc-card--link" aria-label="Link">
+        <div className="bc-card-top">{CHIP}<span className="bc-card-brand">{LINK_MARK}</span></div>
         <div className="bc-card-num bc-card-num--email">{t('billingCard.linkSaved')}</div>
-        <div className="bc-card-foot"><span>{card.email || ''}</span></div>
+        <div className="bc-card-foot"><span>{card.email || ''}</span><span /></div>
       </div>
     );
   }
   const exp = card.expMonth && card.expYear ? `${String(card.expMonth).padStart(2, '0')}/${String(card.expYear).slice(-2)}` : '';
+  const soon = expiresSoon(card.expMonth, card.expYear);
+  const brandClass = BRAND_NAME[card.brand] ? card.brand : 'card';
+  const num = card.brand === 'amex' ? `•••• •••••• •${card.last4}` : `•••• •••• •••• ${card.last4}`;
   return (
-    <div className={`bc-card bc-card--${card.brand || 'card'}`} aria-label={`${BRAND_NAME[card.brand] || t('billingCard.card')} •••• ${card.last4}`}>
+    <div className={`bc-card bc-card--${brandClass}`} aria-label={`${BRAND_NAME[card.brand] || t('billingCard.card')} •••• ${card.last4}`}>
       <div className="bc-card-top">
-        <span className="bc-chip" aria-hidden="true" />
-        <span className="bc-card-brand">{BRAND_LABEL[card.brand] || <CreditCard size={20} />}</span>
+        {CHIP}
+        <span className="bc-card-brand" aria-hidden="true"><BrandMark brand={card.brand} /></span>
       </div>
-      <div className="bc-card-num">•••• •••• •••• {card.last4}</div>
+      <div className="bc-card-num">{num}</div>
       <div className="bc-card-foot">
-        <span>{BRAND_NAME[card.brand] || t('billingCard.card')}{card.via === 'link' ? ` · ${t('billingCard.viaLink')}` : ''}</span>
-        {exp && <span><small>{t('billingCard.validThru')}</small> {exp}</span>}
+        {card.via === 'link'
+          ? <span className="bc-via">{t('billingCard.viaLink')}</span>
+          : <span>{BRAND_NAME[card.brand] || t('billingCard.card')}</span>}
+        {exp && <span className={soon ? 'bc-exp-warn' : undefined}><small>{soon ? t('billingCard.expiresSoon') : t('billingCard.validThru')}</small> {exp}</span>}
       </div>
     </div>
   );
