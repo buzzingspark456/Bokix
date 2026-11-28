@@ -81,6 +81,9 @@ await until('moms'); result.foretag.push(await q());
 await page.locator('.onb-opt:has-text("En gång om året")').click();
 await until('F-skatt'); result.foretag.push(await q());
 await page.locator('.onb-opt:has-text("Ja")').first().click();
+// Ny fråga (2026-11): har du bokfört någon annanstans innan?
+await until('bokfört någon annanstans'); result.foretag.push(await q());
+await page.locator('.onb-opt:has-text("Nej, jag börjar från noll")').click();
 await page.waitForSelector('.onb-card', { timeout: 5000 }); result.foretag.push(await q());
 await shot('5-profil');
 await page.locator('.onb-embedded button:has-text("Fortsätt")').click();
@@ -88,7 +91,7 @@ await page.waitForSelector('input[name="new-password"]', { timeout: 8000 });
 await shot('6-losenord');
 // Tillbaka från lösenordet ska visa svaren kvar, sedan fram igen.
 await page.locator('button:has-text("Tillbaka")').last().click();
-result.tillbakaVisarProfil = await page.locator('.onb-card').isVisible().catch(() => false);
+result.tillbakaVisarProfil = await page.getByText('Företagsprofil', { exact: false }).first().waitFor({ state: 'visible', timeout: 3000 }).then(() => true).catch(() => false);
 await page.locator('.onb-embedded button:has-text("Fortsätt")').click();
 await page.waitForSelector('input[name="new-password"]', { timeout: 8000 });
 await page.locator('input[name="new-password"]').fill('Langt-losenord-2026');

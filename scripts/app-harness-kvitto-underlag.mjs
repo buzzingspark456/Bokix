@@ -76,7 +76,7 @@ await page.waitForTimeout(800);
 await page.locator('tr', { hasText: bookedVer.date }).filter({ hasText: bookedVer.description }).first().click();
 await page.waitForTimeout(800);
 await shot('verifikation');
-const hasDoc = await page.evaluate((desc) => [...document.querySelectorAll('button, a')].some(b => /exempelkvitto/.test(b.textContent)), bookedVer.description);
+const hasDoc = await page.evaluate(() => /exempelkvitto/.test(document.body.innerText) && [...document.querySelectorAll('img')].some(i => /exempelkvitto/.test(i.src)));
 const savedVer = (saved().verifications || []).find(v => v.id === bookedVer.id) || {};
 console.log('sparat underlag:', savedVer.attachmentUrl || null, '| basVersion:', saved().basVersion || null, '| id:', bookedVer.id);
 console.log('kvitto:', booked.description, '| verifikation visar underlaget:', hasDoc, errors.length ? errors : '');

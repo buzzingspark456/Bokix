@@ -19,7 +19,7 @@ const session = { access_token: jwt, token_type: 'bearer', expires_in: 36000, ex
 const subscription = { user_id: UID, status: 'active', plan: 'employer_monthly', trial_ends_at: null, current_period_end: '2026-11-28T10:00:00Z', cancel_at_period_end: false };
 const invoices = [...Array(14).keys()].map(i => ({
   id: `in_${i}`, number: `BOKIX-${100 - i}`, created: Date.UTC(2026, 9 - i, 28) / 1000, status: i === 0 ? 'open' : 'paid',
-  amount_due: 17900, amount_paid: i === 0 ? 0 : 17900, currency: 'sek', invoice_pdf: 'https://example.test/kvitto.pdf',
+  amount_due: 17900, amount_paid: i === 0 ? 0 : 17900, currency: 'sek', invoice_pdf: 'https://example.test/kvitto.pdf', hosted_invoice_url: 'https://example.test/visa',
 }));
 
 // Två betalningar samma månad ska bli en rad.
@@ -86,16 +86,26 @@ async function run(name, viewport, theme) {
   await page.screenshot({ path: path.join(OUT, `${name}.png`) });
   await page.locator('.plan-card').screenshot({ path: path.join(OUT, `${name}-kort.png`) });
   console.log(name, await page.locator('.plan-card-head').evaluate(el => getComputedStyle(el).backgroundColor));
-  await page.getByRole('button', { name: 'Se fakturor & kvitton' }).evaluate(el => el.click());
-  await page.waitForSelector('.plan-invoice');
-  await page.waitForTimeout(200);
-  await page.screenshot({ path: path.join(OUT, `${name}-fakturor.png`) });
-  const rows = await page.locator('.plan-invoice-month').allInnerTexts();
-  if (new Set(rows).size !== rows.length) problems.push(`${name}: samma månad två gånger`);
-  console.log(name, 'två i samma månad:', await page.locator('.plan-invoice').filter({ hasText: '2 betalningar' }).locator('.plan-invoice-link').count(), 'kvitton');
-  console.log(name, (await page.locator('.plan-card-head').innerText()).replace(/\s+/g, ' '), '| rader', await page.locator('.plan-invoice').count());
-  await page.locator('.plan-invoice-more').evaluate(el => el.click());
-  console.log(name, 'efter Visa alla', await page.locator('.plan-invoice').count());
+  // Flikarna sedan 2026-11-27: Plan, Betalning, Kvitton, Användning.
+  const tab = (n) => page.getByRole('tab', { name: n }).first().evaluate(el => el.click());
+  await tab('Kvitton');
+  await page.waitForSelector('.sr-row', { timeout: 8000 });
+  console.log(name, 'kvitton visas:', await page.locator('.sr-row').count());
+  if (await page.locator('.sr-more').count()) { await page.locator('.sr-more').evaluate(el => el.click()); console.log(name, 'efter Visa alla:', await page.locator('.sr-row').count()); }
+  await page.screenshot({ path: path.join(OUT, `${name}-kvitton.png`) });
+  await page.locator('.sr-row').nth(1).evaluate(el => el.click());
+  await page.waitForSelector('.sr-sheet', { timeout: 5000 });
+  const sheet = await page.locator('.sr-sheet').innerText();
+  console.log(name, 'kvittot:', /Visa kvitto/.test(sheet) ? 'Visa kvitto' : '(saknar Visa kvitto)', '|', /hanteras av Stripe/.test(sheet) ? 'Stripe-rad' : '(saknar Stripe-rad)');
+  if (!/Ladda ner PDF/.test(sheet)) problems.push(`${name}: Ladda ner PDF saknas i kvittot`);
+  await page.screenshot({ path: path.join(OUT, `${name}-kvitto.png`) });
+  await page.keyboard.press('Escape');
+  await tab('Användning');
+  await page.waitForTimeout(800);
+  if (await page.locator('.ocr-topup').count()) problems.push(`${name}: Köp 100 till syns fast gränsen inte nåtts`);
+  await tab('Betalning');
+  await page.waitForTimeout(800);
+  console.log(name, 'betalning:', (await page.locator('.bc').innerText()).replace(/s+/g, ' ').slice(0, 80));
   if (viewport.width < 700) { await page.screenshot({ path: path.join(OUT, `${name}-slut.png`) }); await ctx.close(); return; }
   await page.getByText('Säkerhet', { exact: true }).first().evaluate(el => el.click());
   await page.waitForTimeout(500);
