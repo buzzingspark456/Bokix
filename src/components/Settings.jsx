@@ -9,7 +9,7 @@ import {
   Palette, Hash, Calendar, X, ZoomIn, ZoomOut, Maximize2, ExternalLink, Sun, Moon,
   UserRound, Users, Cog, ArrowLeft, ArrowRight,
   Sparkles, CheckCircle2, HelpCircle, LogOut, Search, ChevronRight, Fingerprint, CalendarFilled, MailFilled, BankFilled, Copy,
-  FileText, BookOpen, Plug, Bell, ChevronLeft } from './icons';
+  FileText, BookOpen, Plug, Bell, ChevronLeft, Package, Receipt } from './icons';
 import { supabase } from '../supabaseClient';
 import { passkeysAvailable, isPasskeyCancel, isPasskeyAlreadyOnDevice, appLockEnabledFor, setAppLock, rememberPasskeyOnDevice } from '../utils/sessionPolicy';
 import { sendInvoiceEmail } from '../emailApi';
@@ -40,7 +40,8 @@ import { downloadSie4 } from '../utils/sieExport';
 import { exportVerificationsToExcel, fiscalYearChoices, verificationsInRange } from '../utils/excelExport';
 import { downloadUnderlagZip } from '../utils/underlagExport';
 import { companyFiscalYearSetting, fiscalYearBounds } from '../utils/reportCalculations';
-import { planFromId, PLAN_TIERS, invitedUserLimit, ACCOUNTANT_SEATS } from '../utils/plans';
+import { planFromId, PLAN_TIERS, TRADE_TIER, invitedUserLimit, ACCOUNTANT_SEATS } from '../utils/plans';
+import { isAdminPreview } from '../utils/adminPreview';
 import { ACCESS_PAGES, ACCESS_LEVELS, defaultPageAccess, accessForPage, canWriteField, ACCOUNTANT_PRESET, accountantPageAccess } from '../utils/pageAccess';
 import { isUfCompany, ufSettingsSections, ufFreePeriod, UF_FREE_MONTHS } from '../utils/ufMode';
 import { closeUfYear } from '../utils/ufClose';
@@ -2654,30 +2655,52 @@ function SubscriptionSection({ user, company, sharedAccess, readOnly = false }) 
                   <button key={id} type="button" role="tab" aria-selected={interval === id} className={interval === id ? 'on' : undefined} onClick={() => { setPlanInterval(id); setPickedPlan(null); }}>{label}</button>
                 ))}
               </div>
-              <div className="sub-plans">
-                {PLAN_TIERS.map(tier => {
-                  const p = planFromId(`${tier.id}_${interval}`);
-                  const isCurrent = sub.plan === p.id;
-                  const isPicked = pickedPlan === p.id;
-                  return (
-                    <div key={p.id} className={`sub-plan${isCurrent ? ' is-current' : ''}${isPicked ? ' is-picked' : ''}`}>
-                      <div className="sub-plan-top">
-                        <b>{p.name}</b>
-                        {isCurrent && <span className="sub-tag">{tr('sub.current')}</span>}
-                      </div>
-                      <span className="sub-plan-sub">{p.subtitle}</span>
-                      <div className="sub-plan-price"><strong>{p.price}</strong> {tr('ui.kr_man_2')}</div>
-                      <ul>
-                        <li><Check size={13} /> {tr('ui.plan_rad_bokforing')}</li>
-                        <li><Check size={13} /> {tr('ui.plan_rad_rapporter')}</li>
-                        <li className={p.includesPayroll ? undefined : 'is-off'}>{p.includesPayroll ? <Check size={13} /> : <X size={12} />} {tr('ui.loner_och_arbetsgivardeklaration')}</li>
-                      </ul>
-                      {p.minimumMonths > 0 && <span className="sub-plan-note">{tr('sub.minimum', { n: p.minimumMonths })}</span>}
-                      {!isCurrent && <button type="button" className={`sub-pick${isPicked ? ' on' : ''}`} onClick={() => setPickedPlan(isPicked ? null : p.id)}>{isPicked ? tr('sub.picked') : tr('sub.pick')}</button>}
-                    </div>
-                  );
-                })}
-              </div>
+              {/* Planerna med Bokix-känsla (2026-11-27): ikon, vem planen passar,
+                  pris och vad som tillkommer jämfört med planen under. Handel och
+                  namnen Bas/Personal/Handel bara för admin tills de släpps (efter AB:t). */}
+              {(() => {
+                const admin = isAdminPreview();
+                const tiers = admin ? [...PLAN_TIERS, TRADE_TIER] : PLAN_TIERS;
+                const NAMES = admin ? { solo: 'Bas', employer: 'Personal', trade: 'Handel' } : {};
+                const ICONS = { solo: Receipt, employer: Users, trade: Package };
+                const FEATURES = {
+                  solo: [tr('planPick.f_book'), tr('planPick.f_scan'), tr('planPick.f_vat')],
+                  employer: [tr('planPick.f_pay'), tr('planPick.f_agi'), tr('planPick.f_outlays')],
+                  trade: [tr('planPick.f_orders'), tr('planPick.f_stock'), tr('planPick.f_buy')],
+                };
+                const order = tiers.map(x => x.id);
+                return (
+                  <div className={`sub-plans pp-grid pp-n${tiers.length}`}>
+                    {tiers.map((tier, idx) => {
+                      const p = planFromId(`${tier.id}_${interval}`);
+                      if (!p) return null;
+                      const isCurrent = sub.plan === p.id || (!sub.plan && tier.id === 'employer');
+                      const isPicked = pickedPlan === p.id;
+                      const soon = tier.id === 'trade';
+                      const Icon = ICONS[tier.id] || Receipt;
+                      const below = idx > 0 ? (NAMES[order[idx - 1]] || planFromId(`${order[idx - 1]}_${interval}`)?.name) : null;
+                      return (
+                        <div key={p.id} className={`sub-plan pp-card pp-${tier.id}${isCurrent ? ' is-current' : ''}${isPicked ? ' is-picked' : ''}`}>
+                          {isCurrent && <span className="pp-flag">{tr('sub.current')}</span>}
+                          <span className="pp-ico" aria-hidden="true"><Icon size={20} /></span>
+                          <b className="pp-name">{NAMES[tier.id] || p.name}</b>
+                          <span className="pp-who">{p.subtitle}</span>
+                          <div className="pp-price"><strong>{p.price}</strong><span>{tr('ui.kr_man_2')}</span></div>
+                          {p.savingPerYear > 0 && <span className="pp-save">{tr('planPick.save', { amount: p.savingPerYear })}</span>}
+                          <ul className="pp-list">
+                            {below && <li className="pp-lead">{tr('planPick.allIn', { name: below })}</li>}
+                            {(FEATURES[tier.id] || []).map(x => <li key={x}><Check size={14} /> {x}</li>)}
+                          </ul>
+                          {p.minimumMonths > 0 && <span className="sub-plan-note">{tr('sub.minimum', { n: p.minimumMonths })}</span>}
+                          {soon
+                            ? <span className="pp-soon">{tr('planPick.soon')}</span>
+                            : !isCurrent && <button type="button" className={`sub-pick pp-pick${isPicked ? ' on' : ''}`} onClick={() => setPickedPlan(isPicked ? null : p.id)}>{isPicked ? tr('sub.picked') : tr('planPick.choose', { name: NAMES[tier.id] || p.name })}</button>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
               {picked && (
                 <div className="sub-confirm">
                   <span>{tr('sub.confirmText', { name: picked.name, price: picked.price })} {isTrialing ? tr('sub.confirmTrial') : tr('sub.confirmProration')}</span>

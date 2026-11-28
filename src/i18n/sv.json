@@ -6715,5 +6715,20 @@
     "usage": "Användning",
     "needsAction": "Behöver åtgärdas",
     "receiptCopy": "Kopia av kvittona"
+  },
+  "planPick": {
+    "f_book": "Bokföring, fakturor och offerter",
+    "f_scan": "Kvitton som läses av automatiskt",
+    "f_vat": "Moms, bokslut och årsredovisning",
+    "f_pay": "Lönekörning med lönebesked",
+    "f_agi": "Arbetsgivardeklaration klar att skicka",
+    "f_outlays": "Utlägg och semester i lönen",
+    "f_orders": "Order, leveranser och restorder",
+    "f_stock": "Artiklar och lager som räknar själv",
+    "f_buy": "Inköp och prissättning",
+    "allIn": "Allt i {{name}}, och",
+    "save": "Du sparar {{amount}} kr per år",
+    "soon": "Kommer snart",
+    "choose": "Välj {{name}}"
   }
 }

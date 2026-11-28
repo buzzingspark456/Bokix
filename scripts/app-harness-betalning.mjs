@@ -101,6 +101,11 @@ if (MODE === 'failed') {
   await page.locator('.np-main').first().click(); await page.waitForTimeout(1500);
   console.log('notisen tog mig till:', await page.locator('.main-content-inner h1, .main-content-inner h2').first().innerText().catch(() => '?'), '| ruta:', await page.locator('.pay-fix').count(), '| flikar:', (await page.locator('.sub-tabs button').allInnerTexts()).join(' / '));
   await page.screenshot({ path: 'test-results/betalning-' + tag + '-prenumeration.png' });
+  // PLANVAL
+  await page.locator('.plan-card-btn').first().click().catch(() => {}); await page.waitForTimeout(700);
+  console.log('planer:', (await page.locator('.pp-name').allInnerTexts()).join(' / '));
+  await page.screenshot({ path: 'test-results/betalning-' + tag + '-planer.png' });
+  await page.locator('.sub-x').first().click().catch(() => {}); await page.waitForTimeout(400);
   await page.locator('.sub-tabs button', { hasText: 'Betalning' }).click(); await page.waitForTimeout(600);
   console.log('fliken Betalning, kortet:', (await page.locator('.bc-card').innerText().catch(() => '(inget)')).replace(/s+/g, ' '));
   await page.screenshot({ path: 'test-results/betalning-' + tag + '-kort.png' });

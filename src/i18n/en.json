@@ -6715,5 +6715,20 @@
     "usage": "Usage",
     "needsAction": "Needs action",
     "receiptCopy": "Copy of receipts"
+  },
+  "planPick": {
+    "f_book": "Bookkeeping, invoices and quotes",
+    "f_scan": "Receipts read automatically",
+    "f_vat": "VAT, year-end and annual report",
+    "f_pay": "Payroll with payslips",
+    "f_agi": "Employer declaration ready to send",
+    "f_outlays": "Outlays and holiday in payroll",
+    "f_orders": "Orders, deliveries and back orders",
+    "f_stock": "Items and stock that count themselves",
+    "f_buy": "Purchasing and pricing",
+    "allIn": "Everything in {{name}}, plus",
+    "save": "You save {{amount}} kr a year",
+    "soon": "Coming soon",
+    "choose": "Choose {{name}}"
   }
 }

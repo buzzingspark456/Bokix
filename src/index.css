@@ -12429,3 +12429,31 @@ body:has(.notif-dropdown) .kig, body:has(.notif-dropdown) .kig-pill { opacity: 0
 .notif-dropdown.np .np-item.fresh { background: transparent; }
 .notif-dropdown.np .np-item.fresh:hover { background: var(--bg-muted); }
 .notif-dropdown.np .np-item:has(.np-tone-red) .np-title, :root[data-theme="dark"] .notif-dropdown.np .np-item:has(.np-tone-red) .np-title { color: var(--text-main); }
+
+/* Ändra plan med Bokix-känsla (2026-11-27). */
+.pp-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pp-grid.pp-n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 760px) { .pp-grid, .pp-grid.pp-n3 { grid-template-columns: 1fr; } }
+.pp-card { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 20px 18px 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-card); transition: border-color .15s, box-shadow .15s; }
+.pp-card:hover { border-color: color-mix(in srgb, #0b6329 35%, var(--border)); }
+.pp-card.is-current { border: 2px solid #0b6329; padding: 19px 17px 17px; background: color-mix(in srgb, #0b6329 3%, var(--bg-card)); }
+.pp-card.is-picked { border: 2px solid #0b6329; box-shadow: 0 8px 24px rgba(11, 99, 41, .14); padding: 19px 17px 17px; }
+.pp-flag { position: absolute; top: -11px; left: 16px; padding: 3px 10px; border-radius: 999px; background: #0b6329; color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+.pp-ico { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; margin-bottom: 8px; border-radius: 12px; background: #e3f4e8; color: #0b6329; }
+.pp-employer .pp-ico { background: #e8f0fe; color: #1d5fd6; }
+.pp-trade .pp-ico { background: #fdf3dc; color: #a15c00; }
+.pp-name { font-family: 'Newsreader', Georgia, serif; font-size: 22px; font-weight: 600; letter-spacing: -.01em; color: var(--text-main); }
+.pp-who { font-size: 13px; color: var(--text-secondary); }
+.pp-price { display: flex; align-items: baseline; gap: 5px; margin: 12px 0 2px; }
+.pp-price strong { font-size: 30px; font-weight: 800; letter-spacing: -.02em; color: var(--text-main); font-variant-numeric: tabular-nums; }
+.pp-price span { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+.pp-save { font-size: 12px; font-weight: 650; color: #12803a; }
+.pp-list { list-style: none; margin: 12px 0 0; padding: 12px 0 0; border-top: 1px solid var(--border-light); display: flex; flex-direction: column; gap: 7px; font-size: 13px; color: var(--text-main); flex: 1; }
+.pp-list li { display: flex; align-items: flex-start; gap: 7px; }
+.pp-list li svg { flex-shrink: 0; margin-top: 2px; color: #0b6329; }
+.pp-list .pp-lead { font-size: 12px; font-weight: 650; color: var(--text-muted); }
+.pp-pick { margin-top: 14px; width: 100%; justify-content: center; height: 38px; border-radius: 999px; }
+.pp-soon { margin-top: 14px; display: inline-flex; align-items: center; justify-content: center; height: 38px; border-radius: 999px; background: var(--bg-muted); color: var(--text-muted); font-size: 13px; font-weight: 650; }
+:root[data-theme="dark"] .pp-card.is-current, :root[data-theme="dark"] .pp-card.is-picked { border-color: #3fbf6c; }
+:root[data-theme="dark"] .pp-flag { background: #3fbf6c; color: #06240f; }
+:root[data-theme="dark"] .pp-list li svg { color: #3fbf6c; }
