@@ -50,7 +50,7 @@ export const YEARLY_MINIMUM_MONTHS = 3;
 export const PLAN_TIERS = [
   {
     id: 'solo',
-    name: 'Utan personal',
+    name: 'Bas',
     subtitle: 'För dig utan anställda',
     monthlyPrice: 129,
     /** Månadspriset när kunden valt årsplanen. Ett eget, rent tal — inte en
@@ -63,7 +63,7 @@ export const PLAN_TIERS = [
   },
   {
     id: 'employer',
-    name: 'Med personal',
+    name: 'Personal',
     subtitle: 'För dig med anställda',
     monthlyPrice: 179,
     yearlyMonthlyPrice: 149,

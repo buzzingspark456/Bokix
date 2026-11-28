@@ -351,7 +351,7 @@ export async function handleUsers(admin, res) {
       lastSignInAt: u.last_sign_in_at || null,
       emailConfirmed: !!u.email_confirmed_at,
       subscriptionStatus: sub?.status || null,
-      planName: plan?.name || (sub ? 'Med personal (äldre konto)' : null),
+      planName: plan?.name || (sub ? 'Personal (äldre konto)' : null),
       cancelAtPeriodEnd: !!sub?.cancel_at_period_end,
       // GoTrue sätter banned_until till ett datum långt fram i tiden vid
       // avstängning (se handleSuspendUser) — vilket datum spelar ingen
@@ -463,7 +463,7 @@ async function loadPayments(admin, allUsersIn) {
       // Grundarnas egna konton är inga intäkter och räknas inte i MRR/ARR.
       isAdmin: isAdminEmail(emailById[s.user_id]),
       status: s.status,
-      planName: plan?.name || 'Med personal (äldre konto)',
+      planName: plan?.name || 'Personal (äldre konto)',
       listPrice,
       planPrice: priceAfterDiscount(listPrice, discount, plan?.intervalId === 'yearly'),
       discount,

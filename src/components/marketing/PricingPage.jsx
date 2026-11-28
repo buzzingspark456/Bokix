@@ -5,7 +5,7 @@ import { BRAND } from '../../utils/brandColors';
 import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY } from './marketingTokens';
 import { KitStyles, KitFaq } from './subpageKit';
-import { PRICING_TIERS } from './pricingTiers';
+import { PRICING_TIERS, TRADE_PRICING_TIER } from './pricingTiers';
 import { localizedPricingTiers } from '../../content/marketing/pricingTiers';
 import { PRICING_CONTENT } from '../../content/marketing/pricing';
 import { resolvePlan, YEARLY_MINIMUM_MONTHS } from '../../utils/plans';
@@ -58,15 +58,18 @@ function buildSoftwareSchema(description) {
 // Det kortet lyfter fram per nivå.
 const HIGHLIGHTS = {
   solo: ['Obegränsat med kvitton, fakturor och offerter', 'Moms, bokslut och årsredovisning', 'Bjud in 1 person, konsult och revisor gratis'],
-  employer: ['Allt i Utan personal', 'Lön, lönebesked och arbetsgivardeklaration', 'Bjud in 2 personer, konsult och revisor gratis'],
+  employer: ['Allt i Bas', 'Lön, lönebesked och arbetsgivardeklaration', 'Bjud in 2 personer, konsult och revisor gratis'],
+  trade: ['Allt i Personal', 'Order, lager och inköp som hänger ihop', 'Prissättning med marginalmål'],
 };
 
-// Jämförelsen. Allt som finns i Bokix i dag; skillnaden är lön och hur
-// många man kan bjuda in (utils/plans.js invitedUserLimit).
+// Jämförelsen. Bas och Personal: allt som finns i Bokix i dag; skillnaden är
+// lön och hur många man kan bjuda in (utils/plans.js invitedUserLimit).
+// Handel (kommer snart) har allt i Personal plus handelsdelen.
 const ALL = { kind: 'yes', text: 'Obegränsat', strong: true };
 const IN = { kind: 'yes', text: 'Ingår' };
 const NO = { kind: 'no' };
-const COMPARE = [
+const SOON = { kind: 'soon' };
+const COMPARE_BASE = [
   { group: 'Bokföring och fakturor' },
   { title: 'Bokföring', desc: 'Verifikationer, kontoplan och rapporter.', values: [ALL, ALL] },
   { title: 'Kvittoavläsning', desc: 'Datum, belopp och moms läses av från ett foto eller en PDF.', values: [ALL, ALL] },
@@ -91,9 +94,19 @@ const COMPARE = [
   { title: 'Bjud in fler', desc: 'Utöver dig själv. Din redovisningskonsult eller revisor räknas inte och ingår gratis.', values: [{ kind: 'yes', text: '1 person' }, { kind: 'yes', text: '2 personer' }] },
   { title: 'SIE4-export och support', desc: 'Ta med bokföringen när du vill. Hjälp på svenska via mejl.', values: [IN, IN] },
 ];
+// Handel får samma värde som Personal på varje rad, plus en egen grupp.
+const COMPARE = [
+  ...COMPARE_BASE.map(r => (r.group ? r : { ...r, values: [...r.values, r.values[1]] })),
+  { group: 'Handel' },
+  { title: 'Order', desc: 'Order, delleverans och restorder.', values: [NO, NO, SOON] },
+  { title: 'Inköpsorder', desc: 'Beställ från leverantörer och ta emot varorna i lagret.', values: [NO, NO, SOON] },
+  { title: 'Prissättning', desc: 'Priser med marginalmål per artikel.', values: [NO, NO, SOON] },
+  { title: 'Orderbekräftelse och följesedel', desc: 'Skickas till kunden med din logga.', values: [NO, NO, SOON] },
+];
 
 function Value({ v }) {
   if (v.kind === 'no') return <span className="pp-dash" aria-label="Ingår inte" />;
+  if (v.kind === 'soon') return <span className="pp-soon"><i aria-hidden="true" />Kommer snart</span>;
   return (
     <span className="pp-val-wrap">
       <span className={`pp-val${v.strong ? ' strong' : ''}`}><span className="pp-check"><Check size={12} color="#fff" strokeWidth={3.4} /></span>{v.text}</span>
@@ -105,7 +118,7 @@ function Value({ v }) {
 export default function PricingPage({ locale = 'sv' }) {
   const navigate = useNavigate();
   const c = PRICING_CONTENT[locale] || PRICING_CONTENT.sv;
-  const tiers = localizedPricingTiers(locale);
+  const tiers = [...localizedPricingTiers(locale), TRADE_PRICING_TIER];
   // Månadsvis eller årsplan. Valet följer med hela vägen till Stripe.
   const [interval, setInterval] = useState('monthly');
   const [mt, setMt] = useState('employer');
@@ -127,7 +140,7 @@ export default function PricingPage({ locale = 'sv' }) {
         .pp-toggle button.on { background: var(--mkt-card-bg); color: ${INK}; box-shadow: 0 2px 10px rgba(0, 0, 0, .15); }
         .pp-save { font-size: 12px; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, ${G} 20%, transparent); color: var(--mkt-accent-green-fg, ${G}); }
 
-        .pp-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; max-width: 900px; margin: clamp(36px, 5vw, 56px) auto 0; padding: 0 16px; }
+        .pp-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; max-width: 1180px; margin: clamp(36px, 5vw, 56px) auto 0; padding: 0 16px; }
         .pp-card { display: flex; flex-direction: column; border-radius: 22px; padding: 32px 30px 34px; background: var(--mkt-card-bg); border: 1px solid var(--mkt-card-border); position: relative; }
         .pp-card.featured { background: color-mix(in srgb, ${G} 8%, var(--mkt-card-bg)); border: 2px solid color-mix(in srgb, ${G} 55%, transparent); }
         .pp-badge { position: absolute; top: -13px; left: 30px; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; background: ${G}; color: #fff; }
@@ -152,7 +165,12 @@ export default function PricingPage({ locale = 'sv' }) {
         .pp-cmp-h { font-family: ${SERIF}; font-size: clamp(28px, 4.2vw, 44px); font-weight: 700; color: ${INK}; margin: 0; letter-spacing: -0.02em; }
         .pp-cmp-lead { font-size: 16px; color: ${MUTED}; margin: 10px 0 0; }
         .pp-table { margin-top: 32px; border: 1px solid var(--mkt-card-border); border-radius: 22px; background: var(--mkt-card-bg); }
-        .pp-row { display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 1fr)); }
+        .pp-row { display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr)); }
+        .pp-card.soon { background: var(--mkt-card-bg); }
+        .pp-card.soon .pp-price { color: ${MUTED}; }
+        .pp-btn:disabled { cursor: default; opacity: .55; }
+        .pp-soon-tag { position: absolute; top: -13px; left: 30px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 10px; background-color: var(--mkt-card-bg) !important; border-radius: 999px; border: 1px solid color-mix(in srgb, ${G} 30%, transparent); background: color-mix(in srgb, ${G} 9%, transparent); font-size: 12.5px; font-weight: 700; color: var(--mkt-accent-green-fg, ${G}); }
+        .pp-soon-tag i { width: 7px; height: 7px; border-radius: 50%; background: #2fbf63; }
         .pp-row > * { padding: 16px 12px; display: flex; align-items: center; justify-content: center; }
         .pp-row > :first-child { justify-content: flex-start; padding-left: 24px; }
         .pp-head { position: sticky; top: 64px; z-index: 2; background: var(--mkt-card-bg); border-radius: 22px 22px 0 0; border-bottom: 1px solid var(--mkt-card-border); }
@@ -188,7 +206,7 @@ export default function PricingPage({ locale = 'sv' }) {
         .pp-faq-sec { padding: clamp(64px, 9vw, 100px) 16px; background: var(--mkt-page-bg); }
         .pp-faq { max-width: 760px; margin: 0 auto; }
 
-        @media (max-width: 760px) {
+        @media (max-width: 1000px) {
           .pp-cards { grid-template-columns: minmax(0, 1fr); max-width: 520px; }
         }
         @media (max-width: 640px) {
@@ -226,17 +244,20 @@ export default function PricingPage({ locale = 'sv' }) {
           {tiers.map((t, i) => {
             const plan = resolvePlan(t.key, interval);
             return (
-              <Reveal key={t.key} delay={i * 70} className={`pp-card${t.featured ? ' featured' : ''}`}>
+              <Reveal key={t.key} delay={i * 70} className={`pp-card${t.featured ? ' featured' : ''}${t.comingSoon ? ' soon' : ''}`}>
                 {t.featured && <span className="pp-badge">{c.popular}</span>}
                 <h2 className="pp-name">{t.name}</h2>
                 <div className="pp-tag">{t.subtitle}</div>
+                {t.comingSoon && <span className="pp-soon-tag"><i aria-hidden="true" />Kommer snart</span>}
                 <div className="pp-price">{plan.price} kr<small>/mån</small></div>
                 <div className="pp-vat">{interval === 'yearly' ? c.yearlySavingsNote(plan.savingPerYear) : c.noVat}</div>
                 <hr className="pp-hr" />
                 <p className="pp-desc">{t.recommend}</p>
                 <hr className="pp-hr" />
-                <button type="button" className="pp-btn" onClick={() => enterApp(plan.id)}>{c.cta}</button>
-                <div className="pp-small">{interval === 'yearly' ? c.yearlyMinimumNote(YEARLY_MINIMUM_MONTHS) : c.monthlyNote}</div>
+                {t.comingSoon
+                  ? <button type="button" className="pp-btn" disabled>Kommer snart</button>
+                  : <button type="button" className="pp-btn" onClick={() => enterApp(plan.id)}>{c.cta}</button>}
+                <div className="pp-small">{t.comingSoon ? 'Går inte att välja än' : interval === 'yearly' ? c.yearlyMinimumNote(YEARLY_MINIMUM_MONTHS) : c.monthlyNote}</div>
                 <hr className="pp-hr" />
                 <p className="pp-hl-title">{c.highlightsTitle}</p>
                 <ul className="pp-hl">
@@ -269,7 +290,9 @@ export default function PricingPage({ locale = 'sv' }) {
                   <span key={t.key} className={cell(t)}>
                     <span className="pp-head-name">{t.name}</span>
                     <span className="pp-head-price">{plan.price} kr/mån</span>
-                    <button type="button" className="pp-btn" onClick={() => enterApp(plan.id)}>{c.ctaShort}</button>
+                    {t.comingSoon
+                      ? <button type="button" className="pp-btn" disabled>Snart</button>
+                      : <button type="button" className="pp-btn" onClick={() => enterApp(plan.id)}>{c.ctaShort}</button>}
                   </span>
                 );
               })}

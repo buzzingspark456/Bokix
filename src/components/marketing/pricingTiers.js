@@ -43,7 +43,7 @@ export const EMPLOYER_FEATURES = [
 export const PRICING_TIERS = [
   {
     key: 'solo',
-    name: 'Utan personal',
+    name: 'Bas',
     subtitle: 'För dig utan anställda',
     price: 129,
     gradient: GRAD.blueTeal,
@@ -66,7 +66,7 @@ export const PRICING_TIERS = [
   },
   {
     key: 'employer',
-    name: 'Med personal',
+    name: 'Personal',
     subtitle: 'För dig med anställda',
     price: 179,
     gradient: GRAD.tealLime,
@@ -79,3 +79,14 @@ export const PRICING_TIERS = [
     features: [...BASE_FEATURES, ...EMPLOYER_FEATURES],
   },
 ];
+
+// Handel (2026-11-28): visas på prissidan som "Kommer snart" och går inte att
+// köpa än. Ligger utanför PRICING_TIERS så att schema.org och startsidan bara
+// anger det som faktiskt säljs.
+export const TRADE_PRICING_TIER = {
+  key: 'trade',
+  name: 'Handel',
+  subtitle: 'För dig som säljer varor',
+  comingSoon: true,
+  recommend: 'Passar dig som säljer varor och vill ha order, lager och inköp i samma app som bokföringen.',
+};
