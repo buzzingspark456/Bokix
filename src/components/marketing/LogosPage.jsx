@@ -119,7 +119,7 @@ export default function LogosPage() {
             <article className="bxl-card">
               <div className="bxl-card-preview">
                 <a className="is-light" href="/bokix-ordmarke.svg" target="_blank" rel="noopener" title="Öppna i ny flik"><img className="bxl-wm" src="/bokix-ordmarke.svg" alt="" /></a>
-                <a className="is-skog" href="/bokix-ordmarke.svg" target="_blank" rel="noopener" title="Öppna i ny flik"><img className="bxl-wm" src="/bokix-ordmarke.svg" alt="" /></a>
+                <a className="is-skog" href="/bokix-ordmarke-skog.svg" target="_blank" rel="noopener" title="Öppna i ny flik"><img className="bxl-wm" src="/bokix-ordmarke.svg" alt="" /></a>
                 <a className="is-natt" href="/bokix-ordmarke-mork.svg" target="_blank" rel="noopener" title="Öppna i ny flik"><img className="bxl-wm" src="/bokix-ordmarke.svg" alt="" /></a>
               </div>
               <div className="bxl-card-body">
@@ -134,7 +134,7 @@ export default function LogosPage() {
             <article className="bxl-card">
               <div className="bxl-card-preview">
                 <a className="is-light" href="/bokix-symbol.svg" target="_blank" rel="noopener" title="Öppna i ny flik"><img src="/bokix-symbol.svg" alt="" /></a>
-                <a className="is-skog" href="/bokix-symbol.svg" target="_blank" rel="noopener" title="Öppna i ny flik"><img src="/bokix-symbol.svg" alt="" /></a>
+                <a className="is-skog" href="/bokix-symbol-skog.svg" target="_blank" rel="noopener" title="Öppna i ny flik"><img src="/bokix-symbol.svg" alt="" /></a>
                 <a className="is-natt" href="/bokix-logo.svg" target="_blank" rel="noopener" title="Öppna i ny flik"><img src="/bokix-symbol.svg" alt="" /></a>
               </div>
               <div className="bxl-card-body">
