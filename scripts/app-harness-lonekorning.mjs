@@ -67,7 +67,14 @@ await page.route('**/api/**', r => r.fulfill({ json: {} }));
 const tag = (WIDTH < 600 ? '-telefon' : '') + (process.env.MANY ? '-manga' : '');
 const shot = async (name) => { await page.waitForTimeout(700); await page.screenshot({ path: `test-results/lon-${name}${tag}.png` }); };
 const heading = async () => { await page.waitForSelector('.payroll-stage-head h2', { timeout: 8000 }).catch(() => {}); return page.evaluate(() => document.querySelector('.payroll-stage-head h2')?.innerText || null); };
-const click = async (re) => { await page.getByRole('button', { name: re }).first().click(); await page.waitForTimeout(800); };
+// Klickar, och bekräftar om en bekräftelseruta öppnas (huvudknappen sist i rutan).
+const click = async (re) => {
+  await page.getByRole('button', { name: re }).first().click();
+  await page.waitForTimeout(500);
+  const dlg = page.locator('.confirm-dialog-overlay');
+  if (await dlg.count()) { await dlg.locator('button').last().click(); await page.waitForTimeout(500); }
+  await page.waitForTimeout(300);
+};
 
 await page.goto(BASE + '/?app=1#payroll');
 await page.waitForSelector('.list-page-header', { timeout: 25000 });
@@ -84,7 +91,9 @@ for (let i = 0; i < 8; i++) {
   await shot(`${i + 1}-${(h || 'okant').toLowerCase().replace(/[^a-zåäö]+/g, '-')}`);
   if (h === 'Lön och timmar') await click(/Beräkna lönerna/);
   else if (h === 'Granska') await click(/Godkänn lönerna/);
-  else if (h === 'Betala') await click(/^Markera som betald$/);
+  else if (h === 'Betala') {
+    await click(/^Markera som betald$/);
+  }
   else if (h === 'Lönebesked') {
     const msg = page.locator('#payslip-message');
     if (await msg.count()) { await msg.fill('Lönen betalas ut dagen före midsommar i år.'); await msg.blur(); }

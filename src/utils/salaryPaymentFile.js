@@ -78,6 +78,9 @@ export function buildSalaryPaymentFile({ company, run, computedRows }) {
         <RmtInf><Ustrd>${escapeXml(`Lön ${run.period}`)}</Ustrd></RmtInf>
       </CdtTrfTxInf>`).join('');
 
+  // Löneutbetalning (2026-11-28): CtgyPurp SALA gör att banken behandlar
+  // betalningarna som löner, och BtchBookg true ger en samlad rad på företagets
+  // kontoutdrag, så att de enskilda lönerna inte syns där.
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <CstmrCdtTrfInitn>
@@ -91,8 +94,10 @@ export function buildSalaryPaymentFile({ company, run, computedRows }) {
     <PmtInf>
       <PmtInfId>${escapeXml(msgId)}</PmtInfId>
       <PmtMtd>TRF</PmtMtd>
+      <BtchBookg>true</BtchBookg>
       <NbOfTxs>${nbOfTxs}</NbOfTxs>
       <CtrlSum>${ctrlSum.toFixed(2)}</CtrlSum>
+      <PmtTpInf><CtgyPurp><Cd>SALA</Cd></CtgyPurp></PmtTpInf>
       <ReqdExctnDt>${run.payDate || new Date().toISOString().split('T')[0]}</ReqdExctnDt>
       <Dbtr><Nm>${escapeXml(company?.name || 'Företag')}</Nm></Dbtr>
       <DbtrAcct><Id><IBAN>${escapeXml(debtorIban)}</IBAN></Id></DbtrAcct>

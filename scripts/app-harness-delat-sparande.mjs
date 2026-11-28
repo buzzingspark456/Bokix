@@ -90,7 +90,10 @@ posts.length = 0;
 
 await page.evaluate(() => { location.hash = 'quotes'; });
 await page.waitForTimeout(1500);
-await page.locator('button[title="Ta bort"]').first().click();
+// Ta bort ligger i radens meny (Fler åtgärder) sedan listorna gjordes om.
+await page.locator('button[aria-label^="Fler åtgärder"]').first().click();
+await page.waitForTimeout(300);
+await page.locator('button:visible', { hasText: /^Ta bort$/ }).first().click();
 await page.waitForTimeout(800);
 const confirm = page.locator('.modal-footer button, .modal-overlay button').filter({ hasText: /Ta bort|Radera/ }).first();
 if (await confirm.count()) await confirm.click().catch(() => {});
@@ -99,7 +102,10 @@ check('en ändring skickar bara det fältet', JSON.stringify(posts) === '["quote
 
 answer = 401;
 posts.length = 0;
-await page.locator('button[title="Ta bort"]').first().click();
+// Ta bort ligger i radens meny (Fler åtgärder) sedan listorna gjordes om.
+await page.locator('button[aria-label^="Fler åtgärder"]').first().click();
+await page.waitForTimeout(300);
+await page.locator('button:visible', { hasText: /^Ta bort$/ }).first().click();
 await page.waitForTimeout(800);
 if (await confirm.count()) await confirm.click().catch(() => {});
 await page.waitForFunction(() => document.body.innerText.includes('Kunde inte spara ändringarna'), null, { timeout: 8000 }).catch(() => {});

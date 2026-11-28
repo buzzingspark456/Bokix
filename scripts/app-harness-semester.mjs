@@ -89,6 +89,9 @@ await page.evaluate(() => { location.hash = 'dashboard'; });
 await page.waitForTimeout(700);
 await page.evaluate(() => { location.hash = 'payroll'; });
 await page.waitForTimeout(800);
+// Semester ligger i kugghjulets panel sedan 2026-11-26.
+if (!(await page.getByText('Semester', { exact: true }).count())) await page.getByRole('button', { name: 'Inställningar' }).nth(1).click();
+await page.waitForTimeout(400);
 await page.getByText('Semester', { exact: true }).first().click();
 await page.waitForTimeout(1000);
 await shot('semester-flik');

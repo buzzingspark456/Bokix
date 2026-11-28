@@ -6855,7 +6855,8 @@ function App() {
               {/* ── Sidebar overlay (mobil) ── */}
 
       {/* Planväljare, bara lokalt (2026-11-25): se vad Bas, Personal och Handel ger. */}
-      {import.meta.env.DEV && newUnderlagOn && (
+      {/* Döljs i automatiska tester (navigator.webdriver), där den låg över knappar. */}
+      {import.meta.env.DEV && newUnderlagOn && !(typeof navigator !== 'undefined' && navigator.webdriver) && (
         <div className="dev-plan" role="group" aria-label="Förhandsvisa plan">
           <span>Plan</span>
           {[['solo_monthly', 'Solo'], ['employer_monthly', 'Team'], ['trade_monthly', 'Handel']].map(([id, label]) => (
