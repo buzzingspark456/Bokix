@@ -749,6 +749,12 @@ export default async function handler(req, res) {
     // den nivå som gällde innan valet fanns (med personal, månadsvis), så
     // en gammal klient som inte skickar med `plan` fungerar oförändrat.
     const plan = resolvePlan(...String(body.plan || 'employer_monthly').split('_')) || resolvePlan('employer', 'monthly');
+    // Handel går inte att köpa än (2026-11-28, Kommer snart på prissidan).
+    // Ta bort spärren när Handel släpps.
+    if (plan.tierId === 'trade') {
+      res.status(400).json({ error: 'Handel går inte att välja än. Anmäl intresse på prissidan så hör vi av oss när den släpps.' });
+      return;
+    }
 
     // Upprepade provperioder (se _trialGuard.js): e-post och organisations-
     // nummer läses från kontot på servern, aldrig från det klienten skickar.
