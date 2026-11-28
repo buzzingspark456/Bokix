@@ -559,8 +559,14 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
           <span style={{ padding: '4px 10px', background: statusStyle.bg, color: statusStyle.color, borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{statusStyle.label}</span>
         </div>
         <div style={{ flex: 1, minWidth: '8px' }} />
-        <div className="mform-head-actions" style={{ display: 'flex', gap: '8px' }}>
+        <div className="mform-head-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {emailError && <span className="doc-head-msg is-err">{emailError}</span>}
+          {emailSent && !emailError && <span className="doc-head-msg">{t('ui.skickad')}</span>}
           <button type="button" onClick={onClose} style={outlineBtnStyle}>{t('ui.avbryt')}</button>
+          {/* Skicka i sidhuvudet (2026-11-27), som på ordern: ingen egen rad bara för det. */}
+          <button type="button" className="doc-head-send" onClick={openCompose} disabled={emailBusy} style={{ ...outlineBtnStyle, display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: emailBusy ? 0.5 : 1 }}>
+            <Send size={14} /> {emailBusy ? t('ui.skickar_2') : (quote?.status && quote.status !== 'draft' ? t('ui.skicka_igen') : t('ui.skicka_via_e_post'))}
+          </button>
           <button type="button" onClick={handleSubmit} style={buttonStyle}><Check size={14} /> {quote ? t('ui.spara_andringar') : t('ui.spara_offert')}</button>
         </div>
       </div>
@@ -569,7 +575,7 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
       </MobileFormBar>
 
       {/* ── Åtgärdsrad: statusflöde, konvertering, e-post, PDF, förhandsgranska ── */}
-      <div className={`quote-toolbar doc-toolbar${quote ? '' : ' is-new'}`} style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className={`quote-toolbar doc-toolbar q-toolbar-phone${quote ? '' : ' is-new'}`} style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
         {quote && quote.status === 'invoiced' && quote.invoiceId && onOpenInvoice && (
           <button type="button" className="tb-status" onClick={() => onOpenInvoice(quote.invoiceId)} style={toolbarBtnStyle(false)}><FileText size={13} /> {t('ui.visa_fakturan')}</button>
         )}
@@ -631,6 +637,12 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
               <span className="q-status-text"><b><FileText size={15} /> {t('ui.offert_fakturerad')}</b> {t('ui.q_fakturerad_text')}</span>
               {quote.invoiceId && onOpenInvoice && <button type="button" className="q-btn" onClick={() => onOpenInvoice(quote.invoiceId)}>{t('ui.visa_fakturan')}</button>}
             </>
+          )}
+          {quote.status !== 'invoiced' && displayStatus !== 'accepted' && onConvert && (
+            <button type="button" className="q-convert" onClick={(e) => onConvert(e, buildSaveData())}><FileText size={14} /> {t('ui.konvertera_till_faktura')}</button>
+          )}
+          {quote.status === 'invoiced' && quote.invoiceId && onOpenInvoice && (
+            <button type="button" className="q-convert" onClick={() => onOpenInvoice(quote.invoiceId)}><FileText size={14} /> {t('ui.visa_fakturan')}</button>
           )}
         </div>
       )}

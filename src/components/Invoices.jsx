@@ -896,6 +896,10 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
         <div className="mform-head-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {saveError && <span role="alert" style={{ maxWidth: '420px', fontSize: '12.5px', fontWeight: 600, color: 'var(--status-red-text)' }}>{saveError}</span>}
           <button type="button" data-tour="page-invoices-cancel" data-inv-tour="form-cancel" onClick={onClose} style={listHeaderButtonStyle('secondary')}>{tr('ui.avbryt')}</button>
+          {/* Skicka i sidhuvudet (2026-11-27), som offerten och ordern. */}
+          <button type="button" className="doc-head-send" onClick={openEmailCompose} disabled={emailBusy} title={!emailToInput.trim() ? tr('ui.ange_en_mottagaradress') : tr('ui.skicka_faktura_till', { n: nextNum, to: emailToInput.trim() })}>
+            <Send size={14} /> {emailBusy ? tr('ui.skickar') : (initial?.emailLog?.length || emailSent ? tr('ui.skicka_igen') : tr('ui.skicka_via_e_post'))}
+          </button>
           <button type="button" onClick={() => handleSave('sent')} style={listHeaderButtonStyle('primary')}>
             <Check size={14} /> {initial ? tr('ui.spara_andringar') : tr('ui.skapa_faktura')}
           </button>
