@@ -6,6 +6,7 @@ import MarketingLayout, { Reveal } from './MarketingLayout';
 import { SERIF, INK, INK_SOFT, MUTED, IVORY } from './marketingTokens';
 import { KitStyles, KitFaq } from './subpageKit';
 import { PRICING_TIERS, TRADE_PRICING_TIER } from './pricingTiers';
+import { PLAN_LIMITS } from '../../utils/plans';
 import { localizedPricingTiers } from '../../content/marketing/pricingTiers';
 import { PRICING_CONTENT } from '../../content/marketing/pricing';
 import { resolvePlan, YEARLY_MINIMUM_MONTHS } from '../../utils/plans';
@@ -55,12 +56,14 @@ function buildSoftwareSchema(description) {
   };
 }
 
-// Det kortet lyfter fram per nivå.
-const HIGHLIGHTS = {
-  solo: ['Obegränsat med kvitton, fakturor och offerter', 'Moms, bokslut och årsredovisning', 'Bjud in 1 person, konsult och revisor gratis'],
-  employer: ['Allt i Bas', 'Lön, lönebesked och arbetsgivardeklaration', 'Bjud in 2 personer, konsult och revisor gratis'],
-  trade: ['Allt i Personal', 'Order, lager och inköp som hänger ihop', 'Prissättning med marginalmål'],
+// Korten som planvalet i appen (2026-11-28): gränser, hela listan med
+// "Allt i …, och" och konsult/revisor. Samma texter som planPick.* i appen.
+const CARD_LISTS = {
+  solo: { intro: null, items: ['Verifikationer, kontoplan och huvudbok', 'Fakturor och offerter med Betala nu', 'Kvittoavläsning från foto, PDF och mejl', 'Leverantörsfakturor med förfallopåminnelse', 'Bank: import och avstämning', 'Momsdeklaration, fil till Skatteverket', 'Bokslut och årsredovisning (K2)', 'Resultat, balans och SIE-export'] },
+  employer: { intro: 'Allt i Bas, och', items: ['Lönekörning med skatteavdrag', 'Lönebesked som PDF och mejl', 'Arbetsgivardeklaration till Skatteverket', 'Semester och utlägg i lönen', 'Betalfil till banken'] },
+  trade: { intro: 'Allt i Personal, och', items: ['Order, delleverans och restorder', 'Artiklar och lager som dras automatiskt', 'Inköpsorder till leverantörer', 'Prissättning med marginalmål', 'Orderbekräftelse och följesedel'] },
 };
+const fmtNum = (n) => Number(n).toLocaleString('sv-SE');
 
 // Jämförelsen. Bas och Personal: allt som finns i Bokix i dag; skillnaden är
 // lön och hur många man kan bjuda in (utils/plans.js invitedUserLimit).
@@ -72,7 +75,7 @@ const SOON = { kind: 'soon' };
 const COMPARE_BASE = [
   { group: 'Bokföring och fakturor' },
   { title: 'Bokföring', desc: 'Verifikationer, kontoplan och rapporter.', values: [ALL, ALL] },
-  { title: 'Kvittoavläsning', desc: 'Datum, belopp och moms läses av från ett foto eller en PDF.', values: [ALL, ALL] },
+  { title: 'Kvittoavläsning', desc: 'Datum, belopp och moms läses av från ett foto, en PDF eller ett mejl.', values: [{ kind: 'yes', text: `${fmtNum(PLAN_LIMITS.solo.ocrPerMonth)} per månad` }, { kind: 'yes', text: `${fmtNum(PLAN_LIMITS.employer.ocrPerMonth)} per månad` }] },
   { title: 'Kundfakturor och offerter', desc: 'Med din logga, ROT och RUT och kortbetalning om du vill.', values: [ALL, ALL] },
   { title: 'Leverantörsfakturor', desc: 'Registrera, betala och bokför.', values: [ALL, ALL] },
   { title: 'Fakturor från egen e-post', desc: 'Skicka från din Gmail eller egen adress.', values: [IN, IN] },
@@ -96,7 +99,7 @@ const COMPARE_BASE = [
 ];
 // Handel får samma värde som Personal på varje rad, plus en egen grupp.
 const COMPARE = [
-  ...COMPARE_BASE.map(r => (r.group ? r : { ...r, values: [...r.values, r.values[1]] })),
+  ...COMPARE_BASE.map(r => (r.group ? r : { ...r, values: [...r.values, r.title === 'Kvittoavläsning' ? { kind: 'yes', text: `${fmtNum(PLAN_LIMITS.trade.ocrPerMonth)} per månad` } : r.values[1]] })),
   { group: 'Handel' },
   { title: 'Order', desc: 'Order, delleverans och restorder.', values: [NO, NO, SOON] },
   { title: 'Inköpsorder', desc: 'Beställ från leverantörer och ta emot varorna i lagret.', values: [NO, NO, SOON] },
@@ -158,6 +161,12 @@ export default function PricingPage({ locale = 'sv' }) {
         .pp-hl { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
         .pp-hl li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; line-height: 1.45; color: ${INK_SOFT}; }
         .pp-tick { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: color-mix(in srgb, ${G} 18%, transparent); display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+        .pp-limits { display: grid; gap: 6px; margin: 0 0 18px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, ${G} 7%, transparent); font-size: 14px; color: ${INK_SOFT}; }
+        .pp-limits b { color: ${INK}; font-size: 15px; }
+        .pp-acc { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--mkt-border-soft); font-size: 13.5px; color: ${MUTED}; line-height: 1.45; }
+        .pp-conn { display: flex; flex-direction: row !important; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; max-width: 900px; margin: 28px auto 0; padding: 0 16px; }
+        .pp-conn-l { font-size: 14px; color: ${MUTED}; margin-right: 4px; }
+        .pp-chip { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--mkt-card-border); background: var(--mkt-card-bg); font-size: 13.5px; font-weight: 700; color: ${INK}; }
         .pp-note { max-width: 900px; margin: 22px auto 0; padding: 0 16px; text-align: center; font-size: 14px; color: ${MUTED}; line-height: 1.55; }
 
         .pp-cmp-sec { padding: clamp(72px, 10vw, 110px) 16px; background: ${IVORY}; border-top: 1px solid var(--mkt-border-soft); margin-top: clamp(64px, 9vw, 100px); }
@@ -258,16 +267,22 @@ export default function PricingPage({ locale = 'sv' }) {
                   : <button type="button" className="pp-btn" onClick={() => enterApp(plan.id)}>{c.cta}</button>}
                 <div className="pp-small">{t.comingSoon ? 'Vi hör av oss när Handel släpps' : interval === 'yearly' ? c.yearlyMinimumNote(YEARLY_MINIMUM_MONTHS) : c.monthlyNote}</div>
                 <hr className="pp-hr" />
-                <p className="pp-hl-title">{c.highlightsTitle}</p>
+                <div className="pp-limits">
+                  <span><b>{fmtNum(PLAN_LIMITS[t.key]?.ocrPerMonth)}</b> kvittoavläsningar per månad</span>
+                  <span><b>{PLAN_LIMITS[t.key]?.invites}</b> {PLAN_LIMITS[t.key]?.invites === 1 ? 'person' : 'personer'} att bjuda in</span>
+                </div>
+                {CARD_LISTS[t.key]?.intro && <p className="pp-hl-title">{CARD_LISTS[t.key].intro}</p>}
                 <ul className="pp-hl">
-                  {(HIGHLIGHTS[t.key] || []).map(h => (
+                  {(CARD_LISTS[t.key]?.items || []).map(h => (
                     <li key={h}><span className="pp-tick"><Check size={13} color={G} strokeWidth={3.2} /></span>{h}</li>
                   ))}
                 </ul>
+                <p className="pp-acc">Bjud in din redovisningskonsult och revisor utan kostnad</p>
               </Reveal>
             );
           })}
         </div>
+        <div className="pp-conn"><span className="pp-conn-l">Kopplingar i alla planer</span>{['Stripe', 'Zettle', 'Gmail'].map(n => <span key={n} className="pp-chip">{n}</span>)}</div>
         <p className="pp-note">{c.footNote}</p>
       </section>
 
