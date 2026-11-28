@@ -476,7 +476,7 @@ function OrderPage({ initial, company, articles, contacts, stockQty, reservedEls
     company, rows: lines.map(r => ({ description: [r.articleNumber, r.description || r.query].filter(Boolean).join(' · '), qty: num(r.qty), unit: r.unit || 'st', unitPrice: num(r.unitPrice), vatRate: num(r.vatRate), discount: num(r.discount) })),
     totals, currency: 'SEK', docLabel: 'ORDERBEKRÄFTELSE', docType: 'order',
     template: company?.invoiceTemplateId || DEFAULT_INVOICE_TEMPLATE, accentColor: company?.invoiceAccentColor || '', logoUrl: company?.logoUrl || '',
-    logoSize: company?.invoiceLogoSize || 'medium', showCompanyName: company?.invoiceShowCompanyName ?? false, footerText: company?.invoiceFooterText || '',
+    logoSize: company?.invoiceLogoSize || 'medium', logoPosition: company?.invoiceLogoPosition || '', logoPlate: company?.invoiceLogoPlate !== false, showCompanyName: company?.invoiceShowCompanyName ?? false, footerText: company?.invoiceFooterText || '',
   };
   const downloadConfirmation = async () => {
     const e = validate(); if (e) return setError(e);

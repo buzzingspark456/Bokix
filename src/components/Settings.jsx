@@ -1586,7 +1586,7 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
 
   const previewProps = {
     invoice: SAMPLE_INVOICE, customer: SAMPLE_CUSTOMER, company, rows: SAMPLE_ROWS, totals: SAMPLE_TOTALS,
-    currency: 'SEK', logoUrl: company?.logoUrl, logoSize: company?.invoiceLogoSize || 'medium', showCompanyName: company?.invoiceShowCompanyName ?? false, footerText: company?.invoiceFooterText, accentColor,
+    currency: 'SEK', logoUrl: company?.logoUrl, logoSize: company?.invoiceLogoSize || 'medium', logoPosition: company?.invoiceLogoPosition || '', logoPlate: company?.invoiceLogoPlate !== false, showCompanyName: company?.invoiceShowCompanyName ?? false, footerText: company?.invoiceFooterText, accentColor,
   };
 
   return (
@@ -1640,6 +1640,33 @@ function InvoiceTemplateSection({ company, setCompanyInfo, user, readOnly = fals
                     );
                   })}
                 </div>
+                <label style={labelStyle}>{tr('ui.logotypens_placering')}</label>
+                <div role="radiogroup" aria-label={tr('ui.logotypens_placering')} style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
+                  {[['left', tr('ui.vanster')], ['right', tr('ui.hoger')]].map(([id, label]) => {
+                    const def = (company?.invoiceTemplateId || DEFAULT_INVOICE_TEMPLATE) === 'bold' ? 'right' : 'left';
+                    const active = (company?.invoiceLogoPosition || def) === id;
+                    return (
+                      <button
+                        key={id} type="button" role="radio" aria-checked={active} disabled={readOnly}
+                        onClick={() => setCompanyInfo({ ...company, invoiceLogoPosition: id })}
+                        style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: readOnly ? 'default' : 'pointer', border: `1px solid ${active ? BRAND.green : 'var(--border)'}`, background: active ? 'var(--bg-subtle, var(--bg-page))' : 'var(--bg-card)', color: 'var(--text-main)' }}
+                      >{label}</button>
+                    );
+                  })}
+                </div>
+                {(company?.invoiceTemplateId || DEFAULT_INVOICE_TEMPLATE) === 'bold' && (
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '14px', cursor: readOnly ? 'default' : 'pointer' }}>
+                    <span>
+                      <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('ui.vit_platta_bakom_logotypen')}</span>
+                      <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)' }}>{tr('ui.vit_platta_bakom_logotypen_desc')}</span>
+                    </span>
+                    <ToggleSwitch
+                      checked={company?.invoiceLogoPlate !== false}
+                      onChange={(e) => setCompanyInfo({ ...company, invoiceLogoPlate: e.target.checked })}
+                      disabled={readOnly}
+                    />
+                  </label>
+                )}
                 <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', cursor: readOnly ? 'default' : 'pointer' }}>
                   <span>
                     <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{tr('ui.visa_foretagsnamnet_vid_logotypen')}</span>

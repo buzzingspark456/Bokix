@@ -560,6 +560,8 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
     accentColor: company?.invoiceAccentColor || '',
     logoUrl: company?.logoUrl || '',
     logoSize: company?.invoiceLogoSize || 'medium',
+    logoPosition: company?.invoiceLogoPosition || '',
+    logoPlate: company?.invoiceLogoPlate !== false,
     showCompanyName: company?.invoiceShowCompanyName ?? false,
     footerText: company?.invoiceFooterText || '',
   });
@@ -858,6 +860,8 @@ function InvoiceForm({ activeCompanyId, contacts, accounts = [], onSave, onClose
     accentColor: invoiceTemplateSnapshot.accentColor,
     logoUrl: invoiceTemplateSnapshot.logoUrl,
     logoSize: invoiceTemplateSnapshot.logoSize,
+    logoPosition: invoiceTemplateSnapshot.logoPosition,
+    logoPlate: invoiceTemplateSnapshot.logoPlate,
     showCompanyName: invoiceTemplateSnapshot.showCompanyName,
     footerText: invoiceTemplateSnapshot.footerText,
     rotRut: rotRutType !== 'none' ? { type: rotRutType, ...rotRut } : null,
@@ -2003,7 +2007,7 @@ function InvoiceViewer({ invoice, contacts, company, status, onClose, onEdit }) 
     customer, company, rows, totals,
     currency: invoice.currency || 'SEK',
     invoiceText: invoice.invoiceText || '',
-    template: tpl.templateId, accentColor: tpl.accentColor, logoUrl: tpl.logoUrl, logoSize: tpl.logoSize, showCompanyName: tpl.showCompanyName, footerText: tpl.footerText,
+    template: tpl.templateId, accentColor: tpl.accentColor, logoUrl: tpl.logoUrl, logoSize: tpl.logoSize, logoPosition: tpl.logoPosition, logoPlate: tpl.logoPlate, showCompanyName: tpl.showCompanyName, footerText: tpl.footerText,
     rotRut: invoice.rotRutType ? { type: invoice.rotRutType, ...rotRut } : null,
   };
 
@@ -2117,7 +2121,7 @@ function PaymentLinkModal({ activeCompanyId, invoice, customer, company, onGetPa
     customer, company, rows, totals,
     currency: invoice.currency || 'SEK',
     invoiceText: invoice.invoiceText || '',
-    template: tpl.templateId, accentColor: tpl.accentColor, logoUrl: tpl.logoUrl, logoSize: tpl.logoSize, showCompanyName: tpl.showCompanyName, footerText: tpl.footerText,
+    template: tpl.templateId, accentColor: tpl.accentColor, logoUrl: tpl.logoUrl, logoSize: tpl.logoSize, logoPosition: tpl.logoPosition, logoPlate: tpl.logoPlate, showCompanyName: tpl.showCompanyName, footerText: tpl.footerText,
     rotRut: invoice.rotRutType ? { type: invoice.rotRutType, ...rotRut } : null,
   };
   const captureRef = useRef(null);

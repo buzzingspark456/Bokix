@@ -56,7 +56,7 @@ export const DEFAULT_INVOICE_TEMPLATE = 'classic';
 const InvoiceDocument = forwardRef(function InvoiceDocument(
   {
     invoice, customer, company, rows = [], totals, currency = 'SEK', invoiceText, docLabel = 'FAKTURA',
-    docType = 'invoice', logoUrl, logoSize = 'small', showCompanyName = true, footerText, template = DEFAULT_INVOICE_TEMPLATE, accentColor, rotRut = null,
+    docType = 'invoice', logoUrl, logoSize = 'small', logoPosition = '', logoPlate = true, showCompanyName = true, footerText, template = DEFAULT_INVOICE_TEMPLATE, accentColor, rotRut = null,
   },
   ref
 ) {
@@ -70,6 +70,10 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
   // under den (Fakturor → Anpassa mallen). Äldre fakturor saknar värdet och
   // visar namnet som förut.
   const showName = !logoUrl || showCompanyName !== false;
+  // Logotypens placering (2026-11-28): 'left' eller 'right'. Tomt = mallens
+  // egen placering (Modern har logotypen till höger, de andra till vänster).
+  // flip(true) när mallen har logotypen till vänster, flip(false) när till höger.
+  const flip = (logoLeftByDefault) => (logoPosition === 'left' || logoPosition === 'right') && ((logoPosition === 'left') !== logoLeftByDefault);
   // Bugkritiskt: filtret var `r.description` ensamt, alltså doldes varje
   // rad utan text — ÄVEN om den hade antal och pris. Summan räknas på alla
   // rader, så resultatet blev en faktura där det stod "Inga rader tillagda
@@ -183,7 +187,8 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
     const logo = logoUrl ? <img src={logoUrl} alt={sellerName} style={logoStyle(44, 170, onBand ? 0 : (showName ? 8 : 0))} /> : null;
     return (
       <div>
-        {logo && onBand ? <div style={{ width: 'fit-content', padding: '6px 10px', marginBottom: showName ? 8 : 0, background: 'white', borderRadius: 8 }}>{logo}</div> : logo}
+        {/* Den vita plattan går att stänga av (2026-11-28) för en logotyp som syns bra direkt på färgen. */}
+        {logo && onBand && logoPlate !== false ? <div style={{ width: 'fit-content', padding: '6px 10px', marginBottom: showName ? 8 : 0, background: 'white', borderRadius: 8 }}>{logo}</div> : logo}
         {showName && <div style={{ fontSize: 16, fontWeight: 700, color: nameColor }}>{sellerName}</div>}
       </div>
     );
@@ -521,7 +526,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
       {/* ── Mottagaren står till höger i Standard, där fönsterkuvertet sitter. ── */}
       {isClassic && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, marginBottom: 26 }}>
+          <div style={{ display: 'flex', flexDirection: flip(true) ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, marginBottom: 26 }}>
             {brand()}
             {title(24)}
           </div>
@@ -537,7 +542,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
         <>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 46%', gap: 24, marginBottom: 28 }}>
             <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 20 }}>
-              {brand()}
+              {!flip(true) && brand()}
               <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '3px 16px', fontSize: body, alignContent: 'start' }}>
                 {[
                   ...(customer?.customerNumber ? [['Kundnr', customer.customerNumber]] : []),
@@ -552,6 +557,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
               </div>
             </div>
             <div>
+              {flip(true) && <div style={{ marginBottom: 14 }}>{brand()}</div>}
               <h1 style={{ margin: '0 0 12px', fontSize: 25, fontWeight: 700, letterSpacing: '0.01em', color: INK }}>{docLabel}</h1>
               <div style={{ marginBottom: 20 }}>{metaBlock}</div>
               {customerBlock}
@@ -565,7 +571,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
       {isBold && (
         <>
           <div style={{ padding: '12mm 18mm 9mm', background: accent, color: onAccent }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 24, marginBottom: 20 }}>
+            <div style={{ display: 'flex', flexDirection: flip(false) ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center', gap: 24, marginBottom: 20 }}>
               <h1 style={{ margin: 0, fontSize: 38, fontWeight: 800, letterSpacing: '0.01em', color: onAccent }}>{docLabel}</h1>
               {brand(onAccent, true)}
             </div>
@@ -609,7 +615,7 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
       {/* Blankett: varje uppgift i en egen ruta, ända ned till sidfoten. */}
       {isGrid && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', border: gridBorder, marginBottom: -1 }}>
+          <div style={{ display: 'flex', flexDirection: flip(true) ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'stretch', border: gridBorder, marginBottom: -1 }}>
             <div style={{ padding: '10px 12px' }}>{brand()}</div>
             <div style={{ display: 'flex', alignItems: 'center', padding: '0 18px', background: accent }}>
               <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, letterSpacing: '0.08em', color: onAccent }}>{docLabel}</h1>
@@ -633,9 +639,9 @@ const InvoiceDocument = forwardRef(function InvoiceDocument(
       {/* Enkel: stor rubrik till höger och kunden i en grå ruta. */}
       {isSimple && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, marginBottom: 34 }}>
+          <div style={{ display: 'flex', flexDirection: flip(true) ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, marginBottom: 34 }}>
             {brand()}
-            <div style={{ textAlign: 'right' }}>
+            <div style={{ textAlign: flip(true) ? 'left' : 'right' }}>
               <h1 style={{ margin: '0 0 4px', fontSize: 32, fontWeight: 700, letterSpacing: '0.01em', color: INK }}>{docLabel}</h1>
               <div style={{ fontSize: body, color: MUTED }}>{meta[0][0]} {meta[0][1]}</div>
             </div>

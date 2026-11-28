@@ -242,6 +242,8 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
     accentColor: company?.invoiceAccentColor || '',
     logoUrl: company?.logoUrl || '',
     logoSize: company?.invoiceLogoSize || 'medium',
+    logoPosition: company?.invoiceLogoPosition || '',
+    logoPlate: company?.invoiceLogoPlate !== false,
     showCompanyName: company?.invoiceShowCompanyName ?? false,
     footerText: company?.invoiceFooterText || '',
   });
@@ -528,6 +530,8 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
     accentColor: templateSnapshot.accentColor,
     logoUrl: templateSnapshot.logoUrl,
     logoSize: templateSnapshot.logoSize,
+    logoPosition: templateSnapshot.logoPosition,
+    logoPlate: templateSnapshot.logoPlate,
     showCompanyName: templateSnapshot.showCompanyName,
     footerText: templateSnapshot.footerText,
   };
@@ -1086,6 +1090,8 @@ function QuoteEditor({ activeCompanyId, quote, quotes, contacts, projects = [], 
                   accentColor={templateSnapshot.accentColor}
                   logoUrl={templateSnapshot.logoUrl}
                   logoSize={templateSnapshot.logoSize}
+                  logoPosition={templateSnapshot.logoPosition}
+                  logoPlate={templateSnapshot.logoPlate}
                   showCompanyName={templateSnapshot.showCompanyName}
                   footerText={templateSnapshot.footerText}
                 />
