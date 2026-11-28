@@ -9,21 +9,34 @@ import { parseJsonBody } from './stripe/_parseBody.js';
 import { documentFromBody, readWithVision, MONTHLY_LIMIT, monthQuotaKey, MONTH_WINDOW_MS, ACCOUNT_MONTHLY_LIMIT, UF_MONTHLY_LIMIT, accountQuotaKey, companyQuotaKey } from './_vision.js';
 import { createClient } from '@supabase/supabase-js';
 import { planFromId, PLAN_LIMITS } from '../src/utils/plans.js';
+import Stripe from 'stripe';
+import { OCR_TOPUP, topupsThisMonth } from './stripe/_ocrTopups.js';
 
 // Planen för företaget kvittot gäller: företagets egen prenumeration, annars
-// kontots (company_id ''). null = ingen plan sparad (äldre konto).
+// kontots (company_id ''). plan null = ingen plan sparad (äldre konto).
 async function planForCompany(accountId, companyId) {
   const url = process.env.VITE_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
+  if (!url || !key) return { plan: null, customerId: null };
   try {
-    const { data } = await createClient(url, key).from('subscriptions').select('company_id, plan').eq('user_id', accountId);
+    const { data } = await createClient(url, key).from('subscriptions').select('company_id, plan, stripe_customer_id').eq('user_id', accountId);
     const rows = data || [];
     const own = companyId ? rows.find(r => r.company_id === companyId) : null;
-    const account = rows.find(r => (r.company_id || '') === '');
-    return planFromId((own || account)?.plan) || null;
+    const row = own || rows.find(r => (r.company_id || '') === '');
+    return { plan: planFromId(row?.plan) || null, customerId: row?.stripe_customer_id || null };
   } catch {
-    return null;
+    return { plan: null, customerId: null };
+  }
+}
+
+// Köpta extra avläsningar den här månaden (api/stripe/_ocrTopups.js).
+async function purchasedReads(customerId, companyId) {
+  const secret = process.env.STRIPE_SECRET_KEY;
+  if (!secret || secret.startsWith('pk_') || !customerId) return 0;
+  try {
+    return (await topupsThisMonth(new Stripe(secret), customerId, companyId)) * OCR_TOPUP.reads;
+  } catch {
+    return 0;
   }
 }
 import { withSentry } from './_sentry.js';
@@ -75,13 +88,18 @@ async function handler(req, res) {
   // Planens gräns för företaget (Solo 100, Team 300, Handel 1 000 per månad).
   // Kvittot sparas ändå; bara den automatiska avläsningen hoppas över.
   const companyId = typeof body.company_id === 'string' ? body.company_id.slice(0, 100) : '';
-  const plan = account.uf ? null : await planForCompany(account.id, companyId);
+  const { plan, customerId } = account.uf ? { plan: null, customerId: null } : await planForCompany(account.id, companyId);
   const planLimit = plan ? PLAN_LIMITS[plan.tierId]?.ocrPerMonth : null;
   if (planLimit) {
     const withinPlan = await hitShared(companyQuotaKey(account.id, companyId), MONTH_WINDOW_MS, planLimit);
     if (withinPlan === false) {
-      res.status(429).json({ error: `Månadens ${planLimit.toLocaleString('sv-SE')} kvittoavläsningar i ${plan.name} är använda.`, code: 'plan_quota', limit: planLimit, plan: plan.tierId });
-      return;
+      // Planens del är slut: köpta avläsningar räknas i en egen räknare.
+      const extra = await purchasedReads(customerId, companyId);
+      const withinExtra = extra > 0 ? await hitShared(`${companyQuotaKey(account.id, companyId)}:extra`, MONTH_WINDOW_MS, extra) : false;
+      if (withinExtra === false) {
+        res.status(429).json({ error: `Månadens ${(planLimit + extra).toLocaleString('sv-SE')} kvittoavläsningar i ${plan.name} är använda.`, code: 'plan_quota', limit: planLimit, extra, plan: plan.tierId });
+        return;
+      }
     }
   }
   // Månadens kvot, räknad i databasen så att alla serverinstanser delar den.

@@ -1708,7 +1708,7 @@ function App() {
   useEffect(() => {
     const onQuota = (e) => {
       const msg = e.detail?.message || 'Månadens kvittoavläsningar är använda.';
-      const hint = e.detail?.plan === 'trade' ? ' Fyll i kvittot själv, det nollställs den 1:a.' : ' Fyll i kvittot själv, eller byt till en större plan under Inställningar → Prenumeration för fler avläsningar.';
+      const hint = ' Fyll i kvittot själv, eller köp 100 till för 25 kr under Inställningar → Prenumeration → Användning.';
       setToast({ message: msg + hint, variant: 'error' });
     };
     window.addEventListener('bokix:ocr-plan-quota', onQuota);

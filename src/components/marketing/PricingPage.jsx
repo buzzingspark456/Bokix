@@ -7,6 +7,7 @@ import { SERIF, INK, INK_SOFT, MUTED, IVORY } from './marketingTokens';
 import { KitStyles, KitFaq } from './subpageKit';
 import { PRICING_TIERS, TRADE_PRICING_TIER } from './pricingTiers';
 import { PLAN_LIMITS } from '../../utils/plans';
+import { StripeLogo, ZettleLogo, GmailLogo } from '../shared/BrandLogos';
 import { localizedPricingTiers } from '../../content/marketing/pricingTiers';
 import { PRICING_CONTENT } from '../../content/marketing/pricing';
 import { resolvePlan, YEARLY_MINIMUM_MONTHS } from '../../utils/plans';
@@ -161,12 +162,20 @@ export default function PricingPage({ locale = 'sv' }) {
         .pp-hl { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
         .pp-hl li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; line-height: 1.45; color: ${INK_SOFT}; }
         .pp-tick { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: color-mix(in srgb, ${G} 18%, transparent); display: flex; align-items: center; justify-content: center; margin-top: 1px; }
-        .pp-limits { display: grid; gap: 6px; margin: 0 0 18px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, ${G} 7%, transparent); font-size: 14px; color: ${INK_SOFT}; }
-        .pp-limits b { color: ${INK}; font-size: 15px; }
+        .prc-limits { display: grid; gap: 6px; margin: 0 0 18px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, ${G} 7%, transparent); font-size: 14px; color: ${INK_SOFT}; }
+        .prc-limits b { color: ${INK}; font-size: 15px; }
         .pp-acc { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--mkt-border-soft); font-size: 13.5px; color: ${MUTED}; line-height: 1.45; }
-        .pp-conn { display: flex; flex-direction: row !important; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; max-width: 900px; margin: 28px auto 0; padding: 0 16px; }
-        .pp-conn-l { font-size: 14px; color: ${MUTED}; margin-right: 4px; }
-        .pp-chip { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--mkt-card-border); background: var(--mkt-card-bg); font-size: 13.5px; font-weight: 700; color: ${INK}; }
+        .prc-conn { display: flex; flex-direction: row !important; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; max-width: 900px; margin: 28px auto 0; padding: 0 16px; }
+        .prc-conn-l { font-size: 14px; color: ${MUTED}; margin-right: 4px; }
+        .prc-chip { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--mkt-card-border); background: var(--mkt-card-bg); font-size: 13.5px; font-weight: 700; color: ${INK}; }
+        .prc-more { font-size: 12.5px; color: ${MUTED}; }
+        .prc-cardconn { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; font-size: 13px; font-weight: 600; color: ${MUTED}; }
+        .prc-logos { display: flex; flex-wrap: wrap; gap: 8px; }
+        .prc-logo { display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 12px; border-radius: 8px; background: #fff; color: #1a1a1a; border: 1px solid var(--mkt-card-border); }
+        .prc-logo svg, .prc-logo img { max-height: 16px; width: auto; display: block; }
+        /* Logorutan är alltid vit: visa den ljusa versionen även i mörkt tema. */
+        .prc-logo .lp-logo-light { display: block !important; }
+        .prc-logo .lp-logo-dark { display: none !important; }
         .pp-note { max-width: 900px; margin: 22px auto 0; padding: 0 16px; text-align: center; font-size: 14px; color: ${MUTED}; line-height: 1.55; }
 
         .pp-cmp-sec { padding: clamp(72px, 10vw, 110px) 16px; background: ${IVORY}; border-top: 1px solid var(--mkt-border-soft); margin-top: clamp(64px, 9vw, 100px); }
@@ -267,9 +276,10 @@ export default function PricingPage({ locale = 'sv' }) {
                   : <button type="button" className="pp-btn" onClick={() => enterApp(plan.id)}>{c.cta}</button>}
                 <div className="pp-small">{t.comingSoon ? 'Vi hör av oss när Handel släpps' : interval === 'yearly' ? c.yearlyMinimumNote(YEARLY_MINIMUM_MONTHS) : c.monthlyNote}</div>
                 <hr className="pp-hr" />
-                <div className="pp-limits">
+                <div className="prc-limits">
                   <span><b>{fmtNum(PLAN_LIMITS[t.key]?.ocrPerMonth)}</b> kvittoavläsningar per månad</span>
                   <span><b>{PLAN_LIMITS[t.key]?.invites}</b> {PLAN_LIMITS[t.key]?.invites === 1 ? 'person' : 'personer'} att bjuda in</span>
+                  <small className="prc-more">Fler avläsningar vid behov: 25 kr per 100</small>
                 </div>
                 {CARD_LISTS[t.key]?.intro && <p className="pp-hl-title">{CARD_LISTS[t.key].intro}</p>}
                 <ul className="pp-hl">
@@ -278,11 +288,18 @@ export default function PricingPage({ locale = 'sv' }) {
                   ))}
                 </ul>
                 <p className="pp-acc">Bjud in din redovisningskonsult och revisor utan kostnad</p>
+                <div className="prc-cardconn">
+                  <span>Kopplingar i alla planer</span>
+                  <span className="prc-logos">
+                    <span className="prc-logo" title="Stripe"><StripeLogo height={16} /></span>
+                    <span className="prc-logo" title="Zettle"><ZettleLogo height={16} /></span>
+                    <span className="prc-logo" title="Gmail"><GmailLogo height={16} /></span>
+                  </span>
+                </div>
               </Reveal>
             );
           })}
         </div>
-        <div className="pp-conn"><span className="pp-conn-l">Kopplingar i alla planer</span>{['Stripe', 'Zettle', 'Gmail'].map(n => <span key={n} className="pp-chip">{n}</span>)}</div>
         <p className="pp-note">{c.footNote}</p>
       </section>
 

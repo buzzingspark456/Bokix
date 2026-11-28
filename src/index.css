@@ -12612,3 +12612,15 @@ table th.fit-gap, table td.fit-gap { padding-left: 32px !important; }
   .ck-actions button:hover { background: #0e7531; }
 }
 :root[data-theme="dark"] .ck { border-top-color: #3fbf6c; }
+
+/* Kvittoavläsningar och köp av fler (2026-11-28), Prenumeration → Användning. */
+.ocr-topup { margin-bottom: 18px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); }
+.ocr-topup-main { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.ocr-topup h4 { margin: 0 0 4px; font-size: 14.5px; font-weight: 700; color: var(--text-main); }
+.ocr-topup p { margin: 0; font-size: 13.5px; color: var(--text-secondary); }
+.ocr-topup p b { color: var(--text-main); }
+.ocr-topup-btn { padding: 9px 14px; border-radius: 10px; border: 1px solid #0b6329; background: #0b6329; color: #fff; font: 650 13.5px inherit; font-family: inherit; cursor: pointer; white-space: nowrap; }
+.ocr-topup-btn:disabled { opacity: .6; cursor: default; }
+.ocr-topup-small { margin-top: 10px !important; font-size: 12.5px !important; color: var(--text-muted) !important; }
+.ocr-topup-ok { margin-top: 8px !important; color: var(--status-green-text) !important; font-weight: 600; }
+.ocr-topup-err { margin-top: 8px !important; color: var(--status-red-text, #b42318) !important; font-weight: 600; }

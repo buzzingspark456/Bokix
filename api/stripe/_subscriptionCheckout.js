@@ -1,5 +1,6 @@
 import { applySecurityHeaders } from '../_security.js';
-import { resolvePlan, TRIAL_DAYS, resolveCancellation, planFromId, ALL_PLAN_IDS } from '../../src/utils/plans.js';
+import { resolvePlan, TRIAL_DAYS, resolveCancellation, planFromId, ALL_PLAN_IDS, PLAN_LIMITS } from '../../src/utils/plans.js';
+const PLAN_LIMITS_OCR = (tierId) => PLAN_LIMITS[tierId]?.ocrPerMonth || null;
 import Stripe from 'stripe';
 import { parseJsonBody } from './_parseBody.js';
 import { stripeReturnBase, appendQueryParam } from './_urls.js';
@@ -12,6 +13,7 @@ import { readOwnerCompany } from '../_companyStore.js';
 import { hasExistingSubscription, getSubscriptionRow, getStripeCustomerId, getStripeCustomerIds, upsertSubscription, subscriptionFieldsFromStripe, stripePeriodEnd, PAID_STATUSES } from './_subscriptions.js';
 import { listSubscriptionCustomerIds, listSubscriptionInvoices, invoicesForCompany } from './_billingInvoices.js';
 import { sendableEmail } from '../../src/utils/validators.js';
+import { OCR_TOPUP, topupMonth, topupsThisMonth, forgetTopups } from './_ocrTopups.js';
 import { isValidSwedishOrgNr } from '../../src/utils/personnummer.js';
 
 // Läses INTE in som modul-nivå-konstant — samma gotcha som _resend.js/
@@ -377,6 +379,54 @@ export default async function handler(req, res) {
     // (kortet matas in i Stripes eget fält, aldrig hos oss), card-save gör det
     // nya kortet till standard för kunden och abonnemanget och drar direkt de
     // fakturor som är obetalda. Bara den inloggade ägaren, bara det egna abonnemanget.
+    // Extra kvittoavläsningar (2026-11-28): 'ocr-usage' visar planens gräns och
+    // månadens köp, 'ocr-topup' köper 100 till för 25 kr. Bara ägaren, och
+    // bara för en prenumeration som gäller. company_id är företagsnyckeln
+    // (samma som kvittoavläsningen skickar), med kontots rad som reserv.
+    if (body.action === 'ocr-usage' || body.action === 'ocr-topup') {
+      const authedUser = await requireAuthedUser(req, res);
+      if (!authedUser) return;
+      if (body.action === 'ocr-topup'
+        && !(await checkRateLimit(req, res, { key: 'ocr-topup', max: 10, windowMs: 10 * 60 * 1000, identifier: authedUser.id }))) return;
+      const companyKey = typeof body.company_id === 'string' ? body.company_id.slice(0, 100) : '';
+      const subRow = (companyKey && await getSubscriptionRow(authedUser.id, companyKey)) || await getSubscriptionRow(authedUser.id, null);
+      const plan = planFromId(subRow?.plan);
+      if (!subRow?.stripe_subscription_id) {
+        res.status(body.action === 'ocr-usage' ? 200 : 404).json(body.action === 'ocr-usage' ? { plan: null } : { error: 'Ingen prenumeration hittades.' });
+        return;
+      }
+      const sub = await stripe.subscriptions.retrieve(subRow.stripe_subscription_id);
+      if (sub.metadata?.user_id && sub.metadata.user_id !== authedUser.id) {
+        res.status(403).json({ error: 'Abonnemanget tillhör inte ditt konto.' });
+        return;
+      }
+      const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
+      const limit = plan ? PLAN_LIMITS_OCR(plan.tierId) : null;
+      if (body.action === 'ocr-usage') {
+        const packs = await topupsThisMonth(stripe, customerId, companyKey);
+        res.status(200).json({ plan: plan?.tierId || null, planName: plan?.name || null, limit, extra: packs * OCR_TOPUP.reads, price: OCR_TOPUP.ore / 100, reads: OCR_TOPUP.reads });
+        return;
+      }
+      if (!['active', 'trialing', 'past_due'].includes(sub.status) || !plan) {
+        res.status(400).json({ error: 'Extra avläsningar går att köpa när abonnemanget har en plan som gäller.' });
+        return;
+      }
+      const month = topupMonth();
+      const monthName = new Date().toLocaleDateString('sv-SE', { month: 'long', year: 'numeric' });
+      await stripe.invoiceItems.create({
+        customer: customerId,
+        subscription: sub.id,
+        amount: OCR_TOPUP.ore,
+        currency: 'sek',
+        description: `${OCR_TOPUP.reads} extra kvittoavläsningar (${monthName})`,
+        metadata: { bokix_ocr_month: month, bokix_company: companyKey, user_id: authedUser.id },
+      });
+      forgetTopups(customerId, companyKey);
+      const packs = await topupsThisMonth(stripe, customerId, companyKey);
+      res.status(200).json({ ok: true, limit, extra: packs * OCR_TOPUP.reads });
+      return;
+    }
+
     if (body.action === 'card-info' || body.action === 'card-setup' || body.action === 'card-save') {
       const authedUser = await requireAuthedUser(req, res);
       if (!authedUser) return;

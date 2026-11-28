@@ -1,6 +1,7 @@
 import { PaymentFixCard } from './PaymentBanner';
 import BillingCard from './BillingCard';
 import SubscriptionReceipts from './SubscriptionReceipts';
+import OcrTopupCard from './OcrTopupCard';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -4902,6 +4903,7 @@ export default function Settings({
                       {current === 'receipts' && (sharedAccess
                         ? <SubscriptionReceipts sharedCompanyId={activeCompanyId} />
                         : <SubscriptionReceipts companyId={cid} enabled={!readOnly} />)}
+                      {current === 'usage' && !sharedAccess && !isUfCompany(company) && <OcrTopupCard companyKey={activeCompanyId} />}
                       {current === 'usage' && <UsageCard invoices={invoices} verifications={verifications} contacts={contacts} expenses={expenses} />}
                     </div>
                   </>
