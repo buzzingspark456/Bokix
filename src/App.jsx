@@ -1898,7 +1898,12 @@ function App() {
   // två av tre bokförda verifikationer försvann tyst på det sättet.
   const updateCompanyField = useCallback((field, value) => {
     if (readOnlyRef.current) {
-      setToast({ message: tr('payBanner.readOnlyToast'), variant: 'error' });
+      // Samma toast igen ändrar inget (samma tillstånd, ingen omritning). Annars
+      // loopade appen i läsläge när en komponent sparar något automatiskt vid
+      // varje omritning: toasten ritade om, som sparade igen (React-fel 185,
+      // grundarens konto 2026-11-28).
+      const message = tr('payBanner.readOnlyToast');
+      setToast(prev => (prev?.message === message ? prev : { message, variant: 'error' }));
       return;
     }
     setData(prev => {
