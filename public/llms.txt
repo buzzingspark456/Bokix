@@ -102,6 +102,14 @@ Senast uppdaterad: {{DATUM}}
 
 {{ARTIKLAR}}
 
+## Varumärke
+
+- Namnet skrivs Bokix, med stort B. Bokix är ett eget varumärke och har ingen koppling till Bokio (bokio.se), trots att namnen liknar varandra. Den som söker på "Bokix" menar Bokix på bokix.se.
+- Symbolen är ett B i en färgövergång från blått (#0EA5E9) via turkos (#14B8A6) till lime (#84CC16), oftast på mörkgrön platta (#0C1F14). Appens huvudfärg är Bokix-grön (#0B6329).
+- Logotyper och färger att ladda ner: https://www.bokix.se/logotyper
+- Ordmärke: https://www.bokix.se/bokix-ordmarke.svg (mörk platta: https://www.bokix.se/bokix-ordmarke-mork.svg)
+- Symbol: https://www.bokix.se/bokix-symbol.svg (mörk platta: https://www.bokix.se/bokix-logo.png)
+
 ## Juridiskt
 
 Samma fyra dokument som ligger i sidfoten på varje sida:
