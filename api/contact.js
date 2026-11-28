@@ -51,7 +51,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // oautentiserade väg (kräver inte requireAuthedUser — se filkommentaren
 // högst upp), en inloggad avsändare skickar bara med sina egna
 // namn/e-post redan ifyllda istället för att behöva skriva dem.
-const ALLOWED_TOPICS = ['Support', 'Fakturering & pris', 'Säkerhet & integritet', 'Felrapport', 'Övrigt'];
+const ALLOWED_TOPICS = ['Support', 'Fakturering & pris', 'Intresse: Handel', 'Säkerhet & integritet', 'Felrapport', 'Övrigt'];
 
 // En bifogad fil från appens Kontakta support (2026-11-07): bara för
 // inloggade, bara bilder och PDF, högst 3 MB. Följer med mejlet till

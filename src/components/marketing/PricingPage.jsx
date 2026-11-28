@@ -254,9 +254,9 @@ export default function PricingPage({ locale = 'sv' }) {
                 <p className="pp-desc">{t.recommend}</p>
                 <hr className="pp-hr" />
                 {t.comingSoon
-                  ? <button type="button" className="pp-btn" disabled>Kommer snart</button>
+                  ? <button type="button" className="pp-btn" onClick={() => navigate('/kontakt?amne=handel')}>Anmäl intresse</button>
                   : <button type="button" className="pp-btn" onClick={() => enterApp(plan.id)}>{c.cta}</button>}
-                <div className="pp-small">{t.comingSoon ? 'Går inte att välja än' : interval === 'yearly' ? c.yearlyMinimumNote(YEARLY_MINIMUM_MONTHS) : c.monthlyNote}</div>
+                <div className="pp-small">{t.comingSoon ? 'Vi hör av oss när Handel släpps' : interval === 'yearly' ? c.yearlyMinimumNote(YEARLY_MINIMUM_MONTHS) : c.monthlyNote}</div>
                 <hr className="pp-hr" />
                 <p className="pp-hl-title">{c.highlightsTitle}</p>
                 <ul className="pp-hl">
@@ -290,7 +290,7 @@ export default function PricingPage({ locale = 'sv' }) {
                     <span className="pp-head-name">{t.name}</span>
                     <span className="pp-head-price">{plan.price} kr/mån</span>
                     {t.comingSoon
-                      ? <button type="button" className="pp-btn" disabled>Snart</button>
+                      ? <button type="button" className="pp-btn" onClick={() => navigate('/kontakt?amne=handel')}>Anmäl intresse</button>
                       : <button type="button" className="pp-btn" onClick={() => enterApp(plan.id)}>{c.ctaShort}</button>}
                   </span>
                 );

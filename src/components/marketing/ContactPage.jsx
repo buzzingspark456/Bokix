@@ -11,6 +11,7 @@ const TOPICS = [
   { value: 'Support', label: 'Hjälp med Bokix' },
   { value: 'Felrapport', label: 'Något fungerar inte' },
   { value: 'Fakturering & pris', label: 'Prenumeration och betalning' },
+  { value: 'Intresse: Handel', label: 'Intresse för Handel (kommer snart)' },
   { value: 'Säkerhet & integritet', label: 'Personuppgifter och säkerhet' },
   { value: 'Övrigt', label: 'Något annat' },
 ];
@@ -38,8 +39,20 @@ const labelStyle = {
   marginBottom: '7px',
 };
 
+// Förval från länkar, t.ex. Anmäl intresse på prissidan (/kontakt?amne=handel).
+const PRESETS = {
+  handel: { topic: 'Intresse: Handel', message: 'Hej! Jag vill gärna veta när Handel släpps. Vi säljer: ' },
+};
+function presetFromUrl() {
+  if (typeof window === 'undefined') return null;
+  return PRESETS[new URLSearchParams(window.location.search).get('amne')] || null;
+}
+
 export default function ContactPage() {
-  const [form, setForm] = useState({ name: '', email: '', topic: TOPICS[0].value, message: '' });
+  const [form, setForm] = useState(() => {
+    const preset = presetFromUrl();
+    return { name: '', email: '', topic: preset?.topic || TOPICS[0].value, message: preset?.message || '' };
+  });
   const [status, setStatus] = useState('idle'); // idle | sending | sent | error
   const [errorMsg, setErrorMsg] = useState('');
   const captchaRef = useRef(null);
