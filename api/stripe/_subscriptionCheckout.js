@@ -380,7 +380,12 @@ export default async function handler(req, res) {
     if (body.action === 'card-info' || body.action === 'card-setup' || body.action === 'card-save') {
       const authedUser = await requireAuthedUser(req, res);
       if (!authedUser) return;
-      if (body.action !== 'card-info'
+      // Att öppna kortfältet (card-setup) räknas för sig och generöst: det
+      // öppnas varje gång man trycker Byt kort. Själva sparandet (card-save)
+      // har den snäva gränsen mot kortprovning (2026-11-28).
+      if (body.action === 'card-setup'
+        && !(await checkRateLimit(req, res, { key: 'card-setup', max: 30, windowMs: 10 * 60 * 1000, identifier: authedUser.id }))) return;
+      if (body.action === 'card-save'
         && !(await checkRateLimit(req, res, { key: 'card-change', max: 6, windowMs: 10 * 60 * 1000, identifier: authedUser.id }))) return;
       const companyId = body.company_id || null;
       const subRow = await getSubscriptionRow(authedUser.id, companyId);
