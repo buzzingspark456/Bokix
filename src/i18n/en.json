@@ -6652,6 +6652,7 @@
     "noAmount": "The invoice has no amount."
   },
   "supForm": {
+    "totalMatches": "Matches the rows",
     "docTitle": "The invoice",
     "dropTitle": "Drop the invoice here",
     "dropText": "PDF, JPG or PNG, max {{mb}} MB. The invoice stays visible while you fill in the details.",

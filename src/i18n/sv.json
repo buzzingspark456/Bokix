@@ -6652,6 +6652,7 @@
     "noAmount": "Fakturan saknar belopp."
   },
   "supForm": {
+    "totalMatches": "Stämmer med raderna",
     "docTitle": "Fakturan",
     "dropTitle": "Dra fakturan hit",
     "dropText": "PDF, JPG eller PNG, högst {{mb}} MB. Fakturan syns här medan du fyller i uppgifterna.",

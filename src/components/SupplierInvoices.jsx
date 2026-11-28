@@ -497,6 +497,7 @@ function SupplierInvoiceForm({ contacts, setContacts, accounts, projects = [], u
               <div className="sif-stated">
                 <label style={labelSt}>{t('ui.totalt_enligt_fakturan')} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{t('ui.valfritt_3')}</span></label>
                 <AmountInput value={statedTotal} onChange={setStatedTotal} placeholder="0,00" style={inputSt} />
+                {statedTotal !== '' && !isNaN(statedTotalNum) && !showTotalMismatch && gross > 0 && <div className="sif-match"><Check size={13} /> {t('supForm.totalMatches')}</div>}
                 {showTotalMismatch && (
                   <div style={{ ...errSt, color: BRAND.amberText }}>
                     {t('ui.skiljer_sig')} {formatSEK(Math.abs(statedTotalNum - gross))} {t('ui.fran_konteringens_summa_kontrollera_raderna_inna')}

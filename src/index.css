@@ -12492,3 +12492,15 @@ body:has(.notif-dropdown) .kig, body:has(.notif-dropdown) .kig-pill { opacity: 0
 .pp-logo { display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 10px; border: 1px solid var(--border-light); border-radius: 8px; background: #fff; }
 .pp-logo img, .pp-logo svg { max-height: 16px; width: auto; }
 .pp-logo-skatteverket img, .pp-logo-bolagsverket img, .pp-logo-skatteverket svg, .pp-logo-bolagsverket svg { max-height: 22px; }
+/* Mörkt läge: planernas ikonrutor tonade, funktionsikonerna i planens färg. */
+:root[data-theme="dark"] .pp-ico { background: rgba(63, 191, 108, .16); color: #6ee7a0; }
+:root[data-theme="dark"] .pp-employer .pp-ico { background: rgba(83, 141, 255, .16); color: #8ab4ff; }
+:root[data-theme="dark"] .pp-trade .pp-ico { background: rgba(245, 180, 60, .16); color: #fcd27b; }
+:root[data-theme="dark"] .pp-list .pp-fico svg { color: inherit; }
+:root[data-theme="dark"] .pp-free .pp-fico { background: var(--bg-muted); color: var(--text-secondary); }
+:root[data-theme="dark"] .pp-trade.pp-card { background: linear-gradient(180deg, rgba(245, 180, 60, .06), var(--bg-card) 40%); }
+:root[data-theme="dark"] .pp-limits { background: rgba(255, 255, 255, .04); }
+:root[data-theme="dark"] .pp-logo { background: #fff; border-color: transparent; }
+/* Leverantörsfaktura: fakturans totalbelopp stämmer med raderna. */
+.sif-match { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 12.5px; font-weight: 650; color: #12803a; }
+:root[data-theme="dark"] .sif-match { color: #6ee7a0; }
